@@ -1,0 +1,46 @@
+claude-dot-files/
+├── CLAUDE.md                          # Project-level instructions for this repo
+├── README.md                          # Repo documentation
+├── install.sh                         # Creates individual symlinks into ~/.claude/
+│
+├── config/                            # Source of truth for synced Claude Code config
+│   ├── settings.json                  # Global settings, permissions, hooks config
+│   ├── CLAUDE.md                      # Global instructions for ALL projects
+│   ├── agents/                        # Subagent definitions (.md files)
+│   ├── commands/                      # Custom slash commands (.md files)
+│   ├── hooks/                         # Hook scripts referenced by settings.json
+│   ├── rules/                         # Global rules (.md files)
+│   └── skills/                        # Reusable skill definitions (.md files)
+│
+└── docs/
+    ├── file_structure.txt             # This file
+    └── development/
+        └── roadmap.md                 # Phased migration plan
+
+---
+
+Symlink strategy (created by install.sh):
+
+  config/settings.json  ──>  ~/.claude/settings.json
+  config/CLAUDE.md      ──>  ~/.claude/CLAUDE.md
+  config/agents/        ──>  ~/.claude/agents/
+  config/commands/      ──>  ~/.claude/commands/
+  config/hooks/         ──>  ~/.claude/hooks/
+  config/rules/         ──>  ~/.claude/rules/
+  config/skills/        ──>  ~/.claude/skills/
+
+Machine-local (NOT synced):
+  ~/.claude/.credentials.json    auth tokens
+  ~/.claude/projects/            path-keyed project state
+  ~/.claude/history.jsonl        session history
+  ~/.claude/sessions/            session data
+  ~/.claude/cache/               ephemeral cache
+  ~/.claude/backups/             local backups
+  ~/.claude/downloads/           temp downloads
+  ~/.claude/file-history/        edit history
+  ~/.claude/ide/                 IDE state
+  ~/.claude/plans/               session plans
+  ~/.claude/plugins/             managed by Claude Code
+  ~/.claude/session-env/         session state
+  ~/.claude/shell-snapshots/     shell state
+  ~/.claude/telemetry/           telemetry data
