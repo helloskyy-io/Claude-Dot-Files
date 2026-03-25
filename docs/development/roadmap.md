@@ -63,7 +63,7 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 Mapped the directory structure. All folders exist but are empty (fresh install). Key discovery: `projects/` is path-keyed and should not be synced.
 
-## Phase 1: Cross-Device Sync
+## Phase 1: Cross-Device Sync ✅ COMPLETE
 
 Goal: Get this repo deploying to all machines so everything built in later phases automatically propagates.
 
@@ -74,7 +74,7 @@ Goal: Get this repo deploying to all machines so everything built in later phase
 - [x] **Test on laptop** — install.sh runs clean, all 7 symlinks verified
 - [x] **Deploy to workstation** — Clone repo, run install.sh, verify
 - [x] **Ansible integration (workstations/laptops)** — install.sh runs via Ansible playbook with `--non-interactive` flag on desktops and laptops. Ansible handles cloning the repo and installing prerequisites (Claude Code, jq) before running the script.
-- [~] **Deploy to VMs** — Manual: clone repo, run `install.sh` interactively, authenticate with `claude login`
+- [x] **Deploy to VMs** — Tested on skyy-net VM at `/opt/skyy-net/claude-dot-files`, all 7 symlinks verified
 
 ### Phase 1 — Notes
 

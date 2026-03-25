@@ -1,21 +1,22 @@
 claude-dot-files/
-├── CLAUDE.md                          # Project-level instructions for this repo
-├── README.md                          # Repo documentation
-├── install.sh                         # Creates individual symlinks into ~/.claude/
-│
 ├── config/                            # Source of truth for synced Claude Code config
-│   ├── settings.json                  # Global settings, permissions, hooks config
-│   ├── CLAUDE.md                      # Global instructions for ALL projects
 │   ├── agents/                        # Subagent definitions (.md files)
 │   ├── commands/                      # Custom slash commands (.md files)
 │   ├── hooks/                         # Hook scripts referenced by settings.json
 │   ├── rules/                         # Global rules (.md files)
-│   └── skills/                        # Reusable skill definitions (.md files)
+│   ├── skills/                        # Reusable skill definitions (.md files)
+│   ├── CLAUDE.md                      # Global instructions for ALL projects
+│   └── settings.json                  # Global settings, permissions, hooks config
 │
-└── docs/
-    ├── file_structure.txt             # This file
-    └── development/
-        └── roadmap.md                 # Phased migration plan
+├── docs/
+│   └── development/
+│   │   └── roadmap.md                 # Phased migration plan
+│   └── file_structure.txt             # This file
+│
+├── CLAUDE.md                          # Project-level instructions for this repo
+├── install.sh                         # Creates individual symlinks into ~/.claude/
+├── LICENSE                            # MIT license
+└── README.md                          # Repo documentation
 
 ---
 
