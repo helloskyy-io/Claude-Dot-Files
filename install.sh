@@ -7,6 +7,16 @@ set -euo pipefail
 # Safe to re-run (idempotent). Never deletes without backing up first.
 # =============================================================================
 
+# --- Parse flags --------------------------------------------------------------
+
+INTERACTIVE=true
+for arg in "$@"; do
+    case "$arg" in
+        --non-interactive|-n) INTERACTIVE=false ;;
+        *) echo "Unknown option: $arg"; exit 1 ;;
+    esac
+done
+
 # --- Config -------------------------------------------------------------------
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -62,6 +72,10 @@ echo ""
 if command -v claude &>/dev/null; then
     info "Claude Code is installed ($(which claude))"
 else
+    if [ "$INTERACTIVE" = false ]; then
+        error "Claude Code is not installed. Exiting."
+        exit 1
+    fi
     echo ""
     warn "Claude Code is not installed."
     echo ""
@@ -80,25 +94,27 @@ else
     fi
 fi
 
-# Check for authentication
-if [ -f "$CLAUDE_DIR/.credentials.json" ]; then
-    info "Claude Code is authenticated"
-else
-    echo ""
-    warn "Claude Code is not authenticated."
-    echo ""
-    echo "  In another terminal, run:"
-    echo "    claude login"
-    echo ""
-    echo "  Complete the OAuth flow in your browser, then come back here."
-    echo ""
-    read -rp "  Press Enter after authenticating (or Ctrl+C to abort)... "
-    echo ""
+# Check for authentication (skip in non-interactive — auth requires a browser)
+if [ "$INTERACTIVE" = true ]; then
     if [ -f "$CLAUDE_DIR/.credentials.json" ]; then
-        info "Authentication detected."
+        info "Claude Code is authenticated"
     else
-        error "Still no credentials found at $CLAUDE_DIR/.credentials.json. Exiting."
-        exit 1
+        echo ""
+        warn "Claude Code is not authenticated."
+        echo ""
+        echo "  In another terminal, run:"
+        echo "    claude login"
+        echo ""
+        echo "  Complete the OAuth flow in your browser, then come back here."
+        echo ""
+        read -rp "  Press Enter after authenticating (or Ctrl+C to abort)... "
+        echo ""
+        if [ -f "$CLAUDE_DIR/.credentials.json" ]; then
+            info "Authentication detected."
+        else
+            error "Still no credentials found at $CLAUDE_DIR/.credentials.json. Exiting."
+            exit 1
+        fi
     fi
 fi
 
@@ -106,6 +122,10 @@ fi
 if command -v jq &>/dev/null; then
     info "jq is installed"
 else
+    if [ "$INTERACTIVE" = false ]; then
+        error "jq is not installed. Exiting."
+        exit 1
+    fi
     echo ""
     warn "jq is not installed (needed for hook scripts in Phase 2+)."
     read -rp "  Install jq now? [y/N] " response

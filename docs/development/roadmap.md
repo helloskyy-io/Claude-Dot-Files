@@ -35,7 +35,7 @@ claude-dotfiles/
 
 ## Sync Strategy Decisions
 
-- **Sync method**: Targeted symlinks via bash `install.sh`. Each synced item gets its own symlink into `~/.claude/`. We chose this over GNU Stow (which mirrors entire directory trees — awkward when `~/.claude/` has ~15 machine-local items we must not touch) and over Ansible (overkill for 7 symlinks; Ollama provisioning is handled separately by SkyyCommand).
+- **Sync method**: Targeted symlinks via bash `install.sh`, deployed by Ansible. Each synced item gets its own symlink into `~/.claude/`. We chose targeted symlinks over GNU Stow (which mirrors entire directory trees — awkward when `~/.claude/` has ~15 machine-local items we must not touch). Ansible clones the repo and runs `install.sh --non-interactive` on each machine, with Claude Code and jq installed as prerequisites in earlier playbook steps.
 - **What syncs** (7 symlinks): `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`
 - **What does NOT sync**: Everything else in `~/.claude/` — credentials, `projects/` (path-keyed), sessions, history, cache, telemetry, IDE state, etc. These are machine-local by nature.
 - **Team config**: Project-level `.mcp.json` files are committed to each project repo with shared server definitions. Secrets are referenced via `${env:VAR_NAME}`. Each dev adds their own tokens in local scope (`~/.claude.json`).
@@ -68,21 +68,19 @@ Mapped the directory structure. All folders exist but are empty (fresh install).
 Goal: Get this repo deploying to all machines so everything built in later phases automatically propagates.
 
 - [x] **Finalize repo structure** — `config/` directory with synced items (settings.json, CLAUDE.md, agents/, commands/, hooks/, rules/, skills/)
-- [x] **Write install.sh** — Idempotent script: checks prerequisites (Claude Code, auth, jq), backs up existing targets, creates individual symlinks from `config/*` into `~/.claude/`, verifies all links
+- [x] **Write install.sh** — Idempotent script: checks prerequisites (Claude Code, auth, jq), backs up existing targets, creates individual symlinks from `config/*` into `~/.claude/`, verifies all links. Supports `--non-interactive` / `-n` flag for automation (skips interactive prompts, fails fast on missing prerequisites, skips auth check entirely).
 - [x] **Create starter settings.json** — Minimal global settings to start with (can be expanded in later phases)
 - [x] **Create global CLAUDE.md** — The `~/.claude/CLAUDE.md` that applies to ALL projects (coding style preferences, global rules, team conventions)
 - [x] **Test on laptop** — install.sh runs clean, all 7 symlinks verified
-- [ ] **Deploy to workstation** — Clone repo, run install.sh, verify
-- [ ] **Deploy to VMs** — Clone repo on each VM, run install.sh, verify
-- [ ] **Set up quick sync aliases** — Add shell aliases for push/pull workflow
+- [x] **Deploy to workstation** — Clone repo, run install.sh, verify
+- [x] **Ansible integration (workstations/laptops)** — install.sh runs via Ansible playbook with `--non-interactive` flag on desktops and laptops. Ansible handles cloning the repo and installing prerequisites (Claude Code, jq) before running the script.
+- [~] **Deploy to VMs** — Manual: clone repo, run `install.sh` interactively, authenticate with `claude login`
 
 ### Phase 1 — Notes
 
-**Shell aliases** (add to .bashrc/.zshrc on each machine):
-```bash
-alias claude-push='cd ~/claude-dotfiles && git add -A && git commit -m "sync: $(date +%Y-%m-%d)" && git push'
-alias claude-pull='cd ~/claude-dotfiles && git pull'  # symlinks update automatically
-```
+**Workstations & laptops**: Ansible runs `install.sh --non-interactive` on every playbook run. This is safe because the script is idempotent (existing correct symlinks are skipped), and the script may do more than manage symlinks in the future.
+
+**VMs**: Deployed manually with the standard interactive install.sh. Auth (`claude login`) must be done on each new machine — it requires a browser OAuth flow.
 
 ## Phase 2: Hooks — Safety and Consistency
 
