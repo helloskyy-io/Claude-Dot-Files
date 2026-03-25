@@ -25,9 +25,13 @@ There are three ways to deploy depending on the machine type.
 For first-time setup on any machine where you're working interactively.
 
 ```bash
+# Clone and install
 git clone https://github.com/helloskyy-io/Claude-Dot-Files.git ~/Repos/claude-dot-files
 cd ~/Repos/claude-dot-files
 ./install.sh
+
+# Authenticate (requires browser)
+claude login
 ```
 
 The script will:
@@ -42,13 +46,16 @@ The script will:
 VMs typically don't have Claude Code or jq pre-installed. Install prerequisites first, then run the interactive installer.
 
 ```bash
+# Define path
+CLAUDE_PATH=/opt/skyy-net/claude-dot-files
+
 # Install prerequisites
 npm install -g @anthropic-ai/claude-code
 sudo apt install -y jq
 
 # Clone and install
-git clone https://github.com/helloskyy-io/Claude-Dot-Files.git ~/Repos/claude-dot-files
-cd ~/Repos/claude-dot-files
+git clone https://github.com/helloskyy-io/Claude-Dot-Files.git $CLAUDE_PATH
+cd $CLAUDE_PATH
 ./install.sh
 
 # Authenticate (requires browser)
