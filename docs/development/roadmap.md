@@ -2,7 +2,7 @@
 
 ## About This Repo
 
-This is my personal Claude Code configuration repo. It syncs my `~/.claude/` config across: Ubuntu desktop workstation, travel laptop, and multiple remote VMs accessed via VS Code SSH remote extension. I work in a small team environment with some large codebases. Team members will also be on Claude Max subscriptions.
+This is my personal Claude Code configuration repo. It syncs my `~/.claude/` config across: Ubuntu desktop workstation, travel laptop, and multiple remote VMs accessed via VS Code SSH remote extension. I work in a small team environment with some small and some large codebases. Team members will also be on Claude Max subscriptions, but likely not sharing my VMs
 
 ## My Setup
 
@@ -35,7 +35,7 @@ claude-dotfiles/
 
 ## Sync Strategy Decisions
 
-- **Sync method**: Targeted symlinks via bash `install.sh`, deployed by Ansible. Each synced item gets its own symlink into `~/.claude/`. We chose targeted symlinks over GNU Stow (which mirrors entire directory trees — awkward when `~/.claude/` has ~15 machine-local items we must not touch). Ansible clones the repo and runs `install.sh --non-interactive` on each machine, with Claude Code and jq installed as prerequisites in earlier playbook steps.
+- **Sync method**: Targeted symlinks via bash `install.sh`, deployed manually, or by Ansible/automation. Each synced item gets its own symlink into `~/.claude/`. We chose targeted symlinks over GNU Stow (which mirrors entire directory trees). For automation, clone the repo and run `install.sh --non-interactive` on each machine, with Claude Code and jq installed as prerequisites.
 - **What syncs** (7 symlinks): `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`
 - **What does NOT sync**: Everything else in `~/.claude/` — credentials, `projects/` (path-keyed), sessions, history, cache, telemetry, IDE state, etc. These are machine-local by nature.
 - **Team config**: Project-level `.mcp.json` files are committed to each project repo with shared server definitions. Secrets are referenced via `${env:VAR_NAME}`. Each dev adds their own tokens in local scope (`~/.claude.json`).
