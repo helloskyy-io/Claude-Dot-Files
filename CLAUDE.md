@@ -18,8 +18,12 @@ claude-dotfiles/
 ├── install.sh                   ← creates individual symlinks into ~/.claude/
 ├── docs/
 │   ├── file_structure.txt       ← detailed file structure reference
-│   └── development/
-│       └── roadmap.md           ← phased migration plan
+│   ├── development/
+│   │   └── roadmap.md           ← phased migration plan
+│   └── official_documentation/  ← reference docs for Claude Code concepts
+│       ├── claude_code_agents.md
+│       ├── claude_code_rules.md
+│       └── claude_code_skills.md
 └── README.md
 ```
 
@@ -48,7 +52,14 @@ claude-dotfiles/
 
 ## Development
 
-See `docs/development/roadmap.md` for the full phased migration plan. Current focus is Phase 1 (cross-device sync).
+See `docs/development/roadmap.md` for the full phased migration plan. Phases 0-3 complete, current focus is Phase 4 (Autonomous Execution).
+
+## Reference Documentation
+
+For detailed documentation on Claude Code concepts:
+- Agent architecture and two-tier strategy: `docs/official_documentation/claude_code_agents.md`
+- Rules and when to use them: `docs/official_documentation/claude_code_rules.md`
+- Skills and context-aware methodology: `docs/official_documentation/claude_code_skills.md`
 
 ## Rules
 

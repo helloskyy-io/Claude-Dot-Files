@@ -1,22 +1,40 @@
 claude-dot-files/
-├── config/                            # Source of truth for synced Claude Code config
-│   ├── agents/                        # Subagent definitions (.md files)
-│   ├── commands/                      # Custom slash commands (.md files)
-│   ├── hooks/                         # Hook scripts referenced by settings.json
-│   ├── rules/                         # Global rules (.md files)
-│   ├── skills/                        # Reusable skill definitions (.md files)
-│   ├── CLAUDE.md                      # Global instructions for ALL projects
-│   └── settings.json                  # Global settings, permissions, hooks config
+├── config/                                # Source of truth for synced Claude Code config
+│   ├── agents/                            # Subagent definitions (.md files)
+│   │   ├── architect.md                   # System design & trade-off analysis (Opus, on-demand)
+│   │   ├── code-reviewer.md               # Code review with structured findings (Sonnet, on-demand)
+│   │   ├── planner.md                     # Detailed implementation plans (Opus, on-demand)
+│   │   ├── security-auditor.md            # Vulnerability detection & audit (Sonnet, on-demand)
+│   │   └── test-writer.md                 # Generate & run tests (Sonnet, on-demand)
+│   ├── commands/                          # Custom slash commands (.md files)
+│   │   ├── best-practices.md              # /best-practices — industry-standard approach primer
+│   │   ├── create-claude.md               # /create-claude — generate CLAUDE.md files for a project
+│   │   ├── review.md                      # /review — invoke code-reviewer agent
+│   │   ├── update-claude.md               # /update-claude — sync CLAUDE.md standard references
+│   │   └── update-file-structure.md       # /update-file-structure — update file_structure.txt
+│   ├── hooks/                             # Hook scripts referenced by settings.json
+│   │   ├── block-dangerous.sh             # PreToolUse: deny destructive bash commands
+│   │   └── notify-done.sh                 # Stop: desktop notification via notify-send
+│   ├── rules/                             # Global rules (.md files, currently empty)
+│   ├── skills/                            # Reusable skill definitions (.md files, currently empty)
+│   ├── CLAUDE.md                          # Global instructions for ALL projects
+│   └── settings.json                      # Global settings, permissions, hooks config
 │
 ├── docs/
-│   └── development/
-│   │   └── roadmap.md                 # Phased migration plan
-│   └── file_structure.txt             # This file
+│   ├── development/
+│   │   ├── roadmap.md                     # Phased migration plan (dual-workflow model)
+│   │   └── roadmap_old.md                 # Previous roadmap (pre-rewrite reference)
+│   ├── official_documentation/
+│   │   ├── claude_code_agents.md          # Agent architecture, two-tier strategy, quick reference
+│   │   ├── claude_code_rules.md           # Rules vs CLAUDE.md, when to split
+│   │   └── claude_code_skills.md          # Skills, context-aware methodology, library building
+│   └── file_structure.txt                 # This file
 │
-├── CLAUDE.md                          # Project-level instructions for this repo
-├── install.sh                         # Creates individual symlinks into ~/.claude/
-├── LICENSE                            # MIT license
-└── README.md                          # Repo documentation
+├── .gitignore                             # Git ignore rules
+├── CLAUDE.md                              # Project-level instructions for this repo
+├── install.sh                             # Creates individual symlinks into ~/.claude/
+├── LICENSE                                # MIT license
+└── README.md                              # Repo documentation
 
 ---
 
