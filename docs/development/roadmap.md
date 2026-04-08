@@ -59,6 +59,18 @@ project-root/
 
 Status key: `[ ]` not started · `[~]` in progress · `[x]` complete
 
+## Two Workflows
+
+This roadmap is organized around two distinct workflows that drive how we use Claude Code:
+
+1. **Interactive** — Small, focused changes. You're in the loop, approving each step. Quick iterations, direct feedback. This is the default mode for day-to-day development.
+
+2. **Autonomous** — Large, planned features. Claude works independently through a plan: implements, tests, refactors, then delivers a PR for review. You define the goal and review the output.
+
+Everything in this roadmap serves one or both of these workflows.
+
+---
+
 ## Phase 0: Explore ~/.claude ✅ COMPLETE
 
 Mapped the directory structure. All folders exist but are empty (fresh install). Key discovery: `projects/` is path-keyed and should not be synced.
@@ -82,21 +94,22 @@ Goal: Get this repo deploying to all machines so everything built in later phase
 
 **VMs**: Deployed manually with the standard interactive install.sh. Auth (`claude login`) must be done on each new machine — it requires a browser OAuth flow.
 
-## Phase 2: Hooks — Safety and Consistency
+---
 
-Goal: Deterministic guardrails that Claude Code cannot ignore. Unlike CLAUDE.md instructions (suggestions), hooks are guaranteed to execute.
+## Phase 2: Safety & Guardrails ✅ COMPLETE
+
+**Serves: Both workflows** — Interactive mode needs guardrails so you can approve quickly with confidence. Autonomous mode needs them even more since Claude is working unsupervised.
 
 Dependencies: Phase 1 (so hooks sync across machines automatically)
 
-- [ ] **PreToolUse: block dangerous commands** — Hook script that reads JSON from stdin, extracts the bash command, denies if it matches destructive patterns (rm -rf, force push, etc.). Returns `permissionDecision: "deny"` with reason.
-- [ ] **PostToolUse: auto-format on edit** — Runs team formatter (prettier, black, etc.) after Write/Edit tool calls. NOTE: formatting on every edit eats context window. Consider formatting on Stop (commit time) instead.
-- [ ] **Stop: desktop notification** — `notify-send` on Linux so you know when Claude finishes a long task.
-- [ ] **Configure in settings.json** — Wire all hooks into the hooks config with proper matchers (e.g., PreToolUse matcher: "Bash", PostToolUse matcher: "Write|Edit")
-- [ ] **Test each hook** — Verify blocking works, formatting triggers, notifications fire
+- [x] **PreToolUse hook: block dangerous commands** — `hooks/block-dangerous.sh` reads JSON from stdin, extracts the bash command, denies if it matches destructive patterns (rm -rf, force push, git reset --hard, DROP TABLE, dd, fork bombs, etc.). Wired in settings.json with matcher `"Bash"`.
+- [x] **Stop hook: desktop notification** — `hooks/notify-done.sh` fires `notify-send` on Linux when Claude finishes. Gracefully skips on headless machines. Wired in settings.json Stop event.
+- [x] **Review permissions in settings.json** — Permissions provide the first layer (approval popup for unlisted commands), hooks provide the second layer (pattern-based deny for dangerous commands that might match broad allow rules). Two-layer safety net confirmed working.
+- [x] **Test each hook** — Permission layer prompts on dangerous commands (first safety layer works). notify-send fires desktop notification (top-right on Cinnamon/Mint). Both verified.
 
 ### Phase 2 — Hook Architecture
 
-Hooks are defined in settings.json and reference scripts in hooks/:
+Hooks are defined in settings.json and reference scripts in `hooks/`:
 ```json
 {
   "hooks": {
@@ -104,12 +117,6 @@ Hooks are defined in settings.json and reference scripts in hooks/:
       {
         "matcher": "Bash",
         "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/block-dangerous.sh" }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/auto-format.sh" }]
       }
     ],
     "Stop": [
@@ -128,45 +135,35 @@ Three handler types available:
 - **prompt**: sends a prompt to Claude for semantic evaluation
 - **agent**: spawns a subagent with tool access for deep verification
 
-## Phase 3: MCP Servers — Extend the Reach
+### Phase 2 — Decision: Auto-Format Hook
 
-Goal: Connect Claude Code to external tools, databases, and APIs.
+Formatting on every Write/Edit eats context window. **Recommendation**: skip PostToolUse auto-format for now. Instead, rely on project-level formatting (prettier, black, etc.) that runs as part of the test/commit step in autonomous workflows. Revisit if formatting drift becomes a real problem.
 
-Dependencies: Phase 1 (for user-level config sync), Phase 2 helpful but not required
+---
 
-- [ ] **Add GitHub MCP** — `claude mcp add github --scope user`. Highest-value single MCP server: PR workflows, issue management, repo operations.
-- [ ] **Create .mcp.json template** — A starter project-level MCP config that team members can use. Committed to project repos. Secrets via `${env:VAR_NAME}`.
-- [ ] **Add 1–2 stack-specific servers** — Choose based on daily workflow: Playwright (browser testing), Sentry (error monitoring), PostgreSQL/Supabase (database), Figma (design). Don't add everything at once — each server has a context cost.
-- [ ] **Document team MCP setup** — Write instructions for team members: how to add their tokens locally, how to verify servers are connected (`claude mcp list`)
+## Phase 3: Planning & Agents ✅ COMPLETE
 
-### Phase 3 — MCP Scopes
+**Serves: Primarily Workflow 2 (Autonomous)** — These are the building blocks Claude uses to plan, review, and execute work independently. Also useful in interactive mode for getting a second opinion.
 
-- **User scope** (`~/.claude.json`): personal API keys, tokens. Syncs via dotfiles but consider encryption.
-- **Project scope** (`.mcp.json` in repo root): shared server definitions, committed to git. No secrets here.
-- **Local scope** (default): only on current machine. Good for experimental servers.
+Dependencies: Phase 1 (for sync)
 
-Three transport types: stdio (local process, most common), HTTP (remote cloud services, recommended), SSE (deprecated, use HTTP).
+- [x] **architect agent** — `agents/architect.md`: read-only (Read, Grep, Glob), Opus model. Designs system architecture, evaluates trade-offs. On-demand only (built-in agents handle routine work).
+- [x] **planner agent** — `agents/planner.md`: read-only (Read, Grep, Glob), Opus model. Creates detailed implementation plans with phased steps. On-demand only.
+- [x] **code-reviewer agent** — `agents/code-reviewer.md`: read-only (Read, Grep, Glob), Sonnet model. Reviews code for bugs, performance, security, style. Reports findings with structured severity levels (Critical/Warning/Info). Tested on this repo.
+- [x] **test-writer agent** — `agents/test-writer.md`: full access (Read, Grep, Glob, Edit, Write, Bash), Sonnet model. Generates tests matching project conventions and runs them to verify. Critical for autonomous workflow loops.
+- [x] **security-auditor agent** — `agents/security-auditor.md`: read-only (Read, Grep, Glob), Sonnet model. OWASP-focused vulnerability detection with exploitation scenarios. Reports clean areas to prove coverage.
+- [x] **Two-tier agent strategy** — Built-in agents handle routine tasks automatically. Custom agents are on-demand only for when depth is needed. Documented in `docs/official_documentation/claude_code_agents.md`.
+- [x] **`/review` slash command** — `commands/review.md`: invokes code-reviewer agent on specified scope or recent changes.
+- [x] **`/best-practices` slash command** — `commands/best-practices.md`: mindset primer for industry-standard approaches before tackling a problem.
+- [ ] **Port Cursor workflows to slash commands** — Anything from old cursor_rules or repeated prompts becomes `commands/command-name.md`. Use `$ARGUMENTS` for parameterization.
 
-## Phase 4: Subagents and Slash Commands
-
-Goal: Reusable specialists and team playbooks.
-
-Dependencies: Phase 1 (for sync), understanding of tool restrictions
-
-- [ ] **Create code-reviewer subagent** — `agents/code-reviewer.md`: read-only tools (Read, Grep, Glob), reviews code without modifying anything
-- [ ] **Create test-writer subagent** — `agents/test-writer.md`: full tool access, focused on generating tests for existing code
-- [ ] **Create docs-generator subagent** — `agents/docs-generator.md`: Read + Write tools, generates documentation
-- [ ] **Port Cursor workflows to slash commands** — Anything from cursor_rules or repeated prompts becomes `commands/command-name.md`. Use `$ARGUMENTS` for parameterization.
-- [ ] **Create /new-endpoint command** — Team playbook for creating API endpoints following standards
-- [ ] **Test delegation flow** — Practice: "use the code-reviewer subagent to review X" → subagent works in isolation → results return
-
-### Phase 4 — Subagent Format
+### Phase 3 — Subagent Format
 
 ```yaml
 ---
 name: code-reviewer
 description: Reviews code for bugs, performance issues, and style violations
-tools: Read, Grep, Glob
+tools: ["Read", "Grep", "Glob"]
 model: sonnet
 ---
 
@@ -180,64 +177,116 @@ Report findings as a structured list with severity (critical/warning/info).
 Do not modify any files. Read-only analysis only.
 ```
 
-Subagents cannot spawn other subagents. For nested workflows, chain subagents from the main conversation.
+Key constraints: Subagents cannot spawn other subagents. For multi-step workflows, chain subagents from the main conversation or use slash commands to orchestrate.
 
-## Phase 5: Ralph Wiggum Loop
+---
 
-Goal: Autonomous iterative development — Claude works on a task until verified complete.
+## Phase 4: Autonomous Execution
 
-Dependencies: Phase 2 (hooks — Ralph IS a Stop hook) + Phase 4 (slash commands)
+**Serves: Workflow 2 (Autonomous)** — This is the core of the "plan → execute → PR" pipeline.
 
-- [ ] **Install the official ralph-wiggum plugin** — Available in Anthropic's plugin marketplace
-- [ ] **Run a small test task** — `/ralph-loop "migrate tests from X to Y" --max-iterations 10 --completion-promise "DONE"`
-- [ ] **Write verification-first prompts** — TDD approach: define tests first, loop runs tests → implements → reruns until green
-- [ ] **Watch first 2–3 iterations** — Build intuition for how the loop works before going AFK
-- [ ] **Customize your own version** — Fork the Stop hook behavior, add logging, integrate with notification hooks
+Dependencies: Phase 2 (safety hooks), Phase 3 (planning agents)
 
-### Phase 5 — How Ralph Works Under the Hood
+### Headless Mode
 
-1. You invoke: `/ralph-loop "task description" --max-iterations 20 --completion-promise "DONE"`
-2. Claude works on the task
-3. Claude tries to exit (Stop event fires)
-4. Stop hook intercepts, checks if completion promise was output
-5. If no promise found AND iterations < max: re-injects the original prompt
-6. Claude sees its own previous file changes and git history, continues iterating
-7. Loop ends when: promise is output, max iterations reached, or you cancel
+Claude Code runs non-interactively with `claude -p "prompt"`. This is the foundation for autonomous work.
 
-Key philosophy: "Deterministically bad means failures are predictable and informative. Success depends on writing good prompts, not just having a good model."
+- [ ] **Test headless mode** — Run `claude -p "describe this repo" --output-format stream-json` in this repo. Verify it works, understand the output format.
+- [ ] **Write a wrapper script** — `scripts/autonomous-run.sh` that takes a task description, runs Claude in headless mode with appropriate flags, and logs output. Include `--max-turns` as a safety limit.
 
-Always set --max-iterations as primary safety mechanism. The --completion-promise uses exact string matching.
+### Worktree Isolation
 
-## Phase 6: Agent Teams (Experimental)
+Claude Code supports `--worktree NAME` to work in an isolated git worktree, preventing file conflicts with your working directory.
 
-Goal: Multiple Claude Code sessions working in parallel with direct communication.
+- [ ] **Test worktree mode** — Run a headless task with `--worktree test-feature`. Verify it creates a branch and works in isolation.
+- [ ] **Understand cleanup** — Worktrees auto-clean if no changes are made. If commits exist, they persist at `.claude/worktrees/`.
 
-Dependencies: Phase 4 (subagents) + comfort with single-agent workflow
+### GitHub Integration
 
-- [ ] **Enable Agent Teams** — `{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }` in settings
-- [ ] **Try on a parallelizable task** — 3+ independent features, multi-module refactor, parallel test coverage
-- [ ] **Learn coordination model** — Team lead assigns, teammates work independently, can message each other directly. Use Shift+Down to cycle between teammates.
+Two paths for PR creation — choose based on needs:
 
-### Phase 6 — When to Use What
+**Path A: `gh` CLI (simpler, start here)**
+- [ ] **Verify `gh` is installed and authed** — `gh auth status` on all machines
+- [ ] **Test PR creation flow** — Headless run → commits to worktree branch → `gh pr create` in the same session or wrapper script
 
-- **Subagents**: workers that report back to you. Good for focused, isolated tasks. Low overhead.
-- **Agent Teams**: workers that talk to each other. Good for tasks requiring coordination. 3–5x faster wall-clock time but proportionally more tokens.
-- **Rule of thumb**: If workers don't need to communicate → subagents. If they need to share findings and coordinate → Agent Teams.
+**Path B: GitHub Actions / `@claude` (cloud-native, more powerful)**
+- [ ] **Install Claude GitHub App** — `claude /install-github-app` to connect Claude to your repos
+- [ ] **Configure claude.yml** — Define behavior for `@claude` mentions in PRs and issues
+- [ ] **Test on a real issue** — Create a GitHub issue, mention `@claude`, verify it picks up the task and creates a PR
 
-## Phase 7: Local AI Offloading (Future)
+### Scheduled & Remote Triggers
 
-Goal: Use local GPU hardware to handle mechanical tasks, preserving Claude subscription for complex thinking.
+For tasks that should run on a schedule (e.g., nightly dependency updates, weekly code health checks):
 
-Dependencies: Phase 3 (MCP knowledge — Ollama connects via MCP server)
+- [ ] **Explore remote triggers** — `claude schedule` or the `/schedule` skill. Define repo, prompt, and cron schedule. Claude runs autonomously on Anthropic's infrastructure.
+- [ ] **Create a test trigger** — Simple recurring task (e.g., weekly: "check for outdated dependencies and open a PR if any are found")
+
+### Putting It Together: The Autonomous Pipeline
+
+The full workflow for a planned feature:
+
+```
+1. You describe the feature
+2. planner agent creates implementation plan
+3. You review and approve the plan
+4. Claude executes in headless mode + worktree:
+   - Implements the plan
+   - Runs tests
+   - Refactors as needed
+   - Iterates until tests pass
+5. Claude creates a PR via gh CLI
+6. Stop hook fires → desktop notification
+7. You review the PR and merge
+```
+
+- [ ] **End-to-end test** — Run the full pipeline on a small, real feature in a test repo. Document what works and what needs adjustment.
+
+---
+
+## Phase 5: MCP Servers
+
+**Serves: Both workflows** — Extends Claude's reach to external tools and APIs.
+
+Dependencies: Phase 1 (for config sync)
+
+- [ ] **Add GitHub MCP** — `claude mcp add github --scope user`. Enables PR workflows, issue management, repo operations directly from Claude. Highest-value single MCP server.
+- [ ] **Create .mcp.json template** — A starter project-level MCP config for team repos. Committed to git. Secrets via `${env:VAR_NAME}`.
+- [ ] **Add 1–2 stack-specific servers** — Choose based on daily workflow. Candidates:
+  - Playwright (browser testing)
+  - Sentry (error monitoring)
+  - PostgreSQL/Supabase (database access)
+  - Linear/Jira (issue tracking)
+  - Don't add everything at once — each server has a context cost.
+- [ ] **Document team MCP setup** — Instructions for team members: how to add tokens locally, how to verify servers (`claude mcp list`)
+
+### Phase 5 — MCP Scopes
+
+- **User scope** (`~/.claude.json`): personal API keys, tokens. NOT synced by this repo (contains secrets).
+- **Project scope** (`.mcp.json` in repo root): shared server definitions, committed to git. No secrets — use `${env:VAR_NAME}`.
+- **Local scope** (default): only on current machine. Good for experimental servers.
+
+Transport types: stdio (local process, most common), HTTP (remote/cloud services, recommended for new servers), SSE (deprecated — use HTTP).
+
+### Phase 5 — MCP via Docker
+
+MCP servers can run as Docker containers, which provides isolation and reproducibility. Useful for servers that have complex dependencies or need specific runtime environments. If using Docker Desktop, the MCP server runs inside a container and communicates via stdio or HTTP.
+
+---
+
+## Phase 6: Local AI Offloading (Future)
+
+**Serves: Both workflows** — Preserves Claude subscription for complex thinking by offloading mechanical tasks to local GPU hardware.
+
+Dependencies: Phase 5 (MCP knowledge — Ollama connects via MCP server)
 
 NOTE: Ollama installation and GPU provisioning are handled by SkyyCommand, not this repo. This phase only covers the Claude Code integration side — MCP server config and delegation rules.
 
-- [ ] **Add Ollama MCP server to Claude Code** — Use mcp-local-llm or OllamaClaude MCP server pointing at SkyyCommand-managed Ollama instances. Claude becomes orchestrator, local models handle volume.
+- [ ] **Add Ollama MCP server to Claude Code** — Use mcp-local-llm or similar MCP server pointing at SkyyCommand-managed Ollama instances. Claude becomes orchestrator, local models handle volume.
 - [ ] **Add delegation rules to global CLAUDE.md** — "For summarization, classification, and initial drafts, use mcp__local-llm__* tools. For architecture decisions and complex logic, handle directly."
 - [ ] **Test with A6000 instance** — Verify MCP connection to 32B model (Qwen 2.5 Coder) on A6000
 - [ ] **Add RTX 4080 and smaller GPU endpoints** — 7B–14B models for fast linting, commit messages; 3B–7B for classification
 
-### Phase 7 — Architecture
+### Phase 6 — Architecture
 
 ```
 You (human) → Claude Code (orchestrator/thinker)
@@ -251,19 +300,39 @@ Claude reviews everything the local models produce. Local handles volume; Claude
 
 ---
 
+# Tools to Evaluate
+
+These are worth investigating but not committed to the roadmap yet:
+
+- **Paperclip** — UI overlay for Claude Code. Offers visual workflow design, agent management, parallel project tracking, and PR review. May overlap with native headless mode + triggers. Evaluate after Phase 4 to see what gaps remain.
+- **Claude Agent SDK** — TypeScript/Python framework that powers Claude Code under the hood. Enables building custom agents for non-coding workflows. Worth exploring if we need automation beyond what Claude Code provides natively (e.g., custom CI pipelines, Slack bots, monitoring agents).
+
+---
+
 # Reference
 
 ## Key Commands
 
 ```bash
-claude                    # Start Claude Code in current directory
-claude --continue         # Resume previous session
-claude --resume           # Same as --continue
-/clear                    # Clear context between unrelated tasks
-/commands                 # List available slash commands
-/agents                   # List/create subagents
-claude mcp list           # Show connected MCP servers
-claude mcp add <name>     # Add an MCP server
+# Interactive mode
+claude                        # Start Claude Code in current directory
+claude --continue             # Resume previous session
+claude --resume               # Same as --continue
+/clear                        # Clear context between unrelated tasks
+
+# Headless / Autonomous mode
+claude -p "prompt"            # Run non-interactively, print result
+claude -p "prompt" --headless # Headless mode (no TTY required)
+claude -p "prompt" -w NAME    # Run in isolated worktree
+claude -p "prompt" --max-turns 50  # Limit iterations for safety
+claude -p "prompt" --output-format stream-json  # Structured output
+
+# Management
+/commands                     # List available slash commands
+/agents                       # List/create subagents
+claude mcp list               # Show connected MCP servers
+claude mcp add <name>         # Add an MCP server
+claude /install-github-app    # Connect Claude to GitHub repos
 ```
 
 ## File Hierarchy (what Claude Code reads)
@@ -281,4 +350,5 @@ claude mcp add <name>     # Add an MCP server
 - Hook scripts receive JSON on stdin, NOT via environment variables
 - Subagents cannot spawn other subagents
 - MCP servers have a context cost — don't add everything at once
-- PostToolUse formatting hooks eat context if run on every edit — prefer formatting on Stop/commit
+- PostToolUse formatting hooks eat context if run on every edit — prefer formatting at commit time
+- Conversation history and memory are machine-local — reinstalling Claude Code may wipe them

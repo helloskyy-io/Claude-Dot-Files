@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Software architecture specialist for system design, scalability, and technical decision-making. Use PROACTIVELY when planning new features, refactoring large systems, or making architectural decisions.
+description: Software architecture specialist for system design, scalability, and technical decision-making. Only use when explicitly requested or as part of an autonomous workflow pipeline.
 tools: ["Read", "Grep", "Glob"]
 model: opus
 ---
