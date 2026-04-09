@@ -191,8 +191,8 @@ Dependencies: Phase 2 (safety hooks), Phase 3 (planning agents)
 
 Claude Code runs non-interactively with `claude -p "prompt"`. This is the foundation for autonomous work.
 
-- [ ] **Test headless mode** — Run `claude -p "describe this repo" --output-format stream-json` in this repo. Verify it works, understand the output format.
-- [ ] **Write a wrapper script** — `scripts/autonomous-run.sh` that takes a task description, runs Claude in headless mode with appropriate flags, and logs output. Include `--max-turns` as a safety limit.
+- [x] **Test headless mode** — Tested `claude -p "/update-file-structure"` successfully. Slash commands work in headless mode. Claude checked the file, determined no changes needed, and exited cleanly.
+- [ ] ~~**Write a wrapper script**~~ — Deferred. Raw `claude -p` with flags is clean and intuitive enough. A wrapper adds complexity for marginal benefit at this stage. Revisit when we need standardized logging or CI/CD integration.
 
 ### Worktree Isolation
 
@@ -203,16 +203,11 @@ Claude Code supports `--worktree NAME` to work in an isolated git worktree, prev
 
 ### GitHub Integration
 
-Two paths for PR creation — choose based on needs:
+Using `gh` CLI for PR creation. GitHub Actions / `@claude` and GitHub MCP are future optimizations, not blockers.
 
-**Path A: `gh` CLI (simpler, start here)**
-- [ ] **Verify `gh` is installed and authed** — `gh auth status` on all machines
-- [ ] **Test PR creation flow** — Headless run → commits to worktree branch → `gh pr create` in the same session or wrapper script
-
-**Path B: GitHub Actions / `@claude` (cloud-native, more powerful)**
-- [ ] **Install Claude GitHub App** — `claude /install-github-app` to connect Claude to your repos
-- [ ] **Configure claude.yml** — Define behavior for `@claude` mentions in PRs and issues
-- [ ] **Test on a real issue** — Create a GitHub issue, mention `@claude`, verify it picks up the task and creates a PR
+- [x] **Install and auth `gh` CLI** — Installed via GitHub's apt repo, authed via SSH on workstation. Protocol: SSH (matches existing git config). Account: Pumapumapumas.
+- [ ] **Auth `gh` on laptop** — Same process, needs browser OAuth flow.
+- [ ] **Test PR creation flow** — Headless run → commits to worktree branch → `gh pr create` in the same session
 
 ### Scheduled & Remote Triggers
 
