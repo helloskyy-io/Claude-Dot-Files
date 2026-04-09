@@ -24,20 +24,21 @@ Use custom slash commands for common tasks:
 
 ### Workflow 2: Autonomous (plan → execute → PR)
 
-Claude works independently on a planned feature, creates a PR, and notifies you when done.
+Claude works independently on a planned task, creates a PR, and notifies you when done. Uses structured workflow scripts in `scripts/workflows/` or direct `claude -p` invocation.
 
 ```bash
-# Simple autonomous run
+# Minor revision — the lightweight autonomous workflow
+./scripts/workflows/revision.sh "fix the null check in login()"
+./scripts/workflows/revision.sh "add error handling" --pr 42
+
+# Direct headless invocation (for ad-hoc tasks)
 claude -p "implement feature X, write tests, create a PR" \
   --max-turns 50 \
+  --dangerously-skip-permissions \
   -w feature-x
-
-# Full pipeline using a plan document
-claude -p "Read docs/development/phase-3.md and implement all unchecked items. \
-  Use the code-reviewer agent to review. Fix issues. Run tests. Create a PR." \
-  --max-turns 100 \
-  -w phase-3
 ```
+
+See `docs/official_documentation/dual_workflow_model.md` for the full architecture of how the two workflows fit together, including the escalation paths (PR review → PR comments → full re-run).
 
 Safety mechanisms apply to both modes:
 - **Permissions** — `settings.json` allow/deny lists for bash commands

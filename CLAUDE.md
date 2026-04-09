@@ -58,8 +58,19 @@ See `docs/development/roadmap.md` for the full phased migration plan. Phases 0-3
 
 For detailed documentation on Claude Code concepts:
 - Agent architecture and two-tier strategy: `docs/official_documentation/claude_code_agents.md`
+- Headless mode, worktrees, and autonomous runs: `docs/official_documentation/claude_code_headless.md`
+- Orchestration options and patterns: `docs/official_documentation/claude_code_orchestration.md`
 - Rules and when to use them: `docs/official_documentation/claude_code_rules.md`
 - Skills and context-aware methodology: `docs/official_documentation/claude_code_skills.md`
+- Dual workflow development model: `docs/official_documentation/dual_workflow_model.md`
+
+## Standards
+
+For contributing to this repo, follow the standards:
+- For agent standards, refer to `docs/standards/agents.md`
+- For hook script standards, refer to `docs/standards/hook-scripts.md`
+- For skill standards, refer to `docs/standards/skills.md`
+- For slash command standards, refer to `docs/standards/slash-commands.md`
 
 ## Rules
 

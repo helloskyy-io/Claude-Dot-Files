@@ -189,16 +189,25 @@ Dependencies: Phase 2 (safety hooks), Phase 3 (planning agents)
 
 ### Orchestration Strategy
 
-Five ways to build agentic workflows, from simple to complex:
+Seven ways to build agentic workflows, from simple to complex:
 
 1. **Detailed single `claude -p` prompt** — cheapest, most fragile
 2. **Bash scripts chaining multiple `claude -p` calls** — explicit, debuggable, portable ← **current choice**
-3. **Claude Code Agent Teams** — experimental native parallel coordination
+3. **Claude Code Agent Teams** — native parallel coordination (experimental, GA coming soon)
 4. **Ralph Wiggum style Stop hook loops** — simple iteration pattern, has known bugs as of 2026
 5. **Claude Agent SDK (TypeScript/Python)** — production-grade, heavy
-6. **Third-party platforms (Paperclip, Ruflo)** — ecosystem choice, governance features
+6. **Anthropic Managed Agents** — hosted orchestration service, public beta as of April 2026 (token usage + $0.08/session-hour)
+7. **Third-party platforms (Paperclip, Ruflo, oh-my-claudecode)** — ecosystem choice, governance features
 
-**Current direction:** Start with **bash script orchestration**. It's portable forward (can port to SDK later without losing logic), debuggable, and zero learning curve beyond what we already know. Only graduate to Agent SDK if bash hits real limitations (error handling, state management, team scale). Paperclip is deferred pending Phase 4 completion and real evaluation.
+**Current direction:** Start with **bash script orchestration**. It's portable forward (can port to SDK later without losing logic), debuggable, and zero learning curve beyond what we already know.
+
+**Don't over-invest.** Agent Teams is going GA and Anthropic Managed Agents is in public beta. Building elaborate bash orchestration that will be obsoleted by native solutions is wasted effort. Build only what you need *now*.
+
+**Graduation triggers** — move beyond bash only if you hit real limitations:
+- Error handling gets painful → consider Agent SDK
+- Multi-project state management needed → consider Managed Agents or Paperclip
+- Native parallel coordination needed → wait for Agent Teams GA
+- Complex structured data processing → Agent SDK
 
 **Critical warnings from research:**
 - **Token burn is serious.** Autocompact at ~187K tokens costs 100-200K per cycle. Iterative refinement loops can trigger this 3+ times per turn.
@@ -206,6 +215,13 @@ Five ways to build agentic workflows, from simple to complex:
 - **Sequential beats nested.** Running agents sequentially in a chain is more reliable than nested iteration loops.
 - **Explicit exit criteria beat loop counts.** "Exit when tests pass" is better than "repeat 3 times."
 - **Precision in the initial prompt beats iteration.** A well-specified prompt gets better results than a vague prompt iterated 10 times.
+
+**Top 5 lessons from production use (April 2026):**
+1. **Context management is the hardest problem** — implement summarization when approaching limits
+2. **Over-specified CLAUDE.md backfires** — keep ruthlessly short or Claude ignores rules buried in noise
+3. **Infinite exploration kills token budgets** — scope investigations narrowly, use subagents for exploration
+4. **Trust-then-verify is essential** — Claude generates plausible but incomplete implementations
+5. **Multi-agent workflows aren't for 95% of tasks** — set WIP limit at 3-5 agents max
 
 ### Phase 4a: Foundation Validation ✅ COMPLETE
 
@@ -218,31 +234,45 @@ Verify the primitives work end-to-end before building any orchestration.
 - [x] **Establish dual permission model** — Interactive mode uses allow/deny lists (conservative, popup on new). Autonomous mode uses `--dangerously-skip-permissions` (permissive within isolated worktree). Safety comes from `block-dangerous.sh` hook which still fires regardless of permission flags. Hook hardened with expanded patterns (sudo, system control, RCE, SSH tampering, package purges, etc.). Verified empirically that hooks fire under `--dangerously-skip-permissions`.
 - [x] **Build cleanup automation** — `/cleanup-merged-worktrees` command scans worktrees, checks PR status via `gh`, removes merged/closed ones. Tested and working.
 
-### Phase 4b: First Orchestrated Workflow
+### Phase 4b: Stage A — Initial Autonomous Run
 
-Build a simple bash-based agentic workflow and test it on a real task.
+Build the primary autonomous path: kick off `/plan-and-build`, get a PR back.
 
-- [ ] **Document orchestration patterns** — Write `docs/official_documentation/claude_code_orchestration.md` covering the 6 approaches, when to use each, and the token burn warnings.
-- [ ] **Build a simple bash workflow** — `scripts/workflows/plan-feature.sh` that chains 2-3 agents sequentially (single-pass, not iterative). Example: planner → architect → security-auditor → produces a final plan document.
-- [ ] **Test on a real (small) task** — Use it to plan something minor for this repo.
-- [ ] **Measure token usage and output quality** — Track how many tokens each agent spent, evaluate the final output, document findings.
+Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — this is Stage A of Workflow 2.
 
-### Phase 4c: Iterate on What We Learned
+- [x] **Document orchestration patterns** — `docs/official_documentation/claude_code_orchestration.md` covers the 7 approaches, coordinator/worker pattern, and the 5 production lessons.
+- [x] **Document the dual workflow model** — `docs/official_documentation/dual_workflow_model.md` captures the architectural decision for how we use Claude Code.
+- [ ] **Build `/plan-and-build` command or bash script** — Chains planner → architect → security-auditor → implement → test → PR. Single-pass, no iteration. May split into `/plan-feature` and `/implement-feature` for granular control.
+- [ ] **Test on a real small feature** — Something low-risk in this repo or a test repo.
+- [ ] **Measure token usage and output quality** — Track tokens per agent, evaluate output, document findings.
+- [ ] **Identify gaps** — What did Claude miss? What did you have to correct? These become skills.
 
-Use the experience from 4b to build skills and refine workflows.
+### Phase 4c: Stage C — PR Comments (GitHub Actions)
 
-- [ ] **Identify gaps** — What did Claude keep missing? What did you have to correct? These become skills.
-- [ ] **Build foundational skills** — Capture methodology that emerged from real use. Start with 1-2 skills, not a library.
-- [ ] **Refine the bash workflow** — Based on what broke or wasted tokens.
-- [ ] **Build a second workflow** — `scripts/workflows/implement-phase.sh` that takes a plan doc and implements it (headless + worktree + PR creation).
-- [ ] **End-to-end test** — Full pipeline: plan a small feature, implement it autonomously, review the PR.
+Build the minor fix escalation path: leave PR comments → Claude makes fixes → PR updates.
 
-### Phase 4d: Graduate If Needed
+Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — this is Stage C of Workflow 2.
 
-Evaluate whether bash is sufficient or if Agent SDK / Paperclip is warranted.
+- [ ] **Install Claude GitHub App** — `claude /install-github-app` to connect Claude to this repo and any others we want.
+- [ ] **Create GitHub Actions workflow** — `.github/workflows/claude-pr-handler.yml` that triggers on `@claude` mentions in PR comments.
+- [ ] **Document PR comment patterns** — How to write comments Claude can act on. Add to dual_workflow_model.md or a new doc.
+- [ ] **Test the flow** — Create a test PR, leave a `@claude` comment, verify Claude pushes a fix to the same branch.
 
-- [ ] **Evaluate bash limits** — Have you hit real limitations (error handling, state, structured data, team scale)? If yes, consider Agent SDK. If no, stay in bash.
-- [ ] **Evaluate Paperclip** — Only after Phase 4c. Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
+### Phase 4d: Stage D — Major Fix Path (Full Re-run)
+
+Build the major fix escalation: when PR comments aren't enough, trigger a full re-run against the existing PR branch.
+
+Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — this is Stage D of Workflow 2.
+
+- [ ] **Build `/fix-pr <PR#>` command** — Checks out the existing PR branch in a worktree, applies requested corrections, pushes updates back to the same branch.
+- [ ] **Test on a real PR** — Create a PR, request major changes, verify the full re-run updates the PR correctly.
+
+### Phase 4e: Foundational Skills (as we learn)
+
+Build skills from experience, not upfront. Only after running real workflows.
+
+- [ ] **Build 1-2 foundational skills** — Based on gaps identified in 4b. Start small. Don't build a library upfront.
+- [ ] **Graduation evaluation** — Have we hit real bash limitations? Does Agent SDK or Managed Agents or Paperclip make sense? If not, stay where we are.
 
 ### Scheduled & Remote Triggers (deferred)
 

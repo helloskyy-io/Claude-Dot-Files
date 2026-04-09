@@ -16,7 +16,9 @@ claude-dot-files/
 │   │   ├── block-dangerous.sh             # PreToolUse: deny destructive bash commands
 │   │   └── notify-done.sh                 # Stop: desktop notification via notify-send
 │   ├── rules/                             # Global rules (.md files, currently empty)
-│   ├── skills/                            # Reusable skill definitions (.md files, currently empty)
+│   ├── skills/                            # Reusable skill definitions (.md files)
+│   │   ├── testing-methodology.md         # How to approach testing — principles, scoping, decision-making
+│   │   └── testing-scaffolding.md         # How to set up test infrastructure in new projects
 │   ├── CLAUDE.md                          # Global instructions for ALL projects
 │   └── settings.json                      # Global settings, permissions, hooks config
 │
@@ -26,9 +28,21 @@ claude-dot-files/
 │   │   └── roadmap_old.md                 # Previous roadmap (pre-rewrite reference)
 │   ├── official_documentation/
 │   │   ├── claude_code_agents.md          # Agent architecture, two-tier strategy, quick reference
+│   │   ├── claude_code_headless.md        # Headless mode, worktrees, max-turns, cleanup
+│   │   ├── claude_code_orchestration.md   # 7 orchestration options, coordinator/worker, lessons
 │   │   ├── claude_code_rules.md           # Rules vs CLAUDE.md, when to split
-│   │   └── claude_code_skills.md          # Skills, context-aware methodology, library building
+│   │   ├── claude_code_skills.md          # Skills, context-aware methodology, library building
+│   │   └── dual_workflow_model.md         # Dual flow architecture, Workflow 1/2, Stages A-D
+│   ├── standards/
+│   │   ├── agents.md                      # Standards for writing custom agents
+│   │   ├── hook-scripts.md                # Standards for writing hook scripts
+│   │   ├── skills.md                      # Standards for writing skills
+│   │   └── slash-commands.md              # Standards for writing slash commands
 │   └── file_structure.txt                 # This file
+│
+├── scripts/
+│   └── workflows/                         # Autonomous workflow scripts (Workflow 2)
+│       └── revision.sh                    # REVISION workflow — minor corrections to existing code
 │
 ├── .gitignore                             # Git ignore rules
 ├── CLAUDE.md                              # Project-level instructions for this repo
