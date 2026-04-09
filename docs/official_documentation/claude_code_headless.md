@@ -127,26 +127,79 @@ claude -p "implement feature X" -w feature-x
 
 This:
 1. Creates a worktree at `.claude/worktrees/feature-x/`
-2. Creates a new branch
+2. Creates a new branch (Claude Code auto-prefixes with `worktree-` — so `-w feature-x` creates branch `worktree-feature-x`)
 3. Claude works entirely in that isolated copy
 4. Your main working directory is untouched
 5. Auto-cleans if no changes were made
 
 Use worktrees for any headless run that modifies files. This prevents conflicts with your own in-progress work.
 
+### Worktree Naming Best Practices
+
+Each worktree needs a unique name. If you try to reuse an existing worktree name, Claude Code will fail or branch from stale state.
+
+**Purpose-based names** (readable, good for manual runs):
+```bash
+claude -p "..." -w add-auth
+claude -p "..." -w fix-login-bug
+```
+
+**Timestamp-based names** (always unique, good for automation):
+```bash
+claude -p "..." -w "task-$(date +%Y%m%d-%H%M%S)"
+```
+
+**Always branch from fresh main.** Before kicking off an autonomous run, update your main:
+```bash
+git checkout main
+git pull
+claude -p "..." -w feature-name
+```
+
+### Worktree Cleanup
+
+Worktrees accumulate over time. Clean them up after PRs are merged.
+
+**Manual cleanup:**
+```bash
+# See what exists
+git worktree list
+git branch -a
+
+# Remove one worktree
+git worktree remove .claude/worktrees/feature-name
+git branch -D worktree-feature-name
+git push origin --delete worktree-feature-name
+```
+
+**Automated cleanup:**
+
+Use the `/cleanup-merged-worktrees` slash command to scan all worktrees, find those whose PRs have been merged or closed, and remove them automatically. It uses `gh pr list` to check PR status and only cleans up worktrees with resolved PRs — open PRs are left alone.
+
+```
+/cleanup-merged-worktrees
+```
+
+Safe defaults: won't touch the main working directory, won't delete branches with open PRs, asks for confirmation if cleaning up more than 5 worktrees at once.
+
 ## Safety
 
 ### `--max-turns` Is Your Safety Net
 
-Always set `--max-turns` for headless runs. Without it, a confused Claude could loop indefinitely. Guidelines:
+Always set `--max-turns` for headless runs. Without it, a confused Claude could loop indefinitely.
+
+**What is a "turn"?** A turn is one cycle of the Claude agent loop — each time Claude makes a tool call, returns a response, or processes tool results and decides what to do next. Think of it as one "round" of the agent acting on its task.
+
+**Concrete example:** A simple feature that reads 5 files, writes 3 files, runs tests twice, commits, pushes, and creates a PR is roughly 14 turns.
 
 | Task Size | Suggested Limit |
 |-----------|----------------|
-| Simple (review, update docs) | 20-30 |
-| Medium (implement a feature) | 50-75 |
-| Large (full phase implementation) | 100-150 |
+| Simple (edit + commit) | 10-20 |
+| Medium (small feature with tests) | 30-50 |
+| Large (full feature implementation) | 50-100 |
+| Extra large (full phase implementation) | 100-150 |
 
-Start conservative and increase as you build trust with the output quality.
+Start conservative and increase as you build trust with the output quality. If Claude regularly hits the limit and fails, bump it up. If it never comes close, leave it low.
 
 ### Hooks Still Protect You
 

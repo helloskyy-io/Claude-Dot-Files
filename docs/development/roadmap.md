@@ -187,54 +187,68 @@ Key constraints: Subagents cannot spawn other subagents. For multi-step workflow
 
 Dependencies: Phase 2 (safety hooks), Phase 3 (planning agents)
 
-### Headless Mode
+### Orchestration Strategy
 
-Claude Code runs non-interactively with `claude -p "prompt"`. This is the foundation for autonomous work.
+Five ways to build agentic workflows, from simple to complex:
 
-- [x] **Test headless mode** — Tested `claude -p "/update-file-structure"` successfully. Slash commands work in headless mode. Claude checked the file, determined no changes needed, and exited cleanly.
-- [ ] ~~**Write a wrapper script**~~ — Deferred. Raw `claude -p` with flags is clean and intuitive enough. A wrapper adds complexity for marginal benefit at this stage. Revisit when we need standardized logging or CI/CD integration.
+1. **Detailed single `claude -p` prompt** — cheapest, most fragile
+2. **Bash scripts chaining multiple `claude -p` calls** — explicit, debuggable, portable ← **current choice**
+3. **Claude Code Agent Teams** — experimental native parallel coordination
+4. **Ralph Wiggum style Stop hook loops** — simple iteration pattern, has known bugs as of 2026
+5. **Claude Agent SDK (TypeScript/Python)** — production-grade, heavy
+6. **Third-party platforms (Paperclip, Ruflo)** — ecosystem choice, governance features
 
-### Worktree Isolation
+**Current direction:** Start with **bash script orchestration**. It's portable forward (can port to SDK later without losing logic), debuggable, and zero learning curve beyond what we already know. Only graduate to Agent SDK if bash hits real limitations (error handling, state management, team scale). Paperclip is deferred pending Phase 4 completion and real evaluation.
 
-Claude Code supports `--worktree NAME` to work in an isolated git worktree, preventing file conflicts with your working directory.
+**Critical warnings from research:**
+- **Token burn is serious.** Autocompact at ~187K tokens costs 100-200K per cycle. Iterative refinement loops can trigger this 3+ times per turn.
+- **Loop drift is real.** Agents re-run work redundantly — 40-60% of read tokens wasted in naive loops.
+- **Sequential beats nested.** Running agents sequentially in a chain is more reliable than nested iteration loops.
+- **Explicit exit criteria beat loop counts.** "Exit when tests pass" is better than "repeat 3 times."
+- **Precision in the initial prompt beats iteration.** A well-specified prompt gets better results than a vague prompt iterated 10 times.
 
-- [ ] **Test worktree mode** — Run a headless task with `--worktree test-feature`. Verify it creates a branch and works in isolation.
-- [ ] **Understand cleanup** — Worktrees auto-clean if no changes are made. If commits exist, they persist at `.claude/worktrees/`.
+### Phase 4a: Foundation Validation ✅ COMPLETE
 
-### GitHub Integration
+Verify the primitives work end-to-end before building any orchestration.
 
-Using `gh` CLI for PR creation. GitHub Actions / `@claude` and GitHub MCP are future optimizations, not blockers.
+- [x] **Test headless mode** — Tested `claude -p "/update-file-structure"` successfully. Slash commands work in headless mode.
+- [x] **Install and auth `gh` CLI** — Installed via GitHub's apt repo, authed via SSH on both workstation and laptop (Yoga). Protocol: SSH. Account: Pumapumapumas.
+- [x] **Test worktree mode** — Tested `-w test-worktree` flag. Claude Code auto-prefixes branch with `worktree-` (so `-w test-worktree` creates branch `worktree-test-worktree`). Worktree lives at `.claude/worktrees/<name>/`. Main working directory untouched during autonomous run.
+- [x] **Test PR creation flow** — Full pipeline validated in one command: headless run → worktree created → edit → commit → push → `gh pr create`. PR #1 created successfully. Entire flow autonomous with `--dangerously-skip-permissions`.
+- [x] **Establish dual permission model** — Interactive mode uses allow/deny lists (conservative, popup on new). Autonomous mode uses `--dangerously-skip-permissions` (permissive within isolated worktree). Safety comes from `block-dangerous.sh` hook which still fires regardless of permission flags. Hook hardened with expanded patterns (sudo, system control, RCE, SSH tampering, package purges, etc.). Verified empirically that hooks fire under `--dangerously-skip-permissions`.
+- [x] **Build cleanup automation** — `/cleanup-merged-worktrees` command scans worktrees, checks PR status via `gh`, removes merged/closed ones. Tested and working.
 
-- [x] **Install and auth `gh` CLI** — Installed via GitHub's apt repo, authed via SSH on workstation. Protocol: SSH (matches existing git config). Account: Pumapumapumas.
-- [ ] **Auth `gh` on laptop** — Same process, needs browser OAuth flow.
-- [ ] **Test PR creation flow** — Headless run → commits to worktree branch → `gh pr create` in the same session
+### Phase 4b: First Orchestrated Workflow
 
-### Scheduled & Remote Triggers
+Build a simple bash-based agentic workflow and test it on a real task.
 
-For tasks that should run on a schedule (e.g., nightly dependency updates, weekly code health checks):
+- [ ] **Document orchestration patterns** — Write `docs/official_documentation/claude_code_orchestration.md` covering the 6 approaches, when to use each, and the token burn warnings.
+- [ ] **Build a simple bash workflow** — `scripts/workflows/plan-feature.sh` that chains 2-3 agents sequentially (single-pass, not iterative). Example: planner → architect → security-auditor → produces a final plan document.
+- [ ] **Test on a real (small) task** — Use it to plan something minor for this repo.
+- [ ] **Measure token usage and output quality** — Track how many tokens each agent spent, evaluate the final output, document findings.
 
-- [ ] **Explore remote triggers** — `claude schedule` or the `/schedule` skill. Define repo, prompt, and cron schedule. Claude runs autonomously on Anthropic's infrastructure.
-- [ ] **Create a test trigger** — Simple recurring task (e.g., weekly: "check for outdated dependencies and open a PR if any are found")
+### Phase 4c: Iterate on What We Learned
 
-### Putting It Together: The Autonomous Pipeline
+Use the experience from 4b to build skills and refine workflows.
 
-The full workflow for a planned feature:
+- [ ] **Identify gaps** — What did Claude keep missing? What did you have to correct? These become skills.
+- [ ] **Build foundational skills** — Capture methodology that emerged from real use. Start with 1-2 skills, not a library.
+- [ ] **Refine the bash workflow** — Based on what broke or wasted tokens.
+- [ ] **Build a second workflow** — `scripts/workflows/implement-phase.sh` that takes a plan doc and implements it (headless + worktree + PR creation).
+- [ ] **End-to-end test** — Full pipeline: plan a small feature, implement it autonomously, review the PR.
 
-```
-1. You describe the feature
-2. planner agent creates implementation plan
-3. You review and approve the plan
-4. Claude executes in headless mode + worktree:
-   - Implements the plan
-   - Runs tests
-   - Refactors as needed
-   - Iterates until tests pass
-5. Claude creates a PR via gh CLI
-6. Stop hook fires → desktop notification
-7. You review the PR and merge
-```
+### Phase 4d: Graduate If Needed
 
-- [ ] **End-to-end test** — Run the full pipeline on a small, real feature in a test repo. Document what works and what needs adjustment.
+Evaluate whether bash is sufficient or if Agent SDK / Paperclip is warranted.
+
+- [ ] **Evaluate bash limits** — Have you hit real limitations (error handling, state, structured data, team scale)? If yes, consider Agent SDK. If no, stay in bash.
+- [ ] **Evaluate Paperclip** — Only after Phase 4c. Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
+
+### Scheduled & Remote Triggers (deferred)
+
+For tasks that should run on a schedule. Not a blocker for the autonomous pipeline.
+
+- [ ] **Explore remote triggers** — `claude schedule` or the `/schedule` skill for cron-based autonomous runs.
 
 ---
 
@@ -244,7 +258,7 @@ The full workflow for a planned feature:
 
 Dependencies: Phase 1 (for config sync)
 
-- [ ] **Add GitHub MCP** — `claude mcp add github --scope user`. Enables PR workflows, issue management, repo operations directly from Claude. Highest-value single MCP server.
+- [ ] **Evaluate GitHub MCP need** — `gh` CLI already handles PR creation, simple operations, and saves context tokens. Only add GitHub MCP if we need complex operations (reading PR comments programmatically, triaging issues with structured data, cross-repo queries). Rule: `gh` CLI for high-frequency simple ops, MCP for complex structured queries.
 - [ ] **Create .mcp.json template** — A starter project-level MCP config for team repos. Committed to git. Secrets via `${env:VAR_NAME}`.
 - [ ] **Add 1–2 stack-specific servers** — Choose based on daily workflow. Candidates:
   - Playwright (browser testing)

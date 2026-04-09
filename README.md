@@ -2,6 +2,50 @@
 
 Personal Claude Code configuration repo. Syncs selected items from `~/.claude/` across machines (workstations, laptops, and VMs) using targeted symlinks.
 
+## Operation
+
+This repo is configured for two distinct workflows:
+
+### Workflow 1: Interactive (minor changes, approve on the fly)
+
+Your default day-to-day mode. You work with Claude in real-time, approving changes as they happen.
+
+```bash
+claude                         # start a session in the current directory
+```
+
+Use custom slash commands for common tasks:
+- `/review` — run the code-reviewer agent on recent changes
+- `/best-practices <topic>` — prime Claude with industry-standard approach
+- `/create-claude` — generate CLAUDE.md files for a new project
+- `/update-claude` — sync CLAUDE.md references to your standards
+- `/update-file-structure` — update docs/file_structure.txt
+- `/cleanup-merged-worktrees` — remove worktrees whose PRs have been merged or closed
+
+### Workflow 2: Autonomous (plan → execute → PR)
+
+Claude works independently on a planned feature, creates a PR, and notifies you when done.
+
+```bash
+# Simple autonomous run
+claude -p "implement feature X, write tests, create a PR" \
+  --max-turns 50 \
+  -w feature-x
+
+# Full pipeline using a plan document
+claude -p "Read docs/development/phase-3.md and implement all unchecked items. \
+  Use the code-reviewer agent to review. Fix issues. Run tests. Create a PR." \
+  --max-turns 100 \
+  -w phase-3
+```
+
+Safety mechanisms apply to both modes:
+- **Permissions** — `settings.json` allow/deny lists for bash commands
+- **PreToolUse hook** — `block-dangerous.sh` denies destructive patterns
+- **Stop hook** — `notify-done.sh` fires a desktop notification when done
+
+For detailed documentation on agents, rules, skills, and headless mode, see `docs/official_documentation/`.
+
 ## What Gets Synced
 
 | Item | Description |
@@ -30,8 +74,11 @@ git clone https://github.com/helloskyy-io/Claude-Dot-Files.git ~/Repos/claude-do
 cd ~/Repos/claude-dot-files
 ./install.sh
 
-# Authenticate (requires browser)
+# Authenticate Claude Code (requires browser)
 claude login
+
+# Authenticate GitHub CLI (required for Workflow 2 autonomous PR creation)
+gh auth login
 ```
 
 The script will:
@@ -40,6 +87,8 @@ The script will:
 - Back up any existing config files in `~/.claude/`
 - Create symlinks from `config/` into `~/.claude/`
 - Verify all symlinks
+
+**Note:** `gh` CLI is installed by the workstation bootstrap automation. For `gh auth login`, select: GitHub.com → SSH → your existing key → login with web browser.
 
 ### 2. VMs (manual)
 
@@ -58,9 +107,11 @@ git clone https://github.com/helloskyy-io/Claude-Dot-Files.git $CLAUDE_PATH
 cd $CLAUDE_PATH
 ./install.sh
 
-# Authenticate (requires browser)
+# Authenticate Claude Code (requires browser)
 claude login
 ```
+
+VMs typically don't need `gh` CLI since autonomous runs with PR creation generally happen from workstations, not VMs. Skip `gh` setup unless you have a specific use case for it.
 
 ### 3. Managed workstations (Ansible)
 
@@ -93,23 +144,7 @@ git pull  # symlinks pick up changes immediately
 
 ## Project Structure
 
-```
-claude-dot-files/
-├── CLAUDE.md              ← project instructions (for working on this repo)
-├── config/                ← source of truth for synced config
-│   ├── settings.json
-│   ├── CLAUDE.md
-│   ├── agents/
-│   ├── commands/
-│   ├── hooks/
-│   ├── rules/
-│   └── skills/
-├── install.sh             ← symlink installer (interactive + non-interactive)
-├── docs/
-│   └── development/
-│       └── roadmap.md     ← phased migration plan
-└── README.md
-```
+See [`docs/file_structure.txt`](docs/file_structure.txt) for the full annotated file tree.
 
 ## License
 
