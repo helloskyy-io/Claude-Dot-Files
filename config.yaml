@@ -1,0 +1,37 @@
+# =============================================================================
+# Claude Dotfiles — Centralized Configuration
+# =============================================================================
+#
+# This file is the source of truth for all service and workflow configuration.
+# It is committed to the repo (no secrets allowed). Machine-specific overrides
+# should use environment variables or local override files.
+#
+# Structure: each service or workflow gets its own top-level section.
+# Use kebab-case keys. Document every field with a comment.
+#
+# Read values with: yq '.section.key' config.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# gh-monitor — GitHub monitor for @claude PR comment automation
+# -----------------------------------------------------------------------------
+gh-monitor:
+  # Repos to monitor (space-separated owner/repo list)
+  repos: "helloskyy-io/Claude-Dot-Files"
+
+  # Max simultaneous workflow processes
+  max-concurrent: 1
+
+  # Route enablement (set to false to disable specific command routes)
+  enable-revision: true
+  enable-revision-major: true
+  enable-help: true
+
+  # Dry run mode (detect comments and log, but don't run workflows)
+  dry-run: false
+
+  # Skip comments older than this many days
+  backlog-days: 7
+
+  # Path to workflow scripts (leave empty to auto-detect from repo root)
+  # workflow-dir: ""

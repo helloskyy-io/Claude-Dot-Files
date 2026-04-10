@@ -23,16 +23,47 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ---------------------------------------------------------------------------
-# Source config file if it exists (all vars have defaults below)
+# Environment checks (must run before config loading, which requires yq)
 # ---------------------------------------------------------------------------
-CONFIG_FILE="${SCRIPT_DIR}/gh-monitor.config.env"
+for cmd in gh jq yq; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "Error: '$cmd' not found in PATH" >&2
+        exit 1
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# Load config from config.yaml (all vars have defaults below)
+# ---------------------------------------------------------------------------
+CONFIG_FILE="${REPO_ROOT}/config.yaml"
+
+# Helper: read a value from config.yaml, returns empty string if key is missing/null
+# Usage: cfg <section> <key>
+cfg() {
+    local section="$1" key="$2"
+    local val
+    val=$(yq -r ".${section}.${key}" "$CONFIG_FILE" 2>/dev/null || echo "")
+    # yq prints "null" for missing keys
+    if [[ "$val" == "null" ]]; then
+        echo ""
+    else
+        echo "$val"
+    fi
+}
+
 if [[ -f "$CONFIG_FILE" ]]; then
-    # shellcheck source=/dev/null
-    source "$CONFIG_FILE"
+    GH_MONITOR_REPOS="${GH_MONITOR_REPOS:-$(cfg gh-monitor repos)}"
+    GH_MONITOR_MAX_CONCURRENT="${GH_MONITOR_MAX_CONCURRENT:-$(cfg gh-monitor max-concurrent)}"
+    GH_MONITOR_ENABLE_REVISION="${GH_MONITOR_ENABLE_REVISION:-$(cfg gh-monitor enable-revision)}"
+    GH_MONITOR_ENABLE_REVISION_MAJOR="${GH_MONITOR_ENABLE_REVISION_MAJOR:-$(cfg gh-monitor enable-revision-major)}"
+    GH_MONITOR_ENABLE_HELP="${GH_MONITOR_ENABLE_HELP:-$(cfg gh-monitor enable-help)}"
+    GH_MONITOR_DRY_RUN="${GH_MONITOR_DRY_RUN:-$(cfg gh-monitor dry-run)}"
+    GH_MONITOR_BACKLOG_DAYS="${GH_MONITOR_BACKLOG_DAYS:-$(cfg gh-monitor backlog-days)}"
+    GH_MONITOR_WORKFLOW_DIR="${GH_MONITOR_WORKFLOW_DIR:-$(cfg gh-monitor workflow-dir)}"
 fi
 
 # ---------------------------------------------------------------------------
-# Defaults (applied if not set by config)
+# Defaults (applied if not set by config or environment)
 # ---------------------------------------------------------------------------
 : "${GH_MONITOR_REPOS:=""}"
 : "${GH_MONITOR_MAX_CONCURRENT:=1}"
@@ -58,16 +89,6 @@ STATE_DIR="${REPO_ROOT}/.claude/state"
 LOCK_FILE="${STATE_DIR}/gh-monitor.lock"
 mkdir -p "$STATE_DIR"
 
-# ---------------------------------------------------------------------------
-# Environment checks
-# ---------------------------------------------------------------------------
-for cmd in gh jq; do
-    if ! command -v "$cmd" &>/dev/null; then
-        echo "Error: '$cmd' not found in PATH" >&2
-        exit 1
-    fi
-done
-
 # Verify gh authentication
 if ! gh auth status &>/dev/null; then
     echo "Error: gh CLI is not authenticated. Run 'gh auth login' first." >&2
@@ -76,7 +97,7 @@ fi
 
 # Verify repos are configured
 if [[ -z "$GH_MONITOR_REPOS" ]]; then
-    echo "Error: GH_MONITOR_REPOS is empty. Configure repos in ${CONFIG_FILE}" >&2
+    echo "Error: GH_MONITOR_REPOS is empty. Configure repos in ${CONFIG_FILE} under gh-monitor.repos" >&2
     exit 1
 fi
 

@@ -7,6 +7,7 @@ Personal Claude Code configuration repo. Syncs selected items from `~/.claude/` 
 ```
 claude-dotfiles/
 ├── CLAUDE.md                    ← you are here
+├── config.yaml                  ← centralized service/workflow configuration
 ├── config/                      ← source of truth for synced Claude Code config
 │   ├── settings.json            ← global settings, permissions, hooks config
 │   ├── CLAUDE.md                ← global instructions for all projects
