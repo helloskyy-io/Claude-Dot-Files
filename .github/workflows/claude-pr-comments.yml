@@ -1,0 +1,280 @@
+# claude-pr-comments.yml — GitHub Actions workflow for PR comment integration
+#
+# Triggers when someone comments @claude on a PR. Routes the request to
+# the appropriate workflow script (revision.sh or revision-major.sh),
+# which makes changes and pushes back to the PR branch.
+#
+# Prerequisites:
+#   - Claude GitHub App installed on the repo (claude /install-github-app)
+#   - ANTHROPIC_API_KEY set as a repository secret
+#   - gh CLI authenticated (automatic in GitHub-hosted runners)
+#
+# Security notes:
+#   - PR comment text is passed as a Claude prompt. This is by design — the
+#     entire purpose is to let collaborators instruct Claude via comments.
+#   - --dangerously-skip-permissions is required for autonomous mode. The
+#     block-dangerous.sh hook provides the safety floor. PR review is the gate.
+#   - Only enable this workflow on repos where all collaborators are trusted.
+#   - Fork PR comments trigger this workflow. Restrict repo access accordingly.
+#
+# See docs/development/phases/phase-4d-github-actions-integration.md for context.
+
+name: Claude PR Comments
+
+on:
+  issue_comment:
+    types: [created]
+
+# Ensure only one Claude run per PR at a time to avoid conflicts
+concurrency:
+  group: claude-pr-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  handle-comment:
+    # Only run on PR comments (not issue comments) that mention @claude
+    # Skip comments from bots to prevent infinite loops
+    if: >-
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@claude') &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Acknowledge comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: '+1'
+            });
+
+      - name: Extract comment details
+        id: extract
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.comment.body;
+
+            // Extract everything after @claude
+            const match = body.match(/@claude\s+(.*)/s);
+            if (!match) {
+              core.setFailed('Could not parse @claude command from comment');
+              return;
+            }
+
+            const command = match[1].trim();
+
+            // Determine routing
+            let route = 'revision';
+            let description = command;
+            let timeout = 15;
+
+            if (command.toLowerCase() === 'help') {
+              route = 'help';
+            } else if (command.toLowerCase().startsWith('revision-major:')) {
+              route = 'revision-major';
+              description = command.replace(/^revision-major:\s*/i, '');
+              timeout = 30;
+            }
+
+            core.setOutput('route', route);
+            core.setOutput('description', description);
+            core.setOutput('timeout', timeout.toString());
+            core.setOutput('pr_number', context.payload.issue.number.toString());
+
+            console.log(`Route: ${route}`);
+            console.log(`Description: ${description}`);
+            console.log(`PR: #${context.payload.issue.number}`);
+
+      - name: Post help comment
+        if: steps.extract.outputs.route == 'help'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const helpText = [
+              '## Claude PR Comment Commands',
+              '',
+              'Mention `@claude` in a PR comment to trigger an autonomous workflow:',
+              '',
+              '| Command | Description | Workflow |',
+              '|---------|-------------|---------|',
+              '| `@claude fix the null check` | Minor fix or correction | `revision.sh` |',
+              '| `@claude add error handling to login()` | Small improvement | `revision.sh` |',
+              '| `@claude revision-major: restructure the auth flow` | Significant rework | `revision-major.sh` |',
+              '| `@claude help` | Show this help message | _(this message)_ |',
+              '',
+              '**Default route:** All requests go through `revision.sh` (minor corrections) unless prefixed with `revision-major:`.',
+              '',
+              '**What happens:**',
+              '1. Claude checks out the PR branch',
+              '2. Reads the comment as the task description',
+              '3. Makes changes and pushes to the branch',
+              '4. The PR updates automatically with new commits',
+              '',
+              '**Timeouts:** 15 minutes for revision, 30 minutes for revision-major.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: helpText
+            });
+
+      - name: Get PR branch
+        if: steps.extract.outputs.route != 'help'
+        id: pr-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.extract.outputs.pr_number }}
+        run: |
+          PR_BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName')
+          echo "branch=${PR_BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "PR branch: ${PR_BRANCH}"
+
+      - name: Checkout PR branch
+        if: steps.extract.outputs.route != 'help'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr-branch.outputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        if: steps.extract.outputs.route != 'help'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Claude Code
+        if: steps.extract.outputs.route != 'help'
+        # Intentionally unpinned — always use latest Claude Code CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code
+
+      - name: Run Claude workflow
+        if: steps.extract.outputs.route != 'help'
+        id: run-claude
+        # fromJSON required: step outputs are strings, timeout-minutes needs int
+        timeout-minutes: ${{ fromJSON(steps.extract.outputs.timeout) }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DESCRIPTION: ${{ steps.extract.outputs.description }}
+          PR_NUMBER: ${{ steps.extract.outputs.pr_number }}
+          ROUTE: ${{ steps.extract.outputs.route }}
+        run: |
+          LOG_FILE=".claude/logs/actions-${ROUTE}-${GITHUB_RUN_ID}-$(date +%Y%m%d-%H%M%S).jsonl"
+          mkdir -p .claude/logs
+
+          echo "log_file=${LOG_FILE}" >> "$GITHUB_OUTPUT"
+
+          # Build route-specific prompt and turn limit.
+          # These prompts are CI-adapted variants of the canonical prompts in
+          # scripts/workflows/revision.sh and revision-major.sh. They are
+          # intentionally lighter — no worktree setup, no formatter references.
+          if [[ "$ROUTE" == "revision-major" ]]; then
+            MAX_TURNS=75
+            PROMPT=$(cat <<EOF
+          You are responding to a PR comment requesting significant rework.
+
+          PR #${PR_NUMBER} — Task: ${DESCRIPTION}
+
+          This is a MAJOR revision. Follow all stages thoroughly:
+
+          1. ASSESS: Analyze the existing code and understand the scope of changes needed.
+          2. PLAN: Create a focused plan. Identify files to change, dependencies, and risks.
+          3. IMPLEMENT: Execute the plan. Make the changes. Note any deviations.
+          4. TEST: Run relevant tests. Fix failures. Add tests if needed.
+          5. REVIEW: Use the code-reviewer agent to review your changes. Fix critical issues.
+          6. REFACTOR: Use the refactoring-evaluator agent. Apply high-priority suggestions.
+          7. RESOLVE: Summarize what was done vs planned, review items addressed vs deferred.
+          8. VERIFY: Run tests one final time. All must pass.
+          9. COMMIT & PUSH: Stage, commit with format "revision-major: <description>", and push.
+
+          Rules:
+          - Follow each stage in order
+          - Be thorough — this is a major revision, not a quick fix
+          - Fix critical review findings before committing
+          - Tests must pass before committing
+          - If you cannot complete the task, explain why clearly
+          EOF
+            )
+          else
+            MAX_TURNS=30
+            PROMPT=$(cat <<EOF
+          You are responding to a PR comment requesting changes.
+
+          PR #${PR_NUMBER} — Task: ${DESCRIPTION}
+
+          Follow these stages:
+
+          1. ASSESS: Read the relevant files to understand what needs to change.
+          2. IMPLEMENT: Make the requested changes. Keep changes focused and minimal.
+          3. TEST: Run any relevant tests. Fix failures caused by your changes.
+          4. COMMIT: Stage and commit with message format: "revision: <description>"
+          5. PUSH: Push to the current branch to update the PR.
+
+          Rules:
+          - Keep changes minimal and focused on the task
+          - Do not add features not requested
+          - Do not refactor unrelated code
+          - Tests must pass before committing
+          - If you cannot complete the task, explain why clearly
+          EOF
+            )
+          fi
+
+          # Run Claude directly — workflow scripts expect a local dev
+          # environment with worktrees. In Actions, we're already on the
+          # PR branch, so we invoke claude -p directly.
+          claude -p "$PROMPT" \
+            --output-format stream-json \
+            --verbose \
+            --max-turns "$MAX_TURNS" \
+            --dangerously-skip-permissions \
+            > "$LOG_FILE" 2>&1
+
+      - name: Upload logs
+        if: steps.extract.outputs.route != 'help' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-logs-${{ steps.extract.outputs.route }}-${{ github.event.comment.id }}
+          path: .claude/logs/*.jsonl
+          retention-days: 30
+
+      - name: Comment on failure
+        if: failure() && steps.extract.outputs.route != 'help'
+        uses: actions/github-script@v7
+        env:
+          ROUTE: ${{ steps.extract.outputs.route }}
+        with:
+          script: |
+            const route = process.env.ROUTE;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: [
+                `**Claude ${route} workflow failed.**`,
+                '',
+                `See the [workflow run logs](${runUrl}) for details.`,
+                '',
+                'Common causes:',
+                '- Task was too complex for the turn limit',
+                '- Tests could not be made to pass',
+                '- Required files or dependencies were missing',
+              ].join('\n')
+            });
