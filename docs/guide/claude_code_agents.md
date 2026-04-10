@@ -10,6 +10,7 @@
 | refactoring-evaluator | Structural improvement evaluation | Read-only | Sonnet | refactoring-methodology | On-demand |
 | test-writer | Generate & run tests | Full access | Sonnet | testing-methodology, testing-scaffolding | On-demand |
 | security-auditor | Vulnerability detection & audit | Read-only | Sonnet | testing-methodology | On-demand |
+| workflow-analyst | Workflow log analysis & improvement | Read-only | Sonnet | workflow-analysis | On-demand |
 
 All custom agents are **on-demand only** — Claude's built-in agents handle routine tasks automatically. Invoke these by name when you need depth (e.g., "use the security-auditor to audit src/auth/").
 
