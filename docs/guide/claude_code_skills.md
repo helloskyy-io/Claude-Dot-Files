@@ -11,6 +11,7 @@
 | refactoring-methodology | WHEN and HOW to refactor safely | Evaluating code structure, executing refactors | Moderate |
 | testing-methodology | HOW to think about testing | Writing, running, fixing, evaluating tests | Frequent |
 | testing-scaffolding | HOW to set up test infrastructure | First-time test setup in a new project | Rare |
+| workflow-analysis | HOW to analyze workflow logs | Reviewing runs, identifying patterns, CPI reports | Moderate |
 
 All skills are **context-aware and load on-demand** — Claude reads the descriptions and loads only what matches the current work. No manual invocation needed.
 

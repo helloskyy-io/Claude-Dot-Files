@@ -267,7 +267,10 @@ Heavy workflow for substantial corrections: when the AI went off the rails, requ
 - [x] **Build refactoring-evaluator agent** — `config/agents/refactoring-evaluator.md`: read-only Sonnet agent for structural improvement evaluation. Distinct from code-reviewer (correctness vs structure).
 - [x] **Trim planner agent** — 212 → 45 lines (79% reduction). Methodology extracted to skills. Agent is now a lean role definition.
 - [x] **Trim architect agent** — 212 → 50 lines (76% reduction). Same pattern — lean role, skills carry the depth.
-- [ ] **Test on a real task** — Run the workflow, evaluate output quality and token usage.
+- [x] **Add `skills:` preloading to all agents** — Critical fix: subagents don't auto-load skills. Added `skills:` frontmatter to all 6 agents so methodology is injected at startup. Verified via Anthropic docs. Evaluated edge cases — current skill assignments are correct, no additions needed.
+- [x] **Test on a real task** — Ran revision-major on "build Phase 5 agent and skill." Results: all 9 stages followed correctly, 44 turns, $1.68 (API-equivalent), 7m 19s. Produced workflow-analyst agent and workflow-analysis skill. PR #5 created with comprehensive review/refactor documentation.
+- [x] **Self-evaluation via logs** — Claude analyzed the run's JSONL log. Found ~35% redundant reads (same files re-read 4x across stages). Applied fix: added "do not re-read files already known" rule to both revision.sh and revision-major.sh. Estimated savings: ~$0.40/run, ~9 turns.
+- [x] **New agent and skill from the test** — `workflow-analyst` agent (read-only, Sonnet, preloads workflow-analysis skill) and `workflow-analysis` skill (pattern categories, confidence scoring, report format) created by the autonomous workflow itself. Validates that the workflow can produce production-quality agents and skills.
 
 #### build-phase workflow — Architect & Build (TODO - primary autonomous path)
 
@@ -358,10 +361,16 @@ This phase deserves its own top-level designation because:
 
 Build the core workflow that analyzes recent logs and produces actionable recommendations.
 
-**Prerequisites:**
-- Phase 4c complete (at least `revision.sh` + `build-phase.sh` built)
-- ~20+ workflow runs logged in `.claude/logs/` for meaningful pattern analysis
-- Phase 4e: some foundational skills exist so the analyzer has context
+**Prerequisites (updated 2026-04-10):**
+- ~~Phase 4c complete (at least `revision.sh` + `build-phase.sh` built)~~ → `revision.sh` + `revision-major.sh` satisfy this. Two workflows generating logs.
+- ~20+ workflow runs logged in `.claude/logs/` for meaningful PATTERN analysis. **Note:** single-run analysis is already proving valuable before hitting this threshold — the manual self-evaluation approach works now.
+- ~~Phase 4e: some foundational skills exist~~ → ✅ 8 skills exist
+
+**Early wins (ahead of schedule):**
+- [x] **`workflow-analyst` agent built** — Created by revision-major's first real test run (PR #5). Read-only Sonnet agent with structured report format, confidence scoring, and metrics. Preloads workflow-analysis skill.
+- [x] **`workflow-analysis` skill built** — Created alongside the agent. Covers pattern categories (inefficiencies, repeated failures, manual corrections, missed opportunities, successes), confidence scoring methodology, analysis process, red flags, and output format.
+- [x] **Manual self-evaluation proven** — First real test: Claude analyzed revision-major's JSONL log and identified ~35% redundant reads ($0.40/run savings). Fix applied to both workflows. The CPI loop works even without `review-runs.sh` formalized.
+- [x] **First empirical data point** — revision-major run: 44 turns, $1.68, 7m19s, 64 tool calls, all 9 stages followed. Baseline established for future comparison.
 
 **Why this matters:**
 - **Real data, not speculation** — improvements come from actual usage patterns
@@ -369,14 +378,13 @@ Build the core workflow that analyzes recent logs and produces actionable recomm
 - **Catches drift** — notices when workflows gradually degrade
 - **Surfaces hidden wins** — "Claude keeps making this manual correction, bake it into the prompt"
 - **Compounds over time** — each cycle makes the next one better
-- **Empirically proven** — tested on a single run (2026-04-09) and got 4 actionable insights from one log file in 42 seconds for $0.14
 
 **Design:**
 
 ```
 Daily workflows run → logs accumulate in .claude/logs/
   ↓
-Review workflow runs (manual)
+Review workflow runs (manual or via workflow-analyst agent)
   ↓
 Claude reads recent logs, looks for patterns
   ↓
@@ -387,12 +395,11 @@ You review and decide what to apply
 Next runs use improved versions
 ```
 
-**Tasks:**
+**Remaining tasks:**
 
-- [ ] **Build `scripts/workflows/review-runs.sh`** — Scans `.claude/logs/` for recent runs (configurable window via `--days N` or `--last N`), feeds them to Claude with an analysis prompt, produces a structured report at `docs/development/reviews/review-YYYY-MM-DD.md`.
-- [ ] **Design the analysis prompt** — What Claude should look for: inefficiencies (unnecessary tool calls, scope creep, redundant work), repeated failures or confusion points, manual corrections that should be automated, opportunities to improve prompts/skills/agents. Include confidence scoring per recommendation.
-- [ ] **Test on real logs** — Once we have ~20+ runs, run it manually. Evaluate if the recommendations are actionable and accurate.
-- [ ] **Capture findings into workflow improvements** — First cycle: manually apply the highest-confidence recommendations. Observe quality improvement on next runs.
+- [ ] **Build `scripts/workflows/review-runs.sh`** — Scans `.claude/logs/` for recent runs (configurable window via `--days N` or `--last N`), invokes the workflow-analyst agent, produces a structured report at `docs/development/reviews/review-YYYY-MM-DD.md`.
+- [ ] **Test on real logs** — Once we have ~20+ runs, run it and evaluate if cross-run pattern analysis adds value beyond single-run analysis.
+- [ ] **Capture findings into workflow improvements** — First formal cycle: apply highest-confidence recommendations, observe quality improvement on next runs.
 
 ### Phase 5b: Automated PR Generation
 
@@ -421,9 +428,9 @@ The continuous improvement loop generates insights that should be captured syste
 
 **Tasks:**
 
-- [ ] **Build a "continuous improvement methodology" skill** — Capture the patterns we learn about what makes workflows good vs bad. This becomes the institutional knowledge of "what we learned about Claude Code workflows."
-- [ ] **Build a "workflow analysis" skill** — Codify how to analyze logs, what patterns to look for, what red flags indicate problems.
-- [ ] **Track resolved patterns** — Maintain a log of patterns identified and resolved so we don't re-litigate them.
+- [x] **Build a "workflow analysis" skill** — `config/skills/workflow-analysis.md`: pattern categories, confidence scoring, analysis process, red flags. Built ahead of schedule by the revision-major test run (PR #5).
+- [ ] **Build a "continuous improvement methodology" skill** — Capture the patterns we learn about what makes workflows good vs bad. This becomes the institutional knowledge of "what we learned about Claude Code workflows." Distinct from workflow-analysis (which is about log reading) — this is about the meta-process of improving the system.
+- [ ] **Track resolved patterns** — Maintain a log of patterns identified and resolved so we don't re-litigate them. Location: `docs/development/reviews/resolved-patterns.md`.
 - [ ] **Pattern → skill pipeline** — When the same recommendation appears across multiple review cycles, automatically suggest promoting it to a permanent skill.
 
 ### Phase 5e: Advanced Self-Improvement (future, careful)

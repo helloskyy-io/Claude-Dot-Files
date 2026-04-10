@@ -267,6 +267,7 @@ Run the full relevant test suite one final time to verify everything passes afte
 Rules:
 - Follow each stage in order — do not skip stages
 - Be thorough — this is a major revision, not a quick fix
+- Do not re-read files whose content you already know and haven't modified since you last read them
 - Fix Critical review findings before submitting
 - Tests must pass before committing
 - Document deviations from the plan
@@ -351,6 +352,7 @@ Run the full relevant test suite one final time to verify everything passes afte
 Rules:
 - Follow each stage in order — do not skip stages
 - Be thorough — this is a major revision, not a quick fix
+- Do not re-read files whose content you already know and haven't modified since you last read them
 - Fix Critical review findings before submitting
 - Tests must pass before committing
 - Document deviations from the plan

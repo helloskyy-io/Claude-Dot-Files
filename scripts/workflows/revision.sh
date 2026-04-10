@@ -242,6 +242,7 @@ Rules:
 - Keep changes minimal and focused on the task
 - Do not add features not requested
 - Do not refactor unrelated code
+- Do not re-read files whose content you already know and haven't modified since you last read them
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, briefly confirm what was done (1-2 sentences max — the commit message and PR description already convey the details)
@@ -282,6 +283,7 @@ Rules:
 - Keep changes minimal and focused on the task
 - Do not add features not requested
 - Do not refactor unrelated code
+- Do not re-read files whose content you already know and haven't modified since you last read them
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, report just the PR URL (the PR description already has the details)
