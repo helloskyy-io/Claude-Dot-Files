@@ -1,6 +1,13 @@
 # Claude Dot Files
 
-Personal Claude Code configuration repo. Syncs selected items from `~/.claude/` across machines (workstations, laptops, and VMs) using targeted symlinks.
+A self-improving Claude Code development environment. Custom agents, autonomous workflows, and a continuous process improvement loop — synced across all your machines.
+
+**What makes this different from a basic dotfiles repo:**
+- **7 custom agents** — architect, planner, code-reviewer, refactoring-evaluator, test-writer, security-auditor, workflow-analyst — each with preloaded methodology skills
+- **8 methodology skills** — planning, architecture decisions, testing, refactoring, documentation structure, project definition, workflow analysis — load on-demand based on context
+- **Autonomous workflows** — bash scripts that run Claude headless in isolated git worktrees, self-review code, and deliver PRs ready for human review
+- **Continuous process improvement** — Claude analyzes its own workflow logs, identifies inefficiencies, and recommends optimizations. The system gets smarter with use.
+- **Cross-device sync** — targeted symlinks deploy everything to workstations, laptops, and VMs via a single `install.sh`
 
 ## Operation
 
@@ -24,21 +31,24 @@ Use custom slash commands for common tasks:
 
 ### Workflow 2: Autonomous (plan → execute → PR)
 
-Claude works independently on a planned task, creates a PR, and notifies you when done. Uses structured workflow scripts in `scripts/workflows/` or direct `claude -p` invocation.
+Claude works independently on a planned task, creates a PR, and notifies you when done. Structured workflow scripts handle worktree isolation, agent invocation, logging, and PR creation.
 
 ```bash
-# Minor revision — the lightweight autonomous workflow
+# Minor revision (5 stages: assess → implement → test → commit → PR)
 ./scripts/workflows/revision.sh "fix the null check in login()"
 ./scripts/workflows/revision.sh "add error handling" --pr 42
 
-# Direct headless invocation (for ad-hoc tasks)
-claude -p "implement feature X, write tests, create a PR" \
-  --max-turns 50 \
-  --dangerously-skip-permissions \
-  -w feature-x
+# Major revision (9 stages: assess → plan → implement → test → review → refactor → resolve → verify → PR)
+./scripts/workflows/revision-major.sh "restructure the auth flow to use sessions"
+./scripts/workflows/revision-major.sh "address all review findings" --pr 5
+
+# Use --verbose to watch Claude work in real-time
+./scripts/workflows/revision-major.sh "update the data layer" --verbose
 ```
 
-See `docs/guide/dual_workflow_model.md` for the full architecture of how the two workflows fit together, including the escalation paths (PR review → PR comments → full re-run).
+Every run saves a JSONL log to `.claude/logs/` for self-diagnosis and continuous improvement analysis.
+
+See `docs/guide/dual_workflow_model.md` for the full architecture including escalation paths (PR review → PR comments → full re-run).
 
 Safety mechanisms apply to both modes:
 - **Permissions** — `settings.json` allow/deny lists for bash commands
