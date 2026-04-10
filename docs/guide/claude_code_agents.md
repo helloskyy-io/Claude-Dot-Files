@@ -2,14 +2,14 @@
 
 ## Our Custom Agents — Quick Reference
 
-| Agent | Role | Tools | Model | Trigger |
-|-------|------|-------|-------|---------|
-| architect | System design & trade-off analysis | Read-only | Opus | On-demand |
-| planner | Detailed implementation plans | Read-only | Opus | On-demand |
-| code-reviewer | Code review with structured findings | Read-only | Sonnet | On-demand |
-| refactoring-evaluator | Structural improvement evaluation | Read-only | Sonnet | On-demand |
-| test-writer | Generate & run tests | Full access | Sonnet | On-demand |
-| security-auditor | Vulnerability detection & audit | Read-only | Sonnet | On-demand |
+| Agent | Role | Tools | Model | Preloaded Skills | Trigger |
+|-------|------|-------|-------|-----------------|---------|
+| architect | System design & trade-off analysis | Read-only | Opus | architecture-decisions, documentation-structure | On-demand |
+| planner | Detailed implementation plans | Read-only | Opus | planning-methodology, documentation-structure | On-demand |
+| code-reviewer | Code review with structured findings | Read-only | Sonnet | testing-methodology | On-demand |
+| refactoring-evaluator | Structural improvement evaluation | Read-only | Sonnet | refactoring-methodology | On-demand |
+| test-writer | Generate & run tests | Full access | Sonnet | testing-methodology, testing-scaffolding | On-demand |
+| security-auditor | Vulnerability detection & audit | Read-only | Sonnet | testing-methodology | On-demand |
 
 All custom agents are **on-demand only** — Claude's built-in agents handle routine tasks automatically. Invoke these by name when you need depth (e.g., "use the security-auditor to audit src/auth/").
 

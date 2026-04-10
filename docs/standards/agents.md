@@ -46,6 +46,23 @@ model: sonnet
 | Field | Purpose |
 |-------|---------|
 | `model` | Which Claude model: `opus`, `sonnet`, or `haiku`. Defaults to parent model |
+| `skills` | List of skill names to preload into the agent's context at startup |
+
+### The `skills:` Field
+
+**Critical for lean agents.** Subagents do NOT automatically load skills from `~/.claude/skills/`. Skills are only preloaded if explicitly listed in the agent's `skills:` field.
+
+Without `skills:`, the agent would need to discover skills via filesystem scanning (Read/Glob), which wastes turns and isn't guaranteed. With `skills:`, the skill content is injected directly into the agent's context at startup.
+
+```yaml
+skills:
+  - planning-methodology
+  - documentation-structure
+```
+
+References skills by `name:` (the `name` field in the skill's frontmatter), not by filename.
+
+**Rule:** Every agent that references a methodology skill in its prompt body MUST list that skill in its `skills:` frontmatter. Otherwise the reference is a broken pointer — the agent says "follow the planning-methodology skill" but can't actually read it.
 
 ## Description Field
 
