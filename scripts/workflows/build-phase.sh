@@ -181,34 +181,9 @@ echo "================================================================"
 echo
 
 # ---------------------------------------------------------------------------
-# run_claude helper (from workflow-scripts standard)
+# run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-run_claude() {
-    local prompt="$1"
-    shift
-    local extra_args=("$@")
-
-    local claude_cmd=(
-        claude -p "$prompt"
-        --output-format stream-json
-        --verbose
-        --max-turns "$MAX_TURNS"
-        --dangerously-skip-permissions
-        "${extra_args[@]}"
-    )
-
-    if $VERBOSE; then
-        "${claude_cmd[@]}" \
-            | tee "$LOG_FILE" \
-            | "$FORMATTER"
-    else
-        "${claude_cmd[@]}" > "$LOG_FILE"
-
-        jq -r 'select(.type == "result") |
-            "Turns: \(.num_turns // "?") · Cost: $\(.total_cost_usd // 0) · Duration: \((.duration_ms // 0) / 1000)s\n\n\(.result // "Complete.")"' \
-            "$LOG_FILE"
-    fi
-}
+source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
 # Shared prompt stages (Stages 1-8 + Rules are identical for both paths)
