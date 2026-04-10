@@ -351,6 +351,7 @@ run_workflow_route() {
 
     if [[ "$workflow_exit" -eq 0 ]]; then
         react_to_comment "$repo" "$comment_id" "hooray"
+        post_pr_comment "$repo" "$pr_number" "✅ Completed ${route_name} workflow. Changes pushed to this PR."
         echo "    ${route_name} completed successfully."
     else
         react_to_comment "$repo" "$comment_id" "-1"
