@@ -20,10 +20,42 @@
 : "${VERBOSE:?run-claude.sh: VERBOSE must be set before sourcing}"
 : "${FORMATTER:?run-claude.sh: FORMATTER must be set before sourcing}"
 
+# ---------------------------------------------------------------------------
+# Pre-run rate limit check
+# Sends a minimal probe request to detect rate limiting before the real run.
+# On non-zero exit, checks stderr for rate-limit signals. Non-rate-limit
+# errors are passed through to let the real run surface them.
+# ---------------------------------------------------------------------------
+check_rate_limit() {
+    local max_attempts=3
+    local wait_seconds=30
+    local attempt=1
+
+    while (( attempt <= max_attempts )); do
+        local probe_stderr
+        probe_stderr=$(claude -p "ping" --max-turns 1 --output-format text 2>&1 >/dev/null) && return 0
+
+        if echo "$probe_stderr" | grep -qi "rate.limit\|throttl\|429\|overloaded"; then
+            echo "⚠ Rate limit detected (attempt ${attempt}/${max_attempts}). Waiting ${wait_seconds}s..." >&2
+            sleep "$wait_seconds"
+            wait_seconds=$((wait_seconds * 2))
+            (( attempt++ ))
+        else
+            # Non-rate-limit error — don't block, let the real run surface it
+            return 0
+        fi
+    done
+
+    echo "Error: still rate-limited after ${max_attempts} attempts. Aborting." >&2
+    return 1
+}
+
 run_claude() {
     local prompt="$1"
     shift
     local extra_args=("$@")
+
+    check_rate_limit || return 1
 
     local claude_cmd=(
         claude -p "$prompt"
