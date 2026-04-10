@@ -202,7 +202,7 @@ The methodology lives in `skills/planning-methodology.md` and loads automaticall
 
 ## Agent Directory Documentation
 
-When you add a new agent, update the quick reference table in `docs/official_documentation/claude_code_agents.md`:
+When you add a new agent, update the quick reference table in `docs/guide/claude_code_agents.md`:
 
 ```markdown
 | Agent | Role | Tools | Model | Trigger |
@@ -223,5 +223,5 @@ When you add a new agent, update the quick reference table in `docs/official_doc
 
 ## Related Documentation
 
-- `docs/official_documentation/claude_code_agents.md` — Full agent architecture guide
+- `docs/guide/claude_code_agents.md` — Full agent architecture guide
 - `docs/standards/skills.md` — Skill standards (for where methodology lives)

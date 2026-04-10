@@ -23,23 +23,25 @@ claude-dot-files/
 │   └── settings.json                      # Global settings, permissions, hooks config
 │
 ├── docs/
-│   ├── development/
+│   ├── architecture/                      # Architectural decisions (ADRs), system design
+│   │   └── README.md                      # Purpose and conventions for ADRs
+│   ├── development/                       # Active work: roadmap, phases, features
 │   │   ├── roadmap.md                     # Phased migration plan (dual-workflow model)
 │   │   └── roadmap_old.md                 # Previous roadmap (pre-rewrite reference)
-│   ├── official_documentation/
+│   ├── guide/                             # User-facing documentation (operating manual)
 │   │   ├── claude_code_agents.md          # Agent architecture, two-tier strategy, quick reference
 │   │   ├── claude_code_headless.md        # Headless mode, worktrees, max-turns, cleanup
 │   │   ├── claude_code_orchestration.md   # 7 orchestration options, coordinator/worker, lessons
 │   │   ├── claude_code_rules.md           # Rules vs CLAUDE.md, when to split
 │   │   ├── claude_code_skills.md          # Skills, context-aware methodology, library building
 │   │   └── dual_workflow_model.md         # Dual flow architecture, Workflow 1/2, Stages A-D
-│   ├── standards/
+│   ├── standards/                         # Conventions and patterns (how we do things)
 │   │   ├── agents.md                      # Standards for writing custom agents
 │   │   ├── hook-scripts.md                # Standards for writing hook scripts
 │   │   ├── skills.md                      # Standards for writing skills
 │   │   ├── slash-commands.md              # Standards for writing slash commands
 │   │   └── workflow-scripts.md            # Standards for autonomous workflow scripts
-│   └── file_structure.txt                 # This file
+│   └── file_structure.txt                 # This file (meta-map of the repo)
 │
 ├── scripts/
 │   └── workflows/                         # Autonomous workflow scripts (Workflow 2)

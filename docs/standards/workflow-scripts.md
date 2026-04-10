@@ -4,7 +4,7 @@ Conventions for writing autonomous workflow scripts in `scripts/workflows/`.
 
 ## Purpose
 
-Workflow scripts implement the autonomous side of the Dual Workflow Model (see `docs/official_documentation/dual_workflow_model.md`). They wrap `claude -p` invocations with structured stages, safety guards, visibility, and logging. These are the scripts you run to hand off work to Claude and come back to a PR.
+Workflow scripts implement the autonomous side of the Dual Workflow Model (see `docs/guide/dual_workflow_model.md`). They wrap `claude -p` invocations with structured stages, safety guards, visibility, and logging. These are the scripts you run to hand off work to Claude and come back to a PR.
 
 ## File Conventions
 
@@ -23,11 +23,13 @@ scripts/
 ```
 
 ### Naming
-Script names match the workflow name exactly, with `.sh` suffix:
-- `revision.sh` → `/revision` workflow
-- `revision-major.sh` → `/revision-major` workflow
-- `build-phase.sh` → `/build-phase` workflow
-- `define-project.sh` → `/define-project` workflow
+Script names use kebab-case matching the workflow's purpose, with `.sh` suffix:
+- `revision.sh` — minor corrections workflow
+- `revision-major.sh` — significant rework workflow
+- `build-phase.sh` — architect and build a phase workflow
+- `define-project.sh` — research and planning workflow
+
+**Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 
 ### Executable
 All workflow scripts must be executable (`chmod +x`).
@@ -262,9 +264,9 @@ Use rules in the prompt to constrain behavior. Autonomous mode uses `--dangerous
 Be explicit about what Claude should NOT do.
 
 ### Single claude -p vs Multiple
-For small workflows (like `/revision`), a single `claude -p` call handles all stages in one session. Context bloat isn't a concern for small tasks.
+For small workflows (like `revision.sh`), a single `claude -p` call handles all stages in one session. Context bloat isn't a concern for small tasks.
 
-For larger workflows (like `/build-phase`), break into multiple `claude -p` calls with state passed via files. This gets fresh context per stage and avoids context bloat.
+For larger workflows (like `build-phase.sh`), break into multiple `claude -p` calls with state passed via files. This gets fresh context per stage and avoids context bloat.
 
 ### Scope Narrowly
 Tell Claude to focus only on the task. Research has shown unscoped exploration ("investigate the codebase") burns tokens for no value.
@@ -440,7 +442,7 @@ Before marking a new workflow script as complete:
 
 ## Related Documentation
 
-- `docs/official_documentation/dual_workflow_model.md` — Architectural context
-- `docs/official_documentation/claude_code_headless.md` — Headless mode details
-- `docs/official_documentation/claude_code_orchestration.md` — Orchestration patterns
+- `docs/guide/dual_workflow_model.md` — Architectural context
+- `docs/guide/claude_code_headless.md` — Headless mode details
+- `docs/guide/claude_code_orchestration.md` — Orchestration patterns
 - `docs/standards/hook-scripts.md` — Hook script conventions (complementary)

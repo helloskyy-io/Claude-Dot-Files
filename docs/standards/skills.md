@@ -234,5 +234,5 @@ Rules go in `CLAUDE.md` or `rules/` — those are always loaded. Skills are for 
 
 ## Related Documentation
 
-- `docs/official_documentation/claude_code_skills.md` — Full skills architecture guide
+- `docs/guide/claude_code_skills.md` — Full skills architecture guide
 - `docs/standards/agents.md` — Agent standards (for where roles live)

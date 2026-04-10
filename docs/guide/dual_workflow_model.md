@@ -72,11 +72,16 @@ Workflow 2 is not a single step. It's a staged flow with clear escalation paths.
 The primary autonomous path. You kick off a single command and get a PR ready for review.
 
 ```bash
-claude -p "/plan-and-build add user authentication with JWT" \
-  --max-turns 100 \
-  --dangerously-skip-permissions \
-  -w auth-feature
+./scripts/workflows/build-phase.sh "add user authentication with JWT"
 ```
+
+Or for a smaller change:
+
+```bash
+./scripts/workflows/revision.sh "fix the null check in login()"
+```
+
+Workflow scripts handle the worktree creation, claude invocation, logging, and PR creation internally — you just provide the task description.
 
 What happens:
 1. Planning pipeline runs (planner → architect → security-auditor → consolidation)
@@ -236,8 +241,11 @@ Given this model, the scope of what we actually build is narrower than it might 
 - Safety hooks (block-dangerous.sh, notify-done.sh)
 
 **For Stage A (Initial Autonomous Run):**
-- `/plan-and-build` command or bash script chaining planner → architect → security → implement → PR
-- Optionally split into `/plan-feature` and `/implement-feature` for granular control
+- Workflow scripts in `scripts/workflows/`:
+  - `revision.sh` — minor corrections (built)
+  - `revision-major.sh` — significant rework (planned)
+  - `build-phase.sh` — architect & build a phase (planned)
+  - `define-project.sh` — research & planning (planned)
 
 **For Stage C (PR Comments):**
 - GitHub Actions workflow file (`.github/workflows/claude-pr-handler.yml`)

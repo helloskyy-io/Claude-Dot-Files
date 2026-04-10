@@ -29,7 +29,7 @@
 #   Every run writes a structured JSONL log to .claude/logs/revision-<ts>.jsonl
 #   regardless of --verbose mode. Use for post-mortem analysis of runs.
 #
-# See docs/official_documentation/dual_workflow_model.md for the full
+# See docs/guide/dual_workflow_model.md for the full
 # architectural context behind this workflow.
 # See docs/standards/workflow-scripts.md for the standard this script follows.
 
@@ -244,7 +244,7 @@ Rules:
 - Do not refactor unrelated code
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
-- At the end, report a one-paragraph summary of what was changed
+- At the end, briefly confirm what was done (1-2 sentences max — the commit message and PR description already convey the details)
 EOF
 )
 
@@ -284,7 +284,7 @@ Rules:
 - Do not refactor unrelated code
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
-- At the end, report the PR URL and a one-paragraph summary
+- At the end, report just the PR URL (the PR description already has the details)
 EOF
 )
 

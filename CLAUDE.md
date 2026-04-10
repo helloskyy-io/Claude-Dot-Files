@@ -17,15 +17,15 @@ claude-dotfiles/
 │   └── skills/                  ← reusable skill definitions (.md files)
 ├── install.sh                   ← creates individual symlinks into ~/.claude/
 ├── docs/
-│   ├── file_structure.txt       ← detailed file structure reference
-│   ├── development/
-│   │   └── roadmap.md           ← phased migration plan
-│   └── official_documentation/  ← reference docs for Claude Code concepts
-│       ├── claude_code_agents.md
-│       ├── claude_code_rules.md
-│       └── claude_code_skills.md
+│   ├── architecture/             ← THE WHY: ADRs, system design
+│   ├── development/              ← THE WHAT: roadmap, phases, features
+│   ├── guide/                    ← OPERATING MANUAL: user-facing docs
+│   ├── standards/                ← THE HOW: conventions and patterns
+│   └── file_structure.txt        ← annotated map of the repo
 └── README.md
 ```
+
+**Documentation layout follows the four-bucket convention** (see `config/skills/documentation-structure.md`). Each bucket answers one question: architecture (WHY), development (WHAT), standards (HOW), guide (USER-FACING).
 
 ## Symlink Strategy
 
@@ -57,12 +57,12 @@ See `docs/development/roadmap.md` for the full phased migration plan. Phases 0-3
 ## Reference Documentation
 
 For detailed documentation on Claude Code concepts:
-- Agent architecture and two-tier strategy: `docs/official_documentation/claude_code_agents.md`
-- Headless mode, worktrees, and autonomous runs: `docs/official_documentation/claude_code_headless.md`
-- Orchestration options and patterns: `docs/official_documentation/claude_code_orchestration.md`
-- Rules and when to use them: `docs/official_documentation/claude_code_rules.md`
-- Skills and context-aware methodology: `docs/official_documentation/claude_code_skills.md`
-- Dual workflow development model: `docs/official_documentation/dual_workflow_model.md`
+- Agent architecture and two-tier strategy: `docs/guide/claude_code_agents.md`
+- Headless mode, worktrees, and autonomous runs: `docs/guide/claude_code_headless.md`
+- Orchestration options and patterns: `docs/guide/claude_code_orchestration.md`
+- Rules and when to use them: `docs/guide/claude_code_rules.md`
+- Skills and context-aware methodology: `docs/guide/claude_code_skills.md`
+- Dual workflow development model: `docs/guide/dual_workflow_model.md`
 
 ## Standards
 

@@ -152,7 +152,7 @@ Dependencies: Phase 1 (for sync)
 - [x] **code-reviewer agent** — `agents/code-reviewer.md`: read-only (Read, Grep, Glob), Sonnet model. Reviews code for bugs, performance, security, style. Reports findings with structured severity levels (Critical/Warning/Info). Tested on this repo.
 - [x] **test-writer agent** — `agents/test-writer.md`: full access (Read, Grep, Glob, Edit, Write, Bash), Sonnet model. Generates tests matching project conventions and runs them to verify. Critical for autonomous workflow loops.
 - [x] **security-auditor agent** — `agents/security-auditor.md`: read-only (Read, Grep, Glob), Sonnet model. OWASP-focused vulnerability detection with exploitation scenarios. Reports clean areas to prove coverage.
-- [x] **Two-tier agent strategy** — Built-in agents handle routine tasks automatically. Custom agents are on-demand only for when depth is needed. Documented in `docs/official_documentation/claude_code_agents.md`.
+- [x] **Two-tier agent strategy** — Built-in agents handle routine tasks automatically. Custom agents are on-demand only for when depth is needed. Documented in `docs/guide/claude_code_agents.md`.
 - [x] **`/review` slash command** — `commands/review.md`: invokes code-reviewer agent on specified scope or recent changes.
 - [x] **`/best-practices` slash command** — `commands/best-practices.md`: mindset primer for industry-standard approaches before tackling a problem.
 - [ ] **Port Cursor workflows to slash commands** — Anything from old cursor_rules or repeated prompts becomes `commands/command-name.md`. Use `$ARGUMENTS` for parameterization.
@@ -246,36 +246,37 @@ Before building more workflows, capture the conventions we've been following so 
 
 ### Phase 4c: Core Workflows (The Four Autonomous Workflows)
 
-Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — these are the four concrete workflows that collectively implement Stage A (Initial Autonomous Run). They vary by scope: from trivial revisions to full project definition.
+Aligned with the [Dual Workflow Model](../guide/dual_workflow_model.md) — these are the four concrete workflows that collectively implement Stage A (Initial Autonomous Run). They vary by scope: from trivial revisions to full project definition.
 
-#### /revision — Minor Corrections ✅ COMPLETE
+#### revision workflow — Minor Corrections ✅ COMPLETE
 
-Lightweight workflow for small, bounded fixes to existing code. Daily utility.
+Lightweight workflow for small, bounded fixes to existing code. Daily utility. Implemented as `scripts/workflows/revision.sh`.
 
 - [x] **Build `scripts/workflows/revision.sh`** — Structured 5-stage single-session workflow (assess → implement → test → commit → push → PR). Supports new branch mode and update-existing-PR mode via `--pr` flag.
 - [x] **Environment checks and safety** — Validates claude/gh/git availability, runs from repo root, timestamped worktree names, 30 max turns, `--dangerously-skip-permissions` for autonomous execution.
-- [x] **Real-world validation** — Used `/revision` itself to generate the initial testing skill (meta-validation). PR created, reviewed, merged, content evaluated. The workflow works.
+- [x] **Real-world validation** — Used the revision workflow itself to generate the initial testing skill (meta-validation). PR created, reviewed, merged, content evaluated. The workflow works.
+- [x] **Visibility infrastructure** — `--verbose` flag streams formatted output live, raw JSONL log saved to `.claude/logs/` for self-diagnosis.
 - [x] **Document in README** — Operation section shows usage examples.
 
-#### /revision-major — Significant Rework (TODO)
+#### revision-major workflow — Significant Rework (TODO)
 
-Heavy workflow for substantial corrections: when the AI went off the rails, requirements were incomplete, stack choice was poor, or architectural changes are needed.
+Heavy workflow for substantial corrections: when the AI went off the rails, requirements were incomplete, stack choice was poor, or architectural changes are needed. Will be implemented as `scripts/workflows/revision-major.sh`.
 
-- [ ] **Build `scripts/workflows/revision-major.sh`** — Structured workflow: assess proposed fixes → plan the fix → engineer implementation → full test suite → code review → refactoring evaluation → engineer picks changes → PR. More thorough than `/revision`, less scope than `/build-phase`.
+- [ ] **Build `scripts/workflows/revision-major.sh`** — Structured workflow: assess proposed fixes → plan the fix → engineer implementation → full test suite → code review → refactoring evaluation → engineer picks changes → PR. More thorough than `revision.sh`, less scope than `build-phase.sh`.
 - [ ] **Test on a real PR** — Create a scenario requiring major rework, run the workflow, evaluate output quality.
 
-#### /build-phase — Architect & Build (TODO - primary autonomous path)
+#### build-phase workflow — Architect & Build (TODO - primary autonomous path)
 
-Main autonomous path. Takes a single epic or phase from a roadmap and builds it. This is the workflow used daily to implement planned work.
+Main autonomous path. Takes a single epic or phase from a roadmap and builds it. This is the workflow used daily to implement planned work. Will be implemented as `scripts/workflows/build-phase.sh`.
 
 - [ ] **Build `scripts/workflows/build-phase.sh`** — Structured workflow: engineer builds the product → test suite at all levels → code review → refactoring evaluation → engineer decides what to implement from suggestions → PR with summary of deviations from plan.
 - [ ] **Experiment with single-pass vs two-pass** — Research suggests single-pass is almost always better. Test empirically with real phase implementation.
 - [ ] **Test on a real phase** — Use a documented phase from a project, run the workflow, evaluate.
 - [ ] **Measure token usage** — Track costs per agent stage, document findings.
 
-#### /define-project — Research & Planning (TODO - end of next week target)
+#### define-project workflow — Research & Planning (TODO - end of next week target)
 
-Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later.
+Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later. Will be implemented as `scripts/workflows/define-project.sh`.
 
 - [ ] **Build `scripts/workflows/define-project.sh`** — Structured workflow: requirements gathering → initial roadmap → tech stack selection → phased approach breakdown → epic definition per phase → dependency identification → security audit → detailed roadmap revision → PR with summary.
 - [ ] **Build supporting skills** — Planning methodology skill, requirements gathering skill, architecture standards skill. These are where the depth lives.
@@ -284,7 +285,7 @@ Heaviest workflow. For new projects or major features — produces the foundatio
 
 ### Phase 4d: PR Comment Integration (GitHub Actions)
 
-The Stage C escalation path. When PR comments aren't enough for `/revision`, escalate to the autonomous path via GitHub Actions.
+The Stage C escalation path. When PR comments aren't enough for the revision workflow, escalate to the autonomous path via GitHub Actions.
 
 - [ ] **Install Claude GitHub App** — `claude /install-github-app` to connect Claude to this repo and any others we want.
 - [ ] **Create GitHub Actions workflow** — `.github/workflows/claude-pr-handler.yml` that triggers on `@claude` mentions in PR comments. Routes to the correct workflow based on trigger keyword (`@claude revision`, `@claude revision-major`).
@@ -295,13 +296,28 @@ The Stage C escalation path. When PR comments aren't enough for `/revision`, esc
 
 Build skills incrementally based on what workflows need. Not a one-time phase — this is continuous.
 
+**Testing skills:**
 - [x] **Testing methodology skill** — `config/skills/testing-methodology.md`: how to think about testing (principles, scoping, discovery, red flags, fixing failures). Activates during daily test work.
 - [x] **Testing scaffolding skill** — `config/skills/testing-scaffolding.md`: how to set up test infrastructure in new projects. Narrow trigger, activates rarely.
-- [ ] **Planning methodology skill** — For use by `/define-project` and `/build-phase` workflows.
-- [ ] **Architecture standards skill** — Design principles, ADR format, trade-off analysis.
-- [ ] **Requirements gathering skill** — How to elicit and structure requirements.
+
+**Documentation skills:**
+- [x] **Documentation structure skill** — `config/skills/documentation-structure.md`: foundation skill defining four-bucket layout (architecture/development/standards/guide), document templates (ADR, phase, standards, guide), file naming conventions, cross-references, file_structure.txt maintenance. Other skills reference this for document placement and format.
+- [x] **Rename `official_documentation/` → `guide/`** — Following the four-bucket convention. All references updated across 9 files.
+- [x] **Establish `docs/architecture/`** — Empty directory with README explaining purpose and when to write ADRs.
+
+**Planning skills (in progress):**
+- [ ] **Planning methodology skill** — `config/skills/planning-methodology.md`: how to plan features, break down work, identify dependencies and risks. Most frequently activated planning skill. For daily planning work.
+- [ ] **Architecture decisions skill** — `config/skills/architecture-decisions.md`: when to write an ADR, trade-off analysis, reversibility considerations, how to research alternatives. Moderate activation (when making design choices).
+- [ ] **Project definition skill** — `config/skills/project-definition.md`: initial project setup, requirements gathering, tech stack selection, initial roadmap structure. Rare activation (only for new projects via `define-project.sh`).
+
+**Other skills (build as gaps emerge):**
 - [ ] **Code review methodology skill** — Beyond the existing code-reviewer agent, detailed review criteria and severity definitions.
+- [ ] **Refactoring methodology skill** — For use by `revision-major.sh` workflow. When to refactor vs leave alone.
 - [ ] **Additional skills as gaps emerge** — Driven by real workflow failures and corrections.
+
+**Agent review (after planning skills complete):**
+- [ ] **Evaluate planner agent** — Check for overlap with new planning skills. Trim agent to lean role definition if methodology has been extracted to skills.
+- [ ] **Evaluate architect agent** — Same check: does it still need the detail it has, or should it be leaner with skills carrying the depth?
 
 ### Phase 4f: Graduation Evaluation (deferred)
 
@@ -336,7 +352,7 @@ This phase deserves its own top-level designation because:
 Build the core workflow that analyzes recent logs and produces actionable recommendations.
 
 **Prerequisites:**
-- Phase 4c complete (at least `/revision` + `/build-phase` built)
+- Phase 4c complete (at least `revision.sh` + `build-phase.sh` built)
 - ~20+ workflow runs logged in `.claude/logs/` for meaningful pattern analysis
 - Phase 4e: some foundational skills exist so the analyzer has context
 

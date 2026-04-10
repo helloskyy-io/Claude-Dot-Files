@@ -38,14 +38,14 @@ claude -p "implement feature X, write tests, create a PR" \
   -w feature-x
 ```
 
-See `docs/official_documentation/dual_workflow_model.md` for the full architecture of how the two workflows fit together, including the escalation paths (PR review → PR comments → full re-run).
+See `docs/guide/dual_workflow_model.md` for the full architecture of how the two workflows fit together, including the escalation paths (PR review → PR comments → full re-run).
 
 Safety mechanisms apply to both modes:
 - **Permissions** — `settings.json` allow/deny lists for bash commands
 - **PreToolUse hook** — `block-dangerous.sh` denies destructive patterns
 - **Stop hook** — `notify-done.sh` fires a desktop notification when done
 
-For detailed documentation on agents, rules, skills, and headless mode, see `docs/official_documentation/`.
+For detailed documentation on agents, rules, skills, and headless mode, see `docs/guide/`.
 
 ## What Gets Synced
 

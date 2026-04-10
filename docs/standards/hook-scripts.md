@@ -179,4 +179,4 @@ Verify both directions:
 
 ## Related Documentation
 
-- `docs/official_documentation/dual_workflow_model.md` — Why hooks are the safety layer for autonomous mode
+- `docs/guide/dual_workflow_model.md` — Why hooks are the safety layer for autonomous mode
