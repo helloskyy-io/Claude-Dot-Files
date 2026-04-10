@@ -326,6 +326,43 @@ Stale plans are worse than no plans — they mislead.
 ### Plan Without a Verification Stage
 Tasks that build things but don't verify they work. Leads to "done" code that doesn't actually function.
 
+## Operational Considerations
+
+Plans that produce running software must address how it gets deployed and stays running. These are the questions that always come up in review — address them in the plan to prevent rework.
+
+### Deployment Strategy
+- **Where do the files live?** Specify exact paths. If introducing a new directory convention (e.g., `scripts/services/`), call it out as new.
+- **How does it get to the machine?** Install script? Ansible? Manual? Symlinks?
+- **Does `install.sh` need updating?** If the feature adds new targets that should deploy across machines, the install script must know.
+- **Does it need permissions or privileges?** Executable bit? Systemd enablement? Cron entries?
+
+### Configuration Management
+- **What values might change between environments?** Polling intervals, target repos, timeouts, feature toggles.
+- **Don't hardcode what should be configurable.** Use a config file for anything an operator might want to change without editing code.
+- **Convention:** For services, use a config file (YAML, env, or JSON) in a standard location. Document all config options with defaults.
+- **For simple scripts:** Environment variables or flags are fine. Config files are for services with many knobs.
+
+### Naming for Extensibility
+- **Will there be more of these later?** If the feature is the first of a kind (first service, first monitor, first integration), name it for the category, not the specific instance.
+- **Bad:** `pr-watcher` (too specific — what about issue watching?)
+- **Good:** `gh-monitor` (category-level — PR comments become one handler among many)
+- **Rule:** If you can imagine a second instance of this thing, name the first one broadly enough to accommodate the second.
+
+### Scalability Considerations
+- **Multi-machine:** If deployed on multiple machines, will they conflict? (Both polling the same comments?)
+- **Multi-repo:** Does it handle one repo or many?
+- **Backlog:** What happens if the machine is off when work arrives?
+- **Rate limiting:** Does the external service have API rate limits?
+- **Concurrency:** What happens if two tasks arrive simultaneously?
+
+Don't solve all of these in v1 — but **acknowledge them** in the plan so the design doesn't prevent future scaling.
+
+### Insufficient Context Handling
+- **What happens when the builder (human or AI) doesn't have enough context to proceed?**
+- For autonomous workflows: the AI should ask for clarification (post a comment, flag in output) rather than guess.
+- For plans: if a task can't be completed without additional information, mark it as blocked and state what's needed.
+- **Rule:** Guessing is worse than asking. A clarifying question takes 30 seconds. A wrong implementation takes hours to undo.
+
 ## Integration With Other Skills
 
 ### documentation-structure
@@ -400,6 +437,7 @@ Tasks that build things but don't verify they work. Leads to "done" code that do
 
 ## Summary Checklist
 
+**Core planning:**
 - [ ] Is this work significant enough to plan? (Not trivial)
 - [ ] Do I understand the goal clearly?
 - [ ] Have I listed functional requirements?
@@ -411,4 +449,12 @@ Tasks that build things but don't verify they work. Leads to "done" code that do
 - [ ] For larger plans: are phases independently deliverable?
 - [ ] Is the plan in the right location per documentation-structure?
 - [ ] Does the plan include verification tasks (tests)?
-- [ ] Would a fresh reader understand this plan without asking questions?
+- [ ] Would a fresh reader (or Claude) execute this without asking questions?
+
+**Operational (for features that produce running software):**
+- [ ] Where do the output files live? Are paths explicit?
+- [ ] How does it deploy? Is install.sh updated if needed?
+- [ ] What's configurable vs hardcoded? Is there a config file if needed?
+- [ ] Is the name extensible? (Will there be more of these?)
+- [ ] Are scalability concerns acknowledged? (Multi-machine, multi-repo, backlog, rate limits)
+- [ ] What happens when context is insufficient? (Clarify, don't guess)

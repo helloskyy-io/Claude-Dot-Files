@@ -70,6 +70,7 @@ For contributing to this repo, follow the standards:
 - For agent standards, refer to `docs/standards/agents.md`
 - For hook script standards, refer to `docs/standards/hook-scripts.md`
 - For skill standards, refer to `docs/standards/skills.md`
+- For service standards, refer to `docs/standards/services.md`
 - For slash command standards, refer to `docs/standards/slash-commands.md`
 - For workflow script standards, refer to `docs/standards/workflow-scripts.md`
 

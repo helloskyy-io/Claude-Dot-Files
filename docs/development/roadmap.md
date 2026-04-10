@@ -297,19 +297,21 @@ Heaviest workflow. For new projects or major features — produces the foundatio
 - [x] **Supporting skills already built** — Planning methodology, architecture decisions, project definition, and documentation structure skills all exist. No new skills needed.
 - [ ] **Test on a real project** — Define a real small project from scratch, evaluate output quality.
 
-### Phase 4d: PR Comment Automation (Local Poller) — REDESIGNED
+### Phase 4d: PR Comment Automation (Local GitHub Monitor) — REDESIGNED
 
-The Stage C escalation path. A local systemd timer polls GitHub for `@claude` PR comments and launches workflows locally using Max subscription.
+The Stage C escalation path. A local systemd timer (`gh-monitor`) polls GitHub for `@claude` PR comments and launches workflows locally using Max subscription. Zero API costs, zero security exposure.
 
-**Redesign rationale (2026-04-10):** Original GitHub Actions approach (PR #10) was abandoned because: (1) Actions runners require Claude API billing, not Max subscription; (2) security exposure on a Tailscale-hardened workstation is unacceptable; (3) local polling achieves the same UX at zero additional cost. See closed PR #10 for the original approach.
+**Redesign rationale (2026-04-10):** Original GitHub Actions approach (PR #10, closed) was abandoned because: (1) Actions runners require Claude API billing, not Max subscription; (2) security exposure on a Tailscale-hardened workstation is unacceptable; (3) local polling achieves the same UX at zero additional cost.
 
 Plan document: `docs/development/phases/phase-4d-github-actions-integration.md`
+Service standard: `docs/standards/services.md`
 
-- [ ] **Build `scripts/services/pr-watcher.sh`** — Bash poller using `gh` CLI to check for `@claude` comments on open PRs. No Claude invocation for polling (zero tokens). Routes to revision.sh, revision-major.sh, or help response based on comment content.
-- [ ] **Reaction-based deduplication** — 👀 (processing), ✅ (done), ❌ (failed) reactions on comments prevent double-processing.
-- [ ] **Systemd timer integration** — `pr-watcher.service` + `pr-watcher.timer` for 5-minute polling. Survives reboots.
-- [ ] **Concurrency guard** — Skip comments if a workflow is already running for that PR.
-- [ ] **Test the flow** — Create a test PR, leave a `@claude` comment, verify the poller picks it up and pushes a fix.
+- [ ] **Build `scripts/services/gh-monitor.sh`** — Bash poller using `gh` CLI. No Claude invocation for polling (zero tokens). Routes `@claude` comments to revision.sh, revision-major.sh, or help response. Posts clarifying comment when context is insufficient.
+- [ ] **Configuration** — `gh-monitor.config.env` with documented variables: repos to monitor, concurrency limits, route enablement, dry run mode, backlog limits.
+- [ ] **Reaction-based deduplication** — 👀 (processing), ✅ (done), ❌ (failed), 💬 (clarification needed). First reactor wins (multi-machine safe).
+- [ ] **Systemd integration** — `gh-monitor.service` (oneshot) + `gh-monitor.timer` (5 min, Persistent=true). Survives reboots, catches up on backlog.
+- [ ] **Update install.sh** — Add `--with-services` flag for opt-in service deployment.
+- [ ] **Test the flow** — Dry run first, then real test: post `@claude fix X` on a PR, verify poller picks it up and pushes a fix.
 
 ### Phase 4e: Skills Library (ongoing, built from experience)
 

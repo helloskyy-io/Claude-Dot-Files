@@ -43,6 +43,7 @@ claude-dot-files/
 │   ├── standards/                         # Conventions and patterns (how we do things)
 │   │   ├── agents.md                      # Standards for writing custom agents
 │   │   ├── hook-scripts.md                # Standards for writing hook scripts
+│   │   ├── services.md                    # Standards for long-running services and daemons
 │   │   ├── skills.md                      # Standards for writing skills
 │   │   ├── slash-commands.md              # Standards for writing slash commands
 │   │   └── workflow-scripts.md            # Standards for autonomous workflow scripts
