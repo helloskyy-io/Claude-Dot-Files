@@ -51,7 +51,9 @@ claude-dot-files/
 ├── scripts/
 │   └── workflows/                         # Autonomous workflow scripts (Workflow 2)
 │       ├── lib/
-│       │   └── format-stream.sh           # Shared stream-json formatter for live display
+│       │   ├── format-stream.sh           # Shared stream-json formatter for live display
+│       │   └── run-claude.sh              # Shared run_claude helper (verbose/quiet invocation)
+│       ├── review-runs.sh                 # REVIEW-RUNS workflow — CPI log analysis and reporting
 │       ├── revision.sh                    # REVISION workflow — minor corrections to existing code
 │       └── revision-major.sh              # REVISION-MAJOR workflow — significant rework (9 stages)
 │

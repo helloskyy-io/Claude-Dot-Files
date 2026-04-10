@@ -98,20 +98,12 @@ done
 # ---------------------------------------------------------------------------
 # Environment checks
 # ---------------------------------------------------------------------------
-if ! command -v claude &>/dev/null; then
-    echo "Error: 'claude' CLI not found in PATH" >&2
-    exit 1
-fi
-
-if ! command -v gh &>/dev/null; then
-    echo "Error: 'gh' CLI not found in PATH" >&2
-    exit 1
-fi
-
-if ! command -v jq &>/dev/null; then
-    echo "Error: 'jq' not found in PATH" >&2
-    exit 1
-fi
+for cmd in claude gh jq; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "Error: '$cmd' not found in PATH" >&2
+        exit 1
+    fi
+done
 
 if ! git rev-parse --show-toplevel &>/dev/null; then
     echo "Error: not inside a git repository" >&2
@@ -160,44 +152,9 @@ echo "================================================================"
 echo
 
 # ---------------------------------------------------------------------------
-# Helper: run claude with raw JSONL logging and optional live formatting
+# run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-# Always writes raw JSONL to $LOG_FILE. Raw format is lossless and can be:
-#   - Read by Claude for self-diagnosis when runs go sideways
-#   - Piped through the formatter on-demand for human reading
-#   - Queried with jq for metrics and post-mortem analysis
-#
-# In verbose mode, also streams formatted output live to the terminal.
-# In quiet mode, prints just the final result summary at the end.
-run_claude() {
-    local prompt="$1"
-    shift
-    local extra_args=("$@")
-
-    # Common claude invocation — always uses stream-json
-    local claude_cmd=(
-        claude -p "$prompt"
-        --output-format stream-json
-        --verbose
-        --max-turns "$MAX_TURNS"
-        --dangerously-skip-permissions
-        "${extra_args[@]}"
-    )
-
-    if $VERBOSE; then
-        # Pipeline: claude → tee raw log → formatter → terminal
-        "${claude_cmd[@]}" \
-            | tee "$LOG_FILE" \
-            | "$FORMATTER"
-    else
-        # Quiet mode: write raw log, then print final result summary
-        "${claude_cmd[@]}" > "$LOG_FILE"
-
-        jq -r 'select(.type == "result") |
-            "Turns: \(.num_turns // "?") · Cost: $\(.total_cost_usd // 0) · Duration: \((.duration_ms // 0) / 1000)s\n\n\(.result // "Complete.")"' \
-            "$LOG_FILE"
-    fi
-}
+source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
 # Workflow execution
