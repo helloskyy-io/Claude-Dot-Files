@@ -1,0 +1,12 @@
+[Unit]
+Description=GitHub monitor for @claude PR comment automation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/%u/Repos/claude-dot-files/scripts/services/gh-monitor.sh
+Environment=HOME=/home/%u
+
+[Install]
+WantedBy=default.target

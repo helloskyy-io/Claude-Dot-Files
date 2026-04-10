@@ -1,2 +1,5 @@
 # Claude Code project-local files
 .claude/
+
+# Service config (may contain machine-specific settings)
+scripts/services/*.config.env

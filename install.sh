@@ -10,9 +10,11 @@ set -euo pipefail
 # --- Parse flags --------------------------------------------------------------
 
 INTERACTIVE=true
+INSTALL_SERVICES=false
 for arg in "$@"; do
     case "$arg" in
         --non-interactive|-n) INTERACTIVE=false ;;
+        --with-services) INSTALL_SERVICES=true ;;
         *) echo "Unknown option: $arg"; exit 1 ;;
     esac
 done
@@ -212,9 +214,71 @@ if [ "$backup_needed" = true ]; then
     echo "  Backups saved to: $BACKUP_DIR"
 fi
 
+# --- Step 4: Services (opt-in) -----------------------------------------------
+
+if [ "$INSTALL_SERVICES" = true ]; then
+    echo ""
+    echo "Step 4: Services"
+    echo ""
+
+    SYSTEMD_DIR="$HOME/.config/systemd/user"
+    SERVICES_DIR="$REPO_DIR/scripts/services"
+    CONFIG_ENV="$SERVICES_DIR/gh-monitor.config.env"
+    CONFIG_EXAMPLE="$SERVICES_DIR/gh-monitor.config.env.example"
+
+    mkdir -p "$SYSTEMD_DIR"
+
+    # Symlink service and timer units
+    for unit in gh-monitor.service gh-monitor.timer; do
+        if [ -L "$SYSTEMD_DIR/$unit" ] && [ "$(readlink -f "$SYSTEMD_DIR/$unit")" = "$(readlink -f "$SERVICES_DIR/$unit")" ]; then
+            info "$unit — already linked"
+        else
+            ln -sf "$SERVICES_DIR/$unit" "$SYSTEMD_DIR/$unit"
+            info "$unit → linked"
+        fi
+    done
+
+    # Copy config example if no config exists
+    if [ ! -f "$CONFIG_ENV" ] && [ -f "$CONFIG_EXAMPLE" ]; then
+        cp "$CONFIG_EXAMPLE" "$CONFIG_ENV"
+        info "gh-monitor.config.env — created from example (edit as needed)"
+    elif [ -f "$CONFIG_ENV" ]; then
+        info "gh-monitor.config.env — already exists"
+    fi
+
+    # Reload systemd and enable timer
+    systemctl --user daemon-reload
+    info "systemd daemon reloaded"
+
+    if systemctl --user enable gh-monitor.timer 2>&1; then
+        info "gh-monitor.timer enabled"
+    else
+        warn "Failed to enable gh-monitor.timer — check systemd user session"
+    fi
+
+    if systemctl --user start gh-monitor.timer 2>&1; then
+        info "gh-monitor.timer started"
+    else
+        warn "Failed to start gh-monitor.timer — check systemd user session"
+    fi
+
+    echo ""
+    echo "  Service management commands:"
+    echo "    systemctl --user status gh-monitor.timer    # check timer"
+    echo "    systemctl --user status gh-monitor.service  # check last run"
+    echo "    journalctl --user -u gh-monitor.service -f  # follow logs"
+    echo "    systemctl --user stop gh-monitor.timer      # stop polling"
+    echo "    systemctl --user disable gh-monitor.timer   # disable on boot"
+fi
+
 echo ""
-echo "Next steps:"
-echo "  • Edit config/CLAUDE.md with your global instructions"
-echo "  • Edit config/settings.json with your global settings"
-echo "  • Run 'claude' to verify everything works"
+if [ "$all_good" = true ]; then
+    echo "Next steps:"
+    echo "  • Edit config/CLAUDE.md with your global instructions"
+    echo "  • Edit config/settings.json with your global settings"
+    if [ "$INSTALL_SERVICES" = false ]; then
+        echo "  • Run './install.sh --with-services' to set up the GitHub monitor"
+    fi
+    echo "  • Run 'claude' to verify everything works"
+fi
 echo ""
