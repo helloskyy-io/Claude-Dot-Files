@@ -1,5 +1,5 @@
 # Claude Code project-local files
 .claude/
 
-# Service config (may contain machine-specific settings)
+# Legacy service config (replaced by config.yaml — kept for backwards compat)
 scripts/services/*.config.env

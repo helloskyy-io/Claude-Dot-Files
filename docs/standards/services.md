@@ -12,12 +12,12 @@ Examples: GitHub comment pollers, log rotation, scheduled CPI analysis, health c
 
 ### Location
 ```
+config.yaml                            # centralized config (committed, no secrets)
 scripts/
 ├── services/
 │   ├── gh-monitor.sh              # the service script
 │   ├── gh-monitor.service          # systemd unit file
-│   ├── gh-monitor.timer            # systemd timer file
-│   └── gh-monitor.config.env       # config file (not committed if contains secrets)
+│   └── gh-monitor.timer            # systemd timer file
 └── workflows/                      # workflow scripts (different concern)
 ```
 
@@ -33,66 +33,75 @@ File naming:
 - Service script: `<name>.sh`
 - Systemd service: `<name>.service`
 - Systemd timer: `<name>.timer`
-- Config: `<name>.config.env` (or `.yaml` for complex config)
+- Config: section in `config.yaml` at repo root
 
 ### Executable
 Service scripts must be executable (`chmod +x`). Systemd unit files should NOT be executable.
 
 ## Configuration
 
-### Config File Pattern
-Services with configurable behavior use an environment file sourced at startup.
+### Centralized config.yaml
+All service configuration lives in `config.yaml` at the repo root. Each service gets its own top-level YAML section with kebab-case keys.
 
-**Location:** `scripts/services/<name>.config.env`
+**Location:** `config.yaml` (committed — no secrets)
 
 **Format:**
-```bash
-# gh-monitor configuration
-# -----------------------------------------------
-
-# Repos to monitor (space-separated)
-GH_MONITOR_REPOS="helloskyy-io/Claude-Dot-Files"
-
-# Polling interval is controlled by the systemd timer, not here
-
-# Concurrency: max simultaneous workflows
-GH_MONITOR_MAX_CONCURRENT=1
-
-# Route enablement
-GH_MONITOR_ENABLE_REVISION=true
-GH_MONITOR_ENABLE_REVISION_MAJOR=true
-GH_MONITOR_ENABLE_HELP=true
-
-# Workflow max turns (override defaults)
-GH_MONITOR_REVISION_MAX_TURNS=30
-GH_MONITOR_REVISION_MAJOR_MAX_TURNS=75
-
-# Dry run mode (check for comments but don't run workflows)
-GH_MONITOR_DRY_RUN=false
+```yaml
+# gh-monitor — GitHub monitor for @claude PR comment automation
+gh-monitor:
+  repos: "helloskyy-io/Claude-Dot-Files"
+  max-concurrent: 1
+  enable-revision: true
+  enable-revision-major: true
+  enable-help: true
+  dry-run: false
+  backlog-days: 7
 ```
 
 ### Config Rules
-- **Prefix all variables** with the service name in SCREAMING_SNAKE_CASE to avoid collisions
-- **Document every variable** with a comment explaining what it does
-- **Provide sensible defaults** in the script itself — the config file overrides, not defines
-- **Never commit secrets** — if the config contains tokens or keys, add it to `.gitignore` and document the required variables
-- **Ship a `.config.env.example`** with all variables documented but secrets blanked
+- **One section per service** — use the service name as the top-level YAML key
+- **Use kebab-case keys** — YAML convention, not SCREAMING_SNAKE_CASE
+- **Document every field** with a YAML comment explaining what it does
+- **Provide sensible defaults** in the script itself — config.yaml overrides, not defines
+- **Never put secrets in config.yaml** — it is committed to the repo
+- **Environment variables override config.yaml** — allows machine-specific overrides without editing the file
 
 ### Loading Config
+Services read from `config.yaml` using `yq` (requires [mikefarah/yq](https://github.com/mikefarah/yq)):
+
 ```bash
-# Source config file if it exists (all vars have defaults in the script)
-CONFIG_FILE="${SCRIPT_DIR}/<name>.config.env"
+CONFIG_FILE="${REPO_ROOT}/config.yaml"
+
+# Helper: read a value from config.yaml, returns empty string if key is missing/null
+# Usage: cfg <section> <key>
+cfg() {
+    local section="$1" key="$2"
+    local val
+    val=$(yq -r ".${section}.${key}" "$CONFIG_FILE" 2>/dev/null || echo "")
+    # yq prints "null" for missing keys
+    if [[ "$val" == "null" ]]; then echo ""; else echo "$val"; fi
+}
+
 if [[ -f "$CONFIG_FILE" ]]; then
-    source "$CONFIG_FILE"
+    MY_VAR="${MY_VAR:-$(cfg my-service some-key)}"
 fi
 
-# Defaults (applied if not set by config)
-: "${GH_MONITOR_REPOS:=""}"
-: "${GH_MONITOR_MAX_CONCURRENT:=1}"
-: "${GH_MONITOR_DRY_RUN:=false}"
+# Defaults (applied if not set by config or environment)
+: "${MY_VAR:=default-value}"
 ```
 
-The `: "${VAR:=default}"` pattern sets the default only if the variable is unset or empty.
+**Precedence:** environment variable > config.yaml > script default.
+
+### Prerequisites
+Services that read `config.yaml` must check for `yq` at startup alongside `gh` and `jq`:
+```bash
+for cmd in gh jq yq; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "Error: '$cmd' not found in PATH" >&2
+        exit 1
+    fi
+done
+```
 
 ## Systemd Integration
 
@@ -185,8 +194,9 @@ Services that process items need to track what's been processed.
 
 **For the GitHub monitor:** Use emoji reactions on comments as state markers:
 - 👀 (eyes) — processing started
-- ✅ (check) — completed successfully
-- ❌ (cross) — failed
+- 🎉 (hooray) — completed successfully
+- 👎 (-1) — failed
+- 💬 (confused) — clarification requested
 
 This is idempotent — checking "does this comment already have a 👀 reaction?" is a simple API call.
 
@@ -248,4 +258,4 @@ When the machine comes back online after being off:
 - **Don't crash on single-item failures** — log and continue
 - **Don't guess when context is insufficient** — ask for clarification
 - **User services, not root** — principle of least privilege
-- **Secrets never committed** — use `.config.env.example` pattern
+- **Secrets never committed** — config.yaml is committed (no secrets); use env vars for sensitive values

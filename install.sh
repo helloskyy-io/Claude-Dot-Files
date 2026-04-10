@@ -139,6 +139,41 @@ else
     fi
 fi
 
+# Check for yq (needed by services to read config.yaml)
+if command -v yq &>/dev/null; then
+    info "yq is installed"
+else
+    if [ "$INTERACTIVE" = false ]; then
+        error "yq is not installed. Exiting."
+        exit 1
+    fi
+    echo ""
+    warn "yq is not installed (needed by services to read config.yaml)."
+    yq_arch=""
+    case "$(uname -m)" in
+        x86_64)  yq_arch="amd64" ;;
+        aarch64) yq_arch="arm64" ;;
+        armv7l)  yq_arch="arm" ;;
+        *)       yq_arch="" ;;
+    esac
+    echo "  Install from: https://github.com/mikefarah/yq"
+    if [[ -n "$yq_arch" ]]; then
+        echo "  Or let this installer download the ${yq_arch} binary."
+        read -rp "  Install yq now via wget? [y/N] " response
+    else
+        echo "  Unsupported architecture $(uname -m) — install yq manually."
+        read -rp "  Press Enter to continue without yq... " response
+        response="n"
+    fi
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${yq_arch}"
+        sudo chmod +x /usr/local/bin/yq
+        info "yq installed."
+    else
+        warn "Skipping yq — you'll need it before running services."
+    fi
+fi
+
 # --- Step 2: Create symlinks --------------------------------------------------
 
 echo ""
@@ -223,8 +258,7 @@ if [ "$INSTALL_SERVICES" = true ]; then
 
     SYSTEMD_DIR="$HOME/.config/systemd/user"
     SERVICES_DIR="$REPO_DIR/scripts/services"
-    CONFIG_ENV="$SERVICES_DIR/gh-monitor.config.env"
-    CONFIG_EXAMPLE="$SERVICES_DIR/gh-monitor.config.env.example"
+    CONFIG_YAML="$REPO_DIR/config.yaml"
 
     mkdir -p "$SYSTEMD_DIR"
 
@@ -238,12 +272,11 @@ if [ "$INSTALL_SERVICES" = true ]; then
         fi
     done
 
-    # Copy config example if no config exists
-    if [ ! -f "$CONFIG_ENV" ] && [ -f "$CONFIG_EXAMPLE" ]; then
-        cp "$CONFIG_EXAMPLE" "$CONFIG_ENV"
-        info "gh-monitor.config.env — created from example (edit as needed)"
-    elif [ -f "$CONFIG_ENV" ]; then
-        info "gh-monitor.config.env — already exists"
+    # Verify config.yaml exists
+    if [ -f "$CONFIG_YAML" ]; then
+        info "config.yaml — found (edit gh-monitor settings there)"
+    else
+        warn "config.yaml not found at repo root — gh-monitor will use defaults"
     fi
 
     # Reload systemd and enable timer

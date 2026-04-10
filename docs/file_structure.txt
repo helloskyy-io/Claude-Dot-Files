@@ -50,6 +50,10 @@ claude-dot-files/
 │   └── file_structure.txt                 # This file (meta-map of the repo)
 │
 ├── scripts/
+│   ├── services/                          # Long-running background services
+│   │   ├── gh-monitor.sh                  # GitHub monitor — polls for @claude PR comments
+│   │   ├── gh-monitor.service             # systemd oneshot unit file
+│   │   └── gh-monitor.timer               # systemd timer (5-minute interval)
 │   └── workflows/                         # Autonomous workflow scripts (Workflow 2)
 │       ├── lib/
 │       │   ├── format-stream.sh           # Shared stream-json formatter for live display
@@ -60,6 +64,7 @@ claude-dot-files/
 │
 ├── .gitignore                             # Git ignore rules
 ├── CLAUDE.md                              # Project-level instructions for this repo
+├── config.yaml                            # Centralized service/workflow configuration
 ├── install.sh                             # Creates individual symlinks into ~/.claude/
 ├── LICENSE                                # MIT license
 └── README.md                              # Repo documentation
