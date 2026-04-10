@@ -7,6 +7,7 @@
 | architect | System design & trade-off analysis | Read-only | Opus | On-demand |
 | planner | Detailed implementation plans | Read-only | Opus | On-demand |
 | code-reviewer | Code review with structured findings | Read-only | Sonnet | On-demand |
+| refactoring-evaluator | Structural improvement evaluation | Read-only | Sonnet | On-demand |
 | test-writer | Generate & run tests | Full access | Sonnet | On-demand |
 | security-auditor | Vulnerability detection & audit | Read-only | Sonnet | On-demand |
 

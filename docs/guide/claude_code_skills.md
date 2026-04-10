@@ -1,5 +1,21 @@
 # Claude Code Skills
 
+## Our Skills — Quick Reference
+
+| Skill | Domain | Activates When | Frequency |
+|-------|--------|---------------|-----------|
+| documentation-structure | WHERE docs go, templates, naming | Creating or organizing docs | Moderate |
+| planning-methodology | HOW to plan features and phases | Task breakdown, dependency mapping, phasing | Frequent |
+| architecture-decisions | HOW to make and document decisions | Trade-off analysis, writing ADRs | Moderate |
+| project-definition | HOW to define a new project | Greenfield projects, initial setup | Rare |
+| refactoring-methodology | WHEN and HOW to refactor safely | Evaluating code structure, executing refactors | Moderate |
+| testing-methodology | HOW to think about testing | Writing, running, fixing, evaluating tests | Frequent |
+| testing-scaffolding | HOW to set up test infrastructure | First-time test setup in a new project | Rare |
+
+All skills are **context-aware and load on-demand** — Claude reads the descriptions and loads only what matches the current work. No manual invocation needed.
+
+---
+
 ## What Are Skills?
 
 Skills are context-aware instruction sets that Claude loads on-demand when the work matches the skill's description. Think of them as **procedure manuals that only open when relevant** — they don't burn tokens sitting in every conversation, but they're there when Claude needs them.

@@ -258,12 +258,16 @@ Lightweight workflow for small, bounded fixes to existing code. Daily utility. I
 - [x] **Visibility infrastructure** — `--verbose` flag streams formatted output live, raw JSONL log saved to `.claude/logs/` for self-diagnosis.
 - [x] **Document in README** — Operation section shows usage examples.
 
-#### revision-major workflow — Significant Rework (TODO)
+#### revision-major workflow — Significant Rework ✅ COMPLETE
 
-Heavy workflow for substantial corrections: when the AI went off the rails, requirements were incomplete, stack choice was poor, or architectural changes are needed. Will be implemented as `scripts/workflows/revision-major.sh`.
+Heavy workflow for substantial corrections: when the AI went off the rails, requirements were incomplete, stack choice was poor, or architectural changes are needed. Implemented as `scripts/workflows/revision-major.sh`.
 
-- [ ] **Build `scripts/workflows/revision-major.sh`** — Structured workflow: assess proposed fixes → plan the fix → engineer implementation → full test suite → code review → refactoring evaluation → engineer picks changes → PR. More thorough than `revision.sh`, less scope than `build-phase.sh`.
-- [ ] **Test on a real PR** — Create a scenario requiring major rework, run the workflow, evaluate output quality.
+- [x] **Build `scripts/workflows/revision-major.sh`** — 9-stage workflow: assess → plan → implement → test → code review (via code-reviewer agent) → refactoring evaluation (via refactoring-evaluator agent) → resolve (decide what to apply) → verify (final test pass) → submit PR. 75 max turns. Supports new branch and existing PR update via `--pr` flag.
+- [x] **Build refactoring-methodology skill** — `config/skills/refactoring-methodology.md`: when to refactor vs leave alone, evaluating suggestions (accept/reject/defer), safe refactoring patterns, the three-line rule, measuring impact.
+- [x] **Build refactoring-evaluator agent** — `config/agents/refactoring-evaluator.md`: read-only Sonnet agent for structural improvement evaluation. Distinct from code-reviewer (correctness vs structure).
+- [x] **Trim planner agent** — 212 → 45 lines (79% reduction). Methodology extracted to skills. Agent is now a lean role definition.
+- [x] **Trim architect agent** — 212 → 50 lines (76% reduction). Same pattern — lean role, skills carry the depth.
+- [ ] **Test on a real task** — Run the workflow, evaluate output quality and token usage.
 
 #### build-phase workflow — Architect & Build (TODO - primary autonomous path)
 
@@ -310,14 +314,17 @@ Build skills incrementally based on what workflows need. Not a one-time phase �
 - [x] **Architecture decisions skill** — `config/skills/architecture-decisions.md`: when to write an ADR, reversibility spectrum (two-way/medium/one-way doors), trade-off analysis methodology, research process, and red flags. Moderate activation (when making design choices within existing projects).
 - [x] **Project definition skill** — `config/skills/project-definition.md`: 11-stage process for defining a new project from scratch — requirements gathering, stakeholders & success criteria, tech stack selection, high-level architecture, phase breakdown, epic identification, dependency mapping, initial security review, roadmap, documentation layout, CLAUDE.md setup. Scales from very small (<2 weeks) to large (1+ years) projects. Rare activation (only for greenfield projects via `define-project.sh`).
 
+**Refactoring skills:**
+- [x] **Refactoring methodology skill** — `config/skills/refactoring-methodology.md`: when to refactor vs leave alone, evaluating suggestions (accept/reject/defer), safe refactoring patterns, dangerous patterns, measuring impact. Pairs with refactoring-evaluator agent.
+
 **Other skills (build as gaps emerge):**
 - [ ] **Code review methodology skill** — Beyond the existing code-reviewer agent, detailed review criteria and severity definitions.
-- [ ] **Refactoring methodology skill** — For use by `revision-major.sh` workflow. When to refactor vs leave alone.
 - [ ] **Additional skills as gaps emerge** — Driven by real workflow failures and corrections.
 
-**Agent review (after planning skills complete):**
-- [ ] **Evaluate planner agent** — Check for overlap with new planning skills. Trim agent to lean role definition if methodology has been extracted to skills.
-- [ ] **Evaluate architect agent** — Same check: does it still need the detail it has, or should it be leaner with skills carrying the depth?
+**Agent review:**
+- [x] **Trimmed planner agent** — 212 → 45 lines. Methodology extracted to planning-methodology skill. Agent is lean role definition referencing the skill.
+- [x] **Trimmed architect agent** — 212 → 50 lines. Same pattern. References architecture-decisions skill.
+- [x] **Built refactoring-evaluator agent** — New read-only Sonnet agent for structural evaluation. Distinct from code-reviewer (correctness vs structure).
 
 ### Phase 4f: Graduation Evaluation (deferred)
 

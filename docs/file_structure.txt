@@ -21,6 +21,7 @@ claude-dot-files/
 │   │   ├── documentation-structure.md     # Four-bucket layout, document templates, naming conventions
 │   │   ├── planning-methodology.md        # How to plan features, break down work, identify risks
 │   │   ├── project-definition.md          # 11-stage process for defining new projects from scratch
+│   │   ├── refactoring-methodology.md     # When and how to refactor safely, evaluating suggestions
 │   │   ├── testing-methodology.md         # How to approach testing — principles, scoping, decision-making
 │   │   └── testing-scaffolding.md         # How to set up test infrastructure in new projects
 │   ├── CLAUDE.md                          # Global instructions for ALL projects
@@ -51,7 +52,8 @@ claude-dot-files/
 │   └── workflows/                         # Autonomous workflow scripts (Workflow 2)
 │       ├── lib/
 │       │   └── format-stream.sh           # Shared stream-json formatter for live display
-│       └── revision.sh                    # REVISION workflow — minor corrections to existing code
+│       ├── revision.sh                    # REVISION workflow — minor corrections to existing code
+│       └── revision-major.sh              # REVISION-MAJOR workflow — significant rework (9 stages)
 │
 ├── .gitignore                             # Git ignore rules
 ├── CLAUDE.md                              # Project-level instructions for this repo
