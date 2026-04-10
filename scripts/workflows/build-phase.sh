@@ -23,14 +23,16 @@
 #
 # Usage:
 #   ./build-phase.sh path/to/plan.md
+#   ./build-phase.sh path/to/plan.md "additional context here"
+#   ./build-phase.sh path/to/plan.md "additional context here" --verbose
 #   ./build-phase.sh path/to/plan.md --pr <pr-number>
-#   ./build-phase.sh path/to/plan.md --verbose
 #
 # Examples:
 #   ./build-phase.sh docs/development/phase-4-autonomous.md
 #   ./build-phase.sh docs/development/features/webhook-handler.md
+#   ./build-phase.sh docs/development/features/webhook-handler.md "focus on error handling paths"
 #   ./build-phase.sh docs/development/roadmap.md --verbose
-#   ./build-phase.sh docs/development/phase-3.md --pr 12
+#   ./build-phase.sh docs/development/phase-3.md "skip the optional metrics work" --pr 12
 #
 # Flags:
 #   --pr <number>   Update an existing PR instead of creating a new one
@@ -61,7 +63,11 @@ MAX_TURNS=150
 # ---------------------------------------------------------------------------
 if [[ $# -lt 1 ]]; then
     cat <<EOF
-Usage: $(basename "$0") path/to/plan.md [options]
+Usage: $(basename "$0") path/to/plan.md ["context"] [options]
+
+Arguments:
+  path/to/plan.md   Path to the plan document (required)
+  "context"         Additional context injected into the prompt (optional)
 
 Options:
   --pr <number>   Update an existing PR instead of creating a new one
@@ -69,8 +75,9 @@ Options:
 
 Examples:
   $(basename "$0") docs/development/phase-4-autonomous.md
-  $(basename "$0") docs/development/features/webhook-handler.md --verbose
+  $(basename "$0") docs/development/features/webhook-handler.md "focus on error handling paths"
   $(basename "$0") docs/development/phase-3.md --pr 12
+  $(basename "$0") docs/development/roadmap.md "skip the optional metrics work" --verbose
 
 This workflow reads a plan document and builds what it describes.
 For corrections to existing code, use revision.sh or revision-major.sh instead.
@@ -80,6 +87,13 @@ fi
 
 PLAN_PATH="$1"
 shift
+
+# Optional context argument: second positional arg if it doesn't start with -
+CONTEXT=""
+if [[ $# -gt 0 && ! "$1" =~ ^- ]]; then
+    CONTEXT="$1"
+    shift
+fi
 
 PR_NUMBER=""
 VERBOSE=false
@@ -168,6 +182,9 @@ echo "================================================================"
 echo "  BUILD-PHASE WORKFLOW"
 echo "================================================================"
 echo "  Plan file   : ${PLAN_PATH}"
+if [[ -n "$CONTEXT" ]]; then
+    echo "  Context     : ${CONTEXT}"
+fi
 if [[ -n "$PR_NUMBER" ]]; then
     echo "  Target      : PR #${PR_NUMBER} (updating existing)"
 else
@@ -184,6 +201,18 @@ echo
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
 source "${SCRIPT_DIR}/lib/run-claude.sh"
+
+# ---------------------------------------------------------------------------
+# Context block (injected into prompt only when context is provided)
+# ---------------------------------------------------------------------------
+CONTEXT_BLOCK=""
+if [[ -n "$CONTEXT" ]]; then
+    CONTEXT_BLOCK="
+--- additional context ---
+${CONTEXT}
+--- end additional context ---
+"
+fi
 
 # ---------------------------------------------------------------------------
 # Shared prompt stages (Stages 1-8 + Rules are identical for both paths)
@@ -287,7 +316,7 @@ if [[ -n "$PR_NUMBER" ]]; then
 This workflow builds a planned phase or feature from a plan document. Follow all 9 stages thoroughly.
 
 Plan document: ${PLAN_PATH}
-
+${CONTEXT_BLOCK}
 ${STAGES_1_TO_8}
 
 ## Stage 9: SUBMIT
@@ -313,7 +342,7 @@ else
 This workflow builds a planned phase or feature from a plan document. Follow all 9 stages thoroughly.
 
 Plan document: ${PLAN_PATH}
-
+${CONTEXT_BLOCK}
 ${STAGES_1_TO_8}
 
 ## Stage 9: SUBMIT
