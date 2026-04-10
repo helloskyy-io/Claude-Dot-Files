@@ -204,7 +204,7 @@ react_to_comment() {
 post_pr_comment() {
     local repo="$1"
     local pr_number="$2"
-    local body="$3"
+    local body="🤖 **[gh-monitor]** $3"
 
     if [[ "$GH_MONITOR_DRY_RUN" == "true" ]]; then
         echo "  [DRY RUN] Would post comment on PR #${pr_number}"
