@@ -289,15 +289,26 @@ Main autonomous path. Takes a plan document path as input and implements what it
 - [x] **Extract `run_claude` to shared lib** — `scripts/workflows/lib/run-claude.sh` sourced by all 4 workflow scripts. Expects LOG_FILE, MAX_TURNS, VERBOSE, FORMATTER as environment variables with guards. Eliminates ~75 lines of duplication (PR #8).
 - [x] **Stream formatter** — `scripts/workflows/lib/format-stream.sh` for live verbose output. Color-coded, handles tool calls, agent spawns, thinking indicators, cost/turn summary.
 
-#### define-project workflow — Research & Planning (TODO)
+#### plan-new workflow (formerly define-project) — Greenfield Project Definition ✅ COMPLETE
 
-Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later. Will be implemented as `scripts/workflows/define-project.sh`.
+Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later. Implemented as `scripts/workflows/define-project.sh` (rename to `plan-new.sh` pending).
 
-- [ ] **Build `scripts/workflows/define-project.sh`** — Structured workflow: requirements gathering → initial roadmap → tech stack selection → phased approach breakdown → epic definition per phase → dependency identification → security audit → detailed roadmap revision → PR with summary.
-- [x] **Supporting skills already built** — Planning methodology, architecture decisions, project definition, and documentation structure skills all exist. No new skills needed.
+- [x] **Build `scripts/workflows/define-project.sh`** — 14-stage workflow: requirements → stakeholders → tech stack → architecture → phases → epics → dependencies → security → roadmap → documentation → architect review → planner review → resolve → submit. 225 max turns. Built by revision-major.sh (PR #15).
+- [x] **Supporting skills already built** — Planning methodology, architecture decisions, project definition, and documentation structure skills all exist.
+- [x] **Review stages added** — Architect and planner agents review the planning output before submission (Stages 11-13). Added via gh-monitor `@claude revision-major:` comment on PR #15. First successful gh-monitor live test.
+- [ ] **Rename to `plan-new.sh`** — Align with the naming convention: `plan-*` prefix for planning workflows.
 - [ ] **Test on a real project** — Define a real small project from scratch, evaluate output quality.
 
-### Phase 4d: PR Comment Automation (Local GitHub Monitor) — REDESIGNED
+#### plan-revision workflow — Revise Existing Planning Docs (TODO)
+
+The most-used daily planning workflow. For revising roadmaps, adding phase docs, updating requirements, creating ADRs, restructuring epics — anything that modifies planning documentation within an existing project. Uses planning agents (architect + planner), NOT code agents.
+
+- [ ] **Build `scripts/workflows/plan-revision.sh`** — 7-stage workflow: assess → plan → revise → architect review → planner review → resolve → submit. Uses architect and planner agents for review (NOT code-reviewer or refactoring-evaluator). Sources shared lib/run-claude.sh.
+- [x] **Supporting agents already built** — architect (preloads architecture-decisions, documentation-structure) and planner (preloads planning-methodology, documentation-structure) exist and have the right skills.
+- [x] **Supporting skills already built** — planning-methodology, architecture-decisions, documentation-structure all exist.
+- [ ] **Test on a real planning task** — Use it to plan a Phase 5 section into a detailed epic.
+
+### Phase 4d: PR Comment Automation (Local GitHub Monitor) ✅ COMPLETE
 
 The Stage C escalation path. A local systemd timer (`gh-monitor`) polls GitHub for `@claude` PR comments and launches workflows locally using Max subscription. Zero API costs, zero security exposure.
 
@@ -312,7 +323,7 @@ Service standard: `docs/standards/services.md`
 - [x] **Systemd integration** — `gh-monitor.service` (oneshot) + `gh-monitor.timer` (5 min, Persistent=true, OnBootSec=2min). Survives reboots, catches up on backlog.
 - [x] **Update install.sh** — `--with-services` flag for opt-in deployment. Symlinks units, reloads systemd, enables timer. Idempotent. Architecture-aware yq installation (amd64/arm64/arm).
 - [x] **Deploy and enable** — Ran `install.sh --with-services` on workstation. yq installed (architecture-aware amd64), systemd units symlinked, timer enabled and started. Verified active with `systemctl --user status gh-monitor.timer`. Polling every 5 minutes.
-- [ ] **Live test** — Post `@claude revision: fix X` on a real PR, verify poller picks it up within 5 minutes and pushes a fix. Test organically on next workflow PR.
+- [x] **Live test** — Posted `@claude revision-major:` comment on PR #15. gh-monitor detected it within one polling cycle, parsed the route correctly, fetched the PR branch, created a worktree, and launched `revision-major.sh --pr 15`. Full autonomous loop confirmed. Success comment posting also verified (PR #16 added the feature). Note: comments post as the user's GitHub account (gh CLI auth), not a bot — prefixed with 🤖 **[gh-monitor]** to distinguish from human comments.
 
 ### Phase 4e: Skills Library (ongoing, built from experience)
 
@@ -335,9 +346,9 @@ Build skills incrementally based on what workflows need. Not a one-time phase �
 **Refactoring skills:**
 - [x] **Refactoring methodology skill** — `config/skills/refactoring-methodology.md`: when to refactor vs leave alone, evaluating suggestions (accept/reject/defer), safe refactoring patterns, dangerous patterns, measuring impact. Pairs with refactoring-evaluator agent.
 
-**Other skills (build as gaps emerge):**
-- [ ] **Code review methodology skill** — Beyond the existing code-reviewer agent, detailed review criteria and severity definitions.
-- [ ] **Additional skills as gaps emerge** — Driven by real workflow failures and corrections.
+**Future skills (CPI-driven, build only when gaps are identified):**
+
+No remaining skill gaps identified. Code-reviewer agent is performing well without a dedicated methodology skill (CPI finding #5 confirms). Future skills will be driven by CPI analysis — when the data shows a recurring gap, that becomes a skill. This is Phase 5 territory, not Phase 4.
 
 **Agent review:**
 - [x] **Trimmed planner agent** — 212 → 45 lines. Methodology extracted to planning-methodology skill. Agent is lean role definition referencing the skill.
