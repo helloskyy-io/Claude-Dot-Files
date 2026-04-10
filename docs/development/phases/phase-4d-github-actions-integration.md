@@ -35,10 +35,10 @@ PR comments become an iteration mechanism: comment `@claude fix X` → poller de
 │     d. React ✅ or ❌ based on result  │
 │     e. Post error comment if failed    │
 └────────────────────────────────────────┘
-         │ routes to:
+         │ routes to (explicit prefix required):
          ▼
 ┌────────────────────────────────────────┐
-│  @claude fix X                         │
+│  @claude revision: fix X               │
 │  → revision.sh "fix X" --pr N          │
 │                                        │
 │  @claude revision-major: restructure Y │
@@ -48,8 +48,8 @@ PR comments become an iteration mechanism: comment `@claude fix X` → poller de
 │  @claude help                          │
 │  → gh pr comment (post help text)      │
 │                                        │
-│  @claude (too vague)                   │
-│  → gh pr comment (ask for details)     │
+│  @claude <unrecognized route>          │
+│  → gh pr comment (ask for valid cmd)   │
 └────────────────────────────────────────┘
 ```
 
@@ -64,11 +64,12 @@ PR comments become an iteration mechanism: comment `@claude fix X` → poller de
 - Systemd timer runs `gh-monitor.sh` on a configurable interval (default: 5 min)
 - Poller checks all configured repos for open PRs with `@claude` comments
 - Reaction-based deduplication prevents processing the same comment twice
-- Routes comments to the correct workflow:
-  - `@claude <description>` → `revision.sh "<description>" --pr N`
+- Routes comments to the correct workflow based on explicit prefix (no default route):
+  - `@claude revision: <description>` → `revision.sh "<description>" --pr N`
   - `@claude revision-major: <description>` → `revision-major.sh "<description>" --pr N`
   - `@claude help` → post a help comment listing available commands and syntax
-- When task description is too vague or unclear, post a clarifying comment instead of guessing
+  - `@claude <anything without a recognized route>` → post a clarifying comment asking for a valid command prefix
+- Every command requires an explicit route — no implicit defaults, no guessing
 - React with emoji to track state: 👀 (processing), ✅ (done), ❌ (failed), 💬 (clarification needed)
 - Post error comment on PR if a workflow fails
 - JSONL logs captured per workflow standard (from the workflow scripts themselves)

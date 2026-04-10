@@ -280,9 +280,9 @@ Main autonomous path. Takes a plan document path as input and implements what it
 - [x] **Plan-driven input** — Takes a plan document path, not free-text. Extracts scope and success criteria from the plan, verifies against them at the end. Path validation with sanitization regex for heredoc injection prevention.
 - [x] **Shared prompt extraction** — Stages 1-8 and Rules extracted into shell variables, eliminating ~80 lines of duplication between new-branch and existing-PR paths.
 - [x] **Shared lib integration** — Updated to source `lib/run-claude.sh` (PR #9), matching the pattern of all other workflow scripts.
-- [ ] **Add optional context argument** — Second positional arg after plan path for injecting additional instructions (e.g., "follow all standards in /docs/standards/"). In progress (PR pending).
+- [x] **Add optional context argument** — Second positional arg after plan path for injecting additional instructions. Backwards compatible. Delimiter-wrapped to prevent prompt confusion. (PR #11, merged).
 - [x] **Single-pass architecture** — Starting with single-session. Will refactor to multi-stage if context bloats on large builds.
-- [ ] **Test on a real phase** — First real test running now (Phase 4d GitHub Actions plan). Evaluate output quality and token usage.
+- [ ] **Test on a real phase** — First real test running now (Phase 4d gh-monitor plan). Evaluate output quality and token usage.
 
 #### Shared Workflow Infrastructure ✅ COMPLETE
 
