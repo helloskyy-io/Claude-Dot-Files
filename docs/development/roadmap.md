@@ -305,10 +305,10 @@ Build skills incrementally based on what workflows need. Not a one-time phase �
 - [x] **Rename `official_documentation/` → `guide/`** — Following the four-bucket convention. All references updated across 9 files.
 - [x] **Establish `docs/architecture/`** — Empty directory with README explaining purpose and when to write ADRs.
 
-**Planning skills (in progress):**
-- [ ] **Planning methodology skill** — `config/skills/planning-methodology.md`: how to plan features, break down work, identify dependencies and risks. Most frequently activated planning skill. For daily planning work.
-- [ ] **Architecture decisions skill** — `config/skills/architecture-decisions.md`: when to write an ADR, trade-off analysis, reversibility considerations, how to research alternatives. Moderate activation (when making design choices).
-- [ ] **Project definition skill** — `config/skills/project-definition.md`: initial project setup, requirements gathering, tech stack selection, initial roadmap structure. Rare activation (only for new projects via `define-project.sh`).
+**Planning skills:**
+- [x] **Planning methodology skill** — `config/skills/planning-methodology.md`: how to plan features, break down work, identify dependencies and risks. Most frequently activated planning skill. Covers when to plan vs when to just start, the 7-stage planning process, task templates, dependency mapping, risk identification, success criteria, and phase-level work organization.
+- [x] **Architecture decisions skill** — `config/skills/architecture-decisions.md`: when to write an ADR, reversibility spectrum (two-way/medium/one-way doors), trade-off analysis methodology, research process, and red flags. Moderate activation (when making design choices within existing projects).
+- [x] **Project definition skill** — `config/skills/project-definition.md`: 11-stage process for defining a new project from scratch — requirements gathering, stakeholders & success criteria, tech stack selection, high-level architecture, phase breakdown, epic identification, dependency mapping, initial security review, roadmap, documentation layout, CLAUDE.md setup. Scales from very small (<2 weeks) to large (1+ years) projects. Rare activation (only for greenfield projects via `define-project.sh`).
 
 **Other skills (build as gaps emerge):**
 - [ ] **Code review methodology skill** — Beyond the existing code-reviewer agent, detailed review criteria and severity definitions.

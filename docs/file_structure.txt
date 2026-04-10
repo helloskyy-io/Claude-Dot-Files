@@ -17,6 +17,10 @@ claude-dot-files/
 │   │   └── notify-done.sh                 # Stop: desktop notification via notify-send
 │   ├── rules/                             # Global rules (.md files, currently empty)
 │   ├── skills/                            # Reusable skill definitions (.md files)
+│   │   ├── architecture-decisions.md      # When to write ADRs, trade-off analysis, reversibility
+│   │   ├── documentation-structure.md     # Four-bucket layout, document templates, naming conventions
+│   │   ├── planning-methodology.md        # How to plan features, break down work, identify risks
+│   │   ├── project-definition.md          # 11-stage process for defining new projects from scratch
 │   │   ├── testing-methodology.md         # How to approach testing — principles, scoping, decision-making
 │   │   └── testing-scaffolding.md         # How to set up test infrastructure in new projects
 │   ├── CLAUDE.md                          # Global instructions for ALL projects
