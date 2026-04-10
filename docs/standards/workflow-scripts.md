@@ -15,7 +15,8 @@ All workflow scripts live in `scripts/workflows/`. Helper libraries go in `scrip
 scripts/
 └── workflows/
     ├── lib/
-    │   └── format-stream.sh    # shared stream-json formatter
+    │   ├── format-stream.sh    # shared stream-json formatter
+    │   └── run-claude.sh       # shared run_claude helper function
     ├── revision.sh             # minor corrections
     ├── revision-major.sh       # significant rework
     ├── build-phase.sh          # architect and build
@@ -32,10 +33,10 @@ Script names use kebab-case matching the workflow's purpose, with `.sh` suffix:
 **Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 
 ### Executable
-All workflow scripts must be executable (`chmod +x`).
+All workflow scripts must be executable (`chmod +x`). Sourced library files in `lib/` should NOT be marked executable — they are not standalone scripts.
 
 ### Shebang
-Always use `#!/usr/bin/env bash`.
+Always use `#!/usr/bin/env bash`. Sourced library files in `lib/` should omit the shebang.
 
 ### Safety Pragma
 Every workflow script starts with:
@@ -102,40 +103,23 @@ The shared formatter at `scripts/workflows/lib/format-stream.sh` reads JSONL fro
 
 ### 4. Standard run_claude Helper
 
-Every workflow script should define a `run_claude` helper function that encapsulates the verbose/quiet logic:
+Every workflow script must source the shared `run_claude` helper from `scripts/workflows/lib/run-claude.sh`. This avoids duplicating the verbose/quiet invocation logic across every workflow script.
+
+The shared library requires four environment variables to be set before sourcing:
+- `LOG_FILE` — path to the JSONL log file for this run
+- `MAX_TURNS` — maximum conversation turns for claude
+- `VERBOSE` — `true` or `false` for live streaming
+- `FORMATTER` — path to the format-stream.sh formatter script
 
 ```bash
-run_claude() {
-    local prompt="$1"
-    shift
-    local extra_args=("$@")
+# Source the shared run_claude helper (requires LOG_FILE, MAX_TURNS, VERBOSE, FORMATTER)
+source "${SCRIPT_DIR}/lib/run-claude.sh"
+```
 
-    if $VERBOSE; then
-        # Live stream to both log and formatter
-        claude -p "$prompt" \
-            --output-format stream-json \
-            --verbose \
-            --max-turns "$MAX_TURNS" \
-            --dangerously-skip-permissions \
-            "${extra_args[@]}" \
-            | tee "$LOG_FILE" \
-            | "$FORMATTER"
-    else
-        # Quiet mode: capture log, then print final result
-        claude -p "$prompt" \
-            --output-format stream-json \
-            --verbose \
-            --max-turns "$MAX_TURNS" \
-            --dangerously-skip-permissions \
-            "${extra_args[@]}" \
-            > "$LOG_FILE"
+Usage is the same as before — call `run_claude` with a prompt and optional extra args:
 
-        # Extract final result summary
-        jq -r 'select(.type == "result") |
-            "Turns: \(.num_turns // "?") · Cost: $\(.total_cost_usd // 0) · Duration: \((.duration_ms // 0) / 1000)s\n\n\(.result // "Complete.")"' \
-            "$LOG_FILE"
-    fi
-}
+```bash
+run_claude "$PROMPT" -w "$WORKTREE_NAME"
 ```
 
 ### 5. Environment Checks
@@ -373,23 +357,8 @@ echo "  Verbose    : ${VERBOSE}"
 echo "  Log file   : ${LOG_FILE}"
 echo "================================================================"
 
-# ---- run_claude helper ----
-run_claude() {
-    local prompt="$1"
-    shift
-    if $VERBOSE; then
-        claude -p "$prompt" --output-format stream-json --verbose \
-            --max-turns "$MAX_TURNS" --dangerously-skip-permissions "$@" \
-            | tee "$LOG_FILE" | "$FORMATTER"
-    else
-        claude -p "$prompt" --output-format stream-json --verbose \
-            --max-turns "$MAX_TURNS" --dangerously-skip-permissions "$@" \
-            > "$LOG_FILE"
-        jq -r 'select(.type == "result") |
-            "Turns: \(.num_turns) · Cost: $\(.total_cost_usd) · Duration: \((.duration_ms) / 1000)s\n\n\(.result // "Complete.")"' \
-            "$LOG_FILE"
-    fi
-}
+# ---- run_claude helper (shared library) ----
+source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---- Workflow logic ----
 PROMPT=$(cat <<EOF
