@@ -283,6 +283,9 @@ If `gh`, `claude`, `jq`, or the formatter isn't available, fail immediately with
 ### Never Write to main
 Workflow scripts write to worktree branches, not `main` directly. The only way changes reach `main` is through PR review and merge.
 
+### Test Fixture Placement
+Test fixtures must be placed in `/tmp/` or `tests/fixtures/`, never in `.claude/` paths. The `block-dangerous.sh` hook monitors `.claude/` paths and will trigger permission denials on writes there, causing spurious test failures. This applies to any test that creates temporary files, mock configs, or sample data.
+
 ## Template
 
 A minimal workflow script skeleton:

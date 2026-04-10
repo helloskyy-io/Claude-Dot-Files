@@ -281,6 +281,7 @@ Rules:
 - Follow each stage in order — do not skip stages
 - Be thorough — this is a full build, not a quick fix
 - Do not re-read files whose content you already know and haven't modified since you last read them
+- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Fix Critical review findings before submitting
 - Tests must pass before committing
 - Document deviations from the plan

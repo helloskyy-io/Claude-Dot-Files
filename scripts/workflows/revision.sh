@@ -200,6 +200,7 @@ Rules:
 - Do not add features not requested
 - Do not refactor unrelated code
 - Do not re-read files whose content you already know and haven't modified since you last read them
+- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, briefly confirm what was done (1-2 sentences max — the commit message and PR description already convey the details)
@@ -241,6 +242,7 @@ Rules:
 - Do not add features not requested
 - Do not refactor unrelated code
 - Do not re-read files whose content you already know and haven't modified since you last read them
+- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, report just the PR URL (the PR description already has the details)
