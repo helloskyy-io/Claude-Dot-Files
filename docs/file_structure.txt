@@ -37,11 +37,14 @@ claude-dot-files/
 │   │   ├── agents.md                      # Standards for writing custom agents
 │   │   ├── hook-scripts.md                # Standards for writing hook scripts
 │   │   ├── skills.md                      # Standards for writing skills
-│   │   └── slash-commands.md              # Standards for writing slash commands
+│   │   ├── slash-commands.md              # Standards for writing slash commands
+│   │   └── workflow-scripts.md            # Standards for autonomous workflow scripts
 │   └── file_structure.txt                 # This file
 │
 ├── scripts/
 │   └── workflows/                         # Autonomous workflow scripts (Workflow 2)
+│       ├── lib/
+│       │   └── format-stream.sh           # Shared stream-json formatter for live display
 │       └── revision.sh                    # REVISION workflow — minor corrections to existing code
 │
 ├── .gitignore                             # Git ignore rules

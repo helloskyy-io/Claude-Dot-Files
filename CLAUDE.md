@@ -71,6 +71,7 @@ For contributing to this repo, follow the standards:
 - For hook script standards, refer to `docs/standards/hook-scripts.md`
 - For skill standards, refer to `docs/standards/skills.md`
 - For slash command standards, refer to `docs/standards/slash-commands.md`
+- For workflow script standards, refer to `docs/standards/workflow-scripts.md`
 
 ## Rules
 

@@ -12,19 +12,34 @@
 # Usage:
 #   ./revision.sh "description of what to revise"
 #   ./revision.sh "description of what to revise" --pr <pr-number>
+#   ./revision.sh "description" --verbose
 #
 # Examples:
 #   ./revision.sh "fix the null check in login()"
 #   ./revision.sh "add error handling to the webhook handler"
 #   ./revision.sh "correct the typo in the README header" --pr 42
+#   ./revision.sh "update the import path" --verbose
 #
-# The first form creates a new branch and PR.
-# The second form updates an existing PR by checking out its branch.
+# Flags:
+#   --pr <number>   Update an existing PR instead of creating a new one
+#   --verbose, -v   Stream formatted Claude output live (shows tool calls,
+#                   responses, and final token/cost summary)
+#
+# Logging:
+#   Every run writes a structured JSONL log to .claude/logs/revision-<ts>.jsonl
+#   regardless of --verbose mode. Use for post-mortem analysis of runs.
 #
 # See docs/official_documentation/dual_workflow_model.md for the full
 # architectural context behind this workflow.
+# See docs/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Script location (for finding lib/format-stream.sh)
+# ---------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -36,14 +51,19 @@ MAX_TURNS=30
 # ---------------------------------------------------------------------------
 if [[ $# -lt 1 ]]; then
     cat <<EOF
-Usage: $(basename "$0") "description of what to revise" [--pr <number>]
+Usage: $(basename "$0") "description of what to revise" [options]
+
+Options:
+  --pr <number>   Update an existing PR instead of creating a new one
+  --verbose, -v   Stream formatted Claude output live
 
 Examples:
   $(basename "$0") "fix the null check in login()"
   $(basename "$0") "add error handling" --pr 42
+  $(basename "$0") "update the README" --verbose
 
 The first form creates a new branch and PR.
-The second form updates an existing PR.
+With --pr, the workflow updates the existing PR's branch.
 EOF
     exit 1
 fi
@@ -52,6 +72,8 @@ DESCRIPTION="$1"
 shift
 
 PR_NUMBER=""
+VERBOSE=false
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --pr)
@@ -61,6 +83,10 @@ while [[ $# -gt 0 ]]; do
             fi
             PR_NUMBER="$2"
             shift 2
+            ;;
+        --verbose|-v)
+            VERBOSE=true
+            shift
             ;;
         *)
             echo "Error: unknown option '$1'" >&2
@@ -82,8 +108,18 @@ if ! command -v gh &>/dev/null; then
     exit 1
 fi
 
+if ! command -v jq &>/dev/null; then
+    echo "Error: 'jq' not found in PATH" >&2
+    exit 1
+fi
+
 if ! git rev-parse --show-toplevel &>/dev/null; then
     echo "Error: not inside a git repository" >&2
+    exit 1
+fi
+
+if [[ ! -x "$FORMATTER" ]]; then
+    echo "Error: stream formatter not found at ${FORMATTER}" >&2
     exit 1
 fi
 
@@ -92,10 +128,17 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 # ---------------------------------------------------------------------------
-# Worktree naming
+# Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 WORKTREE_NAME="revision-${TIMESTAMP}"
+
+# Log directory is always in the main repo .claude/logs (not inside worktrees)
+# Raw JSONL — lossless, can be read by Claude for diagnosis or piped through
+# the formatter on demand for human reading.
+LOG_DIR="${REPO_ROOT}/.claude/logs"
+LOG_FILE="${LOG_DIR}/revision-${TIMESTAMP}.jsonl"
+mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
 # Summary banner
@@ -111,8 +154,50 @@ else
 fi
 echo "  Worktree    : ${WORKTREE_NAME}"
 echo "  Max turns   : ${MAX_TURNS}"
+echo "  Verbose     : ${VERBOSE}"
+echo "  Log file    : ${LOG_FILE}"
 echo "================================================================"
 echo
+
+# ---------------------------------------------------------------------------
+# Helper: run claude with raw JSONL logging and optional live formatting
+# ---------------------------------------------------------------------------
+# Always writes raw JSONL to $LOG_FILE. Raw format is lossless and can be:
+#   - Read by Claude for self-diagnosis when runs go sideways
+#   - Piped through the formatter on-demand for human reading
+#   - Queried with jq for metrics and post-mortem analysis
+#
+# In verbose mode, also streams formatted output live to the terminal.
+# In quiet mode, prints just the final result summary at the end.
+run_claude() {
+    local prompt="$1"
+    shift
+    local extra_args=("$@")
+
+    # Common claude invocation — always uses stream-json
+    local claude_cmd=(
+        claude -p "$prompt"
+        --output-format stream-json
+        --verbose
+        --max-turns "$MAX_TURNS"
+        --dangerously-skip-permissions
+        "${extra_args[@]}"
+    )
+
+    if $VERBOSE; then
+        # Pipeline: claude → tee raw log → formatter → terminal
+        "${claude_cmd[@]}" \
+            | tee "$LOG_FILE" \
+            | "$FORMATTER"
+    else
+        # Quiet mode: write raw log, then print final result summary
+        "${claude_cmd[@]}" > "$LOG_FILE"
+
+        jq -r 'select(.type == "result") |
+            "Turns: \(.num_turns // "?") · Cost: $\(.total_cost_usd // 0) · Duration: \((.duration_ms // 0) / 1000)s\n\n\(.result // "Complete.")"' \
+            "$LOG_FILE"
+    fi
+}
 
 # ---------------------------------------------------------------------------
 # Workflow execution
@@ -169,9 +254,7 @@ EOF
 
     (
         cd "$WORKTREE_PATH"
-        claude -p "$PROMPT" \
-            --max-turns "$MAX_TURNS" \
-            --dangerously-skip-permissions
+        run_claude "$PROMPT"
     )
 
 else
@@ -208,10 +291,7 @@ EOF
     echo "→ Launching Claude in revision mode (new branch)..."
     echo
 
-    claude -p "$PROMPT" \
-        --max-turns "$MAX_TURNS" \
-        --dangerously-skip-permissions \
-        -w "$WORKTREE_NAME"
+    run_claude "$PROMPT" -w "$WORKTREE_NAME"
 fi
 
 echo
@@ -220,6 +300,13 @@ echo "  REVISION WORKFLOW COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"
+echo "Log file: ${LOG_FILE}"
+echo
+echo "To read the log in human-readable form:"
+echo "  cat ${LOG_FILE} | ${FORMATTER}"
+echo
+echo "To let Claude diagnose a run:"
+echo "  claude 'read ${LOG_FILE} and tell me what happened'"
 echo
 echo "To clean up when done:"
 echo "  /cleanup-merged-worktrees    (after PR is merged or closed)"

@@ -234,45 +234,83 @@ Verify the primitives work end-to-end before building any orchestration.
 - [x] **Establish dual permission model** — Interactive mode uses allow/deny lists (conservative, popup on new). Autonomous mode uses `--dangerously-skip-permissions` (permissive within isolated worktree). Safety comes from `block-dangerous.sh` hook which still fires regardless of permission flags. Hook hardened with expanded patterns (sudo, system control, RCE, SSH tampering, package purges, etc.). Verified empirically that hooks fire under `--dangerously-skip-permissions`.
 - [x] **Build cleanup automation** — `/cleanup-merged-worktrees` command scans worktrees, checks PR status via `gh`, removes merged/closed ones. Tested and working.
 
-### Phase 4b: Stage A — Initial Autonomous Run
+### Phase 4b: Standards Documentation ✅ COMPLETE
 
-Build the primary autonomous path: kick off `/plan-and-build`, get a PR back.
+Before building more workflows, capture the conventions we've been following so future additions stay consistent and team members can contribute.
 
-Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — this is Stage A of Workflow 2.
+- [x] **Agent standards** — `docs/standards/agents.md`: frontmatter schema, tool restrictions, on-demand vs proactive, two-tier strategy, role vs methodology separation.
+- [x] **Hook script standards** — `docs/standards/hook-scripts.md`: JSON stdin patterns, jq output (no string interpolation), regex vs fixed-string pattern arrays, testing patterns, integration with settings.json.
+- [x] **Skill standards** — `docs/standards/skills.md`: description field criticality, layering with project standards (global HOW, project WHAT), build-from-experience principle, one-topic-per-skill rule.
+- [x] **Slash command standards** — `docs/standards/slash-commands.md`: plain markdown (no frontmatter), `$ARGUMENTS` patterns, agent invocation, safety conventions, commands vs agents vs skills decision guide.
+- [x] **Reference standards from CLAUDE.md** — Root `CLAUDE.md` Standards section points to all four. Global `config/CLAUDE.md` intentionally does NOT reference (it syncs to all projects and those paths wouldn't exist elsewhere).
 
-- [x] **Document orchestration patterns** — `docs/official_documentation/claude_code_orchestration.md` covers the 7 approaches, coordinator/worker pattern, and the 5 production lessons.
-- [x] **Document the dual workflow model** — `docs/official_documentation/dual_workflow_model.md` captures the architectural decision for how we use Claude Code.
-- [ ] **Build `/plan-and-build` command or bash script** — Chains planner → architect → security-auditor → implement → test → PR. Single-pass, no iteration. May split into `/plan-feature` and `/implement-feature` for granular control.
-- [ ] **Test on a real small feature** — Something low-risk in this repo or a test repo.
-- [ ] **Measure token usage and output quality** — Track tokens per agent, evaluate output, document findings.
-- [ ] **Identify gaps** — What did Claude miss? What did you have to correct? These become skills.
+### Phase 4c: Core Workflows (The Four Autonomous Workflows)
 
-### Phase 4c: Stage C — PR Comments (GitHub Actions)
+Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — these are the four concrete workflows that collectively implement Stage A (Initial Autonomous Run). They vary by scope: from trivial revisions to full project definition.
 
-Build the minor fix escalation path: leave PR comments → Claude makes fixes → PR updates.
+#### /revision — Minor Corrections ✅ COMPLETE
 
-Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — this is Stage C of Workflow 2.
+Lightweight workflow for small, bounded fixes to existing code. Daily utility.
+
+- [x] **Build `scripts/workflows/revision.sh`** — Structured 5-stage single-session workflow (assess → implement → test → commit → push → PR). Supports new branch mode and update-existing-PR mode via `--pr` flag.
+- [x] **Environment checks and safety** — Validates claude/gh/git availability, runs from repo root, timestamped worktree names, 30 max turns, `--dangerously-skip-permissions` for autonomous execution.
+- [x] **Real-world validation** — Used `/revision` itself to generate the initial testing skill (meta-validation). PR created, reviewed, merged, content evaluated. The workflow works.
+- [x] **Document in README** — Operation section shows usage examples.
+
+#### /revision-major — Significant Rework (TODO)
+
+Heavy workflow for substantial corrections: when the AI went off the rails, requirements were incomplete, stack choice was poor, or architectural changes are needed.
+
+- [ ] **Build `scripts/workflows/revision-major.sh`** — Structured workflow: assess proposed fixes → plan the fix → engineer implementation → full test suite → code review → refactoring evaluation → engineer picks changes → PR. More thorough than `/revision`, less scope than `/build-phase`.
+- [ ] **Test on a real PR** — Create a scenario requiring major rework, run the workflow, evaluate output quality.
+
+#### /build-phase — Architect & Build (TODO - primary autonomous path)
+
+Main autonomous path. Takes a single epic or phase from a roadmap and builds it. This is the workflow used daily to implement planned work.
+
+- [ ] **Build `scripts/workflows/build-phase.sh`** — Structured workflow: engineer builds the product → test suite at all levels → code review → refactoring evaluation → engineer decides what to implement from suggestions → PR with summary of deviations from plan.
+- [ ] **Experiment with single-pass vs two-pass** — Research suggests single-pass is almost always better. Test empirically with real phase implementation.
+- [ ] **Test on a real phase** — Use a documented phase from a project, run the workflow, evaluate.
+- [ ] **Measure token usage** — Track costs per agent stage, document findings.
+
+#### /define-project — Research & Planning (TODO - end of next week target)
+
+Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later.
+
+- [ ] **Build `scripts/workflows/define-project.sh`** — Structured workflow: requirements gathering → initial roadmap → tech stack selection → phased approach breakdown → epic definition per phase → dependency identification → security audit → detailed roadmap revision → PR with summary.
+- [ ] **Build supporting skills** — Planning methodology skill, requirements gathering skill, architecture standards skill. These are where the depth lives.
+- [ ] **Test on a real project** — Define a real small project from scratch, evaluate output quality.
+- [ ] **Iterate on the skill library** — This workflow is the biggest consumer of skills. Use it to drive what skills to build.
+
+### Phase 4d: PR Comment Integration (GitHub Actions)
+
+The Stage C escalation path. When PR comments aren't enough for `/revision`, escalate to the autonomous path via GitHub Actions.
 
 - [ ] **Install Claude GitHub App** — `claude /install-github-app` to connect Claude to this repo and any others we want.
-- [ ] **Create GitHub Actions workflow** — `.github/workflows/claude-pr-handler.yml` that triggers on `@claude` mentions in PR comments.
-- [ ] **Document PR comment patterns** — How to write comments Claude can act on. Add to dual_workflow_model.md or a new doc.
+- [ ] **Create GitHub Actions workflow** — `.github/workflows/claude-pr-handler.yml` that triggers on `@claude` mentions in PR comments. Routes to the correct workflow based on trigger keyword (`@claude revision`, `@claude revision-major`).
+- [ ] **Document PR comment patterns** — How to write comments Claude can act on.
 - [ ] **Test the flow** — Create a test PR, leave a `@claude` comment, verify Claude pushes a fix to the same branch.
 
-### Phase 4d: Stage D — Major Fix Path (Full Re-run)
+### Phase 4e: Skills Library (ongoing, built from experience)
 
-Build the major fix escalation: when PR comments aren't enough, trigger a full re-run against the existing PR branch.
+Build skills incrementally based on what workflows need. Not a one-time phase — this is continuous.
 
-Aligned with the [Dual Workflow Model](../official_documentation/dual_workflow_model.md) — this is Stage D of Workflow 2.
+- [x] **Testing methodology skill** — `config/skills/testing-methodology.md`: how to think about testing (principles, scoping, discovery, red flags, fixing failures). Activates during daily test work.
+- [x] **Testing scaffolding skill** — `config/skills/testing-scaffolding.md`: how to set up test infrastructure in new projects. Narrow trigger, activates rarely.
+- [ ] **Planning methodology skill** — For use by `/define-project` and `/build-phase` workflows.
+- [ ] **Architecture standards skill** — Design principles, ADR format, trade-off analysis.
+- [ ] **Requirements gathering skill** — How to elicit and structure requirements.
+- [ ] **Code review methodology skill** — Beyond the existing code-reviewer agent, detailed review criteria and severity definitions.
+- [ ] **Additional skills as gaps emerge** — Driven by real workflow failures and corrections.
 
-- [ ] **Build `/fix-pr <PR#>` command** — Checks out the existing PR branch in a worktree, applies requested corrections, pushes updates back to the same branch.
-- [ ] **Test on a real PR** — Create a PR, request major changes, verify the full re-run updates the PR correctly.
+### Phase 4f: Graduation Evaluation (deferred)
 
-### Phase 4e: Foundational Skills (as we learn)
+Only relevant once workflows 4c are all built and tested in production use, and we've run the continuous improvement loop for several cycles.
 
-Build skills from experience, not upfront. Only after running real workflows.
-
-- [ ] **Build 1-2 foundational skills** — Based on gaps identified in 4b. Start small. Don't build a library upfront.
-- [ ] **Graduation evaluation** — Have we hit real bash limitations? Does Agent SDK or Managed Agents or Paperclip make sense? If not, stay where we are.
+- [ ] **Evaluate bash limits** — Have we hit real limitations (error handling, state, structured data, team scale)?
+- [ ] **Evaluate Agent SDK** — If bash is hitting limits, consider Python/TypeScript SDK.
+- [ ] **Evaluate Anthropic Managed Agents** — Public beta option for hosted orchestration.
+- [ ] **Evaluate Paperclip** — Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
 
 ### Scheduled & Remote Triggers (deferred)
 
@@ -282,7 +320,132 @@ For tasks that should run on a schedule. Not a blocker for the autonomous pipeli
 
 ---
 
-## Phase 5: MCP Servers
+## Phase 5: Continuous Process Improvement
+
+**The game-changer phase.** This phase elevates the dotfiles repo from "static configuration" to a **self-improving development environment**. By analyzing logs from real workflow runs, we identify patterns, inefficiencies, and improvements — then feed those back into the system. The result is a true continuous-improvement feedback loop where the development environment gets smarter over time based on actual usage.
+
+This phase deserves its own top-level designation because:
+- It's a **meta-workflow** that operates on other workflows
+- It transforms the entire system from "manually maintained" to "self-calibrating with human oversight"
+- It compounds over time — every cycle makes future cycles more valuable
+- It has its own architecture, prerequisites, and graduation path
+- It's the foundation for everything that comes after (including SkyyCommand AI integration)
+
+### Phase 5a: Review Workflow (manual mode)
+
+Build the core workflow that analyzes recent logs and produces actionable recommendations.
+
+**Prerequisites:**
+- Phase 4c complete (at least `/revision` + `/build-phase` built)
+- ~20+ workflow runs logged in `.claude/logs/` for meaningful pattern analysis
+- Phase 4e: some foundational skills exist so the analyzer has context
+
+**Why this matters:**
+- **Real data, not speculation** — improvements come from actual usage patterns
+- **Self-calibrating** — adapts as work patterns change
+- **Catches drift** — notices when workflows gradually degrade
+- **Surfaces hidden wins** — "Claude keeps making this manual correction, bake it into the prompt"
+- **Compounds over time** — each cycle makes the next one better
+- **Empirically proven** — tested on a single run (2026-04-09) and got 4 actionable insights from one log file in 42 seconds for $0.14
+
+**Design:**
+
+```
+Daily workflows run → logs accumulate in .claude/logs/
+  ↓
+Review workflow runs (manual)
+  ↓
+Claude reads recent logs, looks for patterns
+  ↓
+Produces report with findings and recommendations
+  ↓
+You review and decide what to apply
+  ↓
+Next runs use improved versions
+```
+
+**Tasks:**
+
+- [ ] **Build `scripts/workflows/review-runs.sh`** — Scans `.claude/logs/` for recent runs (configurable window via `--days N` or `--last N`), feeds them to Claude with an analysis prompt, produces a structured report at `docs/development/reviews/review-YYYY-MM-DD.md`.
+- [ ] **Design the analysis prompt** — What Claude should look for: inefficiencies (unnecessary tool calls, scope creep, redundant work), repeated failures or confusion points, manual corrections that should be automated, opportunities to improve prompts/skills/agents. Include confidence scoring per recommendation.
+- [ ] **Test on real logs** — Once we have ~20+ runs, run it manually. Evaluate if the recommendations are actionable and accurate.
+- [ ] **Capture findings into workflow improvements** — First cycle: manually apply the highest-confidence recommendations. Observe quality improvement on next runs.
+
+### Phase 5b: Automated PR Generation
+
+Take the manual review workflow and have it create PRs with proposed changes.
+
+**Tasks:**
+
+- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
+- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
+- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
+
+### Phase 5c: Scheduled Operation
+
+Move from manual triggering to scheduled operation.
+
+**Tasks:**
+
+- [ ] **Schedule weekly review runs** — Use `claude schedule` to run the review workflow every Monday morning. Reports arrive automatically.
+- [ ] **Schedule automated PR generation** — After scheduled reports prove useful, escalate to scheduled PRs with proposed changes.
+- [ ] **Tune the analysis window** — Find the right balance between recency (responsive to recent work) and sample size (statistical relevance). Likely 7-14 days.
+- [ ] **Add notification on completion** — Hook into the existing Stop hook pattern so you know when the weekly report is ready.
+
+### Phase 5d: Pattern Library and Skills
+
+The continuous improvement loop generates insights that should be captured systematically. As patterns emerge consistently across multiple cycles, they should become permanent parts of the system.
+
+**Tasks:**
+
+- [ ] **Build a "continuous improvement methodology" skill** — Capture the patterns we learn about what makes workflows good vs bad. This becomes the institutional knowledge of "what we learned about Claude Code workflows."
+- [ ] **Build a "workflow analysis" skill** — Codify how to analyze logs, what patterns to look for, what red flags indicate problems.
+- [ ] **Track resolved patterns** — Maintain a log of patterns identified and resolved so we don't re-litigate them.
+- [ ] **Pattern → skill pipeline** — When the same recommendation appears across multiple review cycles, automatically suggest promoting it to a permanent skill.
+
+### Phase 5e: Advanced Self-Improvement (future, careful)
+
+This is where we approach true self-improvement, but with significant guardrails. Only build this once we have months of stable operation and high-confidence patterns.
+
+**Tasks:**
+
+- [ ] **Build automated skill capture** — When a pattern is identified consistently across multiple review cycles with high confidence, auto-add it to skills (still gated by human PR approval).
+- [ ] **Cross-workflow analysis** — Compare patterns across different workflow types. Are there common improvements that apply to all?
+- [ ] **Effectiveness tracking** — Measure if the recommended changes actually improved subsequent runs. Did the change reduce token usage? Decrease turn count? Improve output quality?
+- [ ] **Regression detection** — Notice when changes made changes things WORSE. Alert on degradations.
+
+### Critical Rules (Apply to All of Phase 5)
+
+These rules are non-negotiable for the entire continuous improvement system:
+
+1. **Never auto-apply changes** — All modifications require human review and approval via PR
+2. **Human is always the decision-maker** — The AI suggests, the human decides
+3. **Explicit audit trail** — Every change should be traceable back to the patterns that motivated it
+4. **Reversible** — All changes must be reversible. No one-way doors.
+5. **Confidence scoring** — Recommendations must include how confident the analysis is, so you can prioritize what to act on
+6. **Sample size matters** — Don't act on patterns from single runs. Require multiple observations before recommending changes
+7. **Cost awareness** — The continuous improvement loop should not cost more in tokens than it saves in workflow improvements
+
+### Why This Is Game-Changing
+
+Traditional development:
+```
+Write workflow → ship → hope it works → manually iterate when issues surface → ship again
+```
+
+What Phase 5 unlocks:
+```
+Write workflow → run it → AI analyzes runs → surfaces specific improvements → 
+human reviews → better workflow → loop
+```
+
+The killer feature isn't that Claude can analyze logs. It's that the analysis is **precise enough to act on without a human having to read the logs first**. That's the breakthrough. Insights that would take a human 10-15 minutes per log to find, Claude produces in 42 seconds for pennies. Scale that across hundreds of runs over months, and the system improves continuously while you focus on actual work.
+
+This phase is the foundation for treating Claude Code not as a tool you use, but as a development environment that **adapts to how you work**.
+
+---
+
+## Phase 6: MCP Servers
 
 **Serves: Both workflows** — Extends Claude's reach to external tools and APIs.
 
@@ -298,7 +461,7 @@ Dependencies: Phase 1 (for config sync)
   - Don't add everything at once — each server has a context cost.
 - [ ] **Document team MCP setup** — Instructions for team members: how to add tokens locally, how to verify servers (`claude mcp list`)
 
-### Phase 5 — MCP Scopes
+### Phase 6 — MCP Scopes
 
 - **User scope** (`~/.claude.json`): personal API keys, tokens. NOT synced by this repo (contains secrets).
 - **Project scope** (`.mcp.json` in repo root): shared server definitions, committed to git. No secrets — use `${env:VAR_NAME}`.
@@ -306,17 +469,17 @@ Dependencies: Phase 1 (for config sync)
 
 Transport types: stdio (local process, most common), HTTP (remote/cloud services, recommended for new servers), SSE (deprecated — use HTTP).
 
-### Phase 5 — MCP via Docker
+### Phase 6 — MCP via Docker
 
 MCP servers can run as Docker containers, which provides isolation and reproducibility. Useful for servers that have complex dependencies or need specific runtime environments. If using Docker Desktop, the MCP server runs inside a container and communicates via stdio or HTTP.
 
 ---
 
-## Phase 6: Local AI Offloading (Future)
+## Phase 7: Local AI Offloading (Future)
 
 **Serves: Both workflows** — Preserves Claude subscription for complex thinking by offloading mechanical tasks to local GPU hardware.
 
-Dependencies: Phase 5 (MCP knowledge — Ollama connects via MCP server)
+Dependencies: Phase 6 (MCP knowledge — Ollama connects via MCP server)
 
 NOTE: Ollama installation and GPU provisioning are handled by SkyyCommand, not this repo. This phase only covers the Claude Code integration side — MCP server config and delegation rules.
 
@@ -325,7 +488,7 @@ NOTE: Ollama installation and GPU provisioning are handled by SkyyCommand, not t
 - [ ] **Test with A6000 instance** — Verify MCP connection to 32B model (Qwen 2.5 Coder) on A6000
 - [ ] **Add RTX 4080 and smaller GPU endpoints** — 7B–14B models for fast linting, commit messages; 3B–7B for classification
 
-### Phase 6 — Architecture
+### Phase 7 — Architecture
 
 ```
 You (human) → Claude Code (orchestrator/thinker)
