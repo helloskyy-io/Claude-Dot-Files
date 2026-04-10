@@ -272,32 +272,44 @@ Heavy workflow for substantial corrections: when the AI went off the rails, requ
 - [x] **Self-evaluation via logs** — Claude analyzed the run's JSONL log. Found ~35% redundant reads (same files re-read 4x across stages). Applied fix: added "do not re-read files already known" rule to both revision.sh and revision-major.sh. Estimated savings: ~$0.40/run, ~9 turns.
 - [x] **New agent and skill from the test** — `workflow-analyst` agent (read-only, Sonnet, preloads workflow-analysis skill) and `workflow-analysis` skill (pattern categories, confidence scoring, report format) created by the autonomous workflow itself. Validates that the workflow can produce production-quality agents and skills.
 
-#### build-phase workflow — Architect & Build (TODO - primary autonomous path)
+#### build-phase workflow — Architect & Build ✅ COMPLETE
 
-Main autonomous path. Takes a single epic or phase from a roadmap and builds it. This is the workflow used daily to implement planned work. Will be implemented as `scripts/workflows/build-phase.sh`.
+Main autonomous path. Takes a plan document path as input and implements what it describes. 9-stage workflow with deviation tracking and success criteria verification. Implemented as `scripts/workflows/build-phase.sh`.
 
-- [ ] **Build `scripts/workflows/build-phase.sh`** — Structured workflow: engineer builds the product → test suite at all levels → code review → refactoring evaluation → engineer decides what to implement from suggestions → PR with summary of deviations from plan.
-- [ ] **Experiment with single-pass vs two-pass** — Research suggests single-pass is almost always better. Test empirically with real phase implementation.
-- [ ] **Test on a real phase** — Use a documented phase from a project, run the workflow, evaluate.
-- [ ] **Measure token usage** — Track costs per agent stage, document findings.
+- [x] **Build `scripts/workflows/build-phase.sh`** — 9-stage workflow: load plan → validate → implement → test → code review (code-reviewer agent) → refactoring evaluation (refactoring-evaluator agent) → resolve → verify (tests + success criteria) → submit PR with deviation summary. 150 max turns. Built by revision-major.sh (PR #7).
+- [x] **Plan-driven input** — Takes a plan document path, not free-text. Extracts scope and success criteria from the plan, verifies against them at the end. Path validation with sanitization regex for heredoc injection prevention.
+- [x] **Shared prompt extraction** — Stages 1-8 and Rules extracted into shell variables, eliminating ~80 lines of duplication between new-branch and existing-PR paths.
+- [x] **Shared lib integration** — Updated to source `lib/run-claude.sh` (PR #9), matching the pattern of all other workflow scripts.
+- [ ] **Add optional context argument** — Second positional arg after plan path for injecting additional instructions (e.g., "follow all standards in /docs/standards/"). In progress (PR pending).
+- [x] **Single-pass architecture** — Starting with single-session. Will refactor to multi-stage if context bloats on large builds.
+- [ ] **Test on a real phase** — First real test running now (Phase 4d GitHub Actions plan). Evaluate output quality and token usage.
 
-#### define-project workflow — Research & Planning (TODO - end of next week target)
+#### Shared Workflow Infrastructure ✅ COMPLETE
+
+- [x] **Extract `run_claude` to shared lib** — `scripts/workflows/lib/run-claude.sh` sourced by all 4 workflow scripts. Expects LOG_FILE, MAX_TURNS, VERBOSE, FORMATTER as environment variables with guards. Eliminates ~75 lines of duplication (PR #8).
+- [x] **Stream formatter** — `scripts/workflows/lib/format-stream.sh` for live verbose output. Color-coded, handles tool calls, agent spawns, thinking indicators, cost/turn summary.
+
+#### define-project workflow — Research & Planning (TODO)
 
 Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later. Will be implemented as `scripts/workflows/define-project.sh`.
 
 - [ ] **Build `scripts/workflows/define-project.sh`** — Structured workflow: requirements gathering → initial roadmap → tech stack selection → phased approach breakdown → epic definition per phase → dependency identification → security audit → detailed roadmap revision → PR with summary.
-- [ ] **Build supporting skills** — Planning methodology skill, requirements gathering skill, architecture standards skill. These are where the depth lives.
+- [x] **Supporting skills already built** — Planning methodology, architecture decisions, project definition, and documentation structure skills all exist. No new skills needed.
 - [ ] **Test on a real project** — Define a real small project from scratch, evaluate output quality.
-- [ ] **Iterate on the skill library** — This workflow is the biggest consumer of skills. Use it to drive what skills to build.
 
-### Phase 4d: PR Comment Integration (GitHub Actions)
+### Phase 4d: PR Comment Automation (Local Poller) — REDESIGNED
 
-The Stage C escalation path. When PR comments aren't enough for the revision workflow, escalate to the autonomous path via GitHub Actions.
+The Stage C escalation path. A local systemd timer polls GitHub for `@claude` PR comments and launches workflows locally using Max subscription.
 
-- [ ] **Install Claude GitHub App** — `claude /install-github-app` to connect Claude to this repo and any others we want.
-- [ ] **Create GitHub Actions workflow** — `.github/workflows/claude-pr-handler.yml` that triggers on `@claude` mentions in PR comments. Routes to the correct workflow based on trigger keyword (`@claude revision`, `@claude revision-major`).
-- [ ] **Document PR comment patterns** — How to write comments Claude can act on.
-- [ ] **Test the flow** — Create a test PR, leave a `@claude` comment, verify Claude pushes a fix to the same branch.
+**Redesign rationale (2026-04-10):** Original GitHub Actions approach (PR #10) was abandoned because: (1) Actions runners require Claude API billing, not Max subscription; (2) security exposure on a Tailscale-hardened workstation is unacceptable; (3) local polling achieves the same UX at zero additional cost. See closed PR #10 for the original approach.
+
+Plan document: `docs/development/phases/phase-4d-github-actions-integration.md`
+
+- [ ] **Build `scripts/services/pr-watcher.sh`** — Bash poller using `gh` CLI to check for `@claude` comments on open PRs. No Claude invocation for polling (zero tokens). Routes to revision.sh, revision-major.sh, or help response based on comment content.
+- [ ] **Reaction-based deduplication** — 👀 (processing), ✅ (done), ❌ (failed) reactions on comments prevent double-processing.
+- [ ] **Systemd timer integration** — `pr-watcher.service` + `pr-watcher.timer` for 5-minute polling. Survives reboots.
+- [ ] **Concurrency guard** — Skip comments if a workflow is already running for that PR.
+- [ ] **Test the flow** — Create a test PR, leave a `@claude` comment, verify the poller picks it up and pushes a fix.
 
 ### Phase 4e: Skills Library (ongoing, built from experience)
 
@@ -362,8 +374,8 @@ This phase deserves its own top-level designation because:
 Build the core workflow that analyzes recent logs and produces actionable recommendations.
 
 **Prerequisites (updated 2026-04-10):**
-- ~~Phase 4c complete (at least `revision.sh` + `build-phase.sh` built)~~ → `revision.sh` + `revision-major.sh` satisfy this. Two workflows generating logs.
-- ~20+ workflow runs logged in `.claude/logs/` for meaningful PATTERN analysis. **Note:** single-run analysis is already proving valuable before hitting this threshold — the manual self-evaluation approach works now.
+- ~~Phase 4c complete (at least `revision.sh` + `build-phase.sh` built)~~ → ✅ All 4 core workflows built: revision.sh, revision-major.sh, build-phase.sh, review-runs.sh.
+- ~20+ workflow runs logged in `.claude/logs/` for meaningful PATTERN analysis. **Note:** We have ~8-10 logs from today's session alone. Growing rapidly as we use workflows to build workflows.
 - ~~Phase 4e: some foundational skills exist~~ → ✅ 8 skills exist
 
 **Early wins (ahead of schedule):**
@@ -397,8 +409,8 @@ Next runs use improved versions
 
 **Remaining tasks:**
 
-- [ ] **Build `scripts/workflows/review-runs.sh`** — Scans `.claude/logs/` for recent runs (configurable window via `--days N` or `--last N`), invokes the workflow-analyst agent, produces a structured report at `docs/development/reviews/review-YYYY-MM-DD.md`.
-- [ ] **Test on real logs** — Once we have ~20+ runs, run it and evaluate if cross-run pattern analysis adds value beyond single-run analysis.
+- [x] **Build `scripts/workflows/review-runs.sh`** — Built by revision-major.sh (PR #6). Scans `.claude/logs/` for JSONL logs, configurable via `--days N` or `--last N` (mutually exclusive, validated). Produces structured report at `docs/development/reviews/review-YYYY-MM-DD.md`. Smart MAIN_REPO_ROOT resolution for worktree compatibility. No worktree isolation (read-only analysis). 30 max turns.
+- [ ] **Run first formal cross-run analysis** — Once we have ~20 runs, invoke `review-runs.sh` and evaluate if cross-run pattern analysis adds value beyond single-run analysis.
 - [ ] **Capture findings into workflow improvements** — First formal cycle: apply highest-confidence recommendations, observe quality improvement on next runs.
 
 ### Phase 5b: Automated PR Generation
