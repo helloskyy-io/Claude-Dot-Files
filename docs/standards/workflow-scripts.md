@@ -262,7 +262,7 @@ Tell Claude to focus only on the task. Research has shown unscoped exploration (
 | Minor (revision) | 30 |
 | Medium (revision-major) | 75 |
 | Large (build-phase) | 150 |
-| Extra large (define-project) | 200 |
+| Extra large (define-project) | 225 |
 
 Start conservative. Bump up only if runs hit the limit and fail.
 

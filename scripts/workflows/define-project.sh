@@ -24,7 +24,10 @@
 #   8. SECURITY — initial security review
 #   9. ROADMAP — assemble into docs/development/roadmap.md
 #  10. DOCUMENTATION — set up four-bucket docs layout, CLAUDE.md, file_structure.txt
-#  11. SUBMIT — commit, push, PR with comprehensive summary
+#  11. ARCHITECT REVIEW — review tech stack, architecture, system overview for consistency
+#  12. PLANNER REVIEW — review phases, epics, dependencies for actionability and completeness
+#  13. RESOLVE — address critical findings from reviews, document addressed vs deferred
+#  14. SUBMIT — commit, push, PR with comprehensive summary
 #
 # Usage:
 #   ./define-project.sh "project name"
@@ -60,7 +63,7 @@ FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-MAX_TURNS=200
+MAX_TURNS=225
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -208,9 +211,9 @@ ${CONTEXT}
 fi
 
 # ---------------------------------------------------------------------------
-# Shared prompt stages (Stages 1-10 + Rules are identical for both paths)
+# Shared prompt stages (Stages 1-13 + Rules are identical for both paths)
 # ---------------------------------------------------------------------------
-STAGES_1_TO_10=$(cat <<'STAGES_EOF'
+SHARED_STAGES=$(cat <<'STAGES_EOF'
 ## Stage 1: REQUIREMENTS
 Gather and document the project requirements. The project-definition skill has the full methodology.
 
@@ -330,6 +333,43 @@ Create:
 - `docs/file_structure.txt` — annotated map of the repo
 - Project root `CLAUDE.md` with project name, tech stack reference, how to run/build/test, standards references, and project-specific rules
 - `README.md` — repo description for humans
+
+## Stage 11: ARCHITECT REVIEW
+Use the architect agent to review the work produced in Stages 3-4 for internal consistency.
+
+The architect should evaluate:
+- **Tech stack coherence:** Do the selected technologies work well together? Are there conflicts or redundancies?
+- **Architecture alignment:** Does the system overview align with the tech stack decisions and ADRs?
+- **Component boundaries:** Are responsibilities clearly separated? Are there missing or overlapping components?
+- **Scalability and operational concerns:** Are there obvious bottlenecks or operational gaps in the design?
+- **ADR consistency:** Do the ADRs reference each other correctly? Are trade-offs internally consistent?
+
+Review the architect's findings. Critical concerns must be noted for Stage 13.
+
+## Stage 12: PLANNER REVIEW
+Use the planner agent to review the work produced in Stages 5-7 for actionability and completeness.
+
+The planner should evaluate:
+- **Phase ordering:** Are phases in the right sequence? Are prerequisites satisfied before dependent phases?
+- **Epic completeness:** Do epics cover the requirements? Are there gaps or orphaned requirements?
+- **Dependency accuracy:** Are all internal and external dependencies captured? Are there circular dependencies?
+- **Success criteria quality:** Are success criteria measurable and specific, not vague? Can you objectively tell when each phase is done?
+- **Task granularity:** Are phases broken down enough to be actionable? Are any phases too large or too vague?
+
+Review the planner's findings. Critical concerns must be noted for Stage 13.
+
+## Stage 13: RESOLVE
+Address findings from the architect review (Stage 11) and planner review (Stage 12).
+
+For each finding:
+- **Critical findings:** Must be addressed now. Update the relevant documents to fix the issue.
+- **Warnings:** Should be addressed if the fix is straightforward. Otherwise, document as a known limitation.
+- **Info items:** Note for future improvement but do not act on them now.
+
+Produce a resolution summary in `docs/architecture/review-resolutions.md`:
+- What was found (brief list of findings from each review)
+- What was addressed and how
+- What was deferred and why
 STAGES_EOF
 )
 
@@ -373,13 +413,13 @@ if [[ -n "$PR_NUMBER" ]]; then
 
     PROMPT="You are executing the DEFINE-PROJECT workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This workflow defines a new project from scratch. Follow all 11 stages thoroughly.
+This workflow defines a new project from scratch. Follow all 14 stages thoroughly.
 
 Project name: ${PROJECT_NAME}
 ${CONTEXT_BLOCK}
-${STAGES_1_TO_10}
+${SHARED_STAGES}
 
-## Stage 11: SUBMIT
+## Stage 14: SUBMIT
 - Stage and commit all changes with a clear message. Use format: \"feat: define ${PROJECT_NAME} project foundation\"
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow including:
@@ -402,13 +442,13 @@ else
     # ---- New branch path --------------------------------------------------
     PROMPT="You are executing the DEFINE-PROJECT workflow on a new branch.
 
-This workflow defines a new project from scratch. Follow all 11 stages thoroughly.
+This workflow defines a new project from scratch. Follow all 14 stages thoroughly.
 
 Project name: ${PROJECT_NAME}
 ${CONTEXT_BLOCK}
-${STAGES_1_TO_10}
+${SHARED_STAGES}
 
-## Stage 11: SUBMIT
+## Stage 14: SUBMIT
 - Stage and commit all changes with a clear message. Use format: \"feat: define ${PROJECT_NAME} project foundation\"
 - Push the branch
 - Create a new PR using 'gh pr create'. Title format: \"define-project: ${PROJECT_NAME} foundation\". In the body, include:
