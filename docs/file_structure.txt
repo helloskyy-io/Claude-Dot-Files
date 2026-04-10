@@ -77,3 +77,4 @@ Machine-local (NOT synced):
   ~/.claude/session-env/         session state
   ~/.claude/shell-snapshots/     shell state
   ~/.claude/telemetry/           telemetry data
+
