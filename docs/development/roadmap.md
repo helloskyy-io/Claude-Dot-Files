@@ -282,7 +282,7 @@ Main autonomous path. Takes a plan document path as input and implements what it
 - [x] **Shared lib integration** — Updated to source `lib/run-claude.sh` (PR #9), matching the pattern of all other workflow scripts.
 - [x] **Add optional context argument** — Second positional arg after plan path for injecting additional instructions. Backwards compatible. Delimiter-wrapped to prevent prompt confusion. (PR #11, merged).
 - [x] **Single-pass architecture** — Starting with single-session. Will refactor to multi-stage if context bloats on large builds.
-- [ ] **Test on a real phase** — First real test running now (Phase 4d gh-monitor plan). Evaluate output quality and token usage.
+- [x] **Test on a real phase** — Tested on Phase 4d gh-monitor plan. build-phase.sh produced 585 lines across 6 files (gh-monitor.sh, systemd units, config, install.sh update, .gitignore). PR #12 created with full deviation summary and success criteria checklist. Workflow followed all 9 stages correctly.
 
 #### Shared Workflow Infrastructure ✅ COMPLETE
 
@@ -306,12 +306,13 @@ The Stage C escalation path. A local systemd timer (`gh-monitor`) polls GitHub f
 Plan document: `docs/development/phases/phase-4d-github-actions-integration.md`
 Service standard: `docs/standards/services.md`
 
-- [ ] **Build `scripts/services/gh-monitor.sh`** — Bash poller using `gh` CLI. No Claude invocation for polling (zero tokens). Routes `@claude` comments to revision.sh, revision-major.sh, or help response. Posts clarifying comment when context is insufficient.
-- [ ] **Configuration** — `gh-monitor.config.env` with documented variables: repos to monitor, concurrency limits, route enablement, dry run mode, backlog limits.
-- [ ] **Reaction-based deduplication** — 👀 (processing), ✅ (done), ❌ (failed), 💬 (clarification needed). First reactor wins (multi-machine safe).
-- [ ] **Systemd integration** — `gh-monitor.service` (oneshot) + `gh-monitor.timer` (5 min, Persistent=true). Survives reboots, catches up on backlog.
-- [ ] **Update install.sh** — Add `--with-services` flag for opt-in service deployment.
-- [ ] **Test the flow** — Dry run first, then real test: post `@claude fix X` on a PR, verify poller picks it up and pushes a fix.
+- [x] **Build `scripts/services/gh-monitor.sh`** — 467-line bash poller using `gh` CLI. Routes `@claude revision:`, `@claude revision-major:`, `@claude help`, and unknown commands. Posts clarifying comment when context is insufficient (<10 chars). Concurrency guard with PID-based stale lock detection. Rate limit checking. Dry run mode. Code block stripping for @claude detection. Built by build-phase.sh (PR #12).
+- [x] **Configuration** — Centralized `config.yaml` at repo root with `gh-monitor:` section. Read via `yq` with reusable `cfg()` helper. Precedence: env var > config.yaml > script default. (PR #13, migrated from per-service .config.env)
+- [x] **Reaction-based deduplication** — 👀 (eyes/processing), hooray (done), -1 (failed), confused (clarification). First reactor wins (multi-machine safe via API check).
+- [x] **Systemd integration** — `gh-monitor.service` (oneshot) + `gh-monitor.timer` (5 min, Persistent=true, OnBootSec=2min). Survives reboots, catches up on backlog.
+- [x] **Update install.sh** — `--with-services` flag for opt-in deployment. Symlinks units, reloads systemd, enables timer. Idempotent. Architecture-aware yq installation (amd64/arm64/arm).
+- [x] **Deploy and enable** — Ran `install.sh --with-services` on workstation. yq installed (architecture-aware amd64), systemd units symlinked, timer enabled and started. Verified active with `systemctl --user status gh-monitor.timer`. Polling every 5 minutes.
+- [ ] **Live test** — Post `@claude revision: fix X` on a real PR, verify poller picks it up within 5 minutes and pushes a fix. Test organically on next workflow PR.
 
 ### Phase 4e: Skills Library (ongoing, built from experience)
 
@@ -343,20 +344,6 @@ Build skills incrementally based on what workflows need. Not a one-time phase �
 - [x] **Trimmed architect agent** — 212 → 50 lines. Same pattern. References architecture-decisions skill.
 - [x] **Built refactoring-evaluator agent** — New read-only Sonnet agent for structural evaluation. Distinct from code-reviewer (correctness vs structure).
 
-### Phase 4f: Graduation Evaluation (deferred)
-
-Only relevant once workflows 4c are all built and tested in production use, and we've run the continuous improvement loop for several cycles.
-
-- [ ] **Evaluate bash limits** — Have we hit real limitations (error handling, state, structured data, team scale)?
-- [ ] **Evaluate Agent SDK** — If bash is hitting limits, consider Python/TypeScript SDK.
-- [ ] **Evaluate Anthropic Managed Agents** — Public beta option for hosted orchestration.
-- [ ] **Evaluate Paperclip** — Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
-
-### Scheduled & Remote Triggers (deferred)
-
-For tasks that should run on a schedule. Not a blocker for the autonomous pipeline.
-
-- [ ] **Explore remote triggers** — `claude schedule` or the `/schedule` skill for cron-based autonomous runs.
 
 ---
 
@@ -377,7 +364,7 @@ Build the core workflow that analyzes recent logs and produces actionable recomm
 
 **Prerequisites (updated 2026-04-10):**
 - ~~Phase 4c complete (at least `revision.sh` + `build-phase.sh` built)~~ → ✅ All 4 core workflows built: revision.sh, revision-major.sh, build-phase.sh, review-runs.sh.
-- ~20+ workflow runs logged in `.claude/logs/` for meaningful PATTERN analysis. **Note:** We have ~8-10 logs from today's session alone. Growing rapidly as we use workflows to build workflows.
+- ~~20+ workflow runs logged~~ → 12 logs analyzed in first formal CPI report. Patterns already emerging clearly at this sample size.
 - ~~Phase 4e: some foundational skills exist~~ → ✅ 8 skills exist
 
 **Early wins (ahead of schedule):**
@@ -412,8 +399,8 @@ Next runs use improved versions
 **Remaining tasks:**
 
 - [x] **Build `scripts/workflows/review-runs.sh`** — Built by revision-major.sh (PR #6). Scans `.claude/logs/` for JSONL logs, configurable via `--days N` or `--last N` (mutually exclusive, validated). Produces structured report at `docs/development/reviews/review-YYYY-MM-DD.md`. Smart MAIN_REPO_ROOT resolution for worktree compatibility. No worktree isolation (read-only analysis). 30 max turns.
-- [ ] **Run first formal cross-run analysis** — Once we have ~20 runs, invoke `review-runs.sh` and evaluate if cross-run pattern analysis adds value beyond single-run analysis.
-- [ ] **Capture findings into workflow improvements** — First formal cycle: apply highest-confidence recommendations, observe quality improvement on next runs.
+- [x] **Run first formal cross-run analysis** — Analyzed 12 logs across 4 workflow types. Produced 14-finding report at `docs/development/reviews/review-2026-04-10.md`. 5 high-confidence findings, 5 medium, 4 low. 100% success rate, zero user corrections across all runs.
+- [x] **Capture findings into workflow improvements** — First CPI cycle complete (PR #14). Applied 3 high-confidence findings: (1) file-too-large read guidance added to all workflow prompts, (2) rate limit check with exponential backoff added to shared lib/run-claude.sh protecting all workflows, (3) test fixture path guidance added to workflow-scripts standard. **Phase 5a: Cycle 1 complete.**
 
 ### Phase 5b: Automated PR Generation
 
@@ -447,7 +434,16 @@ The continuous improvement loop generates insights that should be captured syste
 - [ ] **Track resolved patterns** — Maintain a log of patterns identified and resolved so we don't re-litigate them. Location: `docs/development/reviews/resolved-patterns.md`.
 - [ ] **Pattern → skill pipeline** — When the same recommendation appears across multiple review cycles, automatically suggest promoting it to a permanent skill.
 
-### Phase 5e: Advanced Self-Improvement (future, careful)
+### Phase 5e: Graduation Evaluation
+
+Evaluate whether bash-based workflows are sufficient or if heavier tooling is warranted. Only relevant after several CPI cycles with production data.
+
+- [ ] **Evaluate bash limits** — Have we hit real limitations (error handling, state, structured data, team scale)?
+- [ ] **Evaluate Agent SDK** — If bash is hitting limits, consider Python/TypeScript SDK.
+- [ ] **Evaluate Anthropic Managed Agents** — Public beta option for hosted orchestration.
+- [ ] **Evaluate Paperclip** — Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
+
+### Phase 5f: Advanced Self-Improvement (future, careful)
 
 This is where we approach true self-improvement, but with significant guardrails. Only build this once we have months of stable operation and high-confidence patterns.
 
