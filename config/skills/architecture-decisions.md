@@ -340,10 +340,10 @@ Writing ADRs for decisions you made without documentation. The real context is a
 - This skill activates for those decisions
 - Build-phase should pause and write the ADR, not plow through
 
-### define-project.sh
+### plan-new.sh
 - Project definition creates many ADRs (tech stack, auth, database, etc.)
 - Each foundational decision should get an ADR
-- This skill is heavily used during define-project
+- This skill is heavily used during plan-new
 
 ## Quick Decision Guide
 

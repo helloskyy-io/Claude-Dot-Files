@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# define-project.sh — the DEFINE-PROJECT workflow
+# plan-new.sh — the PLAN-NEW workflow
 # Research and planning workflow for defining new projects from scratch.
 #
 # This is the heaviest autonomous workflow. Unlike revision workflows that fix
@@ -30,23 +30,23 @@
 #  14. SUBMIT — commit, push, PR with comprehensive summary
 #
 # Usage:
-#   ./define-project.sh "project name"
-#   ./define-project.sh "project name" "additional context here"
-#   ./define-project.sh "project name" "additional context here" --verbose
-#   ./define-project.sh "project name" --pr <pr-number>
+#   ./plan-new.sh "project name"
+#   ./plan-new.sh "project name" "additional context here"
+#   ./plan-new.sh "project name" "additional context here" --verbose
+#   ./plan-new.sh "project name" --pr <pr-number>
 #
 # Examples:
-#   ./define-project.sh "skyycommand"
-#   ./define-project.sh "skyycommand" "AI-driven VM placement engine for Proxmox clusters"
-#   ./define-project.sh "webhook-gateway" "lightweight service for routing GitHub webhooks" --verbose
-#   ./define-project.sh "skyycommand" "focus on the inference pipeline first" --pr 15
+#   ./plan-new.sh "skyycommand"
+#   ./plan-new.sh "skyycommand" "AI-driven VM placement engine for Proxmox clusters"
+#   ./plan-new.sh "webhook-gateway" "lightweight service for routing GitHub webhooks" --verbose
+#   ./plan-new.sh "skyycommand" "focus on the inference pipeline first" --pr 15
 #
 # Flags:
 #   --pr <number>   Update an existing PR instead of creating a new one
 #   --verbose, -v   Stream formatted Claude output live
 #
 # Logging:
-#   Every run writes a structured JSONL log to .claude/logs/define-project-<ts>.jsonl
+#   Every run writes a structured JSONL log to .claude/logs/plan-new-<ts>.jsonl
 #
 # See docs/guide/dual_workflow_model.md for the full
 # architectural context behind this workflow.
@@ -165,17 +165,17 @@ cd "$REPO_ROOT"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="define-project-${TIMESTAMP}"
+WORKTREE_NAME="plan-new-${TIMESTAMP}"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/define-project-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/plan-new-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
 # Summary banner
 # ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  DEFINE-PROJECT WORKFLOW"
+echo "  PLAN-NEW WORKFLOW"
 echo "================================================================"
 echo "  Project     : ${PROJECT_NAME}"
 if [[ -n "$CONTEXT" ]]; then
@@ -411,7 +411,7 @@ if [[ -n "$PR_NUMBER" ]]; then
     echo "→ Creating worktree at ${WORKTREE_PATH}..."
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
-    PROMPT="You are executing the DEFINE-PROJECT workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+    PROMPT="You are executing the PLAN-NEW workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 This workflow defines a new project from scratch. Follow all 14 stages thoroughly.
 
@@ -430,7 +430,7 @@ ${SHARED_STAGES}
 ${RULES}"
 
     echo
-    echo "→ Launching Claude in define-project mode (updating PR #${PR_NUMBER})..."
+    echo "→ Launching Claude in plan-new mode (updating PR #${PR_NUMBER})..."
     echo
 
     (
@@ -440,7 +440,7 @@ ${RULES}"
 
 else
     # ---- New branch path --------------------------------------------------
-    PROMPT="You are executing the DEFINE-PROJECT workflow on a new branch.
+    PROMPT="You are executing the PLAN-NEW workflow on a new branch.
 
 This workflow defines a new project from scratch. Follow all 14 stages thoroughly.
 
@@ -451,7 +451,7 @@ ${SHARED_STAGES}
 ## Stage 14: SUBMIT
 - Stage and commit all changes with a clear message. Use format: \"feat: define ${PROJECT_NAME} project foundation\"
 - Push the branch
-- Create a new PR using 'gh pr create'. Title format: \"define-project: ${PROJECT_NAME} foundation\". In the body, include:
+- Create a new PR using 'gh pr create'. Title format: \"plan-new: ${PROJECT_NAME} foundation\". In the body, include:
   - Summary of all deliverables created
   - Key decisions made (tech stack, architecture, phasing)
   - ADRs written and their conclusions
@@ -463,7 +463,7 @@ ${SHARED_STAGES}
 
 ${RULES}"
 
-    echo "→ Launching Claude in define-project mode (new branch)..."
+    echo "→ Launching Claude in plan-new mode (new branch)..."
     echo
 
     run_claude "$PROMPT" -w "$WORKTREE_NAME"
@@ -471,7 +471,7 @@ fi
 
 echo
 echo "================================================================"
-echo "  DEFINE-PROJECT WORKFLOW COMPLETE"
+echo "  PLAN-NEW WORKFLOW COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"
