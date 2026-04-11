@@ -299,14 +299,14 @@ Heaviest workflow. For new projects or major features — produces the foundatio
 - [ ] **Rename to `plan-new.sh`** — Align with the naming convention: `plan-*` prefix for planning workflows.
 - [ ] **Test on a real project** — Define a real small project from scratch, evaluate output quality.
 
-#### plan-revision workflow — Revise Existing Planning Docs (TODO)
+#### plan-revision workflow — Revise Existing Planning Docs ✅ COMPLETE
 
-The most-used daily planning workflow. For revising roadmaps, adding phase docs, updating requirements, creating ADRs, restructuring epics — anything that modifies planning documentation within an existing project. Uses planning agents (architect + planner), NOT code agents.
+The most-used daily planning workflow. For revising roadmaps, adding phase docs, updating requirements, creating ADRs, restructuring epics — anything that modifies planning documentation within an existing project. Uses planning agents (architect + planner), NOT code agents. Implemented as `scripts/workflows/plan-revision.sh`.
 
-- [ ] **Build `scripts/workflows/plan-revision.sh`** — 7-stage workflow: assess → plan → revise → architect review → planner review → resolve → submit. Uses architect and planner agents for review (NOT code-reviewer or refactoring-evaluator). Sources shared lib/run-claude.sh.
+- [x] **Build `scripts/workflows/plan-revision.sh`** — 7-stage workflow: assess → plan → revise → architect review → planner review → resolve → submit. Uses architect and planner agents for review (NOT code-reviewer or refactoring-evaluator). Sources shared lib/run-claude.sh. 75 max turns. Built by revision-major.sh (PR #18).
 - [x] **Supporting agents already built** — architect (preloads architecture-decisions, documentation-structure) and planner (preloads planning-methodology, documentation-structure) exist and have the right skills.
 - [x] **Supporting skills already built** — planning-methodology, architecture-decisions, documentation-structure all exist.
-- [ ] **Test on a real planning task** — Use it to plan a Phase 5 section into a detailed epic.
+- [x] **Test on a real planning task** — Used to create Phase 5b detailed phase doc (`docs/development/phases/phase-5b-automated-pr-generation.md`). PR #19 created with full task breakdown, dependencies, success criteria, risks. Architect and planner review stages validated — output quality significantly higher than unreviewed planning.
 
 ### Phase 4d: PR Comment Automation (Local GitHub Monitor) ✅ COMPLETE
 
