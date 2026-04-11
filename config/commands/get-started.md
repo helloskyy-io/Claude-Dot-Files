@@ -22,6 +22,30 @@ Available workflow scripts (run from terminal, not from this chat):
 - `plan-revision.sh` — revise existing planning docs (architect + planner review)
 - `review-runs.sh` — CPI analysis of workflow logs
 
+**CRITICAL: When generating workflow prompts for me to copy-paste into a terminal:**
+- ALWAYS use a single double-quoted string on one line. NEVER use heredocs, NEVER use `$(cat <<'EOF'...)` syntax.
+- The description and context go inside ONE pair of double quotes as a single argument.
+- Escape any internal double quotes with backslash.
+- The script path must be absolute (starts with `/` or `~/`) because I may be in a different repo.
+- Example format:
+
+```bash
+/path/to/claude-dot-files/scripts/workflows/plan-revision.sh "description of what to do. Additional context goes right here in the same string. Keep it all in one quoted block." --verbose
+```
+
+- WRONG (will break on copy-paste):
+```bash
+plan-revision.sh "desc" "$(cat <<'CONTEXT'
+multi-line stuff
+CONTEXT
+)" --verbose
+```
+
+- RIGHT:
+```bash
+~/Repos/claude-dot-files/scripts/workflows/plan-revision.sh "Review the Phase 1 docs. Check for completeness, gaps, standards alignment. Do NOT modify files outside the target directory." --verbose
+```
+
 ## Our Pattern Each Session
 
 1. Check the roadmap for where we are (`docs/development/roadmap.md`)
