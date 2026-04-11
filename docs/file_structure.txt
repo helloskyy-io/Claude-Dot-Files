@@ -51,7 +51,7 @@ claude-dot-files/
 │
 ├── scripts/
 │   ├── helpers/                           # Standalone bash utilities (no AI)
-│   │   └── init-project.sh               # Initialize new project (git, GitHub, scaffolding)
+│   │   └── init-project.sh                # Initialize new project (git, GitHub, scaffolding)
 │   ├── services/                          # Long-running background services
 │   │   ├── gh-monitor.sh                  # GitHub monitor — polls for @claude PR comments
 │   │   ├── gh-monitor.service             # systemd oneshot unit file

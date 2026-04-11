@@ -342,11 +342,31 @@ Even a new project deserves a security pass at the foundation.
 - What's the auth model? Is it well-understood?
 - Are there known attack vectors for the chosen stack?
 - What compliance applies? (GDPR, HIPAA, SOC2, PCI-DSS)
-- How will secrets be managed?
 - What's the backup/recovery strategy?
 - Have you thought about abuse scenarios?
 
-**Output:** A security considerations doc in `docs/architecture/security.md` capturing the foundational decisions. More detailed security work comes later, but the foundation should be thought through.
+**Secrets management (required for every project):**
+
+Every project that handles secrets must document a secrets management strategy. For each secret identified:
+
+| What to Document | Why |
+|---|---|
+| What the secret is | Clear inventory of sensitive values |
+| Where it's stored | Platform secret store, env var, vault, etc. |
+| How it's injected per environment | Local dev, CI, staging, production — each may differ |
+| Who/what has access | Principle of least privilege |
+| Rotation strategy | How and when secrets get rotated |
+| What happens if leaked | Blast radius and incident response |
+
+**Environment-specific injection patterns (document for each secret):**
+- **Local dev:** `.env` file (gitignored), or local secret manager
+- **CI/CD:** Pipeline secrets (GitHub Actions secrets, GitLab CI variables)
+- **Staging:** Platform secret store (K8s secrets, cloud secret manager)
+- **Production:** Platform secret store with access controls and audit logging
+
+**Principle:** If you can't answer "how does this secret get to the code in production?" for every secret, the security review is incomplete.
+
+**Output:** A security considerations doc in `docs/architecture/security.md` capturing the foundational decisions including the full secrets inventory with per-environment injection strategy. More detailed security work comes later, but the foundation should be thought through.
 
 ### Stage 9: Initial Roadmap
 

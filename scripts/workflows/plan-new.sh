@@ -386,6 +386,8 @@ Rules:
 - Phase 0 and Phase 1 must be fully detailed; later phases can be lighter
 - If you cannot complete a stage, stop and clearly report why
 - Stay focused on project definition — do not start implementing features
+- Each document must have a single focused purpose — do not duplicate content across documents. If two docs need the same information, one is the source of truth and the other references it. Redundancy causes drift.
+- If the project directory already has scaffolding (from init-project.sh or similar), respect and build on it — do not overwrite existing .gitignore, CLAUDE.md, README.md, or folder structure unless they conflict with the plan
 RULES_EOF
 )
 
