@@ -402,7 +402,7 @@ Don't solve all of these in v1 — but **acknowledge them** in the plan so the d
 - Claude executes the plan task by task
 - Quality of the plan directly determines quality of the output
 
-### define-project.sh (new projects)
+### plan-new.sh (new projects)
 - Uses project-definition skill for the initial project setup
 - Then uses planning-methodology for phase-level plans within the project
 

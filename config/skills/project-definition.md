@@ -10,7 +10,7 @@ This skill is for the **greenfield case** — starting a new project or major in
 **When this skill activates:**
 - Starting a new project
 - Beginning a major greenfield initiative within an existing org
-- Running the `define-project.sh` workflow
+- Running the `plan-new.sh` workflow
 
 **When this skill does NOT activate:**
 - Adding features to an existing project → use `planning-methodology`
@@ -549,9 +549,9 @@ If Phase 1 alone isn't valuable, you've built a horizontal slice that ships noth
 
 ## Integration With Workflows
 
-This skill is specifically designed for `define-project.sh`. It's heavy machinery — don't invoke it for small tasks.
+This skill is specifically designed for `plan-new.sh`. It's heavy machinery — don't invoke it for small tasks.
 
-### define-project.sh
+### plan-new.sh
 - Primary consumer of this skill
 - Produces all the deliverables listed above
 - Creates the full documentation scaffolding

@@ -666,7 +666,7 @@ This skill is foundational for workflows that create documentation:
 - May create guide docs for new features
 - This skill activates heavily
 
-### `define-project.sh` (new project setup)
+### `plan-new.sh` (new project setup)
 - Creates the entire documentation structure from scratch
 - Uses this skill for all four buckets
 - This skill is a primary dependency

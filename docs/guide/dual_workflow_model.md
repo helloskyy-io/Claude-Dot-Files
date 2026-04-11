@@ -245,7 +245,7 @@ Given this model, the scope of what we actually build is narrower than it might 
   - `revision.sh` — minor corrections (built)
   - `revision-major.sh` — significant rework (planned)
   - `build-phase.sh` — architect & build a phase (planned)
-  - `define-project.sh` — research & planning (planned)
+  - `plan-new.sh` — research & planning (built)
 
 **For Stage C (PR Comments):**
 - GitHub Actions workflow file (`.github/workflows/claude-pr-handler.yml`)

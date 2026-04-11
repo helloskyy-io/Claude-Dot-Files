@@ -291,12 +291,12 @@ Main autonomous path. Takes a plan document path as input and implements what it
 
 #### plan-new workflow (formerly define-project) — Greenfield Project Definition ✅ COMPLETE
 
-Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later. Implemented as `scripts/workflows/define-project.sh` (rename to `plan-new.sh` pending).
+Heaviest workflow. For new projects or major features — produces the foundation documents that prevent drift and disappointment later. Implemented as `scripts/workflows/plan-new.sh`.
 
-- [x] **Build `scripts/workflows/define-project.sh`** — 14-stage workflow: requirements → stakeholders → tech stack → architecture → phases → epics → dependencies → security → roadmap → documentation → architect review → planner review → resolve → submit. 225 max turns. Built by revision-major.sh (PR #15).
+- [x] **Build `scripts/workflows/plan-new.sh`** — 14-stage workflow: requirements → stakeholders → tech stack → architecture → phases → epics → dependencies → security → roadmap → documentation → architect review → planner review → resolve → submit. 225 max turns. Built by revision-major.sh (PR #15).
 - [x] **Supporting skills already built** — Planning methodology, architecture decisions, project definition, and documentation structure skills all exist.
 - [x] **Review stages added** — Architect and planner agents review the planning output before submission (Stages 11-13). Added via gh-monitor `@claude revision-major:` comment on PR #15. First successful gh-monitor live test.
-- [ ] **Rename to `plan-new.sh`** — Align with the naming convention: `plan-*` prefix for planning workflows.
+- [x] **Rename to `plan-new.sh`** — Align with the naming convention: `plan-*` prefix for planning workflows.
 - [ ] **Test on a real project** — Define a real small project from scratch, evaluate output quality.
 
 #### plan-revision workflow — Revise Existing Planning Docs ✅ COMPLETE
@@ -341,7 +341,7 @@ Build skills incrementally based on what workflows need. Not a one-time phase �
 **Planning skills:**
 - [x] **Planning methodology skill** — `config/skills/planning-methodology.md`: how to plan features, break down work, identify dependencies and risks. Most frequently activated planning skill. Covers when to plan vs when to just start, the 7-stage planning process, task templates, dependency mapping, risk identification, success criteria, and phase-level work organization.
 - [x] **Architecture decisions skill** — `config/skills/architecture-decisions.md`: when to write an ADR, reversibility spectrum (two-way/medium/one-way doors), trade-off analysis methodology, research process, and red flags. Moderate activation (when making design choices within existing projects).
-- [x] **Project definition skill** — `config/skills/project-definition.md`: 11-stage process for defining a new project from scratch — requirements gathering, stakeholders & success criteria, tech stack selection, high-level architecture, phase breakdown, epic identification, dependency mapping, initial security review, roadmap, documentation layout, CLAUDE.md setup. Scales from very small (<2 weeks) to large (1+ years) projects. Rare activation (only for greenfield projects via `define-project.sh`).
+- [x] **Project definition skill** — `config/skills/project-definition.md`: 11-stage process for defining a new project from scratch — requirements gathering, stakeholders & success criteria, tech stack selection, high-level architecture, phase breakdown, epic identification, dependency mapping, initial security review, roadmap, documentation layout, CLAUDE.md setup. Scales from very small (<2 weeks) to large (1+ years) projects. Rare activation (only for greenfield projects via `plan-new.sh`).
 
 **Refactoring skills:**
 - [x] **Refactoring methodology skill** — `config/skills/refactoring-methodology.md`: when to refactor vs leave alone, evaluating suggestions (accept/reject/defer), safe refactoring patterns, dangerous patterns, measuring impact. Pairs with refactoring-evaluator agent.

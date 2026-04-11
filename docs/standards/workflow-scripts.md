@@ -20,7 +20,7 @@ scripts/
     ├── revision.sh             # minor corrections
     ├── revision-major.sh       # significant rework
     ├── build-phase.sh          # architect and build
-    └── define-project.sh       # research and planning
+    └── plan-new.sh             # research and planning
 ```
 
 ### Naming
@@ -28,7 +28,7 @@ Script names use kebab-case matching the workflow's purpose, with `.sh` suffix:
 - `revision.sh` — minor corrections workflow
 - `revision-major.sh` — significant rework workflow
 - `build-phase.sh` — architect and build a phase workflow
-- `define-project.sh` — research and planning workflow
+- `plan-new.sh` — research and planning workflow
 
 **Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 
@@ -262,7 +262,7 @@ Tell Claude to focus only on the task. Research has shown unscoped exploration (
 | Minor (revision) | 30 |
 | Medium (revision-major) | 75 |
 | Large (build-phase) | 150 |
-| Extra large (define-project) | 225 |
+| Extra large (plan-new) | 225 |
 
 Start conservative. Bump up only if runs hit the limit and fail.
 
