@@ -301,7 +301,7 @@ Heaviest workflow. For new projects or major features — produces the foundatio
 - [x] **Supporting skills already built** — Planning methodology, architecture decisions, project definition, and documentation structure skills all exist.
 - [x] **Review stages added** — Architect and planner agents review the planning output before submission (Stages 11-13). Added via gh-monitor `@claude revision-major:` comment on PR #15. First successful gh-monitor live test.
 - [x] **Rename to `plan-new.sh`** — Align with the naming convention: `plan-*` prefix for planning workflows.
-- [ ] **Test on a real project** — Define a real small project from scratch, evaluate output quality.
+- [x] **Test on a real project** — Tested on 1Password Vault Manager (helloskyy-io/1password-integration). v1 graded B+. Gaps addressed: no-redundancy rule, secrets management framework, security-auditor review stage added (now 15 stages). v2 re-run with init-project scaffolding in progress.
 
 #### plan-revision workflow — Revise Existing Planning Docs ✅ COMPLETE
 
