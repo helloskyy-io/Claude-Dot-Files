@@ -410,6 +410,78 @@ the decision can understand why it was needed.]
 - Update status as work progresses — don't let it go stale
 - Archive or delete when the phase is complete and merged
 
+### Epic / Feature Doc Format (Development)
+
+**Filename:** `features/<feature-name>/overview.md`
+
+**Template:**
+```markdown
+# Epic: [Feature Name]
+
+## Phase
+[Which phase(s) this epic belongs to]
+
+## Description
+[What this feature does and why it exists]
+
+## Tasks
+
+### [Capability Group 1]
+- [ ] **Task name** — description of what to do
+- [ ] **Task name** — description (File: `path/to/file`)
+
+### [Capability Group 2]
+- [ ] **Task name** — description
+- [ ] **Task name** — description
+
+## Success Criteria
+- [ ] Criterion 1 (measurable)
+- [ ] Criterion 2
+
+## Related
+- [Requirements: FR-N](../../requirements.md)
+- [Phase doc](../../phases/phase-N.md)
+```
+
+**Rules for epic/feature docs:**
+- **Every task must have a checkbox** — epics are work trackers, not just descriptions. If it doesn't have checkboxes, it's not trackable.
+- Capabilities should be grouped logically
+- Each task should be specific enough to be actionable (not "implement the feature")
+- Success criteria must be measurable and checkboxed
+- Link to requirements and phase docs — epics don't exist in isolation
+
+### Roadmap Format (Development)
+
+The roadmap is the top-level tracking document. It shows phases and epics with **completion checkboxes** for at-a-glance progress tracking.
+
+**Status format for phases/epics in the roadmap:**
+```markdown
+## Phase Overview
+
+| Phase | Name | Status | Key Epics |
+|-------|------|--------|-----------|
+| 0 | [Foundation](phases/phase-0.md) | Not started | CI/CD, Dev env |
+| 1 | [Walking Skeleton](phases/phase-1.md) | Not started | Core flow |
+
+## Phase Details
+
+### Phase 0: Foundation
+- [ ] [CI/CD Pipeline](features/ci-cd/overview.md)
+- [ ] [Dev Environment](features/dev-env/overview.md)
+- [ ] [Coding Standards](../standards/)
+
+### Phase 1: Walking Skeleton
+- [ ] [Vault Management](features/vault-management/overview.md)
+- [ ] [Credential Management](features/credential-management/overview.md)
+```
+
+**Rules for roadmaps:**
+- **Every phase and epic gets a checkbox** — the roadmap is a progress tracker, not just a list
+- Phase checkboxes track overall completion (checked when ALL child epics are done)
+- Epic checkboxes track individual feature completion
+- Link to phase docs and epic docs — the roadmap is an index, not the detail
+- Keep status current — a stale roadmap misleads
+
 ### Standards Doc Format (Standards)
 
 **Filename:** `topic.md` (no numbering needed)
