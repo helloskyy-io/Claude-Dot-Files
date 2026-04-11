@@ -4,7 +4,7 @@ Conventions for writing autonomous workflow scripts in `scripts/workflows/`.
 
 ## Purpose
 
-Workflow scripts implement the autonomous side of the Dual Workflow Model (see `docs/guide/dual_workflow_model.md`). They wrap `claude -p` invocations with structured stages, safety guards, visibility, and logging. These are the scripts you run to hand off work to Claude and come back to a PR.
+Workflow scripts implement the autonomous side of the Dual Workflow Model (see `docs/guide/workflows.md`). They wrap `claude -p` invocations with structured stages, safety guards, visibility, and logging. These are the scripts you run to hand off work to Claude and come back to a PR.
 
 ## File Conventions
 
@@ -414,7 +414,7 @@ Before marking a new workflow script as complete:
 
 ## Related Documentation
 
-- `docs/guide/dual_workflow_model.md` — Architectural context
+- `docs/guide/workflows.md` — Architectural context
 - `docs/guide/claude_code_headless.md` — Headless mode details
 - `docs/guide/claude_code_orchestration.md` — Orchestration patterns
 - `docs/standards/hook-scripts.md` — Hook script conventions (complementary)

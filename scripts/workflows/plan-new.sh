@@ -48,7 +48,7 @@
 # Logging:
 #   Every run writes a structured JSONL log to .claude/logs/plan-new-<ts>.jsonl
 #
-# See docs/guide/dual_workflow_model.md for the full
+# See docs/guide/workflows.md for the full
 # architectural context behind this workflow.
 # See docs/standards/workflow-scripts.md for the standard this script follows.
 

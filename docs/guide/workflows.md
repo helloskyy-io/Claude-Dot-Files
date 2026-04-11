@@ -1,4 +1,51 @@
-# The Dual Workflow Development Model
+# Workflows Guide
+
+## Quick Reference — All Scripts
+
+### Helper Scripts (no AI, pure bash)
+
+| Script | Purpose | Location |
+|---|---|---|
+| `init-project.sh` | Initialize a new project (git, GitHub, scaffolding) | `scripts/helpers/` |
+
+### Workflow Scripts (AI-powered, autonomous)
+
+| Script | Purpose | Agents Used | Max Turns |
+|---|---|---|---|
+| `revision.sh` | Minor code fixes | None | 30 |
+| `revision-major.sh` | Significant code rework | code-reviewer, refactoring-evaluator | 75 |
+| `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator | 150 |
+| `plan-new.sh` | Define new project from scratch | architect, planner | 225 |
+| `plan-revision.sh` | Revise existing planning docs | architect, planner | 75 |
+| `review-runs.sh` | CPI log analysis | workflow-analyst | 30 |
+
+### Services (background, systemd)
+
+| Script | Purpose | Location |
+|---|---|---|
+| `gh-monitor.sh` | Poll GitHub for @claude PR comments | `scripts/services/` |
+
+## Starting a New Project
+
+```bash
+# Option 1: Full automation (init-project handles scaffolding, plan-new handles AI planning)
+~/Repos/claude-dot-files/scripts/helpers/init-project.sh "my-project" --org helloskyy-io
+~/Repos/claude-dot-files/scripts/workflows/plan-new.sh "my-project" "description of the project" --verbose
+
+# Option 2: plan-new.sh auto-detects and calls init-project if needed (future)
+```
+
+## Naming Conventions
+
+Workflow families are grouped by prefix:
+- **`revision-*`** — fix existing code (minor or major)
+- **`build-*`** — implement from plans
+- **`plan-*`** — create or revise planning docs
+- **`review-*`** — analyze and report
+
+---
+
+## The Dual Workflow Model
 
 ## Core Insight
 

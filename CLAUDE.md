@@ -63,7 +63,7 @@ For detailed documentation on Claude Code concepts:
 - Orchestration options and patterns: `docs/guide/claude_code_orchestration.md`
 - Rules and when to use them: `docs/guide/claude_code_rules.md`
 - Skills and context-aware methodology: `docs/guide/claude_code_skills.md`
-- Dual workflow development model: `docs/guide/dual_workflow_model.md`
+- Workflows guide (all scripts, dual model, usage): `docs/guide/workflows.md`
 
 ## Standards
 

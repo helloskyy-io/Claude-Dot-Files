@@ -39,7 +39,7 @@ claude-dot-files/
 │   │   ├── claude_code_orchestration.md   # 7 orchestration options, coordinator/worker, lessons
 │   │   ├── claude_code_rules.md           # Rules vs CLAUDE.md, when to split
 │   │   ├── claude_code_skills.md          # Skills, context-aware methodology, library building
-│   │   └── dual_workflow_model.md         # Dual flow architecture, Workflow 1/2, Stages A-D
+│   │   └── workflows.md                   # Workflows guide: all scripts, dual model, usage
 │   ├── standards/                         # Conventions and patterns (how we do things)
 │   │   ├── agents.md                      # Standards for writing custom agents
 │   │   ├── hook-scripts.md                # Standards for writing hook scripts
@@ -50,6 +50,8 @@ claude-dot-files/
 │   └── file_structure.txt                 # This file (meta-map of the repo)
 │
 ├── scripts/
+│   ├── helpers/                           # Standalone bash utilities (no AI)
+│   │   └── init-project.sh               # Initialize new project (git, GitHub, scaffolding)
 │   ├── services/                          # Long-running background services
 │   │   ├── gh-monitor.sh                  # GitHub monitor — polls for @claude PR comments
 │   │   ├── gh-monitor.service             # systemd oneshot unit file
@@ -58,7 +60,9 @@ claude-dot-files/
 │       ├── lib/
 │       │   ├── format-stream.sh           # Shared stream-json formatter for live display
 │       │   └── run-claude.sh              # Shared run_claude helper (verbose/quiet invocation)
+│       ├── build-phase.sh                 # BUILD-PHASE workflow — implement from plan doc (9 stages)
 │       ├── plan-new.sh                    # PLAN-NEW workflow — greenfield project definition (14 stages)
+│       ├── plan-revision.sh               # PLAN-REVISION workflow — revise planning docs (7 stages)
 │       ├── review-runs.sh                 # REVIEW-RUNS workflow — CPI log analysis and reporting
 │       ├── revision.sh                    # REVISION workflow — minor corrections to existing code
 │       └── revision-major.sh              # REVISION-MAJOR workflow — significant rework (9 stages)

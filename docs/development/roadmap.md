@@ -246,7 +246,7 @@ Before building more workflows, capture the conventions we've been following so 
 
 ### Phase 4c: Core Workflows (The Four Autonomous Workflows)
 
-Aligned with the [Dual Workflow Model](../guide/dual_workflow_model.md) — these are the four concrete workflows that collectively implement Stage A (Initial Autonomous Run). They vary by scope: from trivial revisions to full project definition.
+Aligned with the [Dual Workflow Model](../guide/workflows.md) — these are the four concrete workflows that collectively implement Stage A (Initial Autonomous Run). They vary by scope: from trivial revisions to full project definition.
 
 #### revision workflow — Minor Corrections ✅ COMPLETE
 
@@ -283,6 +283,10 @@ Main autonomous path. Takes a plan document path as input and implements what it
 - [x] **Add optional context argument** — Second positional arg after plan path for injecting additional instructions. Backwards compatible. Delimiter-wrapped to prevent prompt confusion. (PR #11, merged).
 - [x] **Single-pass architecture** — Starting with single-session. Will refactor to multi-stage if context bloats on large builds.
 - [x] **Test on a real phase** — Tested on Phase 4d gh-monitor plan. build-phase.sh produced 585 lines across 6 files (gh-monitor.sh, systemd units, config, install.sh update, .gitignore). PR #12 created with full deviation summary and success criteria checklist. Workflow followed all 9 stages correctly.
+
+#### Helper Scripts ✅ COMPLETE
+
+- [x] **Build `scripts/helpers/init-project.sh`** — Pure bash utility (zero AI tokens) for initializing new projects. Creates: git repo (main branch), GitHub remote (SSH, private default), .gitignore (multi-language defaults), four-bucket docs scaffolding, minimal CLAUDE.md and README.md, .claude/ directory. Fully idempotent. Supports `--org`, `--public`, `--skip-remote` flags.
 
 #### Shared Workflow Infrastructure ✅ COMPLETE
 
@@ -559,6 +563,44 @@ These are worth investigating but not committed to the roadmap yet:
 
 - **Paperclip** — UI overlay for Claude Code. Offers visual workflow design, agent management, parallel project tracking, and PR review. May overlap with native headless mode + triggers. Evaluate after Phase 4 to see what gaps remain.
 - **Claude Agent SDK** — TypeScript/Python framework that powers Claude Code under the hood. Enables building custom agents for non-coding workflows. Worth exploring if we need automation beyond what Claude Code provides natively (e.g., custom CI pipelines, Slack bots, monitoring agents).
+
+---
+
+# Future Ideas (Not Yet Committed)
+
+Potential future capabilities identified during development. These are ideas worth exploring but not prioritized into phases yet. When one becomes actionable, create a phase doc and add it to the roadmap.
+
+### A. Cross-Project Intelligence
+Aggregate CPI analysis across multiple repos. Patterns from one project could inform another. "Across your 5 repos, the testing stage consistently takes the most turns — here's why." Requires centralized log collection or report aggregation.
+
+### B. Workflow Composition / Chaining
+Chain workflows in sequence: `plan-revision.sh → build-phase.sh → review-runs.sh`. A workflow orchestrator that runs a pipeline of workflows end-to-end. Bash-native version of what Agent Teams or Paperclip offers.
+
+### C. Project Templates
+Pre-configured `plan-new.sh` contexts for common project types. "FastAPI microservice," "React dashboard," "CLI tool," "Ansible role." Each template provides stack preferences, common patterns, and boilerplate decisions already made. Eliminates repetitive context in plan-new prompts.
+
+### D. Team Scaling
+Adapt the system for multi-developer use:
+- Shared `config.yaml` with per-user overrides
+- Team-wide CPI reports aggregated across members
+- Role-based workflow access (juniors: revision only, seniors: plan-new)
+- Shared skills capturing team methodology
+- Onboarding workflow that sets up new developers
+
+### E. Metrics Dashboard
+Visualize JSONL log data: cost trends, workflow efficiency, failure types, agent utilization. Could be a static HTML page generated weekly by a CPI workflow. Makes trends visible without reading raw reports.
+
+### F. Rollback Automation
+A `/rollback-cpi` command that reverts the last CPI PR and marks that pattern as "tried and failed." Prevents repeated application of changes that don't work. Important as CPI automation increases.
+
+### G. SkyyCommand AI Decision Engine
+Claude + agent infrastructure as the decision engine for SkyyCommand VM placement. Agents evaluate GPU requirements, server capacity, network topology. The same lean-agent + rich-skill pattern transfers directly to infrastructure management. See memory note `project_skyycommand_ai.md`.
+
+### H. Prompt Pattern Library
+As workflows run across real projects, effective prompts emerge. Capturing these as **prompt patterns** (similar to design patterns but for AI interaction) creates a reusable asset. "This phrasing produces better build-phase output" becomes institutional knowledge.
+
+### I. plan-new.sh Greenfield Improvements
+Currently `plan-new.sh` requires a pre-existing git repo. For a true greenfield workflow, it should handle `git init`, initial commit, and remote setup automatically. Discovered during the 1Password vault manager test (2026-04-11).
 
 ---
 

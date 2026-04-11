@@ -29,6 +29,18 @@ Use custom slash commands for common tasks:
 - `/update-file-structure` — update docs/file_structure.txt
 - `/cleanup-merged-worktrees` — remove worktrees whose PRs have been merged or closed
 
+### New Project Setup
+
+Initialize a new project with standard scaffolding, then define it with AI planning:
+
+```bash
+# Initialize (pure bash, no AI, zero tokens)
+~/Repos/claude-dot-files/scripts/helpers/init-project.sh "my-project" --org helloskyy-io
+
+# Define the project (AI-powered, 14-stage planning workflow)
+~/Repos/claude-dot-files/scripts/workflows/plan-new.sh "my-project" "description of the project" --verbose
+```
+
 ### Workflow 2: Autonomous (plan → execute → PR)
 
 Claude works independently on a planned task, creates a PR, and notifies you when done. Structured workflow scripts handle worktree isolation, agent invocation, logging, and PR creation.
@@ -42,13 +54,16 @@ Claude works independently on a planned task, creates a PR, and notifies you whe
 ./scripts/workflows/revision-major.sh "restructure the auth flow to use sessions"
 ./scripts/workflows/revision-major.sh "address all review findings" --pr 5
 
-# Use --verbose to watch Claude work in real-time
-./scripts/workflows/revision-major.sh "update the data layer" --verbose
+# Planning revision (7 stages: assess → plan → revise → architect review → planner review → resolve → PR)
+./scripts/workflows/plan-revision.sh "add detailed phase doc for the auth feature"
+
+# Build from a plan doc (9 stages: load plan → validate → implement → test → review → refactor → resolve → verify → PR)
+./scripts/workflows/build-phase.sh docs/development/phases/phase-1.md "follow all standards" --verbose
 ```
 
 Every run saves a JSONL log to `.claude/logs/` for self-diagnosis and continuous improvement analysis.
 
-See `docs/guide/dual_workflow_model.md` for the full architecture including escalation paths (PR review → PR comments → full re-run).
+See `docs/guide/workflows.md` for the full architecture including escalation paths (PR review → PR comments → full re-run).
 
 Safety mechanisms apply to both modes:
 - **Permissions** — `settings.json` allow/deny lists for bash commands
