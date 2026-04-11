@@ -22,6 +22,7 @@ claude                         # start a session in the current directory
 ```
 
 Use custom slash commands for common tasks:
+- `/get-started` — session primer: sets working roles, explains dual workflow model, establishes operating pattern
 - `/review` — run the code-reviewer agent on recent changes
 - `/best-practices <topic>` — prime Claude with industry-standard approach
 - `/create-claude` — generate CLAUDE.md files for a new project
