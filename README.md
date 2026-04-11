@@ -102,6 +102,9 @@ git clone https://github.com/helloskyy-io/Claude-Dot-Files.git ~/Repos/claude-do
 cd ~/Repos/claude-dot-files
 ./install.sh
 
+# Global gitignore (prevents .claude/ worktrees from conflicting with parent repos)
+echo ".claude/" >> ~/.gitignore_global && git config --global core.excludesFile ~/.gitignore_global
+
 # Authenticate Claude Code (requires browser)
 claude login
 
@@ -135,11 +138,26 @@ git clone https://github.com/helloskyy-io/Claude-Dot-Files.git $CLAUDE_PATH
 cd $CLAUDE_PATH
 ./install.sh
 
+# Global gitignore
+echo ".claude/" >> ~/.gitignore_global && git config --global core.excludesFile ~/.gitignore_global
+
+# Fix git permissions for shared repos (Claude runs as puma, repos may be root-owned)
+for repo in /opt/skyy-net/*/; do
+  if [ -d "$repo/.git" ]; then
+    cd "$repo" && git config core.sharedRepository group
+  fi
+done
+
 # Authenticate Claude Code (requires browser)
 claude login
+
+# Authenticate GitHub CLI (if running autonomous workflows with PR creation)
+gh auth login
 ```
 
-VMs typically don't need `gh` CLI since autonomous runs with PR creation generally happen from workstations, not VMs. Skip `gh` setup unless you have a specific use case for it.
+**VM-specific notes:**
+- Git repos under `/opt/skyy-net/` may be root-owned with group access. Set `core.sharedRepository group` so new git objects are group-writable. Without this, Claude's commits will fail on permission errors.
+- Install `gh` CLI if you want to run autonomous workflows that create PRs from the VM.
 
 ### 3. Managed workstations (Ansible)
 
