@@ -27,6 +27,12 @@ These rules apply to all projects and sessions.
 - Don't push unless asked.
 - Don't amend commits unless asked — create new commits instead.
 
+## Terminal Commands & Prompts
+
+- When generating shell commands for the user to copy-paste, NEVER use heredoc syntax (`$(cat <<'EOF'...)`, `<<'CONTEXT'`, etc.). Heredocs break on copy-paste every time.
+- ALWAYS use a single double-quoted string on one line for workflow script prompts.
+- ALWAYS use absolute paths to scripts (the user may be in a different repo).
+
 ## Dependencies & Tools
 
 - Check if a tool/package is already in the project before adding a new one.
