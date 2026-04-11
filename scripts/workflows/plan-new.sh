@@ -26,8 +26,9 @@
 #  10. DOCUMENTATION — set up four-bucket docs layout, CLAUDE.md, file_structure.txt
 #  11. ARCHITECT REVIEW — review tech stack, architecture, system overview for consistency
 #  12. PLANNER REVIEW — review phases, epics, dependencies for actionability and completeness
-#  13. RESOLVE — address critical findings from reviews, document addressed vs deferred
-#  14. SUBMIT — commit, push, PR with comprehensive summary
+#  13. SECURITY REVIEW — security-auditor reviews security doc for completeness and gaps
+#  14. RESOLVE — address critical findings from all three reviews
+#  15. SUBMIT — commit, push, PR with comprehensive summary
 #
 # Usage:
 #   ./plan-new.sh "project name"
@@ -63,7 +64,7 @@ FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-MAX_TURNS=225
+MAX_TURNS=250
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -211,7 +212,7 @@ ${CONTEXT}
 fi
 
 # ---------------------------------------------------------------------------
-# Shared prompt stages (Stages 1-13 + Rules are identical for both paths)
+# Shared prompt stages (Stages 1-14 + Rules are identical for both paths)
 # ---------------------------------------------------------------------------
 SHARED_STAGES=$(cat <<'STAGES_EOF'
 ## Stage 1: REQUIREMENTS
@@ -356,10 +357,23 @@ The planner should evaluate:
 - **Success criteria quality:** Are success criteria measurable and specific, not vague? Can you objectively tell when each phase is done?
 - **Task granularity:** Are phases broken down enough to be actionable? Are any phases too large or too vague?
 
-Review the planner's findings. Critical concerns must be noted for Stage 13.
+Review the planner's findings. Critical concerns must be noted for Stage 14.
 
-## Stage 13: RESOLVE
-Address findings from the architect review (Stage 11) and planner review (Stage 12).
+## Stage 13: SECURITY REVIEW
+Use the security-auditor agent to review the security documentation from Stage 8.
+
+The security auditor should evaluate:
+- **Secrets inventory completeness:** Is every secret identified? Does each have storage, injection per environment, access controls, and rotation strategy documented?
+- **Attack surface coverage:** Are the relevant attack vectors identified? Are mitigations concrete and actionable?
+- **Auth model soundness:** Is the authentication approach well-defined? Are there privilege escalation risks?
+- **Compliance gaps:** Are applicable compliance requirements identified and addressed?
+- **Abuse scenarios:** Are realistic abuse scenarios considered with mitigations?
+- **Missing concerns:** Are there security implications of the tech stack or architecture that Stage 8 missed?
+
+Review the security auditor's findings. Critical concerns must be noted for Stage 14.
+
+## Stage 14: RESOLVE
+Address findings from the architect review (Stage 11), planner review (Stage 12), and security review (Stage 13).
 
 For each finding:
 - **Critical findings:** Must be addressed now. Update the relevant documents to fix the issue.
@@ -367,7 +381,7 @@ For each finding:
 - **Info items:** Note for future improvement but do not act on them now.
 
 Produce a resolution summary in `docs/architecture/review-resolutions.md`:
-- What was found (brief list of findings from each review)
+- What was found (brief list of findings from each review stage)
 - What was addressed and how
 - What was deferred and why
 STAGES_EOF
@@ -415,13 +429,13 @@ if [[ -n "$PR_NUMBER" ]]; then
 
     PROMPT="You are executing the PLAN-NEW workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This workflow defines a new project from scratch. Follow all 14 stages thoroughly.
+This workflow defines a new project from scratch. Follow all 15 stages thoroughly.
 
 Project name: ${PROJECT_NAME}
 ${CONTEXT_BLOCK}
 ${SHARED_STAGES}
 
-## Stage 14: SUBMIT
+## Stage 15: SUBMIT
 - Stage and commit all changes with a clear message. Use format: \"feat: define ${PROJECT_NAME} project foundation\"
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow including:
@@ -444,13 +458,13 @@ else
     # ---- New branch path --------------------------------------------------
     PROMPT="You are executing the PLAN-NEW workflow on a new branch.
 
-This workflow defines a new project from scratch. Follow all 14 stages thoroughly.
+This workflow defines a new project from scratch. Follow all 15 stages thoroughly.
 
 Project name: ${PROJECT_NAME}
 ${CONTEXT_BLOCK}
 ${SHARED_STAGES}
 
-## Stage 14: SUBMIT
+## Stage 15: SUBMIT
 - Stage and commit all changes with a clear message. Use format: \"feat: define ${PROJECT_NAME} project foundation\"
 - Push the branch
 - Create a new PR using 'gh pr create'. Title format: \"plan-new: ${PROJECT_NAME} foundation\". In the body, include:
