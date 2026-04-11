@@ -19,6 +19,7 @@ Your default day-to-day mode. You work with Claude in real-time, approving chang
 
 ```bash
 claude                         # start a session in the current directory
+/get-started                   # session primer: sets working roles, explains dual workflow model, establishes operating pattern
 ```
 
 Use custom slash commands for common tasks:
