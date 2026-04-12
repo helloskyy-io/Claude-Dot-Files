@@ -141,10 +141,12 @@ cd $CLAUDE_PATH
 # Global gitignore
 echo ".claude/" >> ~/.gitignore_global && git config --global core.excludesFile ~/.gitignore_global
 
-# Fix git permissions for shared repos (Claude runs as puma, repos may be root-owned)
+# Fix permissions for shared repos (root-owned, puma accesses via group)
+sudo chmod -R g+rwX /opt/skyy-net/
+sudo find /opt/skyy-net/ -type d -exec chmod g+s {} \;
 for repo in /opt/skyy-net/*/; do
   if [ -d "$repo/.git" ]; then
-    cd "$repo" && git config core.sharedRepository group
+    cd "$repo" && sudo git config core.sharedRepository group
   fi
 done
 
