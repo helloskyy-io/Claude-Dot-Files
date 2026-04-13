@@ -84,13 +84,18 @@ fi
 # Associative array: GitHub org/repo → local path
 declare -A REPO_PATH_MAP
 
+# Populates the global GH_MONITOR_REPOS and REPO_PATH_MAP.
+# Must NOT be invoked via command substitution ($(discover_repos)) — that
+# runs the function in a subshell and mutations to REPO_PATH_MAP are
+# discarded. Call it as a plain statement so the mutations hit the
+# parent shell's environment.
 discover_repos() {
     local repos=()
     for folder in $GH_MONITOR_REPO_FOLDERS; do
         # Expand ~ to home dir
         folder="${folder/#\~/$HOME}"
         if [[ ! -d "$folder" ]]; then
-            echo "  Note: repo folder ${folder} does not exist on this machine — skipping"
+            echo "  Note: repo folder ${folder} does not exist on this machine — skipping" >&2
             continue
         fi
         for dir in "$folder"/*/; do
@@ -99,22 +104,24 @@ discover_repos() {
                 local remote
                 remote=$(git -C "$dir" remote get-url origin 2>/dev/null || echo "")
                 if [[ -n "$remote" ]]; then
-                    # Handle both SSH and HTTPS remotes
+                    # Handle HTTPS, SSH (git@github.com:org/repo), and per-repo SSH host
+                    # aliases (git@<alias>:org/repo or bare <alias>:org/repo) by capturing
+                    # the trailing org/repo regardless of the host portion of the URL.
                     local gh_repo
-                    gh_repo=$(echo "$remote" | sed -E 's#.*github\.com[:/]##; s#\.git$##')
+                    gh_repo=$(echo "$remote" | sed -E 's#\.git$##' | sed -E 's#^.*[:/]([^/]+/[^/]+)$#\1#')
                     if [[ -n "$gh_repo" && "$gh_repo" == */* ]]; then
                         repos+=("$gh_repo")
-                        # Store the mapping so we can cd to the right repo later
+                        # Populate the global map so run_workflow_route can cd to the right repo later
                         REPO_PATH_MAP["$gh_repo"]="${dir%/}"
                     fi
                 fi
             fi
         done
     done
-    echo "${repos[*]}"
+    GH_MONITOR_REPOS="${repos[*]}"
 }
 
-GH_MONITOR_REPOS=$(discover_repos)
+discover_repos
 
 # Helper: get local path for a GitHub repo
 get_repo_path() {
@@ -357,10 +364,15 @@ generate_help_text() {
 HELPEOF
 }
 
-# Count currently running workflow processes (scoped to our workflow scripts)
+# Count currently running workflow processes (scoped to our workflow scripts).
+# Subtlety: `pgrep -c` prints "0" AND exits 1 on no-match, so a pipeline
+# fallback like `pgrep -c ... || echo 0` produces "0\n0" and breaks the
+# arithmetic comparison in run_workflow_route. Capture pgrep's output into
+# a variable and use the assignment's `||` to reset to a single "0" when
+# pgrep exits non-zero.
 count_running_workflows() {
     local count
-    count=$(pgrep -f "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major|plan-revision|build-phase)\.sh" 2>/dev/null | wc -l || echo "0")
+    count=$(pgrep -cf "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major|plan-revision|build-phase)\.sh" 2>/dev/null) || count=0
     echo "$count"
 }
 
