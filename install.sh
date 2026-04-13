@@ -262,15 +262,32 @@ if [ "$INSTALL_SERVICES" = true ]; then
 
     mkdir -p "$SYSTEMD_DIR"
 
-    # Symlink service and timer units
-    for unit in gh-monitor.service gh-monitor.timer; do
-        if [ -L "$SYSTEMD_DIR/$unit" ] && [ "$(readlink -f "$SYSTEMD_DIR/$unit")" = "$(readlink -f "$SERVICES_DIR/$unit")" ]; then
-            info "$unit — already linked"
-        else
-            ln -sf "$SERVICES_DIR/$unit" "$SYSTEMD_DIR/$unit"
-            info "$unit → linked"
-        fi
-    done
+    # Generate service unit with correct path for THIS machine
+    # (not symlinked — the path differs between workstation and VMs)
+    MONITOR_PATH="${SERVICES_DIR}/gh-monitor.sh"
+    cat > "$SYSTEMD_DIR/gh-monitor.service" <<SVCEOF
+[Unit]
+Description=GitHub monitor for @claude PR comment automation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${MONITOR_PATH}
+Environment=HOME=/home/%u
+
+[Install]
+WantedBy=default.target
+SVCEOF
+    info "gh-monitor.service → generated (path: ${MONITOR_PATH})"
+
+    # Timer can be symlinked — no path references
+    if [ -L "$SYSTEMD_DIR/gh-monitor.timer" ] && [ "$(readlink -f "$SYSTEMD_DIR/gh-monitor.timer")" = "$(readlink -f "$SERVICES_DIR/gh-monitor.timer")" ]; then
+        info "gh-monitor.timer — already linked"
+    else
+        ln -sf "$SERVICES_DIR/gh-monitor.timer" "$SYSTEMD_DIR/gh-monitor.timer"
+        info "gh-monitor.timer → linked"
+    fi
 
     # Verify config.yaml exists
     if [ -f "$CONFIG_YAML" ]; then

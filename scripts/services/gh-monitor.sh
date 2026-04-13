@@ -52,10 +52,12 @@ cfg() {
 }
 
 if [[ -f "$CONFIG_FILE" ]]; then
-    GH_MONITOR_REPOS="${GH_MONITOR_REPOS:-$(cfg gh-monitor repos)}"
+    GH_MONITOR_REPO_FOLDERS="${GH_MONITOR_REPO_FOLDERS:-$(cfg gh-monitor repo-folders)}"
     GH_MONITOR_MAX_CONCURRENT="${GH_MONITOR_MAX_CONCURRENT:-$(cfg gh-monitor max-concurrent)}"
     GH_MONITOR_ENABLE_REVISION="${GH_MONITOR_ENABLE_REVISION:-$(cfg gh-monitor enable-revision)}"
     GH_MONITOR_ENABLE_REVISION_MAJOR="${GH_MONITOR_ENABLE_REVISION_MAJOR:-$(cfg gh-monitor enable-revision-major)}"
+    GH_MONITOR_ENABLE_PLAN_REVISION="${GH_MONITOR_ENABLE_PLAN_REVISION:-$(cfg gh-monitor enable-plan-revision)}"
+    GH_MONITOR_ENABLE_BUILD_PHASE="${GH_MONITOR_ENABLE_BUILD_PHASE:-$(cfg gh-monitor enable-build-phase)}"
     GH_MONITOR_ENABLE_HELP="${GH_MONITOR_ENABLE_HELP:-$(cfg gh-monitor enable-help)}"
     GH_MONITOR_DRY_RUN="${GH_MONITOR_DRY_RUN:-$(cfg gh-monitor dry-run)}"
     GH_MONITOR_BACKLOG_DAYS="${GH_MONITOR_BACKLOG_DAYS:-$(cfg gh-monitor backlog-days)}"
@@ -65,14 +67,49 @@ fi
 # ---------------------------------------------------------------------------
 # Defaults (applied if not set by config or environment)
 # ---------------------------------------------------------------------------
-: "${GH_MONITOR_REPOS:=""}"
+: "${GH_MONITOR_REPO_FOLDERS:=""}"
 : "${GH_MONITOR_MAX_CONCURRENT:=1}"
 : "${GH_MONITOR_ENABLE_REVISION:=true}"
 : "${GH_MONITOR_ENABLE_REVISION_MAJOR:=true}"
+: "${GH_MONITOR_ENABLE_PLAN_REVISION:=true}"
+: "${GH_MONITOR_ENABLE_BUILD_PHASE:=true}"
 : "${GH_MONITOR_ENABLE_HELP:=true}"
 : "${GH_MONITOR_DRY_RUN:=false}"
 : "${GH_MONITOR_BACKLOG_DAYS:=7}"
 : "${GH_MONITOR_WORKFLOW_DIR:="${REPO_ROOT}/scripts/workflows"}"
+
+# ---------------------------------------------------------------------------
+# Discover GitHub repos from configured folders
+# ---------------------------------------------------------------------------
+discover_repos() {
+    local repos=()
+    for folder in $GH_MONITOR_REPO_FOLDERS; do
+        # Expand ~ to home dir
+        folder="${folder/#\~/$HOME}"
+        if [[ ! -d "$folder" ]]; then
+            echo "  Note: repo folder ${folder} does not exist on this machine — skipping"
+            continue
+        fi
+        for dir in "$folder"/*/; do
+            if [[ -d "${dir}.git" ]]; then
+                # Extract GitHub org/repo from the git remote
+                local remote
+                remote=$(git -C "$dir" remote get-url origin 2>/dev/null || echo "")
+                if [[ -n "$remote" ]]; then
+                    # Handle both SSH and HTTPS remotes
+                    local gh_repo
+                    gh_repo=$(echo "$remote" | sed -E 's#.*github\.com[:/]##; s#\.git$##')
+                    if [[ -n "$gh_repo" && "$gh_repo" == */* ]]; then
+                        repos+=("$gh_repo")
+                    fi
+                fi
+            fi
+        done
+    done
+    echo "${repos[*]}"
+}
+
+GH_MONITOR_REPOS=$(discover_repos)
 
 # CLI flag override
 for arg in "$@"; do
@@ -95,9 +132,13 @@ if ! gh auth status &>/dev/null; then
     exit 1
 fi
 
-# Verify repos are configured
+# Verify repos were discovered
 if [[ -z "$GH_MONITOR_REPOS" ]]; then
-    echo "Error: GH_MONITOR_REPOS is empty. Configure repos in ${CONFIG_FILE} under gh-monitor.repos" >&2
+    if [[ -z "$GH_MONITOR_REPO_FOLDERS" ]]; then
+        echo "Error: No repo-folders configured in ${CONFIG_FILE} under gh-monitor.repo-folders" >&2
+    else
+        echo "Error: No GitHub repos found in configured folders: ${GH_MONITOR_REPO_FOLDERS}" >&2
+    fi
     exit 1
 fi
 
@@ -258,6 +299,20 @@ parse_command() {
         return
     fi
 
+    if echo "$after_mention" | grep -qiE '^plan-revision:\s*'; then
+        local desc
+        desc=$(echo "$after_mention" | sed -E 's/^plan-revision:\s*//i')
+        printf "plan-revision\t%s" "$desc"
+        return
+    fi
+
+    if echo "$after_mention" | grep -qiE '^build-phase:\s*'; then
+        local desc
+        desc=$(echo "$after_mention" | sed -E 's/^build-phase:\s*//i')
+        printf "build-phase\t%s" "$desc"
+        return
+    fi
+
     # Unrecognized route
     printf "unknown\t%s" "$after_mention"
 }
@@ -269,8 +324,10 @@ generate_help_text() {
 
 | Command | Description |
 |---------|------------|
-| `@claude revision: <description>` | Run a minor revision workflow on this PR |
-| `@claude revision-major: <description>` | Run a major revision workflow on this PR |
+| `@claude revision: <description>` | Minor code fix |
+| `@claude revision-major: <description>` | Significant code rework (with code review + refactoring agents) |
+| `@claude plan-revision: <description>` | Revise planning docs (with architect + planner agents) |
+| `@claude build-phase: <description>` | Implement from a plan doc (requires plan path in description) |
 | `@claude help` | Show this help message |
 
 ### Examples
@@ -278,12 +335,13 @@ generate_help_text() {
 ```
 @claude revision: fix the typo in the README header
 @claude revision-major: restructure the authentication module to use JWT
+@claude plan-revision: add detailed phase doc for the Harbor integration
 @claude help
 ```
 
 ### Notes
-- Every command requires an explicit route prefix (`revision:`, `revision-major:`, or `help`)
-- Commands are processed by a local poller (not GitHub Actions) — responses may take a few minutes
+- Every command requires an explicit route prefix
+- Commands are processed by a local poller — responses may take a few minutes
 - Only one workflow runs at a time per machine
 HELPEOF
 }
@@ -291,7 +349,7 @@ HELPEOF
 # Count currently running workflow processes (scoped to our workflow scripts)
 count_running_workflows() {
     local count
-    count=$(pgrep -f "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major)\.sh" 2>/dev/null | wc -l || echo "0")
+    count=$(pgrep -f "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major|plan-revision|build-phase)\.sh" 2>/dev/null | wc -l || echo "0")
     echo "$count"
 }
 
@@ -459,6 +517,16 @@ for REPO in $GH_MONITOR_REPOS; do
 
                 revision-major)
                     run_workflow_route "revision-major" "$GH_MONITOR_ENABLE_REVISION_MAJOR" "revision-major.sh" \
+                        "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
+                    ;;
+
+                plan-revision)
+                    run_workflow_route "plan-revision" "${GH_MONITOR_ENABLE_PLAN_REVISION:-true}" "plan-revision.sh" \
+                        "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
+                    ;;
+
+                build-phase)
+                    run_workflow_route "build-phase" "${GH_MONITOR_ENABLE_BUILD_PHASE:-true}" "build-phase.sh" \
                         "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
                     ;;
 
