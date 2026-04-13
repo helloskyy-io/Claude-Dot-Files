@@ -530,30 +530,67 @@ MCP servers can run as Docker containers, which provides isolation and reproduci
 
 ---
 
-## Phase 7: Local AI Offloading (Future)
+## Phase 7: Local AI Offloading
 
-**Serves: Both workflows** — Preserves Claude subscription for complex thinking by offloading mechanical tasks to local GPU hardware.
+**Serves: Both workflows** — Preserves Claude Max rate limits by offloading mechanical tasks (file summarization, classification, boilerplate) to local GPU hardware. Estimated savings: ~10-15% of Opus turns per workflow with zero quality loss on offloaded tasks.
 
-Dependencies: Phase 6 (MCP knowledge — Ollama connects via MCP server)
+**Priority elevated (2026-04-12):** Real-world usage showed 2 concurrent engineers + PM session can exhaust rate limits in half a metered period. Local offloading is now a near-term priority, not a future nice-to-have.
 
-NOTE: Ollama installation and GPU provisioning are handled by SkyyCommand, not this repo. This phase only covers the Claude Code integration side — MCP server config and delegation rules.
+Dependencies: Phase 6 (MCP knowledge — Ollama connects via MCP server). NOTE: Ollama installation and GPU provisioning are handled by SkyyCommand, not this repo.
 
-- [ ] **Add Ollama MCP server to Claude Code** — Use mcp-local-llm or similar MCP server pointing at SkyyCommand-managed Ollama instances. Claude becomes orchestrator, local models handle volume.
-- [ ] **Add delegation rules to global CLAUDE.md** — "For summarization, classification, and initial drafts, use mcp__local-llm__* tools. For architecture decisions and complex logic, handle directly."
-- [ ] **Test with A6000 instance** — Verify MCP connection to 32B model (Qwen 2.5 Coder) on A6000
-- [ ] **Add RTX 4080 and smaller GPU endpoints** — 7B–14B models for fast linting, commit messages; 3B–7B for classification
+### Phase 7a: Model Testing and Selection
 
-### Phase 7 — Architecture
+Test candidate models on real project files before committing to the MCP integration. Quality and speed must be validated empirically.
+
+**Hardware allocation:**
 
 ```
-You (human) → Claude Code (orchestrator/thinker)
-                  ├── MCP → Ollama on A6000 (32B model: drafts, summaries, boilerplate)
-                  ├── MCP → Ollama on RTX 4080 (7B-14B: fast lint, commit msgs)
-                  └── MCP → Ollama on 8GB GPUs (3B-7B: classify, simple processing)
-                  (Ollama instances provisioned by SkyyCommand)
+RTX 4080 (16GB VRAM):
+├── Qwen 2.5 Coder 7B (Q4_K_M)  — ~5GB  — candidate for summarization
+├── Timpi Node                    — ~1.6GB — passive income (colocated)
+└── Free                          — ~9GB
+
+A6000 (48GB VRAM):
+├── Qwen 2.5 Coder 14B (Q4_K_M) — ~10GB — candidate for summarization (higher quality?)
+└── Free                          — ~38GB
 ```
 
-Claude reviews everything the local models produce. Local handles volume; Claude handles quality.
+- [ ] **Deploy Qwen 2.5 Coder 7B on RTX 4080** — via Ollama on SkyyCommand-managed instance
+- [ ] **Deploy Qwen 2.5 Coder 14B on A6000** — via Ollama on SkyyCommand-managed instance
+- [ ] **Benchmark summarization quality** — Feed the same 10 project files through both models. Compare summaries for accuracy, completeness, and missed details. Use real files from skyy-command and mdc-master-planning.
+- [ ] **Benchmark speed** — Measure tokens/sec on each GPU for each model. Target: responses under 5 seconds for typical file summaries.
+- [ ] **Decide: 7B or 14B for summarization** — If 7B quality is comparable to 14B, use 7B (faster, less VRAM). If 7B misses important details, use 14B.
+- [ ] **Validate Timpi coexistence** — Confirm Timpi node (1.6GB) runs alongside the chosen model without VRAM contention.
+
+### Phase 7b: MCP Integration
+
+Connect the winning model to Claude Code via MCP server.
+
+- [ ] **Add Ollama MCP server to Claude Code** — Use mcp-local-llm or similar MCP server pointing at SkyyCommand-managed Ollama instances.
+- [ ] **Add delegation rules to global CLAUDE.md** — "For file summarization and classification, use mcp__local-llm__* tools. For architecture decisions, code review, and complex logic, handle directly."
+- [ ] **Test end-to-end** — Run a workflow where Opus delegates file reading to the local model. Verify summaries are accurate and workflow quality is maintained.
+- [ ] **Measure savings** — Compare Opus turn count and rate limit utilization with and without local offloading.
+
+### Phase 7c: Workflow Integration
+
+Embed local model usage into the workflow scripts.
+
+- [ ] **Create a summarization skill** — Methodology for when to offload to local model vs read directly. Rules: summarize when exploring/filtering, read directly when editing or reviewing specific lines.
+- [ ] **Update workflow prompts** — Add guidance to use local model tools for file scanning and summarization phases.
+- [ ] **CPI analysis** — After several workflow runs with offloading, analyze logs for quality impact and savings.
+
+### What Gets Offloaded (and What Doesn't)
+
+| Task | Offload? | Why |
+|---|---|---|
+| File reading for context | **Yes** — summarize for Opus | Simple comprehension |
+| Filtering files by relevance | **Yes** — local model scans, tells Opus which to read | Classification task |
+| Writing/editing code | **No** | Quality matters |
+| Code review | **No** | Nuance matters (already Sonnet) |
+| Architecture decisions | **No** | Deep reasoning needed |
+| Boilerplate generation | **Maybe** — test quality first | Simple patterns |
+
+Realistic estimate: **10-15% of Opus turns offloaded** with zero quality loss. The savings compound — every workflow run benefits.
 
 ---
 
