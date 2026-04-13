@@ -81,6 +81,9 @@ fi
 # ---------------------------------------------------------------------------
 # Discover GitHub repos from configured folders
 # ---------------------------------------------------------------------------
+# Associative array: GitHub org/repo → local path
+declare -A REPO_PATH_MAP
+
 discover_repos() {
     local repos=()
     for folder in $GH_MONITOR_REPO_FOLDERS; do
@@ -101,6 +104,8 @@ discover_repos() {
                     gh_repo=$(echo "$remote" | sed -E 's#.*github\.com[:/]##; s#\.git$##')
                     if [[ -n "$gh_repo" && "$gh_repo" == */* ]]; then
                         repos+=("$gh_repo")
+                        # Store the mapping so we can cd to the right repo later
+                        REPO_PATH_MAP["$gh_repo"]="${dir%/}"
                     fi
                 fi
             fi
@@ -110,6 +115,12 @@ discover_repos() {
 }
 
 GH_MONITOR_REPOS=$(discover_repos)
+
+# Helper: get local path for a GitHub repo
+get_repo_path() {
+    local repo="$1"
+    echo "${REPO_PATH_MAP[$repo]:-}"
+}
 
 # CLI flag override
 for arg in "$@"; do
@@ -399,11 +410,21 @@ run_workflow_route() {
         return 0
     fi
 
-    # Run the workflow
+    # Run the workflow from the TARGET repo's directory (not claude-dot-files)
+    local target_path
+    target_path=$(get_repo_path "$repo")
+    if [[ -z "$target_path" ]]; then
+        echo "    Error: could not find local path for ${repo}"
+        react_to_comment "$repo" "$comment_id" "-1"
+        post_pr_comment "$repo" "$pr_number" "Failed: could not find local clone of ${repo} on this machine."
+        ((ERRORS++)) || true
+        return 0
+    fi
+    echo "    Target repo: ${target_path}"
     echo "    Launching ${script_name}..."
     local workflow_exit=0
     (
-        cd "$REPO_ROOT"
+        cd "$target_path"
         "${GH_MONITOR_WORKFLOW_DIR}/${script_name}" "$description" --pr "$pr_number"
     ) || workflow_exit=$?
 
