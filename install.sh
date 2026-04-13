@@ -275,6 +275,7 @@ Wants=network-online.target
 Type=oneshot
 ExecStart=${MONITOR_PATH}
 Environment=HOME=/home/%u
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=default.target
