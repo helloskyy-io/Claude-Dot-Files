@@ -5,9 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Path is written by install.sh --with-services at install time
-# Do not edit manually — re-run install.sh if the repo moves
-ExecStart=INSTALL_PLACEHOLDER
+ExecStart=/home/puma/Repos/claude-dot-files/scripts/services/gh-monitor.sh
 Environment=HOME=/home/%u
 
 [Install]
