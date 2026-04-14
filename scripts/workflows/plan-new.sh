@@ -335,6 +335,11 @@ Create:
 - Project root `CLAUDE.md` with project name, tech stack reference, how to run/build/test, standards references, and project-specific rules
 - `README.md` — repo description for humans
 
+Checkpoint commit: once all project-definition and documentation scaffolding through Stage 10 is complete, stage all changes and make a local checkpoint commit (do NOT push):
+  git add -A && git commit -m "wip: project-definition checkpoint — PRE-REVIEW, not yet audited"
+
+This protects the work if later review stages or resolution fail or the turn budget is exhausted. Stage 15 SUBMIT will add any review-fix commits and push everything together. If there are no changes to commit, skip and note why in the summary.
+
 ## Stage 11: ARCHITECT REVIEW
 Use the architect agent to review the work produced in Stages 3-4 for internal consistency.
 
@@ -436,7 +441,7 @@ ${CONTEXT_BLOCK}
 ${SHARED_STAGES}
 
 ## Stage 15: SUBMIT
-- Stage and commit all changes with a clear message. Use format: \"feat: define ${PROJECT_NAME} project foundation\"
+- Stage any uncommitted changes remaining from stages 11-14 (review fixes, resolutions) and commit them with the final message format: \"feat: define ${PROJECT_NAME} project foundation\". If everything was already captured by the Stage 10 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow including:
   - Deliverables created (documents, ADRs, configs)
@@ -465,7 +470,7 @@ ${CONTEXT_BLOCK}
 ${SHARED_STAGES}
 
 ## Stage 15: SUBMIT
-- Stage and commit all changes with a clear message. Use format: \"feat: define ${PROJECT_NAME} project foundation\"
+- Stage any uncommitted changes remaining from stages 11-14 (review fixes, resolutions) and commit them with the final message format: \"feat: define ${PROJECT_NAME} project foundation\". If everything was already captured by the Stage 10 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch
 - Create a new PR using 'gh pr create'. Title format: \"plan-new: ${PROJECT_NAME} foundation\". In the body, include:
   - Summary of all deliverables created

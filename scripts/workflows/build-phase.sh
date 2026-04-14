@@ -246,6 +246,11 @@ Build what the plan describes. Work through the scope methodically.
 
 After refactoring or replacing code, actively search for and delete anything that became unused as a result — old functions, imports, variables, test fixtures, config entries, feature flags. Do not comment out. Delete. Git history preserves everything.
 
+Checkpoint commit: once implementation and cleanup are complete, stage all changes and make a local checkpoint commit (do NOT push):
+  git add -A && git commit -m "wip: implementation checkpoint — PRE-REVIEW, not yet audited"
+
+This protects the work if later stages fail or the turn budget is exhausted. Stage 10 SUBMIT will add any review-fix commits and push everything together. If there are no changes to commit, skip and note why in the summary.
+
 Produce a brief summary noting:
 - What was built and why
 - Any deviations from the plan and why they were necessary
@@ -340,7 +345,7 @@ ${CONTEXT_BLOCK}
 ${STAGES_1_TO_9}
 
 ## Stage 10: SUBMIT
-- Stage and commit all changes with a clear message. Use format: \"feat: <short description of what was built>\"
+- Stage any uncommitted changes remaining from stages 5-9 (review fixes, refactors, standards fixes) and commit them with the final message format: \"feat: <short description of what was built>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow including a deviation summary comparing what was planned vs what was built
 
@@ -366,7 +371,7 @@ ${CONTEXT_BLOCK}
 ${STAGES_1_TO_9}
 
 ## Stage 10: SUBMIT
-- Stage and commit all changes with a clear message. Use format: \"feat: <short description of what was built>\"
+- Stage any uncommitted changes remaining from stages 5-9 (review fixes, refactors, standards fixes) and commit them with the final message format: \"feat: <short description of what was built>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch
 - Create a new PR using 'gh pr create'. Title format: \"build-phase: <short description>\". In the body, include:
   - Summary of what was built
