@@ -242,7 +242,11 @@ Before writing code, discover the applicable standards:
 - If docs/architecture/ exists, scan for relevant ADRs
 - Read the specific docs/standards/*.md files relevant to your task area
 
-Build what the plan describes. Work through the scope methodically. Produce a brief summary noting:
+Build what the plan describes. Work through the scope methodically.
+
+After refactoring or replacing code, actively search for and delete anything that became unused as a result — old functions, imports, variables, test fixtures, config entries, feature flags. Do not comment out. Delete. Git history preserves everything.
+
+Produce a brief summary noting:
 - What was built and why
 - Any deviations from the plan and why they were necessary
 - Files created or modified
