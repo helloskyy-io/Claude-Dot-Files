@@ -14,9 +14,10 @@
 #   4. TEST — run tests at all levels, report results
 #   5. REVIEW — code review via code-reviewer agent, report findings
 #   6. REFACTOR — refactoring evaluation via refactoring-evaluator agent
-#   7. RESOLVE — engineer decides which review/refactor suggestions to apply
-#   8. VERIFY — final test pass and summary
-#   9. SUBMIT — commit, push, create/update PR with comprehensive summary
+#   7. STANDARDS — standards audit via standards-auditor agent
+#   8. RESOLVE — engineer decides which review/refactor/standards suggestions to apply
+#   9. VERIFY — final test pass and summary
+#  10. SUBMIT — commit, push, create/update PR with comprehensive summary
 #
 # Usage:
 #   ./revision-major.sh "description of changes needed"
@@ -185,7 +186,7 @@ if [[ -n "$PR_NUMBER" ]]; then
     PROMPT=$(cat <<EOF
 You are executing the REVISION-MAJOR workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This is a SIGNIFICANT rework — not a minor fix. Follow all 9 stages thoroughly.
+This is a SIGNIFICANT rework — not a minor fix. Follow all 10 stages thoroughly.
 
 Task: ${DESCRIPTION}
 
@@ -196,6 +197,11 @@ Analyze the existing implementation and the proposed changes. Read the relevant 
 Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
 
 ## Stage 3: IMPLEMENT
+Before writing code, discover the applicable standards:
+- Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
+- If docs/architecture/ exists, scan for relevant ADRs
+- Read the specific docs/standards/*.md files relevant to your task area
+
 Execute the plan. Make the changes. Produce a brief summary noting:
 - What was changed and why
 - Any deviations from the plan and why they were necessary
@@ -224,17 +230,26 @@ Use the refactoring-evaluator agent to evaluate the changed code for structural 
 
 Document which suggestions you implemented and which you deferred.
 
-## Stage 7: RESOLVE
-Review all changes made across stages 3-6. Produce a consolidated summary:
+## Stage 7: STANDARDS
+Use the standards-auditor agent to audit your changes against project standards. Analyze the findings:
+- Critical violations: must fix before proceeding
+- Warnings: should fix if scope allows
+- Info: note for future improvement
+
+Fix any Critical violations found. Document which Warning and Info items you chose to address and which you deferred.
+
+## Stage 8: RESOLVE
+Review all changes made across stages 3-7. Produce a consolidated summary:
 - Original task vs what was actually done
 - Review findings addressed vs deferred
 - Refactoring suggestions implemented vs deferred
+- Standards audit findings addressed vs deferred
 - Any remaining concerns
 
-## Stage 8: VERIFY
-Run the full relevant test suite one final time to verify everything passes after all changes. If anything fails, fix it. Do not proceed to Stage 9 with failing tests.
+## Stage 9: VERIFY
+Run the full relevant test suite one final time to verify everything passes after all changes. If anything fails, fix it. Do not proceed to Stage 10 with failing tests.
 
-## Stage 9: SUBMIT
+## Stage 10: SUBMIT
 - Stage and commit all changes with a clear message. Use format: "revision-major: <short description>"
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow
@@ -265,7 +280,7 @@ else
     PROMPT=$(cat <<EOF
 You are executing the REVISION-MAJOR workflow on a new branch.
 
-This is a SIGNIFICANT rework — not a minor fix. Follow all 9 stages thoroughly.
+This is a SIGNIFICANT rework — not a minor fix. Follow all 10 stages thoroughly.
 
 Task: ${DESCRIPTION}
 
@@ -276,6 +291,11 @@ Analyze the existing implementation and the proposed changes. Read the relevant 
 Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
 
 ## Stage 3: IMPLEMENT
+Before writing code, discover the applicable standards:
+- Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
+- If docs/architecture/ exists, scan for relevant ADRs
+- Read the specific docs/standards/*.md files relevant to your task area
+
 Execute the plan. Make the changes. Produce a brief summary noting:
 - What was changed and why
 - Any deviations from the plan and why they were necessary
@@ -304,17 +324,26 @@ Use the refactoring-evaluator agent to evaluate the changed code for structural 
 
 Document which suggestions you implemented and which you deferred.
 
-## Stage 7: RESOLVE
-Review all changes made across stages 3-6. Produce a consolidated summary:
+## Stage 7: STANDARDS
+Use the standards-auditor agent to audit your changes against project standards. Analyze the findings:
+- Critical violations: must fix before proceeding
+- Warnings: should fix if scope allows
+- Info: note for future improvement
+
+Fix any Critical violations found. Document which Warning and Info items you chose to address and which you deferred.
+
+## Stage 8: RESOLVE
+Review all changes made across stages 3-7. Produce a consolidated summary:
 - Original task vs what was actually done
 - Review findings addressed vs deferred
 - Refactoring suggestions implemented vs deferred
+- Standards audit findings addressed vs deferred
 - Any remaining concerns
 
-## Stage 8: VERIFY
-Run the full relevant test suite one final time to verify everything passes after all changes. If anything fails, fix it. Do not proceed to Stage 9 with failing tests.
+## Stage 9: VERIFY
+Run the full relevant test suite one final time to verify everything passes after all changes. If anything fails, fix it. Do not proceed to Stage 10 with failing tests.
 
-## Stage 9: SUBMIT
+## Stage 10: SUBMIT
 - Stage and commit all changes with a clear message. Use format: "revision-major: <short description>"
 - Push the branch
 - Create a new PR using 'gh pr create'. Title format: "revision-major: <short description>". In the body, include:
@@ -322,6 +351,7 @@ Run the full relevant test suite one final time to verify everything passes afte
   - Deviations from plan (if any)
   - Review findings addressed and deferred
   - Refactoring suggestions implemented and deferred
+  - Standards audit findings addressed and deferred
   - Test results
 - Report the PR URL
 

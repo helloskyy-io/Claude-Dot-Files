@@ -17,9 +17,10 @@
 #   4. TEST — run/write tests
 #   5. REVIEW — code review via code-reviewer agent
 #   6. REFACTOR — refactoring evaluation via refactoring-evaluator agent
-#   7. RESOLVE — decide which suggestions to apply
-#   8. VERIFY — final tests + check success criteria from the plan
-#   9. SUBMIT — commit, push, PR with deviation summary comparing built vs planned
+#   7. STANDARDS — standards audit via standards-auditor agent
+#   8. RESOLVE — decide which suggestions to apply
+#   9. VERIFY — final tests + check success criteria from the plan
+#  10. SUBMIT — commit, push, PR with deviation summary comparing built vs planned
 #
 # Usage:
 #   ./build-phase.sh path/to/plan.md
@@ -215,9 +216,9 @@ ${CONTEXT}
 fi
 
 # ---------------------------------------------------------------------------
-# Shared prompt stages (Stages 1-8 + Rules are identical for both paths)
+# Shared prompt stages (Stages 1-9 + Rules are identical for both paths)
 # ---------------------------------------------------------------------------
-STAGES_1_TO_8=$(cat <<'STAGES_EOF'
+STAGES_1_TO_9=$(cat <<'STAGES_EOF'
 ## Stage 1: LOAD PLAN
 Read the plan document at the path above. Extract:
 - The scope of work (what needs to be built)
@@ -236,6 +237,11 @@ Evaluate whether the plan is actionable:
 If the plan is not actionable, stop and clearly report what's missing. Otherwise, proceed with a brief validation summary.
 
 ## Stage 3: IMPLEMENT
+Before writing code, discover the applicable standards:
+- Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
+- If docs/architecture/ exists, scan for relevant ADRs
+- Read the specific docs/standards/*.md files relevant to your task area
+
 Build what the plan describes. Work through the scope methodically. Produce a brief summary noting:
 - What was built and why
 - Any deviations from the plan and why they were necessary
@@ -264,15 +270,24 @@ Use the refactoring-evaluator agent to evaluate the changed code for structural 
 
 Document which suggestions you implemented and which you deferred.
 
-## Stage 7: RESOLVE
-Review all changes made across stages 3-6. Produce a consolidated summary:
+## Stage 7: STANDARDS
+Use the standards-auditor agent to audit your changes against project standards. Analyze the findings:
+- Critical violations: must fix before proceeding
+- Warnings: should fix if scope allows
+- Info: note for future improvement
+
+Fix any Critical violations found. Document which Warning and Info items you chose to address and which you deferred.
+
+## Stage 8: RESOLVE
+Review all changes made across stages 3-7. Produce a consolidated summary:
 - Plan scope vs what was actually built
 - Review findings addressed vs deferred
 - Refactoring suggestions implemented vs deferred
+- Standards audit findings addressed vs deferred
 - Any remaining concerns
 
-## Stage 8: VERIFY
-Run the full relevant test suite one final time to verify everything passes after all changes. Also verify against the success criteria extracted in Stage 1. If anything fails, fix it. Do not proceed to Stage 9 with failing tests or unmet success criteria.
+## Stage 9: VERIFY
+Run the full relevant test suite one final time to verify everything passes after all changes. Also verify against the success criteria extracted in Stage 1. If anything fails, fix it. Do not proceed to Stage 10 with failing tests or unmet success criteria.
 STAGES_EOF
 )
 
@@ -314,13 +329,13 @@ if [[ -n "$PR_NUMBER" ]]; then
 
     PROMPT="You are executing the BUILD-PHASE workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This workflow builds a planned phase or feature from a plan document. Follow all 9 stages thoroughly.
+This workflow builds a planned phase or feature from a plan document. Follow all 10 stages thoroughly.
 
 Plan document: ${PLAN_PATH}
 ${CONTEXT_BLOCK}
-${STAGES_1_TO_8}
+${STAGES_1_TO_9}
 
-## Stage 9: SUBMIT
+## Stage 10: SUBMIT
 - Stage and commit all changes with a clear message. Use format: \"feat: <short description of what was built>\"
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow including a deviation summary comparing what was planned vs what was built
@@ -340,13 +355,13 @@ else
     # ---- New branch path --------------------------------------------------
     PROMPT="You are executing the BUILD-PHASE workflow on a new branch.
 
-This workflow builds a planned phase or feature from a plan document. Follow all 9 stages thoroughly.
+This workflow builds a planned phase or feature from a plan document. Follow all 10 stages thoroughly.
 
 Plan document: ${PLAN_PATH}
 ${CONTEXT_BLOCK}
-${STAGES_1_TO_8}
+${STAGES_1_TO_9}
 
-## Stage 9: SUBMIT
+## Stage 10: SUBMIT
 - Stage and commit all changes with a clear message. Use format: \"feat: <short description of what was built>\"
 - Push the branch
 - Create a new PR using 'gh pr create'. Title format: \"build-phase: <short description>\". In the body, include:
@@ -354,6 +369,7 @@ ${STAGES_1_TO_8}
   - Deviation summary: planned vs built (what matched, what diverged, what was deferred)
   - Review findings addressed and deferred
   - Refactoring suggestions implemented and deferred
+  - Standards audit findings addressed and deferred
   - Test results
   - Success criteria checklist (met / not met)
 - Report the PR URL
