@@ -74,11 +74,12 @@ Options:
   --pr <number>        Update an existing PR instead of creating a new one
   --verbose, -v        Stream formatted Claude output live
 
-Examples:
+Examples (flags FIRST, positionals LAST — protects positionals from
+line-wrap and keeps options visible):
   $(basename "$0") "update roadmap to reflect Phase 4 completion"
   $(basename "$0") "add ADR for switching from REST to gRPC" "focus on performance rationale"
-  $(basename "$0") "revise Phase 5 requirements" --task-file /tmp/context.md --pr 18
-  $(basename "$0") "realign roadmap milestones" --verbose
+  $(basename "$0") --pr 18 --task-file /tmp/context.md "revise Phase 5 requirements"
+  $(basename "$0") --verbose "realign roadmap milestones"
 
 This workflow is for PLANNING doc revisions — not code changes.
 For code changes, use revision.sh or revision-major.sh instead.

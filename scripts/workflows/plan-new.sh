@@ -87,11 +87,12 @@ Options:
   --pr <number>        Update an existing PR instead of creating a new one
   --verbose, -v        Stream formatted Claude output live
 
-Examples:
+Examples (flags FIRST, positionals LAST — protects positionals from
+line-wrap and keeps options visible):
   $(basename "$0") "skyycommand"
   $(basename "$0") "skyycommand" "AI-driven VM placement engine for Proxmox clusters"
-  $(basename "$0") "webhook-gateway" --task-file /tmp/project-context.md --verbose
-  $(basename "$0") "skyycommand" --pr 15
+  $(basename "$0") --verbose --task-file /tmp/project-context.md "webhook-gateway"
+  $(basename "$0") --pr 15 "skyycommand"
 
 This workflow defines a new project from scratch — requirements, architecture,
 phasing, and documentation. For building from an existing plan, use build-phase.sh.

@@ -74,10 +74,11 @@ Options:
   --pr <number>        Update an existing PR instead of creating a new one
   --verbose, -v        Stream formatted Claude output live
 
-Examples:
+Examples (flags FIRST, positionals LAST — protects the positional from
+line-wrap and keeps options visible):
   $(basename "$0") "the auth flow needs to use sessions instead of JWT"
-  $(basename "$0") "address all findings from PR #5" --pr 5
-  $(basename "$0") --task-file /tmp/rework.md --pr 22 --verbose
+  $(basename "$0") --pr 5 "address all findings from PR #5"
+  $(basename "$0") --verbose --pr 22 --task-file /tmp/rework.md
 
 This workflow is for SIGNIFICANT rework — not minor fixes.
 For minor corrections, use revision.sh instead.

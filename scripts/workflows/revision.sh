@@ -66,10 +66,11 @@ Options:
   --pr <number>        Update an existing PR instead of creating a new one
   --verbose, -v        Stream formatted Claude output live
 
-Examples:
+Examples (flags FIRST, positionals LAST — protects the positional from
+line-wrap and keeps options visible):
   $(basename "$0") "fix the null check in login()"
-  $(basename "$0") "add error handling" --pr 42
-  $(basename "$0") --task-file /tmp/task.md --pr 42 --verbose
+  $(basename "$0") --pr 42 "add error handling"
+  $(basename "$0") --verbose --pr 42 --task-file /tmp/task.md
 
 The first form creates a new branch and PR.
 With --pr, the workflow updates the existing PR's branch.

@@ -80,11 +80,12 @@ Options:
   --pr <number>        Update an existing PR instead of creating a new one
   --verbose, -v        Stream formatted Claude output live
 
-Examples:
+Examples (flags FIRST, positionals LAST — protects positionals from
+line-wrap and keeps options visible):
   $(basename "$0") docs/development/phase-4-autonomous.md
   $(basename "$0") docs/development/features/webhook-handler.md "focus on error handling paths"
-  $(basename "$0") docs/development/phase-3.md --task-file /tmp/context.md --pr 12
-  $(basename "$0") docs/development/roadmap.md --verbose
+  $(basename "$0") --pr 12 --task-file /tmp/context.md docs/development/phase-3.md
+  $(basename "$0") --verbose docs/development/roadmap.md
 
 This workflow reads a plan document and builds what it describes.
 For corrections to existing code, use revision.sh or revision-major.sh instead.

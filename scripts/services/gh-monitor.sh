@@ -416,7 +416,7 @@ run_workflow_route() {
     react_to_comment "$repo" "$comment_id" "eyes"
 
     if [[ "$GH_MONITOR_DRY_RUN" == "true" ]]; then
-        echo "    [DRY RUN] Would run: ${script_name} \"${description}\" --pr ${pr_number}"
+        echo "    [DRY RUN] Would run: ${script_name} --pr ${pr_number} \"${description}\""
         react_to_comment "$repo" "$comment_id" "hooray"
         ((PROCESSED++)) || true
         return 0
@@ -437,7 +437,7 @@ run_workflow_route() {
     local workflow_exit=0
     (
         cd "$target_path"
-        "${GH_MONITOR_WORKFLOW_DIR}/${script_name}" "$description" --pr "$pr_number"
+        "${GH_MONITOR_WORKFLOW_DIR}/${script_name}" --pr "$pr_number" "$description"
     ) || workflow_exit=$?
 
     if [[ "$workflow_exit" -eq 0 ]]; then
