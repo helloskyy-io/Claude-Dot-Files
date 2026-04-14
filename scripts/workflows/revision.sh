@@ -187,7 +187,12 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
-2. IMPLEMENT: Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
+2. IMPLEMENT: Before writing code, discover the applicable standards:
+   - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
+   - If docs/architecture/ exists, scan for relevant ADRs
+   - Read the specific docs/standards/*.md files relevant to your task area
+
+   Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
@@ -227,7 +232,12 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
-2. IMPLEMENT: Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
+2. IMPLEMENT: Before writing code, discover the applicable standards:
+   - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
+   - If docs/architecture/ exists, scan for relevant ADRs
+   - Read the specific docs/standards/*.md files relevant to your task area
+
+   Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
