@@ -162,6 +162,84 @@ echo
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
+# Shared prompt stages (Stages 1-9 + Rules are identical for both paths)
+# ---------------------------------------------------------------------------
+STAGES_1_TO_9=$(cat <<'STAGES_EOF'
+## Stage 1: ASSESS
+Analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed. Briefly describe your assessment before proceeding.
+
+## Stage 2: PLAN
+Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
+
+## Stage 3: IMPLEMENT
+Before writing code, discover the applicable standards:
+- Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
+- If docs/architecture/ exists, scan for relevant ADRs
+- Read the specific docs/standards/*.md files relevant to your task area
+
+Execute the plan. Make the changes. Produce a brief summary noting:
+- What was changed and why
+- Any deviations from the plan and why they were necessary
+- Files modified
+
+## Stage 4: TEST
+Run tests relevant to the changes.
+- Run existing tests for affected code first
+- If tests fail due to your changes, fix them
+- If new functionality needs tests, add them
+- Report test results clearly: what passed, what failed, what was added
+
+## Stage 5: REVIEW
+Use the code-reviewer agent to review your changes. Analyze the findings:
+- Critical issues: must fix before proceeding
+- Warnings: should fix if scope allows
+- Info: note for future improvement
+
+Fix any Critical issues found. Document which Warning and Info items you chose to address and which you deferred.
+
+## Stage 6: REFACTOR
+Use the refactoring-evaluator agent to evaluate the changed code for structural improvements. Analyze the findings:
+- High priority: implement if scope allows
+- Medium priority: implement if quick and low risk
+- Low priority: defer to future work
+
+Document which suggestions you implemented and which you deferred.
+
+## Stage 7: STANDARDS
+Use the standards-auditor agent to audit your changes against project standards. Analyze the findings:
+- Critical violations: must fix before proceeding
+- Warnings: should fix if scope allows
+- Info: note for future improvement
+
+Fix any Critical violations found. Document which Warning and Info items you chose to address and which you deferred.
+
+## Stage 8: RESOLVE
+Review all changes made across stages 3-7. Produce a consolidated summary:
+- Original task vs what was actually done
+- Review findings addressed vs deferred
+- Refactoring suggestions implemented vs deferred
+- Standards audit findings addressed vs deferred
+- Any remaining concerns
+
+## Stage 9: VERIFY
+Run the full relevant test suite one final time to verify everything passes after all changes. If anything fails, fix it. Do not proceed to Stage 10 with failing tests.
+STAGES_EOF
+)
+
+RULES=$(cat <<'RULES_EOF'
+Rules:
+- Follow each stage in order — do not skip stages
+- Be thorough — this is a major revision, not a quick fix
+- Do not re-read files whose content you already know and haven't modified since you last read them
+- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
+- Fix Critical review findings before submitting
+- Tests must pass before committing
+- Document deviations from the plan
+- If you cannot complete a stage, stop and clearly report why
+RULES_EOF
+)
+
+# ---------------------------------------------------------------------------
 # Workflow execution
 # ---------------------------------------------------------------------------
 if [[ -n "$PR_NUMBER" ]]; then
@@ -183,88 +261,20 @@ if [[ -n "$PR_NUMBER" ]]; then
     echo "→ Creating worktree at ${WORKTREE_PATH}..."
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
-    PROMPT=$(cat <<EOF
-You are executing the REVISION-MAJOR workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+    PROMPT="You are executing the REVISION-MAJOR workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 This is a SIGNIFICANT rework — not a minor fix. Follow all 10 stages thoroughly.
 
 Task: ${DESCRIPTION}
 
-## Stage 1: ASSESS
-Analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed. Briefly describe your assessment before proceeding.
-
-## Stage 2: PLAN
-Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
-
-## Stage 3: IMPLEMENT
-Before writing code, discover the applicable standards:
-- Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-- If docs/architecture/ exists, scan for relevant ADRs
-- Read the specific docs/standards/*.md files relevant to your task area
-
-Execute the plan. Make the changes. Produce a brief summary noting:
-- What was changed and why
-- Any deviations from the plan and why they were necessary
-- Files modified
-
-## Stage 4: TEST
-Run tests relevant to the changes.
-- Run existing tests for affected code first
-- If tests fail due to your changes, fix them
-- If new functionality needs tests, add them
-- Report test results clearly: what passed, what failed, what was added
-
-## Stage 5: REVIEW
-Use the code-reviewer agent to review your changes. Analyze the findings:
-- Critical issues: must fix before proceeding
-- Warnings: should fix if scope allows
-- Info: note for future improvement
-
-Fix any Critical issues found. Document which Warning and Info items you chose to address and which you deferred.
-
-## Stage 6: REFACTOR
-Use the refactoring-evaluator agent to evaluate the changed code for structural improvements. Analyze the findings:
-- High priority: implement if scope allows
-- Medium priority: implement if quick and low risk
-- Low priority: defer to future work
-
-Document which suggestions you implemented and which you deferred.
-
-## Stage 7: STANDARDS
-Use the standards-auditor agent to audit your changes against project standards. Analyze the findings:
-- Critical violations: must fix before proceeding
-- Warnings: should fix if scope allows
-- Info: note for future improvement
-
-Fix any Critical violations found. Document which Warning and Info items you chose to address and which you deferred.
-
-## Stage 8: RESOLVE
-Review all changes made across stages 3-7. Produce a consolidated summary:
-- Original task vs what was actually done
-- Review findings addressed vs deferred
-- Refactoring suggestions implemented vs deferred
-- Standards audit findings addressed vs deferred
-- Any remaining concerns
-
-## Stage 9: VERIFY
-Run the full relevant test suite one final time to verify everything passes after all changes. If anything fails, fix it. Do not proceed to Stage 10 with failing tests.
+${STAGES_1_TO_9}
 
 ## Stage 10: SUBMIT
-- Stage and commit all changes with a clear message. Use format: "revision-major: <short description>"
+- Stage and commit all changes with a clear message. Use format: \"revision-major: <short description>\"
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow
 
-Rules:
-- Follow each stage in order — do not skip stages
-- Be thorough — this is a major revision, not a quick fix
-- Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
-- Fix Critical review findings before submitting
-- Tests must pass before committing
-- Document deviations from the plan
-- If you cannot complete a stage, stop and clearly report why
-EOF
-)
+${RULES}"
 
     echo
     echo "→ Launching Claude in revision-major mode (updating PR #${PR_NUMBER})..."
@@ -277,76 +287,18 @@ EOF
 
 else
     # ---- New revision path ------------------------------------------------
-    PROMPT=$(cat <<EOF
-You are executing the REVISION-MAJOR workflow on a new branch.
+    PROMPT="You are executing the REVISION-MAJOR workflow on a new branch.
 
 This is a SIGNIFICANT rework — not a minor fix. Follow all 10 stages thoroughly.
 
 Task: ${DESCRIPTION}
 
-## Stage 1: ASSESS
-Analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed. Briefly describe your assessment before proceeding.
-
-## Stage 2: PLAN
-Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
-
-## Stage 3: IMPLEMENT
-Before writing code, discover the applicable standards:
-- Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-- If docs/architecture/ exists, scan for relevant ADRs
-- Read the specific docs/standards/*.md files relevant to your task area
-
-Execute the plan. Make the changes. Produce a brief summary noting:
-- What was changed and why
-- Any deviations from the plan and why they were necessary
-- Files modified
-
-## Stage 4: TEST
-Run tests relevant to the changes.
-- Run existing tests for affected code first
-- If tests fail due to your changes, fix them
-- If new functionality needs tests, add them
-- Report test results clearly: what passed, what failed, what was added
-
-## Stage 5: REVIEW
-Use the code-reviewer agent to review your changes. Analyze the findings:
-- Critical issues: must fix before proceeding
-- Warnings: should fix if scope allows
-- Info: note for future improvement
-
-Fix any Critical issues found. Document which Warning and Info items you chose to address and which you deferred.
-
-## Stage 6: REFACTOR
-Use the refactoring-evaluator agent to evaluate the changed code for structural improvements. Analyze the findings:
-- High priority: implement if scope allows
-- Medium priority: implement if quick and low risk
-- Low priority: defer to future work
-
-Document which suggestions you implemented and which you deferred.
-
-## Stage 7: STANDARDS
-Use the standards-auditor agent to audit your changes against project standards. Analyze the findings:
-- Critical violations: must fix before proceeding
-- Warnings: should fix if scope allows
-- Info: note for future improvement
-
-Fix any Critical violations found. Document which Warning and Info items you chose to address and which you deferred.
-
-## Stage 8: RESOLVE
-Review all changes made across stages 3-7. Produce a consolidated summary:
-- Original task vs what was actually done
-- Review findings addressed vs deferred
-- Refactoring suggestions implemented vs deferred
-- Standards audit findings addressed vs deferred
-- Any remaining concerns
-
-## Stage 9: VERIFY
-Run the full relevant test suite one final time to verify everything passes after all changes. If anything fails, fix it. Do not proceed to Stage 10 with failing tests.
+${STAGES_1_TO_9}
 
 ## Stage 10: SUBMIT
-- Stage and commit all changes with a clear message. Use format: "revision-major: <short description>"
+- Stage and commit all changes with a clear message. Use format: \"revision-major: <short description>\"
 - Push the branch
-- Create a new PR using 'gh pr create'. Title format: "revision-major: <short description>". In the body, include:
+- Create a new PR using 'gh pr create'. Title format: \"revision-major: <short description>\". In the body, include:
   - Summary of what was changed
   - Deviations from plan (if any)
   - Review findings addressed and deferred
@@ -355,17 +307,7 @@ Run the full relevant test suite one final time to verify everything passes afte
   - Test results
 - Report the PR URL
 
-Rules:
-- Follow each stage in order — do not skip stages
-- Be thorough — this is a major revision, not a quick fix
-- Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
-- Fix Critical review findings before submitting
-- Tests must pass before committing
-- Document deviations from the plan
-- If you cannot complete a stage, stop and clearly report why
-EOF
-)
+${RULES}"
 
     echo "→ Launching Claude in revision-major mode (new branch)..."
     echo
