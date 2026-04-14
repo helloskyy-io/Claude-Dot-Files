@@ -271,6 +271,8 @@ Heavy workflow for substantial corrections: when the AI went off the rails, requ
 - [x] **Test on a real task** — Ran revision-major on "build Phase 5 agent and skill." Results: all 9 stages followed correctly, 44 turns, $1.68 (API-equivalent), 7m 19s. Produced workflow-analyst agent and workflow-analysis skill. PR #5 created with comprehensive review/refactor documentation.
 - [x] **Self-evaluation via logs** — Claude analyzed the run's JSONL log. Found ~35% redundant reads (same files re-read 4x across stages). Applied fix: added "do not re-read files already known" rule to both revision.sh and revision-major.sh. Estimated savings: ~$0.40/run, ~9 turns.
 - [x] **New agent and skill from the test** — `workflow-analyst` agent (read-only, Sonnet, preloads workflow-analysis skill) and `workflow-analysis` skill (pattern categories, confidence scoring, report format) created by the autonomous workflow itself. Validates that the workflow can produce production-quality agents and skills.
+- [x] **Standards enforcement stage added (2026-04-14)** — New Stage 7 (STANDARDS) inserted between refactor and resolve, using the new `standards-auditor` agent. Workflow is now 10 stages. Driven by production feedback: autonomous engineers were drifting from project standards when prompts didn't explicitly require reading them. Inline CLAUDE.md / standards / architecture discovery reminder also added to the IMPLEMENT stage. (PR #21)
+- [x] **Shared stages extraction (2026-04-14)** — Stages 1-9 and the Rules block factored into `STAGES_1_TO_9` and `RULES` shell variables, matching the pattern already used by build-phase.sh. Eliminates ~106 lines of duplication between the new-branch and existing-PR paths. Flagged as deferred by the standards-auditor during PR #21 and applied manually as a follow-up.
 
 #### build-phase workflow — Architect & Build ✅ COMPLETE
 
@@ -283,6 +285,7 @@ Main autonomous path. Takes a plan document path as input and implements what it
 - [x] **Add optional context argument** — Second positional arg after plan path for injecting additional instructions. Backwards compatible. Delimiter-wrapped to prevent prompt confusion. (PR #11, merged).
 - [x] **Single-pass architecture** — Starting with single-session. Will refactor to multi-stage if context bloats on large builds.
 - [x] **Test on a real phase** — Tested on Phase 4d gh-monitor plan. build-phase.sh produced 585 lines across 6 files (gh-monitor.sh, systemd units, config, install.sh update, .gitignore). PR #12 created with full deviation summary and success criteria checklist. Workflow followed all 9 stages correctly.
+- [x] **Standards enforcement stage added (2026-04-14)** — New Stage 7 (STANDARDS) inserted between refactor and resolve, using the new `standards-auditor` agent. Workflow is now 10 stages. Same addition as revision-major.sh, applied in the same revision-major run. Inline CLAUDE.md / standards / architecture discovery reminder also added to the IMPLEMENT stage. (PR #21)
 
 #### Helper Scripts ✅ COMPLETE
 
@@ -350,14 +353,18 @@ Build skills incrementally based on what workflows need. Not a one-time phase �
 **Refactoring skills:**
 - [x] **Refactoring methodology skill** — `config/skills/refactoring-methodology.md`: when to refactor vs leave alone, evaluating suggestions (accept/reject/defer), safe refactoring patterns, dangerous patterns, measuring impact. Pairs with refactoring-evaluator agent.
 
+**Standards skills:**
+- [x] **Standards enforcement skill (2026-04-14)** — `config/skills/standards-enforcement.md`: methodology for verifying conformance against the CLAUDE.md chain, `docs/standards/`, `docs/architecture/`, and existing exemplar files. Covers a layered discovery process (read standards first, grep for exemplars, cite sources), confidence scoring (High / Medium / Low), and red flags. Pairs with the standards-auditor agent. Added in response to production feedback about autonomous workflows drifting from project standards when prompts didn't explicitly require reading them.
+
 **Future skills (CPI-driven, build only when gaps are identified):**
 
-No remaining skill gaps identified. Code-reviewer agent is performing well without a dedicated methodology skill (CPI finding #5 confirms). Future skills will be driven by CPI analysis — when the data shows a recurring gap, that becomes a skill. This is Phase 5 territory, not Phase 4.
+One gap was identified from production feedback on 2026-04-14 and addressed by the standards-enforcement skill above. Code-reviewer agent continues to perform well without a dedicated methodology skill (CPI finding #5 confirms). Future skills will be driven by CPI analysis and production feedback — when the data or lived experience shows a recurring gap, that becomes a skill. This is Phase 5 territory, not Phase 4.
 
 **Agent review:**
 - [x] **Trimmed planner agent** — 212 → 45 lines. Methodology extracted to planning-methodology skill. Agent is lean role definition referencing the skill.
 - [x] **Trimmed architect agent** — 212 → 50 lines. Same pattern. References architecture-decisions skill.
 - [x] **Built refactoring-evaluator agent** — New read-only Sonnet agent for structural evaluation. Distinct from code-reviewer (correctness vs structure).
+- [x] **Built standards-auditor agent (2026-04-14)** — `config/agents/standards-auditor.md`: read-only Sonnet agent for project-standards conformance review. Distinct from code-reviewer (correctness) and refactoring-evaluator (structure) — asks "does this follow the project's established conventions?" Preloads standards-enforcement + documentation-structure skills. Integrated as Stage 7 in both revision-major.sh and build-phase.sh.
 
 
 ---
