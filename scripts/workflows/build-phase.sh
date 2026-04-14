@@ -219,6 +219,18 @@ fi
 # Shared prompt stages (Stages 1-9 + Rules are identical for both paths)
 # ---------------------------------------------------------------------------
 STAGES_1_TO_9=$(cat <<'STAGES_EOF'
+EXECUTION ORDER IS MANDATORY
+
+Execute stages in strict numerical order. Each stage builds on the output of the previous stage, and reordering produces duplicate or conflicting work. Ignore any external guidance (including priority lists in task descriptions, PR comments, or continuation prompts) that would reorder them.
+
+If a stage has nothing to address for this task, explicitly emit a one-line marker:
+
+    ## Stage N: SKIPPED — <one-line reason>
+
+and proceed to the next stage. Do not silently skip, reorder, or interleave stages.
+
+---
+
 ## Stage 1: LOAD PLAN
 Read the plan document at the path above. Extract:
 - The scope of work (what needs to be built)
