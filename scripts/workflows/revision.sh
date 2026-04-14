@@ -49,33 +49,48 @@ MAX_TURNS=60
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
-if [[ $# -lt 1 ]]; then
+show_usage() {
     cat <<EOF
 Usage: $(basename "$0") "description of what to revise" [options]
+       $(basename "$0") --task-file path/to/task.md [options]
+
+Arguments:
+  "description"        The task to work on (short single-line tasks)
+  --task-file <path>   Read the task from a file — use this for multi-paragraph
+                       tasks or anything with special characters, quotes, or
+                       newlines that would break command-line parsing. Preserves
+                       content literally. Mutually exclusive with the positional
+                       description.
 
 Options:
-  --pr <number>   Update an existing PR instead of creating a new one
-  --verbose, -v   Stream formatted Claude output live
+  --pr <number>        Update an existing PR instead of creating a new one
+  --verbose, -v        Stream formatted Claude output live
 
 Examples:
   $(basename "$0") "fix the null check in login()"
   $(basename "$0") "add error handling" --pr 42
-  $(basename "$0") "update the README" --verbose
+  $(basename "$0") --task-file /tmp/task.md --pr 42 --verbose
 
 The first form creates a new branch and PR.
 With --pr, the workflow updates the existing PR's branch.
 EOF
-    exit 1
-fi
+}
 
-DESCRIPTION="$1"
-shift
-
+DESCRIPTION=""
+TASK_FILE=""
 PR_NUMBER=""
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --task-file)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --task-file requires a path" >&2
+                exit 1
+            fi
+            TASK_FILE="$2"
+            shift 2
+            ;;
         --pr)
             if [[ $# -lt 2 ]]; then
                 echo "Error: --pr requires a PR number" >&2
@@ -88,12 +103,44 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
-        *)
+        -*)
             echo "Error: unknown option '$1'" >&2
             exit 1
             ;;
+        *)
+            if [[ -z "$DESCRIPTION" ]]; then
+                DESCRIPTION="$1"
+                shift
+            else
+                echo "Error: unexpected positional argument '$1'" >&2
+                exit 1
+            fi
+            ;;
     esac
 done
+
+# Must provide exactly one of: positional description OR --task-file
+if [[ -n "$DESCRIPTION" && -n "$TASK_FILE" ]]; then
+    echo "Error: cannot use both a positional description and --task-file" >&2
+    exit 1
+fi
+if [[ -z "$DESCRIPTION" && -z "$TASK_FILE" ]]; then
+    show_usage >&2
+    exit 1
+fi
+
+# Load task file into DESCRIPTION (preserves content literally)
+if [[ -n "$TASK_FILE" ]]; then
+    if [[ ! -f "$TASK_FILE" ]]; then
+        echo "Error: task file not found: ${TASK_FILE}" >&2
+        exit 1
+    fi
+    if [[ ! -r "$TASK_FILE" ]]; then
+        echo "Error: task file not readable: ${TASK_FILE}" >&2
+        exit 1
+    fi
+    DESCRIPTION=$(cat "$TASK_FILE")
+fi
 
 # ---------------------------------------------------------------------------
 # Environment checks

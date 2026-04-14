@@ -62,45 +62,52 @@ MAX_TURNS=300
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
-if [[ $# -lt 1 ]]; then
+show_usage() {
     cat <<EOF
 Usage: $(basename "$0") path/to/plan.md ["context"] [options]
+       $(basename "$0") path/to/plan.md --task-file path/to/context.md [options]
 
 Arguments:
-  path/to/plan.md   Path to the plan document (required)
-  "context"         Additional context injected into the prompt (optional)
+  path/to/plan.md      Path to the plan document (required)
+  "context"            Additional context (optional positional — short text only)
+  --task-file <path>   Read additional context from a file — use this for
+                       multi-paragraph context or anything with special
+                       characters, quotes, or newlines that would break
+                       command-line parsing. Preserves content literally.
+                       Mutually exclusive with the positional context.
 
 Options:
-  --pr <number>   Update an existing PR instead of creating a new one
-  --verbose, -v   Stream formatted Claude output live
+  --pr <number>        Update an existing PR instead of creating a new one
+  --verbose, -v        Stream formatted Claude output live
 
 Examples:
   $(basename "$0") docs/development/phase-4-autonomous.md
   $(basename "$0") docs/development/features/webhook-handler.md "focus on error handling paths"
-  $(basename "$0") docs/development/phase-3.md --pr 12
-  $(basename "$0") docs/development/roadmap.md "skip the optional metrics work" --verbose
+  $(basename "$0") docs/development/phase-3.md --task-file /tmp/context.md --pr 12
+  $(basename "$0") docs/development/roadmap.md --verbose
 
 This workflow reads a plan document and builds what it describes.
 For corrections to existing code, use revision.sh or revision-major.sh instead.
 EOF
-    exit 1
-fi
+}
 
-PLAN_PATH="$1"
-shift
-
-# Optional context argument: second positional arg if it doesn't start with -
+PLAN_PATH=""
 CONTEXT=""
-if [[ $# -gt 0 && ! "$1" =~ ^- ]]; then
-    CONTEXT="$1"
-    shift
-fi
-
+TASK_FILE=""
 PR_NUMBER=""
 VERBOSE=false
+POSITIONAL_IDX=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --task-file)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --task-file requires a path" >&2
+                exit 1
+            fi
+            TASK_FILE="$2"
+            shift 2
+            ;;
         --pr)
             if [[ $# -lt 2 ]]; then
                 echo "Error: --pr requires a PR number" >&2
@@ -113,12 +120,48 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
-        *)
+        -*)
             echo "Error: unknown option '$1'" >&2
             exit 1
             ;;
+        *)
+            case $POSITIONAL_IDX in
+                0) PLAN_PATH="$1"; POSITIONAL_IDX=1 ;;
+                1) CONTEXT="$1"; POSITIONAL_IDX=2 ;;
+                *)
+                    echo "Error: unexpected positional argument '$1'" >&2
+                    exit 1
+                    ;;
+            esac
+            shift
+            ;;
     esac
 done
+
+# PLAN_PATH is always required
+if [[ -z "$PLAN_PATH" ]]; then
+    show_usage >&2
+    exit 1
+fi
+
+# CONTEXT and TASK_FILE are mutually exclusive
+if [[ -n "$CONTEXT" && -n "$TASK_FILE" ]]; then
+    echo "Error: cannot use both a positional context and --task-file" >&2
+    exit 1
+fi
+
+# Load task file into CONTEXT (preserves content literally)
+if [[ -n "$TASK_FILE" ]]; then
+    if [[ ! -f "$TASK_FILE" ]]; then
+        echo "Error: task file not found: ${TASK_FILE}" >&2
+        exit 1
+    fi
+    if [[ ! -r "$TASK_FILE" ]]; then
+        echo "Error: task file not readable: ${TASK_FILE}" >&2
+        exit 1
+    fi
+    CONTEXT=$(cat "$TASK_FILE")
+fi
 
 # ---------------------------------------------------------------------------
 # Input validation

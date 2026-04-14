@@ -69,46 +69,53 @@ MAX_TURNS=500
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
-if [[ $# -lt 1 ]]; then
+show_usage() {
     cat <<EOF
 Usage: $(basename "$0") "project name" ["context"] [options]
+       $(basename "$0") "project name" --task-file path/to/context.md [options]
 
 Arguments:
-  "project name"    Name of the project to define (required)
-  "context"         Additional context injected into the prompt (optional)
+  "project name"       Name of the project to define (required)
+  "context"            Additional context (optional positional — short text only)
+  --task-file <path>   Read additional context from a file — use this for
+                       multi-paragraph context or anything with special
+                       characters, quotes, or newlines that would break
+                       command-line parsing. Preserves content literally.
+                       Mutually exclusive with the positional context.
 
 Options:
-  --pr <number>   Update an existing PR instead of creating a new one
-  --verbose, -v   Stream formatted Claude output live
+  --pr <number>        Update an existing PR instead of creating a new one
+  --verbose, -v        Stream formatted Claude output live
 
 Examples:
   $(basename "$0") "skyycommand"
   $(basename "$0") "skyycommand" "AI-driven VM placement engine for Proxmox clusters"
-  $(basename "$0") "webhook-gateway" "lightweight service for routing GitHub webhooks" --verbose
+  $(basename "$0") "webhook-gateway" --task-file /tmp/project-context.md --verbose
   $(basename "$0") "skyycommand" --pr 15
 
 This workflow defines a new project from scratch — requirements, architecture,
 phasing, and documentation. For building from an existing plan, use build-phase.sh.
 For corrections to existing code, use revision.sh or revision-major.sh.
 EOF
-    exit 1
-fi
+}
 
-PROJECT_NAME="$1"
-shift
-
-# Optional context argument: second positional arg if it doesn't start with -
+PROJECT_NAME=""
 CONTEXT=""
-if [[ $# -gt 0 && ! "$1" =~ ^- ]]; then
-    CONTEXT="$1"
-    shift
-fi
-
+TASK_FILE=""
 PR_NUMBER=""
 VERBOSE=false
+POSITIONAL_IDX=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --task-file)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --task-file requires a path" >&2
+                exit 1
+            fi
+            TASK_FILE="$2"
+            shift 2
+            ;;
         --pr)
             if [[ $# -lt 2 ]]; then
                 echo "Error: --pr requires a PR number" >&2
@@ -121,12 +128,48 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
-        *)
+        -*)
             echo "Error: unknown option '$1'" >&2
             exit 1
             ;;
+        *)
+            case $POSITIONAL_IDX in
+                0) PROJECT_NAME="$1"; POSITIONAL_IDX=1 ;;
+                1) CONTEXT="$1"; POSITIONAL_IDX=2 ;;
+                *)
+                    echo "Error: unexpected positional argument '$1'" >&2
+                    exit 1
+                    ;;
+            esac
+            shift
+            ;;
     esac
 done
+
+# PROJECT_NAME is always required
+if [[ -z "$PROJECT_NAME" ]]; then
+    show_usage >&2
+    exit 1
+fi
+
+# CONTEXT and TASK_FILE are mutually exclusive
+if [[ -n "$CONTEXT" && -n "$TASK_FILE" ]]; then
+    echo "Error: cannot use both a positional context and --task-file" >&2
+    exit 1
+fi
+
+# Load task file into CONTEXT (preserves content literally)
+if [[ -n "$TASK_FILE" ]]; then
+    if [[ ! -f "$TASK_FILE" ]]; then
+        echo "Error: task file not found: ${TASK_FILE}" >&2
+        exit 1
+    fi
+    if [[ ! -r "$TASK_FILE" ]]; then
+        echo "Error: task file not readable: ${TASK_FILE}" >&2
+        exit 1
+    fi
+    CONTEXT=$(cat "$TASK_FILE")
+fi
 
 # ---------------------------------------------------------------------------
 # Input validation
