@@ -55,7 +55,11 @@ This ensures:
 
 ## Required Features
 
-Every workflow script MUST implement these features. They are not optional.
+**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`revision.sh`, `revision-major.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
+
+**Analysis workflows** that derive their inputs from the filesystem without a user-supplied task (e.g. `review-runs.sh`, which scans `.claude/logs/`) MUST still implement the non-task-specific features: verbose flag, JSONL logging, stream format, `run_claude` helper, environment checks, repo-root operation, banners, and a structured prompt. They are exempt from the task-input features (`--pr <N>`, `--task-file <path>`, flags-first positional convention) because those features have no referent — there is no task string to carry. Every subsection below is marked **(task-execution only)** where it applies narrowly.
+
+Everything not marked **(task-execution only)** applies to all workflow scripts. None of it is optional.
 
 ### 1. `--verbose` / `-v` Flag
 
@@ -74,9 +78,9 @@ while [[ $# -gt 0 ]]; do
 done
 ```
 
-### 2. `--pr <N>` Flag
+### 2. `--pr <N>` Flag (task-execution only)
 
-Workflow scripts must support updating an existing PR instead of creating a new one. This enables iterative revision loops — rerun the workflow against a PR after review feedback, and it commits and pushes to the PR's existing branch rather than creating a second PR.
+Task-execution workflow scripts must support updating an existing PR instead of creating a new one. This enables iterative revision loops — rerun the workflow against a PR after review feedback, and it commits and pushes to the PR's existing branch rather than creating a second PR.
 
 ```bash
 PR_NUMBER=""
@@ -102,9 +106,9 @@ When `--pr <N>` is set, the script should:
 
 This is also the integration point for the gh-monitor service — it invokes workflows with `--pr <N>` when responding to `@claude` comments on PRs.
 
-### 3. `--task-file <path>` Flag
+### 3. `--task-file <path>` Flag (task-execution only)
 
-Workflow scripts must support reading the task description from a file, mutually exclusive with the positional description argument. This flag exists because command-line parsing breaks on multi-paragraph inputs containing quotes, newlines, backticks, or other special characters — a common case for real task descriptions.
+Task-execution workflow scripts must support reading the task description from a file, mutually exclusive with the positional description argument. This flag exists because command-line parsing breaks on multi-paragraph inputs containing quotes, newlines, backticks, or other special characters — a common case for real task descriptions.
 
 ```bash
 TASK_FILE=""
@@ -144,9 +148,9 @@ fi
 
 The file is read with `cat` and passed through to the prompt verbatim. Content never crosses a shell-parsing boundary, so quotes, newlines, and special characters pass through literally.
 
-### 4. Flags-First Convention
+### 4. Flags-First Convention (task-execution only)
 
-All examples in usage text and invocations should put flags FIRST and the positional description LAST:
+For scripts that take a positional task description, all examples in usage text and invocations should put flags FIRST and the positional description LAST:
 
 ```bash
 # Preferred — flags visible at the start, positional at the end
@@ -328,7 +332,9 @@ EOF
 
 This is the opposite case from `config/CLAUDE.md :: Terminal Commands & Prompts`, which forbids heredocs in USER-FACING command output (commands shown to the user to paste into their terminal). That rule exists because terminal paste reliably corrupts multi-line input. Inside a script, heredocs are fine and preferred for multi-line prompt construction — they handle quotes, backticks, and special characters without manual escaping.
 
-For prompts that must interpolate shell variables (like `${DESCRIPTION}`), use an unquoted `EOF` sentinel. For static stage blocks that should pass through literally with no expansion, use a quoted `'STAGES_EOF'` sentinel (see `scripts/workflows/revision-major.sh` for the `STAGES_1_TO_9` / `RULES` pattern that shares stages across the new-branch and existing-PR code paths).
+**Quoted vs unquoted sentinel:** Use an unquoted `EOF` when the heredoc body must interpolate shell variables (like `${DESCRIPTION}`). Use a quoted `'EOF'` sentinel for any static block that should pass through literally — backticks, `$symbols`, and dollar-brace tokens all survive untouched, so you don't have to hunt down escape edge cases. Default to quoted when the block has no variables; it's the safer choice.
+
+`scripts/workflows/revision-major.sh` shows both idioms in one file: `STAGES_1_TO_9` and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so `${STAGES_1_TO_9}`, `${RULES}`, and `${DESCRIPTION}` can interpolate. The quoted sentinels also happen to enable reuse of the block across the new-branch and existing-PR code paths, but that's a secondary benefit — safety from accidental expansion is the primary one.
 
 ## Design Principles
 
@@ -527,8 +533,8 @@ Before marking a new workflow script as complete:
 ## Critical Rules
 
 - **Workflow scripts MUST support `--verbose` flag** — visibility is not optional
-- **Workflow scripts MUST support `--pr <N>` flag** — enables iterative revision and gh-monitor integration
-- **Workflow scripts MUST support `--task-file <path>` flag** — required for multi-paragraph/special-character payloads
+- **Task-execution workflow scripts MUST support `--pr <N>` flag** — enables iterative revision and gh-monitor integration (does not apply to analysis workflows like `review-runs.sh` that have no user-supplied task)
+- **Task-execution workflow scripts MUST support `--task-file <path>` flag** — required for multi-paragraph/special-character payloads (same scope carve-out)
 - **Workflow scripts MUST log to `.claude/logs/`** — post-mortem analysis matters
 - **Workflow scripts MUST validate environment upfront** — fail fast
 - **Workflow scripts MUST operate from repo root** — consistent paths

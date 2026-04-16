@@ -6,7 +6,7 @@ Conventions for writing rule files in `config/rules/`.
 
 Rules are modular instruction files that Claude loads at the start of every conversation. They are functionally identical to `CLAUDE.md` — same effect, same priority — but split into individual `.md` files by topic so they can be added, removed, or shared independently.
 
-## When to Write a Rule
+## When to Use Rules
 
 Write a rule instead of a skill when the instruction is **always applicable** — it governs all work in every conversation, not just specific contexts.
 
@@ -18,6 +18,12 @@ Write a rule instead of a skill when the instruction is **always applicable** �
 | Needs to load automatically | Load on-demand based on context |
 
 If it would go in `CLAUDE.md`, it's rule material. If it would go in onboarding documentation for a specific methodology, it's skill material.
+
+### Rules vs. `CLAUDE.md`
+
+Our current `config/CLAUDE.md` is short and fits cleanly in one file. The `config/rules/` directory is **synced and ready but intentionally empty** — don't create rule files speculatively. It exists as the split target for when `CLAUDE.md` outgrows a single file, not as scaffolding to populate now.
+
+**Heuristic:** If `config/CLAUDE.md` passes ~50 lines and you find yourself scrolling to locate instructions by topic, that's when splitting earns its keep. When splitting, move each coherent topic into its own rule file (`git-conventions.md`, `security.md`, etc.) and remove the content from `CLAUDE.md`. Don't duplicate — rules and `CLAUDE.md` stack, they don't override.
 
 ## File Conventions
 
@@ -54,21 +60,13 @@ Keep rules short and declarative. Each rule is one line, ideally starting with a
 
 Don't write prose paragraphs in rule files. If a rule needs explanation, trim the explanation to the minimum needed and move the rest into a skill.
 
-## When to Split CLAUDE.md Into Rules
-
-Our current `config/CLAUDE.md` is short and fits cleanly in one file. The `config/rules/` directory is the planned split target for when it outgrows that format — don't create rule files speculatively.
-
-**Heuristic:** If `config/CLAUDE.md` passes ~50 lines and you find yourself scrolling to locate instructions by topic, that's when splitting earns its keep.
-
-When splitting, move each coherent topic into its own rule file (`git-conventions.md`, `security.md`, etc.) and remove the content from `CLAUDE.md`. Don't duplicate — rules and CLAUDE.md stack, they don't override.
-
 ## Critical Rules
 
 - **Rules are always loaded** — use them for universal constraints, not context-specific methodology
 - **One topic per file** — the filename identifies the topic
 - **Short and declarative** — rules are constraints, not tutorials
 - **No frontmatter** — plain markdown
-- **Don't duplicate CLAUDE.md** — when a rule is moved from CLAUDE.md into a rule file, remove it from CLAUDE.md
+- **Don't duplicate `CLAUDE.md`** — when a rule is moved from `CLAUDE.md` into a rule file, remove it from `CLAUDE.md`
 
 ## Related Documentation
 

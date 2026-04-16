@@ -126,12 +126,14 @@ Choose the model based on the work's complexity:
 
 ### Opus-Approved Roles
 
-The following agent roles are approved for `opus` because they do deep design and strategy work where the extra reasoning meaningfully changes the output quality:
+**The test:** Does this agent produce *deliberative artifacts* — designs, plans, or decisions that downstream work depends on — or does it perform *structured inspection* (review, audit, test generation, formatting)? Deliberative artifacts justify `opus`; structured inspection stays on `sonnet`.
+
+**Currently approved for `opus`** (both pass the test):
 
 - **`architect`** — system design, scalability analysis, technology selection, architectural trade-offs
 - **`planner`** — feature decomposition, phased implementation plans, risk and dependency analysis
 
-Any other agent should default to `sonnet`. Before promoting a new agent to `opus`, ask: does this role produce deliberative artifacts (designs, plans, decisions that downstream work depends on), or does it perform structured inspection (review, audit, test generation, formatting)? The latter stays on `sonnet`.
+The list above is a snapshot, not a closed allowlist. A future role that passes the deliberative-artifacts test (e.g., a threat-modeler or a migration-strategist) can adopt `opus` without requiring an amendment to this document — update the snapshot when the role lands.
 
 ## Prompt Body Conventions
 
