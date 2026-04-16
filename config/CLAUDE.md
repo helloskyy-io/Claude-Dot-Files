@@ -36,6 +36,16 @@ These rules apply to all projects and sessions.
 - For long or multi-paragraph task/context inputs to workflow scripts, use `--task-file <path>` instead of inlining. Write the payload to `/tmp/claude-<name>.md` first, then reference it with `--task-file /tmp/claude-<name>.md`. This bypasses command-line parsing entirely — quotes, newlines, backticks, and special characters all pass through literally.
 - For multi-step command sequences: write the sequence to `/tmp/claude-<descriptive-name>.sh` and give the user a SINGLE-LINE invocation `bash /tmp/claude-<descriptive-name>.sh`. NEVER give the user a multi-line code block to copy-paste — terminal whitespace handling corrupts multi-line pastes. Chain 2-3 simple related commands with `&&` on one line when script-to-tmp is overkill.
 
+### Workflow invocation template
+
+When dispatching a workflow (revision.sh, revision-major.sh, build-phase.sh, plan-new.sh, plan-revision.sh), produce **one single-line command** in this exact shape:
+
+```
+cd <absolute-path-to-target-repo> && <absolute-path-to-workflow-script> [flags] --task-file /tmp/claude-<name>.md
+```
+
+Order: `cd` → `&&` → script absolute path → flags (`--verbose`, `--pr <N>`) → `--task-file` LAST so the file path stays visible/editable. The `cd` matters because workflows operate against the current working directory. Default to including `--verbose` unless the user says otherwise (he wants live streaming). Don't wrap the invocation in a bash launcher script — the single-line command IS the deliverable. Write the long task payload to `/tmp/claude-<name>.md` separately with the Write tool first, then present only the invocation line.
+
 ## Personal Tooling
 
 Autonomous workflow scripts live at `~/Repos/claude-dot-files/scripts/workflows/`:
