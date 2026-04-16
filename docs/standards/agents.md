@@ -124,6 +124,15 @@ Choose the model based on the work's complexity:
 
 **Default to `sonnet`** for most custom agents. It's the right balance of capability and cost. Reserve `opus` for agents where the extra reasoning genuinely matters.
 
+### Opus-Approved Roles
+
+The following agent roles are approved for `opus` because they do deep design and strategy work where the extra reasoning meaningfully changes the output quality:
+
+- **`architect`** — system design, scalability analysis, technology selection, architectural trade-offs
+- **`planner`** — feature decomposition, phased implementation plans, risk and dependency analysis
+
+Any other agent should default to `sonnet`. Before promoting a new agent to `opus`, ask: does this role produce deliberative artifacts (designs, plans, decisions that downstream work depends on), or does it perform structured inspection (review, audit, test generation, formatting)? The latter stays on `sonnet`.
+
 ## Prompt Body Conventions
 
 Everything below the frontmatter `---` is the agent's system prompt.

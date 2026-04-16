@@ -214,7 +214,7 @@ A skill that covers "planning and architecture and testing" is too broad. Split 
 This way Claude loads only what's relevant, not a giant monolith.
 
 ### Don't Put Rules in Skills
-Rules go in `CLAUDE.md` or `rules/` — those are always loaded. Skills are for detailed methodology that loads on-demand.
+Rules go in `CLAUDE.md` or `config/rules/` (see `docs/standards/rules.md`) — those are always loaded. Skills are for detailed methodology that loads on-demand.
 
 **Rule** (always applies):
 > Never commit secrets

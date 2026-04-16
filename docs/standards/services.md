@@ -222,7 +222,7 @@ touch "$LOCK_FILE"
 Services log to systemd journal by default (stdout/stderr captured by systemd). For additional structured logging, write to `.claude/logs/` following the workflow logging convention.
 
 ### Error Handling
-- **Don't crash the service on single-item failures.** If processing one comment fails, log it, react with ❌, and continue to the next.
+- **Don't crash the service on single-item failures.** If processing one comment fails, log it, react with 👎 (GitHub reaction name `-1` — matches the State Tracking failure marker), and continue to the next.
 - **Do crash on infrastructure failures.** If `gh` isn't authed or the network is down, exit with error.
 - **Post error comments on PRs** when a workflow fails, so the commenter knows what happened.
 
