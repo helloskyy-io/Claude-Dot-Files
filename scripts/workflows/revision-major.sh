@@ -258,8 +258,11 @@ Run tests relevant to the changes, following the project's testing standard.
 - Run existing tests for affected code first
 - If tests fail due to your changes, fix them
 - If new functionality needs tests, add them following the project's testing standard and the test-suite-architecture skill
+- If code was modified, update its existing tests to match the new behavior — stale tests that pass against old behavior are misleading
+- If code was removed or abandoned, remove its tests — no orphaned tests should remain in the suite
+- New code requires tests unless genuinely untestable (pure configuration, trivial wiring with no logic). If skipping tests for new code, explicitly document why in the stage summary.
 - Verify discovery: run the component's test suite to confirm new tests are found
-- Report test results clearly: what passed, what failed, what was added, where tests were placed
+- Report test results clearly: what passed, what failed, what was added/updated/removed, where tests were placed
 
 ## Stage 5: REVIEW
 Use the code-reviewer agent to review your changes. Analyze the findings:
