@@ -273,6 +273,7 @@ Make the planning changes. Work through the plan methodically:
 - Ensure cross-references between docs remain consistent
 - Follow the four-bucket documentation convention (architecture=WHY, development=WHAT, standards=HOW, guide=USER-FACING)
 - Use clear, specific language — avoid vague phrases like "improve performance"
+- Planning docs should focus on WHAT and WHY, not HOW. Defer implementation-level detail (full config YAML, exact CLI commands, step-by-step terminal procedures) to the engineer's task file. If you find yourself writing the commands someone would paste into a terminal, you have crossed into implementation — move it to a task-file appendix or reference it as "see implementation task."
 
 Checkpoint commit: once the planning changes are complete, stage all changes and make a local checkpoint commit (do NOT push):
   git add -A && git commit -m "wip: planning-doc checkpoint — PRE-REVIEW, not yet audited"
@@ -317,7 +318,7 @@ Fix any Critical issues found. Document which Warning and Info items you address
 Use the standards-architect agent to review your planning changes through a standards lens. This is distinct from the architect (technical consistency) and planner (actionability) reviews — the standards-architect focuses on how the revision interacts with the project's standards corpus and documentation structure.
 
 The standards-architect should evaluate:
-- **Cross-reference integrity:** do references to `docs/standards/*.md` from the revised planning docs resolve? Is the content being referenced accurate?
+- **Cross-reference integrity:** do references to `docs/standards/*.md` from the revised planning docs resolve? Is the content being referenced accurate? When a doc references a specific sub-section (e.g., "§6b", "Section 3.2", "the Deployment Standard networking section"), verify that sub-section actually exists — not just the parent document.
 - **Gap analysis:** does this revision propose new work (phases, features, components) that will need new standards? Flag gaps — do not create draft standards in this stage.
 - **Documentation-structure conformance:** does the revised doc follow the four-bucket convention (architecture=WHY, development=WHAT, standards=HOW, guide=USER-FACING) and the documentation-structure skill conventions?
 - **Drift risk:** does the revision introduce duplication between planning docs and standards docs (same rule stated in 2+ places)?
@@ -389,12 +390,13 @@ ${STAGES_1_TO_7}
 ## Stage 8: SUBMIT
 - Stage any uncommitted changes remaining from stages 4-7 (architect review fixes, planner review fixes, standards review fixes) and commit them with the final message format: \"docs: <short description of planning changes>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch (this updates PR #${PR_NUMBER})
-- Report a summary of the entire workflow including:
-  - Planning changes made
-  - Architect review findings: addressed and deferred
-  - Planner review findings: addressed and deferred
-  - Standards review findings: addressed and deferred
-  - Cross-reference consistency check results
+- Update the PR body with a concise summary. The planning doc IS the deliverable — the PR body is a scannable index, not a restatement. Keep it under 100 lines:
+  - Planning changes made (bullet list)
+  - Architect review: critical findings addressed (one line each) + count of deferred warnings/info
+  - Planner review: same format
+  - Standards review: same format
+  - Cross-reference consistency: pass/fail + any issues found
+  Do NOT repeat reviewer findings verbatim — summarize the finding and the resolution in one line each.
 
 ${RULES}"
 
@@ -420,13 +422,14 @@ ${STAGES_1_TO_7}
 ## Stage 8: SUBMIT
 - Stage any uncommitted changes remaining from stages 4-7 (architect review fixes, planner review fixes, standards review fixes) and commit them with the final message format: \"docs: <short description of planning changes>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch
-- Create a new PR using 'gh pr create'. Title format: \"plan-revision: <short description>\". In the body, include:
-  - Summary of planning changes made
-  - Deviations from plan (if any)
-  - Architect review findings: addressed and deferred
-  - Planner review findings: addressed and deferred
-  - Standards review findings: addressed and deferred
-  - Cross-reference consistency check results
+- Create a new PR using 'gh pr create'. Title format: \"plan-revision: <short description>\". The planning doc IS the deliverable — the PR body is a scannable index, not a restatement. Keep it under 100 lines:
+  - Planning changes made (bullet list)
+  - Deviations from plan (if any, one line each)
+  - Architect review: critical findings addressed (one line each) + count of deferred warnings/info
+  - Planner review: same format
+  - Standards review: same format
+  - Cross-reference consistency: pass/fail + any issues found
+  Do NOT repeat reviewer findings verbatim — summarize the finding and the resolution in one line each.
 - Report the PR URL
 
 ${RULES}"
