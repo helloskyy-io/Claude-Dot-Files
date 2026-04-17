@@ -19,16 +19,20 @@ scripts/
     │   └── run-claude.sh       # shared run_claude helper function
     ├── revision.sh             # minor corrections
     ├── revision-major.sh       # significant rework
-    ├── build-phase.sh          # architect and build
-    └── plan-new.sh             # research and planning
+    ├── build-phase.sh          # architect and build from a plan
+    ├── plan-new.sh             # research and planning (new project)
+    ├── plan-revision.sh        # revise existing planning docs
+    └── review-runs.sh          # CPI analysis of workflow JSONL logs
 ```
 
 ### Naming
 Script names use kebab-case matching the workflow's purpose, with `.sh` suffix:
 - `revision.sh` — minor corrections workflow
 - `revision-major.sh` — significant rework workflow
-- `build-phase.sh` — architect and build a phase workflow
-- `plan-new.sh` — research and planning workflow
+- `build-phase.sh` — implement from a plan document
+- `plan-new.sh` — research and planning for a new project
+- `plan-revision.sh` — revise existing planning docs
+- `review-runs.sh` — CPI analysis of workflow JSONL logs
 
 **Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 
@@ -51,7 +55,11 @@ This ensures:
 
 ## Required Features
 
-Every workflow script MUST implement these features. They are not optional.
+**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`revision.sh`, `revision-major.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
+
+**Analysis workflows** that derive their inputs from the filesystem without a user-supplied task (e.g. `review-runs.sh`, which scans `.claude/logs/`) MUST still implement the non-task-specific features: verbose flag, JSONL logging, stream format, `run_claude` helper, environment checks, repo-root operation, banners, and a structured prompt. They are exempt from the task-input features (`--pr <N>`, `--task-file <path>`, flags-first positional convention) because those features have no referent — there is no task string to carry. Every subsection below is marked **(task-execution only)** where it applies narrowly.
+
+Everything not marked **(task-execution only)** applies to all workflow scripts. None of it is optional.
 
 ### 1. `--verbose` / `-v` Flag
 
@@ -70,7 +78,92 @@ while [[ $# -gt 0 ]]; do
 done
 ```
 
-### 2. Raw JSONL Logging
+### 2. `--pr <N>` Flag (task-execution only)
+
+Task-execution workflow scripts must support updating an existing PR instead of creating a new one. This enables iterative revision loops — rerun the workflow against a PR after review feedback, and it commits and pushes to the PR's existing branch rather than creating a second PR.
+
+```bash
+PR_NUMBER=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --pr)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --pr requires a PR number" >&2
+                exit 1
+            fi
+            PR_NUMBER="$2"
+            shift 2
+            ;;
+        # ... other flags
+    esac
+done
+```
+
+When `--pr <N>` is set, the script should:
+1. Resolve the PR's branch via `gh pr view <N> --json headRefName`
+2. Fetch the latest branch state and create a worktree checked out to `origin/<branch>`
+3. Invoke Claude inside the worktree; push to the same branch at the end (this updates the PR)
+
+This is also the integration point for the gh-monitor service — it invokes workflows with `--pr <N>` when responding to `@claude` comments on PRs.
+
+### 3. `--task-file <path>` Flag (task-execution only)
+
+Task-execution workflow scripts must support reading the task description from a file, mutually exclusive with the positional description argument. This flag exists because command-line parsing breaks on multi-paragraph inputs containing quotes, newlines, backticks, or other special characters — a common case for real task descriptions.
+
+```bash
+TASK_FILE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --task-file)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --task-file requires a path" >&2
+                exit 1
+            fi
+            TASK_FILE="$2"
+            shift 2
+            ;;
+        # ... other flags
+    esac
+done
+
+# Must provide exactly one of: positional description OR --task-file
+if [[ -n "$DESCRIPTION" && -n "$TASK_FILE" ]]; then
+    echo "Error: cannot use both a positional description and --task-file" >&2
+    exit 1
+fi
+if [[ -z "$DESCRIPTION" && -z "$TASK_FILE" ]]; then
+    show_usage >&2
+    exit 1
+fi
+
+# Load file into DESCRIPTION (preserves content literally)
+if [[ -n "$TASK_FILE" ]]; then
+    if [[ ! -f "$TASK_FILE" ]]; then
+        echo "Error: task file not found: ${TASK_FILE}" >&2
+        exit 1
+    fi
+    DESCRIPTION=$(cat "$TASK_FILE")
+fi
+```
+
+The file is read with `cat` and passed through to the prompt verbatim. Content never crosses a shell-parsing boundary, so quotes, newlines, and special characters pass through literally.
+
+### 4. Flags-First Convention (task-execution only)
+
+For scripts that take a positional task description, all examples in usage text and invocations should put flags FIRST and the positional description LAST:
+
+```bash
+# Preferred — flags visible at the start, positional at the end
+./revision-major.sh --verbose --pr 22 --task-file /tmp/task.md
+./revision-major.sh --pr 5 "address all findings from PR #5"
+
+# Avoid — positional in the middle gets stepped on by terminal line-wrap
+./revision-major.sh "address findings" --pr 5 --verbose
+```
+
+Rationale: terminals line-wrap long commands. A trailing positional stays visible and editable even when earlier portions wrap. Flags at the front keep the options obvious at a glance.
+
+### 5. Raw JSONL Logging
 
 Every run writes a raw JSONL log to `.claude/logs/<workflow>-<timestamp>.jsonl` regardless of verbose mode. This enables post-mortem analysis even for runs that weren't watched live.
 
@@ -95,13 +188,13 @@ mkdir -p "$LOG_DIR"
 
 **Important:** The log directory is always in the main repo's `.claude/logs`, not inside worktrees. This keeps all logs in one place for analysis.
 
-### 3. Stream Format Usage
+### 6. Stream Format Usage
 
 Always invoke Claude with `--output-format stream-json`. This gives structured events that can be formatted for display AND saved for analysis.
 
 The shared formatter at `scripts/workflows/lib/format-stream.sh` reads JSONL from stdin and outputs formatted human-readable text. Use it for live display in verbose mode.
 
-### 4. Standard run_claude Helper
+### 7. Standard run_claude Helper
 
 Every workflow script must source the shared `run_claude` helper from `scripts/workflows/lib/run-claude.sh`. This avoids duplicating the verbose/quiet invocation logic across every workflow script.
 
@@ -122,7 +215,7 @@ Usage is the same as before — call `run_claude` with a prompt and optional ext
 run_claude "$PROMPT" -w "$WORKTREE_NAME"
 ```
 
-### 5. Environment Checks
+### 8. Environment Checks
 
 Every workflow script must verify its dependencies before running:
 
@@ -155,7 +248,7 @@ fi
 
 Fail fast if anything is missing. Don't assume tools are available.
 
-### 6. Repo Root Operation
+### 9. Repo Root Operation
 
 Always operate from the repo root to ensure consistent paths:
 
@@ -166,7 +259,7 @@ cd "$REPO_ROOT"
 
 This makes worktree paths, log paths, and relative file references consistent regardless of where the script is invoked from.
 
-### 7. Worktree Isolation
+### 10. Worktree Isolation
 
 All workflow scripts that modify code use git worktrees for isolation. Worktrees go in `.claude/worktrees/<workflow>-<timestamp>/` and the main working directory is never touched.
 
@@ -174,7 +267,7 @@ Two patterns:
 - **New branch:** Use `claude -p -w <name>` — Claude Code creates the worktree with auto-prefixed branch name
 - **Update existing PR:** Manually create worktree checked out to the PR's branch, then invoke claude inside it
 
-### 8. Summary Banner
+### 11. Summary Banner
 
 Every run starts with a summary banner showing the configuration:
 
@@ -193,7 +286,7 @@ echo "================================================================"
 
 This makes it obvious what's about to happen and where to find the log.
 
-### 9. Completion Summary
+### 12. Completion Summary
 
 Every run ends with a completion banner showing where the log and worktree live:
 
@@ -208,7 +301,7 @@ echo "To clean up when done:"
 echo "  /cleanup-merged-worktrees"
 ```
 
-### 10. Structured Prompt
+### 13. Structured Prompt
 
 Every workflow script embeds a structured prompt with numbered stages. The prompt is the specification for Claude's behavior in the autonomous run.
 
@@ -235,6 +328,14 @@ EOF
 )
 ```
 
+**⚠️ Heredoc context:** The heredoc above is INTERNAL to the script — it assembles the prompt string inside the script process, and the assembled string is then passed to `claude -p` via the shell. It never crosses a terminal copy-paste boundary, so there is no risk of whitespace corruption.
+
+This is the opposite case from `config/CLAUDE.md :: Terminal Commands & Prompts`, which forbids heredocs in USER-FACING command output (commands shown to the user to paste into their terminal). That rule exists because terminal paste reliably corrupts multi-line input. Inside a script, heredocs are fine and preferred for multi-line prompt construction — they handle quotes, backticks, and special characters without manual escaping.
+
+**Quoted vs unquoted sentinel:** Use an unquoted `EOF` when the heredoc body must interpolate shell variables (like `${DESCRIPTION}`). Use a quoted `'EOF'` sentinel for any static block that should pass through literally — backticks, `$symbols`, and dollar-brace tokens all survive untouched, so you don't have to hunt down escape edge cases. Default to quoted when the block has no variables; it's the safer choice.
+
+`scripts/workflows/revision-major.sh` shows both idioms in one file: `STAGES_1_TO_9` and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so `${STAGES_1_TO_9}`, `${RULES}`, and `${DESCRIPTION}` can interpolate. The quoted sentinels also happen to enable reuse of the block across the new-branch and existing-PR code paths, but that's a secondary benefit — safety from accidental expansion is the primary one.
+
 ## Design Principles
 
 ### Keep Stages Explicit
@@ -255,16 +356,22 @@ For larger workflows (like `build-phase.sh`), break into multiple `claude -p` ca
 ### Scope Narrowly
 Tell Claude to focus only on the task. Research has shown unscoped exploration ("investigate the codebase") burns tokens for no value.
 
-### Max Turns Based on Complexity
+### Max Turns Per Script
 
-| Workflow Size | Suggested `MAX_TURNS` |
-|---------------|----------------------|
-| Minor (revision) | 30 |
-| Medium (revision-major) | 75 |
-| Large (build-phase) | 150 |
-| Extra large (plan-new) | 225 |
+Current per-script values as of April 2026:
 
-Start conservative. Bump up only if runs hit the limit and fail.
+| Script | `MAX_TURNS` |
+|--------|-------------|
+| `revision.sh` | 100 |
+| `review-runs.sh` | 100 |
+| `revision-major.sh` | 300 |
+| `build-phase.sh` | 300 |
+| `plan-revision.sh` | 300 |
+| `plan-new.sh` | 500 |
+
+**Why these specific values:** The table is a living set of per-script ceilings, not a formula. Values have been raised iteratively in April 2026 as production runs surfaced real ceiling hits — most commonly during the REVIEW or REFACTOR stages when a long back-and-forth with an agent pushed the turn count past the prior limit. Each bump has been a targeted response to an observed crash, not a proactive multiplier; the values should be read as "current authoritative" rather than "doubled from X." Expect further bumps as workflows evolve and as review agents grow more demanding.
+
+**Guidance for new scripts:** Start by picking the entry in this table whose stage count and complexity most resemble your new workflow, then add ~30-50% headroom. Unused turns cost nothing; crashing a 45-minute autonomous run at turn N-1 costs a full rerun. When in doubt, err high — the ceiling exists to catch runaway loops, not to force tight budgeting.
 
 ## Safety Conventions
 
@@ -294,7 +401,8 @@ A minimal workflow script skeleton:
 #!/usr/bin/env bash
 # workflow-name.sh — Description of what this workflow does
 #
-# Usage: ./workflow-name.sh "description" [--verbose]
+# Usage: ./workflow-name.sh "description" [--pr N] [--verbose]
+#        ./workflow-name.sh --task-file path/to/task.md [--pr N] [--verbose]
 
 set -euo pipefail
 
@@ -303,24 +411,45 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
 
 # ---- Configuration ----
-MAX_TURNS=30
+# See "Max Turns Per Script" section above — pick a value from the table
+# based on your workflow's stage count and complexity.
+MAX_TURNS=100
 
 # ---- Argument parsing ----
-if [[ $# -lt 1 ]]; then
-    echo "Usage: $(basename "$0") \"description\" [--verbose]"
-    exit 1
-fi
-
-DESCRIPTION="$1"
-shift
+DESCRIPTION=""
+TASK_FILE=""
+PR_NUMBER=""
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --task-file)
+            [[ $# -ge 2 ]] || { echo "Error: --task-file requires a path" >&2; exit 1; }
+            TASK_FILE="$2"; shift 2 ;;
+        --pr)
+            [[ $# -ge 2 ]] || { echo "Error: --pr requires a PR number" >&2; exit 1; }
+            PR_NUMBER="$2"; shift 2 ;;
         --verbose|-v) VERBOSE=true; shift ;;
-        *) echo "Error: unknown option '$1'" >&2; exit 1 ;;
+        -*) echo "Error: unknown option '$1'" >&2; exit 1 ;;
+        *)
+            [[ -z "$DESCRIPTION" ]] || { echo "Error: unexpected positional '$1'" >&2; exit 1; }
+            DESCRIPTION="$1"; shift ;;
     esac
 done
+
+# Exactly one of: positional description OR --task-file
+if [[ -n "$DESCRIPTION" && -n "$TASK_FILE" ]]; then
+    echo "Error: cannot combine positional description with --task-file" >&2; exit 1
+fi
+if [[ -z "$DESCRIPTION" && -z "$TASK_FILE" ]]; then
+    echo "Usage: $(basename "$0") \"description\" [--pr N] [--verbose]" >&2
+    echo "       $(basename "$0") --task-file path/to/task.md [--pr N] [--verbose]" >&2
+    exit 1
+fi
+if [[ -n "$TASK_FILE" ]]; then
+    [[ -f "$TASK_FILE" ]] || { echo "Error: task file not found: $TASK_FILE" >&2; exit 1; }
+    DESCRIPTION=$(cat "$TASK_FILE")
+fi
 
 # ---- Environment checks ----
 for cmd in claude gh jq; do
@@ -404,17 +533,20 @@ Before marking a new workflow script as complete:
 ## Critical Rules
 
 - **Workflow scripts MUST support `--verbose` flag** — visibility is not optional
+- **Task-execution workflow scripts MUST support `--pr <N>` flag** — enables iterative revision and gh-monitor integration (does not apply to analysis workflows like `review-runs.sh` that have no user-supplied task)
+- **Task-execution workflow scripts MUST support `--task-file <path>` flag** — required for multi-paragraph/special-character payloads (same scope carve-out)
 - **Workflow scripts MUST log to `.claude/logs/`** — post-mortem analysis matters
 - **Workflow scripts MUST validate environment upfront** — fail fast
 - **Workflow scripts MUST operate from repo root** — consistent paths
 - **Workflow scripts MUST use worktree isolation** — main branch is sacred
 - **Workflow scripts MUST have structured staged prompts** — not unscoped instructions
 - **Workflow scripts MUST use `run_claude` helper pattern** — consistent invocation
-- **Workflow scripts SHOULD match the `MAX_TURNS` guideline** for their complexity
+- **Workflow scripts SHOULD follow the per-script `MAX_TURNS` values** in the table above
 
 ## Related Documentation
 
-- `docs/guide/workflows.md` — Architectural context
+- `docs/guide/workflows.md` — Authoritative user-facing workflow guide (start here)
 - `docs/guide/claude_code_headless.md` — Headless mode details
 - `docs/guide/claude_code_orchestration.md` — Orchestration patterns
 - `docs/standards/hook-scripts.md` — Hook script conventions (complementary)
+- `config/CLAUDE.md` — Workflow invocation template and terminal paste rules

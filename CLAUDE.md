@@ -70,6 +70,7 @@ For detailed documentation on Claude Code concepts:
 For contributing to this repo, follow the standards:
 - For agent standards, refer to `docs/standards/agents.md`
 - For hook script standards, refer to `docs/standards/hook-scripts.md`
+- For rule standards, refer to `docs/standards/rules.md`
 - For skill standards, refer to `docs/standards/skills.md`
 - For service standards, refer to `docs/standards/services.md`
 - For slash command standards, refer to `docs/standards/slash-commands.md`
@@ -78,6 +79,6 @@ For contributing to this repo, follow the standards:
 ## Rules
 
 - Do not create files outside the repo structure defined above without asking first.
-- When creating hook scripts, they must read JSON from stdin (not env vars). Use `INPUT=$(cat)` then parse with `jq`.
+- When creating hook scripts, follow `docs/standards/hook-scripts.md` (stdin JSON + jq, never env vars).
 - MCP secrets must use `${env:VAR_NAME}` references, never hardcoded values.
 - Keep `config/` as the single source of truth — never edit `~/.claude/` directly for synced items.

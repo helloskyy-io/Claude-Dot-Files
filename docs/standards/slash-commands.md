@@ -152,7 +152,9 @@ For each CLAUDE.md:
 
 ## README Integration
 
-When you add a new command, update the **Operation** section of the README to list it. Users should be able to discover available commands from the README without browsing the config directory.
+When you add a new command, add it to the slash-command bullet list under **Operation → Workflow 1: Interactive** in `README.md`. Users should be able to discover available commands from the README without browsing the config directory.
+
+If the README layout changes and that subsection no longer exists, update this standard to point at whatever section lists commands — don't invent a new location.
 
 ## Examples of Good Commands
 
@@ -181,5 +183,5 @@ Follow these stages:
 - **Commands MUST be plain markdown with no frontmatter**
 - **Commands MUST use `$ARGUMENTS` for variable input**
 - **Commands MUST be focused on a single purpose**
-- **Commands SHOULD be listed in the README Operation section**
+- **Commands SHOULD be listed in the README Operation → Workflow 1: Interactive section**
 - **Commands SHOULD support safe/dry-run modes for destructive operations**
