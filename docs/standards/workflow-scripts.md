@@ -369,9 +369,9 @@ Current per-script values as of April 2026:
 | `plan-revision.sh` | 300 |
 | `plan-new.sh` | 500 |
 
-**Why these specific values:** All six were **doubled from their original values in April 2026** after production runs crashed mid-implementation when the smaller limits were exhausted — usually during the REVIEW or REFACTOR stages when a long back-and-forth with an agent pushed the turn count past the prior ceiling. Doubling gave comfortable headroom without meaningfully increasing the cap-hit rate on successful runs.
+**Why these specific values:** The table is a living set of per-script ceilings, not a formula. Values have been raised iteratively in April 2026 as production runs surfaced real ceiling hits — most commonly during the REVIEW or REFACTOR stages when a long back-and-forth with an agent pushed the turn count past the prior limit. Each bump has been a targeted response to an observed crash, not a proactive multiplier; the values should be read as "current authoritative" rather than "doubled from X." Expect further bumps as workflows evolve and as review agents grow more demanding.
 
-**Guidance for new scripts:** Match the size of an existing script with a similar stage count, then multiply by ~2 for safety. Start with the doubled value — it's cheaper to have unused headroom than to crash a 45-minute autonomous run at turn 149.
+**Guidance for new scripts:** Start by picking the entry in this table whose stage count and complexity most resemble your new workflow, then add ~30-50% headroom. Unused turns cost nothing; crashing a 45-minute autonomous run at turn N-1 costs a full rerun. When in doubt, err high — the ceiling exists to catch runaway loops, not to force tight budgeting.
 
 ## Safety Conventions
 
