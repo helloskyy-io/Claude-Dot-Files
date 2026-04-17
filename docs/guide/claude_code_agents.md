@@ -8,7 +8,7 @@
 | planner | Detailed implementation plans | Read-only | Opus | planning-methodology, documentation-structure | On-demand |
 | code-reviewer | Code review with structured findings | Read-only | Sonnet | testing-methodology | On-demand |
 | refactoring-evaluator | Structural improvement evaluation | Read-only | Sonnet | refactoring-methodology | On-demand |
-| test-writer | Generate & run tests | Full access | Sonnet | testing-methodology, testing-scaffolding | On-demand |
+| test-writer | Generate & run tests, place in standard hierarchy | Full access | Sonnet | testing-methodology, testing-scaffolding, test-suite-architecture | On-demand |
 | security-auditor | Vulnerability detection & audit | Read-only | Sonnet | testing-methodology | On-demand |
 | standards-auditor | Standards conformance verification (code against standards) | Read-only | Sonnet | standards-enforcement, documentation-structure | On-demand |
 | standards-architect | Audits the standards documents themselves — duplication, gaps, drift | Read-only | Sonnet | standards-enforcement, documentation-structure | On-demand |
