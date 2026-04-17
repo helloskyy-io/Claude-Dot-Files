@@ -8,14 +8,17 @@
 # properly wired into the test suite hierarchy, and that integration
 # and end-to-end tests pass.
 #
-# Unlike task-execution workflows, this does NOT create a PR. It produces
+# This workflow creates missing test files, runs all test suites, and produces
 # a structured report at docs/development/reviews/sprint-test-YYYY-MM-DD.md.
+# It does NOT create a PR — new test files are left uncommitted for the
+# operator to review and commit manually before promoting to main.
 #
 # Stages:
 #   1. DISCOVER — find testing standard, master runner, sprint/planning docs
 #   2. ASSESS — inventory sprint components, check unit + integration coverage, verify hierarchy
-#   3. RUN TESTS — execute unit (scoped), integration, and e2e test suites
-#   4. REPORT — write structured report with coverage gaps, results, and recommendations
+#   3. BUILD — create missing unit, integration, and e2e tests to fill coverage gaps
+#   4. RUN TESTS — execute unit (scoped), integration, and e2e test suites
+#   5. REPORT — write structured report with coverage gaps, results, and recommendations
 #
 # Usage:
 #   ./sprint-test.sh
@@ -231,9 +234,43 @@ Produce a structured coverage assessment:
 - Integration test gaps (which interactions lack tests)
 - Hierarchy issues (orphaned tests, misplaced tests, false-discovery risks)
 
-## Stage 3: RUN TESTS
+## Stage 3: BUILD MISSING TESTS
 
-Execute the test suites and capture results. Use the master runner if available, fall back to framework commands if not.
+Using the coverage gaps identified in Stage 2, create the missing tests. Follow the project's testing standard and the test-suite-architecture skill for placement and naming.
+
+### Unit Tests
+For each sprint component flagged as missing or partially covered:
+- Create \`<component>/tests/unit/\` directory if it doesn't exist
+- Write unit tests covering the component's core functionality (happy path, edge cases, error cases)
+- Add a component-level \`conftest.py\` if needed for shared fixtures
+- Verify discovery: run the new tests to confirm they pass and are found by the framework
+
+### Integration Tests
+For each component interaction flagged as missing coverage:
+- Create \`<component>/tests/integration/\` in the primary component's directory
+- Write integration tests that exercise the interaction boundary between the components
+- Focus on the contract: does component A correctly call component B? Does it handle errors from B?
+- If the interaction requires running services that aren't available, write the test with appropriate skip markers (\`@pytest.mark.skipif\`) and document why
+
+### End-to-End Tests
+For sprint workflows that lack e2e coverage:
+- Create tests in \`testing/e2e/\` (repo-level, since e2e tests span components)
+- Write e2e tests that exercise the full workflow path from trigger to outcome
+- If the e2e test requires infrastructure that isn't available, write the test with skip markers and document the infrastructure requirements
+
+### Hierarchy Wiring
+- Ensure all new test files are discoverable by the master runner (correct naming, correct location)
+- If orphaned or misplaced tests were found in Stage 2, relocate them into the standard hierarchy
+- If files named \`test_*\` that aren't tests were found, rename them to avoid false discovery
+
+After creating tests, produce a summary:
+- Tests created: [count by category — unit, integration, e2e]
+- Tests relocated: [count and from/to paths]
+- Tests that require infrastructure to run: [list with skip reasons]
+
+## Stage 4: RUN TESTS
+
+Execute the test suites and capture results. Use the master runner if available, fall back to framework commands if not. This stage runs AFTER Stage 3, so it includes both pre-existing tests and newly created tests.
 
 ### Unit Tests (scoped to sprint components)
 For each sprint component that has unit tests:
@@ -247,14 +284,14 @@ For each sprint component that has unit tests:
 
 ### End-to-End Tests
 - Run \`./testing/run-all.sh e2e\` or equivalent
-- If no e2e tests exist, note "no e2e tests configured" — do not fail
+- If no e2e tests exist and none were created in Stage 3, note "no e2e tests configured"
 - Capture: total tests, passed, failed, errors, time
 
 If ANY test suite fails to execute (command not found, import errors, missing fixtures), report the failure clearly — do not silently skip.
 
-If the project has no master runner and no test infrastructure at all, report that clearly and skip to Stage 4 with recommendations to establish testing infrastructure.
+If the project has no master runner and no test infrastructure at all, report that clearly and skip to Stage 5 with recommendations to establish testing infrastructure.
 
-## Stage 4: REPORT
+## Stage 5: REPORT
 
 Write the structured report to: ${REPORT_FILE}
 
@@ -291,6 +328,21 @@ Use this format:
 - Orphaned tests: [count and locations]
 - Misplaced tests: [count and locations]
 - False-discovery risks: [files named test_* that aren't tests]
+
+## Tests Created (Stage 3)
+
+### New Test Files
+| File | Category | Component | Tests |
+|---|---|---|---|
+| [path] | unit | [component] | N tests |
+| [path] | integration | [component] | N tests |
+| [path] | e2e | — | N tests |
+
+### Tests Relocated
+- [from] → [to] (reason)
+
+### Infrastructure-Dependent Tests (skipped)
+- [test file]: requires [infrastructure] — marked with skip marker
 
 ## Test Results
 
@@ -338,12 +390,15 @@ After writing the report, confirm the file was written and provide a 2-3 sentenc
 
 ## Rules
 
-- Do not modify source code, test files, or project configuration — this is an assessment and execution workflow, not a fix-it workflow
-- The ONLY file you should create or write is the report at ${REPORT_FILE}
-- If tests fail, report the failures — do not attempt to fix them
-- If test infrastructure is missing (no master runner, no testing standard), document the gaps as recommendations — do not build them
+- Do NOT modify source code or project configuration — only create or relocate test files and write the report
+- You MAY create new test files in the standard hierarchy (\`<component>/tests/unit/\`, \`<component>/tests/integration/\`, \`testing/e2e/\`)
+- You MAY relocate misplaced or orphaned test files into the standard hierarchy
+- You MAY rename false-discovery files (e.g., management commands named \`test_*\`) to avoid polluting test discovery
+- You MUST write the report to ${REPORT_FILE}
+- If tests fail after creation, attempt to fix the TEST (not the source code). If the test requires source changes to pass, document it as a recommendation.
+- If test infrastructure is missing (no master runner, no testing standard), document the gaps as recommendations — do not build infrastructure (runners, suite configs)
 - Be specific: cite file paths, test counts, and component names
-- If the project has no tests at all, the report should clearly state that and recommend establishing testing infrastructure as a critical priority
+- Follow the project's testing standard for all test placement and naming decisions
 - For known-large files (roadmap.md, standards docs), use limit:200 on first read or run wc -l to check size first
 EOF
 )
