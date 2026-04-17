@@ -12,12 +12,12 @@
 
 | Script | Purpose | Agents Used | Max Turns |
 |---|---|---|---|
-| `revision.sh` | Minor code fixes | None | 30 |
-| `revision-major.sh` | Significant code rework | code-reviewer, refactoring-evaluator | 75 |
-| `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator | 150 |
-| `plan-new.sh` | Define new project from scratch | architect, planner | 225 |
-| `plan-revision.sh` | Revise existing planning docs | architect, planner | 75 |
-| `review-runs.sh` | CPI log analysis | workflow-analyst | 30 |
+| `revision.sh` | Minor code fixes | None (inline standards discovery) | 100 |
+| `revision-major.sh` | Significant code rework | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
+| `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
+| `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
+| `plan-revision.sh` | Revise existing planning docs | architect, planner, standards-architect | 300 |
+| `review-runs.sh` | CPI log analysis | workflow-analyst | 100 |
 
 ### Services (background, systemd)
 
