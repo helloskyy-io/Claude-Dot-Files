@@ -234,37 +234,40 @@ Produce a structured coverage assessment:
 - Integration test gaps (which interactions lack tests)
 - Hierarchy issues (orphaned tests, misplaced tests, false-discovery risks)
 
-## Stage 3: BUILD MISSING TESTS
+## Stage 3: BUILD AND REVISE TESTS
 
-Using the coverage gaps identified in Stage 2, create the missing tests. Follow the project's testing standard and the test-suite-architecture skill for placement and naming.
+Using the coverage gaps identified in Stage 2, create missing tests AND update stale tests. All three levels must be addressed every time this workflow runs. Follow the project's testing standard and the test-suite-architecture skill for placement and naming.
 
-### Unit Tests
-For each sprint component flagged as missing or partially covered:
-- Create \`<component>/tests/unit/\` directory if it doesn't exist
-- Write unit tests covering the component's core functionality (happy path, edge cases, error cases)
+### Unit Tests (individual functions, classes, modules in isolation)
+For each sprint component:
+- **If missing:** create \`<component>/tests/unit/\` directory and write unit tests covering core functionality (happy path, edge cases, error cases)
+- **If stale:** review existing unit tests against the current source — update tests that assert old behavior, add tests for new functionality added this sprint, remove tests for code that was deleted
 - Add a component-level \`conftest.py\` if needed for shared fixtures
-- Verify discovery: run the new tests to confirm they pass and are found by the framework
+- Verify discovery: run the new/updated tests to confirm they pass and are found by the framework
 
-### Integration Tests
-For each component interaction flagged as missing coverage:
-- Create \`<component>/tests/integration/\` in the primary component's directory
-- Write integration tests that exercise the interaction boundary between the components
-- Focus on the contract: does component A correctly call component B? Does it handle errors from B?
+### Integration Tests (components working correctly together)
+For each pair of sprint components that interact:
+- **If missing:** create \`<component>/tests/integration/\` and write tests that exercise the interaction boundary — does component A correctly call component B? Does it handle errors from B? Does the data contract hold?
+- **If stale:** review existing integration tests against current component interfaces — update assertions that reference old APIs, old data shapes, or removed endpoints
 - If the interaction requires running services that aren't available, write the test with appropriate skip markers (\`@pytest.mark.skipif\`) and document why
+- Integration tests are about pairs or small groups of components — not the whole system
 
-### End-to-End Tests
-For sprint workflows that lack e2e coverage:
-- Create tests in \`testing/e2e/\` (repo-level, since e2e tests span components)
-- Write e2e tests that exercise the full workflow path from trigger to outcome
+### End-to-End Tests (the product working as a whole)
+E2E tests are NOT just re-running all unit and integration tests. They test complete workflow paths through the entire system — from a user or operator action to the final outcome, crossing all component boundaries in the path.
+- **If missing:** create tests in \`testing/e2e/\` (repo-level, since e2e tests span all components)
+- **If stale:** review existing e2e tests against current system architecture — update tests that reference old workflow steps, old component names, or removed capabilities
+- Write e2e tests that exercise full workflow paths end-to-end: e.g., "trigger provisioning → VMs created → OS configured → cluster bootstrapped → services deployed → health check passes"
+- E2e tests should validate that the sprint's components work as part of the whole system, not just in pairs
 - If the e2e test requires infrastructure that isn't available, write the test with skip markers and document the infrastructure requirements
 
 ### Hierarchy Wiring
-- Ensure all new test files are discoverable by the master runner (correct naming, correct location)
+- Ensure all new and updated test files are discoverable by the master runner (correct naming, correct location)
 - If orphaned or misplaced tests were found in Stage 2, relocate them into the standard hierarchy
 - If files named \`test_*\` that aren't tests were found, rename them to avoid false discovery
 
-After creating tests, produce a summary:
+After building/revising tests, produce a summary:
 - Tests created: [count by category — unit, integration, e2e]
+- Tests updated: [count by category — what changed and why]
 - Tests relocated: [count and from/to paths]
 - Tests that require infrastructure to run: [list with skip reasons]
 
@@ -329,7 +332,7 @@ Use this format:
 - Misplaced tests: [count and locations]
 - False-discovery risks: [files named test_* that aren't tests]
 
-## Tests Created (Stage 3)
+## Tests Built / Revised (Stage 3)
 
 ### New Test Files
 | File | Category | Component | Tests |
@@ -337,6 +340,12 @@ Use this format:
 | [path] | unit | [component] | N tests |
 | [path] | integration | [component] | N tests |
 | [path] | e2e | — | N tests |
+
+### Updated Test Files
+| File | Category | What Changed |
+|---|---|---|
+| [path] | unit | Updated assertions for new API, added 3 edge case tests |
+| [path] | integration | Updated data contract assertions after component B refactor |
 
 ### Tests Relocated
 - [from] → [to] (reason)
