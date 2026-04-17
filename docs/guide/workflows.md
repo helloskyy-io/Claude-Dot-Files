@@ -18,6 +18,7 @@
 | `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
 | `plan-revision.sh` | Revise existing planning docs | architect, planner, standards-architect | 300 |
 | `review-runs.sh` | CPI log analysis | workflow-analyst | 100 |
+| `sprint-test.sh` | Sprint-end test assessment + execution | None (runs test suites directly) | 200 |
 
 ### Services (background, systemd)
 

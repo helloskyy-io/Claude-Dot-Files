@@ -55,8 +55,9 @@ Autonomous workflow scripts live at `~/Repos/claude-dot-files/scripts/workflows/
 - `plan-new.sh` — define a new project from scratch (architect + planner + security-auditor review)
 - `plan-revision.sh` — revise existing planning docs (architect + planner + standards-architect review)
 - `review-runs.sh` — CPI analysis of workflow JSONL logs
+- `sprint-test.sh` — end-of-sprint cumulative test assessment and execution
 
-Each runs in an isolated git worktree and produces a PR. All support `--pr <N>` (update existing PR), `--verbose` (live stream), and `--task-file <path>` (read long payload from file). Always use absolute paths when suggesting invocations. Run `/get-started` at session start for full workflow context, role definitions, and workflow-selection guidance.
+Task-execution workflows (revision, revision-major, build-phase, plan-new, plan-revision) run in isolated git worktrees and produce PRs. All support `--pr <N>` (update existing PR), `--verbose` (live stream), and `--task-file <path>` (read long payload from file). Analysis workflows (review-runs, sprint-test) run against the current repo state, produce reports, and do not create PRs. Always use absolute paths when suggesting invocations. Run `/get-started` at session start for full workflow context, role definitions, and workflow-selection guidance.
 
 ### Standards Governance
 
