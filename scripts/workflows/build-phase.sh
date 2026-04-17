@@ -313,11 +313,14 @@ Produce a brief summary noting:
 - Files created or modified
 
 ## Stage 4: TEST
-Run and write tests for the implementation.
+Run and write tests for the implementation, following the project's testing standard.
+- Discover the project's test hierarchy: look for `docs/standards/testing.md`, then `testing/run-all.sh`, then `<component>/tests/` directories
+- Place new test files in the standard hierarchy (`<component>/tests/unit/`, `<component>/tests/integration/`) — NOT alongside source code, NOT in ad-hoc locations
 - Run existing tests for affected code first
 - If tests fail due to your changes, fix them
-- If new functionality needs tests, add them
-- Report test results clearly: what passed, what failed, what was added
+- If new functionality needs tests, add them following the project's testing standard and the test-suite-architecture skill
+- Verify discovery: run the component's test suite to confirm new tests are found
+- Report test results clearly: what passed, what failed, what was added, where tests were placed
 
 ## Stage 5: REVIEW
 Use the code-reviewer agent to review your changes. Analyze the findings:
@@ -352,7 +355,14 @@ Review all changes made across stages 3-7. Produce a consolidated summary:
 - Any remaining concerns
 
 ## Stage 9: VERIFY
-Run the full relevant test suite one final time to verify everything passes after all changes. Also verify against the success criteria extracted in Stage 1. If anything fails, fix it. Do not proceed to Stage 10 with failing tests or unmet success criteria.
+Run scoped regression to verify everything passes after all changes:
+1. Run new/modified tests first — validate the current changes work
+2. If pass → run the affected component's full test suite (e.g., `./testing/run-all.sh unit <component>` or `pytest <component>/tests/`)
+3. Do NOT run the global test suite — that's for sprint-end regression, not per-PR validation
+
+If the project has no master runner or component test suite, fall back to running the appropriate framework command scoped to the affected directories.
+
+Also verify against the success criteria extracted in Stage 1. If anything fails, fix it. Do not proceed to Stage 10 with failing tests or unmet success criteria.
 STAGES_EOF
 )
 
