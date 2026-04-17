@@ -53,10 +53,14 @@ Autonomous workflow scripts live at `~/Repos/claude-dot-files/scripts/workflows/
 - `revision-major.sh` — significant rework with code-reviewer + refactoring-evaluator + standards-auditor review
 - `build-phase.sh` — implement from a plan document
 - `plan-new.sh` — define a new project from scratch (architect + planner + security-auditor review)
-- `plan-revision.sh` — revise existing planning docs (architect + planner review)
+- `plan-revision.sh` — revise existing planning docs (architect + planner + standards-architect review)
 - `review-runs.sh` — CPI analysis of workflow JSONL logs
 
 Each runs in an isolated git worktree and produces a PR. All support `--pr <N>` (update existing PR), `--verbose` (live stream), and `--task-file <path>` (read long payload from file). Always use absolute paths when suggesting invocations. Run `/get-started` at session start for full workflow context, role definitions, and workflow-selection guidance.
+
+### Standards Governance
+
+Standards documents (`docs/standards/`, `docs/architecture/`) are a curated product with human-in-the-loop control. Autonomous workflows and agents may SURFACE standards implications (gaps, drift, deviations, ADR candidates) but must NOT auto-create, auto-modify, or auto-stub standards artifacts. All standards changes flow through the interactive session for human review before merge.
 
 ## Dependencies & Tools
 
