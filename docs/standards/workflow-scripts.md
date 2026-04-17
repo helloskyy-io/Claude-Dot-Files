@@ -362,9 +362,9 @@ Current per-script values as of April 2026:
 
 | Script | `MAX_TURNS` |
 |--------|-------------|
-| `revision.sh` | 60 |
-| `review-runs.sh` | 60 |
-| `revision-major.sh` | 150 |
+| `revision.sh` | 100 |
+| `review-runs.sh` | 100 |
+| `revision-major.sh` | 300 |
 | `build-phase.sh` | 300 |
 | `plan-revision.sh` | 300 |
 | `plan-new.sh` | 500 |
@@ -413,7 +413,7 @@ FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
 # ---- Configuration ----
 # See "Max Turns Per Script" section above — pick a value from the table
 # based on your workflow's stage count and complexity.
-MAX_TURNS=60
+MAX_TURNS=100
 
 # ---- Argument parsing ----
 DESCRIPTION=""
