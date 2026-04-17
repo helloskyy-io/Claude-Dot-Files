@@ -34,7 +34,7 @@ These rules apply to all projects and sessions.
 - ALWAYS use absolute paths to scripts (the user may be in a different repo).
 - Flags FIRST, positionals LAST in workflow invocations: `script.sh --verbose --pr 22 --task-file /tmp/task.md`. Protects the positional payload from being stepped on by line-wrap and keeps options visible at the start.
 - For long or multi-paragraph task/context inputs to workflow scripts, use `--task-file <path>` instead of inlining. Write the payload to `/tmp/claude-<name>.md` first, then reference it with `--task-file /tmp/claude-<name>.md`. This bypasses command-line parsing entirely — quotes, newlines, backticks, and special characters all pass through literally.
-- For multi-step command sequences: write the sequence to `/tmp/claude-<descriptive-name>.sh` and give the user a SINGLE-LINE invocation `bash /tmp/claude-<descriptive-name>.sh`. NEVER give the user a multi-line code block to copy-paste — terminal whitespace handling corrupts multi-line pastes. Chain 2-3 simple related commands with `&&` on one line when script-to-tmp is overkill.
+- **ALL commands given to the user must be a SINGLE LINE.** No exceptions. No multi-line code blocks, no embedded newlines, no `sudo bash -c '...'` blocks spanning lines. If a command can't fit on one line, write it to `/tmp/claude-<descriptive-name>.sh` and give the user `sudo bash /tmp/claude-<descriptive-name>.sh` as the single-line invocation. This applies to EVERYTHING: workflow dispatches, operational commands (kubectl, bootstrap, burn-down), diagnostic commands, git sequences. Terminal whitespace handling corrupts multi-line pastes every time. Chain 2-3 simple related commands with `&&` on one line when script-to-tmp is overkill.
 
 ### Workflow invocation template
 
