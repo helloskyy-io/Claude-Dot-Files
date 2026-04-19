@@ -315,7 +315,12 @@ Produce a brief summary noting:
 ## Stage 4: TEST
 Run and write tests for the implementation, following the project's testing standard.
 
-**Coverage check (do this FIRST):** Before writing or running tests, scan all source files created or significantly modified in Stage 3. For each new file with substantive logic (modules, activities, executors, services, handlers, helpers — anything beyond pure configuration or trivial wiring), verify a corresponding test file exists in the component's `tests/unit/` directory. If a new source file `<name>.py` exists but `test_<name>.py` does not, create it. No new source file with logic ships without a dedicated test file.
+**Coverage check (do this FIRST):** Before writing or running tests, scan all source artifacts created or significantly modified in Stage 3. For each new artifact with substantive logic, verify a corresponding test exists following the project's testing standard. What counts as a "corresponding test" depends on the framework — consult the project's `docs/standards/testing.md` for the framework-specific mapping. Common patterns:
+- Python: `<name>.py` → `test_<name>.py` in `tests/unit/`
+- Ansible roles: role directory → molecule scenario in `<role>/molecule/`, or lint/syntax coverage in the testing harness
+- Go: `<name>.go` → `<name>_test.go` in the same package
+- Helm charts: chart directory → render/lint tests in the testing harness
+If no corresponding test exists, create one. If tests genuinely cannot be created at this stage (e.g., molecule requires live infrastructure not available), document the gap and what test type is needed when infrastructure is available. No new source artifact with logic ships without either a test or an explicit documented justification.
 
 - Discover the project's test hierarchy: look for `docs/standards/testing.md`, then `testing/run-all.sh`, then `<component>/tests/` directories
 - Place new test files in the standard hierarchy (`<component>/tests/unit/`, `<component>/tests/integration/`) — NOT alongside source code, NOT in ad-hoc locations
