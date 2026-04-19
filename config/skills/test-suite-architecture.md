@@ -369,6 +369,63 @@ The ansible suite runner should support multiple levels:
 - **`command`/`shell` tasks without `changed_when`** — these always report "changed" and break idempotence checks
 - **Testing against localhost only** — roles that configure networking, multi-node clusters, or cross-host communication need multi-node molecule scenarios
 
+## Terraform Module Testing
+
+Terraform modules follow a simpler testing pattern than Ansible but the same principle applies: static checks now, functional tests when infrastructure is available.
+
+### The Terraform Testing Pyramid
+
+| Level | What | Tools | Infra needed | Equivalent to |
+|---|---|---|---|---|
+| **Validate** | Config syntax + provider schema | `terraform validate` | None (init only) | Unit tests |
+| **Lint** | Best practices + style | `tflint`, `checkov`, `tfsec` | None | Unit tests |
+| **Plan** | Dry-run change preview | `terraform plan` | Provider credentials | Unit tests |
+| **Functional** | Apply + verify + destroy | `terratest` (Go) or `terraform test` (HCL-native) | Real infrastructure | Integration tests |
+
+### Directory Structure
+
+```
+<module>/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+└── tests/
+    ├── unit/
+    │   └── validate_test.go      # terratest: validate + plan only
+    └── integration/
+        └── apply_test.go         # terratest: full apply + verify + destroy
+```
+
+For HCL-native tests (Terraform 1.6+):
+```
+<module>/
+├── main.tf
+└── tests/
+    └── main.tftest.hcl           # terraform test command
+```
+
+### Tool Selection
+
+- **`terraform validate` + `tflint`** — always, on every commit. No infrastructure needed.
+- **`terraform plan`** — on every PR if provider credentials are available. Catches variable type mismatches, missing required fields, and resource dependency issues that validate misses.
+- **`terratest`** (Go) — the industry standard for functional Terraform testing. Apply the module to real infrastructure, assert outputs and resource state, destroy on cleanup. Requires real provider credentials and infrastructure.
+- **`terraform test`** (HCL-native, Terraform 1.6+) — simpler than terratest, no Go required. Good for plan-level assertions. Functional tests still need real infrastructure.
+
+### When Infrastructure Isn't Available
+
+Same pattern as Ansible:
+1. **Validate + lint + plan NOW** — these run without infrastructure
+2. **Scaffold test directories** — create `tests/unit/` and `tests/integration/` even if functional tests can't run yet
+3. **Document the gap** — "terratest apply scenarios need Proxmox credentials, targeted for Sprint N"
+
+### Terraform-Specific Red Flags
+
+- **Module without `tests/` directory** — scaffold it even if tests are deferred
+- **Validate-only treated as sufficient** — validate catches syntax errors but not logic errors; `tflint` and plan-level checks are the real minimum
+- **Terratest without cleanup** — `defer terraform.Destroy()` must be the first line after apply; leaked infrastructure is expensive
+- **Hardcoded provider credentials in tests** — use environment variables or test-specific backend configs
+- **No plan-level assertions** — `terraform plan` output can be parsed to verify expected resource counts, changes, and outputs before applying
+
 ## Integration With Workflows
 
 ### What Autonomous Workflows Must Do
