@@ -253,6 +253,9 @@ Produce a brief summary noting:
 
 ## Stage 4: TEST
 Run tests relevant to the changes, following the project's testing standard.
+
+**Coverage check (do this FIRST):** Before writing or running tests, scan all source files created or significantly modified in Stage 3. For each new file with substantive logic (modules, activities, executors, services, handlers, helpers — anything beyond pure configuration or trivial wiring), verify a corresponding test file exists in the component's `tests/unit/` directory. If a new source file `<name>.py` exists but `test_<name>.py` does not, create it. No new source file with logic ships without a dedicated test file.
+
 - Discover the project's test hierarchy: look for `docs/standards/testing.md`, then `testing/run-all.sh`, then `<component>/tests/` directories
 - Place new test files in the standard hierarchy (`<component>/tests/unit/`, `<component>/tests/integration/`) — NOT alongside source code, NOT in ad-hoc locations
 - Run existing tests for affected code first
@@ -260,9 +263,9 @@ Run tests relevant to the changes, following the project's testing standard.
 - If new functionality needs tests, add them following the project's testing standard and the test-suite-architecture skill
 - If code was modified, update its existing tests to match the new behavior — stale tests that pass against old behavior are misleading
 - If code was removed or abandoned, remove its tests — no orphaned tests should remain in the suite
-- New code requires tests unless genuinely untestable (pure configuration, trivial wiring with no logic). If skipping tests for new code, explicitly document why in the stage summary.
+- If skipping tests for new code, explicitly document why in the stage summary — "pure configuration" or "trivial wiring" are valid reasons; "ran out of turns" is not.
 - Verify discovery: run the component's test suite to confirm new tests are found
-- Report test results clearly: what passed, what failed, what was added/updated/removed, where tests were placed
+- Report test results clearly: what passed, what failed, what was added/updated/removed, where tests were placed. Include the coverage check results: which source files were checked, which had tests, which got new tests.
 
 ## Stage 5: REVIEW
 Use the code-reviewer agent to review your changes. Analyze the findings:
