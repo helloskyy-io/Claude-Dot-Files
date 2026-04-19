@@ -282,6 +282,93 @@ testing/fixtures/
 - Cross-component fixtures go in `testing/fixtures/` — used sparingly, most fixtures should be component-scoped
 - Fixture files should be committed — they're part of the test suite, not ephemeral data
 
+## Ansible Role Testing
+
+Ansible roles have a distinct testing pattern from application code. The industry standard is **Molecule** — it's the Ansible equivalent of pytest. Every mature Ansible codebase uses it.
+
+### The Ansible Testing Pyramid
+
+| Level | What | Tools | Infra needed | Equivalent to |
+|---|---|---|---|---|
+| **Static analysis** | YAML lint + Ansible best practices | `yamllint`, `ansible-lint` | None | Unit tests |
+| **Syntax check** | Playbook/role parsing | `ansible-playbook --syntax-check` | None | Unit tests |
+| **Molecule** | Role functional testing + idempotence | `molecule test` | Docker or real VMs | Integration tests |
+| **Playbook integration** | Full playbook execution against staging | Manual or CI | Staging environment | E2E tests |
+
+### Molecule Directory Structure
+
+Every Ansible role should have a molecule directory, even if the scenario can't run yet. The directory IS the commitment to test — without it, molecule testing gets perpetually deferred.
+
+```
+<role>/
+├── tasks/
+│   └── main.yml
+├── defaults/
+│   └── main.yml
+├── handlers/
+│   └── main.yml
+└── molecule/
+    └── default/
+        ├── molecule.yml       # driver config, platforms, provisioner
+        ├── converge.yml       # playbook that runs the role
+        ├── verify.yml         # assertions (Testinfra or Ansible)
+        └── prepare.yml        # optional pre-test setup
+```
+
+### The Molecule Test Sequence
+
+`molecule test` runs these steps in order:
+1. **create** — spin up test infrastructure (container, VM, or delegated)
+2. **prepare** — run pre-test setup (install dependencies, configure state)
+3. **converge** — run the role against the test infrastructure
+4. **idempotence** — run the role AGAIN, assert zero changes (this is the most valuable Ansible-specific check — if the second run changes anything, the role isn't idempotent)
+5. **verify** — run assertions to check the final state (services running, files created, ports open)
+6. **destroy** — tear down test infrastructure
+
+### Driver Selection
+
+The molecule driver determines what infrastructure the tests run against:
+
+| Driver | Use when | Limitations |
+|---|---|---|
+| **Docker** | App roles (install packages, configure services) | Can't test systemd, networking, kernel operations |
+| **Delegated** | Infrastructure roles (Proxmox, K3s, networking) | Requires real VMs to be provisioned externally |
+| **Vagrant/libvirt** | Roles that need full VM behavior | Slower, requires hypervisor on test host |
+
+**Infrastructure roles** (provisioning VMs, bootstrapping clusters, configuring network overlays) **cannot be meaningfully tested in Docker.** Use the delegated driver with real VMs when available. Until then, lint + syntax + molecule scaffolding is the correct baseline.
+
+### When Infrastructure Isn't Available
+
+For infrastructure roles that need real VMs or clusters to test:
+
+1. **Scaffold the molecule directory** — create `molecule/default/` with `molecule.yml`, `converge.yml`, and `verify.yml` that describe WHAT should be tested even if it can't run yet
+2. **Set the driver to `delegated`** and document what infrastructure is needed in `molecule.yml`
+3. **Lint + syntax check NOW** — this is the minimum that runs without infrastructure
+4. **Document the gap** — "molecule scenario scaffolded, requires VLAN 105 VMs to execute, targeted for Sprint N"
+
+The scaffolding ensures the test plan is captured in code, not just in a planning doc. When infrastructure becomes available, the scenario is ready to fill in — converge and verify steps already outline what to check.
+
+### How Molecule Maps to the Three-Tier Hierarchy
+
+| Hierarchy tier | Ansible equivalent | Runner |
+|---|---|---|
+| Tier 1: Master runner | `testing/run-all.sh` discovers ansible suite | `testing/run-all.sh` |
+| Tier 2: Suite runner | `testing/suites/ansible.sh` — runs lint, syntax, molecule | `testing/suites/ansible.sh` |
+| Tier 3: Component tests | Per-role `molecule/default/` scenarios | `molecule test -s default` |
+
+The ansible suite runner should support multiple levels:
+- `./testing/run-all.sh unit infra` — lint + syntax only (fast, no infra)
+- `./testing/run-all.sh integration infra` — molecule scenarios (needs infra)
+
+### Ansible-Specific Red Flags
+
+- **Role without `molecule/` directory** — either scaffold it or document why testing is deferred
+- **Molecule scenario with no verify step** — converge without assertions proves nothing; it just proves the role doesn't crash
+- **No idempotence check** — the most common Ansible bug is non-idempotent roles (second run changes state). Molecule catches this automatically if configured
+- **Lint disabled or heavily suppressed** — `# noqa` on every task is a smell; fix the warnings instead
+- **`command`/`shell` tasks without `changed_when`** — these always report "changed" and break idempotence checks
+- **Testing against localhost only** — roles that configure networking, multi-node clusters, or cross-host communication need multi-node molecule scenarios
+
 ## Integration With Workflows
 
 ### What Autonomous Workflows Must Do
@@ -314,3 +401,5 @@ Watch for these anti-patterns when reviewing test organization:
 7. **Tests in `/tmp/` or ephemeral locations** — created during a workflow run and lost when the worktree is cleaned up
 8. **No master runner** — you can run individual test files but there's no "run everything" command
 9. **Massive fixtures inline** — large data structures hardcoded in test files instead of loaded from fixture files
+10. **Ansible roles without molecule directories** — every role should have at minimum a scaffolded `molecule/default/` even if the scenario can't run yet
+11. **Lint-only Ansible testing treated as permanent** — lint + syntax is the starting point, not the finish line. Molecule scenarios are the target for every role with substantive logic
