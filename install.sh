@@ -297,6 +297,26 @@ SVCEOF
         warn "config.yaml not found at repo root — gh-monitor will use defaults"
     fi
 
+    # Enable user lingering — CRITICAL for reboot survival.
+    # User-mode systemd services only run while the user has an active session.
+    # Without lingering, the timer exists only when the user is logged in via
+    # SSH/console — on reboot, the timer doesn't start until someone logs in.
+    # loginctl enable-linger makes the user's systemd instance run 24/7
+    # regardless of login state, so timers survive reboots cleanly.
+    if loginctl show-user "$USER" 2>/dev/null | grep -q "^Linger=yes$"; then
+        info "user lingering — already enabled"
+    else
+        echo ""
+        warn "user lingering is not enabled — gh-monitor.timer will NOT survive reboots"
+        echo "    Enabling with sudo (you may be prompted for your password)..."
+        if sudo loginctl enable-linger "$USER"; then
+            info "user lingering enabled — timer will survive reboots"
+        else
+            error "Failed to enable lingering. Timer will stop on logout/reboot."
+            error "Fix manually with: sudo loginctl enable-linger $USER"
+        fi
+    fi
+
     # Reload systemd and enable timer
     systemctl --user daemon-reload
     info "systemd daemon reloaded"
@@ -320,6 +340,10 @@ SVCEOF
     echo "    journalctl --user -u gh-monitor.service -f  # follow logs"
     echo "    systemctl --user stop gh-monitor.timer      # stop polling"
     echo "    systemctl --user disable gh-monitor.timer   # disable on boot"
+    echo ""
+    echo "  Reboot verification:"
+    echo "    loginctl show-user $USER | grep Linger       # should show Linger=yes"
+    echo "    (After reboot, timer should be active without SSH login)"
 fi
 
 echo ""
