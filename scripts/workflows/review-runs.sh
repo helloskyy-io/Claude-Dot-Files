@@ -39,6 +39,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
 
+# Resolve the claude-dot-files repo root by walking up from the script's location.
+# Reports are written here regardless of which repo's logs are being analyzed,
+# so they accumulate in a single searchable location instead of scattering
+# across every analyzed repo. Works on any machine regardless of install path.
+CLAUDE_DOT_FILES_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -217,10 +223,22 @@ fi
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 TODAY=$(date +%Y-%m-%d)
-REPORT_DIR="${REPO_ROOT}/docs/development/reviews"
-REPORT_FILE="${REPORT_DIR}/review-${TODAY}.md"
 
-# Log for THIS run (the review workflow itself) — always in main repo
+# Source context: which repo and machine does this analysis come from?
+# Used in the report filename AND in the report's metadata header so that
+# a reader can always tell which repo's workflow history produced each review.
+SOURCE_REPO_NAME="$(basename "$MAIN_REPO_ROOT")"
+SOURCE_MACHINE="$(hostname -s)"
+
+# Reports always go to claude-dot-files/docs/development/reviews/ — single
+# searchable location across all analyzed repos and machines. Filename
+# includes the source repo so reports never collide.
+REPORT_DIR="${CLAUDE_DOT_FILES_ROOT}/docs/development/reviews"
+REPORT_FILE="${REPORT_DIR}/review-${SOURCE_REPO_NAME}-${TODAY}.md"
+
+# Log for THIS run (the review workflow itself) stays with the analyzed repo's
+# logs — it's part of that repo's workflow history, consistent with how every
+# other workflow logs to its target repo.
 LOG_DIR="${MAIN_REPO_ROOT}/.claude/logs"
 LOG_FILE="${LOG_DIR}/review-runs-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
@@ -242,6 +260,8 @@ done
 echo "================================================================"
 echo "  REVIEW-RUNS WORKFLOW"
 echo "================================================================"
+echo "  Source repo : ${SOURCE_REPO_NAME} (${MAIN_REPO_ROOT})"
+echo "  Machine     : ${SOURCE_MACHINE}"
 if [[ -n "$LAST" ]]; then
     echo "  Filter      : last ${LAST} log files"
 else
@@ -293,12 +313,24 @@ ${PROMPT_FILE_LIST}
 
 4. REPORT: Write the report to: ${REPORT_FILE}
 
-   Use the structured format from the workflow-analyst agent:
+   Start the report with a metadata header immediately after the title, so a
+   reader can always tell which repo and machine this analysis came from:
+
+   \`\`\`
+   # Workflow Review — ${SOURCE_REPO_NAME} — ${TODAY}
+
+   **Source repo:** \`${MAIN_REPO_ROOT}\`
+   **Source machine:** \`${SOURCE_MACHINE}\`
+   **Analysis date:** ${TODAY}
+   **Logs analyzed:** (count and date range, filled in below)
+   \`\`\`
+
+   Then use the structured format from the workflow-analyst agent:
    - Runs Analyzed (count, date range, workflow types)
    - High-Confidence Findings (with evidence, recommendation, impact)
    - Medium-Confidence Findings (with evidence, recommendation, needs)
    - Low-Confidence Findings (with watch-for notes)
-   - Patterns Resolved Since Last Review (if prior reviews exist in docs/development/reviews/)
+   - Patterns Resolved Since Last Review (look for prior reviews matching \`review-${SOURCE_REPO_NAME}-*.md\` in the same directory — compare only against reviews of THIS repo)
    - Metrics (average turns, token usage, failure types, trends)
    - Summary (2-3 sentences: health, top priority, trend)
 
