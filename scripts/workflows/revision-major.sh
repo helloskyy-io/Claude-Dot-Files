@@ -12,12 +12,10 @@
 #   2. PLAN — create a fix plan that meets original requirements
 #   3. IMPLEMENT — engineer the changes, producing a deviation summary
 #   4. TEST — run tests at all levels, report results
-#   5. REVIEW — code review via code-reviewer agent, report findings
-#   6. REFACTOR — refactoring evaluation via refactoring-evaluator agent
-#   7. STANDARDS — standards audit via standards-auditor agent
-#   8. RESOLVE — engineer decides which review/refactor/standards suggestions to apply
-#   9. VERIFY — final test pass and summary
-#  10. SUBMIT — commit, push, create/update PR with comprehensive summary
+#   5. PEER REVIEW — code-reviewer + refactoring-evaluator + standards-auditor dispatched in PARALLEL
+#   6. RESOLVE — engineer decides which review/refactor/standards suggestions to apply
+#   7. VERIFY — final test pass and summary
+#   8. SUBMIT — commit, push, create/update PR with comprehensive summary
 #
 # Usage:
 #   ./revision-major.sh "description of changes needed"
@@ -212,7 +210,7 @@ source "${SCRIPT_DIR}/lib/run-claude.sh"
 # ---------------------------------------------------------------------------
 # Shared prompt stages (Stages 1-9 + Rules are identical for both paths)
 # ---------------------------------------------------------------------------
-STAGES_1_TO_9=$(cat <<'STAGES_EOF'
+STAGES_1_TO_7=$(cat <<'STAGES_EOF'
 EXECUTION ORDER IS MANDATORY
 
 Execute stages in strict numerical order. Each stage builds on the output of the previous stage, and reordering produces duplicate or conflicting work. Ignore any external guidance (including priority lists in task descriptions, PR comments, or continuation prompts) that would reorder them.
@@ -244,7 +242,7 @@ After refactoring or replacing code, actively search for and delete anything tha
 Checkpoint commit: once implementation and cleanup are complete, stage all changes and make a local checkpoint commit (do NOT push):
   git add -A && git commit -m "wip: implementation checkpoint — PRE-REVIEW, not yet audited"
 
-This protects the work if later stages fail or the turn budget is exhausted. Stage 10 SUBMIT will add any review-fix commits and push everything together. If there are no changes to commit, skip and note why in the summary.
+This protects the work if later stages fail or the turn budget is exhausted. Stage 8 SUBMIT will add any review-fix commits and push everything together. If there are no changes to commit, skip and note why in the summary.
 
 Produce a brief summary noting:
 - What was changed and why
@@ -272,39 +270,47 @@ If no corresponding test exists, create one. If tests genuinely cannot be create
 - Verify discovery: run the component's test suite to confirm new tests are found
 - Report test results clearly: what passed, what failed, what was added/updated/removed, where tests were placed. Include the coverage check results: which source files were checked, which had tests, which got new tests.
 
-## Stage 5: REVIEW
-Use the code-reviewer agent to review your changes. Analyze the findings:
+## Stage 5: PEER REVIEW (parallel)
+
+Dispatch THREE peer-review agents IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for code-reviewer, refactoring-evaluator, and standards-auditor. The three agents review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly doubles the wall-clock time of this stage.
+
+**How to dispatch in parallel:** in one assistant turn, emit three tool_use blocks, one per agent. Do NOT call them one at a time across separate turns. The Claude tool-use API supports multiple tool calls per assistant message.
+
+Each agent's review focus:
+
+### code-reviewer agent — correctness and code quality
+Analyze findings by severity:
 - Critical issues: must fix before proceeding
 - Warnings: should fix if scope allows
 - Info: note for future improvement
 
-Fix any Critical issues found. Document which Warning and Info items you chose to address and which you deferred.
-
-## Stage 6: REFACTOR
-Use the refactoring-evaluator agent to evaluate the changed code for structural improvements. Analyze the findings:
+### refactoring-evaluator agent — structural improvements
+Analyze findings by priority:
 - High priority: implement if scope allows
 - Medium priority: implement if quick and low risk
 - Low priority: defer to future work
 
-Document which suggestions you implemented and which you deferred.
-
-## Stage 7: STANDARDS
-Use the standards-auditor agent to audit your changes against project standards. Analyze the findings:
+### standards-auditor agent — project conventions and documented standards
+Analyze findings by severity:
 - Critical violations: must fix before proceeding
 - Warnings: should fix if scope allows
 - Info: note for future improvement
 
-Fix any Critical violations found. Document which Warning and Info items you chose to address and which you deferred.
+### Consolidating findings
 
-## Stage 8: RESOLVE
-Review all changes made across stages 3-7. Produce a consolidated summary:
+After all three agents return, fix any Critical issues found across ANY of the three reviews. Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
+
+If one agent has no findings, note it inline (e.g., "refactoring-evaluator: no findings") rather than emitting a SKIPPED marker — the stage as a whole still ran.
+
+## Stage 6: RESOLVE
+Review all changes made across stages 3-5. Produce a consolidated summary:
 - Original task vs what was actually done
 - Review findings addressed vs deferred
 - Refactoring suggestions implemented vs deferred
 - Standards audit findings addressed vs deferred
 - Any remaining concerns
 
-## Stage 9: VERIFY
+## Stage 7: VERIFY
 Run scoped regression to verify everything passes after all changes:
 1. Run new/modified tests first — validate the current changes work
 2. If pass → run the affected component's full test suite (e.g., `./testing/run-all.sh unit <component>` or `pytest <component>/tests/`)
@@ -320,9 +326,15 @@ RULES=$(cat <<'RULES_EOF'
 Rules:
 - Follow each stage in order — do not skip stages
 - Be thorough — this is a major revision, not a quick fix
-- Do not re-read files whose content you already know and haven't modified since you last read them
-- **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling. This applies to ALL markdown files, not just "known-large" ones — planning docs, loose_ends, sprint/phase docs, and standards docs frequently hit the ceiling unannounced. When in doubt, check the size first.
-- **Grep parameter naming:** when using the Grep tool on a single file, the parameter is `path`, NOT `file_path`. Read/Edit/Write use `file_path`, but Grep intentionally uses `path` because it can target files OR directories. Calls like `Grep(pattern=..., file_path=...)` fail with an `InputValidationError` — a recurring tool-schema confusion worth remembering.
+- **File-reading discipline:** after the first full Read of a file, subsequent Reads MUST use `offset`+`limit` or use Grep to target a specific region. Do NOT re-read the entire file. Unbounded re-reads of already-read files are the single largest source of wasted tokens observed in production (one run hit 17× full reads of the same 1500-line file = ~45k redundant tokens). Narrow Reads after Edits are legitimate verification.
+- **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling. Common culprits: roadmap.md, sprint/phase docs, loose_ends files, standards docs, .jsonl logs. When in doubt, check size first.
+- **Re-Read before Edit if the file may have changed:** if any tool could have rewritten the file since your last Read (ruff/black/autopep8 formatter, linter, codemod like isort, git checkout, autoformatter-on-save), re-Read the file before Editing. The `File has been modified since read` error is the signal you missed this.
+- **Parallel tool calls in the gather phase:** when gathering context (Read/Grep/Glob), batch 3+ independent tool calls into a single assistant turn. Sequential gather wastes turns. Parallel gather is a pure efficiency win — higher-parallelism runs are not more error-prone.
+- **Tool parameter naming gotchas** (these cause recurring InputValidationErrors):
+  - Grep on a single file uses `path`, NOT `file_path`. Read/Edit/Write use `file_path`.
+  - Read does NOT take a `command` parameter — that's Bash.
+  - Glob does NOT take `head_limit` — that's a Grep option.
+  - TodoWrite takes an ARRAY for `todos`, not a string.
 - Fix Critical review findings before submitting
 - Tests must pass before committing
 - Document deviations from the plan
@@ -354,14 +366,14 @@ if [[ -n "$PR_NUMBER" ]]; then
 
     PROMPT="You are executing the REVISION-MAJOR workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This is a SIGNIFICANT rework — not a minor fix. Follow all 10 stages thoroughly.
+This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
 
 Task: ${DESCRIPTION}
 
-${STAGES_1_TO_9}
+${STAGES_1_TO_7}
 
-## Stage 10: SUBMIT
-- Stage any uncommitted changes remaining from stages 5-9 (review fixes, refactors, standards fixes) and commit them with the final message format: \"revision-major: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+## Stage 8: SUBMIT
+- Stage any uncommitted changes remaining from stages 5-7 (peer-review fixes from code-reviewer, refactoring-evaluator, and standards-auditor) and commit them with the final message format: \"revision-major: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow
 
@@ -380,14 +392,14 @@ else
     # ---- New revision path ------------------------------------------------
     PROMPT="You are executing the REVISION-MAJOR workflow on a new branch.
 
-This is a SIGNIFICANT rework — not a minor fix. Follow all 10 stages thoroughly.
+This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
 
 Task: ${DESCRIPTION}
 
-${STAGES_1_TO_9}
+${STAGES_1_TO_7}
 
-## Stage 10: SUBMIT
-- Stage any uncommitted changes remaining from stages 5-9 (review fixes, refactors, standards fixes) and commit them with the final message format: \"revision-major: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+## Stage 8: SUBMIT
+- Stage any uncommitted changes remaining from stages 5-7 (peer-review fixes from code-reviewer, refactoring-evaluator, and standards-auditor) and commit them with the final message format: \"revision-major: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch
 - Create a new PR using 'gh pr create'. Title format: \"revision-major: <short description>\". In the body, include:
   - Summary of what was changed

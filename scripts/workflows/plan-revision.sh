@@ -343,9 +343,15 @@ Rules:
 - Follow each stage in order — do not skip stages
 - This is a PLANNING revision — do not modify code, scripts, or configuration files
 - Only modify files in docs/ (and the root CLAUDE.md if it references planning state)
-- Do not re-read files whose content you already know and haven't modified since you last read them
-- **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling. This applies to ALL markdown files, not just "known-large" ones — planning docs like loose_ends, sprint/phase docs, and standards docs frequently hit the ceiling unannounced. When in doubt, check the size first.
-- **Grep parameter naming:** when using the Grep tool on a single file, the parameter is `path`, NOT `file_path`. Read/Edit/Write use `file_path`, but Grep intentionally uses `path` because it can target files OR directories. Calls like `Grep(pattern=..., file_path=...)` fail with an `InputValidationError` — a recurring tool-schema confusion worth remembering.
+- **File-reading discipline:** after the first full Read of a file, subsequent Reads MUST use `offset`+`limit` or use Grep to target a specific region. Do NOT re-read the entire file. Unbounded re-reads of already-read files are the single largest source of wasted tokens observed in production (one run hit 17× full reads of the same 1500-line file = ~45k redundant tokens). Narrow Reads after Edits are legitimate verification.
+- **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling. Common culprits: roadmap.md, sprint/phase docs, loose_ends files, standards docs, .jsonl logs. When in doubt, check size first.
+- **Re-Read before Edit if the file may have changed:** if any tool could have rewritten the file since your last Read (formatter, linter, codemod, git checkout, autoformatter-on-save), re-Read the file before Editing. The `File has been modified since read` error is the signal you missed this.
+- **Parallel tool calls in the gather phase:** when gathering context (Read/Grep/Glob), batch 3+ independent tool calls into a single assistant turn. Sequential gather wastes turns. Parallel gather is a pure efficiency win — higher-parallelism runs are not more error-prone.
+- **Tool parameter naming gotchas** (these cause recurring InputValidationErrors):
+  - Grep on a single file uses `path`, NOT `file_path`. Read/Edit/Write use `file_path`.
+  - Read does NOT take a `command` parameter — that's Bash.
+  - Glob does NOT take `head_limit` — that's a Grep option.
+  - TodoWrite takes an ARRAY for `todos`, not a string.
 - Fix Critical review findings before submitting
 - Document deviations from the plan
 - Maintain consistency across all planning docs — if you update a phase doc, check that the roadmap still aligns
