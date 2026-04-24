@@ -20,8 +20,14 @@ gh-monitor:
   # Folders that don't exist on this machine are silently skipped
   repo-folders: "~/Repos /opt/skyy-net"
 
-  # Max simultaneous workflow processes
-  max-concurrent: 1
+  # Global safety cap on concurrent workflow script processes (revision.sh,
+  # revision-major.sh, plan-revision.sh, build-phase.sh). Counts BOTH manual
+  # terminal invocations AND gh-monitor dispatches. Does NOT count interactive
+  # claude sessions. Same-PR concurrency is handled separately (per-PR check
+  # serializes comments against the same PR to prevent branch-push races).
+  # This cap exists to prevent runaway spawning during comment floods, not to
+  # serialize normal multi-PR work. Raise if you commonly run many engineers.
+  max-concurrent: 5
 
   # Route enablement (set to false to disable specific command routes)
   enable-revision: true

@@ -68,7 +68,7 @@ fi
 # Defaults (applied if not set by config or environment)
 # ---------------------------------------------------------------------------
 : "${GH_MONITOR_REPO_FOLDERS:=""}"
-: "${GH_MONITOR_MAX_CONCURRENT:=1}"
+: "${GH_MONITOR_MAX_CONCURRENT:=5}"
 : "${GH_MONITOR_ENABLE_REVISION:=true}"
 : "${GH_MONITOR_ENABLE_REVISION_MAJOR:=true}"
 : "${GH_MONITOR_ENABLE_PLAN_REVISION:=true}"
@@ -360,11 +360,13 @@ generate_help_text() {
 ### Notes
 - Every command requires an explicit route prefix
 - Commands are processed by a local poller — responses may take a few minutes
-- Only one workflow runs at a time per machine
+- Multiple PRs can run workflows concurrently; same-PR comments are serialized
+- Comments that hit the concurrency limit retry automatically on the next poll tick
 HELPEOF
 }
 
 # Count currently running workflow processes (scoped to our workflow scripts).
+# Used for global safety cap only — per-PR serialization is handled separately.
 # Subtlety: `pgrep -c` prints "0" AND exits 1 on no-match, so a pipeline
 # fallback like `pgrep -c ... || echo 0` produces "0\n0" and breaks the
 # arithmetic comparison in run_workflow_route. Capture pgrep's output into
@@ -374,6 +376,17 @@ count_running_workflows() {
     local count
     count=$(pgrep -cf "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major|plan-revision|build-phase)\.sh" 2>/dev/null) || count=0
     echo "$count"
+}
+
+# Check if a workflow is already running against the given PR number.
+# Returns 0 (success/true) if a matching workflow is found, 1 (false) otherwise.
+# Prevents concurrent workflows on the SAME PR (which would race on the PR branch),
+# while allowing concurrent workflows on DIFFERENT PRs (safe — separate branches).
+is_workflow_running_on_pr() {
+    local target_pr="$1"
+    [[ -z "$target_pr" ]] && return 1
+    pgrep -af "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major|plan-revision|build-phase)\.sh" 2>/dev/null \
+        | grep -qE "[[:space:]]--pr([[:space:]]+|=)${target_pr}([[:space:]]|\$)"
 }
 
 # Run a workflow route (shared logic for revision and revision-major)
@@ -404,11 +417,20 @@ run_workflow_route() {
         return 0
     fi
 
-    # Check concurrency
+    # Per-PR concurrency check — same PR in flight = skip (prevents branch race).
+    # Different PRs are safe to parallelize (separate worktrees, separate branches).
+    if is_workflow_running_on_pr "$pr_number"; then
+        echo "    Workflow already in flight on PR #${pr_number}. Skipping (will retry next tick)."
+        ((SKIPPED++)) || true
+        return 0
+    fi
+
+    # Global safety cap — prevents runaway spawning if a flood of comments arrives.
+    # Does NOT prevent unrelated PRs from running concurrently (that's by design).
     local running
     running=$(count_running_workflows)
     if [[ "$running" -ge "$GH_MONITOR_MAX_CONCURRENT" ]]; then
-        echo "    Max concurrent workflows reached (${running}/${GH_MONITOR_MAX_CONCURRENT}). Skipping."
+        echo "    Global workflow cap reached (${running}/${GH_MONITOR_MAX_CONCURRENT}). Skipping (will retry next tick)."
         ((SKIPPED++)) || true
         return 0
     fi
