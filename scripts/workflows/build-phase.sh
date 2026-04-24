@@ -383,6 +383,36 @@ Also verify against the success criteria extracted in Stage 1. If anything fails
 STAGES_EOF
 )
 
+DECISION_LOG_AND_REFLECTION=$(cat <<'DLR_EOF'
+After pushing (and creating the PR if on the new-branch path), post a PR comment containing a Decision Log and Post-Run Reflection. Write the comment body to a temp file first (e.g., `/tmp/pr-comment-<timestamp>.md`), then post via `gh pr comment <PR-number> --body-file <temp-file>`. Do NOT inline the content into the command — multi-line content in a single arg is fragile.
+
+The comment must contain these two sections:
+
+## Decision Log
+
+List NON-OBVIOUS decisions made during this run. One bullet per decision, format:
+`**[High/Medium/Low]** <what was decided>. Alternatives: <what else was considered>. Why: <brief rationale>.`
+
+Include only decisions where a reasonable engineer could have chosen differently: architecture choices, trade-off calls, scope boundary decisions, severity calls on reviewer findings, rejected reviewer suggestions.
+
+Exclude: obvious implementation details, standards conformance, pattern application, mechanical changes that had no real alternative.
+
+If no non-obvious decisions were made, state: "No significant decisions — task was mechanical."
+
+Order: Low-confidence decisions FIRST (human prioritizes reviewing those).
+
+## Post-Run Reflection
+
+Omit any section below that has nothing to report — silence means no issues. Be specific when noting friction ("task file ambiguous on X" is useful; "it was fine" is not).
+
+- **Friction:** ambiguity in the task, missing context, tool gotchas encountered, points where guidance was thin
+- **Project-level suggestions (this repo):** standards gaps, documentation improvements, conventions that should be documented
+- **Tooling-level suggestions (claude-dot-files):** workflow prompt improvements, skill gaps, rule refinements that would benefit future runs
+
+If all three sections are empty, state: "No friction or suggestions from this run."
+DLR_EOF
+)
+
 RULES=$(cat <<'RULES_EOF'
 Rules:
 - Follow each stage in order — do not skip stages
@@ -439,6 +469,8 @@ ${STAGES_1_TO_7}
 - Push the branch (this updates PR #${PR_NUMBER})
 - Report a summary of the entire workflow including a deviation summary comparing what was planned vs what was built
 
+${DECISION_LOG_AND_REFLECTION}
+
 ${RULES}"
 
     echo
@@ -472,6 +504,8 @@ ${STAGES_1_TO_7}
   - Test results
   - Success criteria checklist (met / not met)
 - Report the PR URL
+
+${DECISION_LOG_AND_REFLECTION}
 
 ${RULES}"
 
