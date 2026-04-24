@@ -143,6 +143,27 @@ WantedBy=timers.target
 - **User service** — runs as the user, not root. Lives in `~/.config/systemd/user/`.
 - **%u** — expands to the current username for portability.
 
+### User Lingering — Required for Reboot Survival
+
+User-mode systemd services (`systemctl --user`) only run while the user has an active session. Without enabling lingering, the timer exists only when someone is logged in via SSH or console — on reboot with no active user session, **the timer does not start until someone logs in.** This silently breaks scheduled services across reboots.
+
+**Required setup** (one-time per user, per machine):
+```bash
+sudo loginctl enable-linger "$USER"
+```
+
+This makes the user's systemd instance run 24/7 regardless of login state. Timers survive reboots cleanly.
+
+**Verification (no reboot needed):**
+```bash
+loginctl show-user "$USER" | grep Linger
+# Should show: Linger=yes
+```
+
+If you see `Linger=no`, the timer will NOT survive reboots.
+
+**This is automated by `install.sh --with-services`** — the install script enables lingering idempotently (checks `Linger=yes` first, only runs the sudo command if not already enabled). Manual enablement is only needed if installing services outside the install script.
+
 ### Deployment
 Services are deployed by `install.sh` with an opt-in flag:
 
@@ -152,6 +173,10 @@ if [[ "$INSTALL_SERVICES" == "true" ]]; then
     mkdir -p "$HOME/.config/systemd/user"
     ln -sf "$REPO_DIR/scripts/services/gh-monitor.service" "$HOME/.config/systemd/user/"
     ln -sf "$REPO_DIR/scripts/services/gh-monitor.timer" "$HOME/.config/systemd/user/"
+    # CRITICAL: enable lingering so the timer survives reboots
+    if ! loginctl show-user "$USER" 2>/dev/null | grep -q "^Linger=yes$"; then
+        sudo loginctl enable-linger "$USER"
+    fi
     systemctl --user daemon-reload
     systemctl --user enable gh-monitor.timer
     systemctl --user start gh-monitor.timer
@@ -254,6 +279,7 @@ When the machine comes back online after being off:
 - **Name for the category, not the instance** — extensible naming from day one
 - **Config files for anything an operator might change** — don't hardcode
 - **Opt-in deployment** — not every machine needs services
+- **User lingering MUST be enabled** — without `loginctl enable-linger "$USER"`, user timers die on reboot. Non-negotiable for anything scheduled.
 - **State tracking is mandatory** — never process the same item twice
 - **Don't crash on single-item failures** — log and continue
 - **Don't guess when context is insufficient** — ask for clarification
