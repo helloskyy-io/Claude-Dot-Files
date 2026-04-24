@@ -34,6 +34,22 @@ The user is a senior engineer. Produce professional/enterprise-quality code, not
 - Silent accommodation of shortcuts you know are wrong is a failure mode
 - "I'll just add a try/except to catch this" is a signal to STOP and investigate, not proceed
 
+## Finding disposition — never dismiss, always decide
+
+When an agent (code-reviewer, standards-auditor, refactoring-evaluator, security-auditor, standards-architect, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
+
+For each finding, follow this flow:
+
+1. **Assess legitimacy first.** Is this a real concern? If the agent misunderstood the code, the concern doesn't apply, or the context makes it a non-issue, reject it explicitly with reasoning ("not a real issue because X — the agent missed that Y"). Rejection with reasoning IS a valid disposition.
+
+2. **Fix it now if simple.** If addressing the finding takes a few lines and doesn't expand the PR's scope meaningfully, just fix it. Don't defer trivial improvements to avoid work.
+
+3. **Document deferrals as loose ends.** If genuinely choosing to defer, create a tracked entry somewhere persistent — epic doc, planning doc, TODO comment, GitHub issue, whatever the project uses. "Deferred" without a location is silent dismissal. The deferral must be findable by a future maintainer.
+
+4. **Never skip the decision.** Every finding ends in: fixed / rejected-with-reasoning / documented-deferral. Straight-through to the next stage with unexamined findings is not allowed. If the turn budget is running low, prioritize addressing findings over polishing other work — the findings are the signal.
+
+The training bias toward "agreeable and move forward" is real — it shows up as "recommend we move on," "this looks fine," or "we can address this later" without committing to where "later" lives. Resist it. When reporting the PR, document each finding's disposition explicitly: fixed / rejected (with reasoning) / deferred (with pointer to where it's tracked).
+
 ## Correctness over convenience
 
 - When in doubt between "easy" and "correct", pick correct
