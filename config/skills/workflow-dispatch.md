@@ -34,6 +34,31 @@ Two questions every dispatch answers: (1) which workflow fits this task? (2) how
 | plan-revision | 300 | Multi-doc planning changes |
 | plan-new | 500 | Greenfield, extensive planning |
 
+### When a task is too big — split or escalate
+
+If a task is likely to exceed the chosen workflow's MAX_TURNS budget, don't just dispatch and hope. Either escalate to a larger workflow or split the task. Warning signs that a task is too big for the chosen workflow:
+
+- Touches many files that aren't related by a single concept
+- Requires multiple unrelated decisions (feature A + refactor B + standards update C)
+- Mixes code + docs + standards changes in one task
+- Contains "and also…" phrasing — usually a natural seam to split along
+- Task file exceeds ~300 lines of description (the description itself signals scope creep)
+
+**Escalate when the task is cohesive but large:**
+- `revision.sh` turns insufficient → `revision-major.sh` (more turns + 3-agent review)
+- `revision-major.sh` turns insufficient → write a phase doc first, then `build-phase.sh`
+- No plan exists and task is complex → `plan-new.sh` or `plan-revision.sh` FIRST, then `build-phase.sh`
+
+**Split when the task is multiple things bundled:**
+- Identify natural boundaries — separate features, separate components, separate phases, separate layers
+- **Sequential split** if piece 2 depends on piece 1: dispatch piece 1, wait for merge, then dispatch piece 2 with the merged state as starting point
+- **Parallel split** if pieces are independent: dispatch separate PRs concurrently (different branches, gh-monitor's per-PR concurrency allows this)
+- Each split piece gets its own task file with its own objective, scope fence, and done criteria — don't reference "the other piece" across files
+
+**Red flag: workflows hitting close to MAX_TURNS regularly.** If a workflow consistently uses 80%+ of its turn budget, tasks coming in are too big. Either split more aggressively going forward or escalate the default workflow choice for that type of work.
+
+**Red flag: PR review finds "we also fixed X while here."** The engineer expanded scope because the task didn't fence it tightly enough. Next time, split or narrow the scope.
+
 ## Anatomy of a Good Task Prompt
 
 Every task prompt — whether inline, written to a `--task-file`, or posted as an `@claude` comment — answers five things:
