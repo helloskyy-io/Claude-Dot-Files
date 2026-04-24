@@ -95,6 +95,10 @@ Usage: $(basename "$0") [options]
 
 Analyzes recent workflow logs and produces a structured improvement report.
 
+Run this from INSIDE the repo whose logs you want to analyze. Logs are stored
+per-repo at <repo>/.claude/logs/ — each repo accumulates its own workflow
+history. The report is written to <repo>/docs/development/reviews/.
+
 Options:
   --days <N>      Analyze logs from the last N days (default: 7)
   --last <N>      Analyze the N most recent log files
@@ -161,8 +165,22 @@ fi
 SCAN_LOG_DIR="${MAIN_REPO_ROOT}/.claude/logs"
 
 if [[ ! -d "$SCAN_LOG_DIR" ]]; then
-    echo "Error: log directory not found at ${SCAN_LOG_DIR}" >&2
-    echo "No workflow runs have been logged yet." >&2
+    cat >&2 <<EOF
+Error: no log directory found at ${SCAN_LOG_DIR}
+
+Logs are stored per-repo at <repo>/.claude/logs/ — each repo accumulates its
+own workflow history. This repo has no autonomous workflow runs logged.
+
+If your production workflow runs happened in a different repo, cd into that
+repo and run this script from there:
+
+  cd /path/to/target-repo && $(basename "$0") --last 20
+
+To see which repos have logs on this machine:
+  for d in ~/Repos/*/ /opt/*/*/; do
+    [ -d "\${d}.claude/logs" ] && echo "\$(basename \$d): \$(ls -1 \${d}.claude/logs/*.jsonl 2>/dev/null | wc -l) logs"
+  done
+EOF
     exit 1
 fi
 
