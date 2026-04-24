@@ -321,7 +321,8 @@ Rules:
 - Follow each stage in order — do not skip stages
 - Be thorough — this is a major revision, not a quick fix
 - Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
+- **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling. This applies to ALL markdown files, not just "known-large" ones — planning docs, loose_ends, sprint/phase docs, and standards docs frequently hit the ceiling unannounced. When in doubt, check the size first.
+- **Grep parameter naming:** when using the Grep tool on a single file, the parameter is `path`, NOT `file_path`. Read/Edit/Write use `file_path`, but Grep intentionally uses `path` because it can target files OR directories. Calls like `Grep(pattern=..., file_path=...)` fail with an `InputValidationError` — a recurring tool-schema confusion worth remembering.
 - Fix Critical review findings before submitting
 - Tests must pass before committing
 - Document deviations from the plan
