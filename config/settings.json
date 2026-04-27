@@ -1,27 +1,4 @@
 {
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/block-dangerous.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/notify-done.sh"
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Read",
@@ -31,7 +8,6 @@
       "Grep",
       "WebFetch",
       "WebSearch",
-
       "Bash(git status)",
       "Bash(git diff *)",
       "Bash(git log *)",
@@ -51,7 +27,22 @@
       "Bash(git rev-parse *)",
       "Bash(git config --get *)",
       "Bash(git clone *)",
-
+      "Bash(git -C * status*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * log*)",
+      "Bash(git -C * branch*)",
+      "Bash(git -C * show*)",
+      "Bash(git -C * fetch*)",
+      "Bash(git -C * rev-parse*)",
+      "Bash(git -C * blame*)",
+      "Bash(git -C * remote*)",
+      "Bash(git -C * config --get*)",
+      "Bash(git -C * tag*)",
+      "Bash(git -C * stash list*)",
+      "Bash(git -C * merge-base*)",
+      "Bash(git -C * ls-tree*)",
+      "Bash(git -C * ls-files*)",
+      "Bash(git -C * rev-list*)",
       "Bash(ls)",
       "Bash(ls *)",
       "Bash(cat *)",
@@ -93,7 +84,6 @@
       "Bash(whoami)",
       "Bash(id)",
       "Bash(hostname)",
-
       "Bash(node *)",
       "Bash(npm run *)",
       "Bash(npm test *)",
@@ -114,7 +104,6 @@
       "Bash(cmake *)",
       "Bash(gcc *)",
       "Bash(g++ *)",
-
       "Bash(docker ps *)",
       "Bash(docker images *)",
       "Bash(docker logs *)",
@@ -123,7 +112,6 @@
       "Bash(docker build *)",
       "Bash(docker run *)",
       "Bash(docker exec *)",
-
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(gh *)",
@@ -133,12 +121,10 @@
       "Bash(ping *)",
       "Bash(dig *)",
       "Bash(nslookup *)",
-
       "Bash(grep *)",
       "Bash(rg *)",
       "Bash(ag *)",
       "Bash(xargs *)",
-
       "Bash(kubectl get *)",
       "Bash(kubectl -n * get *)",
       "Bash(kubectl describe *)",
@@ -154,15 +140,25 @@
       "Bash(kubectl config get-contexts*)",
       "Bash(kubectl config view*)",
       "Bash(kubectl auth can-i *)",
-
+      "Bash(kubectl rollout status *)",
+      "Bash(kubectl -n * rollout status *)",
+      "Bash(kubectl rollout history *)",
+      "Bash(kubectl -n * rollout history *)",
       "Bash(kubectl -n * exec * -- temporal * workflow list*)",
       "Bash(kubectl -n * exec * -- temporal * workflow show *)",
       "Bash(kubectl -n * exec * -- temporal * workflow describe *)",
       "Bash(kubectl -n * exec * -- temporal * workflow query *)",
+      "Bash(kubectl -n * exec * -- temporal * workflow count *)",
       "Bash(kubectl -n * exec * -- temporal * schedule list*)",
       "Bash(kubectl -n * exec * -- temporal * schedule describe *)",
       "Bash(kubectl -n * exec * -- temporal * activity list*)",
-
+      "Bash(kubectl -n * exec * -- temporal * activity describe *)",
+      "Bash(kubectl -n * exec * -- temporal * task-queue describe *)",
+      "Bash(kubectl -n * exec * -- temporal * batch list*)",
+      "Bash(kubectl -n * exec * -- temporal * batch describe *)",
+      "Bash(kubectl -n * exec * -- temporal * operator namespace list*)",
+      "Bash(kubectl -n * exec * -- temporal * operator namespace describe *)",
+      "Bash(kubectl -n * exec * -- temporal * operator cluster describe *)",
       "Bash(kubectl -n * exec * -- ssh * \"qm list*\")",
       "Bash(kubectl -n * exec * -- ssh * \"qm status *\")",
       "Bash(kubectl -n * exec * -- ssh * \"qm config *\")",
@@ -173,11 +169,125 @@
       "Bash(kubectl -n * exec * -- ssh * \"rbd ls *\")",
       "Bash(kubectl -n * exec * -- ssh * \"rbd info *\")",
       "Bash(kubectl -n * exec * -- ssh * \"systemctl status *\")",
-      "Bash(kubectl -n * exec * -- ssh * \"systemctl is-*\")"
+      "Bash(kubectl -n * exec * -- ssh * \"systemctl is-*\")",
+
+      "Bash(kubectl exec -n * * -- temporal * workflow list*)",
+      "Bash(kubectl exec -n * * -- temporal * workflow show *)",
+      "Bash(kubectl exec -n * * -- temporal * workflow describe *)",
+      "Bash(kubectl exec -n * * -- temporal * workflow query *)",
+      "Bash(kubectl exec -n * * -- temporal * workflow count *)",
+      "Bash(kubectl exec -n * * -- temporal * schedule list*)",
+      "Bash(kubectl exec -n * * -- temporal * schedule describe *)",
+      "Bash(kubectl exec -n * * -- temporal * activity list*)",
+      "Bash(kubectl exec -n * * -- temporal * activity describe *)",
+      "Bash(kubectl exec -n * * -- temporal * task-queue describe *)",
+      "Bash(kubectl exec -n * * -- temporal * batch list*)",
+      "Bash(kubectl exec -n * * -- temporal * batch describe *)",
+      "Bash(kubectl exec -n * * -- temporal * operator namespace list*)",
+      "Bash(kubectl exec -n * * -- temporal * operator namespace describe *)",
+      "Bash(kubectl exec -n * * -- temporal * operator cluster describe *)",
+
+      "Bash(kubectl exec -n * * -- ssh * \"qm list*\")",
+      "Bash(kubectl exec -n * * -- ssh * \"qm status *\")",
+      "Bash(kubectl exec -n * * -- ssh * \"qm config *\")",
+      "Bash(kubectl exec -n * * -- ssh * \"qm listsnapshot *\")",
+      "Bash(kubectl exec -n * * -- ssh * \"pvesh get *\")",
+      "Bash(kubectl exec -n * * -- ssh * \"pvecm nodes\")",
+      "Bash(kubectl exec -n * * -- ssh * \"pvecm status\")",
+      "Bash(kubectl exec -n * * -- ssh * \"rbd ls *\")",
+      "Bash(kubectl exec -n * * -- ssh * \"rbd info *\")",
+      "Bash(kubectl exec -n * * -- ssh * \"systemctl status *\")",
+      "Bash(kubectl exec -n * * -- ssh * \"systemctl is-*\")",
+
+      "Bash(kubectl exec * -- bash -c *curl*)",
+      "Bash(kubectl -n * exec * -- bash -c *curl*)",
+      "Bash(kubectl exec -n * * -- bash -c *curl*)",
+
+      "Bash(tailscale status*)",
+      "Bash(tailscale ip*)",
+      "Bash(tailscale ping*)",
+      "Bash(tailscale netcheck*)",
+      "Bash(tailscale whois*)",
+      "Bash(tailscale serve status*)",
+      "Bash(tailscale funnel status*)",
+      "Bash(tailscale lock status*)",
+      "Bash(tailscale version*)",
+      "Bash(tailscale debug*)",
+      "Bash(tailscale dns status*)"
     ],
     "deny": [
       "Bash(rm -rf *)",
-      "Bash(sudo *)"
+      "Bash(sudo *)",
+      "Bash(kubectl delete *)",
+      "Bash(kubectl -n * delete *)",
+      "Bash(kubectl patch *)",
+      "Bash(kubectl -n * patch *)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl -n * apply *)",
+      "Bash(kubectl create *)",
+      "Bash(kubectl -n * create *)",
+      "Bash(kubectl replace *)",
+      "Bash(kubectl -n * replace *)",
+      "Bash(kubectl edit *)",
+      "Bash(kubectl -n * edit *)",
+      "Bash(kubectl scale *)",
+      "Bash(kubectl -n * scale *)",
+      "Bash(kubectl drain *)",
+      "Bash(kubectl cordon *)",
+      "Bash(kubectl uncordon *)",
+      "Bash(kubectl rollout restart *)",
+      "Bash(kubectl -n * rollout restart *)",
+      "Bash(kubectl rollout undo *)",
+      "Bash(kubectl -n * rollout undo *)",
+      "Bash(kubectl rollout pause *)",
+      "Bash(kubectl -n * rollout pause *)",
+      "Bash(kubectl rollout resume *)",
+      "Bash(kubectl -n * rollout resume *)",
+      "Bash(kubectl taint *)",
+      "Bash(kubectl annotate *)",
+      "Bash(kubectl -n * annotate *)",
+      "Bash(kubectl label *)",
+      "Bash(kubectl -n * label *)",
+      "Bash(*ssh*qm destroy*)",
+      "Bash(*ssh*qm stop*)",
+      "Bash(*ssh*qm reset*)",
+      "Bash(*ssh*qm shutdown*)",
+      "Bash(*ssh*qm reboot*)",
+      "Bash(*ssh*qm rollback*)",
+      "Bash(*ssh*qm delsnapshot*)",
+      "Bash(*ssh*rbd rm *)",
+      "Bash(*ssh*rbd remove *)",
+      "Bash(*ssh*rbd snap rm *)",
+      "Bash(*ssh*rbd snap purge *)",
+      "Bash(*ssh*pvesh delete *)",
+      "Bash(*ssh*pvesh create *)",
+      "Bash(*ssh*pvesh set *)",
+      "Bash(*ssh*systemctl stop *)",
+      "Bash(*ssh*systemctl restart *)",
+      "Bash(*ssh*systemctl disable *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/block-dangerous.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/notify-done.sh"
+          }
+        ]
+      }
     ]
   }
 }
