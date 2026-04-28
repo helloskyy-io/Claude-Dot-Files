@@ -289,6 +289,7 @@ Rules:
 - Keep changes minimal and focused on the task
 - Do not add features not requested
 - Do not refactor unrelated code
+- **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER \`cd\` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use \`(cd <worktree-abs-path> && command)\` in a subshell rather than a top-level \`cd\`.
 - Do not re-read files whose content you already know and haven't modified since you last read them
 - For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Always verify tests pass before committing
@@ -340,6 +341,7 @@ Rules:
 - Keep changes minimal and focused on the task
 - Do not add features not requested
 - Do not refactor unrelated code
+- **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER \`cd\` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use \`(cd <worktree-abs-path> && command)\` in a subshell rather than a top-level \`cd\`.
 - Do not re-read files whose content you already know and haven't modified since you last read them
 - For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Always verify tests pass before committing
