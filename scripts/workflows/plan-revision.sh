@@ -324,6 +324,13 @@ After all three agents return, analyze combined findings by severity:
 - Warning: unclear implications, vague criteria, drift risk, missing cross-links, gap identification — should fix if scope allows
 - Info: suggestions, documentation-structure observations, cross-linking opportunities
 
+**Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
+- **architect** judges technical consistency and trade-off documentation quality
+- **planner** judges actionability, dependency correctness, and ordering
+- **standards-architect** judges cross-reference integrity, doc-structure drift, and standards corpus impact
+
+**When severities conflict on the same content, actionability is the override authority for planning docs.** A planner Critical (e.g., "this requirement is unactionable") trumps a standards-architect Info (e.g., "no documented violation") on the same finding — a planning doc that nobody can act on has failed, regardless of how well it conforms to standards. Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
+
 Fix any Critical issues found across ANY of the three reviews. Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
 
 If one agent has no findings (e.g., a pure roadmap date bump triggers no standards implications), note "standards-architect: no findings" inline. Do NOT emit a SKIPPED marker for the stage as a whole — the stage still ran, two of the three agents likely had findings.

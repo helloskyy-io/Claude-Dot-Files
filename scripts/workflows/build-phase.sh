@@ -359,7 +359,16 @@ Analyze findings by severity:
 
 ### Consolidating findings
 
-After all three agents return, fix any Critical issues found across ANY of the three reviews. Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
+After all three agents return, fix any Critical issues found across ANY of the three reviews.
+
+**Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
+- **code-reviewer** judges engineering quality — correctness, safety, robustness, real-world failure modes
+- **refactoring-evaluator** judges structural improvement potential — uses High/Medium/Low priority, not Critical/Warning
+- **standards-auditor** judges documented-standard conformance — whether an explicit rule is violated
+
+**When severities conflict on the same code, the engineering-quality bar is the override authority.** A code-reviewer Critical trumps a standards-auditor Info on the same finding — real correctness/safety/quality concerns win over "no documented violation." Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
+
+Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
 
 If one agent has no findings, note it inline (e.g., "refactoring-evaluator: no findings") rather than emitting a SKIPPED marker — the stage as a whole still ran.
 
