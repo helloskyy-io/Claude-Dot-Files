@@ -323,6 +323,7 @@ If no corresponding test exists, create one. If tests genuinely cannot be create
 - Discover the project's test hierarchy: look for `docs/standards/testing.md`, then `testing/run-all.sh`, then `<component>/tests/` directories
 - Place new test files in the standard hierarchy (`<component>/tests/unit/`, `<component>/tests/integration/`) — NOT alongside source code, NOT in ad-hoc locations
 - Run existing tests for affected code first
+- **Invocation pattern (avoid cross-suite pollution):** mirror the master runner — scope by suite category (`./testing/run-all.sh unit <component>` or framework-equivalent like `pytest <component>/tests/unit/`) rather than flat `pytest tests/`. Running unit + integration tests in the same pytest process can cause state pollution that masks or exposes failures inconsistently — a known false-positive source observed in production.
 - If tests fail due to your changes, fix them
 - If new functionality needs tests, add them following the project's testing standard and the test-suite-architecture skill
 - If code was modified, update its existing tests to match the new behavior — stale tests that pass against old behavior are misleading
@@ -409,6 +410,14 @@ Exclude: obvious implementation details, standards conformance, pattern applicat
 If no non-obvious decisions were made, state: "No significant decisions — task was mechanical."
 
 Order: Low-confidence decisions FIRST (human prioritizes reviewing those).
+
+## Deferred Work
+
+Items intentionally NOT addressed in this PR but tracked for follow-up. The finding-disposition rule requires every deferred item to point at a tracker — this section is the structured place for those pointers so they don't get buried in prose. One bullet per item:
+
+- **<work item>** — Why deferred: <brief reason>. Tracked at: <location — issue #, planning doc, loose-ends file, follow-up PR, etc.>
+
+If nothing was deferred, omit this section.
 
 ## Post-Run Reflection
 

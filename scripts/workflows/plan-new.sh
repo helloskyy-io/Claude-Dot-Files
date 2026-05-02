@@ -466,6 +466,14 @@ If no non-obvious workflow decisions were made, state: "No significant workflow 
 
 Order: Low-confidence decisions FIRST (human prioritizes reviewing those).
 
+## Deferred Work
+
+Items intentionally NOT addressed in this PR but tracked for follow-up. The finding-disposition rule requires every deferred item to point at a tracker — this section is the structured place for those pointers so they don't get buried in prose. One bullet per item:
+
+- **<work item>** — Why deferred: <brief reason>. Tracked at: <location — issue #, planning doc, loose-ends file, follow-up PR, etc.>
+
+If nothing was deferred, omit this section.
+
 ## Post-Run Reflection
 
 Omit any section below that has nothing to report — silence means no issues. Be specific when noting friction ("project context unclear on X" is useful; "it was fine" is not).
