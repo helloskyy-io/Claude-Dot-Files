@@ -291,9 +291,9 @@ Produce a brief summary noting:
 
 ## Stage 4: PEER REVIEW (parallel)
 
-Dispatch THREE peer-review agents IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for architect, planner, and standards-architect. The three agents review the SAME Stage 3 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and doubles the wall-clock time of this stage.
+Dispatch FOUR peer-review agents IN PARALLEL. Send a SINGLE assistant message containing four Agent tool calls — one each for architect, planner, security-auditor, and standards-architect. The four agents review the SAME Stage 3 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly quadruples the wall-clock time of this stage.
 
-**How to dispatch in parallel:** in one assistant turn, emit three tool_use blocks, one per agent. Do NOT call them one at a time across separate turns. The Claude tool-use API supports multiple tool calls per assistant message.
+**How to dispatch in parallel:** in one assistant turn, emit four tool_use blocks, one per agent. Do NOT call them one at a time across separate turns. The Claude tool-use API supports multiple tool calls per assistant message.
 
 Each agent's review focus:
 
@@ -310,6 +310,14 @@ Each agent's review focus:
 - Do success criteria have measurable, verifiable definitions?
 - Are estimates and timelines realistic given scope?
 
+### security-auditor agent — security implications of planning decisions
+- Do the proposed changes introduce new attack surface (network endpoints, auth paths, secret handling, privilege escalation paths)?
+- Are existing security boundaries preserved or weakened?
+- Do new components introduce dependencies that need security review?
+- Are there security-relevant standards that this revision should align with (input validation, secret rotation, RBAC scoping, audit logging)?
+- For revisions that modify existing security-relevant patterns, is the change strictly safer or strictly equivalent? Anything weaker needs explicit justification.
+- Severity: Critical / High / Medium / Low. Cite the specific section of the planning doc and the security concern. Don't manufacture findings — if the revision has no security implications (e.g., a roadmap date bump), say so and move on.
+
 ### standards-architect agent — standards corpus interactions
 - **Cross-reference integrity:** do references to `docs/standards/*.md` from the revised planning docs resolve? Is the content accurate? When a doc references a specific sub-section (e.g., "§6b", "Section 3.2", "the Deployment Standard networking section"), verify that sub-section actually exists — not just the parent document.
 - **Gap analysis:** does this revision propose new work (phases, features, components) that will need new standards? Flag gaps — do not create draft standards in this stage.
@@ -319,26 +327,28 @@ Each agent's review focus:
 
 ### Consolidating findings
 
-After all three agents return, analyze combined findings by severity:
-- Critical: inconsistencies, unactionable requirements, broken standards references, contradictions — must fix
-- Warning: unclear implications, vague criteria, drift risk, missing cross-links, gap identification — should fix if scope allows
-- Info: suggestions, documentation-structure observations, cross-linking opportunities
+After all four agents return, analyze combined findings by severity:
+- Critical: inconsistencies, unactionable requirements, broken standards references, contradictions, security risks — must fix
+- Warning: unclear implications, vague criteria, drift risk, missing cross-links, gap identification, security concerns that warrant attention — should fix if scope allows
+- Info: suggestions, documentation-structure observations, cross-linking opportunities, security observations
 
 **Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
 - **architect** judges technical consistency and trade-off documentation quality
 - **planner** judges actionability, dependency correctness, and ordering
+- **security-auditor** judges security implications, attack surface, and trust boundary integrity
 - **standards-architect** judges cross-reference integrity, doc-structure drift, and standards corpus impact
 
-**When severities conflict on the same content, actionability is the override authority for planning docs.** A planner Critical (e.g., "this requirement is unactionable") trumps a standards-architect Info (e.g., "no documented violation") on the same finding — a planning doc that nobody can act on has failed, regardless of how well it conforms to standards. Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
+**When severities conflict on the same content, security and actionability are the override authorities for planning docs.** A security-auditor Critical (e.g., "this introduces an unauthenticated entry point") trumps a standards-architect Info (e.g., "no documented violation") on the same finding — security risks always win over conformance. Similarly, a planner Critical (e.g., "this requirement is unactionable") trumps lower-severity calls — a planning doc that nobody can act on has failed regardless of standards conformance. Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
 
-Fix any Critical issues found across ANY of the three reviews. Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
+Fix any Critical issues found across ANY of the four reviews. Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
 
-If one agent has no findings (e.g., a pure roadmap date bump triggers no standards implications), note "standards-architect: no findings" inline. Do NOT emit a SKIPPED marker for the stage as a whole — the stage still ran, two of the three agents likely had findings.
+If one agent has no findings (e.g., a pure roadmap date bump triggers no security or standards implications), note inline (e.g., "security-auditor: no findings — revision has no security implications"). Do NOT emit a SKIPPED marker for the stage as a whole — the stage still ran.
 
 ## Stage 5: RESOLVE
 Review all changes made across stages 3-4. Produce a consolidated summary:
 - Original task vs what was actually done
 - Architect review findings: addressed vs deferred
+- Security review findings: addressed vs deferred
 - Planner review findings: addressed vs deferred
 - Standards review findings: addressed vs deferred
 - Any remaining concerns or known gaps

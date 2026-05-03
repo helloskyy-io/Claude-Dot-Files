@@ -16,9 +16,9 @@
 | `revision-major.sh` | Significant code rework | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
 | `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
 | `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
-| `plan-revision.sh` | Revise existing planning docs | architect, planner, standards-architect | 300 |
+| `plan-revision.sh` | Revise existing planning docs | architect, planner, security-auditor, standards-architect | 300 |
 | `review-runs.sh` | CPI log analysis | workflow-analyst | 100 |
-| `sprint-test.sh` | Sprint-end test assessment + execution | None (runs test suites directly) | 200 |
+| `sprint-review.sh` | Comprehensive end-of-sprint review (security + refactoring + testing + synthesis) | security-auditor, refactoring-evaluator, test-writer | 600 |
 
 ### Services (background, systemd)
 
