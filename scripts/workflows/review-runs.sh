@@ -299,6 +299,8 @@ ${PROMPT_FILE_LIST}
 
 1. GATHER: Read each of the log files listed above. For very large logs, focus on the result events, tool call patterns, and any error events. Use the Grep tool to extract key events efficiently rather than reading entire files if they are large.
 
+   **Also read the CPI decisions log** at \`${CLAUDE_DOT_FILES_ROOT}/docs/development/cpi-decisions.md\` — it lists every finding deferred from prior cycles with explicit watch-criteria. Use this as input to Step 3 (SCORE): findings in this run that match a prior deferral's watch-criteria should be flagged as **recurrences** with the original deferral context, raising their priority for shipping.
+
 2. ANALYZE: Use the workflow-analysis skill methodology to analyze the logs. Look for:
    - Inefficiencies (unnecessary tool calls, redundant reads, scope creep)
    - Repeated failures (same errors across runs)
@@ -331,6 +333,7 @@ ${PROMPT_FILE_LIST}
    - Medium-Confidence Findings (with evidence, recommendation, needs)
    - Low-Confidence Findings (with watch-for notes)
    - Patterns Resolved Since Last Review (look for prior reviews matching \`review-${SOURCE_REPO_NAME}-*.md\` in the same directory — compare only against reviews of THIS repo)
+   - Recurrences from CPI Decisions Log (any finding in this report that matches a watch-criteria from \`${CLAUDE_DOT_FILES_ROOT}/docs/development/cpi-decisions.md\` — note the original deferral cycle and current evidence count, e.g., "TS-2 surface-only boundary ambiguity — DEFERRED at sprint-review run #1, 2026-05-03 — recurring this cycle, watch-criteria met")
    - Metrics (average turns, token usage, failure types, trends)
    - Summary (2-3 sentences: health, top priority, trend)
 

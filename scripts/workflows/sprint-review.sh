@@ -67,6 +67,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
 
+# Resolve the claude-dot-files repo root from the script's own location.
+# Used to point the workflow at cpi-decisions.md regardless of the analyzed
+# repo's path (skyy-command, mdc-master-planning, etc. on workstation or VM).
+CLAUDE_DOT_FILES_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -308,6 +313,8 @@ Establish the sprint context and repo structure before specialist analysis dispa
 
 3. **Prior sprint reviews:** look for prior `docs/development/reviews/sprint-review-*.md` files. If they exist, scan for findings that were deferred or marked watch-for — those should be checked against current state.
 
+4. **CPI decisions log:** read `CLAUDE_DOT_FILES_ROOT/docs/development/cpi-decisions.md` (the path is provided in the workflow context — it points at the claude-dot-files repo, not the analyzed repo). This log lists every finding from prior CPI cycles with explicit watch-criteria. Use it as input to Stage 5 (Synthesize): findings in this run that match a prior deferral's watch-criteria should be flagged as **recurrences** with the original deferral context, raising their priority for shipping. The synthesized executive summary should explicitly call out which findings are NEW vs RECURRING (with cycle reference).
+
 4. **Repo structure inventory:** scan top-level directories. Note where source lives, where tests live, where docs live. This grounds the whole-repo analysis in Stage 2.
 
 5. **Testing infrastructure inventory:** check for `docs/standards/testing.md`, `testing/run-all.sh`, suite runners under `testing/suites/`, master-runner invocation patterns. Stage 3 (Run Tests) and Stage 4 (Build Missing Tests) depend on this.
@@ -492,6 +499,7 @@ if [[ -n "$PR_NUMBER" ]]; then
 This is a comprehensive end-of-sprint review covering security, refactoring, testing, and synthesis. The focus is WHOLISTIC — across the codebase, not nitpicking individual changes. Follow all 6 stages thoroughly.
 
 Sprint: ${SPRINT_LABEL}
+CLAUDE_DOT_FILES_ROOT: ${CLAUDE_DOT_FILES_ROOT}
 ${CONTEXT_BLOCK}
 ${STAGES_1_TO_5}
 
@@ -531,6 +539,7 @@ else
 This is a comprehensive end-of-sprint review covering security, refactoring, testing, and synthesis. The focus is WHOLISTIC — across the codebase, not nitpicking individual changes. Follow all 6 stages thoroughly.
 
 Sprint: ${SPRINT_LABEL}
+CLAUDE_DOT_FILES_ROOT: ${CLAUDE_DOT_FILES_ROOT}
 ${CONTEXT_BLOCK}
 ${STAGES_1_TO_5}
 

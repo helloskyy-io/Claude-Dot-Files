@@ -63,6 +63,22 @@ Task-execution workflows (revision, revision-major, build-phase, plan-new, plan-
 
 Standards documents (`docs/standards/`, `docs/architecture/`) are a curated product with human-in-the-loop control. Autonomous workflows and agents may SURFACE standards implications (gaps, drift, deviations, ADR candidates) but must NOT auto-create, auto-modify, or auto-stub standards artifacts. All standards changes flow through the interactive session for human review before merge.
 
+### CPI Decisions Log
+
+Persistent record of every CPI decision (ship / defer / reject) lives at `~/Repos/claude-dot-files/docs/development/cpi-decisions.md` (or `/opt/skyy-net/claude-dot-files/docs/development/cpi-decisions.md` on the VM). The log preserves context across sessions so deferred findings don't slip away between cycles.
+
+**When CPI cycles produce findings:**
+1. Discuss in the interactive session, decide ship/defer/reject for each finding
+2. SHIPPED items get implemented + committed
+3. DEFERRED items get appended to `cpi-decisions.md` with explicit watch-criteria (e.g., "ship on second occurrence")
+4. REJECTED items get appended with reasoning so future reviewers don't re-litigate
+
+**Before a new CPI cycle:** scan the DEFERRED sections. New findings that match prior watch-criteria become Tier-1 ship candidates with confirmed evidence. New findings unrelated to prior deferrals are evaluated fresh.
+
+**Append-only:** entries don't get deleted. When a previously-deferred item finally ships, the original deferral entry gets amended with "→ SHIPPED at <commit>" rather than removed. This preserves the calibration history (how often did we correctly defer noise vs incorrectly defer real patterns).
+
+The `review-runs.sh` and `sprint-review.sh` workflows automatically cross-reference the log when generating new reports — findings that match prior deferrals are flagged as recurrences with the original context.
+
 ## Dependencies & Tools
 
 - Check if a tool/package is already in the project before adding a new one.
