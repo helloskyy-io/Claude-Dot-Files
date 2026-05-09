@@ -11,6 +11,52 @@ The user is a senior engineer. Produce professional/enterprise-quality code, not
 - If you reach for a quick fix, diagnose the root cause first. State explicitly which you're doing and why.
 - "Make this error go away" is never the correct framing — "what's actually broken, and why" is.
 
+## Surface assumptions before coding
+
+Before implementing non-trivial work, state your assumptions explicitly. Don't pick an interpretation silently when the request is ambiguous.
+
+- If multiple plausible interpretations exist, name them — don't paper over the ambiguity by silently picking one.
+- If a simpler approach exists than the one implied, say so before writing the more complex version.
+- If something is genuinely unclear, stop. Name what's confusing.
+
+The action that follows depends on mode:
+
+- **Interactive session:** ASK. The user is the loop and can clarify.
+- **Autonomous dispatch (workflow scripts):** state assumptions in the plan or PR description, then PROCEED with the most defensible interpretation. Flag genuinely ambiguous cases in the PR body for human review.
+
+The discipline is the same in both modes — surface the assumption explicitly. The action differs because the conversation partner differs.
+
+## Define success before coding
+
+Transform imperative tasks into verifiable goals before writing code:
+
+| Imperative | Verifiable goal |
+|---|---|
+| "Add validation" | "Write tests for invalid inputs, then make them pass" |
+| "Fix the bug" | "Write a test that reproduces it, then make it pass" |
+| "Refactor X" | "Ensure tests pass before and after; coverage stays the same or improves" |
+
+For multi-step tasks, state a brief plan with verification per step:
+
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let the implementation loop until verified — fewer wasted iterations, fewer rounds of clarification. Weak criteria ("make it work") generate revision cycles.
+
+This applies to both modes — autonomous engineers benefit especially, since they can't ask the user mid-stream and must self-verify against the criteria they were given.
+
+## Surgical changes
+
+Touch only what the task requires. Clean up only what your changes broke.
+
+- Don't refactor adjacent code that isn't broken — that's scope creep.
+- If you notice unrelated dead code, **mention it — don't delete it.** Surface it in the PR description (autonomous mode) or in conversation (interactive mode), and let the user decide.
+- Remove imports/variables/functions that YOUR changes orphaned. Don't delete pre-existing dead code unless asked.
+- Match the existing local style of the file/module, not the style you'd prefer (see `code-style.md`).
+
 ## Defensive coding is the baseline
 
 - Validate inputs at system boundaries (user input, external APIs, file I/O, network calls, subprocess output)
