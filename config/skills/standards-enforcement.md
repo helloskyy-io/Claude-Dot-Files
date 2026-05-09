@@ -7,6 +7,8 @@ description: How to verify code conformance against project standards — CLAUDE
 
 This skill defines **how to verify that code conforms to project standards**. It covers discovering what standards apply, finding exemplars of correct usage, auditing changes against those standards, and reporting findings with confidence scores.
 
+For the paired discipline — how to write/maintain standards docs themselves so they stay timeless and rule-focused — see the `standards-authoring` skill.
+
 ## First Principles
 
 ### Standards Are Layered
