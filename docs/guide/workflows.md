@@ -26,6 +26,16 @@
 |---|---|---|
 | `gh-monitor.sh` | Poll GitHub for @claude PR comments | `scripts/services/` |
 
+## Review-agent count rationale
+
+Review-stage workflows dispatch a parallel **trio** (3 agents) by default. `plan-revision.sh` dispatches **four** — adding `standards-architect` alongside `architect`, `planner`, and `security-auditor`.
+
+**Why the extra agent on `plan-revision`:** `standards-architect` surfaces corpus-level implications (cross-document drift, gap detection, ADR candidates, bloat patterns) that the other three agents — focused on the immediate revision — don't catch. CPI cycles validated this across multiple separate runs where `standards-architect` findings were unique to its lens.
+
+Code-revision workflows (`revision-major`, `build-phase`) keep the 3-agent trio because the review surface is narrower (specific files in a worktree, not corpus-wide), so the broader-lens agent isn't typically the binding constraint. `sprint-review.sh` uses a different 3-agent trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because it's whole-repo end-of-sprint review, where security and test-coverage lenses dominate.
+
+All review-trios are dispatched in a single assistant message containing N `Agent` tool calls — multiple `Agent` calls in one message run concurrently, while splitting them across messages forces sequential execution and roughly doubles or triples wall time on the review stage.
+
 ## Starting a New Project
 
 ```bash
