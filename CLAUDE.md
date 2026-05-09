@@ -64,6 +64,7 @@ For detailed documentation on Claude Code concepts:
 - Rules and when to use them: `docs/guide/claude_code_rules.md`
 - Skills and context-aware methodology: `docs/guide/claude_code_skills.md`
 - Workflows guide (all scripts, dual model, usage): `docs/guide/workflows.md`
+- CPI cycle (review-runs + decisions log + cadence): `docs/guide/cpi-cycle.md`
 
 ## Standards
 
