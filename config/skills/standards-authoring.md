@@ -19,14 +19,26 @@ A reader picking up the standard 6 months from now should not need to know what 
 
 "How we got here" is git history. "Discovered live during Sprint 1-4" is a PR description. "Originally we did X, then changed to Y" is git blame. Standards are the destination, not the journey.
 
-### WHY content stays. HISTORY content goes.
+### WHY content stays — but must be concise. HISTORY content goes.
 
 Two kinds of content can appear in a standard, and they have different fates:
 
-- **WHY content** — rationale that helps the reader judge edge cases. Example: "Use `limit:200` on first read because the Read tool truncates at 25K tokens." The WHY enables judgment when the rule's exact case isn't covered. **KEEP.**
+- **WHY content** — rationale that helps the reader judge edge cases. Example: "Use `limit:200` on first read because the Read tool truncates at 25K tokens." The WHY enables judgment when the rule's exact case isn't covered. **KEEP — but tight.**
 - **HISTORY content** — narrative about how the rule came to exist. Example: "Validated during Sprint 1-4 PR #50." The HISTORY adds tokens without adding judgment capability. **REMOVE.**
 
 The discriminator: would removing this sentence change the reader's ability to apply the rule correctly? If no, it's bloat. If yes, it's WHY content worth keeping.
+
+### Concision is part of the rule
+
+WHY content earns its place by being short. **One sentence. Maybe two for genuinely subtle invariants.** A paragraph of WHY for a single rule is bloat in disguise — the rationale has been padded with examples, narrative, or restatement until it crosses the line from "judgment aid" into "explainer essay."
+
+Concision tests:
+- Can the WHY be stated in one sentence? If yes, that's the version.
+- Does the second sentence add new information, or just restate the first? If the latter, cut it.
+- Does the WHY drift into "originally...", "we decided...", "in Sprint X..."? That's HISTORY masquerading as WHY — cut it.
+- Is the WHY longer than the rule itself? Suspicious. Re-read it asking what the reader actually needs to make a judgment call.
+
+A standards doc with 30 rules each having a 2-line WHY is a 90-line standard. A standards doc with 30 rules each having a 6-line WHY is a 210-line standard. The bloat compounds at every prompt load, every audit, every revision. Tight WHY is durable; verbose WHY rots into dated narrative over time.
 
 ### Standards are loaded into AI context every dispatch
 
