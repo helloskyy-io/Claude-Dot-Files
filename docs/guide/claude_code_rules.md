@@ -79,4 +79,20 @@ Each file is self-contained and can be added, removed, or shared independently.
 
 ## Current State
 
-Our global `CLAUDE.md` is ~30 lines and covers everything cleanly. The `config/rules/` directory is synced and ready but intentionally empty. No need to split until the instructions outgrow a single file.
+Global `CLAUDE.md` is intentionally empty — it points readers to `config/rules/` and is locked from edits. All global instruction content lives in topical rule files. Current global rules:
+
+```
+config/rules/
+├── claude-dot-files-governance.md  ← prevents uninstructed edits to this repo from project sessions
+├── code-style.md                   ← readability, early returns, no over-engineering, match local style
+├── communication.md                ← what to ask before, what to leave alone
+├── dependencies.md                 ← check existing tools, prefer stdlib
+├── engineering-quality.md          ← senior-engineer code quality, no bandaids, finding disposition
+├── git.md                          ← commit format, push/amend rules
+├── personal-tooling.md             ← workflow inventory pointer (delegates to /get-started + workflows.md)
+├── safety.md                       ← secrets, force push, destructive commands
+├── standards-governance.md         ← ADRs convention, standards-as-curated-product, CPI decisions log
+└── terminal-output.md              ← copy-paste-safe command formatting (single line, no heredocs)
+```
+
+This split happened because `CLAUDE.md` had grown to ~80 lines covering 9+ topics, and individual concerns were hard to find/edit/share. Topical files keep each concern locatable and independently maintainable.
