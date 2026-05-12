@@ -398,6 +398,19 @@ If ANY test suite fails to execute (command not found, import errors, missing fi
 
 If the project has no master runner and no test infrastructure at all, report that clearly and skip to Stage 4 with recommendations to establish testing infrastructure.
 
+### Validate specialist test-failure claims against canonical results
+
+If any Stage 2 specialist (especially the testing reviewer) reported specific test failures — e.g., "14 backend integration tests fail," "module X tests all skipped due to missing fixture," "conftest sys.path issue breaks Y" — each such claim MUST be validated against this stage's canonical runner output:
+
+- Does the canonical runner show the same test(s) as failing?
+- Is the failure mode (error message, traceback class) the same?
+
+If the canonical runner does NOT reproduce a specialist-reported failure:
+- Reclassify in the synthesis as **"investigation needed"** with three required fields: the specialist's claimed failure, the canonical runner's actual result for the same test(s), and the specific reproduction conditions if known (e.g., "fails under `pytest tests/` but passes under `./testing/run-all.sh integration` — discovery-order dependent").
+- Do NOT carry the unreproduced claim forward as a confirmed failure in the report.
+
+This is the workflow's authoritative-or-discard contract: any "$N tests fail" or "$N tests broken" claim in the final report MUST reproduce under the canonical runner, OR be explicitly classified as investigation-needed. Non-reproducible claims erode operator trust in the workflow and lead to dismissed reports.
+
 ## Stage 4: BUILD MISSING TESTS
 
 Using the coverage gaps identified by the testing review in Stage 2, create missing tests. This stage is allowed to create test files (low-risk pattern carried over from sprint-test.sh) — but stays surface-only on refactoring and security findings (those are reviewed by humans before action).

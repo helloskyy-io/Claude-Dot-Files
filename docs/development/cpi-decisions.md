@@ -243,6 +243,45 @@ mdc: 2 plan-revision task-execution runs (~$33), prior CPI cycle e7c8715 fixes v
 
 The reviewers' recommendations on the dominant finding (sequential dispatch) were both based on the assumption that the parallel-dispatch instruction was missing — when in fact it exists in strong language across 4 of 5 workflow scripts. This is a useful calibration signal: review-runs analyses should verify against the current state of workflow scripts before recommending text-additions. Worth noting for future review-runs prompt evolution that the analyst should grep the workflow scripts for existing instruction before recommending new instruction text.
 
+### Routed from skyy-command sprint_2_loose_ends.md §2-0a.15 (5 candidate improvements, evaluated 2026-05-12)
+
+Five workflow improvements surfaced from helloskyy-io/Skyy-Command PR #68 + PR #69 reflections (originally captured 2026-05-04, evaluated in architecture session 2026-05-12). Routing was correct per claude-dot-files-governance — project-side PMs surfaced rather than auto-edited.
+
+**SHIPPED:**
+
+- **(a) .gitignore-collision check before checkpoint commit** (commit TBD this cycle)
+  - Evidence: skyy-command PR #68 — engineer created `lib/temporal/activities/ssh/`, `tests/unit/ssh/`, `tests/integration/ssh/`; a broad `ssh/` rule in the repo's .gitignore (intended for credential dirs) silently hid ALL three new source paths. `git status` showed nothing untracked. Caught only at checkpoint-commit time when no file create-modes appeared in the diff.
+  - Asymmetric-risk justification: silent data loss class (work invisible to PR) per engineering-quality.md ship-on-first-occurrence exception.
+  - Implementation: 4-line prompt addition before checkpoint commit in revision-major.sh, build-phase.sh, plan-revision.sh, plan-new.sh. Rule: "if this stage created new files or directories, run `git status` and confirm each appears as untracked; if not, grep `.gitignore` for unanchored name patterns hiding them and add `!path/` allowlist." Skipped revision.sh (minor fixes rarely create files) and sprint-review.sh (test creation is more constrained and (d) addresses the bigger concern there).
+  - Diverged from proposal: PM proposed Stage 0 pre-flight scan against planned paths. Rejected — Stage 0 doesn't know planned paths (they emerge in Stage 2/3). Simpler Stage 3 verification rule catches the same failure mode at lower complexity.
+
+- **(d) sprint-review.sh: validate specialist test-failure claims against canonical runner** (commit TBD this cycle)
+  - Evidence: skyy-command PR #69 — sprint-review reported "14 backend integration tests fail under suite runner due to conftest sys.path poisoning." Operator scrutiny couldn't reproduce: canonical `./testing/run-all.sh integration` from the PR worktree showed 51 passed / 0 failed.
+  - Asymmetric-risk justification: workflow correctness/trust in a production-shaped pattern (sprint-review reports drive ship/defer decisions). Per engineering-quality.md, correctness regressions in production-shaped patterns warrant ship-on-first-occurrence.
+  - Implementation: added Stage 3 sub-section to sprint-review.sh — Stage 2 specialist claims MUST be validated against canonical runner output; non-reproducible claims get reclassified as "investigation needed" with specialist-claim + canonical-result + reproduction-conditions fields, NOT carried forward as confirmed failures.
+
+**DEFERRED — watch-list:**
+
+- **(b) Templated "Deferred" section in PR body with auto-aggregation of marker comments**
+  - Evidence: skyy-command PR #68 — engineer wrote "tracked as a follow-up" into PR body free-form, no structured surface
+  - Decision: defer (single occurrence, duplicates existing surface)
+  - Reasoning: workflow scripts already produce a Decision Log + Post-Run Reflection PR comment (the `DECISION_LOG_AND_REFLECTION` block). `engineering-quality.md` "Finding disposition" already requires documented-deferral with a tracked location. The gap isn't "no place for deferrals" — it's "engineer didn't use the existing place." Adding another mechanism would duplicate the existing one.
+  - **Watch-criteria:** if 3+ PRs across multiple workflows show deferrals scattered in prose rather than the decision log, the existing tool has a usability gap and we ship structured aggregation.
+
+- **(e) sprint-review.sh: file-state snapshot at report-write time**
+  - Evidence: skyy-command PR #69 — report cited helper line counts of 1,417/1,551/1,543 when actuals at report-read time were 1,626/1,550/1,743. The finding's spec (all crossed 1,400-line threshold) was correct; only precise numbers were stale.
+  - Decision: defer (single occurrence, not asymmetric risk)
+  - Reasoning: report-quality-of-life issue, not a correctness regression. The underlying finding was correct; only audit precision was reduced. Doesn't meet engineering-quality bar for single-occurrence ship.
+  - **Watch-criteria:** if a sprint-review report has stale numbers that materially mislead the operator (wrong-direction, not just imprecise — e.g., "234 lines" when actual is 1,400+), ship the Stage 5 snapshot helper.
+
+**REJECTED as project-side (surface to project sessions):**
+
+- **(c) Workflow doc note: STAGE 4 should use master runner, not flat pytest**
+  - Evidence: skyy-command PR #68 — engineer used `pytest tests/` instead of `./testing/run-all.sh`
+  - Decision: not actionable in claude-dot-files (existing instruction covers it)
+  - Reasoning: revision-major.sh Stage 4 already says "Run tests relevant to the changes, following the project's testing standard." If the engineer didn't follow the project's testing standard, the fix is project-side — make sure `docs/standards/testing.md` explicitly names the master runner as the binding invocation. Adding workflow-level reinforcement would duplicate the existing standards-discovery instruction.
+  - **Surfacing for skyy-command session:** verify the testing standard names `./testing/run-all.sh` as the binding test-runner invocation.
+
 ### Architecture-session item surfaced ad-hoc (2026-05-09)
 
 - **No `--base-branch` flag in workflow scripts** (NEW, claude-dot-files-level)

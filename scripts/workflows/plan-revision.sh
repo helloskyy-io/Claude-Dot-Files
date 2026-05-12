@@ -279,6 +279,8 @@ Make the planning changes. Work through the plan methodically:
 - Use clear, specific language — avoid vague phrases like "improve performance"
 - Planning docs should focus on WHAT and WHY, not HOW. Defer implementation-level detail (full config YAML, exact CLI commands, step-by-step terminal procedures) to the engineer's task file. If you find yourself writing the commands someone would paste into a terminal, you have crossed into implementation — move it to a task-file appendix or reference it as "see implementation task."
 
+**.gitignore-collision check (before checkpoint commit):** if this stage created new files or directories, run `git status` and confirm each appears as untracked. If a created path does NOT appear, `.gitignore` is silently hiding it — typically via unanchored, name-only patterns (`ssh/`, `helpers/`, etc.) intended for credential or temp directories. Grep `.gitignore` for the matching pattern, then add an explicit `!path/` allowlist override before checkpoint commit. Silently-ignored new files are work invisible to the PR (silent data loss class).
+
 Checkpoint commit: once the planning changes are complete, stage all changes and make a local checkpoint commit (do NOT push):
   git add -A && git commit -m "wip: planning-doc checkpoint — PRE-REVIEW, not yet audited"
 

@@ -391,6 +391,8 @@ Create:
 - Project root `CLAUDE.md` with project name, tech stack reference, how to run/build/test, standards references, and project-specific rules
 - `README.md` — repo description for humans
 
+**.gitignore-collision check (before checkpoint commit):** plan-new typically creates many new files and directories. Run `git status` and confirm each appears as untracked. If a created path does NOT appear, `.gitignore` is silently hiding it — typically via unanchored, name-only patterns (`ssh/`, `helpers/`, etc.) intended for credential or temp directories. Grep `.gitignore` for the matching pattern, then add an explicit `!path/` allowlist override before checkpoint commit. Silently-ignored new files are work invisible to the PR (silent data loss class).
+
 Checkpoint commit: once all project-definition and documentation scaffolding through Stage 10 is complete, stage all changes and make a local checkpoint commit (do NOT push):
   git add -A && git commit -m "wip: project-definition checkpoint — PRE-REVIEW, not yet audited"
 
