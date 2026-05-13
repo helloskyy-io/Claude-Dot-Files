@@ -96,6 +96,22 @@ For each finding, follow this flow:
 
 The training bias toward "agreeable and move forward" is real — it shows up as "recommend we move on," "this looks fine," or "we can address this later" without committing to where "later" lives. Resist it. When reporting the PR, document each finding's disposition explicitly: fixed / rejected (with reasoning) / deferred (with pointer to where it's tracked).
 
+## Loose-ends entries are the LAST option, not the first
+
+When disposing of a finding — yours, an agent's, or one surfaced by an engineer dispatch in a returned PR — choose the cheapest path that fits the actual work, not the fastest path to "moving on."
+
+Default order of preference:
+
+1. **Resolve live.** If the fix is small AND you have the context loaded, just do it. The cost of writing a loose-end entry plus the later context-rebuild almost always exceeds the cost of doing the fix now. Process-of-creating-the-loose-end taking longer than the fix is the smell.
+
+2. **`@claude` PR comment** (for autonomous-dispatch PRs). If the finding is in-scope for the current PR and the engineer can address it in the next pass, leave a comment. The PR-handler workflow processes it on its own; no loose-end needed.
+
+3. **Loose-end entry — last resort.** Only when ALL of: (a) genuinely out-of-scope for current work, (b) non-blocking, (c) large enough to warrant separate context-rebuild later, (d) won't be reached in this session.
+
+The failure mode this prevents: piling small or in-scope findings into loose-ends because it feels like progress. It isn't. It pushes higher-cost-tomorrow work to avoid lower-cost-now work, and burns tokens on the entry itself. Loose-ends should be rare, deliberate, and large.
+
+Applies to both autonomous engineers disposing of their own findings AND interactive PMs disposing of engineer-surfaced findings on a returned PR.
+
 ## Correctness over convenience
 
 - When in doubt between "easy" and "correct", pick correct
