@@ -27,6 +27,17 @@
       "Bash(git rev-parse *)",
       "Bash(git config --get *)",
       "Bash(git clone *)",
+      "Bash(git status *)",
+      "Bash(git pull --rebase *)",
+      "Bash(git --no-pager status)",
+      "Bash(git --no-pager status *)",
+      "Bash(git --no-pager show *)",
+      "Bash(git --no-pager diff *)",
+      "Bash(git --no-pager log *)",
+      "Bash(git --no-pager fetch *)",
+      "Bash(git --no-pager branch *)",
+      "Bash(git --no-pager blame *)",
+      "Bash(git --no-pager tag *)",
       "Bash(git -C * status*)",
       "Bash(git -C * diff*)",
       "Bash(git -C * log*)",
@@ -213,7 +224,12 @@
       "Bash(tailscale lock status*)",
       "Bash(tailscale version*)",
       "Bash(tailscale debug*)",
-      "Bash(tailscale dns status*)"
+      "Bash(tailscale dns status*)",
+
+      "Bash(conda activate *)",
+      "Bash(source */conda.sh*)",
+      "Bash(DJANGO_SETTINGS_MODULE=* python *)",
+      "Bash(DJANGO_SETTINGS_MODULE=* python3 *)"
     ],
     "deny": [
       "Bash(rm -rf *)",
