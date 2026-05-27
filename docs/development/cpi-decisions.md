@@ -243,6 +243,54 @@ mdc: 2 plan-revision task-execution runs (~$33), prior CPI cycle e7c8715 fixes v
 
 The reviewers' recommendations on the dominant finding (sequential dispatch) were both based on the assumption that the parallel-dispatch instruction was missing — when in fact it exists in strong language across 4 of 5 workflow scripts. This is a useful calibration signal: review-runs analyses should verify against the current state of workflow scripts before recommending text-additions. Worth noting for future review-runs prompt evolution that the analyst should grep the workflow scripts for existing instruction before recommending new instruction text.
 
+## 2026-05-27 — Two project handoffs evaluated (Daryl tactical-bandaid + Vault Phase 1 retrospective)
+
+Two PM handoffs arrived the same day routing project-level content to claude-dot-files via the governance rule. Both followed correct routing process (governance worked as designed); both rejected on content grounds. Captured here as calibration signal — the underlying issue surfaced is doc scope ambiguity, addressed by clarification commit alongside this entry.
+
+### Handoff 1 — PM2/PM3 Daryl tactical-bandaid append (skyy-net MDC project)
+
+PM3 wrote a 60+ line tech-debt entry about a tactical bandaid for the customer-browser Phase 1 launch (Daryl test-deployment), proposing it land in `cpi-decisions.md` DEFERRED section. PM2 routed it here per claude-dot-files-governance.
+
+**REJECTED as project-scope.** Reasoning:
+- Entry is project-level tech debt (specific customer Daryl, specific VM docker-internal-005, specific service SkyyGate, Sprint-3 phase references, project commit SHAs). Zero claude-dot-files tooling implications.
+- Content also violates standards-authoring discipline (dates, sprint refs, commit SHAs, customer/service specifics, narrative retrospective material) — would set bad precedent for cpi-decisions.md content shape.
+- Routing process was correct; content interpretation was not. Redirected to skyy-net's `/development/common/loose_ends/` or customer-browser phase doc as a deferred-with-retirement entry.
+
+### Handoff 2 — PM2 Vault Phase 1 closeout (4 cross-project tooling candidates)
+
+PM2 surfaced 4 candidates from an 8-defect closeout of MDC Vault Phase 1: chart-render verification agent, engineer task brief template/skill, "no manual workarounds" rule promotion, and a CPI log entry.
+
+**Dispositions:**
+
+- **Item 1 — chart-render verification agent → REDIRECTED to project-side.**
+  - Evidence: 4 of 8 production defects in single project, single cycle
+  - Reasoning: stack-specific (Helm + K8s + cluster access required), assumes project-specific configuration (cluster targeting, chart paths, lifecycle states, §6 matrix), N=1 across projects. claude-dot-files stays stack-agnostic per architectural intent.
+  - Right home: `mdc-master-planning/.claude/agents/chart-render-reviewer.md` as project-level agent. Claude Code supports per-project `.claude/agents/`.
+  - **Watch-criteria for future claude-dot-files-level ship:** second project's deployment cycle hits the same chart-defect class with same root cause → two-project evidence justifies generalizing into stack-aware skill or agent.
+
+- **Item 2 — engineer task brief template/skill → REDIRECTED to project-side.**
+  - Evidence: PM-authoring-time discipline gap. PM's own framing: "my hand, sharper next time."
+  - Reasoning: a claude-dot-files skill can't force a PM to use a checklist in interactive mode. For autonomous workflows, the brief is the operator's input — checklist must be applied before invocation, which is PM workflow not Claude tooling. Also requires project-specific standards links to be useful.
+  - Right home: template in mdc-master-planning's `docs/standards/` or `docs/guide/` ("How to write an engineer task brief for a service-deployment workflow"). PMs paste from template each time.
+  - **Watch-criteria for future claude-dot-files-level ship:** if 2+ projects independently develop similar task-brief templates, generalize.
+
+- **Item 3 — "no manual workarounds for missed automation" rule promotion → REJECTED.**
+  - Reasoning: already covered by `engineering-quality.md` sections "No bandaids — solve root causes," "Push back on shortcuts," and "When the user asks for the easy path anyway." Adding a more specific rule duplicates content and pushes always-loaded layer toward bloat.
+  - "Manual workaround for missed automation" is one specific instance of "bandaid over root cause" — existing rules apply.
+  - MDC memory entry stays as MDC's session-specific reminder; that's the right home for project-experienced lessons that global rules already cover.
+
+- **Item 4 — CPI log entry → SHIPPED** (this entry).
+
+### Meta-process observation
+
+Two consecutive same-day handoffs misrouted project-level content to claude-dot-files. The routing mechanism (governance rule) worked perfectly — both PMs raised before editing. The content interpretation was off in both cases.
+
+Underlying contributor: scope ambiguity in `docs/guide/cpi-cycle.md` ("Both feed cpi-decisions.md" without distinguishing project-level from tooling-level findings). Clarified in the same session alongside this entry — new "What belongs in cpi-decisions.md (and what doesn't)" subsection with explicit examples and the test ("would another claude-dot-files-using project benefit from this decision being recorded?").
+
+**Calibration signal:** doc clarity catches misrouting before it ships. The fact that both handoffs were correctly REJECTED rather than absorbed is the governance discipline working — but doc ambiguity costs PM time on the upstream side. Clarification is the preventive fix.
+
+---
+
 ### Routed from skyy-command sprint_2_loose_ends.md §2-0a.15 (5 candidate improvements, evaluated 2026-05-12)
 
 Five workflow improvements surfaced from helloskyy-io/Skyy-Command PR #68 + PR #69 reflections (originally captured 2026-05-04, evaluated in architecture session 2026-05-12). Routing was correct per claude-dot-files-governance — project-side PMs surfaced rather than auto-edited.

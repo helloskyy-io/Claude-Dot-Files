@@ -130,10 +130,35 @@ The log lives at `claude-dot-files/docs/development/cpi-decisions.md`. Both `rev
 | Cadence | Weekly-ish | End of sprint |
 | Output | Findings about HOW we work | Findings about WHAT we built |
 | Scope | Workflow scripts, agents, skills, rules | Project source code, tests |
-| Both feed | `cpi-decisions.md` | `cpi-decisions.md` |
+| What lands in `cpi-decisions.md` | All findings — workflow tooling IS the subject | **ONLY meta-findings** about how the workflow performed — NOT the project-code findings |
+| Where project findings go | n/a (subject is tooling) | Project-side: loose-ends, phase docs, sprint review report |
 | Both apply | Engineering-quality discipline | Engineering-quality discipline |
 
-They are different cycles asking different questions. CPI asks "is the workflow tooling getting better?" Sprint-review asks "is the project code getting better?" Both produce findings, both feed the same decisions log, both follow the same ship/defer/reject discipline. Don't conflate the cadences — running sprint-review weekly burns tokens; running CPI per-sprint misses the weekly signal.
+They are different cycles asking different questions. CPI asks "is the workflow tooling getting better?" Sprint-review asks "is the project code getting better?" Both produce findings, but only ONE category lands in `cpi-decisions.md`: findings about claude-dot-files tooling (workflow scripts, agents, skills, rules). Project-code findings from sprint-review stay **project-side** — in the project's loose-ends tracking, phase docs, or sprint-review report. They follow the same ship/defer/reject discipline regardless of destination.
+
+Don't conflate the cadences either — running sprint-review weekly burns tokens; running CPI per-sprint misses the weekly signal.
+
+### What belongs in `cpi-decisions.md` (and what doesn't)
+
+The log is for **claude-dot-files-level decisions ONLY**.
+
+**Belongs:**
+- Decisions about workflow scripts (`revision-major.sh`, `build-phase.sh`, etc.)
+- Decisions about agents (`code-reviewer`, `standards-architect`, etc.)
+- Decisions about skills (`standards-enforcement`, `project-organization`, etc.)
+- Decisions about rules (`engineering-quality.md`, etc.)
+- CPI methodology refinements (the cycle itself)
+- Meta-findings from `sprint-review` or `review-runs` about how the workflow performed
+
+**Does NOT belong:**
+- Project-code tech debt (belongs in project's loose-ends)
+- Project deployment workarounds and tactical bandaids (belongs in project's phase docs or loose-ends)
+- Project-specific standards amendments (belongs in project's `docs/standards/`)
+- Customer/service-specific decisions (belongs in project's tracking)
+- Sprint or epic narrative (belongs in project's planning docs)
+- Project-side retrospectives or post-mortems (belongs in project's sprint/phase artifacts)
+
+**Useful test:** would another claude-dot-files-using project benefit from this decision being recorded? If yes, it's tooling-level. If no, it's project-level. PM handoffs that route project-level decisions here should be evaluated against this test and redirected when appropriate.
 
 ## Common pitfalls
 
