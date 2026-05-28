@@ -23,7 +23,7 @@ Architectural review identified these gaps for moving from "above the bar for pe
 
 - **CI on this repo.** No `.github/workflows/`. PRs merge without `shellcheck`, `bash -n`, JSON/YAML lint, hook-pattern regression tests, markdown link-check. **Approach when triggered:** `.github/workflows/ci.yml` with the above checks. **Trigger:** after testing infrastructure exists.
 
-- **Safety hook threat model documentation.** `block-dangerous.sh` doesn't enumerate bypass classes considered (env-var smuggling, encoded shell, `bash -c "$(printf ...)"`, `eval`, here-strings, alias rebinding). **Approach when triggered:** write `docs/architecture/threat-model.md` listing attack classes the hook addresses and explicitly out-of-scope ones. **Trigger:** anyone other than operator starts using these workflows, OR an autonomous LLM demonstrates evidence of bypass attempts in logs.
+- **Safety hook threat model documentation.** Inline threat-model header was added to `config/hooks/block-dangerous.sh` (step 4-b) enumerating bypass classes the hook does NOT address (obfuscated commands, variable indirection, aliasing, here-strings, subshell smuggling) and the operator-context risk profile. **What's still deferred:** a full `docs/architecture/threat-model.md` with attack-corpus fixtures and a negative corpus that the hook can be tested against. **Trigger:** anyone other than operator starts using these workflows, OR an autonomous LLM demonstrates evidence of obfuscation attempts in logs.
 
 ### Operations: drift + recovery + visibility
 
@@ -31,7 +31,7 @@ Architectural review identified these gaps for moving from "above the bar for pe
 
 - **Disaster recovery story.** `install.sh` backs up but no documented rollback, no `uninstall.sh`. VM + workstation are backed up; laptop is not. **Approach when triggered:** `uninstall.sh` script + rollback procedure in `docs/guide/`. **Trigger:** before deploying to a machine without backup, OR if a bad install ever requires manual recovery.
 
-- **Cost rollup tooling.** JSONL logs capture `total_cost_usd` per run but no aggregator. Operator currently watches metrics daily by hand. **Approach when triggered:** `scripts/helpers/cost-report.sh` walking `.claude/logs/*.jsonl` and rolling up by day/workflow/project. **Trigger:** if June 15 billing change makes manual tracking insufficient, OR operator wants budget alerts.
+- **Cost rollup tooling — basic version SHIPPED (step 4-b).** `lib/run-claude.sh` now provides `print_cycle_totals` which is called from every workflow's completion banner. Output shows current-month total cost + total turns across all runs, alongside the per-run summary. **What's still deferred:** budget alerts, per-project / per-workflow breakdown, dashboards. **Trigger:** if monthly totals approach budget limits and the operator wants automated alerts.
 
 - **Proactive observability between CPI cycles.** No success-rate dashboard, p50/p95 turns/cost per workflow, hook-block frequency, rate-limit hits. **Approach when triggered:** `scripts/helpers/metrics.sh` rolling up trends; possibly static HTML dashboard. **Trigger:** when CPI cycles lag behind needed feedback velocity.
 

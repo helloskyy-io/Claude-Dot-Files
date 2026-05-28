@@ -50,6 +50,34 @@ check_rate_limit() {
     return 1
 }
 
+# ---------------------------------------------------------------------------
+# Cycle cost rollup
+# Sums total cost + turns across all workflow runs in the current calendar
+# month from the JSONL logs. Used by workflow completion banners to show
+# monthly burn alongside the per-run cost. Silent if no logs exist.
+# Usage: print_cycle_totals "$LOG_DIR"
+# ---------------------------------------------------------------------------
+print_cycle_totals() {
+    local log_dir="${1:-.claude/logs}"
+    [[ -d "$log_dir" ]] || return 0
+
+    local current_month
+    current_month=$(date +%Y-%m)
+
+    local results
+    results=$(find "$log_dir" -maxdepth 1 -name '*.jsonl' -type f -newermt "${current_month}-01" -print0 2>/dev/null | \
+              xargs -0 -I {} jq -r 'select(.type == "result") | "\(.total_cost_usd // 0)\t\(.num_turns // 0)"' {} 2>/dev/null)
+
+    [[ -n "$results" ]] || return 0
+
+    local total_cost total_turns run_count
+    total_cost=$(echo "$results" | awk '{s+=$1} END {printf "%.2f", s}')
+    total_turns=$(echo "$results" | awk '{s+=$2} END {print s}')
+    run_count=$(echo "$results" | wc -l)
+
+    printf "Cycle totals (%s, %d runs): \$%s · %d turns\n" "$current_month" "$run_count" "$total_cost" "$total_turns"
+}
+
 run_claude() {
     local prompt="$1"
     shift

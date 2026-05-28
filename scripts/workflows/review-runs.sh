@@ -364,6 +364,7 @@ echo "================================================================"
 echo
 echo "Report: ${REPORT_FILE}"
 echo "Log file: ${LOG_FILE}"
+print_cycle_totals "$LOG_DIR"
 echo
 echo "To read the log in human-readable form:"
 echo "  cat ${LOG_FILE} | ${FORMATTER}"

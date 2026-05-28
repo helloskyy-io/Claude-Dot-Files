@@ -6,6 +6,53 @@
 # --dangerously-skip-permissions bypasses the allow/deny lists in settings.json.
 # Hooks still fire regardless, so this hook must catch everything that should
 # NEVER run regardless of permission mode.
+#
+# ---------------------------------------------------------------------------
+# THREAT MODEL (scope of what this hook addresses)
+# ---------------------------------------------------------------------------
+#
+# WHAT THIS HOOK CATCHES (in-scope):
+#   - Literal destructive commands matching the regex patterns below
+#     (rm -rf, git push --force, git reset --hard, dd, mkfs, sudo,
+#     fork bombs, DROP TABLE, package purges, systemd disable, SSH
+#     tampering, RCE patterns, etc.)
+#
+# WHAT THIS HOOK DOES NOT CATCH (out-of-scope, known gaps):
+#   - **Obfuscated commands** — e.g. `bash -c "$(echo cm0gLXJmIC8= | base64 -d)"`
+#     bypasses regex by hiding the dangerous payload in a base64 blob,
+#     hex-encoded shell, or other indirection. Not detected.
+#   - **Variable indirection** — e.g. `eval "$evil_var"` where the
+#     dangerous content was placed in the variable in an earlier turn.
+#     The hook sees `eval "$evil_var"`, not the resolved content.
+#   - **Aliasing** — e.g. `alias safe='rm -rf /' && safe`. The hook
+#     sees `safe`, not `rm -rf /`.
+#   - **Here-strings or unusual quoting** — e.g. `r''m -rf /` or
+#     `\\rm -rf /`. The regex patterns assume reasonable spacing.
+#   - **Subshell smuggling** — e.g. dangerous content inside `$(...)`,
+#     `<(...)`, or backticks that the regex doesn't unpack.
+#
+# THREAT-MODEL CONTEXT:
+#   The operator is an interactive senior engineer using Claude for
+#   coding tasks. Autonomous LLM dispatches have not demonstrated
+#   intent or capability to construct deliberate bypasses of the
+#   patterns below — the failure mode this hook protects against is
+#   accidental destructive commands (the model writes `rm -rf` because
+#   it thinks it should clean up, not because it's adversarial).
+#   The acceptable risk profile reflects this: catch the common
+#   accidents reliably; do not attempt to defend against an adversarial
+#   LLM constructing intentional bypasses (that would require sandboxing
+#   the entire workflow, which is a different threat model).
+#
+# WHEN TO REVISIT:
+#   - Operator starts dispatching with untrusted task content (e.g.
+#     workflows triggered by external PR comments from arbitrary users)
+#   - Evidence of an LLM constructing obfuscated commands in logs
+#   - A second person uses these workflows on their own machine and
+#     would expect stronger guarantees than "trust the regex"
+#
+# Full threat-model documentation is tracked in `docs/development/loose_ends.md`
+# as a deferred item.
+# ---------------------------------------------------------------------------
 
 INPUT=$(cat)
 

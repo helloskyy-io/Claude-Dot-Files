@@ -469,43 +469,8 @@ Produce a resolution summary in `docs/architecture/review-resolutions.md`:
 STAGES_EOF
 )
 
-DECISION_LOG_AND_REFLECTION=$(cat <<'DLR_EOF'
-After pushing (and creating the PR if on the new-branch path), post a PR comment containing a Decision Log and Post-Run Reflection. Write the comment body to a temp file first (e.g., `/tmp/pr-comment-<timestamp>.md`), then post via `gh pr comment <PR-number> --body-file <temp-file>`. Do NOT inline the content into the command — multi-line content in a single arg is fragile.
-
-The comment must contain these two sections:
-
-## Decision Log
-
-List NON-OBVIOUS decisions made during this run (workflow execution decisions — distinct from the project-design decisions documented in the planning artifact itself). One bullet per decision, format:
-`**[High/Medium/Low]** <what was decided>. Alternatives: <what else was considered>. Why: <brief rationale>.`
-
-Include only decisions where a reasonable engineer could have chosen differently: which stages to scale down vs run in full, how to consolidate output into the project's existing repo structure, severity calls on reviewer findings, rejected reviewer suggestions, ADR-vs-decision-block routing.
-
-Exclude: obvious implementation details, standards conformance, pattern application, mechanical changes that had no real alternative.
-
-If no non-obvious workflow decisions were made, state: "No significant workflow decisions — task fit the workflow's defaults cleanly."
-
-Order: Low-confidence decisions FIRST (human prioritizes reviewing those).
-
-## Deferred Work
-
-Items intentionally NOT addressed in this PR but tracked for follow-up. The finding-disposition rule requires every deferred item to point at a tracker — this section is the structured place for those pointers so they don't get buried in prose. One bullet per item:
-
-- **<work item>** — Why deferred: <brief reason>. Tracked at: <location — issue #, planning doc, loose-ends file, follow-up PR, etc.>
-
-If nothing was deferred, omit this section.
-
-## Post-Run Reflection
-
-Omit any section below that has nothing to report — silence means no issues. Be specific when noting friction ("project context unclear on X" is useful; "it was fine" is not).
-
-- **Friction:** ambiguity in the project description, missing context, tool gotchas encountered, points where workflow guidance was thin
-- **Project-level suggestions (this repo):** standards gaps, documentation conventions, scaffolding patterns that should be documented
-- **Tooling-level suggestions (claude-dot-files):** workflow prompt improvements, skill gaps, rule refinements that would benefit future runs
-
-If all three sections are empty, state: "No friction or suggestions from this run."
-DLR_EOF
-)
+# DECISION_LOG_AND_REFLECTION is defined in lib/shared-prompts.sh
+source "${SCRIPT_DIR}/lib/shared-prompts.sh"
 
 RULES=$(cat <<'RULES_EOF'
 Rules:
@@ -620,6 +585,7 @@ echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"
 echo "Log file: ${LOG_FILE}"
+print_cycle_totals "$LOG_DIR"
 echo
 echo "To read the log in human-readable form:"
 echo "  cat ${LOG_FILE} | ${FORMATTER}"
