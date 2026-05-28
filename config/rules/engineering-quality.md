@@ -134,7 +134,7 @@ If your response to a non-trivial implementation does NOT include the alignment 
 
 ## Finding disposition — never dismiss, always decide
 
-When an agent (code-reviewer, standards-auditor, refactoring-evaluator, security-auditor, standards-architect, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
+When an agent (code-reviewer, standards-auditor, refactoring-evaluator, security-auditor, standards-architect, quality-control, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
 
 For each finding, follow this flow:
 
