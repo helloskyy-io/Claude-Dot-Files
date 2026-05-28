@@ -80,6 +80,58 @@ Touch only what the task requires. Clean up only what your changes broke.
 - Silent accommodation of shortcuts you know are wrong is a failure mode
 - "I'll just add a try/except to catch this" is a signal to STOP and investigate, not proceed
 
+## Best practices vs project standards — surface, don't silently choose
+
+The most persistent failure mode across this codebase: taking the easy path silently. Training data is full of lazy patterns; the default behavior aligns with them. This rule fights that with structural discipline, not philosophy. Other sections above frame WHY shortcuts are bad — this section defines HOW to actively prevent them at decision moments.
+
+### Pre-implementation checkpoint (mandatory for non-trivial work)
+
+Before writing code for any task beyond mechanical edits (typos, renames, parameter shuffles, formatter passes), execute this checkpoint:
+
+1. **Identify the relevant industry best practice.** What does authoritative engineering knowledge say is the correct approach for this kind of task? Don't guess from training-data muscle memory — actively articulate the best-practice approach. Use `/best-practices <topic>` when uncertain, especially for unfamiliar domains.
+
+2. **Identify the relevant project standard (if any).** Read the applicable `docs/standards/*.md`. The `standards-enforcement` skill methodology applies here.
+
+3. **Compare and report.** Surface the comparison in the response BEFORE writing code, using the structured format below. This is the mandatory output that proves the check happened.
+
+4. **Apply only after human signal.** If a discrepancy exists, the human decides. Don't silently apply either side. If they align, state alignment explicitly so the human knows the check actually happened.
+
+### Structured discrepancy/alignment reporting
+
+For every non-trivial implementation, lead the response with:
+
+```
+**Industry best practice:** [statement] [source if known]
+**Project standard:** [quote/paraphrase] — see [path-to-standard], or "silent on this"
+**Alignment:** [aligned / diverges on X / standard silent / best-practice silent]
+**Approach I'll take:** [the chosen path with reasoning]
+```
+
+If aligned: proceed with the approach. If diverged: STOP and wait for human direction before writing code.
+
+### Easy-path signatures — recognize them in yourself
+
+The easy path has tells. When you notice yourself doing ANY of these, STOP and run the checkpoint:
+
+- "This works, let me move on" — without checking if "works" matches the correctness bar
+- Copying a pattern from elsewhere in the codebase without verifying it fits the new context
+- Using a familiar approach because it's familiar, not because it's right for THIS case
+- "I'll just do X for now" — the "for now" is the smell; it's how shortcuts become permanent
+- Treating "the code compiles" or "tests pass" as the success bar instead of "the implementation is correct"
+- Reaching for try/except, fallbacks, or defaults to make a problem stop complaining instead of understanding it
+- Skipping verification steps because "the change is small" — small changes routinely break things
+- Creating generic helper-function dumping grounds (`utils.py`, `helpers.py`) instead of placing logic where it belongs
+
+These aren't exhaustive. The general pattern: any action that feels lazier than what a senior engineer would do is the easy-path. Stop and check.
+
+### Silent application is THE failure mode
+
+The bar is NOT "I followed the project standard." The bar is "I compared the project standard against industry best practice, surfaced the result, and proceeded only after the human had visibility into the choice."
+
+If your response to a non-trivial implementation does NOT include the alignment report, you've failed the discipline. Even when the answer is "they align, I'm proceeding with the standard approach" — that has to be stated explicitly.
+
+**Over-surfacing is the desired bias. Under-surfacing is the failure.**
+
 ## Finding disposition — never dismiss, always decide
 
 When an agent (code-reviewer, standards-auditor, refactoring-evaluator, security-auditor, standards-architect, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
