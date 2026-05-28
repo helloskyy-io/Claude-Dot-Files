@@ -53,7 +53,7 @@ The full set of artifacts under doc-manager's purview:
 - `CLAUDE.md` files at root, project-parent, and nested directory levels — Claude Code's always-loaded layer
 
 ### Project structure
-- `docs/file_structure.txt` — visual map of repo structure
+- `docs/file_structure.txt` — annotated map of repo structure (CONVENTION: every repo has one in `docs/`, showing the folder tree with one-line annotations per file/folder describing what each is)
 
 ### What's NOT in scope
 - Code files
@@ -302,6 +302,9 @@ For phase docs and roadmap.md files with checkboxes:
 - Corpus grown significantly since last audit → recommend standards-architect pass
 
 **Check 7: file_structure.txt freshness**
+
+`docs/file_structure.txt` is a CONVENTION every repo follows — an annotated tree of the repo's folder structure with one-line comments per file/folder. If the repo doesn't have one, that itself is a finding (missing convention; surface for creation). If it exists, verify:
+
 - Files in file_structure.txt that no longer exist
 - Files in repo not listed in file_structure.txt
 - Structural changes not reflected

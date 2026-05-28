@@ -6,11 +6,13 @@ Documentation is a living artifact. When work shifts system reality, docs must s
 
 - **After completing implementation work in session:** update phase doc / epic checkboxes for verifiably-done items; reword phase doc substance if the implemented solution diverged from what the doc describes; verify implementation conforms to applicable standards.
 
-- **When user says "let's update docs" / "we're done [with X]" / "let's wrap up" / similar:** immediately initiate the FULL pass — checkbox reconciliation, substance reconciliation, standards verification, /guide doc updates (if user-facing behavior changed), cross-reference verification.
+- **When user says "let's update docs" / "we're done [with X]" / "let's wrap up" / similar:** immediately initiate the FULL pass — checkbox reconciliation, substance reconciliation, standards verification, /guide doc updates (if user-facing behavior changed), `docs/file_structure.txt` refresh (the annotated repo map — every repo has one; if files were added/removed/renamed this session, it likely needs updating), cross-reference verification.
 
 - **After significant PR lands:** same full pass.
 
 - **After standards substance changes:** invoke `doc-manager` in COORDINATE mode to propagate references through CLAUDE.mds and other docs; surface breakages.
+
+- **After files are created, deleted, or renamed in this session:** `docs/file_structure.txt` likely needs refresh. Run doc-manager MAINTAIN mode against the file structure check, or invoke `/update-file-structure`.
 
 - **At natural session wrap-up:** audit what was done; surface anything that needed doc updates that didn't happen.
 

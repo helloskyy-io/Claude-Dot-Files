@@ -1,95 +1,132 @@
 claude-dot-files/
-├── config/                                          # Source of truth for synced Claude Code config
-│   ├── agents/                                      # Subagent definitions (.md files)
-│   │   ├── architect.md                             # System design & trade-off analysis (Opus, on-demand)
-│   │   ├── code-reviewer.md                         # Code review with structured findings (Sonnet, on-demand)
-│   │   ├── planner.md                               # Detailed implementation plans (Opus, on-demand)
-│   │   ├── refactoring-evaluator.md                 # Structural-improvement evaluation (on-demand)
-│   │   ├── security-auditor.md                      # Vulnerability detection & audit (Sonnet, on-demand)
-│   │   ├── standards-architect.md                   # Standards-doc coherence audit (on-demand)
-│   │   ├── standards-auditor.md                     # Code conformance to standards (on-demand)
-│   │   ├── test-writer.md                           # Generate & run tests (Sonnet, on-demand)
-│   │   └── workflow-analyst.md                      # CPI analysis of workflow JSONL logs (on-demand)
-│   ├── commands/                                    # Custom slash commands (.md files)
-│   │   ├── best-practices.md                        # /best-practices — industry-standard approach primer
-│   │   ├── cleanup-merged-worktrees.md              # /cleanup-merged-worktrees — sweep worktrees whose PRs merged
-│   │   ├── create-claude.md                         # /create-claude — generate CLAUDE.md files for a project
-│   │   ├── get-started.md                           # /get-started — session kickoff context for dual-workflow model
-│   │   ├── review.md                                # /review — invoke code-reviewer agent
-│   │   ├── update-claude.md                         # /update-claude — sync CLAUDE.md standard references
-│   │   └── update-file-structure.md                 # /update-file-structure — update file_structure.txt
-│   ├── hooks/                                       # Hook scripts referenced by settings.json
-│   │   ├── block-dangerous.sh                       # PreToolUse: deny destructive bash commands
-│   │   └── notify-done.sh                           # Stop: desktop notification via notify-send
-│   ├── rules/                                       # Global rules (.md files)
-│   │   └── engineering-quality.md                   # Senior-engineer quality bar, finding-disposition discipline
-│   ├── skills/                                      # Reusable skill definitions (.md files)
-│   │   ├── architecture-decisions.md                # When to write ADRs, trade-off analysis, reversibility
-│   │   ├── documentation-structure.md               # Four-bucket layout, document templates, naming conventions
+├── config/                                          # Source of truth for synced Claude Code config (symlinked to ~/.claude/ by install.sh)
+│   ├── CLAUDE.md                                    # Stub redirect — content lives in /rules
+│   ├── settings.json                                # Global settings, permissions allowlist, hook config
+│   │
+│   ├── rules/                                       # Always-loaded global rules (one file per topic)
+│   │   ├── claude-dot-files-governance.md           # Prevents uninstructed edits to this repo from project sessions
+│   │   ├── code-style.md                            # Readability, early returns, match-existing-style
+│   │   ├── communication.md                         # Don't add docstrings/comments to code you didn't change
+│   │   ├── dependencies.md                          # Check existing tools, prefer stdlib
+│   │   ├── engineering-quality.md                   # Senior-engineer quality bar, finding disposition, loose-ends discipline, best-practices checkpoint
+│   │   ├── git.md                                   # Commit format, push/amend discipline
+│   │   ├── personal-tooling.md                      # Pointer to workflows guide + /get-started
+│   │   ├── proactive-doc-management.md              # PM-side triggers for invoking doc-manager
+│   │   ├── safety.md                                # No secrets, no force push, no destructive commands without confirmation
+│   │   ├── standards-governance.md                  # Standards-not-ADRs, human-in-the-loop discipline, CPI log mechanics
+│   │   └── terminal-output.md                       # Copy-paste-safe command formatting (no heredocs, single-line, --task-file)
+│   │
+│   ├── skills/                                      # Description-matched methodology (loaded on-demand)
+│   │   ├── architecture-decisions.md                # ADR methodology (applied via standards docs per our convention)
+│   │   ├── documentation-management.md              # Doc-systems-engineer methodology (4 modes for doc-manager agent)
+│   │   ├── documentation-structure.md               # Four-bucket convention (architecture/development/standards/guide)
 │   │   ├── planning-methodology.md                  # How to plan features, break down work, identify risks
 │   │   ├── project-definition.md                    # Multi-stage process for defining new projects from scratch
-│   │   ├── refactoring-methodology.md               # When and how to refactor safely, evaluating suggestions
-│   │   ├── standards-enforcement.md                 # How to check conformance and handle deviations
-│   │   ├── test-suite-architecture.md               # Test suite layout and discovery patterns
-│   │   ├── testing-methodology.md                   # How to approach testing — principles, scoping, decision-making
-│   │   ├── testing-scaffolding.md                   # How to set up test infrastructure in new projects
-│   │   ├── workflow-analysis.md                     # CPI workflow-log analysis methodology
+│   │   ├── project-organization.md                  # Project shapes (multi-repo + master-planning OR single-repo /docs/), planning hierarchy
+│   │   ├── quality-control-methodology.md           # Six-dimension senior-engineer integration test
+│   │   ├── refactoring-methodology.md               # When and how to refactor safely
+│   │   ├── standards-authoring.md                   # Timeless, rule-focused standards (bloat-pattern detection)
+│   │   ├── standards-enforcement.md                 # How to check code conformance to standards
+│   │   ├── testing-methodology.md                   # Testing principles, scoping, decision-making
+│   │   ├── testing-scaffolding.md                   # Setting up test infrastructure in new projects
+│   │   ├── test-suite-architecture.md               # Test suite layout, framework selection (incl. Ansible/Terraform)
+│   │   ├── workflow-analysis.md                     # CPI log analysis methodology
 │   │   └── workflow-dispatch.md                     # How to choose and invoke autonomous workflows
-│   ├── CLAUDE.md                                    # Global instructions for ALL projects
-│   └── settings.json                                # Global settings, permissions, hooks config
+│   │
+│   ├── agents/                                      # Named subagents (invoked via Task tool)
+│   │   ├── architect.md                             # System design & trade-off analysis (Opus, on-demand)
+│   │   ├── code-reviewer.md                         # Code review with structured findings (Sonnet, on-demand)
+│   │   ├── doc-manager.md                           # Documentation systems engineer — 4 modes (AUTHOR/COORDINATE/AUDIT/MAINTAIN)
+│   │   ├── planner.md                               # Detailed implementation plans (Opus, on-demand)
+│   │   ├── quality-control.md                       # Senior-engineer holistic lens — runs sequentially after parallel reviewers
+│   │   ├── refactoring-evaluator.md                 # Structural improvement evaluation
+│   │   ├── security-auditor.md                      # Vulnerability detection & audit
+│   │   ├── standards-architect.md                   # Audits standards corpus for coherence, bloat, drift
+│   │   ├── standards-auditor.md                     # Audits code conformance to standards
+│   │   ├── test-writer.md                           # Generates & runs tests
+│   │   └── workflow-analyst.md                      # CPI workflow-log analysis
+│   │
+│   ├── commands/                                    # Custom slash commands
+│   │   ├── best-practices.md                        # /best-practices — industry-standard approach primer
+│   │   ├── cleanup-merged-worktrees.md              # /cleanup-merged-worktrees — sweep worktrees with merged PRs
+│   │   ├── create-claude.md                         # /create-claude — generate CLAUDE.md files for a project
+│   │   ├── get-started.md                           # /get-started — session kickoff context
+│   │   ├── review.md                                # /review — invoke code-reviewer agent
+│   │   ├── update-claude.md                         # /update-claude — sync CLAUDE.md standard references
+│   │   └── update-file-structure.md                 # /update-file-structure — update this file
+│   │
+│   └── hooks/                                       # Hook scripts referenced by settings.json
+│       ├── block-dangerous.sh                       # PreToolUse: deny destructive bash commands (threat model in header)
+│       └── notify-done.sh                           # Stop: desktop notification via notify-send
 │
 ├── docs/
-│   ├── architecture/                                # Architectural decisions (ADRs), system design
-│   │   └── README.md                                # Purpose and conventions for ADRs
-│   ├── development/                                 # Active work: roadmap, phases, CPI reviews
+│   ├── file_structure.txt                           # This file (annotated repo map)
+│   │
+│   ├── architecture/                                # WHY — high-level system overviews (not numbered ADRs, per standards-governance)
+│   │   ├── README.md                                # What goes here vs docs/standards/
+│   │   └── system-overview.md                       # Layered architecture, key decisions, where the seams are
+│   │
+│   ├── development/                                 # WHAT — active work tracking
+│   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
+│   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
+│   │   ├── roadmap.md                               # Phased migration plan (Phases 0-5 mostly complete)
 │   │   ├── phases/                                  # Phase-specific planning docs
 │   │   │   ├── phase-4d-github-actions-integration.md
 │   │   │   └── phase-5b-automated-pr-generation.md
-│   │   ├── reviews/                                 # CPI review reports (workflow-log analysis output)
-│   │   │   ├── review-2026-04-10.md
-│   │   │   ├── review-2026-04-24-mdc-master-planning.md
-│   │   │   └── review-2026-04-24-skyy-command.md
-│   │   └── roadmap.md                               # Phased migration plan (dual-workflow model)
-│   ├── guide/                                       # User-facing documentation (operating manual)
-│   │   ├── claude_code_agents.md                    # Agent architecture, two-tier strategy, quick reference
-│   │   ├── claude_code_headless.md                  # Headless mode, worktrees, max-turns, cleanup
-│   │   ├── claude_code_orchestration.md             # Orchestration options, coordinator/worker, lessons
+│   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
+│   │       ├── review-2026-04-10.md
+│   │       ├── review-2026-04-24-mdc-master-planning.md
+│   │       ├── review-2026-04-24-skyy-command.md
+│   │       ├── review-mdc-master-planning-2026-05-03.md
+│   │       ├── review-mdc-master-planning-2026-05-09.md
+│   │       ├── review-skyy-command-2026-05-03.md
+│   │       └── review-skyy-command-2026-05-09.md
+│   │
+│   ├── guide/                                       # USER-FACING — operating manuals
+│   │   ├── claude_code_agents.md                    # Agent architecture, quick reference table
+│   │   ├── claude_code_headless.md                  # Headless mode, worktrees, autonomous runs
+│   │   ├── claude_code_orchestration.md             # Orchestration options and patterns
 │   │   ├── claude_code_rules.md                     # Rules vs CLAUDE.md, when to split
-│   │   ├── claude_code_skills.md                    # Skills, context-aware methodology, library building
-│   │   └── workflows.md                             # Workflows guide: all scripts, dual model, usage
-│   ├── standards/                                   # Conventions and patterns (how we do things)
-│   │   ├── agents.md                                # Standards for writing custom agents
-│   │   ├── hook-scripts.md                          # Standards for writing hook scripts
-│   │   ├── rules.md                                 # Standards for writing global rules
-│   │   ├── services.md                              # Standards for long-running services and daemons
-│   │   ├── skills.md                                # Standards for writing skills
-│   │   ├── slash-commands.md                        # Standards for writing slash commands
-│   │   └── workflow-scripts.md                      # Standards for autonomous workflow scripts
-│   └── file_structure.txt                           # This file (meta-map of the repo)
+│   │   ├── claude_code_skills.md                    # Skills and context-aware methodology
+│   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
+│   │   └── workflows.md                             # All workflows, dual-flow model, MAX_TURNS authoritative table
+│   │
+│   └── standards/                                   # HOW — binding rules for how things are done
+│       ├── agents.md                                # Standards for writing custom agents
+│       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
+│       ├── rules.md                                 # Standards for writing global rules
+│       ├── services.md                              # Standards for long-running services/daemons
+│       ├── skills.md                                # Standards for writing skills
+│       ├── slash-commands.md                        # Standards for slash commands
+│       └── workflow-scripts.md                      # Standards for autonomous workflow scripts
 │
 ├── scripts/
-│   ├── helpers/                                     # Standalone bash utilities (no AI)
-│   │   └── init-project.sh                          # Initialize new project (git, GitHub, scaffolding)
+│   ├── helpers/                                     # Pure bash utilities (no AI)
+│   │   └── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
+│   │
 │   ├── services/                                    # Long-running background services
-│   │   ├── gh-monitor.sh                            # GitHub monitor — polls for @claude PR comments
-│   │   ├── gh-monitor.service                       # systemd oneshot unit file
-│   │   └── gh-monitor.timer                         # systemd timer (5-minute interval)
-│   └── workflows/                                   # Autonomous workflow scripts (Workflow 2)
-│       ├── lib/
-│       │   ├── format-stream.sh                     # Shared stream-json formatter for live display
-│       │   └── run-claude.sh                        # Shared run_claude helper (verbose/quiet invocation)
-│       ├── build-phase.sh                           # BUILD-PHASE workflow — implement from plan doc
-│       ├── plan-new.sh                              # PLAN-NEW workflow — greenfield project definition
-│       ├── plan-revision.sh                         # PLAN-REVISION workflow — revise planning docs
-│       ├── review-runs.sh                           # REVIEW-RUNS workflow — CPI log analysis and reporting
-│       ├── revision.sh                              # REVISION workflow — minor corrections to existing code
-│       ├── revision-major.sh                        # REVISION-MAJOR workflow — significant rework
-│       └── sprint-test.sh                           # SPRINT-TEST workflow — end-of-sprint cumulative test assessment
+│   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
+│   │   ├── gh-monitor.service                       # systemd oneshot unit
+│   │   └── gh-monitor.timer                         # systemd timer (5-min interval)
+│   │
+│   └── workflows/                                   # Autonomous workflow scripts (Workflow 2: walk-away dispatches)
+│       ├── lib/                                     # Shared bash helpers
+│       │   ├── format-stream.sh                     # Stream-json → human-readable formatter
+│       │   ├── run-claude.sh                        # run_claude helper + check_rate_limit + print_cycle_totals
+│       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (shared across 6 task-execution scripts)
+│       │
+│       ├── build-phase.sh                           # BUILD-PHASE — implement from a plan doc
+│       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition
+│       ├── plan-revision.sh                         # PLAN-REVISION — revise existing planning docs
+│       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
+│       ├── revision.sh                              # REVISION — minor corrections to existing code
+│       ├── revision-major.sh                        # REVISION-MAJOR — significant rework with peer-review trio + quality-control
+│       └── sprint-review.sh                         # SPRINT-REVIEW — comprehensive end-of-sprint review
 │
 ├── .gitignore                                       # Git ignore rules
-├── CLAUDE.md                                        # Project-level instructions for this repo
+├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
 ├── config.yaml                                      # Centralized service/workflow configuration
-├── install.sh                                       # Creates individual symlinks into ~/.claude/
+├── install.sh                                       # Creates symlinks from config/* into ~/.claude/
 ├── LICENSE                                          # MIT license
 └── README.md                                        # Repo documentation
 
@@ -111,7 +148,7 @@ Machine-local (NOT synced):
   ~/.claude/history.jsonl        session history
   ~/.claude/sessions/            session data
   ~/.claude/cache/               ephemeral cache
-  ~/.claude/backups/             local backups
+  ~/.claude/backups/             local backups (install.sh creates pre-install-<ts>/)
   ~/.claude/downloads/           temp downloads
   ~/.claude/file-history/        edit history
   ~/.claude/ide/                 IDE state
