@@ -134,7 +134,7 @@ If your response to a non-trivial implementation does NOT include the alignment 
 
 ## Finding disposition — never dismiss, always decide
 
-When an agent (code-reviewer, standards-auditor, refactoring-evaluator, security-auditor, standards-architect, quality-control, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
+When an agent (code-reviewer, standards-auditor, refactoring-evaluator, security-auditor, standards-architect, quality-control, doc-manager, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
 
 For each finding, follow this flow:
 
@@ -162,6 +162,7 @@ When multiple review agents run in a workflow stage, each has a distinct lens. D
 | `quality-control` | Would a senior engineer at a top-tier org sign off? | Holistic integration across dimensions — runs SEQUENTIALLY after the parallel narrow-lens reviewers, with access to their findings |
 | `architect` | Is the design coherent and scalable? | Planning-stage system design |
 | `planner` | Is this implementation feasible and well-scoped? | Planning-stage decomposition and risk |
+| `doc-manager` | Is the doc system being managed end-to-end? | Documentation systems engineer — 4 modes (AUTHOR / COORDINATE / AUDIT / MAINTAIN) covering the full doc lifecycle. Substance always human-in-the-loop. Invoked on-demand OUTSIDE workflow review stages |
 
 Workflow review stages run **narrow-lens agents in parallel** (single assistant message, multiple Agent calls) for efficiency. **Integration-lens agents (currently `quality-control`) run SEQUENTIALLY after** the parallel narrow-lens phase, so they can see the narrow agents' findings and detect meta-patterns ("these findings together suggest the work was rushed").
 

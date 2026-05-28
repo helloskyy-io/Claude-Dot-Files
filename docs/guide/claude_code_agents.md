@@ -13,6 +13,7 @@
 | standards-auditor | Standards conformance verification (code against standards) | Read-only | Sonnet | standards-enforcement, documentation-structure | On-demand |
 | standards-architect | Audits the standards documents themselves — duplication, gaps, drift | Read-only | Sonnet | standards-enforcement, documentation-structure | On-demand |
 | quality-control | Senior-engineer holistic quality lens (best-practices, enterprise-readiness, compromise detection, decision rigor) | Read-only | Sonnet | quality-control-methodology, standards-enforcement | On-demand |
+| doc-manager | Documentation systems engineer — 4 modes: AUTHOR (drafts per conventions), COORDINATE (cross-system propagation), AUDIT (health check), MAINTAIN (mechanical edits). Substance always human-in-the-loop. | Read + Edit + Write (scope-restricted) | Sonnet | documentation-management, standards-authoring, standards-enforcement, project-organization, documentation-structure, planning-methodology | On-demand |
 | workflow-analyst | Workflow log analysis & improvement | Read-only | Sonnet | workflow-analysis | On-demand |
 
 All custom agents are **on-demand only** — Claude's built-in agents handle routine tasks automatically. Invoke these by name when you need depth (e.g., "use the security-auditor to audit src/auth/").
