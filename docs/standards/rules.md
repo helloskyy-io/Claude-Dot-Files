@@ -21,9 +21,11 @@ If it would go in `CLAUDE.md`, it's rule material. If it would go in onboarding 
 
 ### Rules vs. `CLAUDE.md`
 
-Our current `config/CLAUDE.md` is short and fits cleanly in one file. The `config/rules/` directory is **synced and ready but intentionally empty** — don't create rule files speculatively. It exists as the split target for when `CLAUDE.md` outgrows a single file, not as scaffolding to populate now.
+`config/rules/*.md` is the PRIMARY vehicle for global instructions in this repo. `config/CLAUDE.md` is a stub redirect that points to `/rules` and is locked from edits. The split happened because `CLAUDE.md` outgrew a single file — every topical rule now lives in its own `rules/` file.
 
-**Heuristic:** If `config/CLAUDE.md` passes ~50 lines and you find yourself scrolling to locate instructions by topic, that's when splitting earns its keep. When splitting, move each coherent topic into its own rule file (`git-conventions.md`, `security.md`, etc.) and remove the content from `CLAUDE.md`. Don't duplicate — rules and `CLAUDE.md` stack, they don't override.
+**The pattern:** each rule file owns one topic (`git.md`, `safety.md`, `code-style.md`, `engineering-quality.md`, etc.). Rules stack with no override semantics — they all load and combine. Adding a new rule means creating a new file in `config/rules/` with a kebab-case name describing its topic.
+
+**Do not put rule content in `CLAUDE.md`.** The stub redirect there enforces the convention. If you find yourself wanting to add to `CLAUDE.md`, create a new rule file instead.
 
 ## File Conventions
 
@@ -47,10 +49,12 @@ Rules are plain markdown. No YAML frontmatter required — the entire file conte
 
 ## Writing Rule Content
 
-Keep rules short and declarative. Each rule is one line, ideally starting with a verb (Never, Always, Prefer, Use) or an imperative phrasing.
+Rules come in two shapes:
+
+**Constraint rules** — short, declarative, one-line-per-bullet. Use for hard constraints with no nuance:
 
 ```markdown
-# Git Conventions
+# Git
 
 - Use conventional commit format: `type: short description`
 - Never force push without explicit approval
@@ -58,7 +62,9 @@ Keep rules short and declarative. Each rule is one line, ideally starting with a
 - Don't push unless asked
 ```
 
-Don't write prose paragraphs in rule files. If a rule needs explanation, trim the explanation to the minimum needed and move the rest into a skill.
+**Methodology rules** — longer-form rules that codify structural discipline (mandatory checkpoints, decision frameworks, recognition signatures). Use when the rule requires sections and concrete examples to be followable. `engineering-quality.md` and `proactive-doc-management.md` are examples.
+
+The discriminator: if the rule states a hard constraint, keep it short. If the rule defines a process or discipline that needs structure to be effective, expand as needed but stay focused. Don't write prose paragraphs for their own sake. Methodology rules are still rules — they fire always, so concision still matters; just not at the extreme of one-line-per-bullet.
 
 ## Critical Rules
 

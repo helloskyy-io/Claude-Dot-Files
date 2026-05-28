@@ -11,28 +11,10 @@ Workflow scripts implement the autonomous side of the Dual Workflow Model (see `
 ### Location
 All workflow scripts live in `scripts/workflows/`. Helper libraries go in `scripts/workflows/lib/`.
 
-```
-scripts/
-└── workflows/
-    ├── lib/
-    │   ├── format-stream.sh    # shared stream-json formatter
-    │   └── run-claude.sh       # shared run_claude helper function
-    ├── revision.sh             # minor corrections
-    ├── revision-major.sh       # significant rework
-    ├── build-phase.sh          # architect and build from a plan
-    ├── plan-new.sh             # research and planning (new project)
-    ├── plan-revision.sh        # revise existing planning docs
-    └── review-runs.sh          # CPI analysis of workflow JSONL logs
-```
+All workflow scripts live in `scripts/workflows/`. Shared helper libraries live in `scripts/workflows/lib/`. For the authoritative current inventory of workflow scripts, see `docs/guide/workflows.md` — that guide owns the canonical list. This standard governs structure and conventions, not inventory.
 
 ### Naming
-Script names use kebab-case matching the workflow's purpose, with `.sh` suffix:
-- `revision.sh` — minor corrections workflow
-- `revision-major.sh` — significant rework workflow
-- `build-phase.sh` — implement from a plan document
-- `plan-new.sh` — research and planning for a new project
-- `plan-revision.sh` — revise existing planning docs
-- `review-runs.sh` — CPI analysis of workflow JSONL logs
+Script names use kebab-case matching the workflow's purpose, with `.sh` suffix. Use the `<verb>[-modifier]` pattern (e.g., `revision.sh`, `revision-major.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`, `review-runs.sh`, `sprint-review.sh`).
 
 **Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 
@@ -358,20 +340,11 @@ Tell Claude to focus only on the task. Research has shown unscoped exploration (
 
 ### Max Turns Per Script
 
-Current per-script values as of April 2026:
+Each workflow script sets a `MAX_TURNS` ceiling based on its stage count and observed complexity. The authoritative current values live in `docs/guide/workflows.md` alongside the workflow inventory — keep them there so they don't drift across two locations.
 
-| Script | `MAX_TURNS` |
-|--------|-------------|
-| `revision.sh` | 100 |
-| `review-runs.sh` | 100 |
-| `revision-major.sh` | 300 |
-| `build-phase.sh` | 300 |
-| `plan-revision.sh` | 300 |
-| `plan-new.sh` | 500 |
+**Why ceilings, not formulas:** Values are raised when production runs surface real ceiling hits — most commonly during REVIEW stages when a long back-and-forth with an agent pushed past the prior limit. Each bump is a targeted response to an observed crash, not a proactive multiplier.
 
-**Why these specific values:** The table is a living set of per-script ceilings, not a formula. Values have been raised iteratively in April 2026 as production runs surfaced real ceiling hits — most commonly during the REVIEW or REFACTOR stages when a long back-and-forth with an agent pushed the turn count past the prior limit. Each bump has been a targeted response to an observed crash, not a proactive multiplier; the values should be read as "current authoritative" rather than "doubled from X." Expect further bumps as workflows evolve and as review agents grow more demanding.
-
-**Guidance for new scripts:** Start by picking the entry in this table whose stage count and complexity most resemble your new workflow, then add ~30-50% headroom. Unused turns cost nothing; crashing a 45-minute autonomous run at turn N-1 costs a full rerun. When in doubt, err high — the ceiling exists to catch runaway loops, not to force tight budgeting.
+**Guidance for new scripts:** Pick the entry in the guide's table whose stage count and complexity most resemble your new workflow, then add ~30-50% headroom. Unused turns cost nothing; crashing a 45-minute autonomous run at turn N-1 costs a full rerun. When in doubt, err high — the ceiling exists to catch runaway loops, not to force tight budgeting.
 
 ## Safety Conventions
 

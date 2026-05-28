@@ -11,7 +11,7 @@
 | test-writer | Generate & run tests, place in standard hierarchy | Full access | Sonnet | testing-methodology, testing-scaffolding, test-suite-architecture | On-demand |
 | security-auditor | Vulnerability detection & audit | Read-only | Sonnet | testing-methodology | On-demand |
 | standards-auditor | Standards conformance verification (code against standards) | Read-only | Sonnet | standards-enforcement, documentation-structure | On-demand |
-| standards-architect | Audits the standards documents themselves — duplication, gaps, drift | Read-only | Sonnet | standards-enforcement, documentation-structure | On-demand |
+| standards-architect | Audits the standards documents themselves — duplication, gaps, drift, bloat patterns | Read-only | Sonnet | standards-enforcement, standards-authoring, documentation-structure | On-demand |
 | quality-control | Senior-engineer holistic quality lens (best-practices, enterprise-readiness, compromise detection, decision rigor) | Read-only | Sonnet | quality-control-methodology, standards-enforcement | On-demand |
 | doc-manager | Documentation systems engineer — 4 modes: AUTHOR (drafts per conventions), COORDINATE (cross-system propagation), AUDIT (health check), MAINTAIN (mechanical edits). Substance always human-in-the-loop. | Read + Edit + Write (scope-restricted) | Sonnet | documentation-management, standards-authoring, standards-enforcement, project-organization, documentation-structure, planning-methodology | On-demand |
 | workflow-analyst | Workflow log analysis & improvement | Read-only | Sonnet | workflow-analysis | On-demand |

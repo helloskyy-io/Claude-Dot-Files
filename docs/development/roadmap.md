@@ -33,12 +33,11 @@ claude-dotfiles/
 └── README.md                    ← repo documentation
 ```
 
-## Sync Strategy Decisions
+## Sync Strategy
 
-- **Sync method**: Targeted symlinks via bash `install.sh`, deployed manually, or by Ansible/automation. Each synced item gets its own symlink into `~/.claude/`. We chose targeted symlinks over GNU Stow (which mirrors entire directory trees). For automation, clone the repo and run `install.sh --non-interactive` on each machine, with Claude Code and jq installed as prerequisites.
-- **What syncs** (7 symlinks): `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`
-- **What does NOT sync**: Everything else in `~/.claude/` — credentials, `projects/` (path-keyed), sessions, history, cache, telemetry, IDE state, etc. These are machine-local by nature.
-- **Team config**: Project-level `.mcp.json` files are committed to each project repo with shared server definitions. Secrets are referenced via `${env:VAR_NAME}`. Each dev adds their own tokens in local scope (`~/.claude.json`).
+Targeted symlinks via `install.sh` (7 symlinks: `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`). Machine-local content (credentials, sessions, cache, IDE state) is intentionally NOT synced. Team config lives in per-project `.mcp.json` with `${env:VAR_NAME}` for secrets.
+
+For the architectural rationale (why symlinks over GNU Stow, what's machine-local vs shared and why), see `docs/architecture/system-overview.md`.
 
 ## Per-Project Repo Structure (for reference, not in this repo)
 
@@ -107,37 +106,9 @@ Dependencies: Phase 1 (so hooks sync across machines automatically)
 - [x] **Review permissions in settings.json** — Permissions provide the first layer (approval popup for unlisted commands), hooks provide the second layer (pattern-based deny for dangerous commands that might match broad allow rules). Two-layer safety net confirmed working.
 - [x] **Test each hook** — Permission layer prompts on dangerous commands (first safety layer works). notify-send fires desktop notification (top-right on Cinnamon/Mint). Both verified.
 
-### Phase 2 — Hook Architecture
+### Phase 2 — Notes
 
-Hooks are defined in settings.json and reference scripts in `hooks/`:
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/block-dangerous.sh" }]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/notify-done.sh" }]
-      }
-    ]
-  }
-}
-```
-
-Hook scripts receive JSON on stdin (NOT env vars). Read with: `INPUT=$(cat)` then parse with `jq`.
-
-Three handler types available:
-- **command**: shell scripts (most common, start here)
-- **prompt**: sends a prompt to Claude for semantic evaluation
-- **agent**: spawns a subagent with tool access for deep verification
-
-### Phase 2 — Decision: Auto-Format Hook
-
-Formatting on every Write/Edit eats context window. **Recommendation**: skip PostToolUse auto-format for now. Instead, rely on project-level formatting (prettier, black, etc.) that runs as part of the test/commit step in autonomous workflows. Revisit if formatting drift becomes a real problem.
+Hook architecture (settings.json wiring, stdin JSON contract, three handler types) and the decision to skip PostToolUse auto-format are documented in `docs/architecture/system-overview.md`. Standards for writing hook scripts live in `docs/standards/hook-scripts.md`.
 
 ---
 

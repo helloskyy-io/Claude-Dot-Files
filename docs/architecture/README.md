@@ -1,52 +1,25 @@
 # Architecture
 
-This directory captures architectural decisions and system design for this repo. It answers **WHY** we built things the way we did, not WHAT we're building (that's `docs/development/`) or HOW to use things (that's `docs/guide/` or `docs/standards/`).
+This directory holds high-level system overviews — the WHY behind how the repo is structured. Per `config/rules/standards-governance.md`, this repo does NOT use numbered ADR files. Binding architectural decisions are captured as standards documents in `docs/standards/<topic>.md`. This directory holds:
 
-## What Goes Here
+- `system-overview.md` — top-level architecture: components, layers, key decisions
+- Optional supporting docs: component diagrams, data-flow descriptions, threat models
 
-### Architecture Decision Records (ADRs)
+## What goes here vs `docs/standards/`
 
-The primary content. ADRs are short documents that capture a single architectural decision: the context, the decision, the consequences, and the alternatives considered.
+| Type | Lives in | Example |
+|---|---|---|
+| Binding architectural decision with alternatives considered | `docs/standards/<topic>.md` | symlinks-vs-Stow rationale → `docs/standards/sync-strategy.md` |
+| High-level system overview | `docs/architecture/system-overview.md` | "here's how the layers fit together" |
+| Threat model / security architecture | `docs/architecture/threat-model.md` | enumerated attack classes the hooks address |
+| Implementation guidance for a standard | n/a — that's `docs/guide/` | how to use a particular workflow |
 
-**Format:** `ADR-###-short-title.md` (numbered sequentially)
-
-**Template:** See the ADR template in `config/skills/documentation-structure.md`.
-
-**Rules:**
-- Immutable once accepted — don't edit an accepted ADR except to change status to Superseded
-- Write as you decide, not retrospectively
-- One decision per ADR
-- Link forward and backward when superseding
-
-### Other Architecture Documents (optional)
-
-- `system-overview.md` — high-level architecture description
-- `component-diagram.md` — component relationships (Mermaid or similar)
-- `data-flow.md` — how data moves through the system
-- `tech-stack.md` — what technologies we use and why
-- `integrations.md` — external system connections
-
-## Current State
-
-No ADRs written yet. This directory exists to establish the convention. ADRs will be added as architectural decisions are made going forward.
-
-## When to Write an ADR
-
-Write an ADR when:
-- You're making a decision that will affect how the system works
-- The decision has non-obvious trade-offs
-- Future contributors (including future you) will need to understand WHY
-- There are multiple valid alternatives and you want to document why you chose one
-
-Don't write an ADR for:
-- Routine implementation choices
-- Decisions with no meaningful alternatives
-- Changes that are purely cosmetic
-- Decisions you made 6 months ago without documenting — those are lost context
+If you find yourself wanting to write an ADR (`ADR-NNN-title.md`), stop. Per the standards-governance rule, that decision belongs in `docs/standards/`. The architecture-decisions skill's methodology (trade-off analysis, rationale, alternatives, consequences) still applies — but the artifact is a standards doc, not a numbered ADR.
 
 ## Related
 
-- `config/skills/documentation-structure.md` — full documentation structure skill (activates automatically when working with docs)
-- `docs/development/roadmap.md` — what we're building
-- `docs/standards/` — how we do things consistently
-- `docs/guide/` — user-facing documentation
+- `config/rules/standards-governance.md` — the binding rule on standards vs ADRs
+- `config/skills/documentation-structure.md` — the four-bucket documentation convention
+- `docs/standards/` — binding rules
+- `docs/development/` — active work tracking (roadmap, phase docs)
+- `docs/guide/` — user-facing operating manuals
