@@ -321,13 +321,17 @@ Establish the sprint context and repo structure before specialist analysis dispa
 
 Produce a brief inventory that grounds the rest of the workflow.
 
-## Stage 2: PARALLEL ANALYSIS (3 specialists, single dispatch)
+## Stage 2: ANALYSIS (two-phase)
 
-Dispatch THREE peer-review specialists IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for security-auditor, refactoring-evaluator, and a testing review (use the test-writer agent in review-mode — read-only, no test creation in this stage). The three specialists analyze the SAME codebase from independent lenses; serial dispatch wastes turns and roughly triples the wall-clock time of this stage.
+Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens specialists in parallel; phase 2b runs the holistic quality-control reviewer sequentially with access to 2a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
+
+### Stage 2a: NARROW SPECIALIST ANALYSIS (parallel)
+
+Dispatch THREE peer-review specialists IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for security-auditor, refactoring-evaluator, and a testing review (use the test-writer agent in review-mode — read-only, no test creation in this stage). The three specialists analyze the SAME codebase from independent lenses; serial dispatch wastes turns and roughly triples the wall-clock time of this sub-phase.
 
 **How to dispatch in parallel:** in one assistant turn, emit three tool_use blocks. Do NOT call them one at a time across separate turns.
 
-### security-auditor — WHOLE-REPO security audit
+#### security-auditor — WHOLE-REPO security audit
 
 Scope: the entire codebase, not just sprint diff. The point of sprint-review's security pass is finding LATENT vulnerabilities (issues that have always existed but were never reviewed) — different from per-PR review which catches new bugs.
 
@@ -341,7 +345,7 @@ Focus areas:
 
 Severity: Critical / High / Medium / Low. Be specific — cite file paths and line numbers. Don't manufacture findings; if the codebase looks clean in a category, say so.
 
-### refactoring-evaluator — WHOLE-REPO structural assessment
+#### refactoring-evaluator — WHOLE-REPO structural assessment
 
 Scope: the entire codebase. Different from per-PR refactoring evaluation (which focuses on changed code) — this is the holistic "has the codebase grown unevenly" lens.
 
@@ -355,7 +359,7 @@ Focus areas:
 
 Priority: High / Medium / Low. Cite file paths. If the codebase looks structurally healthy, say so — this is genuinely a "first time we look at this" lens, so noise is possible. Calibrate by asking "would a senior engineer joining this codebase actually refactor this, or shrug and move on?"
 
-### testing review — suite quality + tooling assessment
+#### testing review — suite quality + tooling assessment
 
 Use the test-writer agent in review-mode (read-only — no test creation in this stage; that's Stage 4). Dispatch with explicit instruction to NOT create files, only assess.
 
@@ -369,13 +373,32 @@ Focus areas:
 
 Severity: Critical / High / Medium / Low.
 
-### After all three specialists return
+#### After Stage 2a's three specialists return
 
-Each agent's findings will be referenced in Stage 5 (Synthesize) and the final report. For now, save their structured outputs and proceed to Stage 3.
-
-If one agent has no findings, note inline (e.g., "refactoring-evaluator: no significant whole-repo refactoring findings") rather than emitting a SKIPPED marker — the stage as a whole still ran.
+Save their structured outputs. If one agent has no findings, note inline (e.g., "refactoring-evaluator: no significant whole-repo refactoring findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
 
 **Reviewer severity disagreement principle:** the three specialists may flag overlapping concerns at different severities (e.g., security-auditor flags an auth path as High, refactoring-evaluator notes the same code is structurally messy at Medium). When this happens, **engineering-quality bar is the override authority** — the higher-severity call wins, with the lower-severity perspective documented as additional context. Do NOT try to reconcile to a single label.
+
+### Stage 2b: HOLISTIC REVIEW (sequential, after 2a returns)
+
+After Stage 2a's three specialists return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
+
+The quality-control prompt MUST include:
+- The sprint scope being reviewed (file paths changed in the sprint, summary of sprint deliverables)
+- The structured findings from Stage 2a (security-auditor + refactoring-evaluator + test-writer review-mode outputs, verbatim or paraphrased clearly)
+- Instruction to apply the holistic six-dimension lens AS A SPRINT-WIDE assessment AND look for meta-patterns across the trio's findings ("do these findings together suggest the sprint produced quality-compromised work? Did the quality bar slip across the sprint?")
+
+quality-control applies the senior-engineer integration test to the sprint as a whole: would a peer reviewer at a top-tier engineering organization sign off on this sprint's output? Sprint-review focus areas:
+- Is the sprint's output enterprise-grade AS A WHOLE?
+- Do compromises accumulate across the sprint?
+- Did the team's quality bar hold across the sprint, or did it slip on later work?
+- Are there cross-cutting quality concerns the narrow specialists miss because they're each looking at one lens?
+
+See `quality-control-methodology` skill for the full six-dimension lens (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor), severity calibration, and sprint-review application context.
+
+quality-control runs SEQUENTIALLY (after 2a) because its lens benefits from seeing 2a's findings.
+
+After Stage 2b completes, save all four specialists' findings (Stage 2a's three + Stage 2b's quality-control) for reference in Stage 5 (Synthesize) and the final report.
 
 ## Stage 3: RUN TESTS
 

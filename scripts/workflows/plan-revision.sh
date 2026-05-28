@@ -291,28 +291,32 @@ Produce a brief summary noting:
 - Any deviations from the plan and why they were necessary
 - Files modified or created
 
-## Stage 4: PEER REVIEW (parallel)
+## Stage 4: PEER REVIEW (two-phase)
 
-Dispatch FOUR peer-review agents IN PARALLEL. Send a SINGLE assistant message containing four Agent tool calls — one each for architect, planner, security-auditor, and standards-architect. The four agents review the SAME Stage 3 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly quadruples the wall-clock time of this stage.
+Stage 4 has TWO sub-phases. Phase 4a runs the narrow-lens reviewers in parallel; phase 4b runs the holistic quality-control reviewer sequentially with access to 4a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
+
+### Stage 4a: NARROW PEER REVIEW (parallel)
+
+Dispatch FOUR peer-review agents IN PARALLEL. Send a SINGLE assistant message containing four Agent tool calls — one each for architect, planner, security-auditor, and standards-architect. The four agents review the SAME Stage 3 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly quadruples the wall-clock time of this sub-phase.
 
 **How to dispatch in parallel:** in one assistant turn, emit four tool_use blocks, one per agent. Do NOT call them one at a time across separate turns. The Claude tool-use API supports multiple tool calls per assistant message.
 
 Each agent's review focus:
 
-### architect agent — technical consistency and trade-offs
+#### architect agent — technical consistency and trade-offs
 - Are the technical decisions consistent with existing architecture?
 - Are trade-offs clearly documented?
 - Are there architectural implications that haven't been considered?
 - Do ADRs properly capture context, decision, and consequences?
 
-### planner agent — actionability, dependencies, ordering
+#### planner agent — actionability, dependencies, ordering
 - Are requirements actionable and implementable?
 - Are dependencies between phases/epics correctly identified?
 - Is the ordering of work logical and efficient?
 - Do success criteria have measurable, verifiable definitions?
 - Are estimates and timelines realistic given scope?
 
-### security-auditor agent — security implications of planning decisions
+#### security-auditor agent — security implications of planning decisions
 - Do the proposed changes introduce new attack surface (network endpoints, auth paths, secret handling, privilege escalation paths)?
 - Are existing security boundaries preserved or weakened?
 - Do new components introduce dependencies that need security review?
@@ -320,31 +324,51 @@ Each agent's review focus:
 - For revisions that modify existing security-relevant patterns, is the change strictly safer or strictly equivalent? Anything weaker needs explicit justification.
 - Severity: Critical / High / Medium / Low. Cite the specific section of the planning doc and the security concern. Don't manufacture findings — if the revision has no security implications (e.g., a roadmap date bump), say so and move on.
 
-### standards-architect agent — standards corpus interactions
+#### standards-architect agent — standards corpus interactions
 - **Cross-reference integrity:** do references to `docs/standards/*.md` from the revised planning docs resolve? Is the content accurate? When a doc references a specific sub-section (e.g., "§6b", "Section 3.2", "the Deployment Standard networking section"), verify that sub-section actually exists — not just the parent document.
 - **Gap analysis:** does this revision propose new work (phases, features, components) that will need new standards? Flag gaps — do not create draft standards in this stage.
 - **Documentation-structure conformance:** does the revised doc follow the four-bucket convention (architecture=WHY, development=WHAT, standards=HOW, guide=USER-FACING) and the documentation-structure skill?
 - **Drift risk:** does the revision introduce duplication between planning docs and standards docs (same rule stated in 2+ places)?
 - **Direct standards changes:** if the revision modifies `docs/standards/*.md` directly, is the change internally consistent and aligned with exemplar files in the code?
 
-### Consolidating findings
+If one agent has no findings (e.g., a pure roadmap date bump triggers no security or standards implications), note inline (e.g., "security-auditor: no findings — revision has no security implications"). Do NOT emit a SKIPPED marker for the sub-phase as a whole — the sub-phase still ran.
 
-After all four agents return, analyze combined findings by severity:
-- Critical: inconsistencies, unactionable requirements, broken standards references, contradictions, security risks — must fix
-- Warning: unclear implications, vague criteria, drift risk, missing cross-links, gap identification, security concerns that warrant attention — should fix if scope allows
-- Info: suggestions, documentation-structure observations, cross-linking opportunities, security observations
+### Stage 4b: HOLISTIC REVIEW (sequential, after 4a returns)
+
+After Stage 4a's four agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
+
+The quality-control prompt MUST include:
+- The planning artifact being reviewed (file paths, summary of the revision)
+- The structured findings from Stage 4a (architect + planner + security-auditor + standards-architect outputs, verbatim or paraphrased clearly)
+- Instruction to apply the holistic six-dimension lens to the PLAN itself AND look for meta-patterns across the quad's findings ("do these findings together suggest the plan is compromised, under-specified, or not enterprise-grade?")
+
+quality-control applies the senior-engineer integration test to planning artifacts: would a peer reviewer at a top-tier engineering organization sign off on this plan? Planning-stage focus areas:
+- Is the planned approach industry-best-practice grounded?
+- Is the plan enterprise-ready, or will it produce "good enough" results?
+- Are there compromises baked INTO the plan (e.g., "we'll skip X for now") without justification?
+- Does the plan explain WHY decisions were made, or just WHAT will be done?
+
+See `quality-control-methodology` skill for the full six-dimension lens (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor), severity calibration, and planning-review application context.
+
+quality-control runs SEQUENTIALLY (not in parallel with 4a) because its lens benefits from seeing 4a's findings.
+
+### Consolidating findings (after both 4a and 4b)
+
+After all five reviews complete (4a's four + 4b's quality-control), analyze combined findings by severity:
+- Critical: inconsistencies, unactionable requirements, broken standards references, contradictions, security risks, plan-level quality compromises — must fix
+- Warning: unclear implications, vague criteria, drift risk, missing cross-links, gap identification, security concerns that warrant attention, enterprise-readiness concerns — should fix if scope allows
+- Info: suggestions, documentation-structure observations, cross-linking opportunities, security observations, polish
 
 **Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
 - **architect** judges technical consistency and trade-off documentation quality
 - **planner** judges actionability, dependency correctness, and ordering
 - **security-auditor** judges security implications, attack surface, and trust boundary integrity
 - **standards-architect** judges cross-reference integrity, doc-structure drift, and standards corpus impact
+- **quality-control** judges the senior-engineer integration test — would a top-tier-org peer sign off on this plan
 
-**When severities conflict on the same content, security and actionability are the override authorities for planning docs.** A security-auditor Critical (e.g., "this introduces an unauthenticated entry point") trumps a standards-architect Info (e.g., "no documented violation") on the same finding — security risks always win over conformance. Similarly, a planner Critical (e.g., "this requirement is unactionable") trumps lower-severity calls — a planning doc that nobody can act on has failed regardless of standards conformance. Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
+**When severities conflict on the same content, security, actionability, and quality-control are the override authorities for planning docs.** A security-auditor Critical, planner Critical, or quality-control Critical trumps a standards-architect Info on the same finding — security risks, unactionability, and senior-engineer-level quality concerns always win over conformance. Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
 
-Fix any Critical issues found across ANY of the four reviews. Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
-
-If one agent has no findings (e.g., a pure roadmap date bump triggers no security or standards implications), note inline (e.g., "security-auditor: no findings — revision has no security implications"). Do NOT emit a SKIPPED marker for the stage as a whole — the stage still ran.
+Fix any Critical issues found across ANY of the five reviews. Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
 
 ## Stage 5: RESOLVE
 Review all changes made across stages 3-4. Produce a consolidated summary:

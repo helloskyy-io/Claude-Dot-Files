@@ -148,6 +148,23 @@ For each finding, follow this flow:
 
 The training bias toward "agreeable and move forward" is real — it shows up as "recommend we move on," "this looks fine," or "we can address this later" without committing to where "later" lives. Resist it. When reporting the PR, document each finding's disposition explicitly: fixed / rejected (with reasoning) / deferred (with pointer to where it's tracked).
 
+### Review-stage agent lenses (distinct, complementary)
+
+When multiple review agents run in a workflow stage, each has a distinct lens. Don't duplicate other agents' work; surface what YOUR lens catches. If you notice something another lens would catch, mention it briefly with a pointer ("standards-auditor should also flag this") but don't make it your primary finding.
+
+| Agent | Lens question | Scope |
+|---|---|---|
+| `code-reviewer` | Is this code correct? | Correctness, bugs, edge cases, real-world failure modes |
+| `refactoring-evaluator` | Could this be structured better? | Structural improvements, prioritized High/Medium/Low |
+| `standards-auditor` | Does this match our documented standards? | Project conventions, exemplar conformance |
+| `security-auditor` | Are there vulnerabilities? | Security risks, attack surface, sensitive data handling |
+| `standards-architect` | Are the standards docs themselves coherent? | Corpus-level audit, NOT per-PR conformance |
+| `quality-control` | Would a senior engineer at a top-tier org sign off? | Holistic integration across dimensions — runs SEQUENTIALLY after the parallel narrow-lens reviewers, with access to their findings |
+| `architect` | Is the design coherent and scalable? | Planning-stage system design |
+| `planner` | Is this implementation feasible and well-scoped? | Planning-stage decomposition and risk |
+
+Workflow review stages run **narrow-lens agents in parallel** (single assistant message, multiple Agent calls) for efficiency. **Integration-lens agents (currently `quality-control`) run SEQUENTIALLY after** the parallel narrow-lens phase, so they can see the narrow agents' findings and detect meta-patterns ("these findings together suggest the work was rushed").
+
 ## Loose-ends entries are the LAST option, not the first
 
 When disposing of a finding — yours, an agent's, or one surfaced by an engineer dispatch in a returned PR — choose the cheapest path that fits the actual work, not the fastest path to "moving on."

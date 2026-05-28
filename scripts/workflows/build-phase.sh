@@ -334,46 +334,64 @@ If no corresponding test exists, create one. If tests genuinely cannot be create
 - Verify discovery: run the component's test suite to confirm new tests are found
 - Report test results clearly: what passed, what failed, what was added/updated/removed, where tests were placed. Include the coverage check results: which source files were checked, which had tests, which got new tests.
 
-## Stage 5: PEER REVIEW (parallel)
+## Stage 5: PEER REVIEW (two-phase)
 
-Dispatch THREE peer-review agents IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for code-reviewer, refactoring-evaluator, and standards-auditor. The three agents review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly doubles the wall-clock time of this stage.
+Stage 5 has TWO sub-phases. Phase 5a runs the narrow-lens reviewers in parallel; phase 5b runs the holistic quality-control reviewer sequentially with access to 5a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
+
+### Stage 5a: NARROW PEER REVIEW (parallel)
+
+Dispatch THREE peer-review agents IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for code-reviewer, refactoring-evaluator, and standards-auditor. The three agents review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly doubles the wall-clock time of this sub-phase.
 
 **How to dispatch in parallel:** in one assistant turn, emit three tool_use blocks, one per agent. Do NOT call them one at a time across separate turns. The Claude tool-use API supports multiple tool calls per assistant message.
 
 Each agent's review focus:
 
-### code-reviewer agent — correctness and code quality
+#### code-reviewer agent — correctness and code quality
 Analyze findings by severity:
 - Critical issues: must fix before proceeding
 - Warnings: should fix if scope allows
 - Info: note for future improvement
 
-### refactoring-evaluator agent — structural improvements
+#### refactoring-evaluator agent — structural improvements
 Analyze findings by priority:
 - High priority: implement if scope allows
 - Medium priority: implement if quick and low risk
 - Low priority: defer to future work
 
-### standards-auditor agent — project conventions and documented standards
+#### standards-auditor agent — project conventions and documented standards
 Analyze findings by severity:
 - Critical violations: must fix before proceeding
 - Warnings: should fix if scope allows
 - Info: note for future improvement
 
-### Consolidating findings
+If one agent has no findings, note it inline (e.g., "refactoring-evaluator: no findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
 
-After all three agents return, fix any Critical issues found across ANY of the three reviews.
+### Stage 5b: HOLISTIC REVIEW (sequential, after 5a returns)
+
+After Stage 5a's three agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
+
+The quality-control prompt MUST include:
+- The work being reviewed (file paths changed, summary of the change)
+- The structured findings from Stage 5a (code-reviewer + refactoring-evaluator + standards-auditor outputs, verbatim or paraphrased clearly)
+- Instruction to apply the holistic six-dimension lens AND look for meta-patterns across the trio's findings ("do these findings together suggest the work was rushed, under-specified, or quality-compromised?")
+
+quality-control applies the senior-engineer integration test: would a peer reviewer at a top-tier engineering organization sign off on this? Its lens is HOLISTIC — it pulls signals across dimensions that no narrow reviewer catches. See `quality-control-methodology` skill for the six dimensions (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor) and severity calibration.
+
+quality-control runs SEQUENTIALLY (not in parallel with 5a) because its lens benefits from seeing 5a's findings. This is the only review agent that runs sequentially — narrow-lens agents stay parallel.
+
+### Consolidating findings (after both 5a and 5b)
+
+After all four reviews complete (5a's three + 5b's quality-control), fix any Critical issues found across ANY of the four reviews.
 
 **Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
 - **code-reviewer** judges engineering quality — correctness, safety, robustness, real-world failure modes
 - **refactoring-evaluator** judges structural improvement potential — uses High/Medium/Low priority, not Critical/Warning
 - **standards-auditor** judges documented-standard conformance — whether an explicit rule is violated
+- **quality-control** judges the senior-engineer integration test — would a top-tier-org peer sign off
 
-**When severities conflict on the same code, the engineering-quality bar is the override authority.** A code-reviewer Critical trumps a standards-auditor Info on the same finding — real correctness/safety/quality concerns win over "no documented violation." Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
+**When severities conflict on the same code, the engineering-quality bar is the override authority.** A code-reviewer Critical or quality-control Critical trumps a standards-auditor Info on the same finding — real correctness/safety/quality concerns win over "no documented violation." Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
 
 Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
-
-If one agent has no findings, note it inline (e.g., "refactoring-evaluator: no findings") rather than emitting a SKIPPED marker — the stage as a whole still ran.
 
 ## Stage 6: RESOLVE
 Review all changes made across stages 3-5. Produce a consolidated summary:

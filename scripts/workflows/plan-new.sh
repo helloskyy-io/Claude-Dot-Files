@@ -435,8 +435,27 @@ The security auditor should evaluate:
 
 Review the security auditor's findings. Critical concerns must be noted for Stage 14.
 
+## Stage 13b: HOLISTIC REVIEW (quality-control, sequential)
+
+After the architect, planner, and security-auditor reviews (Stages 11, 12, 13) all complete, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
+
+The quality-control prompt MUST include:
+- The planning artifacts being reviewed (tech stack, architecture, phases, epics, security doc, roadmap — Stages 3-9 outputs)
+- The structured findings from Stages 11, 12, 13 (architect + planner + security-auditor outputs, verbatim or paraphrased clearly)
+- Instruction to apply the holistic six-dimension lens to the PLAN AS A WHOLE AND look for meta-patterns across the three reviewers' findings ("do these findings together suggest the plan is compromised, under-specified, or not enterprise-grade?")
+
+quality-control applies the senior-engineer integration test to the new project's planning: would a peer reviewer at a top-tier engineering organization sign off on this project foundation? Planning-stage focus areas:
+- Is the planned approach industry-best-practice grounded across tech stack, architecture, and phase decomposition?
+- Will the planned solution be enterprise-ready, or will it produce "good enough" results?
+- Are there compromises baked INTO the plan (e.g., "we'll skip X for now", "we'll figure out Y later") without justification?
+- Does the plan explain WHY decisions were made, or just WHAT will be done?
+
+See `quality-control-methodology` skill for the full six-dimension lens (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor), severity calibration, and planning-review application context.
+
+quality-control runs SEQUENTIALLY (after Stages 11/12/13) because its lens benefits from seeing those narrow-lens findings to detect meta-patterns. Critical concerns from quality-control must be noted for Stage 14.
+
 ## Stage 14: RESOLVE
-Address findings from the architect review (Stage 11), planner review (Stage 12), and security review (Stage 13).
+Address findings from the architect review (Stage 11), planner review (Stage 12), security review (Stage 13), and holistic quality-control review (Stage 13b).
 
 For each finding:
 - **Critical findings:** Must be addressed now. Update the relevant documents to fix the issue.
