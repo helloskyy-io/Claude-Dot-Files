@@ -1,0 +1,30 @@
+~/home                                      # Root project directory
+│
+├── .claude/                                # Global settings (very minimal, almost nothing)      
+│   ├── CLAUDE.md                           
+│   ├── settings.json   
+│   ├── rules/
+│   ├── skills/   
+│   ├── agents/   
+│   ├── commands/   
+│   └── hooks/                         
+│
+├── .claude_coding/                                 # Coding settings (what we have now as global)      
+│   └── .claude/                         
+│       ├── CLAUDE.md                           
+│       ├── settings.json   
+│       ├── rules/
+│       ├── skills/   
+│       ├── agents/   
+│       ├── commands/   
+│       └── hooks/                         
+│
+├── .claude_health_care/                            # Health care settings (all new settings)      
+│   └── .claude/                         
+│       ├── CLAUDE.md                           
+│       ├── settings.json   
+│       ├── rules/
+│       ├── skills/   
+│       ├── agents/   
+│       ├── commands/   
+│       └── hooks/                         
