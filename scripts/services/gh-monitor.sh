@@ -293,9 +293,35 @@ parse_command() {
         return
     fi
 
-    # Extract the part after @claude
+    # Extract the part after @claude (same line)
     local after_mention
     after_mention=$(echo "$match" | sed -E 's/^\s*@claude\s*//i')
+
+    # ---------------------------------------------------------------------
+    # Multi-line description fallback
+    # ---------------------------------------------------------------------
+    # PMs sometimes put `@claude <route>:` alone on one line and the actual
+    # description on subsequent lines. Without this fallback, the parser
+    # sees an empty description and either fires a clarifying comment (which
+    # is easy to miss) or — worse — the dispatch fails silently and the
+    # operator waits 20 minutes before noticing nothing kicked off.
+    #
+    # Strategy: if the same-line description after the `<route>:` token is
+    # empty, fall back to "everything after the @claude line in the body."
+    # Same-line wins when both are present (backward-compatible).
+    #
+    # Known failing shapes that this addresses (add more as they appear):
+    #   1. 2026-05-29 (PR #91 PM3 review):
+    #      @claude revision-major:
+    #      <blank>
+    #      PM3 quality-control review...
+    #      → same-line empty, body has the description
+    # ---------------------------------------------------------------------
+    local body_fallback
+    body_fallback=$(echo "$cleaned" \
+                    | awk '/^[[:space:]]*@claude([[:space:]]|$)/{found=1; next} found' \
+                    | awk 'NF' \
+                    | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
 
     # Determine route
     if echo "$after_mention" | grep -qiE '^help\s*$'; then
@@ -306,6 +332,7 @@ parse_command() {
     if echo "$after_mention" | grep -qiE '^revision-major:\s*'; then
         local desc
         desc=$(echo "$after_mention" | sed -E 's/^revision-major:\s*//i')
+        [[ -z "$desc" && -n "$body_fallback" ]] && desc="$body_fallback"
         printf "revision-major\t%s" "$desc"
         return
     fi
@@ -313,6 +340,7 @@ parse_command() {
     if echo "$after_mention" | grep -qiE '^revision:\s*'; then
         local desc
         desc=$(echo "$after_mention" | sed -E 's/^revision:\s*//i')
+        [[ -z "$desc" && -n "$body_fallback" ]] && desc="$body_fallback"
         printf "revision\t%s" "$desc"
         return
     fi
@@ -320,6 +348,7 @@ parse_command() {
     if echo "$after_mention" | grep -qiE '^plan-revision:\s*'; then
         local desc
         desc=$(echo "$after_mention" | sed -E 's/^plan-revision:\s*//i')
+        [[ -z "$desc" && -n "$body_fallback" ]] && desc="$body_fallback"
         printf "plan-revision\t%s" "$desc"
         return
     fi
@@ -327,6 +356,7 @@ parse_command() {
     if echo "$after_mention" | grep -qiE '^build-phase:\s*'; then
         local desc
         desc=$(echo "$after_mention" | sed -E 's/^build-phase:\s*//i')
+        [[ -z "$desc" && -n "$body_fallback" ]] && desc="$body_fallback"
         printf "build-phase\t%s" "$desc"
         return
     fi
