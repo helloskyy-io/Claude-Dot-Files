@@ -112,15 +112,45 @@ Then categorize:
 
 - **Info** — polish. A senior reviewer would mention this casually. Examples: minor naming improvements, comments that could be clearer, opportunities for cleanup.
 
-## Over-Surfacing Discipline
+## Surfacing Discipline (split by claim type)
 
-When in doubt between severity levels, lean HIGHER. Specifically:
-- In doubt between Warning and Info → Warning
-- In doubt between Info and no-finding → Info
+Findings come in two shapes. The surfacing bias is OPPOSITE for each. Confusing the two is the failure mode that destroys this agent's trustworthiness.
 
-The operator can downgrade or dismiss. Missing a finding is the worse failure mode.
+### Judgment findings — over-surface bias APPLIES
 
-This bias is deliberate. The whole reason this methodology exists is that under-surfacing has been the recurring failure pattern. The remedy is structural over-surfacing.
+Findings that involve assessment, evaluation, interpretation, or recommendation:
+
+- "This approach is compromised because Y"
+- "Decision rigor on X is weak because Z"
+- "Enterprise-readiness concern: this won't hold under W"
+- "Best-practices divergence from industry standard V"
+- "This pattern is brittle in production scale"
+
+For these: **over-surfacing is the desired bias.**
+- When in doubt between Warning and Info → Warning
+- When in doubt between Info and no-finding → Info
+- Operator can downgrade or dismiss; missing a judgment finding is the worse failure
+
+### Factual claims — PRECISION REQUIRED, over-surface bias DOES NOT APPLY
+
+Findings that assert verifiable facts about the code under review:
+
+- "File X exists / does not exist"
+- "Line N of file Y contains pattern Z"
+- "There are N occurrences of pattern X in the codebase"
+- "Decorator @X is present / absent on function Y"
+- "Test asserts behavior Z" or "Test does not exist"
+- "File X imports Y"
+
+For these: **PRECISION REQUIRED.** Before surfacing any factual claim:
+
+1. **Verify with tools.** Glob for file existence. Read for file content. Grep for pattern presence/absence. You have these tools — use them. Verification is not optional.
+2. **Cite verbatim evidence** in the finding's Evidence field: `path:line — verbatim quote` or `Grep "pattern" in path/ returned N matches` or `Glob path/X/* returned [paths]`.
+3. **If you cannot verify, do not surface.** "No issue found in this dimension" is a VALID output. Fabricating a fact to fill a dimension is FORBIDDEN.
+
+**Why the asymmetry:** confabulating a fact that turns out false destroys the agent's trustworthiness more thoroughly than missing a real issue does. A reviewer who flags "file X doesn't exist" when X clearly exists is worse than useless — they cost the operator time to verify every claim and ultimately get ignored. Six false-positive blockers + two true blockers = the operator can't trust any of them.
+
+**Especially watch for:** the six-dimension lens can pressure the agent toward "find something in every dimension" — resist this. An empty dimension is honest output. A fabricated finding to fill an empty dimension is the failure.
 
 ## Application Contexts
 
@@ -170,16 +200,18 @@ The agent invoking this methodology should report findings using this structure:
 ## Quality-Control Audit: [scope]
 
 ### Critical findings (ship-blockers)
-- **[file/section]** — [Confidence: High/Medium/Low]
+- **[file/section]** — [Confidence: High/Medium/Low] — [Claim type: Judgment OR Factual]
   - **Dimension:** [one or more of the six]
-  - **Issue:** [specific concern with concrete evidence]
+  - **Issue:** [specific concern]
+  - **Evidence:** [For Factual claims: `path:line — verbatim quote` OR `Grep "X" in path/ returned N matches` OR `Glob path/X/* returned [list]`. For Judgment claims: supporting reasoning + any code references.]
   - **Why a senior reviewer would block:** [reasoning]
   - **Recommendation:** [specific action]
 
 ### Warning findings (significant concerns)
-- **[file/section]** — [Confidence: High/Medium/Low]
+- **[file/section]** — [Confidence: High/Medium/Low] — [Claim type: Judgment OR Factual]
   - **Dimension:** [one or more of the six]
-  - **Issue:** [concern with evidence]
+  - **Issue:** [concern]
+  - **Evidence:** [as above]
   - **Recommendation:** [specific action]
 
 ### Info findings (polish)
