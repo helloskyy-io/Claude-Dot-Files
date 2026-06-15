@@ -18,6 +18,7 @@ claude-dot-files/
 │   │
 │   ├── skills/                                      # Description-matched methodology (loaded on-demand)
 │   │   ├── architecture-decisions.md                # ADR methodology (applied via standards docs per our convention)
+│   │   ├── decision-methodology.md                  # Five-whys cascade + upstream check + BP-on-reframed-question for low/mid-confidence decisions
 │   │   ├── documentation-management.md              # Doc-systems-engineer methodology (4 modes for doc-manager agent)
 │   │   ├── documentation-structure.md               # Four-bucket convention (architecture/development/standards/guide)
 │   │   ├── planning-methodology.md                  # How to plan features, break down work, identify risks
@@ -51,6 +52,7 @@ claude-dot-files/
 │   │   ├── best-practices.md                        # /best-practices — industry-standard approach primer
 │   │   ├── cleanup-merged-worktrees.md              # /cleanup-merged-worktrees — sweep worktrees with merged PRs
 │   │   ├── create-claude.md                         # /create-claude — generate CLAUDE.md files for a project
+│   │   ├── decide.md                                # /decide — fire five-whys decision methodology (loads decision-methodology skill)
 │   │   ├── get-started.md                           # /get-started — session kickoff context
 │   │   ├── review.md                                # /review — invoke code-reviewer agent
 │   │   ├── troubleshoot.md                          # /troubleshoot — fire systematic debugging methodology (loads troubleshooting-methodology skill)
