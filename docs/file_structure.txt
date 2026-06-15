@@ -30,6 +30,7 @@ claude-dot-files/
 │   │   ├── testing-methodology.md                   # Testing principles, scoping, decision-making
 │   │   ├── testing-scaffolding.md                   # Setting up test infrastructure in new projects
 │   │   ├── test-suite-architecture.md               # Test suite layout, framework selection (incl. Ansible/Terraform)
+│   │   ├── troubleshooting-methodology.md           # Divide-and-conquer + hypothesis-driven debugging with structured escalation
 │   │   ├── workflow-analysis.md                     # CPI log analysis methodology
 │   │   └── workflow-dispatch.md                     # How to choose and invoke autonomous workflows
 │   │
@@ -52,6 +53,7 @@ claude-dot-files/
 │   │   ├── create-claude.md                         # /create-claude — generate CLAUDE.md files for a project
 │   │   ├── get-started.md                           # /get-started — session kickoff context
 │   │   ├── review.md                                # /review — invoke code-reviewer agent
+│   │   ├── troubleshoot.md                          # /troubleshoot — fire systematic debugging methodology (loads troubleshooting-methodology skill)
 │   │   ├── update-claude.md                         # /update-claude — sync CLAUDE.md standard references
 │   │   └── update-file-structure.md                 # /update-file-structure — update this file
 │   │
