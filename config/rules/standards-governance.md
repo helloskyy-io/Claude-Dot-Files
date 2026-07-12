@@ -10,7 +10,19 @@ Do NOT propose creating `docs/architecture/adr-NNN.md` files when adding a `docs
 
 Standards documents (`docs/standards/`, `docs/architecture/`) are a curated product with human-in-the-loop control. Autonomous workflows and agents may SURFACE standards implications (gaps, drift, deviations, ADR candidates) but must NOT auto-create, auto-modify, or auto-stub standards artifacts. All standards changes flow through the interactive session for human review before merge.
 
-**Planning artifacts (phase docs, roadmap.md, loose-ends entries, sprint docs, epic breakdowns) are explicitly NOT covered by this rule** — they are dispatch-scope and engineers MAY edit them autonomously. When a phase doc and a standard contradict, the engineer SHOULD update the phase doc to remove the contradiction in the dispatch's PR (since the standard is binding) AND surface the standards-side amendment as a candidate for human review. This avoids the "next sprint reads the phase doc, doesn't notice the tension, flips a coin" failure mode.
+**Planning artifacts (phase docs, roadmap.md, loose-ends entries, epic breakdowns) are explicitly NOT covered by this rule** — they are dispatch-scope and engineers MAY edit them autonomously. When a phase doc and a standard contradict, the engineer SHOULD update the phase doc to remove the contradiction in the dispatch's PR (since the standard is binding) AND surface the standards-side amendment as a candidate for human review. This avoids the "next sprint reads the phase doc, doesn't notice the tension, flips a coin" failure mode.
+
+### Sprint plans are the exception — human-in-the-loop only (binding)
+
+`sprint.md` / `sprints.md` (or equivalent sprint execution plan) MUST NOT be edited by autonomous dispatches or non-operator-reviewed sessions. It is the **exception** to the planning-artifacts carve-out above: phase docs, `roadmap.md`, loose-ends, and epic breakdowns remain dispatch-scope — but the sprint plan is the operator's cross-domain sequencing surface, and every edit (new item, re-sequencing, checkbox flip, hour re-total) happens under human review.
+
+**How autonomous work interacts with sprints:** dispatches and non-operator-reviewed sessions **surface** sprint-item candidates — they never write the sprint file themselves. A candidate discovered mid-dispatch (a new item, a re-order, a done checkbox) is raised in the PR body or a handoff for human-reviewed editing; it is **not** committed to the sprint file by the dispatch.
+
+**Why:** the sprint plan is the operator's mental model of what's being built when. Uncontrolled edits from parallel sessions and engineer runs erode that model faster than any single edit improves it — the cost is the operator losing the thread, not one wrong line. Documented failure modes that drove this rule: engineer runs placing items in the wrong sprint or unrelated ones, appending history-lesson prose to sprint items ("used to be here but that didn't work"), and continued flag/repair cycles that eroded trust.
+
+**Override:** if a specific revision-workflow prompt explicitly authorizes editing the sprint file (e.g., an early-draft iteration the operator knows will be reviewed), that override applies — the PR-for-review gate still satisfies HiL. The default remains: no autonomous edits.
+
+**Breaking it looks like:** an engineer dispatch or non-human-reviewed session committing a new or edited sprint-file line; a checkbox flipped in the sprint file by an autonomous run without human sign-off; a new sprint item created by a dispatch instead of surfaced for human-reviewed insertion.
 
 ## CPI Decisions Log
 

@@ -430,7 +430,7 @@ Mechanical edits within strict authority limits. Audits PLUS edits eligible item
 |---|---|---|---|---|
 | `docs/standards/*.md` | YES — substance always human-approved | Surface dependencies | YES | NO — substance only via authoring drafts |
 | `docs/architecture/*.md` | YES — substance always human-approved | Surface dependencies | YES | NO |
-| `sprint.md` | YES — draft for review | Propagate sprint→roadmap dependencies | YES | LIMITED — checkbox state, ref fixes |
+| `sprint.md` / `sprints.md` | YES — draft for review | Surface sprint→roadmap dependencies (never edit) | YES | NO — HiL only, surface candidates via PR/handoff (see standards-governance.md) |
 | `docs/development/<topic>/roadmap.md` | YES — draft for review | Propagate roadmap→phase dependencies | YES | LIMITED — checkbox state, ref fixes |
 | `docs/development/<topic>/phase-N.md` | YES — draft for review | Propagate phase dependencies | YES | LIMITED — checkbox state, ref fixes |
 | `docs/development/common/loose_ends/*.md` | YES — draft for review | Surface resolution dependencies | YES | LIMITED — resolved markers when verifiable |
