@@ -70,6 +70,11 @@ Arguments:
 
 Options:
   --pr <number>        Update an existing PR instead of creating a new one
+  --repo <path>        Target repo for the worktree. Use when dispatching from
+                       OUTSIDE the target repo (e.g. from a planning repo) —
+                       the target identity is explicit, never derived from the
+                       invocation directory (Temporal Standard §7.5 principle).
+                       Default: the repo containing the current directory.
   --verbose, -v        Stream formatted Claude output live
 
 Examples (flags FIRST, positionals LAST — protects the positional from
@@ -77,6 +82,7 @@ line-wrap and keeps options visible):
   $(basename "$0") "the auth flow needs to use sessions instead of JWT"
   $(basename "$0") --pr 5 "address all findings from PR #5"
   $(basename "$0") --verbose --pr 22 --task-file /tmp/rework.md
+  $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
 This workflow is for SIGNIFICANT rework — not minor fixes.
 For minor corrections, use revision.sh instead.
@@ -86,10 +92,19 @@ EOF
 DESCRIPTION=""
 TASK_FILE=""
 PR_NUMBER=""
+REPO_TARGET=""
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --repo)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --repo requires a path" >&2
+                exit 1
+            fi
+            REPO_TARGET="$2"
+            shift 2
+            ;;
         --task-file)
             if [[ $# -lt 2 ]]; then
                 echo "Error: --task-file requires a path" >&2
@@ -159,6 +174,22 @@ for cmd in claude gh jq; do
     fi
 done
 
+# Explicit target repo (--repo) — validate and switch BEFORE resolving the root.
+# The target identity is explicit, never derived from the invocation directory
+# (same principle as Temporal Standard §7.5). Without --repo, the invocation
+# directory's repo is the target, as before.
+if [[ -n "$REPO_TARGET" ]]; then
+    if [[ ! -d "$REPO_TARGET" ]]; then
+        echo "Error: --repo path not found: ${REPO_TARGET}" >&2
+        exit 1
+    fi
+    if ! git -C "$REPO_TARGET" rev-parse --show-toplevel &>/dev/null; then
+        echo "Error: --repo path is not a git repository: ${REPO_TARGET}" >&2
+        exit 1
+    fi
+    cd "$REPO_TARGET"
+fi
+
 if ! git rev-parse --show-toplevel &>/dev/null; then
     echo "Error: not inside a git repository" >&2
     exit 1
@@ -195,6 +226,7 @@ if [[ -n "$PR_NUMBER" ]]; then
 else
     echo "  Target      : new branch and PR"
 fi
+echo "  Repo        : ${REPO_ROOT}"
 echo "  Worktree    : ${WORKTREE_NAME}"
 echo "  Max turns   : ${MAX_TURNS}"
 echo "  Verbose     : ${VERBOSE}"
@@ -224,7 +256,9 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 ---
 
 ## Stage 1: ASSESS
-Analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed. Briefly describe your assessment before proceeding.
+FIRST: verify the task targets THIS repo. If the task's file paths, module names, or repo references point at a DIFFERENT repository than the one your worktree belongs to, STOP immediately — report "DISPATCH MISCONFIGURATION: task targets <repo X>, worktree is in <repo Y>; re-dispatch with --repo <path>" as your final output and do no further work. Do NOT self-rescue by creating a worktree in another repo: that corrupts run telemetry and bypasses the dispatch contract.
+
+Then: analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed. Briefly describe your assessment before proceeding.
 
 ## Stage 2: PLAN
 Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
@@ -279,9 +313,9 @@ Stage 5 has TWO sub-phases. Phase 5a runs the narrow-lens reviewers in parallel;
 
 ### Stage 5a: NARROW PEER REVIEW (parallel)
 
-Dispatch THREE peer-review agents IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for code-reviewer, refactoring-evaluator, and standards-auditor. The three agents review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly doubles the wall-clock time of this sub-phase.
+Dispatch all THREE peer-review agents — code-reviewer, refactoring-evaluator, and standards-auditor — back-to-back BEFORE processing any results. They review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them.
 
-**How to dispatch in parallel:** in one assistant turn, emit three tool_use blocks, one per agent. Do NOT call them one at a time across separate turns. The Claude tool-use API supports multiple tool calls per assistant message.
+**The dispatch contract:** (1) all three are dispatched before you process any single agent's results; (2) quality-control (next sub-stage) runs only after ALL three narrow-lens results have returned. Background dispatch is the standard mechanism — agents run concurrently in the background regardless of whether you emit the Agent calls in one message or consecutive messages. While waiting on results, schedule a long fallback wakeup (1200s+), not short polls — completion notifications are the primary wake signal.
 
 Each agent's review focus:
 

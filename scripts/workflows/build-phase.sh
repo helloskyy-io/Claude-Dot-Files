@@ -340,9 +340,9 @@ Stage 5 has TWO sub-phases. Phase 5a runs the narrow-lens reviewers in parallel;
 
 ### Stage 5a: NARROW PEER REVIEW (parallel)
 
-Dispatch THREE peer-review agents IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for code-reviewer, refactoring-evaluator, and standards-auditor. The three agents review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them, so serial dispatch wastes turns and roughly doubles the wall-clock time of this sub-phase.
+Dispatch all THREE peer-review agents — code-reviewer, refactoring-evaluator, and standards-auditor — back-to-back BEFORE processing any results. They review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them.
 
-**How to dispatch in parallel:** in one assistant turn, emit three tool_use blocks, one per agent. Do NOT call them one at a time across separate turns. The Claude tool-use API supports multiple tool calls per assistant message.
+**The dispatch contract:** (1) all three are dispatched before you process any single agent's results; (2) quality-control (next sub-stage) runs only after ALL three narrow-lens results have returned. Background dispatch is the standard mechanism — agents run concurrently in the background regardless of whether you emit the Agent calls in one message or consecutive messages. While waiting on results, schedule a long fallback wakeup (1200s+), not short polls — completion notifications are the primary wake signal.
 
 Each agent's review focus:
 

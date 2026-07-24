@@ -292,9 +292,9 @@ Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens specialists in paralle
 
 ### Stage 2a: NARROW SPECIALIST ANALYSIS (parallel)
 
-Dispatch THREE peer-review specialists IN PARALLEL. Send a SINGLE assistant message containing three Agent tool calls — one each for security-auditor, refactoring-evaluator, and a testing review (use the test-writer agent in review-mode — read-only, no test creation in this stage). The three specialists analyze the SAME codebase from independent lenses; serial dispatch wastes turns and roughly triples the wall-clock time of this sub-phase.
+Dispatch all THREE peer-review specialists — security-auditor, refactoring-evaluator, and a testing review (use the test-writer agent in review-mode — read-only, no test creation in this stage) — back-to-back BEFORE processing any results. They analyze the SAME codebase from independent lenses; there is no ordering dependency between them.
 
-**How to dispatch in parallel:** in one assistant turn, emit three tool_use blocks. Do NOT call them one at a time across separate turns.
+**The dispatch contract:** (1) all three are dispatched before you process any single specialist's results; (2) quality-control (next sub-stage) runs only after ALL three narrow-lens results have returned. Background dispatch is the standard mechanism — agents run concurrently in the background regardless of whether you emit the Agent calls in one message or consecutive messages. While waiting on results, schedule a long fallback wakeup (1200s+), not short polls — completion notifications are the primary wake signal.
 
 #### security-auditor — WHOLE-REPO security audit
 
