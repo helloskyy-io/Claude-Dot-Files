@@ -181,7 +181,6 @@
       "Bash(kubectl -n * exec * -- ssh * \"rbd info *\")",
       "Bash(kubectl -n * exec * -- ssh * \"systemctl status *\")",
       "Bash(kubectl -n * exec * -- ssh * \"systemctl is-*\")",
-
       "Bash(kubectl exec -n * * -- temporal * workflow list*)",
       "Bash(kubectl exec -n * * -- temporal * workflow show *)",
       "Bash(kubectl exec -n * * -- temporal * workflow describe *)",
@@ -197,7 +196,6 @@
       "Bash(kubectl exec -n * * -- temporal * operator namespace list*)",
       "Bash(kubectl exec -n * * -- temporal * operator namespace describe *)",
       "Bash(kubectl exec -n * * -- temporal * operator cluster describe *)",
-
       "Bash(kubectl exec -n * * -- ssh * \"qm list*\")",
       "Bash(kubectl exec -n * * -- ssh * \"qm status *\")",
       "Bash(kubectl exec -n * * -- ssh * \"qm config *\")",
@@ -209,11 +207,9 @@
       "Bash(kubectl exec -n * * -- ssh * \"rbd info *\")",
       "Bash(kubectl exec -n * * -- ssh * \"systemctl status *\")",
       "Bash(kubectl exec -n * * -- ssh * \"systemctl is-*\")",
-
       "Bash(kubectl exec * -- bash -c *curl*)",
       "Bash(kubectl -n * exec * -- bash -c *curl*)",
       "Bash(kubectl exec -n * * -- bash -c *curl*)",
-
       "Bash(tailscale status*)",
       "Bash(tailscale ip*)",
       "Bash(tailscale ping*)",
@@ -225,7 +221,6 @@
       "Bash(tailscale version*)",
       "Bash(tailscale debug*)",
       "Bash(tailscale dns status*)",
-
       "Bash(conda activate *)",
       "Bash(source */conda.sh*)",
       "Bash(DJANGO_SETTINGS_MODULE=* python *)",
@@ -305,5 +300,6 @@
         ]
       }
     ]
-  }
+  },
+  "model": "claude-fable-5[1m]"
 }
