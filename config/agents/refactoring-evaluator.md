@@ -70,3 +70,5 @@ Follow the refactoring-methodology skill for evaluation criteria and decision-ma
 - Don't suggest refactors that contradict the project's existing patterns
 - Don't suggest premature abstractions (three similar lines is OK)
 - Do not modify any files — read-only analysis only
+- You cannot Read a directory (EISDIR) — list contents with Glob (`<dir>/*`)
+- Verify paths with Glob before Reading — paths quoted in docs, task briefs, or `docs/file_structure.txt` may lag the actual tree

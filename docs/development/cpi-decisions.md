@@ -340,6 +340,35 @@ Five workflow improvements surfaced from helloskyy-io/Skyy-Command PR #68 + PR #
 
 ---
 
+## Review-runs cycle 2026-07-24 — four-repo sweep (92 runs, 3-week window)
+
+Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-planning-2026-07-24.md` (25), `review-mdc-ansible-collections-2026-07-24.md` (5), `review-desired-state-sturdy-wheat-pelican-2026-07-24.md` (1 — log actually records an mdc-ansible-collections run; see S5). Aggregate: ~$1,791 spend, 93–100% success rates, zero new failure classes. System assessed as mature — remaining items are fine-tuning.
+
+**SHIPPED:**
+
+- **S1 — CWD guidance v2 (Pattern D amendment): absolute-path `cd`** (this commit). The 2026-05-29 v1 fix (`5dfebf9`) corrected the wrong factual premise but its example (`cd lib/temporal && pytest`) still taught RELATIVE cd-chaining — which fails under persistent CWD exactly as observed: 36 events / 30 of 61 skyy-command runs + 1 mdc-ansible-collections run, all post-v1. **Calibration lesson: v1 fixed the premise layer but shipped an example that still encoded the old premise — the example is the operative layer of a prompt rule, not the prose.** v2 rewrites the rule: never blind-chain relative `cd`; cd via absolute worktree-rooted path (idempotent) or skip cd. All 6 task-execution scripts.
+- **S2 — re-Read-before-re-Edit rule** (this commit). 20 of 47 skyy-command Read-before-Edit events target the engineer's own `/tmp/claude-pr-*.md` staging files (Write → later Edit without fresh Read); mdc-master-planning regressed to 11 events / 7 runs (Pattern B), consistent with the same late-re-Edit shape after review-finding passes. One bullet beside the CWD rule in all 6 scripts.
+- **S3 — review-agent navigation hints** (this commit). ~110 subagent errors in the skyy-command window (33 EISDIR directory-Reads + 78 path probes), corroborated in both first-review repos. Two rules added to code-reviewer, refactoring-evaluator, standards-auditor, quality-control: Glob-not-Read for directories; verify paths with Glob before Reading (docs/task-brief paths may lag the tree).
+
+**CLOSED / RE-DISPOSED:**
+
+- **Pattern A (25K-token Read overflow) → RESOLVED-EXTINCT.** 0 events across all 92 runs after appearing in every prior cycle (12× larger sample than any prior window). Credited to known-large-file `limit:200` dispatch guidance + harness Read defaults. Entry closed.
+- **L1 (ScheduleWakeup in non-loop workflows) → REJECTED (original framing).** Usage is legitimate-by-design under the background-agent harness (fallback heartbeat while awaiting review agents; reasons in logs confirm). Narrow residual watch: short-poll (<600s) shape only — which self-extinguished 2026-07-10 in skyy-command.
+- **Pattern C (`find | xargs` whitespace) → RE-DEFERRED with tightened criteria.** 11 benign usages this window (9 skyy + 2 mdc), zero data loss in 92 runs; prior criteria wording ambiguity (occurrence vs loss) resolved. New criteria: ship on first actual data loss OR first usage against whitespace-containing paths.
+- **Pattern B (Read-before-Edit) → recurrence logged.** Rate still falling in skyy-command (0.77/run), regressed in mdc-master-planning (11 events / 7 runs after two clean cycles). S2 targets the dominant late-re-Edit shape; re-evaluate next cycle before any further hardening.
+- **Sequential review-agent dispatch (deferred 2026-05-09) → see S4 pending.** Watch-criteria met AND diagnostic complete (prompts identical, model-side variability confirmed in mdc) — but harness background-dispatch default changed the cost premise (skyy: concurrent execution in 54/54 runs despite serial messages; mdc M3: no measured cost/wall-clock penalty for serial). Disposition pending S4 decision below.
+
+**PENDING ARCHITECTURE DECISION (running /decide + /best-practices per operator request):**
+
+- **S4** — sequential-dispatch instruction: force single-message compliance (worked example) vs revise instruction to sanction background dispatch.
+- **S5** — dispatch repo-targeting: wrong-repo worktrees in 5/5 cross-repo dispatches this window (4 mdc revision-major self-corrections + 1 pelican full mismatch that also corrupted CPI log attribution). Adjacent to deferred `--base-branch` entry (same dispatch-parameterization gap family).
+
+**WATCH (new):**
+
+- **Abnormal terminations without result events:** 4/61 skyy + 1/25 mdc (~6%). No causal story derivable from JSONLs alone; 2 of 4 skyy cases died immediately after launching background Bash (N=2, suggestive only). If ≥5% again next cycle, correlate with harness/session logs.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

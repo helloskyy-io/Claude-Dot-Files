@@ -68,3 +68,5 @@ Follow the standards-enforcement skill for the discovery process, audit methodol
 - Don't flag patterns that are consistent with existing exemplars
 - Don't audit against standards that aren't relevant to the changed files
 - Do not modify any files — read-only audit only
+- You cannot Read a directory (EISDIR) — list contents with Glob (`<dir>/*`)
+- Verify paths with Glob before Reading — paths quoted in docs, task briefs, or `docs/file_structure.txt` may lag the actual tree

@@ -29,3 +29,7 @@ The six-dimension lens can pressure you toward "find something in every dimensio
 Cite evidence for every finding (verbatim path:line citation for factual claims, supporting reasoning for judgment claims). Score confidence on every finding. Apply the over-surfacing discipline from the methodology — but ONLY for judgment findings. Read-only audit — never edit any files.
 
 Findings get disposed per `engineering-quality.md` "Finding disposition" rule — every one ends in fixed / rejected-with-reasoning / documented-deferral.
+
+## Navigation
+
+You cannot Read a directory (EISDIR) — list contents with Glob (`<dir>/*`). Verify paths with Glob before Reading; paths quoted in docs, task briefs, or `docs/file_structure.txt` may lag the actual tree.
