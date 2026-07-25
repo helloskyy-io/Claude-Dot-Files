@@ -58,6 +58,7 @@
 ## Open items / pending
 
 - **Research pass (item 3 from 2026-07-24 session, NOT yet run):** what's new at Anthropic (Agent SDK, Claude Code capabilities); verify Max-plan policy on programmatic/subscription use; current Temporal mTLS/deployment best practice.
+- **`temporal-developer` skill adoption (investigated 2026-07-25, decision: adopt at milestone-1 build time).** Temporal's official Claude Code plugin (`temporalio/claude-temporal-plugin`, Public Preview; canonical content `temporalio/skill-temporal-developer`) — developer-assistance knowledge pack (per-SDK determinism/versioning/gotchas references), NOT runtime integration. We are beyond it architecturally (it knows nothing of our LEGO standards) but it patches the stale-SDK-training-data gap for dispatch engineers writing `temporalio` Python during the port. Two guards on adoption: (1) precedence line in the ported standards — skill is advisory, `docs/standards/temporal/*.md` binding and wins on conflict; (2) review skill content at install + after major updates (third-party auto-updating content in agent sessions, per day-one-security posture). Roadmap note: Temporal plans an eval pipeline + future operations/CLI skills; the skill's "AI patterns" reference may interest the paper.
 - Repo naming/creation for the product (operator's call); planning docs land in `skyynet-master-planning`.
 - `--base-branch` flag still deferred in cpi-decisions.md (watch-criteria unfired; S5 plumbing makes it a 10-min add).
 - CPI watch item: abnormal terminations ~6% (see 2026-07-24 cpi-decisions entry).
