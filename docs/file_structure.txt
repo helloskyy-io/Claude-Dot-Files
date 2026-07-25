@@ -73,6 +73,7 @@ claude-dot-files/
 │   ├── development/                                 # WHAT — active work tracking
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
+│   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
 │   │   ├── roadmap.md                               # Phased migration plan (Phases 0-5 mostly complete)
 │   │   ├── phases/                                  # Phase-specific planning docs
 │   │   │   ├── phase-4d-github-actions-integration.md
