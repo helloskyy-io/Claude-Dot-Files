@@ -145,6 +145,7 @@ echo "================================================================"
 echo
 
 MODEL_KEY="research"
+COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 source "${SCRIPT_DIR}/lib/shared-prompts.sh"
 
@@ -163,6 +164,8 @@ This workflow produces EVIDENCE artifacts (research mini-papers + a synthesis), 
 
 Research dir: ${RESEARCH_DIR}
 ${CONTEXT_BLOCK}
+${HEADLESS_EXECUTION_GUARD}
+
 EXECUTION ORDER IS MANDATORY
 
 Execute stages in strict numerical order. If a stage has nothing to address, emit: ## Stage N: SKIPPED — <one-line reason>. Do not silently skip, reorder, or interleave stages.
@@ -186,7 +189,7 @@ Assess the component's complexity per the standard's sizing rubric and produce t
 ## Stage 3: RESEARCH
 For each NEW or materially-outdated topic, dispatch the research-analyst agent to write ${RESEARCH_DIR}/raw/<topic>.md:
 - Each analyst prompt must include: the topic, its Feeds destination, the path to the research standard (the analyst reads the contract itself), the output path, and any relevant context from above.
-- Dispatch contract: dispatch ALL analysts back-to-back before processing any results (background dispatch is the standard mechanism; agents run concurrently). While waiting, schedule a long fallback wakeup (1200s+), not short polls — completion notifications are the primary wake signal.
+- Dispatch contract (headless-safe): dispatch the analysts as FOREGROUND agents (`run_in_background: false`) — one message with multiple foreground Agent calls runs them concurrently where the harness allows AND blocks the turn until results return. NEVER background-dispatch and then wait: in a headless run a text-only "waiting" turn ends the run before any paper is written. If concurrency is not available, dispatch them sequentially (foreground) — sequential-but-completing beats concurrent-but-dead.
 - After each analyst returns, checkpoint-commit its paper.
 
 ## Stage 4: VERIFY

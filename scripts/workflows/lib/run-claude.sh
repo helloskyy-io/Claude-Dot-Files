@@ -12,8 +12,12 @@
 #   MODEL_KEY   — this workflow's key in config.yaml's `models:` map
 #
 # Optional environment variables:
-#   MODEL_OVERRIDE — bypass the config.yaml map for this dispatch (A/B runs):
-#                    MODEL_OVERRIDE=fable ./revision-major.sh "task"
+#   MODEL_OVERRIDE     — bypass the config.yaml map for this dispatch (A/B runs):
+#                        MODEL_OVERRIDE=fable ./revision-major.sh "task"
+#   COMPLETION_PATTERN — an ERE the final result MUST contain for the run to
+#                        count as complete. Missing → run_claude fails LOUD and
+#                        returns nonzero (exit 0 must mean done). PR-producing
+#                        workflows set this to a PR-URL pattern. Unset = no check.
 #
 # Usage in a workflow script:
 #   MODEL_KEY="revision-major"
@@ -147,5 +151,35 @@ run_claude() {
         jq -r 'select(.type == "result") |
             "Turns: \(.num_turns // "?") · Cost: $\(.total_cost_usd // 0) · Duration: \((.duration_ms // 0) / 1000)s\n\n\(.result // "Complete.")"' \
             "$LOG_FILE"
+    fi
+
+    # -----------------------------------------------------------------------
+    # Completion contract — exit 0 must mean the workflow actually finished.
+    # A headless (`claude -p`) run ends on ANY text-only turn, including a
+    # premature "waiting on dispatched agents…" message: the harness reports
+    # exit 0 with nothing produced. When a workflow declares COMPLETION_PATTERN,
+    # verify the final result contains it; a miss means early-stop → fail LOUD.
+    # -----------------------------------------------------------------------
+    if [[ -n "${COMPLETION_PATTERN:-}" ]]; then
+        local final_result
+        final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
+        if ! grep -qE "$COMPLETION_PATTERN" <<<"$final_result"; then
+            {
+                echo
+                echo "================================================================"
+                echo "  ⚠ RUN ENDED WITHOUT COMPLETING — headless early-stop suspected"
+                echo "================================================================"
+                echo "  Expected completion signal not found in the final result:"
+                echo "    pattern: ${COMPLETION_PATTERN}"
+                echo
+                echo "  Most common cause: the main loop ended a turn with a text-only"
+                echo "  message (e.g. 'waiting on dispatched agents') while work was"
+                echo "  still outstanding. In headless mode a text-only turn TERMINATES"
+                echo "  the run before later stages execute."
+                echo "  Inspect: ${LOG_FILE}"
+                echo "================================================================"
+            } >&2
+            return 1
+        fi
     fi
 }

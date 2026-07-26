@@ -231,6 +231,7 @@ echo
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
 MODEL_KEY="sprint-review"
+COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
@@ -295,7 +296,7 @@ Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens specialists in paralle
 
 Dispatch all THREE peer-review specialists — security-auditor, refactoring-evaluator, and a testing review (use the test-writer agent in review-mode — read-only, no test creation in this stage) — back-to-back BEFORE processing any results. They analyze the SAME codebase from independent lenses; there is no ordering dependency between them.
 
-**The dispatch contract:** (1) all three are dispatched before you process any single specialist's results; (2) quality-control (next sub-stage) runs only after ALL three narrow-lens results have returned. Background dispatch is the standard mechanism — agents run concurrently in the background regardless of whether you emit the Agent calls in one message or consecutive messages. While waiting on results, schedule a long fallback wakeup (1200s+), not short polls — completion notifications are the primary wake signal.
+**The dispatch contract (headless-safe):** dispatch all three as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL three narrow-lens results are in hand.
 
 #### security-auditor — WHOLE-REPO security audit
 
@@ -504,6 +505,8 @@ This is a comprehensive end-of-sprint review covering security, refactoring, tes
 Sprint: ${SPRINT_LABEL}
 CLAUDE_DOT_FILES_ROOT: ${CLAUDE_DOT_FILES_ROOT}
 ${CONTEXT_BLOCK}
+${HEADLESS_EXECUTION_GUARD}
+
 ${STAGES_1_TO_5}
 
 ## Stage 6: SUBMIT
@@ -544,6 +547,8 @@ This is a comprehensive end-of-sprint review covering security, refactoring, tes
 Sprint: ${SPRINT_LABEL}
 CLAUDE_DOT_FILES_ROOT: ${CLAUDE_DOT_FILES_ROOT}
 ${CONTEXT_BLOCK}
+${HEADLESS_EXECUTION_GUARD}
+
 ${STAGES_1_TO_5}
 
 ## Stage 6: SUBMIT

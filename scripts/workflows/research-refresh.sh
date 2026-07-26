@@ -173,6 +173,7 @@ echo "  Log file     : ${LOG_FILE}"
 echo
 
 MODEL_KEY="research-refresh"
+COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 source "${SCRIPT_DIR}/lib/shared-prompts.sh"
 
@@ -184,6 +185,8 @@ Research dir: ${RESEARCH_DIR}
 
 Papers due for revalidation (mechanically gated by the dispatcher — this list is authoritative, do not re-derive it):
 ${DUE_LIST}
+${HEADLESS_EXECUTION_GUARD}
+
 EXECUTION ORDER IS MANDATORY
 
 Execute stages in strict numerical order. If a stage has nothing to address, emit: ## Stage N: SKIPPED — <one-line reason>.
@@ -196,7 +199,7 @@ FIRST: verify the task targets THIS repo. If ${RESEARCH_DIR} references a DIFFER
 Then: locate and READ the repo's research standard (expected at standards/development/research/research_standard.md or the repo's equivalent). Read the current ${RESEARCH_DIR}/synthesis.md — you will need it for the diff. Save a reference copy of its current content (e.g. quote its action-candidates section in your notes) before anything rewrites it.
 
 ## Stage 2: REFRESH
-For each DUE paper, dispatch the research-currency agent (paper path + standard path in its prompt). Dispatch contract: all currency agents dispatched back-to-back before processing any results (background dispatch standard; long fallback wakeups 1200s+, not short polls).
+For each DUE paper, dispatch the research-currency agent (paper path + standard path in its prompt). Dispatch contract (headless-safe): dispatch the currency agents as FOREGROUND agents (`run_in_background: false`) — one message with multiple foreground Agent calls runs them concurrently where the harness allows AND blocks the turn until results return. NEVER background-dispatch and then wait: a text-only "waiting" turn ends a headless run. If concurrency is unavailable, dispatch sequentially (foreground) — sequential-but-completing beats concurrent-but-dead.
 - Each agent updates its paper in place, refreshes Last validated, re-establishes Revalidate within the standard's volatility bounds, and reports a four-category diff (changed / now wrong / missing / topic-still-right).
 - If an agent recommends RETIREMENT for a topic, do NOT delete the paper — record the recommendation prominently for the PR body; retirement is a human-reviewed action.
 - Checkpoint-commit each updated paper.

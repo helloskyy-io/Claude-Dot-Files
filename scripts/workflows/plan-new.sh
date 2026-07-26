@@ -242,6 +242,7 @@ echo
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
 MODEL_KEY="plan-new"
+COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
@@ -524,6 +525,8 @@ This workflow defines a new project from scratch. Follow all 15 stages thoroughl
 
 Project name: ${PROJECT_NAME}
 ${CONTEXT_BLOCK}
+${HEADLESS_EXECUTION_GUARD}
+
 ${SHARED_STAGES}
 
 ## Stage 15: SUBMIT
@@ -555,6 +558,8 @@ This workflow defines a new project from scratch. Follow all 15 stages thoroughl
 
 Project name: ${PROJECT_NAME}
 ${CONTEXT_BLOCK}
+${HEADLESS_EXECUTION_GUARD}
+
 ${SHARED_STAGES}
 
 ## Stage 15: SUBMIT

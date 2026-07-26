@@ -390,6 +390,28 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Headless early-stop termination class — completion contract + foreground dispatch (SHIPPED 2026-07-26)
+
+**Trigger:** PM3 burn-test of the new research.sh (run research-20260726-215339): exit 0, $3.12, nothing produced. The main loop background-dispatched 3 research-analysts, then ended the turn with a text-only "waiting on completion notifications" message. In a headless `claude -p` run, a text-only turn ENDS the run — the harness hit its 600s background ceiling and killed the analysts mid-fetch. No papers, no critic, no synthesis, no PR, exit 0.
+
+**Second occurrence of the class** (skyy #217 B-dispatch died identically 2026-07-24) → ships now per watch-criteria discipline. **Root cause is our own:** the 2026-07-24 **S4** change ("Background dispatch is the standard mechanism… schedule a long fallback wakeup") relied on the model reliably emitting a keep-alive tool call. It doesn't. S4's 54/54 background runs survived by luck (the model happened to keep the turn alive); research.sh's run is proof the pattern is fragile. I propagated the same wording into both new research scripts — this fix corrects S4 on PM3's new headless-specific evidence.
+
+**Fix (three parts, value-ordered per PM3):**
+1. **Completion contract (generic backstop) in `run-claude.sh`:** optional `COMPLETION_PATTERN` (ERE the final result must contain). Missing → `run_claude` fails LOUD + returns nonzero. Set to a PR-URL pattern in all 8 PR-producing workflows. **Exit 0 now means done.** (review-runs.sh excluded — produces a report, not a PR.)
+2. **`HEADLESS_EXECUTION_GUARD` prompt block (prevention) in `shared-prompts.sh`:** binding rule that a text-only turn ends the run; dispatch FOREGROUND (`run_in_background: false`) so the tool call blocks; never background-and-wait; never ScheduleWakeup-to-wait; run complete only when the completion signal prints. Injected into all 7 dispatching workflows (revision.sh excluded — single-loop, no dispatch; backstop only).
+3. **Dispatch-wording swap:** the S4 "background is standard + fallback wakeup" sentence → "FOREGROUND agents in a single message run concurrently where the harness allows AND block the turn; sequential-but-completing beats concurrent-but-dead." Replaced in all 6 scripts carrying it (4 S4 + 2 research).
+
+**Supersedes** the S4 background-dispatch guidance. Cost-neutral: S4's own M3 finding measured no penalty for serial dispatch, so losing background concurrency costs nothing; foreground-in-one-message keeps concurrency where the harness supports it.
+
+**Verified:** bash -n clean (9 scripts + 3 lib); completion-contract logic 3/3 (PR-URL pass, waiting-message miss, generic-Complete miss); model-resolution 5/5 and due-gate 5/5 still green; zero stale background wording remains fleet-wide.
+
+**Watch-criteria:**
+- **False-positive completion misses:** if a legitimately-complete run fails the pattern (e.g. a workflow that completes without printing a PR URL), widen/relax that script's COMPLETION_PATTERN. review-runs.sh has no pattern by design — if it ever early-stops silently, give it a report-path token.
+- **Residual early-stops despite the guard:** if a dispatching run still dies text-only after this (guard ignored), the next step is foreground-enforcement at the harness/prompt level or splitting dispatch into its own stage with a mandatory post-dispatch tool call.
+- **S4 relitigating:** the sequential-review-dispatch deferral was closed RESOLVED-BY-HARNESS on background-agent concurrency; this fix moves back toward foreground. If a future CPI window shows review-stage wall-clock materially regressing, measure foreground-concurrent vs sequential explicitly (S4's M3 said no penalty — reconfirm at scale).
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

@@ -203,6 +203,7 @@ echo
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
 MODEL_KEY="revision"
+COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
