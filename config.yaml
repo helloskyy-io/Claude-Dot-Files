@@ -73,13 +73,20 @@ models:
   plan-revision: fable          # planning revision — long-horizon synthesis
   sprint-review: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
+  research: opus                # research pool creation — orchestration + synthesis authorship
+  research-refresh: opus        # research revalidation — orchestration + synthesis diff
 
   # Agent-tier canon (DOCUMENTATION ONLY — agents pin models in their own
   # frontmatter at config/agents/*.md, which cannot reference this file.
   # This block is the one-glance record; agent files MUST conform. Checked
   # at CPI time. Rationale per assignment in cpi-decisions.md 2026-07-26.)
   #   fable:  architect (deepest synthesis, +web verify),
-  #           security-auditor (asymmetric-risk lens, +web CVE verify)
-  #   opus:   planner, quality-control, standards-architect
+  #           security-auditor (asymmetric-risk lens, +web CVE verify),
+  #           research-analyst (long-horizon research sweeps, +web — the
+  #           canonical Fable workload)
+  #   opus:   planner, quality-control, standards-architect,
+  #           research-currency (topic-retirement judgment, +web)
   #   sonnet: code-reviewer, refactoring-evaluator, standards-auditor,
-  #           test-writer, doc-manager, workflow-analyst
+  #           test-writer, doc-manager, workflow-analyst,
+  #           research-critic (source verification diligence, +web —
+  #           author≠critic model diversity vs fable analyst)

@@ -42,6 +42,9 @@ claude-dot-files/
 │   │   ├── planner.md                               # Detailed implementation plans (Opus, on-demand)
 │   │   ├── quality-control.md                       # Senior-engineer holistic lens — runs sequentially after parallel reviewers
 │   │   ├── refactoring-evaluator.md                 # Structural improvement evaluation
+│   │   ├── research-analyst.md                      # Deep-research mini-paper author (fable + web; gaps-are-findings discipline)
+│   │   ├── research-critic.md                       # Anti-hallucination gate — fetches every cited source, verifies claims match
+│   │   ├── research-currency.md                     # Research refresh differ — fresh sweep vs existing paper, revalidation intervals
 │   │   ├── security-auditor.md                      # Vulnerability detection & audit
 │   │   ├── standards-architect.md                   # Audits standards corpus for coherence, bloat, drift
 │   │   ├── standards-auditor.md                     # Audits code conformance to standards
@@ -123,6 +126,8 @@ claude-dot-files/
 │       ├── build-phase.sh                           # BUILD-PHASE — implement from a plan doc
 │       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition
 │       ├── plan-revision.sh                         # PLAN-REVISION — revise existing planning docs
+│       ├── research.sh                              # RESEARCH — create component research pool + synthesis (per target repo's Research Standard)
+│       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side mechanical gate, clean no-op)
 │       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
 │       ├── revision.sh                              # REVISION — minor corrections to existing code
 │       ├── revision-major.sh                        # REVISION-MAJOR — significant rework with peer-review trio + quality-control
