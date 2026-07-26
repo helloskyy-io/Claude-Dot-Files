@@ -140,9 +140,10 @@ VMs typically don't have Claude Code or jq pre-installed. Install prerequisites 
 # Define path
 CLAUDE_PATH=/opt/skyy-net/claude-dot-files
 
-# Install prerequisites
+# Install prerequisites (yq v4 is required by gh-monitor and workflow model resolution)
 npm install -g @anthropic-ai/claude-code
 sudo apt install -y jq
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && sudo chmod +x /usr/local/bin/yq
 
 # Clone and install
 git clone https://github.com/helloskyy-io/Claude-Dot-Files.git $CLAUDE_PATH

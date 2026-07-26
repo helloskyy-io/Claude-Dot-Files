@@ -44,3 +44,42 @@ gh-monitor:
 
   # Path to workflow scripts (leave empty to auto-detect from repo root)
   # workflow-dir: ""
+
+# -----------------------------------------------------------------------------
+# models — per-workflow model map (single authority for every dispatch)
+# -----------------------------------------------------------------------------
+# Every workflow dispatch runs with an EXPLICIT --model resolved from this map
+# at dispatch time (scripts/workflows/lib/run-claude.sh). This exists because
+# headless runs otherwise inherit ambient defaults (e.g. the dispatching PM
+# session's model) — model identity must be an explicit input, never derived.
+#
+# Values may be:
+#   - aliases (sonnet, opus, fable, haiku) — float to the latest model of that
+#     tier automatically. DEFAULT POSTURE: zero-maintenance capability upgrades.
+#   - full model IDs (e.g. claude-opus-5) — pinned. Used selectively, on
+#     evidence: (a) mid-sprint stability during a critical push, or (b) a
+#     silent generation jump caused a measured regression (see cpi-decisions.md
+#     watch-criteria). Upgrading a pin is a one-line commit.
+#
+# A/B override for a single dispatch (no config change):
+#   MODEL_OVERRIDE=fable ./scripts/workflows/build-phase.sh <args>
+#
+# Changes take effect on the NEXT dispatch — no restarts required.
+models:
+  revision: sonnet              # light fixes — speed over depth
+  revision-major: opus          # significant rework — the default engineer
+  build-phase: opus             # phase implementation — the default engineer
+  plan-new: fable               # 14-stage project planning — long-horizon synthesis
+  plan-revision: fable          # planning revision — long-horizon synthesis
+  sprint-review: opus           # holistic end-of-sprint judgment
+  review-runs: sonnet           # CPI log analysis — mechanical + pattern work
+
+  # Agent-tier canon (DOCUMENTATION ONLY — agents pin models in their own
+  # frontmatter at config/agents/*.md, which cannot reference this file.
+  # This block is the one-glance record; agent files MUST conform. Checked
+  # at CPI time. Rationale per assignment in cpi-decisions.md 2026-07-26.)
+  #   fable:  architect (deepest synthesis, +web verify),
+  #           security-auditor (asymmetric-risk lens, +web CVE verify)
+  #   opus:   planner, quality-control, standards-architect
+  #   sonnet: code-reviewer, refactoring-evaluator, standards-auditor,
+  #           test-writer, doc-manager, workflow-analyst

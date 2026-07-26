@@ -324,6 +324,24 @@ These were considered and rejected based on research and the dual-flow principle
 - ❌ **Wrapper scripts for every combination** — Only build what's needed
 - ❌ **Custom state management** — Let GitHub PRs hold state
 
+## Model Management
+
+Every workflow dispatch runs with an **explicit `--model`**, resolved at dispatch time from the `models:` map in `config.yaml` (repo root) by `lib/run-claude.sh`. This exists because headless runs otherwise inherit ambient defaults — a PM session's model leaks into the workflows it dispatches. Model identity is an explicit input, never derived.
+
+**Changing a workflow's model:** edit the one line in `config.yaml`, commit. The next dispatch picks it up — no restarts, no Claude refresh.
+
+**Alias vs pin:** map values are aliases by default (`sonnet`, `opus`, `fable` — float to the latest of that tier, zero-maintenance upgrades). Pin a row to a full model ID only on evidence: a critical push needing mid-sprint stability, or a generation jump that caused a measured regression (watch-criteria in `docs/development/cpi-decisions.md`). Either way the JSONL logs record the *resolved* model ID per run, so CPI analysis can always attribute behavior shifts to model changes.
+
+**Per-dispatch A/B override** (bypasses the map for one run, no config change):
+
+```bash
+MODEL_OVERRIDE=fable ./scripts/workflows/build-phase.sh docs/development/phases/phase-2.md --verbose
+```
+
+**Missing key = hard failure.** If a workflow's `MODEL_KEY` has no entry in the map, the dispatch aborts loudly rather than running on an inherited default. New workflow scripts MUST add their key to `config.yaml models:` and set `MODEL_KEY` before sourcing `run-claude.sh`.
+
+**Agent models are separate:** agents pin their own model in `config/agents/*.md` frontmatter (static markdown — cannot reference config.yaml). The canonical agent-tier map is documented as a comment block in the config.yaml `models:` section; agent files must conform (checked at CPI time).
+
 ## When to Use What
 
 Quick decision guide:

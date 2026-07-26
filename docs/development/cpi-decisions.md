@@ -369,6 +369,27 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Model management — centralized per-workflow model map (SHIPPED 2026-07-26)
+
+**Trigger:** operator's PM sessions on the VM (2× opus, 1× fable) were leaking their model into dispatched workflows — headless runs inherited the dispatching session's model, producing mixed results with no control. Model identity was an ambient default, not an explicit input (§7.5-class violation: identity derived from convenience source). Fable's arrival (a 4th tier at 2× opus burn) made tier assignment a real policy question.
+
+**Design (via /decide + /best-practices, fully operator-scrutinized):**
+
+- **`config.yaml models:` map** — single authority, per-WORKFLOW keys (operator preference over role abstraction: more granular, more meaningful at N=7). Resolved at dispatch time in `run-claude.sh`; every dispatch now carries explicit `--model`; FAIL LOUD on missing key — never dispatch on an inherited default. `MODEL_OVERRIDE=<model>` env var = per-dispatch A/B override.
+- **Alias-default, pin-on-evidence.** Operator overturned the initial pin-everything recommendation, and the scrutiny agreed: logs already record the resolved model ID per run (init event), so alias generation-jumps remain CPI-attributable post-hoc — pinning added ceremony, not data integrity. Doctrine: aliases float (zero-maintenance capability upgrades); pin a row only on (a) critical-push stability or (b) the watch-criterion below.
+- **Workflow map:** fable → plan-new, plan-revision · opus → revision-major, build-phase, sprint-review · sonnet → revision, review-runs.
+- **Agent canon (4 bumps):** architect → **fable** + WebSearch/WebFetch (deepest synthesis, compounding cost-of-miss; web verify neutralizes cutoff gap) · security-auditor → **fable** + WebSearch/WebFetch (asymmetric-risk lens; third-party testing shows Fable finding auth vulns Opus 4.8 missed; CVE currency requires web) · quality-control → **opus**, standards-architect → **opus** (judgment-heavy integration lenses). Narrow lenses stay sonnet (proven in CPI: Critical catches on sonnet).
+- **Web-tool grant principle:** web tools go to lenses whose ground truth lives OUTSIDE the repo (industry practice, CVE landscape). All other agents stay Read/Grep/Glob. Guardrails in both prompts: verification-not-research, web-content-untrusted, epistemics labeling (`[verified — source]` vs `[training knowledge]`).
+- **settings.json:** stays clean (2026-07-24 revert ratified on re-examination); machine-local interactive defaults belong in unsynced `settings.local.json`; explicit workflow `--model` shrinks any future accidental pin's blast radius to interactive-only.
+
+**Watch-criteria:**
+- **Silent generation jump regression:** if an alias generation-jump causes a measured workflow regression, pin that row to a full model ID and validate future generations interactively before floating again.
+- **Architect rubber-stamp signature:** if architect finding-counts drop notably on fable-authored plans vs its historical baseline (self-preference bias — author and critic same model), demote architect to opus.
+- **Security-auditor fable value:** if 2–3 sprint-review cycles show classifier-reroute weirdness (inconsistent report depth) or no measurable finding-quality gain over sonnet, revisit.
+- **Web-tool discipline:** if panel latency/burn balloons from agent web use, tighten the lookup budget in the agent prompts.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

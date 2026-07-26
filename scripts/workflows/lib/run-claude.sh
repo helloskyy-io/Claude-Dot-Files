@@ -9,8 +9,14 @@
 #   MAX_TURNS   — maximum conversation turns for claude
 #   VERBOSE     — "true" or "false" for live streaming
 #   FORMATTER   — path to the format-stream.sh formatter script
+#   MODEL_KEY   — this workflow's key in config.yaml's `models:` map
+#
+# Optional environment variables:
+#   MODEL_OVERRIDE — bypass the config.yaml map for this dispatch (A/B runs):
+#                    MODEL_OVERRIDE=fable ./revision-major.sh "task"
 #
 # Usage in a workflow script:
+#   MODEL_KEY="revision-major"
 #   source "${SCRIPT_DIR}/lib/run-claude.sh"
 #   run_claude "$PROMPT" -w "$WORKTREE_NAME"
 
@@ -19,6 +25,42 @@
 : "${MAX_TURNS:?run-claude.sh: MAX_TURNS must be set before sourcing}"
 : "${VERBOSE:?run-claude.sh: VERBOSE must be set before sourcing}"
 : "${FORMATTER:?run-claude.sh: FORMATTER must be set before sourcing}"
+: "${MODEL_KEY:?run-claude.sh: MODEL_KEY must be set before sourcing (key into config.yaml models: map)}"
+
+# ---------------------------------------------------------------------------
+# Model resolution
+# Every dispatch runs with an EXPLICIT --model. Headless runs otherwise
+# inherit ambient defaults (the dispatching PM session's model — the
+# mixed-results incident), and model identity must be an explicit input,
+# never derived (Temporal Standard §7.5 principle). Resolution order:
+#   1. MODEL_OVERRIDE env var (per-dispatch A/B override)
+#   2. config.yaml `models: <MODEL_KEY>` (single authority)
+#   3. FAIL LOUD — never dispatch on an inherited default
+# ---------------------------------------------------------------------------
+if ! command -v yq &>/dev/null; then
+    echo "Error: 'yq' is required for model resolution (config.yaml models map) but not found in PATH" >&2
+    exit 1
+fi
+
+_CDF_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+_MODELS_CONFIG="${_CDF_ROOT}/config.yaml"
+
+if [[ -n "${MODEL_OVERRIDE:-}" ]]; then
+    WORKFLOW_MODEL="$MODEL_OVERRIDE"
+    echo "→ Model: ${WORKFLOW_MODEL} (MODEL_OVERRIDE — bypassing config.yaml)"
+else
+    if [[ ! -f "$_MODELS_CONFIG" ]]; then
+        echo "Error: config.yaml not found at ${_MODELS_CONFIG} — cannot resolve model for '${MODEL_KEY}'" >&2
+        exit 1
+    fi
+    WORKFLOW_MODEL="$(yq -r ".models.\"${MODEL_KEY}\" // \"\"" "$_MODELS_CONFIG")"
+    if [[ -z "$WORKFLOW_MODEL" || "$WORKFLOW_MODEL" == "null" ]]; then
+        echo "Error: no model configured for '${MODEL_KEY}' in ${_MODELS_CONFIG} (models: section)." >&2
+        echo "Refusing to dispatch on an inherited default — add the key or set MODEL_OVERRIDE." >&2
+        exit 1
+    fi
+    echo "→ Model: ${WORKFLOW_MODEL} (config.yaml models.${MODEL_KEY})"
+fi
 
 # ---------------------------------------------------------------------------
 # Pre-run rate limit check
@@ -87,6 +129,7 @@ run_claude() {
 
     local claude_cmd=(
         claude -p "$prompt"
+        --model "$WORKFLOW_MODEL"
         --output-format stream-json
         --verbose
         --max-turns "$MAX_TURNS"

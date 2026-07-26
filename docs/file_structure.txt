@@ -130,7 +130,7 @@ claude-dot-files/
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
-├── config.yaml                                      # Centralized service/workflow configuration
+├── config.yaml                                      # Centralized service/workflow configuration (gh-monitor + per-workflow models map)
 ├── install.sh                                       # Creates symlinks from config/* into ~/.claude/
 ├── LICENSE                                          # MIT license
 └── README.md                                        # Repo documentation
