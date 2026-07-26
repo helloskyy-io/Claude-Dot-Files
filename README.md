@@ -3,10 +3,11 @@
 A self-improving Claude Code development environment. Custom agents, autonomous workflows, and a continuous process improvement loop — synced across all your machines.
 
 **What makes this different from a basic dotfiles repo:**
-- **7 custom agents** — architect, planner, code-reviewer, refactoring-evaluator, test-writer, security-auditor, workflow-analyst — each with preloaded methodology skills
-- **8 methodology skills** — planning, architecture decisions, testing, refactoring, documentation structure, project definition, workflow analysis — load on-demand based on context
-- **Autonomous workflows** — bash scripts that run Claude headless in isolated git worktrees, self-review code, and deliver PRs ready for human review
-- **Continuous process improvement** — Claude analyzes its own workflow logs, identifies inefficiencies, and recommends optimizations. The system gets smarter with use.
+- **11 custom agents** — architect, planner, code-reviewer, refactoring-evaluator, standards-auditor, standards-architect, security-auditor, quality-control, test-writer, doc-manager, workflow-analyst — each with preloaded methodology skills
+- **17 methodology skills** — planning, architecture decisions, decision-making (five-whys reframing), troubleshooting (hypothesis-driven debugging), testing (methodology, scaffolding, suite architecture), refactoring, standards (authoring, enforcement), documentation (structure, management), quality control, project definition and organization, workflow analysis and dispatch — load on-demand based on context
+- **7 autonomous workflows** — bash scripts that run Claude headless in isolated git worktrees, self-review code through parallel agent panels, and deliver PRs ready for human review
+- **GitHub-driven dispatch** — the `gh-monitor` service watches open PRs for `@claude` comments and auto-dispatches revision workflows, closing the loop between PR review and rework
+- **Continuous process improvement** — `review-runs.sh` analyzes Claude's own workflow logs across repos; every finding lands in an append-only decisions log (`docs/development/cpi-decisions.md`) as ship/defer/reject with explicit watch-criteria. The system gets measurably smarter with use.
 - **Cross-device sync** — targeted symlinks deploy everything to workstations, laptops, and VMs via a single `install.sh`
 
 ## Operation
@@ -26,6 +27,8 @@ Use custom slash commands for common tasks:
 - `/get-started` — session primer: sets working roles, explains dual workflow model, establishes operating pattern
 - `/review` — run the code-reviewer agent on recent changes
 - `/best-practices <topic>` — prime Claude with industry-standard approach
+- `/decide <question>` — five-whys reframing cascade for low/mid-confidence decisions (reframe first, then answer)
+- `/troubleshoot <problem>` — systematic debugging: hypothesis-driven bisection with structured escalation
 - `/create-claude` — generate CLAUDE.md files for a new project
 - `/update-claude` — sync CLAUDE.md references to your standards
 - `/update-file-structure` — update docs/file_structure.txt
@@ -61,9 +64,17 @@ Claude works independently on a planned task, creates a PR, and notifies you whe
 
 # Build from a plan doc (9 stages: load plan → validate → implement → test → review → refactor → resolve → verify → PR)
 ./scripts/workflows/build-phase.sh docs/development/phases/phase-1.md "follow all standards" --verbose
+
+# End-of-sprint review (6 stages: discover → parallel specialists → QC → build missing tests → synthesize → PR)
+./scripts/workflows/sprint-review.sh --sprint "Sprint 1" --verbose
+
+# CPI loop: analyze recent workflow logs, produce an improvement report
+./scripts/workflows/review-runs.sh --days 21
 ```
 
 Every run saves a JSONL log to `.claude/logs/` for self-diagnosis and continuous improvement analysis.
+
+The `gh-monitor` systemd service (`scripts/services/`) watches open PRs for `@claude revision:` / `@claude revision-major:` comments and dispatches the matching workflow automatically — PR feedback becomes rework without leaving GitHub.
 
 See `docs/guide/workflows.md` for the full architecture including escalation paths (PR review → PR comments → full re-run).
 
