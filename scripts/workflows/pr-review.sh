@@ -176,7 +176,7 @@ git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 # run_claude helper + shared prompt blocks
 # ---------------------------------------------------------------------------
 MODEL_KEY="pr-review"
-COMPLETION_PATTERN='^VERDICT: (MERGE-AFTER-EXPORTS|MERGE|HOLD)'
+COMPLETION_PATTERN='^VERDICT: (MERGE|HOLD)'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 source "${SCRIPT_DIR}/lib/shared-prompts.sh"
 
@@ -201,10 +201,10 @@ EXECUTION ORDER IS MANDATORY. If a stage has nothing to address, emit: ## Stage 
 ## Stage 1: VERIFY + GATHER
 FIRST: verify this PR targets THIS repo. If the PR's changed files reference a different repository than your worktree, STOP — report \"DISPATCH MISCONFIGURATION: PR targets <repo X>, worktree is <repo Y>; re-run with --repo <path>\" and do no further work.
 
-Then gather the raw material (batch independent reads in one turn):
-- The PR diff: run \`gh pr diff ${PR_NUMBER}\` (or \`git --no-pager diff origin/<base>...HEAD\`) to see what actually changed.
-- The PR body: \`gh pr view ${PR_NUMBER} --json body,title --jq '.title, .body'\`.
-- The self-review / reflection + decision-log comments: \`gh pr view ${PR_NUMBER} --json comments --jq '.comments[].body'\`. The producing run's Decision Log, Deferred Work, and Post-Run Reflection live here.
+Then gather the raw material (batch independent reads in one turn). **You are NOT re-reviewing the code** — the code was already beaten up by overlapping review agents during the build. YOUR PRIMARY HUNTING GROUND is the producing run's OWN WORDS, the place it told on itself:
+- **The self-review / reflection + decision-log comments (PRIMARY — this is the whole point):** \`gh pr view ${PR_NUMBER} --json comments --jq '.comments[].body'\`. The Decision Log, Deferred Work, and Post-Run Reflection live here. The run surfaced FAR more than it fixed — the critical items got addressed during the build, and the rest are half-buried in excuses. That buried remainder is what you exist to dig out. Mine it hard.
+- The PR body: \`gh pr view ${PR_NUMBER} --json body,title --jq '.title, .body'\` — the run's own summary of what it claims it did (claims to verify, not accept).
+- The PR diff (SECONDARY — blind-spot catch + claim verification): \`gh pr diff ${PR_NUMBER}\`. Scan it to catch what the run never mentioned at all (its blind spots), and to VERIFY self-report claims against what the code actually does. Not a fresh code review — a truth-check on the self-report.
 - **Prior pr-review comment (this is pass ${THIS_PASS}):** if ${PRIOR_PASS} > 0, find the prior comment(s) containing a \`pr_review:\` yaml block and READ them. You MUST reuse each prior finding's stable \`id\` slug verbatim when the same finding persists — stable ids are what make cross-pass and cross-PR recurrence tracking work. Only genuinely-new findings get new slugs.
 
 **If there is NO reflection/decision-log comment at all:** that is itself a finding (the producing run may have early-stopped). Record it, and it becomes a HOLD reason \`no-reflection\`.
@@ -229,61 +229,58 @@ For EACH enumerated item, reach exactly one terminal disposition using genuine /
   (b) the work is **already in motion** in a live concurrent PR/dispatch → pointer = that PR/dispatch.
   DEFERRED points at work that is ALREADY scheduled or ALREADY happening. It NEVER creates a parking spot. You cannot write trackers (you are decide-only), so a valid deferral target must already exist — if the work has no existing home, it is NOT deferrable. **The reviewed PR (its body, thread, comments) is NEVER a valid pointer — merging it is the burial.** 'The architecture session' / 'the standards queue' are not pointers unless you name the committed file that queue reads from.
 
-**VERIFY every DEFERRED pointer like research-critic verifies a citation — open it and confirm the item is ACTUALLY THERE** (\`gh issue view\`, \`gh pr view\`, or Read the committed file). A pointer to a location that does not contain the item is a disposition FAILURE, and it means the producing run tried to launder the deferral — reclassify it (it is FIXED-needed or a required export, not deferred) and count it in Stage 5's \`laundered_deferrals_caught\`.
+**VERIFY every DEFERRED pointer like research-critic verifies a citation — open it and confirm the item is ACTUALLY THERE** (\`gh issue view\`, \`gh pr view\`, or Read the committed file). A pointer to a location that does not contain the item is a disposition FAILURE, and it means the producing run tried to launder the deferral — reclassify it (it becomes a HOLD next-step, not a valid deferral) and count it in Stage 5's \`laundered_deferrals_caught\`.
 
 **Binding prohibitions (operator doctrine — these are the failure modes you exist to stop):**
 - **'Pre-existing' / 'existing condition' is ABOLISHED as an excuse — no exceptions.** An item is not exempt from correction because it predates this PR. Disposition it exactly like any other finding. (\"It's just a fancy way of saying I don't want to deal with this.\")
 - **'Out of scope' is an INPUT, not a disposition.** An item the producing run called out-of-scope MUST still terminate in FIXED / REJECTED-with-reasoning / DEFERRED-to-already-existing-work. The label never appears as a terminal state.
-- **Cost-of-dispatch is NEVER a disposition rationale.** \"The fix costs more than the error is worth\" / \"too expensive for something trivial\" is FORBIDDEN. The economics of a fix are the OPERATOR's call, never yours. If you genuinely believe a fix is disproportionate, that is a HOLD(scope) with the trade explicitly stated for the operator to rule on — never a self-granted waiver.
+- **Cost-of-dispatch is NEVER a disposition rationale.** \"The fix costs more than the error is worth\" / \"too expensive for something trivial\" is FORBIDDEN. The economics of a fix are the OPERATOR's call, never yours. If you genuinely believe a fix is disproportionate, that is a HOLD needs-assistance item with the trade explicitly stated for the operator to rule on — never a self-granted waiver.
 
 The producing run's excuses are claims to VERIFY, not conclusions to accept. Run each down to the real issue before dispositioning. This is the anti-rug-sweeping core of the workflow — it is the entire reason you exist.
 
-For items that genuinely need a fix NOW (real issue, not already-fixed, not validly-deferrable, not a genuine rejection), do NOT fix them and do NOT dispatch. Mark them for a fix dispatch and write the scoped dispatch_context in Stage 5 (they make the verdict HOLD/fix-needed). For real, non-blocking follow-ups that have NO existing home (so cannot be deferred), see Stage 4's MERGE-AFTER-EXPORTS path — they must be exported to a live surface before the PR is merged, never buried by the merge.
+Any item that does NOT land cleanly in FIXED / REJECTED-with-reasoning / DEFERRED-to-already-existing-work makes the verdict HOLD and becomes a **next-step** (Stage 4). You never fix or dispatch — you write what must happen. Each next-step is one of two shapes: **redispatch** if the correction is obvious/known (you write the scoped fix task), or **needs-assistance** if it needs the operator's judgment — a real issue you can't confidently resolve, a follow-up with no home, an economics/scope call, or something bigger than this PR (an architecture or planning gap). A needs-assistance item still carries your best reasoned recommendation (via /decide + /best-practices) so the operator rules quickly, not from scratch.
 
-## Stage 4: VERDICT
-Reach exactly one terminal verdict from these THREE:
-- **MERGE** — every item dispositioned, nothing blocking, and every DEFERRED item's pointer was verified present at an already-existing live home (nothing to export). (You do NOT merge — a human/parent does. This verdict means \"clean, safe to merge,\" with a one-line rationale.)
-- **MERGE-AFTER-EXPORTS** — the PR itself is mergeable (strictly-better text, nothing blocking), BUT there are real, non-blocking follow-ups that have NO existing home yet. Do not hold a strictly-better PR hostage — but do not let the merge bury these either. Each becomes a REQUIRED EXPORT: it must land on a live surface (a phase-doc/roadmap gate item, a loose-ends entry, cpi-decisions.md, a GitHub issue, or the operator's sprint-candidate list — in a COMMITTED file) BEFORE the human merges. List them in Stage 5's \`residual_exports\`; the human-facing table must state plainly: \"merge only after these land on their live surfaces.\" (You cannot perform the exports — you are decide-only — so this verdict hands the operator a precise pre-merge checklist.)
-- **HOLD** — not mergeable. Enumerate reasons, each tagged by WHY it is human-shaped or fix-shaped:
-  - \`fix-needed\` (a real issue needs correcting — carries dispatch_context in Stage 5; this is the common blocking case)
-  - \`operator-action\` (sudo/infra/secrets — only the operator can do it)
-  - \`standards\` (a standards-ratification decision — PM3 + human)
-  - \`sprints\` (a sprints.md sequencing decision — operator-owned)
-  - \`scope\` (a scope/economics question a human must rule on — including \"is this fix worth it\")
-  - \`no-reflection\` (producing run left no reflection — likely early-stopped)
+## Stage 4: VERDICT (binary — MERGE or HOLD)
+Reach exactly ONE verdict:
 
-Verdict discipline: if ANY item is fix-needed (a real correction is owed), the verdict is HOLD, not MERGE-AFTER-EXPORTS. MERGE-AFTER-EXPORTS is only for genuinely-non-blocking follow-ups that need a home. Never downgrade a fix-needed into an export to make a PR mergeable — that is the rug-sweep wearing a new hat.
+- **MERGE** — every item landed cleanly: FIXED (verified against the code), REJECTED (with real reasoning), or DEFERRED (to an already-existing home, pointer verified present). Nothing is left needing anything. (You do NOT merge — a human/parent does. MERGE means \"clean, safe to merge,\" with a one-line rationale.)
+
+- **HOLD** — the catch-all: ANYTHING still needs something to be right before this can merge. HOLD is NOT a rejection of the PR — it is a **runway**: the explicit, ordered list of what must happen so the NEXT pass is a MERGE. Every HOLD next-step is exactly one of two shapes:
+  1. **redispatch** — the correction is obvious and known. You write a scoped \`dispatch_context\` (which findings to fix, what to change, what NOT to touch). A human fires \`revision.sh --pr ${PR_NUMBER}\` with it now; a parent workflow fires it once earned. This also covers a homeless follow-up whose home is an obvious doc edit (a plan-revision dispatch).
+  2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; or — importantly — the review uncovered something BIGGER than the PR: **a gap in the architecture or the plan.** For each, present your best RECOMMENDED resolution, reasoned through /decide + /best-practices, so the operator rules quickly from a well-argued starting point rather than from scratch. This is the \"can I have assistance?\" path — surfacing a real gap and asking for direction is a success, not a failure.
+
+Not all HOLD means dispatch. A HOLD may be entirely needs-assistance (e.g. the review found a planning gap and nothing else) — that is exactly the kind of major catch this workflow exists to surface. When you read your own verdict back, a human should see MERGE, or HOLD with a clear \"here is what happens next, and once it does this merges\" list.
 
 ## Stage 5: POST THE DISPOSITION COMMENT
 Write the comment body to a temp file (e.g. /tmp/claude-pr-review-${PR_NUMBER}-<ts>.md — NOTE: never Edit it after writing; Write the full replacement if you must change it), then post via \`gh pr comment ${PR_NUMBER} --body-file <file>\`. The comment has TWO parts:
 
-**Part 1 — human-readable disposition table:**
+**Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short \"WHAT HAPPENS NEXT\" runway list a human can act on at a glance:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
-one row per item, plus a one-line verdict rationale.
 
 **Part 2 — machine-readable block** (fenced \`\`\`yaml). This IS the future Temporal activity-result contract — author it exactly:
 \`\`\`yaml
 pr_review:
   pr: ${PR_NUMBER}
   pass: ${THIS_PASS}
-  verdict: MERGE | MERGE-AFTER-EXPORTS | HOLD
+  verdict: MERGE | HOLD
   findings:
     - id: <stable-slug>
       category: <from the fixed enum — NO existing-condition>
       disposition: fixed | rejected | deferred
       pointer: <REQUIRED if deferred — the already-existing sprint item or live PR, VERIFIED present. Never the reviewed PR.>
       pointer_verified: true|false   # deferred only — did you open it and confirm the item is there?
-  residual_exports:                  # on MERGE-AFTER-EXPORTS: real non-blocking follow-ups with no home yet
+  next_steps:                        # HOLD only — the runway: do these and the next pass is a MERGE
     - item: <finding id>
-      required_home: <the live committed surface it must land on before merge>
-      present: false                 # false = not yet exported; MERGE is gated until it is true
-  hold_reasons:
-    - tag: fix-needed | operator-action | standards | sprints | scope | no-reflection
+      kind: redispatch | needs-assistance
       note: <one line>
-      dispatch_context: |          # ONLY on fix-needed tags — the scoped, ready-to-fire revision task
+      # kind: redispatch — the correction is obvious/known:
+      dispatch_context: |
         <the exact scoped task a future revision.sh --pr ${PR_NUMBER} would carry:
-         which findings to fix, what to change, and explicitly what NOT to touch.
-         Written so a human or a parent workflow can fire it verbatim.>
+         which findings to fix, what to change, and explicitly what NOT to touch.>
+      # kind: needs-assistance — human judgment required:
+      why_human: architecture-gap | planning-gap | scope-economics | standards | sprints | operator-action | genuine-ambiguity | no-reflection
+      recommendation: |
+        <your best resolution, reasoned via /decide + /best-practices, so the operator can rule quickly>
   laundered_deferrals_caught: <int>  # deferrals the producing run pointed at a dead/invalid home that you reclassified (Layer-1 CPI signal)
   redispatched: false                # always false — this engine never dispatches
 \`\`\`
@@ -293,7 +290,6 @@ pr_review:
 ## Stage 6: PRINT THE VERDICT
 As the FINAL line of your output, print exactly one of:
     VERDICT: MERGE
-    VERDICT: MERGE-AFTER-EXPORTS
     VERDICT: HOLD
 This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted.
 
@@ -305,8 +301,9 @@ RULES:
 - Every item ends FIXED / REJECTED-with-reasoning / DEFERRED-to-already-existing-work. \"Recommend we move on\" / \"low value\" / \"acceptable as-is\" are forbidden.
 - **'Pre-existing' / 'existing condition' is abolished as an excuse — no exceptions.** Disposition such items like any other.
 - **'Out of scope' is an input, not a disposition** — it still terminates in FIXED / REJECTED / DEFERRED-to-existing-work.
-- **Cost-of-dispatch is never a disposition rationale.** Disproportionate-fix belief = HOLD(scope) with the trade stated for the operator; never a self-granted waiver.
-- **DEFERRED only points at work already scheduled (existing sprint item) or already in motion (live PR), pointer VERIFIED present.** The reviewed PR is never a valid pointer. No existing home = not deferrable (→ fix-needed or a required export).
+- **Cost-of-dispatch is never a disposition rationale.** Disproportionate-fix belief = a needs-assistance HOLD step with the trade stated for the operator; never a self-granted waiver.
+- **DEFERRED only points at work already scheduled (existing sprint item) or already in motion (live PR), pointer VERIFIED present.** The reviewed PR is never a valid pointer. No existing home = not deferrable (→ a HOLD next-step: redispatch if obvious, needs-assistance if a judgment call).
+- **Verdict is binary: MERGE or HOLD.** HOLD is the catch-all runway (do these next-steps → next pass is MERGE); each next-step is redispatch (obvious fix) or needs-assistance (HiL, with a reasoned recommendation). Not all HOLD is a dispatch — surfacing an architecture/planning gap and asking for direction is a first-class HOLD.
 - Verify claims against the code; do not trust the producing run's self-account — that is the entire point of a fresh-eyes pass.
 - **Bash CWD persists between calls — never blind-chain a relative \`cd\`:** cd via absolute worktree-rooted paths (idempotent) or use absolute paths.
 - **Re-Read before re-Editing anything you wrote earlier:** Edit needs a fresh Read; for the /tmp comment file, Write the full replacement instead of Editing.
