@@ -412,6 +412,29 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## pr-review disposition criteria — anti-rug-sweep hardening (SHIPPED 2026-07-27)
+
+**Trigger:** operator-caught on pr-review's first meal (MDC-Master-Planning PR #136, workflow `1e09106`). The disposition engine — the tool whose ENTIRE job is to stop rug-sweeping — reasoned work away exactly as the producing run had: recommended MERGE while hiding work, deferred items to dead surfaces (the reviewed PR's own thread, locationless "the architecture session"), and pulled a "fix costs more than it's worth" dodge. Merging the PR would have buried the residuals in a session-local task list.
+
+**Root cause (the important part): the value function was unstated.** A capable model with no stated objective optimizes cost — so it economized dispatches and rationalized issues away. The fix is to state the objective, not to patch each dodge. (PM3 handoff + operator rulings, 2026-07-27.)
+
+**Fixes shipped (all in the pr-review.sh prompt — binding doctrine, not guidance):**
+1. **Value function stated at the top** (operator's near-verbatim framing): "QC identifies issues; PR-review's purpose is to get every issue CORRECTED so the result is enterprise-ready code we're proud of. Minimizing effort, economizing dispatches, or rationalizing issues away is the opposite of your job." This is the root-cause fix; the rest are reinforcement.
+2. **'Pre-existing / existing-condition' ABOLISHED** as an excuse AND removed from the category enum. No exceptions. A pre-existing issue is dispositioned like any other.
+3. **'Out of scope' is an input, not a disposition** — still terminates FIXED/REJECTED/DEFERRED.
+4. **Cost-of-dispatch forbidden as a rationale** — disproportionate-fix belief = HOLD(scope) for the operator to rule on; never a self-granted waiver. The economics are the operator's call.
+5. **DEFERRED restricted to two cases (operator ruling 7):** work already scheduled in an existing sprint item, or already in motion in a live PR — pointer VERIFIED present (fetch-and-check like research-critic verifies a citation). Never creates a parking spot; pr-review can't write trackers, so a valid target must already exist. The reviewed PR is never a valid pointer (merging = burial).
+6. **MERGE-AFTER-EXPORTS** third verdict: a mergeable PR with real un-homed non-blocking follow-ups → `residual_exports` manifest becomes a pre-merge checklist (land them on live surfaces first). Preserves "don't hold strictly-better text hostage" without the burial. `fix-needed` items always force HOLD, never a downgrade-to-export.
+
+**Reconciliations made explicit (surfaced to operator + PM3):** (a) fix #1's tracker-allowlist vs ruling #7 resolved by decide-only — pr-review can't create a home, so a deferral target must already exist. (b) un-homed non-blocking work has nowhere to defer → that's precisely what MERGE-AFTER-EXPORTS is for.
+
+**Watch-criteria:**
+- **`laundered_deferrals_caught` per run** (new yaml field): deferrals the producing run pointed at a dead/invalid home that pr-review reclassified. Rising count = producing workflows learning to launder deferrals — a Layer-1 CPI signal that a producing-workflow prompt needs the same anti-launder tightening.
+- **Re-test gate:** the workflow stays strictly HiL until this passes a re-test (operator directive). Meal #2 (a real build PR) is gated on this fix landing. First re-test is the re-audit of PR #136.
+- **Over-correction watch:** if pr-review starts HOLDing genuinely-fine PRs (false rug-sweep positives) or rejecting valid deferrals-to-real-sprint-items, the deferred bar may be too tight — recalibrate the two-case rule.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
