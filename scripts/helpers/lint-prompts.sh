@@ -86,7 +86,14 @@ for f in "$WF_DIR"/*.sh; do
             # `)`): a loose pattern like `^[[:space:]]*\(` matches PROSE such as
             # "(1) STATE THE CONTEXT…" and silently truncates the block, which
             # then fails to construct for the wrong reason.
-            e=$(awk -v s="$s" 'NR>s && (/^[[:space:]]*(echo|run_claude)/ || /^\)/) {print NR; exit}' "$f")
+            # `else` / `fi` are included so a prompt built inside an if/else
+            # (e.g. a per-path SUBMIT_PROMPT) is extracted as its own block
+            # rather than swallowing the whole conditional.
+            # Terminators must be UNAMBIGUOUS shell statements — a loose pattern
+            # matches prose and silently truncates the block (which then fails
+            # for the wrong reason). `if [[` is safe because the `[[` cannot
+            # plausibly open a prose line.
+            e=$(awk -v s="$s" 'NR>s && (/^[[:space:]]*(echo|run_claude)/ || /^[[:space:]]*if \[\[/ || /^[[:space:]]*(else|fi)[[:space:]]*$/ || /^\)/) {print NR; exit}' "$f")
             [[ -n "$e" ]] || e=$(( $(wc -l < "$f") + 1 ))
             block=$(sed -n "${s},$((e-1))p" "$f")
         fi

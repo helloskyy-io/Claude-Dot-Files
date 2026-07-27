@@ -42,7 +42,7 @@ claude-dot-files/
 │   │   ├── planner.md                               # Detailed implementation plans (Opus, on-demand)
 │   │   ├── quality-control.md                       # Senior-engineer holistic lens — runs sequentially after parallel reviewers
 │   │   ├── refactoring-evaluator.md                 # Structural improvement evaluation
-│   │   ├── research-analyst.md                      # Deep-research mini-paper author (fable + web; gaps-are-findings discipline)
+│   │   ├── research-analyst.md                      # Deep-research mini-paper author (opus + web; raw-sources-over-rendered, gaps-are-findings)
 │   │   ├── research-critic.md                       # Anti-hallucination gate — fetches every cited source, verifies claims match
 │   │   ├── research-currency.md                     # Research refresh differ — fresh sweep vs existing paper, revalidation intervals
 │   │   ├── security-auditor.md                      # Vulnerability detection & audit
@@ -129,8 +129,8 @@ claude-dot-files/
 │       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition
 │       ├── plan-revision.sh                         # PLAN-REVISION — revise existing planning docs
 │       ├── pr-review.sh                             # PR-REVIEW — disposition engine (decide-only; fresh-eyes verdict MERGE|HOLD + machine yaml on the PR)
-│       ├── research.sh                              # RESEARCH — create component research pool + synthesis (per target repo's Research Standard)
-│       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side mechanical gate, clean no-op)
+│       ├── research.sh                              # RESEARCH — create/extend component research pool + synthesis (--pr updates an existing research PR)
+│       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side gate, clean no-op; --pr gates on that PR's pool)
 │       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
 │       ├── revision.sh                              # REVISION — minor corrections to existing code
 │       ├── revision-major.sh                        # REVISION-MAJOR — significant rework with peer-review trio + quality-control

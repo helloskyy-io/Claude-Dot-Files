@@ -30,6 +30,11 @@
 #   [context]            Optional inline context (component pointers, looming
 #                        decisions the topics must feed)
 #   --task-file <path>   Context from a file (mutually exclusive with inline)
+#   --pr <N>             Update an existing research PR instead of creating one.
+#                        Checks out the PR branch, so the pool the run reads and
+#                        extends is the PR's pool, not main's. This is the path a
+#                        pr-review HOLD's dispatch_context targets — it closes the
+#                        research leg's correction loop.
 #   --repo <path>        Target repo (explicit identity — never derived from
 #                        the invocation directory; default: cwd's repo)
 #   --verbose, -v        Stream formatted Claude output live
@@ -55,6 +60,8 @@ Arguments:
   <research-dir>       Research folder RELATIVE to the target repo root
   [context]            Optional inline context for topic selection
   --task-file <path>   Context from a file (for multi-paragraph content)
+  --pr <N>             Update an existing research PR instead of creating one
+                       (extends that PR's pool — the pr-review HOLD loop)
   --repo <path>        Target repo (default: the repo containing the cwd)
   --verbose, -v        Stream formatted Claude output live
 
@@ -69,6 +76,7 @@ RESEARCH_DIR=""
 CONTEXT=""
 TASK_FILE=""
 REPO_TARGET=""
+PR_NUMBER=""
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
@@ -76,6 +84,9 @@ while [[ $# -gt 0 ]]; do
         --task-file)
             if [[ $# -lt 2 ]]; then echo "Error: --task-file requires a path" >&2; exit 1; fi
             TASK_FILE="$2"; shift 2 ;;
+        --pr)
+            if [[ $# -lt 2 ]]; then echo "Error: --pr requires a PR number" >&2; exit 1; fi
+            PR_NUMBER="$2"; shift 2 ;;
         --repo)
             if [[ $# -lt 2 ]]; then echo "Error: --repo requires a path" >&2; exit 1; fi
             REPO_TARGET="$2"; shift 2 ;;
@@ -95,6 +106,9 @@ done
 if [[ -z "$RESEARCH_DIR" ]]; then show_usage >&2; exit 1; fi
 if [[ -n "$CONTEXT" && -n "$TASK_FILE" ]]; then
     echo "Error: cannot use both inline context and --task-file" >&2; exit 1
+fi
+if [[ -n "$PR_NUMBER" && ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+    echo "Error: --pr requires a positive integer" >&2; exit 1
 fi
 if [[ -n "$TASK_FILE" ]]; then
     [[ -f "$TASK_FILE" && -r "$TASK_FILE" ]] || { echo "Error: task file not found/readable: ${TASK_FILE}" >&2; exit 1; }
@@ -137,6 +151,11 @@ echo "  RESEARCH WORKFLOW"
 echo "================================================================"
 echo "  Repo         : ${REPO_ROOT}"
 echo "  Research dir : ${RESEARCH_DIR}"
+if [[ -n "$PR_NUMBER" ]]; then
+    echo "  Target       : PR #${PR_NUMBER} (updating — extends that PR's pool)"
+else
+    echo "  Target       : new branch and PR"
+fi
 echo "  Worktree     : ${WORKTREE_NAME}"
 echo "  Max turns    : ${MAX_TURNS}"
 echo "  Verbose      : ${VERBOSE}"
@@ -146,6 +165,33 @@ echo
 
 MODEL_KEY="research"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
+
+# ---------------------------------------------------------------------------
+# Submit stage differs by path: update an existing PR vs create a new one.
+# Built here so the PROMPT below stays a single assignment (and stays covered
+# by scripts/helpers/lint-prompts.sh, which lints any *PROMPT= assignment).
+# ---------------------------------------------------------------------------
+if [[ -n "$PR_NUMBER" ]]; then
+    SUBMIT_PROMPT="- Stage and commit remaining changes with message format: \"research: <component> — <what this pass added or corrected>\"
+- Push the branch (this updates PR #${PR_NUMBER})
+- Update the PR body to reflect the FULL current state of the pool (not just this pass's delta) — it is the reviewer's index:
+  - Complexity tier + topic count (with the Stage 2 justification, re-assessed this pass)
+  - Per paper: topic — confidence summary — critic verdict (one line each)
+  - Synthesis action candidates (copied verbatim — this is the standup consumable)
+  - Gaps / test-plan highlights (what research could not settle)
+  - A short 'This pass' section: what was added, corrected, or dropped
+- Post a PR comment summarising ONLY this pass's changes, so reviewers can see the delta without diffing the body
+- **As your FINAL line, print the PR URL** — run \"gh pr view ${PR_NUMBER} --json url --jq .url\" and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded."
+else
+    SUBMIT_PROMPT="- Stage and commit remaining changes with message format: \"research: <component> — <N> papers + synthesis\"
+- Push the branch
+- Create a PR via 'gh pr create'. Title: \"research: ${RESEARCH_DIR}\". The papers ARE the deliverable — the PR body is a scannable index, under 100 lines:
+  - Complexity tier + topic count (with the Stage 2 justification)
+  - Per paper: topic — confidence summary — critic verdict (one line each)
+  - Synthesis action candidates (copied verbatim — this is the standup consumable)
+  - Gaps / test-plan highlights (what research could not settle)
+- Report the PR URL as your final line"
+fi
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 source "${SCRIPT_DIR}/lib/shared-prompts.sh"
 
@@ -178,6 +224,7 @@ FIRST: verify the task targets THIS repo. If ${RESEARCH_DIR} or the context refe
 Then:
 - Locate and READ the repo's research standard (expected at standards/development/research/research_standard.md or the repo's equivalent — check CLAUDE.md / docs index). If NO research standard exists in this repo, STOP and report it — the artifact contract is a required input, not something to improvise.
 - Read ${RESEARCH_DIR} if it already exists (raw/ papers + synthesis.md) — a re-run grows/corrects the pool, it does not blindly duplicate it.
+- **Your worktree is checked out from the branch under work.** If this run is updating an existing PR, the pool you read IS that PR's pool — its papers, its synthesis — NOT main's. Extend and correct what the PR already produced; never conclude the pool is empty because main does not have it yet.
 - Read the component's planning docs (the roadmap / phase docs / standard sections this research feeds) — the DESTINATION drives the topics.
 
 ## Stage 2: SIZE
@@ -209,16 +256,9 @@ Write (or fully rewrite) ${RESEARCH_DIR}/synthesis.md per the standard's synthes
 - The synthesis path is a STABLE consumption surface — always exactly ${RESEARCH_DIR}/synthesis.md.
 
 ## Stage 6: SUBMIT
-- Stage and commit remaining changes with message format: \"research: <component> — <N> papers + synthesis\"
-- Push the branch
-- Create a PR via 'gh pr create'. Title: \"research: ${RESEARCH_DIR}\". The papers ARE the deliverable — the PR body is a scannable index, under 100 lines:
-  - Complexity tier + topic count (with the Stage 2 justification)
-  - Per paper: topic — confidence summary — critic verdict (one line each)
-  - Synthesis action candidates (copied verbatim — this is the standup consumable)
-  - Gaps / test-plan highlights (what research could not settle)
+${SUBMIT_PROMPT}
 
 ${DECISION_LOG_AND_REFLECTION}
-- Report the PR URL
 
 RULES:
 - This is an EVIDENCE workflow: never fabricate, never paper over a gap with a plausible guess — gaps are findings. The research standard's contract is binding for every artifact you produce.
@@ -231,10 +271,32 @@ RULES:
 - If this run created new files or directories, run \`git status\` before the final commit and confirm each appears as untracked; if not, grep .gitignore for unanchored patterns hiding them and add \`!path/\` allowlist entries.
 - If you cannot complete a stage, stop and clearly report why."
 
-echo "→ Launching Claude in research mode (new branch)..."
-echo
+if [[ -n "$PR_NUMBER" ]]; then
+    echo "→ Fetching PR #${PR_NUMBER} metadata..."
+    PR_BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName' 2>/dev/null || echo "")
+    [[ -n "$PR_BRANCH" ]] || { echo "Error: could not determine branch for PR #${PR_NUMBER}" >&2; exit 1; }
+    echo "  Branch: ${PR_BRANCH}"
 
-run_claude "$PROMPT" -w "$WORKTREE_NAME"
+    WORKTREE_PATH=".claude/worktrees/${WORKTREE_NAME}"
+    mkdir -p .claude/worktrees
+    echo "→ Fetching latest PR branch state..."
+    git fetch origin "$PR_BRANCH"
+    echo "→ Creating worktree at ${WORKTREE_PATH}..."
+    git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
+
+    echo
+    echo "→ Launching Claude in research mode (updating PR #${PR_NUMBER})..."
+    echo
+    (
+        cd "$WORKTREE_PATH"
+        run_claude "$PROMPT"
+    )
+else
+    echo "→ Launching Claude in research mode (new branch)..."
+    echo
+
+    run_claude "$PROMPT" -w "$WORKTREE_NAME"
+fi
 
 echo
 echo "================================================================"

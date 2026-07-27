@@ -41,6 +41,8 @@ No papers due -> clean no-op exit.
 
 Arguments:
   <research-dir>       Research folder RELATIVE to the target repo root
+  --pr <N>             Update an existing research PR instead of creating one.
+                       The due-gate then evaluates THAT PR's pool, not main's.
   --repo <path>        Target repo (default: the repo containing the cwd)
   --all                Treat every paper as due (force full refresh)
   --verbose, -v        Stream formatted Claude output live
@@ -53,11 +55,15 @@ EOF
 
 RESEARCH_DIR=""
 REPO_TARGET=""
+PR_NUMBER=""
 FORCE_ALL=false
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --pr)
+            if [[ $# -lt 2 ]]; then echo "Error: --pr requires a PR number" >&2; exit 1; fi
+            PR_NUMBER="$2"; shift 2 ;;
         --repo)
             if [[ $# -lt 2 ]]; then echo "Error: --repo requires a path" >&2; exit 1; fi
             REPO_TARGET="$2"; shift 2 ;;
@@ -76,6 +82,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$RESEARCH_DIR" ]] || { show_usage >&2; exit 1; }
+if [[ -n "$PR_NUMBER" && ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+    echo "Error: --pr requires a positive integer" >&2; exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Environment checks
@@ -97,8 +106,36 @@ git rev-parse --show-toplevel &>/dev/null || { echo "Error: not inside a git rep
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-RAW_DIR="${REPO_ROOT}/${RESEARCH_DIR}/raw"
-[[ -d "$RAW_DIR" ]] || { echo "Error: no raw/ pool at ${RESEARCH_DIR}/raw — run research.sh first" >&2; exit 1; }
+# ---------------------------------------------------------------------------
+# Worktree + pool source.
+# On the --pr path the worktree is created BEFORE the due-gate, because the pool
+# to evaluate is the PR BRANCH's pool, not main's — gating against main would
+# scan the wrong papers (or none at all, if the pool only exists in the PR).
+# ---------------------------------------------------------------------------
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+WORKTREE_NAME="research-refresh-${TIMESTAMP}"
+WORKTREE_PATH=".claude/worktrees/${WORKTREE_NAME}"
+WORKTREE_CREATED=false
+
+if [[ -n "$PR_NUMBER" ]]; then
+    echo "→ Fetching PR #${PR_NUMBER} metadata..."
+    PR_BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName' 2>/dev/null || echo "")
+    [[ -n "$PR_BRANCH" ]] || { echo "Error: could not determine branch for PR #${PR_NUMBER}" >&2; exit 1; }
+    echo "  Branch: ${PR_BRANCH}"
+    mkdir -p .claude/worktrees
+    git fetch origin "$PR_BRANCH"
+    git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
+    WORKTREE_CREATED=true
+    RAW_DIR="${REPO_ROOT}/${WORKTREE_PATH}/${RESEARCH_DIR}/raw"
+else
+    RAW_DIR="${REPO_ROOT}/${RESEARCH_DIR}/raw"
+fi
+
+if [[ ! -d "$RAW_DIR" ]]; then
+    $WORKTREE_CREATED && git worktree remove --force "$WORKTREE_PATH" 2>/dev/null
+    echo "Error: no raw/ pool at ${RESEARCH_DIR}/raw — run research.sh first" >&2
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Mechanical due-gate (bash-side, zero Claude spend)
@@ -149,19 +186,23 @@ echo "  RESEARCH-REFRESH WORKFLOW"
 echo "================================================================"
 echo "  Repo         : ${REPO_ROOT}"
 echo "  Research dir : ${RESEARCH_DIR}"
+if [[ -n "$PR_NUMBER" ]]; then
+    echo "  Target       : PR #${PR_NUMBER} (updating — gated on that PR's pool)"
+else
+    echo "  Target       : new branch and PR"
+fi
 echo "  Papers       : ${SCANNED} scanned, ${DUE_COUNT} due"
 echo "================================================================"
 
 if (( DUE_COUNT == 0 )); then
+    # Clean up the PR-path worktree so a no-op leaves no artifact behind.
+    $WORKTREE_CREATED && git worktree remove --force "$WORKTREE_PATH" 2>/dev/null
     echo
     echo "No papers due for revalidation — clean no-op. Exiting."
     exit 0
 fi
 
 echo "$DUE_LIST"
-
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="research-refresh-${TIMESTAMP}"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
 LOG_FILE="${LOG_DIR}/research-refresh-${TIMESTAMP}.jsonl"
@@ -174,6 +215,25 @@ echo
 
 MODEL_KEY="research-refresh"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
+
+# Submit stage differs by path (update vs create). Named *PROMPT so
+# scripts/helpers/lint-prompts.sh covers both branches.
+if [[ -n "$PR_NUMBER" ]]; then
+    SUBMIT_PROMPT="- Commit remaining changes: \"research-refresh: <component> — <N> papers revalidated\"
+- Push the branch (this updates PR #${PR_NUMBER})
+- Update the PR body to reflect the pool's FULL current state, and post a PR comment covering ONLY this pass:
+  - Per refreshed paper: topic — four-category diff summary (one line) — new Revalidate interval — critic verdict
+  - RETIREMENT recommendations, if any (prominent — human decision required)
+  - ## Synthesis Diff — the Stage 4 diff section, verbatim (this is what the standup consumes)
+- **As your FINAL line, print the PR URL** — run \"gh pr view ${PR_NUMBER} --json url --jq .url\" and print the result. This is the run's completion signal; on this path nothing else emits the URL, and a run ending without it is misread as an early-stop failure."
+else
+    SUBMIT_PROMPT="- Commit remaining changes: \"research-refresh: <component> — <N> papers revalidated\"
+- Push and create a PR via 'gh pr create'. Title: \"research-refresh: ${RESEARCH_DIR} — <N> papers\". PR body, under 100 lines:
+  - Per refreshed paper: topic — four-category diff summary (one line) — new Revalidate interval — critic verdict
+  - RETIREMENT recommendations, if any (prominent — human decision required)
+  - ## Synthesis Diff — the Stage 4 diff section, verbatim (this is what the standup consumes)
+- Report the PR URL as your final line"
+fi
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 source "${SCRIPT_DIR}/lib/shared-prompts.sh"
 
@@ -211,14 +271,9 @@ For each updated paper, dispatch the research-critic agent. Blocking findings (F
 Rewrite ${RESEARCH_DIR}/synthesis.md per the standard's synthesis contract (cites input papers WITH their Last-validated dates; ends in standup-sized action candidates). Then produce the SYNTHESIS DIFF — the standup consumable: what changed in the synthesis relative to its prior version (new/changed/removed action candidates, shifted conclusions), as a concise section for the PR body.
 
 ## Stage 5: SUBMIT
-- Commit remaining changes: \"research-refresh: <component> — <N> papers revalidated\"
-- Push and create a PR via 'gh pr create'. Title: \"research-refresh: ${RESEARCH_DIR} — <N> papers\". PR body, under 100 lines:
-  - Per refreshed paper: topic — four-category diff summary (one line) — new Revalidate interval — critic verdict
-  - RETIREMENT recommendations, if any (prominent — human decision required)
-  - ## Synthesis Diff — the Stage 4 diff section, verbatim (this is what the standup consumes)
+${SUBMIT_PROMPT}
 
 ${DECISION_LOG_AND_REFLECTION}
-- Report the PR URL
 
 RULES:
 - This is an EVIDENCE workflow: never fabricate, never paper over a gap — gaps are findings. The research standard's contract is binding.
@@ -229,10 +284,19 @@ RULES:
 - **Parallel tool calls in the gather phase:** batch 3+ independent Read/Grep/Glob calls into a single turn.
 - If you cannot complete a stage, stop and clearly report why."
 
-echo "→ Launching Claude in research-refresh mode (new branch)..."
-echo
+if [[ -n "$PR_NUMBER" ]]; then
+    echo "→ Launching Claude in research-refresh mode (updating PR #${PR_NUMBER})..."
+    echo
+    (
+        cd "$WORKTREE_PATH"
+        run_claude "$PROMPT"
+    )
+else
+    echo "→ Launching Claude in research-refresh mode (new branch)..."
+    echo
 
-run_claude "$PROMPT" -w "$WORKTREE_NAME"
+    run_claude "$PROMPT" -w "$WORKTREE_NAME"
+fi
 
 echo
 echo "================================================================"
