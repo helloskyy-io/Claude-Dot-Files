@@ -75,6 +75,7 @@ models:
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
   research-refresh: opus        # research revalidation — orchestration + synthesis diff
+  pr-review: fable              # PR disposition engine — judgment-heavy /decide + /best-practices per item
 
   # Agent-tier canon (DOCUMENTATION ONLY — agents pin models in their own
   # frontmatter at config/agents/*.md, which cannot reference this file.

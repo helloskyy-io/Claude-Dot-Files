@@ -324,6 +324,16 @@ These were considered and rejected based on research and the dual-flow principle
 - ❌ **Wrapper scripts for every combination** — Only build what's needed
 - ❌ **Custom state management** — Let GitHub PRs hold state
 
+## PR Disposition (pr-review.sh)
+
+`pr-review.sh --pr <N>` mechanizes the PM ritual on a returned PR: it enumerates every surfaced item (issues, deferrals, existing conditions, friction, and diff problems the producing run missed) and forces each to a terminal disposition — **FIXED** (verified against the code) / **REJECTED** (with reasoning) / **DEFERRED** (with a tracked pointer). "Recommend we move on" is forbidden. It ends in a binary **VERDICT: MERGE | HOLD**.
+
+**Why it works:** the producing run is commitment-biased — it authored the choices and rationalizes its own findings away. pr-review runs in a fresh worktree with no investment in those choices, so it dispositions honestly and verifies claims against the actual code instead of trusting the self-review. It is the fresh session you'd otherwise open by hand.
+
+**Decide-only (additive-automation).** It takes NO actions: never merges, closes, fixes, dispatches, or edits standards/sprints. When a fix is genuinely needed it writes a scoped, ready-to-fire `dispatch_context` into the PR comment (a `fix-needed` HOLD) — a human fires it today; a parent workflow / Temporal fires it once CPI evidence earns that autonomy, exactly as merge authority is earned. This is the Temporal child-workflow shape: return a decision, let the parent act.
+
+**Output = one PR comment**: a human disposition table + a machine-readable `pr_review:` yaml block (stable finding slugs + fixed category enum → the future Temporal activity-result contract; recurrence mines on the slugs). "Pass 2" is simply a later re-run on the updated PR — it detects the prior comment, increments `pass`, and reuses stable ids. Distinct from `review-runs.sh` (that mines run LOGS for process CPI; this reviews PR CONTENT for disposition).
+
 ## Model Management
 
 Every workflow dispatch runs with an **explicit `--model`**, resolved at dispatch time from the `models:` map in `config.yaml` (repo root) by `lib/run-claude.sh`. This exists because headless runs otherwise inherit ambient defaults — a PM session's model leaks into the workflows it dispatches. Model identity is an explicit input, never derived.

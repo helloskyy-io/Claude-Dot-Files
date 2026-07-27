@@ -126,6 +126,7 @@ claude-dot-files/
 │       ├── build-phase.sh                           # BUILD-PHASE — implement from a plan doc
 │       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition
 │       ├── plan-revision.sh                         # PLAN-REVISION — revise existing planning docs
+│       ├── pr-review.sh                             # PR-REVIEW — disposition engine (decide-only; fresh-eyes verdict MERGE|HOLD + machine yaml on the PR)
 │       ├── research.sh                              # RESEARCH — create component research pool + synthesis (per target repo's Research Standard)
 │       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side mechanical gate, clean no-op)
 │       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
