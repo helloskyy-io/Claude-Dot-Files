@@ -111,7 +111,8 @@ claude-dot-files/
 │
 ├── scripts/
 │   ├── helpers/                                     # Pure bash utilities (no AI)
-│   │   └── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
+│   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
+│   │   └── lint-prompts.sh                          # Ship-gate: flags unescaped backticks in double-quoted PROMPTs (command-substitution landmines bash -n can't see)
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows

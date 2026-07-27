@@ -189,7 +189,7 @@ Assess the component's complexity per the standard's sizing rubric and produce t
 ## Stage 3: RESEARCH
 For each NEW or materially-outdated topic, dispatch the research-analyst agent to write ${RESEARCH_DIR}/raw/<topic>.md:
 - Each analyst prompt must include: the topic, its Feeds destination, the path to the research standard (the analyst reads the contract itself), the output path, and any relevant context from above.
-- Dispatch contract (headless-safe): dispatch the analysts as FOREGROUND agents (`run_in_background: false`) — one message with multiple foreground Agent calls runs them concurrently where the harness allows AND blocks the turn until results return. NEVER background-dispatch and then wait: in a headless run a text-only "waiting" turn ends the run before any paper is written. If concurrency is not available, dispatch them sequentially (foreground) — sequential-but-completing beats concurrent-but-dead.
+- Dispatch contract (headless-safe): dispatch the analysts as FOREGROUND agents (\`run_in_background: false\`) — one message with multiple foreground Agent calls runs them concurrently where the harness allows AND blocks the turn until results return. NEVER background-dispatch and then wait: in a headless run a text-only "waiting" turn ends the run before any paper is written. If concurrency is not available, dispatch them sequentially (foreground) — sequential-but-completing beats concurrent-but-dead.
 - After each analyst returns, checkpoint-commit its paper.
 
 ## Stage 4: VERIFY

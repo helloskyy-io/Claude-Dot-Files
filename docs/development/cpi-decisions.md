@@ -454,6 +454,22 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Prompt-construction landmine — unescaped backticks in double-quoted PROMPTs (FIXED 2026-07-27, fleet-blocking)
+
+**Trigger:** live dispatch (secrets research cycle) died at exit 127 before Stage 1 — `research.sh: line 230: run_in_background:: command not found`. Class: an UNESCAPED backtick inside a double-quoted `PROMPT="..."` triggers command substitution at runtime — bash executes the backtick's contents as a command during the assignment. `bash -n` passes it (syntactically valid); it only fails when the line executes, which no syntax check reaches. This is the "never ran at all" class — distinct from the completion contract's "ran but produced nothing."
+
+**Diagnosis (empirical, corrected PM3's inferred blast radius):** PM3 confirmed research.sh live and inferred 5 others broken by the same text. Reproduced both quoting shapes: a backtick in a single-quoted heredoc (`<<'EOF'`) is literal and SAFE even when interpolated via `${VAR}` (bash does not re-scan expansion results); a backtick written directly in a double-quoted string command-substitutes. Audit of every occurrence: the 4 S4 scripts (revision-major, plan-revision, build-phase, sprint-review) carry the dispatch line INSIDE their single-quoted STAGES heredocs → SAFE. pr-review has 57 backticks in its inline double-quoted PROMPT but ALL escaped (`\``) → SAFE (why meals #1/#2 ran). **The actual bug was exactly 2 bare backticks each in research.sh + research-refresh.sh** — the `run_in_background: false` pair added in the headless fix without escaping, while every other backtick in those files was escaped. Real blast radius: 2 files, not 6.
+
+**Fix:** escaped the 2 bare backticks in each research script. Verified: 0 bare backticks remain; the escaped form preserves the literal text and does not substitute.
+
+**Ship-gate (the durable fix — PM3 point 3):** `scripts/helpers/lint-prompts.sh` — strips single-quoted heredoc bodies and comment lines, flags any surviving unescaped backtick in the command-substitutable regions. Zero runtime deps (no gh/PR/auth/side-effects, unlike a runtime smoke test), catches the exact class `bash -n` misses. Proven: reports the fixed fleet clean, and catches the bug the instant it's reintroduced. **Run it before committing any workflow prompt change.**
+
+**Calibration lesson:** the ship gate (`bash -n` + functional tests) had a blind spot for prompt-construction failures — a same-day shipment took down 2 workflows and `bash -n` waved it through. The lint closes that specific gap. A fuller runtime build-test (catching all prompt-construction failures, not just backticks) remains a possible future addition, with the tradeoff that it needs per-workflow fixtures + git/gh/claude and can't cover the --pr-only pr-review without a live PR.
+
+**Watch:** the lint's comment-skip (`^\s*#`) means a bare backtick on a markdown-header line inside a prompt would be missed — narrow, since headers rarely carry inline code. If a prompt-construction failure ever slips past the lint, escalate to the runtime build-test.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
