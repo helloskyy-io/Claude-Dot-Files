@@ -13,7 +13,13 @@ For per-cycle CPI decisions (ship/defer/reject with watch-criteria), use `docs/d
 
 ---
 
-## STOP→issue writer — the memory model's second leg has no writer (identified 2026-07-27)
+## STOP→issue writer — the memory model's second leg has no writer (identified 2026-07-27) → RESOLVED same day
+
+**→ RESOLVED 2026-07-27 (commit shipping addendum 2 of the tune-3 handoff).** The operator caught the same gap independently and ratified the STOP→issue writer (Research §7). plan-new + plan-revision now file a labeled GitHub issue (`research-required` / `evidence-faulty`) on any research-sufficiency or evidence-integrity STOP — body carries the finding + both ready-to-fire next-step options + a `plan_stop:` yaml block; COMPLETION_PATTERN extended to accept the issue URL (a STOP that failed to record itself fails loud). `/standup` reads and surfaces them. The issue-surface leg is now written and read. Original entry retained below for the calibration record.
+
+---
+
+
 
 **Context:** `/standup` (shipped 2026-07-27) routes attention to two git-native memory surfaces — PR threads (change outcomes: reflections + `pr_review:` disposition yaml) and GitHub Issues (no-change outcomes: STOPs, pending decisions, per Research §7/§5.5). The PR leg is written and read. **The Issue leg is READ by /standup but WRITTEN by nothing** — audited: zero `gh issue create` across all workflows. The STOP conditions we shipped (research-sufficiency + evidence-integrity in plan-new/plan-revision; pr-review needs-assistance) report in-PR / in-output, not as labeled issues. So a STOP that only prints to a dispatch log is exactly the write-only failure /standup exists to prevent.
 

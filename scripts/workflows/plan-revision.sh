@@ -217,7 +217,7 @@ echo
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
 MODEL_KEY="plan-revision"
-COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
+COMPLETION_PATTERN='https://github\.com/[^ )]+/(pull|issues)/[0-9]+'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
@@ -255,9 +255,29 @@ Read the existing planning docs in docs/ (architecture/, development/, guide/, s
 - The current requirements and success criteria
 - How the existing planning docs relate to each other
 
-**Research-sufficiency check (if the target repo has a Research Standard), before any spend.** Assess whether this component warrants research per that standard's sizing rubric (new major component / new external tech / customer-facing / a decision otherwise argued from priors). If it warrants research AND no research/ dir exists for it AND your dispatch carries NO explicit research-waiver directive → STOP now and report two options: (1) run research first — recommended (\`research.sh <component>/research --repo <repo>\`); or (2) re-dispatch with an explicit research-waiver directive. If a waiver directive IS present, proceed AND write the §2 waiver line (\`Research waiver: <reason>\`) into the phase doc so the human's choice lands where reviewers read. Planning before warranted research inverts the loop; this ~\$2 stop prevents a ~\$40 plan redone after research corrects it.
+**Research-sufficiency check (if the target repo has a Research Standard), before any spend.** Assess whether this component warrants research per that standard's sizing rubric (new major component / new external tech / customer-facing / a decision otherwise argued from priors). If it warrants research AND no research/ dir exists for it AND your dispatch carries NO explicit research-waiver directive → STOP now and RECORD the STOP as a git-surface issue (per 'Recording a STOP' below), whose two next-step options are: (1) run research first — recommended (\`research.sh <component>/research --repo <repo>\`); or (2) re-dispatch this workflow with an explicit research-waiver directive. If a waiver directive IS present, proceed AND write the §2 waiver line (\`Research waiver: <reason>\`) into the phase doc so the human's choice lands where reviewers read. Planning before warranted research inverts the loop; this ~\$2 stop prevents a ~\$40 plan redone after research corrects it.
 
-**Evidence-integrity precheck — only if your inputs include research artifacts (a research/ dir the plan cites).** Before you consume any research as input, verify its integrity: critic verdicts present on the papers, papers inside their revalidation window (not past-window treated as authority), load-bearing claims non-contradictory. If the evidence is structurally faulty, STOP — do NO planning on it, and report it as a blocking finding ("evidence-integrity failure: <what's wrong>"). Building a plan on rotten evidence costs far more than catching it here.
+**Evidence-integrity precheck — only if your inputs include research artifacts (a research/ dir the plan cites).** Before you consume any research as input, verify its integrity: critic verdicts present on the papers, papers inside their revalidation window (not past-window treated as authority), load-bearing claims non-contradictory. If the evidence is structurally faulty, STOP — do NO planning on it, and RECORD the STOP as a git-surface issue (per 'Recording a STOP' below), stop_class \`evidence-faulty\`. Building a plan on rotten evidence costs far more than catching it here.
+
+**Recording a STOP (both checks above).** A STOP must land on a git surface, not just terminal output — a fail-fast that records itself only to a dispatch log is invisible to future humans AND to the eventual parent workflow (the grave-memory anti-pattern). So on ANY STOP above, open a GitHub ISSUE in the target repo, print its URL as your final line, and do NO planning after filing — the issue IS the deliverable of a STOP:
+- Ensure the label exists, then file: \`gh label create <label> --color FBCA04 --description 'plan STOP' 2>/dev/null || true\`, then \`gh issue create --title '<title>' --label <label> --body-file <tmpfile>\`.
+- **Title:** \`plan-revision STOPPED: research required for <component> (§2)\` (sufficiency) or \`evidence-integrity failure: <paper>\` (integrity). **Label:** \`research-required\` (sufficiency) or \`evidence-faulty\` (integrity).
+- **Body:** the finding; then BOTH next-step options as ready-to-fire dispatch contexts (option 1: the exact \`research.sh\` command; option 2: re-dispatch this workflow with the research-waiver directive); then a machine-readable yaml block (same schema family as \`pr_review:\`):
+\`\`\`yaml
+plan_stop:
+  repo: <owner/repo>
+  component: <component / research dir>
+  stop_class: research-required | evidence-faulty
+  finding: <one line>
+  next_steps:
+    - option: research-first
+      dispatch: <the exact research.sh command>
+    - option: waiver
+      dispatch: <re-dispatch this workflow with the research-waiver directive>
+  resolves_when: <the research PR that \"Closes #N\", or the waiver re-dispatch that cites #N>
+\`\`\`
+- The resolving artifact closes it (research PR body says \`Closes #N\`; a waiver re-dispatch cites #N). gh-monitor safety: NO line in the issue body may START with \`@claude\` — put any dispatch-command illustration inside a code fence.
+- Then print the issue URL as your FINAL line — it is the STOP's completion signal (exit-0-means-done holds for stop-outcomes too).
 
 **Workflow-fit check — do this BEFORE proceeding past Stage 1.** Assess whether this task actually belongs on plan-revision. If the task is predominantly a bulk rename, find-and-replace, or mechanical refactor across many files (not a genuine plan/architecture/requirements revision), STOP and report:
 
