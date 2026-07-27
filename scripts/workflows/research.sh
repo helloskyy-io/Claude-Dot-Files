@@ -197,7 +197,9 @@ For each paper written or updated in Stage 3, dispatch the research-critic agent
 - FABRICATED and MISCITED findings are BLOCKING: fix them (re-dispatch the analyst for substantive rework, or fix directly for mechanical corrections) and RE-VERIFY through the critic. No paper enters the synthesis with unresolved blocking findings.
 - CONFIDENCE INFLATION findings must be fixed before merge (downgrade the marks or strengthen the evidence).
 - UNVERIFIABLE findings are recorded in the paper (mark those claims unverified) — flagged, not blocking.
-- Record each paper's final critic verdict for the PR body.
+- **Correction-round budget: MAX 3 rounds per paper** (analyst-fix → critic re-verify counts as one round). Expect at least one round on most papers — that is the gate working, not a failure.
+- **Non-convergence path:** if a paper still has BLOCKING findings after round 3, do NOT keep looping. DROP that paper from this cycle: exclude it from \`synthesis.md\`, leave it in \`raw/\` with a prominent header line \`STATUS: NOT VERIFIED — excluded from synthesis (N correction rounds, unresolved: <what>)\`, and report it in the PR body as a non-convergent topic needing human attention. An unverifiable paper that is honestly excluded is a finding; one that silently rides into the synthesis is a contamination.
+- Record each paper's final critic verdict for the PR body, and write it into the paper's own header (\`Critic:\` line) so a paper read on its own carries its verification evidence.
 
 ## Stage 5: SYNTHESIZE
 Write (or fully rewrite) ${RESEARCH_DIR}/synthesis.md per the standard's synthesis contract:

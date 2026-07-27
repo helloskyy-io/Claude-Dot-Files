@@ -497,6 +497,38 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Tooling cycle 3 — comprehensive instrument fixes (SHIPPED 2026-07-27)
+
+**Source:** PM3 consolidated feedback across 3 runs / 2 PMs / 2 tools (pr-review meal #3 on a research PR, the research.sh run that produced it, PM2's independent revision→pr-review→redispatch→pass-2 cycle on skyy-command #224). Operator directive: **isolate and fix the instruments before acting on their measurements** — all content findings deliberately parked. PM3 named the **depth-2 problem**: research.sh → pr-review.sh → revision.sh were introduced back-to-back without isolation, so defects in the researcher surface via the reviewer and both must be fixed in one cycle.
+
+**P2.1 — `--pr` completion-contract false-negative (highest severity, WORSE than reported).** PM2 saw revision.sh exit 1 with the full early-stop banner after a perfect run (3 fixes, 174/174 bats, 158/158 py, pushed, comment posted). Cause: `COMPLETION_PATTERN` matches a PR URL, emitted only on PR *creation*; the `--pr` path *updates* an existing PR and emits nothing. **Audit found ZERO of the six `--pr` paths instructed printing the URL — the contract was unsatisfiable on every redispatch fleet-wide**, which is exactly the path pr-review's fix loop uses. A parent/Temporal layer reading exit codes would classify successful fixes as failed and retry them (re-applying applied fixes). Fixed: all six `--pr` paths now print the PR URL as their final line via `gh pr view <N> --json url --jq .url`.
+
+**P1.1 — disposition enum could not express HOLD (data integrity).** Meal #3 had 10 HOLD items; the schema admitted only `fixed|rejected|deferred`, so the engine emitted all ten as `disposition: fixed` plus an invented `note_disposition_override` field. **A machine consumer reading the documented schema saw ten resolved findings.** Fixed: `hold` added to the enum with required `hold_kind: redispatch|needs-assistance`, plus a new **schema-integrity invariant — never invent a field; an inexpressible state is a SCHEMA BUG to report, not a field to fabricate.**
+
+**P1.2 — laundered ≠ homeless (mis-attribution).** Meal #3 counted a research PR's 9 action candidates as laundered deferrals. The engine was right they had no home, but the cause was that *the corpus has no surface for "research action candidate awaiting ratification"* — a standards gap, not a producing-run failure. Fixed: taxonomy split — **laundered** (pointer exists, resolves dead → producing-run failure, counts against it) vs **homeless** (legitimate item, no valid surface exists → standards gap, escalates as needs-assistance with new `why_human: missing-surface`, never counted against the run). Both still block MERGE.
+
+**P1.3 — predecessor PR's Deferred Work (engine's own unprompted discovery).** The engine reported this was *"the single highest-yield step of this review, and the prompt does not call for it."* Its generalization is now the rule: **a deferral whose stated trigger condition THIS PR satisfies is a first-class finding.** Added to Stage-1 gather.
+
+**P1.4 — laundered as a RATE, not a count.** Reported as `2` when both of that PR's deferrals were laundered — 100%. Now `laundered_deferrals: {caught, of_total}` + `homeless_items`.
+
+**P1.5 — precheck context + STOP-predicate split.** A pass-1 precheck run from `main` returned a false "already done — STOP" (the second adopter lived in the unmerged PR). Fixed with three requirements: state the branch/worktree context, use a different check than the one that surfaced the finding (retained — it is why this was caught), and **split the STOP predicate** ('not yet warranted' vs 'already done' are different states; only the latter justifies STOP).
+
+**P1.6 — protect-list codified as named INVARIANTS** so future token-trimming cannot quietly remove them: absence-is-non-terminal (a silently dropped item is the subtlest burial), cross-pass re-laundering detection, verify-fixes-not-just-prescribe (pass 2 caught a regression introduced by its own pass-1 prescription — the property that makes an autonomous parent loop safe), refusal to self-grant on HiL surfaces while still returning reframe/bp/recommendation, and pointer-verification-by-fetch.
+
+**P2.2 — research.sh Stage 4 had no round budget.** One paper needed 3 correction rounds with no stated budget and no non-convergence path. Fixed: **MAX 3 rounds**, then DROP the paper from the cycle (excluded from synthesis, left in `raw/` with a `STATUS: NOT VERIFIED` header, reported as non-convergent). An honestly-excluded paper is a finding; a silently-included one is contamination.
+
+**P2.3 — raw sources over rendered pages (highest-value methodology finding).** Measured across the cycle: **rendered-page fetches produced invented paraphrases twice; raw-source fetches (`raw.githubusercontent`, plain-text, spec JSON) were reliable every time.** Added to research-analyst, research-currency, and research-critic (the critic verifies against the same surfaces). Cheapest available reduction in critic workload.
+
+**P2.4 — `Critic:` line in the paper header.** §4 required the synthesis to cite verdicts, but a paper read alone carried no evidence it was verified. Added to the analyst's header contract; research.sh Stage 4 and research-currency write/refresh it.
+
+**Ship-gate note (the gates are complementary, and both fired):** implementing P1.5 introduced unescaped `"` inside the double-quoted PROMPT — `bash -n` caught it (unbalanced quotes = syntax error). The backtick class is syntactically *valid*, which is why `lint-prompts.sh` exists. **`bash -n` catches quote imbalance; the lint catches backticks. Neither alone is sufficient; run both.**
+
+**Value evidence preserved (so nothing gets tuned away later):** meal #3 caught that a workflow's rotation ordering was **already live in `main`**, not "being built" as the producing run wrote — converting a proposal into a live-exposure finding — plus 7 broken relative links via two independent verification methods. PM2's cycle surfaced a real correctness defect (exit-code propagation) **that had already survived engineer self-review, four review agents, and PM2's own manual verification** — more review agents demonstrably do not catch that class. The research critic gate: every paper needed a correction round, and **three of five defects were in the paper's own highest-stakes claim** (a fabricated ESO condition string, a k3s version floor wrong by three patch numbers, a non-verbatim quote destined for a standards amendment) — without the gate, three papers would have fed false facts into binding rules.
+
+**Watch:** whether the `--pr` URL instruction is reliably followed (if a redispatch still exits 1 after this, the instruction isn't landing and the pattern needs a per-path variant); whether `hold` dispositions now populate correctly instead of `fixed`+override; whether the laundered/homeless split changes the ratio meaningfully once PM3's missing-surface work lands.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

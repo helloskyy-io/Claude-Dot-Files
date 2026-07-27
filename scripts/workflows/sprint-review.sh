@@ -514,6 +514,7 @@ ${STAGES_1_TO_5}
 - Write the consolidated review report to \`${REPORT_FILE_REL}\` containing all sections (executive summary from Stage 5, security findings, refactoring observations, testing review + suite tooling assessment, test results, tests created summary).
 - Stage all changes (the report file + any test files created in Stage 4) and commit with the final message format: \"sprint-review: <sprint label or date> — comprehensive end-of-sprint review\"
 - Push the branch (this updates PR #${PR_NUMBER})
+- **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
 - Update the PR body to mirror the report's section structure:
   - **Executive Summary** (Opus synthesis from Stage 5 — top findings, priority order, codebase health assessment in 2-3 paragraphs)
   - **Security Findings** (security-auditor section — Critical/High/Medium/Low with file:line citations)

@@ -450,6 +450,7 @@ ${STAGES_1_TO_7}
 ## Stage 8: SUBMIT
 - Stage any uncommitted changes remaining from stages 5-7 (peer-review fixes from code-reviewer, refactoring-evaluator, and standards-auditor) and commit them with the final message format: \"revision-major: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch (this updates PR #${PR_NUMBER})
+- **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
 - Report a summary of the entire workflow
 
 ${DECISION_LOG_AND_REFLECTION}

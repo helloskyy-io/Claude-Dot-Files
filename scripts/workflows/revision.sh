@@ -258,6 +258,8 @@ Follow these stages exactly:
 
 5. PUSH: Push the branch. This will update PR #${PR_NUMBER} automatically.
 
+6. REPORT: As your FINAL line, print the PR URL — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
+
 6. REFLECT: ${DECISION_LOG_AND_REFLECTION}
 
 Rules:
