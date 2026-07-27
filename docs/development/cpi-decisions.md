@@ -529,6 +529,33 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Prompt-escaping outage #2 + the gate that certified it clean (FIXED 2026-07-27)
+
+**Trigger:** `pr-review.sh` dead at exit 127 (`until: command not found`) — the cycle-3 P1.3 text I shipped hours earlier contained **two unescaped `"` pairs whose content had whitespace** (line 208 `"deferred until a second adopter exists"`, line 330 `"VERIFIED DEAD — PR merged, nothing filed"`). PM3's addendum caught the second site; fixing only the first would have left it broken.
+
+**Same CLASS as the morning's backtick outage ("prompt strings are code"), different VECTOR — and `lint-prompts.sh`, built that morning for the first vector, reported the tree CLEAN while the file could not launch.** PM3's framing is the durable lesson: **a gate that passes a broken file is worse than no gate**, because it converts "I should test this" into "the gate says it's fine."
+
+**Why `bash -n` was blind (both times, differently):** with an EVEN number of stray quotes they **balance** — the file is *valid bash that means something else*: `PROMPT=<truncated>` becomes an assignment prefix and the following prose becomes a command. (My earlier P1.5 quote bug was caught by `bash -n` only because *its* quotes happened to be unbalanced — luck, not coverage.)
+
+**The mechanics, precisely (PM3's analysis, confirmed):** a stray `"` pair is only fatal when its content contains **whitespace**. `"waiting"` (no spaces) closes and reopens the string and bash concatenates the bare word seamlessly — harmless, which is why `research.sh`'s `text-only "waiting" turn` never broke. `"deferred until a second adopter exists"` splits the assignment into multiple words → the remainder parses as a command.
+
+**Fix shipped:**
+1. Both quote sites converted to single quotes.
+2. **`lint-prompts.sh` rebuilt as an EXECUTION check, not a pattern check.** It extracts every prompt-assignment block (inline `PROMPT="…"` and unquoted-heredoc `PROMPT=$(cat <<EOF`) and *constructs* it in a sandbox — `env -i` with a PATH containing **only `cat`** — failing if bash does anything other than assign a string. Nothing from the real system can execute.
+3. **Binding authoring rule** added to `docs/standards/workflow-scripts.md`: single quotes for example phrases, escaped backticks for code refs, never `$( )` in prose; both gates required before committing a prompt edit.
+
+**One correction to the proposed fix:** PM3 suggested extracting the block and running `bash -n` on it. That would NOT have caught this — the extracted block *parses fine*; it is valid syntax with different meaning. The check must **execute** the assignment, not parse it. Shipped accordingly.
+
+**Validation (all three, on a clean tree that passes):** reintroduced the backtick vector → CAUGHT; reintroduced the quote vector → CAUGHT (the one the old gate missed); injected a `$( )` vector **never enumerated anywhere in its rules** → CAUGHT. The execution check generalizes to vectors nobody has met yet, which was the whole point.
+
+**Self-inflicted bug found during the fix (worth recording):** my first extractor used `^[[:space:]]*\(` as a block terminator, which matched the *prose* line `(1) STATE THE CONTEXT…` and silently truncated the block — the lint then failed for the wrong reason on a healthy file. Terminators narrowed to `echo` / `run_claude` / a lone `)`. Lesson: a linter's own heuristics are code too, and "fails for the wrong reason" is as bad as "passes when broken."
+
+**Recurrence note:** two escaping outages in ~10 hours, both from prompt-text edits, both invisible to `bash -n`, the second invisible to the gate built for the first. The durable answer was to stop enumerating vectors and start executing.
+
+**Watch:** whether the execution check produces false positives on future prompt shapes (a legitimate `$( )` in a prompt would flag — none exist today); whether the narrow terminator list needs extending as new script shapes appear.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

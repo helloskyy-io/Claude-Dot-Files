@@ -492,6 +492,31 @@ echo "================================================================"
 echo "Log file: ${LOG_FILE}"
 ```
 
+## Prompt-string authoring (BINDING — prompt strings are code)
+
+A workflow's `PROMPT` is a double-quoted bash assignment (or an unquoted heredoc). **Everything bash treats specially inside it is EVALUATED at runtime.** Two fleet outages in one day came from this class, both invisible to `bash -n`:
+
+| Vector | What happens | Why `bash -n` misses it |
+|---|---|---|
+| Unescaped **backtick** | `` `run_in_background: false` `` runs as a command → exit 127 | syntactically valid |
+| Unescaped **`"` around a phrase with whitespace** | closes `PROMPT` mid-string; remaining prose parses as commands → `until: command not found` | the stray quotes **balance** (even count) — valid bash that means something else |
+| Unescaped **`$( )`** | command substitution executes | syntactically valid |
+
+**The rules:**
+
+1. **Quoted example phrases → use SINGLE quotes.** `'deferred until a second adopter exists'`, never `"…"`. Safe by construction inside a double-quoted assignment.
+2. **Code references → use ESCAPED backticks.** `` \`run_in_background: false\` ``, never bare.
+3. **Never use `$( )` in prompt prose.** `${VAR}` interpolation is fine and intended; command substitution is not.
+4. **A stray `"` pair with NO whitespace inside is harmless by accident** (bash concatenates the bare word) — do not rely on it. Adding one space later breaks the fleet.
+
+**Gate (run BOTH before committing any prompt change):**
+
+```
+scripts/helpers/lint-prompts.sh && bash -n scripts/workflows/<script>.sh
+```
+
+They are complementary and **neither alone is sufficient**: `bash -n` catches *unbalanced* quotes; `lint-prompts.sh` constructs every prompt block in a sandbox (`env -i`, PATH containing only `cat`) and fails if bash does anything other than assign a string. The lint is an **execution check, not a pattern check** — that is deliberate: a per-vector pattern list built for backticks certified as clean a file that could not launch. Executing generalizes to vectors nobody has enumerated yet (validated: it catches `$( )`, which was never in its rules).
+
 ## Testing a New Workflow Script
 
 Before marking a new workflow script as complete:
@@ -515,6 +540,7 @@ Before marking a new workflow script as complete:
 - **Workflow scripts MUST have structured staged prompts** — not unscoped instructions
 - **Workflow scripts MUST use `run_claude` helper pattern** — consistent invocation
 - **Workflow scripts SHOULD follow the per-script `MAX_TURNS` values** in the table above
+- **Prompt edits MUST pass `lint-prompts.sh` AND `bash -n`** — see "Prompt-string authoring"; prompt strings are code, and two fleet outages came from treating them as text
 
 ## Related Documentation
 

@@ -2,34 +2,51 @@
 #
 # lint-prompts.sh — catch prompt-construction landmines that `bash -n` cannot see.
 #
-# THE CLASS: an UNESCAPED backtick inside a double-quoted PROMPT="..." string
-# triggers command substitution at *runtime*. bash tries to execute the
-# backtick's contents as a command during the assignment — the script dies
-# (exit 127 for a non-command like `run_in_background: false`; silent prompt
-# corruption or a stdin-hang for a real command like `wc -l`). `bash -n` passes
-# it because it is syntactically valid; it only fails when the line executes,
-# which no syntax check reaches.
+# THE CLASS: "prompt strings are code." A workflow's PROMPT is a double-quoted
+# bash assignment (or an unquoted heredoc), so anything bash treats specially —
+# backticks, $( ), stray double quotes — is EVALUATED at runtime. Two fleet
+# outages in one day came from this class:
 #
-# THE FIX ENFORCED HERE: inside a double-quoted string, every literal backtick
-# must be escaped (\`). Backticks inside SINGLE-quoted heredocs (<<'EOF') are
-# already literal and safe — this lint strips those bodies before checking.
+#   1. Unescaped BACKTICK: `run_in_background: false` ran as a command -> 127.
+#      `bash -n` passes (syntactically valid).
+#   2. Unescaped DOUBLE QUOTES around a phrase containing whitespace:
+#      "deferred until a second adopter exists" closed PROMPT mid-string; the
+#      remaining prose parsed as commands -> `until: command not found` -> 127.
+#      `bash -n` ALSO passes, because the stray quotes BALANCE (even count) —
+#      the file is valid bash that simply means something else.
+#
+# WHY THIS IS AN EXECUTION CHECK, NOT A PATTERN CHECK: case 2 proves a
+# per-vector pattern list is unsound — the gate built for backticks certified a
+# file that could not launch. Parsing is not enough either (`bash -n` on the
+# block passes: it IS valid syntax). The only check that catches every vector,
+# including ones we have not met yet, is to actually CONSTRUCT each prompt in a
+# sandbox and see whether bash does anything other than assign a string.
+#
+# SANDBOX: each block runs under `env -i` with a PATH containing ONLY `cat`
+# (needed by heredoc-form prompts). Any other command — whether from a stray
+# backtick, a $( ), or prose parsed after a broken quote — is not found, exits
+# non-zero, and is reported. Nothing from the real system can execute.
 #
 # Run as a ship gate before committing workflow prompt changes:
 #   scripts/helpers/lint-prompts.sh
-# Exit 0 = clean; exit 1 = landmines found (with file:line locations).
+# Exit 0 = clean; exit 1 = landmines found.
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WF_DIR="${SCRIPT_DIR}/../workflows"
-
 fail=0
+
+# --- sandbox: only `cat` is reachable -----------------------------------------
+SANDBOX="$(mktemp -d)"
+trap 'rm -rf "$SANDBOX"' EXIT
+ln -sf "$(command -v cat)" "$SANDBOX/cat"
+BASH_BIN="$(command -v bash)"
+
+# --- Pass 1 (static): unescaped backticks, for precise line numbers -----------
+# Fast, and pinpoints the offending line. Pass 2 is the real net.
 for f in "$WF_DIR"/*.sh "$WF_DIR"/lib/*.sh; do
     [[ -e "$f" ]] || continue
-
-    # awk: emit only lines OUTSIDE single-quoted heredocs, with escaped
-    # backticks (\`) removed. Any backtick surviving in the emitted text is an
-    # unescaped backtick in a command-substitutable region → a landmine.
     hits=$(awk '
         {
             line = $0
@@ -39,21 +56,54 @@ for f in "$WF_DIR"/*.sh "$WF_DIR"/lib/*.sh; do
                 gsub(/<<'"'"'/, "", m); gsub(/'"'"'/, "", m)
                 inh = 1; delim = m; next
             }
-            if (line ~ /^[[:space:]]*#/) next   # bash comment / markdown header line — backticks here are not evaluated
+            if (line ~ /^[[:space:]]*#/) next
             stripped = line
-            gsub(/\\`/, "", stripped)      # drop escaped backticks — those are safe
+            gsub(/\\`/, "", stripped)
             if (stripped ~ /`/) print NR": "line
         }
-    ' "$f" || true)
-
+    ' "$f")
     if [[ -n "$hits" ]]; then
-        echo "✗ ${f#"$WF_DIR"/} — unescaped backtick(s) in a command-substitutable region:"
+        echo "✗ ${f#"$WF_DIR"/} — unescaped backtick(s):"
         echo "$hits" | sed 's/^/      /'
         fail=1
     fi
 done
 
+# --- Pass 2 (execution): construct every prompt block in the sandbox ----------
+for f in "$WF_DIR"/*.sh; do
+    [[ -e "$f" ]] || continue
+    while IFS= read -r s; do
+        [[ -n "$s" ]] || continue
+        startline=$(sed -n "${s}p" "$f")
+        if [[ "$startline" == *'=$(cat <<'* ]]; then
+            # heredoc form: PROMPT=$(cat <<EOF ... EOF )  — ends at a lone ')'
+            e=$(awk -v s="$s" 'NR>s && /^\)/ {print NR; exit}' "$f")
+            [[ -n "$e" ]] || continue
+            block=$(sed -n "${s},${e}p" "$f")
+        else
+            # inline form: PROMPT="…" — ends before the next real shell statement.
+            # Terminators are deliberately NARROW (`echo` / `run_claude` / a lone
+            # `)`): a loose pattern like `^[[:space:]]*\(` matches PROSE such as
+            # "(1) STATE THE CONTEXT…" and silently truncates the block, which
+            # then fails to construct for the wrong reason.
+            e=$(awk -v s="$s" 'NR>s && (/^[[:space:]]*(echo|run_claude)/ || /^\)/) {print NR; exit}' "$f")
+            [[ -n "$e" ]] || e=$(( $(wc -l < "$f") + 1 ))
+            block=$(sed -n "${s},$((e-1))p" "$f")
+        fi
+
+        # Invoke bash by ABSOLUTE path — the sandbox PATH deliberately contains
+        # only `cat`, so `bash` itself would not resolve through it.
+        if ! err=$(env -i PATH="$SANDBOX" "$BASH_BIN" -c "set -e
+$block" 2>&1); then
+            echo "✗ $(basename "$f") — prompt block starting at line ${s} does NOT construct:"
+            echo "$err" | sed 's/^/      /'
+            echo "      (error line numbers are relative to the block; block starts at file line ${s})"
+            fail=1
+        fi
+    done < <(grep -nE '^[[:space:]]*[A-Za-z_]*PROMPT=("|\$\(cat <<)' "$f" | cut -d: -f1)
+done
+
 if [[ $fail -eq 0 ]]; then
-    echo "✓ prompt lint clean — no unescaped backticks outside single-quoted heredocs"
+    echo "✓ prompt lint clean — every prompt block constructs as a plain string"
 fi
 exit $fail
