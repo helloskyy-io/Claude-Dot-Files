@@ -29,6 +29,7 @@ Use custom slash commands for common tasks:
 - `/best-practices <topic>` — prime Claude with industry-standard approach
 - `/decide <question>` — five-whys reframing cascade for low/mid-confidence decisions (reframe first, then answer)
 - `/troubleshoot <problem>` — systematic debugging: hypothesis-driven bisection with structured escalation
+- `/standup [--since <window>]` — read-only sweep of git memory surfaces (open PRs + their `pr_review:` verdicts, open issues, recent merges) into an attention brief
 - `/create-claude` — generate CLAUDE.md files for a new project
 - `/update-claude` — sync CLAUDE.md references to your standards
 - `/update-file-structure` — update docs/file_structure.txt

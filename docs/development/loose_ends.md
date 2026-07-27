@@ -13,6 +13,14 @@ For per-cycle CPI decisions (ship/defer/reject with watch-criteria), use `docs/d
 
 ---
 
+## STOP→issue writer — the memory model's second leg has no writer (identified 2026-07-27)
+
+**Context:** `/standup` (shipped 2026-07-27) routes attention to two git-native memory surfaces — PR threads (change outcomes: reflections + `pr_review:` disposition yaml) and GitHub Issues (no-change outcomes: STOPs, pending decisions, per Research §7/§5.5). The PR leg is written and read. **The Issue leg is READ by /standup but WRITTEN by nothing** — audited: zero `gh issue create` across all workflows. The STOP conditions we shipped (research-sufficiency + evidence-integrity in plan-new/plan-revision; pr-review needs-assistance) report in-PR / in-output, not as labeled issues. So a STOP that only prints to a dispatch log is exactly the write-only failure /standup exists to prevent.
+
+**Recommended action:** a STOP→issue writer — the STOP conditions file a labeled GitHub issue (`research-required`, `evidence-faulty`, + stop-classes) with the two-option next-step in the body, so no-change outcomes become durable surfaces /standup already knows how to read. Its own small spec: which workflows file, which labels, what body format (must carry the embedded next-step options /standup lifts verbatim).
+
+**Trigger to revisit:** when a real STOP outcome gets lost because it only lived in a dispatch log (first occurrence ships it); or when the CPI-framework work begins (the autonomous standup consumer needs the issue surface populated). Until then /standup is empty-tolerant on the issue section — not blocking, but the leg is incomplete.
+
 ## Enterprise Quality Hardening — Architect Findings (2026-05-28)
 
 Architectural review identified these gaps for moving from "above the bar for personal dotfiles" to "professional team-level tooling." Categorized by effort + priority.
