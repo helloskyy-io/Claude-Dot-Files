@@ -435,6 +435,25 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## pr-review fine-tune round 2 — meal-2 CPI data + six tunes (SHIPPED 2026-07-27)
+
+**Meal-2 (Skyy-Command #223, first build-PR under the doctrine version) confirmed the doctrine fix class:** cost-dodges 2→0; laundered-deferrals produced 1 (meal 1) → **caught 1 unprompted** (meal 2 — the engine self-caught the exact class the operator caught by hand in meal 1). Rejections upheld on re-adjudication (checked the cited contract test at its line, not the run's word) + one fresh-eyes rejection of its own. Verification exceeded spec (ran the full 4565-test collection + component suites to confirm FIXED claims — keep this). Fable earning its tier (genuine /decide dissolution on a placement rec; explicit evidence bar on a conftest rec). Economics $4.17 / 27 turns / 6 min. Pass 2: **HOLD again correctly** — re-verified pass-1's own claims and caught a **pass-1 false-positive finding** ("missing lib/ceph/" — the line existed; both pass-1 and the PM string-matched \`lib/ceph\` against a line reading \`ceph/\`). Cross-pass self-correction WORKS — keep the spot-check-prior-passes behavior.
+
+**Two measured datapoints:** (1) first false-positive finding rate = 1/25 (FIXED/REJECTED verifications all held; the miss was an absence-claim string-match trap); (2) cross-pass self-correction is load-bearing.
+
+**Six tunes shipped (all prompt-level, no autonomy/verdict-machinery changes — operator scope vote "tune, don't overhaul"):**
+1. **Visible lens transcripts** — needs-assistance recs now print a one-line `reframe:` (/decide) + `bp:` (/best-practices) before the recommendation (yaml + human runway), so judgment is auditable at standup speed. [pr-review]
+2. **`research-defect` HOLD tag** with the Research-Standard §5 materiality test (does correcting the defect change the decision outcome? NO → rides revalidation sweep; YES → HOLD/research-defect, research-currency re-run + dependent planning re-run). [pr-review]
+3. **Evidence-integrity fail-fast in consuming workflows** — plan-revision + build-phase Stage-1: if inputs include research artifacts, verify integrity (critic verdicts present, papers in-window, load-bearing claims non-contradictory) before consuming; structurally faulty → STOP + report blocking finding. Cheap insurance against a $40 build on rot. [plan-revision, build-phase]
+4. **DLR trim from pr-review** — decide-only engine no longer carries the "after pushing, create the PR / Decision Log" tails; replaced with a lean Post-Run Reflection (the disposition table IS the decision record). [pr-review]
+5. **Propagation check + pointer self-check** — plan-revision Stage-4 reviewers verify every corrected fact reached ALL dependents (evidence-reconciliation tasks); the shared Deferred-Work block gains a pointer-accuracy self-check (producing runs verify their own deferral pointers resolve before writing them). [plan-revision, shared-prompts]
+6. **Machine-checkable precheck in redispatch dispatch_context** — a redispatch fix carries a concrete precondition command (a DIFFERENT check than the one that surfaced the finding) the executor must pass before applying, so a flawed finding fails loud instead of inducing a defect. Motivated by the pass-1 false-positive → PM faithful-execution → duplicate-on-main chain. [pr-review]
+   - **Plus (architect addition, operator-flagged for veto): absence-claim rigor** in pr-review — "missing/absent" claims confirmed with an exact match + a second different check, since absence is the highest-risk false-positive class (the reviewer-side complement to tune 6's executor-side fix).
+
+**Watch next:** false-HOLD rate (holds a human would have merged — no data yet); whether the precheck/absence-rigor pair drives the 1/25 false-positive rate down; whether visible reframe/bp lines stay compact or bloat the comment.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

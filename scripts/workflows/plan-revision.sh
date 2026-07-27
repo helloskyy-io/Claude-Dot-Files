@@ -255,6 +255,8 @@ Read the existing planning docs in docs/ (architecture/, development/, guide/, s
 - The current requirements and success criteria
 - How the existing planning docs relate to each other
 
+**Evidence-integrity precheck — only if your inputs include research artifacts (a research/ dir the plan cites).** Before you consume any research as input, verify its integrity: critic verdicts present on the papers, papers inside their revalidation window (not past-window treated as authority), load-bearing claims non-contradictory. If the evidence is structurally faulty, STOP — do NO planning on it, and report it as a blocking finding ("evidence-integrity failure: <what's wrong>"). Building a plan on rotten evidence costs far more than catching it here.
+
 **Workflow-fit check — do this BEFORE proceeding past Stage 1.** Assess whether this task actually belongs on plan-revision. If the task is predominantly a bulk rename, find-and-replace, or mechanical refactor across many files (not a genuine plan/architecture/requirements revision), STOP and report:
 
 > This task looks like a bulk rename/refactor rather than a plan revision. plan-revision.sh is sized for review-based planning changes and would burn through the turn budget on per-occurrence Edits. Recommend dispatching via revision.sh or revision-major.sh with `sed -i` or `Edit(replace_all: true)` instead.
@@ -300,6 +302,8 @@ Stage 4 has TWO sub-phases. Phase 4a runs the narrow-lens reviewers in parallel;
 ### Stage 4a: NARROW PEER REVIEW (parallel)
 
 Dispatch all FOUR peer-review agents — architect, planner, security-auditor, and standards-architect — back-to-back BEFORE processing any results. They review the SAME Stage 3 artifact independently; there is no ordering dependency between them.
+
+**On evidence-reconciliation tasks (a corrected fact propagated across docs):** the reviewers MUST explicitly verify that EVERY corrected fact was propagated to ALL of its dependents — a fix applied in one doc but not its downstream references is a silent inconsistency that reads as authority. (Reviewer-side mirror of the Research Standard's synthesis-side propagation rule.)
 
 **The dispatch contract (headless-safe):** dispatch all four as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL four narrow-lens results are in hand.
 

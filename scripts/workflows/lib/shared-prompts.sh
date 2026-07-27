@@ -42,6 +42,8 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
 - **<work item>** — Why deferred: <brief reason>. Tracked at: <location — issue #, planning doc, loose-ends file, follow-up PR, etc.>
 
+**Verify each pointer before you write it:** open the "Tracked at" location and confirm the item is actually there (or will be, via an action in THIS PR). A pointer to a place that does not contain the item is a laundered deferral — pr-review will catch it and reclassify; catch it yourself first.
+
 If nothing was deferred, omit this section.
 
 ## Post-Run Reflection

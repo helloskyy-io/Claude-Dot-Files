@@ -247,14 +247,14 @@ Reach exactly ONE verdict:
 
 - **HOLD** — the catch-all: ANYTHING still needs something to be right before this can merge. HOLD is NOT a rejection of the PR — it is a **runway**: the explicit, ordered list of what must happen so the NEXT pass is a MERGE. Every HOLD next-step is exactly one of two shapes:
   1. **redispatch** — the correction is obvious and known. You write a scoped \`dispatch_context\` (which findings to fix, what to change, what NOT to touch). A human fires \`revision.sh --pr ${PR_NUMBER}\` with it now; a parent workflow fires it once earned. This also covers a homeless follow-up whose home is an obvious doc edit (a plan-revision dispatch).
-  2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; or — importantly — the review uncovered something BIGGER than the PR: **a gap in the architecture or the plan.** For each, present your best RECOMMENDED resolution, reasoned through /decide + /best-practices, so the operator rules quickly from a well-argued starting point rather than from scratch. This is the \"can I have assistance?\" path — surfacing a real gap and asking for direction is a success, not a failure.
+  2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; the review uncovered something BIGGER than the PR (**a gap in the architecture or the plan**); or the PR's inputs include research artifacts and you find a **research defect** — apply the materiality test: *does correcting the defect change the outcome of the decision built on it?* NO → it rides the scheduled revalidation sweep (note it, do not hold on it). YES → needs-assistance with why_human \`research-defect\`: the research must be re-validated (a research-currency re-run) and any dependent planning re-run before this can merge. For each needs-assistance item, present your best RECOMMENDED resolution reasoned through /decide + /best-practices — and print the working: a one-line \`reframe:\` (the /decide reframed question) and a one-line \`bp:\` (the best-practice alignment) BEFORE the recommendation, so the operator audits your judgment at standup speed instead of trusting lens-flavored prose. Surfacing a real gap and asking for direction is a success, not a failure.
 
 Not all HOLD means dispatch. A HOLD may be entirely needs-assistance (e.g. the review found a planning gap and nothing else) — that is exactly the kind of major catch this workflow exists to surface. When you read your own verdict back, a human should see MERGE, or HOLD with a clear \"here is what happens next, and once it does this merges\" list.
 
 ## Stage 5: POST THE DISPOSITION COMMENT
 Write the comment body to a temp file (e.g. /tmp/claude-pr-review-${PR_NUMBER}-<ts>.md — NOTE: never Edit it after writing; Write the full replacement if you must change it), then post via \`gh pr comment ${PR_NUMBER} --body-file <file>\`. The comment has TWO parts:
 
-**Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short \"WHAT HAPPENS NEXT\" runway list a human can act on at a glance:
+**Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short \"WHAT HAPPENS NEXT\" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the \`reframe:\` and \`bp:\` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
 
 **Part 2 — machine-readable block** (fenced \`\`\`yaml). This IS the future Temporal activity-result contract — author it exactly:
@@ -277,10 +277,17 @@ pr_review:
       dispatch_context: |
         <the exact scoped task a future revision.sh --pr ${PR_NUMBER} would carry:
          which findings to fix, what to change, and explicitly what NOT to touch.>
+      precheck: |                    # redispatch only — a machine-checkable precondition the executor MUST pass before applying
+        <a concrete command + expected result that proves the finding is still real at execution time,
+         e.g. \"grep -c '├── ceph/' docs/file_structure.txt must be 0 before adding the entry\".
+         Use a DIFFERENT check than the one that surfaced the finding — a flawed finding must fail
+         loud here, not get faithfully executed into an induced defect.>
       # kind: needs-assistance — human judgment required:
-      why_human: architecture-gap | planning-gap | scope-economics | standards | sprints | operator-action | genuine-ambiguity | no-reflection
+      why_human: architecture-gap | planning-gap | scope-economics | standards | sprints | operator-action | research-defect | genuine-ambiguity | no-reflection
+      reframe: <the /decide reframed question, one line — the reframe that drove your recommendation>
+      bp: <the /best-practices alignment, one line — what the correct approach demands>
       recommendation: |
-        <your best resolution, reasoned via /decide + /best-practices, so the operator can rule quickly>
+        <your best resolution (following from reframe + bp), so the operator can rule quickly>
   laundered_deferrals_caught: <int>  # deferrals the producing run pointed at a dead/invalid home that you reclassified (Layer-1 CPI signal)
   redispatched: false                # always false — this engine never dispatches
 \`\`\`
@@ -293,10 +300,12 @@ As the FINAL line of your output, print exactly one of:
     VERDICT: HOLD
 This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted.
 
-${DECISION_LOG_AND_REFLECTION}
+## Post-Run Reflection
+Append a brief 'Post-Run Reflection' to your disposition comment — only friction encountered and tooling-level suggestions for the pr-review workflow itself (prompt gaps, criteria that were ambiguous). Omit if nothing to report. You are DECIDE-ONLY: do NOT push, do NOT create a PR, do NOT post a separate Decision Log — the disposition table IS the decision record.
 
 RULES:
 - Your job is to get real issues CORRECTED, not to help the PR pass. If you catch yourself arguing for why an issue can be left alone, that is the rug-sweep — stop and disposition it honestly.
+- **Absence-claim rigor:** when you claim something is MISSING or ABSENT, confirm it with an EXACT match, never a loose substring — a search for \`lib/ceph\` does NOT match a line that reads \`ceph/\`, and that trap produces false \"missing\" findings. Absence claims are the highest-risk false-positive class; verify them twice, with two DIFFERENT checks.
 - DECIDE-ONLY: never merge, close, fix, dispatch, or edit standards/sprints. Those are HOLD reasons, never actions.
 - Every item ends FIXED / REJECTED-with-reasoning / DEFERRED-to-already-existing-work. \"Recommend we move on\" / \"low value\" / \"acceptable as-is\" are forbidden.
 - **'Pre-existing' / 'existing condition' is abolished as an excuse — no exceptions.** Disposition such items like any other.

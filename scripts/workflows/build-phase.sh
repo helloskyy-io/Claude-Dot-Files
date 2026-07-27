@@ -284,6 +284,8 @@ Read the plan document at the path above. Extract:
 
 Summarize what you extracted before proceeding.
 
+**Evidence-integrity precheck — only if the plan cites research artifacts (a research/ dir).** Before building on research the plan relies on, verify its integrity: critic verdicts present, papers inside their revalidation window, load-bearing claims non-contradictory. Structurally faulty evidence → STOP, build nothing, report it as a blocking finding ("evidence-integrity failure: <what's wrong>"). A full build on rotten evidence is the expensive mistake this one check prevents.
+
 ## Stage 2: VALIDATE
 Evaluate whether the plan is actionable:
 - Are the requirements clear enough to implement?
