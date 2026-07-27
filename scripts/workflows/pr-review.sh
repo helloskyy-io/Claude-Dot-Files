@@ -205,6 +205,7 @@ Then gather the raw material (batch independent reads in one turn). **You are NO
 - **The self-review / reflection + decision-log comments (PRIMARY — this is the whole point):** \`gh pr view ${PR_NUMBER} --json comments --jq '.comments[].body'\`. The Decision Log, Deferred Work, and Post-Run Reflection live here. The run surfaced FAR more than it fixed — the critical items got addressed during the build, and the rest are half-buried in excuses. That buried remainder is what you exist to dig out. Mine it hard.
 - The PR body: \`gh pr view ${PR_NUMBER} --json body,title --jq '.title, .body'\` — the run's own summary of what it claims it did (claims to verify, not accept).
 - The PR diff (SECONDARY — blind-spot catch + claim verification): \`gh pr diff ${PR_NUMBER}\`. Scan it to catch what the run never mentioned at all (its blind spots), and to VERIFY self-report claims against what the code actually does. Not a fresh code review — a truth-check on the self-report.
+- **CURRENT-TREE CHECK — before prescribing any change OUTSIDE this PR** (a standard, a doc, a planning artifact), verify against the CURRENT default branch that it has not ALREADY been done: \`git fetch origin && git --no-pager log origin/<default> --oneline -20\` and read the live file. You already do this instinctively for CODE (catching that a workflow shipped in another PR) — apply the same discipline to DOCS. Prescribing an amendment that landed hours ago wastes an operator ruling and destroys trust in the whole runway.
 - **The PREDECESSOR PR's Deferred Work (high-yield — do not skip).** Find the most recent merged PR(s) that this work follows on from (\`gh pr list --state merged --limit 5\`), and read their Deferred Work / reflection sections. **A deferral whose stated trigger condition THIS PR satisfies is a first-class finding** — e.g. 'deferred until a second adopter exists' and this PR is that second adopter. Deferrals carrying explicit trigger conditions are the cheapest recurrence signal available, and nobody else is watching them. Enumerate any you find in Stage 2.
 - **Prior pr-review comment (this is pass ${THIS_PASS}):** if ${PRIOR_PASS} > 0, find the prior comment(s) containing a \`pr_review:\` yaml block and READ them. You MUST reuse each prior finding's stable \`id\` slug verbatim when the same finding persists — stable ids are what make cross-pass and cross-PR recurrence tracking work. Only genuinely-new findings get new slugs.
 
@@ -220,8 +221,27 @@ List EVERY surfaced item, from all sources above, exhaustively. Sources of items
 
 Give each item a stable kebab-slug id (reuse prior-pass ids per Stage 1) and a category from this fixed enum (extend if truly needed, NEVER rename — recurrence mining keys on these): correctness | security | standards-implication | scope | deferral | friction | test-gap | doc-drift. (There is deliberately NO 'existing-condition' category — it is abolished; a pre-existing issue is categorized by its actual type.)
 
+**THE CONSEQUENCE GATE — apply to every candidate item BEFORE it becomes a finding.** State what BREAKS, is RISKED, or gets DECIDED WRONGLY if this is not addressed. **If you cannot state that, it is NOT a finding** — demote it to a one-line note in your Post-Run Reflection. Notes do not enter the runway; the runway costs the operator a ruling per entry and must contain only things worth ruling on.
+
+A bare discrepancy is not a finding. 'X does not match Y' becomes a finding only when the mismatch DOES something. Conformance and label checks are the usual offenders — 'the PR says LARGE but the rubric says MEDIUM' is weather-talk unless the wrong label causes something. Ask what the mismatch is EVIDENCE OF: a sizing label that undercounts is often evidence that **coverage is missing**, and *that* is the finding.
+
+**Write the TITLE as the consequence, never as the mismatch:**
+- ✅ 'three key areas of the substrate have no research coverage'
+- ❌ 'sizing label mismatch (LARGE vs MEDIUM)'
+
+**ONE FINDING = ONE ENTRY = ONE RULING (binding).** If an item would require the operator to make more than one decision, it is a BUNDLE, and a bundle is a DEFECT — split it into separate findings with separate ids and separate reasoning. 'Give the nine action candidates a home' is nine findings. 'One standards amendment pass (four items)' is four findings. Applying your lenses to a bundle instead of to each decision is lens theater: it reads as rigorous and gives the operator nothing rulable.
+
 ## Stage 3: DISPOSITION (the core — no rubber stamps, no rug-sweeps)
 For EACH enumerated item, reach exactly one terminal disposition using genuine /decide (reframe: is this the real issue, or a symptom of an upstream one?) + /best-practices (what does the correct approach demand?) reasoning. There are exactly three terminal dispositions — FIXED, REJECTED, DEFERRED — and their bars are HIGH:
+
+**Every finding ALSO carries a \`remedy:\` from this fixed vocabulary (extend-never-rename).** The disposition says what STATE the item is in; the remedy says what ACTION resolves it. Choose from the list — do NOT invent freeform actions, because an unbounded action space collapses to whatever is cheapest:
+- \`fix-in-place\` — correct it in this PR (rides a redispatch)
+- \`reject\` — not a real issue; reasoning required
+- \`defer-to-existing-work\` — already scheduled or in flight; verified pointer required
+- \`extend-upstream-artifact\` — **the upstream INPUT is incomplete: more research, more planning, more evidence is needed.** Reach for this whenever the real problem is that the work was built on a thin or partial foundation — a missing-coverage finding is almost always this, NOT a relabel
+- \`create-missing-surface\` — the item is legitimate but no home exists for it (the homeless class)
+- \`ratify-standard-change\` — a binding rule must change; human-gated
+- \`operator-action\` — infra/sudo/live-system act only the operator can take
 
 - **FIXED** — already correctly resolved in this PR. VERIFY against the code (Read/Grep/Glob) that it truly is; do not take the producing run's word.
 - **REJECTED** — not a real issue. State WHY with real reasoning (agent misread, non-issue in context, the concern demonstrably doesn't apply). Rejection-with-reasoning is valid; \"recommend we move on\" / \"low value\" / \"acceptable\" is NOT — that is silent dismissal and is FORBIDDEN.
@@ -257,7 +277,12 @@ Reach exactly ONE verdict:
 Not all HOLD means dispatch. A HOLD may be entirely needs-assistance (e.g. the review found a planning gap and nothing else) — that is exactly the kind of major catch this workflow exists to surface. When you read your own verdict back, a human should see MERGE, or HOLD with a clear \"here is what happens next, and once it does this merges\" list.
 
 ## Stage 5: POST THE DISPOSITION COMMENT
-Write the comment body to a temp file (e.g. /tmp/claude-pr-review-${PR_NUMBER}-<ts>.md — NOTE: never Edit it after writing; Write the full replacement if you must change it), then post via \`gh pr comment ${PR_NUMBER} --body-file <file>\`. The comment has TWO parts:
+**SELF-CHECK BEFORE YOU WRITE ANYTHING — run these three over every finding and every runway entry:**
+1. **Readability:** reading ONLY this entry's title and its \`remedy:\`, would the operator know what to do without reading the body? If not, rewrite it.
+2. **Bundling:** does this entry require more than ONE ruling? If yes, SPLIT it — separate ids, separate reframe/bp/recommendation/remedy.
+3. **Consequence:** does the title name what BREAKS rather than what mismatches? If it names a mismatch, either restate it as its consequence or demote it to a reflection note.
+
+Then write the comment body to a temp file (e.g. /tmp/claude-pr-review-${PR_NUMBER}-<ts>.md — NOTE: never Edit it after writing; Write the full replacement if you must change it), and post via \`gh pr comment ${PR_NUMBER} --body-file <file>\`. The comment has TWO parts:
 
 **Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short \"WHAT HAPPENS NEXT\" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the \`reframe:\` and \`bp:\` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
@@ -270,12 +295,16 @@ pr_review:
   verdict: MERGE | HOLD
   findings:
     - id: <stable-slug>
+      title: <the CONSEQUENCE in one line — what breaks/is risked/gets decided wrongly. NOT the mismatch.>
       category: <from the fixed enum — NO existing-condition>
+      consequence: <REQUIRED — what happens if this is not addressed. If you cannot state it, this is a note, not a finding.>
       disposition: fixed | rejected | deferred | hold
+      remedy: fix-in-place | reject | defer-to-existing-work | extend-upstream-artifact | create-missing-surface | ratify-standard-change | operator-action
       hold_kind: redispatch | needs-assistance   # REQUIRED when disposition: hold — links this finding to its next_steps entry
       pointer: <REQUIRED if deferred — the already-existing sprint item or live PR, VERIFIED present. Never the reviewed PR.>
       pointer_verified: true|false   # deferred only — did you open it and confirm the item is there?
   next_steps:                        # HOLD only — the runway: do these and the next pass is a MERGE
+                                     # ONE ENTRY PER RULING. Never bundle; never share a lens block.
     - item: <finding id>
       kind: redispatch | needs-assistance
       note: <one line>
@@ -328,7 +357,9 @@ These are load-bearing and evidence-backed. If a future edit shortens this promp
 3. **Verify fixes, don't just prescribe them.** On pass ≥2, check the fixes YOUR prior pass prescribed: did they land correctly, and did they introduce a regression? A regression caused by your own prior prescription is yours to catch, not the producing run's to inherit.
 4. **Never self-grant on human-in-the-loop surfaces.** sprints / loose-ends / standards stay HiL no matter how obvious the change looks — but still return \`reframe:\`, \`bp:\`, and \`recommendation:\` so the operator rules quickly.
 5. **Pointer verification is by FETCH, never by plausibility.** Record \`pointer_verified: false\` with the reason (e.g. 'VERIFIED DEAD — PR merged, nothing filed').
-6. **Schema integrity — never invent a field.** Emit only the documented schema. If a finding's real state cannot be expressed by the enum, that is a SCHEMA BUG: say so explicitly in your report (\"schema cannot express <state>\") rather than emitting a false value with an invented override field beside it. A machine consumer reads the documented fields and will believe them.
+6. **One finding = one entry = one ruling.** A bundle is a defect. Each entry carries its OWN \`reframe:\`, \`bp:\`, \`recommendation:\`, and \`remedy:\` — never a shared lens block across several decisions. Every finding gets a recommendation, including rejected (the reasoning is the recommendation) and deferred (the pointer plus why-now-isn't-the-time) ones.
+7. **Consequence or it isn't a finding.** No entry enters the runway without stating what breaks. Discrepancies without consequences are reflection notes.
+8. **Schema integrity — never invent a field.** Emit only the documented schema. If a finding's real state cannot be expressed by the enum, that is a SCHEMA BUG: say so explicitly in your report (\"schema cannot express <state>\") rather than emitting a false value with an invented override field beside it. A machine consumer reads the documented fields and will believe them.
 
 RULES:
 - Your job is to get real issues CORRECTED, not to help the PR pass. If you catch yourself arguing for why an issue can be left alone, that is the rug-sweep — stop and disposition it honestly.

@@ -556,6 +556,27 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Cycle 4 — FINDING QUALITY: we built the noun and forgot the verb (SHIPPED 2026-07-27)
+
+**Trigger:** operator review of pr-review pass 2 on mdc-master-planning #137. On one runway item, verbatim: *"literally NOTHING you just said gives me an issue to rule on… I have to have an issue, not something random that may or may not even exist."* The item: *"PR body says LARGE (5 topics); §2's rubric puts 5 in MEDIUM. Recommendation: relabel MEDIUM."* That is a **discrepancy, not an issue** — nothing is at stake either way. The same underlying fact, correctly framed: *"three key areas of the secrets substrate have NO research coverage — remedy: extend the research pool by 3 mini-papers."* Consequence + remedy, rulable in ten seconds.
+
+**ROOT CAUSE (PM3, and it generalizes): we specced a DISPOSITION taxonomy and never specced a REMEDY taxonomy.** Everything the schema knew was state or routing (`disposition`, `hold_kind`, `why_human`); the recommendation itself was freeform prose. So facing "5 topics vs a rubric," the only remedies in the engine's working vocabulary were *fix the artifact* or *ask the human* — **"go get more evidence" was not a thing it knew it was permitted to recommend, because we never gave it that word.** An unbounded action field then collapses to the cheapest action that makes the discrepancy disappear: relabel it. Not model laziness — a missing verb.
+
+**Shipped in pr-review.sh:**
+1. **`remedy:` controlled vocabulary (required per finding, extend-never-rename):** `fix-in-place` | `reject` | `defer-to-existing-work` | **`extend-upstream-artifact`** (the missing one — the upstream input is incomplete, more research/planning needed) | `create-missing-surface` | `ratify-standard-change` | `operator-action`. Forcing a selection is what makes the engine *reach* for "extend the research" instead of settling for "relabel."
+2. **Consequence gate:** every candidate must state what breaks / is risked / gets decided wrongly. If it can't, it is a reflection NOTE, not a finding — notes don't enter a runway that costs an operator ruling per entry. Titles name the consequence, never the mismatch. Added `title:` and required `consequence:` to the schema.
+3. **Readability self-check** (Stage 5, pre-post): *reading only the title and remedy, would the operator know what to do?*
+4. **NO BUNDLING (binding, operator directive):** pass 2 delivered **17 decisions inside 6 entries** — one entry was nine separate ratifications, another four separate amendments sharing a single `reframe:`/`bp:` pair. Operator: *"there is literally no way the lenses were run on these items."* He's right — they were run on the BUNDLE, which is **lens theater**. One finding = one entry = one ruling; each carries its own reframe/bp/recommendation/remedy; every finding gets a recommendation including rejected and deferred ones; a bundle is a **defect, not a formatting choice**. Note the interaction with #1: bundling and freeform-remedy reinforce each other — no single verb covers nine items, so bundles *force* vague remedies.
+5. **Current-tree check:** pass 2 prescribed four Research Standard amendments that had **already landed hours earlier** (`fad9a16`) because it read the artifact's state rather than the repo's. It already did this correctly for CODE (catching a workflow shipped in another PR) — the discipline existed but wasn't applied to DOCS. Now required for any remedy touching a standard/doc outside the PR.
+
+**Generalized to the global rule (PM3 correctly reassigned this half — `config/rules/engineering-quality.md` is claude-dot-files-governed):** added **"Finding QUALITY — every finding states its consequence and its remedy"** as the sibling clause to the existing "Finding disposition" section. Disposition governs *whether an item is resolved*; quality governs *whether the human can act on it*. Both now live in the same section so no agent reads one without the other. Binds every finding-surfacing agent — code-reviewer, standards-auditor, quality-control, security-auditor, refactoring-evaluator, research-critic, architect, planner.
+
+**CPI-of-CPI lesson (the durable one):** the original schema was designed to enforce DOCTRINE — `fixed|rejected|deferred` exists to prevent rug-sweeping, a *state* question — and every tuning round since refined the state machine while leaving the action space unbounded. **When a schema constrains outcomes, check whether it also constrains actions. An unbounded action field always collapses to the cheapest available action.**
+
+**Watch-criteria:** sample runway entries for **remedy diversity** — if `fix-in-place` dominates 90%+, the vocabulary is being under-used and the consequence gate isn't biting. Also watch entry-count vs ruling-count (they should now be 1:1) and whether `extend-upstream-artifact` ever gets selected (if never, the missing verb is still missing in practice).
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

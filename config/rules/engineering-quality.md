@@ -144,6 +144,17 @@ For each finding, follow this flow:
 
 The training bias toward "agreeable and move forward" is real — it shows up as "recommend we move on," "this looks fine," or "we can address this later" without committing to where "later" lives. Resist it. When reporting the PR, document each finding's disposition explicitly: fixed / rejected (with reasoning) / deferred (with pointer to where it's tracked).
 
+### Finding QUALITY — every finding states its consequence and its remedy
+
+Disposition governs *whether* an item gets resolved. Quality governs *whether a human can act on it*. Both bind every agent that surfaces findings — code-reviewer, standards-auditor, quality-control, security-auditor, refactoring-evaluator, research-critic, architect, planner — and a finding that fails these is not a finding.
+
+- **State the CONSEQUENCE.** Name what breaks, is risked, or gets decided wrongly if this is not addressed. **A bare discrepancy is a note, not a finding** — "X doesn't match Y" only becomes a finding when the mismatch *does something*. Conformance and label checks are the usual offenders. The finding's TITLE names the consequence, not the mismatch: *"three key areas have no research coverage"* ✅, *"sizing label mismatch"* ❌.
+- **Carry a REMEDY.** Every finding proposes a concrete action — including rejected ones (the reasoning IS the remedy) and deferred ones (the pointer plus why-not-now). No finding reaches a human without a proposed next action.
+- **One finding = one entry = one recommendation.** Bundling separate decisions into a single item is a **defect, not a formatting choice**. If an entry would require more than one ruling, split it into separate entries with separate reasoning. Applying a lens to a bundle rather than to each decision is lens theater — it looks rigorous and gives the human nothing to rule on.
+- **Readability self-check:** *reading only this finding's title and its remedy, would the reader know what to do without reading the body?* If not, rewrite it.
+
+**Why this rule exists:** a taxonomy that constrains *state* while leaving *action* unbounded will see the action collapse to the cheapest one that makes the symptom disappear. If the only remedies an agent has words for are "fix it" and "ask a human," it will never propose "go get more evidence" — not from laziness, but because nobody gave it the verb. When you constrain outcomes, check whether you have also constrained actions.
+
 ### Review-stage agent lenses (distinct, complementary)
 
 When multiple review agents run in a workflow stage, each has a distinct lens. Don't duplicate other agents' work; surface what YOUR lens catches. If you notice something another lens would catch, mention it briefly with a pointer ("standards-auditor should also flag this") but don't make it your primary finding.
