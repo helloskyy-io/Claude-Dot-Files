@@ -69,25 +69,26 @@ models:
   revision: sonnet              # light fixes — speed over depth
   revision-major: opus          # significant rework — the default engineer
   build-phase: opus             # phase implementation — the default engineer
-  plan-new: fable               # 14-stage project planning — long-horizon synthesis
-  plan-revision: fable          # planning revision — long-horizon synthesis
+  plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
+  plan-revision: opus           # planning revision (was fable — see 2026-07-27 economics retier)
   sprint-review: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
   research-refresh: opus        # research revalidation — orchestration + synthesis diff
-  pr-review: fable              # PR disposition engine — judgment-heavy /decide + /best-practices per item
+  pr-review: opus               # PR disposition engine (was fable — 2026-07-27 economics retier; re-test candidate first when headroom returns)
 
   # Agent-tier canon (DOCUMENTATION ONLY — agents pin models in their own
   # frontmatter at config/agents/*.md, which cannot reference this file.
   # This block is the one-glance record; agent files MUST conform. Checked
   # at CPI time. Rationale per assignment in cpi-decisions.md 2026-07-26.)
-  #   fable:  architect (deepest synthesis, +web verify),
-  #           security-auditor (asymmetric-risk lens, +web CVE verify),
-  #           research-analyst (long-horizon research sweeps, +web — the
-  #           canonical Fable workload)
-  #   opus:   planner, quality-control, standards-architect,
-  #           research-currency (topic-retirement judgment, +web)
-  #   sonnet: code-reviewer, refactoring-evaluator, standards-auditor,
-  #           test-writer, doc-manager, workflow-analyst,
-  #           research-critic (source verification diligence, +web —
-  #           author≠critic model diversity vs fable analyst)
+  #   fable:  NONE — all fable placements removed 2026-07-27 (usage
+  #           economics: fable was ~57% of weekly burn). Re-add only with
+  #           headroom + measured per-run cost; pr-review is the first
+  #           candidate back (cheapest fable placement at $4.17/run).
+  #   opus:   architect (+web industry verify), security-auditor (+web CVE
+  #           verify), planner, research-analyst (+web source sweeps —
+  #           web is REQUIRED, it is the source-gathering agent),
+  #           research-currency (+web)
+  #   sonnet: quality-control, standards-architect, code-reviewer,
+  #           refactoring-evaluator, standards-auditor, test-writer,
+  #           doc-manager, workflow-analyst, research-critic (+web)

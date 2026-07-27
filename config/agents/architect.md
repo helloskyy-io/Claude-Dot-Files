@@ -2,7 +2,7 @@
 name: architect
 description: Software architecture specialist for system design, scalability, and technical decision-making. Only use when explicitly requested or as part of an autonomous workflow pipeline.
 tools: ["Read", "Grep", "Glob", "WebSearch", "WebFetch"]
-model: fable
+model: opus
 skills:
   - architecture-decisions
   - documentation-structure

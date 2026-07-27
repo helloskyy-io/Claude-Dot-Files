@@ -2,7 +2,7 @@
 name: security-auditor
 description: Security-focused code auditor specializing in vulnerability detection. Only use when explicitly requested or as part of an autonomous workflow pipeline.
 tools: ["Read", "Grep", "Glob", "WebSearch", "WebFetch"]
-model: fable
+model: opus
 skills:
   - testing-methodology
 ---

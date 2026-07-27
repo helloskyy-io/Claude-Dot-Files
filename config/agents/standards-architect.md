@@ -2,7 +2,7 @@
 name: standards-architect
 description: Audits the project's standards documents themselves — finds duplication, inconsistencies, gaps, staleness, and drift from exemplars. Only use when explicitly requested. Distinct from standards-auditor — auditor asks "does this code follow the standards?" while architect asks "are the standards themselves coherent, complete, and current?"
 tools: ["Read", "Grep", "Glob"]
-model: opus
+model: sonnet
 skills:
   - standards-enforcement
   - standards-authoring

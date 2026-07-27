@@ -470,6 +470,33 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Economics retier — all Fable removed from the fleet (SHIPPED 2026-07-27)
+
+**Trigger:** Max(20x) weekly bars at Monday midday — session 32%, all-models 34%, Fable 39%, with the week 20.8% elapsed. Burn at **1.63× sustainable** (Fable 1.87×); projected exhaustion Wednesday evening (Fable) / Thursday morning (all-models), during the operator's last week of school.
+
+**Diagnosis (measured, not assumed):**
+- **Fable draws from the same weekly pool** — confirmed in Anthropic's help center: *"Fable 5 draws from your plan's regular weekly usage limits… you can never use more than your weekly limit."* The 50% Fable cap is a ceiling INSIDE the allowance, not extra capacity.
+- **Arithmetic decomposition:** Fable bar (39%) > all-models bar (34%) is impossible on a shared denominator → the Fable bar measures against its own ceiling (50% of weekly). So Fable = 39% × 50% = **19.5% of the weekly pool**; everything else = 14.5%. **Fable was ~57% of total burn** from ~10 placements.
+- **Why the weekly bar suddenly binds:** Anthropic **permanently doubled the 5-hour cap (2026-05-06)**. That cap used to act as a de-facto rate limiter that incidentally protected the weekly budget; with it doubled, nothing throttles mid-day work and it all flows into the weekly. (Hypothesis that the weekly limit had *shrunk* was checked and DISPROVED — the +50% Claude Code weekly boost is still active, extended through **2026-08-19**.)
+- **Opus 5 also burns more than 4.8 at identical price** — thinking-by-default bills at output rate (~10–20% more tokens/request reported; one practitioner comparison measured ~2× on real tasks). A fleet-wide increase independent of our assignments.
+- Compounding: two entirely new workflow families (research, pr-review) under active parallel testing = genuinely more work, not just costlier work.
+
+**Shipped (operator-directed): ZERO Fable placements fleet-wide.**
+- Workflows: `plan-new`, `plan-revision`, `pr-review` fable → **opus**. No workflow is on fable.
+- Agents: `architect` fable → **opus** (keeps +web — its only path to current industry ground truth); `security-auditor` fable → **opus** (keeps +web — CVE currency is impossible from training data); `research-analyst` fable → **opus** (keeps +web — it IS the source-gathering agent, §3 requires 10–20 cited sources; web is not optional); `quality-control` opus → **sonnet**; `standards-architect` opus → **sonnet**.
+- **quality-control → sonnet rationale (architect recommendation, operator-confirmed):** it ran on sonnet from creation until the unvalidated 2026-07-25 bump; documented positive evidence exists AT sonnet (2026-05-29 post-fix dispatch: correct hedging, no fabrication, caught the SYS_TIME↔Raft systemic link). The fabrication incident was a methodology defect fixed by methodology, not a capability ceiling. Crucially, **pr-review now exists** — an independent opus-tier fresh-eyes pass that verifies claims against code — so a QC miss is no longer terminal. QC is also among the highest-frequency agents (every multi-agent workflow), making its tier a fleet-wide multiplier.
+
+**Projected effect:** Fable portion ~19.5% → ~9.8% (opus is half price), plus QC/standards-architect opus→sonnet savings. Total burn ~34% → ~24%, i.e. **1.63× → ~1.1× sustainable**. Helps substantially; may still be tight *this* week since 34% is already spent.
+
+**Watch-criteria:**
+- **PM interactive sessions are NOT governed by config.yaml.** An all-day PM session on Fable with growing context is plausibly the largest single Fable consumer. If the Fable bar keeps climbing after this retier, the remaining source is interactive sessions, not workflows.
+- **2026-08-19 cliff:** the +50% Claude Code weekly boost expires → allowance −33%. Burn must be sustainable at 1.0× *before* then, or the same usage exhausts around Tuesday.
+- **Quality watch on the downgrades:** if pr-review starts catching integration-class issues QC should have caught, QC returns to opus (with evidence this time). If architect/security-auditor quality drops without fable, note it — but neither had validation data at fable, so this is a return to a proven baseline, not a degradation.
+- **Fable re-entry:** only with headroom + measured per-run cost. `pr-review` is the first candidate back — it was the cheapest fable placement at **$4.17/run measured** and had the only positive fable evidence (meal-2 disposition quality).
+- **Untested lever:** `CLAUDE_EFFORT` / settings `effortLevel` (low/medium/high/xhigh). Since Opus 5's increase is specifically thinking-by-default, lower effort on mechanical workflows could cut burn without a tier drop. Not verified in headless `claude -p` — worth a measured experiment if more headroom is needed.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
