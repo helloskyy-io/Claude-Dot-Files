@@ -284,7 +284,7 @@ Read the plan document at the path above. Extract:
 
 Summarize what you extracted before proceeding.
 
-**Evidence-integrity precheck — only if the plan cites research artifacts (a research/ dir).** Before building on research the plan relies on, verify its integrity: critic verdicts present, papers inside their revalidation window, load-bearing claims non-contradictory. Structurally faulty evidence → STOP, build nothing, report it as a blocking finding ("evidence-integrity failure: <what's wrong>"). A full build on rotten evidence is the expensive mistake this one check prevents.
+(No research-integrity check here: a build consumes the PLAN — which already carries its citations — and standards, never research directly. Evidence integrity is verified ONCE, at the planning gate. Post-merge paper staleness is the refresh cadence's concern, surfaced at Reflect — never a build gate. Research Standard §7.)
 
 ## Stage 2: VALIDATE
 Evaluate whether the plan is actionable:
@@ -442,6 +442,7 @@ Rules:
 - Document deviations from the plan
 - If you cannot complete a stage, stop and clearly report why
 - Stay within the scope defined by the plan — do not add features not in the plan
+- **Research-state note (reflection-only, no check):** in your Post-Run Reflection, add one line on the component's research state — "component research: none / present, last validated <date> / waived per phase doc". This is the ONLY research touchpoint a build has: a note for the operator, never a gate.
 RULES_EOF
 )
 

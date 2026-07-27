@@ -274,6 +274,11 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 ---
 
 ## Stage 1: REQUIREMENTS
+
+**Research-sufficiency check FIRST (if the target repo has a Research Standard), before any spend.** Assess whether this work warrants research per that standard's sizing rubric (a new major component / new external technology / customer-facing surface / a decision that would otherwise be argued from priors). If it warrants research AND no research/ dir exists for it AND your dispatch carries NO explicit research-waiver directive → STOP now and report two options: (1) run research first — recommended (\`research.sh <path>/research --repo <repo>\`); or (2) re-dispatch with an explicit research-waiver directive. If a waiver directive IS present in your dispatch, proceed AND write the §2 waiver line (\`Research waiver: <reason>\`) into the phase/planning doc so the human's choice lands where reviewers read. Planning before warranted research inverts the loop (decide-then-justify); this ~\$2 Stage-1 stop prevents a ~\$40 plan redone after research corrects it.
+
+**Evidence-integrity precheck — only if your inputs include research artifacts (a research/ dir the plan cites).** Verify its integrity before consuming: critic verdicts present, papers inside their revalidation window (not past-window treated as authority), load-bearing claims non-contradictory. Structurally faulty evidence → STOP, do NO planning on it, report it as a blocking finding ("evidence-integrity failure: <what's wrong>").
+
 Gather and document the project requirements. The project-definition skill has the full methodology.
 
 Create `docs/development/requirements.md` covering:
