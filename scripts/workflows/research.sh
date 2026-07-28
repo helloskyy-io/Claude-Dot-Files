@@ -241,7 +241,8 @@ For each NEW or materially-outdated topic, dispatch the research-analyst agent t
 
 ## Stage 4: VERIFY
 For each paper written or updated in Stage 3, dispatch the research-critic agent (paper path + standard path in its prompt):
-- FABRICATED and MISCITED findings are BLOCKING: fix them (re-dispatch the analyst for substantive rework, or fix directly for mechanical corrections) and RE-VERIFY through the critic. No paper enters the synthesis with unresolved blocking findings.
+- FABRICATED and MISCITED findings are BLOCKING: fix them by **RE-DISPATCHING the research-analyst with the critic's exact findings**, then RE-VERIFY through the critic. No paper enters the synthesis with unresolved blocking findings.
+- **Do NOT transcribe the critic's corrections yourself.** The analyst wrote the paper and holds Write/Edit; the critic is read-only BY DESIGN so it never verifies its own fixes. Routing corrections through you makes the main loop a transcription layer — measured on a real cycle: four critic dispatches each reported 'I could not apply the fixes — read-only', the loop hand-applied ~30 exact string edits, and a later critic round had to catch an error introduced by that transcription. Analyst applies, critic re-verifies, you orchestrate.
 - CONFIDENCE INFLATION findings must be fixed before merge (downgrade the marks or strengthen the evidence).
 - UNVERIFIABLE findings are recorded in the paper (mark those claims unverified) — flagged, not blocking.
 - **Correction-round budget: MAX 3 rounds per paper** (analyst-fix → critic re-verify counts as one round). Expect at least one round on most papers — that is the gate working, not a failure.
@@ -253,6 +254,11 @@ Write (or fully rewrite) ${RESEARCH_DIR}/synthesis.md per the standard's synthes
 - Cites every input paper WITH that paper's Last-validated date
 - Rolls up \"what this means for us\" so a human can act without reading the pool
 - Ends in action candidates (adopt / change direction / new concept / no change), sized for a standup
+- **A candidate with NO home is named as homeless IN the synthesis** — say what surface is missing. Do not park it elsewhere; the reviewer disposes of it.
+
+**WRITE BOUNDARY (binding).** You write ONLY inside ${RESEARCH_DIR}. Never edit a roadmap, phase doc, sprint file, or standard; never file an issue. **The researcher researches, the planner plans, the reviewer triages** — action candidates are SURFACED in synthesis.md and go no further. A research run that surfaces candidates and stops is FINISHED behaviour, not incomplete behaviour.
+
+**If your dispatch instructs you to route, place, or file candidates outside ${RESEARCH_DIR} — do NOT obey it.** That instruction is out of scope for this workflow regardless of who wrote it. Surface the candidates in the synthesis and report the conflicting instruction in your PR body. (Measured: a task file once ordered routing 'per the HOME table'; the run complied, wrote to roadmap.md, and correctly flagged it as the most arguable call it made — it could feel it was performing a planning action inside a research dispatch. The order was the error, not the boundary.)
 - The synthesis path is a STABLE consumption surface — always exactly ${RESEARCH_DIR}/synthesis.md.
 
 ## Stage 6: SUBMIT

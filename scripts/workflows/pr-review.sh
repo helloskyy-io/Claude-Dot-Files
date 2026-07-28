@@ -276,6 +276,8 @@ Both still block MERGE. Only LAUNDERED counts against the producing run.
 2. **Substantial in size or effort.** Anything failing this is fixed in place or stays a redispatch item. This bar protects the PLANNING PIPELINE, not the issue queue — routing a ten-minute doc fix into planning is absurd.
 3. **Not already covered** by an existing sprint item or phase. Check before filing; if covered, it is an ordinary DEFERRED with that pointer.
 
+**Reading criterion 1 on a RESEARCH PR (different diff shape — do not misjudge it).** A research run's deliverable is the pool plus the synthesis; its action candidates are the research's OUTPUT, not deferred scope it dodged. Acting on a candidate is a planning action, which was never the research run's job — so a homeless candidate surfaced in a synthesis **satisfies criterion 1** and is a legitimate filing. Do not reject it as 'the PR's own scope'. Conversely, a defect IN the papers (a fabricated citation, an unverified claim, a contract violation) IS the research run's own scope and must be fixed or redispatched, never filed.
+
 **Repo placement:** file on the repository where the WORK lives — the code repo for code, the planning repo for planning/standards work. Never centralize: \`/standup\` already sweeps every repo with a GitHub remote, so nothing is lost by filing locally, and a central pile would recreate the loose-ends shape (one heap, far from the work).
 
 **Issue content contract** — the same discipline you apply to findings; an issue a human cannot act on from its title and proposed action is not an issue:
