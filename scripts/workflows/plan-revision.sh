@@ -329,7 +329,20 @@ Dispatch all FOUR peer-review agents — architect, planner, security-auditor, a
 
 **The dispatch contract (headless-safe):** dispatch all four as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL four narrow-lens results are in hand.
 
-Each agent's review focus:
+**CLASSIFY THE REVISION FIRST, and tell each agent which lens to apply.** Planning revisions come in two shapes and the question sets differ:
+
+- **PROPOSING** — the doc puts forward a design, plan, or direction not yet built. The per-agent focus questions below apply as written.
+- **RECORDING (reflect-stage)** — the doc records what a build ALREADY produced: flipping status, surfacing what the build exposed, correcting stale gate language. This shape recurs constantly (every build landing against a phase doc generates one), and the proposing questions fit it badly — asking 'are the trade-offs documented' of a doc whose job is to record an outcome yields a stretch or a shrug.
+
+**When the revision is RECORDING, each agent applies this lens INSTEAD of its proposing questions** (keeping its own specialty as the angle):
+- **Does the doc accurately describe what actually happened?** Verify claims against the tree, not against the doc's own narrative.
+- **Are its claims tree-qualified?** A status flipped to done, a gate declared satisfied, a count asserted — each must be checkable against the current tree, and you check it. An unqualified claim in a record is the defect.
+- **Did everything the build surfaced actually reach a durable surface?** Amendment candidates, follow-ups, newly-exposed gaps — each needs a home (a queue section, an issue, a phase-doc entry). Anything surfaced by the build and recorded nowhere is the finding.
+- Per specialty: architect — do the recorded outcomes contradict the architecture the doc still claims? planner — do recorded results invalidate downstream ordering or success criteria? security-auditor — did the build change the security posture the doc describes? standards-architect — does the record conform to how records are written here, and does it silently amend a standard it should only surface?
+
+State the classification explicitly in your dispatch to each agent so the lens choice is visible in the review, not implicit.
+
+Each agent's review focus (PROPOSING shape — see the RECORDING lens above when applicable):
 
 #### architect agent — technical consistency and trade-offs
 - Are the technical decisions consistent with existing architecture?

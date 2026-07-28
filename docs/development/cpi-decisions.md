@@ -661,6 +661,24 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## Round 4 — review-panel lens + dispatch-context precedence (SHIPPED 2026-07-28)
+
+**1. The review panel had no reflect-stage lens.** Stage 4's four agents were given design-evaluation questions ("are trade-offs clearly documented?", "is the ordering of work logical?") that assume **a design under proposal**. They fit `plan-new` and genuine plan revisions; they fit a **recording** revision badly — #138 was documenting what a build had already produced (flipping status, surfacing amendment candidates the build exposed, correcting stale gate language), and asking whether trade-offs are documented of a doc whose job is to record an outcome yields a stretch or a shrug. The agents improvised the right lens themselves, which worked *by luck, not design*. The shape recurs constantly — every build landing against a phase doc generates one.
+
+**Shipped:** Stage 4 now **classifies the revision first** (PROPOSING vs RECORDING) and states the classification in each agent's dispatch, so the lens choice is visible rather than implicit. The RECORDING lens replaces the proposing questions while each agent keeps its specialty as the angle: *does the doc accurately describe what actually happened* (verified against the tree, not the doc's own narrative) · *are its claims **tree-qualified*** (a flipped status, a satisfied gate, an asserted count — each checkable against the current tree, and you check it; an unqualified claim in a record IS the defect) · *did everything the build surfaced reach a durable surface* (anything surfaced and recorded nowhere is the finding). No dispatch flag needed — it self-selects.
+
+**2. `dispatch_context` and `precheck` could specify different scopes.** Verified from the primary source: pass 1's `dispatch_context` **enumerated four** amendment candidates to mirror, while its `precheck` for the same item stated *"the count is advisory, the requirement is **set-equality** between the two surfaces."* Those disagree, and nothing required them to agree — placing the executor between a specific instruction and a general predicate with **no precedence rule**. The executor correctly followed the enumeration and flagged the fifth candidate in its Decision Log; the fifth never reached the queue and pass 2 had to re-find it.
+
+**Shipped:** a fourth precheck requirement — **scope-match**: the precheck must be checkable against EXACTLY the set the dispatch_context enumerates; never pair an enumeration with a broader general predicate. If the real requirement is set-equality, either enumerate the full set or write the predicate to reference the enumeration — never both scopes at once. Plus an explicit **precedence rule: the dispatch_context ENUMERATION governs**; the precheck gates *whether* to act and never silently widens or narrows *what* to act on.
+
+**Same defect shape, one layer down.** This is the machine-readable version of the research-routing defect resolved hours earlier: a general rule (§7's HOME table implication / "set-equality") pointing a different direction from a specific instruction (the workflow's write boundary / the enumeration), with no precedence rule to arbitrate. Both are now resolved the same way — **specific governs, and the general rule may not silently override it.** Worth watching for a third instance; if it appears, the precedence principle deserves a home in `engineering-quality.md` rather than being restated per-tool.
+
+**To pass 2's credit, protect this:** it attributed the divergence to its own pass-1 authoring rather than to the executor — *"That's an authoring defect on my side, not an execution one."* Self-attribution over blame-shifting is the property that makes a multi-pass loop trustworthy.
+
+**WITHDRAWN on verification (PM3 caught it before forwarding):** a `plan-revision` run reported that review agents "can't run the `git diff` their Stage 4 prompt instructs." Half true and the actionable half false — the agents *do* lack Bash (all seven declare `Read`/`Grep`/`Glob`, plus web for architect and security-auditor), but **no such instruction exists**: `git diff` appears nowhere in `plan-revision.sh`, Stage 4 hands the agents *questions* about the Stage 3 artifact, and Read/Grep/Glob are sufficient. The report also said five agents where Stage 4 dispatches four. **Calibration, stated by PM3 and worth keeping: an agent's reflection is a LEAD, not a finding.** This cycle produced three corrections from treating claims as facts without a grep — this is the first one caught *before* it cost anything, and from the same run whose other finding (item 2) did hold up. Reflections are not uniformly reliable within a single run.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

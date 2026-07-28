@@ -375,7 +375,21 @@ pr_review:
          (3) SPLIT THE STOP PREDICATE — 'not yet warranted' and 'already done' are DIFFERENT states
              needing DIFFERENT actions. Only 'already done' justifies STOP. Say which is which, e.g.
              'if already extracted -> STOP, it is done; if fewer than N adopters -> proceed anyway,
-             the threshold is advisory'. Never collapse them into one ambiguous STOP.>
+             the threshold is advisory'. Never collapse them into one ambiguous STOP.
+         (4) SCOPE-MATCH THE DISPATCH_CONTEXT — the precheck must be checkable against EXACTLY the
+             set the dispatch_context enumerates. Do not pair an enumeration with a broader general
+             predicate: 'mirror these four candidates' + 'the requirement is set-equality between the
+             two surfaces' disagree, and they place the executor between a specific instruction and a
+             general rule with no rule for which wins. (Measured: the executor correctly followed the
+             enumeration and flagged the fifth item; the fifth never reached the queue and a later
+             pass had to re-find it. Authoring defect, not execution.) If the real requirement IS
+             set-equality, either enumerate the full set or write the predicate to reference the
+             enumeration — never both scopes at once.
+         **PRECEDENCE (binding, state it in the block): the dispatch_context ENUMERATION governs.**
+             The precheck gates whether to act; it never silently widens or narrows what to act on.
+             A general rule may not override a specific instruction — the same defect shape as a
+             standard's general implication overriding a workflow's explicit boundary, one layer down
+             and machine-readable.>
       # kind: needs-assistance — human judgment required:
       why_human: architecture-gap | planning-gap | scope-economics | standards | sprints | operator-action | research-defect | missing-surface | genuine-ambiguity | no-reflection
       reframe: <the /decide reframed question, one line — the reframe that drove your recommendation>
