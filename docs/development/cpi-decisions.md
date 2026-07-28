@@ -621,6 +621,32 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## pr-review gains issue-filing authority (SHIPPED 2026-07-28) — capability, not refinement
+
+**Source:** PM3 build request, backed by the ratified MDC Documentation Standard § Deferred Work (`0defa0b`). The Loose Ends Convention is deprecated. The standard states only what binds actors *other than the tool* (filing authority, the human's disposition rule at standup, what sprint close-out means); the **triage methodology deliberately lives in the tool**, where it can be tuned every CPI cycle without a standards amendment.
+
+**What changed:** `pr-review` gains a fourth disposition alongside MERGE / HOLD(redispatch) / HOLD(needs-assistance) — it may **file a GitHub Issue** for qualifying deferred work.
+
+**This narrows the decide-only doctrine, deliberately and by exactly one write.** pr-review remains decide-only on the PR (never merges, closes, fixes, dispatches, or edits standards/sprints); it gains issue-filing and nothing else. The justification is an asymmetry, not convenience, and it is stated *in the prompt* so the model understands the constraint rather than merely obeying it: **a run that can file its own deferrals has a disposal chute for its own scope** — file it, move on, PR looks clean. pr-review has nothing to offload because it is never the party who would otherwise do the work. It also concentrates calibration in ONE tunable prompt instead of N agents drifting independently.
+
+**Shipped:**
+- **Filing authority + rationale** in Stage 3; producing runs (revision, revision-major, build-phase, plan-*) SURFACE deferred work and stop.
+- **Three conjunctive criteria:** unrelated to the work in hand (the primary discriminator — stops a PR offloading its own scope) + substantial in size/effort (protects the PLANNING pipeline, not the queue — a ten-minute doc fix routed into planning is absurd) + not already covered. Fail any one → not an issue.
+- **Repo placement:** file where the WORK lives, never centralized — `/standup` sweeps every repo, and a central pile would recreate the loose-ends shape (one heap, far from the work).
+- **Content contract:** consequence-titled, evidence + pinned SHA in the body, a proposed next action, ONE issue per item (a six-item issue rots as a unit — the crammed-loose-end defect), gh-monitor-safe.
+- **Deferral rule extended:** a filed issue is a valid third deferral target (alongside existing sprint item / live PR). It is not a parking spot *because* a filed issue carries a standing disposition obligation, which a loose-end never did.
+- **Verdict effect:** a filed issue is terminal for that finding and does NOT hold the PR (criterion 1 guarantees it is unrelated). Recorded as `disposition: deferred` + issue URL as verified pointer, so the finding schema is unchanged as requested; the action is recorded at `next_steps[].kind: file-issue` with `issue_url` / `issue_repo` / `qualified`.
+- **Miscalibration framed as signal:** the prompt tells the filer that an operator closing an issue as invalid is feedback on ITS calibration and must reach the operator unfiltered — file honestly against the criteria, do not pre-filter to look good.
+- **`/standup`:** surfaces the **disposition obligation** (an issue must not survive a standup in the same state — four exits: resolved now / scheduled into existing planning / planned as new work / closed as invalid), **flags AGING issues** (open with no state change since before the window — meaning either it is blocked and the blocker is the real item, or it never qualified), and surfaces **closed-as-invalid as a calibration signal**, explicitly not as cleanup. Filing is concentrated in pr-review rather than filtered through a PM precisely so this evidence is not suppressed before the operator sees it.
+
+**⚠ CONFLICT FLAGGED, resolved narrowly — needs confirmation.** The request states *"No autonomous dispatch may open an issue. Not revision.sh, not revision-major.sh, not build-phase.sh, not plan-revision.sh."* But `plan-new.sh` and `plan-revision.sh` **already file issues** — the STOP→issue writer shipped at `dc52a77`, ratified in Research §7 days earlier, and `/standup`'s issue leg was built to read it. I implemented the **narrow reading** (the rule governs *deferred-work* filing) on this reasoning: a planning STOP is not deferring work, it is recording a **no-change outcome** — the run produced nothing and the issue IS its output. PM3's rationale (a disposal chute for one's own scope) cannot apply to a STOP, which has no scope to offload because it never started. Both remain in place. **If the absolute reading was intended, the STOP→issue writer must be removed and `/standup`'s issue leg loses a writer again — say so and I will pull it.**
+
+**Sequencing (PM3):** standards → tooling (this) → live use → reflection → migration of the existing corpus **last**. The migration is larger than it looks — 139 open items across 13 sprint files (356 total), most of an operator day at three minutes each — and triaging against an unvalidated model would be the wrong order. Banked idea for that step: batch ~10 legacy items per PR and run `pr-review` over them, producing a **labeled calibration dataset** (tool triage vs operator triage on real cases) that cannot otherwise be manufactured. It self-sequences last since it needs filing to exist first.
+
+**Watch:** invalid-close rate as the primary calibration signal; whether criterion 1 (unrelated) actually holds the line or PRs start offloading scope; whether filed issues get ruled at the next standup or start aging (aging is the failure mode the whole convention exists to prevent).
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
