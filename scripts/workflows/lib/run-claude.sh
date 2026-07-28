@@ -154,6 +154,44 @@ run_claude() {
     fi
 
     # -----------------------------------------------------------------------
+    # Turn-cap termination — make a silent death LOUD. Deliberately visibility
+    # only: no commit, no push, no state file, no resume. Measured rate is
+    # 0.9% (4/443 runs, 3 of them from April), every occurrence so far with a
+    # human watching, so recovery machinery would add failure modes
+    # (unverified commits pushed onto a healthy-looking PR, salvage loops) to
+    # serve a sub-1% event that a message already resolves — hand recovery
+    # took ~10 minutes once the operator knew where to look. Reopen only if
+    # the rate climbs under unattended/pooled operation, and even then the
+    # fix is louder signalling, not resume.
+    # -----------------------------------------------------------------------
+    if grep -q '"subtype":"error_max_turns"' "$LOG_FILE" 2>/dev/null; then
+        local wt="" i
+        for (( i = 0; i < ${#extra_args[@]}; i++ )); do
+            if [[ "${extra_args[i]}" == "-w" ]]; then
+                wt="$(git rev-parse --show-toplevel 2>/dev/null)/.claude/worktrees/${extra_args[i+1]}"
+                break
+            fi
+        done
+        [[ -n "$wt" ]] || wt="$PWD"
+        {
+            echo
+            echo "================================================================"
+            echo "  ⚠ RUN TERMINATED AT TURN CAP (${MAX_TURNS} turns)"
+            echo "================================================================"
+            echo "  Work is uncommitted at: ${wt}"
+            echo "  NOTHING was committed or pushed."
+            echo
+            echo "  Most often this means the task was mis-sized for this workflow —"
+            echo "  a heavier one (revision-major.sh / build-phase.sh, 300 turns) may"
+            echo "  fit better, or the task may need splitting."
+            echo
+            echo "  Inspect:  cd ${wt} && git status"
+            echo "================================================================"
+        } >&2
+        return 1
+    fi
+
+    # -----------------------------------------------------------------------
     # Completion contract — exit 0 must mean the workflow actually finished.
     # A headless (`claude -p`) run ends on ANY text-only turn, including a
     # premature "waiting on dispatched agents…" message: the harness reports
