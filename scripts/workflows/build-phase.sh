@@ -319,6 +319,10 @@ Produce a brief summary noting:
 ## Stage 4: TEST
 Run and write tests for the implementation, following the project's testing standard.
 
+**CAN THIS TEST FAIL? (do this before declaring green — a green suite is not evidence.)** Twice measured: a fully passing suite while a live credential defect was in the code. Two checks:
+1. **Call-shape match:** does the test invoke the code the way the REAL callers do? A test calling a function directly while every caller uses command substitution \`\$( )\` exercises a different execution context — errexit is cleared in a subshell, so the test cannot observe the failure the callers will hit. Match the caller's shape.
+2. **Verified negative control** (required for structural/contract/grep-style tests): demonstrate the assertion actually FIRES when the property is violated. Temporarily break the property in a scratch copy, confirm the test goes red, restore. A contract test that cannot fail is worse than no test — it manufactures confidence.
+
 **Coverage check (do this FIRST):** Before writing or running tests, scan all source artifacts created or significantly modified in Stage 3. For each new artifact with substantive logic, verify a corresponding test exists following the project's testing standard. What counts as a "corresponding test" depends on the framework — consult the project's `docs/standards/testing.md` for the framework-specific mapping. Common patterns:
 - Python: `<name>.py` → `test_<name>.py` in `tests/unit/`
 - Ansible roles: role directory → molecule scenario in `<role>/molecule/`, or lint/syntax coverage in the testing harness
@@ -480,6 +484,7 @@ ${STAGES_1_TO_7}
 
 ## Stage 8: SUBMIT
 - Stage any uncommitted changes remaining from stages 5-7 (peer-review fixes from code-reviewer, refactoring-evaluator, and standards-auditor) and commit them with the final message format: \"feat: <short description of what was built>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+- **Update the PR's SELF-DESCRIPTION**: the PR body must describe what the PR NOW contains, and docs/file_structure.txt must reflect any files added/removed/renamed. Stale self-description mechanically manufactures findings for the next review pass.
 - Push the branch (this updates PR #${PR_NUMBER})
 - **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
 - Report a summary of the entire workflow including a deviation summary comparing what was planned vs what was built

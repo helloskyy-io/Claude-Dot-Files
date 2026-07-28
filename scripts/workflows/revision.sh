@@ -64,6 +64,8 @@ Arguments:
 
 Options:
   --pr <number>        Update an existing PR instead of creating a new one
+  --repo <path>        Target repo (explicit identity, never derived from cwd —
+                       cwd drifts as a side effect of other workflow runs)
   --verbose, -v        Stream formatted Claude output live
 
 Examples (flags FIRST, positionals LAST — protects the positional from
@@ -80,6 +82,7 @@ EOF
 DESCRIPTION=""
 TASK_FILE=""
 PR_NUMBER=""
+REPO_TARGET=""
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
@@ -98,6 +101,14 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             PR_NUMBER="$2"
+            shift 2
+            ;;
+        --repo)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --repo requires a path" >&2
+                exit 1
+            fi
+            REPO_TARGET="$2"
             shift 2
             ;;
         --verbose|-v)
@@ -152,6 +163,18 @@ for cmd in claude gh jq; do
         exit 1
     fi
 done
+
+# Explicit target repo (--repo) — the target identity is explicit, never derived
+# from the invocation directory. cwd DRIFTS as a side effect of other workflow
+# runs (observed independently by two PMs: a session left cwd inside
+# claude-dot-files/scripts/workflows, and inside a worktree after a background
+# dispatch). revision.sh is the most-used, least-watched workflow, so a
+# wrong-repo worktree here is the likeliest to go unnoticed.
+if [[ -n "$REPO_TARGET" ]]; then
+    [[ -d "$REPO_TARGET" ]] || { echo "Error: --repo path not found: ${REPO_TARGET}" >&2; exit 1; }
+    git -C "$REPO_TARGET" rev-parse --show-toplevel &>/dev/null || { echo "Error: --repo path is not a git repository: ${REPO_TARGET}" >&2; exit 1; }
+    cd "$REPO_TARGET"
+fi
 
 if ! git rev-parse --show-toplevel &>/dev/null; then
     echo "Error: not inside a git repository" >&2
@@ -245,6 +268,14 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
+   WORKFLOW-FIT CHECK — do this BEFORE implementing. revision.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
+
+   > This task is sized for revision-major.sh, not revision.sh. revision.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with revision-major.sh (300 turns, four review lenses). Nothing has been changed.
+
+   Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
+
+   TURN-BUDGET DISCIPLINE: you have 100 turns. Commit as soon as a coherent unit of work is verified — do NOT carry completed, tested work uncommitted while you continue. If you approach the cap with uncommitted work, STOP what you are doing, commit and push it immediately, and report what remains. Work that dies uncommitted in a worktree is lost silently; work that is committed and pushed is resumable by the next dispatch.
+
 2. IMPLEMENT: Before writing code, discover the applicable standards:
    - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
    - If docs/architecture/ exists, scan for relevant ADRs
@@ -252,9 +283,15 @@ Follow these stages exactly:
 
    Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
 
+   MATCH LOCAL PRECEDENT: before writing, search the same file/module for sibling implementations of the pattern you are touching, and match them wholesale. Local precedent beats general principle. (Measured: an extracted helper omitted both the explicit \`return 1\` and the \`>&2\` redirect that TWO sibling functions in the same file already had — and it took three separate review passes to rediscover each half.)
+
+   EXECUTION-CONTEXT CHECK: if your change moves code into a different execution context — a subshell, command substitution \$( ), a pipeline, a background job, a trap — enumerate EVERYTHING that context changes before you finish. Command substitution alone clears errexit AND captures stdout: one such move produced a failed \`kubectl apply\` reported as success, plus a swallowed error message, as two separate defects found in two separate passes.
+
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
 4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "revision: <short description>"
+
+   SELF-DESCRIPTION (required on this path): update the PR body to describe what the PR NOW contains, and update docs/file_structure.txt if you added, removed, or renamed files. A fix that leaves the PR's own description stale mechanically manufactures a finding for the next review pass — measured: every fix round generated 1-2 new "body doesn't describe the new work / test count stale / new file missing from map" findings, and one review pass found ZERO code defects and only self-description drift. Updating it here breaks that loop.
 
 5. PUSH: Push the branch. This will update PR #${PR_NUMBER} automatically.
 
@@ -301,12 +338,24 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
+   WORKFLOW-FIT CHECK — do this BEFORE implementing. revision.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
+
+   > This task is sized for revision-major.sh, not revision.sh. revision.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with revision-major.sh (300 turns, four review lenses). Nothing has been changed.
+
+   Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
+
+   TURN-BUDGET DISCIPLINE: you have 100 turns. Commit as soon as a coherent unit of work is verified — do NOT carry completed, tested work uncommitted while you continue. If you approach the cap with uncommitted work, STOP what you are doing, commit and push it immediately, and report what remains. Work that dies uncommitted in a worktree is lost silently; work that is committed and pushed is resumable by the next dispatch.
+
 2. IMPLEMENT: Before writing code, discover the applicable standards:
    - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
    - If docs/architecture/ exists, scan for relevant ADRs
    - Read the specific docs/standards/*.md files relevant to your task area
 
    Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
+
+   MATCH LOCAL PRECEDENT: before writing, search the same file/module for sibling implementations of the pattern you are touching, and match them wholesale. Local precedent beats general principle. (Measured: an extracted helper omitted both the explicit \`return 1\` and the \`>&2\` redirect that TWO sibling functions in the same file already had — and it took three separate review passes to rediscover each half.)
+
+   EXECUTION-CONTEXT CHECK: if your change moves code into a different execution context — a subshell, command substitution \$( ), a pipeline, a background job, a trap — enumerate EVERYTHING that context changes before you finish. Command substitution alone clears errexit AND captures stdout: one such move produced a failed \`kubectl apply\` reported as success, plus a swallowed error message, as two separate defects found in two separate passes.
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 

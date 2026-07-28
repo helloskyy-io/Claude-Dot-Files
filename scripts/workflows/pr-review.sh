@@ -209,7 +209,9 @@ Then gather the raw material (batch independent reads in one turn). **You are NO
 - **The PREDECESSOR PR's Deferred Work (high-yield — do not skip).** Find the most recent merged PR(s) that this work follows on from (\`gh pr list --state merged --limit 5\`), and read their Deferred Work / reflection sections. **A deferral whose stated trigger condition THIS PR satisfies is a first-class finding** — e.g. 'deferred until a second adopter exists' and this PR is that second adopter. Deferrals carrying explicit trigger conditions are the cheapest recurrence signal available, and nobody else is watching them. Enumerate any you find in Stage 2.
 - **Prior pr-review comment (this is pass ${THIS_PASS}):** if ${PRIOR_PASS} > 0, find the prior comment(s) containing a \`pr_review:\` yaml block and READ them. You MUST reuse each prior finding's stable \`id\` slug verbatim when the same finding persists — stable ids are what make cross-pass and cross-PR recurrence tracking work. Only genuinely-new findings get new slugs.
 
-**If there is NO reflection/decision-log comment at all:** that is itself a finding (the producing run may have early-stopped). Record it, and it becomes a HOLD reason \`no-reflection\`.
+**Reflection coverage is PER-COMMIT, not per-PR.** List the PR's commits (\`gh pr view ${PR_NUMBER} --json commits --jq '.commits[].oid'\` or \`git --no-pager log --oneline origin/<base>..HEAD\`) and check that the SUBSTANTIVE commits are attested. A PR where a later trivial run posted 'no significant decisions' while the commit that made every real choice posted NOTHING is an attestation gap — the \`no-reflection\` HOLD fires on that, even though a reflection comment technically exists. The producing run's own words are your primary evidence surface; when they are absent for the substantive work you are reduced to reconstructing intent from the diff, and you must say so explicitly rather than presenting reconstruction as attestation.
+
+**Cross-repo / cross-branch verification (pin your refs).** If you fetch another repo's or another PR's branch, fetch to a NAMED ref (\`git fetch origin pull/<n>/head:refs/prreview/<n>\`) and record the resolved SHA before making any claim about it. \`FETCH_HEAD\` is NOT stable across a multi-turn review — a later fetch in the same session silently redefines it, and an absence grep against the wrong ref returns empty. That failure mode produced a would-be headline finding that was simply wrong. Record the reviewed SHA per cross-repo claim in your yaml so a claim that goes stale later is self-evidently stale rather than looking like an error.
 
 ## Stage 2: ENUMERATE
 List EVERY surfaced item, from all sources above, exhaustively. Sources of items:
@@ -229,6 +231,10 @@ A bare discrepancy is not a finding. 'X does not match Y' becomes a finding only
 - ✅ 'three key areas of the substrate have no research coverage'
 - ❌ 'sizing label mismatch (LARGE vs MEDIUM)'
 
+**BOUNDARY LENS — mandatory when the PR introduces a new chokepoint, shared helper, seam, or boundary.** Task framing steers attention: an amendment-shaped dispatch produces amendment-shaped review, so the artifact gets scrutinized while its EXITS do not. (Measured: four review lenses ran on a change introducing a new redaction seam; every Critical they found sat OUTSIDE the seam, and none found a defect inside it — while three uncovered credential exits were live, one of them INTRODUCED by deleting a per-adapter scrub.) So: enumerate every exit from the enclosing unit — every return path, every raise/exception channel, every generated method (\`__repr__\`, \`__str__\`), every adapter-free or error path — and verify each is actually covered by the new chokepoint. Ask what ROUTES AROUND the thing this PR just built.
+
+**Sequencing observations are NOTES, not findings.** Merge-ordering and cross-PR sequencing remarks ('this should land after #N') cost an operator a ruling each time and are routinely moot by the time they are read. Demote them to reflection notes UNLESS you can demonstrate a concrete consequence on the CURRENT tree.
+
 **ONE FINDING = ONE ENTRY = ONE RULING (binding).** If an item would require the operator to make more than one decision, it is a BUNDLE, and a bundle is a DEFECT — split it into separate findings with separate ids and separate reasoning. 'Give the nine action candidates a home' is nine findings. 'One standards amendment pass (four items)' is four findings. Applying your lenses to a bundle instead of to each decision is lens theater: it reads as rigorous and gives the operator nothing rulable.
 
 ## Stage 3: DISPOSITION (the core — no rubber stamps, no rug-sweeps)
@@ -244,7 +250,7 @@ For EACH enumerated item, reach exactly one terminal disposition using genuine /
 - \`operator-action\` — infra/sudo/live-system act only the operator can take
 
 - **FIXED** — already correctly resolved in this PR. VERIFY against the code (Read/Grep/Glob) that it truly is; do not take the producing run's word.
-- **REJECTED** — not a real issue. State WHY with real reasoning (agent misread, non-issue in context, the concern demonstrably doesn't apply). Rejection-with-reasoning is valid; \"recommend we move on\" / \"low value\" / \"acceptable\" is NOT — that is silent dismissal and is FORBIDDEN.
+- **REJECTED** — not a real issue. State WHY with real reasoning (agent misread, non-issue in context, the concern demonstrably doesn't apply). **If your rejection turns on a DIFFERENCE, characterize how they differ — do not merely confirm that they do.** Verifying 'these two blocks are genuinely different' is not the same as knowing HOW: two blocks where one hardcodes a key name and the other parameterizes it are ONE implementation typed twice, and setting the parameter makes them identical. A rule-of-three judgment is valid across genuinely different use cases; it does not apply to one use case written twice. (Measured: this exact rejection was re-verified and re-affirmed across three passes without ever asking *how*, and the operator caught it from the diff.) Rejection-with-reasoning is valid; \"recommend we move on\" / \"low value\" / \"acceptable\" is NOT — that is silent dismissal and is FORBIDDEN.
 - **DEFERRED** — permitted in EXACTLY TWO cases and NO others:
   (a) the work is **already scheduled** in a future sprint item that ALREADY EXISTS → pointer = that sprint item; OR
   (b) the work is **already in motion** in a live concurrent PR/dispatch → pointer = that PR/dispatch.
@@ -270,6 +276,8 @@ Reach exactly ONE verdict:
 
 - **MERGE** — every item landed cleanly: FIXED (verified against the code), REJECTED (with real reasoning), or DEFERRED (to an already-existing home, pointer verified present). Nothing is left needing anything. (You do NOT merge — a human/parent does. MERGE means \"clean, safe to merge,\" with a one-line rationale.)
 
+  **CONVERGENCE RULE — severity, not count.** A flat open-item count reads as a stall when it is actually convergence: measured across three passes the count sat at 1 while severity fell live-bug → diagnostics-bug → preventive-only. **The first pass whose findings are ALL preventive (no live defect, no incorrect behaviour, nothing user- or security-visible — only 'a future change could regress this') IS convergence: return MERGE**, and say so ('converged: this pass's only findings are preventive'). List the preventive items as recommendations in the body so they are visible without holding the PR. Do not HOLD a PR whose remaining findings would never have blocked it on pass 1.
+
 - **HOLD** — the catch-all: ANYTHING still needs something to be right before this can merge. HOLD is NOT a rejection of the PR — it is a **runway**: the explicit, ordered list of what must happen so the NEXT pass is a MERGE. Every HOLD next-step is exactly one of two shapes:
   1. **redispatch** — the correction is obvious and known. You write a scoped \`dispatch_context\` (which findings to fix, what to change, what NOT to touch). A human fires \`revision.sh --pr ${PR_NUMBER}\` with it now; a parent workflow fires it once earned. This also covers a homeless follow-up whose home is an obvious doc edit (a plan-revision dispatch).
   2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; the review uncovered something BIGGER than the PR (**a gap in the architecture or the plan**); or the PR's inputs include research artifacts and you find a **research defect** — apply the materiality test: *does correcting the defect change the outcome of the decision built on it?* NO → it rides the scheduled revalidation sweep (note it, do not hold on it). YES → needs-assistance with why_human \`research-defect\`: the research must be re-validated (a research-currency re-run) and any dependent planning re-run before this can merge. For each needs-assistance item, present your best RECOMMENDED resolution reasoned through /decide + /best-practices — and print the working: a one-line \`reframe:\` (the /decide reframed question) and a one-line \`bp:\` (the best-practice alignment) BEFORE the recommendation, so the operator audits your judgment at standup speed instead of trusting lens-flavored prose. Surfacing a real gap and asking for direction is a success, not a failure.
@@ -292,7 +300,15 @@ Then write the comment body to a temp file (e.g. /tmp/claude-pr-review-${PR_NUMB
 pr_review:
   pr: ${PR_NUMBER}
   pass: ${THIS_PASS}
+  attempt: <int>                     # BUILD attempts consumed so far (NOT review passes).
+                                     # WRITTEN, never derived: a run killed at its turn cap
+                                     # leaves no commit and no comment, so a git-derived count
+                                     # scores it zero; hand-landed commits corrupt it the other
+                                     # way. Carry forward the prior block's value; increment
+                                     # only when a fix dispatch actually landed work. A run that
+                                     # died at its cap does NOT consume an attempt.
   verdict: MERGE | HOLD
+  converged: true|false              # true when this pass's only findings are preventive (see Stage 4)
   findings:
     - id: <stable-slug>
       title: <the CONSEQUENCE in one line — what breaks/is risked/gets decided wrongly. NOT the mismatch.>
@@ -303,6 +319,9 @@ pr_review:
       hold_kind: redispatch | needs-assistance   # REQUIRED when disposition: hold — links this finding to its next_steps entry
       pointer: <REQUIRED if deferred — the already-existing sprint item or live PR, VERIFIED present. Never the reviewed PR.>
       pointer_verified: true|false   # deferred only — did you open it and confirm the item is there?
+      reviewed_sha: <sha>            # REQUIRED for any claim verified against another repo/branch —
+                                     # the pinned named-ref SHA you checked. Makes a claim that goes
+                                     # stale after a later push self-evidently stale, not wrong.
   next_steps:                        # HOLD only — the runway: do these and the next pass is a MERGE
                                      # ONE ENTRY PER RULING. Never bundle; never share a lens block.
     - item: <finding id>
@@ -332,7 +351,10 @@ pr_review:
         <your best resolution (following from reframe + bp), so the operator can rule quickly>
   laundered_deferrals:               # RATE is the Layer-1 CPI signal, not the count — 2-of-2 and 2-of-40 are different worlds
     caught: <int>                    # deferrals pointing at a dead/invalid home (producing-run failure)
-    of_total: <int>                  # total deferrals the producing run claimed
+    of_total: <int>                  # CUMULATIVE across ALL passes on this PR — every deferral ever raised,
+                                     # not just this pass's. A run that omits its Deferred Work section
+                                     # entirely must NOT score better (0/0) than one that honestly
+                                     # laundered; a vanished deferral keeps counting in the denominator.
   homeless_items: <int>              # legitimate items with NO valid corpus surface (a STANDARDS gap — never counted against the producing run)
   redispatched: false                # always false — this engine never dispatches
 \`\`\`
