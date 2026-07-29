@@ -727,7 +727,7 @@ This skill is foundational for workflows that create documentation:
 - Usually doesn't need this skill — revisions are code changes, not doc changes
 - If the revision creates or modifies docs, this skill activates
 
-### `revision-major.sh` (significant rework)
+### `revision.sh` (significant rework)
 - May create ADRs to document major decisions
 - May update phase docs to reflect reality
 - This skill activates for those doc operations

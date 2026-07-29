@@ -231,8 +231,8 @@ How to tell if a refactor was worth it:
 - Minor revisions should NOT include refactoring unless directly related to the fix
 - The prompt says "don't refactor unrelated code" — follow it
 
-### revision-major.sh
-- The refactoring evaluation stage uses this skill
+### revision.sh
+- The refactoring evaluation stage (in the refine step) uses this skill
 - Accept, reject, or defer each suggestion based on the criteria above
 - Focus on refactors that make the major revision's goals achievable
 

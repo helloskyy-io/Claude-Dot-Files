@@ -13,14 +13,14 @@
 #
 # Optional environment variables:
 #   MODEL_OVERRIDE     — bypass the config.yaml map for this dispatch (A/B runs):
-#                        MODEL_OVERRIDE=fable ./revision-major.sh "task"
+#                        MODEL_OVERRIDE=sonnet ./steps/revision-draft.sh "task"
 #   COMPLETION_PATTERN — an ERE the final result MUST contain for the run to
 #                        count as complete. Missing → run_claude fails LOUD and
 #                        returns nonzero (exit 0 must mean done). PR-producing
 #                        workflows set this to a PR-URL pattern. Unset = no check.
 #
 # Usage in a workflow script:
-#   MODEL_KEY="revision-major"
+#   MODEL_KEY="revision-draft"
 #   source "${SCRIPT_DIR}/lib/run-claude.sh"
 #   run_claude "$PROMPT" -w "$WORKTREE_NAME"
 
@@ -182,7 +182,7 @@ run_claude() {
             echo "  NOTHING was committed or pushed."
             echo
             echo "  Most often this means the task was mis-sized for this workflow —"
-            echo "  a heavier one (revision-major.sh / build-phase.sh, 300 turns) may"
+            echo "  a heavier one (revision.sh / build-phase.sh) may"
             echo "  fit better, or the task may need splitting."
             echo
             echo "  Inspect:  cd ${wt} && git status"

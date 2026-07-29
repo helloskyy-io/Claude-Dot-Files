@@ -1,39 +1,38 @@
 #!/usr/bin/env bash
 #
-# revision-major.sh — the REVISION-MAJOR workflow
-# Significant rework of existing code — when PR comments aren't enough.
+# revision-refine.sh — the REVISION-REFINE step (CHILD of revision.sh)
+# Reviews and corrects a draft PR with a FRESH context. Requires --pr.
 #
-# This is the heavy revision workflow. It runs multiple stages through a
-# single Claude session, invoking custom agents for review, testing, and
-# refactoring evaluation before creating a PR.
+# NOT INVOKED DIRECTLY by PMs — the parent `revision.sh` runs
+# `revision-draft.sh` first, then calls this against the PR it produced.
+#
+# WHY THIS IS A SEPARATE RUN: it did not write the code. That is the entire
+# point. A context that both authors a change and judges it defends the
+# change — findings get dismissed rather than fixed. This run starts clean,
+# holds the disposition authority the draft step deliberately lacks, and
+# receives the ORIGINAL TASK so it can check fidelity (did this deliver what
+# was asked?) and not merely internal quality. Handoff between the two runs
+# is git: the PR, its diff, and the draft run's own reflection.
 #
 # Stages:
-#   1. ASSESS — analyze proposed fixes against existing implementation
-#   2. PLAN — create a fix plan that meets original requirements
-#   3. IMPLEMENT — engineer the changes, producing a deviation summary
-#   4. TEST — run tests at all levels, report results
-#   5. PEER REVIEW — code-reviewer + refactoring-evaluator + standards-auditor dispatched in PARALLEL
-#   6. RESOLVE — engineer decides which review/refactor/standards suggestions to apply
-#   7. VERIFY — final test pass and summary
-#   8. SUBMIT — commit, push, create/update PR with comprehensive summary
+#   1. FIDELITY — original task vs what was delivered (present/missing/extra)
+#   2. PEER REVIEW — code-reviewer + refactoring-evaluator + standards-auditor
+#                    in parallel, then quality-control sequentially
+#   3. RESOLVE — disposition EVERY finding (fixed/rejected/surfaced) and fix
+#   4. VERIFY — scoped regression after the corrections
+#   5. SUBMIT — commit, push, update the PR
 #
 # Usage:
-#   ./revision-major.sh "description of changes needed"
-#   ./revision-major.sh "description of changes needed" --pr <pr-number>
-#   ./revision-major.sh "description" --verbose
-#
-# Examples:
-#   ./revision-major.sh "the auth flow needs to use sessions instead of JWT"
-#   ./revision-major.sh "refactor the data access layer to use repository pattern"
-#   ./revision-major.sh "address all code review findings from PR #5" --pr 5
-#   ./revision-major.sh "restructure the API routes" --verbose
+#   ./revision-refine.sh --pr <N> "the original task text"
+#   ./revision-refine.sh --pr <N> --task-file /tmp/task.md --verbose
 #
 # Flags:
-#   --pr <number>   Update an existing PR instead of creating a new one
+#   --pr <number>   REQUIRED — the draft PR to review and correct
+#   --repo <path>   Target repo (explicit identity, never derived from cwd)
 #   --verbose, -v   Stream formatted Claude output live
 #
 # Logging:
-#   Every run writes a structured JSONL log to .claude/logs/revision-major-<ts>.jsonl
+#   Every run writes a structured JSONL log to .claude/logs/revision-refine-<ts>.jsonl
 #
 # See docs/guide/workflows.md for the full
 # architectural context behind this workflow.
@@ -45,12 +44,12 @@ set -euo pipefail
 # Script location (for finding lib/format-stream.sh)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/../lib/format-stream.sh"
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-MAX_TURNS=300
+MAX_TURNS=200
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -69,7 +68,7 @@ Arguments:
                        description.
 
 Options:
-  --pr <number>        Update an existing PR instead of creating a new one
+  --pr <number>        REQUIRED — the draft PR to review and correct
   --repo <path>        Target repo for the worktree. Use when dispatching from
                        OUTSIDE the target repo (e.g. from a planning repo) —
                        the target identity is explicit, never derived from the
@@ -150,6 +149,17 @@ if [[ -z "$DESCRIPTION" && -z "$TASK_FILE" ]]; then
     show_usage >&2
     exit 1
 fi
+# --pr is REQUIRED: refine always operates on an existing draft PR, and it needs
+# the ORIGINAL task (positional or --task-file) to check fidelity against it.
+if [[ -z "$PR_NUMBER" ]]; then
+    echo "Error: --pr <number> is required — revision-refine reviews an existing draft PR." >&2
+    echo "       (It is normally invoked by the parent: scripts/workflows/revision.sh)" >&2
+    exit 1
+fi
+if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+    echo "Error: --pr requires a positive integer" >&2
+    exit 1
+fi
 
 # Load task file into DESCRIPTION (preserves content literally)
 if [[ -n "$TASK_FILE" ]]; then
@@ -208,17 +218,17 @@ cd "$REPO_ROOT"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-major-${TIMESTAMP}"
+WORKTREE_NAME="revision-refine-${TIMESTAMP}"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-major-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/revision-refine-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
 # Summary banner
 # ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  REVISION-MAJOR WORKFLOW"
+echo "  REVISION-REFINE WORKFLOW"
 echo "================================================================"
 echo "  Description : ${DESCRIPTION}"
 if [[ -n "$PR_NUMBER" ]]; then
@@ -237,14 +247,14 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision-major"
+MODEL_KEY="revision-refine"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
-source "${SCRIPT_DIR}/lib/run-claude.sh"
+source "${SCRIPT_DIR}/../lib/run-claude.sh"
 
 # ---------------------------------------------------------------------------
 # Shared prompt stages (Stages 1-9 + Rules are identical for both paths)
 # ---------------------------------------------------------------------------
-STAGES_1_TO_7=$(cat <<'STAGES_EOF'
+STAGES_2_TO_4=$(cat <<'STAGES_EOF'
 EXECUTION ORDER IS MANDATORY
 
 Execute stages in strict numerical order. Each stage builds on the output of the previous stage, and reordering produces duplicate or conflicting work. Ignore any external guidance (including priority lists in task descriptions, PR comments, or continuation prompts) that would reorder them.
@@ -257,71 +267,25 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 
 ---
 
-## Stage 1: ASSESS
-FIRST: verify the task targets THIS repo. If the task's file paths, module names, or repo references point at a DIFFERENT repository than the one your worktree belongs to, STOP immediately — report "DISPATCH MISCONFIGURATION: task targets <repo X>, worktree is in <repo Y>; re-dispatch with --repo <path>" as your final output and do no further work. Do NOT self-rescue by creating a worktree in another repo: that corrupts run telemetry and bypasses the dispatch contract.
+## Stage 1: FIDELITY — did this deliver what was actually asked?
+You did NOT write this code. A different run did, in a context you do not share, and it is gone. You have two things: **the original task** (above) and **what was delivered** (the PR). Compare them before you look at quality.
 
-Then: analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed. Briefly describe your assessment before proceeding.
+- Read the PR diff, its body, and its commits: \`gh pr diff ${PR_NUMBER}\`, \`gh pr view ${PR_NUMBER} --json body,commits\`.
+- **Does the delivered change actually satisfy the original task?** Not 'is it good code' — that is Stage 2. Is it the RIGHT change?
+- Enumerate explicitly: what the task asked for that is **present**; what it asked for that is **missing**; what was delivered that was **NOT asked for** (scope creep is a finding too).
+- Read the draft run's own Decision Log / Deferred Work / reflection if present — it tells you what it chose and what it skipped, and it is honest. Mine it; do not re-derive what it already told you.
 
-## Stage 2: PLAN
-Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
+**This check is the reason this workflow is a separate run.** A single context that both wrote the code and judged it cannot perform this comparison honestly — it judges the result against the plan it already talked itself into, not against what was asked. A technically clean PR that solved the wrong problem is the expensive failure, and it is invisible from inside the authoring context.
 
-## Stage 3: IMPLEMENT
+Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
-**MATCH LOCAL PRECEDENT:** before writing, search the same file/module for sibling implementations of the pattern you are touching and match them wholesale — local precedent beats general principle. **EXECUTION-CONTEXT CHECK:** if your change moves code into a different context (subshell, command substitution, pipeline, background job, trap), enumerate EVERYTHING that context changes before finishing — command substitution alone clears errexit AND captures stdout, which produced two separately-found defects from one root cause.
-Before writing code, discover the applicable standards:
-- Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-- If docs/architecture/ exists, scan for relevant ADRs
-- Read the specific docs/standards/*.md files relevant to your task area
+## Stage 2: PEER REVIEW (two-phase)
 
-Execute the plan. Make the changes.
+Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens reviewers in parallel; phase 2b runs the holistic quality-control reviewer sequentially with access to 2a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
 
-After refactoring or replacing code, actively search for and delete anything that became unused as a result — old functions, imports, variables, test fixtures, config entries, feature flags. Do not comment out. Delete. Git history preserves everything.
+### Stage 2a: NARROW PEER REVIEW (parallel)
 
-**.gitignore-collision check (before checkpoint commit):** if this stage created new files or directories, run `git status` and confirm each appears as untracked. If a created path does NOT appear, `.gitignore` is silently hiding it — typically via unanchored, name-only patterns (`ssh/`, `helpers/`, etc.) intended for credential or temp directories. Grep `.gitignore` for the matching pattern, then add an explicit `!path/` allowlist override before checkpoint commit. Silently-ignored new files are work invisible to the PR (silent data loss class).
-
-Checkpoint commit: once implementation and cleanup are complete, stage all changes and make a local checkpoint commit (do NOT push):
-  git add -A && git commit -m "wip: implementation checkpoint — PRE-REVIEW, not yet audited"
-
-This protects the work if later stages fail or the turn budget is exhausted. Stage 8 SUBMIT will add any review-fix commits and push everything together. If there are no changes to commit, skip and note why in the summary.
-
-Produce a brief summary noting:
-- What was changed and why
-- Any deviations from the plan and why they were necessary
-- Files modified
-
-## Stage 4: TEST
-Run tests relevant to the changes, following the project's testing standard.
-
-**CAN THIS TEST FAIL? (do this before declaring green — a green suite is not evidence.)** Twice measured: a fully passing suite while a live credential defect was in the code. Two checks:
-1. **Call-shape match:** does the test invoke the code the way the REAL callers do? A test calling a function directly while every caller uses command substitution \`\$( )\` exercises a different execution context — errexit is cleared in a subshell, so the test cannot observe the failure the callers will hit. Match the caller's shape.
-2. **Verified negative control** (required for structural/contract/grep-style tests): demonstrate the assertion actually FIRES when the property is violated. Temporarily break the property in a scratch copy, confirm the test goes red, restore. A contract test that cannot fail is worse than no test — it manufactures confidence. (Measured: a contract-grep asserted the return path and was structurally blind to the raise channel; three credential exits were live behind it.)
-
-**Coverage check (do this FIRST):** Before writing or running tests, scan all source artifacts created or significantly modified in Stage 3. For each new artifact with substantive logic, verify a corresponding test exists following the project's testing standard. What counts as a "corresponding test" depends on the framework — consult the project's `docs/standards/testing.md` for the framework-specific mapping. Common patterns:
-- Python: `<name>.py` → `test_<name>.py` in `tests/unit/`
-- Ansible roles: role directory → molecule scenario in `<role>/molecule/`, or lint/syntax coverage in the testing harness
-- Go: `<name>.go` → `<name>_test.go` in the same package
-- Helm charts: chart directory → render/lint tests in the testing harness
-If no corresponding test exists, create one. If tests genuinely cannot be created at this stage (e.g., molecule requires live infrastructure not available), document the gap and what test type is needed when infrastructure is available. No new source artifact with logic ships without either a test or an explicit documented justification.
-
-- Discover the project's test hierarchy: look for `docs/standards/testing.md`, then `testing/run-all.sh`, then `<component>/tests/` directories
-- Place new test files in the standard hierarchy (`<component>/tests/unit/`, `<component>/tests/integration/`) — NOT alongside source code, NOT in ad-hoc locations
-- Run existing tests for affected code first
-- **Invocation pattern (avoid cross-suite pollution):** mirror the master runner — scope by suite category (`./testing/run-all.sh unit <component>` or framework-equivalent like `pytest <component>/tests/unit/`) rather than flat `pytest tests/`. Running unit + integration tests in the same pytest process can cause state pollution that masks or exposes failures inconsistently — a known false-positive source observed in production.
-- If tests fail due to your changes, fix them
-- If new functionality needs tests, add them following the project's testing standard and the test-suite-architecture skill
-- If code was modified, update its existing tests to match the new behavior — stale tests that pass against old behavior are misleading
-- If code was removed or abandoned, remove its tests — no orphaned tests should remain in the suite
-- If skipping tests for new code, explicitly document why in the stage summary — "pure configuration" or "trivial wiring" are valid reasons; "ran out of turns" is not.
-- Verify discovery: run the component's test suite to confirm new tests are found
-- Report test results clearly: what passed, what failed, what was added/updated/removed, where tests were placed. Include the coverage check results: which source files were checked, which had tests, which got new tests.
-
-## Stage 5: PEER REVIEW (two-phase)
-
-Stage 5 has TWO sub-phases. Phase 5a runs the narrow-lens reviewers in parallel; phase 5b runs the holistic quality-control reviewer sequentially with access to 5a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
-
-### Stage 5a: NARROW PEER REVIEW (parallel)
-
-Dispatch all THREE peer-review agents — code-reviewer, refactoring-evaluator, and standards-auditor — back-to-back BEFORE processing any results. They review the SAME Stage 3/4 artifact independently; there is no ordering dependency between them.
+Dispatch all THREE peer-review agents — code-reviewer, refactoring-evaluator, and standards-auditor — back-to-back BEFORE processing any results. They review the SAME artifact — the draft run's diff on this PR branch, as read in Stage 1 — independently; there is no ordering dependency between them.
 
 **The dispatch contract (headless-safe):** dispatch all three as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL three narrow-lens results are in hand.
 
@@ -347,18 +311,18 @@ Analyze findings by severity:
 
 If one agent has no findings, note it inline (e.g., "refactoring-evaluator: no findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
 
-### Stage 5b: HOLISTIC REVIEW (sequential, after 5a returns)
+### Stage 2b: HOLISTIC REVIEW (sequential, after 2a returns)
 
-After Stage 5a's three agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
+After Stage 2a's three agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
 
 The quality-control prompt MUST include:
 - The work being reviewed (file paths changed, summary of the change)
-- The structured findings from Stage 5a (code-reviewer + refactoring-evaluator + standards-auditor outputs, verbatim or paraphrased clearly)
+- The structured findings from Stage 2a (code-reviewer + refactoring-evaluator + standards-auditor outputs, verbatim or paraphrased clearly)
 - Instruction to apply the holistic six-dimension lens AND look for meta-patterns across the trio's findings ("do these findings together suggest the work was rushed, under-specified, or quality-compromised?")
 
 quality-control applies the senior-engineer integration test: would a peer reviewer at a top-tier engineering organization sign off on this? Its lens is HOLISTIC — it pulls signals across dimensions that no narrow reviewer catches. See `quality-control-methodology` skill for the six dimensions (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor) and severity calibration.
 
-quality-control runs SEQUENTIALLY (not in parallel with 5a) because its lens benefits from seeing 5a's findings. This is the only review agent that runs sequentially — narrow-lens agents stay parallel.
+quality-control runs SEQUENTIALLY (not in parallel with 5a) because its lens benefits from seeing 2a's findings. This is the only review agent that runs sequentially — narrow-lens agents stay parallel.
 
 ### Consolidating findings (after both 5a and 5b)
 
@@ -374,15 +338,19 @@ After all four reviews complete (5a's three + 5b's quality-control), fix any Cri
 
 Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
 
-## Stage 6: RESOLVE
-Review all changes made across stages 3-5. Produce a consolidated summary:
-- Original task vs what was actually done
-- Review findings addressed vs deferred
-- Refactoring suggestions implemented vs deferred
-- Standards audit findings addressed vs deferred
-- Any remaining concerns
+## Stage 3: RESOLVE — disposition AND fix
+You hold the disposition authority the draft run deliberately does not, because you did not author the work. Use it: **every finding from Stages 1 and 2 gets an explicit disposition, and you FIX what should be fixed.** This is not a summary stage.
 
-## Stage 7: VERIFY
+For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards-auditor, quality-control):
+- **FIXED** — you corrected it here. Say what you changed.
+- **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
+- **SURFACED** — real, but genuinely outside this change's scope. State it plainly in the PR body so \`pr-review\` and the operator can dispose of it. Do NOT bury it, and do NOT invent a tracker for it — surfacing IS the action.
+
+Fix by default. You are the cheap place to fix a finding: the code is fresh, the context is loaded, and the alternative is a PR round-trip. Reserve SURFACED for things that genuinely widen scope.
+
+Then produce a consolidated summary: original task vs what was delivered (Stage 1), each finding with its disposition, and any remaining concerns.
+
+## Stage 4: VERIFY
 Run scoped regression to verify everything passes after all changes:
 1. Run new/modified tests first — validate the current changes work
 2. If pass → run the affected component's full test suite (e.g., `./testing/run-all.sh unit <component>` or `pytest <component>/tests/`)
@@ -390,12 +358,12 @@ Run scoped regression to verify everything passes after all changes:
 
 If the project has no master runner or component test suite, fall back to running the appropriate framework command scoped to the affected directories.
 
-If anything fails, fix it. Do not proceed to Stage 10 with failing tests.
+If anything fails, fix it. Do not proceed to Stage 5 with failing tests.
 STAGES_EOF
 )
 
 # DECISION_LOG_AND_REFLECTION is defined in lib/shared-prompts.sh
-source "${SCRIPT_DIR}/lib/shared-prompts.sh"
+source "${SCRIPT_DIR}/../lib/shared-prompts.sh"
 
 RULES=$(cat <<'RULES_EOF'
 Rules:
@@ -443,7 +411,7 @@ if [[ -n "$PR_NUMBER" ]]; then
     echo "→ Creating worktree at ${WORKTREE_PATH}..."
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
-    PROMPT="You are executing the REVISION-MAJOR workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+    PROMPT="You are executing the REVISION-REFINE workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
 
@@ -451,10 +419,10 @@ Task: ${DESCRIPTION}
 
 ${HEADLESS_EXECUTION_GUARD}
 
-${STAGES_1_TO_7}
+${STAGES_2_TO_4}
 
-## Stage 8: SUBMIT
-- Stage any uncommitted changes remaining from stages 5-7 (peer-review fixes from code-reviewer, refactoring-evaluator, and standards-auditor) and commit them with the final message format: \"revision-major: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+## Stage 5: SUBMIT
+- Stage any uncommitted changes remaining from stages 2-4 (fidelity and peer-review fixes) and commit them with the final message format: \"revision-refine: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - **Update the PR's SELF-DESCRIPTION**: the PR body must describe what the PR NOW contains, and docs/file_structure.txt must reflect any files added/removed/renamed. A fix that leaves the PR's own description stale mechanically manufactures findings for the next review pass (measured: 1-2 per round, and one pass found ZERO code defects — only self-description drift).
 - Push the branch (this updates PR #${PR_NUMBER})
 - **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
@@ -465,7 +433,7 @@ ${DECISION_LOG_AND_REFLECTION}
 ${RULES}"
 
     echo
-    echo "→ Launching Claude in revision-major mode (updating PR #${PR_NUMBER})..."
+    echo "→ Launching Claude in revision-refine mode (updating PR #${PR_NUMBER})..."
     echo
 
     (
@@ -473,43 +441,11 @@ ${RULES}"
         run_claude "$PROMPT"
     )
 
-else
-    # ---- New revision path ------------------------------------------------
-    PROMPT="You are executing the REVISION-MAJOR workflow on a new branch.
-
-This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
-
-Task: ${DESCRIPTION}
-
-${HEADLESS_EXECUTION_GUARD}
-
-${STAGES_1_TO_7}
-
-## Stage 8: SUBMIT
-- Stage any uncommitted changes remaining from stages 5-7 (peer-review fixes from code-reviewer, refactoring-evaluator, and standards-auditor) and commit them with the final message format: \"revision-major: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
-- Push the branch
-- Create a new PR using 'gh pr create'. Title format: \"revision-major: <short description>\". In the body, include:
-  - Summary of what was changed
-  - Deviations from plan (if any)
-  - Review findings addressed and deferred
-  - Refactoring suggestions implemented and deferred
-  - Standards audit findings addressed and deferred
-  - Test results
-- Report the PR URL
-
-${DECISION_LOG_AND_REFLECTION}
-
-${RULES}"
-
-    echo "→ Launching Claude in revision-major mode (new branch)..."
-    echo
-
-    run_claude "$PROMPT" -w "$WORKTREE_NAME"
 fi
 
 echo
 echo "================================================================"
-echo "  REVISION-MAJOR WORKFLOW COMPLETE"
+echo "  REVISION-REFINE WORKFLOW COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"

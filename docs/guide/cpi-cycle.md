@@ -143,7 +143,7 @@ Don't conflate the cadences either — running sprint-review weekly burns tokens
 The log is for **claude-dot-files-level decisions ONLY**.
 
 **Belongs:**
-- Decisions about workflow scripts (`revision-major.sh`, `build-phase.sh`, etc.)
+- Decisions about workflow scripts (`revision.sh`, `build-phase.sh`, etc.)
 - Decisions about agents (`code-reviewer`, `standards-architect`, etc.)
 - Decisions about skills (`standards-enforcement`, `project-organization`, etc.)
 - Decisions about rules (`engineering-quality.md`, etc.)

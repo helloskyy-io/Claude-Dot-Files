@@ -51,11 +51,27 @@ cfg() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Master kill switch — `gh-monitor.enabled: false` in config.yaml
+# ---------------------------------------------------------------------------
+# gh-monitor IS the @claude subsystem: the routes live in parse_command below,
+# so disabling the service disables @claude dispatch entirely. Checked FIRST,
+# before repo discovery and before any `gh` API call, so a disabled service
+# costs one yq read per timer tick. Exit 0 (not 1) — a deliberately disabled
+# oneshot is not a systemd failure.
+if [[ -f "$CONFIG_FILE" ]]; then
+    _ENABLED="$(cfg gh-monitor enabled)"
+    if [[ "$_ENABLED" == "false" ]]; then
+        echo "gh-monitor is disabled (gh-monitor.enabled: false in ${CONFIG_FILE}) — nothing to do."
+        exit 0
+    fi
+fi
+
 if [[ -f "$CONFIG_FILE" ]]; then
     GH_MONITOR_REPO_FOLDERS="${GH_MONITOR_REPO_FOLDERS:-$(cfg gh-monitor repo-folders)}"
     GH_MONITOR_MAX_CONCURRENT="${GH_MONITOR_MAX_CONCURRENT:-$(cfg gh-monitor max-concurrent)}"
     GH_MONITOR_ENABLE_REVISION="${GH_MONITOR_ENABLE_REVISION:-$(cfg gh-monitor enable-revision)}"
-    GH_MONITOR_ENABLE_REVISION_MAJOR="${GH_MONITOR_ENABLE_REVISION_MAJOR:-$(cfg gh-monitor enable-revision-major)}"
+    GH_MONITOR_ENABLE_REVISION_MINOR="${GH_MONITOR_ENABLE_REVISION_MINOR:-$(cfg gh-monitor enable-revision-minor)}"
     GH_MONITOR_ENABLE_PLAN_REVISION="${GH_MONITOR_ENABLE_PLAN_REVISION:-$(cfg gh-monitor enable-plan-revision)}"
     GH_MONITOR_ENABLE_BUILD_PHASE="${GH_MONITOR_ENABLE_BUILD_PHASE:-$(cfg gh-monitor enable-build-phase)}"
     GH_MONITOR_ENABLE_HELP="${GH_MONITOR_ENABLE_HELP:-$(cfg gh-monitor enable-help)}"
@@ -70,7 +86,7 @@ fi
 : "${GH_MONITOR_REPO_FOLDERS:=""}"
 : "${GH_MONITOR_MAX_CONCURRENT:=5}"
 : "${GH_MONITOR_ENABLE_REVISION:=true}"
-: "${GH_MONITOR_ENABLE_REVISION_MAJOR:=true}"
+: "${GH_MONITOR_ENABLE_REVISION_MINOR:=true}"
 : "${GH_MONITOR_ENABLE_PLAN_REVISION:=true}"
 : "${GH_MONITOR_ENABLE_BUILD_PHASE:=true}"
 : "${GH_MONITOR_ENABLE_HELP:=true}"
@@ -312,7 +328,7 @@ parse_command() {
     #
     # Known failing shapes that this addresses (add more as they appear):
     #   1. 2026-05-29 (PR #91 PM3 review):
-    #      @claude revision-major:
+    #      @claude revision:
     #      <blank>
     #      PM3 quality-control review...
     #      → same-line empty, body has the description
@@ -329,11 +345,11 @@ parse_command() {
         return
     fi
 
-    if echo "$after_mention" | grep -qiE '^revision-major:\s*'; then
+    if echo "$after_mention" | grep -qiE '^revision-minor:\s*'; then
         local desc
-        desc=$(echo "$after_mention" | sed -E 's/^revision-major:\s*//i')
+        desc=$(echo "$after_mention" | sed -E 's/^revision-minor:\s*//i')
         [[ -z "$desc" && -n "$body_fallback" ]] && desc="$body_fallback"
-        printf "revision-major\t%s" "$desc"
+        printf "revision-minor\t%s" "$desc"
         return
     fi
 
@@ -372,8 +388,8 @@ generate_help_text() {
 
 | Command | Description |
 |---------|------------|
-| `@claude revision: <description>` | Minor code fix |
-| `@claude revision-major: <description>` | Significant code rework (with code review + refactoring agents) |
+| `@claude revision: <description>` | Significant code rework (draft run, then a FRESH-context review run) |
+| `@claude revision-minor: <description>` | Minor single-pass code fix (no review cycle) |
 | `@claude plan-revision: <description>` | Revise planning docs (with architect + planner agents) |
 | `@claude build-phase: <description>` | Implement from a plan doc (requires plan path in description) |
 | `@claude help` | Show this help message |
@@ -381,8 +397,8 @@ generate_help_text() {
 ### Examples
 
 ```
-@claude revision: fix the typo in the README header
-@claude revision-major: restructure the authentication module to use JWT
+@claude revision-minor: fix the typo in the README header
+@claude revision: restructure the authentication module to use JWT
 @claude plan-revision: add detailed phase doc for the Harbor integration
 @claude help
 ```
@@ -402,9 +418,14 @@ HELPEOF
 # arithmetic comparison in run_workflow_route. Capture pgrep's output into
 # a variable and use the assignment's `||` to reset to a single "0" when
 # pgrep exits non-zero.
+# Matches TOP-LEVEL workflow scripts only, deliberately: revision.sh is a parent
+# that runs steps/revision-draft.sh then steps/revision-refine.sh as children.
+# Counting the parent is the right unit of concurrency — a child lives inside its
+# parent's process tree, so matching steps/ too would charge one logical run two
+# slots against max-concurrent.
 count_running_workflows() {
     local count
-    count=$(pgrep -cf "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major|plan-revision|build-phase)\.sh" 2>/dev/null) || count=0
+    count=$(pgrep -cf "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-minor|plan-revision|build-phase)\.sh" 2>/dev/null) || count=0
     echo "$count"
 }
 
@@ -412,14 +433,18 @@ count_running_workflows() {
 # Returns 0 (success/true) if a matching workflow is found, 1 (false) otherwise.
 # Prevents concurrent workflows on the SAME PR (which would race on the PR branch),
 # while allowing concurrent workflows on DIFFERENT PRs (safe — separate branches).
+# Unlike count_running_workflows, this DOES match steps/ — the question here is
+# "does any live process hold this PR's branch?", and revision.sh passes --pr to
+# its children while carrying it itself only on the rework path. Missing the
+# child would let a second dispatch race the refine step's pushes.
 is_workflow_running_on_pr() {
     local target_pr="$1"
     [[ -z "$target_pr" ]] && return 1
-    pgrep -af "${GH_MONITOR_WORKFLOW_DIR}/(revision|revision-major|plan-revision|build-phase)\.sh" 2>/dev/null \
+    pgrep -af "${GH_MONITOR_WORKFLOW_DIR}/(steps/)?(revision|revision-minor|revision-draft|revision-refine|plan-revision|build-phase)\.sh" 2>/dev/null \
         | grep -qE "[[:space:]]--pr([[:space:]]+|=)${target_pr}([[:space:]]|\$)"
 }
 
-# Run a workflow route (shared logic for revision and revision-major)
+# Run a workflow route (shared logic for every code/plan route)
 # Args: route_name enable_flag script_name repo pr_number comment_id description
 run_workflow_route() {
     local route_name="$1"
@@ -600,8 +625,8 @@ for REPO in $GH_MONITOR_REPOS; do
                         "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
                     ;;
 
-                revision-major)
-                    run_workflow_route "revision-major" "$GH_MONITOR_ENABLE_REVISION_MAJOR" "revision-major.sh" \
+                revision-minor)
+                    run_workflow_route "revision-minor" "$GH_MONITOR_ENABLE_REVISION_MINOR" "revision-minor.sh" \
                         "$REPO" "$PR_NUMBER" "$COMMENT_ID" "$DESCRIPTION"
                     ;;
 

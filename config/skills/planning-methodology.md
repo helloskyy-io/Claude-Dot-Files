@@ -387,12 +387,12 @@ Don't solve all of these in v1 — but **acknowledge them** in the plan so the d
 
 ## Integration With Workflows
 
-### revision.sh (minor revisions)
+### revision-minor.sh (minor revisions)
 - Usually doesn't need a plan — revisions are small enough to just do
-- If a revision needs planning, it's probably a revision-major, not a revision
+- If a revision needs planning, it belongs on `revision.sh`, not `revision-minor.sh`
 
-### revision-major.sh (significant rework)
-- Uses this skill to plan the fix before implementing
+### revision.sh (significant rework)
+- Its draft step uses this skill to plan the fix before implementing
 - Plan should assess what's broken, what needs to change, and in what order
 - The plan becomes part of the PR for reviewability
 

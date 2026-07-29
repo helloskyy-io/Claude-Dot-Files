@@ -45,7 +45,7 @@ BASH_BIN="$(command -v bash)"
 
 # --- Pass 1 (static): unescaped backticks, for precise line numbers -----------
 # Fast, and pinpoints the offending line. Pass 2 is the real net.
-for f in "$WF_DIR"/*.sh "$WF_DIR"/lib/*.sh; do
+for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh "$WF_DIR"/lib/*.sh; do
     [[ -e "$f" ]] || continue
     hits=$(awk '
         {
@@ -70,7 +70,7 @@ for f in "$WF_DIR"/*.sh "$WF_DIR"/lib/*.sh; do
 done
 
 # --- Pass 2 (execution): construct every prompt block in the sandbox ----------
-for f in "$WF_DIR"/*.sh; do
+for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh; do
     [[ -e "$f" ]] || continue
     while IFS= read -r s; do
         [[ -n "$s" ]] || continue

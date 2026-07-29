@@ -96,7 +96,7 @@ line-wrap and keeps options visible):
 
 This workflow defines a new project from scratch — requirements, architecture,
 phasing, and documentation. For building from an existing plan, use build-phase.sh.
-For corrections to existing code, use revision.sh or revision-major.sh.
+For corrections to existing code, use revision-minor.sh (light fixes) or revision.sh (reviewed rework).
 EOF
 }
 

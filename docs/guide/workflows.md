@@ -12,8 +12,10 @@
 
 | Script | Purpose | Agents Used | Max Turns |
 |---|---|---|---|
-| `revision.sh` | Minor code fixes | None (inline standards discovery) | 100 |
-| `revision-major.sh` | Significant code rework | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
+| `revision-minor.sh` | Minor code fixes | None (inline standards discovery) | 100 |
+| `revision.sh` | Significant code rework — **parent**, orchestrates the two steps below | none itself (pure bash) | n/a |
+| `steps/revision-draft.sh` | Step 1: writes the change, opens an UNREVIEWED PR | None (it holds no review authority) | 200 |
+| `steps/revision-refine.sh` | Step 2: FRESH context — fidelity check, peer review, corrections | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 200 |
 | `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
 | `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
 | `plan-revision.sh` | Revise existing planning docs | architect, planner, security-auditor, standards-architect | 300 |
@@ -26,13 +28,54 @@
 |---|---|---|
 | `gh-monitor.sh` | Poll GitHub for @claude PR comments | `scripts/services/` |
 
+## The revision split — why authoring and judging are separate runs
+
+`revision.sh` is a **parent workflow**: pure bash that runs two independent
+`claude -p` children in sequence and calls no model itself.
+
+```
+revision.sh  (parent — no model, no turn budget)
+  ├─ 1. steps/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
+  └─ 2. steps/revision-refine.sh   200 turns   FRESH context: fidelity, review, corrections
+```
+
+**The reason for the boundary:** the author of a change defends it. When one
+context both writes the code and dispositions the review findings about it,
+findings get dismissed rather than fixed — commitment bias, and it is measured
+repeatedly on this fleet. Defects have survived engineer self-review, four
+in-context review agents, and manual verification, then fallen to a fresh-eyes
+pass costing a few dollars. Splitting the run puts a process boundary exactly
+where judgement happens.
+
+**What crosses the boundary:** nothing but git and the task. Refine inherits
+none of draft's context. Its inputs are the PR, its diff, the draft's own
+reflection comment — and **the original task**, which the parent passes to
+BOTH children. That last part is load-bearing: without the task, refine can
+only ask "is this code good?", never "did this deliver what was asked?" —
+and the second question is the one that catches missing scope and scope creep.
+
+**Turn budgets are per child**, not shared: draft gets 200 to analyse and code,
+refine gets its own 200 to review and correct. Each child carries its own
+`MODEL_KEY` (`revision-draft`, `revision-refine`) and its own completion
+contract; the parent's contract is the children's exit codes plus a PR URL.
+If draft fails, refine never runs. If refine fails, the parent says so loudly:
+the PR exists and is **unreviewed**, and must not be merged as-is.
+
+**Dispatch the parent, not the steps.** `steps/*.sh` are runnable alone for
+recovery (re-running just the review pass on an existing PR is genuinely
+useful) but they are not the interface.
+
+This is also the shape a durable-execution engine wants — deterministic control
+flow outside, non-deterministic work inside independent activities. Composition
+already works in bash; Temporal would add durability, not composition.
+
 ## Review-agent count rationale
 
 Review-stage workflows dispatch a parallel **trio** (3 agents) by default. `plan-revision.sh` dispatches **four** — adding `standards-architect` alongside `architect`, `planner`, and `security-auditor`.
 
 **Why the extra agent on `plan-revision`:** `standards-architect` surfaces corpus-level implications (cross-document drift, gap detection, ADR candidates, bloat patterns) that the other three agents — focused on the immediate revision — don't catch. CPI cycles validated this across multiple separate runs where `standards-architect` findings were unique to its lens.
 
-Code-revision workflows (`revision-major`, `build-phase`) keep the 3-agent trio because the review surface is narrower (specific files in a worktree, not corpus-wide), so the broader-lens agent isn't typically the binding constraint. `sprint-review.sh` uses a different 3-agent trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because it's whole-repo end-of-sprint review, where security and test-coverage lenses dominate.
+Code-revision workflows (`revision-refine`, `build-phase`) keep the 3-agent trio because the review surface is narrower (specific files in a worktree, not corpus-wide), so the broader-lens agent isn't typically the binding constraint. `sprint-review.sh` uses a different 3-agent trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because it's whole-repo end-of-sprint review, where security and test-coverage lenses dominate.
 
 All review-trios are dispatched in a single assistant message containing N `Agent` tool calls — multiple `Agent` calls in one message run concurrently, while splitting them across messages forces sequential execution and roughly doubles or triples wall time on the review stage.
 
@@ -49,7 +92,8 @@ All review-trios are dispatched in a single assistant message containing N `Agen
 ## Naming Conventions
 
 Workflow families are grouped by prefix:
-- **`revision-*`** — fix existing code (minor or major)
+- **`revision*`** — fix existing code. `revision.sh` is the reviewed default; `revision-minor.sh` is the light single-pass sibling
+- **`steps/`** — child steps of a parent workflow, never dispatched directly
 - **`build-*`** — implement from plans
 - **`plan-*`** — create or revise planning docs
 - **`review-*`** — analyze and report
@@ -136,7 +180,7 @@ The primary autonomous path. You kick off a single command and get a PR ready fo
 Or for a smaller change:
 
 ```bash
-./scripts/workflows/revision.sh "fix the null check in login()"
+./scripts/workflows/revision-minor.sh "fix the null check in login()"
 ```
 
 Workflow scripts handle the worktree creation, claude invocation, logging, and PR creation internally — you just provide the task description.
@@ -300,8 +344,8 @@ Given this model, the scope of what we actually build is narrower than it might 
 
 **For Stage A (Initial Autonomous Run):**
 - Workflow scripts in `scripts/workflows/`:
-  - `revision.sh` — minor corrections (built)
-  - `revision-major.sh` — significant rework (planned)
+  - `revision-minor.sh` — minor corrections (built)
+  - `revision.sh` — significant rework, two-step parent (built)
   - `build-phase.sh` — architect & build a phase (planned)
   - `plan-new.sh` — research & planning (built)
 
@@ -354,6 +398,8 @@ MODEL_OVERRIDE=fable ./scripts/workflows/build-phase.sh docs/development/phases/
 
 **Missing key = hard failure.** If a workflow's `MODEL_KEY` has no entry in the map, the dispatch aborts loudly rather than running on an inherited default. New workflow scripts MUST add their key to `config.yaml models:` and set `MODEL_KEY` before sourcing `run-claude.sh`.
 
+**Parent workflows have no model.** `revision.sh` is pure bash orchestration — it never calls a model, so it has no `MODEL_KEY` and does not source `run-claude.sh`. Its children do: `revision-draft` and `revision-refine` are separate rows in the map, which means the two halves of one logical revision can be tiered independently (e.g. a cheaper drafter with an expensive reviewer) by editing two lines.
+
 **Agent models are separate:** agents pin their own model in `config/agents/*.md` frontmatter (static markdown — cannot reference config.yaml). The canonical agent-tier map is documented as a comment block in the config.yaml `models:` section; agent files must conform (checked at CPI time).
 
 ## When to Use What
@@ -366,6 +412,8 @@ Quick decision guide:
 **"I want a second opinion on my design"** → Workflow 1 + `/review` or manually invoke code-reviewer agent
 **"I have a well-planned feature, build it"** → Workflow 2, Stage A
 **"I'm starting a major new subsystem"** → Workflow 2, Stage A with detailed plan
+**"Small scoped code fix, no review needed"** → `revision-minor.sh`
+**"Significant rework — I want it reviewed before I see it"** → `revision.sh` (drafts, then judges with fresh eyes)
 **"The PR is 90% right, just fix a few things"** → Workflow 2, Stage C (PR comments)
 **"The PR needs major rework"** → Workflow 2, Stage D (full re-run)
 **"I'm not sure where to start"** → Workflow 1, ask Claude to help you plan

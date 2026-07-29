@@ -14,7 +14,7 @@ All workflow scripts live in `scripts/workflows/`. Helper libraries go in `scrip
 All workflow scripts live in `scripts/workflows/`. Shared helper libraries live in `scripts/workflows/lib/`. For the authoritative current inventory of workflow scripts, see `docs/guide/workflows.md` — that guide owns the canonical list. This standard governs structure and conventions, not inventory.
 
 ### Naming
-Script names use kebab-case matching the workflow's purpose, with `.sh` suffix. Use the `<verb>[-modifier]` pattern (e.g., `revision.sh`, `revision-major.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`, `review-runs.sh`, `sprint-review.sh`).
+Script names use kebab-case matching the workflow's purpose, with `.sh` suffix. Use the `<verb>[-modifier]` pattern (e.g., `revision.sh`, `revision-minor.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`, `review-runs.sh`, `sprint-review.sh`).
 
 **Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 
@@ -37,7 +37,7 @@ This ensures:
 
 ## Required Features
 
-**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`revision.sh`, `revision-major.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
+**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`revision-minor.sh`, `steps/revision-draft.sh`, `steps/revision-refine.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
 
 **Analysis workflows** that derive their inputs from the filesystem without a user-supplied task (e.g. `review-runs.sh`, which scans `.claude/logs/`) MUST still implement the non-task-specific features: verbose flag, JSONL logging, stream format, `run_claude` helper, environment checks, repo-root operation, banners, and a structured prompt. They are exempt from the task-input features (`--pr <N>`, `--task-file <path>`, flags-first positional convention) because those features have no referent — there is no task string to carry. Every subsection below is marked **(task-execution only)** where it applies narrowly.
 
@@ -136,11 +136,11 @@ For scripts that take a positional task description, all examples in usage text 
 
 ```bash
 # Preferred — flags visible at the start, positional at the end
-./revision-major.sh --verbose --pr 22 --task-file /tmp/task.md
-./revision-major.sh --pr 5 "address all findings from PR #5"
+./revision.sh --verbose --pr 22 --task-file /tmp/task.md
+./revision.sh --pr 5 "address all findings from PR #5"
 
 # Avoid — positional in the middle gets stepped on by terminal line-wrap
-./revision-major.sh "address findings" --pr 5 --verbose
+./revision.sh "address findings" --pr 5 --verbose
 ```
 
 Rationale: terminals line-wrap long commands. A trailing positional stays visible and editable even when earlier portions wrap. Flags at the front keep the options obvious at a glance.
@@ -316,7 +316,7 @@ This is the opposite case from `config/CLAUDE.md :: Terminal Commands & Prompts`
 
 **Quoted vs unquoted sentinel:** Use an unquoted `EOF` when the heredoc body must interpolate shell variables (like `${DESCRIPTION}`). Use a quoted `'EOF'` sentinel for any static block that should pass through literally — backticks, `$symbols`, and dollar-brace tokens all survive untouched, so you don't have to hunt down escape edge cases. Default to quoted when the block has no variables; it's the safer choice.
 
-`scripts/workflows/revision-major.sh` shows both idioms in one file: `STAGES_1_TO_9` and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so `${STAGES_1_TO_9}`, `${RULES}`, and `${DESCRIPTION}` can interpolate. The quoted sentinels also happen to enable reuse of the block across the new-branch and existing-PR code paths, but that's a secondary benefit — safety from accidental expansion is the primary one.
+`scripts/workflows/steps/revision-refine.sh` shows both idioms in one file: the stage block and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so the stage text, `${RULES}`, and `${DESCRIPTION}` can interpolate. Safety from accidental expansion is the reason for the quoted sentinels.
 
 ## Design Principles
 

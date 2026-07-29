@@ -132,9 +132,12 @@ claude-dot-files/
 │       ├── research.sh                              # RESEARCH — create/extend component research pool + synthesis (--pr updates an existing research PR)
 │       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side gate, clean no-op; --pr gates on that PR's pool)
 │       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
-│       ├── revision.sh                              # REVISION — minor corrections to existing code
-│       ├── revision-major.sh                        # REVISION-MAJOR — significant rework with peer-review trio + quality-control
-│       └── sprint-review.sh                         # SPRINT-REVIEW — comprehensive end-of-sprint review
+│       ├── revision.sh                              # REVISION — PARENT: pure-bash orchestration of revision-draft then revision-refine (no model of its own)
+│       ├── revision-minor.sh                        # REVISION-MINOR — light single-pass corrections, no review agents
+│       ├── sprint-review.sh                         # SPRINT-REVIEW — comprehensive end-of-sprint review
+│       └── steps/                                   # Child steps of parent workflows — not dispatched directly
+│           ├── revision-draft.sh                    # Step 1 of revision.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
+│           └── revision-refine.sh                   # Step 2 of revision.sh — FRESH context: fidelity check, peer-review trio + quality-control, corrections
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)

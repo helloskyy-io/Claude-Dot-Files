@@ -53,12 +53,12 @@ Claude works independently on a planned task, creates a PR, and notifies you whe
 
 ```bash
 # Minor revision (5 stages: assess → implement → test → commit → PR)
-./scripts/workflows/revision.sh "fix the null check in login()"
-./scripts/workflows/revision.sh "add error handling" --pr 42
+./scripts/workflows/revision-minor.sh "fix the null check in login()"
+./scripts/workflows/revision-minor.sh "add error handling" --pr 42
 
-# Major revision (9 stages: assess → plan → implement → test → review → refactor → resolve → verify → PR)
-./scripts/workflows/revision-major.sh "restructure the auth flow to use sessions"
-./scripts/workflows/revision-major.sh "address all review findings" --pr 5
+# Revision (parent: a DRAFT run writes the change, then a FRESH-context REFINE run judges it)
+./scripts/workflows/revision.sh "restructure the auth flow to use sessions"
+./scripts/workflows/revision.sh "address all review findings" --pr 5
 
 # Planning revision (7 stages: assess → plan → revise → architect review → planner review → resolve → PR)
 ./scripts/workflows/plan-revision.sh "add detailed phase doc for the auth feature"
@@ -75,7 +75,7 @@ Claude works independently on a planned task, creates a PR, and notifies you whe
 
 Every run saves a JSONL log to `.claude/logs/` for self-diagnosis and continuous improvement analysis.
 
-The `gh-monitor` systemd service (`scripts/services/`) watches open PRs for `@claude revision:` / `@claude revision-major:` comments and dispatches the matching workflow automatically — PR feedback becomes rework without leaving GitHub.
+The `gh-monitor` systemd service (`scripts/services/`) watches open PRs for `@claude revision:` / `@claude revision-minor:` comments and dispatches the matching workflow automatically — PR feedback becomes rework without leaving GitHub. Currently disabled (`gh-monitor.enabled: false` in `config.yaml`) — the `@claude` comment path is not in use; PR disposition runs through `pr-review.sh` instead.
 
 See `docs/guide/workflows.md` for the full architecture including escalation paths (PR review → PR comments → full re-run).
 

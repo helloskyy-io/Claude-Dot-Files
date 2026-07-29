@@ -330,7 +330,7 @@ Writing ADRs for decisions you made without documentation. The real context is a
 - Minor revisions don't usually need ADRs
 - If a revision surfaces a decision, pause and decide whether it needs an ADR
 
-### revision-major.sh
+### revision.sh (via steps/revision-draft.sh)
 - Major revisions often involve architectural re-thinking
 - This skill activates to analyze the proposed changes
 - New ADRs may be written as part of the revision

@@ -679,6 +679,42 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 ---
 
+## The revision split — authoring and judging are no longer the same run (SHIPPED 2026-07-29)
+
+**The finding, from the operator, on `revision-major.sh` Stage 6 RESOLVE:** the run that writes the code is the run that rules on the review findings about it. Every mitigation short of a process boundary had already been tried and had already failed: engineer self-review, four in-context review agents dispatched under an explicit disposition taxonomy (fixed / rejected-with-reasoning / documented-deferral), and manual operator verification. Defects still survived all of it and then fell to a fresh-context `pr-review.sh` pass costing a few dollars. **Commitment bias is not a prompt-level defect and cannot be fixed at the prompt level** — an author asked to judge their own work will produce disposition-shaped prose regardless of how the taxonomy is worded, because the finding is being weighed by the party that chose the thing being questioned.
+
+**Shipped — `revision-major.sh` becomes a parent over two independent children:**
+
+| Before | After |
+|---|---|
+| `revision.sh` (light, 100 turns) | `revision-minor.sh` — unchanged behavior, renamed |
+| `revision-major.sh` (9 stages, 300 turns, one context) | `revision.sh` — **parent**, pure bash, no model of its own |
+| — | `steps/revision-draft.sh` — stages 1-5, 200 turns, writes the change, opens an UNREVIEWED PR |
+| — | `steps/revision-refine.sh` — 200 turns, FRESH context: fidelity → peer review → resolve → verify → submit |
+
+**What makes it work, and what would have made it fail:**
+
+- **Draft holds no review authority at all.** Its stages 5-7 (PEER REVIEW / RESOLVE / VERIFY) were deleted rather than downgraded, and its header says why. A draft step that kept a *weakened* review would have re-created the same bias with less budget.
+- **Refine's Stage 1 is FIDELITY, not review.** It opens with "You did NOT write this code. A different run did, in a context you do not share, and it is gone," and requires an explicit enumeration of what the task asked for that is **present**, what is **missing**, and what was delivered that was **NOT asked for** (scope creep is a finding too). This is the stage a single-context run structurally cannot have.
+- **The parent passes the original task to BOTH children.** Load-bearing, and easy to miss: without the task, refine can only ask *"is this code good?"* and never *"did this deliver what was asked?"* — and the second question is the one that catches missing scope. Passing the task only to draft would have silently reduced the whole split to an internal-quality check, which is the weaker half of what it buys.
+- **Refine's Stage 3 RESOLVE was rewritten from a summary stage into real disposition authority** (FIXED / REJECTED / SURFACED, fix-by-default). The authority did not disappear in the split; it *moved* to the context that can exercise it honestly.
+- **Budgets do not share.** 200 turns each, not 300 split. Measured turn-cap termination rate is 0.9% at 300 in one context; two 200s with a clean handoff is strictly more headroom than one 300.
+- **Failure semantics are explicit.** Draft fails → refine never runs. Refine fails → the parent says loudly that the PR exists and is **unreviewed** and must not be merged, and prints the exact single-step re-run command. A silent half-success here would be worse than either failure.
+
+**Why this is the composition milestone, not just a refactor.** The completion contract built earlier this cycle (`COMPLETION_PATTERN`, exit 0 must mean done) was built to catch headless early-stop. It turns out to double as a **parent-workflow interface**: the parent's only handoff mechanism is the child's exit code plus the PR URL on its final line. That is the whole reason two `claude -p` runs can be chained in bash at all. Deterministic control flow outside, non-deterministic work inside independent activities — the shape a durable-execution engine wants. **Composition already works; Temporal would add durability, not composition.** See `docs/development/skyy-net-seed-handoff.md`.
+
+**Also shipped alongside (naming consistency, not behavior):** `gh-monitor` disabled at the service level (`gh-monitor.enabled: false`, checked before any `gh` API call, exits 0 because a deliberately-disabled oneshot is not a systemd failure) — the `@claude` comment path is unused and gh-monitor IS that subsystem. Its routes were renamed rather than left to rot, preserving the route-name-equals-script-name invariant that makes re-enabling safe; the `revision-major` route is retired outright. `pr-review.sh`'s redispatch shape now names the tool sized to the work (`dispatch_tool`: revision-minor / revision / plan-revision) instead of hardcoding one script — an under-sized tool stalls at its turn cap, an over-sized one spends a review cycle on a one-line fix. `lint-prompts.sh` extended to scan `steps/`; gate green.
+
+**DECISION POINT on gh-monitor:** if still unused by ~2026-08-19, delete the service rather than carry dead code.
+
+**Watch:**
+1. **Does refine actually find what a single context missed?** The prediction is that FIDELITY findings — missing scope and scope creep — are the class that shows up, since they are the class no self-review can see. If refine's findings are indistinguishable from what in-context agents were already producing, the split bought turn headroom and nothing else, and that is worth knowing.
+2. **Does refine over-correct?** A reviewer with no authorship stake and 200 turns has the opposite failure mode: rewriting work that was fine. Watch for refine diffs that materially exceed the findings they cite.
+3. **Cost per logical revision.** Two 200-turn Opus runs vs one 300. If the delta is large and the FIDELITY yield is thin, retier `revision-draft` down before touching the split itself — the boundary is the valuable part, not the model tier on both sides of it.
+4. **Turn-cap rate at 200 per child.** If draft starts hitting 200, the task was mis-sized for revision and belongs on `build-phase.sh` behind a written phase doc. That is a routing signal, not a budget signal — resist raising the cap.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

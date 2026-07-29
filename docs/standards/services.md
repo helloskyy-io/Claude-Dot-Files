@@ -52,7 +52,7 @@ gh-monitor:
   repos: "helloskyy-io/Claude-Dot-Files"
   max-concurrent: 1
   enable-revision: true
-  enable-revision-major: true
+  enable-revision-minor: true
   enable-help: true
   dry-run: false
   backlog-days: 7
