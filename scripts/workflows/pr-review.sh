@@ -3,9 +3,18 @@
 # pr-review.sh — the DISPOSITION ENGINE
 # Mechanizes the PM disposition ritual on a returned PR: enumerate every
 # surfaced item (issue, loose end, deferral, existing condition, friction),
-# force each to a terminal disposition (FIXED / REJECTED / DEFERRED) via the
-# fresh-eyes scrutiny a producing run cannot do on itself, and end in a
-# VERDICT (MERGE | HOLD). Decide-only.
+# force each to a terminal disposition (FIXED / REJECTED / DEFERRED) by
+# verifying every claim against the artifact rather than the narrative, and end
+# in a VERDICT (MERGE | HOLD). Decide-only.
+#
+# The founding premise is "every account is an account," NOT "the producing run
+# is biased." The bias framing was true when one run authored and self-judged;
+# it went false the moment revision.sh split authoring from judging, and every
+# other PR-producing workflow is headed the same way. A premise that expires
+# invites future softening of the machinery it justifies. This one does not
+# expire: it holds for a stake-free producer, and it explains what was actually
+# observed — pointer-verification caught a bad disposition shape in a reviewer's
+# output on the first post-split run, against an actor with nothing to defend.
 #
 # DECIDE-ONLY BY DESIGN (additive-automation): this workflow takes NO actions.
 # It never merges, never closes, never fixes live, never dispatches, never
@@ -188,7 +197,11 @@ Quality control identifies the issues; PR review's entire purpose is to get ever
 
 You do not fix the code yourself (you are decide-only). But 'converting a finding into a correction' means, for each item, exactly one of: proving it is genuinely already fixed (verified against the code), issuing a MANDATED fix (a scoped dispatch a human/parent will fire), or rejecting it with real reasoning because it is not actually an issue. Burying it, parking it nowhere, or waving it off as too-small / pre-existing / too-expensive is failure. If you find yourself building a case for why an issue does NOT need to be dealt with, stop — that instinct is the exact rug-sweep you exist to prevent.
 
-You are the DISPOSITION ENGINE — the fresh-eyes product owner the producing run cannot be on its own work. The run that produced this PR is commitment-biased: it authored these choices, so it defends them and rationalizes its own findings away. You have no such investment. Force EVERY surfaced item to a terminal disposition, verifying each claim against the actual code rather than trusting the producing run's account of it.
+You are the DISPOSITION ENGINE. **Every account is an account.** The PR body, a run's summary, a decision log, a prior pass's prescription, an agent's finding — all are CLAIMS ABOUT the code, none of them are the code. Verify against the artifact, never the narrative. This holds no matter who produced this PR or whether they had any stake in it.
+
+Do not read that as a softer rule than 'the author defends their own work' — it is strictly stronger, because it survives the producing run having no stake at all. Bias does not disappear when work is split across runs; it RELOCATES to whoever wrote the account you are currently reading. A run that reviewed someone else's code still authored its own dispositions, and it defends those. A run with nothing to prove has the opposite failure mode — it rubber-stamps, or mis-shapes a disposition, precisely because nothing is at stake for it. Both are invisible from inside the account and both are caught the same way: check the claim against the code.
+
+Force EVERY surfaced item to a terminal disposition on that basis.
 
 **You take almost NO actions.** You do NOT merge, close, fix, dispatch, or edit standards/sprints. Your output is ONE disposition comment on the PR plus a final VERDICT line — **plus the single write authority granted below: filing GitHub Issues for qualifying deferred work** (see FILING AUTHORITY in Stage 3). That one exception exists because you are the only actor with no scope of your own to offload; everything else remains decide-only. When fixes are genuinely needed, you WRITE a scoped, ready-to-fire dispatch context into the comment — you never fire it. (A human fires it today; a parent workflow fires it once earned. Fix-dispatch authority is earned, exactly like merge authority.)
 

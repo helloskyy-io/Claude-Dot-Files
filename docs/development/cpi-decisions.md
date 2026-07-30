@@ -698,7 +698,7 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 - **Refine's Stage 1 is FIDELITY, not review.** It opens with "You did NOT write this code. A different run did, in a context you do not share, and it is gone," and requires an explicit enumeration of what the task asked for that is **present**, what is **missing**, and what was delivered that was **NOT asked for** (scope creep is a finding too). This is the stage a single-context run structurally cannot have.
 - **The parent passes the original task to BOTH children.** Load-bearing, and easy to miss: without the task, refine can only ask *"is this code good?"* and never *"did this deliver what was asked?"* — and the second question is the one that catches missing scope. Passing the task only to draft would have silently reduced the whole split to an internal-quality check, which is the weaker half of what it buys.
 - **Refine's Stage 3 RESOLVE was rewritten from a summary stage into real disposition authority** (FIXED / REJECTED / SURFACED, fix-by-default). The authority did not disappear in the split; it *moved* to the context that can exercise it honestly.
-- **Budgets do not share.** 200 turns each, not 300 split. Measured turn-cap termination rate is 0.9% at 300 in one context; two 200s with a clean handoff is strictly more headroom than one 300.
+- **Budgets do not share.** 200 turns each, not 300 split. ~~Two 200s with a clean handoff is strictly more headroom than one 300.~~ **CORRECTED 2026-07-30:** that was a capacity argument and it is void. Per-context budget went DOWN (300 → 200) deliberately, because reliability decays as in-context memory grows — the split is a **reliability control, not a capacity increase**. First real run used 96 + 73 = 169 turns, which would have fit inside the old 300 cap, so turn budget was never the binding constraint. (PM3 caught this in their own analysis first; the same error was in this entry.)
 - **Failure semantics are explicit.** Draft fails → refine never runs. Refine fails → the parent says loudly that the PR exists and is **unreviewed** and must not be merged, and prints the exact single-step re-run command. A silent half-success here would be worse than either failure.
 
 **Why this is the composition milestone, not just a refactor.** The completion contract built earlier this cycle (`COMPLETION_PATTERN`, exit 0 must mean done) was built to catch headless early-stop. It turns out to double as a **parent-workflow interface**: the parent's only handoff mechanism is the child's exit code plus the PR URL on its final line. That is the whole reason two `claude -p` runs can be chained in bash at all. Deterministic control flow outside, non-deterministic work inside independent activities — the shape a durable-execution engine wants. **Composition already works; Temporal would add durability, not composition.** See `docs/development/skyy-net-seed-handoff.md`.
@@ -712,6 +712,76 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 2. **Does refine over-correct?** A reviewer with no authorship stake and 200 turns has the opposite failure mode: rewriting work that was fine. Watch for refine diffs that materially exceed the findings they cite.
 3. **Cost per logical revision.** Two 200-turn Opus runs vs one 300. If the delta is large and the FIDELITY yield is thin, retier `revision-draft` down before touching the split itself — the boundary is the valuable part, not the model tier on both sides of it.
 4. **Turn-cap rate at 200 per child.** If draft starts hitting 200, the task was mis-sized for revision and belongs on `build-phase.sh` behind a written phase doc. That is a routing signal, not a budget signal — resist raising the cap.
+
+---
+
+## Burn-test round 1 — five fixes from the first live cycle (SHIPPED 2026-07-30)
+
+**Evidence:** one full `revision.sh` cycle (draft → refine) plus a `pr-review` pass on skyy-command PR #224, reported by PM3. n=1, on a deliberately over-specified task against a problem `pr-review` pass 8 had already diagnosed — directional, not conclusive. Every finding below was verified against the code before shipping; two of the four were partly misdiagnosed and one was misattributed, noted per item.
+
+| | turns | cost | outcome |
+|---|---|---|---|
+| `revision-draft` | 96 / 200 | $10.30 | PR updated, `PRE-REVIEW` checkpoint, reflection posted |
+| `revision-refine` | 73 / 200 | $10.96 | 8 fixed · 2 rejected · 1 surfaced · **0 deferred** |
+| `pr-review` pass 9 | 45 | $4.19 | **MERGE**, 0 redispatch items |
+
+Prior pass 8, same PR, pre-split producer: **HOLD**, attempt 7, four operator rulings.
+
+**Contract conformance held on run one.** Draft made ZERO review-agent invocations — its review stages are genuinely gone, not downgraded — and committed the `PRE-REVIEW, not yet audited` message verbatim. Refine ran the three narrow lenses in parallel then quality-control sequentially with their findings, matching the `engineering-quality.md` ordering rule. **Zero rug-sweeps**: no `defer` / `existing condition` / `out of scope` / `follow-up PR` anywhere in 391 lines of refine output. That is the metric the split was built for. **Over-rewrite check passed** — refine's diff was 105 lines across 6 files, every one traceable to a stated finding.
+
+---
+
+**1. Refine was structurally blind to the reflection it was told to read.** Stage 1 said *"read the draft run's Decision Log / reflection **if present**"* — and four lines above handed it `gh pr view --json body,commits`. The reflection is posted as a **comment**. The fetch could not see it, and `if present` made the miss silent and legitimate-looking: it checked the body, found nothing, correctly moved on. Cost of the miss, measured: the draft disclosed that its first mutation demo used `git checkout --` to restore, silently discarded uncommitted edits, and ran two of three mutations against a reverted file — **reporting `ok`**. Invisible in the tree. Refine could not rediscover it and so accepted a fixed-but-previously-fragile artifact without knowing it had ever been fragile.
+
+**Shipped:** fetch `body,commits,comments` with the reason stated inline; mine the reflection as **leads to verify, never conclusions to accept**; extra suspicion on anything self-exculpatory (*'already broken'*, *'pre-existing'*) because that is the author defending scope, not confessing; and an absent reflection is now itself a finding to state rather than silence to pass over.
+
+*Same failure shape as the CWD example bug: the operative layer of a prompt rule is the command it hands you, not the instruction it gives you.* PM3 diagnosed this as "routed to the wrong actor" — wrong diagnosis, right observation, identical remedy. Worth noting because diagnosis quality is what determines whether the NEXT instance gets found.
+
+**2. `pr-review`'s founding premise had gone false.** It read *"The run that produced this PR is commitment-biased: it authored these choices, so it defends them."* True when one run authored and self-judged; false the moment `revision.sh` split those, and the operator confirmed `build-phase` and `revision-minor` are headed the same way — so the premise expires everywhere, not just for one workflow.
+
+**Shipped — PM3's re-founding, adopted cleanly rather than demoted to a sub-case:** *every account is an account.* The PR body, a run summary, a prior pass's prescription, an agent's finding — all claims about the code, none of them the code; verify against the artifact, never the narrative; **holds regardless of who produced the PR or whether they had a stake.** Strictly stronger, not softer, and every INVARIANT kept unchanged.
+
+The sentence added on top of PM3's version, because it is what makes the re-founding load-bearing rather than merely durable: **bias does not disappear in a split, it RELOCATES to whoever wrote the account you are reading.** Refine authored its own dispositions and defends *those*; a run with nothing to prove has the inverted failure mode and rubber-stamps. Both invisible from inside, both caught the same way. Confirmed on run one — pointer-verification (INVARIANT 5) caught a bad disposition shape in **refine's** output, against an actor with nothing to defend. The bias framing cannot explain that; this one predicts it.
+
+**3. The CI verification window was real, load-bearing, and unguarded — and the fix was bigger than reported.** Refine caught a gate that was **RED on a clean runner**: five `bootstrap.bats` tests required a host group, so they had only ever asserted something true of the machine that wrote them. Draft structurally could not catch it — pushing is its terminal act, CI had not finished when it exited.
+
+Splitting the finding changed the fix, and the half PM3 missed is the one that mattered:
+
+- **3a — nobody was told to look at CI at all.** Grep confirmed: zero `gh run` / `gh pr checks` instructions in either child. Refine caught that gate by running Stage 4 VERIFY locally in a fresh worktree, not by reading CI. **Adding the wait alone would have bought nothing — no actor was going to look.** Shipped: an explicit CI-gate check in refine's Stage 4, framed on why it is the only actor positioned to do it and that *a local pass is not evidence the gate is green*.
+- **3b — nothing made CI be finished.** Shipped in the **parent**, per PM3's design and for their reason: the parent is pure bash with no turn budget, so polling costs wall-clock only; the same loop inside refine burns the reliability budget the split exists to protect. Head-SHA resolve → fetchability guard (GitHub replication lag between push and refine's fresh fetch) → poll check runs with a grace period on the zero-checks case → **on timeout proceed, never fail**, passing `--ci-unsettled` so refine states *'CI had not settled; gate state unknown to this review'* rather than emitting a clean summary that was never gate-checked.
+
+Worth separating for the record: the **worktree** half of that window is not luck and needs no guard. Refine verifies the delivered artifact from a context that did not build it, which is exactly why host-coupled tests fall out. Only the CI half was unguarded.
+
+**4. The task banner printed the whole `--task-file`.** Confirmed, misattributed, and made worse by the split: the parent echoes nothing — both CHILDREN carry `Description : ${DESCRIPTION}`, so a 90-line task file now printed **twice per cycle**. Pre-existing defect the split amplified. Shipped: first line, truncated at 100 chars, plus a `(+N more lines)` count, in both children.
+
+**5. `lint-prompts.sh` was checking the wrong set of variables — found by the fix for #3b.** Writing the CI-status fragment I introduced a live exit-127 bug (`\\\`` where `\\`` was meant, so `gh pr checks` executed at prompt-construction time). `bash -n` passed — the backticks balanced — **and the lint passed too**, because its detector matched `^[A-Za-z_]*PROMPT=`. `CI_STATUS_NOTE` is not named PROMPT.
+
+**The bug in the gate: naming is not the signal.** Prompts are ASSEMBLED from fragments (`CI_STATUS_NOTE`, `RULES`, `STAGES_*`, guards); every fragment is prompt text with identical escaping exposure. Shipped: detect **any multi-line double-quoted assignment** — odd unescaped-quote count on the start line means the string continues, which is exactly the class where escaping bugs live, and it excludes the one-line assignments (`PR_NUMBER="$2"`, `SCRIPT_DIR="$(cd … && pwd)"`) that would otherwise flood the sandbox. Extraction was also rewritten from terminator-scanning ("read until the next `echo`/`fi`") to quote-parity — the terminator scan was guesswork and immediately produced a false positive by swallowing the `done` of a loop that accumulated a multi-line string.
+
+Verified by regression: the bug injected back in, `bash -n` **passes**, the lint **fails**. The counting stays sound against both stray-quote parities — odd unbalances the file and `bash -n` catches it, even leaves parity intact so the block stays whole and the sandbox catches it.
+
+*Third instance of the prompts-are-code class, and the first one where the GATE was the defect rather than a script. The lesson generalizes past this repo: a gate scoped by naming convention certifies everything the convention does not name.*
+
+---
+
+**DECLINED — stitching `pr-review` as a third child of `revision.sh`. Not yet; deliberately, with a date.**
+
+Both objections raised against it dissolved under scrutiny and are recorded so they are not re-litigated:
+
+- *"INVARIANT 3 semantics break"* — on a fresh PR it never fires (pass 1, no prior comments). On a `--pr N` rework it fires with an ambiguous premise, but **that ambiguity exists today** with manual invocation: an operator can already dispatch a task unrelated to the prior runway and then re-run pr-review. Stitching makes it routine, not novel. Prompt fix, not a blocker.
+- *"`build-phase` produces PRs too, so coverage becomes inconsistent"* — answered by the roadmap. If build-phase becomes a parent, it gets pr-review as its third child by the same pattern. Consistency comes from applying the pattern everywhere, not from keeping the step manual.
+
+**The operator's argument for stitching is the strongest one on the table and neither reviewer weighed it: CPI observability.** One dispatch, one trace, all three actors' interaction visible in a single run — for a tool whose entire development model is this loop, making the loop cheaper to observe compounds.
+
+**Held only for attribution, not design.** Ship these five fixes, get 2-3 runs on the corrected refine, THEN stitch. Adding a third actor simultaneously with fixing refine's reflection blindness and CI window would leave the next cycle with four changes and no way to tell which produced a clean MERGE. **Stitch with HOLD semantics fixed as stop-and-report** — parent exits, prints the runway, operator decides. Loop-back-to-refine is unbounded, exactly what per-child turn caps exist to prevent. pr-review stays decide-only as a child; fix-dispatch authority remains earned. Budget for the stitched command: **~$25.50, ~60 min, one dispatch.**
+
+**OPEN, surfaced not settled — what distinguishes `revision-minor` from `revision` once minor is also split?** `revision-minor` has no review agents and no adjudication stage, so it has nothing to be commitment-biased *about* in the sense that drove this split. A refine step there would be fidelity-checking without the review arsenal — coherent and probably worth having, but on a different justification. If the answer is "cheap models, no agent fleet, fidelity only," that is a real three-tier ladder. If there is no answer, three workflows have collapsed into two and that should be a decision rather than a discovery.
+
+**Watch:**
+1. **Does refine's reflection-mining change the finding mix?** The prediction is that reading the reflection surfaces defects invisible in the diff (the `git checkout --` class). If refine's findings look the same as before the fix, the reflection is less load-bearing than assumed.
+2. **Does the CI wait ever fire the timeout?** If `ci_settled=false` is common, 600s is wrong for this fleet. If it never fires, consider whether the wait is doing anything.
+3. **Does the re-founded pr-review premise change its behaviour?** The narrow prediction: it should now scrutinize a REFINE-produced account as hard as a draft-produced one. If pass counts on split-produced PRs stay lower than on build-phase PRs, it is still implicitly trusting the stake-free producer.
+4. **Carried forward from 2026-07-29, unchanged:** does FIDELITY find what a single context missed; does refine over-correct; cost per logical revision; turn-cap rate at 200/child.
 
 ---
 

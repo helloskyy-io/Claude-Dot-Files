@@ -69,6 +69,36 @@ for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh "$WF_DIR"/lib/*.sh; do
     fi
 done
 
+# --- Which assignments are prompt blocks? -------------------------------------
+# NOT "variables named *PROMPT". That detector shipped first and immediately
+# missed a live exit-127 bug in a fragment named CI_STATUS_NOTE: prompts are
+# ASSEMBLED from fragments (CI_STATUS_NOTE, RULES, STAGES_*, guards), and every
+# fragment is prompt text with the same escaping exposure as the PROMPT itself.
+# Naming is not the signal.
+#
+# The signal is MULTI-LINE double-quoted: a prompt fragment opens a double quote
+# that does not close on the same line. That rule admits every fragment
+# regardless of name and excludes the ordinary one-line assignments that would
+# otherwise flood the sandbox with false positives — `PR_NUMBER="$2"`,
+# `SCRIPT_DIR="$(cd "$(dirname …)" && pwd)"` (real command substitution, closes
+# on its line, not a prompt).
+#
+# Detection: count unescaped double quotes on the start line. ODD = the string
+# continues to later lines = prompt fragment. EVEN = closed here = skip.
+# This stays sound against the balanced-stray-quote bug (case 2 in the header):
+# there the strays are on LATER lines, so the start line still counts odd.
+find_prompt_blocks() {
+    awk '
+        /^[[:space:]]*[A-Za-z_][A-Za-z_0-9]*=\$\(cat <</ { print NR; next }
+        /^[[:space:]]*[A-Za-z_][A-Za-z_0-9]*="/ {
+            line = $0
+            gsub(/\\"/, "", line)          # escaped quotes are not delimiters
+            n = gsub(/"/, "", line)
+            if (n % 2 == 1) print NR
+        }
+    ' "$1"
+}
+
 # --- Pass 2 (execution): construct every prompt block in the sandbox ----------
 for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh; do
     [[ -e "$f" ]] || continue
@@ -81,21 +111,28 @@ for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh; do
             [[ -n "$e" ]] || continue
             block=$(sed -n "${s},${e}p" "$f")
         else
-            # inline form: PROMPT="…" — ends before the next real shell statement.
-            # Terminators are deliberately NARROW (`echo` / `run_claude` / a lone
-            # `)`): a loose pattern like `^[[:space:]]*\(` matches PROSE such as
-            # "(1) STATE THE CONTEXT…" and silently truncates the block, which
-            # then fails to construct for the wrong reason.
-            # `else` / `fi` are included so a prompt built inside an if/else
-            # (e.g. a per-path SUBMIT_PROMPT) is extracted as its own block
-            # rather than swallowing the whole conditional.
-            # Terminators must be UNAMBIGUOUS shell statements — a loose pattern
-            # matches prose and silently truncates the block (which then fails
-            # for the wrong reason). `if [[` is safe because the `[[` cannot
-            # plausibly open a prose line.
-            e=$(awk -v s="$s" 'NR>s && (/^[[:space:]]*(echo|run_claude)/ || /^[[:space:]]*if \[\[/ || /^[[:space:]]*(else|fi)[[:space:]]*$/ || /^\)/) {print NR; exit}' "$f")
-            [[ -n "$e" ]] || e=$(( $(wc -l < "$f") + 1 ))
-            block=$(sed -n "${s},$((e-1))p" "$f")
+            # inline form: VAR="…" — extract EXACTLY the assignment statement, by
+            # finding the line where the opening quote closes: walk forward
+            # counting unescaped double quotes, and stop when the running total
+            # goes even. This replaced a terminator-scan ("read until the next
+            # `echo`/`run_claude`/`fi`"), which was guesswork: it swallowed the
+            # `done` of a loop whose body accumulated a multi-line string, and
+            # reported a syntax error that was the extractor's, not the file's.
+            #
+            # Sound against BOTH stray-quote parities, which is why the counting
+            # is safe here: an ODD number of strays unbalances the file and
+            # `bash -n` catches it; an EVEN number leaves the running total's
+            # parity intact, so the block stays whole and the sandbox catches it.
+            e=$(awk -v s="$s" '
+                NR >= s {
+                    line = $0
+                    gsub(/\\"/, "", line)
+                    n += gsub(/"/, "", line)
+                    if (n % 2 == 0) { print NR; exit }
+                }
+            ' "$f")
+            [[ -n "$e" ]] || e=$(wc -l < "$f")
+            block=$(sed -n "${s},${e}p" "$f")
         fi
 
         # Invoke bash by ABSOLUTE path — the sandbox PATH deliberately contains
@@ -107,7 +144,7 @@ $block" 2>&1); then
             echo "      (error line numbers are relative to the block; block starts at file line ${s})"
             fail=1
         fi
-    done < <(grep -nE '^[[:space:]]*[A-Za-z_]*PROMPT=("|\$\(cat <<)' "$f" | cut -d: -f1)
+    done < <(find_prompt_blocks "$f")
 done
 
 if [[ $fail -eq 0 ]]; then

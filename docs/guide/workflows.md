@@ -48,14 +48,30 @@ pass costing a few dollars. Splitting the run puts a process boundary exactly
 where judgement happens.
 
 **What crosses the boundary:** nothing but git and the task. Refine inherits
-none of draft's context. Its inputs are the PR, its diff, the draft's own
-reflection comment — and **the original task**, which the parent passes to
-BOTH children. That last part is load-bearing: without the task, refine can
+none of draft's context. Its inputs are the PR, its diff, **its comments** —
+the draft's reflection is posted as a comment, so refine's Stage 1 fetch
+includes `comments` explicitly; a fetch of `body,commits` alone returns a PR
+that appears to have no reflection at all — and **the original task**, which
+the parent passes to BOTH children. That last part is load-bearing: without the task, refine can
 only ask "is this code good?", never "did this deliver what was asked?" —
 and the second question is the one that catches missing scope and scope creep.
 
+**The parent waits for CI between the children.** Refine is the only actor that
+can read the delivered CI gate — pushing is draft's terminal act, so CI has not
+finished when it exits. That gap is a real verification window (a run has
+already caught a gate that was RED on a clean runner while green locally), so
+the parent polls check runs for the draft's head SHA before starting refine.
+The wait lives in the parent precisely because the parent has no turn budget:
+polling costs wall-clock only, where the same loop inside refine would burn the
+reliability budget the split exists to protect. On timeout it **proceeds rather
+than fails** — killing a run because Actions is slow trades a large loss for a
+small one — and passes `--ci-unsettled`, which makes refine state that the gate
+is unknown rather than emit a clean summary that was never gate-checked.
+
 **Turn budgets are per child**, not shared: draft gets 200 to analyse and code,
-refine gets its own 200 to review and correct. Each child carries its own
+refine gets its own 200 to review and correct. This is a **reliability control,
+not a capacity increase** — per-context budget went down (300 → 200), because
+reliability decays as in-context memory grows. Each child carries its own
 `MODEL_KEY` (`revision-draft`, `revision-refine`) and its own completion
 contract; the parent's contract is the children's exit codes plus a PR URL.
 If draft fails, refine never runs. If refine fails, the parent says so loudly:

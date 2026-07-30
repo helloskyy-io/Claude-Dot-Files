@@ -75,6 +75,10 @@ Options:
                        invocation directory (Temporal Standard §7.5 principle).
                        Default: the repo containing the current directory.
   --verbose, -v        Stream formatted Claude output live
+  --ci-unsettled       Set by the parent when CI had NOT finished for the draft's
+                       head SHA before this step started. Makes the run state
+                       that its CI verdict is unknown rather than reporting a
+                       clean review that was never gate-checked.
 
 Examples (flags FIRST, positionals LAST — protects the positional from
 line-wrap and keeps options visible):
@@ -84,7 +88,8 @@ line-wrap and keeps options visible):
   $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
 This workflow is for SIGNIFICANT rework — not minor fixes.
-For minor corrections, use revision.sh instead.
+For minor corrections, use revision-minor.sh. This step is normally run by the
+parent (scripts/workflows/revision.sh), not invoked directly.
 EOF
 }
 
@@ -93,6 +98,7 @@ TASK_FILE=""
 PR_NUMBER=""
 REPO_TARGET=""
 VERBOSE=false
+CI_UNSETTLED=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -122,6 +128,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --verbose|-v)
             VERBOSE=true
+            shift
+            ;;
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
+        --ci-unsettled)
+            CI_UNSETTLED=true
             shift
             ;;
         -*)
@@ -230,7 +244,18 @@ mkdir -p "$LOG_DIR"
 echo "================================================================"
 echo "  REVISION-REFINE WORKFLOW"
 echo "================================================================"
-echo "  Description : ${DESCRIPTION}"
+# A --task-file description can run to 90+ lines; echoing it whole buries the
+# rest of the banner, and the split prints one banner per child. Show the shape,
+# not the payload — the full text is in the prompt and the JSONL log.
+DESC_LINES=$(printf '%s\n' "$DESCRIPTION" | wc -l)
+DESC_SUMMARY=$(printf '%s\n' "$DESCRIPTION" | head -1 | cut -c1-100)
+if [[ ${#DESC_SUMMARY} -eq 100 ]]; then
+    DESC_SUMMARY="${DESC_SUMMARY}…"
+fi
+if (( DESC_LINES > 1 )); then
+    DESC_SUMMARY="${DESC_SUMMARY} (+$((DESC_LINES - 1)) more lines)"
+fi
+echo "  Description : ${DESC_SUMMARY}"
 if [[ -n "$PR_NUMBER" ]]; then
     echo "  Target      : PR #${PR_NUMBER} (updating existing)"
 else
@@ -238,6 +263,7 @@ else
 fi
 echo "  Repo        : ${REPO_ROOT}"
 echo "  Worktree    : ${WORKTREE_NAME}"
+echo "  CI settled  : $($CI_UNSETTLED && echo 'NO — gate state unknown to this review' || echo 'yes')"
 echo "  Max turns   : ${MAX_TURNS}"
 echo "  Verbose     : ${VERBOSE}"
 echo "  Log file    : ${LOG_FILE}"
@@ -270,10 +296,12 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 ## Stage 1: FIDELITY — did this deliver what was actually asked?
 You did NOT write this code. A different run did, in a context you do not share, and it is gone. You have two things: **the original task** (above) and **what was delivered** (the PR). Compare them before you look at quality.
 
-- Read the PR diff, its body, and its commits: \`gh pr diff ${PR_NUMBER}\`, \`gh pr view ${PR_NUMBER} --json body,commits\`.
+- Read the PR diff, its body, its commits, AND ITS COMMENTS: \`gh pr diff ${PR_NUMBER}\`, \`gh pr view ${PR_NUMBER} --json body,commits,comments\`. The comments are not optional — the draft run's reflection is posted as a COMMENT, not in the body, so a fetch that omits them silently returns a PR that appears to have no reflection at all.
 - **Does the delivered change actually satisfy the original task?** Not 'is it good code' — that is Stage 2. Is it the RIGHT change?
 - Enumerate explicitly: what the task asked for that is **present**; what it asked for that is **missing**; what was delivered that was **NOT asked for** (scope creep is a finding too).
-- Read the draft run's own Decision Log / Deferred Work / reflection if present — it tells you what it chose and what it skipped, and it is honest. Mine it; do not re-derive what it already told you.
+- **Mine the draft run's own Decision Log / Deferred Work / reflection comment.** This is where the author told on itself: near-misses, shortcuts taken under time pressure, things it noticed and did not chase. Half of it is breadcrumbs to defects invisible in the tree — a demo that reported \`ok\` while running against a reverted file leaves no trace in the diff — and half is inoculation against you repeating the same mistake. You are the only actor in the chain that can both FIND and FIX in one pass; a breadcrumb you follow gets resolved here, the same breadcrumb reaching only the downstream disposition pass becomes a HOLD and another dispatch cycle.
+  **Treat every line of it as a LEAD TO VERIFY, never a conclusion to accept.** Confirm each claim against the code before acting on it. Apply extra suspicion to anything SELF-EXCULPATORY — 'this was already broken', 'out of scope', 'pre-existing' — that is the author defending scope, not confessing, and it is a claim you check rather than a lead you follow.
+  If the PR genuinely has no reflection comment, say so explicitly in your Stage 1 output. Silence here is a finding: it means the draft either skipped its reflection or the fetch failed, and both are worth knowing.
 
 **This check is the reason this workflow is a separate run.** A single context that both wrote the code and judged it cannot perform this comparison honestly — it judges the result against the plan it already talked itself into, not against what was asked. A technically clean PR that solved the wrong problem is the expensive failure, and it is invisible from inside the authoring context.
 
@@ -358,6 +386,8 @@ Run scoped regression to verify everything passes after all changes:
 
 If the project has no master runner or component test suite, fall back to running the appropriate framework command scoped to the affected directories.
 
+**Then check the DELIVERED CI gate — you are the only actor who can.** Run \`gh pr checks ${PR_NUMBER}\` (and \`gh run view <id> --log-failed\` on any failure). The draft run structurally could not do this: pushing is its terminal act, so CI had not finished when it exited. A gate that is RED on a clean runner but green on the author's machine is the signature failure this catches — tests coupled to host state (a group, a mount, an installed binary, an env var) only ever asserted something true of the machine that wrote them. **A local pass is not evidence the gate is green.** Treat a red or host-coupled check as a Stage 3 finding and fix it here.
+
 If anything fails, fix it. Do not proceed to Stage 5 with failing tests.
 STAGES_EOF
 )
@@ -411,13 +441,30 @@ if [[ -n "$PR_NUMBER" ]]; then
     echo "→ Creating worktree at ${WORKTREE_PATH}..."
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
+    # CI-settled state comes from the PARENT, which waits for check runs before
+    # starting this step. When it could not confirm settlement, the run must SAY
+    # SO — a clean review summary that was never gate-checked reads identically
+    # to a verified one, and that is the confusion the marker exists to prevent
+    # (same discipline as a health_verified: false marker).
+    if $CI_UNSETTLED; then
+        CI_STATUS_NOTE="## CI GATE STATE: UNKNOWN
+
+The parent could not confirm CI had finished for this PR's head commit before starting you. Still run \`gh pr checks ${PR_NUMBER}\` in Stage 4 — results may have landed since. But if checks are still pending when you reach Stage 5, you MUST state in your summary and in the PR body: **'CI had not settled; gate state unknown to this review.'** Do not report a clean review without that qualifier. An unqualified clean summary asserts a gate you never saw."
+    else
+        CI_STATUS_NOTE="## CI GATE STATE: SETTLED
+
+The parent confirmed CI finished for this PR's head commit before starting you, so \`gh pr checks ${PR_NUMBER}\` in Stage 4 returns real verdicts, not pending ones. You are expected to have checked them."
+    fi
+
     PROMPT="You are executing the REVISION-REFINE workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
+This is a SIGNIFICANT rework — not a minor fix. Follow all 5 stages thoroughly.
 
 Task: ${DESCRIPTION}
 
 ${HEADLESS_EXECUTION_GUARD}
+
+${CI_STATUS_NOTE}
 
 ${STAGES_2_TO_4}
 

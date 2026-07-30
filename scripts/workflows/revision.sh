@@ -184,11 +184,77 @@ echo "================================================================"
 echo
 
 # ---------------------------------------------------------------------------
+# Between the steps — let the draft's CI finish
+# ---------------------------------------------------------------------------
+# Refine is the ONLY actor that can read the delivered CI gate: pushing is the
+# draft's terminal act, so CI has not finished when it exits. That makes the gap
+# between the two children a real verification window — a run has already caught
+# a gate that was RED on a clean runner while green locally (tests coupled to
+# host state). But nothing made the window exist; it was luck of the runner.
+#
+# The wait belongs HERE, in the parent, precisely because the parent is pure
+# bash with no turn budget: polling costs wall-clock only. The same loop inside
+# refine would burn the reliability budget the split exists to protect.
+CI_UNSETTLED=false
+CI_TIMEOUT=600        # 10 min — long enough for typical gates, short enough not to strand a run
+CI_GRACE=45           # checks take a beat to register; "zero checks" before this races the runner
+CI_POLL=15
+
+HEAD_SHA=$(gh pr view "$DRAFT_PR" --json headRefOid --jq '.headRefOid' 2>/dev/null || echo "")
+if [[ -z "$HEAD_SHA" ]]; then
+    echo "⚠ Could not resolve PR #${DRAFT_PR} head SHA — skipping the CI wait." >&2
+    CI_UNSETTLED=true
+else
+    # Guard GitHub's replication lag between the draft's push and refine's fresh
+    # worktree fetch: if the SHA is not yet fetchable, refine would check out a
+    # stale branch and review the wrong code. Two lines, prevents a silent class.
+    if ! git fetch -q origin "$HEAD_SHA" 2>/dev/null && ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+        echo "→ Head SHA ${HEAD_SHA:0:8} not yet fetchable — waiting ${CI_GRACE}s for replication…"
+        sleep "$CI_GRACE"
+    fi
+
+    echo "→ Waiting for CI on ${HEAD_SHA:0:8} (timeout ${CI_TIMEOUT}s)…"
+    ELAPSED=0
+    while true; do
+        # `gh pr checks` exits nonzero when checks FAIL and when none exist, so
+        # branch on the states themselves rather than on the exit code.
+        CHECK_STATES=$(gh pr checks "$DRAFT_PR" --json state --jq '.[].state' 2>/dev/null || echo "")
+
+        if [[ -z "$CHECK_STATES" ]]; then
+            if (( ELAPSED >= CI_GRACE )); then
+                echo "  No checks configured for this PR — proceeding."
+                break
+            fi
+        elif ! grep -qE '^(QUEUED|IN_PROGRESS|PENDING|WAITING|REQUESTED)$' <<<"$CHECK_STATES"; then
+            echo "  CI settled ($(wc -l <<<"$CHECK_STATES" | tr -d ' ') checks) — proceeding."
+            break
+        fi
+
+        if (( ELAPSED >= CI_TIMEOUT )); then
+            # Proceed, do NOT fail. Refine can still do fidelity and peer review
+            # without CI; killing the run because Actions is slow trades a large
+            # loss for a small one. But it must be LOUD, so refine states the
+            # gate is unknown rather than reporting a clean-looking review.
+            echo "⚠ CI did not settle within ${CI_TIMEOUT}s — proceeding with gate state UNKNOWN." >&2
+            CI_UNSETTLED=true
+            break
+        fi
+
+        sleep "$CI_POLL"
+        ELAPSED=$((ELAPSED + CI_POLL))
+    done
+fi
+echo
+
+# ---------------------------------------------------------------------------
 # Step 2 — REFINE (fresh context, same task, against the draft's PR)
 # ---------------------------------------------------------------------------
+REFINE_ARGS=("${CHILD_ARGS[@]}")
+$CI_UNSETTLED && REFINE_ARGS+=(--ci-unsettled)
+
 echo "→ [2/2] revision-refine on PR #${DRAFT_PR}…"
 echo
-if ! "$REFINE" "${CHILD_ARGS[@]}" --pr "$DRAFT_PR" "${TASK_ARGS[@]}"; then
+if ! "$REFINE" "${REFINE_ARGS[@]}" --pr "$DRAFT_PR" "${TASK_ARGS[@]}"; then
     echo >&2
     echo "✗ revision-refine FAILED on PR #${DRAFT_PR}." >&2
     echo "  The draft PR EXISTS and is unreviewed — it must not be merged as-is." >&2

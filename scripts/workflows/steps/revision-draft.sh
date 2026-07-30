@@ -89,7 +89,8 @@ line-wrap and keeps options visible):
   $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
 This workflow is for SIGNIFICANT rework — not minor fixes.
-For minor corrections, use revision.sh instead.
+For minor corrections, use revision-minor.sh. This step is normally run by the
+parent (scripts/workflows/revision.sh), not invoked directly.
 EOF
 }
 
@@ -128,6 +129,10 @@ while [[ $# -gt 0 ]]; do
         --verbose|-v)
             VERBOSE=true
             shift
+            ;;
+        --help|-h)
+            show_usage
+            exit 0
             ;;
         -*)
             echo "Error: unknown option '$1'" >&2
@@ -224,7 +229,18 @@ mkdir -p "$LOG_DIR"
 echo "================================================================"
 echo "  REVISION-DRAFT WORKFLOW"
 echo "================================================================"
-echo "  Description : ${DESCRIPTION}"
+# A --task-file description can run to 90+ lines; echoing it whole buries the
+# rest of the banner, and the split prints one banner per child. Show the shape,
+# not the payload — the full text is in the prompt and the JSONL log.
+DESC_LINES=$(printf '%s\n' "$DESCRIPTION" | wc -l)
+DESC_SUMMARY=$(printf '%s\n' "$DESCRIPTION" | head -1 | cut -c1-100)
+if [[ ${#DESC_SUMMARY} -eq 100 ]]; then
+    DESC_SUMMARY="${DESC_SUMMARY}…"
+fi
+if (( DESC_LINES > 1 )); then
+    DESC_SUMMARY="${DESC_SUMMARY} (+$((DESC_LINES - 1)) more lines)"
+fi
+echo "  Description : ${DESC_SUMMARY}"
 if [[ -n "$PR_NUMBER" ]]; then
     echo "  Target      : PR #${PR_NUMBER} (updating existing)"
 else
