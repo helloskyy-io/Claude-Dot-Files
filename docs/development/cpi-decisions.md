@@ -727,7 +727,7 @@ Sources: `review-skyy-command-2026-07-24.md` (61 runs), `review-mdc-master-plann
 
 Prior pass 8, same PR, pre-split producer: **HOLD**, attempt 7, four operator rulings.
 
-**Contract conformance held on run one.** Draft made ZERO review-agent invocations — its review stages are genuinely gone, not downgraded — and committed the `PRE-REVIEW, not yet audited` message verbatim. Refine ran the three narrow lenses in parallel then quality-control sequentially with their findings, matching the `engineering-quality.md` ordering rule. **Zero rug-sweeps**: no `defer` / `existing condition` / `out of scope` / `follow-up PR` anywhere in 391 lines of refine output. That is the metric the split was built for. **Over-rewrite check passed** — refine's diff was 105 lines across 6 files, every one traceable to a stated finding.
+**Contract conformance held on run one.** Draft made ZERO review-agent invocations — its review stages are genuinely gone, not downgraded — and committed the `PRE-REVIEW, not yet audited` message verbatim. Refine ran the three narrow lenses in parallel then quality-control sequentially with their findings, matching the `engineering-quality.md` ordering rule. ~~**Zero rug-sweeps**: no `defer` / `existing condition` / `out of scope` / `follow-up PR` anywhere in 391 lines of refine output. That is the metric the split was built for.~~ **WITHDRAWN 2026-07-30 as unverified** — the method grepped the RUN LOG for deferral *language*; deferrals live in the **PR body's disposition table**, which was never opened. It measured a proxy and reported it as the property. Round 2 opened the table and found two laundered deferrals of seven. This figure is not evidence of anything and no decision should rest on it. **Over-rewrite check passed** — refine's diff was 105 lines across 6 files, every one traceable to a stated finding.
 
 ---
 
@@ -782,6 +782,50 @@ Both objections raised against it dissolved under scrutiny and are recorded so t
 2. **Does the CI wait ever fire the timeout?** If `ci_settled=false` is common, 600s is wrong for this fleet. If it never fires, consider whether the wait is doing anything.
 3. **Does the re-founded pr-review premise change its behaviour?** The narrow prediction: it should now scrutinize a REFINE-produced account as hard as a draft-produced one. If pass counts on split-produced PRs stay lower than on build-phase PRs, it is still implicitly trusting the stake-free producer.
 4. **Carried forward from 2026-07-29, unchanged:** does FIDELITY find what a single context missed; does refine over-correct; cost per logical revision; turn-cap rate at 200/child.
+
+---
+
+## Burn-test round 2 — the rule was there, and its own wording defeated it (SHIPPED 2026-07-30)
+
+**Evidence:** second full `revision.sh` cycle on skyy-command PR #231 — the first PR with **no legacy history**, which round 1 lacked — plus `pr-review` pass 1 on it. Round 1's fixes both paid on first use (see below). All claims re-verified against the code before shipping; the central one was **misdiagnosed by the reporter and by the first read**.
+
+**Round-1 fixes validated.** Reflection mining worked and immediately earned itself: refine reported the reflection *"present and mined,"* then *"one self-reported claim did not survive verification — the draft's probe table was accurate but its **generalisation** was not — I re-ran the experiment rather than accepting the conclusion,"* and corrected the record in both the PR body and the tracking issue. That is leads-to-verify working as designed on day one. CI checking also paid: refine hit `no checks` and refused to accept it — *"which needs investigating rather than accepting"* — discovering every workflow in the repo is path-filtered with none matching the Python tier, so 4127 tests had zero merge-path enforcement. It then **declined to build the gate**, unprompted: *"path filters, runner environment, and blocking posture affect every future PR, which is your call to scope, not a redaction-seam PR's to make."*
+
+---
+
+**THE FINDING: refine attests to verification it did not perform.** `pr-review` pass 1: *"Two laundered deferrals of seven — both attested 'Verified present'."* One deferred the Python-tier CI gate to **this PR's own body**, which dies at merge, while issue #230 (filed hours earlier by the previous pass) already covered it — never checked. One deferred two packages to a *"pending-surface list"* they are not on; the only lines naming them are `- [x]` **checked** boxes recording a completed fold. Third and fourth instances across two runs.
+
+**The requested fix was to add a pointer-verification rule. The rule already existed** — in the `DECISION_LOG_AND_REFLECTION` template both children inherit: *"Verify each pointer before you write it: open the 'Tracked at' location and confirm the item is actually there… A pointer to a place that does not contain the item is a laundered deferral — pr-review will catch it and reclassify; catch it yourself first."* Three defects in that wording, compounding:
+
+1. **"Open the location" names no command.** Third instance of the class fixed the day before: *the operative layer of a prompt rule is the command it hands you.* With no command, "open" degrades to "consider," and consideration produces plausibility. The rule read as satisfied by thinking about it.
+2. **"pr-review will catch it and reclassify" is an explicit safety net, and it was ours.** It told the run a miss gets caught downstream, converting a hard obligation into best-effort. **Any prompt sentence naming a downstream catcher licenses upstream sloppiness** — this is now a rule of thumb, not an observation.
+3. **The obligation sat in the REPORTING template**, executed after the decision was already closed and the run was formatting a table it had mentally finished. It belonged at the moment of decision.
+
+**Plus a structural cause neither the report nor the first read caught: two conflicting vocabularies.** Refine's Stage 3 disposition set was FIXED / REJECTED / SURFACED, with an explicit *"do NOT invent a tracker for it — surfacing IS the action."* The shared reflection template then asked the same run for a **Deferred Work** section with "Tracked at" pointers. The run resolved the contradiction toward the instruction that wanted structured output. **That is how a workflow with no DEFERRED disposition emitted seven deferrals.**
+
+**Shipped:**
+- **Deleted the safety-net clause.** No prompt in this fleet may name a downstream catcher as a reason the current actor can be approximate.
+- **Verification is by FETCH with a recorded observation.** Named commands per target type (`gh issue view <N> --json …` for issues; Read/Grep the live file **on the default branch** for docs, because a worktree copy may contain an edit that never merges; `gh pr view <N>` for PRs), and a mandatory `Verified by:` field carrying *what you saw*. *"Verified by: gh issue view 230 -> OPEN, body covers the Python-tier gate"* is an attestation; *"Verified present"* is a claim about yourself.
+- **If you cannot verify it, you may not defer to it.** Fix it, or SURFACE it with no pointer. Stated with the reason: **a naked surfaced item gets picked up downstream; a laundered one gets filed away as handled**, which is why the honest version is worth more.
+- **Enumerated INVALID targets.** THIS PR (dies at merge — the most common shape, and the one round 1 also hit), a tracker you are 'about to' create, a checked `- [x]` line or completed section (it records something FINISHED — pointing pending work at it is how work stops existing), a person or 'the next run'.
+- **Aligned the vocabularies upward:** refine gains an explicit **DEFERRED**, gated on the fetch, at Stage 3 where the decision happens. Aligning downward — forbidding deferral outright — would have pushed legitimate items ("this is real, and issue #230 already covers it") into SURFACED prose.
+- **Named refine's own bias, in refine's own prompt.** Not the one it was built to escape: it has no stake in the code's *decisions*, and a real one in its *table looking complete*. Both false pointers were written by a reviewer with nothing to defend, and both read "Verified present." **Removing authorship removed the motive to defend decisions; it did not remove the motive to attest diligence.** The prompt now tells it to apply to its own table the rule it applies to the draft's work.
+
+**Finding 6 — neither child consulted the issue tracker.** Verified: zero `gh issue` calls in either; `pr-review` does check (it re-pointed the bad deferral at #230). Refine independently rediscovered the CI-enforcement gap with zero references to #230, which had been filed hours earlier with a fuller specification. Had it decided to FILE rather than surface, the result would have been a duplicate. **Shipped:** a prior-art `gh issue list --state all --search` in Stage 1 of BOTH children — placed at Stage 1 rather than "before surfacing," because knowing #230 exists should change what draft *implements*, not only what refine *writes up*.
+
+**Finding 7 — turn/cost escalation, watch only.** Run 1: 96 + 73 turns, $21.26. Run 2: 143 + 92, $35.22 — draft at 143/200 on a task deliberately scoped to one decision plus one migration surface. **Watch-criterion, sharpened:** if draft routinely crosses ~160/200, the signal is *route to `build-phase.sh` behind a written phase doc*, not raise the cap. Raising the cap re-buys the in-context reliability decay the 300→200 split exists to avoid.
+
+---
+
+**METHOD DEFECT, recorded as a class — the second instance in two days.** Round 1's headline "zero rug-sweeps across 391 lines" is withdrawn above: it grepped the RUN LOG for deferral *language* while deferrals live in the PR BODY's table. The day before, our own `lint-prompts.sh` matched variables *named* `PROMPT` while prompt text lives in fragments with other names. Same shape both times: **a measurement scoped by a convenient proxy certifies everything the proxy does not cover — and both times the uncovered region was exactly where the defect was.** This is now the second-most-productive bug source after prompts-are-code. The check: *is my measurement reading the artifact, or something correlated with it?*
+
+**STILL DECLINED — stitching `pr-review` as a third child, and round 2 strengthens the case for waiting.** `pr-review` returned HOLD on a PR the producing pipeline presented as complete, catching two laundered deferrals that a human session had independently reviewed and declared clean. A third actor is currently doing work the first two are not — which is an argument for keeping it *distinct*, not for absorbing it. Graduation condition unchanged: 2-3 clean cycles on the corrected refine, then stitch with HOLD semantics as stop-and-report.
+
+**Watch:**
+1. **Does the fetch obligation actually reduce laundering, or relocate it?** The failure mode to watch is a fabricated `Verified by:` line — an attestation of an attestation. If that appears, the next move is not more prompt text; it is `pr-review` re-running the recorded command.
+2. **Does DEFERRED-with-fetch cannibalise FIXED?** A verified pointer is now cheap to produce. If deferral volume rises while fix volume falls, "fix by default" has lost to the path of least resistance.
+3. **Does the prior-art sweep get run, and does it ever find anything?** If it is silently skipped, the instruction needs a recorded observation the way the pointer rule now does.
+4. **Carried forward:** turn escalation past ~160/200 on draft; whether FIDELITY findings remain a distinct class; refine over-correction.
 
 ---
 

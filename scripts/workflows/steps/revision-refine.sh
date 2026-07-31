@@ -18,7 +18,8 @@
 #   1. FIDELITY — original task vs what was delivered (present/missing/extra)
 #   2. PEER REVIEW — code-reviewer + refactoring-evaluator + standards-auditor
 #                    in parallel, then quality-control sequentially
-#   3. RESOLVE — disposition EVERY finding (fixed/rejected/surfaced) and fix
+#   3. RESOLVE — disposition EVERY finding (fixed/rejected/deferred/surfaced)
+#                and fix. DEFERRED requires a FETCHED pointer, never a plausible one.
 #   4. VERIFY — scoped regression after the corrections
 #   5. SUBMIT — commit, push, update the PR
 #
@@ -305,6 +306,8 @@ You did NOT write this code. A different run did, in a context you do not share,
 
 **This check is the reason this workflow is a separate run.** A single context that both wrote the code and judged it cannot perform this comparison honestly — it judges the result against the plan it already talked itself into, not against what was asked. A technically clean PR that solved the wrong problem is the expensive failure, and it is invisible from inside the authoring context.
 
+- **Search the issue tracker for prior art before you conclude anything is new.** Run `gh issue list --repo <owner/repo> --state all --limit 30 --search \"<2-4 terms from the task and from what you found>\"`. You are one actor in a pipeline that has been filing issues about this codebase — the gap you are about to 'surface' may already be filed, with a fuller specification than you would write. **Measured:** a run independently rediscovered a CI-enforcement gap and surfaced it, unaware that an issue filed hours earlier by the downstream disposition pass already covered it in more detail; had it decided to FILE rather than surface, the result would have been a duplicate. Cite the issue number when one exists and defer to it (with a fetched pointer, per Stage 3) instead of re-deriving it.
+
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
 ## Stage 2: PEER REVIEW (two-phase)
@@ -369,12 +372,16 @@ Per the finding-disposition rule, every finding must reach fixed / rejected-with
 ## Stage 3: RESOLVE — disposition AND fix
 You hold the disposition authority the draft run deliberately does not, because you did not author the work. Use it: **every finding from Stages 1 and 2 gets an explicit disposition, and you FIX what should be fixed.** This is not a summary stage.
 
-For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards-auditor, quality-control):
+For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards-auditor, quality-control), exactly ONE of these four. There is no fifth, and you may not invent one:
+
 - **FIXED** — you corrected it here. Say what you changed.
 - **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
-- **SURFACED** — real, but genuinely outside this change's scope. State it plainly in the PR body so \`pr-review\` and the operator can dispose of it. Do NOT bury it, and do NOT invent a tracker for it — surfacing IS the action.
+- **DEFERRED** — real, and an EXISTING durable home already covers it. Allowed ONLY with a pointer you FETCHED: run the command, record what you saw. See the Deferred Work rules at the end of this prompt — they are binding here, at the moment of decision, not merely when you write the comment up. **If you cannot verify a home, this is not a DEFERRED; it is a SURFACED.**
+- **SURFACED** — real, genuinely outside this change's scope, and NO verified home exists. State it plainly in the PR body with no pointer at all, so \`pr-review\` and the operator can dispose of it. Do NOT invent a tracker — surfacing IS the action, and a naked surfaced item gets picked up downstream while a plausible-looking pointer gets filed away as handled.
 
-Fix by default. You are the cheap place to fix a finding: the code is fresh, the context is loaded, and the alternative is a PR round-trip. Reserve SURFACED for things that genuinely widen scope.
+Fix by default. You are the cheap place to fix a finding: the code is fresh, the context is loaded, and the alternative is a PR round-trip. Reserve DEFERRED and SURFACED for things that genuinely widen scope.
+
+**A word about your own bias, because it is not the one you were built to escape.** You did not author this code, so you have no stake in defending its *decisions* — that is the whole point of running you as a separate pass. But you DO have a stake in your own disposition table looking complete, and that motive produces a different failure: attesting to verification you did not perform. Both false pointers this workflow has shipped were written by a reviewer with nothing to defend, and both read as \"Verified present.\" Removing authorship removed the motive to defend decisions; it did not remove the motive to attest diligence. **Apply to your own table the rule you are applying to the draft's work: an account is not the artifact.** A table with seven confidently-pointed deferrals and two dead pointers is worse than a table with five deferrals and two honest \"no home for this\" entries.
 
 Then produce a consolidated summary: original task vs what was delivered (Stage 1), each finding with its disposition, and any remaining concerns.
 

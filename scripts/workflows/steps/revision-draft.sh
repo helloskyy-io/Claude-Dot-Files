@@ -280,7 +280,11 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 ## Stage 1: ASSESS
 FIRST: verify the task targets THIS repo. If the task's file paths, module names, or repo references point at a DIFFERENT repository than the one your worktree belongs to, STOP immediately — report "DISPATCH MISCONFIGURATION: task targets <repo X>, worktree is in <repo Y>; re-dispatch with --repo <path>" as your final output and do no further work. Do NOT self-rescue by creating a worktree in another repo: that corrupts run telemetry and bypasses the dispatch contract.
 
-Then: analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed. Briefly describe your assessment before proceeding.
+Then: analyze the existing implementation and the proposed changes. Read the relevant code. Understand what currently exists and what needs to change. Identify the scope of changes needed.
+
+**Check the issue tracker for prior art on this task:** `gh issue list --repo <owner/repo> --state all --limit 30 --search \"<2-4 terms from the task>\"`. Other actors in this pipeline file issues about this codebase, and an open issue on your task may carry a fuller specification, a constraint, or a decision already made. Reading it is cheaper than rediscovering it, and it stops you re-litigating something already settled. Cite any issue number you find in your assessment.
+
+Briefly describe your assessment before proceeding.
 
 ## Stage 2: PLAN
 Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
