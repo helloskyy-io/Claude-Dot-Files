@@ -3,10 +3,11 @@
 A self-improving Claude Code development environment. Custom agents, autonomous workflows, and a continuous process improvement loop — synced across all your machines.
 
 **What makes this different from a basic dotfiles repo:**
+- **Parent/child workflows** — the flagship pattern. A workflow that both writes code and rules on the review findings about it will defend its own work; no amount of prompt engineering fixes that. So the run that authors is no longer the run that judges: a parent script orchestrates two independent headless runs, and the second inherits nothing but git and the original task. See [Parent/Child Workflows](#parentchild-workflows-the-flagship-pattern)
 - **14 custom agents** — architect, planner, code-reviewer, refactoring-evaluator, standards-auditor, standards-architect, security-auditor, quality-control, test-writer, doc-manager, workflow-analyst, plus the research family (research-analyst, research-critic, research-currency) — model-tiered per role, web-enabled where ground truth lives outside the repo
 - **17 methodology skills** — planning, architecture decisions, decision-making (five-whys reframing), troubleshooting (hypothesis-driven debugging), testing (methodology, scaffolding, suite architecture), refactoring, standards (authoring, enforcement), documentation (structure, management), quality control, project definition and organization, workflow analysis and dispatch — load on-demand based on context
-- **10 autonomous workflows** — bash scripts that run Claude headless in isolated git worktrees, self-review work through agent panels, and deliver PRs ready for human review — including a research family (create + refresh) producing source-verified evidence pools and a decide-only PR disposition engine that mechanizes the returned-PR review ritual
-- **GitHub-driven dispatch** — the `gh-monitor` service watches open PRs for `@claude` comments and auto-dispatches revision workflows, closing the loop between PR review and rework
+- **10 autonomous workflows** (plus 2 child steps) — bash scripts that run Claude headless in isolated git worktrees, review work through agent panels, and deliver PRs ready for human review — including a research family (create + refresh) producing source-verified evidence pools and a decide-only PR disposition engine that mechanizes the returned-PR review ritual
+- **Verification over narrative** — every reviewing actor is bound to check claims against the artifact rather than the account of it. A PR body, a run's summary, a prior pass's prescription and an agent's finding are all *claims about* the code; none of them are the code
 - **Continuous process improvement** — `review-runs.sh` analyzes Claude's own workflow logs across repos; every finding lands in an append-only decisions log (`docs/development/cpi-decisions.md`) as ship/defer/reject with explicit watch-criteria. The system gets measurably smarter with use.
 - **Cross-device sync** — targeted symlinks deploy everything to workstations, laptops, and VMs via a single `install.sh`
 
@@ -52,13 +53,16 @@ Initialize a new project with standard scaffolding, then define it with AI plann
 Claude works independently on a planned task, creates a PR, and notifies you when done. Structured workflow scripts handle worktree isolation, agent invocation, logging, and PR creation.
 
 ```bash
-# Minor revision (5 stages: assess → implement → test → commit → PR)
+# Minor revision — single pass, no review agents (5 stages: assess → implement → test → commit → PR)
 ./scripts/workflows/revision-minor.sh "fix the null check in login()"
 ./scripts/workflows/revision-minor.sh "add error handling" --pr 42
 
-# Revision (parent: a DRAFT run writes the change, then a FRESH-context REFINE run judges it)
+# Revision — PARENT: a DRAFT run writes the change, then a FRESH-context REFINE run judges it
 ./scripts/workflows/revision.sh "restructure the auth flow to use sessions"
 ./scripts/workflows/revision.sh "address all review findings" --pr 5
+
+# PR disposition — decide-only: forces every surfaced item to a terminal ruling, ends in MERGE | HOLD
+./scripts/workflows/pr-review.sh --pr 42
 
 # Planning revision (7 stages: assess → plan → revise → architect review → planner review → resolve → PR)
 ./scripts/workflows/plan-revision.sh "add detailed phase doc for the auth feature"
@@ -75,9 +79,53 @@ Claude works independently on a planned task, creates a PR, and notifies you whe
 
 Every run saves a JSONL log to `.claude/logs/` for self-diagnosis and continuous improvement analysis.
 
-The `gh-monitor` systemd service (`scripts/services/`) watches open PRs for `@claude revision:` / `@claude revision-minor:` comments and dispatches the matching workflow automatically — PR feedback becomes rework without leaving GitHub. Currently disabled (`gh-monitor.enabled: false` in `config.yaml`) — the `@claude` comment path is not in use; PR disposition runs through `pr-review.sh` instead.
+## Parent/Child Workflows (the flagship pattern)
 
-See `docs/guide/workflows.md` for the full architecture including escalation paths (PR review → PR comments → full re-run).
+**The problem: the author of a change defends it.** A single workflow that writes code and then rules on the review findings about it will dismiss findings rather than fix them — not from carelessness, but because the party weighing the finding is the party that chose the thing being questioned.
+
+This was not fixable at the prompt level, and the attempt is documented: engineer self-review, four in-context review agents under an explicit fixed/rejected/deferred taxonomy, and manual verification. Defects survived all of it, then fell to a fresh-context pass costing a few dollars. Commitment bias needs a **process boundary**, not better wording.
+
+So `revision.sh` is a **parent**: pure bash orchestration over two independent headless runs. It calls no model itself.
+
+```
+revision.sh  (parent — no model, no turn budget of its own)
+  │
+  ├─ 1. steps/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
+  │        ↓  handoff = git + the original task
+  └─ 2. steps/revision-refine.sh   200 turns   FRESH context: fidelity → review → resolve → verify
+```
+
+**Draft holds no review authority at all** — its review stages were deleted, not downgraded, and its checkpoint commit says so: `wip: implementation checkpoint — PRE-REVIEW, not yet audited`. A drafter that kept a *weakened* self-review would reproduce the same bias on a smaller budget.
+
+**Refine opens on fidelity, not code review.** Its first instruction is *"You did NOT write this code. A different run did, in a context you do not share, and it is gone."* It must enumerate what the task asked for that is **present**, what is **missing**, and what was delivered that was **not asked for** — scope creep counts. A single context structurally cannot ask itself that question: it judges the result against the plan it already talked itself into.
+
+**What crosses the boundary — nothing but git and the task.** Refine's inputs are the PR, its diff, its comments (the draft's self-reflection is posted as a comment), and **the original task, which the parent passes to both children**. That last part is load-bearing: without the task, refine can only ask *"is this code good?"* and never *"did this deliver what was asked?"* — and the second question is the one that catches missing scope.
+
+**Failure semantics are explicit.** Draft fails → refine never runs. Refine fails → the parent says loudly that the PR exists and is **unreviewed**, and prints the command to re-run just the review half. A draft PR looks completely healthy on GitHub whether or not anything reviewed it.
+
+### Why the parent is pure bash
+
+Because that's where the work that *shouldn't* be probabilistic goes. The parent decides sequencing, enforces the handoff, and waits for CI to settle between the children — a real verification window, since pushing is the draft's terminal act and CI hasn't finished when it exits. Polling there costs wall-clock only; the same loop inside a model run would burn the reliability budget the split exists to protect.
+
+The handoff mechanism turned out to be something already built for another reason. Each child declares a **completion contract** — an expected pattern its final output must contain, so that `exit 0` provably means *finished* rather than *stopped talking*. That contract, added to catch headless early-stop, doubles as the parent's interface: the parent reads a child's exit code plus the PR URL on its final line, and needs nothing else.
+
+Deterministic control flow outside, non-deterministic work inside independent activities — the shape a durable-execution engine wants. **Composition already works in bash; Temporal would add durability, not composition.**
+
+### What it catches in practice
+
+Measured across the first cycles on real PRs, refine has caught things the authoring context structurally could not:
+
+- **A security defect inside the seam being migrated** — a truncate-before-scrub ordering where slicing text before redaction leaves a secret fragment the scrub pattern no longer matches. Fixed at the seam rather than per-caller, which deleted a third open-coded copy of the same rule.
+- **An overstated claim in the draft's own reflection** — the draft's evidence table was accurate but its generalization wasn't. Refine re-ran the experiment rather than accepting the conclusion, then corrected the record in the PR body and the tracking issue.
+- **A test tier with no merge-path enforcement** — every CI workflow in the repo was path-filtered and none matched the tier, so 4127 tests had never gated a merge. Refine surfaced it and explicitly *refused to build the gate*, on the grounds that path filters and blocking posture affect every future PR and are the operator's call to scope.
+
+Downstream of both children, `pr-review.sh` runs as a **decide-only** disposition engine — it never merges, fixes, or dispatches. It forces every surfaced item to a terminal ruling and verifies each pointer by fetching it, on the principle that **bias relocates rather than vanishes**: a run that didn't author the code still authored its own disposition table, and has an interest in that table looking complete.
+
+Full architecture, sizing guidance, and escalation paths: [`docs/guide/workflows.md`](docs/guide/workflows.md). Decision history: [`docs/development/cpi-decisions.md`](docs/development/cpi-decisions.md).
+
+## Services and safety
+
+The `gh-monitor` systemd service (`scripts/services/`) watches open PRs for `@claude revision:` / `@claude revision-minor:` comments and dispatches the matching workflow automatically — PR feedback becomes rework without leaving GitHub. Currently disabled (`gh-monitor.enabled: false` in `config.yaml`) — the `@claude` comment path is not in use; PR disposition runs through `pr-review.sh` instead.
 
 Safety mechanisms apply to both modes:
 - **Permissions** — `settings.json` allow/deny lists for bash commands
