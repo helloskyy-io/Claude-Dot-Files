@@ -8,10 +8,13 @@ A self-improving Claude Code development environment. Custom agents, autonomous 
 - **17 methodology skills** — planning, architecture decisions, decision-making (five-whys reframing), troubleshooting (hypothesis-driven debugging), testing (methodology, scaffolding, suite architecture), refactoring, standards (authoring, enforcement), documentation (structure, management), quality control, project definition and organization, workflow analysis and dispatch — load on-demand based on context
 - **10 autonomous workflows** (plus 2 child steps) — bash scripts that run Claude headless in isolated git worktrees, review work through agent panels, and deliver PRs ready for human review — including a research family (create + refresh) producing source-verified evidence pools and a decide-only PR disposition engine that mechanizes the returned-PR review ritual
 - **Verification over narrative** — every reviewing actor is bound to check claims against the artifact rather than the account of it. A PR body, a run's summary, a prior pass's prescription and an agent's finding are all *claims about* the code; none of them are the code
+- **Git-native memory** — no state files, no bookmarks: *open* IS the to-do bit. Three surfaces carry it — PR threads (change-outcomes), Issues (no-change outcomes), and a standup tracker (continuity) — and `/standup` reads all three into a morning brief. See [the memory model](docs/guide/operations.md#the-memory-model)
 - **Continuous process improvement** — `review-runs.sh` analyzes Claude's own workflow logs across repos; every finding lands in an append-only decisions log (`docs/development/cpi-decisions.md`) as ship/defer/reject with explicit watch-criteria. The system gets measurably smarter with use.
 - **Cross-device sync** — targeted symlinks deploy everything to workstations, laptops, and VMs via a single `install.sh`
 
 ## Operation
+
+> **The full operating manual is [`docs/guide/operations.md`](docs/guide/operations.md)** — the memory model, the daily loop, and a one-entry-per-item reference for every workflow, agent, command, skill, and rule. This section is the orientation; that document is what you actually work from.
 
 This repo is configured for two distinct workflows:
 
@@ -24,17 +27,11 @@ claude                         # start a session in the current directory
 /get-started                   # session primer: sets working roles, explains dual workflow model, establishes operating pattern
 ```
 
-Use custom slash commands for common tasks:
-- `/get-started` — session primer: sets working roles, explains dual workflow model, establishes operating pattern
-- `/review` — run the code-reviewer agent on recent changes
-- `/best-practices <topic>` — prime Claude with industry-standard approach
-- `/decide <question>` — five-whys reframing cascade for low/mid-confidence decisions (reframe first, then answer)
-- `/troubleshoot <problem>` — systematic debugging: hypothesis-driven bisection with structured escalation
+The two you'll use every day:
+- `/get-started` — session primer: sets working roles, the dual-workflow model, and the operating pattern
 - `/standup [--since <window>]` — read-only: reads the standup tracker (persistent operating state), then sweeps git memory surfaces (open PRs + their `pr_review:` verdicts, open issues, recent merges) into an attention brief
-- `/create-claude` — generate CLAUDE.md files for a new project
-- `/update-claude` — sync CLAUDE.md references to your standards
-- `/update-file-structure` — update docs/file_structure.txt
-- `/cleanup-merged-worktrees` — remove worktrees whose PRs have been merged or closed
+
+Eight more cover review, decisions, debugging, and doc maintenance — see [operations.md § Slash commands](docs/guide/operations.md#slash-commands).
 
 ### New Project Setup
 

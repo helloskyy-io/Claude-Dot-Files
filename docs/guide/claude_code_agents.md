@@ -1,22 +1,10 @@
 # Claude Code Agents
 
-## Our Custom Agents — Quick Reference
+## Our Custom Agents
 
-| Agent | Role | Tools | Model | Preloaded Skills | Trigger |
-|-------|------|-------|-------|-----------------|---------|
-| architect | System design & trade-off analysis | Read-only | Opus | architecture-decisions, documentation-structure | On-demand |
-| planner | Detailed implementation plans | Read-only | Opus | planning-methodology, documentation-structure | On-demand |
-| code-reviewer | Code review with structured findings | Read-only | Sonnet | testing-methodology | On-demand |
-| refactoring-evaluator | Structural improvement evaluation | Read-only | Sonnet | refactoring-methodology | On-demand |
-| test-writer | Generate & run tests, place in standard hierarchy | Full access | Sonnet | testing-methodology, testing-scaffolding, test-suite-architecture | On-demand |
-| security-auditor | Vulnerability detection & audit | Read-only | Sonnet | testing-methodology | On-demand |
-| standards-auditor | Standards conformance verification (code against standards) | Read-only | Sonnet | standards-enforcement, documentation-structure | On-demand |
-| standards-architect | Audits the standards documents themselves — duplication, gaps, drift, bloat patterns | Read-only | Sonnet | standards-enforcement, standards-authoring, documentation-structure | On-demand |
-| quality-control | Senior-engineer holistic quality lens (best-practices, enterprise-readiness, compromise detection, decision rigor) | Read-only | Sonnet | quality-control-methodology, standards-enforcement | On-demand |
-| doc-manager | Documentation systems engineer — 4 modes: AUTHOR (drafts per conventions), COORDINATE (cross-system propagation), AUDIT (health check), MAINTAIN (mechanical edits). Substance always human-in-the-loop. | Read + Edit + Write (scope-restricted) | Sonnet | documentation-management, standards-authoring, standards-enforcement, project-organization, documentation-structure, planning-methodology | On-demand |
-| workflow-analyst | Workflow log analysis & improvement | Read-only | Sonnet | workflow-analysis | On-demand |
+**The current roster lives in [`operations.md § Agents`](operations.md#agents)** — 14 agents grouped by lens (review, planning, research, corpus/meta) with their model tiers. It is not duplicated here: this document explains what agents *are* and how to build one; that one says which we have.
 
-All custom agents are **on-demand only** — Claude's built-in agents handle routine tasks automatically. Invoke these by name when you need depth (e.g., "use the security-auditor to audit src/auth/").
+All custom agents are **on-demand only** — Claude's built-in agents handle routine work automatically. Invoke ours by name when you want a specific lens: *"use the security-auditor agent on src/auth/."*
 
 ---
 
@@ -156,11 +144,31 @@ Controls which Claude model the agent uses:
 
 | Model | Strengths | Best For |
 |-------|-----------|----------|
-| `opus` | Most capable, deepest reasoning | Architecture decisions, complex planning, nuanced review |
-| `sonnet` | Fast, capable, cost-effective | Code review, test generation, documentation |
+| `opus` | Most capable, deepest reasoning | Architecture decisions, complex planning, source-gathering research |
+| `sonnet` | Fast, capable, cost-effective | Code review, test generation, verification passes, documentation |
 | `haiku` | Fastest, lightest | Simple classification, quick lookups, formatting |
 
-If omitted, the agent uses the same model as the parent conversation.
+If omitted, the agent uses the same model as the parent conversation. **Do not omit it** — an unpinned agent inherits whatever the dispatching session happened to be running, which makes behaviour changes impossible to attribute during CPI analysis.
+
+**Bigger is not automatically better.** Tier by what the job actually needs: `research-critic` fetches citations and compares them to claims — mechanical verification that Sonnet does as well as Opus for a fraction of the cost, while `research-analyst`, which authors the synthesis, is Opus. A whole tier was removed from this fleet on economics alone after it accounted for ~57% of a week's burn without a matching quality delta.
+
+**Agents pin their own model; workflows do not.** An agent's tier lives in its frontmatter (static markdown — it cannot read `config.yaml`), while every *workflow* resolves its model at dispatch time from the `models:` map in `config.yaml`. Because those two mechanisms can drift, the agent-tier canon is recorded as a comment block in that same `models:` section, and agent files must conform to it. Checked at CPI time.
+
+## Dispatching Several Agents
+
+**Parallel narrow lenses, then sequential integration.** Multiple `Agent` calls in a *single* assistant message run concurrently; splitting them across messages forces sequential execution and roughly doubles or triples wall time. So review stages dispatch the narrow-lens agents (code-reviewer, refactoring-evaluator, standards-auditor) in one message, then dispatch the integration lens (`quality-control`) **after**, in its own message, with the narrow findings in hand. The integrator's value is meta-pattern detection — *"these findings together suggest the work was rushed"* — which it cannot do without seeing the others first.
+
+**In a headless run, dispatch agents in the FOREGROUND.** A background dispatch followed by a "waiting for results" message ends the turn with text and no tool call — which terminates a `claude -p` run before the later stages ever execute. The run exits 0 having produced nothing. Foreground agents run concurrently where the harness allows *and* block the turn until every result returns, which is the behaviour a headless pipeline needs. See [claude_code_headless.md](claude_code_headless.md#outcomes).
+
+## Web Access Is a Capability Decision
+
+Most agents are `Read`/`Grep`/`Glob` only. Add `WebSearch`/`WebFetch` when the agent's ground truth lives **outside the repo** — and only then:
+
+- `architect` — verifying a design against current industry practice rather than training-data recall
+- `security-auditor` — CVE and advisory lookup
+- the research family — web access is not an enhancement there, it is the entire job
+
+Giving web access to a conformance checker like `standards-auditor` would be actively wrong: its ground truth is `docs/standards/`, and letting it consult the internet invites it to grade your code against someone else's conventions.
 
 ## What Agents Cannot Do
 

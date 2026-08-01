@@ -1,19 +1,10 @@
 # Claude Code Skills
 
-## Our Skills — Quick Reference
+## Our Skills
 
-| Skill | Domain | Activates When | Frequency |
-|-------|--------|---------------|-----------|
-| documentation-structure | WHERE docs go, templates, naming | Creating or organizing docs | Moderate |
-| planning-methodology | HOW to plan features and phases | Task breakdown, dependency mapping, phasing | Frequent |
-| architecture-decisions | HOW to make and document decisions | Trade-off analysis, writing ADRs | Moderate |
-| project-definition | HOW to define a new project | Greenfield projects, initial setup | Rare |
-| refactoring-methodology | WHEN and HOW to refactor safely | Evaluating code structure, executing refactors | Moderate |
-| testing-methodology | HOW to think about testing | Writing, running, fixing, evaluating tests | Frequent |
-| testing-scaffolding | HOW to set up test infrastructure | First-time test setup in a new project | Rare |
-| workflow-analysis | HOW to analyze workflow logs | Reviewing runs, identifying patterns, CPI reports | Moderate |
+**The current roster lives in [`operations.md § Skills`](operations.md#skills)** — 17 methodology documents with what each covers. Not duplicated here; this document explains what skills *are* and how to write one.
 
-All skills are **context-aware and load on-demand** — Claude reads the descriptions and loads only what matches the current work. No manual invocation needed.
+Skills are **context-aware and load on demand** — Claude reads the descriptions and loads only what matches the work in front of it. No manual invocation needed, though several are also exposed as slash commands (`/decide` → `decision-methodology`, `/troubleshoot` → `troubleshooting-methodology`) for when you want to force the lens.
 
 ---
 
@@ -159,6 +150,8 @@ Don't try to write all your skills upfront. The best skills come from real work:
 
 ### Candidate Topics
 
+The list below was written before any skill existed. Most of the Planning & Design and Implementation entries are now built — see [`operations.md § Skills`](operations.md#skills) for what actually exists. What remains unbuilt is instructive: the **Operations** group (incident response, monitoring, performance review) is still open, because none of it has been explained twice yet. That is the signal to watch, not the list.
+
 Common areas where detailed methodology adds value:
 
 **Planning & Design:**
@@ -224,7 +217,9 @@ skills/
 
 ## Current State
 
-The `config/skills/` directory is synced and ready but intentionally empty. The infrastructure is in place — skills will be built incrementally as methodology is defined through real usage.
+17 skills, built incrementally as methodology got defined through real usage — which was the plan, and it held. The pattern that produced them: a methodology becomes a skill once it has been explained twice. The first time is a conversation; the second time is evidence that it is reusable and that re-deriving it is waste.
+
+Two later additions show the shape maturing. `decision-methodology` and `troubleshooting-methodology` were both extracted from repeated live sessions where the *approach* mattered more than the answer — reframe the question before answering it; bisect and form hypotheses rather than guess-and-check. Both were paired with a slash command so the lens can be forced rather than waited for.
 
 ## Example: Trimming an Agent with Skills
 

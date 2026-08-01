@@ -79,20 +79,10 @@ Each file is self-contained and can be added, removed, or shared independently.
 
 ## Current State
 
-Global `CLAUDE.md` is intentionally empty — it points readers to `config/rules/` and is locked from edits. All global instruction content lives in topical rule files. Current global rules:
+Global `CLAUDE.md` is intentionally empty — it points readers to `config/rules/` and is locked from edits. All global instruction content lives in topical rule files.
 
-```
-config/rules/
-├── claude-dot-files-governance.md  ← prevents uninstructed edits to this repo from project sessions
-├── code-style.md                   ← readability, early returns, no over-engineering, match local style
-├── communication.md                ← what to ask before, what to leave alone
-├── dependencies.md                 ← check existing tools, prefer stdlib
-├── engineering-quality.md          ← senior-engineer code quality, no bandaids, finding disposition
-├── git.md                          ← commit format, push/amend rules
-├── personal-tooling.md             ← workflow inventory pointer (delegates to /get-started + workflows.md)
-├── safety.md                       ← secrets, force push, destructive commands
-├── standards-governance.md         ← ADRs convention, standards-as-curated-product, CPI decisions log
-└── terminal-output.md              ← copy-paste-safe command formatting (single line, no heredocs)
-```
+**The current roster lives in [`operations.md § Rules`](operations.md#rules)** — 11 rules with what each binds. Not duplicated here.
 
-This split happened because `CLAUDE.md` had grown to ~80 lines covering 9+ topics, and individual concerns were hard to find/edit/share. Topical files keep each concern locatable and independently maintainable.
+The split happened because `CLAUDE.md` had grown to ~80 lines covering 9+ topics, and individual concerns were hard to find, edit, or share. Topical files keep each concern locatable and independently maintainable.
+
+**What the split taught, since:** rules are always loaded, so every line competes for attention with every other line. That constraint is what keeps most of them short. The one deliberate exception is `engineering-quality.md`, which is long because it is the most-cited and most-violated — and its length is itself a signal that some of it wants to become a skill, loaded when relevant, rather than a rule loaded always. Watch for that: a rule that keeps growing is usually a skill wearing the wrong hat.

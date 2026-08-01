@@ -92,13 +92,14 @@ claude-dot-files/
 │   │       └── review-skyy-command-2026-05-09.md
 │   │
 │   ├── guide/                                       # USER-FACING — operating manuals
-│   │   ├── claude_code_agents.md                    # Agent architecture, quick reference table
-│   │   ├── claude_code_headless.md                  # Headless mode, worktrees, autonomous runs
-│   │   ├── claude_code_orchestration.md             # Orchestration options and patterns
-│   │   ├── claude_code_rules.md                     # Rules vs CLAUDE.md, when to split
-│   │   ├── claude_code_skills.md                    # Skills and context-aware methodology
+│   │   ├── operations.md                            # THE OPERATING MANUAL — memory model, daily loop, and the single roster of every workflow/agent/command/skill/rule
+│   │   ├── workflows.md                             # Workflow architecture — the revision split, model management, escalation ladder, MAX_TURNS table
 │   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
-│   │   └── workflows.md                             # All workflows, dual-flow model, MAX_TURNS authoritative table
+│   │   ├── claude_code_agents.md                    # PLATFORM BACKGROUND — what agents are, frontmatter, tool guardrails, dispatch patterns
+│   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
+│   │   ├── claude_code_orchestration.md             # PLATFORM BACKGROUND — orchestration options and which one this repo landed on
+│   │   ├── claude_code_rules.md                     # PLATFORM BACKGROUND — rules vs CLAUDE.md, when to split
+│   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
 │       ├── agents.md                                # Standards for writing custom agents
@@ -112,7 +113,7 @@ claude-dot-files/
 ├── scripts/
 │   ├── helpers/                                     # Pure bash utilities (no AI)
 │   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
-│   │   └── lint-prompts.sh                          # Ship-gate: flags unescaped backticks in double-quoted PROMPTs (command-substitution landmines bash -n can't see)
+│   │   └── lint-prompts.sh                          # Ship-gate (3 passes): backtick scan, sandbox-CONSTRUCTS every multi-line prompt fragment, verifies every MODEL_KEY resolves in config.yaml
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
@@ -123,7 +124,7 @@ claude-dot-files/
 │       ├── lib/                                     # Shared bash helpers
 │       │   ├── format-stream.sh                     # Stream-json → human-readable formatter
 │       │   ├── run-claude.sh                        # run_claude helper + check_rate_limit + print_cycle_totals
-│       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (shared across 6 task-execution scripts)
+│       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. the fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
 │       │
 │       ├── build-phase.sh                           # BUILD-PHASE — implement from a plan doc
 │       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition

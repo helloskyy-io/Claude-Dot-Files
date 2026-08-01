@@ -56,10 +56,33 @@ claude -p "/best-practices database connection pooling"
 
 ## Outcomes
 
-Every headless run has one of two outcomes:
+A headless run looks like it has two outcomes. It has **three**, and the third is the dangerous one:
 
-1. **Success** — Task completed, changes made (or PR created). Desktop notification fires via `notify-done.sh`.
-2. **Failure** — Claude hit an error, ran out of turns, or couldn't resolve an issue. Read the output, adjust the prompt, try again.
+1. **Success** — task completed, changes made (or PR created). Desktop notification fires via `notify-done.sh`.
+2. **Failure** — an error, a turn-cap termination, or an unresolvable issue. Read the output, adjust, retry. Loud and obvious.
+3. **Exit 0 having produced nothing** — the run *reports success* and there is no work. This is the one that costs you.
+
+### Why the third outcome exists
+
+**A `claude -p` run ends on any turn that produces text without a tool call.** That rule is invisible interactively, where a text-only turn is just Claude talking to you and the conversation continues. Headless, it is a termination condition.
+
+So a run that dispatches background agents and then says *"waiting for the review agents to return…"* has just ended itself. The turn had text and no tool call. Every stage after that point never executes, the harness reports exit 0, and nothing distinguishes it from a real success except that the PR does not exist.
+
+Observed for real: a research workflow exited 0, in normal time, having produced no paper — because the main loop backgrounded its agents and narrated the wait.
+
+### The two defences
+
+**1. Dispatch agents in the foreground.** Never background-and-wait in a headless run. Foreground agents run concurrently where the harness allows *and* block the turn until results return, so the turn ends on a tool result rather than on prose. Never use a scheduled wake-up to wait for agents either — same failure, longer.
+
+**2. Declare a completion contract.** Give the run an expected pattern its final output must contain, and verify it after the run:
+
+```bash
+COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
+```
+
+Then check the final result against it. A miss means the run stopped early — **fail loud and return non-zero.** The principle: *exit 0 must mean done.* Without this, "the workflow ran fine" and "the workflow did nothing" are the same signal.
+
+The contract pays a second dividend. Once a run provably reports completion plus a stable identifier on its last line, another script can *chain* to it — the exit code plus that line is a complete interface between two independent runs. That is the whole mechanism behind the parent/child workflow pattern; see [workflows.md](workflows.md#why-the-parent-is-pure-bash).
 
 ## Using Plans as Work Orders
 
@@ -192,14 +215,18 @@ Always set `--max-turns` for headless runs. Without it, a confused Claude could 
 
 **Concrete example:** A simple feature that reads 5 files, writes 3 files, runs tests twice, commits, pushes, and creates a PR is roughly 14 turns.
 
-| Task Size | Suggested Limit |
-|-----------|----------------|
-| Simple (edit + commit) | 10-20 |
-| Medium (small feature with tests) | 30-50 |
-| Large (full feature implementation) | 50-100 |
-| Extra large (full phase implementation) | 100-150 |
+The figures below were early estimates and ran low once agent dispatch and review stages entered the picture — each dispatched agent, each verification pass, and each round of applying findings costs turns the naive count misses. Production caps in this repo:
 
-Start conservative and increase as you build trust with the output quality. If Claude regularly hits the limit and fails, bump it up. If it never comes close, leave it low.
+| Workflow class | Cap | Example |
+|---|---|---|
+| Light single-pass fix | 100 | `revision-minor.sh` |
+| Reviewed step in a parent workflow | 200 | `revision-draft.sh`, `revision-refine.sh` |
+| Phase implementation, planning revision | 300 | `build-phase.sh`, `plan-revision.sh` |
+| Greenfield planning, whole-repo review | 500–600 | `plan-new.sh`, `sprint-review.sh` |
+
+**Do not raise a cap to make a task fit.** Caps are reliability controls, not budget: per-context reliability decays as in-context memory grows, which is why the two halves of `revision.sh` get 200 each rather than one run getting 400. A run that keeps hitting its cap is telling you the task is **mis-routed** — it wants the next workflow up, behind a written plan — not that the number is too small.
+
+**Make a cap kill loud.** Turn-cap termination happens at roughly 0.9% of runs, but when it does, work sits uncommitted in a worktree and nothing says so. Detect it (`"subtype":"error_max_turns"` in the JSONL) and print the worktree path — recovery is minutes once you know where to look, and indefinite when you don't.
 
 ### Hooks Still Protect You
 

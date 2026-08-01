@@ -206,33 +206,43 @@ Set a WIP limit of 3-5 agents maximum. More than that causes token burn and coor
 Based on the lessons above, our workflows follow these rules:
 
 1. **Start simple** — 2-3 stages maximum for the first version of any workflow
-2. **Sequential, not nested** — one stage feeds the next, no loops within loops
-3. **Explicit exit criteria** — "exit when tests pass" not "repeat 3 times"
-4. **State via files** — pass results between stages through `/tmp/workflow/*.md`, not giant prompts
+2. **Composition is allowed; unbounded iteration is not** — *(revised)*. This principle read "sequential, not nested," and the distinction it was reaching for was the wrong one. A parent script that runs two independent child runs in sequence IS nesting, and it is the most valuable structure in this repo. What has to stay banned is the **loop with no bounded exit**: a stage that re-enters itself until it decides it is happy. One-way composition with a fixed number of children is deterministic and cheap to reason about; a review-fix-review cycle is neither
+3. **Explicit exit criteria** — "exit when tests pass," not "repeat 3 times"
+4. **State via git, not files** — *(revised)*. The original said `/tmp/workflow/*.md`. In practice the handoff between stages is the **PR, its diff, and its comments**, plus the original task passed to both children. Git is already durable, already reviewable, already the thing the next actor would have to read anyway — and a temp file is state that a session boundary deletes
 5. **Scope narrowly** — every stage has a specific, bounded task
 6. **Verify everything** — include a review/test stage before anything irreversible
-7. **Kill instead of recover** — if a stage fails, restart cleanly instead of trying to fix mid-flight
+7. **Kill instead of recover** — if a stage fails, restart cleanly instead of fixing mid-flight. Corollary learned the hard way: **make the kill loud**, and make `exit 0` provably mean *done* (see the completion contract in [claude_code_headless.md](claude_code_headless.md#outcomes)). A silent success is worse than a failure
 8. **WIP limit** — maximum 3-5 concurrent workers
+9. **Separate the actor that produces from the actor that judges** — *(added from production)*. The single highest-value structural change made to this fleet. A run that authors work and then rules on the review findings about it defends the work; splitting those across two runs with no shared context is the only thing that fixed it. See [workflows.md](workflows.md#the-revision-split--why-authoring-and-judging-are-separate-runs)
+
+## Where This Repo Landed
+
+Of the seven options above, this repo runs **option 2 — bash script chaining** — and has stayed there deliberately as the workflows grew from single-stage scripts to a parent orchestrating two independent children.
+
+The reason it holds up is worth stating, because it is not "bash is good enough." **Composition never needed a framework.** A parent workflow needs exactly two things from a child: a reliable exit code, and one stable identifier on its last line. Once children declare a completion contract (see [claude_code_headless.md](claude_code_headless.md#outcomes)), bash has everything required to sequence them, branch on failure, and wait on external state between them. `revision.sh` polls for CI to settle between its two children in ~40 lines of shell — the kind of thing a framework is usually adopted *for*.
 
 ## When to Graduate Beyond Bash
 
-Bash scripts are the right tool for our current stage. But they're not the right tool forever. Graduate to something heavier when you hit these limits:
+Bash is not right forever. What it does NOT give you, and what would actually justify graduating:
 
-| Limitation | Graduate To |
-|-----------|-------------|
-| Error handling is painful | Claude Agent SDK (Python/TypeScript) |
-| Need structured data processing | Claude Agent SDK |
-| Need multi-project state management | Anthropic Managed Agents or Paperclip |
-| Need native parallel coordination | Wait for Agent Teams GA |
-| Need visual workflow design | Paperclip or similar |
-| Need team-scale governance | Anthropic Managed Agents |
+| Limitation | What you need |
+|---|---|
+| **Durability** — a crash, reboot, or killed terminal loses an in-flight run entirely | Durable execution (Temporal or equivalent) |
+| **Resumability** — a failed 3rd stage means re-running stages 1 and 2 | Durable execution |
+| **Observability across runs** — "which of the 40 dispatches this week stalled, and where" | Durable execution, or a real orchestrator |
+| Error handling becomes genuinely painful | Claude Agent SDK (Python/TypeScript) |
+| Structured data processing between stages | Claude Agent SDK |
+| Team-scale governance | Anthropic Managed Agents |
 
-Until you hit those, stay in bash.
+**The current position, decided deliberately:** move to Temporal-style durable execution when durability is the binding constraint — **not** to gain composition, which already works. Framing the migration as "we need an orchestrator to compose workflows" would have bought a large dependency for a problem 40 lines of bash had already solved, and would have obscured the actual gap. See `docs/development/skyy-net-seed-handoff.md`.
+
+Until durability binds, stay in bash.
 
 ## Quick Reference
 
-**For a simple workflow:** Single detailed `claude -p` prompt
-**For a real pipeline:** Bash script with 2-3 stages
-**For parallel work:** Multiple `claude -p` calls with unique worktree names
-**For complex production:** Consider Agent SDK or Managed Agents
-**Never:** Nested iteration loops, unscoped exploration, workflows without verification stages
+**For a simple workflow:** single detailed `claude -p` prompt
+**For a real pipeline:** bash script with 2-3 stages
+**For parallel work:** multiple `claude -p` calls with unique worktree names
+**For work that must be reviewed before you see it:** a parent script over two independent children — one authors, one judges
+**When durability binds:** durable execution (Temporal), not because composition needs it
+**Never:** unbounded iteration loops, unscoped exploration, workflows without verification stages, or a run whose `exit 0` does not prove it finished
