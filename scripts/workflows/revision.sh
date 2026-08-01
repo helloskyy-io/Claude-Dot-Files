@@ -7,8 +7,8 @@
 # child runs. It calls no model itself, so it has no MODEL_KEY and no
 # COMPLETION_PATTERN — each child carries its own.
 #
-#   1. steps/revision-draft.sh   — writes the change, opens an UNREVIEWED PR
-#   2. steps/revision-refine.sh  — FRESH context: reviews and corrects it
+#   1. children/revision-draft.sh   — writes the change, opens an UNREVIEWED PR
+#   2. children/revision-refine.sh  — FRESH context: reviews and corrects it
 #
 # WHY TWO RUNS INSTEAD OF ONE LONG ONE — this is the whole point of the split:
 # the author of a change defends it. When one context both writes code and
@@ -45,15 +45,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DRAFT="${SCRIPT_DIR}/steps/revision-draft.sh"
-REFINE="${SCRIPT_DIR}/steps/revision-refine.sh"
+DRAFT="${SCRIPT_DIR}/children/revision-draft.sh"
+REFINE="${SCRIPT_DIR}/children/revision-refine.sh"
 
 show_usage() {
     cat <<EOF
 Usage: $(basename "$0") "description of changes needed" [options]
        $(basename "$0") --task-file path/to/task.md [options]
 
-Runs the two-step revision cycle:
+Runs the two-child revision cycle:
   1. revision-draft   — writes the change, opens an unreviewed PR
   2. revision-refine  — FRESH context: fidelity check, peer review, corrections
 
@@ -143,8 +143,8 @@ if [[ -n "$PR_NUMBER" ]]; then
 else
     echo "  Target      : new branch and PR"
 fi
-echo "  Step 1      : revision-draft   (writes the change)"
-echo "  Step 2      : revision-refine  (fresh context: reviews + corrects)"
+echo "  Child 1     : revision-draft   (writes the change)"
+echo "  Child 2     : revision-refine  (fresh context: reviews + corrects)"
 echo "================================================================"
 echo
 

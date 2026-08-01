@@ -14,8 +14,8 @@
 |---|---|---|---|
 | `revision-minor.sh` | Minor code fixes | None (inline standards discovery) | 100 |
 | `revision.sh` | Significant code rework — **parent**, orchestrates the two steps below | none itself (pure bash) | n/a |
-| `steps/revision-draft.sh` | Step 1: writes the change, opens an UNREVIEWED PR | None (it holds no review authority) | 200 |
-| `steps/revision-refine.sh` | Step 2: FRESH context — fidelity check, peer review, corrections | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 200 |
+| `children/revision-draft.sh` | Child 1 — writes the change, opens an UNREVIEWED PR | None (it holds no review authority) | 200 |
+| `children/revision-refine.sh` | Child 2 — FRESH context: fidelity check, peer review, corrections | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 200 |
 | `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
 | `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
 | `plan-revision.sh` | Revise existing planning docs | architect, planner, security-auditor, standards-architect | 300 |
@@ -35,8 +35,8 @@
 
 ```
 revision.sh  (parent — no model, no turn budget)
-  ├─ 1. steps/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
-  └─ 2. steps/revision-refine.sh   200 turns   FRESH context: fidelity, review, corrections
+  ├─ 1. children/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
+  └─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity, review, corrections
 ```
 
 **The reason for the boundary:** the author of a change defends it. When one
@@ -77,7 +77,7 @@ contract; the parent's contract is the children's exit codes plus a PR URL.
 If draft fails, refine never runs. If refine fails, the parent says so loudly:
 the PR exists and is **unreviewed**, and must not be merged as-is.
 
-**Dispatch the parent, not the steps.** `steps/*.sh` are runnable alone for
+**Dispatch the parent, not the children.** `children/*.sh` are runnable alone for
 recovery (re-running just the review pass on an existing PR is genuinely
 useful) but they are not the interface.
 
@@ -109,7 +109,7 @@ All review-trios are dispatched in a single assistant message containing N `Agen
 
 Workflow families are grouped by prefix:
 - **`revision*`** — fix existing code. `revision.sh` is the reviewed default; `revision-minor.sh` is the light single-pass sibling
-- **`steps/`** — child steps of a parent workflow, never dispatched directly
+- **`children/`** — child workflows of a parent, never dispatched directly
 - **`build-*`** — implement from plans
 - **`plan-*`** — create or revise planning docs
 - **`review-*`** — analyze and report

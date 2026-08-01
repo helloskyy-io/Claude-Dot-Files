@@ -110,8 +110,9 @@ claude-dot-files/
 │       ├── slash-commands.md                        # Standards for slash commands
 │       └── workflow-scripts.md                      # Standards for autonomous workflow scripts
 │
-├── scripts/
-│   ├── helpers/                                     # Pure bash utilities (no AI)
+├── scripts/                                         # ORGANIZING AXIS: *who invokes it?* — that one question explains every folder below
+│   ├── helpers/                                     # YOU run these. Pure bash, no AI, zero tokens
+│   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
 │   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
 │   │   └── lint-prompts.sh                          # Ship-gate (3 passes): backtick scan, sandbox-CONSTRUCTS every multi-line prompt fragment, verifies every MODEL_KEY resolves in config.yaml
 │   │
@@ -120,8 +121,8 @@ claude-dot-files/
 │   │   ├── gh-monitor.service                       # systemd oneshot unit
 │   │   └── gh-monitor.timer                         # systemd timer (5-min interval)
 │   │
-│   └── workflows/                                   # Autonomous workflow scripts (Workflow 2: walk-away dispatches)
-│       ├── lib/                                     # Shared bash helpers
+│   └── workflows/                                   # YOU run these. They call Claude headless (Workflow 2: walk-away dispatches)
+│       ├── lib/                                     # NOBODY runs these — workflows SOURCE them (not executable entry points)
 │       │   ├── format-stream.sh                     # Stream-json → human-readable formatter
 │       │   ├── run-claude.sh                        # run_claude helper + check_rate_limit + print_cycle_totals
 │       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. the fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
@@ -136,7 +137,7 @@ claude-dot-files/
 │       ├── revision.sh                              # REVISION — PARENT: pure-bash orchestration of revision-draft then revision-refine (no model of its own)
 │       ├── revision-minor.sh                        # REVISION-MINOR — light single-pass corrections, no review agents
 │       ├── sprint-review.sh                         # SPRINT-REVIEW — comprehensive end-of-sprint review
-│       └── steps/                                   # Child steps of parent workflows — not dispatched directly
+│       └── children/                                # Child WORKFLOWS of a parent — full workflows (own model key, turn budget, worktree), invoked BY the parent, not by you
 │           ├── revision-draft.sh                    # Step 1 of revision.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
 │           └── revision-refine.sh                   # Step 2 of revision.sh — FRESH context: fidelity check, peer-review trio + quality-control, corrections
 │

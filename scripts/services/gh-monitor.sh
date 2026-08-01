@@ -419,9 +419,9 @@ HELPEOF
 # a variable and use the assignment's `||` to reset to a single "0" when
 # pgrep exits non-zero.
 # Matches TOP-LEVEL workflow scripts only, deliberately: revision.sh is a parent
-# that runs steps/revision-draft.sh then steps/revision-refine.sh as children.
+# that runs children/revision-draft.sh then children/revision-refine.sh as children.
 # Counting the parent is the right unit of concurrency — a child lives inside its
-# parent's process tree, so matching steps/ too would charge one logical run two
+# parent's process tree, so matching children/ too would charge one logical run two
 # slots against max-concurrent.
 count_running_workflows() {
     local count
@@ -433,14 +433,14 @@ count_running_workflows() {
 # Returns 0 (success/true) if a matching workflow is found, 1 (false) otherwise.
 # Prevents concurrent workflows on the SAME PR (which would race on the PR branch),
 # while allowing concurrent workflows on DIFFERENT PRs (safe — separate branches).
-# Unlike count_running_workflows, this DOES match steps/ — the question here is
+# Unlike count_running_workflows, this DOES match children/ — the question here is
 # "does any live process hold this PR's branch?", and revision.sh passes --pr to
 # its children while carrying it itself only on the rework path. Missing the
 # child would let a second dispatch race the refine step's pushes.
 is_workflow_running_on_pr() {
     local target_pr="$1"
     [[ -z "$target_pr" ]] && return 1
-    pgrep -af "${GH_MONITOR_WORKFLOW_DIR}/(steps/)?(revision|revision-minor|revision-draft|revision-refine|plan-revision|build-phase)\.sh" 2>/dev/null \
+    pgrep -af "${GH_MONITOR_WORKFLOW_DIR}/(children/)?(revision|revision-minor|revision-draft|revision-refine|plan-revision|build-phase)\.sh" 2>/dev/null \
         | grep -qE "[[:space:]]--pr([[:space:]]+|=)${target_pr}([[:space:]]|\$)"
 }
 

@@ -29,7 +29,7 @@ gh-monitor:
 
   # Global safety cap on concurrent TOP-LEVEL workflow processes (revision.sh,
   # revision-minor.sh, plan-revision.sh, build-phase.sh). revision.sh's own
-  # children (steps/) are NOT counted separately — one logical run, one slot.
+  # children (children/) are NOT counted separately — one logical run, one slot.
   # Counts BOTH manual
   # terminal invocations AND gh-monitor dispatches. Does NOT count interactive
   # claude sessions. Same-PR concurrency is handled separately (per-PR check

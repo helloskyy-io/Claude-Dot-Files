@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# revision-draft.sh — the REVISION-DRAFT step (CHILD of revision.sh)
+# revision-draft.sh — the REVISION-DRAFT child workflow (CHILD of revision.sh)
 # Writes the change and opens an UNREVIEWED draft PR.
 #
 # NOT INVOKED DIRECTLY by PMs — the parent `revision.sh` calls this, then calls

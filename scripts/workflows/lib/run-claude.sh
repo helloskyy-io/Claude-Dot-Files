@@ -13,7 +13,7 @@
 #
 # Optional environment variables:
 #   MODEL_OVERRIDE     — bypass the config.yaml map for this dispatch (A/B runs):
-#                        MODEL_OVERRIDE=sonnet ./steps/revision-draft.sh "task"
+#                        MODEL_OVERRIDE=sonnet ./children/revision-draft.sh "task"
 #   COMPLETION_PATTERN — an ERE the final result MUST contain for the run to
 #                        count as complete. Missing → run_claude fails LOUD and
 #                        returns nonzero (exit 0 must mean done). PR-producing

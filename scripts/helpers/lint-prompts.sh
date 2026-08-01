@@ -45,7 +45,7 @@ BASH_BIN="$(command -v bash)"
 
 # --- Pass 1 (static): unescaped backticks, for precise line numbers -----------
 # Fast, and pinpoints the offending line. Pass 2 is the real net.
-for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh "$WF_DIR"/lib/*.sh; do
+for f in "$WF_DIR"/*.sh "$WF_DIR"/children/*.sh "$WF_DIR"/lib/*.sh; do
     [[ -e "$f" ]] || continue
     hits=$(awk '
         {
@@ -100,7 +100,7 @@ find_prompt_blocks() {
 }
 
 # --- Pass 2 (execution): construct every prompt block in the sandbox ----------
-for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh; do
+for f in "$WF_DIR"/*.sh "$WF_DIR"/children/*.sh; do
     [[ -e "$f" ]] || continue
     while IFS= read -r s; do
         [[ -n "$s" ]] || continue
@@ -156,7 +156,7 @@ done
 # it until someone tried to dispatch. Cheap to check, so check it.
 CONFIG="${SCRIPT_DIR}/../../config.yaml"
 if command -v yq &>/dev/null && [[ -f "$CONFIG" ]]; then
-    for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh; do
+    for f in "$WF_DIR"/*.sh "$WF_DIR"/children/*.sh; do
         [[ -e "$f" ]] || continue
         mk=$(grep -m1 '^MODEL_KEY=' "$f" | sed 's/MODEL_KEY="//;s/"//')
         [[ -n "$mk" ]] || continue

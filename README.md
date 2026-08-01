@@ -87,9 +87,9 @@ So `revision.sh` is a **parent**: pure bash orchestration over two independent h
 ```
 revision.sh  (parent — no model, no turn budget of its own)
   │
-  ├─ 1. steps/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
+  ├─ 1. children/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
   │        ↓  handoff = git + the original task
-  └─ 2. steps/revision-refine.sh   200 turns   FRESH context: fidelity → review → resolve → verify
+  └─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity → review → resolve → verify
 ```
 
 **Draft holds no review authority at all** — its review stages were deleted, not downgraded, and its checkpoint commit says so: `wip: implementation checkpoint — PRE-REVIEW, not yet audited`. A drafter that kept a *weakened* self-review would reproduce the same bias on a smaller budget.

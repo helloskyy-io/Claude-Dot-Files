@@ -55,6 +55,27 @@ morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (asyn
 
 ---
 
+## How the scripts are organized
+
+One question explains every folder under `scripts/`: **who invokes it?**
+
+```
+scripts/
+├── helpers/    ← YOU run.     Pure bash, no AI, zero tokens (init-project.sh, lint-prompts.sh)
+├── services/   ← SYSTEMD runs. Background pollers, also no AI
+└── workflows/  ← YOU run.     Each one calls Claude headless
+    ├── lib/       ← NOBODY runs. Workflows SOURCE these (run_claude, formatters, shared prompt text)
+    └── children/  ← THE PARENT runs. Full workflows in their own right — own model, turn budget,
+                     completion contract, worktree — but invoked BY a parent, not by you
+```
+
+Two distinctions do the work, and both are easy to miss:
+
+- **`helpers/` vs `lib/`** — a helper is a standalone executable you *run*; a lib is bash a workflow *sources* and that does nothing on its own. Same file extension, opposite usage.
+- **`workflows/` vs `children/`** — a child is not a fragment or a sub-step. `revision-refine.sh` is a 200-turn workflow with its own model key and completion contract, and you can run it directly to recover a failed review. It lives one level down because **the parent normally invokes it**, and dispatching it yourself skips the half that produces the code it reviews.
+
+As more long-running workflows get split into parent + children, `children/` is what keeps the top level meaning *"things you dispatch."*
+
 ## Workflows
 
 Bash scripts that run Claude headless in an isolated git worktree and deliver a PR. Every run writes a JSONL log to `.claude/logs/<workflow>-<timestamp>.jsonl`. All accept `--verbose` (stream output live), `--repo <path>` (explicit target, never derived from cwd), and `--task-file <path>` where a task is taken.
@@ -68,10 +89,10 @@ The flagship. A **draft** run writes the change and opens an unreviewed PR; a **
 ./scripts/workflows/revision.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-task.md
 ```
 
-### `steps/revision-draft.sh` · `steps/revision-refine.sh` — children of the above
+### `children/revision-draft.sh` · `children/revision-refine.sh` — children of the above
 **Not dispatched directly** in normal use. `revision-refine.sh --pr <N> "<the same task>"` is the recovery path when the review half fails and the draft PR is sitting unreviewed — pass the *same* task, or refine loses its fidelity check.
 ```bash
-./scripts/workflows/steps/revision-refine.sh --pr 42 "the original task text"
+./scripts/workflows/children/revision-refine.sh --pr 42 "the original task text"
 ```
 
 ### `revision-minor.sh` — small scoped fixes (100 turns)

@@ -121,7 +121,7 @@ Watch for these common standards violations:
 ## Integration With Workflows
 
 This skill is loaded by the standards-auditor agent during review stages in:
-- **revision.sh** — in its SECOND run (`steps/revision-refine.sh`), Stage 2a, alongside code review and refactoring evaluation. The standards audit deliberately runs in a context that did NOT write the code: an author who chose a pattern will defend it as the local convention, which is exactly the judgement this lens exists to make independently.
+- **revision.sh** — in its SECOND run (`children/revision-refine.sh`), Stage 2a, alongside code review and refactoring evaluation. The standards audit deliberately runs in a context that did NOT write the code: an author who chose a pattern will defend it as the local convention, which is exactly the judgement this lens exists to make independently.
 - **build-phase.sh** — Stage 7 (STANDARDS), in the review pipeline
 - **revision-minor.sh** — inline discovery reminder only (no dedicated standards stage)
 

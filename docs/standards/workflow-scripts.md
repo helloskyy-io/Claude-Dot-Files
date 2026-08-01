@@ -37,7 +37,7 @@ This ensures:
 
 ## Required Features
 
-**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`revision-minor.sh`, `steps/revision-draft.sh`, `steps/revision-refine.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
+**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`revision-minor.sh`, `children/revision-draft.sh`, `children/revision-refine.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
 
 **Analysis workflows** that derive their inputs from the filesystem without a user-supplied task (e.g. `review-runs.sh`, which scans `.claude/logs/`) MUST still implement the non-task-specific features: verbose flag, JSONL logging, stream format, `run_claude` helper, environment checks, repo-root operation, banners, and a structured prompt. They are exempt from the task-input features (`--pr <N>`, `--task-file <path>`, flags-first positional convention) because those features have no referent — there is no task string to carry. Every subsection below is marked **(task-execution only)** where it applies narrowly.
 
@@ -316,7 +316,7 @@ This is the opposite case from `config/CLAUDE.md :: Terminal Commands & Prompts`
 
 **Quoted vs unquoted sentinel:** Use an unquoted `EOF` when the heredoc body must interpolate shell variables (like `${DESCRIPTION}`). Use a quoted `'EOF'` sentinel for any static block that should pass through literally — backticks, `$symbols`, and dollar-brace tokens all survive untouched, so you don't have to hunt down escape edge cases. Default to quoted when the block has no variables; it's the safer choice.
 
-`scripts/workflows/steps/revision-refine.sh` shows both idioms in one file: the stage block and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so the stage text, `${RULES}`, and `${DESCRIPTION}` can interpolate. Safety from accidental expansion is the reason for the quoted sentinels.
+`scripts/workflows/children/revision-refine.sh` shows both idioms in one file: the stage block and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so the stage text, `${RULES}`, and `${DESCRIPTION}` can interpolate. Safety from accidental expansion is the reason for the quoted sentinels.
 
 ## Design Principles
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# revision-refine.sh — the REVISION-REFINE step (CHILD of revision.sh)
+# revision-refine.sh — the REVISION-REFINE child workflow (CHILD of revision.sh)
 # Reviews and corrects a draft PR with a FRESH context. Requires --pr.
 #
 # NOT INVOKED DIRECTLY by PMs — the parent `revision.sh` runs
