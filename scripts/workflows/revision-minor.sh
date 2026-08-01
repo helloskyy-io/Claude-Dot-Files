@@ -32,7 +32,7 @@
 #                   responses, and final token/cost summary)
 #
 # Logging:
-#   Every run writes a structured JSONL log to .claude/logs/revision-<ts>.jsonl
+#   Every run writes a structured JSONL log to .claude/logs/revision-minor-<ts>.jsonl
 #   regardless of --verbose mode. Use for post-mortem analysis of runs.
 #
 # See docs/guide/workflows.md for the full
@@ -200,13 +200,13 @@ cd "$REPO_ROOT"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-${TIMESTAMP}"
+WORKTREE_NAME="revision-minor-${TIMESTAMP}"
 
 # Log directory is always in the main repo .claude/logs (not inside worktrees)
 # Raw JSONL — lossless, can be read by Claude for diagnosis or piped through
 # the formatter on demand for human reading.
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/revision-minor-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
@@ -231,7 +231,7 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision"
+MODEL_KEY="revision-minor"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 

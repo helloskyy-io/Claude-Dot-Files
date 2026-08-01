@@ -147,7 +147,27 @@ $block" 2>&1); then
     done < <(find_prompt_blocks "$f")
 done
 
+# --- Pass 3: every MODEL_KEY resolves in config.yaml --------------------------
+# A MODEL_KEY with no config.yaml entry makes run-claude.sh abort at dispatch —
+# correct behaviour (never run on an inherited default), but the failure lands on
+# the operator at launch time rather than here. This class is created by RENAMES:
+# revision.sh -> revision-minor.sh moved the script and the config key while its
+# MODEL_KEY kept the old name, leaving the workflow unlaunchable and silent about
+# it until someone tried to dispatch. Cheap to check, so check it.
+CONFIG="${SCRIPT_DIR}/../../config.yaml"
+if command -v yq &>/dev/null && [[ -f "$CONFIG" ]]; then
+    for f in "$WF_DIR"/*.sh "$WF_DIR"/steps/*.sh; do
+        [[ -e "$f" ]] || continue
+        mk=$(grep -m1 '^MODEL_KEY=' "$f" | sed 's/MODEL_KEY="//;s/"//')
+        [[ -n "$mk" ]] || continue
+        if [[ -z "$(yq -r ".models.\"${mk}\" // \"\"" "$CONFIG")" ]]; then
+            echo "✗ ${f#"$WF_DIR"/} — MODEL_KEY '${mk}' has no entry in config.yaml models: — this workflow CANNOT dispatch"
+            fail=1
+        fi
+    done
+fi
+
 if [[ $fail -eq 0 ]]; then
-    echo "✓ prompt lint clean — every prompt block constructs as a plain string"
+    echo "✓ prompt lint clean — every prompt block constructs, every MODEL_KEY resolves"
 fi
 exit $fail
