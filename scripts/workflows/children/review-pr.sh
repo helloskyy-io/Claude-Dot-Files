@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# pr-review.sh — the DISPOSITION ENGINE
+# review-pr.sh — the DISPOSITION ENGINE
 # Mechanizes the PM disposition ritual on a returned PR: enumerate every
 # surfaced item (issue, loose end, deferral, existing condition, friction),
 # force each to a terminal disposition (FIXED / REJECTED / DEFERRED) by
@@ -30,8 +30,8 @@
 # (the yaml findings' category recurrence is a content-side CPI signal).
 #
 # Invocation:
-#   ./pr-review.sh --pr <N>
-#   ./pr-review.sh --pr <N> --repo /opt/skyy-net/mdc-master-planning --verbose
+#   ./review-pr.sh --pr <N>
+#   ./review-pr.sh --pr <N> --repo /opt/skyy-net/mdc-master-planning --verbose
 #
 # Options:
 #   --pr <N>       PR number to disposition (required)
@@ -41,15 +41,24 @@
 # Output: a single disposition comment on the PR (human table + machine yaml).
 #         Terminal line: "VERDICT: MERGE", "VERDICT: HOLD - redispatch",
 #         or "VERDICT: HOLD - needs-assistance". The token after HOLD is the
-#         routing signal an automated caller reads; pr-review aggregates it
+#         routing signal an automated caller reads; review-pr aggregates it
 #         (any needs-assistance item wins) so the caller never re-derives it.
-# Logging: JSONL log to <repo>/.claude/logs/pr-review-<ts>.jsonl
+# NAMING: the SCRIPT is review-pr.sh (<family>-<qualifier>, matching review-runs.sh
+#         — the two review organs: one reviews run LOGS for process CPI, one
+#         reviews PR CONTENT for disposition). The yaml key it posts is
+#         `pr_review:` and that is a WIRE FORMAT, NOT a filename — do not
+#         "fix" it to match. /standup greps for it, this script's own
+#         prior-pass detection counts it, cross-pass stable-id tracking depends
+#         on it, and it already exists in comments on live PRs. Renaming the
+#         key orphans every one of those.
+#
+# Logging: JSONL log to <repo>/.claude/logs/review-pr-<ts>.jsonl
 # See docs/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/../lib/format-stream.sh"
 
 MAX_TURNS=120
 
@@ -140,7 +149,7 @@ if [[ -z "$PR_BRANCH" ]]; then
     exit 1
 fi
 
-# Prior-pass detection: a pr-review comment already on the thread carries a
+# Prior-pass detection: a review-pr comment already on the thread carries a
 # `pass:` marker in its yaml block. This run is the next pass. Stable-id reuse
 # depends on the agent reading the prior block, so we surface its presence.
 PRIOR_PASS=$(gh pr view "$PR_NUMBER" --json comments \
@@ -149,16 +158,16 @@ THIS_PASS=$(( PRIOR_PASS + 1 ))
 
 echo "  Branch     : ${PR_BRANCH}"
 echo "  State      : ${PR_STATE} · mergeable=${PR_MERGEABLE}"
-echo "  Pass       : ${THIS_PASS} (prior pr-review blocks on thread: ${PRIOR_PASS})"
+echo "  Pass       : ${THIS_PASS} (prior review-pr blocks on thread: ${PRIOR_PASS})"
 
 # ---------------------------------------------------------------------------
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="pr-review-${TIMESTAMP}"
+WORKTREE_NAME="review-pr-${TIMESTAMP}"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/pr-review-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/review-pr-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 echo "================================================================"
@@ -187,10 +196,10 @@ git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 # ---------------------------------------------------------------------------
 # run_claude helper + shared prompt blocks
 # ---------------------------------------------------------------------------
-MODEL_KEY="pr-review"
+MODEL_KEY="review-pr"
 COMPLETION_PATTERN='^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$'
-source "${SCRIPT_DIR}/lib/run-claude.sh"
-source "${SCRIPT_DIR}/lib/shared-prompts.sh"
+source "${SCRIPT_DIR}/../lib/run-claude.sh"
+source "${SCRIPT_DIR}/../lib/shared-prompts.sh"
 
 PROMPT="You are executing the PR-REVIEW workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}), disposition pass ${THIS_PASS}.
 
@@ -223,7 +232,7 @@ Then gather the raw material (batch independent reads in one turn). **You are NO
 - The PR diff (SECONDARY — blind-spot catch + claim verification): \`gh pr diff ${PR_NUMBER}\`. Scan it to catch what the run never mentioned at all (its blind spots), and to VERIFY self-report claims against what the code actually does. Not a fresh code review — a truth-check on the self-report.
 - **CURRENT-TREE CHECK — before prescribing any change OUTSIDE this PR** (a standard, a doc, a planning artifact), verify against the CURRENT default branch that it has not ALREADY been done: \`git fetch origin && git --no-pager log origin/<default> --oneline -20\` and read the live file. You already do this instinctively for CODE (catching that a workflow shipped in another PR) — apply the same discipline to DOCS. Prescribing an amendment that landed hours ago wastes an operator ruling and destroys trust in the whole runway.
 - **The PREDECESSOR PR's Deferred Work (high-yield — do not skip).** Find the most recent merged PR(s) that this work follows on from (\`gh pr list --state merged --limit 5\`), and read their Deferred Work / reflection sections. **A deferral whose stated trigger condition THIS PR satisfies is a first-class finding** — e.g. 'deferred until a second adopter exists' and this PR is that second adopter. Deferrals carrying explicit trigger conditions are the cheapest recurrence signal available, and nobody else is watching them. Enumerate any you find in Stage 2.
-- **Prior pr-review comment (this is pass ${THIS_PASS}):** if ${PRIOR_PASS} > 0, find the prior comment(s) containing a \`pr_review:\` yaml block and READ them. You MUST reuse each prior finding's stable \`id\` slug verbatim when the same finding persists — stable ids are what make cross-pass and cross-PR recurrence tracking work. Only genuinely-new findings get new slugs.
+- **Prior review-pr comment (this is pass ${THIS_PASS}):** if ${PRIOR_PASS} > 0, find the prior comment(s) containing a \`pr_review:\` yaml block and READ them. You MUST reuse each prior finding's stable \`id\` slug verbatim when the same finding persists — stable ids are what make cross-pass and cross-PR recurrence tracking work. Only genuinely-new findings get new slugs.
 
 **Reflection coverage is PER-COMMIT, not per-PR.** List the PR's commits (\`gh pr view ${PR_NUMBER} --json commits --jq '.commits[].oid'\` or \`git --no-pager log --oneline origin/<base>..HEAD\`) and check that the SUBSTANTIVE commits are attested. A PR where a later trivial run posted 'no significant decisions' while the commit that made every real choice posted NOTHING is an attestation gap — the \`no-reflection\` HOLD fires on that, even though a reflection comment technically exists. The producing run's own words are your primary evidence surface; when they are absent for the substantive work you are reduced to reconstructing intent from the diff, and you must say so explicitly rather than presenting reconstruction as attestation.
 
@@ -335,7 +344,7 @@ Not all HOLD means dispatch. A HOLD may be entirely needs-assistance (e.g. the r
 2. **Bundling:** does this entry require more than ONE ruling? If yes, SPLIT it — separate ids, separate reframe/bp/recommendation/remedy.
 3. **Consequence:** does the title name what BREAKS rather than what mismatches? If it names a mismatch, either restate it as its consequence or demote it to a reflection note.
 
-Then write the comment body to a temp file (e.g. /tmp/claude-pr-review-${PR_NUMBER}-<ts>.md — NOTE: never Edit it after writing; Write the full replacement if you must change it), and post via \`gh pr comment ${PR_NUMBER} --body-file <file>\`. The comment has TWO parts:
+Then write the comment body to a temp file (e.g. /tmp/claude-review-pr-${PR_NUMBER}-<ts>.md — NOTE: never Edit it after writing; Write the full replacement if you must change it), and post via \`gh pr comment ${PR_NUMBER} --body-file <file>\`. The comment has TWO parts:
 
 **Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short \"WHAT HAPPENS NEXT\" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the \`reframe:\` and \`bp:\` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
@@ -441,7 +450,7 @@ This is the completion signal. Printing it is how the run is known to have compl
 This token is the only thing an automated caller reads from you. It does not change your review, your invariants, or the comment you post — the disposition comment remains the full account for the human. It states plainly which of the two shapes the runway is, so that a caller can act without re-reading your reasoning and without re-litigating your judgement.
 
 ## Post-Run Reflection
-Append a brief 'Post-Run Reflection' to your disposition comment — only friction encountered and tooling-level suggestions for the pr-review workflow itself (prompt gaps, criteria that were ambiguous). Omit if nothing to report. You are DECIDE-ONLY: do NOT push, do NOT create a PR, do NOT post a separate Decision Log — the disposition table IS the decision record.
+Append a brief 'Post-Run Reflection' to your disposition comment — only friction encountered and tooling-level suggestions for the review-pr workflow itself (prompt gaps, criteria that were ambiguous). Omit if nothing to report. You are DECIDE-ONLY: do NOT push, do NOT create a PR, do NOT post a separate Decision Log — the disposition table IS the decision record.
 
 ## INVARIANTS — behaviours that must never be trimmed away
 
@@ -472,7 +481,7 @@ RULES:
 - **Large-file reading:** \`wc -l\` before the FIRST Read of any markdown file; >500 lines → \`limit:200\` on the first Read.
 - If you cannot complete a stage, stop and clearly report why (and still print a VERDICT line if you reached one — HOLD with a reason is the honest outcome of a blocked review)."
 
-echo "→ Launching Claude in pr-review mode (disposition pass ${THIS_PASS})..."
+echo "→ Launching Claude in review-pr mode (disposition pass ${THIS_PASS})..."
 echo
 
 (

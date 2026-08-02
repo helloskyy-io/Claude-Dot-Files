@@ -33,7 +33,7 @@
 #   --pr <N>             Update an existing research PR instead of creating one.
 #                        Checks out the PR branch, so the pool the run reads and
 #                        extends is the PR's pool, not main's. This is the path a
-#                        pr-review HOLD's dispatch_context targets — it closes the
+#                        review-pr HOLD's dispatch_context targets — it closes the
 #                        research leg's correction loop.
 #   --repo <path>        Target repo (explicit identity — never derived from
 #                        the invocation directory; default: cwd's repo)
@@ -61,7 +61,7 @@ Arguments:
   [context]            Optional inline context for topic selection
   --task-file <path>   Context from a file (for multi-paragraph content)
   --pr <N>             Update an existing research PR instead of creating one
-                       (extends that PR's pool — the pr-review HOLD loop)
+                       (extends that PR's pool — the review-pr HOLD loop)
   --repo <path>        Target repo (default: the repo containing the cwd)
   --verbose, -v        Stream formatted Claude output live
 

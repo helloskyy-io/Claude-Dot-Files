@@ -89,7 +89,7 @@ models:
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
   research-refresh: opus        # research revalidation — orchestration + synthesis diff
-  pr-review: opus               # PR disposition engine (was fable — 2026-07-27 economics retier; re-test candidate first when headroom returns)
+  review-pr: opus               # PR disposition engine (was fable — 2026-07-27 economics retier; re-test candidate first when headroom returns)
 
   # Agent-tier canon (DOCUMENTATION ONLY — agents pin models in their own
   # frontmatter at config/agents/*.md, which cannot reference this file.
@@ -97,7 +97,7 @@ models:
   # at CPI time. Rationale per assignment in cpi-decisions.md 2026-07-26.)
   #   fable:  NONE — all fable placements removed 2026-07-27 (usage
   #           economics: fable was ~57% of weekly burn). Re-add only with
-  #           headroom + measured per-run cost; pr-review is the first
+  #           headroom + measured per-run cost; review-pr is the first
   #           candidate back (cheapest fable placement at $4.17/run).
   #   opus:   architect (+web industry verify), security-auditor (+web CVE
   #           verify), planner, research-analyst (+web source sweeps —

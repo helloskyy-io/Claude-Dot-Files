@@ -160,7 +160,7 @@ Describe the project briefly while capturing hard constraints:
 
 ## @claude PR Comment Format
 
-> **Currently disabled.** `gh-monitor.enabled: false` in `config.yaml` — the `@claude` comment path is not in use, and a comment written in this format will NOT fire. Dispatch from the terminal instead, and use `pr-review.sh` for PR disposition. The format below is kept for when the service is re-enabled.
+> **Currently disabled.** `gh-monitor.enabled: false` in `config.yaml` — the `@claude` comment path is not in use, and a comment written in this format will NOT fire. Dispatch from the terminal instead, and use `review-pr.sh` for PR disposition. The format below is kept for when the service is re-enabled.
 
 For `gh-monitor` to pick up a comment, it must start with a route prefix:
 

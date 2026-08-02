@@ -14,15 +14,15 @@ Three surfaces, three different jobs. They are not interchangeable, and collapsi
 
 | Surface | Holds | Lifecycle | Read by |
 |---|---|---|---|
-| **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | closes at merge | `/standup`, `pr-review.sh` |
-| **Issues** | no-change outcomes — deferred work `pr-review` filed, and planning STOPs | filed → ruled → **closed** | `/standup`, both `revision` children |
+| **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | closes at merge | `/standup`, `review-pr.sh` |
+| **Issues** | no-change outcomes — deferred work `review-pr` filed, and planning STOPs | filed → ruled → **closed** | `/standup`, both `revision` children |
 | **Standup tracker** | continuity — operating state, next moves, work in flight | **never closes**; items are **pruned** | `/standup` |
 
 **Why three.** The first two cover *transactions*: something changed, or something was consciously not changed. Neither covers **continuity** — a multi-day vendor migration or a live incident is not development (so not a sprint item) and has no single done-state (so not an issue). Before the tracker existed, that work lived in session context and died at a session boundary.
 
 **The tracker is a GitHub issue only because of the substrate.** Several sessions edit it daily; one API call beats a branch and a merge conflict on the artifact least able to afford being stale. Its semantics are its own: it never closes, items flow through it, and **a tracker that grows month over month is failing**.
 
-**What makes this work is that every surface is written by the actor that knows something, and read by an actor that needs it.** A workflow run posts its decision log because a later reviewer will mine it. `pr-review` files an issue because nobody else will. `/standup` reads all three because you were not watching live. Nothing is written "for the record."
+**What makes this work is that every surface is written by the actor that knows something, and read by an actor that needs it.** A workflow run posts its decision log because a later reviewer will mine it. `review-pr` files an issue because nobody else will. `/standup` reads all three because you were not watching live. Nothing is written "for the record."
 
 **The corresponding discipline:** an account is not the artifact. A PR body, a run summary, a prior pass's prescription and an agent's finding are all *claims about* the code. Every reviewing actor in this harness is bound to verify against the artifact — and to verify a pointer by **fetching** it, never by plausibility.
 
@@ -33,7 +33,7 @@ Three surfaces, three different jobs. They are not interchangeable, and collapsi
 ```
 morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (async)
                 ↑                                                     │
-                └──────────────  pr-review.sh  ←──  PR returns  ←─────┘
+                └──────────────  review-pr.sh  ←──  PR returns  ←─────┘
 ```
 
 **1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, and merges since the window. It is strictly read-only, including the tracker.
@@ -43,11 +43,11 @@ morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (asyn
 - **Tracker lines** get a ruling **per line**, not per document: *acted on* (→ `RESOLVED` with a date) / *re-stated* with what changed / *explicitly carried* **with the reason it cannot move**. "Reviewed the tracker" is not a disposition.
 - **Open issues** get one of four exits: *resolved now* / *scheduled into existing planning* / *planned as new work* / *closed as invalid*. **An issue must not survive a standup in the same state.**
 - **`RESOLVED` tracker items older than 7 days** get pruned. The command flags them; you delete them.
-- **`HOLD` PRs** arrive with their next-step already written by `pr-review`. Deliver it, don't re-derive it.
+- **`HOLD` PRs** arrive with their next-step already written by `review-pr`. Deliver it, don't re-derive it.
 
 **3. Dispatch.** Pick the workflow by weight (see [Sizing](#sizing-which-workflow)), write the task, fire it, walk away. Runs are headless and isolated in their own worktrees; several can run at once on different PRs.
 
-**4. When a PR comes back, run `pr-review.sh` on it.** It is **decide-only** — it never merges, fixes, or dispatches. It returns `MERGE` or `HOLD`, and a `HOLD` carries a runway: the ordered list of what must happen for the next pass to be a `MERGE`. You fire the redispatch; it never fires itself.
+**4. When a PR comes back, run `review-pr.sh` on it.** It is **decide-only** — it never merges, fixes, or dispatches. It returns `MERGE` or `HOLD`, and a `HOLD` carries a runway: the ordered list of what must happen for the next pass to be a `MERGE`. You fire the redispatch; it never fires itself.
 
 **5. Merge, or redispatch with the runway.** Then the tracker gets updated — in conversation, by you and the session. No autonomous dispatch writes to it.
 
@@ -72,7 +72,9 @@ scripts/
 Two distinctions do the work, and both are easy to miss:
 
 - **`helpers/` vs `lib/`** — a helper is a standalone executable you *run*; a lib is bash a workflow *sources* and that does nothing on its own. Same file extension, opposite usage.
-- **`workflows/` vs `children/`** — `children/` does not mean "things a parent calls." It means **"things ONLY a parent calls"** — workflows with no independent meaning. `revision-draft.sh` alone produces an *unreviewed* PR, which is never a deliverable. By contrast `pr-review.sh` is a complete, useful act on **any** returned PR whatever produced it, so it stays at the top level even though `revision.sh` calls it as its third child. **A parent calling a top-level workflow is normal** — the composition graph is not a tree, and that is exactly what makes these recombinable rather than a fixed hierarchy.
+- **`workflows/` vs `children/`** — the axis is *who invokes it*, and nothing else. Top level = **you dispatch it**. `children/` = **a parent invokes it**; you only run one by hand when something upstream went wrong (a failed review half, a PR from a workflow not yet decomposed). That is the whole rule.
+
+  **Children are shared, not owned.** `children/review-pr.sh` will be called by every parent that produces a PR — `revision.sh` today, `build-phase.sh` and the planning workflows as they get decomposed. A child belongs to no single parent, which is what makes it reusable; Temporal treats child workflows the same way. So `children/` is not namespaced per parent and should not become so.
 
 As more long-running workflows get split into parent + children, `children/` is what keeps the top level meaning *"things you dispatch."*
 
@@ -83,23 +85,29 @@ Bash scripts that run Claude headless in an isolated git worktree and deliver a 
 > **Flags FIRST, positional LAST.** Terminals line-wrap long commands; a trailing positional stays visible and editable when the front wraps. For anything multi-paragraph or containing quotes, write it to `/tmp/claude-<name>.md` and use `--task-file` — it bypasses command-line parsing entirely.
 
 ### `revision.sh` — significant code rework (PARENT)
-The flagship, and the assembly template. **draft → refine → pr-review**, with one bounded correction loop. Pure bash — it calls no model itself; every stage is a child run. Full rationale in [workflows.md](workflows.md#the-revision-split--why-authoring-and-judging-are-separate-runs).
+The flagship, and the assembly template. **draft → refine → review-pr**, with one bounded correction loop. Pure bash — it calls no model itself; every stage is a child run. Full rationale in [workflows.md](workflows.md#the-revision-split--why-authoring-and-judging-are-separate-runs).
 
-On `pr-review`'s verdict the parent routes itself:
+On `review-pr`'s verdict the parent routes itself:
 
 | Verdict | Parent does |
 |---|---|
 | `MERGE` | finishes — ready to merge |
-| `HOLD - redispatch` | loops back **once** (refine → pr-review), then stops regardless |
+| `HOLD - redispatch` | loops back **once** (refine → review-pr), then stops regardless |
 | `HOLD - needs-assistance` | stops **immediately** — more passes cannot produce a human ruling |
 
-**Exactly one loop-back, and it is not configurable.** Self-correction plateaus at roughly 3–5 passes; past it the same model justifies rather than corrects. Counting across the pipeline — refine 1, pr-review 2, loop refine 3, pr-review 4 — one loop-back lands inside the band and two would clear it. The number comes from the research, so there is no knob to tune past it.
+**Exactly one loop-back, and it is not configurable.** Self-correction plateaus at roughly 3–5 passes; past it the same model justifies rather than corrects. Counting across the pipeline — refine 1, review-pr 2, loop refine 3, review-pr 4 — one loop-back lands inside the band and two would clear it. The number comes from the research, so there is no knob to tune past it.
 ```bash
 ./scripts/workflows/revision.sh "restructure the auth flow to use sessions"
 ./scripts/workflows/revision.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-task.md
 ```
 
-### `children/revision-draft.sh` · `children/revision-refine.sh` — children of the above
+### `children/review-pr.sh` — the disposition engine (120 turns, DECIDE-ONLY)
+Called automatically by every parent that produces a PR. Mines the place a run told on itself — decision log, deferred work, reflection — forces every surfaced item to a terminal ruling, and ends in `MERGE` or `HOLD` with a runway. Takes no actions except filing GitHub issues for qualifying deferred work. Run it by hand only for a PR whose producer is not yet a parent, or a human-authored PR.
+```bash
+./scripts/workflows/children/review-pr.sh --pr 42
+```
+
+### `children/revision-draft.sh` · `children/revision-refine.sh` — children of `revision.sh`
 **Not dispatched directly** in normal use. `revision-refine.sh --pr <N> "<the same task>"` is the recovery path when the review half fails and the draft PR is sitting unreviewed — pass the *same* task, or refine loses its fidelity check.
 ```bash
 ./scripts/workflows/children/revision-refine.sh --pr 42 "the original task text"
@@ -129,13 +137,6 @@ The heavy engineer. Takes a phase document as its input rather than a prose task
 Roadmaps, phase docs, requirements, epics. Four review agents including `standards-architect` for corpus-level implications. **Not for code** — the agents are wrong for it, and a bulk rename dispatched here once burned 301 turns and $37.
 ```bash
 ./scripts/workflows/plan-revision.sh "add a detailed phase doc for the Harbor integration" --verbose
-```
-
-### `pr-review.sh` — the disposition engine (120 turns, DECIDE-ONLY)
-Run on every returned PR. Mines the place the run told on itself — decision log, deferred work, reflection — forces every surfaced item to a terminal ruling, and ends in `MERGE` or `HOLD` with a runway. Takes no actions except filing GitHub issues for qualifying deferred work.
-```bash
-./scripts/workflows/pr-review.sh --pr 42
-./scripts/workflows/pr-review.sh --repo /opt/skyy-net/skyy-command --pr 231
 ```
 
 ### `research.sh` — build a source-verified evidence pool (250 turns)
@@ -171,7 +172,7 @@ A different trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) 
 | Multi-file, new seam, architecture touched, or "review it before I see it" | `revision.sh` | Two independent runs; the second has no stake in the first's choices |
 | Won't fit in `revision.sh` | write a phase doc → `build-phase.sh` | Turn-cap pressure is a **routing** signal, not a budget one |
 | Planning docs | `plan-revision.sh` (existing) / `plan-new.sh` (from scratch) | Different agents entirely |
-| A returned PR | `pr-review.sh` | Always, before merging |
+| A returned PR | `review-pr.sh` | Always, before merging |
 
 **Do not raise a turn cap to make a task fit.** The caps are reliability controls — per-context reliability decays as in-context memory grows, which is why the parent's children get 200 each rather than one run getting 400.
 

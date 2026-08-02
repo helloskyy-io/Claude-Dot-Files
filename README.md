@@ -59,7 +59,7 @@ Claude works independently on a planned task, creates a PR, and notifies you whe
 ./scripts/workflows/revision.sh "address all review findings" --pr 5
 
 # PR disposition — decide-only: forces every surfaced item to a terminal ruling, ends in MERGE | HOLD
-./scripts/workflows/pr-review.sh --pr 42
+./scripts/workflows/children/review-pr.sh --pr 42
 
 # Planning revision (7 stages: assess → plan → revise → architect review → planner review → resolve → PR)
 ./scripts/workflows/plan-revision.sh "add detailed phase doc for the auth feature"
@@ -91,7 +91,7 @@ revision.sh  (parent — no model, no turn budget of its own)
   │        ↓  handoff = git + the original task
   ├─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity → review → resolve → verify
   │        ↓  handoff = git + the original task
-  └─ 3. pr-review.sh                  120 turns   decide-only: MERGE, or HOLD + a runway
+  └─ 3. review-pr.sh                  120 turns   decide-only: MERGE, or HOLD + a runway
            ↳ HOLD(redispatch) → ONE loop-back, then stop. HOLD(needs-assistance) → stop now.
 ```
 
@@ -119,13 +119,13 @@ Measured across the first cycles on real PRs, refine has caught things the autho
 - **An overstated claim in the draft's own reflection** — the draft's evidence table was accurate but its generalization wasn't. Refine re-ran the experiment rather than accepting the conclusion, then corrected the record in the PR body and the tracking issue.
 - **A test tier with no merge-path enforcement** — every CI workflow in the repo was path-filtered and none matched the tier, so 4127 tests had never gated a merge. Refine surfaced it and explicitly *refused to build the gate*, on the grounds that path filters and blocking posture affect every future PR and are the operator's call to scope.
 
-Downstream of both children, `pr-review.sh` runs as a **decide-only** disposition engine — it never merges, fixes, or dispatches. It forces every surfaced item to a terminal ruling and verifies each pointer by fetching it, on the principle that **bias relocates rather than vanishes**: a run that didn't author the code still authored its own disposition table, and has an interest in that table looking complete.
+Downstream of both children, `review-pr.sh` runs as a **decide-only** disposition engine — it never merges, fixes, or dispatches. It forces every surfaced item to a terminal ruling and verifies each pointer by fetching it, on the principle that **bias relocates rather than vanishes**: a run that didn't author the code still authored its own disposition table, and has an interest in that table looking complete.
 
 Full architecture, sizing guidance, and escalation paths: [`docs/guide/workflows.md`](docs/guide/workflows.md). Decision history: [`docs/development/cpi-decisions.md`](docs/development/cpi-decisions.md).
 
 ## Services and safety
 
-The `gh-monitor` systemd service (`scripts/services/`) watches open PRs for `@claude revision:` / `@claude revision-minor:` comments and dispatches the matching workflow automatically — PR feedback becomes rework without leaving GitHub. Currently disabled (`gh-monitor.enabled: false` in `config.yaml`) — the `@claude` comment path is not in use; PR disposition runs through `pr-review.sh` instead.
+The `gh-monitor` systemd service (`scripts/services/`) watches open PRs for `@claude revision:` / `@claude revision-minor:` comments and dispatches the matching workflow automatically — PR feedback becomes rework without leaving GitHub. Currently disabled (`gh-monitor.enabled: false` in `config.yaml`) — the `@claude` comment path is not in use; PR disposition runs through `review-pr.sh` instead.
 
 Safety mechanisms apply to both modes:
 - **Permissions** — `settings.json` allow/deny lists for bash commands

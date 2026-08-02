@@ -76,7 +76,7 @@ Options:
                        invocation directory (Temporal Standard §7.5 principle).
                        Default: the repo containing the current directory.
   --verbose, -v        Stream formatted Claude output live
-  --correction-pass    Set by the parent on a loop-back: a pr-review disposition
+  --correction-pass    Set by the parent on a loop-back: a review-pr disposition
                        comment with a runway already exists on this PR, and
                        closing it is this run's job. The original task is still
                        passed and is still the fidelity anchor.
@@ -274,7 +274,7 @@ fi
 echo "  Repo        : ${REPO_ROOT}"
 echo "  Worktree    : ${WORKTREE_NAME}"
 echo "  CI settled  : $($CI_UNSETTLED && echo 'NO — gate state unknown to this review' || echo 'yes')"
-echo "  Pass type   : $($CORRECTION_PASS && echo 'CORRECTION — closing a pr-review runway' || echo 'first review of this draft')"
+echo "  Pass type   : $($CORRECTION_PASS && echo 'CORRECTION — closing a review-pr runway' || echo 'first review of this draft')"
 echo "  Max turns   : ${MAX_TURNS}"
 echo "  Verbose     : ${VERBOSE}"
 echo "  Log file    : ${LOG_FILE}"
@@ -387,7 +387,7 @@ For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards
 - **FIXED** — you corrected it here. Say what you changed.
 - **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
 - **DEFERRED** — real, and an EXISTING durable home already covers it. Allowed ONLY with a pointer you FETCHED: run the command, record what you saw. See the Deferred Work rules at the end of this prompt — they are binding here, at the moment of decision, not merely when you write the comment up. **If you cannot verify a home, this is not a DEFERRED; it is a SURFACED.**
-- **SURFACED** — real, genuinely outside this change's scope, and NO verified home exists. State it plainly in the PR body with no pointer at all, so \`pr-review\` and the operator can dispose of it. Do NOT invent a tracker — surfacing IS the action, and a naked surfaced item gets picked up downstream while a plausible-looking pointer gets filed away as handled.
+- **SURFACED** — real, genuinely outside this change's scope, and NO verified home exists. State it plainly in the PR body with no pointer at all, so \`review-pr\` and the operator can dispose of it. Do NOT invent a tracker — surfacing IS the action, and a naked surfaced item gets picked up downstream while a plausible-looking pointer gets filed away as handled.
 
 Fix by default. You are the cheap place to fix a finding: the code is fresh, the context is loaded, and the alternative is a PR round-trip. Reserve DEFERRED and SURFACED for things that genuinely widen scope.
 
@@ -476,7 +476,7 @@ The parent confirmed CI finished for this PR's head commit before starting you, 
     if $CORRECTION_PASS; then
         CORRECTION_NOTE="## THIS IS A CORRECTION PASS
 
-A \`pr-review\` disposition engine has already ruled on this PR and returned HOLD with a runway — an ordered list of what must happen for the next pass to be a MERGE. **Its comment is on this PR, and closing that runway is your job this run.**
+A \`review-pr\` disposition engine has already ruled on this PR and returned HOLD with a runway — an ordered list of what must happen for the next pass to be a MERGE. **Its comment is on this PR, and closing that runway is your job this run.**
 
 - Fetch it with the comments in Stage 1. Work the \`next_steps\` entries; the \`dispatch_context\` on a \`redispatch\` entry is a scoped instruction naming what to fix and what NOT to touch. Respect the what-not-to-touch as strictly as the what-to-fix.
 - **The original task above is still the fidelity anchor.** The runway says what is wrong with the delivery; the task says what the delivery was supposed to be. A correction that closes every runway item while drifting from the task is still a failure.
