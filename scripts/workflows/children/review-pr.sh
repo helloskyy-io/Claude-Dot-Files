@@ -110,22 +110,8 @@ if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then echo "Error: --pr requires a positive 
 # ---------------------------------------------------------------------------
 # Environment checks
 # ---------------------------------------------------------------------------
-for cmd in claude gh jq; do
-    command -v "$cmd" &>/dev/null || { echo "Error: '$cmd' not found in PATH" >&2; exit 1; }
-done
-
-# Explicit target repo (--repo) — identity is explicit, never derived (§7.5).
-if [[ -n "$REPO_TARGET" ]]; then
-    [[ -d "$REPO_TARGET" ]] || { echo "Error: --repo path not found: ${REPO_TARGET}" >&2; exit 1; }
-    git -C "$REPO_TARGET" rev-parse --show-toplevel &>/dev/null || { echo "Error: --repo path is not a git repository: ${REPO_TARGET}" >&2; exit 1; }
-    cd "$REPO_TARGET"
-fi
-
-git rev-parse --show-toplevel &>/dev/null || { echo "Error: not inside a git repository" >&2; exit 1; }
-[[ -x "$FORMATTER" ]] || { echo "Error: stream formatter not found at ${FORMATTER}" >&2; exit 1; }
-
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
+source "${SCRIPT_DIR}/../activities/require-environment.sh"
+require_environment "$REPO_TARGET" "$FORMATTER"
 
 # ---------------------------------------------------------------------------
 # Stage 0 — mechanical prechecks (bash-side, before any Claude spend)

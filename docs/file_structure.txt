@@ -125,6 +125,7 @@ claude-dot-files/
 │       ├── activities/                              # ACTIVITY LAYER (Temporal Standard §3.3b) — external I/O, workflow-agnostic,
 │       │   │                                        #   single responsibility, idempotent. A parent may NOT inline any of this:
 │       │   │                                        #   a workflow that does network I/O cannot replay. Sourced, never dispatched.
+│       │   ├── require-environment.sh               # Tool presence, --repo validation, git-root resolution, formatter check (replaced ~36 duplicated lines × 10 workflows)
 │       │   ├── run-claude.sh                        # Invoke `claude -p` (model resolution, rate-limit probe, turn-cap + completion contract) + print_cycle_totals
 │       │   └── wait-for-ci.sh                       # Poll a PR's head SHA until checks settle; guards push→fetch replication lag
 │       │

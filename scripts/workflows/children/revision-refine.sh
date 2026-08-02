@@ -201,42 +201,8 @@ fi
 # ---------------------------------------------------------------------------
 # Environment checks
 # ---------------------------------------------------------------------------
-for cmd in claude gh jq; do
-    if ! command -v "$cmd" &>/dev/null; then
-        echo "Error: '$cmd' not found in PATH" >&2
-        exit 1
-    fi
-done
-
-# Explicit target repo (--repo) — validate and switch BEFORE resolving the root.
-# The target identity is explicit, never derived from the invocation directory
-# (same principle as Temporal Standard §7.5). Without --repo, the invocation
-# directory's repo is the target, as before.
-if [[ -n "$REPO_TARGET" ]]; then
-    if [[ ! -d "$REPO_TARGET" ]]; then
-        echo "Error: --repo path not found: ${REPO_TARGET}" >&2
-        exit 1
-    fi
-    if ! git -C "$REPO_TARGET" rev-parse --show-toplevel &>/dev/null; then
-        echo "Error: --repo path is not a git repository: ${REPO_TARGET}" >&2
-        exit 1
-    fi
-    cd "$REPO_TARGET"
-fi
-
-if ! git rev-parse --show-toplevel &>/dev/null; then
-    echo "Error: not inside a git repository" >&2
-    exit 1
-fi
-
-if [[ ! -x "$FORMATTER" ]]; then
-    echo "Error: stream formatter not found at ${FORMATTER}" >&2
-    exit 1
-fi
-
-# Always operate from the repo root
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
+source "${SCRIPT_DIR}/../activities/require-environment.sh"
+require_environment "$REPO_TARGET" "$FORMATTER"
 
 # ---------------------------------------------------------------------------
 # Naming and paths
