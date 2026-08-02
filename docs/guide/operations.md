@@ -72,7 +72,7 @@ scripts/
 Two distinctions do the work, and both are easy to miss:
 
 - **`helpers/` vs `lib/`** — a helper is a standalone executable you *run*; a lib is bash a workflow *sources* and that does nothing on its own. Same file extension, opposite usage.
-- **`workflows/` vs `children/`** — a child is not a fragment or a sub-step. `revision-refine.sh` is a 200-turn workflow with its own model key and completion contract, and you can run it directly to recover a failed review. It lives one level down because **the parent normally invokes it**, and dispatching it yourself skips the half that produces the code it reviews.
+- **`workflows/` vs `children/`** — `children/` does not mean "things a parent calls." It means **"things ONLY a parent calls"** — workflows with no independent meaning. `revision-draft.sh` alone produces an *unreviewed* PR, which is never a deliverable. By contrast `pr-review.sh` is a complete, useful act on **any** returned PR whatever produced it, so it stays at the top level even though `revision.sh` calls it as its third child. **A parent calling a top-level workflow is normal** — the composition graph is not a tree, and that is exactly what makes these recombinable rather than a fixed hierarchy.
 
 As more long-running workflows get split into parent + children, `children/` is what keeps the top level meaning *"things you dispatch."*
 
@@ -83,7 +83,17 @@ Bash scripts that run Claude headless in an isolated git worktree and deliver a 
 > **Flags FIRST, positional LAST.** Terminals line-wrap long commands; a trailing positional stays visible and editable when the front wraps. For anything multi-paragraph or containing quotes, write it to `/tmp/claude-<name>.md` and use `--task-file` — it bypasses command-line parsing entirely.
 
 ### `revision.sh` — significant code rework (PARENT)
-The flagship. A **draft** run writes the change and opens an unreviewed PR; a **refine** run then reviews and corrects it with a fresh context that did not author the code. Pure bash — it calls no model itself. Full rationale in [workflows.md](workflows.md#the-revision-split--why-authoring-and-judging-are-separate-runs).
+The flagship, and the assembly template. **draft → refine → pr-review**, with one bounded correction loop. Pure bash — it calls no model itself; every stage is a child run. Full rationale in [workflows.md](workflows.md#the-revision-split--why-authoring-and-judging-are-separate-runs).
+
+On `pr-review`'s verdict the parent routes itself:
+
+| Verdict | Parent does |
+|---|---|
+| `MERGE` | finishes — ready to merge |
+| `HOLD - redispatch` | loops back **once** (refine → pr-review), then stops regardless |
+| `HOLD - needs-assistance` | stops **immediately** — more passes cannot produce a human ruling |
+
+**Exactly one loop-back, and it is not configurable.** Self-correction plateaus at roughly 3–5 passes; past it the same model justifies rather than corrects. Counting across the pipeline — refine 1, pr-review 2, loop refine 3, pr-review 4 — one loop-back lands inside the band and two would clear it. The number comes from the research, so there is no knob to tune past it.
 ```bash
 ./scripts/workflows/revision.sh "restructure the auth flow to use sessions"
 ./scripts/workflows/revision.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-task.md

@@ -39,7 +39,10 @@
 #   --verbose, -v  Stream formatted Claude output live
 #
 # Output: a single disposition comment on the PR (human table + machine yaml).
-#         Terminal line: "VERDICT: MERGE" or "VERDICT: HOLD".
+#         Terminal line: "VERDICT: MERGE", "VERDICT: HOLD - redispatch",
+#         or "VERDICT: HOLD - needs-assistance". The token after HOLD is the
+#         routing signal an automated caller reads; pr-review aggregates it
+#         (any needs-assistance item wins) so the caller never re-derives it.
 # Logging: JSONL log to <repo>/.claude/logs/pr-review-<ts>.jsonl
 # See docs/standards/workflow-scripts.md for the standard this script follows.
 
@@ -185,7 +188,7 @@ git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 # run_claude helper + shared prompt blocks
 # ---------------------------------------------------------------------------
 MODEL_KEY="pr-review"
-COMPLETION_PATTERN='^VERDICT: (MERGE|HOLD)'
+COMPLETION_PATTERN='^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$'
 source "${SCRIPT_DIR}/lib/run-claude.sh"
 source "${SCRIPT_DIR}/lib/shared-prompts.sh"
 
@@ -425,8 +428,17 @@ pr_review:
 ## Stage 6: PRINT THE VERDICT
 As the FINAL line of your output, print exactly one of:
     VERDICT: MERGE
-    VERDICT: HOLD
+    VERDICT: HOLD - redispatch
+    VERDICT: HOLD - needs-assistance
 This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted.
+
+**The routing token on a HOLD is a decision, and it is YOURS to make — do not leave it to be re-derived.** \`hold_kind\` lives per-finding in your yaml, so a HOLD carrying five \`redispatch\` items and one \`needs-assistance\` item has no single answer written anywhere. A caller reading your yaml would have to aggregate, which means a caller with no stake in the review would be making a judgement about the review. Aggregate it yourself, by this rule:
+
+- **ANY \`next_steps\` entry with \`kind: needs-assistance\` -> \`VERDICT: HOLD - needs-assistance\`.** One human ruling blocks the PR no matter how many other items could be corrected automatically, and no amount of further review passes can produce that ruling.
+- **Otherwise, if any entry has \`kind: redispatch\` -> \`VERDICT: HOLD - redispatch\`.** The whole runway closes with a scoped fix dispatch.
+- \`kind: file-issue\` is terminal and does NOT hold the PR — it never decides the token on its own. A HOLD whose only remaining entries are file-issue should not have been a HOLD.
+
+This token is the only thing an automated caller reads from you. It does not change your review, your invariants, or the comment you post — the disposition comment remains the full account for the human. It states plainly which of the two shapes the runway is, so that a caller can act without re-reading your reasoning and without re-litigating your judgement.
 
 ## Post-Run Reflection
 Append a brief 'Post-Run Reflection' to your disposition comment — only friction encountered and tooling-level suggestions for the pr-review workflow itself (prompt gaps, criteria that were ambiguous). Omit if nothing to report. You are DECIDE-ONLY: do NOT push, do NOT create a PR, do NOT post a separate Decision Log — the disposition table IS the decision record.

@@ -9,6 +9,21 @@
 #
 #   1. children/revision-draft.sh   — writes the change, opens an UNREVIEWED PR
 #   2. children/revision-refine.sh  — FRESH context: reviews and corrects it
+#   3. pr-review.sh                 — decide-only: MERGE, or HOLD + a runway
+#
+# pr-review is called at the TOP level, not from children/, and that is
+# deliberate. children/ means "ONLY a parent invokes this" — revision-draft
+# alone produces an unreviewed PR that is never a deliverable. pr-review is a
+# complete, useful act on ANY returned PR whatever produced it, so it stays
+# independently dispatchable. A parent calling a top-level workflow is normal;
+# the composition graph is not a tree, which is what makes these recombinable.
+#
+# ON A HOLD THE PARENT LOOPS BACK EXACTLY ONCE. Self-correction plateaus at
+# ~3-5 passes; past it the same model justifies rather than corrects (watched
+# directly: PR #224 pass 8 re-reviewed pass 7's unchanged tree and re-issued the
+# same runway). Counting across the pipeline — refine 1, pr-review 2, refine 3,
+# pr-review 4 — one loop-back lands inside the band and two would clear it. The
+# research sets the number, so it is not a flag.
 #
 # WHY TWO RUNS INSTEAD OF ONE LONG ONE — this is the whole point of the split:
 # the author of a change defends it. When one context both writes code and
@@ -47,15 +62,21 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRAFT="${SCRIPT_DIR}/children/revision-draft.sh"
 REFINE="${SCRIPT_DIR}/children/revision-refine.sh"
+PR_REVIEW="${SCRIPT_DIR}/pr-review.sh"
 
 show_usage() {
     cat <<EOF
 Usage: $(basename "$0") "description of changes needed" [options]
        $(basename "$0") --task-file path/to/task.md [options]
 
-Runs the two-child revision cycle:
+Runs the three-child revision cycle:
   1. revision-draft   — writes the change, opens an unreviewed PR
   2. revision-refine  — FRESH context: fidelity check, peer review, corrections
+  3. pr-review        — decide-only disposition: MERGE, or HOLD with a runway
+
+On HOLD(redispatch) the parent loops back ONCE (refine -> pr-review) and then
+stops regardless of outcome. On HOLD(needs-assistance) it stops immediately —
+more passes cannot produce a human ruling.
 
 Arguments:
   "description"        The rework task (short single-line descriptions)
@@ -121,9 +142,14 @@ fi
 if [[ -n "$TASK_FILE" && ! -r "$TASK_FILE" ]]; then
     echo "Error: task file not readable: ${TASK_FILE}" >&2; exit 1
 fi
-for child in "$DRAFT" "$REFINE"; do
+for child in "$DRAFT" "$REFINE" "$PR_REVIEW"; do
     [[ -x "$child" ]] || { echo "Error: child workflow not executable: ${child}" >&2; exit 1; }
 done
+
+# One trap for every temp log this run creates (draft's, plus one per pr-review).
+TMP_LOGS=()
+cleanup_tmp_logs() { [[ ${#TMP_LOGS[@]} -gt 0 ]] && rm -f "${TMP_LOGS[@]}"; return 0; }
+trap cleanup_tmp_logs EXIT
 
 # Rebuild the child argument list ONCE so both children receive an identical
 # task. Refine needs the original task to check fidelity against what was
@@ -136,7 +162,7 @@ TASK_ARGS=()
 if [[ -n "$TASK_FILE" ]]; then TASK_ARGS+=(--task-file "$TASK_FILE"); else TASK_ARGS+=("$DESCRIPTION"); fi
 
 echo "================================================================"
-echo "  REVISION WORKFLOW (parent: draft → refine)"
+echo "  REVISION WORKFLOW (parent: draft → refine → pr-review)"
 echo "================================================================"
 if [[ -n "$PR_NUMBER" ]]; then
     echo "  Target      : PR #${PR_NUMBER} (rework in place)"
@@ -145,6 +171,8 @@ else
 fi
 echo "  Child 1     : revision-draft   (writes the change)"
 echo "  Child 2     : revision-refine  (fresh context: reviews + corrects)"
+echo "  Child 3     : pr-review        (decide-only: MERGE | HOLD + runway)"
+echo "  On HOLD     : ONE loop-back (refine → pr-review), then stop. Never twice."
 echo "================================================================"
 echo
 
@@ -154,10 +182,10 @@ echo
 DRAFT_ARGS=("${CHILD_ARGS[@]}")
 [[ -n "$PR_NUMBER" ]] && DRAFT_ARGS+=(--pr "$PR_NUMBER")
 
-echo "→ [1/2] revision-draft…"
+echo "→ [1/3] revision-draft…"
 echo
 DRAFT_LOG="$(mktemp)"
-trap 'rm -f "$DRAFT_LOG"' EXIT
+TMP_LOGS+=("$DRAFT_LOG")
 if ! "$DRAFT" "${DRAFT_ARGS[@]}" "${TASK_ARGS[@]}" 2>&1 | tee "$DRAFT_LOG"; then
     echo >&2
     echo "✗ revision-draft FAILED — stopping before refine." >&2
@@ -178,98 +206,222 @@ DRAFT_PR="${PR_URL##*/}"
 
 echo
 echo "================================================================"
-echo "  [1/2] draft complete → PR #${DRAFT_PR}"
+echo "  [1/3] draft complete → PR #${DRAFT_PR}"
 echo "  ${PR_URL}"
 echo "================================================================"
 echo
 
 # ---------------------------------------------------------------------------
-# Between the steps — let the draft's CI finish
+# wait_for_ci <pr> — block until the PR's head SHA has settled checks
 # ---------------------------------------------------------------------------
-# Refine is the ONLY actor that can read the delivered CI gate: pushing is the
-# draft's terminal act, so CI has not finished when it exits. That makes the gap
-# between the two children a real verification window — a run has already caught
-# a gate that was RED on a clean runner while green locally (tests coupled to
-# host state). But nothing made the window exist; it was luck of the runner.
+# Sets CI_UNSETTLED=true when it could not confirm settlement. Called before
+# EVERY review child, because each one reads a gate that the child before it
+# just pushed to.
+#
+# Refine and pr-review are the only actors that can read a delivered CI gate:
+# pushing is the writing child's terminal act, so CI has not finished when it
+# exits. That gap is a real verification window — a run has already caught a
+# gate RED on a clean runner while green locally (tests coupled to host state).
+# Nothing made the window exist; it was luck of the runner.
 #
 # The wait belongs HERE, in the parent, precisely because the parent is pure
 # bash with no turn budget: polling costs wall-clock only. The same loop inside
-# refine would burn the reliability budget the split exists to protect.
-CI_UNSETTLED=false
+# a child would burn the reliability budget the split exists to protect.
 CI_TIMEOUT=600        # 10 min — long enough for typical gates, short enough not to strand a run
 CI_GRACE=45           # checks take a beat to register; "zero checks" before this races the runner
 CI_POLL=15
 
-HEAD_SHA=$(gh pr view "$DRAFT_PR" --json headRefOid --jq '.headRefOid' 2>/dev/null || echo "")
-if [[ -z "$HEAD_SHA" ]]; then
-    echo "⚠ Could not resolve PR #${DRAFT_PR} head SHA — skipping the CI wait." >&2
-    CI_UNSETTLED=true
-else
-    # Guard GitHub's replication lag between the draft's push and refine's fresh
-    # worktree fetch: if the SHA is not yet fetchable, refine would check out a
-    # stale branch and review the wrong code. Two lines, prevents a silent class.
-    if ! git fetch -q origin "$HEAD_SHA" 2>/dev/null && ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
-        echo "→ Head SHA ${HEAD_SHA:0:8} not yet fetchable — waiting ${CI_GRACE}s for replication…"
+wait_for_ci() {
+    local pr="$1"
+    CI_UNSETTLED=false
+
+    local head_sha
+    head_sha=$(gh pr view "$pr" --json headRefOid --jq '.headRefOid' 2>/dev/null || echo "")
+    if [[ -z "$head_sha" ]]; then
+        echo "⚠ Could not resolve PR #${pr} head SHA — skipping the CI wait." >&2
+        CI_UNSETTLED=true
+        return 0
+    fi
+
+    # Guard GitHub's replication lag between the push and the next child's fresh
+    # worktree fetch: if the SHA is not yet fetchable, that child would check out
+    # a stale branch and review the wrong code. Prevents a silent class.
+    if ! git fetch -q origin "$head_sha" 2>/dev/null && ! git cat-file -e "${head_sha}^{commit}" 2>/dev/null; then
+        echo "→ Head SHA ${head_sha:0:8} not yet fetchable — waiting ${CI_GRACE}s for replication…"
         sleep "$CI_GRACE"
     fi
 
-    echo "→ Waiting for CI on ${HEAD_SHA:0:8} (timeout ${CI_TIMEOUT}s)…"
-    ELAPSED=0
+    echo "→ Waiting for CI on ${head_sha:0:8} (timeout ${CI_TIMEOUT}s)…"
+    local elapsed=0 check_states
     while true; do
         # `gh pr checks` exits nonzero when checks FAIL and when none exist, so
         # branch on the states themselves rather than on the exit code.
-        CHECK_STATES=$(gh pr checks "$DRAFT_PR" --json state --jq '.[].state' 2>/dev/null || echo "")
+        check_states=$(gh pr checks "$pr" --json state --jq '.[].state' 2>/dev/null || echo "")
 
-        if [[ -z "$CHECK_STATES" ]]; then
-            if (( ELAPSED >= CI_GRACE )); then
+        if [[ -z "$check_states" ]]; then
+            if (( elapsed >= CI_GRACE )); then
                 echo "  No checks configured for this PR — proceeding."
-                break
+                return 0
             fi
-        elif ! grep -qE '^(QUEUED|IN_PROGRESS|PENDING|WAITING|REQUESTED)$' <<<"$CHECK_STATES"; then
-            echo "  CI settled ($(wc -l <<<"$CHECK_STATES" | tr -d ' ') checks) — proceeding."
-            break
+        elif ! grep -qE '^(QUEUED|IN_PROGRESS|PENDING|WAITING|REQUESTED)$' <<<"$check_states"; then
+            echo "  CI settled ($(wc -l <<<"$check_states" | tr -d ' ') checks) — proceeding."
+            return 0
         fi
 
-        if (( ELAPSED >= CI_TIMEOUT )); then
-            # Proceed, do NOT fail. Refine can still do fidelity and peer review
-            # without CI; killing the run because Actions is slow trades a large
-            # loss for a small one. But it must be LOUD, so refine states the
-            # gate is unknown rather than reporting a clean-looking review.
+        if (( elapsed >= CI_TIMEOUT )); then
+            # Proceed, do NOT fail. The next child can still do its work without
+            # CI; killing the run because Actions is slow trades a large loss for
+            # a small one. But it must be LOUD, so the child states the gate is
+            # unknown rather than reporting a clean-looking review.
             echo "⚠ CI did not settle within ${CI_TIMEOUT}s — proceeding with gate state UNKNOWN." >&2
             CI_UNSETTLED=true
-            break
+            return 0
         fi
 
         sleep "$CI_POLL"
-        ELAPSED=$((ELAPSED + CI_POLL))
+        elapsed=$((elapsed + CI_POLL))
     done
-fi
-echo
+}
+
+# ---------------------------------------------------------------------------
+# run_refine <label> [--correction-pass]  — the review-and-correct child
+# ---------------------------------------------------------------------------
+run_refine() {
+    local label="$1"; shift
+    local args=("${CHILD_ARGS[@]}" "$@")
+    $CI_UNSETTLED && args+=(--ci-unsettled)
+
+    echo "→ ${label} revision-refine on PR #${DRAFT_PR}…"
+    echo
+    if ! "$REFINE" "${args[@]}" --pr "$DRAFT_PR" "${TASK_ARGS[@]}"; then
+        echo >&2
+        echo "✗ revision-refine FAILED on PR #${DRAFT_PR}." >&2
+        echo "  The PR EXISTS and is unreviewed — it must not be merged as-is." >&2
+        echo "  Re-run just the review step:" >&2
+        echo "    ${REFINE} --pr ${DRAFT_PR} <the same task>" >&2
+        return 1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# run_pr_review <label> — the disposition child; echoes its routing token
+# ---------------------------------------------------------------------------
+# pr-review lives at the TOP level, not in children/, and is called in place.
+# children/ means "only a parent invokes this" — revision-draft alone produces
+# an unreviewed PR that is never a deliverable. pr-review is a complete, useful
+# act on ANY returned PR regardless of which workflow produced it, so it stays
+# independently dispatchable. A parent calling a top-level workflow is normal:
+# the composition graph is not a tree, and that is what makes these recombinable
+# rather than a fixed hierarchy.
+run_pr_review() {
+    local label="$1"
+    local log; log="$(mktemp)"
+    TMP_LOGS+=("$log")
+
+    echo "→ ${label} pr-review on PR #${DRAFT_PR}…"
+    echo
+    if ! "$PR_REVIEW" "${CHILD_ARGS[@]}" --pr "$DRAFT_PR" 2>&1 | tee "$log"; then
+        echo >&2
+        echo "✗ pr-review FAILED on PR #${DRAFT_PR}." >&2
+        echo "  The PR was drafted and refined but NOT dispositioned. Run it by hand:" >&2
+        echo "    ${PR_REVIEW} --pr ${DRAFT_PR}" >&2
+        return 1
+    fi
+
+    # The terminal VERDICT line IS the interface — pr-review aggregates the
+    # per-finding hold_kind values into one routing token so the caller never
+    # re-derives a judgement the reviewer already made.
+    VERDICT_LINE=$(grep -oE '^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$' "$log" | tail -1)
+    if [[ -z "$VERDICT_LINE" ]]; then
+        echo >&2
+        echo "✗ pr-review produced no parseable VERDICT line — cannot route." >&2
+        echo "  Treating as needs-assistance. Inspect PR #${DRAFT_PR} by hand." >&2
+        VERDICT_LINE="VERDICT: HOLD - needs-assistance"
+    fi
+}
+
+finish() {
+    echo
+    echo "================================================================"
+    echo "  $1"
+    echo "================================================================"
+    echo
+    echo "  ${PR_URL}"
+    echo
+    [[ -n "${2:-}" ]] && { echo "$2"; echo; }
+    echo "To clean up when done:"
+    echo "  /cleanup-merged-worktrees    (one worktree per child run)"
+    echo
+}
 
 # ---------------------------------------------------------------------------
 # Step 2 — REFINE (fresh context, same task, against the draft's PR)
 # ---------------------------------------------------------------------------
-REFINE_ARGS=("${CHILD_ARGS[@]}")
-$CI_UNSETTLED && REFINE_ARGS+=(--ci-unsettled)
+wait_for_ci "$DRAFT_PR"
+run_refine "[2/3]" || exit 1
 
-echo "→ [2/2] revision-refine on PR #${DRAFT_PR}…"
+# ---------------------------------------------------------------------------
+# Step 3 — PR-REVIEW, then route on its verdict
+# ---------------------------------------------------------------------------
+# EXACTLY ONE loop-back. Not a tuning knob, and deliberately not configurable.
+#
+# Self-correction plateaus at roughly 3-5 passes: the same model carries the
+# same blind spots, and past the plateau it stops correcting and starts
+# justifying. Watched directly on this fleet — PR #224 reached EIGHT pr-review
+# passes, and pass 8 reviewed the same tree as pass 7 with no commits between
+# them, re-issuing the same runway.
+#
+# Counting the correction passes across the PIPELINE, not within any one child:
+#   refine = 1 · pr-review = 2 · [loop] refine = 3 · pr-review = 4
+# One loop-back lands at four, inside the band. Two would reach six, past it.
+# Stopping at zero loop-backs would discard the passes that genuinely do improve
+# the work — the plateau is a ceiling, not an argument against the first climb.
+#
+# So the bound is set by the research, not by a budget guard, and a knob here
+# would only invite someone to tune past the point where the extra passes
+# produce justification instead of correction.
+wait_for_ci "$DRAFT_PR"
+run_pr_review "[3/3]" || exit 1
+
+case "$VERDICT_LINE" in
+    "VERDICT: MERGE")
+        finish "REVISION COMPLETE — PR #${DRAFT_PR} drafted, refined, dispositioned MERGE" \
+               "  pr-review found nothing holding this PR. Ready to merge."
+        exit 0 ;;
+
+    "VERDICT: HOLD - needs-assistance")
+        # No loop, ever. A human ruling is not something more passes can produce,
+        # so spending them is pure waste.
+        finish "REVISION COMPLETE — PR #${DRAFT_PR} HELD, needs a human" \
+               "  pr-review found at least one item only YOU can rule on. No automated
+  loop-back was attempted: more passes cannot produce a human decision.
+  The runway is in the pr_review: block on the PR."
+        exit 0 ;;
+esac
+
+# HOLD - redispatch → the one loop-back
 echo
-if ! "$REFINE" "${REFINE_ARGS[@]}" --pr "$DRAFT_PR" "${TASK_ARGS[@]}"; then
-    echo >&2
-    echo "✗ revision-refine FAILED on PR #${DRAFT_PR}." >&2
-    echo "  The draft PR EXISTS and is unreviewed — it must not be merged as-is." >&2
-    echo "  Re-run just the review step:" >&2
-    echo "    ${REFINE} --pr ${DRAFT_PR} <the same task>" >&2
-    exit 1
+echo "================================================================"
+echo "  [3/3] HOLD (redispatch) — the runway closes with a scoped fix."
+echo "  Looping back ONCE: refine → pr-review. This is the last automated pass."
+echo "================================================================"
+echo
+
+wait_for_ci "$DRAFT_PR"
+run_refine "[loop 1/2]" --correction-pass || exit 1
+
+wait_for_ci "$DRAFT_PR"
+run_pr_review "[loop 2/2]" || exit 1
+
+if [[ "$VERDICT_LINE" == "VERDICT: MERGE" ]]; then
+    finish "REVISION COMPLETE — PR #${DRAFT_PR} MERGE after one correction loop" \
+           "  The runway closed unattended. Ready to merge."
+    exit 0
 fi
 
-echo
-echo "================================================================"
-echo "  REVISION WORKFLOW COMPLETE — PR #${DRAFT_PR} drafted and refined"
-echo "================================================================"
-echo
-echo "  ${PR_URL}"
-echo
-echo "To clean up when done:"
-echo "  /cleanup-merged-worktrees    (two worktrees this run — one per step)"
-echo
+finish "REVISION COMPLETE — PR #${DRAFT_PR} still HELD after the correction loop" \
+       "  The automated loop is SPENT — one loop-back is the cap, because passes
+  beyond it produce justification rather than correction. This PR now needs you.
+  What remains is in the latest pr_review: block on the PR
+  (${VERDICT_LINE#VERDICT: })."
+exit 0

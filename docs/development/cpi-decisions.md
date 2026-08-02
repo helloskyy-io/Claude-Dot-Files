@@ -829,6 +829,56 @@ Both objections raised against it dissolved under scrutiny and are recorded so t
 
 ---
 
+## pr-review stitched as the third child, with one bounded loop-back (SHIPPED 2026-08-02)
+
+**Graduation condition met.** The gate set on 2026-07-30 was *"2-3 runs on the corrected refine, then stitch with stop-and-report on HOLD."* Two runs landed and all three round-2 corrections fired under real load: `1 DEFERRED (fetched and verified)` against **8 SURFACED with no pointer** — pre-correction those eight were exactly the shape that manufactured seven laundered pointers; prior-art search citing #230 instead of rediscovering it blind; and the reflection mined-then-verified rather than trusted. A second run dispositioned 31 items with **7 deferrals all to verified pointers**. Marginal cost of always running the disposition: ~10% ($4.19-$4.63 against $21-$45 runs).
+
+`revision.sh` is now **draft → refine → pr-review**.
+
+---
+
+**Two things the code said that the request got wrong, and both changed the design.**
+
+**1. `hold_kind` is per-FINDING, not verdict-level.** The request stated *"nothing new has to be built on the signal side — `pr-review` emits `hold_kind` today."* The field exists; the granularity does not. A HOLD carrying five `redispatch` items and one `needs-assistance` has **no single answer written anywhere**, so a parent would have to aggregate it out of a yaml block embedded in a markdown PR comment — fragile, and worse, it puts a caller with no stake in the review in the position of making a judgement *about* the review.
+
+**Shipped instead: pr-review aggregates it onto its own terminal line.** `VERDICT: MERGE` | `VERDICT: HOLD - redispatch` | `VERDICT: HOLD - needs-assistance`, with the rule stated in its prompt — **any** `needs-assistance` entry wins, because one human ruling blocks the PR no matter how many other items could be auto-corrected, and `file-issue` is terminal and never decides the token alone. This is additive: no invariant trimmed, the full disposition comment unchanged. **The completion contract IS the interface** — same primitive as the draft's PR-URL handoff, now carrying a routing decision instead of just an identifier. `COMPLETION_PATTERN` tightened to match, so a malformed verdict fails loud rather than routing wrong; an unparseable line falls back to `needs-assistance` (fail toward the human).
+
+**2. The loop-back would have re-entered the biased actor — except headless runs share no context.** Worth recording because the reasoning is easy to get wrong in both directions. Looping back to `refine` looks like asking a run to re-judge work it authored in pass 2. It is not: each invocation is a fresh `claude -p` with no memory of the earlier one. The real risk is the **inverse** failure — *deference*, treating the prior pass's commits and comment as settled precedent rather than as claims. The new `--correction-pass` note addresses exactly that: the runway is an **account to verify**, an item already fixed or never real gets said so with evidence rather than a manufactured change, and earlier commits on the branch "are work to check, not precedent to honour."
+
+---
+
+**The loop bound: exactly one, and deliberately not a flag.**
+
+The request's argument is right and its arithmetic is generous. It counted draft's self-reflection as pass 1 — but a decision log does not revise anything, so the honest count is refine 1, pr-review 2, loop refine 3, pr-review 4. **One loop-back lands at four, inside the 3-5 plateau band; two would reach six, past it.** The conclusion survives either baseline, which is worth noting so nobody re-derives it from the generous count and argues for two.
+
+Routing:
+
+| Verdict | Parent | Why |
+|---|---|---|
+| `MERGE` | finish | nothing holds the PR |
+| `HOLD - redispatch` | loop **once**: refine `--correction-pass` → pr-review → stop regardless | the whole runway closes with a scoped fix |
+| `HOLD - needs-assistance` | stop **immediately** | more passes cannot produce a human ruling; spending them is pure waste |
+
+**No knob.** The bound comes from the plateau, not from a budget, and a parameter here would only invite tuning past the point where passes produce justification instead of correction. Direct evidence from this fleet: PR #224 reached **eight** pr-review passes, and pass 8 reviewed the same tree as pass 7 with **no commits in between**, re-issuing the same runway.
+
+**Expected value, from three observed HOLDs:** two were `needs-assistance` (an issue-body edit, a standards ruling) and would correctly escalate without burning a loop; **one closed with a single dispatch and would now run unattended.** Both branches observed in the wild before shipping either.
+
+---
+
+**TAXONOMY CORRECTION — `children/` means "ONLY a parent calls it," not "a parent calls it."** The operator asked whether pr-review had been built as a parent when a child was intended. It is neither: it is a **leaf** workflow, and it correctly stays at the top level. `revision-draft` alone produces an unreviewed PR that is never a deliverable — no independent meaning. `pr-review` is a complete, useful act on **any** returned PR whatever produced it, and `build-phase` produces PRs too, so burying it under one parent would make disposition coverage inconsistent by PR source. **A parent calling a top-level workflow is normal: the composition graph is not a tree.** That property is precisely what makes these recombinable LEGOs rather than a fixed hierarchy — and it is what the stated end state (every workflow a parent over children) actually requires.
+
+**Doc drift fixed in passing:** `workflows.md` still carried the pre-round-2 commitment-bias premise for pr-review, and still said fix-dispatch authority was un-earned. Both corrected — the authority is now *partly* earned and the separation is intact: **the actor that decides is still not the actor that fires.** The parent fires, from a token the reviewer wrote to a durable artifact. Merge authority remains entirely un-earned.
+
+**Watch:**
+1. **Does the one loop-back actually close runways?** The prediction is that `HOLD - redispatch` → loop → `MERGE` becomes the common path. If the loop routinely ends still-HELD, either the runway quality is worse than it looks or one pass is not enough — and the answer is *not* a second loop.
+2. **Does the routing token get gamed toward `redispatch`?** pr-review now knows its token triggers automation. A drift toward `redispatch` (cheaper for it, looks more decisive) would be the classifier optimising for its own throughput. Cross-check against the per-finding `hold_kind` values in the yaml, which are unchanged.
+3. **Deference on the correction pass.** The new failure shape to watch: a loop-back refine that closes items by agreeing rather than by verifying. Signal is a correction-pass diff that matches the runway line-for-line with no independent findings.
+4. **Cost per completed revision, loop vs no-loop.** Base ~$25-50; the loop adds roughly a refine plus a pr-review (~$16-20). If loops become the norm rather than the exception, the sizing conversation moves upstream to draft.
+
+**OPEN, carried forward unchanged:** decomposing `revision-minor` (step 3 of the program) still needs its prerequisite answered first — **if it gets a refine child, what distinguishes it from `revision`?** It exists to be the cheap path; two 200-turn children would erase its reason to exist and collapse the sizing distinction into one workflow with a wrapper. The decomposition should preserve a genuine cost/rigor difference, not just a naming one.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

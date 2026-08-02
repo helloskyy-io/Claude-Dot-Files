@@ -89,7 +89,10 @@ revision.sh  (parent — no model, no turn budget of its own)
   │
   ├─ 1. children/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
   │        ↓  handoff = git + the original task
-  └─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity → review → resolve → verify
+  ├─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity → review → resolve → verify
+  │        ↓  handoff = git + the original task
+  └─ 3. pr-review.sh                  120 turns   decide-only: MERGE, or HOLD + a runway
+           ↳ HOLD(redispatch) → ONE loop-back, then stop. HOLD(needs-assistance) → stop now.
 ```
 
 **Draft holds no review authority at all** — its review stages were deleted, not downgraded, and its checkpoint commit says so: `wip: implementation checkpoint — PRE-REVIEW, not yet audited`. A drafter that kept a *weakened* self-review would reproduce the same bias on a smaller budget.

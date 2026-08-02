@@ -76,6 +76,10 @@ Options:
                        invocation directory (Temporal Standard §7.5 principle).
                        Default: the repo containing the current directory.
   --verbose, -v        Stream formatted Claude output live
+  --correction-pass    Set by the parent on a loop-back: a pr-review disposition
+                       comment with a runway already exists on this PR, and
+                       closing it is this run's job. The original task is still
+                       passed and is still the fidelity anchor.
   --ci-unsettled       Set by the parent when CI had NOT finished for the draft's
                        head SHA before this step started. Makes the run state
                        that its CI verdict is unknown rather than reporting a
@@ -100,6 +104,7 @@ PR_NUMBER=""
 REPO_TARGET=""
 VERBOSE=false
 CI_UNSETTLED=false
+CORRECTION_PASS=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -137,6 +142,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --ci-unsettled)
             CI_UNSETTLED=true
+            shift
+            ;;
+        --correction-pass)
+            CORRECTION_PASS=true
             shift
             ;;
         -*)
@@ -265,6 +274,7 @@ fi
 echo "  Repo        : ${REPO_ROOT}"
 echo "  Worktree    : ${WORKTREE_NAME}"
 echo "  CI settled  : $($CI_UNSETTLED && echo 'NO — gate state unknown to this review' || echo 'yes')"
+echo "  Pass type   : $($CORRECTION_PASS && echo 'CORRECTION — closing a pr-review runway' || echo 'first review of this draft')"
 echo "  Max turns   : ${MAX_TURNS}"
 echo "  Verbose     : ${VERBOSE}"
 echo "  Log file    : ${LOG_FILE}"
@@ -463,6 +473,21 @@ The parent could not confirm CI had finished for this PR's head commit before st
 The parent confirmed CI finished for this PR's head commit before starting you, so \`gh pr checks ${PR_NUMBER}\` in Stage 4 returns real verdicts, not pending ones. You are expected to have checked them."
     fi
 
+    if $CORRECTION_PASS; then
+        CORRECTION_NOTE="## THIS IS A CORRECTION PASS
+
+A \`pr-review\` disposition engine has already ruled on this PR and returned HOLD with a runway — an ordered list of what must happen for the next pass to be a MERGE. **Its comment is on this PR, and closing that runway is your job this run.**
+
+- Fetch it with the comments in Stage 1. Work the \`next_steps\` entries; the \`dispatch_context\` on a \`redispatch\` entry is a scoped instruction naming what to fix and what NOT to touch. Respect the what-not-to-touch as strictly as the what-to-fix.
+- **The original task above is still the fidelity anchor.** The runway says what is wrong with the delivery; the task says what the delivery was supposed to be. A correction that closes every runway item while drifting from the task is still a failure.
+- **The runway is an ACCOUNT, not a verdict on you.** It was written by an actor with no stake, but it is still a claim about the code — verify each item against the artifact before acting. An item already fixed, or never real, gets said so plainly with the evidence; do not manufacture a change to make a list go away.
+- Equally, **do not defer to the prior pass merely because it exists.** Earlier commits on this branch were authored by a run like you, in a context you do not share. They are work to check, not precedent to honour.
+
+**This is the LAST automated pass.** There is no second loop-back: if the runway does not close here, the parent stops and hands the PR to a human. Spend the budget accordingly — fix by default."
+    else
+        CORRECTION_NOTE=""
+    fi
+
     PROMPT="You are executing the REVISION-REFINE workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 This is a SIGNIFICANT rework — not a minor fix. Follow all 5 stages thoroughly.
@@ -472,6 +497,8 @@ Task: ${DESCRIPTION}
 ${HEADLESS_EXECUTION_GUARD}
 
 ${CI_STATUS_NOTE}
+
+${CORRECTION_NOTE}
 
 ${STAGES_2_TO_4}
 
