@@ -21,7 +21,7 @@
 #
 # Usage in a workflow script:
 #   MODEL_KEY="revision-draft"
-#   source "${SCRIPT_DIR}/lib/run-claude.sh"
+#   source "${SCRIPT_DIR}/activities/run-claude.sh"
 #   run_claude "$PROMPT" -w "$WORKTREE_NAME"
 
 # Guard: verify required variables are set

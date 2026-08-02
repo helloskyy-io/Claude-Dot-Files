@@ -34,10 +34,10 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Script location (for finding lib/format-stream.sh)
+# Script location (for finding common/format-stream.sh)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/common/format-stream.sh"
 
 # Resolve the claude-dot-files repo root by walking up from the script's location.
 # Reports are written here regardless of which repo's logs are being analyzed,
@@ -282,7 +282,7 @@ echo
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
 MODEL_KEY="review-runs"
-source "${SCRIPT_DIR}/lib/run-claude.sh"
+source "${SCRIPT_DIR}/activities/run-claude.sh"
 
 # ---------------------------------------------------------------------------
 # Workflow execution — no worktree needed (read-only analysis)

@@ -45,7 +45,7 @@ BASH_BIN="$(command -v bash)"
 
 # --- Pass 1 (static): unescaped backticks, for precise line numbers -----------
 # Fast, and pinpoints the offending line. Pass 2 is the real net.
-for f in "$WF_DIR"/*.sh "$WF_DIR"/children/*.sh "$WF_DIR"/lib/*.sh; do
+for f in "$WF_DIR"/*.sh "$WF_DIR"/children/*.sh "$WF_DIR"/activities/*.sh "$WF_DIR"/common/*.sh; do
     [[ -e "$f" ]] || continue
     hits=$(awk '
         {

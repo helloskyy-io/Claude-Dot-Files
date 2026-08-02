@@ -28,7 +28,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/common/format-stream.sh"
 
 MAX_TURNS=200
 
@@ -234,8 +234,8 @@ else
   - ## Synthesis Diff — the Stage 4 diff section, verbatim (this is what the standup consumes)
 - Report the PR URL as your final line"
 fi
-source "${SCRIPT_DIR}/lib/run-claude.sh"
-source "${SCRIPT_DIR}/lib/shared-prompts.sh"
+source "${SCRIPT_DIR}/activities/run-claude.sh"
+source "${SCRIPT_DIR}/common/shared-prompts.sh"
 
 PROMPT="You are executing the RESEARCH-REFRESH workflow on a new branch.
 

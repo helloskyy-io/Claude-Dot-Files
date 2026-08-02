@@ -122,10 +122,15 @@ claude-dot-files/
 │   │   └── gh-monitor.timer                         # systemd timer (5-min interval)
 │   │
 │   └── workflows/                                   # YOU run these. They call Claude headless (Workflow 2: walk-away dispatches)
-│       ├── lib/                                     # NOBODY runs these — workflows SOURCE them (not executable entry points)
-│       │   ├── format-stream.sh                     # Stream-json → human-readable formatter
-│       │   ├── run-claude.sh                        # run_claude helper + check_rate_limit + print_cycle_totals
-│       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. the fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
+│       ├── activities/                              # ACTIVITY LAYER (Temporal Standard §3.3b) — external I/O, workflow-agnostic,
+│       │   │                                        #   single responsibility, idempotent. A parent may NOT inline any of this:
+│       │   │                                        #   a workflow that does network I/O cannot replay. Sourced, never dispatched.
+│       │   ├── run-claude.sh                        # Invoke `claude -p` (model resolution, rate-limit probe, turn-cap + completion contract) + print_cycle_totals
+│       │   └── wait-for-ci.sh                       # Poll a PR's head SHA until checks settle; guards push→fetch replication lag
+│       │
+│       ├── common/                                  # Shared TYPES/CONTENT, not activities — no I/O, nothing executes
+│       │   ├── format-stream.sh                     # Stream-json → human-readable formatter (pure transformation)
+│       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
 │       │
 │       ├── build-phase.sh                           # BUILD-PHASE — implement from a plan doc
 │       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition

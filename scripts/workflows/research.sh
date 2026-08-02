@@ -45,7 +45,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/common/format-stream.sh"
 
 MAX_TURNS=250
 
@@ -192,8 +192,8 @@ else
   - Gaps / test-plan highlights (what research could not settle)
 - Report the PR URL as your final line"
 fi
-source "${SCRIPT_DIR}/lib/run-claude.sh"
-source "${SCRIPT_DIR}/lib/shared-prompts.sh"
+source "${SCRIPT_DIR}/activities/run-claude.sh"
+source "${SCRIPT_DIR}/common/shared-prompts.sh"
 
 CONTEXT_BLOCK=""
 if [[ -n "$CONTEXT" ]]; then

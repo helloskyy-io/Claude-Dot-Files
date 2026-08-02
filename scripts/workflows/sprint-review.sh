@@ -62,10 +62,10 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Script location (for finding lib/format-stream.sh)
+# Script location (for finding common/format-stream.sh)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/common/format-stream.sh"
 
 # Resolve the claude-dot-files repo root from the script's own location.
 # Used to point the workflow at cpi-decisions.md regardless of the analyzed
@@ -232,7 +232,7 @@ echo
 # ---------------------------------------------------------------------------
 MODEL_KEY="sprint-review"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
-source "${SCRIPT_DIR}/lib/run-claude.sh"
+source "${SCRIPT_DIR}/activities/run-claude.sh"
 
 # ---------------------------------------------------------------------------
 # Context block (injected into prompt only when context is provided)
@@ -249,8 +249,8 @@ fi
 # ---------------------------------------------------------------------------
 # Decision Log + Deferred Work + Post-Run Reflection (standard PR-comment spec)
 # ---------------------------------------------------------------------------
-# DECISION_LOG_AND_REFLECTION is defined in lib/shared-prompts.sh
-source "${SCRIPT_DIR}/lib/shared-prompts.sh"
+# DECISION_LOG_AND_REFLECTION is defined in common/shared-prompts.sh
+source "${SCRIPT_DIR}/common/shared-prompts.sh"
 
 # ---------------------------------------------------------------------------
 # Shared prompt stages (Stages 1-5 are identical for both paths)

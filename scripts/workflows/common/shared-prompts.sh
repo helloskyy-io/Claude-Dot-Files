@@ -5,7 +5,7 @@
 # text across every workflow (current count: 6 scripts using identical blocks).
 #
 # Usage in a workflow script:
-#   source "${SCRIPT_DIR}/lib/shared-prompts.sh"
+#   source "${SCRIPT_DIR}/common/shared-prompts.sh"
 #   # then use ${DECISION_LOG_AND_REFLECTION} in your PROMPT
 #
 # When the prompt text needs updating, change it here once; all sourcing

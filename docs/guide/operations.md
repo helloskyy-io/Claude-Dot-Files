@@ -64,14 +64,16 @@ scripts/
 ├── helpers/    ← YOU run.     Pure bash, no AI, zero tokens (init-project.sh, lint-prompts.sh)
 ├── services/   ← SYSTEMD runs. Background pollers, also no AI
 └── workflows/  ← YOU run.     Each one calls Claude headless
-    ├── lib/       ← NOBODY runs. Workflows SOURCE these (run_claude, formatters, shared prompt text)
+    ├── activities/ ← SOURCED.  External I/O, workflow-agnostic, idempotent (run_claude, wait_for_ci)
+    ├── common/     ← SOURCED.  Shared types and content — no I/O (formatter, shared prompt text)
     └── children/  ← THE PARENT runs. Full workflows in their own right — own model, turn budget,
                      completion contract, worktree — but invoked BY a parent, not by you
 ```
 
 Two distinctions do the work, and both are easy to miss:
 
-- **`helpers/` vs `lib/`** — a helper is a standalone executable you *run*; a lib is bash a workflow *sources* and that does nothing on its own. Same file extension, opposite usage.
+- **`helpers/` vs `activities/`+`common/`** — a helper is a standalone executable you *run*; an activity is bash a workflow *sources*. Same file extension, opposite usage.
+- **`activities/` vs `common/`** — the split is **does it touch the outside world?** `activities/` holds external I/O (invoking Claude, polling the GitHub API): workflow-agnostic, single-responsibility, idempotent, and **never inlined into a parent** — a workflow that does network I/O cannot replay, which is why Temporal enforces this boundary rather than merely recommending it. `common/` holds shared types and content that execute nothing. Keeping them apart stops `activities/` becoming the generic dumping ground.
 - **`workflows/` vs `children/`** — the axis is *who invokes it*, and nothing else. Top level = **you dispatch it**. `children/` = **a parent invokes it**; you only run one by hand when something upstream went wrong (a failed review half, a PR from a workflow not yet decomposed). That is the whole rule.
 
   **Children are shared, not owned.** `children/review-pr.sh` will be called by every parent that produces a PR — `revision.sh` today, `build-phase.sh` and the planning workflows as they get decomposed. A child belongs to no single parent, which is what makes it reusable; Temporal treats child workflows the same way. So `children/` is not namespaced per parent and should not become so.

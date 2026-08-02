@@ -212,76 +212,19 @@ echo "================================================================"
 echo
 
 # ---------------------------------------------------------------------------
-# wait_for_ci <pr> — block until the PR's head SHA has settled checks
+# Activities (external I/O — never inline in a parent)
 # ---------------------------------------------------------------------------
-# Sets CI_UNSETTLED=true when it could not confirm settlement. Called before
-# EVERY review child, because each one reads a gate that the child before it
-# just pushed to.
+# A parent is orchestration only: it decides IF, WHEN and WHAT to call. Anything
+# that touches the outside world is an ACTIVITY and lives in activities/, per
+# the Temporal Standard §3.1 ("no external I/O, deterministic") — a workflow
+# that made a network call could not replay, so this is not a style preference,
+# it is the boundary the engine enforces. wait_for_ci polls the GitHub API; it
+# is an activity, and every PR-producing parent will want it.
 #
-# Refine and review-pr are the only actors that can read a delivered CI gate:
-# pushing is the writing child's terminal act, so CI has not finished when it
-# exits. That gap is a real verification window — a run has already caught a
-# gate RED on a clean runner while green locally (tests coupled to host state).
-# Nothing made the window exist; it was luck of the runner.
-#
-# The wait belongs HERE, in the parent, precisely because the parent is pure
-# bash with no turn budget: polling costs wall-clock only. The same loop inside
-# a child would burn the reliability budget the split exists to protect.
-CI_TIMEOUT=600        # 10 min — long enough for typical gates, short enough not to strand a run
-CI_GRACE=45           # checks take a beat to register; "zero checks" before this races the runner
-CI_POLL=15
-
-wait_for_ci() {
-    local pr="$1"
-    CI_UNSETTLED=false
-
-    local head_sha
-    head_sha=$(gh pr view "$pr" --json headRefOid --jq '.headRefOid' 2>/dev/null || echo "")
-    if [[ -z "$head_sha" ]]; then
-        echo "⚠ Could not resolve PR #${pr} head SHA — skipping the CI wait." >&2
-        CI_UNSETTLED=true
-        return 0
-    fi
-
-    # Guard GitHub's replication lag between the push and the next child's fresh
-    # worktree fetch: if the SHA is not yet fetchable, that child would check out
-    # a stale branch and review the wrong code. Prevents a silent class.
-    if ! git fetch -q origin "$head_sha" 2>/dev/null && ! git cat-file -e "${head_sha}^{commit}" 2>/dev/null; then
-        echo "→ Head SHA ${head_sha:0:8} not yet fetchable — waiting ${CI_GRACE}s for replication…"
-        sleep "$CI_GRACE"
-    fi
-
-    echo "→ Waiting for CI on ${head_sha:0:8} (timeout ${CI_TIMEOUT}s)…"
-    local elapsed=0 check_states
-    while true; do
-        # `gh pr checks` exits nonzero when checks FAIL and when none exist, so
-        # branch on the states themselves rather than on the exit code.
-        check_states=$(gh pr checks "$pr" --json state --jq '.[].state' 2>/dev/null || echo "")
-
-        if [[ -z "$check_states" ]]; then
-            if (( elapsed >= CI_GRACE )); then
-                echo "  No checks configured for this PR — proceeding."
-                return 0
-            fi
-        elif ! grep -qE '^(QUEUED|IN_PROGRESS|PENDING|WAITING|REQUESTED)$' <<<"$check_states"; then
-            echo "  CI settled ($(wc -l <<<"$check_states" | tr -d ' ') checks) — proceeding."
-            return 0
-        fi
-
-        if (( elapsed >= CI_TIMEOUT )); then
-            # Proceed, do NOT fail. The next child can still do its work without
-            # CI; killing the run because Actions is slow trades a large loss for
-            # a small one. But it must be LOUD, so the child states the gate is
-            # unknown rather than reporting a clean-looking review.
-            echo "⚠ CI did not settle within ${CI_TIMEOUT}s — proceeding with gate state UNKNOWN." >&2
-            CI_UNSETTLED=true
-            return 0
-        fi
-
-        sleep "$CI_POLL"
-        elapsed=$((elapsed + CI_POLL))
-    done
-}
+# NOTE what deliberately stays HERE: parsing the verdict line and extracting the
+# PR URL. Those are pure string→decision, no I/O, and they ARE the "if/then,
+# what to call next" that a parent exists to hold.
+source "${SCRIPT_DIR}/activities/wait-for-ci.sh"
 
 # ---------------------------------------------------------------------------
 # run_refine <label> [--correction-pass]  — the review-and-correct child

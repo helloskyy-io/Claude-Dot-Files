@@ -42,10 +42,10 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Script location (for finding lib/format-stream.sh)
+# Script location (for finding common/format-stream.sh)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/common/format-stream.sh"
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -120,6 +120,10 @@ while [[ $# -gt 0 ]]; do
         --verbose|-v)
             VERBOSE=true
             shift
+            ;;
+        --help|-h)
+            show_usage
+            exit 0
             ;;
         -*)
             echo "Error: unknown option '$1'" >&2
@@ -233,13 +237,13 @@ echo
 # ---------------------------------------------------------------------------
 MODEL_KEY="revision-minor"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
-source "${SCRIPT_DIR}/lib/run-claude.sh"
+source "${SCRIPT_DIR}/activities/run-claude.sh"
 
 # ---------------------------------------------------------------------------
 # Decision Log + Post-Run Reflection spec (referenced from both workflow paths)
 # ---------------------------------------------------------------------------
-# DECISION_LOG_AND_REFLECTION is defined in lib/shared-prompts.sh
-source "${SCRIPT_DIR}/lib/shared-prompts.sh"
+# DECISION_LOG_AND_REFLECTION is defined in common/shared-prompts.sh
+source "${SCRIPT_DIR}/common/shared-prompts.sh"
 
 # ---------------------------------------------------------------------------
 # Workflow execution
@@ -303,7 +307,7 @@ Follow these stages exactly:
 
 6. REPORT: As your FINAL line, print the PR URL — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
 
-6. REFLECT: ${DECISION_LOG_AND_REFLECTION}
+7. REFLECT: ${DECISION_LOG_AND_REFLECTION}
 
 Rules:
 - Keep changes minimal and focused on the task

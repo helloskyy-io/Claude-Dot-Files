@@ -42,10 +42,10 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Script location (for finding lib/format-stream.sh)
+# Script location (for finding common/format-stream.sh)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/../lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/../common/format-stream.sh"
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -286,7 +286,7 @@ echo
 # ---------------------------------------------------------------------------
 MODEL_KEY="revision-refine"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
-source "${SCRIPT_DIR}/../lib/run-claude.sh"
+source "${SCRIPT_DIR}/../activities/run-claude.sh"
 
 # ---------------------------------------------------------------------------
 # Shared prompt stages (Stages 1-9 + Rules are identical for both paths)
@@ -409,8 +409,8 @@ If anything fails, fix it. Do not proceed to Stage 5 with failing tests.
 STAGES_EOF
 )
 
-# DECISION_LOG_AND_REFLECTION is defined in lib/shared-prompts.sh
-source "${SCRIPT_DIR}/../lib/shared-prompts.sh"
+# DECISION_LOG_AND_REFLECTION is defined in common/shared-prompts.sh
+source "${SCRIPT_DIR}/../common/shared-prompts.sh"
 
 RULES=$(cat <<'RULES_EOF'
 Rules:

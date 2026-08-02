@@ -58,7 +58,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/../lib/format-stream.sh"
+FORMATTER="${SCRIPT_DIR}/../common/format-stream.sh"
 
 MAX_TURNS=120
 
@@ -198,8 +198,8 @@ git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 # ---------------------------------------------------------------------------
 MODEL_KEY="review-pr"
 COMPLETION_PATTERN='^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$'
-source "${SCRIPT_DIR}/../lib/run-claude.sh"
-source "${SCRIPT_DIR}/../lib/shared-prompts.sh"
+source "${SCRIPT_DIR}/../activities/run-claude.sh"
+source "${SCRIPT_DIR}/../common/shared-prompts.sh"
 
 PROMPT="You are executing the PR-REVIEW workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}), disposition pass ${THIS_PASS}.
 
