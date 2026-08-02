@@ -12,15 +12,34 @@
 
 | Script | Purpose | Agents Used | Max Turns |
 |---|---|---|---|
-| `revision-minor.sh` | Minor code fixes | None (inline standards discovery) | 100 |
-| `revision.sh` | Significant code rework — **parent**, orchestrates the two steps below | none itself (pure bash) | n/a |
-| `children/revision-draft.sh` | Child 1 — writes the change, opens an UNREVIEWED PR | None (it holds no review authority) | 200 |
-| `children/revision-refine.sh` | Child 2 — FRESH context: fidelity check, peer review, corrections | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 200 |
+| `revision.sh` | Significant code rework — **PARENT** over the three children below | none itself (pure bash) | n/a |
+| `revision-minor.sh` | Small scoped fixes — **PARENT**, same shape, lighter middle child | none itself (pure bash) | n/a |
 | `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
 | `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
 | `plan-revision.sh` | Revise existing planning docs | architect, planner, security-auditor, standards-architect | 300 |
+| `research.sh` | Create/extend a component's source-verified research pool + synthesis | research-analyst, research-critic | 250 |
+| `research-refresh.sh` | Revalidate papers that have come due; rewrite the synthesis with a diff | research-currency, research-critic | 200 |
 | `review-runs.sh` | CPI log analysis (see `cpi-cycle.md` for the full cycle) | workflow-analyst | 100 |
 | `review-sprint.sh` | Comprehensive end-of-sprint review (security + refactoring + testing + synthesis) | security-auditor, refactoring-evaluator, test-writer | 600 |
+
+### Children (`scripts/workflows/children/`) — invoked BY a parent, not dispatched by you
+
+Children are **shared, not owned**: `review-pr` is the last child of every PR-producing parent. Run one by hand only to recover — a failed review half, or a PR from a workflow not yet decomposed.
+
+| Child | Role | Agents Used | Max Turns |
+|---|---|---|---|
+| `revision-draft.sh` | Writes the change, opens an UNREVIEWED PR. Holds NO review authority | none | 200 |
+| `revision-refine.sh` | FRESH context: fidelity → peer review → resolve → verify | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 200 |
+| `revision-draft-minor.sh` | Same role, minor tier | none | 100 |
+| `revision-refine-minor.sh` | Same role, minor tier — **ONE** lens, because at this scope the risk is a change that is *wrong*, not a design that will not scale | code-reviewer | 100 |
+| `review-pr.sh` | Decide-only disposition → `MERGE` \| `HOLD - redispatch` \| `HOLD - needs-assistance` | none (it reads, it does not review code) | 120 |
+
+### Layers (`scripts/workflows/`) — sourced, never dispatched
+
+| Folder | Holds | Rule |
+|---|---|---|
+| `activities/` | `run-claude`, `wait-for-ci`, `require-environment` | External I/O, workflow-agnostic, idempotent. **A parent may not inline any of it** — a workflow doing network I/O cannot replay |
+| `common/` | `format-stream`, `shared-prompts` | Shared types and content. No I/O, nothing executes |
 
 ### Services (background, systemd)
 
@@ -36,7 +55,15 @@
 ```
 revision.sh  (parent — no model, no turn budget)
   ├─ 1. children/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
-  └─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity, review, corrections
+  ├─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity, review, corrections
+  └─ 3. children/review-pr.sh         120 turns   decide-only: MERGE, or HOLD + a runway
+        │
+        ├─ MERGE                   → finish
+        ├─ HOLD - needs-assistance → stop NOW; more passes cannot produce a human ruling
+        └─ HOLD - redispatch       → loop back ONCE (refine --correction-pass → review-pr), then stop
+
+revision-minor.sh runs the IDENTICAL sequence with the minor children — same
+shape, same routing, same single loop-back. One mental model, two weights.
 ```
 
 **The reason for the boundary:** the author of a change defends it. When one
@@ -85,6 +112,16 @@ This is also the shape a durable-execution engine wants — deterministic contro
 flow outside, non-deterministic work inside independent activities. Composition
 already works in bash; Temporal would add durability, not composition.
 
+## The research family — evidence before decisions
+
+`research.sh` and `research-refresh.sh` exist because a decision resting on recalled training data is a decision resting on nothing checkable. They produce **source-verified evidence pools** in the consuming repo, per its Research Standard.
+
+The pairing is the point. `research-analyst` gathers 10–20 credible sources per topic and writes the paper, marking confidence per claim and stating gaps as findings rather than hiding them. Then `research-critic` **fetches every citation** to confirm it exists and that the claim attributed to it matches its content. That second pass is an anti-hallucination gate, not a proofread — a fabricated source is exactly the failure a research artifact cannot survive, and it is invisible to the actor that wrote it.
+
+`research-refresh.sh` handles decay. Papers carry a revalidation interval; the workflow gates in **bash** on what is actually due, so a run with nothing due exits clean without spending a model call. For each due paper `research-currency` re-sweeps the topic and diffs: what changed, what is now wrong, what is missing — and re-asks whether the topic is still the right question, which is the part a pure refresh would miss.
+
+Both take `--pr <N>` to extend an existing research PR rather than opening a new one.
+
 ## Review-agent count rationale
 
 Review-stage workflows dispatch a parallel **trio** (3 agents) by default. `plan-revision.sh` dispatches **four** — adding `standards-architect` alongside `architect`, `planner`, and `security-auditor`.
@@ -107,12 +144,14 @@ All review-trios are dispatched in a single assistant message containing N `Agen
 
 ## Naming Conventions
 
-Workflow families are grouped by prefix:
-- **`revision*`** — fix existing code. `revision.sh` is the reviewed default; `revision-minor.sh` is the light single-pass sibling
-- **`children/`** — child workflows of a parent, never dispatched directly
+Names are **`<family>-<qualifier>`**, uniform across the fleet. The family is what the script *is*; the qualifier narrows it. Read backwards it is wrong — a PR is not a *type of thing that gets reviewed*; review is the family. Two names violated this (`pr-review`, `sprint-review`) and both were renamed.
+
+- **`revision*`** — fix existing code. `revision.sh` is the reviewed default, `revision-minor.sh` the lighter tier. **Both are parents**; the difference is the weight of the middle child (4 review lenses vs 1)
 - **`build-*`** — implement from plans
 - **`plan-*`** — create or revise planning docs
-- **`review-*`** — analyze and report
+- **`review-*`** — analyze and decide (`review-runs` on logs, `review-sprint` on a sprint, `review-pr` on a PR)
+
+Directories answer *who invokes it?* — top level = you dispatch it; `children/` = a parent invokes it; `activities/` and `common/` = sourced, never run.
 
 ---
 
@@ -360,8 +399,8 @@ Given this model, the scope of what we actually build is narrower than it might 
 
 **For Stage A (Initial Autonomous Run):**
 - Workflow scripts in `scripts/workflows/`:
-  - `revision-minor.sh` — minor corrections (built)
-  - `revision.sh` — significant rework, two-step parent (built)
+  - `revision-minor.sh` — minor corrections, three-child parent (built)
+  - `revision.sh` — significant rework, three-child parent (built)
   - `build-phase.sh` — architect & build a phase (planned)
   - `plan-new.sh` — research & planning (built)
 
@@ -384,7 +423,9 @@ These were considered and rejected based on research and the dual-flow principle
 - ❌ **Wrapper scripts for every combination** — Only build what's needed
 - ❌ **Custom state management** — Let GitHub PRs hold state
 
-## PR Disposition (review-pr.sh)
+## PR Disposition (children/review-pr.sh)
+
+**It is a child now, and every PR-producing parent calls it as its last step.** You invoke it by hand only to recover — a PR from a workflow not yet decomposed, or a human-authored one. It lives in `children/` because a parent invokes it, and it is **shared, not owned**: no single parent has claim to it.
 
 `review-pr.sh --pr <N>` mechanizes the PM ritual on a returned PR. **It is not a code reviewer** — the code is already the most-reviewed thing in the pipeline. Its job is to mine the place where the run *told on itself* (the decision log, deferred-work, and reflection comments): the run surfaces far more than it fixes, and the buried remainder is what this digs out. It forces every surfaced item to a terminal disposition — **FIXED** (verified against the code) / **REJECTED** (with real reasoning) / **DEFERRED** (only when the work is *already* scheduled in an existing sprint item or *already* in motion in a live PR, pointer verified present) — and ends in a binary **VERDICT: MERGE | HOLD**.
 
@@ -404,7 +445,7 @@ These were considered and rejected based on research and the dual-flow principle
 
 ## Model Management
 
-Every workflow dispatch runs with an **explicit `--model`**, resolved at dispatch time from the `models:` map in `config.yaml` (repo root) by `lib/run-claude.sh`. This exists because headless runs otherwise inherit ambient defaults — a PM session's model leaks into the workflows it dispatches. Model identity is an explicit input, never derived.
+Every workflow dispatch runs with an **explicit `--model`**, resolved at dispatch time from the `models:` map in `config.yaml` (repo root) by `activities/run-claude.sh`. This exists because headless runs otherwise inherit ambient defaults — a PM session's model leaks into the workflows it dispatches. Model identity is an explicit input, never derived.
 
 **Changing a workflow's model:** edit the one line in `config.yaml`, commit. The next dispatch picks it up — no restarts, no Claude refresh.
 
@@ -432,7 +473,7 @@ Quick decision guide:
 **"I want a second opinion on my design"** → Workflow 1 + `/review` or manually invoke code-reviewer agent
 **"I have a well-planned feature, build it"** → Workflow 2, Stage A
 **"I'm starting a major new subsystem"** → Workflow 2, Stage A with detailed plan
-**"Small scoped code fix, no review needed"** → `revision-minor.sh`
+**"Small scoped code fix"** → `revision-minor.sh` (reviewed by one lens, then dispositioned)
 **"Significant rework — I want it reviewed before I see it"** → `revision.sh` (drafts, then judges with fresh eyes)
 **"The PR is 90% right, just fix a few things"** → Workflow 2, Stage C (PR comments)
 **"The PR needs major rework"** → Workflow 2, Stage D (full re-run)
