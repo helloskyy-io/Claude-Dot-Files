@@ -222,7 +222,7 @@ The figures below were early estimates and ran low once agent dispatch and revie
 | Light single-pass fix | 100 | `revision-minor.sh` |
 | Reviewed step in a parent workflow | 200 | `revision-draft.sh`, `revision-refine.sh` |
 | Phase implementation, planning revision | 300 | `build-phase.sh`, `plan-revision.sh` |
-| Greenfield planning, whole-repo review | 500–600 | `plan-new.sh`, `sprint-review.sh` |
+| Greenfield planning, whole-repo review | 500–600 | `plan-new.sh`, `review-sprint.sh` |
 
 **Do not raise a cap to make a task fit.** Caps are reliability controls, not budget: per-context reliability decays as in-context memory grows, which is why the two halves of `revision.sh` get 200 each rather than one run getting 400. A run that keeps hitting its cap is telling you the task is **mis-routed** — it wants the next workflow up, behind a written plan — not that the number is too small.
 

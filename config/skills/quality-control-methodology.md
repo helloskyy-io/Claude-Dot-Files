@@ -173,7 +173,7 @@ Apply the six dimensions to the PLAN itself — not yet-existing code:
 
 Plans can be compromised before any code is written. Catch it at planning time.
 
-### Sprint Review (sprint-review)
+### Sprint Review (review-sprint)
 
 Apply the six dimensions across the sprint's whole body of work. Focus on cumulative quality:
 - Is the sprint's output enterprise-grade AS A WHOLE?

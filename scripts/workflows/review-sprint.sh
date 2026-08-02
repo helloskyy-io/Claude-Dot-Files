@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# sprint-review.sh — the SPRINT-REVIEW workflow
+# review-sprint.sh — the SPRINT-REVIEW workflow
 # Comprehensive end-of-sprint review covering security, refactoring, testing,
 # and synthesis across the whole repo.
 #
 # This is a holistic sprint-end workflow. Unlike per-PR reviews which look at
-# specific changes, sprint-review takes a wholistic view of the codebase:
+# specific changes, review-sprint takes a wholistic view of the codebase:
 # - Whole-repo security audit (latent vulnerabilities, not just sprint diff)
 # - Whole-repo refactoring assessment (structural patterns, tech debt)
 # - Suite-quality testing review (coverage gaps + tool assessment)
@@ -14,7 +14,7 @@
 # - Opus synthesizes specialist reports into an executive summary
 #
 # Output: a PR containing the consolidated review report at
-# docs/development/reviews/sprint-review-YYYY-MM-DD.md plus any newly created
+# docs/development/reviews/review-sprint-YYYY-MM-DD.md plus any newly created
 # test files. The PR body has structured sections per specialist agent.
 #
 # Replaces: sprint-test.sh (the prior testing-only sprint workflow). This
@@ -37,16 +37,16 @@
 # whole?" — a different lens.
 #
 # Usage:
-#   ./sprint-review.sh
-#   ./sprint-review.sh --sprint "Sprint 1"
-#   ./sprint-review.sh --verbose
-#   ./sprint-review.sh --sprint "Sprint 2" --verbose
-#   ./sprint-review.sh --pr 42 --verbose
+#   ./review-sprint.sh
+#   ./review-sprint.sh --sprint "Sprint 1"
+#   ./review-sprint.sh --verbose
+#   ./review-sprint.sh --sprint "Sprint 2" --verbose
+#   ./review-sprint.sh --pr 42 --verbose
 #
 # Examples (flags FIRST):
-#   sprint-review.sh --verbose
-#   sprint-review.sh --sprint "Sprint 1 — Cluster Provisioning" --verbose
-#   sprint-review.sh --pr 42 --verbose --task-file /tmp/sprint-context.md
+#   review-sprint.sh --verbose
+#   review-sprint.sh --sprint "Sprint 1 — Cluster Provisioning" --verbose
+#   review-sprint.sh --pr 42 --verbose --task-file /tmp/sprint-context.md
 #
 # Flags:
 #   --sprint <name>      Human-readable sprint identifier for the report title
@@ -55,7 +55,7 @@
 #   --verbose, -v        Stream formatted Claude output live
 #
 # Logging:
-#   Every run writes a structured JSONL log to .claude/logs/sprint-review-<ts>.jsonl
+#   Every run writes a structured JSONL log to .claude/logs/review-sprint-<ts>.jsonl
 #
 # See docs/standards/workflow-scripts.md for the standard this script follows.
 
@@ -194,11 +194,11 @@ cd "$REPO_ROOT"
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 TODAY=$(date +%Y-%m-%d)
-WORKTREE_NAME="sprint-review-${TIMESTAMP}"
-REPORT_FILE_REL="docs/development/reviews/sprint-review-${TODAY}.md"
+WORKTREE_NAME="review-sprint-${TIMESTAMP}"
+REPORT_FILE_REL="docs/development/reviews/review-sprint-${TODAY}.md"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/sprint-review-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/review-sprint-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # Build sprint label for the prompt
@@ -230,7 +230,7 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="sprint-review"
+MODEL_KEY="review-sprint"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/activities/run-claude.sh"
 
@@ -278,7 +278,7 @@ Establish the sprint context and repo structure before specialist analysis dispa
 
 2. **Components touched this sprint:** list components/modules that received material changes during the sprint window. This focuses specialist analysis later.
 
-3. **Prior sprint reviews:** look for prior `docs/development/reviews/sprint-review-*.md` files. If they exist, scan for findings that were deferred or marked watch-for — those should be checked against current state.
+3. **Prior sprint reviews:** look for prior `docs/development/reviews/review-sprint-*.md` files. If they exist, scan for findings that were deferred or marked watch-for — those should be checked against current state.
 
 4. **CPI decisions log:** read `CLAUDE_DOT_FILES_ROOT/docs/development/cpi-decisions.md` (the path is provided in the workflow context — it points at the claude-dot-files repo, not the analyzed repo). This log lists every finding from prior CPI cycles with explicit watch-criteria. Use it as input to Stage 5 (Synthesize): findings in this run that match a prior deferral's watch-criteria should be flagged as **recurrences** with the original deferral context, raising their priority for shipping. The synthesized executive summary should explicitly call out which findings are NEW vs RECURRING (with cycle reference).
 
@@ -300,7 +300,7 @@ Dispatch all THREE peer-review specialists — security-auditor, refactoring-eva
 
 #### security-auditor — WHOLE-REPO security audit
 
-Scope: the entire codebase, not just sprint diff. The point of sprint-review's security pass is finding LATENT vulnerabilities (issues that have always existed but were never reviewed) — different from per-PR review which catches new bugs.
+Scope: the entire codebase, not just sprint diff. The point of review-sprint's security pass is finding LATENT vulnerabilities (issues that have always existed but were never reviewed) — different from per-PR review which catches new bugs.
 
 Focus areas:
 - Entry points: network handlers, API surfaces, user input boundaries, file I/O
@@ -361,7 +361,7 @@ quality-control applies the senior-engineer integration test to the sprint as a 
 - Did the team's quality bar hold across the sprint, or did it slip on later work?
 - Are there cross-cutting quality concerns the narrow specialists miss because they're each looking at one lens?
 
-See `quality-control-methodology` skill for the full six-dimension lens (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor), severity calibration, and sprint-review application context.
+See `quality-control-methodology` skill for the full six-dimension lens (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor), severity calibration, and review-sprint application context.
 
 quality-control runs SEQUENTIALLY (after 2a) because its lens benefits from seeing 2a's findings.
 
@@ -454,7 +454,7 @@ STAGES_EOF
 RULES=$(cat <<'RULES_EOF'
 Rules:
 - Follow each stage in order — do not skip stages
-- This is a SPRINT REVIEW — focus WHOLISTIC, not nitpicking. Per-PR review already covers fine-grained correctness; sprint-review is the "how is the codebase doing as a whole?" lens.
+- This is a SPRINT REVIEW — focus WHOLISTIC, not nitpicking. Per-PR review already covers fine-grained correctness; review-sprint is the "how is the codebase doing as a whole?" lens.
 - **Surface-only mode for refactoring and security findings:** do NOT auto-apply refactoring suggestions or security fixes. Findings go in the report and PR body for human review. Test creation IS allowed (Stage 4) — that's the established low-risk pattern carried over from sprint-test.sh.
 - Do NOT modify source code outside Stage 4's test-file creation. The workflow's job is to surface findings, not unilaterally fix them.
 - **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER `cd` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use `(cd <worktree-abs-path> && command)` in a subshell rather than a top-level `cd`.
@@ -512,7 +512,7 @@ ${STAGES_1_TO_5}
 ## Stage 6: SUBMIT
 
 - Write the consolidated review report to \`${REPORT_FILE_REL}\` containing all sections (executive summary from Stage 5, security findings, refactoring observations, testing review + suite tooling assessment, test results, tests created summary).
-- Stage all changes (the report file + any test files created in Stage 4) and commit with the final message format: \"sprint-review: <sprint label or date> — comprehensive end-of-sprint review\"
+- Stage all changes (the report file + any test files created in Stage 4) and commit with the final message format: \"review-sprint: <sprint label or date> — comprehensive end-of-sprint review\"
 - Push the branch (this updates PR #${PR_NUMBER})
 - **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
 - Update the PR body to mirror the report's section structure:
@@ -531,7 +531,7 @@ ${DECISION_LOG_AND_REFLECTION}
 ${RULES}"
 
     echo
-    echo "→ Launching Claude in sprint-review mode (updating PR #${PR_NUMBER})..."
+    echo "→ Launching Claude in review-sprint mode (updating PR #${PR_NUMBER})..."
     echo
 
     (
@@ -555,9 +555,9 @@ ${STAGES_1_TO_5}
 ## Stage 6: SUBMIT
 
 - Write the consolidated review report to \`${REPORT_FILE_REL}\` containing all sections (executive summary from Stage 5, security findings, refactoring observations, testing review + suite tooling assessment, test results, tests created summary).
-- Stage all changes (the report file + any test files created in Stage 4) and commit with the final message format: \"sprint-review: <sprint label or date> — comprehensive end-of-sprint review\"
+- Stage all changes (the report file + any test files created in Stage 4) and commit with the final message format: \"review-sprint: <sprint label or date> — comprehensive end-of-sprint review\"
 - Push the branch
-- Create a new PR using 'gh pr create'. Title format: \"sprint-review: <sprint label or date>\". The PR body should mirror the report's section structure:
+- Create a new PR using 'gh pr create'. Title format: \"review-sprint: <sprint label or date>\". The PR body should mirror the report's section structure:
   - **Executive Summary** (Opus synthesis from Stage 5 — top findings, priority order, codebase health assessment in 2-3 paragraphs)
   - **Security Findings** (security-auditor section — Critical/High/Medium/Low with file:line citations)
   - **Refactoring Observations** (refactoring-evaluator section — High/Medium/Low priorities)
@@ -573,7 +573,7 @@ ${DECISION_LOG_AND_REFLECTION}
 
 ${RULES}"
 
-    echo "→ Launching Claude in sprint-review mode (new branch)..."
+    echo "→ Launching Claude in review-sprint mode (new branch)..."
     echo
 
     run_claude "$PROMPT" -w "$WORKTREE_NAME"

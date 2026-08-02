@@ -68,7 +68,7 @@ Claude works independently on a planned task, creates a PR, and notifies you whe
 ./scripts/workflows/build-phase.sh docs/development/phases/phase-1.md "follow all standards" --verbose
 
 # End-of-sprint review (6 stages: discover → parallel specialists → QC → build missing tests → synthesize → PR)
-./scripts/workflows/sprint-review.sh --sprint "Sprint 1" --verbose
+./scripts/workflows/review-sprint.sh --sprint "Sprint 1" --verbose
 
 # CPI loop: analyze recent workflow logs, produce an improvement report
 ./scripts/workflows/review-runs.sh --days 21

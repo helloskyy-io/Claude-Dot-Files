@@ -1,6 +1,6 @@
 # Continuous Process Improvement (CPI) Cycle
 
-This is the operating manual for the CPI cycle — the recurring review-decide-log loop that improves the autonomous workflows over time. The cycle uses `review-runs.sh` (or `sprint-review.sh`) to surface findings from real workflow runs, an interactive architecture session to decide each finding's fate, and `cpi-decisions.md` as the persistent log that carries context across cycles.
+This is the operating manual for the CPI cycle — the recurring review-decide-log loop that improves the autonomous workflows over time. The cycle uses `review-runs.sh` (or `review-sprint.sh`) to surface findings from real workflow runs, an interactive architecture session to decide each finding's fate, and `cpi-decisions.md` as the persistent log that carries context across cycles.
 
 ## What CPI is, and why we run it
 
@@ -12,7 +12,7 @@ The output is incremental, evidence-based improvements to workflow scripts, agen
 
 - **Weekly-ish** is the natural rhythm. Every 5-10 days of accumulated workflow runs is enough to surface real patterns; less and you're looking at noise.
 - **When warranted, not on a strict schedule.** If the last cycle just shipped fixes, give the new prompts time to produce post-fix logs before reviewing again. Running CPI on the same week's logs twice rarely surfaces new signal.
-- **Sprint-review is its own cycle.** `sprint-review.sh` runs at end-of-sprint and is comprehensive (security + refactoring + tests). CPI / `review-runs` runs more frequently and is meta-review of the workflow tooling itself. They feed the same decisions log but answer different questions.
+- **Sprint-review is its own cycle.** `review-sprint.sh` runs at end-of-sprint and is comprehensive (security + refactoring + tests). CPI / `review-runs` runs more frequently and is meta-review of the workflow tooling itself. They feed the same decisions log but answer different questions.
 
 ## Prerequisites
 
@@ -84,7 +84,7 @@ For REJECTED items:
 
 Add a cycle entry to `cpi-decisions.md` with:
 
-- Date heading: `## YYYY-MM-DD — review-runs cycle (<repo names>)` or `## YYYY-MM-DD — sprint-review run #N` or `## YYYY-MM-DD — ad-hoc reflection`
+- Date heading: `## YYYY-MM-DD — review-runs cycle (<repo names>)` or `## YYYY-MM-DD — review-sprint run #N` or `## YYYY-MM-DD — ad-hoc reflection`
 - One-line context (what triggered the cycle, sample size)
 - `### SHIPPED`, `### DEFERRED — watch-list`, `### REJECTED` subsections as applicable
 - Each finding gets evidence + decision + reasoning + (for DEFERRED) watch-criteria
@@ -120,11 +120,11 @@ The log is the long-term memory of CPI. It serves four functions:
 3. **Calibration history** — append-only structure shows how often we defer correctly vs. incorrectly. Useful for tuning the discipline over time.
 4. **Re-litigation prevention** — REJECTED entries with reasoning prevent the same finding from coming back next cycle without new evidence.
 
-The log lives at `claude-dot-files/docs/development/cpi-decisions.md`. Both `review-runs.sh` and `sprint-review.sh` cross-reference it in their prompts.
+The log lives at `claude-dot-files/docs/development/cpi-decisions.md`. Both `review-runs.sh` and `review-sprint.sh` cross-reference it in their prompts.
 
-## Relationship to `sprint-review.sh`
+## Relationship to `review-sprint.sh`
 
-| Aspect | `review-runs.sh` (CPI) | `sprint-review.sh` |
+| Aspect | `review-runs.sh` (CPI) | `review-sprint.sh` |
 |---|---|---|
 | Subject | Workflow tooling logs | Project code, tests, security |
 | Cadence | Weekly-ish | End of sprint |
@@ -134,9 +134,9 @@ The log lives at `claude-dot-files/docs/development/cpi-decisions.md`. Both `rev
 | Where project findings go | n/a (subject is tooling) | Project-side: loose-ends, phase docs, sprint review report |
 | Both apply | Engineering-quality discipline | Engineering-quality discipline |
 
-They are different cycles asking different questions. CPI asks "is the workflow tooling getting better?" Sprint-review asks "is the project code getting better?" Both produce findings, but only ONE category lands in `cpi-decisions.md`: findings about claude-dot-files tooling (workflow scripts, agents, skills, rules). Project-code findings from sprint-review stay **project-side** — in the project's loose-ends tracking, phase docs, or sprint-review report. They follow the same ship/defer/reject discipline regardless of destination.
+They are different cycles asking different questions. CPI asks "is the workflow tooling getting better?" Sprint-review asks "is the project code getting better?" Both produce findings, but only ONE category lands in `cpi-decisions.md`: findings about claude-dot-files tooling (workflow scripts, agents, skills, rules). Project-code findings from review-sprint stay **project-side** — in the project's loose-ends tracking, phase docs, or review-sprint report. They follow the same ship/defer/reject discipline regardless of destination.
 
-Don't conflate the cadences either — running sprint-review weekly burns tokens; running CPI per-sprint misses the weekly signal.
+Don't conflate the cadences either — running review-sprint weekly burns tokens; running CPI per-sprint misses the weekly signal.
 
 ### What belongs in `cpi-decisions.md` (and what doesn't)
 
@@ -148,7 +148,7 @@ The log is for **claude-dot-files-level decisions ONLY**.
 - Decisions about skills (`standards-enforcement`, `project-organization`, etc.)
 - Decisions about rules (`engineering-quality.md`, etc.)
 - CPI methodology refinements (the cycle itself)
-- Meta-findings from `sprint-review` or `review-runs` about how the workflow performed
+- Meta-findings from `review-sprint` or `review-runs` about how the workflow performed
 
 **Does NOT belong:**
 - Project-code tech debt (belongs in project's loose-ends)
@@ -172,7 +172,7 @@ The log is for **claude-dot-files-level decisions ONLY**.
 ## Cross-references
 
 - `scripts/workflows/review-runs.sh` — the analysis script
-- `scripts/workflows/sprint-review.sh` — the comprehensive end-of-sprint script
+- `scripts/workflows/review-sprint.sh` — the comprehensive end-of-sprint script
 - `docs/development/cpi-decisions.md` — the persistent log
 - `docs/development/reviews/` — generated reports
 - `config/agents/workflow-analyst.md` — the analyst agent invoked by `review-runs.sh`

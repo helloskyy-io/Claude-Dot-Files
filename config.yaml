@@ -86,7 +86,7 @@ models:
   build-phase: opus             # phase implementation — the default engineer
   plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
   plan-revision: opus           # planning revision (was fable — see 2026-07-27 economics retier)
-  sprint-review: opus           # holistic end-of-sprint judgment
+  review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
   research-refresh: opus        # research revalidation — orchestration + synthesis diff

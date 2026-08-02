@@ -38,6 +38,6 @@ Persistent record of every CPI decision (ship / defer / reject) lives at `~/Repo
 
 **Append-only:** entries don't get deleted. When a previously-deferred item finally ships, the original deferral entry gets amended with "→ SHIPPED at <commit>" rather than removed. This preserves the calibration history (how often did we correctly defer noise vs incorrectly defer real patterns).
 
-The `review-runs.sh` and `sprint-review.sh` workflows automatically cross-reference the log when generating new reports — findings that match prior deferrals are flagged as recurrences with the original context.
+The `review-runs.sh` and `review-sprint.sh` workflows automatically cross-reference the log when generating new reports — findings that match prior deferrals are flagged as recurrences with the original context.
 
 For the full CPI cycle methodology, see `docs/guide/cpi-cycle.md`.

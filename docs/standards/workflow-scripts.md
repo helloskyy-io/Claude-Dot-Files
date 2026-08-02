@@ -14,7 +14,7 @@ All workflow scripts live in `scripts/workflows/`. Helper libraries go in `scrip
 All workflow scripts live in `scripts/workflows/`. Shared helper libraries live in `scripts/workflows/lib/`. For the authoritative current inventory of workflow scripts, see `docs/guide/workflows.md` — that guide owns the canonical list. This standard governs structure and conventions, not inventory.
 
 ### Naming
-Script names use kebab-case matching the workflow's purpose, with `.sh` suffix. Use the `<verb>[-modifier]` pattern (e.g., `revision.sh`, `revision-minor.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`, `review-runs.sh`, `sprint-review.sh`).
+Script names use kebab-case matching the workflow's purpose, with `.sh` suffix. Use the `<verb>[-modifier]` pattern (e.g., `revision.sh`, `revision-minor.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`, `review-runs.sh`, `review-sprint.sh`).
 
 **Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 

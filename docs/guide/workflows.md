@@ -20,7 +20,7 @@
 | `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
 | `plan-revision.sh` | Revise existing planning docs | architect, planner, security-auditor, standards-architect | 300 |
 | `review-runs.sh` | CPI log analysis (see `cpi-cycle.md` for the full cycle) | workflow-analyst | 100 |
-| `sprint-review.sh` | Comprehensive end-of-sprint review (security + refactoring + testing + synthesis) | security-auditor, refactoring-evaluator, test-writer | 600 |
+| `review-sprint.sh` | Comprehensive end-of-sprint review (security + refactoring + testing + synthesis) | security-auditor, refactoring-evaluator, test-writer | 600 |
 
 ### Services (background, systemd)
 
@@ -91,7 +91,7 @@ Review-stage workflows dispatch a parallel **trio** (3 agents) by default. `plan
 
 **Why the extra agent on `plan-revision`:** `standards-architect` surfaces corpus-level implications (cross-document drift, gap detection, ADR candidates, bloat patterns) that the other three agents — focused on the immediate revision — don't catch. CPI cycles validated this across multiple separate runs where `standards-architect` findings were unique to its lens.
 
-Code-revision workflows (`revision-refine`, `build-phase`) keep the 3-agent trio because the review surface is narrower (specific files in a worktree, not corpus-wide), so the broader-lens agent isn't typically the binding constraint. `sprint-review.sh` uses a different 3-agent trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because it's whole-repo end-of-sprint review, where security and test-coverage lenses dominate.
+Code-revision workflows (`revision-refine`, `build-phase`) keep the 3-agent trio because the review surface is narrower (specific files in a worktree, not corpus-wide), so the broader-lens agent isn't typically the binding constraint. `review-sprint.sh` uses a different 3-agent trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because it's whole-repo end-of-sprint review, where security and test-coverage lenses dominate.
 
 All review-trios are dispatched in a single assistant message containing N `Agent` tool calls — multiple `Agent` calls in one message run concurrently, while splitting them across messages forces sequential execution and roughly doubles or triples wall time on the review stage.
 

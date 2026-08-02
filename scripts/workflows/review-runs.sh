@@ -334,7 +334,7 @@ ${PROMPT_FILE_LIST}
    - Medium-Confidence Findings (with evidence, recommendation, needs)
    - Low-Confidence Findings (with watch-for notes)
    - Patterns Resolved Since Last Review (look for prior reviews matching \`review-${SOURCE_REPO_NAME}-*.md\` in the same directory — compare only against reviews of THIS repo)
-   - Recurrences from CPI Decisions Log (any finding in this report that matches a watch-criteria from \`${CLAUDE_DOT_FILES_ROOT}/docs/development/cpi-decisions.md\` — note the original deferral cycle and current evidence count, e.g., "TS-2 surface-only boundary ambiguity — DEFERRED at sprint-review run #1, 2026-05-03 — recurring this cycle, watch-criteria met")
+   - Recurrences from CPI Decisions Log (any finding in this report that matches a watch-criteria from \`${CLAUDE_DOT_FILES_ROOT}/docs/development/cpi-decisions.md\` — note the original deferral cycle and current evidence count, e.g., "TS-2 surface-only boundary ambiguity — DEFERRED at review-sprint run #1, 2026-05-03 — recurring this cycle, watch-criteria met")
    - Metrics (average turns, token usage, failure types, trends)
    - Summary (2-3 sentences: health, top priority, trend)
 

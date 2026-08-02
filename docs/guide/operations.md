@@ -82,6 +82,10 @@ As more long-running workflows get split into parent + children, `children/` is 
 
 ## Workflows
 
+**Naming is `<family>-<qualifier>`, and it is now uniform across the fleet.** The family is what the script *is*; the qualifier narrows it. `review-runs` and `review-sprint` are both reviews, of run logs and of a sprint. `revision-draft` and `revision-refine` are both revision steps, authoring and correcting. `plan-new` and `plan-revision` are both planning.
+
+Read backwards it is wrong — a PR is not a *type of thing that gets reviewed*, review is the family. Two scripts violated this (`pr-review`, `sprint-review`) and both were renamed; the value is that families now group in `ls`, and a new script's name is a decision you make once rather than a coin flip.
+
 Bash scripts that run Claude headless in an isolated git worktree and deliver a PR. Every run writes a JSONL log to `.claude/logs/<workflow>-<timestamp>.jsonl`. All accept `--verbose` (stream output live), `--repo <path>` (explicit target, never derived from cwd), and `--task-file <path>` where a task is taken.
 
 > **Flags FIRST, positional LAST.** Terminals line-wrap long commands; a trailing positional stays visible and editable when the front wraps. For anything multi-paragraph or containing quotes, write it to `/tmp/claude-<name>.md` and use `--task-file` — it bypasses command-line parsing entirely.
@@ -165,10 +169,10 @@ Reads `.claude/logs/` **from inside the repo whose runs you want analyzed** and 
 cd /opt/skyy-net/skyy-command && ~/Repos/claude-dot-files/scripts/workflows/review-runs.sh --days 21
 ```
 
-### `sprint-review.sh` — end-of-sprint whole-repo review (600 turns)
+### `review-sprint.sh` — end-of-sprint whole-repo review (600 turns)
 A different trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because the lens is whole-repo rather than per-PR: security and test coverage dominate.
 ```bash
-./scripts/workflows/sprint-review.sh --sprint "Sprint 1" --verbose
+./scripts/workflows/review-sprint.sh --sprint "Sprint 1" --verbose
 ```
 
 ### Sizing: which workflow?
