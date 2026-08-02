@@ -7,12 +7,12 @@
 # child runs. It calls no model itself, so it has no MODEL_KEY and no
 # COMPLETION_PATTERN — each child carries its own.
 #
-#   1. children/revision-minor-draft.sh   — writes the change, opens an UNREVIEWED PR
-#   2. children/revision-minor-refine.sh  — FRESH context: reviews and corrects it
+#   1. children/revision-draft-minor.sh   — writes the change, opens an UNREVIEWED PR
+#   2. children/revision-refine-minor.sh  — FRESH context: reviews and corrects it
 #   3. review-pr.sh                 — decide-only: MERGE, or HOLD + a runway
 #
 # review-pr is called at the TOP level, not from children/, and that is
-# deliberate. children/ means "ONLY a parent invokes this" — revision-minor-draft
+# deliberate. children/ means "ONLY a parent invokes this" — revision-draft-minor
 # alone produces an unreviewed PR that is never a deliverable. review-pr is a
 # complete, useful act on ANY returned PR whatever produced it, so it stays
 # independently dispatchable. A parent calling a top-level workflow is normal;
@@ -64,8 +64,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DRAFT="${SCRIPT_DIR}/children/revision-minor-draft.sh"
-REFINE="${SCRIPT_DIR}/children/revision-minor-refine.sh"
+DRAFT="${SCRIPT_DIR}/children/revision-draft-minor.sh"
+REFINE="${SCRIPT_DIR}/children/revision-refine-minor.sh"
 PR_REVIEW="${SCRIPT_DIR}/children/review-pr.sh"
 
 show_usage() {
@@ -74,8 +74,8 @@ Usage: $(basename "$0") "description of changes needed" [options]
        $(basename "$0") --task-file path/to/task.md [options]
 
 Runs the three-child minor-revision cycle:
-  1. revision-minor-draft   — writes the change, opens an unreviewed PR
-  2. revision-minor-refine  — FRESH context: fidelity, ONE review lens, corrections
+  1. revision-draft-minor   — writes the change, opens an unreviewed PR
+  2. revision-refine-minor  — FRESH context: fidelity, ONE review lens, corrections
   3. review-pr              — decide-only disposition: MERGE, or HOLD with a runway
 
 On HOLD(redispatch) the parent loops back ONCE (refine -> review-pr) and then
@@ -141,7 +141,7 @@ if [[ -n "$PR_NUMBER" && ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
     echo "Error: --pr requires a positive integer" >&2; exit 1
 fi
 # Validate here as well as in the children. The children would catch it, but the
-# failure would arrive wrapped in "revision-minor-draft FAILED", which reads like a
+# failure would arrive wrapped in "revision-draft-minor FAILED", which reads like a
 # model failure rather than a typo in the path.
 if [[ -n "$TASK_FILE" && ! -r "$TASK_FILE" ]]; then
     echo "Error: task file not readable: ${TASK_FILE}" >&2; exit 1
@@ -173,9 +173,9 @@ if [[ -n "$PR_NUMBER" ]]; then
 else
     echo "  Target      : new branch and PR"
 fi
-echo "  Child 1     : revision-minor-draft   (writes the change)"
-echo "  Child 2     : revision-minor-refine  (fresh context: one lens, corrects)"
-echo "  Child 3     : review-pr        (decide-only: MERGE | HOLD + runway)"
+echo "  Child 1     : revision-draft-minor   (writes the change)"
+echo "  Child 2     : revision-refine-minor  (fresh context: one lens, corrects)"
+echo "  Child 3     : review-pr              (decide-only: MERGE | HOLD + runway)"
 echo "  On HOLD     : ONE loop-back (refine → review-pr), then stop. Never twice."
 echo "================================================================"
 echo
@@ -186,13 +186,13 @@ echo
 DRAFT_ARGS=("${CHILD_ARGS[@]}")
 [[ -n "$PR_NUMBER" ]] && DRAFT_ARGS+=(--pr "$PR_NUMBER")
 
-echo "→ [1/3] revision-minor-draft…"
+echo "→ [1/3] revision-draft-minor…"
 echo
 DRAFT_LOG="$(mktemp)"
 TMP_LOGS+=("$DRAFT_LOG")
 if ! "$DRAFT" "${DRAFT_ARGS[@]}" "${TASK_ARGS[@]}" 2>&1 | tee "$DRAFT_LOG"; then
     echo >&2
-    echo "✗ revision-minor-draft FAILED — stopping before refine." >&2
+    echo "✗ revision-draft-minor FAILED — stopping before refine." >&2
     echo "  Nothing was reviewed. Inspect the draft output above; the worktree (if any) persists." >&2
     exit 1
 fi
@@ -202,7 +202,7 @@ fi
 PR_URL=$(grep -oE 'https://github\.com/[^ )]+/pull/[0-9]+' "$DRAFT_LOG" | tail -1)
 if [[ -z "$PR_URL" ]]; then
     echo >&2
-    echo "✗ revision-minor-draft produced no PR URL — cannot hand off to refine." >&2
+    echo "✗ revision-draft-minor produced no PR URL — cannot hand off to refine." >&2
     echo "  The draft step must open (or update) a PR and print its URL as its final line." >&2
     exit 1
 fi
@@ -238,11 +238,11 @@ run_refine() {
     local args=("${CHILD_ARGS[@]}" "$@")
     $CI_UNSETTLED && args+=(--ci-unsettled)
 
-    echo "→ ${label} revision-minor-refine on PR #${DRAFT_PR}…"
+    echo "→ ${label} revision-refine-minor on PR #${DRAFT_PR}…"
     echo
     if ! "$REFINE" "${args[@]}" --pr "$DRAFT_PR" "${TASK_ARGS[@]}"; then
         echo >&2
-        echo "✗ revision-minor-refine FAILED on PR #${DRAFT_PR}." >&2
+        echo "✗ revision-refine-minor FAILED on PR #${DRAFT_PR}." >&2
         echo "  The PR EXISTS and is unreviewed — it must not be merged as-is." >&2
         echo "  Re-run just the review step:" >&2
         echo "    ${REFINE} --pr ${DRAFT_PR} <the same task>" >&2
@@ -254,7 +254,7 @@ run_refine() {
 # run_pr_review <label> — the disposition child; echoes its routing token
 # ---------------------------------------------------------------------------
 # review-pr lives at the TOP level, not in children/, and is called in place.
-# children/ means "only a parent invokes this" — revision-minor-draft alone produces
+# children/ means "only a parent invokes this" — revision-draft-minor alone produces
 # an unreviewed PR that is never a deliverable. review-pr is a complete, useful
 # act on ANY returned PR regardless of which workflow produced it, so it stays
 # independently dispatchable. A parent calling a top-level workflow is normal:

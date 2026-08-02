@@ -109,8 +109,8 @@ Called automatically by every parent that produces a PR. Mines the place a run t
 ./scripts/workflows/children/review-pr.sh --pr 42
 ```
 
-### `children/revision-minor-draft.sh` · `children/revision-minor-refine.sh` — children of `revision-minor.sh`
-Same roles as the pair below, one tier lighter. `revision-minor-refine` reviews with `code-reviewer` alone: at this scope the dominant risk is a change that is simply **wrong** (inverted condition, off-by-one, a missed case), not a design that will not scale — and correctness is the lens that catches that class.
+### `children/revision-draft-minor.sh` · `children/revision-refine-minor.sh` — children of `revision-minor.sh`
+Same roles as the pair below, one tier lighter. `revision-refine-minor` reviews with `code-reviewer` alone: at this scope the dominant risk is a change that is simply **wrong** (inverted condition, off-by-one, a missed case), not a design that will not scale — and correctness is the lens that catches that class.
 
 ### `children/revision-draft.sh` · `children/revision-refine.sh` — children of `revision.sh`
 **Not dispatched directly** in normal use. `revision-refine.sh --pr <N> "<the same task>"` is the recovery path when the review half fails and the draft PR is sitting unreviewed — pass the *same* task, or refine loses its fidelity check.
@@ -119,7 +119,7 @@ Same roles as the pair below, one tier lighter. `revision-minor-refine` reviews 
 ```
 
 ### `revision-minor.sh` — small scoped fixes (PARENT)
-The light tier, and **deliberately the same three-child shape as `revision.sh`** so there is one mental model rather than two: draft → refine → review-pr, with the same single bounded loop-back. The difference is entirely in the middle child — `revision-minor-refine` runs **one** review lens (`code-reviewer`) instead of four, on a cheaper model with half the turn budget. Roughly **$7 against $25–50**.
+The light tier, and **deliberately the same three-child shape as `revision.sh`** so there is one mental model rather than two: draft → refine → review-pr, with the same single bounded loop-back. The difference is entirely in the middle child — `revision-refine-minor` runs **one** review lens (`code-reviewer`) instead of four, on a cheaper model with half the turn budget. Roughly **$7 against $25–50**.
 
 The draft child's Stage 1 still stops and escalates to `revision.sh` if the task turns out bigger than it looked. And if the review keeps surfacing *structural or standards* problems rather than correctness ones, that is a routing signal — the task was mis-sized for this tier.
 ```bash

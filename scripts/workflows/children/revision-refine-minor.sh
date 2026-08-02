@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# revision-minor-refine.sh — the REVISION-MINOR-REFINE child (CHILD of revision-minor.sh)
+# revision-refine-minor.sh — the REVISION-MINOR-REFINE child (CHILD of revision-minor.sh)
 # Reviews and corrects a draft PR with a FRESH context. Requires --pr.
 #
 # NOT INVOKED DIRECTLY by PMs — the parent `revision.sh` runs
@@ -24,8 +24,8 @@
 #   5. SUBMIT — commit, push, update the PR
 #
 # Usage:
-#   ./revision-minor-refine.sh --pr <N> "the original task text"
-#   ./revision-minor-refine.sh --pr <N> --task-file /tmp/task.md --verbose
+#   ./revision-refine-minor.sh --pr <N> "the original task text"
+#   ./revision-refine-minor.sh --pr <N> --task-file /tmp/task.md --verbose
 #
 # Flags:
 #   --pr <number>   REQUIRED — the draft PR to review and correct
@@ -92,7 +92,7 @@ line-wrap and keeps options visible):
   $(basename "$0") --verbose --pr 22 --task-file /tmp/rework.md
   $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
-Reviews and corrects a revision-minor-draft PR with ONE lens (code-reviewer).
+Reviews and corrects a revision-draft-minor PR with ONE lens (code-reviewer).
 Normally run by the parent (scripts/workflows/revision-minor.sh), not directly.
 EOF
 }
@@ -207,10 +207,10 @@ require_environment "$REPO_TARGET" "$FORMATTER"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-minor-refine-${TIMESTAMP}"
+WORKTREE_NAME="revision-refine-minor-${TIMESTAMP}"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-minor-refine-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/revision-refine-minor-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
@@ -249,7 +249,7 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision-minor-refine"
+MODEL_KEY="revision-refine-minor"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/../activities/run-claude.sh"
 
@@ -425,7 +425,7 @@ ${CORRECTION_NOTE}
 ${STAGES_2_TO_4}
 
 ## Stage 5: SUBMIT
-- Stage any uncommitted changes remaining from stages 2-4 (fidelity and review fixes) and commit them with the final message format: \"revision-minor-refine: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+- Stage any uncommitted changes remaining from stages 2-4 (fidelity and review fixes) and commit them with the final message format: \"revision-refine-minor: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - **Update the PR's SELF-DESCRIPTION**: the PR body must describe what the PR NOW contains, and docs/file_structure.txt must reflect any files added/removed/renamed. A fix that leaves the PR's own description stale mechanically manufactures findings for the next review pass (measured: 1-2 per round, and one pass found ZERO code defects — only self-description drift).
 - Push the branch (this updates PR #${PR_NUMBER})
 - **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.

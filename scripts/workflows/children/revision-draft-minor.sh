@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# revision-minor-draft.sh — the REVISION-MINOR-DRAFT child (CHILD of revision-minor.sh)
+# revision-draft-minor.sh — the REVISION-MINOR-DRAFT child (CHILD of revision-minor.sh)
 # Minor corrections and fixes to existing code.
 #
 # The light sibling of revision.sh. revision.sh is the reviewed two-step parent
@@ -204,13 +204,13 @@ cd "$REPO_ROOT"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-minor-draft-${TIMESTAMP}"
+WORKTREE_NAME="revision-draft-minor-${TIMESTAMP}"
 
 # Log directory is always in the main repo .claude/logs (not inside worktrees)
 # Raw JSONL — lossless, can be read by Claude for diagnosis or piped through
 # the formatter on demand for human reading.
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-minor-draft-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/revision-draft-minor-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision-minor-draft"
+MODEL_KEY="revision-draft-minor"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/../activities/run-claude.sh"
 

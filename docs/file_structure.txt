@@ -147,8 +147,8 @@ claude-dot-files/
 │           ├── review-pr.sh                         # Disposition engine (decide-only) — every parent's last child. Verdict: MERGE | HOLD - redispatch | HOLD - needs-assistance
 │           ├── revision-draft.sh                    # Child 1 of revision.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
 │           ├── revision-refine.sh                   # Child 2 of revision.sh — FRESH context: fidelity, peer-review trio + quality-control, corrections
-│           ├── revision-minor-draft.sh              # Child 1 of revision-minor.sh — writes the scoped change (was the monolithic revision-minor.sh)
-│           └── revision-minor-refine.sh             # Child 2 of revision-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
+│           ├── revision-draft-minor.sh              # Child 1 of revision-minor.sh — writes the scoped change (was the monolithic revision-minor.sh)
+│           └── revision-refine-minor.sh             # Child 2 of revision-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
