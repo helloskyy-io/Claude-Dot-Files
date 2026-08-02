@@ -28,8 +28,8 @@ Children are **shared, not owned**: `review-pr` is the last child of every PR-pr
 
 | Child | Role | Agents Used | Max Turns |
 |---|---|---|---|
-| `revision-draft.sh` | Writes the change, opens an UNREVIEWED PR. Holds NO review authority | none | 200 |
-| `revision-refine.sh` | FRESH context: fidelity → peer review → resolve → verify | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 200 |
+| `revision-draft.sh` | Writes the change, opens an UNREVIEWED PR. Holds NO review authority | none | 250 |
+| `revision-refine.sh` | FRESH context: fidelity → peer review → resolve → verify | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 250 |
 | `revision-draft-minor.sh` | Same role, minor tier | none | 100 |
 | `revision-refine-minor.sh` | Same role, minor tier — **ONE** lens, because at this scope the risk is a change that is *wrong*, not a design that will not scale | code-reviewer | 100 |
 | `review-pr.sh` | Decide-only disposition → `MERGE` \| `HOLD - redispatch` \| `HOLD - needs-assistance` | none (it reads, it does not review code) | 120 |
@@ -54,8 +54,8 @@ Children are **shared, not owned**: `review-pr` is the last child of every PR-pr
 
 ```
 revision.sh  (parent — no model, no turn budget)
-  ├─ 1. children/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
-  ├─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity, review, corrections
+  ├─ 1. children/revision-draft.sh    250 turns   writes the change, opens an UNREVIEWED PR
+  ├─ 2. children/revision-refine.sh   250 turns   FRESH context: fidelity, review, corrections
   └─ 3. children/review-pr.sh         120 turns   decide-only: MERGE, or HOLD + a runway
         │
         ├─ MERGE                   → finish
@@ -95,10 +95,19 @@ than fails** — killing a run because Actions is slow trades a large loss for a
 small one — and passes `--ci-unsettled`, which makes refine state that the gate
 is unknown rather than emit a clean summary that was never gate-checked.
 
-**Turn budgets are per child**, not shared: draft gets 200 to analyse and code,
-refine gets its own 200 to review and correct. This is a **reliability control,
-not a capacity increase** — per-context budget went down (300 → 200), because
-reliability decays as in-context memory grows. Each child carries its own
+**Turn budgets are per child**, not shared: draft gets 250 to analyse and code,
+refine gets its own 250 to review and correct.
+
+**A cap is a RUNAWAY GUARD, not a budget.** An unused turn costs nothing — spend is driven by turns actually consumed, so raising a ceiling from 200 to 250 costs zero on every run that never reaches it, and only changes when the guard fires.
+
+This corrects an earlier framing that called caps "reliability controls." That conflated two separate things. A cap **cannot buy reliability** — it can only truncate. Reliability comes from scope discipline: the workflow-fit checks, the routing decision, the size of the task you hand a child. All a low ceiling does to a mis-scoped run is kill it partway and strand the work.
+
+The routing signal survives, but it now reads off **consumption, not termination**: a child that routinely *uses* most of its budget was probably mis-sized and wants the next workflow up. Watch the number it spends, not whether it hit the wall.
+
+The 200s these replaced were set when the split was unproven and a runaway was
+the live worry. Two burn-test cycles later the shape holds — the highest draft
+observed used 143 — so the ceilings were raised to sit clear of real work rather
+than near it. Each child carries its own
 `MODEL_KEY` (`revision-draft`, `revision-refine`) and its own completion
 contract; the parent's contract is the children's exit codes plus a PR URL.
 If draft fails, refine never runs. If refine fails, the parent says so loudly:

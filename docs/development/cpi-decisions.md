@@ -825,7 +825,7 @@ Both objections raised against it dissolved under scrutiny and are recorded so t
 1. **Does the fetch obligation actually reduce laundering, or relocate it?** The failure mode to watch is a fabricated `Verified by:` line — an attestation of an attestation. If that appears, the next move is not more prompt text; it is `pr-review` re-running the recorded command.
 2. **Does DEFERRED-with-fetch cannibalise FIXED?** A verified pointer is now cheap to produce. If deferral volume rises while fix volume falls, "fix by default" has lost to the path of least resistance.
 3. **Does the prior-art sweep get run, and does it ever find anything?** If it is silently skipped, the instruction needs a recorded observation the way the pointer rule now does.
-4. **Carried forward:** turn escalation past ~160/200 on draft; whether FIDELITY findings remain a distinct class; refine over-correction.
+4. **Carried forward:** ~~turn escalation past ~160/200 on draft~~ **RECALIBRATED 2026-08-02** — draft and refine caps raised 200 → 250, and the criterion re-based on CONSUMPTION rather than proximity-to-cap: a child routinely spending >180 turns is mis-sized and wants `build-phase.sh`, regardless of headroom. The cap is a runaway guard; it never bought reliability, and treating it as one produced a watch-criterion that measured the ceiling instead of the work. Also carried: whether FIDELITY findings remain a distinct class; refine over-correction.
 
 ---
 

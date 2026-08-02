@@ -220,11 +220,16 @@ The figures below were early estimates and ran low once agent dispatch and revie
 | Workflow class | Cap | Example |
 |---|---|---|
 | Light single-pass fix | 100 | `revision-minor.sh` |
-| Reviewed step in a parent workflow | 200 | `revision-draft.sh`, `revision-refine.sh` |
+| Reviewed child of a parent | 100–250 | `revision-refine-minor.sh` (100) · `revision-refine.sh` (250) |
+| Disposition (decide-only, no code written) | 120 | `children/review-pr.sh` |
 | Phase implementation, planning revision | 300 | `build-phase.sh`, `plan-revision.sh` |
 | Greenfield planning, whole-repo review | 500–600 | `plan-new.sh`, `review-sprint.sh` |
 
-**Do not raise a cap to make a task fit.** Caps are reliability controls, not budget: per-context reliability decays as in-context memory grows, which is why the two halves of `revision.sh` get 200 each rather than one run getting 400. A run that keeps hitting its cap is telling you the task is **mis-routed** — it wants the next workflow up, behind a written plan — not that the number is too small.
+**A cap is a RUNAWAY GUARD, not a budget.** An unused turn costs nothing — spend is driven by turns actually consumed, so raising a ceiling from 200 to 250 costs zero on every run that never reaches it, and only changes when the guard fires.
+
+This corrects an earlier framing that called caps "reliability controls." That conflated two separate things. A cap **cannot buy reliability** — it can only truncate. Reliability comes from scope discipline: the workflow-fit checks, the routing decision, the size of the task you hand a child. All a low ceiling does to a mis-scoped run is kill it partway and strand the work.
+
+The routing signal survives, but it now reads off **consumption, not termination**: a child that routinely *uses* most of its budget was probably mis-sized and wants the next workflow up. Watch the number it spends, not whether it hit the wall.
 
 **Make a cap kill loud.** Turn-cap termination happens at roughly 0.9% of runs, but when it does, work sits uncommitted in a worktree and nothing says so. Detect it (`"subtype":"error_max_turns"` in the JSONL) and print the worktree path — recovery is minutes once you know where to look, and indefinite when you don't.
 

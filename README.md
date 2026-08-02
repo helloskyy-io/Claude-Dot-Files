@@ -87,9 +87,9 @@ So `revision.sh` is a **parent**: pure bash orchestration over two independent h
 ```
 revision.sh  (parent — no model, no turn budget of its own)
   │
-  ├─ 1. children/revision-draft.sh    200 turns   writes the change, opens an UNREVIEWED PR
+  ├─ 1. children/revision-draft.sh    250 turns   writes the change, opens an UNREVIEWED PR
   │        ↓  handoff = git + the original task
-  ├─ 2. children/revision-refine.sh   200 turns   FRESH context: fidelity → review → resolve → verify
+  ├─ 2. children/revision-refine.sh   250 turns   FRESH context: fidelity → review → resolve → verify
   │        ↓  handoff = git + the original task
   └─ 3. review-pr.sh                  120 turns   decide-only: MERGE, or HOLD + a runway
            ↳ HOLD(redispatch) → ONE loop-back, then stop. HOLD(needs-assistance) → stop now.

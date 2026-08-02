@@ -185,7 +185,11 @@ A different trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) 
 | Planning docs | `plan-revision.sh` (existing) / `plan-new.sh` (from scratch) | Different agents entirely |
 | A returned PR | `review-pr.sh` | Always, before merging |
 
-**Do not raise a turn cap to make a task fit.** The caps are reliability controls — per-context reliability decays as in-context memory grows, which is why the parent's children get 200 each rather than one run getting 400.
+**A cap is a RUNAWAY GUARD, not a budget.** An unused turn costs nothing — spend is driven by turns actually consumed, so raising a ceiling from 200 to 250 costs zero on every run that never reaches it, and only changes when the guard fires.
+
+This corrects an earlier framing that called caps "reliability controls." That conflated two separate things. A cap **cannot buy reliability** — it can only truncate. Reliability comes from scope discipline: the workflow-fit checks, the routing decision, the size of the task you hand a child. All a low ceiling does to a mis-scoped run is kill it partway and strand the work.
+
+The routing signal survives, but it now reads off **consumption, not termination**: a child that routinely *uses* most of its budget was probably mis-sized and wants the next workflow up. Watch the number it spends, not whether it hit the wall.
 
 ---
 
