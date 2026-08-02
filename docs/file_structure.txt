@@ -140,13 +140,15 @@ claude-dot-files/
 │       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side gate, clean no-op; --pr gates on that PR's pool)
 │       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
 │       ├── revision.sh                              # REVISION — PARENT: pure-bash orchestration of revision-draft then revision-refine (no model of its own)
-│       ├── revision-minor.sh                        # REVISION-MINOR — light single-pass corrections, no review agents
+│       ├── revision-minor.sh                        # REVISION-MINOR — PARENT: draft → refine (ONE lens) → review-pr. Same shape as revision.sh, lighter middle child
 │       ├── sprint-review.sh                         # SPRINT-REVIEW — comprehensive end-of-sprint review
 │       └── children/                                # Child WORKFLOWS — full workflows (own model key, turn budget, worktree) INVOKED BY A PARENT, not dispatched by you.
 │                                                    #   Children are SHARED, not owned: review-pr is called by every PR-producing parent. Not namespaced per parent.
 │           ├── review-pr.sh                         # Disposition engine (decide-only) — every parent's last child. Verdict: MERGE | HOLD - redispatch | HOLD - needs-assistance
 │           ├── revision-draft.sh                    # Child 1 of revision.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
-│           └── revision-refine.sh                   # Child 2 of revision.sh — FRESH context: fidelity check, peer-review trio + quality-control, corrections
+│           ├── revision-refine.sh                   # Child 2 of revision.sh — FRESH context: fidelity, peer-review trio + quality-control, corrections
+│           ├── revision-minor-draft.sh              # Child 1 of revision-minor.sh — writes the scoped change (was the monolithic revision-minor.sh)
+│           └── revision-minor-refine.sh             # Child 2 of revision-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)

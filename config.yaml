@@ -79,7 +79,8 @@ gh-monitor:
 #
 # Changes take effect on the NEXT dispatch — no restarts required.
 models:
-  revision-minor: sonnet        # light single-pass fixes — speed over depth
+  revision-minor-draft: sonnet  # minor tier, child 1: writes the scoped change
+  revision-minor-refine: sonnet # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
   revision-draft: opus          # parent step 1: writes the change, opens an unreviewed PR
   revision-refine: opus         # parent step 2: FRESH context — fidelity, review, corrections
   build-phase: opus             # phase implementation — the default engineer

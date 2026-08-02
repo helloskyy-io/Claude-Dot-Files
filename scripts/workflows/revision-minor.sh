@@ -1,87 +1,104 @@
 #!/usr/bin/env bash
 #
-# revision-minor.sh — the REVISION-MINOR workflow
-# Minor corrections and fixes to existing code.
+# revision-minor.sh — the REVISION-MINOR workflow (PARENT)
+# Minor scoped corrections, delivered as a reviewed PR.
 #
-# The light sibling of revision.sh. revision.sh is the reviewed two-step parent
-# (draft run, then a FRESH-context review run); this is a single pass with no
-# review agents, for changes where a review cycle would cost more than it finds.
-# Stage 1 carries a WORKFLOW-FIT CHECK that stops and escalates to revision.sh
-# when the task turns out to be bigger than that.
+# This is a PARENT workflow: pure bash orchestration over two independent
+# child runs. It calls no model itself, so it has no MODEL_KEY and no
+# COMPLETION_PATTERN — each child carries its own.
 #
-# This is the lightest autonomous workflow in the dual-flow model. It:
-#   1. Assesses what needs to change
-#   2. Implements minimal, focused changes
-#   3. Runs tests and fixes any failures
-#   4. Commits, pushes, and either creates or updates a PR
+#   1. children/revision-minor-draft.sh   — writes the change, opens an UNREVIEWED PR
+#   2. children/revision-minor-refine.sh  — FRESH context: reviews and corrects it
+#   3. review-pr.sh                 — decide-only: MERGE, or HOLD + a runway
+#
+# review-pr is called at the TOP level, not from children/, and that is
+# deliberate. children/ means "ONLY a parent invokes this" — revision-minor-draft
+# alone produces an unreviewed PR that is never a deliverable. review-pr is a
+# complete, useful act on ANY returned PR whatever produced it, so it stays
+# independently dispatchable. A parent calling a top-level workflow is normal;
+# the composition graph is not a tree, which is what makes these recombinable.
+#
+# ON A HOLD THE PARENT LOOPS BACK EXACTLY ONCE. Self-correction plateaus at
+# ~3-5 passes; past it the same model justifies rather than corrects (watched
+# directly: PR #224 pass 8 re-reviewed pass 7's unchanged tree and re-issued the
+# same runway). Counting across the pipeline — refine 1, review-pr 2, refine 3,
+# review-pr 4 — one loop-back lands inside the band and two would clear it. The
+# research sets the number, so it is not a flag.
+#
+# WHY TWO RUNS INSTEAD OF ONE LONG ONE — this is the whole point of the split:
+# the author of a change defends it. When one context both writes code and
+# dispositions the review findings about it, findings get dismissed rather
+# than fixed. Measured repeatedly on this fleet: defects survived engineer
+# self-review, four in-context review agents, and manual verification, then
+# fell to a fresh-eyes pass costing a few dollars. Splitting the run puts a
+# process boundary exactly where judgement happens. Neither child inherits the
+# other's context; the handoff is git (the PR, its diff, the draft's own
+# reflection) plus the original task, which BOTH children receive so refine
+# can check fidelity — did this deliver what was asked? — and not merely
+# internal quality.
+#
+# This is also the shape a durable-execution engine wants: deterministic
+# control flow outside, non-deterministic work inside independent activities.
+# Composition works today in bash; Temporal would add durability, not
+# composition.
 #
 # Usage:
-#   ./revision-minor.sh "description of what to revise"
-#   ./revision-minor.sh "description of what to revise" --pr <pr-number>
-#   ./revision-minor.sh "description" --verbose
+#   ./revision-minor.sh "description of changes needed" [options]
+#   ./revision-minor.sh --task-file path/to/task.md [options]
 #
-# Examples:
-#   ./revision-minor.sh "fix the null check in login()"
-#   ./revision-minor.sh "add error handling to the webhook handler"
-#   ./revision-minor.sh "correct the typo in the README header" --pr 42
-#   ./revision-minor.sh "update the import path" --verbose
+# Options:
+#   --pr <number>        Rework an EXISTING PR (draft updates it in place)
+#   --repo <path>        Target repo (explicit identity, never derived from cwd)
+#   --verbose, -v        Stream formatted Claude output live
 #
-# Flags:
-#   --pr <number>   Update an existing PR instead of creating a new one
-#   --verbose, -v   Stream formatted Claude output live (shows tool calls,
-#                   responses, and final token/cost summary)
+# The LIGHT tier. Same three-child shape as revision.sh — deliberately, so
+# there is one mental model rather than two — but the middle child runs ONE
+# review lens (code-reviewer) instead of four, on a cheaper model with half the
+# turn budget. That is the whole difference, and it is a real one: roughly $7
+# against $25-50. If the review keeps surfacing structural or standards
+# problems, the task was mis-sized and belongs on revision.sh.
 #
-# Logging:
-#   Every run writes a structured JSONL log to .claude/logs/revision-minor-<ts>.jsonl
-#   regardless of --verbose mode. Use for post-mortem analysis of runs.
-#
-# See docs/guide/workflows.md for the full
-# architectural context behind this workflow.
+# See docs/guide/workflows.md for the dual-flow model.
 # See docs/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# Script location (for finding common/format-stream.sh)
-# ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORMATTER="${SCRIPT_DIR}/common/format-stream.sh"
+DRAFT="${SCRIPT_DIR}/children/revision-minor-draft.sh"
+REFINE="${SCRIPT_DIR}/children/revision-minor-refine.sh"
+PR_REVIEW="${SCRIPT_DIR}/children/review-pr.sh"
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-MAX_TURNS=100
-
-# ---------------------------------------------------------------------------
-# Argument parsing
-# ---------------------------------------------------------------------------
 show_usage() {
     cat <<EOF
-Usage: $(basename "$0") "description of what to revise" [options]
+Usage: $(basename "$0") "description of changes needed" [options]
        $(basename "$0") --task-file path/to/task.md [options]
 
+Runs the three-child minor-revision cycle:
+  1. revision-minor-draft   — writes the change, opens an unreviewed PR
+  2. revision-minor-refine  — FRESH context: fidelity, ONE review lens, corrections
+  3. review-pr              — decide-only disposition: MERGE, or HOLD with a runway
+
+On HOLD(redispatch) the parent loops back ONCE (refine -> review-pr) and then
+stops regardless of outcome. On HOLD(needs-assistance) it stops immediately —
+more passes cannot produce a human ruling.
+
 Arguments:
-  "description"        The task to work on (short single-line tasks)
-  --task-file <path>   Read the task from a file — use this for multi-paragraph
-                       tasks or anything with special characters, quotes, or
-                       newlines that would break command-line parsing. Preserves
-                       content literally. Mutually exclusive with the positional
-                       description.
+  "description"        The rework task (short single-line descriptions)
+  --task-file <path>   Read the task from a file — for multi-paragraph tasks or
+                       anything with quotes/newlines. Mutually exclusive with
+                       the positional description.
 
 Options:
-  --pr <number>        Update an existing PR instead of creating a new one
-  --repo <path>        Target repo (explicit identity, never derived from cwd —
-                       cwd drifts as a side effect of other workflow runs)
+  --pr <number>        Rework an EXISTING PR instead of opening a new one
+  --repo <path>        Target repo (default: the repo containing the cwd)
   --verbose, -v        Stream formatted Claude output live
 
-Examples (flags FIRST, positionals LAST — protects the positional from
-line-wrap and keeps options visible):
-  $(basename "$0") "fix the null check in login()"
-  $(basename "$0") --pr 42 "add error handling"
-  $(basename "$0") --verbose --pr 42 --task-file /tmp/task.md
+Examples (flags FIRST, positionals LAST):
+  $(basename "$0") "restructure the auth flow to use sessions"
+  $(basename "$0") --pr 42 "address the findings from PR #42"
+  $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
-The first form creates a new branch and PR.
-With --pr, the workflow updates the existing PR's branch.
+For multi-file or architectural rework, use revision.sh.
 EOF
 }
 
@@ -94,327 +111,264 @@ VERBOSE=false
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --task-file)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --task-file requires a path" >&2
-                exit 1
-            fi
-            TASK_FILE="$2"
-            shift 2
-            ;;
+            [[ $# -ge 2 ]] || { echo "Error: --task-file requires a path" >&2; exit 1; }
+            TASK_FILE="$2"; shift 2 ;;
         --pr)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --pr requires a PR number" >&2
-                exit 1
-            fi
-            PR_NUMBER="$2"
-            shift 2
-            ;;
+            [[ $# -ge 2 ]] || { echo "Error: --pr requires a PR number" >&2; exit 1; }
+            PR_NUMBER="$2"; shift 2 ;;
         --repo)
-            if [[ $# -lt 2 ]]; then
-                echo "Error: --repo requires a path" >&2
-                exit 1
-            fi
-            REPO_TARGET="$2"
-            shift 2
-            ;;
+            [[ $# -ge 2 ]] || { echo "Error: --repo requires a path" >&2; exit 1; }
+            REPO_TARGET="$2"; shift 2 ;;
         --verbose|-v)
-            VERBOSE=true
-            shift
-            ;;
+            VERBOSE=true; shift ;;
         --help|-h)
-            show_usage
-            exit 0
-            ;;
+            show_usage; exit 0 ;;
         -*)
-            echo "Error: unknown option '$1'" >&2
-            exit 1
-            ;;
+            echo "Error: unknown option '$1'" >&2; exit 1 ;;
         *)
-            if [[ -z "$DESCRIPTION" ]]; then
-                DESCRIPTION="$1"
-                shift
-            else
-                echo "Error: unexpected positional argument '$1'" >&2
-                exit 1
-            fi
-            ;;
+            if [[ -z "$DESCRIPTION" ]]; then DESCRIPTION="$1"; shift
+            else echo "Error: unexpected positional argument '$1'" >&2; exit 1; fi ;;
     esac
 done
 
-# Must provide exactly one of: positional description OR --task-file
 if [[ -n "$DESCRIPTION" && -n "$TASK_FILE" ]]; then
-    echo "Error: cannot use both a positional description and --task-file" >&2
-    exit 1
+    echo "Error: cannot use both a positional description and --task-file" >&2; exit 1
 fi
 if [[ -z "$DESCRIPTION" && -z "$TASK_FILE" ]]; then
-    show_usage >&2
-    exit 1
+    show_usage >&2; exit 1
 fi
-
-# Load task file into DESCRIPTION (preserves content literally)
-if [[ -n "$TASK_FILE" ]]; then
-    if [[ ! -f "$TASK_FILE" ]]; then
-        echo "Error: task file not found: ${TASK_FILE}" >&2
-        exit 1
-    fi
-    if [[ ! -r "$TASK_FILE" ]]; then
-        echo "Error: task file not readable: ${TASK_FILE}" >&2
-        exit 1
-    fi
-    DESCRIPTION=$(cat "$TASK_FILE")
+if [[ -n "$PR_NUMBER" && ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+    echo "Error: --pr requires a positive integer" >&2; exit 1
 fi
-
-# ---------------------------------------------------------------------------
-# Environment checks
-# ---------------------------------------------------------------------------
-for cmd in claude gh jq; do
-    if ! command -v "$cmd" &>/dev/null; then
-        echo "Error: '$cmd' not found in PATH" >&2
-        exit 1
-    fi
+# Validate here as well as in the children. The children would catch it, but the
+# failure would arrive wrapped in "revision-minor-draft FAILED", which reads like a
+# model failure rather than a typo in the path.
+if [[ -n "$TASK_FILE" && ! -r "$TASK_FILE" ]]; then
+    echo "Error: task file not readable: ${TASK_FILE}" >&2; exit 1
+fi
+for child in "$DRAFT" "$REFINE" "$PR_REVIEW"; do
+    [[ -x "$child" ]] || { echo "Error: child workflow not executable: ${child}" >&2; exit 1; }
 done
 
-# Explicit target repo (--repo) — the target identity is explicit, never derived
-# from the invocation directory. cwd DRIFTS as a side effect of other workflow
-# runs (observed independently by two PMs: a session left cwd inside
-# claude-dot-files/scripts/workflows, and inside a worktree after a background
-# dispatch). revision-minor.sh is the most-used, least-watched workflow, so a
-# wrong-repo worktree here is the likeliest to go unnoticed.
-if [[ -n "$REPO_TARGET" ]]; then
-    [[ -d "$REPO_TARGET" ]] || { echo "Error: --repo path not found: ${REPO_TARGET}" >&2; exit 1; }
-    git -C "$REPO_TARGET" rev-parse --show-toplevel &>/dev/null || { echo "Error: --repo path is not a git repository: ${REPO_TARGET}" >&2; exit 1; }
-    cd "$REPO_TARGET"
-fi
+# One trap for every temp log this run creates (draft's, plus one per review-pr).
+TMP_LOGS=()
+cleanup_tmp_logs() { [[ ${#TMP_LOGS[@]} -gt 0 ]] && rm -f "${TMP_LOGS[@]}"; return 0; }
+trap cleanup_tmp_logs EXIT
 
-if ! git rev-parse --show-toplevel &>/dev/null; then
-    echo "Error: not inside a git repository" >&2
-    exit 1
-fi
+# Rebuild the child argument list ONCE so both children receive an identical
+# task. Refine needs the original task to check fidelity against what was
+# delivered — passing it only to draft would silently reduce refine to an
+# internal-quality check, which is the weaker of the two.
+CHILD_ARGS=()
+[[ -n "$REPO_TARGET" ]] && CHILD_ARGS+=(--repo "$REPO_TARGET")
+$VERBOSE && CHILD_ARGS+=(--verbose)
+TASK_ARGS=()
+if [[ -n "$TASK_FILE" ]]; then TASK_ARGS+=(--task-file "$TASK_FILE"); else TASK_ARGS+=("$DESCRIPTION"); fi
 
-if [[ ! -x "$FORMATTER" ]]; then
-    echo "Error: stream formatter not found at ${FORMATTER}" >&2
-    exit 1
-fi
-
-# Always operate from the repo root so worktree paths are consistent
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
-
-# ---------------------------------------------------------------------------
-# Naming and paths
-# ---------------------------------------------------------------------------
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-minor-${TIMESTAMP}"
-
-# Log directory is always in the main repo .claude/logs (not inside worktrees)
-# Raw JSONL — lossless, can be read by Claude for diagnosis or piped through
-# the formatter on demand for human reading.
-LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-minor-${TIMESTAMP}.jsonl"
-mkdir -p "$LOG_DIR"
-
-# ---------------------------------------------------------------------------
-# Summary banner
-# ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  REVISION WORKFLOW"
+echo "  REVISION-MINOR WORKFLOW (parent: draft → refine → review-pr)"
 echo "================================================================"
-echo "  Description : ${DESCRIPTION}"
 if [[ -n "$PR_NUMBER" ]]; then
-    echo "  Target      : PR #${PR_NUMBER} (updating existing)"
+    echo "  Target      : PR #${PR_NUMBER} (rework in place)"
 else
     echo "  Target      : new branch and PR"
 fi
-echo "  Worktree    : ${WORKTREE_NAME}"
-echo "  Max turns   : ${MAX_TURNS}"
-echo "  Verbose     : ${VERBOSE}"
-echo "  Log file    : ${LOG_FILE}"
+echo "  Child 1     : revision-minor-draft   (writes the change)"
+echo "  Child 2     : revision-minor-refine  (fresh context: one lens, corrects)"
+echo "  Child 3     : review-pr        (decide-only: MERGE | HOLD + runway)"
+echo "  On HOLD     : ONE loop-back (refine → review-pr), then stop. Never twice."
 echo "================================================================"
 echo
 
 # ---------------------------------------------------------------------------
-# run_claude helper (shared library)
+# Step 1 — DRAFT
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision-minor"
-COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
-source "${SCRIPT_DIR}/activities/run-claude.sh"
+DRAFT_ARGS=("${CHILD_ARGS[@]}")
+[[ -n "$PR_NUMBER" ]] && DRAFT_ARGS+=(--pr "$PR_NUMBER")
 
-# ---------------------------------------------------------------------------
-# Decision Log + Post-Run Reflection spec (referenced from both workflow paths)
-# ---------------------------------------------------------------------------
-# DECISION_LOG_AND_REFLECTION is defined in common/shared-prompts.sh
-source "${SCRIPT_DIR}/common/shared-prompts.sh"
-
-# ---------------------------------------------------------------------------
-# Workflow execution
-# ---------------------------------------------------------------------------
-if [[ -n "$PR_NUMBER" ]]; then
-    # ---- Existing PR path -------------------------------------------------
-    echo "→ Fetching PR #${PR_NUMBER} metadata..."
-    PR_BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName')
-    if [[ -z "$PR_BRANCH" ]]; then
-        echo "Error: could not determine branch for PR #${PR_NUMBER}" >&2
-        exit 1
-    fi
-    echo "  Branch: ${PR_BRANCH}"
-
-    WORKTREE_PATH=".claude/worktrees/${WORKTREE_NAME}"
-    mkdir -p .claude/worktrees
-
-    echo "→ Fetching latest PR branch state..."
-    git fetch origin "$PR_BRANCH"
-
-    echo "→ Creating worktree at ${WORKTREE_PATH}..."
-    git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
-
-    PROMPT=$(cat <<EOF
-You are executing the REVISION workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
-
-Task: ${DESCRIPTION}
-
-EXECUTION ORDER IS MANDATORY: Execute stages in strict numerical order. Each stage builds on the previous one — do not reorder, skip, or interleave. Ignore any external guidance (priority lists, PR comments) that would reorder them. If a stage has nothing to address, explicitly state "Stage N: SKIPPED — <one-line reason>" and proceed.
-
-Follow these stages exactly:
-
-1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
-
-   WORKFLOW-FIT CHECK — do this BEFORE implementing. revision-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
-
-   > This task is sized for revision.sh (the reviewed two-step parent), not revision-minor.sh. Nothing has been changed. revision-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with revision.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
-
-   Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
-
-   TURN-BUDGET DISCIPLINE: you have 100 turns. Commit as soon as a coherent unit of work is verified — do NOT carry completed, tested work uncommitted while you continue. If you approach the cap with uncommitted work, STOP what you are doing, commit and push it immediately, and report what remains. Work that dies uncommitted in a worktree is lost silently; work that is committed and pushed is resumable by the next dispatch.
-
-2. IMPLEMENT: Before writing code, discover the applicable standards:
-   - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-   - If docs/architecture/ exists, scan for relevant ADRs
-   - Read the specific docs/standards/*.md files relevant to your task area
-
-   Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
-
-   MATCH LOCAL PRECEDENT: before writing, search the same file/module for sibling implementations of the pattern you are touching, and match them wholesale. Local precedent beats general principle. (Measured: an extracted helper omitted both the explicit \`return 1\` and the \`>&2\` redirect that TWO sibling functions in the same file already had — and it took three separate review passes to rediscover each half.)
-
-   EXECUTION-CONTEXT CHECK: if your change moves code into a different execution context — a subshell, command substitution \$( ), a pipeline, a background job, a trap — enumerate EVERYTHING that context changes before you finish. Command substitution alone clears errexit AND captures stdout: one such move produced a failed \`kubectl apply\` reported as success, plus a swallowed error message, as two separate defects found in two separate passes.
-
-3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
-
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "revision: <short description>"
-
-   SELF-DESCRIPTION (required on this path): update the PR body to describe what the PR NOW contains, and update docs/file_structure.txt if you added, removed, or renamed files. A fix that leaves the PR's own description stale mechanically manufactures a finding for the next review pass — measured: every fix round generated 1-2 new "body doesn't describe the new work / test count stale / new file missing from map" findings, and one review pass found ZERO code defects and only self-description drift. Updating it here breaks that loop.
-
-5. PUSH: Push the branch. This will update PR #${PR_NUMBER} automatically.
-
-6. REPORT: As your FINAL line, print the PR URL — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
-
-7. REFLECT: ${DECISION_LOG_AND_REFLECTION}
-
-Rules:
-- Keep changes minimal and focused on the task
-- Do not add features not requested
-- Do not refactor unrelated code
-- **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER \`cd\` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use \`(cd <worktree-abs-path> && command)\` in a subshell rather than a top-level \`cd\`.
-- **Read-before-Edit (HARD requirement):** before any Edit or Write to an existing file, the most recent Read of that file MUST be in this turn or the immediately previous turn. If the gap is wider — or any tool ran between (formatter like ruff/black/autopep8, linter, codemod like isort, git checkout, test runs, autoformatter-on-save) — re-Read the file before Editing. The \`File has not been read yet\` and \`File has been modified since read\` errors are the signals you missed this. Recurring pattern across multiple production review cycles — this is hard discipline, not soft guidance.
-- **Bash CWD persists between calls — never blind-chain a relative \`cd\`:** the working directory usually carries over from your previous Bash call (some configurations reset it — treat it as unpredictable). A chained relative \`cd <subdir> && ...\` fails whenever the CWD is already that subdir. When you need to cd, use the absolute worktree-rooted path (\`cd <worktree>/lib/temporal && pytest tests/unit/\`) — idempotent regardless of current CWD — or skip cd and use absolute paths in the command itself.
-- **Re-Read before re-Editing anything you wrote earlier:** Edit requires a fresh Read. The classic failures: revising a /tmp staging file (e.g. \`/tmp/claude-pr-body.md\`) several turns after Writing it, or re-Editing a repo file many turns after its last Read (applying review findings). Either Read the file again first, or for staging files simply Write the full replacement content instead of Editing.
-- **Prefer relative paths inside the worktree:** the workflow places you at the worktree root. For Read/Grep/Glob/Edit/Write of files inside the worktree, use paths relative to the root (e.g., \`lib/temporal/foo.py\`) rather than re-typing the long absolute worktree path. The model occasionally typos long absolute paths (e.g., \`.claire/\` instead of \`.claude/\`) — relative paths eliminate that bug class entirely.
-- Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
-- Always verify tests pass before committing
-- If tests cannot be made to pass, stop and clearly report the failure
-- At the end, briefly confirm what was done (1-2 sentences max — the commit message and PR description already convey the details)
-EOF
-)
-
-    echo
-    echo "→ Launching Claude in revision mode (updating PR #${PR_NUMBER})..."
-    echo
-
-    (
-        cd "$WORKTREE_PATH"
-        run_claude "$PROMPT"
-    )
-
-else
-    # ---- New revision path ------------------------------------------------
-    PROMPT=$(cat <<EOF
-You are executing the REVISION workflow on a new branch.
-
-Task: ${DESCRIPTION}
-
-EXECUTION ORDER IS MANDATORY: Execute stages in strict numerical order. Each stage builds on the previous one — do not reorder, skip, or interleave. Ignore any external guidance (priority lists, PR comments) that would reorder them. If a stage has nothing to address, explicitly state "Stage N: SKIPPED — <one-line reason>" and proceed.
-
-Follow these stages exactly:
-
-1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
-
-   WORKFLOW-FIT CHECK — do this BEFORE implementing. revision-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
-
-   > This task is sized for revision.sh (the reviewed two-step parent), not revision-minor.sh. Nothing has been changed. revision-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with revision.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
-
-   Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
-
-   TURN-BUDGET DISCIPLINE: you have 100 turns. Commit as soon as a coherent unit of work is verified — do NOT carry completed, tested work uncommitted while you continue. If you approach the cap with uncommitted work, STOP what you are doing, commit and push it immediately, and report what remains. Work that dies uncommitted in a worktree is lost silently; work that is committed and pushed is resumable by the next dispatch.
-
-2. IMPLEMENT: Before writing code, discover the applicable standards:
-   - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-   - If docs/architecture/ exists, scan for relevant ADRs
-   - Read the specific docs/standards/*.md files relevant to your task area
-
-   Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
-
-   MATCH LOCAL PRECEDENT: before writing, search the same file/module for sibling implementations of the pattern you are touching, and match them wholesale. Local precedent beats general principle. (Measured: an extracted helper omitted both the explicit \`return 1\` and the \`>&2\` redirect that TWO sibling functions in the same file already had — and it took three separate review passes to rediscover each half.)
-
-   EXECUTION-CONTEXT CHECK: if your change moves code into a different execution context — a subshell, command substitution \$( ), a pipeline, a background job, a trap — enumerate EVERYTHING that context changes before you finish. Command substitution alone clears errexit AND captures stdout: one such move produced a failed \`kubectl apply\` reported as success, plus a swallowed error message, as two separate defects found in two separate passes.
-
-3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
-
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "revision: <short description>"
-
-5. PUSH: Push the branch to origin.
-
-6. PR: Create a new PR using 'gh pr create'. Use title format: "revision: <short description>". In the body, describe what was changed and why. Report the PR URL at the end.
-
-7. REFLECT: ${DECISION_LOG_AND_REFLECTION}
-
-Rules:
-- Keep changes minimal and focused on the task
-- Do not add features not requested
-- Do not refactor unrelated code
-- **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER \`cd\` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use \`(cd <worktree-abs-path> && command)\` in a subshell rather than a top-level \`cd\`.
-- **Read-before-Edit (HARD requirement):** before any Edit or Write to an existing file, the most recent Read of that file MUST be in this turn or the immediately previous turn. If the gap is wider — or any tool ran between (formatter like ruff/black/autopep8, linter, codemod like isort, git checkout, test runs, autoformatter-on-save) — re-Read the file before Editing. The \`File has not been read yet\` and \`File has been modified since read\` errors are the signals you missed this. Recurring pattern across multiple production review cycles — this is hard discipline, not soft guidance.
-- **Bash CWD persists between calls — never blind-chain a relative \`cd\`:** the working directory usually carries over from your previous Bash call (some configurations reset it — treat it as unpredictable). A chained relative \`cd <subdir> && ...\` fails whenever the CWD is already that subdir. When you need to cd, use the absolute worktree-rooted path (\`cd <worktree>/lib/temporal && pytest tests/unit/\`) — idempotent regardless of current CWD — or skip cd and use absolute paths in the command itself.
-- **Re-Read before re-Editing anything you wrote earlier:** Edit requires a fresh Read. The classic failures: revising a /tmp staging file (e.g. \`/tmp/claude-pr-body.md\`) several turns after Writing it, or re-Editing a repo file many turns after its last Read (applying review findings). Either Read the file again first, or for staging files simply Write the full replacement content instead of Editing.
-- **Prefer relative paths inside the worktree:** the workflow places you at the worktree root. For Read/Grep/Glob/Edit/Write of files inside the worktree, use paths relative to the root (e.g., \`lib/temporal/foo.py\`) rather than re-typing the long absolute worktree path. The model occasionally typos long absolute paths (e.g., \`.claire/\` instead of \`.claude/\`) — relative paths eliminate that bug class entirely.
-- Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
-- Always verify tests pass before committing
-- If tests cannot be made to pass, stop and clearly report the failure
-- At the end, report just the PR URL (the PR description already has the details)
-EOF
-)
-
-    echo "→ Launching Claude in revision mode (new branch)..."
-    echo
-
-    run_claude "$PROMPT" -w "$WORKTREE_NAME"
+echo "→ [1/3] revision-minor-draft…"
+echo
+DRAFT_LOG="$(mktemp)"
+TMP_LOGS+=("$DRAFT_LOG")
+if ! "$DRAFT" "${DRAFT_ARGS[@]}" "${TASK_ARGS[@]}" 2>&1 | tee "$DRAFT_LOG"; then
+    echo >&2
+    echo "✗ revision-minor-draft FAILED — stopping before refine." >&2
+    echo "  Nothing was reviewed. Inspect the draft output above; the worktree (if any) persists." >&2
+    exit 1
 fi
 
+# The PR URL printed as the child's final line IS the handoff. It is also the
+# child's completion contract, so a run that produced no URL did not finish.
+PR_URL=$(grep -oE 'https://github\.com/[^ )]+/pull/[0-9]+' "$DRAFT_LOG" | tail -1)
+if [[ -z "$PR_URL" ]]; then
+    echo >&2
+    echo "✗ revision-minor-draft produced no PR URL — cannot hand off to refine." >&2
+    echo "  The draft step must open (or update) a PR and print its URL as its final line." >&2
+    exit 1
+fi
+DRAFT_PR="${PR_URL##*/}"
+
 echo
 echo "================================================================"
-echo "  REVISION WORKFLOW COMPLETE"
+echo "  [1/3] draft complete → PR #${DRAFT_PR}"
+echo "  ${PR_URL}"
 echo "================================================================"
 echo
-echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"
-echo "Log file: ${LOG_FILE}"
-print_cycle_totals "$LOG_DIR"
+
+# ---------------------------------------------------------------------------
+# Activities (external I/O — never inline in a parent)
+# ---------------------------------------------------------------------------
+# A parent is orchestration only: it decides IF, WHEN and WHAT to call. Anything
+# that touches the outside world is an ACTIVITY and lives in activities/, per
+# the Temporal Standard §3.1 ("no external I/O, deterministic") — a workflow
+# that made a network call could not replay, so this is not a style preference,
+# it is the boundary the engine enforces. wait_for_ci polls the GitHub API; it
+# is an activity, and every PR-producing parent will want it.
+#
+# NOTE what deliberately stays HERE: parsing the verdict line and extracting the
+# PR URL. Those are pure string→decision, no I/O, and they ARE the "if/then,
+# what to call next" that a parent exists to hold.
+source "${SCRIPT_DIR}/activities/wait-for-ci.sh"
+
+# ---------------------------------------------------------------------------
+# run_refine <label> [--correction-pass]  — the review-and-correct child
+# ---------------------------------------------------------------------------
+run_refine() {
+    local label="$1"; shift
+    local args=("${CHILD_ARGS[@]}" "$@")
+    $CI_UNSETTLED && args+=(--ci-unsettled)
+
+    echo "→ ${label} revision-minor-refine on PR #${DRAFT_PR}…"
+    echo
+    if ! "$REFINE" "${args[@]}" --pr "$DRAFT_PR" "${TASK_ARGS[@]}"; then
+        echo >&2
+        echo "✗ revision-minor-refine FAILED on PR #${DRAFT_PR}." >&2
+        echo "  The PR EXISTS and is unreviewed — it must not be merged as-is." >&2
+        echo "  Re-run just the review step:" >&2
+        echo "    ${REFINE} --pr ${DRAFT_PR} <the same task>" >&2
+        return 1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# run_pr_review <label> — the disposition child; echoes its routing token
+# ---------------------------------------------------------------------------
+# review-pr lives at the TOP level, not in children/, and is called in place.
+# children/ means "only a parent invokes this" — revision-minor-draft alone produces
+# an unreviewed PR that is never a deliverable. review-pr is a complete, useful
+# act on ANY returned PR regardless of which workflow produced it, so it stays
+# independently dispatchable. A parent calling a top-level workflow is normal:
+# the composition graph is not a tree, and that is what makes these recombinable
+# rather than a fixed hierarchy.
+run_pr_review() {
+    local label="$1"
+    local log; log="$(mktemp)"
+    TMP_LOGS+=("$log")
+
+    echo "→ ${label} review-pr on PR #${DRAFT_PR}…"
+    echo
+    if ! "$PR_REVIEW" "${CHILD_ARGS[@]}" --pr "$DRAFT_PR" 2>&1 | tee "$log"; then
+        echo >&2
+        echo "✗ review-pr FAILED on PR #${DRAFT_PR}." >&2
+        echo "  The PR was drafted and refined but NOT dispositioned. Run it by hand:" >&2
+        echo "    ${PR_REVIEW} --pr ${DRAFT_PR}" >&2
+        return 1
+    fi
+
+    # The terminal VERDICT line IS the interface — review-pr aggregates the
+    # per-finding hold_kind values into one routing token so the caller never
+    # re-derives a judgement the reviewer already made.
+    VERDICT_LINE=$(grep -oE '^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$' "$log" | tail -1)
+    if [[ -z "$VERDICT_LINE" ]]; then
+        echo >&2
+        echo "✗ review-pr produced no parseable VERDICT line — cannot route." >&2
+        echo "  Treating as needs-assistance. Inspect PR #${DRAFT_PR} by hand." >&2
+        VERDICT_LINE="VERDICT: HOLD - needs-assistance"
+    fi
+}
+
+finish() {
+    echo
+    echo "================================================================"
+    echo "  $1"
+    echo "================================================================"
+    echo
+    echo "  ${PR_URL}"
+    echo
+    [[ -n "${2:-}" ]] && { echo "$2"; echo; }
+    echo "To clean up when done:"
+    echo "  /cleanup-merged-worktrees    (one worktree per child run)"
+    echo
+}
+
+# ---------------------------------------------------------------------------
+# Step 2 — REFINE (fresh context, same task, against the draft's PR)
+# ---------------------------------------------------------------------------
+wait_for_ci "$DRAFT_PR"
+run_refine "[2/3]" || exit 1
+
+# ---------------------------------------------------------------------------
+# Step 3 — PR-REVIEW, then route on its verdict
+# ---------------------------------------------------------------------------
+# EXACTLY ONE loop-back. Not a tuning knob, and deliberately not configurable.
+#
+# Self-correction plateaus at roughly 3-5 passes: the same model carries the
+# same blind spots, and past the plateau it stops correcting and starts
+# justifying. Watched directly on this fleet — PR #224 reached EIGHT review-pr
+# passes, and pass 8 reviewed the same tree as pass 7 with no commits between
+# them, re-issuing the same runway.
+#
+# Counting the correction passes across the PIPELINE, not within any one child:
+#   refine = 1 · review-pr = 2 · [loop] refine = 3 · review-pr = 4
+# One loop-back lands at four, inside the band. Two would reach six, past it.
+# Stopping at zero loop-backs would discard the passes that genuinely do improve
+# the work — the plateau is a ceiling, not an argument against the first climb.
+#
+# So the bound is set by the research, not by a budget guard, and a knob here
+# would only invite someone to tune past the point where the extra passes
+# produce justification instead of correction.
+wait_for_ci "$DRAFT_PR"
+run_pr_review "[3/3]" || exit 1
+
+case "$VERDICT_LINE" in
+    "VERDICT: MERGE")
+        finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} drafted, refined, dispositioned MERGE" \
+               "  review-pr found nothing holding this PR. Ready to merge."
+        exit 0 ;;
+
+    "VERDICT: HOLD - needs-assistance")
+        # No loop, ever. A human ruling is not something more passes can produce,
+        # so spending them is pure waste.
+        finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} HELD, needs a human" \
+               "  review-pr found at least one item only YOU can rule on. No automated
+  loop-back was attempted: more passes cannot produce a human decision.
+  The runway is in the pr_review: block on the PR."
+        exit 0 ;;
+esac
+
+# HOLD - redispatch → the one loop-back
 echo
-echo "To read the log in human-readable form:"
-echo "  cat ${LOG_FILE} | ${FORMATTER}"
+echo "================================================================"
+echo "  [3/3] HOLD (redispatch) — the runway closes with a scoped fix."
+echo "  Looping back ONCE: refine → review-pr. This is the last automated pass."
+echo "================================================================"
 echo
-echo "To let Claude diagnose a run:"
-echo "  claude 'read ${LOG_FILE} and tell me what happened'"
-echo
-echo "To clean up when done:"
-echo "  /cleanup-merged-worktrees    (after PR is merged or closed)"
-echo
+
+wait_for_ci "$DRAFT_PR"
+run_refine "[loop 1/2]" --correction-pass || exit 1
+
+wait_for_ci "$DRAFT_PR"
+run_pr_review "[loop 2/2]" || exit 1
+
+if [[ "$VERDICT_LINE" == "VERDICT: MERGE" ]]; then
+    finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} MERGE after one correction loop" \
+           "  The runway closed unattended. Ready to merge."
+    exit 0
+fi
+
+finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} still HELD after the correction loop" \
+       "  The automated loop is SPENT — one loop-back is the cap, because passes
+  beyond it produce justification rather than correction. This PR now needs you.
+  What remains is in the latest pr_review: block on the PR
+  (${VERDICT_LINE#VERDICT: })."
+exit 0
