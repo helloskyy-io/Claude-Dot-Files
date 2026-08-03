@@ -492,11 +492,8 @@ This phase is the foundation for treating Claude Code not as a tool you use, but
 
 ---
 
-## Phase: Decomposition — 📋 QUEUED, NEEDS PLANNING
+## Phase: Workflow Decomposition — 📋 QUEUED, NEEDS PLANNING
 
-Breaking monolithic things into composable ones. Two tracks, related but not the same work.
-
-### Workflow Decomposition
 
 Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and the children become recombinable rather than copied. **Partly built already, and that half needs documenting as much as the rest needs planning** — `revision.sh` and `revision-minor.sh` shipped as three-child parents before any of this was written down.
 
@@ -508,20 +505,6 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 - **`lint-docs.sh`** — a gate for the stale-doc class that keeps shipping.
 
 Detail, confidence levels and evidence: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md).
-
----
-
-### Agent Decomposition — 📋 STUB, NEEDS DEFINITION
-
-Agents are currently monolithic markdown files that must physically exist in `~/.claude/agents/` on whatever machine dispatches. Two separable problems, and only the first is understood:
-
-**Separating the definition from the machine.** A headless dispatch loads whatever agent roster the edge machine happens to have. `activities/run-claude.sh` refuses to dispatch on an inherited *model* — *"model identity must be an explicit input, never derived"* — and by that same rule the agent roster is ambient, underived, and undetected when two machines diverge. `--agents <json>` injects definitions at invocation (no path lookup, the agent need not exist on the box) and `--setting-sources` controls which tiers load. Both flags verified present.
-
-- [ ] **⚠️ SAFETY BLOCKER — resolve before touching `--setting-sources`.** The synced **user-level** `settings.json` is where `hooks.PreToolUse → block-dangerous.sh` lives. Headless dispatches run with `--dangerously-skip-permissions`, which makes that hook **the only remaining safety layer**. Passing `--setting-sources project,local` would drop user settings and therefore **strip destructive-command blocking from every autonomous run.** The hook has to move scope, or be supplied another way, *first*. This is precisely why the item is not the two-line change it looks like.
-- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our agent definitions are large. Whether that is comfortable, or wants a generated-file pattern, must be tried before any design assumes it.
-- [ ] **Decide where server-side definitions live** and how they are assembled.
-
-**Decomposing the agents themselves.** Not yet defined — whether large agents should split into composable pieces the way workflows did, or whether the skills-preloading pattern already covers it. **Needs a problem statement before it is a work item.** Do not build toward this until someone can say what is actually wrong with the current shape.
 
 ---
 
@@ -555,6 +538,44 @@ Today that is three grep channels against a child's log. It works and has been p
 **Downstream:** a typed payload is what makes a **convergence-based** stopping condition mechanizable — *"did this pass find anything not in the previous pass's result?"* is answerable against two structured results and not against two prose logs. That matters because the count-based bound we shipped was built on a mis-extrapolation (see the plateau correction in the phase doc): measured, three cycles remained productive and a cap of one would have left two live credential leaks in `main`.
 
 **Needs real research before anything is built.** The problem is well understood; the answer is not.
+
+---
+
+## Phase: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
+
+**Monolithic agent files are not a problem — they are dumb and simple and that is a feature.** The problem is *where they live and who can change them.*
+
+Everything a workflow depends on is currently symlinked from this repo into `~/.claude/`: agents, skills, rules, hooks, `settings.json`. An interactive session editing any of them edits the live definition that every autonomous dispatch on that machine will use — silently, with no divergence detection between machines. The sync design that makes config portable is the same design that lets a user's local tweak change what a managed workflow does.
+
+`activities/run-claude.sh` already refuses to dispatch on an inherited *model* — *"model identity must be an explicit input, never derived."* **By that same rule, everything above is ambient and underived.**
+
+**What has to be decided before anything is stubbed as work:**
+
+- [ ] **Where the managed/user boundary falls.** Almost everything synced today is workflow-critical: agents are dispatched by prompts, skills are preloaded by agents, rules load via CLAUDE.md on every run including headless, hooks carry the safety layer. `commands/` is the clearest user tier — except `/standup`, which is operational. **The boundary is the decision; the mechanism follows from it.**
+- [ ] **The mechanism.** Injection at dispatch (`--agents <json>`, verified present — definitions need not exist on the box), scope separation (managed at project scope, user at user scope), or something else. Do not pick this before the boundary.
+- [ ] **⚠️ SAFETY BLOCKER, resolve first.** The synced **user-level** `settings.json` is where `hooks.PreToolUse → block-dangerous.sh` lives, and headless dispatches pass `--dangerously-skip-permissions`, making that hook **the only remaining safety layer**. Any change to setting scope must prove the hook survives, or supply it another way. This is why the obvious two-line change is a two-line safety regression.
+- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large. Try it before any design assumes it.
+
+---
+
+## Phase: Implementation Language — 📋 NEEDS A DECISION, NOT YET A BUILD
+
+The fleet is bash. The old assumption was "migrate to Python eventually." **Temporal is language-agnostic, so that assumption was never actually load-bearing** — the choice is open and should be made on merit rather than inherited.
+
+**This is a decision to make deliberately and early**, because it sets what every subsequent phase is built in, and because the cost of deciding late is rewriting work that already landed.
+
+**Inputs that are already known and should not be re-derived:**
+
+- **A large Python asset already exists.** Skyy-Command's `lib/temporal/` is Python — 298 activities, 41 workflows, 26 domains — and the binding Temporal Standard's examples and patterns (`ActivityResult`, `ACTIVITY_MAP`, semantic wrappers) are written against it. Porting *to* Python is a re-host; porting to anything else is a translation.
+- **The worker is already specified as a Python venv** in the seed handoff — bare systemd process, `temporalio` + the `claude` CLI.
+- **The whole prompts-are-code failure class is a bash problem.** Three outages this cycle came from string escaping — unescaped backticks, balanced stray quotes, `\\` before a backtick — and the mitigation is a bespoke execution-sandbox linter we had to build and then fix twice. Languages with real multi-line string literals do not have this class at all. **That is the strongest single argument against staying in bash**, and it is worth weighing honestly rather than as a footnote.
+- **Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — it only pays off as part of the Temporal port.
+
+**What to decide:**
+
+- [ ] **The target language**, on merit, with the above as inputs rather than conclusions.
+- [ ] **Whether anything is rewritten before the Temporal port**, or whether bash simply stops receiving new work at some point.
+- [ ] **What happens to the bash fleet after** — retired, or kept as an edge fallback that needs no runtime.
 
 ---
 

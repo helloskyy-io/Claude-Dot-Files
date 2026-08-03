@@ -12,10 +12,10 @@ The items feed **three** roadmap sections, which is only clear once they are spl
 | Item below | Roadmap section |
 |---|---|
 | 1 — Result envelope + `is_error` gating | **Memory Management Framework** (kind 2, the transport layer) |
-| 2 — Fork vs parameterize → `build-phase` | **Decomposition** → Workflow Decomposition |
-| 3 — Server-side agent definitions | **Decomposition** → Agent Decomposition (moved out of Autonomous Operation: it has no Temporal dependency, and deferring it behind a port it does not need would have stalled a live defect for months) |
+| 2 — Fork vs parameterize → `build-phase` | **Workflow Decomposition** |
+| 3 — Server-side agent definitions | **Managed Configuration** (reframed: the problem is not that agent files are monolithic — they are fine — but that a user editing their local copy silently changes what every managed workflow does) |
 | 4 — Handoff contract → convergence stopping | **Memory Management Framework** (kind 2, the payload layer) |
-| `lint-docs.sh` | **Decomposition** → Workflow Decomposition |
+| `lint-docs.sh` | **Workflow Decomposition** |
 
 Items 1 and 4 read as separate concerns here because that is how they arrived. They are **the same problem at two layers** — how a parent learns what a child concluded — which is why they belong to one framework rather than two queue entries.
 
@@ -74,7 +74,7 @@ PM3's stale-usage-text find (`revision-draft-minor.sh:19` still reads `./revisio
 
 ---
 
-## Item 3 — Server-side agent definitions
+## Item 3 — Managed configuration (was: "server-side agent definitions")
 
 **Problem, on the existing rule's own terms.** `activities/run-claude.sh` fails loud rather than dispatch on an inherited model, and states why: *"model identity must be an explicit input, never derived."* By that same rule, **the agent roster a dispatch can reach is ambient and underived** — a headless run loads whatever `user` settings the edge machine happens to have, and nothing detects divergence between two machines.
 
