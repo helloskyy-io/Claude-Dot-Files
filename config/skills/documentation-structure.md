@@ -360,7 +360,21 @@ the decision can understand why it was needed.]
 
 ### Phase Doc Format (Development)
 
-**Filename:** `phases/phase-1-data-models.md` or `phases/data-models.md`
+**Location:** `phases/<name>/README.md` — **a phase is a folder, not a file.**
+
+Naming the doc `README.md` means browsing to the folder renders the phase doc rather than a bare file list. Naming the *folder* for the phase — never numbering it — keeps reordering free: work rarely proceeds in the sequence it was written down, and a number encodes a sequence that stops being true.
+
+**The folder is what makes evidence co-locatable:**
+
+```
+phases/<name>/
+├── README.md               the plan
+└── research/<topic>/       the evidence it cites, if any
+    ├── raw/<paper>.md
+    └── synthesis.md
+```
+
+Research belongs *inside* the phase that cites it, not in a central corpus. Co-location beats taxonomy: a reader of the plan finds its evidence one directory away, and a reader of the evidence never has to work out which phase it serves.
 
 **Template:**
 ```markdown
@@ -624,7 +638,7 @@ The roadmap is the top-level tracking document. It shows phases and epics with *
 
 **Development:**
 - Roadmap: always `roadmap.md` at the top
-- Phases: `phases/phase-###-name.md` or `phases/name.md`
+- Phases: `phases/<name>/README.md` — a folder per phase, named not numbered, with `research/` inside it
 - Features: `features/feature-name.md`
 
 **Standards:**
