@@ -113,7 +113,6 @@ Make the system improve its own tooling from evidence it generates itself.
 - [x] **Append-only decisions log** — ship / defer / reject, deferrals carrying an explicit watch-criterion
 - [x] **Post-Run Reflection** — every workflow posts a decision log and tooling suggestions to its PR
 - [x] **`review-pr` mines reflections** — the run's own words are its primary evidence surface
-- [ ] **Scheduled operation** — the cycle runs by hand today; the trigger's future is `Temporal Crons`
 - [ ] **Sweep the reflection channel systematically** — tooling suggestions are written by every run and read opportunistically; nothing sweeps them the way `review-runs.sh` sweeps logs
 
 ---

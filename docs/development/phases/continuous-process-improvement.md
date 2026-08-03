@@ -1,6 +1,8 @@
 # Phase: Continuous Process Improvement
 
-**Status:** 🟡 IN PROGRESS — the loop runs; scheduling and the reflection channel are not yet closed
+**Status:** 🟡 IN PROGRESS — the loop runs; the reflection channel is not yet swept systematically
+
+> **Running it unattended is not this phase.** `review-runs.sh` exists and belongs here; putting it on a durable schedule is [Autonomous Operation → Temporal Crons](../roadmap.md), and depends on Temporal. This phase is done when the evidence is gathered and ruled on well — not when nobody has to start it.
 **Roadmap entry:** [`../roadmap.md`](../roadmap.md)
 **Depends on:** [`autonomous-execution.md`](autonomous-execution.md) — there is nothing to analyse until workflows are producing logs
 
@@ -16,7 +18,6 @@ The distinguishing property, and the reason this is a phase rather than a habit:
 - [x] Every finding reaches an explicit ruling — ship, defer or reject
 - [x] Deferrals carry a **watch-criterion**: what would bring this back
 - [x] Rejections are recorded so they are not re-litigated
-- [ ] The loop runs on a schedule rather than when someone remembers
 - [ ] The self-disclosure channel is mined as systematically as the log channel
 
 ## The two evidence sources
@@ -35,7 +36,6 @@ The two are complementary and neither substitutes for the other. A log shows tha
 - [x] **`cpi-decisions.md`** — append-only ship / defer / reject with watch-criteria
 - [x] **Reflection posted by every workflow** — `DECISION_LOG_AND_REFLECTION`, shared across the fleet
 - [x] **`review-pr` mines reflections** — the disposition engine's primary hunting ground is the run's own words
-- [ ] **Scheduled operation** — currently run by hand. Its future is `Temporal Crons`; the workflow itself does not move
 - [ ] **Close the reflection loop** — tooling suggestions are *written* by every run and *read* opportunistically. Nothing sweeps them systematically the way `review-runs.sh` sweeps logs
 
 ## Decisions
