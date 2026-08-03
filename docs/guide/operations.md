@@ -1,6 +1,6 @@
 # Operations Guide
 
-How to run the harness day to day. **Deployment is covered by the [README](../../README.md)** — this document starts after everything is installed.
+How to run the harness day to day. **Deployment is covered by [`deployment.md`](deployment.md)** — this document starts after everything is installed.
 
 Two things to understand before the inventory: where the platform keeps its memory, and what a day looks like. Everything after that is reference.
 
