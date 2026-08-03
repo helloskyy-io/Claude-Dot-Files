@@ -15,10 +15,17 @@ Confidence:     DEFINITIVE on what each cited study measured and on the framewor
                 negative finding that the "3-5 passes" figure has no source describing our
                 topology. DIRECTIONAL on the two 2026 single-author preprints that speak most
                 directly to our shape (2605.12280, 2606.27009) — each is a first-party report
-                of its own experiment, neither is replicated. DERIVED (and flagged as such)
-                on the cumulative-coverage arithmetic in §2.2.6. UNVERIFIED on anything drawn
-                from vendor blog commentary, which is used only where corroborated.
-Critic:         not-yet-verified — 2026-08-03
+                of its own experiment, neither is replicated. DIRECTIONAL likewise on every
+                other single-author preprint (2601.00828, 2603.12123, 2512.10350) and on the
+                classical fixpoint-termination framing in §1.3, whose primary texts did not
+                extract. DERIVED (and flagged as such) on the cumulative-coverage arithmetic
+                in §2.2.6. UNVERIFIED on anything drawn from vendor blog commentary, which is
+                used only where corroborated.
+Critic:         PASS-WITH-FIXES (three [S32] quotes were not verbatim — one phrase, "context
+                bloat", was invented inside quotation marks — now replaced with the source's
+                actual wording; [S16]/[S17] and [S24] were marked definitive against this
+                paper's own sourcing rule and are downgraded to directional; one AutoGen
+                quote was silently compressed and is restored) — 2026-08-03
 ```
 
 > **Mixed volatility (§3).** The load-bearing core of this paper — Self-Refine, Huang et al.,
@@ -108,9 +115,15 @@ monotonicity guarantee (pass N+1 can retract pass N's finding), and the operator
 stochastic. So "two passes produced the same set" is **a sample, not a fixpoint**. This is not
 a pedantic distinction — §2.2.4 gives the empirical version: the same model reviewing the same
 artifact five times produces largely *disjoint* finding sets [S6].
-*(Confidence: definitive on the classical result — though sourced from search-corroborated
-summaries plus first-party author PDFs whose text did not extract; derived on the
-non-inheritance argument.)*
+
+*(Confidence: **directional** on the ACC / finite-height / widening termination conditions
+[S16], [S17] — the primary texts did not extract in this environment and the claim rests on
+search-corroborated summaries, which is the same sourcing posture that put [S25], [S26] and
+[S34] at directional. It is uncontested textbook material and I have no reason to doubt it,
+but a claim whose primary was never fetched does not meet §3's bar for **definitive**, and
+marking it so would be exactly the inflation this paper faults elsewhere. **Derived** on the
+non-inheritance argument. Nothing load-bearing rests on this paragraph — it supplies the
+vocabulary for §5.3, whose argument is carried by [S10], which was fetched.)*
 
 ---
 
@@ -252,11 +265,11 @@ SR-vs-SR2 contrast itself not significant (reported p = 0.11) [S8, HTML].
 
 Two things this establishes and two it does not.
 
-- **Establishes (definitive, for this setup):** a second pass *in the same context* is the
-  worst of the four conditions, and *removing production history* beats keeping it. The
-  benefit is attributed to context separation, not to model capability.
-- **Establishes (definitive):** **absolute per-pass recall is ~22-27%.** One review pass, in
-  the best condition, finds about a quarter of the known-present errors.
+- **Reports (definitive that the paper reports it; directional as a result):** a second pass
+  *in the same context* is the worst of the four conditions, and *removing production history*
+  beats keeping it. The benefit is attributed to context separation, not model capability.
+- **Reports (same tier):** **absolute per-pass recall is ~22-27%.** One review pass, in the
+  best condition, finds about a quarter of the known-present errors.
 - **Does not establish:** anything about a *second fresh* session. The design has no
   CCR×2 arm. The repetition control was run only on the same-session condition.
 - **Limitations, per the paper:** single model, injected rather than natural errors, moderate
@@ -399,9 +412,11 @@ probability [S25], [S26]. Fuzzing's modern equivalent estimates the probability 
 input finds something new [S10]. Both convert "two passes' outputs" into an *estimate of what is
 still missing*, which is strictly more information than "did the second pass find something."
 **Both also require the passes to be independent and the overlap to be identifiable** — which
-in turn requires findings to be typed and matchable, not prose. *(Confidence: definitive that
-these methods exist and what they estimate; §5.3 covers why [S10] is simultaneously the
-strongest argument against the naive version.)*
+in turn requires findings to be typed and matchable, not prose. *(Confidence: **definitive**
+for [S10] — its abstract was fetched verbatim and states exactly what it estimates.
+**Directional** for the capture-recapture line [S25], [S26]: neither primary extracted, so the
+Eick-1992 origin and the Mt/Mh model split rest on corroborated search summaries. §5.3 covers
+why [S10] is simultaneously the strongest argument against the naive version of Class A.)*
 
 **What is NOT computable from two pass outputs — stated as a gap:**
 
@@ -424,7 +439,7 @@ most complete single enumeration and maps cleanly onto the taxonomy [S27].
 |---|---|---|---|
 | **Fixed count** | OpenAI Agents SDK `max_turns` → `MaxTurnsExceeded` [S28]; LangGraph `recursion_limit` → `GraphRecursionError` [S29]; Claude Agent SDK `max_turns` [S30]; AutoGen `MaxMessageTermination` [S27]; Anthropic: "it's also common to include stopping conditions (such as a maximum number of iterations) to maintain control" [S31] | Guaranteed termination; trivially auditable; zero measurement cost; bounded blast radius | "syntactic kill-switch … blind to whether the answer is still improving, so it **over-spends tokens on easy inputs and truncates hard ones**" [S11]. The number must come from somewhere — and §2.1 shows the usual somewhere doesn't support it. |
 | **Budget ceiling** | AutoGen `TokenUsageTermination`, `TimeoutTermination` [S27] | Bounds the thing that actually costs money; degrades gracefully; the natural outer guard | Says nothing about work quality. Uncorrelated with whether the task is done — a cheap pass that finds a Critical and an expensive one that finds nothing are treated identically. |
-| **Convergence** | AutoGen `FunctionalTermination` ("stop when a function expression evaluates to True on messages") [S27] is the only first-party *predicate* hook located; the semantic-distance rule of [S11]; the "one clean pass" rule of [S15] | Stops on an *observable state*, not a turn count; measured 38% token saving at parity in the one head-to-head [S11]; adapts per-task | Termination is not guaranteed (§5.1). Naive forms under-estimate residual risk (§5.3). Requires comparable outputs — prose diffs are not a finding-set difference. |
+| **Convergence** | AutoGen `FunctionalTermination` — "Stop when a function expression is evaluated to `True` on the last delta sequence of messages" [S27] — is the only first-party *predicate* hook located; the semantic-distance rule of [S11]; the "one clean pass" rule of [S15] | Stops on an *observable state*, not a turn count; measured 38% token saving at parity in the one head-to-head [S11]; adapts per-task | Termination is not guaranteed (§5.1). Naive forms under-estimate residual risk (§5.3). Requires comparable outputs — prose diffs are not a finding-set difference. |
 | **Judge-declared** | Self-Refine's feedback-extracted stop indicator [S1]; AutoGen `TextMentionTermination`, `StopMessageTermination` [S27]; our `VERDICT: MERGE` | Uses the richest available signal; already how `review-pr` terminates today | Inherits every judge pathology: self-preference [S19], sycophancy [S20], score inflation for machine-authored work [S21], hallucinated findings [S13]. And it costs a full LLM call per check — the failure mode measured at +129% tokens in [S11]. |
 | **Human hold** | AutoGen `ExternalTermination` ("programmatic control of termination from outside the run") and `HandoffTermination` [S27]; Anthropic: "Agents can then pause for human feedback at checkpoints or when encountering blockers" [S31]; our `HOLD - needs-assistance` | The only rule that can stop on a *judgement* the loop cannot produce. Correct by construction for its case. | Not autonomous — it is the exit from autonomy, not a mode of it. Latency is unbounded. Does not scale to the "nobody presses the button" phase. |
 
@@ -504,13 +519,22 @@ counterbalancing garnish; three of these are strong enough to sink a naive conve
 
 ### 5.1 It does not guarantee termination, and non-termination is an empirically common failure
 
-Infinite Agentic Loops are "failures where agents repeatedly execute calls without bounded
-feedback," stemming "from interactions between agent logic, framework semantics, and
-termination mechanisms," with consequences including "cost exhaustion and context bloat"
-[S32]. A static analyser over 6,549 repositories "reported 74 potential findings, with manual
-review confirming **68 IAL failures across 47 projects**, achieving 91.9% precision" [S32].
+An Infinite Agentic Loop is defined as "an execution failure in which an agentic feedback path
+repeatedly triggers costly or state-growing actions without an effective stopping bound"
+[S32]. Such failures "can amplify a single request into long running model and tool execution,
+causing **cost exhaustion, model denial of service, context growth, and repeated external side
+effects**" [S32]. And on where they come from: "IALs are not ordinary programming loops; they
+arise from the interaction between **agent logic, framework semantics, runtime observations,
+and termination mechanisms**" [S32]. A static analyser over 6,549 repositories "reported 74
+potential findings, with manual review confirming **68 IAL failures across 47 projects**,
+achieving 91.9% precision" [S32].
 These are shipped open-source projects. A counter cannot produce this failure; a convergence
-predicate can. *(definitive on the paper's claims, abstract fetched via arXiv API)*
+predicate can. *(definitive on the paper's claims — abstract fetched via the arXiv API, body
+quotes re-fetched verbatim from https://arxiv.org/html/2607.01641v1 after the critic pass
+caught three non-verbatim quotations here. Note the fourth term in the source's causal list,
+"runtime observations", which the earlier draft dropped: it strengthens §5.2's point rather
+than weakening it — regime is a function of what the loop observes at runtime, not of prompt
+design alone.)*
 
 ### 5.2 The oscillatory regime is a documented attractor, not an edge case
 
@@ -520,8 +544,9 @@ attractors)**, and exploratory (unbounded divergence)" — and "prompt design di
 the dynamical regime," so "the same model [exhibits] fundamentally different behaviors
 depending on transformations applied" [S24]. A loop cycling between two finding sets never
 satisfies a naive "no new findings" test and never terminates. **A convergence rule inherits a
-dependency on prompt design that a counter does not have.** *(definitive on the paper's claims;
-the analysis is purely semantic and is not coupled to task performance)*
+dependency on prompt design that a counter does not have.** *(**Directional** — single-author
+preprint, same tier as [S5], [S8], [S11], [S15]; the analysis is purely semantic and is not
+coupled to task performance or to any execution substrate.)*
 
 ### 5.3 Adaptive bias: "nothing new lately" systematically under-estimates what is left
 
@@ -731,9 +756,10 @@ stating "3 to 5" is [S14].
   abstract quoted from https://drum.lib.umd.edu/items/5e99e954-e625-46c1-9a07-d8ec9ac5b107
   *(ACM DL returned 403)*
 - [S16] Cousot, P. (2023). *Abstract Interpretation: From 0, 1, To ∞.*
-  https://cs.nyu.edu/~pmc309/publications.www/CSV-2023-cousot.pdf *(classical result; PDF text
-  did not extract — the ACC/widening claim is corroborated across [S16], [S17] search summaries
-  and is uncontested textbook material)*
+  https://cs.nyu.edu/~pmc309/publications.www/CSV-2023-cousot.pdf *(classical result, but PDF
+  text did not extract — the ACC/widening claim rests on search-corroborated summaries of
+  [S16] and [S17], not on fetched primary text. **Directional**, per the same rule applied to
+  [S25], [S26], [S34].)*
 - [S17] Cousot, P., & Cousot, R. (1992). *Comparing the Galois Connection and Widening/Narrowing
   Approaches to Abstract Interpretation.* PLILP'92, LNCS 631, 269-295.
   https://www.di.ens.fr/~cousot/COUSOTpapers/publications.www/CousotCousot-PLILP-92-LNCS-n631-p269--295-1992.pdf
@@ -775,7 +801,9 @@ stating "3 to 5" is [S14].
   https://www.anthropic.com/engineering/building-effective-agents *(rendered page — quotes kept
   short and verbatim)*
 - [S32] Hou, X., Wang, S., Zhao, Y., & Wang, H. (2026). *When Agents Do Not Stop: Uncovering
-  Infinite Agentic Loops in LLM Agents.* arXiv:2607.01641. https://arxiv.org/abs/2607.01641
+  Infinite Agentic Loops in LLM Agents.* arXiv:2607.01641. https://arxiv.org/abs/2607.01641 —
+  body quotes in §5.1 from https://arxiv.org/html/2607.01641v1 *(re-fetched and corrected
+  after the critic pass; the first draft's §5.1 quotations were not verbatim)*
 
 **Internal evidence (not a citation — recorded for traceability)**
 
