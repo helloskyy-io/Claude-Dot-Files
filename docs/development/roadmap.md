@@ -114,11 +114,6 @@ This phase deserves its own top-level designation because:
 
 Build the core workflow that analyzes recent logs and produces actionable recommendations.
 
-**Prerequisites (updated 2026-04-10):**
-- ~~Phase 4c complete (at least `revision.sh` + `build-phase.sh` built)~~ → ✅ All 4 core workflows built: revision.sh, revision-major.sh, build-phase.sh, review-runs.sh.
-- ~~20+ workflow runs logged~~ → 12 logs analyzed in first formal CPI report. Patterns already emerging clearly at this sample size.
-- ~~Phase 4e: some foundational skills exist~~ → ✅ 8 skills exist
-
 **Early wins (ahead of schedule):**
 - [x] **`workflow-analyst` agent built** — Created by revision-major's first real test run (PR #5). Read-only Sonnet agent with structured report format, confidence scoring, and metrics. Preloads workflow-analysis skill.
 - [x] **`workflow-analysis` skill built** — Created alongside the agent. Covers pattern categories (inefficiencies, repeated failures, manual corrections, missed opportunities, successes), confidence scoring methodology, analysis process, red flags, and output format.
