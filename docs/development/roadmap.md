@@ -19,6 +19,8 @@ The through-line: *the run that authors work should not be the run that judges i
 
 **Phases are named, never numbered**, and headings read `## Phase: <name>`. Numbering made reordering expensive and encoded a sequence that stopped being true. Order reflects rough dependency; **phases are not worked to completion in order**, and moving between them to unblock something is normal.
 
+**A roadmap is never a history lesson.** It states what is built or is going to be built — nothing else. Why a decision was made, what an approach cost, what got abandoned and on what reasoning: all of that belongs in the phase doc. An abandoned item is struck there with its explanation; it does not appear here at all. Retrospective notes in a roadmap turn it into a dumping ground and bury the one thing it exists to show.
+
 **Phase docs are written when a phase is picked up, not in advance.** A detailed plan for work that has not started yet is a guess that ages badly — the same reason skills are written after a methodology has been explained twice.
 
 **Status markers:** ✅ COMPLETE · 🟡 IN PROGRESS · 📋 QUEUED, NEEDS PLANNING · 🔵 NOT SCHEDULED · ⚠️ needs restating
@@ -33,7 +35,7 @@ Mapped what Claude Code stores in `~/.claude/` and classified every path as port
 
 The directory mixes two very different things: what you *author* — agents, skills, rules, hooks — sitting alongside what Claude Code writes for *itself*, including credentials, session history and per-project state. Getting that split wrong in either direction meant leaking secrets into git or hand-copying config forever. This phase produced the classification every later phase is built on.
 
-- [x] **Every path identified and classified** — the finding that `projects/` is **path-keyed** is what ruled out whole-directory sync and set the targeted-symlink strategy
+- [x] **Every path under `~/.claude/` classified portable or machine-local**
 
 ---
 
@@ -45,8 +47,8 @@ Get the repo deploying to every machine, so everything built later propagates au
 
 One idempotent installer creates seven targeted symlinks from `config/` into `~/.claude/`, touching nothing machine-local. It runs the same way by hand on a VM or unattended via Ansible on a workstation. The criterion that matters is not that the links exist — it is that an agent written on the laptop is live on the VM after a `git pull`, with no further step.
 
-- [x] **`install.sh` — idempotent, verified on laptop, workstation and VM** — idempotency is the feature, not a nicety: it is what lets Ansible re-run the installer on every playbook execution
-- [x] **Ansible integration** — `--non-interactive` for automated runs
+- [x] **`install.sh`** — idempotent installer, verified on laptop, workstation and VM
+- [x] **Ansible integration** — `--non-interactive` for unattended runs
 - [x] **Seven targeted symlinks** — `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`
 
 ---
@@ -59,9 +61,9 @@ Make it safe to say yes quickly in interactive mode, and safe to walk away in au
 
 Permissions prompt on anything unlisted, so approving in a live session is fast and informed. A `PreToolUse` hook denies known-destructive commands regardless of what the allow list says, catching the case where a broad allow rule accidentally matches something that should never run. The second layer is what makes unattended work possible at all — autonomous dispatches bypass permissions entirely, leaving the hook as the only control still operating.
 
-- [x] **`PreToolUse` → `block-dangerous.sh`** — pattern-denies destructive commands. Later proved to be the **only** control operating during an autonomous run, since those bypass permissions entirely
+- [x] **`PreToolUse` → `block-dangerous.sh`** — pattern-denies destructive commands
 - [x] **`Stop` → `notify-done.sh`** — desktop notification on completion, skips on headless
-- [x] **Two-layer model** — permissions ask about *unlisted* commands; the hook denies *known-dangerous* ones regardless of what the allow list says
+- [x] **Two-layer model** — permissions for unlisted commands, hook for known-dangerous ones
 
 ---
 
@@ -71,12 +73,11 @@ Permissions prompt on anything unlisted, so approving in a live session is fast 
 
 Build the specialists a workflow can dispatch — the actors that plan, review and verify without a human in the loop.
 
-The insight the phase turned on is that **narrow lenses beat one thorough generalist**. Four agents reviewing the same tree only produce four useful results if each answers a question the others do not; otherwise you get the same finding four times and a false sense of coverage. Everything is read-only unless writing is the job, so a whole panel can be dispatched against one worktree safely, and none of them fires unless asked — depth is something you reach for, not something that interrupts you.
+Each agent answers **one question no other agent answers** — narrow lenses rather than one thorough generalist, so a panel dispatched at the same tree returns four distinct results instead of the same finding four times. Everything is read-only unless writing is the job, which is what makes dispatching a whole panel at one worktree safe. None of them fires unless asked; depth is something you reach for, not something that interrupts you.
 
-- [x] **Five specialist agents** — `architect`, `planner`, `code-reviewer`, `test-writer`, `security-auditor`, each with one distinct question and its own model tier
-- [x] **Two-tier strategy** — built-ins handle routine work automatically; custom agents are on-demand only
-- [x] **`/review` and `/best-practices`** — the first slash commands
-- [x] **~~Port Cursor workflows to slash commands~~** — **abandoned deliberately.** Replaced by a better design: methodology became *skills* loaded on context, with commands as thin invokers. A saved prompt rots; a skill has one home and two entry points
+- [x] **Five specialist agents** — `architect`, `planner`, `code-reviewer`, `test-writer`, `security-auditor`
+- [x] **Two-tier strategy** — built-ins for routine work, custom agents on-demand only
+- [x] **`/review` and `/best-practices`** slash commands
 
 ---
 
