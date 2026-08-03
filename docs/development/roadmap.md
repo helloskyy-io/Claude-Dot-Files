@@ -589,26 +589,41 @@ The port to durable execution. **Gated on the two phases above** — not by pref
 - [ ] **Plan the migration order** — which workflow moves first, and what runs in parallel during the cutover.
 - [ ] **Decide what happens to the bash fleet after** — retired, or kept as the edge fallback.
 
-### Implementation Language — 📋 DECIDE EARLY
+### Implementation Language — 📋 PREREQUISITE, decide before anything else in this phase
 
-**A sub-decision of this phase, not a phase of its own** — the language question only exists *because* of the port. Bash cannot be a Temporal worker; absent the port there is nothing to decide. But it must be settled **early within this phase**, because it sets what every subsequent build is written in and the cost of deciding late is rewriting work that already landed.
+**Bash is not an option, and that is not a preference.** Temporal has no bash SDK. A worker is a long-running process that implements the task-queue protocol and, for workflow code, guarantees deterministic replay. Bash cannot do either. The SDKs are Go, Java, Python, TypeScript, .NET, PHP and Ruby — pick one or do not port.
 
-The fleet is bash. The old assumption was "migrate to Python eventually." **Temporal is language-agnostic, so that assumption was never actually load-bearing** — the choice is open and should be made on merit rather than inherited.
+**But the bash does not die.** Skyy-Command's activities already shell out via `subprocess` in several domains, and every activity we would write ultimately invokes `claude -p` anyway. A bash script survives as *an executable an activity calls*. The question is only whether that indirection earns its keep once the caller is already a real program.
 
-**This is a decision to make deliberately and early**, because it sets what every subsequent phase is built in, and because the cost of deciding late is rewriting work that already landed.
+**Python is very likely the answer, and this is a decision to make in conversation rather than a research run.** The inputs are not open questions:
 
-**Inputs that are already known and should not be re-derived:**
+- The framework being ported **is Python** — `lib/temporal/` in Skyy-Command, 123 non-test modules.
+- The **Worker Deployment Standard is written in Python** — `python:3.11-slim` base image, `CMD ["python", "<worker>_worker.py"]`. Conforming to a binding standard while choosing a different language means diverging from it on day one.
+- The seed handoff already specifies the worker as a Python venv with `temporalio` + the `claude` CLI.
 
-- **A large Python asset already exists.** Skyy-Command's `lib/temporal/` is Python — 298 activities, 41 workflows, 26 domains — and the binding Temporal Standard's examples and patterns (`ActivityResult`, `ACTIVITY_MAP`, semantic wrappers) are written against it. Porting *to* Python is a re-host; porting to anything else is a translation.
-- **The worker is already specified as a Python venv** in the seed handoff — bare systemd process, `temporalio` + the `claude` CLI.
-- **The whole prompts-are-code failure class is a bash problem.** Three outages this cycle came from string escaping — unescaped backticks, balanced stray quotes, `\\` before a backtick — and the mitigation is a bespoke execution-sandbox linter we had to build and then fix twice. Languages with real multi-line string literals do not have this class at all. **That is the strongest single argument against staying in bash**, and it is worth weighing honestly rather than as a footnote.
-- **Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — it only pays off as part of the Temporal port.
+Choosing anything else is not "evaluating options," it is proposing to diverge from a standard we have already agreed to conform to. **The narrow thing that does deserve checking** is whether any Python-SDK constraint bites our specific shape — 10–60 minute activities need heartbeating, and large transcripts hit payload limits. Both are already flagged as known work in the seed handoff, which is evidence the constraint is understood rather than unexplored.
 
-**What to decide:**
+**Convert → test → orchestrate. The port does not need a big bang, and the standard's own architecture is what allows this.**
 
-- [ ] **The target language**, on merit, with the above as inputs rather than conclusions.
-- [ ] **Whether anything is rewritten before the Temporal port**, or whether bash simply stops receiving new work at some point.
-- [ ] **What happens to the bash fleet after** — retired, or kept as an edge fallback that needs no runtime.
+Generic executors under `activities/` are **plain functions** — verified in Skyy-Command: no `@activity.defn`, no `temporalio` import, just `subprocess` and a returned `ActivityResult`. Decoration happens one layer up, in the semantic wrappers. So the port splits into stages that are each independently valuable:
+
+| Stage | What exists at the end | Temporal needed? |
+|---|---|---|
+| **A — Convert** | The fleet as plain Python functions plus a CLI entrypoint. Same invocation UX as today, now unit-testable, and the prompts-are-code escaping class disappears with real string literals | **No** |
+| **B — Wrap** | Semantic wrappers add `@activity.defn`; the plain functions from A are untouched | Yes, but nothing orchestrates yet |
+| **C — Orchestrate** | Workflows and parents compose the wrappers; schedules replace timers | Yes |
+
+**Stage A is a valid resting place.** If Temporal slips, we still have a tested Python fleet that runs exactly like the bash one and has shed an entire class of outage. That is the property that makes this safe to start before everything else is settled.
+
+- [ ] **Ratify Python** (or state the reason for diverging from the standard).
+- [ ] **Confirm the two known SDK constraints** — heartbeating for long activities, payload limits for transcripts.
+- [ ] **Decide what happens to the bash fleet after Stage A** — retired, or kept as an edge fallback needing no runtime.
+
+---
+
+### Counter-argument, recorded
+
+**Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — it only pays off as part of the Temporal port. A rewrite buys nothing on its own — **it only pays off as part of this port**, and Stage A above is what makes it pay off early rather than at the end.
 
 ---
 
