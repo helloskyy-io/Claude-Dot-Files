@@ -12,10 +12,10 @@ The items feed **three** roadmap sections, which is only clear once they are spl
 | Item below | Roadmap section |
 |---|---|
 | 1 — Result envelope + `is_error` gating | **Memory Management Framework** (kind 2, the transport layer) |
-| 2 — Fork vs parameterize → `build-phase` | **Workflow Decomposition** |
-| 3 — Server-side agent definitions | **Autonomous Operation** |
+| 2 — Fork vs parameterize → `build-phase` | **Decomposition** → Workflow Decomposition |
+| 3 — Server-side agent definitions | **Decomposition** → Agent Decomposition (moved out of Autonomous Operation: it has no Temporal dependency, and deferring it behind a port it does not need would have stalled a live defect for months) |
 | 4 — Handoff contract → convergence stopping | **Memory Management Framework** (kind 2, the payload layer) |
-| `lint-docs.sh` | **Workflow Decomposition** |
+| `lint-docs.sh` | **Decomposition** → Workflow Decomposition |
 
 Items 1 and 4 read as separate concerns here because that is how they arrived. They are **the same problem at two layers** — how a parent learns what a child concluded — which is why they belong to one framework rather than two queue entries.
 
@@ -84,8 +84,10 @@ PM3's stale-usage-text find (`revision-draft-minor.sh:19` still reads `./revisio
 
 **Explicitly out of scope — operator ruling, and it is correct.** Agent-as-independent-durable-unit (Tier 3) is the canonical answer for a *metered API* integration, not for a subscription-based CLI overlay. It would require the CLI baked into worker images and a credential per pod. **Do not build it.** The accepted trade: agents stay inside Claude Code's process model, so they are not independently retryable, and the parallel-narrow-then-sequential-integration pattern stays enforced by prompt discipline rather than structure. Known limit, not an oversight.
 
-**Confidence:** high that the gap is real; untested on prompt size. **Full process, small build.**
-**Blocks:** nothing. **Blocked by:** standards catch-up.
+**⚠️ SAFETY BLOCKER found 2026-08-03, and it is why this is not the two-line change it looks like.** The synced **user-level** `settings.json` is where `hooks.PreToolUse → block-dangerous.sh` lives. Headless dispatches pass `--dangerously-skip-permissions`, which makes that hook **the only remaining safety layer**. Adding `--setting-sources project,local` drops user settings and therefore **strips destructive-command blocking from every autonomous run.** The hook must change scope, or be supplied another way, before the flag is touched.
+
+**Confidence:** high that the gap is real; untested on prompt size; safety dependency now known.
+**Blocks:** nothing. **Blocked by:** standards catch-up, and the hook-scope resolution above.
 
 ---
 

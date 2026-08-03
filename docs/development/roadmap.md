@@ -60,6 +60,8 @@ project-root/
 
 **Status markers:** ✅ COMPLETE · 📋 QUEUED, NEEDS PLANNING · 🔵 NOT SCHEDULED · ⚠️ needs restating · (unmarked = in progress)
 
+**Phases are not worked to completion in order.** Order reflects rough dependency, not a queue to be drained. Moving between phases to unblock something is normal and expected — a standards gap surfaced while planning one phase often has to be closed inside another, and an item that turns out to gate two phases gets done wherever it lands first. **A phase being "in progress" says nothing about whether the phase before it is finished.**
+
 Status key: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ## Two Workflows
@@ -490,7 +492,11 @@ This phase is the foundation for treating Claude Code not as a tool you use, but
 
 ---
 
-## Phase: Workflow Decomposition — 📋 QUEUED, NEEDS PLANNING
+## Phase: Decomposition — 📋 QUEUED, NEEDS PLANNING
+
+Breaking monolithic things into composable ones. Two tracks, related but not the same work.
+
+### Workflow Decomposition
 
 Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and the children become recombinable rather than copied. **Partly built already, and that half needs documenting as much as the rest needs planning** — `revision.sh` and `revision-minor.sh` shipped as three-child parents before any of this was written down.
 
@@ -502,6 +508,20 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 - **`lint-docs.sh`** — a gate for the stale-doc class that keeps shipping.
 
 Detail, confidence levels and evidence: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md).
+
+---
+
+### Agent Decomposition — 📋 STUB, NEEDS DEFINITION
+
+Agents are currently monolithic markdown files that must physically exist in `~/.claude/agents/` on whatever machine dispatches. Two separable problems, and only the first is understood:
+
+**Separating the definition from the machine.** A headless dispatch loads whatever agent roster the edge machine happens to have. `activities/run-claude.sh` refuses to dispatch on an inherited *model* — *"model identity must be an explicit input, never derived"* — and by that same rule the agent roster is ambient, underived, and undetected when two machines diverge. `--agents <json>` injects definitions at invocation (no path lookup, the agent need not exist on the box) and `--setting-sources` controls which tiers load. Both flags verified present.
+
+- [ ] **⚠️ SAFETY BLOCKER — resolve before touching `--setting-sources`.** The synced **user-level** `settings.json` is where `hooks.PreToolUse → block-dangerous.sh` lives. Headless dispatches run with `--dangerously-skip-permissions`, which makes that hook **the only remaining safety layer**. Passing `--setting-sources project,local` would drop user settings and therefore **strip destructive-command blocking from every autonomous run.** The hook has to move scope, or be supplied another way, *first*. This is precisely why the item is not the two-line change it looks like.
+- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our agent definitions are large. Whether that is comfortable, or wants a generated-file pattern, must be tried before any design assumes it.
+- [ ] **Decide where server-side definitions live** and how they are assembled.
+
+**Decomposing the agents themselves.** Not yet defined — whether large agents should split into composable pieces the way workflows did, or whether the skills-preloading pattern already covers it. **Needs a problem statement before it is a work item.** Do not build toward this until someone can say what is actually wrong with the current shape.
 
 ---
 
@@ -561,22 +581,17 @@ The port to durable execution. **Gated on the two phases above** — not by pref
 
 ## Phase: Autonomous Operation — 🔵 NOT SCHEDULED
 
-> **Gated on Temporal Integration, deliberately placed after it.** Running the fleet unattended is not a near-term item: several things have to land first — the decomposition settled, the handoff contract designed, durable execution in place. Attempting it earlier means building scheduling and unattended-dispatch machinery on top of a shape still being changed, then rebuilding it. Distinct from `Phase: Autonomous Execution` above, which is about building the workflows themselves.
+> **Gated on Temporal Integration, deliberately placed after it.** Distinct from `Phase: Autonomous Execution` above, which is about building the workflows themselves. This phase is about running the fleet with nobody pressing the button.
 
+The tier above parents. Where a parent composes children into one task-complete unit of work, this composes **parents** into a loop that keeps going: what ran, what it concluded, and what should run next — decided from memory, in code, with no human in the loop and no AI choosing the route.
 
-Work that lets the fleet run without a human pressing the button. Distinct from Continuous Process Improvement, which is about the tooling getting *better*; this is about it running *unattended*. Both were tangled together under one heading and neither read clearly.
+**The shape, as far as it is understood:**
 
-**Server-side configuration independence** — a headless dispatch currently loads whatever agent definitions the edge machine happens to have, because `run-claude.sh` passes neither `--agents` nor `--setting-sources`. That is the same defect class the script already fails loud on for `--model`, one layer down and unguarded: the agent roster is ambient and underived, and nothing detects divergence between two machines. Detail and the operator's Tier-3 ruling in [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md) Item 3.
+- **A driver that runs many parent workflows in sequence**, choosing each next dispatch from persisted state rather than from a script written in advance. This is the payoff of the Memory Management Framework — the typed result a parent leaves behind is what the next decision reads.
+- **Exit criteria that are real and observable** — a `HOLD` on a PR needing human judgement, a convergence signal, a budget ceiling. **None of this is designed.** The one thing already known: it must be able to stop and hand back, and "stop" has to be a state something can *observe*, not a turn count.
+- **Cron-driven entry** for the time-shaped work (below).
 
-**Automated PR generation from CPI findings** (moved here from Continuous Process Improvement — it is unattended operation, not analysis):
-
-Take the manual review workflow and have it create PRs with proposed changes.
-
-**Tasks:**
-
-- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
-- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
-- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
+**Not designed. Not planned. Do not build toward it yet** — the loop is only safe once memory is typed and durable execution can resume a failed leg. Recorded now so the earlier phases are built with it in view.
 
 ### Temporal Crons — 📋 STUB
 
