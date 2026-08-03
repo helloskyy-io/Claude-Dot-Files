@@ -54,7 +54,11 @@ project-root/
 
 ---
 
-# Migration Plan — Phased Approach
+# Migration Plan — Named Phases
+
+> **Phases are named, never numbered**, and every phase heading reads `## Phase: <name>`. Numbering made reordering expensive and encoded a sequence that stopped being true — the work does not proceed in the order it was written down. The `Phase:` prefix is what distinguishes a unit of work from the reference sections around it, now that the numbers are gone. Order in this file reflects what is next; a phase's position is free to change without renaming anything.
+
+**Status markers:** ✅ COMPLETE · 📋 QUEUED, NEEDS PLANNING · 🔵 NOT SCHEDULED · ⚠️ needs restating · (unmarked = in progress)
 
 Status key: `[ ]` not started · `[~]` in progress · `[x]` complete
 
@@ -70,11 +74,11 @@ Everything in this roadmap serves one or both of these workflows.
 
 ---
 
-## Phase 0: Explore ~/.claude ✅ COMPLETE
+## Phase: Explore ~/.claude ✅ COMPLETE
 
 Mapped the directory structure. All folders exist but are empty (fresh install). Key discovery: `projects/` is path-keyed and should not be synced.
 
-## Phase 1: Cross-Device Sync ✅ COMPLETE
+## Phase: Cross-Device Sync ✅ COMPLETE
 
 Goal: Get this repo deploying to all machines so everything built in later phases automatically propagates.
 
@@ -87,7 +91,7 @@ Goal: Get this repo deploying to all machines so everything built in later phase
 - [x] **Ansible integration (workstations/laptops)** — install.sh runs via Ansible playbook with `--non-interactive` flag on desktops and laptops. Ansible handles cloning the repo and installing prerequisites (Claude Code, jq) before running the script.
 - [x] **Deploy to VMs** — Tested on skyy-net VM at `/opt/skyy-net/claude-dot-files`, all 7 symlinks verified
 
-### Phase 1 — Notes
+### Cross-Device Sync — Notes
 
 **Workstations & laptops**: Ansible runs `install.sh --non-interactive` on every playbook run. This is safe because the script is idempotent (existing correct symlinks are skipped), and the script may do more than manage symlinks in the future.
 
@@ -95,7 +99,7 @@ Goal: Get this repo deploying to all machines so everything built in later phase
 
 ---
 
-## Phase 2: Safety & Guardrails ✅ COMPLETE
+## Phase: Safety & Guardrails ✅ COMPLETE
 
 **Serves: Both workflows** — Interactive mode needs guardrails so you can approve quickly with confidence. Autonomous mode needs them even more since Claude is working unsupervised.
 
@@ -106,13 +110,13 @@ Dependencies: Phase 1 (so hooks sync across machines automatically)
 - [x] **Review permissions in settings.json** — Permissions provide the first layer (approval popup for unlisted commands), hooks provide the second layer (pattern-based deny for dangerous commands that might match broad allow rules). Two-layer safety net confirmed working.
 - [x] **Test each hook** — Permission layer prompts on dangerous commands (first safety layer works). notify-send fires desktop notification (top-right on Cinnamon/Mint). Both verified.
 
-### Phase 2 — Notes
+### Safety & Guardrails — Notes
 
 Hook architecture (settings.json wiring, stdin JSON contract, three handler types) and the decision to skip PostToolUse auto-format are documented in `docs/architecture/system-overview.md`. Standards for writing hook scripts live in `docs/standards/hook-scripts.md`.
 
 ---
 
-## Phase 3: Planning & Agents ✅ COMPLETE
+## Phase: Planning & Agents ✅ COMPLETE
 
 **Serves: Primarily Workflow 2 (Autonomous)** — These are the building blocks Claude uses to plan, review, and execute work independently. Also useful in interactive mode for getting a second opinion.
 
@@ -128,7 +132,7 @@ Dependencies: Phase 1 (for sync)
 - [x] **`/best-practices` slash command** — `commands/best-practices.md`: mindset primer for industry-standard approaches before tackling a problem.
 - [ ] **Port Cursor workflows to slash commands** — Anything from old cursor_rules or repeated prompts becomes `commands/command-name.md`. Use `$ARGUMENTS` for parameterization.
 
-### Phase 3 — Subagent Format
+### Planning & Agents — Subagent Format
 
 ```yaml
 ---
@@ -152,7 +156,7 @@ Key constraints: Subagents cannot spawn other subagents. For multi-step workflow
 
 ---
 
-## Phase 4: Autonomous Execution
+## Phase: Autonomous Execution
 
 **Serves: Workflow 2 (Autonomous)** — This is the core of the "plan → execute → PR" pipeline.
 
@@ -194,7 +198,7 @@ Seven ways to build agentic workflows, from simple to complex:
 4. **Trust-then-verify is essential** — Claude generates plausible but incomplete implementations
 5. **Multi-agent workflows aren't for 95% of tasks** — set WIP limit at 3-5 agents max
 
-### Phase 4a: Foundation Validation ✅ COMPLETE
+### Foundation Validation ✅ COMPLETE
 
 Verify the primitives work end-to-end before building any orchestration.
 
@@ -205,7 +209,7 @@ Verify the primitives work end-to-end before building any orchestration.
 - [x] **Establish dual permission model** — Interactive mode uses allow/deny lists (conservative, popup on new). Autonomous mode uses `--dangerously-skip-permissions` (permissive within isolated worktree). Safety comes from `block-dangerous.sh` hook which still fires regardless of permission flags. Hook hardened with expanded patterns (sudo, system control, RCE, SSH tampering, package purges, etc.). Verified empirically that hooks fire under `--dangerously-skip-permissions`.
 - [x] **Build cleanup automation** — `/cleanup-merged-worktrees` command scans worktrees, checks PR status via `gh`, removes merged/closed ones. Tested and working.
 
-### Phase 4b: Standards Documentation ✅ COMPLETE
+### Standards Documentation ✅ COMPLETE
 
 Before building more workflows, capture the conventions we've been following so future additions stay consistent and team members can contribute.
 
@@ -215,7 +219,7 @@ Before building more workflows, capture the conventions we've been following so 
 - [x] **Slash command standards** — `docs/standards/slash-commands.md`: plain markdown (no frontmatter), `$ARGUMENTS` patterns, agent invocation, safety conventions, commands vs agents vs skills decision guide.
 - [x] **Reference standards from CLAUDE.md** — Root `CLAUDE.md` Standards section points to all four. Global `config/CLAUDE.md` intentionally does NOT reference (it syncs to all projects and those paths wouldn't exist elsewhere).
 
-### Phase 4c: Core Workflows (The Four Autonomous Workflows)
+### Core Workflows
 
 Aligned with the [Dual Workflow Model](../guide/workflows.md) — these are the four concrete workflows that collectively implement Stage A (Initial Autonomous Run). They vary by scope: from trivial revisions to full project definition.
 
@@ -286,7 +290,7 @@ The most-used daily planning workflow. For revising roadmaps, adding phase docs,
 - [x] **Supporting skills already built** — planning-methodology, architecture-decisions, documentation-structure all exist.
 - [x] **Test on a real planning task** — Used to create Phase 5b detailed phase doc (`docs/development/phases/phase-5b-automated-pr-generation.md`). PR #19 created with full task breakdown, dependencies, success criteria, risks. Architect and planner review stages validated — output quality significantly higher than unreviewed planning.
 
-### Phase 4d: PR Comment Automation (Local GitHub Monitor) ✅ COMPLETE
+### PR Comment Automation (Local GitHub Monitor) ✅ COMPLETE
 
 The Stage C escalation path. A local systemd timer (`gh-monitor`) polls GitHub for `@claude` PR comments and launches workflows locally using Max subscription. Zero API costs, zero security exposure.
 
@@ -303,7 +307,7 @@ Service standard: `docs/standards/services.md`
 - [x] **Deploy and enable** — Ran `install.sh --with-services` on workstation. yq installed (architecture-aware amd64), systemd units symlinked, timer enabled and started. Verified active with `systemctl --user status gh-monitor.timer`. Polling every 5 minutes.
 - [x] **Live test** — Posted `@claude revision-major:` comment on PR #15. gh-monitor detected it within one polling cycle, parsed the route correctly, fetched the PR branch, created a worktree, and launched `revision-major.sh --pr 15`. Full autonomous loop confirmed. Success comment posting also verified (PR #16 added the feature). Note: comments post as the user's GitHub account (gh CLI auth), not a bot — prefixed with 🤖 **[gh-monitor]** to distinguish from human comments.
 
-### Phase 4e: Skills Library (ongoing, built from experience)
+### Skills Library (ongoing, built from experience)
 
 Build skills incrementally based on what workflows need. Not a one-time phase — this is continuous.
 
@@ -340,7 +344,23 @@ One gap was identified from production feedback on 2026-04-14 and addressed by t
 
 ---
 
-## Phase 5: Continuous Process Improvement
+## Phase: Autonomous Operation — 🔵 NOT SCHEDULED
+
+Work that lets the fleet run without a human pressing the button. Distinct from Continuous Process Improvement, which is about the tooling getting *better*; this is about it running *unattended*. Both were tangled together under one heading and neither read clearly.
+
+**Server-side configuration independence** — a headless dispatch currently loads whatever agent definitions the edge machine happens to have, because `run-claude.sh` passes neither `--agents` nor `--setting-sources`. That is the same defect class the script already fails loud on for `--model`, one layer down and unguarded: the agent roster is ambient and underived, and nothing detects divergence between two machines. Detail and the operator's Tier-3 ruling in [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md) Item 3.
+
+**Automated PR generation from CPI findings** (moved here from Continuous Process Improvement — it is unattended operation, not analysis):
+
+Take the manual review workflow and have it create PRs with proposed changes.
+
+**Tasks:**
+
+- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
+- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
+- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
+
+## Phase: Continuous Process Improvement
 
 **The game-changer phase.** This phase elevates the dotfiles repo from "static configuration" to a **self-improving development environment**. By analyzing logs from real workflow runs, we identify patterns, inefficiencies, and improvements — then feed those back into the system. The result is a true continuous-improvement feedback loop where the development environment gets smarter over time based on actual usage.
 
@@ -351,7 +371,7 @@ This phase deserves its own top-level designation because:
 - It has its own architecture, prerequisites, and graduation path
 - It's the foundation for everything that comes after (including SkyyCommand AI integration)
 
-### Phase 5a: Review Workflow (manual mode)
+### Review Workflow (manual mode)
 
 Build the core workflow that analyzes recent logs and produces actionable recommendations.
 
@@ -395,18 +415,9 @@ Next runs use improved versions
 - [x] **Run first formal cross-run analysis** — Analyzed 12 logs across 4 workflow types. Produced 14-finding report at `docs/development/reviews/review-2026-04-10.md`. 5 high-confidence findings, 5 medium, 4 low. 100% success rate, zero user corrections across all runs.
 - [x] **Capture findings into workflow improvements** — First CPI cycle complete (PR #14). Applied 3 high-confidence findings: (1) file-too-large read guidance added to all workflow prompts, (2) rate limit check with exponential backoff added to shared lib/run-claude.sh protecting all workflows, (3) test fixture path guidance added to workflow-scripts standard. **Phase 5a: Cycle 1 complete.**
 - [x] **Cross-repo review infrastructure + CPI cycles 2-3 (2026-04-24)** — review-runs.sh report output migrated to claude-dot-files/docs/development/reviews/ with source-repo metadata in filename and header (eliminates per-repo report scatter). Two production reviews generated: mdc-master-planning (20 plan-revision runs) and skyy-command (20 revision-major + build-phase runs). Shipped across both cycles: H1 parallel review-agent dispatch (plan-revision, then extended to revision-major + build-phase — ~2× review phase speedup), H2 generalized large-file reading rule, extended H3 parameter-naming rules (Grep + Read + Glob + TodoWrite), M1 bulk-rename workflow-fit check in plan-revision Stage 1, NEW file-reading discipline rule (no unbounded re-reads), NEW re-Read-before-Edit rule (formatter/linter races), NEW parallel gather-phase rule. plan-revision collapsed from 8→6 stages, revision-major + build-phase from 10→8 stages. **Phase 5a: Cycles 2 and 3 complete.** Expected impact awaiting next review cycle (~2026-04-30).
+- [x] **Build a "workflow analysis" skill** — `config/skills/workflow-analysis.md`: pattern categories, confidence scoring, analysis process, red flags. Built ahead of schedule by the revision-major test run (PR #5).
 
-### Phase 5b: Automated PR Generation
-
-Take the manual review workflow and have it create PRs with proposed changes.
-
-**Tasks:**
-
-- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
-- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
-- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
-
-### Phase 5c: Scheduled Operation
+### Scheduled Operation
 
 Move from manual triggering to scheduled operation.
 
@@ -417,18 +428,17 @@ Move from manual triggering to scheduled operation.
 - [ ] **Tune the analysis window** — Find the right balance between recency (responsive to recent work) and sample size (statistical relevance). Likely 7-14 days.
 - [ ] **Add notification on completion** — Hook into the existing Stop hook pattern so you know when the weekly report is ready.
 
-### Phase 5d: Pattern Library and Skills
+### Pattern Library and Skills
 
 The continuous improvement loop generates insights that should be captured systematically. As patterns emerge consistently across multiple cycles, they should become permanent parts of the system.
 
 **Tasks:**
 
-- [x] **Build a "workflow analysis" skill** — `config/skills/workflow-analysis.md`: pattern categories, confidence scoring, analysis process, red flags. Built ahead of schedule by the revision-major test run (PR #5).
 - [ ] **Build a "continuous improvement methodology" skill** — Capture the patterns we learn about what makes workflows good vs bad. This becomes the institutional knowledge of "what we learned about Claude Code workflows." Distinct from workflow-analysis (which is about log reading) — this is about the meta-process of improving the system.
 - [ ] **Track resolved patterns** — Maintain a log of patterns identified and resolved so we don't re-litigate them. Location: `docs/development/reviews/resolved-patterns.md`.
 - [ ] **Pattern → skill pipeline** — When the same recommendation appears across multiple review cycles, automatically suggest promoting it to a permanent skill.
 
-### Phase 5e: Graduation Evaluation — ✅ ANSWERED 2026-07-30, items below are historical
+### Graduation Evaluation — ✅ ANSWERED 2026-07-30, items below are historical
 
 **This question is settled and the items below are kept as record, not as work.** The evaluation happened; the answer is **durable execution (Temporal-shaped), adopted for durability and resumability — NOT to gain composition, which already works in bash.** A parent needs only a child's exit code plus one stable identifier on its final line, which the completion contract already provides; `revision.sh` polls CI between children in ~40 lines of shell, the kind of thing a framework is usually adopted *for*.
 
@@ -443,7 +453,7 @@ Evaluate whether bash-based workflows are sufficient or if heavier tooling is wa
 - [ ] **Evaluate Anthropic Managed Agents** — Public beta option for hosted orchestration.
 - [ ] **Evaluate Paperclip** — Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
 
-### Phase 5f: Advanced Self-Improvement — ⚠️ PARTLY FORBIDDEN as written, needs restating before any of it is scheduled
+### Advanced Self-Improvement — ⚠️ PARTLY FORBIDDEN as written, needs restating before any of it is scheduled
 
 **"Automated skill capture" and any auto-add-to-standards item directly conflicts with `config/rules/standards-governance.md`**, which is binding: standards and skills are a curated product with human-in-the-loop control, and autonomous workflows may SURFACE candidates but must never auto-create or auto-modify them. That rule postdates these boxes and wins.
 
@@ -462,7 +472,7 @@ This is where we approach true self-improvement, but with significant guardrails
 - [ ] **Effectiveness tracking** — Measure if the recommended changes actually improved subsequent runs. Did the change reduce token usage? Decrease turn count? Improve output quality?
 - [ ] **Regression detection** — Notice when changes made changes things WORSE. Alert on degradations.
 
-### Critical Rules (Apply to All of Phase 5)
+### Critical Rules (apply to all CPI work)
 
 These rules are non-negotiable for the entire continuous improvement system:
 
@@ -493,17 +503,55 @@ This phase is the foundation for treating Claude Code not as a tool you use, but
 
 ---
 
-## Phase 8: Decomposition & Durable Handoff — 📋 QUEUED
+## Phase: Workflow Decomposition — 📋 QUEUED, NEEDS PLANNING
 
-> Listed ahead of Phases 6 and 7 deliberately: those are unscheduled and this is the live queue. Numbering follows when a phase was opened, ordering follows what is actually next.
+Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and the children become recombinable rather than copied. **Partly built already, and that half needs documenting as much as the rest needs planning** — `revision.sh` and `revision-minor.sh` shipped as three-child parents before any of this was written down.
 
-Four items surfaced from live operation of the decomposed workflow fleet, plus the standards catch-up that gates them. **Nothing started.** Full detail, confidence levels and ordering: [`phases/phase-8-decomposition-and-handoff.md`](phases/phase-8-decomposition-and-handoff.md).
+**Already built, needs writing up:** the parent/child split and its rationale, the `activities/` `common/` `children/` layering, the invocation axis, children-are-shared, the `<family>-<qualifier>` naming rule.
 
-Every item passes through **research → standards → planning → building → reflection/testing → validation**, with the explicit exception that a genuinely small item may be talked through and built directly. The last two months skipped the first two stages; Phase 8 does not start until the standards catch-up lands.
+**Queued, needs planning:**
+- **Fork vs parameterize** — the ruling that gates everything else. Refines are ~82% shared and are the parameterize case; drafts are ~9% shared and are a *behaviour* decision, not a deduplication. Rule before a third copy family is created.
+- **`build-phase` decomposition** — gated on the above. `review-pr` drops in free; the open question is whether draft/refine actually fit, given `build` carries a plan-conformance obligation revision does not.
+- **`lint-docs.sh`** — a gate for the stale-doc class that keeps shipping.
+
+Detail, confidence levels and evidence: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md).
 
 ---
 
-## Phase 6: MCP Servers — 🔵 NOT SCHEDULED
+## Phase: Memory Management Framework — 📋 QUEUED, NEEDS PLANNING
+
+**Two distinct kinds of memory, currently conflated and only half-built.** Both exist to solve the same underlying problem — a context window ends, the work does not — but they have different consumers, different lifecycles, and only one of them is designed.
+
+### Kind 1 — Durable memory, written to git, read by humans and AI
+
+The tier that already works. Long-running work outlives any session, so the platform keeps **no state files and no bookmarks**: *open* IS the to-do bit.
+
+- **PR threads** carry change-outcomes — what got built, the run's own decision log and reflection, the disposition ruling on it. Closes at merge.
+- **GitHub Issues** carry no-change outcomes — deferred work `review-pr` filed, planning STOPs. Filed → ruled → closed.
+- **The standup tracker** carries continuity — operating state and next moves. Never closes; items are pruned.
+
+**Status: built and in use, undocumented as a framework.** It exists as prose in `docs/guide/operations.md` and as behaviour spread across several prompts. It needs stating as a designed thing, with the rules that make it work: every surface is written by the actor that knows something and read by an actor that needs it; an account is not the artifact; a pointer is verified by fetching, never by plausibility.
+
+### Kind 2 — Machine handoff, written to file, read by CODE
+
+**Not built. This is the research item.** A parent must decide *in code, with no AI in the loop*, which child to invoke next based on what the previous child concluded.
+
+Today that is three grep channels against a child's log. It works and has been proven live, but two defects are structural rather than incidental:
+
+- **The diagnostic channel is doing the data channel's job.** A 307-line log is scraped to recover one token. `tail -1` is a heuristic — a run mentioning another PR URL after creating its own hands the parent the wrong one, and unlike the verdict channel that path has no fail-safe. Meanwhile the last line of every `stream-json` log is already a structured result envelope carrying `is_error`, `subtype`, `terminal_reason` — **and the parent gates on none of them.** A child can fail and the parent will grep on regardless.
+- **The routing signal carries no payload.** `HOLD - redispatch` says *loop* but not *with what*, so the parent routes blind while `review-pr` is already writing a rich machine-readable block that `/standup` parses and the parent does not.
+
+**First-look prior art, not a research product:** GitHub Actions *deprecated* stdout-based output passing and replaced it with a caller-declared file path, citing stream parsing as a security risk; Argo and Tekton converge on the same write-to-declared-path shape; Tekton's 4096-byte cap is the lesson that this channel carries **references, not payloads**. The convergent sentence: *the producer writes structured output to a path the caller declares; the caller reads the file; the log stays a log.*
+
+**One property none of the surveyed systems has to defend against, and we do:** our producer is an LLM that can emit a plausible-looking but wrong result. Absent or malformed must fail safe to `needs-assistance`, never guess, never default to MERGE.
+
+**Downstream:** a typed payload is what makes a **convergence-based** stopping condition mechanizable — *"did this pass find anything not in the previous pass's result?"* is answerable against two structured results and not against two prose logs. That matters because the count-based bound we shipped was built on a mis-extrapolation (see the plateau correction in the phase doc): measured, three cycles remained productive and a cap of one would have left two live credential leaks in `main`.
+
+**Needs real research before anything is built.** The problem is well understood; the answer is not.
+
+---
+
+## Phase: MCP Servers — 🔵 NOT SCHEDULED
 
 Untouched since April and nothing depends on it. Still plausible, still unstarted — recorded honestly rather than left looking active. Revisit when a concrete need appears rather than on a calendar.
 
@@ -523,7 +571,7 @@ Dependencies: Phase 1 (for config sync)
   - Don't add everything at once — each server has a context cost.
 - [ ] **Document team MCP setup** — Instructions for team members: how to add tokens locally, how to verify servers (`claude mcp list`)
 
-### Phase 6 — MCP Scopes
+### MCP Scopes
 
 - **User scope** (`~/.claude.json`): personal API keys, tokens. NOT synced by this repo (contains secrets).
 - **Project scope** (`.mcp.json` in repo root): shared server definitions, committed to git. No secrets — use `${env:VAR_NAME}`.
@@ -531,13 +579,13 @@ Dependencies: Phase 1 (for config sync)
 
 Transport types: stdio (local process, most common), HTTP (remote/cloud services, recommended for new servers), SSE (deprecated — use HTTP).
 
-### Phase 6 — MCP via Docker
+### MCP via Docker
 
 MCP servers can run as Docker containers, which provides isolation and reproducibility. Useful for servers that have complex dependencies or need specific runtime environments. If using Docker Desktop, the MCP server runs inside a container and communicates via stdio or HTTP.
 
 ---
 
-## Phase 7: Local AI Offloading — 🔵 NOT SCHEDULED
+## Phase: Local AI Offloading — 🔵 NOT SCHEDULED
 
 Untouched since April. The hardware exists and the idea holds, but model management went a different direction in the meantime (per-workflow explicit `--model` resolved from `config.yaml`), so the integration points below predate the current design and would need re-reading before any of it is built.
 
@@ -549,7 +597,7 @@ Untouched since April. The hardware exists and the idea holds, but model managem
 
 Dependencies: Phase 6 (MCP knowledge — Ollama connects via MCP server). NOTE: Ollama installation and GPU provisioning are handled by SkyyCommand, not this repo.
 
-### Phase 7a: Model Testing and Selection
+### Model Testing and Selection
 
 Test candidate models on real project files before committing to the MCP integration. Quality and speed must be validated empirically.
 
@@ -573,7 +621,7 @@ A6000 (48GB VRAM):
 - [ ] **Decide: 7B or 14B for summarization** — If 7B quality is comparable to 14B, use 7B (faster, less VRAM). If 7B misses important details, use 14B.
 - [ ] **Validate Timpi coexistence** — Confirm Timpi node (1.6GB) runs alongside the chosen model without VRAM contention.
 
-### Phase 7b: MCP Integration
+### Local-Model MCP Integration
 
 Connect the winning model to Claude Code via MCP server.
 
@@ -582,7 +630,7 @@ Connect the winning model to Claude Code via MCP server.
 - [ ] **Test end-to-end** — Run a workflow where Opus delegates file reading to the local model. Verify summaries are accurate and workflow quality is maintained.
 - [ ] **Measure savings** — Compare Opus turn count and rate limit utilization with and without local offloading.
 
-### Phase 7c: Workflow Integration
+### Local-Model Workflow Integration
 
 Embed local model usage into the workflow scripts.
 

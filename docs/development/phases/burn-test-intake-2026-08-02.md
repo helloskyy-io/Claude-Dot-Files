@@ -1,12 +1,23 @@
-# Phase 8 — Decomposition & Durable Handoff
+# Burn-test intake — 2026-08-02
 
-**Status:** queued, nothing started
-**Opened:** 2026-08-02
+**Status:** intake record. Nothing started, nothing planned.
 **Source:** PM3 burn-test handoff (`/tmp/claude-cdf-handoff-three-items-20260802.md`) + one CDF-originated item
 
-## What this phase is
+## What this document is
 
-Four items surfaced from live operation of the newly-decomposed workflow fleet. **This document is a queue, not a plan.** None of these is ready to build; each needs its own pass through the process before it becomes work.
+The raw items surfaced from live operation of the newly-decomposed workflow fleet, with their evidence, confidence levels and dependencies. **It is an intake record, not a plan** — each item still needs its own pass through the process before it becomes work, and the planning artifacts will be separate documents.
+
+The items feed **three** roadmap sections, which is only clear once they are split apart:
+
+| Item below | Roadmap section |
+|---|---|
+| 1 — Result envelope + `is_error` gating | **Memory Management Framework** (kind 2, the transport layer) |
+| 2 — Fork vs parameterize → `build-phase` | **Workflow Decomposition** |
+| 3 — Server-side agent definitions | **Autonomous Operation** |
+| 4 — Handoff contract → convergence stopping | **Memory Management Framework** (kind 2, the payload layer) |
+| `lint-docs.sh` | **Workflow Decomposition** |
+
+Items 1 and 4 read as separate concerns here because that is how they arrived. They are **the same problem at two layers** — how a parent learns what a child concluded — which is why they belong to one framework rather than two queue entries.
 
 ## The process every item goes through
 
@@ -14,7 +25,7 @@ Four items surfaced from live operation of the newly-decomposed workflow fleet. 
 research  →  standards  →  planning  →  building  →  reflection/testing  →  validation
 ```
 
-**We had been skipping the first two.** The last two months produced parent/child composition, a three-layer split, completion contracts and routing tokens — all built first and documented after, with nothing binding written down. Phase 8 does not start until the standards catch-up (below) is done, because two of these items produce rulings that need somewhere binding to live.
+**We had been skipping the first two.** The last two months produced parent/child composition, a three-layer split, completion contracts and routing tokens — all built first and documented after, with nothing binding written down. None of this starts until the standards catch-up is done, because two of these items produce rulings that need somewhere binding to live.
 
 **The one exception:** if an item genuinely does not warrant the full pass, we talk it through and build it together. Item 1 is the likely candidate. Taking the exception is a decision made explicitly, not a default.
 
@@ -117,7 +128,7 @@ Measured against PR #233: pass 1 dispositioned 31 items (its sweep capped by an 
 
 ---
 
-## Suggested order
+## Suggested order (across all three roadmap sections)
 
 | | Item | Why here |
 |---|---|---|
