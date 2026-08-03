@@ -245,6 +245,10 @@ Then produce the list:
 - If research/ already exists, RE-ASSESS: grow the list if the component grew, retire topics whose subjects died, keep valid existing papers (they are not rewritten just because you ran).
 - State the complexity tier and topic count explicitly, with one-line justification.
 
+**Retiring a topic — do NOT delete its paper.** Mark it per the standard's superseded/retired contract: set its header to \`Revalidate: retired — <N> months\` and add a one-line \`Superseded by:\` note saying what replaced it or why the subject died. Record the retirement in \`topics.md\` under the gaps section with the same reason.
+
+The paper stays because it answers a question the pool otherwise cannot: *did we already look at this, and what did we conclude?* Deleting it means the next cycle re-researches a dead subject — git history does not prevent that, because nobody greps deleted files. What must NOT happen is a retired paper continuing to drive the product; that is Stage 5's job, below.
+
 ## Stage 3: RESEARCH
 For each NEW or materially-outdated topic, dispatch the research-analyst agent to write ${RESEARCH_DIR}/raw/<topic>.md:
 - Each analyst prompt must include: the topic, its Feeds destination, the path to the research standard (the analyst reads the contract itself), the output path, and any relevant context from above.
@@ -263,7 +267,8 @@ For each paper written or updated in Stage 3, dispatch the research-critic agent
 
 ## Stage 5: SYNTHESIZE
 Write (or fully rewrite) ${RESEARCH_DIR}/synthesis.md per the standard's synthesis contract:
-- Cites every input paper WITH that paper's Last-validated date
+- Cites every input paper WITH that paper's Last-validated date and its critic verdict
+- **EXCLUDES retired papers.** A paper marked \`Revalidate: retired\` is provenance, not input — it is not cited, not drawn on, and does not inform a single action candidate. A topic judged unnecessary must not keep shaping the product through the back door of a synthesis that cites everything in \`raw/\`.
 - Rolls up \"what this means for us\" so a human can act without reading the pool
 - Ends in action candidates (adopt / change direction / new concept / no change), sized for a standup
 - **A candidate with NO home is named as homeless IN the synthesis** — say what surface is missing. Do not park it elsewhere; the reviewer disposes of it.
