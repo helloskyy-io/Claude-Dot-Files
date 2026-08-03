@@ -80,8 +80,9 @@ claude-dot-files/
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
 │   │   ├── roadmap.md                               # Phased migration plan (Phases 0-5 mostly complete)
 │   │   ├── phases/                                  # Phase-specific planning docs
-│   │   │   ├── phase-4d-github-actions-integration.md
-│   │   │   └── phase-5b-automated-pr-generation.md
+│   │   │   ├── automated-pr-generation.md           # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
+│   │   │   ├── burn-test-intake-2026-08-02.md       # Intake record: the four queued items with evidence and confidence; feeds the phase docs, delete once absorbed
+│   │   │   └── github-actions-integration.md        # HISTORICAL (Apr 2026) — record of what was planned
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
 │   │       ├── review-2026-04-24-mdc-master-planning.md

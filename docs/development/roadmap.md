@@ -1,78 +1,19 @@
-# Claude Code Dotfiles — Migration & Setup Plan
+# Roadmap
 
-## About This Repo
+**What this file is:** the phase list. Each phase carries its milestones as checkboxes and links to a detailed planning doc in [`phases/`](phases/). Nothing else lives here — repo structure, setup and command reference are in [`../../README.md`](../../README.md), [`../guide/deployment.md`](../guide/deployment.md) and [`../guide/operations.md`](../guide/operations.md).
 
-This is my personal Claude Code configuration repo. It syncs my `~/.claude/` config across: Ubuntu desktop workstation, travel laptop, and multiple remote VMs accessed via VS Code SSH remote extension. I work in a small team environment with some small and some large codebases. Team members will also be on Claude Max subscriptions, but likely not sharing my VMs
+## How to use it
 
-## My Setup
+1. **Pick a milestone** from a phase below.
+2. **Open its phase doc.** That is where the planning, the task-level checkboxes and the completion criteria live. A phase with no doc yet is not ready to work — writing the doc *is* the planning step.
+3. **Work the phase doc** until its boxes are checked and the result is tested.
+4. **Then check the box here.** A roadmap checkbox means *shipped and validated*, not *attempted*.
 
-- **Subscription**: Claude Max (individual, $100/mo) — covers Claude Code usage
-- **Auth**: `claude login` once per machine. CRITICAL: if `ANTHROPIC_API_KEY` is set as an env var anywhere, Claude Code will use API billing instead of Max. Check all machines.
-- **Node.js**: Must be installed on each remote VM for Claude Code to run
-- **Previous tooling**: Migrating from ChatGPT (browser) + Cursor (IDE) to Claude (browser) + Claude Code (terminal in VS Code)
-- **Local AI hardware**: A6000 (48GB VRAM), RTX 4080 (16GB VRAM), several 8GB GPUs — for future local LLM offloading via Ollama
+**Phases are named, never numbered**, and headings read `## Phase: <name>`. Numbering made reordering expensive and encoded a sequence that stopped being true. Order reflects rough dependency; **phases are not worked to completion in order**, and moving between them to unblock something is normal.
 
-## Repo Structure
+**Phase docs are written when a phase is picked up, not in advance.** A detailed plan for work that has not started yet is a guess that ages badly — the same reason skills are written after a methodology has been explained twice.
 
-```
-claude-dotfiles/
-├── CLAUDE.md                    ← project instructions (read by Claude Code at session start)
-├── config/                      ← source of truth for synced Claude Code config
-│   ├── settings.json            ← global settings, permissions, hooks config
-│   ├── CLAUDE.md                ← global instructions for all projects
-│   ├── agents/                  ← subagent definitions
-│   ├── commands/                ← custom slash commands (team playbooks)
-│   ├── hooks/                   ← hook scripts referenced by settings.json
-│   ├── rules/                   ← global rules
-│   └── skills/                  ← reusable skill definitions
-├── install.sh                   ← creates individual symlinks into ~/.claude/
-├── docs/
-│   ├── file_structure.txt       ← detailed file/symlink reference
-│   └── development/
-│       └── roadmap.md           ← this file
-└── README.md                    ← repo documentation
-```
-
-## Sync Strategy
-
-Targeted symlinks via `install.sh` (7 symlinks: `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`). Machine-local content (credentials, sessions, cache, IDE state) is intentionally NOT synced. Team config lives in per-project `.mcp.json` with `${env:VAR_NAME}` for secrets.
-
-For the architectural rationale (why symlinks over GNU Stow, what's machine-local vs shared and why), see `docs/architecture/system-overview.md`.
-
-## Per-Project Repo Structure (for reference, not in this repo)
-
-Each codebase repo should have:
-```
-project-root/
-├── CLAUDE.md                    ← project-specific rules, stack, run commands
-├── .claude/
-│   └── commands/                ← project-specific slash commands
-├── .mcp.json                    ← shared MCP server config (committed)
-└── docs/
-    └── internal/standards/      ← existing docs, referenced via pointer rules
-```
-
----
-
-# Migration Plan — Named Phases
-
-> **Phases are named, never numbered**, and every phase heading reads `## Phase: <name>`. Numbering made reordering expensive and encoded a sequence that stopped being true — the work does not proceed in the order it was written down. The `Phase:` prefix is what distinguishes a unit of work from the reference sections around it, now that the numbers are gone. Order in this file reflects what is next; a phase's position is free to change without renaming anything.
-
-**Status markers:** ✅ COMPLETE · 📋 QUEUED, NEEDS PLANNING · 🔵 NOT SCHEDULED · ⚠️ needs restating · (unmarked = in progress)
-
-**Phases are not worked to completion in order.** Order reflects rough dependency, not a queue to be drained. Moving between phases to unblock something is normal and expected — a standards gap surfaced while planning one phase often has to be closed inside another, and an item that turns out to gate two phases gets done wherever it lands first. **A phase being "in progress" says nothing about whether the phase before it is finished.**
-
-Status key: `[ ]` not started · `[~]` in progress · `[x]` complete
-
-## Two Workflows
-
-This roadmap is organized around two distinct workflows that drive how we use Claude Code:
-
-1. **Interactive** — Small, focused changes. You're in the loop, approving each step. Quick iterations, direct feedback. This is the default mode for day-to-day development.
-
-2. **Autonomous** — Large, planned features. Claude works independently through a plan: implements, tests, refactors, then delivers a PR for review. You define the goal and review the output.
-
-Everything in this roadmap serves one or both of these workflows.
+**Status markers:** ✅ COMPLETE · 🟡 IN PROGRESS · 📋 QUEUED, NEEDS PLANNING · 🔵 NOT SCHEDULED · ⚠️ needs restating
 
 ---
 
@@ -293,7 +234,7 @@ The most-used daily planning workflow. For revising roadmaps, adding phase docs,
 - [x] **Build `scripts/workflows/plan-revision.sh`** — 7-stage workflow: assess → plan → revise → architect review → planner review → resolve → submit. Uses architect and planner agents for review (NOT code-reviewer or refactoring-evaluator). Sources shared lib/run-claude.sh. 75 max turns. Built by revision-major.sh (PR #18).
 - [x] **Supporting agents already built** — architect (preloads architecture-decisions, documentation-structure) and planner (preloads planning-methodology, documentation-structure) exist and have the right skills.
 - [x] **Supporting skills already built** — planning-methodology, architecture-decisions, documentation-structure all exist.
-- [x] **Test on a real planning task** — Used to create Phase 5b detailed phase doc (`docs/development/phases/phase-5b-automated-pr-generation.md`). PR #19 created with full task breakdown, dependencies, success criteria, risks. Architect and planner review stages validated — output quality significantly higher than unreviewed planning.
+- [x] **Test on a real planning task** — Used to create Phase 5b detailed phase doc (`docs/development/phases/automated-pr-generation.md`). PR #19 created with full task breakdown, dependencies, success criteria, risks. Architect and planner review stages validated — output quality significantly higher than unreviewed planning.
 
 ### PR Comment Automation (Local GitHub Monitor) ✅ COMPLETE
 
@@ -301,7 +242,7 @@ The Stage C escalation path. A local systemd timer (`gh-monitor`) polls GitHub f
 
 **Redesign rationale (2026-04-10):** Original GitHub Actions approach (PR #10, closed) was abandoned because: (1) Actions runners require Claude API billing, not Max subscription; (2) security exposure on a Tailscale-hardened workstation is unacceptable; (3) local polling achieves the same UX at zero additional cost.
 
-Plan document: `docs/development/phases/phase-4d-github-actions-integration.md`
+Plan document: `docs/development/phases/github-actions-integration.md`
 Service standard: `docs/standards/services.md`
 
 - [x] **Build `scripts/services/gh-monitor.sh`** — 467-line bash poller using `gh` CLI. Routes `@claude revision:`, `@claude revision-major:`, `@claude help`, and unknown commands. Posts clarifying comment when context is insufficient (<10 chars). Concurrency guard with PID-based stale lock detection. Rate limit checking. Dry run mode. Code block stripping for @claude detection. Built by build-phase.sh (PR #12).
@@ -506,69 +447,48 @@ This phase is the foundation for treating Claude Code not as a tool you use, but
 
 ## Phase: Workflow Decomposition — 📋 QUEUED, NEEDS PLANNING
 
+**Phase doc:** not yet written — writing it is the planning step.
 
-Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and the children become recombinable rather than copied. **Partly built already, and that half needs documenting as much as the rest needs planning** — `revision.sh` and `revision-minor.sh` shipped as three-child parents before any of this was written down.
+Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. **Half-built already**: `revision.sh` and `revision-minor.sh` shipped as three-child parents before any of it was written down.
 
-**Already built, needs writing up:** the parent/child split and its rationale, the `activities/` `common/` `children/` layering, the invocation axis, children-are-shared, the `<family>-<qualifier>` naming rule.
+- [ ] **Rule fork-vs-parameterize** — gates everything else here. Refines are ~82% shared (parameterize); drafts are ~9% shared and are a *behaviour* decision, not a deduplication. Rule before a third copy family exists
+- [ ] **Decompose `build-phase.sh`** — `review-pr` drops in free; the open question is whether draft/refine fit, given `build` carries a plan-conformance obligation revision does not
+- [ ] **`lint-docs.sh`** — gate the stale-doc class: a script no doc names, or a doc stating a turn count its script disagrees with
+- [x] **Split `revision.sh` into draft → refine → review-pr** — shipped, two burn-test cycles
+- [x] **Split `revision-minor.sh` on the same shape** — shipped, one-lens middle child
+- [x] **Extract the activities layer** — `run-claude`, `wait-for-ci`, `require-environment`
+- [x] **Write it down** — `docs/standards/workflow-scripts.md § Composition`
 
-**Queued, needs planning:**
-- **Fork vs parameterize** — the ruling that gates everything else. Refines are ~82% shared and are the parameterize case; drafts are ~9% shared and are a *behaviour* decision, not a deduplication. Rule before a third copy family is created.
-- **`build-phase` decomposition** — gated on the above. `review-pr` drops in free; the open question is whether draft/refine actually fit, given `build` carries a plan-conformance obligation revision does not.
-- **`lint-docs.sh`** — a gate for the stale-doc class that keeps shipping.
-
-Detail, confidence levels and evidence: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md).
-
----
+Evidence and confidence levels: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md)
 
 ## Phase: Memory Management Framework — 📋 QUEUED, NEEDS PLANNING
 
-**Two distinct kinds of memory, currently conflated and only half-built.** Both exist to solve the same underlying problem — a context window ends, the work does not — but they have different consumers, different lifecycles, and only one of them is designed.
+**Phase doc:** not yet written. Kind 2 below **needs real research first** — the problem is well understood, the answer is not.
 
-### Kind 1 — Durable memory, written to git, read by humans and AI
+Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
-The tier that already works. Long-running work outlives any session, so the platform keeps **no state files and no bookmarks**: *open* IS the to-do bit.
+**Kind 1 — durable memory in git, read by humans and AI.** Built and in use, undocumented as a framework: PR threads carry change-outcomes, Issues carry no-change outcomes, the standup tracker carries continuity. *Open* IS the to-do bit.
 
-- **PR threads** carry change-outcomes — what got built, the run's own decision log and reflection, the disposition ruling on it. Closes at merge.
-- **GitHub Issues** carry no-change outcomes — deferred work `review-pr` filed, planning STOPs. Filed → ruled → closed.
-- **The standup tracker** carries continuity — operating state and next moves. Never closes; items are pruned.
+**Kind 2 — machine handoff in a file, read by CODE.** Not built. A parent must decide *in code, with no AI in the loop*, which child to invoke next.
 
-**Status: built and in use, undocumented as a framework.** It exists as prose in `docs/guide/operations.md` and as behaviour spread across several prompts. It needs stating as a designed thing, with the rules that make it work: every surface is written by the actor that knows something and read by an actor that needs it; an account is not the artifact; a pointer is verified by fetching, never by plausibility.
+- [ ] **Read the result envelope; gate on `is_error`** — the last line of every `stream-json` log already carries `is_error`, `subtype`, `terminal_reason`, and **the parent gates on none of them**. A child can fail and the parent greps on regardless. Replaces a 307-line log scrape
+- [ ] **Research the payload contract** — GitHub Actions *deprecated* stdout output-passing for a caller-declared file path; Argo and Tekton converge on the same shape; Tekton's 4096-byte cap is the lesson that this channel carries **references, not payloads**
+- [ ] **Design it** — closed-vocabulary verdict plus the payload the bare token cannot carry. Absent or malformed must fail safe to the human branch, because **our producer is an LLM that can emit a plausible-looking but wrong result** — an assumption no surveyed CI system has to defend against
+- [ ] **Document Kind 1 as a framework** — it exists as prose in `operations.md` and behaviour spread across prompts
+- [ ] **Convergence-based stopping** — *"did this pass find anything not in the previous pass's result?"* is answerable against two typed payloads, not two prose logs. Depends on the above
 
-### Kind 2 — Machine handoff, written to file, read by CODE
-
-**Not built. This is the research item.** A parent must decide *in code, with no AI in the loop*, which child to invoke next based on what the previous child concluded.
-
-Today that is three grep channels against a child's log. It works and has been proven live, but two defects are structural rather than incidental:
-
-- **The diagnostic channel is doing the data channel's job.** A 307-line log is scraped to recover one token. `tail -1` is a heuristic — a run mentioning another PR URL after creating its own hands the parent the wrong one, and unlike the verdict channel that path has no fail-safe. Meanwhile the last line of every `stream-json` log is already a structured result envelope carrying `is_error`, `subtype`, `terminal_reason` — **and the parent gates on none of them.** A child can fail and the parent will grep on regardless.
-- **The routing signal carries no payload.** `HOLD - redispatch` says *loop* but not *with what*, so the parent routes blind while `review-pr` is already writing a rich machine-readable block that `/standup` parses and the parent does not.
-
-**First-look prior art, not a research product:** GitHub Actions *deprecated* stdout-based output passing and replaced it with a caller-declared file path, citing stream parsing as a security risk; Argo and Tekton converge on the same write-to-declared-path shape; Tekton's 4096-byte cap is the lesson that this channel carries **references, not payloads**. The convergent sentence: *the producer writes structured output to a path the caller declares; the caller reads the file; the log stays a log.*
-
-**One property none of the surveyed systems has to defend against, and we do:** our producer is an LLM that can emit a plausible-looking but wrong result. Absent or malformed must fail safe to `needs-assistance`, never guess, never default to MERGE.
-
-**Downstream:** a typed payload is what makes a **convergence-based** stopping condition mechanizable — *"did this pass find anything not in the previous pass's result?"* is answerable against two structured results and not against two prose logs. That matters because the count-based bound we shipped was built on a mis-extrapolation (see the plateau correction in the phase doc): measured, three cycles remained productive and a cap of one would have left two live credential leaks in `main`.
-
-**Needs real research before anything is built.** The problem is well understood; the answer is not.
-
----
+Evidence, prior art and the plateau correction: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md)
 
 ## Phase: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
 
-**Monolithic agent files are not a problem — they are dumb and simple and that is a feature.** The problem is *where they live and who can change them.*
+**Phase doc:** not yet written. **The boundary decision comes first** — the mechanism follows from it, and picking a mechanism first is backwards.
 
-Everything a workflow depends on is currently symlinked from this repo into `~/.claude/`: agents, skills, rules, hooks, `settings.json`. An interactive session editing any of them edits the live definition that every autonomous dispatch on that machine will use — silently, with no divergence detection between machines. The sync design that makes config portable is the same design that lets a user's local tweak change what a managed workflow does.
+Monolithic agent files are not a problem; they are dumb and simple and that is a feature. The problem is *where they live and who can change them*. Everything a workflow depends on is symlinked into `~/.claude/`, so an interactive session editing any of it silently changes what every autonomous dispatch on that machine does — with no divergence detection between machines. `run-claude.sh` already refuses to dispatch on an inherited *model*; by that same rule all of this is ambient and underived.
 
-`activities/run-claude.sh` already refuses to dispatch on an inherited *model* — *"model identity must be an explicit input, never derived."* **By that same rule, everything above is ambient and underived.**
-
-**What has to be decided before anything is stubbed as work:**
-
-- [ ] **Where the managed/user boundary falls.** Almost everything synced today is workflow-critical: agents are dispatched by prompts, skills are preloaded by agents, rules load via CLAUDE.md on every run including headless, hooks carry the safety layer. `commands/` is the clearest user tier — except `/standup`, which is operational. **The boundary is the decision; the mechanism follows from it.**
-- [ ] **The mechanism.** Injection at dispatch (`--agents <json>`, verified present — definitions need not exist on the box), scope separation (managed at project scope, user at user scope), or something else. Do not pick this before the boundary.
-- [ ] **⚠️ SAFETY BLOCKER, resolve first.** The synced **user-level** `settings.json` is where `hooks.PreToolUse → block-dangerous.sh` lives, and headless dispatches pass `--dangerously-skip-permissions`, making that hook **the only remaining safety layer**. Any change to setting scope must prove the hook survives, or supply it another way. This is why the obvious two-line change is a two-line safety regression.
-- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large. Try it before any design assumes it.
-
----
+- [ ] **Decide where the managed/user boundary falls** — agents, skills, rules and hooks are all workflow-critical; `commands/` is the clearest user tier, except `/standup` which is operational
+- [ ] **⚠️ Resolve the safety blocker first** — `hooks.PreToolUse → block-dangerous.sh` lives in **user-level** `settings.json`, and headless runs pass `--dangerously-skip-permissions`, making it the only live control. `--setting-sources project,local` would strip it from every autonomous run. The hook must change scope, or be supplied another way, before the flag is touched
+- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
+- [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
 
 ## Phase: Temporal Integration — 📋 QUEUED, NEEDS PLANNING
 
@@ -811,45 +731,3 @@ Currently `plan-new.sh` requires a pre-existing git repo. For a true greenfield 
 ---
 
 # Reference
-
-## Key Commands
-
-```bash
-# Interactive mode
-claude                        # Start Claude Code in current directory
-claude --continue             # Resume previous session
-claude --resume               # Same as --continue
-/clear                        # Clear context between unrelated tasks
-
-# Headless / Autonomous mode
-claude -p "prompt"            # Run non-interactively, print result
-claude -p "prompt" --headless # Headless mode (no TTY required)
-claude -p "prompt" -w NAME    # Run in isolated worktree
-claude -p "prompt" --max-turns 50  # Limit iterations for safety
-claude -p "prompt" --output-format stream-json  # Structured output
-
-# Management
-/commands                     # List available slash commands
-/agents                       # List/create subagents
-claude mcp list               # Show connected MCP servers
-claude mcp add <name>         # Add an MCP server
-claude /install-github-app    # Connect Claude to GitHub repos
-```
-
-## File Hierarchy (what Claude Code reads)
-
-1. `~/.claude/CLAUDE.md` — global rules (always read)
-2. `~/.claude/settings.json` — global settings, hooks, permissions
-3. `repo-root/CLAUDE.md` — project rules (read when in that repo)
-4. `repo-root/.claude/` — project-level commands, settings
-5. Subtree `CLAUDE.md` files — per-directory overrides within a repo
-
-## Important Gotchas
-
-- If `ANTHROPIC_API_KEY` env var is set, Claude Code uses API billing instead of Max subscription
-- `~/.claude/projects/` is keyed by absolute path — do NOT sync across machines
-- Hook scripts receive JSON on stdin, NOT via environment variables
-- Subagents cannot spawn other subagents
-- MCP servers have a context cost — don't add everything at once
-- PostToolUse formatting hooks eat context if run on every edit — prefer formatting at commit time
-- Conversation history and memory are machine-local — reinstalling Claude Code may wipe them
