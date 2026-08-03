@@ -92,6 +92,7 @@ claude-dot-files/
 │   │       └── review-skyy-command-2026-05-09.md
 │   │
 │   ├── guide/                                       # USER-FACING — operating manuals
+│   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
 │   │   ├── operations.md                            # THE OPERATING MANUAL — memory model, daily loop, and the single roster of every workflow/agent/command/skill/rule
 │   │   ├── workflows.md                             # Workflow architecture — the revision split, model management, escalation ladder, MAX_TURNS table
 │   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)

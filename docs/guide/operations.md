@@ -304,7 +304,7 @@ Always-loaded global instructions. Unlike skills, these are not on-demand — ev
 
 | Need | Go to |
 |---|---|
-| Install / deploy / sync | [README](../../README.md) |
+| Install / deploy / sync | [deployment.md](deployment.md) |
 | Why the revision split exists, model management, escalation ladder | [workflows.md](workflows.md) |
 | Running the CPI cycle and reading the decisions log | [cpi-cycle.md](cpi-cycle.md) |
 | Decision history — what shipped, what was deferred, and why | [`docs/development/cpi-decisions.md`](../development/cpi-decisions.md) |
