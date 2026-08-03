@@ -75,6 +75,20 @@ if [ "$TOOL" != "Bash" ]; then
 fi
 ```
 
+## The headless safety invariant (BINDING)
+
+**A `PreToolUse` hook is the only safety control operating *during* an autonomous run.**
+
+Workflow dispatches pass `--dangerously-skip-permissions`, which bypasses the allow/deny lists in `settings.json` entirely. Of the three layers usually cited — worktree isolation, the hook, PR review — isolation only bounds blast radius and PR review happens after the fact. **The hook is the only one that can stop a command before it runs.**
+
+Three consequences bind anyone touching hooks:
+
+1. **`block-dangerous.sh` is load-bearing, not defence-in-depth.** Weakening a pattern, adding a broad exemption, or making it fail open removes the sole live control from every autonomous run on the machine.
+2. **A hook must fail CLOSED.** If it cannot parse its input or evaluate a rule, it denies. A hook that errors into "allow" is worse than no hook, because the safety story still claims it is there.
+3. **Any change to which setting sources load MUST prove the hook survives first.** Hook configuration lives in the user-level `settings.json`. Narrowing setting sources — e.g. `--setting-sources project,local` on a dispatch — drops user settings and takes the hook with them. A two-line change becomes a two-line safety regression. See `workflow-scripts.md § The safety-layer invariant`.
+
+*Breaking it looks like:* a hook that exits 0 on an internal error; a dispatch narrowing setting sources without demonstrating a headless run still triggers the hook; a "temporary" pattern relaxation with no expiry.
+
 ## Safety Script Patterns
 
 For PreToolUse safety hooks (like `block-dangerous.sh`):

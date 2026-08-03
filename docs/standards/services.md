@@ -164,6 +164,18 @@ If you see `Linger=no`, the timer will NOT survive reboots.
 
 **This is automated by `install.sh --with-services`** — the install script enables lingering idempotently (checks `Linger=yes` first, only runs the sudo command if not already enabled). Manual enablement is only needed if installing services outside the install script.
 
+### Master kill switch (BINDING)
+
+**Every service MUST support being disabled from configuration, and MUST check that flag before doing any work.**
+
+A `<service>.enabled: false` key in `config.yaml`, read *first* — before repo discovery, before any API call, before acquiring a lock. A disabled service costs one config read per timer tick and nothing else.
+
+**Exit 0, not 1.** A deliberately disabled oneshot is not a failure, and a non-zero exit turns a normal configuration state into a red unit and alert noise that trains operators to ignore the alert.
+
+**Why a flag rather than disabling the timer:** the systemd unit state lives on the machine and the config lives in the repo. Disabling by timer means the reason is invisible to anyone reading the repo and diverges silently between machines. The flag makes "off" a reviewable, synced fact.
+
+**Turning a service off is not the same as deleting it.** Record the decision and a re-evaluation date next to the flag; a service disabled with no expiry becomes dead code nobody dares remove.
+
 ### Deployment
 Services are deployed by `install.sh` with an opt-in flag:
 

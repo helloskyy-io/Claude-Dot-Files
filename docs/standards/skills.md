@@ -169,6 +169,16 @@ This project uses pytest. Tests live in /tests/unit/, /tests/integration/,
 
 The global skill says HOW to think. The project standards say WHAT this project does specifically.
 
+## Pairing a skill with a slash command
+
+A skill loads when Claude judges the context to match. That is right most of the time and wrong exactly when it matters — when *you* can see the lens is needed and the model cannot.
+
+**Pair a skill with a command when the methodology is one you will want to force.** The command is a thin invoker: it names the skill, passes `$ARGUMENTS`, and **duplicates none of the skill's content**. One body of methodology, two entry points — automatic when context matches, explicit when you say so.
+
+Not every skill wants one. A skill that only applies inside a workflow stage has no interactive moment to invoke it from, and a command there is a surface nobody uses.
+
+**Where the content lives is not negotiable: the skill.** A command that restates the methodology is a second source of truth that drifts — see `documentation/documentation_standard.md § single-source codified fields`.
+
 ## Building Skills From Experience
 
 **Don't write all your skills upfront.** Start with an empty `skills/` directory and build skills as you discover gaps:
@@ -179,6 +189,12 @@ The global skill says HOW to think. The project standards say WHAT this project 
 4. Refine over time
 
 The best skills come from real workflow experience, not speculation about what might be useful.
+
+## When a methodology becomes a skill
+
+**Write it as a skill once it has been explained twice.** The first explanation is a conversation; the second is evidence that it is reusable and that re-deriving it is waste.
+
+**Do not write skills speculatively.** A skill for methodology nobody has needed twice is documentation of an opinion, and it competes for attention with skills that earned their place. The topic list below is a prompt for recognising candidates, not a backlog to work through.
 
 ## Common Skill Topics
 

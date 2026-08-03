@@ -118,6 +118,27 @@ Don't use a command when a skill would be better. Commands are for explicit trig
 ### Cheap to Invoke
 Commands inject prompt text into your current conversation — they're cheap, no new context window, no separate process. This is different from agents (which spawn new sessions) and skills (which load context-aware).
 
+## Read-only commands (BINDING)
+
+**A command that reports MUST NOT act.** Sweeping, auditing and briefing commands read state and render it; they do not merge, dispatch, comment, close or edit — including the artifacts they just read.
+
+State it **in the command's own text**, not only in this standard, because the prompt is what the model actually reads. Name the temptation where it is strongest: a command that has just enumerated stale items and prunable ones is one sentence away from tidying them.
+
+**Why it binds:** a reporter that also acts destroys the property that makes it safe to run often. If `/standup` might change something, it stops being a thing you run on a whim and becomes a thing you think about first — and the value of a sweep is that it is cheap enough to run every morning.
+
+**The disposition it forces belongs to the operator.** A read-only command may — and should — state the obligation ("an issue must not survive a standup in the same state") and prompt for a ruling. Prompting is reporting. Applying the ruling is not.
+
+*Breaking it looks like:* a reporting command that closes an issue it found stale, prunes an entry it flagged, or "helpfully" fixes a broken reference mid-report.
+
+## When a command should exist
+
+A slash command is warranted when a **methodology** should be invocable on demand rather than waiting to be matched by context.
+
+- **If a skill already carries the methodology**, the command is a thin invoker that names the skill and passes `$ARGUMENTS`. It duplicates none of the content — the skill is the single source, per `documentation/documentation_standard.md § single-source`.
+- **If there is no methodology, there is no command.** A command that is only a prompt someone liked is a snippet, and it rots.
+
+Pairing a skill with a command is how a lens becomes **forceable**: the skill loads when context matches, the command loads it when *you* decide context matters. Both entry points, one body of content.
+
 ## Safety Conventions
 
 ### Show Proposals Before Destructive Actions

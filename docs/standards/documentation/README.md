@@ -45,15 +45,27 @@ So the canonical-CLAUDE.md-tree table and its mechanical inclusion rule do **not
 
 That is the same discipline as *cross-references over repetition*, applied to the file every session reads first. The upstream exclusion is about *which corpus governs us*, not about whether the principle is sound.
 
-## Where our doc conventions live
+## Scope — this governs DOCS, not the app
 
-Ours are currently split, and the split is deliberate:
+`config/skills/` and `config/commands/` are **app functionality** — code and capability that Claude Code loads and executes. They are not part of the documentation corpus and this standard does not reach them. They have their own standards (`../skills.md`, `../slash-commands.md`).
 
-- **`config/skills/documentation-structure.md`** — the four-bucket convention (architecture = WHY, development = WHAT, standards = HOW, guide = OPERATING MANUAL). A **skill**: methodology loaded on demand when authoring.
-- **`config/skills/documentation-management.md`** — the lifecycle: AUTHOR / COORDINATE / AUDIT / MAINTAIN.
-- **This standard** — the binding rules that govern both.
+That a skill happens to *teach* documentation methodology (`documentation-structure`, `documentation-management`) does not make it documentation, any more than a linter is a standard. Keep the categories apart:
 
-A skill teaches *how to do it well*; a standard states *what must be true*. Do not merge them.
+- **This standard** governs `docs/` — what must be true of the corpus.
+- **`../skills.md`** governs how skills are written, whatever their subject.
+
+## On this repo's CLAUDE.md
+
+`CLAUDE.md` at the repo root is the **standards index a session reads first** — its job is to surface which standards exist so the applicable ones get read *before* work starts. That is the mechanism, and it works.
+
+Two files, do not confuse them:
+
+| File | Role |
+|---|---|
+| `CLAUDE.md` (repo root) | The standards index for work **in this repo** |
+| `config/CLAUDE.md` → `~/.claude/CLAUDE.md` | The **global** instruction stub; a redirect to `config/rules/`, and deliberately empty of content |
+
+The rule that binds both: **a CLAUDE.md references standards, it never contains standards content.** The index points; the standard holds.
 
 ## Related
 
