@@ -75,6 +75,7 @@ claude-dot-files/
 │   │   └── system-overview.md                       # Layered architecture, key decisions, where the seams are
 │   │
 │   ├── development/                                 # WHAT — active work tracking
+│   │   ├── research/                                # Research POOLS — evidence per topic (raw/ papers + synthesis.md). Non-binding by construction
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
@@ -110,6 +111,9 @@ claude-dot-files/
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
+│       ├── research/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
+│       │   ├── README.md                            # Where research lives HERE (docs/development/research/<topic>/), and what it unblocks
+│       │   └── research_standard.md                 # Mini-paper contract, source floor, confidence marking, revalidation
 │       ├── documentation/                           # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
 │       │   ├── README.md                            # Applicability: what binds here, what is sprint-specific and ignored, and the CLAUDE.md-references-never-contains principle
 │       │   └── documentation_standard.md            # Cross-references over repetition, cite-don't-re-list, standards state the rule not completion-state
