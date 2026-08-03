@@ -6,7 +6,16 @@
 
 §1 is the rule — *co-location with the consumer beats taxonomy purity* — and it names two altitudes: stack-level research under `standards/architecture/research/`, component-level under `development/<component>/research/`.
 
-**Our consumer is a phase, and a phase is a folder**, so research lives *inside* it:
+§1 names **two altitudes**, and both exist here:
+
+| Altitude | Location | Backs |
+|---|---|---|
+| **Product** — the holistic layer | [`docs/architecture/research/`](../../architecture/research/) | The whole approach. Findings that could change *what* we build |
+| **Phase** — ~98% of research | `docs/development/phases/<phase>/research/` | That phase's planning. Findings that decide *how* to build something already committed to |
+
+The test between them: **would this finding invalidate a phase, or inform one?** Invalidating is product-level; informing is phase-level.
+
+At the phase altitude, a phase is a folder, so research lives *inside* it:
 
 ```
 docs/development/phases/<phase>/
