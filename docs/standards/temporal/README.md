@@ -5,11 +5,13 @@ The three documents in this folder are **verbatim copies** from `helloskyy-io/MD
 **Do not edit them here.** Amendments go upstream, then re-vendor:
 
 ```bash
-scripts/helpers/vendor-temporal-standards.sh          # re-copy from source
-scripts/helpers/vendor-temporal-standards.sh --check  # fail if a copy has drifted
+scripts/helpers/vendor-standards.sh          # re-copy from source
+scripts/helpers/vendor-standards.sh --check  # fail if a copy has drifted
 ```
 
-Vendored rather than referenced because claude-dot-files deploys standalone to machines that may not have the planning repo checked out, and **a standard you cannot read is not binding**. Verbatim rather than adapted because the alternative to a reference is a fork, and two repos with the same section numbers saying different things is worse than not having the file.
+**MIRROR, not FORK** — these copies are meant to track the source; a general improvement made here is retrofitted upstream in the same work. That intent flag is required by [Documentation Standard § *Cross-ecosystem vendored standards (binding)*](../documentation/documentation_standard.md), which governs this folder.
+
+Vendored rather than referenced because claude-dot-files deploys standalone to machines that may not have the planning repo checked out, and **a standard you cannot read is not binding** — and because a live cross-ecosystem link is an unversioned silent dependency.
 
 ---
 

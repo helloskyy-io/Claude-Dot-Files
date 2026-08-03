@@ -102,7 +102,10 @@ claude-dot-files/
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
-│       ├── temporal/                                # VENDORED VERBATIM from MDC-Master-Planning — do not edit; re-vendor via scripts/helpers/
+│       ├── documentation/                           # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
+│       │   ├── README.md                            # Applicability: what binds here, what is sprint-specific and ignored, and the CLAUDE.md-references-never-contains principle
+│       │   └── documentation_standard.md            # Cross-references over repetition, cite-don't-re-list, standards state the rule not completion-state
+│       ├── temporal/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit; re-vendor via scripts/helpers/
 │       │   ├── README.md                            # Applicability: what binds NOW (§3, §3.4, §7) vs what waits for workers
 │       │   ├── claude-dot-files-addendum.md         # The ONLY locally-editable file here — rules genuinely ours (long LLM activities, a producer that can be confidently wrong)
 │       │   ├── stateful_patterns.md                 # Persistence boundaries, idempotent writes, cleanup on failure
@@ -121,7 +124,7 @@ claude-dot-files/
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
 │   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
 │   │   ├── lint-prompts.sh                          # Ship-gate (3 passes): backtick scan, sandbox-CONSTRUCTS every multi-line prompt fragment, verifies every MODEL_KEY resolves in config.yaml
-│   │   └── vendor-temporal-standards.sh            # Re-copy the Temporal standards from MDC-Master-Planning; --check fails on local drift
+│   │   └── vendor-standards.sh                     # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows

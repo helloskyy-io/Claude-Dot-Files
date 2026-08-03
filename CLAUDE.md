@@ -76,7 +76,10 @@ For contributing to this repo, follow the standards:
 - For service standards, refer to `docs/standards/services.md`
 - For slash command standards, refer to `docs/standards/slash-commands.md`
 - For workflow script standards, refer to `docs/standards/workflow-scripts.md`
-- For Temporal standards, refer to `docs/standards/temporal/` — **vendored verbatim** from MDC-Master-Planning and not to be edited here. Start with its `README.md`, which states what binds today (§3 three-layer architecture, §3.4 composition, §7 idempotency) versus what applies only once workers exist. Local additions go in `claude-dot-files-addendum.md`.
+- For documentation standards, refer to `docs/standards/documentation/` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`. Binding here: standards state the rule never completion-state; cite a codified block rather than re-listing it; cross-reference instead of repeating; and **a CLAUDE.md references standards, it never contains standards content**.
+- For Temporal standards, refer to `docs/standards/temporal/` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`, which states what binds today (§3 three-layer architecture, §3.4 composition, §7 idempotency) versus what applies only once workers exist. Local additions go in `claude-dot-files-addendum.md`.
+
+**Vendored standards are verbatim copies and MUST NOT be edited here** — amendments go upstream, then re-vendor with `scripts/helpers/vendor-standards.sh`. `--check` fails on local drift.
 
 ## Rules
 
