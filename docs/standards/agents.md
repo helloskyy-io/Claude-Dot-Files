@@ -122,7 +122,19 @@ Choose the model based on the work's complexity:
 | `sonnet` | Structured tasks, code review, test generation, most specialist work |
 | `haiku` | Simple classification, quick lookups, formatting, trivial tasks |
 
-**Default to `sonnet`** for most custom agents. It's the right balance of capability and cost. Reserve `opus` for agents where the extra reasoning genuinely matters.
+**Default to `sonnet`.** Reserve `opus` for agents where the extra reasoning genuinely matters.
+
+**Bigger is not automatically better, and the tier is an evidence question.** Tier by what the job actually needs: an agent that fetches citations and compares them to claims is doing mechanical verification, and a cheaper tier does it as well for a fraction of the cost — while the agent that *authors* the synthesis is not. A whole tier was removed from this fleet on economics alone after it accounted for roughly 57% of a week's spend with no matching quality delta.
+
+**Never omit `model`.** An unpinned agent inherits whatever the dispatching session happened to be running, which makes a behaviour change impossible to attribute afterwards. Model identity is an explicit input, never derived — the same rule workflows enforce at dispatch.
+
+### The tier canon lives in `config.yaml`, and agents must conform (BINDING)
+
+Agents pin their model in **their own frontmatter**, because an agent file is static markdown and cannot read `config.yaml`. Workflows resolve theirs at dispatch **from** `config.yaml`. Two mechanisms, and they can drift.
+
+The one-glance record of every agent's approved tier is therefore a comment block in `config.yaml`'s `models:` section, and **agent frontmatter MUST match it**. Checked at CPI time. Where they disagree, `config.yaml` is the statement of intent and the agent file is the bug.
+
+*Breaking it looks like:* an agent with no `model:`; a tier changed in frontmatter without updating the canon; a canon entry for an agent that no longer exists.
 
 ### Opus-Approved Roles
 
@@ -134,6 +146,18 @@ Choose the model based on the work's complexity:
 - **`planner`** — feature decomposition, phased implementation plans, risk and dependency analysis
 
 The list above is a snapshot, not a closed allowlist. A future role that passes the deliberative-artifacts test (e.g., a threat-modeler or a migration-strategist) can adopt `opus` without requiring an amendment to this document — update the snapshot when the role lands.
+
+## Web Access Is a Capability Decision (BINDING)
+
+Most agents are `Read` / `Grep` / `Glob` only. **Add `WebSearch` / `WebFetch` when the agent's ground truth lives OUTSIDE the repo — and only then.**
+
+Verifying a design against current industry practice, checking a CVE, gathering sources: all ground truth that no amount of reading the repo will produce. For those, web access is not an enhancement, it is the job.
+
+**There is a real reason to withhold it, and it is not cost.** Giving web access to a conformance checker is actively wrong: its ground truth is `docs/standards/`, and letting it consult the internet invites it to grade your code against someone else's conventions. The agent will not tell you it did this — the findings will simply be subtly about a different codebase.
+
+**The test:** if the agent's job is *"does this match what WE decided"*, it must not have web access. If the job is *"is what we decided still true"*, it must.
+
+*Breaking it looks like:* a standards or conformance agent with `WebFetch`; a research or verification agent without it.
 
 ## Prompt Body Conventions
 
@@ -187,6 +211,26 @@ Include explicit rules at the end:
 - Do not modify any files — read-only analysis only
 ```
 
+## Dispatching Agents (BINDING)
+
+### Parallel narrow lenses, then sequential integration
+
+Multiple `Agent` calls in a **single** assistant message run concurrently; splitting them across messages forces sequential execution and multiplies wall time on the review stage.
+
+So a review stage dispatches its **narrow-lens** agents in one message, then dispatches the **integration lens** afterwards, in its own message, with the narrow findings in hand. The ordering is not stylistic: an integrator's value is meta-pattern detection across the others' findings — *"these together suggest the work was rushed"* — which it cannot do without seeing them first.
+
+*Breaking it looks like:* narrow-lens agents dispatched one per message; an integration agent dispatched alongside the agents it is meant to integrate.
+
+### Foreground dispatch is MANDATORY in headless runs
+
+**A `claude -p` run terminates on any turn that produces text without a tool call.** Invisible interactively, fatal here.
+
+So a run that background-dispatches agents and then says *"waiting for results…"* **has just ended itself** — the turn had text and no tool call. Every later stage never executes, the harness reports exit 0, and nothing distinguishes it from success except that the work does not exist.
+
+Dispatch agents in the **foreground**. Foreground agents still run concurrently where the harness allows, *and* the turn blocks until results return, so it ends on a tool result rather than on prose. Never background-and-wait, and never use a scheduled wake-up to wait for agents — same failure, longer.
+
+*Breaking it looks like:* `run_in_background: true` in a headless workflow prompt; any "waiting for the agents" narration between dispatch and results.
+
 ## Keep Agents Lean
 
 **Don't put methodology in agent prompts — put it in skills.**
@@ -230,13 +274,15 @@ The methodology lives in `skills/planning-methodology.md` and loads automaticall
 
 ## Agent Directory Documentation
 
-When you add a new agent, update the quick reference table in `docs/guide/claude_code_agents.md`:
+**This standard does not carry the roster, and neither does any other document except one.** The authoritative inventory — every agent with its lens, tier and web access — lives in `docs/guide/operations.md § Agents`. A standard states rules; a roster is completion-state, and a second copy drifts silently (see `documentation/documentation_standard.md`).
 
-```markdown
-| Agent | Role | Tools | Model | Trigger |
-|-------|------|-------|-------|---------|
-| code-reviewer | Code review with structured findings | Read-only | Sonnet | On-demand |
-```
+When you add or retire an agent, update **three** places, and all three are required:
+
+1. `docs/guide/operations.md` — the roster.
+2. The tier canon comment in `config.yaml`'s `models:` section — so the agent-side and workflow-side model mechanisms stay reconcilable.
+3. `docs/file_structure.txt` — if the file set changed.
+
+*Breaking it looks like:* a new agent that appears in no roster; a roster entry whose tier disagrees with the agent's frontmatter; an agent table re-listed in a second document.
 
 ## Critical Rules
 
@@ -251,5 +297,6 @@ When you add a new agent, update the quick reference table in `docs/guide/claude
 
 ## Related Documentation
 
-- `docs/guide/claude_code_agents.md` — Full agent architecture guide
+- `docs/guide/operations.md § Agents` — **the roster** (lens, tier, web access per agent)
+- `docs/guide/claude_code_agents.md` — platform background: what agents are, frontmatter, tool guardrails, dispatch patterns
 - `docs/standards/skills.md` — Skill standards (for where methodology lives)
