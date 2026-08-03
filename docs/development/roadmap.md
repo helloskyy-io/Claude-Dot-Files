@@ -19,26 +19,23 @@
 
 ## Phase: Explore ~/.claude ✅ COMPLETE
 
-Mapped the directory structure. All folders exist but are empty (fresh install). Key discovery: `projects/` is path-keyed and should not be synced.
+**Phase doc:** [`phases/explore-claude-directory.md`](phases/explore-claude-directory.md)
+
+Mapped what Claude Code stores in `~/.claude/` and classified every path as portable or machine-local, before deciding what to sync.
+
+- [x] **Every path identified and classified** — the finding that `projects/` is **path-keyed** is what ruled out whole-directory sync and set the targeted-symlink strategy
+
+---
 
 ## Phase: Cross-Device Sync ✅ COMPLETE
 
-Goal: Get this repo deploying to all machines so everything built in later phases automatically propagates.
+**Phase doc:** [`phases/cross-device-sync.md`](phases/cross-device-sync.md)
 
-- [x] **Finalize repo structure** — `config/` directory with synced items (settings.json, CLAUDE.md, agents/, commands/, hooks/, rules/, skills/)
-- [x] **Write install.sh** — Idempotent script: checks prerequisites (Claude Code, auth, jq), backs up existing targets, creates individual symlinks from `config/*` into `~/.claude/`, verifies all links. Supports `--non-interactive` / `-n` flag for automation (skips interactive prompts, fails fast on missing prerequisites, skips auth check entirely).
-- [x] **Create starter settings.json** — Minimal global settings to start with (can be expanded in later phases)
-- [x] **Create global CLAUDE.md** — The `~/.claude/CLAUDE.md` that applies to ALL projects (coding style preferences, global rules, team conventions)
-- [x] **Test on laptop** — install.sh runs clean, all 7 symlinks verified
-- [x] **Deploy to workstation** — Clone repo, run install.sh, verify
-- [x] **Ansible integration (workstations/laptops)** — install.sh runs via Ansible playbook with `--non-interactive` flag on desktops and laptops. Ansible handles cloning the repo and installing prerequisites (Claude Code, jq) before running the script.
-- [x] **Deploy to VMs** — Tested on skyy-net VM at `/opt/skyy-net/claude-dot-files`, all 7 symlinks verified
+Get the repo deploying to every machine, so everything built later propagates automatically rather than being hand-copied.
 
-### Cross-Device Sync — Notes
-
-**Workstations & laptops**: Ansible runs `install.sh --non-interactive` on every playbook run. This is safe because the script is idempotent (existing correct symlinks are skipped), and the script may do more than manage symlinks in the future.
-
-**VMs**: Deployed manually with the standard interactive install.sh. Auth (`claude login`) must be done on each new machine — it requires a browser OAuth flow.
+- [x] **`install.sh` — idempotent, verified on laptop, workstation and VM** — idempotency is the feature, not a nicety: it is what lets Ansible re-run the installer on every playbook execution
+- [x] **Ansible integration** — `--non-interactive` for automated runs
+- [x] **Seven targeted symlinks** — `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`
 
 ---
 
