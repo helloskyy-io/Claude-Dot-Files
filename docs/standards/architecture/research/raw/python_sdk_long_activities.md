@@ -6,12 +6,14 @@ Feeds:          Phase: Temporal Integration (docs/development/roadmap.md) -> the
 Last validated: 2026-08-03
 Revalidate:     high — 4 weeks
 Confidence:     Definitive on the SDK/server mechanics (every API, default and limit below is read from raw first-party source, version-anchored to temporalio 1.31.0 / temporal server main @ 2026-08-03). DERIVED on the recommended activity shape — the ingredients are documented, the composition is this paper's, and no first-party sample of a subprocess-wrapping activity exists. UNVERIFIED on child-process orphaning and on real heartbeat behaviour under a 60-minute run; both are in the test plan.
-Critic:         not-yet-verified — 2026-08-03
+Critic:         PASS-WITH-FIXES (un-quoted a §3 inference-from-absence that was dressed as a quote from S18; re-marked S33 "Go only" as derived-from-repo-structure; retagged staff-forum claims from the out-of-contract "corroborated" to "unverified" and added the §0 vocabulary-gap note; cited S10b inline) — 2026-08-03
 ```
 
 **Version anchor (binding on every SDK claim below).** All `temporalio` claims are read from `temporalio/sdk-python@main` on 2026-08-03. `pyproject.toml` on that tree declares `version = "1.31.0"` [S8], and 1.31.0 is the latest release, published 2026-07-29 [S9] — so `main` and 1.31.0 are the same API surface for everything cited. Server-side limits are read from `temporalio/temporal@main` on 2026-08-03. **An unversioned restatement of anything below is unusable; carry the anchor.**
 
 **Scope discipline.** Event sourcing, deterministic replay and the case for durable execution are settled in [`durable_execution.md`](durable_execution.md); the Claude Code CLI surface (flags, exit codes, `stream-json`, session resumption, idempotency hazards) is settled in [`claude_code_integration_surface.md`](claude_code_integration_surface.md). Neither is re-derived here. This paper answers only: *what does the Python worker do to a blocking 10–60 minute child process, and where do the bytes go.*
+
+**§0 Note on a confidence-vocabulary gap (surfaced for the reviewer, not a finding about Temporal).** Two claims in this paper come from **named Temporal staff answering on Temporal's own public forum** ([S26] Maxim, [S38] Chad Retz — both identifiable maintainers, both on `community.temporal.io`). Research Standard §3 offers exactly four classes, and reserves *definitive* for first-party documentation; forum commentary is not documentation, so these are tagged **`unverified`** throughout — the same tag an anonymous blog comment would receive. **What that tag loses:** a named maintainer answering on the vendor's official forum is materially stronger evidence than uncorroborated community commentary, and the contract has no vocabulary to say so. Nothing in this paper rides on the difference — both claims are sizing heuristics that §9's tests measure directly, and neither is load-bearing for a design decision. Recorded here so the reviewer can carry the vocabulary gap upstream rather than re-discovering it.
 
 ---
 
@@ -32,10 +34,10 @@ The SDK's own summary: "all long running, non-local activities should heartbeat 
 
 | Timeout | Governs | Our shape |
 |---|---|---|
-| `start_to_close_timeout` | "the maximum time allowed for a single Activity Task Execution" | Must exceed the longest expected `claude -p` run. Temporal staff guidance for a 3-hour activity: "StartToClose … should be 3 hours in your case" [S26, corroborated] |
+| `start_to_close_timeout` | "the maximum time allowed for a single Activity Task Execution" | Must exceed the longest expected `claude -p` run. Temporal staff guidance for a 3-hour activity: "StartToClose … should be 3 hours in your case" [S26, unverified] |
 | `schedule_to_close_timeout` | "from when the first Activity Task is scheduled to when the last Activity Task reaches a Closed status" — spans retries | Bounds total spend across attempts |
 | `schedule_to_start_timeout` | queue wait before a worker picks it up; non-retryable by design | Detects a saturated or absent worker fleet. Directly degraded by long activities holding slots [S19] |
-| `heartbeat_timeout` | "the maximum time between Activity Heartbeats" | The *fast* failure detector. Staff guidance: "It is expected to be relatively small. Let's say one minute" [S26, corroborated] |
+| `heartbeat_timeout` | "the maximum time between Activity Heartbeats" | The *fast* failure detector. Staff guidance: "It is expected to be relatively small. Let's say one minute" [S26, unverified] |
 
 An activity requires `start_to_close` **or** `schedule_to_close` [S13, definitive]. `heartbeat_timeout` is set **at invocation time by the caller**, not in the activity definition [S1, S13, definitive] — a fact that bites, because the activity author cannot make their own activity heartbeat-capable.
 
@@ -104,11 +106,11 @@ Legal, and explicitly anticipated by the SDK: "new threads starting inside of ac
 
 **Does a killed worker orphan the `claude` process?**
 
-- **[gap — not documented.]** Searched: `sdk-python` README and `temporalio/worker/_activity.py`, `_worker.py` (raw); the documentation repo's `docs/encyclopedia/workers/worker-shutdown.mdx`, `docs/develop/python/workers/run-process.mdx` (raw); and web search for Temporal worker child-process cleanup. The worker-shutdown page "does not address scenarios involving process termination (kill signals)" [S18]. Temporal documents nothing about child processes spawned by activities, in any SDK.
+- **[gap — not documented.]** Searched: `sdk-python` README and `temporalio/worker/_activity.py`, `_worker.py` (raw); the documentation repo's `docs/encyclopedia/workers/worker-shutdown.mdx`, `docs/develop/python/workers/run-process.mdx` (raw); and web search for Temporal worker child-process cleanup. The worker-shutdown page [S18] covers only graceful and non-graceful shutdown initiated by the worker itself; **read in full 2026-08-03, it has no section addressing kill-signal / hard-termination scenarios, and does not use the terms at all** — that is this paper's observation of an absence, not a disclaimer the page makes. Temporal documents nothing about child processes spawned by activities, in any SDK.
 - **[derived, POSIX semantics]** Nothing in the SDK reaps a grandchild. On `SIGKILL` of the worker, the `claude` process is reparented and keeps running — burning tokens, holding the git worktree, and racing the retry attempt that Temporal will schedule after `heartbeat_timeout` expires.
 - **[definitive, and it is our mitigation]** Bare systemd workers get cgroup cleanup for free: `KillMode` "Defaults to control-group", and in that mode "all remaining processes in the control group of this unit will be killed on unit stop" [S32]. Because the roadmap's topology is *bare systemd processes, never containerized*, the unit's cgroup is the correct kill boundary and systemd already enforces it on `systemctl stop`/restart. **This does not cover `kill -9` of the worker PID by hand, nor an OOM kill of the worker alone**, which leave the unit active and the child alive. Both belong in the test plan.
 
-**Duplicate-execution risk is acknowledged by Temporal, not eliminated.** Temporal staff, on this exact question: "It is not really possible to provide hard guarantee that you don't end up with two activity attempts running at the same time … You can get pretty close by shutting down an activity on an exception thrown from the heartbeat call and setting an initial retry interval larger than the heartbeat interval" [S26, corroborated — staff answer on the public forum]. **Note the Python asymmetry:** in Go, `RecordHeartbeat` cancels the context when the activity is cancelled or gone [S22], so "an exception thrown from the heartbeat call" is a real signal; in Python `activity.heartbeat()` returns `None` and raises only `RuntimeError` "When not in an activity" [S2, definitive]. **[derived]** The Python translation of Maxim's advice is: poll `activity.is_cancelled()` alongside heartbeating, and set `retry_policy.initial_interval` greater than the heartbeat interval.
+**Duplicate-execution risk is acknowledged by Temporal, not eliminated.** Temporal staff, on this exact question: "It is not really possible to provide hard guarantee that you don't end up with two activity attempts running at the same time … You can get pretty close by shutting down an activity on an exception thrown from the heartbeat call and setting an initial retry interval larger than the heartbeat interval" [S26, unverified]. **Note the Python asymmetry:** in Go, `RecordHeartbeat` cancels the context when the activity is cancelled or gone [S22], so "an exception thrown from the heartbeat call" is a real signal; in Python `activity.heartbeat()` returns `None` and raises only `RuntimeError` "When not in an activity" [S2, definitive]. **[derived]** The Python translation of Maxim's advice is: poll `activity.is_cancelled()` alongside heartbeating, and set `retry_policy.initial_interval` greater than the heartbeat interval.
 
 ---
 
@@ -116,7 +118,7 @@ Legal, and explicitly anticipated by the SDK: "new threads starting inside of ac
 
 *(Slower-decaying section — server-side constants have been stable across releases. A refresh may re-verify these last.)*
 
-All values read from raw server source, `temporalio/temporal@main`, 2026-08-03 [S10, definitive]:
+All values read from raw server source, `temporalio/temporal@main`, 2026-08-03 [S10, definitive]. These are `dynamicconfig` *declarations*; the history service reads them into its own config struct at startup, which is where the enforcement points live [S10b, definitive] — so a self-hosted override is a namespace-scoped dynamic-config change, not a code change:
 
 | Dynamic config key | Default | Scope |
 |---|---|---|
@@ -144,7 +146,7 @@ Plus the transport ceiling: **4 MB max gRPC message**, applying to the full requ
 
 1. **External Storage — first-party, Public Preview since 2026-05-14, Go + Python SDKs** [S28, rendered page — lower confidence on the date/SDK list]. The Python implementation is real and readable: `temporalio/converter/_extstore.py` provides `StorageDriver` (ABC with `store()`/`retrieve()`), `ExternalStorage`, `StorageDriverClaim`, and a default `payload_size_threshold: int = 256 * 1024` [S6, definitive]. **Every public API in that module carries "This API is experimental."** [S6, definitive]. The first-party sample confirms operational shape: S3-compatible backend, "default 256 KiB threshold; payloads still above it are stored in S3", and the binding caveat — "Both the worker and the starter must use the **same** `DataConverter` configuration (codec **and** storage) so each side can read what the other wrote" [S27, definitive].
 2. **Payload codec (compression) — first-party but explicitly a stopgap.** The troubleshooting page lists compression via custom Payload Codec as a "temporary measure", and `data-encryption.mdx` steers oversized payloads to External Storage rather than codec compression [S21, S24, definitive]. Codecs run client- and worker-side; a Codec Server is "an HTTP server that uses your custom Codec logic to decode your data remotely" for the Web UI / CLI [S24].
-3. **DataDog `temporal-large-payload-codec` — community, and it disqualifies itself.** "please do not use in production. We make no guarantees about backwards compatibility of codecs, the HTTP interface, or storage drivers." Go only, default 128 KB threshold [S33, definitive-as-to-its-own-status].
+3. **DataDog `temporal-large-payload-codec` — community, and it disqualifies itself.** "please do not use in production. We make no guarantees about backwards compatibility of codecs, the HTTP interface, or storage drivers." Default 128 KB threshold [S33, definitive-as-to-its-own-status]. **Go only** — [derived from repo structure]: the README documents only Go SDK integration and the repo carries no Python surface; the README never states a language restriction outright.
 
 **SDK-side limits moved in 1.31.0 — a breaking change to note.** "Payload size limits have moved from `DataConverter` to `Client.connect`. Pass `payload_limits=PayloadLimitsConfig(...)` (now exported from `temporalio.client`) instead of setting `payload_limits` on `DataConverter`. Config fields were renamed to `payloads_warn_size` and `memo_warn_size`, and the deprecated `PayloadSizeWarning` was removed." [S7, definitive]. **Any code sample found online predating 2026-07-29 will use the old shape.**
 
@@ -320,7 +322,7 @@ Run on a real worker, on a repo-holding machine, against the pinned `temporalio`
 
 - [S28] [External Storage is now in Public Preview — temporal.io changelog](https://temporal.io/changelog/external-storage-public-preview) — announced 2026-05-14, Go + Python SDKs. Version/backend specifics NOT confirmed from raw source.
 
-**Corroborated community — Temporal staff answers on the official forum**
+**Community — Temporal staff answers on the official forum (all claims sourced here are marked `unverified`; see §0 note)**
 
 - [S26] [Best practices for long-running activities](https://community.temporal.io/t/best-practices-for-long-running-activities/934) — Maxim (Temporal): heartbeat timeout "relatively small … one minute", `StartToClose` = full expected duration, no hard guarantee against overlapping attempts
 - [S38] [Long running activity with auto_heartbeater failing](https://community.temporal.io/t/long-running-activity-with-auto-heartbeater-failing/13586) — Chad Retz (Temporal): heartbeat-cancellation regression fixed in 1.7.1

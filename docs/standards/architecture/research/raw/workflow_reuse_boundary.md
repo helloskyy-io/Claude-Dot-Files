@@ -16,7 +16,10 @@ Confidence:     Definitive on what each surveyed system ships and what it deprec
                 expected future co-evolution, not textual overlap. UNVERIFIED (stated as a negative
                 finding with search method) that any documented numeric threshold exists for "too
                 many parameters → fork"; it is folklore. Directional on vendor intent.
-Critic:         not-yet-verified — 2026-08-03
+Critic:         PASS-WITH-FIXES (re-sourced the ClusterTask → `cluster` resolver replacement to
+                Tekton's v1beta1→v1 migration guide [S24], which states it — [S10] alone did not;
+                restored the dropped word in the [S9] PipelineResources quote; split a §5.1 [S21]
+                quote that had been synthesized from two separate passages) — 2026-08-03
 ```
 
 > **Volatility note (per Research Standard §3, mixed-volatility rule).** The paper's load-bearing
@@ -103,7 +106,7 @@ The most informative signal is not what these systems ship; it is what they **wi
 ### 3.1 Tekton removed its general parameterization layer *(definitive)*
 
 `PipelineResources` were Tekton's abstraction for typed, parameterized inputs/outputs. The
-first-party doc states plainly: *"`PipelineResources` are deprecated."* The reasons given are a
+first-party doc states plainly: *"PipelineResources are now deprecated."* The reasons given are a
 near-complete enumeration of how a general parameterization layer fails [S9]:
 
 1. Opaque behaviour — implemented as *"a mixture of injected Task Steps, volume configuration and
@@ -116,9 +119,12 @@ near-complete enumeration of how a general parameterization layer fails [S9]:
 5. Conceptual ambiguity — the CRD's purpose was unclear.
 
 The replacement is not "fewer parameters." It is **explicit composition**: ordinary Tasks with
-`params`, `workspaces` and `results`. Tekton also deprecated `ClusterTask` [S10] — the cluster-scoped
-*shared copy* — in favour of remote resolution of a referenced definition. Both moves run the same
-direction: **from implicit shared machinery toward explicit, typed, named references.**
+`params`, `workspaces` and `results`. Tekton also deprecated `ClusterTask` — the cluster-scoped
+*shared copy* — in favour of remote resolution of a referenced definition: the deprecations table
+records `[ClusterTask is deprecated]` at v0.41.0 [S10], and Tekton's own v1beta1→v1 migration guide
+names the replacement directly — *"`ClusterTask` is deprecated. Please use the `cluster` resolver
+instead."* [S24]. Both moves run the same direction: **from implicit shared machinery toward
+explicit, typed, named references.**
 
 ### 3.2 Argo deprecated the construct that let a definition also be an instantiator *(definitive)*
 
@@ -303,8 +309,11 @@ the field's quantitative account of configuration proliferation [S21]:
 - The excess is removable: for Storage-A, applying the paper's guidelines *"can remove 51.9% of its
   parameters and simplify 19.7% of the remaining ones"* — *"with little impact on existing users."*
 - And the excess is harmful: of 620 real-world configuration errors, *"a significant percentage
-  (17.5%~53.3%) of them occurred because the settings were kept as default values incorrectly, which
-  failed to meet the constraints of runtime environments."*
+  (17.5%~53.3%) of the configuration errors were caused by users' incorrectly staying with the
+  default values, rather than setting wrong values."* A separate passage of the same paper explains
+  why a default can be the wrong value at all — correct settings have to be chosen *"according to the
+  runtime environments, workloads, resources, cross-component correlations."* *(Two quotes from two
+  separate passages; joining them is this paper's reading, not the source's sentence.)*
 
 The paper quotes Rob Pike for the practitioner sentiment: *"There is too much configuration. There
 are too many options. There are too many dot files. Stuff should just work."* [S21]
@@ -507,8 +516,9 @@ Claims a plan may rely on, each with its confidence class:
    partial coverage and reduced reusability [S9]; and for conflating *definition* with *instantiator*
    [S7]. *(definitive)*
 6. **What replaced them is explicit, typed, versioned reference** — Tekton params/workspaces/results
-   [S9], remote resolvers over `ClusterTask` [S10], GitLab versioned components with `spec:inputs`
-   [S13], Jenkins per-pipeline `@Library` version pinning [S11]. *(definitive)*
+   [S9], the `cluster` resolver over `ClusterTask` (deprecated at v0.41.0 [S10]; *"Please use the
+   `cluster` resolver instead"* [S24]), GitLab versioned components with `spec:inputs` [S13],
+   Jenkins per-pipeline `@Library` version pinning [S11]. *(definitive)*
 7. **A first-party design document argues that parameterizing everything is the wrong answer**, and
    that fork-plus-overlay with fork *management tooling* is a legitimate alternative [S15].
    *(definitive)*
@@ -662,7 +672,8 @@ Each item is a local experiment, with what it would decide.
 - **[S7]** Argo Workflows — *Workflow Templates*, release-3.4. `raw.githubusercontent.com/argoproj/argo-workflows/release-3.4/docs/workflow-templates.md` (fetched 2026-08-03)
 - **[S8]** Argo Workflows — *Workflow Templates*, main. `raw.githubusercontent.com/argoproj/argo-workflows/main/docs/workflow-templates.md` (fetched 2026-08-03) — *negative check: deprecation passage absent*
 - **[S9]** Tekton Pipelines — *PipelineResources*. `raw.githubusercontent.com/tektoncd/pipeline/main/docs/resources.md` (fetched 2026-08-03)
-- **[S10]** Tekton Pipelines — *Deprecations*. `raw.githubusercontent.com/tektoncd/pipeline/main/docs/deprecations.md` (fetched 2026-08-03)
+- **[S10]** Tekton Pipelines — *Deprecations*. `raw.githubusercontent.com/tektoncd/pipeline/main/docs/deprecations.md` (fetched 2026-08-03) — *lists `ClusterTask` deprecation and the resolver-framework deprecation as two independent rows; it does NOT state a causal replacement. See [S24] for that.*
+- **[S24]** Tekton Pipelines — *Migrating from v1beta1 to v1*. `raw.githubusercontent.com/tektoncd/pipeline/main/docs/migrating-v1beta1-to-v1.md` (fetched 2026-08-03) — *source of the `ClusterTask` → `cluster` resolver replacement statement*
 - **[S11]** Jenkins — *Extending with Shared Libraries*. `raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/book/pipeline/shared-libraries.adoc` (fetched 2026-08-03)
 - **[S12]** Apache Airflow — *Best Practices*. `raw.githubusercontent.com/apache/airflow/main/airflow-core/docs/best-practices.rst` (fetched 2026-08-03)
 - **[S13]** GitLab — *CI/CD components*. `raw.githubusercontent.com/gitlabhq/gitlabhq/master/doc/ci/components/_index.md` (fetched 2026-08-03)
