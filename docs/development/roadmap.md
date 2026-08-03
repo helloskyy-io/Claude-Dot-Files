@@ -67,41 +67,16 @@ Permissions prompt on anything unlisted, so approving in a live session is fast 
 
 ## Phase: Planning & Agents ✅ COMPLETE
 
-**Serves: Primarily Workflow 2 (Autonomous)** — These are the building blocks Claude uses to plan, review, and execute work independently. Also useful in interactive mode for getting a second opinion.
+**Phase doc:** [`phases/planning-and-agents.md`](phases/planning-and-agents.md)
 
-Dependencies: Phase 1 (for sync)
+Build the specialists a workflow can dispatch — the actors that plan, review and verify without a human in the loop.
 
-- [x] **architect agent** — `agents/architect.md`: read-only (Read, Grep, Glob), Opus model. Designs system architecture, evaluates trade-offs. On-demand only (built-in agents handle routine work).
-- [x] **planner agent** — `agents/planner.md`: read-only (Read, Grep, Glob), Opus model. Creates detailed implementation plans with phased steps. On-demand only.
-- [x] **code-reviewer agent** — `agents/code-reviewer.md`: read-only (Read, Grep, Glob), Sonnet model. Reviews code for bugs, performance, security, style. Reports findings with structured severity levels (Critical/Warning/Info). Tested on this repo.
-- [x] **test-writer agent** — `agents/test-writer.md`: full access (Read, Grep, Glob, Edit, Write, Bash), Sonnet model. Generates tests matching project conventions and runs them to verify. Critical for autonomous workflow loops.
-- [x] **security-auditor agent** — `agents/security-auditor.md`: read-only (Read, Grep, Glob), Sonnet model. OWASP-focused vulnerability detection with exploitation scenarios. Reports clean areas to prove coverage.
-- [x] **Two-tier agent strategy** — Built-in agents handle routine tasks automatically. Custom agents are on-demand only for when depth is needed. Documented in `docs/guide/claude_code_agents.md`.
-- [x] **`/review` slash command** — `commands/review.md`: invokes code-reviewer agent on specified scope or recent changes.
-- [x] **`/best-practices` slash command** — `commands/best-practices.md`: mindset primer for industry-standard approaches before tackling a problem.
-- [ ] **Port Cursor workflows to slash commands** — Anything from old cursor_rules or repeated prompts becomes `commands/command-name.md`. Use `$ARGUMENTS` for parameterization.
+The insight the phase turned on is that **narrow lenses beat one thorough generalist**. Four agents reviewing the same tree only produce four useful results if each answers a question the others do not; otherwise you get the same finding four times and a false sense of coverage. Everything is read-only unless writing is the job, so a whole panel can be dispatched against one worktree safely, and none of them fires unless asked — depth is something you reach for, not something that interrupts you.
 
-### Planning & Agents — Subagent Format
-
-```yaml
----
-name: code-reviewer
-description: Reviews code for bugs, performance issues, and style violations
-tools: ["Read", "Grep", "Glob"]
-model: sonnet
----
-
-You are a senior code reviewer. Analyze code for:
-- Bugs and logic errors
-- Performance issues
-- Style violations against project standards
-- Security concerns
-
-Report findings as a structured list with severity (critical/warning/info).
-Do not modify any files. Read-only analysis only.
-```
-
-Key constraints: Subagents cannot spawn other subagents. For multi-step workflows, chain subagents from the main conversation or use slash commands to orchestrate.
+- [x] **Five specialist agents** — `architect`, `planner`, `code-reviewer`, `test-writer`, `security-auditor`, each with one distinct question and its own model tier
+- [x] **Two-tier strategy** — built-ins handle routine work automatically; custom agents are on-demand only
+- [x] **`/review` and `/best-practices`** — the first slash commands
+- [x] **~~Port Cursor workflows to slash commands~~** — **abandoned deliberately.** Replaced by a better design: methodology became *skills* loaded on context, with commands as thin invokers. A saved prompt rots; a skill has one home and two entry points
 
 ---
 

@@ -83,6 +83,7 @@ claude-dot-files/
 │   │   │   ├── automated-pr-generation.md           # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
 │   │   │   ├── cross-device-sync.md                 # COMPLETE — install.sh, idempotency as the enabling feature, the 7 symlinks
 │   │   │   ├── explore-claude-directory.md          # COMPLETE — the portable/machine-local classification; projects/ is path-keyed
+│   │   │   ├── planning-and-agents.md               # COMPLETE — distinct-lens principle; the Cursor-port item abandoned in favour of skills
 │   │   │   ├── safety-and-guardrails.md             # COMPLETE — two-layer model; why block-dangerous.sh is load-bearing rather than defence-in-depth
 │   │   │   ├── burn-test-intake-2026-08-02.md       # Intake record: the four queued items with evidence and confidence; feeds the phase docs, delete once absorbed
 │   │   │   └── github-actions-integration.md        # HISTORICAL (Apr 2026) — record of what was planned
