@@ -80,6 +80,7 @@ claude-dot-files/
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
 │   │   ├── roadmap.md                               # Phased migration plan (Phases 0-5 mostly complete)
 │   │   ├── phases/                                  # Phase-specific planning docs
+│   │   │   ├── autonomous-execution.md              # COMPLETE — the workflow fleet; the skills-preloading fix, lean agents, and the log-as-evidence finding that seeded CPI
 │   │   │   ├── automated-pr-generation.md           # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
 │   │   │   ├── cross-device-sync.md                 # COMPLETE — install.sh, idempotency as the enabling feature, the 7 symlinks
 │   │   │   ├── explore-claude-directory.md          # COMPLETE — the portable/machine-local classification; projects/ is path-keyed
