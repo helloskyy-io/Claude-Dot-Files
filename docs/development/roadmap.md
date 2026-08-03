@@ -589,13 +589,13 @@ The port to durable execution. **Gated on the two phases above** — not by pref
 - [ ] **Plan the migration order** — which workflow moves first, and what runs in parallel during the cutover.
 - [ ] **Decide what happens to the bash fleet after** — retired, or kept as the edge fallback.
 
-### Implementation Language — 📋 PREREQUISITE, decide before anything else in this phase
+### Implementation Language — ✅ DECIDED 2026-08-03: Python
 
 **Bash is not an option, and that is not a preference.** Temporal has no bash SDK. A worker is a long-running process that implements the task-queue protocol and, for workflow code, guarantees deterministic replay. Bash cannot do either. The SDKs are Go, Java, Python, TypeScript, .NET, PHP and Ruby — pick one or do not port.
 
 **But the bash does not die.** Skyy-Command's activities already shell out via `subprocess` in several domains, and every activity we would write ultimately invokes `claude -p` anyway. A bash script survives as *an executable an activity calls*. The question is only whether that indirection earns its keep once the caller is already a real program.
 
-**Python is very likely the answer, and this is a decision to make in conversation rather than a research run.** The inputs are not open questions:
+**Why Python, recorded once so it is not re-argued.** The inputs were never open questions:
 
 - The framework being ported **is Python** — `lib/temporal/` in Skyy-Command, 123 non-test modules.
 - The **Worker Deployment Standard is written in Python** — `python:3.11-slim` base image, `CMD ["python", "<worker>_worker.py"]`. Conforming to a binding standard while choosing a different language means diverging from it on day one.
@@ -615,7 +615,15 @@ Generic executors under `activities/` are **plain functions** — verified in Sk
 
 **Stage A is a valid resting place.** If Temporal slips, we still have a tested Python fleet that runs exactly like the bash one and has shed an entire class of outage. That is the property that makes this safe to start before everything else is settled.
 
-- [ ] **Ratify Python** (or state the reason for diverging from the standard).
+**DECIDED: Python. Do not re-open this.** The framework being ported is Python, the Worker Deployment Standard is written in Python, and the seed handoff already specifies a Python venv worker. Choosing otherwise would mean diverging from a binding standard on day one for no stated benefit. Recorded here so the decision is not made a second time.
+
+**The agreed migration path, end to end:**
+
+1. **Convert the existing fleet to Python, in place.** Everything in `activities/`, `common/`, `children/` and the top-level parents becomes Python with a CLI entrypoint. Same invocation UX, same behaviour, no Temporal. This is Stage A, and it stands on its own.
+2. **Stand up Temporal.**
+3. **Refactor into the Temporal file layout** — the `{name}_workflow.py` / `{name}_helper.py` / `{name}_activities.py` trio beside each other in a module purpose folder, generic executors under `activities/`, per Temporal Standard §3 and §10. Our current layers already map onto this, which is why the refactor is a re-shape rather than a rewrite.
+4. **Bring the Temporal standards over** — `temporal_standard.md`, `worker_deployment_standard.md` and `stateful_patterns.md` from `mdc-master-planning`, adopted here rather than re-derived, with a claude-dot-files addendum only for what is genuinely ours (long-activity discipline for 10–60 minute `claude -p` runs, machine-axis queue naming, topology profiles).
+
 - [ ] **Confirm the two known SDK constraints** — heartbeating for long activities, payload limits for transcripts.
 - [ ] **Decide what happens to the bash fleet after Stage A** — retired, or kept as an edge fallback needing no runtime.
 
