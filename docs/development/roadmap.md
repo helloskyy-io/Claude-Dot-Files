@@ -158,6 +158,9 @@ Key constraints: Subagents cannot spawn other subagents. For multi-step workflow
 
 ## Phase: Autonomous Execution
 
+> **Not to be confused with `Phase: Autonomous Operation`, further down.** This phase is about *building the workflows* — the scripts, agents and skills that let Claude do a unit of work unattended. That one is about *running the fleet* unattended: nobody pressing the button, nothing depending on which workstation happens to be awake. This is largely complete; that one is gated on Temporal Integration.
+
+
 **Serves: Workflow 2 (Autonomous)** — This is the core of the "plan → execute → PR" pipeline.
 
 Dependencies: Phase 2 (safety hooks), Phase 3 (planning agents)
@@ -343,22 +346,6 @@ One gap was identified from production feedback on 2026-04-14 and addressed by t
 
 
 ---
-
-## Phase: Autonomous Operation — 🔵 NOT SCHEDULED
-
-Work that lets the fleet run without a human pressing the button. Distinct from Continuous Process Improvement, which is about the tooling getting *better*; this is about it running *unattended*. Both were tangled together under one heading and neither read clearly.
-
-**Server-side configuration independence** — a headless dispatch currently loads whatever agent definitions the edge machine happens to have, because `run-claude.sh` passes neither `--agents` nor `--setting-sources`. That is the same defect class the script already fails loud on for `--model`, one layer down and unguarded: the agent roster is ambient and underived, and nothing detects divergence between two machines. Detail and the operator's Tier-3 ruling in [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md) Item 3.
-
-**Automated PR generation from CPI findings** (moved here from Continuous Process Improvement — it is unattended operation, not analysis):
-
-Take the manual review workflow and have it create PRs with proposed changes.
-
-**Tasks:**
-
-- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
-- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
-- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
 
 ## Phase: Continuous Process Improvement
 
@@ -548,6 +535,56 @@ Today that is three grep channels against a child's log. It works and has been p
 **Downstream:** a typed payload is what makes a **convergence-based** stopping condition mechanizable — *"did this pass find anything not in the previous pass's result?"* is answerable against two structured results and not against two prose logs. That matters because the count-based bound we shipped was built on a mis-extrapolation (see the plateau correction in the phase doc): measured, three cycles remained productive and a cap of one would have left two live credential leaks in `main`.
 
 **Needs real research before anything is built.** The problem is well understood; the answer is not.
+
+---
+
+## Phase: Temporal Integration — 📋 QUEUED, NEEDS PLANNING
+
+The port to durable execution. **Gated on the two phases above** — not by preference, by dependency: Temporal is being adopted for durability, resumability and cross-run observability, **NOT to gain composition**, which already works in bash. A parent needs a child's exit code plus one stable identifier on its final line, and the completion contract already supplies both. Porting before the decomposition and the handoff contract are settled would mean porting a shape we are still changing.
+
+**Direction is settled; nothing is planned.** Decision record: [`skyy-net-seed-handoff.md`](skyy-net-seed-handoff.md). Binding standard the port conforms to: `standards/development/temporal/` in `mdc-master-planning` — the three-tier model (generic activities → composable child workflows → parent workflows), `ActivityResult`, `ACTIVITY_MAP`.
+
+**What is already true and should not be re-derived:**
+
+- **Our layers already map.** `children/` are child workflows, not activities (an activity must be idempotent per §7.1, and a child that pushes commits is not). `activities/` are the generic executors. Parents are parent workflows. That alignment was done deliberately so the port is a re-host rather than a redesign.
+- **No helper/compiler tier is needed** for our shape — the standard exempts direct-dispatch orchestrations (parents naming the callable inline) from the step-dict execution-plan pattern. That exemption stops applying when git/gh operations move out of the model's turn and something has to compile their inputs.
+- **Topology, from the seed handoff:** server (Temporal + Postgres) on a backed-up VM so event history is a backed-up asset; workers as **bare systemd processes, never containerized**, on every machine that holds repos. Claude Code must run on the machine holding the repo — that repo-locality constraint drives the whole worker placement.
+
+**Open, and the thing to settle before any build:**
+
+- [ ] **The invocation must be indistinguishable from an operator running the command in a terminal.** This is a design constraint, not a permission question, and it is the one that decides whether the port is viable on a subscription model at all. It is being tested separately.
+- [ ] **A `claude_cli` activity domain** — heartbeating for 10–60 minute runs, transcript-to-file for payload limits. This is the genuinely new work; most of the rest is a port.
+- [ ] **Plan the migration order** — which workflow moves first, and what runs in parallel during the cutover.
+- [ ] **Decide what happens to the bash fleet after** — retired, or kept as the edge fallback.
+
+---
+
+## Phase: Autonomous Operation — 🔵 NOT SCHEDULED
+
+> **Gated on Temporal Integration, deliberately placed after it.** Running the fleet unattended is not a near-term item: several things have to land first — the decomposition settled, the handoff contract designed, durable execution in place. Attempting it earlier means building scheduling and unattended-dispatch machinery on top of a shape still being changed, then rebuilding it. Distinct from `Phase: Autonomous Execution` above, which is about building the workflows themselves.
+
+
+Work that lets the fleet run without a human pressing the button. Distinct from Continuous Process Improvement, which is about the tooling getting *better*; this is about it running *unattended*. Both were tangled together under one heading and neither read clearly.
+
+**Server-side configuration independence** — a headless dispatch currently loads whatever agent definitions the edge machine happens to have, because `run-claude.sh` passes neither `--agents` nor `--setting-sources`. That is the same defect class the script already fails loud on for `--model`, one layer down and unguarded: the agent roster is ambient and underived, and nothing detects divergence between two machines. Detail and the operator's Tier-3 ruling in [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md) Item 3.
+
+**Automated PR generation from CPI findings** (moved here from Continuous Process Improvement — it is unattended operation, not analysis):
+
+Take the manual review workflow and have it create PRs with proposed changes.
+
+**Tasks:**
+
+- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
+- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
+- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
+
+### Temporal Crons — 📋 STUB
+
+Scheduled dispatch owned by the durable-execution layer rather than by the edge machine. Depends entirely on **Temporal Integration** landing first.
+
+- [ ] **Move scheduled dispatch off `claude schedule` / systemd timers onto Temporal schedules** — the current design (weekly `review-runs`, see Continuous Process Improvement → Scheduled Operation) puts the trigger on whichever workstation happens to be awake. A Temporal schedule survives the machine being off, is visible in one place, and its history is queryable.
+- [ ] **Decide what is actually cron-shaped** — CPI sweeps and research revalidation are the obvious candidates because they are time-driven. PR disposition is event-driven and should stay event-driven; do not put it on a timer because the timer exists.
+- [ ] **Define failure behaviour for a missed window** — catch-up run, skip, or alert. Different answers for a CPI sweep (skip is fine) and a research revalidation (skipping silently lets a paper rot).
 
 ---
 
