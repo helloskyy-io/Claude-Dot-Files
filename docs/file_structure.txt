@@ -20,7 +20,7 @@ claude-dot-files/
 │   │   ├── architecture-decisions.md                # ADR methodology (applied via standards docs per our convention)
 │   │   ├── decision-methodology.md                  # Five-whys cascade + upstream check + BP-on-reframed-question for low/mid-confidence decisions
 │   │   ├── documentation-management.md              # Doc-systems-engineer methodology (4 modes for doc-manager agent)
-│   │   ├── documentation-structure.md               # Four-bucket convention (architecture/development/standards/guide)
+│   │   ├── documentation-structure.md               # Doc-bucket convention (development / standards incl. architecture / guide)
 │   │   ├── planning-methodology.md                  # How to plan features, break down work, identify risks
 │   │   ├── project-definition.md                    # Multi-stage process for defining new projects from scratch
 │   │   ├── project-organization.md                  # Project shapes (multi-repo + master-planning OR single-repo /docs/), planning hierarchy
@@ -70,13 +70,6 @@ claude-dot-files/
 ├── docs/
 │   ├── file_structure.txt                           # This file (annotated repo map)
 │   │
-│   ├── architecture/                                # WHY — high-level system overviews (not numbered ADRs, per standards-governance)
-│   │   ├── research/                                # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
-│   │   │   ├── raw/<topic>.md                       # The pool (home of the Agentic-AI coursework mini-papers)
-│   │   │   └── synthesis.md                         # What the pool means for the product's direction. NON-BINDING
-│   │   ├── README.md                                # What goes here vs docs/standards/
-│   │   └── system-overview.md                       # Layered architecture, key decisions, where the seams are
-│   │
 │   ├── development/                                 # WHAT — active work tracking
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
@@ -117,8 +110,14 @@ claude-dot-files/
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
+│       ├── architecture/                          # WHY the system is shaped this way — high-level overviews, not numbered ADRs
+│       │   ├── research/                          # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
+│       │   │   ├── raw/<topic>.md                 # The pool — home of the Agentic-AI coursework mini-papers
+│       │   │   └── synthesis.md                    # What the pool means for the product's direction. NON-BINDING
+│       │   ├── README.md                          # What goes here vs the rest of standards/
+│       │   └── system-overview.md                 # Layered architecture, key decisions, where the seams are
 │       ├── research/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
-│       │   ├── README.md                            # Where research lives HERE (docs/development/research/<topic>/), and what it unblocks
+│       │   ├── README.md                            # The two altitudes — product vs phase — and what each unblocks
 │       │   └── research_standard.md                 # Mini-paper contract, source floor, confidence marking, revalidation
 │       ├── documentation/                           # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
 │       │   ├── README.md                            # Applicability: what binds here, what is sprint-specific and ignored, and the CLAUDE.md-references-never-contains principle

@@ -16,7 +16,7 @@ Projects define standards at multiple levels. Read them in priority order:
 1. **Root CLAUDE.md** — project-level instructions and overrides
 2. **Nested CLAUDE.md files** — directory-specific rules in touched directories
 3. **docs/standards/*.md** — explicit convention documents
-4. **docs/architecture/** — design decisions that constrain implementation
+4. **docs/standards/architecture/** — design decisions that constrain implementation
 5. **Existing code** — exemplar files that demonstrate established patterns
 
 Higher layers override lower ones. If CLAUDE.md says "use tabs" and a standards doc says "use spaces," CLAUDE.md wins.
@@ -52,7 +52,7 @@ Based on what was changed, pull the specific `docs/standards/*.md` files that ap
 Don't read standards docs that aren't relevant to the changes.
 
 ### Step 3: Check Architecture Docs
-If `docs/architecture/` exists, scan for ADRs relevant to the changed area. Architecture decisions constrain implementation — a change that contradicts an ADR is a standards violation.
+If `docs/standards/architecture/` exists, scan for ADRs relevant to the changed area. Architecture decisions constrain implementation — a change that contradicts an ADR is a standards violation.
 
 ### Step 4: Find Exemplars
 For each type of artifact being changed, grep for existing exemplars:

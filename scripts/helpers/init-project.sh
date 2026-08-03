@@ -286,7 +286,7 @@ else
 ## Documentation
 
 This project follows the four-bucket documentation layout:
-- \`docs/architecture/\` — THE WHY: ADRs, system design
+- \`docs/standards/architecture/\` — THE WHY: ADRs, system design
 - \`docs/development/\` — THE WHAT: roadmap, phases, features
 - \`docs/standards/\` — THE HOW: conventions, patterns
 - \`docs/guide/\` — OPERATING MANUAL: user-facing docs

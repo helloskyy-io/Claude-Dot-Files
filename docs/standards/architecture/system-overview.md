@@ -132,7 +132,7 @@ This is the mechanism by which the system improves itself over time without requ
 
 Architectural decisions are captured as standards documents in `docs/standards/<topic>.md`, not as numbered ADR files. Codified in `config/rules/standards-governance.md`. The architecture-decisions skill's methodology (trade-off analysis, alternatives, consequences) still applies — but the artifact is a standards doc. Standards are easier for AI to read and reference than scattered numbered ADRs.
 
-`docs/architecture/` (this directory) holds high-level overviews and supporting docs (system-overview, threat-model, component-diagram) — not per-decision artifacts.
+`docs/standards/architecture/` (this directory) holds high-level overviews and supporting docs (system-overview, threat-model, component-diagram) — not per-decision artifacts.
 
 ## Where the seams are
 

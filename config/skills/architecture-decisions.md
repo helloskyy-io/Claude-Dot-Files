@@ -311,7 +311,7 @@ Writing ADRs for decisions you made without documentation. The real context is a
 
 ### documentation-structure
 - Provides the ADR template and filename conventions
-- Defines where ADRs live (`docs/architecture/ADR-###-title.md`)
+- Defines where ADRs live (`docs/standards/architecture/ADR-###-title.md`)
 - This skill focuses on the thinking; that skill on the format
 
 ### planning-methodology
@@ -385,4 +385,4 @@ When making an architectural decision:
 - [ ] Can I explain the decision honestly, including what I gave up?
 - [ ] Am I writing the ADR now, while the context is fresh?
 - [ ] Does the ADR follow the format from documentation-structure?
-- [ ] Is the ADR placed in `docs/architecture/` with correct naming?
+- [ ] Is the ADR placed in `docs/standards/architecture/` with correct naming?

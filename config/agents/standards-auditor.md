@@ -24,7 +24,7 @@ Follow the standards-enforcement skill for the discovery process, audit methodol
 ### Must Verify
 - CLAUDE.md chain compliance (root + nested in touched directories)
 - Relevant docs/standards/*.md conformance
-- Architecture doc compliance (if docs/architecture/ exists)
+- Architecture doc compliance (if docs/standards/architecture/ exists)
 - Pattern match with existing exemplar files
 
 ### Must Cite

@@ -288,7 +288,7 @@ Follow these stages exactly:
 
 2. IMPLEMENT: Before writing code, discover the applicable standards:
    - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-   - If docs/architecture/ exists, scan for relevant ADRs
+   - If docs/standards/architecture/ exists, scan for relevant ADRs
    - Read the specific docs/standards/*.md files relevant to your task area
 
    Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.
@@ -358,7 +358,7 @@ Follow these stages exactly:
 
 2. IMPLEMENT: Before writing code, discover the applicable standards:
    - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-   - If docs/architecture/ exists, scan for relevant ADRs
+   - If docs/standards/architecture/ exists, scan for relevant ADRs
    - Read the specific docs/standards/*.md files relevant to your task area
 
    Apply the fix. Make minimal, focused changes. Do not refactor or improve code outside the scope of the task.

@@ -10,7 +10,7 @@
 
 | Altitude | Location | Backs |
 |---|---|---|
-| **Product** — the holistic layer | [`docs/architecture/research/`](../../architecture/research/) | The whole approach. Findings that could change *what* we build |
+| **Product** — the holistic layer | [`docs/standards/architecture/research/`](../architecture/research/) | The whole approach. Findings that could change *what* we build |
 | **Phase** — ~98% of research | `docs/development/phases/<phase>/research/` | That phase's planning. Findings that decide *how* to build something already committed to |
 
 The test between them: **would this finding invalidate a phase, or inform one?** Invalidating is product-level; informing is phase-level.

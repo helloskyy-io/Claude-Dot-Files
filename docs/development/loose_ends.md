@@ -37,7 +37,7 @@ Architectural review identified these gaps for moving from "above the bar for pe
 
 - **CI on this repo.** No `.github/workflows/`. PRs merge without `shellcheck`, `bash -n`, JSON/YAML lint, hook-pattern regression tests, markdown link-check. **Approach when triggered:** `.github/workflows/ci.yml` with the above checks. **Trigger:** after testing infrastructure exists.
 
-- **Safety hook threat model documentation.** Inline threat-model header was added to `config/hooks/block-dangerous.sh` (step 4-b) enumerating bypass classes the hook does NOT address (obfuscated commands, variable indirection, aliasing, here-strings, subshell smuggling) and the operator-context risk profile. **What's still deferred:** a full `docs/architecture/threat-model.md` with attack-corpus fixtures and a negative corpus that the hook can be tested against. **Trigger:** anyone other than operator starts using these workflows, OR an autonomous LLM demonstrates evidence of obfuscation attempts in logs.
+- **Safety hook threat model documentation.** Inline threat-model header was added to `config/hooks/block-dangerous.sh` (step 4-b) enumerating bypass classes the hook does NOT address (obfuscated commands, variable indirection, aliasing, here-strings, subshell smuggling) and the operator-context risk profile. **What's still deferred:** a full `docs/standards/architecture/threat-model.md` with attack-corpus fixtures and a negative corpus that the hook can be tested against. **Trigger:** anyone other than operator starts using these workflows, OR an autonomous LLM demonstrates evidence of obfuscation attempts in logs.
 
 ### Operations: drift + recovery + visibility
 
@@ -51,7 +51,7 @@ Architectural review identified these gaps for moving from "above the bar for pe
 
 ### Documentation: standards + onboarding
 
-- **Author standards for the 8+ implicit architectural decisions.** Symlinks-vs-Stow, hook trust model under `--dangerously-skip-permissions`, polling vs webhook gh-monitor, JSONL log contract, four-bucket docs, worktree-per-task isolation, bash-over-Python workflows. These are real decisions with real trade-offs; only some are recorded. **Approach when triggered:** use `standards-architect` agent to draft each as a `docs/standards/<topic>.md`, operator reviews. Promote via batched standards-authoring sessions. **Trigger:** after `docs/architecture/system-overview.md` lands (provides the index of what needs full standards).
+- **Author standards for the 8+ implicit architectural decisions.** Symlinks-vs-Stow, hook trust model under `--dangerously-skip-permissions`, polling vs webhook gh-monitor, JSONL log contract, four-bucket docs, worktree-per-task isolation, bash-over-Python workflows. These are real decisions with real trade-offs; only some are recorded. **Approach when triggered:** use `standards-architect` agent to draft each as a `docs/standards/<topic>.md`, operator reviews. Promote via batched standards-authoring sessions. **Trigger:** after `docs/standards/architecture/system-overview.md` lands (provides the index of what needs full standards).
 
 - **Onboarding doc** (`docs/guide/onboarding.md`). Operator is the only developer currently. **Approach when triggered:** "first 30 minutes" path with architecture tour + workflow decision tree. **Trigger:** before onboarding a second engineer.
 

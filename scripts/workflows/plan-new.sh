@@ -325,7 +325,7 @@ Define measurable success criteria:
 - Include anti-success criteria (early warning signs of going off track)
 
 ## Stage 3: TECH STACK
-Select the technology stack. Each major decision gets an ADR in `docs/architecture/`.
+Select the technology stack. Each major decision gets an ADR in `docs/standards/architecture/`.
 
 Evaluate and document decisions for:
 - Language(s), runtime, framework
@@ -334,14 +334,14 @@ Evaluate and document decisions for:
 - CI/CD, monitoring, testing frameworks
 - Authentication approach
 
-For each decision, write an ADR following the project's ADR format. Create a summary in `docs/architecture/tech-stack.md`.
+For each decision, write an ADR following the project's ADR format. Create a summary in `docs/standards/architecture/tech-stack.md`.
 
 Guiding principles: boring is beautiful, team expertise matters, operational simplicity wins, start simple.
 
 ## Stage 4: ARCHITECTURE
 Design the high-level architecture.
 
-Create `docs/architecture/system-overview.md` with:
+Create `docs/standards/architecture/system-overview.md` with:
 - **Component diagram:** Major pieces and how they connect
 - **Data flow:** Request lifecycle, write path, read path, background processing
 - **External integrations:** Third-party APIs, webhooks, identity providers
@@ -386,7 +386,7 @@ Address:
 - Backup/recovery strategy?
 - Abuse scenarios?
 
-Create `docs/architecture/security.md` capturing foundational security decisions.
+Create `docs/standards/architecture/security.md` capturing foundational security decisions.
 
 ## Stage 9: ROADMAP
 Assemble everything into the top-level roadmap.
@@ -489,7 +489,7 @@ For each finding:
 - **Warnings:** Should be addressed if the fix is straightforward. Otherwise, document as a known limitation.
 - **Info items:** Note for future improvement but do not act on them now.
 
-Produce a resolution summary in `docs/architecture/review-resolutions.md`:
+Produce a resolution summary in `docs/standards/architecture/review-resolutions.md`:
 - What was found (brief list of findings from each review stage)
 - What was addressed and how
 - What was deferred and why

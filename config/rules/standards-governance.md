@@ -2,13 +2,13 @@
 
 ## Architectural decisions: standards, not ADRs
 
-Architectural decisions are captured as standards documents in `docs/standards/<topic>.md`, not as separate numbered ADR files in `docs/architecture/`. Standards documents serve the same role ADRs do — they document binding decisions about how things should be done, with rationale and alternatives considered.
+Architectural decisions are captured as standards documents in `docs/standards/<topic>.md`, not as separate numbered ADR files in `docs/standards/architecture/`. Standards documents serve the same role ADRs do — they document binding decisions about how things should be done, with rationale and alternatives considered.
 
-Do NOT propose creating `docs/architecture/adr-NNN.md` files when adding a `docs/standards/<topic>.md` file accomplishes the same goal. The architecture-decisions skill's methodology still applies (trade-off analysis, rationale, alternatives considered, consequences) — but the artifact is a standards doc, not a numbered ADR. The `docs/architecture/` directory is reserved for high-level system-architecture descriptions and tech-stack overviews, not per-decision artifacts.
+Do NOT propose creating `docs/standards/architecture/adr-NNN.md` files when adding a `docs/standards/<topic>.md` file accomplishes the same goal. The architecture-decisions skill's methodology still applies (trade-off analysis, rationale, alternatives considered, consequences) — but the artifact is a standards doc, not a numbered ADR. The `docs/standards/architecture/` directory is reserved for high-level system-architecture descriptions and tech-stack overviews, not per-decision artifacts.
 
 ## Standards governance — human-in-the-loop
 
-Standards documents (`docs/standards/`, `docs/architecture/`) are a curated product with human-in-the-loop control. Autonomous workflows and agents may SURFACE standards implications (gaps, drift, deviations, ADR candidates) but must NOT auto-create, auto-modify, or auto-stub standards artifacts. All standards changes flow through the interactive session for human review before merge.
+Standards documents (`docs/standards/`, `docs/standards/architecture/`) are a curated product with human-in-the-loop control. Autonomous workflows and agents may SURFACE standards implications (gaps, drift, deviations, ADR candidates) but must NOT auto-create, auto-modify, or auto-stub standards artifacts. All standards changes flow through the interactive session for human review before merge.
 
 **Planning artifacts (phase docs, roadmap.md, loose-ends entries, epic breakdowns) are explicitly NOT covered by this rule** — they are dispatch-scope and engineers MAY edit them autonomously. When a phase doc and a standard contradict, the engineer SHOULD update the phase doc to remove the contradiction in the dispatch's PR (since the standard is binding) AND surface the standards-side amendment as a candidate for human review. This avoids the "next sprint reads the phase doc, doesn't notice the tension, flips a coin" failure mode.
 

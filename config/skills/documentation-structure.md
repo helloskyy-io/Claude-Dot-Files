@@ -32,14 +32,16 @@ You're not writing for today. You're writing for the person (future you included
 
 ```
 docs/
-├── file_structure.txt  ← META (map of the repo — not in any bucket)
-├── architecture/       ← THE WHY (decisions, system design)
-├── development/        ← THE WHAT (roadmap, features, phases)
-├── standards/          ← THE HOW (conventions, patterns)
-└── guide/              ← THE OPERATING MANUAL (user-facing docs)
+├── file_structure.txt      ← META (map of the repo — not in any bucket)
+├── development/            ← THE WHAT (roadmap, phases, and the research that drives them)
+├── standards/              ← THE HOW (conventions, patterns)
+│   └── architecture/       ← THE WHY (system design) — a standards sub-bucket, not a peer
+└── guide/                  ← THE OPERATING MANUAL (user-facing docs)
 ```
 
-**Key principle:** Every doc belongs in exactly one bucket. If you're unsure which, ask: "Is this about WHY we did something (architecture), WHAT we're doing (development), HOW we do things (standards), or how to USE it (guide)?"
+**Key principle:** Every doc belongs in exactly one bucket. If you're unsure which, ask: "Is this about WHAT we're doing (development), HOW we do things — including WHY the system is shaped this way (standards), or how to USE it (guide)?"
+
+**Architecture nests under standards rather than sitting beside it.** A system overview is a statement of how the system is built and is read alongside the conventions that govern it, not as a separate corpus — and in practice an architecture bucket at top level stays nearly empty while inviting anything vaguely design-shaped to be filed there. Binding decisions are standards documents; architecture holds the high-level description those decisions add up to. This also matches the platform corpus, so a repo adopting both conventions does not have to reconcile two shapes.
 
 ### Meta-Files (at docs/ root level)
 
@@ -51,7 +53,7 @@ Some files are navigation tools or metadata about the repo itself, not content. 
 
 **Why meta-files belong at the root:** They describe the docs structure itself, not any specific concern. Putting them in a bucket would be like filing the library catalog under "Philosophy."
 
-### Bucket 1: `docs/architecture/`
+### Bucket 1: `docs/standards/architecture/`
 
 **Purpose:** Captures architectural decisions and system design. The WHY.
 
@@ -85,7 +87,7 @@ Some files are navigation tools or metadata about the repo itself, not content. 
 - **retrospectives/** (optional) — lessons learned from completed work
 
 **What does NOT go here:**
-- Architectural reasoning (that's architecture/)
+- Architectural reasoning (that's standards/architecture/)
 - How-to instructions (that's standards/ or guide/)
 - Finished work that's no longer active (archive or delete)
 
@@ -180,7 +182,7 @@ Use Model C when the ENTIRE project is a phased plan (like a migration, setup, o
   - `documentation.md` — project-specific doc conventions (if any beyond this skill)
 
 **What does NOT go here:**
-- Decisions (those go in architecture/ as ADRs)
+- Decisions (those become standards documents — this repo does not use numbered ADRs)
 - Task lists (those go in development/)
 - User-facing content (that goes in guide/)
 
@@ -204,7 +206,7 @@ Use Model C when the ENTIRE project is a phased plan (like a migration, setup, o
 - **FAQ** — `faq.md` if applicable
 
 **What does NOT go here:**
-- Internal design decisions (those go in architecture/)
+- Internal design decisions (those go in standards/architecture/)
 - Development work-in-progress (those go in development/)
 - Team conventions (those go in standards/)
 
@@ -759,7 +761,7 @@ This skill is foundational for workflows that create documentation:
 
 ## Integration With Project-Level Customization
 
-This skill captures the **default** documentation structure. Projects can override or extend it via their own `docs/standards/documentation.md` file. That file takes precedence for project-specific needs (e.g., "this project uses docs/rfcs/ instead of docs/architecture/" is a valid override).
+This skill captures the **default** documentation structure. Projects can override or extend it via their own `docs/standards/documentation.md` file. That file takes precedence for project-specific needs (e.g., "this project uses docs/rfcs/ instead of docs/standards/architecture/" is a valid override).
 
 Global methodology (this skill) → Project-specific conventions (standards/documentation.md) → Actual file organization.
 

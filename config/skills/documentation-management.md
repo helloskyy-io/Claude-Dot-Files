@@ -38,7 +38,7 @@ The full set of artifacts under doc-manager's purview:
 
 ### Standards corpus
 - `docs/standards/*.md` — binding architectural and operational rules
-- `docs/architecture/*.md` — high-level system overviews, tech stack documentation
+- `docs/standards/architecture/*.md` — high-level system overviews, tech stack documentation
 
 ### Planning artifacts
 - `sprint.md` (or equivalent ordering doc) — sprint-level scheduling
@@ -312,7 +312,7 @@ For phase docs and roadmap.md files with checkboxes:
 **Check 8: Doc system completeness**
 - For each project shape (per `project-organization` skill), are the EXPECTED docs present?
 - Multi-repo with master-planning: is there a master-planning repo? sprint.md? topic roadmaps? per-repo CLAUDE.mds?
-- Single-repo: is there a CLAUDE.md? docs/standards/? docs/development/? docs/architecture/? docs/guide/?
+- Single-repo: is there a CLAUDE.md? docs/standards/? docs/development/? docs/standards/architecture/? docs/guide/?
 - Surface gaps where the project structure expects a doc that doesn't exist yet
 
 #### Output format (audit mode)
@@ -429,7 +429,7 @@ Mechanical edits within strict authority limits. Audits PLUS edits eligible item
 | Artifact | Author (draft for review) | Coordinate (propagate) | Audit (surface) | Maintain (edit directly) |
 |---|---|---|---|---|
 | `docs/standards/*.md` | YES — substance always human-approved | Surface dependencies | YES | NO — substance only via authoring drafts |
-| `docs/architecture/*.md` | YES — substance always human-approved | Surface dependencies | YES | NO |
+| `docs/standards/architecture/*.md` | YES — substance always human-approved | Surface dependencies | YES | NO |
 | `sprint.md` / `sprints.md` | YES — draft for review | Surface sprint→roadmap dependencies (never edit) | YES | NO — HiL only, surface candidates via PR/handoff (see standards-governance.md) |
 | `docs/development/<topic>/roadmap.md` | YES — draft for review | Propagate roadmap→phase dependencies | YES | LIMITED — checkbox state, ref fixes |
 | `docs/development/<topic>/phase-N.md` | YES — draft for review | Propagate phase dependencies | YES | LIMITED — checkbox state, ref fixes |

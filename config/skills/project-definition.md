@@ -208,7 +208,7 @@ Before detailed planning, sketch the architecture at a high level.
 
 #### System Overview
 
-Create `docs/architecture/system-overview.md` with:
+Create `docs/standards/architecture/system-overview.md` with:
 
 **Component diagram:** What are the major pieces?
 ```
@@ -236,7 +236,7 @@ Create `docs/architecture/system-overview.md` with:
 
 #### Tech Stack Diagram
 
-Create `docs/architecture/tech-stack.md` listing what's used where and why. This is the summary of all the tech stack ADRs.
+Create `docs/standards/architecture/tech-stack.md` listing what's used where and why. This is the summary of all the tech stack ADRs.
 
 ### Stage 5: Phase Breakdown
 
@@ -366,7 +366,7 @@ Every project that handles secrets must document a secrets management strategy. 
 
 **Principle:** If you can't answer "how does this secret get to the code in production?" for every secret, the security review is incomplete.
 
-**Output:** A security considerations doc in `docs/architecture/security.md` capturing the foundational decisions including the full secrets inventory with per-environment injection strategy. More detailed security work comes later, but the foundation should be thought through.
+**Output:** A security considerations doc in `docs/standards/architecture/security.md` capturing the foundational decisions including the full secrets inventory with per-environment injection strategy. More detailed security work comes later, but the foundation should be thought through.
 
 ### Stage 9: Initial Roadmap
 
@@ -453,10 +453,10 @@ After project definition is complete, you should have:
 
 **Documents:**
 - [ ] `docs/development/requirements.md` — functional, non-functional, constraints, assumptions, out of scope
-- [ ] `docs/architecture/system-overview.md` — high-level architecture
-- [ ] `docs/architecture/tech-stack.md` — summary of stack choices
-- [ ] `docs/architecture/security.md` — security considerations
-- [ ] `docs/architecture/ADR-###-*.md` — one ADR per major stack decision
+- [ ] `docs/standards/architecture/system-overview.md` — high-level architecture
+- [ ] `docs/standards/architecture/tech-stack.md` — summary of stack choices
+- [ ] `docs/standards/architecture/security.md` — security considerations
+- [ ] `docs/standards/architecture/ADR-###-*.md` — one ADR per major stack decision
 - [ ] `docs/development/roadmap.md` — top-level phased plan
 - [ ] `docs/development/features/` — directory ready for feature docs
 - [ ] `docs/standards/` — initial coding standards

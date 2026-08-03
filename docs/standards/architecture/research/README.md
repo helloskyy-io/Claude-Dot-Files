@@ -1,6 +1,6 @@
 # Research — product level
 
-Evidence that backs **the whole approach**, not any single phase. This is the holistic altitude from [Research Standard §1](../../standards/research/research_standard.md): research that validates the implemented and planned design, drives direction changes, and introduces new concepts.
+Evidence that backs **the whole approach**, not any single phase. This is the holistic altitude from [Research Standard §1](../../research/research_standard.md): research that validates the implemented and planned design, drives direction changes, and introduces new concepts.
 
 ```
 research/
@@ -30,5 +30,5 @@ Examples from this repo's actual queue — *should a parent hand off through a t
 **`synthesis.md` is rewritten, never appended.** It is what you read to check the product's direction against the evidence.
 
 ```bash
-./scripts/workflows/research.sh docs/architecture/research "<the question>"
+./scripts/workflows/research.sh docs/standards/architecture/research "<the question>"
 ```
