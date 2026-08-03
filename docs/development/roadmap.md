@@ -1,5 +1,13 @@
 # Roadmap
 
+**What is being built:** a Claude Code environment that improves itself. Custom agents and methodology skills, autonomous workflows that run headless and deliver reviewed PRs, a memory model built on git rather than state files, and a continuous-improvement loop that reads the system's own run logs and feeds findings back as tracked decisions. It syncs to every machine from one repo.
+
+**The arc.** The completed phases built the foundation — sync, safety, agents, and the autonomous workflows themselves. The current work is **decomposition**: breaking monolithic workflows into composable parents and children, so that each boundary is a review boundary and a retry point. That leads to a **typed handoff** between runs, which is what lets a parent route on a child's result in code rather than by parsing prose — and that, in turn, is the prerequisite for porting onto **durable execution**, where a failed leg resumes instead of restarting.
+
+The through-line: *the run that authors work should not be the run that judges it, and a system should be able to tell you what it decided in a form that code can act on.*
+
+---
+
 **What this file is:** the phase list. Each phase carries its milestones as checkboxes and links to a detailed planning doc in [`phases/`](phases/). Nothing else lives here — repo structure, setup and command reference are in [`../../README.md`](../../README.md), [`../guide/deployment.md`](../guide/deployment.md) and [`../guide/operations.md`](../guide/operations.md).
 
 ## How to use it
@@ -41,18 +49,13 @@ Get the repo deploying to every machine, so everything built later propagates au
 
 ## Phase: Safety & Guardrails ✅ COMPLETE
 
-**Serves: Both workflows** — Interactive mode needs guardrails so you can approve quickly with confidence. Autonomous mode needs them even more since Claude is working unsupervised.
+**Phase doc:** [`phases/safety-and-guardrails.md`](phases/safety-and-guardrails.md)
 
-Dependencies: Phase 1 (so hooks sync across machines automatically)
+Make it safe to say yes quickly in interactive mode, and safe to walk away in autonomous mode — two different problems needing two different layers.
 
-- [x] **PreToolUse hook: block dangerous commands** — `hooks/block-dangerous.sh` reads JSON from stdin, extracts the bash command, denies if it matches destructive patterns (rm -rf, force push, git reset --hard, DROP TABLE, dd, fork bombs, etc.). Wired in settings.json with matcher `"Bash"`.
-- [x] **Stop hook: desktop notification** — `hooks/notify-done.sh` fires `notify-send` on Linux when Claude finishes. Gracefully skips on headless machines. Wired in settings.json Stop event.
-- [x] **Review permissions in settings.json** — Permissions provide the first layer (approval popup for unlisted commands), hooks provide the second layer (pattern-based deny for dangerous commands that might match broad allow rules). Two-layer safety net confirmed working.
-- [x] **Test each hook** — Permission layer prompts on dangerous commands (first safety layer works). notify-send fires desktop notification (top-right on Cinnamon/Mint). Both verified.
-
-### Safety & Guardrails — Notes
-
-Hook architecture (settings.json wiring, stdin JSON contract, three handler types) and the decision to skip PostToolUse auto-format are documented in `docs/architecture/system-overview.md`. Standards for writing hook scripts live in `docs/standards/hook-scripts.md`.
+- [x] **`PreToolUse` → `block-dangerous.sh`** — pattern-denies destructive commands. Later proved to be the **only** control operating during an autonomous run, since those bypass permissions entirely
+- [x] **`Stop` → `notify-done.sh`** — desktop notification on completion, skips on headless
+- [x] **Two-layer model** — permissions ask about *unlisted* commands; the hook denies *known-dangerous* ones regardless of what the allow list says
 
 ---
 
