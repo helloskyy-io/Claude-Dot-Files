@@ -99,153 +99,22 @@ A dispatch gets its own git worktree, so a bad run damages nothing outside it, a
 
 ---
 
-## Phase: Continuous Process Improvement
+## Phase: Continuous Process Improvement 🟡 IN PROGRESS
 
-**The game-changer phase.** This phase elevates the dotfiles repo from "static configuration" to a **self-improving development environment**. By analyzing logs from real workflow runs, we identify patterns, inefficiencies, and improvements — then feed those back into the system. The result is a true continuous-improvement feedback loop where the development environment gets smarter over time based on actual usage.
+**Phase doc:** [`phases/continuous-process-improvement.md`](phases/continuous-process-improvement.md)
 
-This phase deserves its own top-level designation because:
-- It's a **meta-workflow** that operates on other workflows
-- It transforms the entire system from "manually maintained" to "self-calibrating with human oversight"
-- It compounds over time — every cycle makes future cycles more valuable
-- It has its own architecture, prerequisites, and graduation path
-- It's the foundation for everything that comes after (including SkyyCommand AI integration)
+Make the system improve its own tooling from evidence it generates itself.
 
-### Review Workflow (manual mode)
+**No human gathers the data.** Every dispatch leaves a JSONL log of what it actually did, and every workflow ends by posting a reflection on its own work — friction hit, decisions that could have gone another way, tooling suggestions. Those are two machine-produced records of the same run, and they carry different things: a log shows a file was read seventeen times, the reflection says the guidance was ambiguous. Findings from both reach an explicit ship / defer / reject, ruled by a human — the system observes itself and proposes, it does not modify itself.
 
-Build the core workflow that analyzes recent logs and produces actionable recommendations.
-
-**Early wins (ahead of schedule):**
-- [x] **`workflow-analyst` agent built** — Created by revision-major's first real test run (PR #5). Read-only Sonnet agent with structured report format, confidence scoring, and metrics. Preloads workflow-analysis skill.
-- [x] **`workflow-analysis` skill built** — Created alongside the agent. Covers pattern categories (inefficiencies, repeated failures, manual corrections, missed opportunities, successes), confidence scoring methodology, analysis process, red flags, and output format.
-- [x] **Manual self-evaluation proven** — First real test: Claude analyzed revision-major's JSONL log and identified ~35% redundant reads ($0.40/run savings). Fix applied to both workflows. The CPI loop works even without `review-runs.sh` formalized.
-- [x] **First empirical data point** — revision-major run: 44 turns, $1.68, 7m19s, 64 tool calls, all 9 stages followed. Baseline established for future comparison.
-
-**Why this matters:**
-- **Real data, not speculation** — improvements come from actual usage patterns
-- **Self-calibrating** — adapts as work patterns change
-- **Catches drift** — notices when workflows gradually degrade
-- **Surfaces hidden wins** — "Claude keeps making this manual correction, bake it into the prompt"
-- **Compounds over time** — each cycle makes the next one better
-
-**Design:**
-
-```
-Daily workflows run → logs accumulate in .claude/logs/
-  ↓
-Review workflow runs (manual or via workflow-analyst agent)
-  ↓
-Claude reads recent logs, looks for patterns
-  ↓
-Produces report with findings and recommendations
-  ↓
-You review and decide what to apply
-  ↓
-Next runs use improved versions
-```
-
-**Remaining tasks:**
-
-- [x] **Build `scripts/workflows/review-runs.sh`** — Built by revision-major.sh (PR #6). Scans `.claude/logs/` for JSONL logs, configurable via `--days N` or `--last N` (mutually exclusive, validated). Produces structured report at `docs/development/reviews/review-YYYY-MM-DD.md`. Smart MAIN_REPO_ROOT resolution for worktree compatibility. No worktree isolation (read-only analysis). 30 max turns.
-- [x] **Run first formal cross-run analysis** — Analyzed 12 logs across 4 workflow types. Produced 14-finding report at `docs/development/reviews/review-2026-04-10.md`. 5 high-confidence findings, 5 medium, 4 low. 100% success rate, zero user corrections across all runs.
-- [x] **Capture findings into workflow improvements** — First CPI cycle complete (PR #14). Applied 3 high-confidence findings: (1) file-too-large read guidance added to all workflow prompts, (2) rate limit check with exponential backoff added to shared lib/run-claude.sh protecting all workflows, (3) test fixture path guidance added to workflow-scripts standard. **Phase 5a: Cycle 1 complete.**
-- [x] **Cross-repo review infrastructure + CPI cycles 2-3 (2026-04-24)** — review-runs.sh report output migrated to claude-dot-files/docs/development/reviews/ with source-repo metadata in filename and header (eliminates per-repo report scatter). Two production reviews generated: mdc-master-planning (20 plan-revision runs) and skyy-command (20 revision-major + build-phase runs). Shipped across both cycles: H1 parallel review-agent dispatch (plan-revision, then extended to revision-major + build-phase — ~2× review phase speedup), H2 generalized large-file reading rule, extended H3 parameter-naming rules (Grep + Read + Glob + TodoWrite), M1 bulk-rename workflow-fit check in plan-revision Stage 1, NEW file-reading discipline rule (no unbounded re-reads), NEW re-Read-before-Edit rule (formatter/linter races), NEW parallel gather-phase rule. plan-revision collapsed from 8→6 stages, revision-major + build-phase from 10→8 stages. **Phase 5a: Cycles 2 and 3 complete.** Expected impact awaiting next review cycle (~2026-04-30).
-- [x] **Build a "workflow analysis" skill** — `config/skills/workflow-analysis.md`: pattern categories, confidence scoring, analysis process, red flags. Built ahead of schedule by the revision-major test run (PR #5).
-
-### Automated PR Generation from CPI findings — ⚠️ NEEDS RESTATING, may be dead
-
-Extending `review-runs.sh` to open a PR with proposed workflow changes rather than emitting a report. **Written before `standards-governance.md` existed, and it likely conflicts with it** — CPI findings are ruled ship/defer/reject by a human in the interactive session **by design**, and an auto-opened PR of workflow changes routes around that. Same problem as Advanced Self-Improvement's "automated skill capture" below.
-
-Not automatically dead: a PR is a *proposal*, not a merge, so a version where the workflow drafts and a human still rules may survive. But it needs restating in those terms before it is scheduled, and the restating is the work.
-
-- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
-- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
-- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
-
-### Scheduled Operation
-
-> **The future of this is `Phase: Autonomous Operation → Temporal Crons`.** `review-runs.sh` itself stays here — it exists and it is CPI. Only the *trigger* moves, off `claude schedule` / systemd timers onto a durable schedule that survives the machine being off.
-
-Move from manual triggering to scheduled operation.
-
-**Tasks:**
-
-- [ ] **Schedule weekly review runs** — Use `claude schedule` to run the review workflow every Monday morning. Reports arrive automatically.
-- [ ] **Schedule automated PR generation** — After scheduled reports prove useful, escalate to scheduled PRs with proposed changes.
-- [ ] **Tune the analysis window** — Find the right balance between recency (responsive to recent work) and sample size (statistical relevance). Likely 7-14 days.
-- [ ] **Add notification on completion** — Hook into the existing Stop hook pattern so you know when the weekly report is ready.
-
-### Pattern Library and Skills
-
-The continuous improvement loop generates insights that should be captured systematically. As patterns emerge consistently across multiple cycles, they should become permanent parts of the system.
-
-**Tasks:**
-
-- [ ] **Build a "continuous improvement methodology" skill** — Capture the patterns we learn about what makes workflows good vs bad. This becomes the institutional knowledge of "what we learned about Claude Code workflows." Distinct from workflow-analysis (which is about log reading) — this is about the meta-process of improving the system.
-- [ ] **Track resolved patterns** — Maintain a log of patterns identified and resolved so we don't re-litigate them. Location: `docs/development/reviews/resolved-patterns.md`.
-- [ ] **Pattern → skill pipeline** — When the same recommendation appears across multiple review cycles, automatically suggest promoting it to a permanent skill.
-
-### Graduation Evaluation — ✅ ANSWERED 2026-07-30, items below are historical
-
-**This question is settled and the items below are kept as record, not as work.** The evaluation happened; the answer is **durable execution (Temporal-shaped), adopted for durability and resumability — NOT to gain composition, which already works in bash.** A parent needs only a child's exit code plus one stable identifier on its final line, which the completion contract already provides; `revision.sh` polls CI between children in ~40 lines of shell, the kind of thing a framework is usually adopted *for*.
-
-Agent SDK, Managed Agents and Paperclip were considered and are not the gap — none of them supplies durability. See `docs/development/skyy-net-seed-handoff.md` for the decision record and `docs/guide/claude_code_orchestration.md § When to Graduate Beyond Bash` for the criteria as they now read.
-
-**Do not re-litigate these boxes:**
-
-Evaluate whether bash-based workflows are sufficient or if heavier tooling is warranted. Only relevant after several CPI cycles with production data.
-
-- [ ] **Evaluate bash limits** — Have we hit real limitations (error handling, state, structured data, team scale)?
-- [ ] **Evaluate Agent SDK** — If bash is hitting limits, consider Python/TypeScript SDK.
-- [ ] **Evaluate Anthropic Managed Agents** — Public beta option for hosted orchestration.
-- [ ] **Evaluate Paperclip** — Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
-
-### Advanced Self-Improvement — ⚠️ PARTLY FORBIDDEN as written, needs restating before any of it is scheduled
-
-**"Automated skill capture" and any auto-add-to-standards item directly conflicts with `config/rules/standards-governance.md`**, which is binding: standards and skills are a curated product with human-in-the-loop control, and autonomous workflows may SURFACE candidates but must never auto-create or auto-modify them. That rule postdates these boxes and wins.
-
-The measurement items (effectiveness tracking, regression detection, cross-workflow analysis) are still valid and are genuinely interesting — but they need rewriting as *surface-for-review*, not *auto-apply*.
-
-**Partly delivered already:** `docs/development/cpi-decisions.md` is the resolved-pattern log Phase 5d asked for, append-only with watch-criteria, and the pattern→skill promotion happens through the interactive session by design rather than automatically.
-
-**Items below are historical and must be restated before scheduling:**
-
-This is where we approach true self-improvement, but with significant guardrails. Only build this once we have months of stable operation and high-confidence patterns.
-
-**Tasks:**
-
-- [ ] **Build automated skill capture** — When a pattern is identified consistently across multiple review cycles with high confidence, auto-add it to skills (still gated by human PR approval).
-- [ ] **Cross-workflow analysis** — Compare patterns across different workflow types. Are there common improvements that apply to all?
-- [ ] **Effectiveness tracking** — Measure if the recommended changes actually improved subsequent runs. Did the change reduce token usage? Decrease turn count? Improve output quality?
-- [ ] **Regression detection** — Notice when changes made changes things WORSE. Alert on degradations.
-
-### Critical Rules (apply to all CPI work)
-
-These rules are non-negotiable for the entire continuous improvement system:
-
-1. **Never auto-apply changes** — All modifications require human review and approval via PR
-2. **Human is always the decision-maker** — The AI suggests, the human decides
-3. **Explicit audit trail** — Every change should be traceable back to the patterns that motivated it
-4. **Reversible** — All changes must be reversible. No one-way doors.
-5. **Confidence scoring** — Recommendations must include how confident the analysis is, so you can prioritize what to act on
-6. **Sample size matters** — Don't act on patterns from single runs. Require multiple observations before recommending changes
-7. **Cost awareness** — The continuous improvement loop should not cost more in tokens than it saves in workflow improvements
-
-### Why This Is Game-Changing
-
-Traditional development:
-```
-Write workflow → ship → hope it works → manually iterate when issues surface → ship again
-```
-
-What Phase 5 unlocks:
-```
-Write workflow → run it → AI analyzes runs → surfaces specific improvements → 
-human reviews → better workflow → loop
-```
-
-The killer feature isn't that Claude can analyze logs. It's that the analysis is **precise enough to act on without a human having to read the logs first**. That's the breakthrough. Insights that would take a human 10-15 minutes per log to find, Claude produces in 42 seconds for pennies. Scale that across hundreds of runs over months, and the system improves continuously while you focus on actual work.
-
-This phase is the foundation for treating Claude Code not as a tool you use, but as a development environment that **adapts to how you work**.
+- [x] **`review-runs.sh`** — analyses a window of run logs across repos and produces an improvement report
+- [x] **`workflow-analyst` agent** and the `workflow-analysis` skill
+- [x] **Cross-repo reporting** — centralised with source-repo metadata, so patterns spanning repos are visible
+- [x] **Append-only decisions log** — ship / defer / reject, deferrals carrying an explicit watch-criterion
+- [x] **Post-Run Reflection** — every workflow posts a decision log and tooling suggestions to its PR
+- [x] **`review-pr` mines reflections** — the run's own words are its primary evidence surface
+- [ ] **Scheduled operation** — the cycle runs by hand today; the trigger's future is `Temporal Crons`
+- [ ] **Sweep the reflection channel systematically** — tooling suggestions are written by every run and read opportunistically; nothing sweeps them the way `review-runs.sh` sweeps logs
 
 ---
 
