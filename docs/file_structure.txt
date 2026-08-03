@@ -112,7 +112,8 @@ claude-dot-files/
 │   └── standards/                                   # HOW — binding rules for how things are done
 │       ├── architecture/                          # WHY the system is shaped this way — high-level overviews, not numbered ADRs
 │       │   ├── research/                          # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
-│       │   │   ├── raw/<topic>.md                 # The pool — home of the Agentic-AI coursework mini-papers
+│       │   │   ├── topics.md                       # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
+│       │   │   ├── raw/<topic>.md                 # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
 │       │   │   └── synthesis.md                    # What the pool means for the product's direction. NON-BINDING
 │       │   ├── README.md                          # What goes here vs the rest of standards/
 │       │   └── system-overview.md                 # Layered architecture, key decisions, where the seams are

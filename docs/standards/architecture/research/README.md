@@ -4,9 +4,12 @@ Evidence that backs **the whole approach**, not any single phase. This is the ho
 
 ```
 research/
+├── topics.md         the SIZE memory — tier, topic list with destinations, named gaps
 ├── raw/<topic>.md    the pool — one mini-paper per topic
 └── synthesis.md      the deliverable — what the pool means for the product's direction
 ```
+
+**`topics.md` persists what `research.sh` Stage 2 decides.** Stage 2 assesses complexity, produces a topic list, and Stage 3 dispatches on it — but the list has never been written anywhere, so only the papers survive and the *reasoning* is lost between runs. Re-assessed on every touch per §2, never appended: a later run rewrites it with its own assessment.
 
 ## Which altitude does a question belong to?
 
