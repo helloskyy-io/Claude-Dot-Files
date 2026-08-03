@@ -13,7 +13,7 @@
 > **Prior-run artifact.** This pool was produced by the CSCI-6905.604 research project (2026-07-04 → 07-27) using this
 > methodology by hand — the workflow was modelled on it. Placed here as a completed prior cycle so the next dispatch
 > exercises the **re-assessment** path rather than a cold start. `synthesis.md` is that project's direction document and
-> is deliberately **not** reshaped to the §4 contract; Stage 5 should rewrite it.
+> `synthesis.md` is that project's direction document, reshaped to the §4 contract on transfer.
 
 | Topic | Feeds | Paper | Last validated | Revalidate |
 |---|---|---|---|---|
