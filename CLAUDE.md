@@ -76,6 +76,7 @@ For contributing to this repo, follow the standards:
 - For service standards, refer to `docs/standards/services.md`
 - For slash command standards, refer to `docs/standards/slash-commands.md`
 - For workflow script standards, refer to `docs/standards/workflow-scripts.md`
+- For Temporal standards, refer to `docs/standards/temporal/` — **vendored verbatim** from MDC-Master-Planning and not to be edited here. Start with its `README.md`, which states what binds today (§3 three-layer architecture, §3.4 composition, §7 idempotency) versus what applies only once workers exist. Local additions go in `claude-dot-files-addendum.md`.
 
 ## Rules
 

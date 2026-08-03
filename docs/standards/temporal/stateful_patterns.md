@@ -1,0 +1,360 @@
+<!-- VENDORED — DO NOT EDIT LOCALLY -->
+> **Vendored from `helloskyy-io/MDC-Master-Planning`** · `standards/development/temporal/stateful_patterns.md` · `988c639` (2026-08-01)
+>
+> This file is a **verbatim copy**. Do not edit it here — corrections and amendments go upstream, then re-vendor.
+> Local additions belong in [`README.md`](README.md) (applicability) or [`claude-dot-files-addendum.md`](claude-dot-files-addendum.md) (what is genuinely ours).
+>
+> Re-vendor with: `scripts/helpers/vendor-temporal-standards.sh`
+
+---
+
+# Temporal Stateful Patterns Standard
+
+**Last Updated:** 2026-06-07
+**Scope:** Patterns for Temporal workflows and activities that interact with **persistent state living outside the workflow's deterministic event history** — Temporal-DB-registered schedules, desired-state YAML files, K8s resources, RBD/Ceph artifacts, registered cron entries, and any other state that survives workflow completion.
+
+**Companion to:**
+- [Temporal Standard](./temporal_standard.md) — the three-layer architecture, `ActivityResult`, `ACTIVITY_MAP` patterns
+- [Temporal Worker Deployment Standard](./worker_deployment_standard.md) — worker segmentation, immutable images, dispatch
+
+This standard does not duplicate either; it covers the orthogonal concern of *how that layered architecture should interact with state outside its own boundary*.
+
+------------------------------------------------------------------------
+
+## Mission
+
+**A Temporal workflow's event history is not the only thing it changes. The state it leaves behind in the world must be designed, owned, and retired with the same rigor as the code that produces it.**
+
+------------------------------------------------------------------------
+
+## §1 Persistence Boundaries
+
+Temporal manages one form of state natively: the **workflow event history** — every signal, activity invocation, and result, durably stored in Temporal's own database. The framework guarantees correctness for that boundary.
+
+Everything else a workflow touches lives **outside** the boundary. The framework provides no built-in lifecycle, no automatic cleanup, no idempotency guarantees. Examples on this platform:
+
+| State category | Where it lives | Created by | Retired by |
+|---|---|---|---|
+| Temporal schedules | Temporal's PostgreSQL DB | `Schedule.create()` calls in `register_*_schedule.py` scripts | Operator action: `temporal schedule delete` |
+| Desired-state YAML | `desired-state-<mdc_id>/` git repo | DAS Stage 3, Genesis scaffold, service-deployment workflows | Git commit / operator |
+| K8s resources | K3s etcd | ArgoCD reconciliation, Genesis bootstrap | ArgoCD prune / `kubectl delete` |
+| Proxmox VMs / templates | Proxmox cluster state | DAS Stages 1-2, ClusterProvisionWorkflow | DAS Stage 3 cleanup, operator `qm destroy` |
+| RBD volumes / snapshots | Ceph cluster | DAS pipeline, K3s PVC provisioner | DAS retention purge, operator `rbd rm` |
+| GitHub deploy keys | GitHub org/repo settings | Genesis (planned), GitHub-Automation activities | Manual rotation, deletion via API |
+| Tailscale tags / ACL grants | Tailscale control plane | `BaselineTailnetPushWorkflow`, `ensure_tailnet_*` activities | Manual ACL edits ([Tailscale Standard §3](../tailscale/tailscale_standard.md) ACL-as-code) |
+| Tailscale device records | Tailscale control plane | `configure_tailscale` Ansible role + `tailscale_join_*` activities | Auto-cleanup on ephemeral disconnect grace; `delete_tailnet_device` activity for active removal |
+
+**Binding rule:** every activity or workflow that creates state in any of the categories above MUST design for the full lifecycle (create / read / update / delete) of that state, not just the create path. The standard sections below define the four lifecycle patterns this platform requires.
+
+------------------------------------------------------------------------
+
+## §2 Fresh-MDC Bootstrap Pattern
+
+Every fresh MDC starts with an empty desired-state repository (modulo what Genesis scaffolds onto it during bootstrap). Activities that read from desired-state — or any other persistent path that "should be there" — MUST handle the *file-doesn't-exist-yet* case correctly. This is not an error; it is an expected operational state during MDC bootstrap.
+
+**Service-deployment workflows extend this pattern.** Workflows that bring a platform service to its operational state additionally satisfy [K8s Deployment Standard §7b Service-Deployment Workflow Self-Containment](../kubernetes/k8s_deployment_standard.md) — the workflow itself executes the deploy (render → commit → wait-for-Synced) before any init / handoff / configure activities. This generalizes §2's "the platform owns its own bootstrap" principle to the service-deployment-workflow shape.
+
+Two complementary layers, both required:
+
+### §2.1 Layer 1 — Genesis Scaffold (Primary)
+
+Files that activities depend on MUST have a corresponding scaffold template under `skyy-command/templates/desired_state_templates/<domain>/`. Genesis copies the entire scaffold tree onto a fresh MDC's desired-state repo during bootstrap, populating the file with starter content that downstream activities can read or modify.
+
+Each scaffold file:
+
+- Is committed to the skyy-command repo as the **single source of truth for initial state**
+- Has a filename pattern `template_<purpose>.yaml` (or `<purpose>.yaml` if there is no operator-customizable variant)
+- Contains starter YAML — typically an empty top-level structure (`{}`, `versions: {}`, etc.) — sufficient for downstream activities to load and append to
+- Is documented with a comment block at the top explaining what it is, what writes to it, what reads from it
+
+When you write a workflow or activity that depends on a desired-state path, **the PR MUST also add the scaffold template** if one doesn't already exist for that path. PRs that add new desired-state path dependencies without scaffold support are incomplete.
+
+**Scaffold-application lifecycle (binding).** The scaffold is applied at TWO triggers, both **idempotent — create-if-absent, NEVER clobber an operator's in-place edits**: (1) **Genesis**, once per fresh MDC, for every product that exists at standup; (2) **each new product's first deployment**, for its own template — because Genesis runs once per MDC and is NOT re-run when a service/workload is added later in the MDC's life. Adding an instance/customer to an *existing* product is an **in-place edit** of the existing file, NOT a re-scaffold. **Direction (planned):** the per-product scaffold step SHOULD converge to a single centralized scaffold workflow invoked by both triggers — not template-copy logic duplicated across every service/workload. Per-product bespoke copy is the transitional state to be unified (centralized template-resolution workflow — planning item).
+
+### §2.2 Layer 2 — Defensive Auto-Create
+
+Activities that write to a desired-state path MUST also auto-create the parent directory and an empty file if either is missing — even if Layer 1 is in place. This is defense in depth for the cases where Genesis scaffold is incomplete, the file got deleted, the repo was reset, or the operator is testing on a partial state.
+
+Reference shape:
+
+```python
+if not manifest_file.is_file():
+    manifest_file.parent.mkdir(parents=True, exist_ok=True)
+    manifest_file.touch()
+    logger.info("Manifest %s not found — creating empty for fresh-MDC bootstrap.", manifest_file)
+```
+
+**Both layers are binding**, not either/or. Layer 1 ensures the file is right on every fresh MDC; Layer 2 ensures the activity is robust against drift.
+
+### §2.3 What breaks if you skip this
+
+If Layer 1 is missing: every fresh MDC's first activity invocation fails with a "not found" error. Operator has to hand-create files as undocumented prep work. The platform is not actually "fresh-MDC capable" until both layers are in place.
+
+If Layer 2 is missing: any drift in the desired-state repo (deletion, reset, partial restore) cascades into workflow failures that look like bugs but are actually preventable boundary conditions.
+
+### §2.4 Field-level write contract (binding)
+
+A write-activity that sets a value in a desired-state file MUST **update an existing (preset) field** — it MUST NOT invent or insert a new key at runtime. If the target field is absent, **fail loud with `DESIRED_STATE_FIELD_MISSING`**: a missing preset field means the file was not scaffolded from the current template (a real defect — see §2.1 + [Desired State Standard §5](../desired-state/desired_state_standard.md) field-and-template-move-together), not something to paper over by inserting a key (a runtime insert also mis-orders the YAML — the placement bug this rule exists to prevent).
+
+This is **distinct from §2.2's file-level defensive-create**: a missing *file* is auto-created (returns the `*_NOT_FOUND` path); a missing *field* fails loud (`DESIRED_STATE_FIELD_MISSING`). Register `DESIRED_STATE_FIELD_MISSING` in the desired-state error vocabulary. (Worked example: the 2026-06-04 Synaptron `image_ref` adopt-activity, reworked from runtime-insert to update-preset-or-fail-loud.)
+
+------------------------------------------------------------------------
+
+## §3 Workflow Retirement Checklist
+
+When a Temporal workflow is removed from the codebase, the deletion of its **code** does NOT automatically retire the **state** it created. Schedules persist in Temporal's database. Files persist in desired-state. K8s resources persist in etcd. The platform accumulates orphan state every time this is forgotten.
+
+A PR that deletes (or renames) a workflow type MUST include all of the following:
+
+### §3.1 Identify and document persistent state
+
+In the PR description, list every persistent-state artifact the workflow created during its lifetime:
+
+- Temporal schedules (search for `Schedule.create(` calls or `register_*_schedule.py` scripts referencing the workflow type)
+- Desired-state files written by the workflow's activities
+- K8s resources created via ArgoCD Applications or direct apply
+- External resources (GitHub deploy keys, Tailscale tags, Ceph snapshots, etc.)
+
+### §3.2 Provide deregistration commands
+
+For each persistent-state artifact, the PR description MUST include the operational command to retire it. Format:
+
+```
+# Schedules to remove (run after PR merge):
+temporal --address <addr> --namespace <ns> schedule delete --schedule-id <id>
+
+# Desired-state files to remove:
+git -C <desired-state-path> rm <relative-path>
+git -C <desired-state-path> commit -m "remove <workflow-name> orphan state"
+
+# K8s resources to remove:
+kubectl -n <ns> delete <kind> <name>
+```
+
+### §3.3 Reviewer checklist
+
+The reviewer MUST verify the PR description includes the deregistration commands AND has been independently validated. "I'll remember to clean up later" is not a valid disposition; the cleanup commands must be runnable from the PR description on the day of merge.
+
+### §3.4 Anti-pattern: orphan schedule
+
+A PR deletes a workflow's code but leaves the registered Temporal schedule in place. Temporal continues firing the workflow type every interval against a worker that no longer registers it; the failures accumulate silently in workflow history until an operator notices. Preventable when §3.1–§3.3 are part of the PR review.
+
+------------------------------------------------------------------------
+
+## §4 Idempotent Writes
+
+Activities that mutate persistent state MUST be idempotent: invoking the activity twice with the same input arguments MUST leave the world in the same final state as invoking it once. Without this, retry semantics (which Temporal applies aggressively to flaky activities) corrupt state silently.
+
+### §4.1 Three patterns
+
+| Pattern | When to use | Example |
+|---|---|---|
+| **Check-then-act** | The underlying API rejects redundant calls | `qm template <vmid>` fails on already-templated VM → check `qm config` for `template: 1` first |
+| **Conditional update** | The underlying API has a no-op-on-equal mode | `kubectl apply` (declarative; no-op if state matches) |
+| **Compare-and-swap** | Concurrent writers possible | git commit with conditional push, ETag-conditioned HTTP PUT, etc. |
+
+Always prefer **conditional update** when available; the underlying tool handles idempotency. Use **check-then-act** only when forced by API design. Use **compare-and-swap** only when concurrent writers are a real concern (most platform workflows don't have this — Temporal's exclusive-execution semantics + workflow-id collision rejection give you a single writer per workflow).
+
+### §4.2 Reference implementation: commit_version
+
+skyy-command's `commit_version_to_desired_state` activity has explicit no-op-on-equal logic:
+
+```python
+if (
+    entry.get("version") == version
+    and entry.get("artifact") == artifact
+    and entry.get("recipe_commit") == recipe_commit
+):
+    head = _head_sha(repo_path)
+    logger.info("Version already matches — no-op (pre-write check)")
+    return ActivityResult(
+        status="skipped",
+        details=f"Version {version} for {entry_name} already recorded",
+        artifacts={"commit_sha": head, "repo_path": repo_path},
+    )
+```
+
+The activity is safe to retry: if the entry already matches, it returns `skipped` without re-committing. This is the canonical pattern for desired-state writes.
+
+### §4.3 Anti-pattern: retry-on-already-templated
+
+An activity calls `qm template <vmid>` without first checking `template: 1` in the VM config. The Proxmox API rejects the call on an already-templated VM with a non-zero exit, so retrying the activity against a partially-completed prior run fails at that step. The fix is the check-then-act guard from §4.1: read the config, skip if already templated, else `qm template`.
+
+### §4.4 Reconcile Workflow Pattern — required truth table (binding)
+
+**Scope:** any workflow whose contract is "given a manifest of desired entries, query live state, decide which entries to deploy / remove / reposition / update / skip" — `ReconcileSynaptronFleetWorkflow`, future Flux Edge reconcile workflows, customer-browser fleet reconciliation, K8s-resource drift-detection workflows when they land. Reconcile workflows are correctness-critical: the diff is what decides whether revenue infrastructure gets touched.
+
+**Binding requirement:** phase docs proposing a reconcile workflow MUST include a **live-state × manifest-state → action truth table** in the §Workflow surface section. The table forces exhaustive failure-branch coverage at design time, before code is written.
+
+**Required columns:**
+
+| `manifest_state` | `live_state` | `action` | Rationale |
+|---|---|---|---|
+| `active` | `running-correct` (right VM, right device, right image) | `skip` | Converged |
+| `active` | `running-wrong-vm` | `reposition` | Drift — move to manifest-declared VM |
+| `active` | `running-wrong-device` | `reposition` | Drift — switch device index |
+| `active` | `running-wrong-image` | `update` | Drift — pull + re-deploy with manifest image |
+| `active` | `stopped-present` | `deploy` (re-start) | Container exists but not running — manifest says active, restart |
+| `active` | `absent` | `deploy` | Missing from fleet — deploy fresh |
+| `active` | `daemon-down` | **fail-loud with `WORKLOAD_VM_UNREACHABLE` (or domain-equivalent)** | Cannot reason about live state — masking as empty fleet causes spurious deploys |
+| `active` | `vm-unreachable` | **fail-loud** | Same — surface the access failure, do NOT default to deploy |
+| `inactive`/`absent` | `running` (any shape) | `remove` | Manifest says not active — drain + remove |
+| `inactive`/`absent` | `stopped-present` | `remove` (cleanup) | Garbage-collect the stopped container |
+| `inactive`/`absent` | `absent` | `skip` | Already converged on the negative |
+| `inactive`/`absent` | `daemon-down` / `vm-unreachable` | **fail-loud** | Same fail-loud invariant — never assume convergence on un-observable state |
+
+Phase docs MAY add columns (e.g., a `notes` column citing the controlled error code emitted per row) or extend rows for workload-specific live-states (e.g., `running-wrong-config`). They MAY NOT collapse the `daemon-down` / `vm-unreachable` rows into the `absent` row — that's the anti-pattern this section exists to prevent.
+
+**Reviewer obligation:** PR reviewers verify the implemented reconcile diff against the table. Branches in the diff that have no row in the table are either (a) a missing-row gap (amend the table) or (b) dead code (remove the branch). Rows in the table that have no branch in the diff are missing implementation.
+
+**Anti-pattern this rule prevents:** PR #107 (Synaptron Phase 2 build) shipped two correctness bugs in the reconcile diff's failure-branch coverage — `stopped-present` was misclassified as `noop` (never restarted; manifest-declared active customers stay down forever), and `docker ps … || true` masked a down daemon as an empty fleet (triggers spurious deploys against still-running revenue infrastructure). Both bugs were latent in the phase doc — the §Workflow surface enumerated active-state branches without exhaustively covering present/stopped + daemon-up/down + device-drift. The truth table forces the coverage at design time.
+
+### §4.5 Plan / Dry-Run Mode — required for converge workflows (binding)
+
+**Scope:** any workflow that converges external state through a reconcile / deploy=reconcile loop — it reads desired-vs-live, computes a diff, and **applies mutating actions** to close it (`VmReconcileWorkflow`, `GpuHostDriverReconcileWorkflow`, `ReconcileSynaptronFleetWorkflow`, future host/cluster maintenance reconcilers + drift loops). A one-shot workflow with no desired-vs-live diff is out of scope.
+
+**Binding requirement:** every converge workflow in scope MUST provide a **plan (dry-run) mode** that runs the read + diff and **reports the actions it would take, applying none of them.** The mutating (apply) path is an explicit selection per dispatch — never the only path, and never an unguarded default for a destructive converge.
+
+**Why this is binding (not optional polish):**
+
+- **Safe operator preview.** The operator reviews the computed plan before any mutation touches production. This IS the [VM Management Standard §5](../platform_deployment/vm_management_standard.md) **Stage-2 "propose"** primitive — building it satisfies the staged-reconciliation trajectory's propose requirement even before the Stage-2 confirm-loop ships.
+- **Safe automated testing.** Plan mode is the only way to exercise the *real* read+diff path with **zero side effects** — it enables the side-effect-free "assert the planned actions" test the [Testing Standard](../testing/testing_standard.md) requires. Mocking the entire apply path is the necessary-but-not-sufficient trap; a plan-mode assertion exercises the actual diff logic.
+- **Industry baseline.** Terraform `plan`/`apply`, ArgoCD `diff`/`--dry-run`, `kubectl --dry-run=server`, Ansible `--check`. A reconciler with no plan mode is below the table-stakes bar for the very pattern it implements (the platform's reconcilers are explicitly the "Temporal+Ansible analog of ArgoCD" — and ArgoCD has diff).
+
+**Required behaviors:**
+
+1. **Plan mode is a first-class workflow input** (e.g. `dry_run: bool`). The apply path is explicit; a destructive converge MUST NOT apply by unguarded default.
+2. **In plan mode NO mutating activity executes** — no clone/create, no config write, no package install, no reboot, no commit-to-desired-state, no ArgoCD sync, no external-resource mutation. Only read/query activities run.
+3. **Plan mode returns the structured plan** — the action it would take per target (deploy / converge / skip / surface-drift / fail-loud), with current→target values, in the **same result shape** the apply path uses to report outcomes. An operator reads it; a test asserts it.
+4. **Plan and apply share the read+diff path** — plan = apply *minus* the mutating steps, NOT a parallel diff computation. A dry-run that computes a different plan than apply executes is worse than none.
+5. **At least one automated test asserts the plan** across the representative live×desired states (no-op / deploy / converge / drift / unreachable), with zero real side effects.
+
+**Relationship to §4.4:** §4.4 mandates the design-time truth table (which action per state); §4.5 mandates that the workflow can *execute the diff half of that table without the action half* — the truth table made runnable as a preview.
+
+**Breaking it looks like:** a converge workflow with only an apply path (the operator's only way to "test" is to mutate production); a `dry_run` flag that still fires a mutating activity (clone / install / commit); a plan path that recomputes the diff differently than apply (preview drifts from reality); a reconcile workflow whose only test mocks the apply path with no plan-mode assertion.
+
+**Gotcha (2026-06-07, skyy-command #124):** the Phase 7 `VmReconcileWorkflow` shipped Stage-0 apply-only with unit-tests-only coverage — no plan mode. It already treated *shell* drift as surface-only (a partial plan), but the *build* leg (driver uninstall/reinstall + reboot) applied directly — leaving no way to (a) test the real converge path without side effects, or (b) preview a converge against a live revenue node before a slightly-wrong per-VM file triggered a destructive driver reinstall mid-job (the 570→580 FluxCore-failure shape). §4.5 closes this: the read+diff machinery (`query_*`, `compute_shell_drift`, `values_equal`) already exists; plan mode is extending the existing shell-leg surface-only discipline to the build leg.
+
+------------------------------------------------------------------------
+
+## §5 State Coupling Between Stages
+
+Multi-stage workflows (DAS Stage 1 → 2 → 3, Genesis Phase 1a → 1b → 1c, ClusterProvisionWorkflow node-loop, etc.) hand state across stage boundaries via VMIDs, file paths, IPs, recipe commit SHAs, and similar identifiers. Each stage's contract MUST define what it produces, what it consumes, and what happens when a downstream stage encounters a half-failed upstream stage.
+
+### §5.1 Stage contract format
+
+A multi-stage workflow's planning doc MUST include a stage-contract table:
+
+| Stage | Consumes | Produces | If upstream half-failed |
+|---|---|---|---|
+| Stage 1 | recipe name, recipe content | build VMID, build VM running with §A.6-conformant state | n/a (entry stage) |
+| Stage 2 | build VMID | template VMID, test clone VMID, conformance pass | **explicit handling** — stop_build_vm + convert_to_template fail on already-templated VMID; document the error code an operator should see + the manual cleanup command |
+| Stage 3 | test clone VMID, recipe commit SHA, version | desired-state commit, RBD purge of old versions, test clone destroyed | manual cleanup if test clone already destroyed |
+
+If the table is absent or incomplete, the workflow is not fit for production handoff.
+
+### §5.2 Cleanup ownership
+
+Each stage owns cleanup of state it created on its own failure path. Stage 1 destroys the build VM if Stage 1 fails. Stage 2 destroys the test clone (preserves the template) if Stage 2 fails. Stage 3 destroys the test clone (preserves both template and committed version-of-record) on success.
+
+State that crosses stage boundaries (e.g. the build-VM-turned-template after Stage 2) is owned by the **downstream** stage as soon as the upstream completes successfully. If Stage 2 succeeds, the template is now Stage 3's responsibility (or operator's, if Stage 3 isn't fired).
+
+### §5.3 Replayability
+
+A multi-stage workflow's stages SHOULD be replayable independently when feasible. "Re-run Stage 2" should not require re-running Stage 1 if the build VM still exists and is in the correct state. When this isn't feasible (e.g. Stage 2's first step destroys Stage 1's input by templating it), the workflow's planning doc MUST document the irreversibility explicitly with the rationale.
+
+### §5.4 Reference implementation: DAS pipeline
+
+DAS Stages 1-3 are documented in [phase1_temporal_workflows.md](../../../development/common/deploy-a-saurus/phase1_temporal_workflows.md); contract tables for each stage live there. New multi-stage workflows follow the same structure.
+
+------------------------------------------------------------------------
+
+## §6 Cleanup on Failure
+
+Workflows that create state in §1 categories MUST roll back proportionally on failure. A failed run that leaves orphan state violates the §1 binding rule (every state-creating activity MUST design for the full lifecycle, not just the create path).
+
+### §6.1 Centralized cleanup method
+
+Cleanup orchestration lives in a single `_cleanup_on_failure(phase_name)` method on the workflow class, called from `run()` immediately after a phase exits with a failed step. Cleanup logic is NOT scattered through return-on-failure branches in the phase loop.
+
+The method consults workflow state (§6.2) to determine reach — which categories actually need cleanup — and dispatches cleanup activities in dependency-aware order: innermost dependencies first so each step removes a thing before the thing it depends on goes away.
+
+### §6.2 State-tracking discipline
+
+Cleanup state lives on `self.*` workflow attributes, populated as creating activities complete with `status="ok"` or `status="changed"`. A `failed` activity MUST NOT update cleanup state — a failed activity hasn't created anything to clean up.
+
+Workflow replay determinism is preserved: the same `self.*` state is reconstructed on every replay because the source artifacts are durable in workflow event history.
+
+### §6.3 Idempotent cleanup activities
+
+Cleanup activities MUST be safe to re-run. The proven patterns this platform uses:
+
+- **K8s resource delete** — `kubectl delete --ignore-not-found=true`; absent resource returns `status="ok"` rather than failing
+- **Git revert** — detects already-reverted commits via `git log --grep="This reverts commit <hash>"` against both `<branch>` and `origin/<branch>` (catches reverts pushed by parallel runs even when the local clone is stale)
+- **External-API delete** — absorbs 404 between lookup and delete (race window between resolving an ID and deleting it)
+
+Cleanup callers should pass an idempotency flag where the activity supports one (e.g. `fail_if_missing=False`) so a second cleanup pass against an already-clean state succeeds.
+
+### §6.4 Cleanup-of-cleanup-failure escalates to workflow failure
+
+If a cleanup activity itself returns `status="failed"`, the workflow MUST raise `ApplicationError(non_retryable=True)` from `run()`. This terminates the workflow in **FAILED** state — distinct from the COMPLETED-with-error-in-result state used for normal step failures, and visible to operators without diffing nested result dicts.
+
+The `details` payload includes both the original step failure and the cleanup failure(s) as a single labelled dict. Do NOT log-and-return-success on cleanup failure — a silent log is invisible at the workflow level and the failure won't surface to monitoring.
+
+### §6.5 Reference implementation
+
+`skyy-command/lib/temporal/modules/common/provision/cluster_provision_workflow.py`.
+
+### §6.6 Compensation Correctness (binding)
+
+**Binding.** A compensation / deprovision / deregister activity MUST actually perform the inverse mutation it claims to perform. "Claimed success without effect" is a §6.6 violation and a P0 bug class — it leaves orphan state that the workflow's contract said was cleaned up.
+
+**Specific requirements:**
+
+- **Verify-effect before return-ok:** the activity MUST verify the target state is what its name implies BEFORE returning `status="ok"`. Examples: `deregister_*` MUST `grep` for the entry's absence; `delete_resource_*` MUST query the resource and confirm 404; `remove_config_*` MUST verify the config file/section no longer contains the target text.
+- **Idempotent semantics distinguished from success-on-noop:** `status="skipped"` means "the inverse mutation was already complete when called" (idempotent re-run). `status="ok"` means "I performed the mutation; verified afterward." Returning `status="ok"` without verification is the bug class.
+- **Tests MUST assert post-compensation state explicitly.** Unit / integration tests covering the compensation path MUST include an assertion that the target state matches the post-mutation expectation AFTER the activity completes. Not "the activity returned ok" — "the file is gone / the entry is absent / the resource is deleted." A passing test that only checks return value but not actual state is the test-coverage equivalent of the activity bug.
+
+**Why the binding:** the platform's saga compensation pattern (§6 above) is load-bearing — it's the difference between "failed run leaves a partial customer" and "failed run cleans up." A compensation activity that lies about its work breaks the saga's atomicity contract and creates an ever-growing pile of orphan state that becomes operationally invisible (no error to investigate; the workflow said ok).
+
+**Breaking it looks like:**
+
+- A `deregister_*` activity that runs the mutation command but doesn't verify the result (e.g., `subprocess.run(["sed", "-i", "/pattern/d", file])` followed by `return ok` without grepping the file afterward)
+- A `delete_*` activity that absorbs all errors as "already deleted" without distinguishing "didn't exist" from "delete failed"
+- A compensation test that mocks the activity's return value but never asserts the underlying state
+- Saga-test scenarios that only cover the happy path; compensation paths only smoke-tested
+
+**Gotcha (2026-05-15, PR #84):** the customer-browser engineer dispatch shipped `remove_cloudflared_ingress_rule` as a compensation activity that ran the YAML edit logic + git push but never verified the entry was actually removed from the live deployment. Combined with the underlying architecture bug (the deployment target was reading a different file entirely), the compensation reported `status="ok"` for every invocation while orphan customer entries accumulated in `customers.json` (kcomabm9, 3n5b0nbw, yvsl5115, etc.). The §6.6 binding closes this class — verify-effect-before-return-ok would have surfaced the architecture bug on the first compensation attempt.
+
+------------------------------------------------------------------------
+
+## §7 Enforcement
+
+This standard is binding for any new workflow / activity / executor under `skyy-command/lib/temporal/` and for any modification to an existing workflow that touches the persistence-state boundary.
+
+Code reviewers MUST validate:
+
+- §2 — fresh-MDC paths handled (Layer 1 + Layer 2)
+- §3 — workflow retirement PRs include deregistration commands
+- §4 — write activities are idempotent or have a documented exception
+- §4.5 — converge/reconcile workflows provide a plan (dry-run) mode: no mutating activity runs in plan mode; plan shares the apply read+diff path; a plan-assertion test exists
+- §5 — multi-stage workflows have a stage-contract table in their planning doc
+- §6 — workflows that create §1-listed state include `_cleanup_on_failure` and raise on cleanup-of-cleanup-failure
+- §6.6 — compensation activities verify effect before returning ok; tests assert post-compensation state explicitly
+
+Bugs surfaced in legacy workflows that map to this standard should be filed against the workflow with a §X.Y reference for traceability.
+
+------------------------------------------------------------------------
+
+## §8 Scope Boundary
+
+This standard covers patterns and contracts. It does **not** cover:
+
+- Three-layer architecture rules → see [Temporal Standard §3](./temporal_standard.md)
+- Worker segmentation, dispatch, image building → see [Temporal Worker Deployment Standard](./worker_deployment_standard.md)
+- Error code vocabulary for external-API activities → see [Temporal Standard §6.3 Error Surfacing Contract](./temporal_standard.md) and §6.4 Error-code vocabulary discipline
+- ArgoCD-managed K8s state lifecycle → see [Kubernetes Deployment Standard](../kubernetes/k8s_deployment_standard.md) and [ArgoCD Standard](../argocd/argocd_standard.md)
+- Desired-state YAML editing semantics → see [YAML Editing Standard](../yaml/yaml_editing_standard.md) (binding rule: ruamel.yaml round-trip mode for any human-curated YAML)
+- Workflow naming, dispatch wrappers, `*_start.sh` scripts → see [Temporal Worker Deployment Standard](./worker_deployment_standard.md)
+
+When in doubt about which standard governs a given decision, route through the [Temporal Standard's](./temporal_standard.md) §1 routing table — additions to that table are how new sub-standards become discoverable.
