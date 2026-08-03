@@ -16,7 +16,7 @@
 > is deliberately **not** reshaped to the §4 contract; Stage 5 should rewrite it.
 
 | Topic | Feeds | Paper | Last validated | Revalidate |
-|---|---|---|
+|---|---|---|---|---|
 | Durable execution | `Phase: Temporal Integration` — whether durability is the binding constraint, and what an engine must supply | `raw/durable_execution.md` | 2026-07-27 | low — 6 months |
 | Temporal | `Phase: Temporal Integration` — SDK constraints, worker model, heartbeat and payload limits | `raw/temporal.md` | 2026-07-04 | high — 4 weeks **(DUE)** |
 | Claude Code integration surface | `Phase: Temporal Integration` → the `claude_cli` activity domain — what an activity can invoke, and how | `raw/claude_code_integration_surface.md` | 2026-07-25 | high — 4 weeks |
@@ -29,6 +29,6 @@
 ## Gaps named, not covered this cycle
 
 | Gap | Feeds | Why deferred |
-|---|---|---|
+|---|---|---|---|---|
 | Inter-process handoff contracts | `Phase: Memory Management Framework` | Per-cycle cap. Highest-value remaining gap — the phase currently reasons from one informal survey |
 | Convergence-based stopping conditions | `Phase: Memory Management Framework` / `Autonomous Operation` | Depends on the handoff contract landing first |
