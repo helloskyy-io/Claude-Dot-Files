@@ -1,5 +1,14 @@
 # Production Agent-Orchestration Case Studies
 
+```
+Topic:          What have teams running agentic workflows in production actually hit?
+Feeds:          The roadmap overall — what other teams hit, and where this approach diverges
+Last validated: 2026-07-23
+Revalidate:     medium — 3 months
+Confidence:     Directional throughout. Cases are self-reported and selection-biased toward teams who published; absence of a failure mode here is not evidence of its absence.
+Critic:         PASS — 2026-07-23
+```
+
 ## 1. Overview: why production case studies matter
 
 The paper's central claim — that durable execution is the missing substrate for production reflective agents — cannot be proven from first principles alone. It has to be shown in the field: real teams shipping real agents at real scale, hitting the same class of failure over and over, and either (a) buying a durable-execution platform to make the failures stop, (b) hand-rolling one that recreates ~60% of what platforms like Temporal already provide, or (c) shipping something that only appears to work because the horizon is short. The case studies below fall cleanly into all three buckets. They also reveal a pattern that is louder than any single vendor blog post: the industry has been discovering — in public — that "in-memory async loop plus retries" is not enough, and the vocabulary that describes what *is* enough (durable execution, checkpointing, replay, workflow IDs, activity retries) is the exact vocabulary Temporal shipped in 2019 for microservices.[^temporal-ai]

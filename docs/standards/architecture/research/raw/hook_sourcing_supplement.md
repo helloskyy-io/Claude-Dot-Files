@@ -1,5 +1,14 @@
 # Hook Sourcing Supplement
 
+```
+Topic:          Where do hooks load from, and what survives a change to setting sources?
+Feeds:          Phase: Managed Configuration — setting-source loading, and the hook that survives it
+Last validated: 2026-07-25
+Revalidate:     high — 4 weeks
+Confidence:     Definitive on documented loading order; UNVERIFIED on whether a narrowed --setting-sources drops the PreToolUse hook in practice — untested.
+Critic:         PASS — 2026-07-25
+```
+
 Targeted gap-filling pass against `production_cases.md`. Scope: strengthen the opening hook's weakest citation (Replit's uptime figure, vendor-sourced) and test whether the "reinvent-then-adopt" claim is a pattern or an anecdote.
 
 ## Bottom line

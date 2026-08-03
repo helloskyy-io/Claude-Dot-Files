@@ -1,5 +1,14 @@
 # Anthropic ToS, Claude Code Authentication Policy, and Claude for Enterprise — Source Synthesis for §7.2
 
+```
+Topic:          Is subscription-tier authentication at the edge viable under Anthropic's terms?
+Feeds:          Phase: Managed Configuration + edge-worker topology — whether edge auth is viable
+Last validated: 2026-07-24
+Revalidate:     high — 4 weeks
+Confidence:     Definitive where it quotes published policy; directional on enterprise-tier interpretation. Policy is the most volatile input in the pool.
+Critic:         PASS — 2026-07-24
+```
+
 **Prepared:** 2026-07-24
 **Purpose:** Ground the paper's §7.2 claim ("subscription-tier authentication at the edge sidesteps ToS gray areas by design") in Anthropic's own published policy documents.
 

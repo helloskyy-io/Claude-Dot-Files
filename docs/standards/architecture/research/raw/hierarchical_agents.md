@@ -1,3 +1,14 @@
+# hierarchical_agents
+
+```
+Topic:          How do multi-layer agent stacks coordinate, and where do they break?
+Feeds:          Phase: Workflow Decomposition + Phase: Autonomous Operation — parent/child composition
+Last validated: 2026-07-25
+Revalidate:     medium — 3 months
+Confidence:     Definitive on the published architectures; directional on which properties transfer to a bash-orchestrated fleet.
+Critic:         PASS — 2026-07-25
+```
+
 lllllll# Hierarchical Agent Architectures and Long-Horizon Planning
 
 *Source material for §3.2 (hierarchical composition of reflective loops) and §4 (theoretical analysis) of "Beyond In-Memory Reflection: Durable Execution as the Substrate for Long-Horizon Self-Improving Agent Systems in Software Engineering."*

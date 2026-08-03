@@ -1,5 +1,14 @@
 # Claude Code Integration Surface — Engineering Reference
 
+```
+Topic:          What can a program actually invoke Claude Code to do, and through which surfaces?
+Feeds:          Phase: Temporal Integration -> the claude_cli activity domain
+Last validated: 2026-07-25
+Revalidate:     high — 4 weeks
+Confidence:     Definitive on flags and documented behaviour as of the validation date; the CLI surface changes frequently and undocumented behaviour is unverified.
+Critic:         PASS — 2026-07-25
+```
+
 **Purpose:** Enumerate the documented, externally-observable contract of the Claude Code CLI so a Temporal activity wrapper can be designed against stable interfaces rather than internals.
 
 **Scope discipline:** Sources are Anthropic first-party documentation (`code.claude.com/docs`) plus behavior observed by running `claude --help` / `claude auth status` locally. No deobfuscated-source analysis, internal codenames, or reimplementation material is used or cited.

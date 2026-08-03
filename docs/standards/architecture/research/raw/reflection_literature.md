@@ -1,5 +1,14 @@
 # Reflective-Loop and Self-Improving-Agent Architectures: Literature Synthesis
 
+```
+Topic:          What does the literature establish about agents that critique and revise their own work?
+Feeds:          Phase: Continuous Process Improvement — the reflection channel and the plateau question
+Last validated: 2026-07-23
+Revalidate:     medium — 3 months
+Confidence:     Definitive on the published findings; DERIVED and weakly supported on transfer to our topology, since the studied systems are single-context self-review, not split-run.
+Critic:         PASS — 2026-07-23
+```
+
 *Prepared as source material for CSCI-6905 §2 (Background & Related Work).*
 *Voice: research assistant / literature review, not marketing.*
 

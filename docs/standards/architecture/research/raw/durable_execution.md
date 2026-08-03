@@ -1,5 +1,14 @@
 # Durable Execution as a Substrate for Long-Horizon AI Agents
 
+```
+Topic:          What does durable execution provide that ordinary orchestration does not?
+Feeds:          Phase: Temporal Integration — whether durability is the binding constraint
+Last validated: 2026-07-27
+Revalidate:     low — 6 months
+Confidence:     Definitive. The concepts are stable and vendor-independent; only the vendor specifics age, and those live in temporal.md.
+Critic:         PASS — 2026-07-27
+```
+
 *Raw research synthesis for §3 Proposed Architecture. Compiled 2026-07-23.*
 
 ## 1. Durable Execution Primer

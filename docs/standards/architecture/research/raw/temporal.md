@@ -1,3 +1,14 @@
+# temporal
+
+```
+Topic:          Does Temporal supply what a durable workflow layer needs, and at what cost in complexity?
+Feeds:          Phase: Temporal Integration — SDK constraints, worker model, heartbeat and payload limits
+Last validated: 2026-07-04
+Revalidate:     high — 4 weeks
+Confidence:     Definitive on the SDK surface and worker model; directional on operational cost; the heartbeat and payload limits for 10-60min activities are UNVERIFIED against our shape.
+Critic:         PASS — 2026-07-04
+```
+
   Agents are basically the same problem space Temporal was built for:
 
   ┌───────────────────────────────────────────────────────────────────┬───────────────────────────────────────────┐
