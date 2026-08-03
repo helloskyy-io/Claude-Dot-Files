@@ -406,7 +406,19 @@ Next runs use improved versions
 - [x] **Cross-repo review infrastructure + CPI cycles 2-3 (2026-04-24)** — review-runs.sh report output migrated to claude-dot-files/docs/development/reviews/ with source-repo metadata in filename and header (eliminates per-repo report scatter). Two production reviews generated: mdc-master-planning (20 plan-revision runs) and skyy-command (20 revision-major + build-phase runs). Shipped across both cycles: H1 parallel review-agent dispatch (plan-revision, then extended to revision-major + build-phase — ~2× review phase speedup), H2 generalized large-file reading rule, extended H3 parameter-naming rules (Grep + Read + Glob + TodoWrite), M1 bulk-rename workflow-fit check in plan-revision Stage 1, NEW file-reading discipline rule (no unbounded re-reads), NEW re-Read-before-Edit rule (formatter/linter races), NEW parallel gather-phase rule. plan-revision collapsed from 8→6 stages, revision-major + build-phase from 10→8 stages. **Phase 5a: Cycles 2 and 3 complete.** Expected impact awaiting next review cycle (~2026-04-30).
 - [x] **Build a "workflow analysis" skill** — `config/skills/workflow-analysis.md`: pattern categories, confidence scoring, analysis process, red flags. Built ahead of schedule by the revision-major test run (PR #5).
 
+### Automated PR Generation from CPI findings — ⚠️ NEEDS RESTATING, may be dead
+
+Extending `review-runs.sh` to open a PR with proposed workflow changes rather than emitting a report. **Written before `standards-governance.md` existed, and it likely conflicts with it** — CPI findings are ruled ship/defer/reject by a human in the interactive session **by design**, and an auto-opened PR of workflow changes routes around that. Same problem as Advanced Self-Improvement's "automated skill capture" below.
+
+Not automatically dead: a PR is a *proposal*, not a merge, so a version where the workflow drafts and a human still rules may survive. But it needs restating in those terms before it is scheduled, and the restating is the work.
+
+- [ ] **Extend review-runs.sh to optionally create a PR** — Instead of just a markdown report, the workflow can open a PR with proposed changes to workflow scripts, agents, prompts, or skills. Always requires human review.
+- [ ] **Design the PR template** — Each PR includes: which logs were analyzed, what patterns were found, confidence scores, before/after diffs, and recommended testing approach.
+- [ ] **Test the PR creation flow** — Run it on real findings, verify the PR is reviewable and the changes are sensible.
+
 ### Scheduled Operation
+
+> **The future of this is `Phase: Autonomous Operation → Temporal Crons`.** `review-runs.sh` itself stays here — it exists and it is CPI. Only the *trigger* moves, off `claude schedule` / systemd timers onto a durable schedule that survives the machine being off.
 
 Move from manual triggering to scheduled operation.
 
@@ -558,27 +570,6 @@ Everything a workflow depends on is currently symlinked from this repo into `~/.
 
 ---
 
-## Phase: Implementation Language — 📋 NEEDS A DECISION, NOT YET A BUILD
-
-The fleet is bash. The old assumption was "migrate to Python eventually." **Temporal is language-agnostic, so that assumption was never actually load-bearing** — the choice is open and should be made on merit rather than inherited.
-
-**This is a decision to make deliberately and early**, because it sets what every subsequent phase is built in, and because the cost of deciding late is rewriting work that already landed.
-
-**Inputs that are already known and should not be re-derived:**
-
-- **A large Python asset already exists.** Skyy-Command's `lib/temporal/` is Python — 298 activities, 41 workflows, 26 domains — and the binding Temporal Standard's examples and patterns (`ActivityResult`, `ACTIVITY_MAP`, semantic wrappers) are written against it. Porting *to* Python is a re-host; porting to anything else is a translation.
-- **The worker is already specified as a Python venv** in the seed handoff — bare systemd process, `temporalio` + the `claude` CLI.
-- **The whole prompts-are-code failure class is a bash problem.** Three outages this cycle came from string escaping — unescaped backticks, balanced stray quotes, `\\` before a backtick — and the mitigation is a bespoke execution-sandbox linter we had to build and then fix twice. Languages with real multi-line string literals do not have this class at all. **That is the strongest single argument against staying in bash**, and it is worth weighing honestly rather than as a footnote.
-- **Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — it only pays off as part of the Temporal port.
-
-**What to decide:**
-
-- [ ] **The target language**, on merit, with the above as inputs rather than conclusions.
-- [ ] **Whether anything is rewritten before the Temporal port**, or whether bash simply stops receiving new work at some point.
-- [ ] **What happens to the bash fleet after** — retired, or kept as an edge fallback that needs no runtime.
-
----
-
 ## Phase: Temporal Integration — 📋 QUEUED, NEEDS PLANNING
 
 The port to durable execution. **Gated on the two phases above** — not by preference, by dependency: Temporal is being adopted for durability, resumability and cross-run observability, **NOT to gain composition**, which already works in bash. A parent needs a child's exit code plus one stable identifier on its final line, and the completion contract already supplies both. Porting before the decomposition and the handoff contract are settled would mean porting a shape we are still changing.
@@ -597,6 +588,27 @@ The port to durable execution. **Gated on the two phases above** — not by pref
 - [ ] **A `claude_cli` activity domain** — heartbeating for 10–60 minute runs, transcript-to-file for payload limits. This is the genuinely new work; most of the rest is a port.
 - [ ] **Plan the migration order** — which workflow moves first, and what runs in parallel during the cutover.
 - [ ] **Decide what happens to the bash fleet after** — retired, or kept as the edge fallback.
+
+### Implementation Language — 📋 DECIDE EARLY
+
+**A sub-decision of this phase, not a phase of its own** — the language question only exists *because* of the port. Bash cannot be a Temporal worker; absent the port there is nothing to decide. But it must be settled **early within this phase**, because it sets what every subsequent build is written in and the cost of deciding late is rewriting work that already landed.
+
+The fleet is bash. The old assumption was "migrate to Python eventually." **Temporal is language-agnostic, so that assumption was never actually load-bearing** — the choice is open and should be made on merit rather than inherited.
+
+**This is a decision to make deliberately and early**, because it sets what every subsequent phase is built in, and because the cost of deciding late is rewriting work that already landed.
+
+**Inputs that are already known and should not be re-derived:**
+
+- **A large Python asset already exists.** Skyy-Command's `lib/temporal/` is Python — 298 activities, 41 workflows, 26 domains — and the binding Temporal Standard's examples and patterns (`ActivityResult`, `ACTIVITY_MAP`, semantic wrappers) are written against it. Porting *to* Python is a re-host; porting to anything else is a translation.
+- **The worker is already specified as a Python venv** in the seed handoff — bare systemd process, `temporalio` + the `claude` CLI.
+- **The whole prompts-are-code failure class is a bash problem.** Three outages this cycle came from string escaping — unescaped backticks, balanced stray quotes, `\\` before a backtick — and the mitigation is a bespoke execution-sandbox linter we had to build and then fix twice. Languages with real multi-line string literals do not have this class at all. **That is the strongest single argument against staying in bash**, and it is worth weighing honestly rather than as a footnote.
+- **Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — it only pays off as part of the Temporal port.
+
+**What to decide:**
+
+- [ ] **The target language**, on merit, with the above as inputs rather than conclusions.
+- [ ] **Whether anything is rewritten before the Temporal port**, or whether bash simply stops receiving new work at some point.
+- [ ] **What happens to the bash fleet after** — retired, or kept as an edge fallback that needs no runtime.
 
 ---
 
@@ -618,7 +630,9 @@ The tier above parents. Where a parent composes children into one task-complete 
 
 Scheduled dispatch owned by the durable-execution layer rather than by the edge machine. Depends entirely on **Temporal Integration** landing first.
 
-- [ ] **Move scheduled dispatch off `claude schedule` / systemd timers onto Temporal schedules** — the current design (weekly `review-runs`, see Continuous Process Improvement → Scheduled Operation) puts the trigger on whichever workstation happens to be awake. A Temporal schedule survives the machine being off, is visible in one place, and its history is queryable.
+**This is where `review-runs.sh` gets its scheduling.** The workflow itself already exists and belongs to Continuous Process Improvement — nothing about it moves here. What moves here is only the *trigger*.
+
+- [ ] **Move scheduled dispatch off `claude schedule` / systemd timers onto Temporal schedules** — the current design puts the trigger on whichever workstation happens to be awake. A Temporal schedule survives the machine being off, is visible in one place, and its history is queryable.
 - [ ] **Decide what is actually cron-shaped** — CPI sweeps and research revalidation are the obvious candidates because they are time-driven. PR disposition is event-driven and should stay event-driven; do not put it on a timer because the timer exists.
 - [ ] **Define failure behaviour for a missed window** — catch-up run, skip, or alert. Different answers for a CPI sweep (skip is fine) and a research revalidation (skipping silently lets a paper rot).
 
