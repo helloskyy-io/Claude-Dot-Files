@@ -21,11 +21,15 @@ Confidence:     DEFINITIVE on what each cited study measured and on the framewor
                 extract. DERIVED (and flagged as such) on the cumulative-coverage arithmetic
                 in §2.2.6. UNVERIFIED on anything drawn from vendor blog commentary, which is
                 used only where corroborated.
-Critic:         PASS-WITH-FIXES (three [S32] quotes were not verbatim — one phrase, "context
-                bloat", was invented inside quotation marks — now replaced with the source's
-                actual wording; [S16]/[S17] and [S24] were marked definitive against this
-                paper's own sourcing rule and are downgraded to directional; one AutoGen
-                quote was silently compressed and is restored) — 2026-08-03
+Critic:         PASS — 2026-08-03, after two correction rounds. Round 1: three [S32] quotes
+                were not verbatim (one phrase, "context bloat", was invented inside quotation
+                marks) and were replaced with the source's wording; [S16]/[S17] and [S24] were
+                marked definitive against this paper's own sourcing rule and were downgraded to
+                directional; one silently compressed AutoGen quote was restored; the author's
+                own follow-up audit corrected §2.2.1 and §2.3. Round 2 re-verified every round-1
+                fix, found no fabrication, and caught one residual non-verbatim span — the
+                fourth [S32] quote in §5.1, tense and connective only, no number affected —
+                now corrected to the source's wording.
 ```
 
 > **Mixed volatility (§3).** The load-bearing core of this paper — Self-Refine, Huang et al.,
@@ -525,8 +529,8 @@ repeatedly triggers costly or state-growing actions without an effective stoppin
 causing **cost exhaustion, model denial of service, context growth, and repeated external side
 effects**" [S32]. And on where they come from: "IALs are not ordinary programming loops; they
 arise from the interaction between **agent logic, framework semantics, runtime observations,
-and termination mechanisms**" [S32]. A static analyser over 6,549 repositories "reported 74
-potential findings, with manual review confirming **68 IAL failures across 47 projects**,
+and termination mechanisms**" [S32]. A static analyser over 6,549 repositories "reports 74
+potential findings, among which manual review confirms **68 IAL failures across 47 projects**,
 achieving 91.9% precision" [S32].
 These are shipped open-source projects. A counter cannot produce this failure; a convergence
 predicate can. *(definitive on the paper's claims — abstract fetched via the arXiv API, body
