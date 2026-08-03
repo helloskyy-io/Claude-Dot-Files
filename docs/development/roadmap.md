@@ -623,7 +623,7 @@ Generic executors under `activities/` are **plain functions** — verified in Sk
 
 ### Counter-argument, recorded
 
-**Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — it only pays off as part of the Temporal port. A rewrite buys nothing on its own — **it only pays off as part of this port**, and Stage A above is what makes it pay off early rather than at the end.
+**Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — **it only pays off as part of this port**, and Stage A above is what makes it pay off early rather than at the end.
 
 ---
 
