@@ -2,7 +2,7 @@
 
 **Status:** ✅ COMPLETE
 **Roadmap entry:** [`../roadmap.md`](../roadmap.md#phase-cross-device-sync--complete)
-**Depends on:** [`explore-claude-directory.md`](../explore-claude-directory/) — the portable/machine-local split is this phase's input
+**Depends on:** [`explore-claude-directory.md`](../explore-claude-directory/explore-claude-directory.md) — the portable/machine-local split is this phase's input
 
 ## Goal
 

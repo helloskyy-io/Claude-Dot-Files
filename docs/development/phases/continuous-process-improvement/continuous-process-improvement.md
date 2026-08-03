@@ -4,7 +4,7 @@
 
 > **Running it unattended is not this phase.** `review-runs.sh` exists and belongs here; putting it on a durable schedule is [Autonomous Operation → Temporal Crons](../../roadmap.md), and depends on Temporal. This phase is done when the evidence is gathered and ruled on well — not when nobody has to start it.
 **Roadmap entry:** [`../roadmap.md`](../../roadmap.md)
-**Depends on:** [`autonomous-execution.md`](../autonomous-execution/) — there is nothing to analyse until workflows are producing logs
+**Depends on:** [`autonomous-execution.md`](../autonomous-execution/autonomous-execution.md) — there is nothing to analyse until workflows are producing logs
 
 ## Goal
 

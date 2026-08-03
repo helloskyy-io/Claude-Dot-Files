@@ -2,7 +2,7 @@
 
 **Status:** ✅ COMPLETE — the fleet exists and is in daily use. Its *shape* is now being reworked under [Workflow Decomposition](../../roadmap.md).
 **Roadmap entry:** [`../roadmap.md`](../../roadmap.md)
-**Depends on:** [`planning-and-agents.md`](../planning-and-agents/) — a workflow is an orchestration of agents; the agents came first
+**Depends on:** [`planning-and-agents.md`](../planning-and-agents/planning-and-agents.md) — a workflow is an orchestration of agents; the agents came first
 
 ## Goal
 

@@ -2,7 +2,7 @@
 
 **Status:** ✅ COMPLETE
 **Roadmap entry:** [`../roadmap.md`](../../roadmap.md)
-**Depends on:** [`cross-device-sync.md`](../cross-device-sync/) — hooks are only a guarantee if they are on every machine automatically
+**Depends on:** [`cross-device-sync.md`](../cross-device-sync/cross-device-sync.md) — hooks are only a guarantee if they are on every machine automatically
 
 ## Goal
 

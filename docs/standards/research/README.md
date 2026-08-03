@@ -10,10 +10,10 @@
 
 ```
 docs/development/phases/<phase>/
-├── README.md               the phase doc
-└── research/<topic>/
-    ├── raw/<paper>.md      one mini-paper per topic (§3 contract)
-    └── synthesis.md        the curated decision deliverable (§4)
+├── <phase>.md              the phase doc
+└── research/
+    ├── raw/<topic>.md      the pool — one mini-paper per topic (§3 contract)
+    └── synthesis.md        the deliverable — what the pool means for this phase (§4)
 ```
 
 This is co-location taken as far as it goes: the evidence sits beside the plan that cites it, in the same directory, so neither can be read without the other being one level away. There is no central research corpus to hunt through and no question about which phase a pool belongs to.
@@ -23,7 +23,7 @@ This is co-location taken as far as it goes: the evidence sits beside the plan t
 ## Running it
 
 ```bash
-./scripts/workflows/research.sh docs/development/phases/<phase>/research/<topic> "<the question>"
+./scripts/workflows/research.sh docs/development/phases/<phase>/research "<the question>"
 ./scripts/workflows/research-refresh.sh          # revalidates papers that have come due
 ```
 

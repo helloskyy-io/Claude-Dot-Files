@@ -2,7 +2,7 @@
 
 **Status:** ✅ COMPLETE — one item deliberately abandoned, see below
 **Roadmap entry:** [`../roadmap.md`](../../roadmap.md)
-**Depends on:** [`cross-device-sync.md`](../cross-device-sync/) — agents are only useful if they are on every machine
+**Depends on:** [`cross-device-sync.md`](../cross-device-sync/cross-device-sync.md) — agents are only useful if they are on every machine
 
 ## Goal
 

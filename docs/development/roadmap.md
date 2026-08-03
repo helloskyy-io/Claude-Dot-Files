@@ -21,7 +21,7 @@ The through-line: *the run that authors work should not be the run that judges i
 
 **A roadmap is never a history lesson.** It states what is built or is going to be built — nothing else. Why a decision was made, what an approach cost, what got abandoned and on what reasoning: all of that belongs in the phase doc. An abandoned item is struck there with its explanation; it does not appear here at all. Retrospective notes in a roadmap turn it into a dumping ground and bury the one thing it exists to show.
 
-**A phase is a folder, not a file.** [`phases/<name>/README.md`](phases/) is the phase doc; [`phases/<name>/research/<topic>/`](phases/) holds the evidence that phase's planning cites. Research sits *inside* the phase it belongs to, so the plan and the evidence for it are never more than one directory apart and there is no central corpus to hunt through. Research is **non-binding** — a phase doc may cite a pool, never treat one as a decision already made.
+**A phase is a folder, not a file.** `phases/<name>/<name>.md` is the phase doc — named for the phase rather than `README.md`, so a tab, a grep hit or a search result identifies itself without its directory. `phases/<name>/research/` holds the evidence that phase's planning cites: `raw/` for the pool, `synthesis.md` for what it means. Research sits *inside* the phase it belongs to, so the plan and the evidence for it are never more than one directory apart and there is no central corpus to hunt through. Research is **non-binding** — a phase doc may cite a pool, never treat one as a decision already made.
 
 **Phase docs are written when a phase is picked up, not in advance.** A detailed plan for work that has not started yet is a guess that ages badly — the same reason skills are written after a methodology has been explained twice.
 
@@ -31,7 +31,7 @@ The through-line: *the run that authors work should not be the run that judges i
 
 ## Phase: Explore ~/.claude ✅ COMPLETE
 
-**Phase doc:** [`phases/explore-claude-directory/`](phases/explore-claude-directory/)
+**Phase doc:** [`phases/explore-claude-directory/explore-claude-directory.md`](phases/explore-claude-directory/explore-claude-directory.md)
 
 Mapped what Claude Code stores in `~/.claude/` and classified every path as portable or machine-local, before deciding what to sync.
 
@@ -43,7 +43,7 @@ The directory mixes two very different things: what you *author* — agents, ski
 
 ## Phase: Cross-Device Sync ✅ COMPLETE
 
-**Phase doc:** [`phases/cross-device-sync/`](phases/cross-device-sync/)
+**Phase doc:** [`phases/cross-device-sync/cross-device-sync.md`](phases/cross-device-sync/cross-device-sync.md)
 
 Get the repo deploying to every machine, so everything built later propagates automatically rather than being hand-copied.
 
@@ -57,7 +57,7 @@ One idempotent installer creates seven targeted symlinks from `config/` into `~/
 
 ## Phase: Safety & Guardrails ✅ COMPLETE
 
-**Phase doc:** [`phases/safety-and-guardrails/`](phases/safety-and-guardrails/)
+**Phase doc:** [`phases/safety-and-guardrails/safety-and-guardrails.md`](phases/safety-and-guardrails/safety-and-guardrails.md)
 
 Make it safe to say yes quickly in interactive mode, and safe to walk away in autonomous mode — two different problems needing two different layers.
 
@@ -71,7 +71,7 @@ Permissions prompt on anything unlisted, so approving in a live session is fast 
 
 ## Phase: Planning & Agents ✅ COMPLETE
 
-**Phase doc:** [`phases/planning-and-agents/`](phases/planning-and-agents/)
+**Phase doc:** [`phases/planning-and-agents/planning-and-agents.md`](phases/planning-and-agents/planning-and-agents.md)
 
 Build the specialists a workflow can dispatch — the actors that plan, review and verify without a human in the loop.
 
@@ -85,7 +85,7 @@ Each agent answers **one question no other agent answers** — narrow lenses rat
 
 ## Phase: Autonomous Execution ✅ COMPLETE
 
-**Phase doc:** [`phases/autonomous-execution/`](phases/autonomous-execution/)
+**Phase doc:** [`phases/autonomous-execution/autonomous-execution.md`](phases/autonomous-execution/autonomous-execution.md)
 
 Build the plan → execute → PR pipeline — scripts that run Claude headless in an isolated worktree, review their own output, and deliver a pull request with nobody watching.
 
@@ -103,7 +103,7 @@ A dispatch gets its own git worktree, so a bad run damages nothing outside it, a
 
 ## Phase: Continuous Process Improvement 🟡 IN PROGRESS
 
-**Phase doc:** [`phases/continuous-process-improvement/`](phases/continuous-process-improvement/)
+**Phase doc:** [`phases/continuous-process-improvement/continuous-process-improvement.md`](phases/continuous-process-improvement/continuous-process-improvement.md)
 
 Make the system improve its own tooling from evidence it generates itself.
 
