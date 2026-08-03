@@ -1,234 +1,112 @@
 # Synthesis — product-level research
 
-**Cycle:** 2026-07-27 · **Pool:** 8 papers · **Tier:** Large / architecture-layer
+**Cycle:** 2026-08-03 · **Pool:** 11 papers · **Tier:** Large / architecture-layer · **This cycle added 3**
 
-> **Provenance.** This pool and synthesis were produced by the CSCI-6905.604 research project (2026-07-04 → 07-27),
-> working this methodology by hand — `research.sh` was modelled on that process, not the reverse. Carried into this
-> repo as a completed prior cycle. Class-administrative sections (paper structure, submission plan, grading) were
-> dropped on transfer; the research content is unchanged.
+Read this instead of the pool. It says what the evidence means for the product's direction and ends in reviewable candidates. Nothing here is binding — research is evidence, and a finding becomes a rule only by being codified into a standard through human review.
 
 ## Inputs
 
-| Paper | Last validated | Revalidate | Critic |
-|---|---|---|---|
-| `raw/durable_execution.md` | 2026-07-27 | low — 6 months | PASS |
-| `raw/temporal.md` | 2026-07-04 | high — 4 weeks | PASS |
-| `raw/claude_code_integration_surface.md` | 2026-07-25 | high — 4 weeks | PASS |
-| `raw/anthropic_tos_and_enterprise.md` | 2026-07-24 | high — 4 weeks | PASS |
-| `raw/hook_sourcing_supplement.md` | 2026-07-25 | high — 4 weeks | PASS |
-| `raw/hierarchical_agents.md` | 2026-07-25 | medium — 3 months | PASS |
-| `raw/reflection_literature.md` | 2026-07-23 | medium — 3 months | PASS |
-| `raw/production_cases.md` | 2026-07-23 | medium — 3 months | PASS |
+| Paper | Last validated | Revalidate | Critic verdict | Status |
+|---|---|---|---|---|
+| `raw/convergence_stopping.md` | 2026-08-03 | high — 6 weeks | **PASS** (2 correction rounds: 4 non-verbatim quotes incl. one invented phrase; 4 confidence downgrades) | current |
+| `raw/workflow_reuse_boundary.md` | 2026-08-03 | high — 6 weeks | **PASS-WITH-FIXES** (re-sourced the ClusterTask→cluster-resolver claim to a source that states it; 2 quote-fidelity fixes) | current |
+| `raw/python_sdk_long_activities.md` | 2026-08-03 | high — 4 weeks | **PASS-WITH-FIXES** (un-quoted an inference-from-absence dressed as a quote; 1 confidence re-mark; retagged an out-of-contract confidence class) | current |
+| `raw/durable_execution.md` | 2026-07-27 | low — 6 months | PASS | current |
+| `raw/hierarchical_agents.md` | 2026-07-25 | medium — 3 months | PASS | current |
+| `raw/reflection_literature.md` | 2026-07-23 | medium — 3 months | PASS | current |
+| `raw/production_cases.md` | 2026-07-23 | medium — 3 months | PASS | current |
+| `raw/temporal.md` | 2026-07-04 | high — 4 weeks | PASS | ⚠️ **PAST WINDOW** |
+| `raw/claude_code_integration_surface.md` | 2026-07-25 | high — 4 weeks | PASS | ⚠️ **PAST WINDOW** |
+| `raw/anthropic_tos_and_enterprise.md` | 2026-07-24 | high — 4 weeks | PASS | ⚠️ **PAST WINDOW** |
+| `raw/hook_sourcing_supplement.md` | 2026-07-25 | high — 4 weeks | PASS | ⚠️ **PAST WINDOW** |
 
-**Currency note:** `temporal.md` is the oldest input and carries the shortest interval. Vendor specifics age fastest; the durable-execution *concepts* paper is deliberately long-interval because only the vendor layer moves.
+**Currency warning (§5).** Four inputs are past their revalidation window as of today and are **flagged, not trusted** — a consumer treats their claims as unverified until `research-refresh.sh` runs. All four are the high-volatility vendor-surface papers, which is the tier behaving exactly as designed. Nothing in this synthesis's candidates rests on an unrefreshed claim from those four *alone*; where one is cited below, the candidate is marked.
 
-## What the pool establishes
+**No papers were retired this cycle.** Every subject still has a live destination in `docs/development/roadmap.md`. See `topics.md` for the per-paper reasoning.
 
-**Author:** Eric Rue
-**Course:** CSCI-6905.604 Applied Agentic AI
-**Due:** July 26, 2026 (Sunday) — 11:59 PM
-**Status:** Direction committed 2026-07-23; refined with background research; **v3 pivot 2026-07-24 morning** — reframed as systems architecture contribution after Author's pushback on prior novelty framing.
+## What the pool now establishes
 
-**v3 changes** — see §13 "What changed in v3" at the end for the diff summary.
+### 1. The stopping rule shipped in `revision.sh` rests on evidence that does not exist
 
----
+This is the cycle's most consequential finding and it corrects something already in production.
 
-### Committed direction
+`revision.sh` caps its correction loop at one loop-back and justifies it in a comment: *"self-correction plateaus at ~3–5 passes."* `convergence_stopping.md` audited that figure's provenance and found **no study describing a loop whose passes are separate processes with separate contexts**. The two studies producing a "3–5"-shaped number both run one actor in one context *and truncate their own sweep at the plateau they report* — Self-Refine caps at 4 iterations by construction, Nexus sweeps 0–5. A study that stops at 4 cannot observe pass 6. Worse, the field's own critical survey (Kamoi, TACL) explicitly excludes cross-actor correction from its negative results as *"unsuitable for evaluating whether LLMs can improve their own initial responses"*, and a large share of published iteration guidance was measured under an **oracle stopping rule** — Huang et al. state outright that they used the correct label to decide when to stop, which no deployment has.
 
-**Topic (from approved list):** Self-Improving Agents with Reflective Loops
-**Secondary compositional mechanism:** Long-Horizon Planning with Hierarchical Agent Stacks (invoked in §3 as the natural composition target)
+The positive evidence points the other way. The closest published analogue to our topology — a nine-round fresh-agent audit — reports per-round yields of **15, 8, 12, 2, 8, 1, 4, 1, 0** and names the pattern *"non-monotonic convergence"*. A "stop when yield drops" rule fires at round 4 and forfeits 14 defects. Independently: single-pass review recall is measured at **~22–27%**, and aggregating ten independent passes improved F1 by **43.67%**. A plateau claim needs recall near 100%; ours is nowhere near it.
 
-**Proposed research question:**
+**This corroborates the operator's own correction** in `phases/burn-test-intake-2026-08-02.md`, which rejected the extrapolation from n=1 measured evidence (PR #233: three passes, new verified work each time). The literature now says the same thing from the other direction — not "three is the number," but "the number you have has no source."
 
-> **How can an organization deploy self-improving agentic AI workflows at team scale without forcing a trade-off between per-user tools without orchestration and centralized platforms with prohibitive per-token cost?**
+**The honest boundary is real and cuts against acting hastily.** Böhme (FSE'21) shows naive "nothing new lately" estimators *"systematically and substantially under-estimate the true risk"*; Porter et al. (TOSEM 1998) — the best-powered human analogue — found team size and session count *did not significantly influence* defect detection rate. And a derived finding with teeth: a reviewer with a non-zero hallucination rate never emits an empty pass, so "stop on zero findings" would fall through to its backstop every time. **Every surveyed production framework pairs its primary stopping rule with a hard count or budget backstop.** Convergence stopping has been measured against a fixed cap exactly once — it won on cost at parity quality (−38% tokens), but its *judge-gated* variant cost **+129%**.
 
-**Working paper title (draft):**
+### 2. Where the workflow shelf's "library" premise holds, and where it is folklore
 
-> **"Federated Agentic Orchestration: A Reference Architecture for Team-Scale Self-Improving Workflows on Heterogeneous Edge Compute"**
+`workflow_reuse_boundary.md` tests candidate #4 from the prior cycle — that the shared workflow library, not any individual workflow, is the first-class artifact.
 
-**Methodology (from the four permitted):**
+The premise survives, but not in the form DRY suggests. **Copy-and-adapt is the dominant creation mechanism even where a first-class reuse mechanism exists**: 62.5% of practitioners at least frequently copy parts of their own workflows, and 28.2% never use their own reusable workflows. The stated reasons are **control (43.0%) and convenience (40.3%)**, not ignorance (unawareness 20.0%, lack of trust 4.3%). A library that loses on control and convenience gets bypassed by informed engineers — that is the design constraint, and it is measured, not asserted.
 
-> **Propose a novel architecture or algorithm with theoretical justification**
+What every surveyed system deprecated is instructive: **general-purpose parameterization layers**. Tekton removed `PipelineResources` for opacity, undebuggability, covering only a "tiny subset", and *reducing* reusability; Argo deprecated template-level `templateRef` for letting a definition also be an instantiator — *"problematic and dangerous"*. What replaced them is **explicit, typed, versioned reference**. Kubernetes' own design proposal is the corpus's genuine dissent, arguing *against* parameterizing everything and *for* fork-plus-overlay with fork *management tooling*.
 
-Grounded in an existing production implementation of the module design standards (the author's `mdc-master-planning` standards repository, described in §5), which serves as informal validation that the standards work at scale in a real infrastructure automation context.
+**Two findings change how the pending ruling should be made.** First, **no numeric threshold for "too many parameters" is documented anywhere** — it is folklore, stated as a negative finding with search method. Any threshold this repo adopts must be labelled a local invention; it cannot cite the field. Second, and sharper: **the field's discriminator is expected future co-evolution, not textual overlap.** Kapser & Godfrey partition clones by intent about future evolution — Forking, Templating, and *Customization* (a requirements difference, so a behaviour decision that must be settled *before* the structural one). Copied-from-ness is presupposed by all four categories and therefore cannot discriminate. This means the measured 82%/9% overlap figures in the burn-test intake are **not sufficient input** to the ruling in either direction; the test is "when one changed, did the other need the same change?", and that evidence lives in commit history, not in a diff. A third structural option also exists and the two-way framing hides it: **tracked lineage with mechanical propagation** (Copier's answers-file + three-way update).
 
-**Framing anchors (locked):**
+Divergence has a measured cost — ~52% of clone groups go inconsistent, ~28% of those unintentionally, and roughly every second-to-third unintentional inconsistency is a fault. **Caveat stated by the paper and carried here: no study measures this for CI/workflow definitions specifically, and nothing in the corpus studies duplicated prompt prose**, which is much of what our near-copies actually are.
 
-- **The Anthropic-integration gap** — OpenAI Agents SDK is GA on Temporal (Replay 2026), Google ADK has native Temporal integration (April 2026), but Claude Agent SDK has no first-party Temporal integration. A November 2025 community forum request remains unanswered. The paper's reference architecture addresses this specific unpaved integration path without depending on any single vendor.
-- **The subscription-vs-token economic asymmetry** — flat-rate subscription-tier authentication at the edge (each user's own subscription on their own machine) sidesteps the per-token cost profile of centralized platforms. Combined with distributed orchestration, this dissolves the current organizational deployment trade-off.
-- **The edge-autonomy design axiom** — "edge owns what edge is better suited for." Auth, compute, and local state stay at the edge; only orchestration and shared workflow definitions live at the server. This is the elegance that sidesteps ToS gray areas and enables generalization across deployment domains.
-- **Google ADK framing borrowed** — "a deterministic sequence of non-deterministic things." Used verbatim in §3 as the paper's architectural framing sentence.
+### 3. The Temporal port's two known unknowns are now knowns — and the answer is not the obvious one
 
----
+`python_sdk_long_activities.md` closes the roadmap's unchecked milestone *"Confirm the two known SDK constraints."* Version-anchored to `temporalio` 1.31.0 / server `main` @ 2026-08-03.
 
-### Why this direction fits
+**A 10–60 minute activity is an ordinary, supported shape** — no documented ceiling on `start_to_close_timeout` was found, and heartbeating is effectively free (throttled to min(0.8 × `heartbeat_timeout`, 60 s)). Payload numbers are hard and knowable: 2 MiB/payload, 4 MB/gRPC message, 50 MiB and 51,200 events/history, 4 KiB/activity failure. The paper's recommendation on transcripts is **not** to reach for External Storage: GitHub plus repo-local files is already our claim check, so the result carries pointers, not copies.
 
-### 2.1 Personal alignment
+**The non-obvious finding is that the naive shape cannot work.** A synchronous `def` activity blocked in `subprocess.wait()` can neither heartbeat itself nor receive cancellation. The chain is sourced link by link: the SDK delivers threaded cancellation via `Runtime._raise_in_thread` → the Rust bridge calls `PyThreadState_SetAsyncExc` → CPython's own docs state this *"does not necessarily interrupt system calls."* The recommended shape is an **async** activity over `asyncio.create_subprocess_exec`, heartbeating per `stream-json` line. Two operational teeth: `graceful_shutdown_timeout` **defaults to zero**, and the SDK README warns shutdown *"may never complete"* if an activity ignores cancellation — so a blocked sync activity hangs `systemctl stop` for the rest of the run.
 
-- Author has deep prior Temporal experience (production workflow orchestration on the MDC platform)
-- Author has developed production-grade module design standards for Temporal workflows over multi-year operation — the `mdc-master-planning` standards repository is the concrete artifact
-- Author has also developed an informal reflective-loop framework (CPI methodology) for software engineering workflows — currently bash-based, hits the substrate ceilings this paper argues against
-- The paper is the formalization and generalization of what the author has been building in narrower domains
+**Three honest limits, all load-bearing.** (a) **No first-party sample of a Temporal Python activity wrapping a subprocess exists** — the recommended shape is the paper's composition of documented parts and must be treated as a design hypothesis until tested. (b) **Child-process orphaning on worker death is undocumented across every Temporal SDK**; systemd's cgroup kill covers `systemctl stop` but not `kill -9` or a worker-only OOM. (c) **The retry economics are bad and no heartbeat fixes them** — an activity is the unit of retry, so a failure at minute 55 re-executes the whole run, re-entering a repo a previous attempt already mutated. If expected failure rate × 60-minute re-run cost exceeds the cost of decomposition, the single-activity shape is wrong however well it heartbeats. Whether an agentic `claude -p` run decomposes into resumable per-turn legs is **not a Temporal question** and is not settled anywhere in this pool.
 
-### 2.2 Academic gap (unchanged from v2, restated)
+### 4. Carried forward from the prior cycle, unchanged
 
-The reflective-loop literature (Reflexion 2023, Self-Refine 2023, CRITIC 2023, Self-RAG 2024, PRMs 2025) assumes in-memory, in-session execution. Even the 2026 convergence papers operate at the semantic-embedding layer and do not tie convergence to a persistent execution record. Weng's 2026 "verifiability constraint" essay names the substrate need but frames durable state as an engineering recommendation, not a research architecture. Ambroise et al.'s 2026 verification-hierarchy formalization identifies execution-grounded verification as a level of the hierarchy but does not architecturally instantiate it.
+Durable execution remains the argued substrate for durability and resumability — *not* for composition, which already works in bash. Edge-held subscription authentication remains viable by construction under Anthropic's published policy ⚠️(rests on a past-window paper). The separation of the run that authors from the run that judges remains supported by the hierarchical-agent and reflection literature — and is now additionally load-bearing, since §1 above shows the *cost* of that separation (extra passes) is not bounded by the plateau argument that was used to bound it. The `--setting-sources` safety blocker remains untested ⚠️(past-window paper), and it is the one item where the roadmap and the pool agree the next step is an experiment, not more reading.
 
-**No published academic work addresses the organizational deployment question this paper answers.** Industry has partial answers (Replit reinvented Temporal; Vercel and Databricks built their own durable layers) but no reference architecture has been documented that combines durable orchestration + heterogeneous edge compute + subscription-tier authentication + composable module design standards.
+## A stale destination, worth naming
 
-### 2.3 Real-world convergence — very fresh, asymmetric across vendors
-
-- **Temporal Replay 2026** shipped four AI-relevant primitives: Serverless Workers on AWS Lambda, Workflow Streams, External Payload Storage (S3-backed, keeps histories bounded despite tokenized traffic), Standalone Activities
-- **OpenAI Agents SDK**: GA on Temporal
-- **Google ADK**: public preview with native Temporal integration (April 20, 2026)
-- **Anthropic Claude Agent SDK: no first-party Temporal integration**
-- **Vercel and Databricks built their own durable execution layers** (Workflow DevKit + WorkflowAgent, DBOS Postgres-backed checkpointing) — reinventing Temporal-shaped primitives because their target developers won't stand up a Temporal cluster
-
-**This asymmetry is load-bearing for the paper.** The obvious substrate for a Claude Code-based self-improvement loop is not yet paved road. The paper's reference architecture applies to any authenticated edge compute — Claude Code, OpenAI API, Ollama, non-AI orchestration — and specifically fills the integration gap that exists today for organizations using subscription-tier Anthropic tooling at team scale.
-
----
-
-### Novelty landscape
-
-### 3.1 What exists
-
-| Layer | Prior work | Status |
-|---|---|---|
-| Reflective loops (in-memory) | Reflexion, Self-Refine, CRITIC, Self-RAG, PRMs | Mature academic literature |
-| Hierarchical agents | AgentOrchestra (2026, TEA Protocol), HALO (2025, planner/role-designer/executor + MCTS), AiScientist (2026, File-as-Bus + ablation) | Emerging 2025-2026 |
-| Reflection convergence formalism | 2512.10350 (attractor dynamics), 2512.00047 (code stability, semantic self-consistency, lexical confidence) | Semantic-layer only; not tied to execution record |
-| Verification hierarchy | Ambroise et al. (2026) formalization | 2026 survey, framing the field |
-| Verifiability constraint terminology | Weng (2026) essay | Names the problem, doesn't solve substrate |
-| Durable workflow engines | Temporal, Cadence, Restate, Inngest | Mature production tech |
-| Durable AI orchestration frameworks | Temporal AI Bundle (2026), Google ADK + Temporal (April 2026), Vercel Workflow DevKit (2026), DBOS-on-Databricks | Announced 2026, asymmetric across vendors |
-| Production case studies | Replit (reinvent-then-adopt), OpenAI Codex web, Lovable, Vercel, Databricks | Documented industry pattern |
-| Independent teardown of naive alternatives | Diagrid (LangGraph checkpoints), Vadim's blog, Oblique News | Multiple corroborating sources |
-| **Reference architecture for federated agentic orchestration on heterogeneous edge compute** | **GAP** | **Not yet published** |
-| **Composable workflow module design standards for agentic workloads** | **GAP** | **Not yet published; author has a production instance** |
-
-### 3.2 The specific gap this paper addresses
-
-**No published reference architecture combines the following four elements as a coherent design:**
-
-1. **Durable orchestration** at the server tier (Temporal or equivalent event-sourced workflow engine)
-2. **Heterogeneous edge compute** where any authenticated capability endpoint (Claude Code, OpenAI API client, Ollama, HTTP service, non-AI operation) can execute dispatched activities
-3. **Subscription-tier authentication elegance** where user credentials stay at the edge, eliminating central-proxy ToS gray areas
-4. **Composable module design standards** for authoring workflows/helpers/activities as reusable LEGO-block libraries with binding conventions on layer separation, semantic naming, typed contracts, and idempotent execution
-
-The four elements exist independently. Industry has partially combined subsets (Replit, Vercel, Databricks). No academic or industry publication has documented the four-element composition as a REFERENCE ARCHITECTURE with articulated design principles and validated module standards.
-
-### 3.3 Novelty claim (defensible)
-
-> This paper proposes the first documented reference architecture for team-scale federated agentic orchestration on heterogeneous edge compute, combining (a) durable server-tier workflow orchestration, (b) subscription-tier edge authentication that sidesteps central-proxy ToS concerns, (c) heterogeneous edge capabilities including subscription-based AI reasoning agents alongside API services and non-AI operations, and (d) composable module design standards derived from a multi-year production implementation. The architecture fills the deployment gap that currently forces organizations to choose between per-user tools without orchestration and centralized platforms with prohibitive per-token cost, and specifically addresses the unpaved integration path for the Claude Agent SDK (which lacks the first-party Temporal integration OpenAI Agents SDK and Google ADK have).
-
-Reviewers will read this as: "author is documenting a systems architecture that composes existing primitives (Temporal, Claude Code, MCP, subscription auth) in a novel way to solve a real organizational deployment problem, with production evidence for the module design standards."
-
-Systems papers get published on exactly this kind of contribution. Netflix chaos engineering, Twitter Manhattan, LinkedIn Kafka origin paper — all describe compositions of existing primitives in novel ways with articulated design principles.
-
-### 3.4 The "Anthropic gap" as forward-looking positioning
-
-The paper explicitly frames its architecture as applicable to the integration gap OpenAI and Google have already filled for their agent frameworks but Anthropic has not. This positions the paper as forward-looking without being speculative — the integration will happen (or should happen); this paper defines what its properties should provide when it does. If Anthropic ships a first-party solution during peer review, the paper's contribution shifts from "here's how to do it" to "here's the design space Anthropic's solution should be evaluated against" — still defensible.
-
----
-
-### The design axioms
-
-Five axioms the paper's architecture rests on. Each has an anchor citation for defense.
-
-### 4.1 Edge autonomy — "edge owns what edge is better suited for"
-
-The central design principle. The edge tier owns anything the edge is inherently better positioned to own:
-- **User authentication** — user's account on user's machine; no shared central credentials
-- **Local compute** — LLM invocation, tool execution, file I/O; wherever the work actually happens
-- **Ephemeral state** — session data, git worktrees, local files; state that has no cross-user meaning
-
-The server tier owns only what it is inherently better positioned to own:
-- **Workflow definitions** — the shared library of reusable modules
-- **Orchestration state** — which workflows are running, what's blocked on what, retry counters
-- **Coordination signals** — cross-edge visibility, human-in-the-loop pauses, scheduling
-- **Cross-run artifacts** — persistent outputs that need cross-user or cross-time queryability
-
-Corollary: **the server never impersonates the edge.** No shared credentials at the server means no central-proxy ToS gray area. Multi-tenancy = user auth on user machine, not shared compute.
-
-### 4.2 "A deterministic sequence of non-deterministic things"
-
-Borrowed verbatim from the Google ADK + Temporal integration blog (April 2026). Every LLM call, every tool invocation, every external API request is a non-deterministic side effect wrapped in a deterministic workflow. The workflow describes intent; activities produce effect. This maps cleanly onto Temporal's fundamental workflow/activity separation and onto the module design standards' three-layer discipline (§5).
-
-### 4.3 Verifiability via execution record
-
-Positions the paper's substrate in Ambroise et al.'s verification hierarchy at the **execution-grounded** level (formal verifier > execution-grounded > retrieval-grounded > LLM-judge > intrinsic self-critique). The Temporal event history + activity result payloads + externally-stored artifacts provide a queryable execution record that supports post-hoc audit, replay-based debugging, and cross-run reasoning by CPI-style reflective loops. This is one level above what in-memory reflection can access.
-
-### 4.4 Rate-limit-aware coordination as a first-class concern
-
-Rate limits are not an implementation detail; they are a real production constraint that shapes agent architecture. Temporal's activity-level retry policies (exponential backoff, jitter, controlled error-code vocabularies) and workflow-level scheduling give the substrate an honest answer to rate-limit constraints across subscription-tier and API-tier edges alike. The paper's architecture treats this as a design property, not an ops workaround.
-
-### 4.5 Composition over reimplementation
-
-Generic activities compose into semantic wrappers, which compose into workflows, which compose into parent workflows. Parent workflows gain the full behavior of children with minimal new design. This is how a modest module library produces exponentially many higher-level workflows without exponentially many new components. The DRY discipline applies at the workflow layer, not just the code layer.
-
----
-
-### What not to do
-
-Explicit anti-scope for this paper:
-
-- **Do not build a Temporal PoC before submission.** The methodology (novel architecture with theoretical justification, grounded in production evidence from existing standards) does not require new implementation. `mdc-master-planning` provides production evidence for §5 standards; `claude-dot-files` provides informal evidence for §6.3; Replit + AiScientist provide external validation.
-- **Do not use insider jargon.** The paper's audience is grad-level reviewers with no context on the author's specific business platform. Reference the `mdc-master-planning` repo for provenance, but abstract every principle to universal terms. Do not name internal workflows, custom infrastructure services, or domain-specific components as if they were common knowledge.
-- **Do not overreach on novelty claims.** The specific novelty is the four-element composition as reference architecture + the module design standards as ecosystem contribution. Overclaiming ("solving AGI orchestration," "novel LLM training regime") weakens the paper.
-- **Do not skip the ethical / limitations discussion.** Grad-level paper requires it. Not optional.
-- **Do not exceed 18 pages.** Page limit is real; tight writing is a virtue.
-- **Do not present `claude-dot-files` as the flagship case study.** Replit is the industry flagship; the author's production standards corpus is the module-design flagship. `claude-dot-files` is corroborating informal evidence.
-
----
-
-### Bibliography
-
-**See separate deliverable: `annotated_bibliography.md`.**
-
-Curated to 10-12 primary sources spanning reflection foundations, 2026 field framing, hierarchical architecture, durable execution, industry convergence, and production case studies. Full 71-source pool available in `research/raw/*.md` for inline paper citations beyond the annotated bibliography.
-
-Bibliography retains v2 curation — no changes needed for the v3 framing pivot because all cited sources support the systems-architecture framing as well as they supported the analysis framing.
-
----
-
-### Open questions, resolved this cycle
-
-Locked from prior sessions:
-
-| Q | Decision |
-|---|---|
-| Reflection vs orchestration framing | Reflection as anchor topic; orchestration architecture as core contribution |
-| Case study weight | Replit flagship + AiScientist empirical + production standards corpus (author's) + `claude-dot-files` corroboration |
-| Google ADK scope | Brief mention in §2.4; framing sentence borrowed in §3.1 and §4.2 |
-| Ethical section depth | 0.5 page in §7.4; dual-use framing |
-| Verifiability constraint engagement | Motivation reference in §1; cited in §2.2 (Weng, Ambroise); revisited in §4.3 as design axiom placement |
-| Bibliography quality | Verified via research syntheses; 10-12 curated sources; production standards corpus adds provenance for §5 |
-| Naming | "The proposed architecture" as running descriptor; no product name yet; author retains flexibility for future branding |
-| Attribution of production standards | Reference `mdc-master-planning` repo by name for provenance; abstract principles to universal terms; no insider jargon |
-| Framing pivot from v2 | Confirmed 2026-07-24 morning; v3 recasts as systems architecture contribution rather than analytical claim |
-
----
-
----
+`docs/standards/architecture/system-overview.md` was **excluded from this cycle's sizing as substantively stale**, and that exclusion is itself a finding. It still describes orchestration as "bash-over-Python" monoliths and contains no mention of parent/child workflows, the activities layer, the disposition engine, or the Python decision. It was moved under `standards/architecture/` on 2026-08-03 without its content being revisited. A stale architecture overview at this altitude is worse than an absent one: it reads as authority. Flagged here because sizing product-level research against it would have measured a system that no longer exists — a future cycle will hit the same trap.
 
 ## Action candidates
 
-Reviewable items, sized for a standup. Nothing here is ratified — a candidate becomes binding only by being codified into a standard through human review.
+Reviewable items, sized for a standup. Nothing is ratified. Per §7, this run surfaces candidates and writes nothing outside `research/` — routing is the reviewer's and the operator's.
 
 | # | Candidate | Type | Rests on |
 |---|---|---|---|
-| 1 | **Adopt durable execution for the workflow layer**, for durability and resumability — *not* to gain composition, which already works in bash | adopt | `durable_execution.md`, `temporal.md` |
-| 2 | **Keep authentication at the edge.** Subscription-tier auth on the machine holding the repo, credentials never crossing to the server tier | adopt | `anthropic_tos_and_enterprise.md` |
-| 3 | **Separate the run that authors from the run that judges** — the composition boundary is a review boundary and a retry point | adopt | `hierarchical_agents.md`, `reflection_literature.md` |
-| 4 | **Treat the shared workflow library as the first-class artifact**, not any individual workflow | new concept | `production_cases.md`, `hierarchical_agents.md` |
-| 5 | **Do not build agent-as-durable-unit.** Canonical for a metered API integration; wrong shape for a subscription CLI overlay | change direction | `anthropic_tos_and_enterprise.md`, `claude_code_integration_surface.md` |
-| 6 | **Verify the hook survives a narrowed `--setting-sources` before touching it** | no change, pending test | `hook_sourcing_supplement.md` |
+| 1 | **Remove the "plateaus at 3–5 passes" justification from `revision.sh`.** The claim has no source describing our topology. This is a *provenance* correction, not a request to change the loop bound — the bound may still be right for cost reasons, but it must be justified by budget, not by a citation that does not exist | change direction | `convergence_stopping.md` |
+| 2 | **Do not adopt a bare "stop when a pass finds nothing" rule.** Three independent findings kill it: non-monotonic yield (a quiet round is followed by productive ones), Böhme's adaptive-bias result, and the derived point that a hallucinating reviewer never emits an empty pass. Any convergence rule needs a hard count or budget backstop — which every surveyed production framework has | no change | `convergence_stopping.md` |
+| 3 | **Treat the 82%/9% overlap figures as insufficient input to the fork-vs-parameterize ruling.** The field's test is expected future co-evolution — "when one changed, did the other need the same change?" — answerable from commit history, not from a diff. Also put a third option on the table the current framing hides: tracked lineage with mechanical propagation | change direction | `workflow_reuse_boundary.md` |
+| 4 | **Any parameter-count threshold we adopt must be labelled a local invention.** No numeric threshold is documented anywhere in the surveyed corpus. Adopting one is fine; citing the field for it is not | adopt | `workflow_reuse_boundary.md` |
+| 5 | **Design the `claude_cli` activity as async-over-`asyncio.create_subprocess_exec`, not as a sync `def`.** The sync shape cannot heartbeat or be cancelled while blocked, and `graceful_shutdown_timeout` defaulting to zero makes that an operational hazard, not a theoretical one | adopt | `python_sdk_long_activities.md` |
+| 6 | **Carry transcripts as pointers into GitHub, not as payloads.** Do not reach for External Storage; the claim-check tier already exists | adopt | `python_sdk_long_activities.md` |
+| 7 | **Open the question of whether a `claude -p` run decomposes into resumable per-turn legs.** It is the fork between the single-activity and child-workflow shapes, it is not a Temporal question, and no paper in the pool covers it. Named as a topic candidate for the next cycle in `topics.md` | new concept | `python_sdk_long_activities.md` §8 |
+| 8 | **Rewrite `temporal.md` at its next refresh rather than diffing it.** It is pre-standard prose carrying a `Critic: PASS` its content does not support, it is past window, and its one stated gap (heartbeat + payload limits against our shape) is now closed by `python_sdk_long_activities.md`. This is a *quality* judgement, not a retirement — the subject is alive | change direction | `temporal.md`, `python_sdk_long_activities.md` |
+| 9 | **Refresh the four past-window papers before the next planning run consumes them.** `temporal.md`, `claude_code_integration_surface.md`, `anthropic_tos_and_enterprise.md`, `hook_sourcing_supplement.md`. §5's planning-stage fail-fast will otherwise stop that run | no change | the four papers' headers |
+| 10 | **Revisit `system-overview.md`, or mark it stale in place.** It describes a system that no longer exists and reads as authority | change direction | this synthesis, § *A stale destination* |
 
-### Homeless candidates
+### Trace: what candidate #1 touches
 
-- **A defined shape for production feedback.** Operator and burn-test findings have driven more workflow fixes than log analysis has, and arrive as ad-hoc markdown handoffs. No surface owns this. *Named as homeless per §4 — not parked elsewhere.*
+Per §4, a corrected fact enumerates **every** dependent, not the most visible one. The "3–5 passes" claim reaches:
+
+1. `scripts/workflows/revision.sh` — the comment block at lines 21–26, and the loop-bound rationale at 309–325. **The claim's origin.**
+2. `docs/development/phases/burn-test-intake-2026-08-02.md` § *Recorded: the plateau correction* — already correct; this cycle adds external corroboration, so it needs no change, only the citation.
+3. `docs/development/roadmap.md` § *Phase: Memory Management Framework* — the **Convergence-based stopping** milestone, whose framing ("stop when a pass produces no new confirmed findings") is precisely the bare rule candidate #2 says not to adopt unbacked.
+4. `docs/development/roadmap.md` § *Phase: Autonomous Operation* — *"'stop' has to be a state something can observe, not a turn count"*, which this evidence supports in direction while denying it the cheap implementation.
+5. Any other workflow that inherited a loop bound by copying `revision.sh`'s rationale. **This is unenumerated and I did not verify it** — the reviewer should check, because the copy-and-adapt finding in §2 makes silent propagation the expected case rather than the unlikely one.
+
+## Homeless findings
+
+Named here rather than parked elsewhere, per §7 — a homeless finding means the surface is missing, and the reviewer disposes of it.
+
+- **A defined shape for production feedback.** Carried from the prior cycle and still homeless. Operator and burn-test findings have driven more workflow fixes than log analysis has. One instance now exists as a dated intake record (`phases/burn-test-intake-2026-08-02.md`), which is better than nothing, but a dated one-off is not a channel: nothing says where the *next* one goes, and `review-runs.sh` sweeps logs while the reflection channel is read opportunistically. The CPI phase names the sibling gap for reflections; neither has a surface that owns operator findings.
+
+- **Research Standard §3 has no confidence class for an authoritative speaker in an informal artifact.** The four classes (definitive / directional / unverified / derived) conflate two independent axes — how authoritative the speaker is, and how formal the artifact is. A named Temporal maintainer answering on Temporal's own forum currently gets the same tag as an anonymous blog comment. `python_sdk_long_activities.md` hit this, invented a fifth tag (`corroborated`), and was correctly made to retract it. This is homeless *for us specifically*: the Research Standard is **vendored MIRROR** from `MDC-Master-Planning`, so it cannot be amended here — the amendment goes upstream and is then re-vendored, and this repo has no surface that holds "an upstream standards amendment we owe." Nothing in that paper rides on the difference, so this is a process gap, not an evidence gap.
 
 ## Gaps this cycle did not cover
 
-- **Inter-process handoff contracts** — the highest-value remaining gap; the Memory Management phase currently reasons from one informal survey
-- **Convergence-based stopping conditions** — depends on the above
+- **Inter-process handoff contracts — redirected, not deferred.** The prior cycle named this a product-level gap. That was an altitude error: this folder's own `README.md` uses this exact question as its worked example of a *phase-level* one. It belongs in `docs/development/phases/memory-management-framework/research/`, which does not exist because the phase doc is unwritten. It remains the highest-value open research on the queue — the burn-test intake says so and flags its own prior art as an unverified lead. **`convergence_stopping.md` deepens the dependency:** its finding P11 establishes that the mechanizable convergence classes require typed, comparable outputs. Without the handoff contract, convergence detection collapses to semantic distance over prose, which measures drift rather than discovery — the wrong quantity.
+- **Decide-only disposition — does a judging stage with no authoring authority actually reduce defects?** Per-cycle cap; first in line next cycle. It validates the central claim of `workflow-scripts.md § Composition`.
+- **Whether an agentic `claude -p` run decomposes into resumable per-turn legs.** Surfaced by this cycle (candidate #7); no paper covers it.
+- **Duplicated prompt *prose*.** Every quantified source in `workflow_reuse_boundary.md` concerns code or config. If our near-copies differ mainly in prompt text, none of the clone-fault evidence transfers. There appears to be no literature; that is itself a finding worth a topic.
+- **Reflection-channel mining** and **bash → Python Stage A conversion** — both phase-level; see `topics.md`.
