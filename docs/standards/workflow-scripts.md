@@ -8,13 +8,68 @@ Workflow scripts implement the autonomous side of the Dual Workflow Model (see `
 
 ## File Conventions
 
-### Location
-All workflow scripts live in `scripts/workflows/`. Helper libraries go in `scripts/workflows/lib/`.
+### Location (BINDING)
 
-All workflow scripts live in `scripts/workflows/`. Shared helper libraries live in `scripts/workflows/lib/`. For the authoritative current inventory of workflow scripts, see `docs/guide/workflows.md` — that guide owns the canonical list. This standard governs structure and conventions, not inventory.
+**The target layout is Skyy-Command's `lib/temporal/`, and this repo's current layout is a waypoint toward it.** Diverging here means two near-identical architectures with different shapes, and a painful reconciliation if this ever becomes a module inside that system. Where we already match, match exactly; where we do not, know why and know when it resolves.
 
-### Naming
-Script names use kebab-case matching the workflow's purpose, with `.sh` suffix. Use the `<verb>[-modifier]` pattern (e.g., `revision.sh`, `revision-minor.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`, `review-runs.sh`, `review-sprint.sh`).
+#### Target layout (Temporal Standard §10)
+
+```
+activities/            generic executors, DOMAIN-organized (git/, runtime/, config/, ssh/, …)
+common/                shared types and utilities (types/, task_queue.py, constants)
+modules/               workflows, organized {module}/{purpose}/
+  └── {module}/{purpose}/{name}_workflow.py      orchestration (Layer 1)
+                        {name}_helper.py          pure compiler (Layer 2)
+                        {name}_activities.py      semantic wrappers (Layer 3a)
+```
+
+A purpose folder holds **several trios side by side** — `modules/common/provision/` carries `genesis_*`, `cluster_provision_*` and `baseline_tailnet_push_*` — so a folder is a slice of work, not one workflow.
+
+#### Current layout, and how each part maps
+
+| Ours today | Target | Status |
+|---|---|---|
+| `activities/` | `activities/` | **Matches.** Flat today; adopt domain sub-folders as it grows past a handful of files |
+| `common/` | `common/` | **Matches.** Gains `types/` when `ActivityResult` arrives |
+| `scripts/workflows/*.sh` (parents, monoliths) | `modules/{module}/{purpose}/` | Waypoint |
+| `children/` | **no equivalent — dissolves** | Known divergence, see below |
+
+#### `children/` is a bash-era device with a known expiry
+
+**There is no `children/` directory in the Temporal model, and there should not be one here after the port.** Verified against the live tree: a child workflow is not a *kind of file in a place*, it is **a workflow that another workflow starts**. The relationship is a call, not a location, and every workflow lives in `modules/` regardless of who invokes it.
+
+It earns its keep only because bash cannot express that relationship any other way — there is no call graph to read, so the directory carries the information. **Do not build conventions that depend on it surviving.** Specifically: do not namespace it per parent, do not add sibling directories beside it, and do not write tooling that infers a workflow's role from its path.
+
+What *does* survive the port is the underlying rule, which is about invocation and not about directories:
+
+- **You dispatch** parents and monoliths.
+- **A parent invokes** children. Running one by hand is recovery — a failed review half, or a PR whose producer is not yet a parent — never the interface.
+- **Children are shared, not owned.** `review-pr` is the last child of every PR-producing parent. A parent may also call a top-level workflow: the composition graph is not a tree.
+- **`activities/` and `common/` are sourced, never dispatched.**
+
+#### `activities/` — external I/O, and a parent MUST NOT inline any of it
+
+An activity is workflow-agnostic, has a single technical responsibility, and is **idempotent**: running it twice leaves the world as it was after running it once. Polling, validating, resolving, invoking — idempotent. Pushing a commit or opening a PR is not, and therefore is not an activity.
+
+This is not a style preference. A workflow that performs network I/O **cannot replay**, so the boundary is enforced by the engine and code that ignores it will not port. Writing an activity inline in a parent creates work that must be undone later.
+
+*Breaking it looks like:* a parent containing a poll loop, a `gh` call, a `git fetch`, or a `sleep`.
+
+#### `common/` — shared types and content, NOT a junk drawer
+
+`common/` holds things that execute nothing: prompt text, formatters, shared constants, and eventually the shared result type. The split from `activities/` exists specifically so `activities/` does not become the generic dumping ground. Prompt text is content, not a capability.
+
+For the authoritative inventory of workflows see `docs/guide/workflows.md` — that guide owns the list. This standard governs structure, not inventory.
+
+### Naming (BINDING)
+
+Names are **`<family>-<qualifier>`**, kebab-case, `.sh` suffix. The family is what the script *is*; the qualifier narrows it.
+
+**The read-backwards test.** If the name reads correctly reversed, it is wrong. A PR is not *a type of thing that gets reviewed* — review is the family, `pr` is the qualifier. Hence `review-pr`, not `pr-review`; `review-sprint`, not `sprint-review`. Both of those shipped backwards and were renamed.
+
+The payoff is that families group in `ls` (`review-pr`, `review-runs`, `review-sprint`) and naming a new script becomes a decision rather than a coin flip.
+
+**A rename touches three coupled names, and all three must move together:** the file, the `models:` key in `config.yaml`, and the script's `MODEL_KEY`. A mismatch makes the workflow **silently unlaunchable** — `run-claude.sh` correctly refuses to dispatch on an unresolvable key, but nothing surfaces it until someone tries to run it. This has happened; `lint-prompts.sh` now checks it. Worktree and log prefixes move too, or CPI analysis attributes runs to a workflow name that no longer exists.
 
 **Note:** Workflows are bash scripts, NOT slash commands. Slash commands live in `config/commands/` and are for prompt-template injection in interactive mode. Workflow scripts live in `scripts/workflows/` and are full bash programs that wrap `claude -p` invocations with logging, visibility, and structured stages. These are different things — don't confuse the notation.
 
@@ -318,6 +373,57 @@ This is the opposite case from `config/CLAUDE.md :: Terminal Commands & Prompts`
 
 `scripts/workflows/children/revision-refine.sh` shows both idioms in one file: the stage block and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so the stage text, `${RULES}`, and `${DESCRIPTION}` can interpolate. Safety from accidental expansion is the reason for the quoted sentinels.
 
+## Composition (BINDING)
+
+A **parent** is a workflow that calls other workflows and calls no model itself. It holds no `MODEL_KEY`, no turn budget, and — this is the rule — **no process code.** A parent decides *if*, *when* and *what* to call. Everything else belongs to a child or an activity.
+
+The test is not lines of code and it is not DRY. **It is: does this touch the outside world?** I/O goes down to `activities/`; pure decision logic stays in the parent. Parsing a verdict string and extracting an identifier are decision logic and belong in the parent even if they appear in five parents. A poll loop used exactly once is still an activity.
+
+### Why compose at all — the boundary is the point
+
+A run that both authors work and rules on the review findings about it **will defend its own work**. This is not a prompt-quality problem and cannot be fixed by wording: engineer self-review, four in-context review agents under an explicit disposition taxonomy, and manual verification all failed to catch defects that a fresh-context pass then found in minutes.
+
+So the run that authors is not the run that judges. Neither child inherits the other's context; the handoff is git plus the original task, and **the original task must reach both** — without it, a reviewing child can only ask *"is this code good?"* and never *"did this deliver what was asked?"*, which is the question that catches missing scope and scope creep.
+
+**A second, independent reason, and it is the one that decides marginal cases:** every child boundary is a **retry/resume point**. A monolith has none — it fails at stage 3 and restarts from stage 1, forever, with a human watching. Under durable execution that boundary is the unit of recovery. Compose for the bias boundary; compose *again* for recoverability.
+
+**Do not compose for its own sake.** A single-purpose workflow with nothing to reuse is correctly monolithic, and manufacturing children adds dispatch overhead for no gain. The test is *"am I about to reimplement something that already exists as a workflow or an activity?"* — if yes, compose it.
+
+### The completion contract IS the interface
+
+Every model-invoking workflow declares a `COMPLETION_PATTERN`: an ERE its final output must contain. Missing it fails **loud** and returns non-zero.
+
+**`exit 0` must mean the work is done.** A headless run terminates on any turn that produces text without a tool call — invisible interactively, fatal here. A run that dispatches agents and then says *"waiting for results…"* has ended itself, reports exit 0, and produced nothing. Without the contract, "the workflow ran fine" and "the workflow did nothing" are the same signal.
+
+The contract was built for that failure and turns out to do a second job: **it is how one workflow hands off to another.** A parent needs exactly two things from a child — a reliable exit code, and one stable identifier on its final line. That is the entire interface, and it is why composition needs no framework.
+
+*Breaking it looks like:* a model-invoking workflow with no `COMPLETION_PATTERN`, or a final line that is prose rather than the declared identifier.
+
+### Routing contracts
+
+When a child's result decides what the parent does next, that result is a **contract**, not prose.
+
+- **Closed vocabulary.** A fixed, enumerable set of values. Anchor the pattern so prose mentioning a token cannot match it.
+- **The actor that decided does the aggregating.** If a verdict must be derived from several per-item fields, the child derives it and states it. A caller re-deriving a verdict from a child's internal findings is a caller with no stake making a judgement *about* the child's judgement.
+- **Fail safe, never guess.** An absent or unparseable result routes to the outcome requiring a human. Never default to the permissive branch. **This matters more here than in any CI system:** our producer is an LLM that can emit a plausible-looking but wrong result — an assumption general-purpose orchestrators do not have to defend against.
+- **The signal should carry its payload.** A token saying *what* to do next without saying *with what* forces the next actor to re-derive context the deciding actor already had.
+
+### Bounded composition
+
+**Any loop a parent runs MUST have a bounded, observable exit.** One-way composition over a fixed set of children is deterministic and cheap to reason about. A cycle that re-enters until it decides it is satisfied is neither, and is forbidden.
+
+**Prefer convergence over counting.** The honest stopping condition is *"this pass produced nothing new"* — not *"we have done N passes."* A count is a proxy for the thing you actually care about, and it is wrong in both directions: too low stops while passes are still productive, too high burns passes after they stop being.
+
+**Do not legislate a pass count from a single run.** A measured three-cycle run and a cited plateau band are both evidence; neither is a constant. Where a bound must exist before convergence is mechanizable, state it as a temporary floor with its reasoning, not as a discovered law.
+
+### Turn caps are runaway guards, not budgets
+
+An unused turn costs nothing — spend follows turns consumed. Raising a ceiling costs zero on every run that never reaches it.
+
+**A cap cannot buy reliability; it can only truncate.** Reliability comes from scope discipline — the workflow-fit check, the routing decision, the size of the task handed to a child. All a low ceiling does to a mis-scoped run is kill it partway and strand the work.
+
+The routing signal reads off **consumption, not termination**: a child routinely *spending* most of its budget was mis-sized and wants the next workflow up. Watch what it spends, not whether it hit the wall.
+
 ## Design Principles
 
 ### Keep Stages Explicit
@@ -353,6 +459,16 @@ Autonomous workflows run with `--dangerously-skip-permissions`. This is safe bec
 1. Worktree isolation limits blast radius
 2. `block-dangerous.sh` hook still fires (hard safety floor)
 3. PR review is the final gate
+
+### The safety-layer invariant (BINDING)
+
+**Because headless dispatches bypass permissions, the `PreToolUse` hook is the only remaining safety layer.** Point 2 above is not a defence-in-depth nicety; with point 1 scoped to a worktree and point 3 happening after the fact, that hook is the sole control operating *during* the run.
+
+That hook is configured in the **user-level** `settings.json`.
+
+**Therefore: any change to which setting sources load MUST prove the hook survives, before it lands.** `--setting-sources project,local` looks like a two-line improvement for making dispatch configuration explicit. It would drop user settings, and with them the hook, removing destructive-command blocking from every autonomous run. A two-line change becomes a two-line safety regression.
+
+*Breaking it looks like:* adding, narrowing or reordering `--setting-sources`, moving hook configuration between scopes, or changing what `install.sh` symlinks — without first demonstrating that a headless run still triggers `block-dangerous.sh`.
 
 ### Validate Inputs
 Validate arguments before doing anything destructive. Bad input should fail loud and early, not after creating a worktree.
