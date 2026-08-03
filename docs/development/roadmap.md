@@ -428,7 +428,13 @@ The continuous improvement loop generates insights that should be captured syste
 - [ ] **Track resolved patterns** — Maintain a log of patterns identified and resolved so we don't re-litigate them. Location: `docs/development/reviews/resolved-patterns.md`.
 - [ ] **Pattern → skill pipeline** — When the same recommendation appears across multiple review cycles, automatically suggest promoting it to a permanent skill.
 
-### Phase 5e: Graduation Evaluation
+### Phase 5e: Graduation Evaluation — ✅ ANSWERED 2026-07-30, items below are historical
+
+**This question is settled and the items below are kept as record, not as work.** The evaluation happened; the answer is **durable execution (Temporal-shaped), adopted for durability and resumability — NOT to gain composition, which already works in bash.** A parent needs only a child's exit code plus one stable identifier on its final line, which the completion contract already provides; `revision.sh` polls CI between children in ~40 lines of shell, the kind of thing a framework is usually adopted *for*.
+
+Agent SDK, Managed Agents and Paperclip were considered and are not the gap — none of them supplies durability. See `docs/development/skyy-net-seed-handoff.md` for the decision record and `docs/guide/claude_code_orchestration.md § When to Graduate Beyond Bash` for the criteria as they now read.
+
+**Do not re-litigate these boxes:**
 
 Evaluate whether bash-based workflows are sufficient or if heavier tooling is warranted. Only relevant after several CPI cycles with production data.
 
@@ -437,7 +443,15 @@ Evaluate whether bash-based workflows are sufficient or if heavier tooling is wa
 - [ ] **Evaluate Anthropic Managed Agents** — Public beta option for hosted orchestration.
 - [ ] **Evaluate Paperclip** — Criteria: does it reuse existing agent assets? Can workflows be done with raw `claude -p`? Is config portable?
 
-### Phase 5f: Advanced Self-Improvement (future, careful)
+### Phase 5f: Advanced Self-Improvement — ⚠️ PARTLY FORBIDDEN as written, needs restating before any of it is scheduled
+
+**"Automated skill capture" and any auto-add-to-standards item directly conflicts with `config/rules/standards-governance.md`**, which is binding: standards and skills are a curated product with human-in-the-loop control, and autonomous workflows may SURFACE candidates but must never auto-create or auto-modify them. That rule postdates these boxes and wins.
+
+The measurement items (effectiveness tracking, regression detection, cross-workflow analysis) are still valid and are genuinely interesting — but they need rewriting as *surface-for-review*, not *auto-apply*.
+
+**Partly delivered already:** `docs/development/cpi-decisions.md` is the resolved-pattern log Phase 5d asked for, append-only with watch-criteria, and the pattern→skill promotion happens through the interactive session by design rather than automatically.
+
+**Items below are historical and must be restated before scheduling:**
 
 This is where we approach true self-improvement, but with significant guardrails. Only build this once we have months of stable operation and high-confidence patterns.
 
@@ -479,7 +493,21 @@ This phase is the foundation for treating Claude Code not as a tool you use, but
 
 ---
 
-## Phase 6: MCP Servers
+## Phase 8: Decomposition & Durable Handoff — 📋 QUEUED
+
+> Listed ahead of Phases 6 and 7 deliberately: those are unscheduled and this is the live queue. Numbering follows when a phase was opened, ordering follows what is actually next.
+
+Four items surfaced from live operation of the decomposed workflow fleet, plus the standards catch-up that gates them. **Nothing started.** Full detail, confidence levels and ordering: [`phases/phase-8-decomposition-and-handoff.md`](phases/phase-8-decomposition-and-handoff.md).
+
+Every item passes through **research → standards → planning → building → reflection/testing → validation**, with the explicit exception that a genuinely small item may be talked through and built directly. The last two months skipped the first two stages; Phase 8 does not start until the standards catch-up lands.
+
+---
+
+## Phase 6: MCP Servers — 🔵 NOT SCHEDULED
+
+Untouched since April and nothing depends on it. Still plausible, still unstarted — recorded honestly rather than left looking active. Revisit when a concrete need appears rather than on a calendar.
+
+
 
 **Serves: Both workflows** — Extends Claude's reach to external tools and APIs.
 
@@ -509,7 +537,11 @@ MCP servers can run as Docker containers, which provides isolation and reproduci
 
 ---
 
-## Phase 7: Local AI Offloading
+## Phase 7: Local AI Offloading — 🔵 NOT SCHEDULED
+
+Untouched since April. The hardware exists and the idea holds, but model management went a different direction in the meantime (per-workflow explicit `--model` resolved from `config.yaml`), so the integration points below predate the current design and would need re-reading before any of it is built.
+
+
 
 **Serves: Both workflows** — Preserves Claude Max rate limits by offloading mechanical tasks (file summarization, classification, boilerplate) to local GPU hardware. Estimated savings: ~10-15% of Opus turns per workflow with zero quality loss on offloaded tasks.
 
