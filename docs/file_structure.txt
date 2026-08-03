@@ -75,21 +75,23 @@ claude-dot-files/
 │   │   └── system-overview.md                       # Layered architecture, key decisions, where the seams are
 │   │
 │   ├── development/                                 # WHAT — active work tracking
-│   │   ├── research/                                # Research POOLS — evidence per topic (raw/ papers + synthesis.md). Non-binding by construction
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
 │   │   ├── roadmap.md                               # Phased migration plan (Phases 0-5 mostly complete)
-│   │   ├── phases/                                  # Phase-specific planning docs
-│   │   │   ├── autonomous-execution.md              # COMPLETE — the workflow fleet; the skills-preloading fix, lean agents, and the log-as-evidence finding that seeded CPI
-│   │   │   ├── automated-pr-generation.md           # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
-│   │   │   ├── continuous-process-improvement.md    # IN PROGRESS — the two evidence sources (run logs, self-disclosure); why the ruling is always a human's
-│   │   │   ├── cross-device-sync.md                 # COMPLETE — install.sh, idempotency as the enabling feature, the 7 symlinks
-│   │   │   ├── explore-claude-directory.md          # COMPLETE — the portable/machine-local classification; projects/ is path-keyed
-│   │   │   ├── planning-and-agents.md               # COMPLETE — distinct-lens principle; the Cursor-port item abandoned in favour of skills
-│   │   │   ├── safety-and-guardrails.md             # COMPLETE — two-layer model; why block-dangerous.sh is load-bearing rather than defence-in-depth
-│   │   │   ├── burn-test-intake-2026-08-02.md       # Intake record: the four queued items with evidence and confidence; feeds the phase docs, delete once absorbed
-│   │   │   └── github-actions-integration.md        # HISTORICAL (Apr 2026) — record of what was planned
+│   │   ├── phases/                                  # One FOLDER per phase — README.md is the phase doc, research/ holds its evidence
+│   │   │   ├── <phase>/README.md                    # Goal, completion criteria, work, decisions-with-reasoning, where it landed
+│   │   │   ├── <phase>/research/<topic>/            # Pools created on demand: raw/ papers + synthesis.md. NON-BINDING evidence
+│   │   │   │
+│   │   │   ├── autonomous-execution/                # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
+│   │   │   ├── automated-pr-generation/             # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
+│   │   │   ├── continuous-process-improvement/      # IN PROGRESS — two evidence sources; why the ruling is always a human's
+│   │   │   ├── cross-device-sync/                   # COMPLETE — install.sh, idempotency as the enabling feature
+│   │   │   ├── explore-claude-directory/            # COMPLETE — portable vs machine-local; projects/ is path-keyed
+│   │   │   ├── github-actions-integration/          # HISTORICAL (Apr 2026) — record of what was planned
+│   │   │   ├── planning-and-agents/                 # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
+│   │   │   ├── safety-and-guardrails/               # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
+│   │   │   └── burn-test-intake-2026-08-02.md       # NOT a phase — intake record feeding three of them; delete once absorbed
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
 │   │       ├── review-2026-04-24-mdc-master-planning.md

@@ -40,5 +40,5 @@ So the strategy is **targeted symlinks over the authored subset**, not whole-dir
 
 ## Where this landed
 
-- [`../../guide/deployment.md`](../../guide/deployment.md) — the sync model and the full synced/not-synced split
+- [`../../guide/deployment.md`](../../../guide/deployment.md) — the sync model and the full synced/not-synced split
 - `install.sh` — the seven symlinks that implement it

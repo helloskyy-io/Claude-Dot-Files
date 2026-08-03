@@ -1,5 +1,5 @@
 > **HISTORICAL — written 2026-04-10 under the old numbered-phase scheme.** Kept as a record of what was planned;
-> not a live plan. See [`../roadmap.md`](../roadmap.md) for current status, and note that
+> not a live plan. See [`../roadmap.md`](../../roadmap.md) for current status, and note that
 > automated PR generation now conflicts with `standards-governance.md` and needs restating before it is scheduled.
 
 # Phase 4d: PR Comment Automation — Local GitHub Monitor

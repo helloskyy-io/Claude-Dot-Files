@@ -1,8 +1,8 @@
 # Phase: Autonomous Execution
 
-**Status:** ✅ COMPLETE — the fleet exists and is in daily use. Its *shape* is now being reworked under [Workflow Decomposition](../roadmap.md).
-**Roadmap entry:** [`../roadmap.md`](../roadmap.md)
-**Depends on:** [`planning-and-agents.md`](planning-and-agents.md) — a workflow is an orchestration of agents; the agents came first
+**Status:** ✅ COMPLETE — the fleet exists and is in daily use. Its *shape* is now being reworked under [Workflow Decomposition](../../roadmap.md).
+**Roadmap entry:** [`../roadmap.md`](../../roadmap.md)
+**Depends on:** [`planning-and-agents.md`](../planning-and-agents/) — a workflow is an orchestration of agents; the agents came first
 
 ## Goal
 
@@ -63,7 +63,7 @@ Build the plan → execute → PR pipeline: scripts that run Claude headless in 
 
 ## Decisions
 
-**Bash, not a framework — and the reasoning has held.** The original argument was that bash is portable forward, debuggable, and has zero learning curve. A second argument arrived later and is stronger: **composition never needed a framework.** A parent needs a child's exit code plus one stable identifier on its final line. See [`claude_code_orchestration.md`](../../guide/claude_code_orchestration.md).
+**Bash, not a framework — and the reasoning has held.** The original argument was that bash is portable forward, debuggable, and has zero learning curve. A second argument arrived later and is stronger: **composition never needed a framework.** A parent needs a child's exit code plus one stable identifier on its final line. See [`claude_code_orchestration.md`](../../../guide/claude_code_orchestration.md).
 
 **Plan-driven input for `build-phase.sh`.** It takes a document path rather than a prose task, so the plan is the contract and the run can be graded against something written down beforehand.
 
@@ -81,12 +81,12 @@ Build the plan → execute → PR pipeline: scripts that run Claude headless in 
 
 ## Superseded
 
-The phase originally carried an orchestration-options survey with graduation triggers — *move to the Agent SDK if error handling gets painful, to Managed Agents for multi-project state, wait for Agent Teams for parallelism*. **That question is answered and the triggers were the wrong ones.** The gap that mattered was never error handling or parallelism; it was **durability and resumability**, which none of those options supply. See [Temporal Integration](../roadmap.md) and [`../skyy-net-seed-handoff.md`](../skyy-net-seed-handoff.md).
+The phase originally carried an orchestration-options survey with graduation triggers — *move to the Agent SDK if error handling gets painful, to Managed Agents for multi-project state, wait for Agent Teams for parallelism*. **That question is answered and the triggers were the wrong ones.** The gap that mattered was never error handling or parallelism; it was **durability and resumability**, which none of those options supply. See [Temporal Integration](../../roadmap.md) and [`../skyy-net-seed-handoff.md`](../../skyy-net-seed-handoff.md).
 
-Its April-era warnings *did* hold and are now enforced structurally rather than remembered: explicit exit criteria over loop counts, sequential over nested, precision in the initial prompt over iteration. All three are in [`../../standards/workflow-scripts.md`](../../standards/workflow-scripts.md).
+Its April-era warnings *did* hold and are now enforced structurally rather than remembered: explicit exit criteria over loop counts, sequential over nested, precision in the initial prompt over iteration. All three are in [`../../standards/workflow-scripts.md`](../../../standards/workflow-scripts.md).
 
 ## Where this landed
 
-- [`../../guide/workflows.md`](../../guide/workflows.md) — the architecture
-- [`../../standards/workflow-scripts.md`](../../standards/workflow-scripts.md) — the standard
+- [`../../guide/workflows.md`](../../../guide/workflows.md) — the architecture
+- [`../../standards/workflow-scripts.md`](../../../standards/workflow-scripts.md) — the standard
 - `scripts/workflows/` — the fleet

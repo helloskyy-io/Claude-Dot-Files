@@ -6,22 +6,24 @@
 
 §1 is the rule — *co-location with the consumer beats taxonomy purity* — and it names two altitudes: stack-level research under `standards/architecture/research/`, component-level under `development/<component>/research/`.
 
-**Our consumer is a phase**, so the mapping is:
+**Our consumer is a phase, and a phase is a folder**, so research lives *inside* it:
 
 ```
-docs/development/research/<topic>/
-├── raw/<paper>.md      one mini-paper per topic (§3 contract)
-└── synthesis.md        the curated decision deliverable (§4)
+docs/development/phases/<phase>/
+├── README.md               the phase doc
+└── research/<topic>/
+    ├── raw/<paper>.md      one mini-paper per topic (§3 contract)
+    └── synthesis.md        the curated decision deliverable (§4)
 ```
 
-It sits in `docs/development/` beside `roadmap.md` and `phases/`, because those are what cite it. A phase that needs evidence gets a research pool next to it, not in a separate corpus.
+This is co-location taken as far as it goes: the evidence sits beside the plan that cites it, in the same directory, so neither can be read without the other being one level away. There is no central research corpus to hunt through and no question about which phase a pool belongs to.
 
 **Research is EVIDENCE, not rules.** Nothing under `research/` is binding. A finding becomes binding only by being codified into a standard through the normal human-ratified path — the same governance that keeps agents from writing standards.
 
 ## Running it
 
 ```bash
-./scripts/workflows/research.sh docs/development/research/<topic> "<the question>"
+./scripts/workflows/research.sh docs/development/phases/<phase>/research/<topic> "<the question>"
 ./scripts/workflows/research-refresh.sh          # revalidates papers that have come due
 ```
 
@@ -39,5 +41,5 @@ Three queued phases need evidence before they can be planned, and all three are 
 
 ## Related
 
-- [`../../development/research/`](../../development/research/) — the pools
+- [`../../development/phases/`](../../development/phases/) — the phases, each carrying its own pools
 - [`../documentation/`](../documentation/) — research is a distinct non-binding file type there
