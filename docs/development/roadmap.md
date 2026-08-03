@@ -31,6 +31,8 @@ The through-line: *the run that authors work should not be the run that judges i
 
 Mapped what Claude Code stores in `~/.claude/` and classified every path as portable or machine-local, before deciding what to sync.
 
+The directory mixes two very different things: what you *author* — agents, skills, rules, hooks — sitting alongside what Claude Code writes for *itself*, including credentials, session history and per-project state. Getting that split wrong in either direction meant leaking secrets into git or hand-copying config forever. This phase produced the classification every later phase is built on.
+
 - [x] **Every path identified and classified** — the finding that `projects/` is **path-keyed** is what ruled out whole-directory sync and set the targeted-symlink strategy
 
 ---
@@ -40,6 +42,8 @@ Mapped what Claude Code stores in `~/.claude/` and classified every path as port
 **Phase doc:** [`phases/cross-device-sync.md`](phases/cross-device-sync.md)
 
 Get the repo deploying to every machine, so everything built later propagates automatically rather than being hand-copied.
+
+One idempotent installer creates seven targeted symlinks from `config/` into `~/.claude/`, touching nothing machine-local. It runs the same way by hand on a VM or unattended via Ansible on a workstation. The criterion that matters is not that the links exist — it is that an agent written on the laptop is live on the VM after a `git pull`, with no further step.
 
 - [x] **`install.sh` — idempotent, verified on laptop, workstation and VM** — idempotency is the feature, not a nicety: it is what lets Ansible re-run the installer on every playbook execution
 - [x] **Ansible integration** — `--non-interactive` for automated runs
@@ -52,6 +56,8 @@ Get the repo deploying to every machine, so everything built later propagates au
 **Phase doc:** [`phases/safety-and-guardrails.md`](phases/safety-and-guardrails.md)
 
 Make it safe to say yes quickly in interactive mode, and safe to walk away in autonomous mode — two different problems needing two different layers.
+
+Permissions prompt on anything unlisted, so approving in a live session is fast and informed. A `PreToolUse` hook denies known-destructive commands regardless of what the allow list says, catching the case where a broad allow rule accidentally matches something that should never run. The second layer is what makes unattended work possible at all — autonomous dispatches bypass permissions entirely, leaving the hook as the only control still operating.
 
 - [x] **`PreToolUse` → `block-dangerous.sh`** — pattern-denies destructive commands. Later proved to be the **only** control operating during an autonomous run, since those bypass permissions entirely
 - [x] **`Stop` → `notify-done.sh`** — desktop notification on completion, skips on headless
