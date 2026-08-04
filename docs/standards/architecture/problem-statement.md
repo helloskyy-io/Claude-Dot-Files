@@ -59,7 +59,18 @@ Everything here — the agents, the workflows, the memory model, the improvement
 | **Next** | Durable execution — the server tier on a remote host, this machine as an edge running a local worker |
 | **Then** | Additional edges: home automation, industrial automation, robotics, bioinformatics. **The backbone does not change; only the edge does** |
 
-An edge is not a plugin. It is a machine with a capability and a credential, running a worker that speaks the same protocol. Coding is one because it happened to be first.
+An edge is not a plugin. It is a machine with a capability and a credential, running a worker that speaks the same protocol.
+
+### Why coding is the first edge, and not merely the earliest
+
+The coding edge is not first because it was convenient. **It is the edge that builds the others, and then works inside them.**
+
+- **It builds them.** A home-automation, industrial or robotics edge needs a worker, a set of activities, and workflow modules. That is code, written by the edge that already exists — so each new edge costs less to stand up than the one before it.
+- **It works inside them, with a human in the loop.** Once an edge exists, the operator running it is not left alone with it. The coding assistant is present *in* that edge — reading its state, diagnosing its failures, proposing changes to its modules — the same way it is present in a repository today.
+
+That second role is the one easy to miss, and it is where the compounding comes from. A conventional platform gets harder to operate as it grows, because each new domain is one more thing an operator must learn to run unaided. Here, **every new edge arrives with an assistant already fluent in the backbone that runs it.**
+
+Which means the first edge is not a stepping stone to be moved past. It is permanent infrastructure that every later edge depends on, for construction *and* for operation — and it is why the investment in getting this one right compounds rather than being spent.
 
 ## What this means for anything built here
 
