@@ -18,17 +18,21 @@ Confidence:     DEFINITIVE on everything sourced from raw first-party artifacts 
                 (raw.githubusercontent.com), Paperclip's migration SQL (raw), Temporal's
                 troubleshooting docs and `constants.go` (raw), the four arXiv abstracts (Atom
                 API), and two `anthropics/claude-code` issue bodies (GitHub REST JSON).
-                DIRECTIONAL on four bernstein docs whose fetch returned a SUMMARY rather than
-                the raw text (`WHY_DETERMINISTIC.md`, `deadlock-detection.md`,
-                `context-degradation-detector.md`, `MAX_TURNS.md`, `schedule.md`,
-                `cost-anomaly-detection.md`) and on the two rendered-page vendor posts
+                DIRECTIONAL on SIX bernstein docs whose fetch returned a SUMMARY rather than
+                the raw text — `WHY_DETERMINISTIC.md` [S27], `deadlock-detection.md` [S20],
+                `context-degradation-detector.md`, `MAX_TURNS.md` [S23], `schedule.md` [S24],
+                `cost-anomaly-detection.md` [S21] — and on the two rendered-page vendor posts
                 (Cognition, Anthropic engineering) — quoted only where the fetch presented a
-                span as exact. DERIVED, and marked so at each site, on every mapping from
-                someone else's failure onto this system's exposure, on every mitigation cost,
-                and on the whole of §7's ranking. UNVERIFIED: the AWS retry-storm article
-                (JS-rendered, no body returned — see N4) and the total Paperclip migration
-                count (see N3).
-Critic:         not-yet-verified — 2026-08-04
+                span as exact. Those six are marked `*(directional — summarized fetch)*` at
+                every body use site, not only here. DERIVED, and marked so at each site, on
+                every mapping from someone else's failure onto this system's exposure, on
+                every mitigation cost, and on the whole of §7's ranking. UNVERIFIED: the AWS
+                retry-storm article (JS-rendered, no body returned — see N4).
+Critic:         PASS-WITH-FIXES (S23 quotation replaced with the source's wording; N3 rewritten
+                to the git-trees count 207/206 truncated:false with the summarized-listing
+                method rule added; header "four"→"six"; directional markers applied at the
+                [S20]/[S21]/[S23]/[S24] body use sites; §5.2 "originally keyed on" marked
+                derived) — 2026-08-04
 ```
 
 > **Mixed volatility (§3).** The **low-volatility** core is §2.5 (the peer-reviewed / preprint
@@ -133,7 +137,7 @@ the measurements [S4], [S5]:
 
 | Pilot metric | Value |
 |---|---|
-| Total agents | 12 named + 5 phantom |
+| Total agents | 12 named, plus unregistered "phantom" process names *(the doc's phantom line reads "Phantom agents: Unregistered process names generated 200+ noise messages"; an earlier draft of this paper printed a specific phantom count of 5, which no fetch returned — **dropped**)* |
 | Wall clock | ~47 hours |
 | Tickets completed | 737+ |
 | Reliable agents | 3 of 12 |
@@ -430,9 +434,12 @@ The reporter's own suggested remedy is "store an API key as a fallback auth meth
 self-recover" [S17] — which for this system is **not free**, because an API key is metered and the
 whole affordability thesis is flat-rate (§6.2).
 
-*Note on status:* both issues are `closed`. Closure is not evidence of a fix — #28827 carries the
-label `duplicate`. Treat the *reported behaviour* as definitive and the *current* behaviour as
-unverified; §8/T1 makes it a test.
+*Note on status:* **both issues are `closed`, and both were closed as `duplicate`** — #28827 and
+#29896 each carry the `duplicate` label, and #29896 additionally carries `state_reason:
+"duplicate"`. That matters more for #29896 than for #28827, because #29896 is the one carrying the
+credential-*destruction* evidence: the failure this paper ranks first is sourced entirely to a
+report that was closed without a stated fix. Treat the *reported behaviour* as definitive and the
+*current* behaviour as unverified; §9/T1 makes it a test.
 
 **2.7.2 Binary drift across a fleet.** *(definitive)*
 
@@ -489,6 +496,12 @@ silence, and the degraded state looks exactly like "the operator declared nothin
 
 Stated fairly, including where each is better than our shape.
 
+> **Confidence note for this table (binding on how it is read).** Four cells rest on
+> **summarized** fetches and are *(directional)*, not definitive: bernstein's `max_turns` range
+> [S23], its 90% budget stop [S21], its `skip`/`catch_up` misfire policy and cap of 16 [S24], and
+> the deadlock detector's status [S20]. Every other cell comes from a raw fetch. A planner sizing
+> E8 or E9 from this table must carry that caveat with the number.
+
 | Question | `bernstein` (deterministic orchestrator) | Paperclip (control plane over a DB) | Temporal (durable substrate) |
 |---|---|---|---|
 | **Who decides what runs next** | Deterministic Python tick loop; zero LLM tokens on coordination [S3] | Server + DB state machine over `issues` / `heartbeat_runs` [S11], [S12] | Workflow code — deterministic by contract, enforced by replay [S13] |
@@ -524,7 +537,7 @@ Checked against `system-overview.md`, `roadmap.md`, and the shipped scripts.
 | **Headless early-stop reported as success** [S2, #3255-shaped] | Already caught, deliberately, with a loud failure | `run-claude.sh` §"Completion contract": a declared `COMPLETION_PATTERN` must appear in the final result or the run fails; the comment names the exact cause ("a text-only turn TERMINATES the run before later stages execute") |
 | **Turn-cap exhaustion silently discarding work** | Already caught | `run-claude.sh` greps the log for `"subtype":"error_max_turns"` and returns 1 with the worktree path |
 | **Model drift between dispatches** | Already refused | `run-claude.sh` refuses to dispatch on an inherited model (roadmap, `Phase: Managed Configuration`) |
-| **Identical retries — "attempt #2 fails the same way as attempt #1"** [S22b] | The one loop-back is **not** a repeat of the first attempt | `revision.sh` L354 invokes the refine child with `--correction-pass`, and that flag's own documentation states the second pass exists because "a review-pr disposition comment with a runway already exists on this PR, and closing it is this run's job." The retry is **aimed at named findings**, which is the property bernstein's criterion-degradation design was built to obtain |
+| **Identical retries — "attempt #2 typically fails the same way as attempt #1"** [S22b] | The one loop-back is **not** a repeat of the first attempt | `revision.sh` L354 invokes the refine child with `--correction-pass`, and that flag's own documentation states the second pass exists because "a review-pr disposition comment with a runway already exists on this PR, and closing it is this run's job." The retry is **aimed at named findings**, which is the property bernstein's criterion-degradation design was built to obtain |
 | **Temporal non-determinism / payload limits** [S13], [S14] | **Not exposed yet** — no Temporal in the system. Becomes live at `Phase: Temporal Integration`, where the roadmap already names both ("heartbeating for 10–60 minute runs, transcript-to-file for payload limits") | roadmap `Phase: Temporal Integration` |
 
 **Two nuances worth stating precisely, because overclaiming either would mislead the planner:**
@@ -551,7 +564,7 @@ Costs are **derived estimates** in operator-hours, naming their inputs.
 | E5 | **Orphaned worktrees and unbounded disk growth.** A dispatch creates a worktree; no reaper is documented | [S2, #2996] — four distinct removal paths, incl. a leak guard for exceptions escaping after allocation | A **sweeper** that prunes worktrees older than N days with no live PID, run from the same timer as `gh-monitor`. `git worktree prune` alone is insufficient — it does not remove a worktree whose directory still exists | ~2h |
 | E6 | **`claude` binary version drift across machines.** `config/` is symlinked identically; the CLI is not pinned or recorded | [S2, #2610] admission receipts; [S2] nightly canary matrix; [S19] rainbow deployments | **Record it, then gate on it.** Stamp `claude --version` into every JSONL run log first (near-zero cost, makes drift *minable* by `review-runs.sh`); only add a version floor check after the log shows drift correlates with failures | ~1h to record; ~2h to gate |
 | E7 | *(withdrawn — see §4.1.)* An earlier draft of this paper listed identical-retry exposure. **Reading `revision.sh` L345–357 and `children/revision-refine.sh` L79–82 falsified it**: the loop-back passes `--correction-pass` and closes a named runway. Recorded rather than deleted, because a planner who read the failure ([S22b]) without the check would re-derive the same wrong item | — | none needed | — |
-| E8 | **A control whose failure mode is silence.** Our `PreToolUse` hook is, per `system-overview.md`, "the only control operating during a run" — and the roadmap flags that `--setting-sources project,local` "would strip it from every autonomous run" | [S2, #1850] classifier gated nothing; [S20] deadlock detector on an empty graph; [S21] cost rules not invoked | A **wiring test**: a dispatch fixture that issues a known-denied command and asserts the hook fired. This is the exact remedy bernstein adopted ("A regression test asserts the gate actually invokes the classifier") | ~3h |
+| E8 | **A control whose failure mode is silence.** Our `PreToolUse` hook is, per `system-overview.md`, "the only control operating during a run" — and the roadmap flags that `--setting-sources project,local` "would strip it from every autonomous run" | [S2, #1850] classifier gated nothing *(raw)*; [S20] deadlock detector on an empty graph and [S21] cost rules not invoked *(both directional — summarized fetches; the pattern rests on #1850, which is raw)* | A **wiring test**: a dispatch fixture that issues a known-denied command and asserts the hook fired. This is the exact remedy bernstein adopted ("A regression test asserts the gate actually invokes the classifier") | ~3h |
 | E9 | **Rate-limit exhaustion is our budget ceiling, and nothing enforces one.** The roadmap records that "2 concurrent engineers + PM session can exhaust rate limits in half a metered period" | [S21] warn 60% / stop-spawning 90%; [S10] budgets as first-class | A **concurrency ceiling** on simultaneous dispatches — the flat-rate analogue of a USD cap. USD budgeting does not transfer (§6.2); concurrency does | ~2h |
 | E10 | **Alert/incident storms once a driver files issues automatically.** Our no-change outcomes land as GitHub Issues; a loop that files one per failed leg will duplicate | [S11], [S12] — two dedupe indexes, at two granularities, retrofitted | An **origin-fingerprint convention** in the issue title/body plus a "search before file" step. Adopt Paperclip's two-level shape (incident id **and** fingerprint) from the start rather than discovering the second level later | ~2h |
 | E11 | **Prior-run text is an injection surface.** PR threads and issues written by earlier runs are read by later ones as memory | [S2] `MemoryTrustPolicy` | Provenance-tag machine-written comments and have consumers treat untagged/foreign-tagged text as data, not instruction. Low cost now, expensive to retrofit after multi-edge | ~3h |
@@ -585,7 +598,8 @@ The roadmap rejects a turn count and asks what replaced it elsewhere.
    published artifacts, shipped docs, or explicit decisions instead of vague status updates" [S10].
 2. **A hard backstop that fires regardless of claimed progress.** bernstein: a 30-minute wall clock
    "regardless of claimed progress" [S4], a 90-minute hard cap in the reaper [S2], a respawn budget
-   of 3/60s ending in an operator-gated park [S6], and a spend stop at 90% of budget [S21]. Temporal
+   of 3/60s ending in an operator-gated park [S6] — all three from raw fetches — and a spend stop at
+   90% of budget [S21] *(directional — summarized fetch)*. Temporal
    makes the same point negatively: without `ScheduleToCloseTimeout` an activity "retries
    indefinitely until the Workflow is manually terminated" [S14]. **Every surveyed system has one.**
 3. **A typed refusal the loop can emit and the driver can route on.** `ABANDONED` is terminal by FSM
@@ -600,8 +614,13 @@ state itself rather than accept the child's report of it.** That is E2, and it i
 the three to build.
 
 One negative result worth carrying: **`max_turns` is not useless, it is misplaced.** bernstein keeps
-an explicit `max_turns` (1–10000) whose stated use cases include "preventing runaway agents"
-[S23], and `run-claude.sh` already detects `error_max_turns`. A turn cap is a legitimate *backstop*
+an explicit `max_turns` (1–10000) whose stated use cases include hard-capping a runaway agent on a
+specific task without changing the global cap [S23] *(directional — summarized fetch; the source's
+own sentence is "You want to hard-cap runaway agents on a specific task without changing the global
+`max_turns_cap`." An earlier draft of this paper rendered that as the quoted phrase "preventing
+runaway agents", which appears nowhere in the source — a quotation manufactured from a summarizing
+fetch's wording, i.e. exactly the failure N5 exists to catch, caught by the critic rather than by
+the rule.)*, and `run-claude.sh` already detects `error_max_turns`. A turn cap is a legitimate *backstop*
 (role 2). The roadmap is right that it cannot be the *criterion* (role 1). Both statements are
 compatible and the corpus supports both.
 
@@ -630,7 +649,7 @@ compatible and the corpus supports both.
 | **Catch-up, uncapped** | Named as the reason bernstein's cap exists: a long outage blows the task queue [S24] |
 | **Buffer (`BufferAll`)** | "Long-running Workflow Executions under `BufferAll` can push buffered Actions past the Catchup Window," producing buffer overruns and dropped actions [S1] |
 | **Skip on overlap** | A miss that is not an outage: "If the Schedule uses the `Skip` Overlap Policy and the preceding run was long-running, the miss may reflect that run exceeding the Catchup Window" [S1] — i.e. **slow runs masquerade as missed windows** |
-| **Dedupe key too coarse** | Paperclip's `issues_open_routine_execution_uq` originally keyed on `(company, origin_kind, origin_id)`; the fingerprint column was added and the index rebuilt, meaning **legitimately distinct dispatches were being collapsed** [S25]. *(derived from the DROP/CREATE pair.)* |
+| **Dedupe key too coarse** | Migration 0062 **drops** `issues_open_routine_execution_uq` and **recreates** it with `origin_fingerprint` added to the key, alongside a new `routine_runs.dispatch_fingerprint` column [S25]. *(**Derived**, and the input is the DROP/CREATE pair plus the new columns — 0062 does not contain the prior index definition, so the prior key's exact columns are NOT established by [S25] and are not asserted here. What the pair does establish is that a fingerprint dimension had to be **added** to an existing dedupe key, which means the pre-0062 key could not distinguish two dispatches the system needed to keep apart.)* |
 | **Alert-only** | Temporal's own guidance treats the metric as an *alert plus a manual narrowing procedure* — `ListSchedules` "does not return per-Schedule miss counters," so finding *which* schedule missed requires fanning out `DescribeSchedule` [S1]. Alert-only has an unbounded human step |
 
 **The recommendation, and it contradicts an assumption in the roadmap.** *(derived — from [S1],
@@ -685,7 +704,8 @@ every scheduler failure above is a *timer* failure, and an event-driven path has
 ### 6.2 Where the field's experience does NOT transfer — and mis-transferring it costs more than missing it
 
 **A. USD budgeting is not our budget.** bernstein's cost machinery (per-task/run/day USD ceilings, a
-hash-pinned price table, `budget_stop_pct` at 90%) [S21], [S2, #2354] and Paperclip's budgeting
+hash-pinned price table, `budget_stop_pct` at 90% — the last *(directional — summarized fetch,
+[S21])*, the price-table machinery raw at [S2, #2354]) and Paperclip's budgeting
 milestone [S10] both assume metered billing. We are flat-rate by design
 (`problem-statement.md` § *Affordability is the enabler*). **Porting a USD ceiling would enforce a
 control over a number nobody pays.** The transferable part is the *shape* — a burn-rate ceiling that
@@ -718,9 +738,10 @@ its own bugs at a level of detail almost nobody publishes — which is exactly w
 exactly why it may not be representative. **A codebase that documents 40 bugs is not worse than one
 that documents 2; it is more legible.** Do not read failure density as quality.
 
-**F. Closed issues are not fixed issues.** [S16] and [S17] are both `closed`; #28827 carries the
-label `duplicate`. Their *reports* are evidence; their *current* status is not. T1 in §8 exists
-because of this.
+**F. Closed issues are not fixed issues.** [S16] and [S17] are both `closed`, and **both were closed
+as `duplicate`** — including [S17], the sole source for the credential-*wipe* behaviour that makes
+E1 rank 1. Their *reports* are evidence; their *current* status is not, and neither closure names a
+fix. T1 in §9 exists because of this.
 
 ### 6.3 The case against acting on this paper at all
 
@@ -762,7 +783,7 @@ and mitigation are in §4.2.)*
 | **4** | **E4 — no missed-window policy** | It is an open roadmap item, it is cheap, and §5.2 shows the current assumption is backwards for the job we actually schedule | Skip-by-default + widen the window for window-scoped jobs + consecutive-miss alarm | ~3h | Partly |
 | **5** | **E3 — no stall detection on a child** | Cheap, and the corpus is unanimous that every system needs a hard backstop; today a hung child is unbounded | `timeout(1)` per child, sized per child | ~2h | **Yes** |
 | **6** | **E6 — `claude` binary drift** | The *recording* half is ~1h and makes drift minable by machinery we already run; the gating half can wait for evidence | Stamp `claude --version` into every run log now | ~1h | No |
-| **7** | **E9 — no ceiling on concurrent dispatches** | Already observed once (rate-limit exhaustion in half a metered period), and the flat-rate translation is the non-obvious part | Concurrency ceiling, not a USD cap | ~2h | Partly |
+| **7** | **E9 — no ceiling on concurrent dispatches** | Already observed once (rate-limit exhaustion in half a metered period), and the flat-rate translation is the non-obvious part. *The comparator (bernstein's 60%/90% burn-rate stop, [S21]) is directional — summarized fetch* | Concurrency ceiling, not a USD cap | ~2h | Partly |
 | **8** | **E5 — orphaned worktrees / disk** | Slow-burning, easy to detect late, trivially fixed | Sweeper on the `gh-monitor` timer; note `git worktree prune` is insufficient | ~2h | No |
 | **9** | **E10 — incident storms** | Not live until a driver files issues automatically; adopting the two-level key *now* is nearly free and avoids Paperclip's DROP/CREATE cycle | Two-level origin fingerprint convention | ~2h | Partly |
 | **10** | **E11 — prior-run text as an injection surface** | Lowest likelihood today, but retrofit cost rises steeply once multiple edges write to shared memory | Provenance-tag machine-written comments | ~3h | No |
@@ -795,12 +816,31 @@ returned nothing on topic, see the query in §8.2), bernstein's release notes an
 roadmap. The nearest measurement anywhere is [S5]'s "2 real code commits out of 40 it claimed," which
 is one pilot with a different harness. **The rate for our harness is unmeasured** → T2.
 
-**N3. The exact Paperclip migration count is unverified.** The GitHub contents API listing returned
-94 entries (`0000`–`0094`); the dispatch brief said "200+". The API caps directory listings at 1000
-entries, so truncation is unlikely, but the fetch was rendered through a summarizing model and the
-count was not independently recomputed. Nothing in this paper depends on the total; the four
-migrations quoted were fetched individually as raw SQL. Stated as an open discrepancy rather than
-resolved in either direction.
+**N3. RESOLVED — the Paperclip migration count is 206, and this paper's first answer was wrong by
+about half.** An earlier draft recorded an open discrepancy: a GitHub **contents** API listing
+returned ~94 entries ending at `0094`, against the dispatch brief's "200+", and the draft
+speculated that "truncation is unlikely." **Both the figure and the mechanism were wrong.** The git
+**trees** API on `master:packages/db/src/migrations` returns `"truncated": false` with **207 tree
+objects, 206 of them `.sql`**, the highest being `0206_review_path_recovery_idempotency_index.sql`
+(last five: `0202_eminent_marvel_zombies.sql`, `0203_interaction_resolver_governance.sql`,
+`0204_interaction_addressee.sql`, `0205_narrow_shiva.sql`, `0206_…`). The sibling paper
+`paperclip_assessment.md` reached 206 independently and corroborated it three ways. The cause was
+**not** an API cap: the contents listing was fetched through a summarizing model, which
+**under-enumerated a long list by roughly 2×** and did so silently, returning a plausible,
+correctly-formatted, monotonically-numbered sequence that simply stopped early.
+
+**The transferable method rule, which is the actual finding:** *for any count that will become a
+finding, use the git trees API and read its `truncated` flag — never a summarized contents listing.*
+A truncated list of well-formed filenames is indistinguishable from a complete one, and the
+paper-visible symptom was an argument about a *cap* that was never in play. This is the same failure
+class as N5 and as the [S23] miscitation: a summarizing fetch degrading gracefully into something
+that reads correct.
+
+Nothing else in this paper moves — the four migrations quoted in §2.2 and §5.2 were each fetched
+individually as raw SQL and are unaffected. What does move is §7's rank-9 reasoning: at 206
+migrations rather than 94, the "two dedupe indexes retrofitted at two granularities" pattern sits in
+a schema with roughly twice the accumulated repair history, which strengthens rather than weakens
+the case for adopting the two-level key up front.
 
 **N4. AWS's retry-storm guidance could not be fetched.** `aws.amazon.com/builders-library/timeouts-
 retries-and-backoff-with-jitter/` 301-redirects to `builder.aws.com`, which returned a page header
@@ -824,8 +864,11 @@ own this and it rarely surfaces) or may reflect an inadequate search; stated as 
 
 **Primary — `bernstein` (Apache-2.0), raw first-party (high volatility)**
 
-- [S0] Repository metadata, GitHub REST API. `default_branch: "main"`, 788 stars, 76 open issues,
-  created `2026-03-22T14:52:26Z`, pushed `2026-08-04T19:26:33Z`, `Apache-2.0`.
+- [S0] Repository metadata, GitHub REST API, **as fetched 2026-08-04**: `default_branch: "main"`,
+  788 stars, 76 open issues, created `2026-03-22T14:52:26Z`, pushed `2026-08-04T19:26:33Z`,
+  `Apache-2.0`. *Star and open-issue counts are live counters and drift within the day — the
+  critic's re-fetch the same day returned 75 open issues. Nothing in this paper depends on either
+  figure; they are recorded for provenance, not as findings.*
   https://api.github.com/repos/sipyourdrink-ltd/bernstein
 - [S1b] `CHANGELOG.md` — points to `docs/release-notes/`; per-version pages, one per tag.
   https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/CHANGELOG.md
@@ -836,8 +879,10 @@ own this and it rarely surfaces) or may reflect an inadequate search; stated as 
   https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/docs/decisions/006-no-embedded-llm.md
 - [S4] ADR-005, *Short-Lived Agent Lifecycle* (Accepted, 2026-03-22; supersedes ADR-001).
   https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/docs/decisions/005-short-lived-agents.md
-- [S5] ADR-001, *Agent Lifecycle* — pilot metrics appendix (12 named + 5 phantom agents, ~47h,
-  737+ tickets, 283/0, 2-of-40, 138 hunger-spam messages, 3-of-12 reliable).
+- [S5] ADR-001, *Agent Lifecycle* — pilot metrics appendix (12 named agents plus unregistered
+  "phantom" process names, ~47h, 737+ tickets, 283 messages / 0 commits, 2-of-40 claimed commits
+  real, 138 hunger-spam messages, 3-of-12 reliable). *All of these verified verbatim except a
+  specific phantom-agent count, which was dropped — see §2.1.2.*
   https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/docs/decisions/001-agent-lifecycle.md
 - [S6] `docs/operations/agent_crash_loop.md` — respawn budget 3/60s, backoff `500ms*attempt` cap 5s,
   parked state, operator-only resume.
@@ -945,11 +990,29 @@ own this and it rarely surfaces) or may reflect an inadequate search; stated as 
 - `docs/standards/research/research_standard.md` §5 — the date-based refresh gate.
 - `docs/standards/architecture/research/raw/convergence_stopping.md` — stopping rules, not re-derived.
 
+- [S28] Paperclip migration directory, **git trees API** —
+  `master:packages/db/src/migrations`, `"truncated": false`, 207 tree objects / 206 `.sql`, highest
+  `0206_review_path_recovery_idempotency_index.sql`. The authority for the count in N3.
+  https://api.github.com/repos/paperclipai/paperclip/git/trees/master:packages/db/src/migrations
+
 *Sourcing posture: every GitHub artifact was fetched from `raw.githubusercontent.com` or the REST
 API rather than a blob page; both surveyed repositories' `default_branch` was confirmed via the
 repository API before any raw fetch, so no 404 in this sweep was recorded as an absence. arXiv
-metadata came from the Atom API, not from rendered `abs` pages. Six raw fetches nonetheless returned
-summaries (N5) and every claim from them is downgraded accordingly.*
+metadata came from the Atom API, not from rendered `abs` pages.*
+
+***Three rules this sweep learned the hard way, all the same failure class — a summarizing fetch
+degrading into something that reads correct:***
+
+1. ***For any count that becomes a finding, use the git trees API and read its `truncated` flag —
+   never a summarized contents listing.*** A summarized listing under-enumerated 206 migrations as
+   ~94 and produced no signal that it had stopped early (N3).
+2. ***A `raw.githubusercontent.com` URL does not guarantee raw text.*** Six raw fetches in this
+   sweep returned summaries anyway; one explicitly declined verbatim reproduction. Every claim from
+   those six is marked directional **at each body use site**, not only in the header (N5).
+3. ***A span may carry quotation marks only if the exact character sequence was returned.*** One
+   phrase in §5.1 was manufactured from a summarizing fetch's paraphrase and survived into a
+   negative-result paragraph; the substance was true and only the marks were false, which is
+   precisely why it was hard to see.
 
 ---
 

@@ -17,8 +17,14 @@ Confidence:     DEFINITIVE at the schema/SQL/commit-message level — the load-b
                 every cost estimate (§4, §6), for the architecture verdict (§3), and for the coordination
                 reading (§4.7) — each names its inputs. UNVERIFIED at the behavioural level: nothing was
                 executed, no TypeScript was read. One third-party page (rywalker) is cited only for
-                governance/adoption context and is marked reduced-confidence.
-Critic:         not-yet-verified — 2026-08-04
+                governance/adoption context and is marked reduced-confidence. COUNTS are stated only where
+                corroborated by a second structurally different signal (the 206 migrations); every other
+                count is a floor ("at least eleven") or has been dropped — see §5(c), where three fetches of
+                one directory returned three different totals.
+Critic:         PASS-WITH-FIXES (§4.4 "stalled" definition restored to all three conditions; §4.3 four→five
+                partial unique indexes with 0069's elided leaf_uq added; commit-10675 file count 36→47; six
+                non-verbatim spans de-quoted or ellipsed; eleven→twelve adapters; contents-API "147 pages"
+                count re-sourced or dropped per §5(c); §5(b) reworded from garbling to elision) — 2026-08-04
 ```
 
 > ## Headline — the roadmap item describes a product that does not exist, and the verdict is MINE AND DISCARD
@@ -105,9 +111,11 @@ to the company goal)"*.[^core-concepts] The product doc states the target direct
 control plane for autonomous AI companies."*[^product]
 
 **2.2 Execution is heartbeat-shaped, not session-shaped.** *"Agents don't run continuously. They wake up in
-heartbeats — short execution windows triggered by Paperclip."*[^core-concepts] Triggers are *"Schedule,
-Assignment, Comment, Manual, Approval resolution."*[^core-concepts] The README lists *"Heartbeat Execution —
-DB-backed wakeup queue with coalescing, budget checks."*[^readme] The `agent_wakeup_requests` table carries
+heartbeats — short execution windows triggered by Paperclip."*[^core-concepts] The five documented triggers
+are Schedule, Assignment, Comment, Manual and Approval resolution — presented in the source as five separate
+bullets with descriptions, not as a single string, so this list is a paraphrase.[^core-concepts] The README
+lists *"Heartbeat Execution — DB-backed wakeup queue with coalescing, budget checks, workspace resolution,
+secret injection, skill loading, and adapter invocation."*[^readme] The `agent_wakeup_requests` table carries
 `source`, `status` (default `"queued"`), `coalescedCount`, `idempotencyKey`, `runId`, `requestedAt`,
 `claimedAt`, `finishedAt`.[^schema-wakeup]
 
@@ -119,7 +127,7 @@ directory"*.[^database]
 
 **2.4 The execution flow puts the agent on the client side of a REST API.** *"Trigger"* → *"Adapter
 invocation — Server calls the configured adapter's execute() function"* → *"Agent process — Adapter spawns
-the agent with Paperclip env vars and a prompt"* → *"Agent work — The agent calls Paperclip's REST API to
+the agent runtime (e.g. Claude Code CLI)"* → *"Agent work — The agent calls Paperclip's REST API to
 check assignments, checkout tasks, do work, and update status"* → *"Result capture"* → *"Run
 record"*.[^architecture] **This is the single most consequential structural fact in the paper**: Paperclip
 does not drive the agent step by step; it wakes the agent and the agent calls back.
@@ -185,8 +193,8 @@ throughout and name their inputs.**
 - **`/inbox` is the operator's primary action centre**, aggregating *"everything that needs human attention,
   with approvals as the highest-priority category"*, in the order **approvals** → **alerts** (*"Agent errors
   (failed heartbeats, error status) and budget alerts"*) → **stale work** (*"Tasks in `in_progress` or `todo`
-  with no activity…beyond a configurable threshold"*), with a sidebar badge showing *"total
-  unread/unresolved count."*[^ui-spec]
+  with no activity…beyond a configurable threshold"*), with a sidebar badge: *"The sidebar badge count
+  reflects total unread/unresolved inbox items."*[^ui-spec]
 - **Every row is typed.** *"Every row now resolves to `blocking` (failed run, agent error, blocked
   dependency, recovery, budget) or `review`"*.[^decision-sheet]
 - **Every stalled row carries its actions inline** — *"one-click Approve, Request changes, and Send back to
@@ -194,11 +202,15 @@ throughout and name their inputs.**
 - **The row states who owes the decision.** A `reviewAttention` field *"describes what is under review (bound
   target with links), who decides, since when, and whether the review is stalled."*[^commit-10675]
 - **Backing surfaces exist as shipped pages**: `Inbox.tsx`, `DecisionQueuePage.tsx`, `Approvals.tsx`,
-  `ApprovalDetail.tsx`, `MyIssues.tsx`, `Dashboard.tsx`, `DashboardLive.tsx`, `Activity.tsx` among 147 files
-  in `ui/src/pages/`.[^ui-pages] The dashboard shows *"Agent status"*, *"Task breakdown"*, *"Stale tasks"*,
-  *"Cost summary"*, *"Recent activity"*, and marks blocked tasks — *"these need your attention."*[^dashboard]
-- **Approvals are a distinct, structured row-type.** *"It appears in your approval queue (Approvals page in
-  the UI)"*; each shows *"Who requested it and why; Linked issues (context for the request); The full
+  `ApprovalDetail.tsx`, `MyIssues.tsx`, `Dashboard.tsx`, `DashboardLive.tsx`, `Activity.tsx`, all present in
+  `ui/src/pages/`.[^ui-pages] **No file count is asserted for that directory — three fetches returned three
+  different totals and none is trustworthy; see §5(c).** The named files are the finding; the size of the
+  directory is not, and nothing in this paper rests on it. The dashboard shows *"Agent status"*, *"Task
+  breakdown"*, *"Stale tasks"*, *"Cost summary"*, *"Recent activity"*, and marks blocked tasks — *"these need
+  your attention."*[^dashboard]
+- **Approvals are a distinct, structured row-type.** Approvals surface on a dedicated page — *"From the
+  Approvals page, you can see all pending approvals."* — where each shows *"Who requested it and why; Linked
+  issues (context for the request); The full
   payload"*; and the operator can *"Approve — the action proceeds; Reject — the action is denied; Request
   revision — ask the agent to modify and resubmit"*.[^approvals] Note the third verb: **a queue whose only
   outcomes are yes/no is under-specified**; *request revision* is the one that keeps work moving.
@@ -236,8 +248,8 @@ the cost, and §5(d) argues honestly that (b) is currently a build for a hypothe
 **This is the highest-value single artifact in the paper**, because it is a production failure narrated by
 the people who hit it, and the same failure is live here.
 
-**The scar, verbatim from the commit that fixed it** (`678728f`, 2026-08-04, PR #10675, 36 files,
-+3,420/−60):[^commit-10675]
+**The scar, verbatim from the commit that fixed it** (`678728f`, 2026-08-04, PR #10675, **47 changed files**,
++3,420 / −60):[^commit-10675]
 
 > *"Agents move issues to `in_review` and rely on a 'review path' (an interaction, an approval, a monitor, or
 > a named reviewer) to tell them who decides next."*
@@ -266,7 +278,7 @@ repo detects one.** Multiply by many edges and many MDCs and the failure becomes
 *every artifact that enters a "waiting on a decision" state must carry a durable pointer to who decides and
 what the next action is; the absence of that pointer is itself a first-class, surfaced state.*
 
-**Cost to build here.** *(derived — inputs: PR #10675's 36-file/3,480-line footprint, discounted because we
+**Cost to build here.** *(derived — inputs: PR #10675's 47-file / 3,480-line footprint, discounted because we
 have no in-app UI and no server invariant to maintain; our equivalent is a rule plus a detector.)* **A day or
 less for the rule**, expressed as a Research/Workflow standard amendment ("a no-change outcome files an issue
 naming a responsible party and a next action") plus a detector in the `/standup` aggregator from §4.1(a).
@@ -279,7 +291,7 @@ creates `issue_recovery_actions` with `kind`, `status`, `owner_type`, `cause`, `
 (jsonb), `next_action`, `wake_policy`, `monitor_policy`, `attempt_count`, `max_attempts`, `timeout_at`,
 `last_attempt_at`, `outcome`, `resolution_note`, `resolved_at`.[^mig-0084]
 
-**And the uniqueness is enforced in Postgres, not in application code** — four partial unique indexes across
+**And the uniqueness is enforced in Postgres, not in application code** — five partial unique indexes across
 three migrations:[^mig-0084][^mig-0069][^mig-0206]
 
 ```sql
@@ -296,6 +308,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS "issues_active_liveness_recovery_incident_uq" 
   USING btree ("company_id","origin_kind","origin_id")
   WHERE "origin_kind" = 'harness_liveness_escalation' AND "origin_id" IS NOT NULL
     AND "hidden_at" IS NULL AND "status" NOT IN ('done', 'cancelled');
+CREATE UNIQUE INDEX IF NOT EXISTS "issues_active_liveness_recovery_leaf_uq" ON "issues"
+  USING btree ("company_id","origin_kind","origin_fingerprint")
+  WHERE "origin_kind" = 'harness_liveness_escalation' AND "origin_fingerprint" <> 'default'
+    AND "hidden_at" IS NULL AND "status" NOT IN ('done', 'cancelled');
 
 -- 0206: at most one un-skipped review-path-lost recovery wake per company+key
 CREATE UNIQUE INDEX "agent_wakeup_requests_review_path_recovery_idempotency_uq" ON "agent_wakeup_requests"
@@ -303,6 +319,16 @@ CREATE UNIQUE INDEX "agent_wakeup_requests_review_path_recovery_idempotency_uq" 
   WHERE "agent_wakeup_requests"."idempotency_key" LIKE 'issue_review_path_lost:%'
     AND "agent_wakeup_requests"."status" <> 'skipped';
 ```
+
+**The paired shape is the design, and restoring the fifth index is what made it visible.** Both 0084 and 0069
+ship **two** indexes, not one, and the pairing is the same in each: a **coarse** guard keyed on the identity
+of the thing being recovered (`source_issue_id`; `origin_id`) that permits at most one open recovery *at all*,
+and a **fine** guard keyed on a content fingerprint (`cause, fingerprint`; `origin_fingerprint`) that permits
+at most one open recovery *of that particular kind*. The coarse guard stops a storm; the fine guard stops a
+loop on one cause while still allowing a genuinely different failure to escalate. **A single index cannot do
+both**, which is why there are two — and an earlier draft of this paper, showing only the coarse one from
+0069, reported the mechanism as strictly weaker than it is. *(derived — inputs: the five statements above and
+their `WHERE` clauses.)*
 
 The same discipline appears on plan decomposition, which the execution-semantics doc calls *"an exact-once
 control-plane primitive"* keyed on *"`(sourceIssueId, acceptedPlanRevisionId)`"*[^exec-semantics] and which
@@ -343,21 +369,27 @@ Watchdog verdicts get their own table, `heartbeat_run_watchdog_decisions`, with 
 `reason` and provenance columns.[^schema-watchdog]
 
 A **second** watchdog operates one level up, over an issue subtree rather than a process: it fires *"When
-every leaf in that subtree comes to rest — done, cancelled, blocked, in review, or waiting"*, treats the
-subtree as live if *"any included issue has a live run (`queued`, `running`, `scheduled_retry`), a queued wake
+every leaf in that subtree comes to rest — done, cancelled, blocked, in review, or waiting on an
+interaction"*, treats the subtree as live if *"any included issue has a live run (`queued`, `running`,
+`scheduled_retry`), a queued wake
 request, or a scheduled retry"*, and then either leaves genuinely-complete leaves alone *"with a short note on
 what was checked"* or, if a leaf is not genuinely complete, acts to *"restore a live path: reopen the issue,
-reassign, comment actionable instructions."*[^watchdog-doc] It dedupes against a
+reassign, comment actionable instructions…"*[^watchdog-doc] It dedupes against a
 `lastReviewedFingerprint`,[^watchdog-doc] persisted as `last_observed_stop_snapshot` /
 `last_reviewed_stop_snapshot` on `issue_watchdogs` by migration `0192`.[^mig-0192] **Two watchdogs at
 two altitudes — one asking "is this process producing anything?", one asking "did this tree of work actually
 finish?" — is the shape worth copying, not either one alone.** *(derived.)*
 
-The rule the process-level columns implement: *"Paperclip treats prolonged output silence as a watchdog signal"*, with
-*"a 30-minute default re-arm window before the watchdog evaluates the still-silent run again."*[^exec-semantics]
+The rule the process-level columns implement: *"Paperclip treats prolonged output silence as a watchdog
+signal"*, with *"a 30-minute default re-arm window before the watchdog evaluates the still-silent run
+again."*[^exec-semantics]
 And the framing that makes it work: *"an issue is healthy when the product can answer 'what moves this
-forward next?'"*; *"an issue is stalled when it is non-terminal but has no live execution
-path."*[^exec-semantics] Coalescing prevents duplicate work: *"If an agent is already running, new wakeups
+forward next?'"*; *"An issue is stalled when it is non-terminal but has no live execution path, no explicit
+waiting path, and no recovery path."*[^exec-semantics] **All three negatives are load-bearing and an earlier
+draft of this paper quoted only the first.** A detector that fires on "no live execution path" alone raises an
+alarm on every legitimately-waiting item — it manufactures exactly the false-alarm noise §4.1 and §5(d) warn
+against. *The correct predicate is the conjunction: not running, not waiting, and not already being
+recovered.* Coalescing prevents duplicate work: *"If an agent is already running, new wakeups
 are merged (coalesced) instead of launching duplicate runs."*[^agents-runtime]
 
 **Why it matters for the federated destination.** For a long agentic CLI run, *"is the process alive"* is the
@@ -382,8 +414,13 @@ provides `execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult>
 `parseStdoutLine(line, ts): TranscriptEntry[]` and `buildAdapterConfig(values)`. The **CLI** layer provides
 `formatStdoutEvent(line, debug)`.[^skill-adapter][^creating-adapter] Registration is
 `registerServerAdapter(adapter)` / `requireServerAdapter(type)` and `registerUIAdapter` /
-`findUIAdapter`.[^adapter-plugin] Eleven adapters ship: Claude Code, Codex, Gemini CLI, OpenCode, Cursor, Pi,
-Hermes, Hermes Gateway, OpenClaw Gateway, Process, HTTP.[^adapters-overview]
+`findUIAdapter`.[^adapter-plugin] **At least eleven** built-in adapters ship — Claude Code (`claude_local`),
+Codex (`codex_local`), Gemini CLI (`gemini_local`), OpenCode (`opencode_local`), Cursor (`cursor`), Pi
+(`pi_local`), Hermes (`hermes_local`), Hermes Gateway (`hermes_gateway`), OpenClaw Gateway
+(`openclaw_gateway`), Process (`process`), HTTP (`http`) — with **a twelfth, Droid (`droid_local`), reported
+by an independent re-fetch that my own two fetches of the same page did not return.**[^adapters-overview]
+*"At least"* is deliberate: the listing disagreed across fetches, so the count is stated as a floor rather
+than a total (§5(c)).
 
 The server injects a fixed env contract: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`,
 `PAPERCLIP_RUN_ID`, `PAPERCLIP_TASK_ID`, `PAPERCLIP_WAKE_REASON`, `PAPERCLIP_WAKE_COMMENT_ID`,
@@ -418,8 +455,8 @@ registration contract, not after it. Dependency: `Phase: Temporal Integration`, 
 ### 4.6 — Credentials at the edge: precedent exists, and it corrects a claim `RANK 6`
 
 **What it is.** Claude Code auth in Paperclip is *"Either `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in
-adapter or environment"* **or** *"a Claude Code subscription login available to the execution
-target"*.[^claude-local] The precedence is stated explicitly: *"If `ANTHROPIC_API_KEY` is set in adapter env
+adapter or environment env (or host env)"* **or** *"a Claude Code subscription login available to the
+execution target"*.[^claude-local] The precedence is stated explicitly: *"If `ANTHROPIC_API_KEY` is set in adapter env
 or host environment, Claude uses API-key auth instead of subscription login."*[^agents-runtime] — i.e.
 **subscription login is what happens when no key is present.** Credential home is an adapter-level decision:
 *"The adapter decides which credential home is authoritative before the CLI starts."*[^adapters-overview] For
@@ -428,7 +465,7 @@ managed remote runs, *"credentials baked into the sandbox image win for managed 
 config seed."*[^claude-local]
 
 **Why it matters, and what it corrects.** The problem statement frames centralized platforms as paying for
-orchestration with *"credentials that must leave the machine they belong to."*[^problem-statement] **The
+orchestration with *"credentials that must leave the machine they belong to…"*[^problem-statement] **The
 largest player in the category does not require that for local Claude Code runs.** Our credentials-stay-at-
 the-edge position therefore has **precedent at scale**, which cuts both ways honestly: it de-risks the
 position (someone with 75k stars ships it) and it removes any claim that the position is unusual. The
@@ -462,7 +499,7 @@ On the claim-and-contend axis, Paperclip is **neither** central-queue role-pull 
 | This repo (designed) | the edge's identity — it sees only its own work | none by construction[^problem-statement] |
 
 **Why it matters.** Differentiator #2 asserts *"The common model is a central queue where workers advertise a
-role and claim from a shared pool."*[^problem-statement] **The largest player is a partial counter-example**:
+role and claim from a shared pool…"*[^problem-statement] **The largest player is a partial counter-example**:
 it directs work to a named agent. But it is not our model either — its "worker" is a logical employee that
 can share a host with other employees, so the machine-identity binding that makes our edges non-fungible is
 absent. **The honest revision: "common" overstates it; the field has at least three shapes, and ours is
@@ -481,12 +518,27 @@ from structure. A `heartbeat_run_watchdog_decisions` table is not a working watc
 constraint exists, not that the code path that would violate it is ever reached. **The single largest
 weakness**, and test-plan items 1 and 2 are its direct tests.
 
-**(b) The fetch tool summarizes, and it enforces a ~125-character quote ceiling.** Short spans quoted above
-appeared inside quotation marks in fetch output. The **SQL blocks in §4.3 and the commit message in §4.2 came
-back as reproduced code/quote blocks longer than that ceiling** — they are the highest-confidence material in
-the paper *and* the material a critic should byte-verify first, because a summarizing model reproducing a
-long block is exactly where a clause gets silently elided. **Treat §4.2's three quoted sentences and §4.3's
-four index definitions as the byte-verification priority.**
+**(b) The observed corruption mode is ELISION, not garbling — measured, and the correction is the useful
+part.** An earlier draft of this section predicted that a summarizing model reproducing a long block would
+garble clauses *inside* it, and named the long SQL/commit blocks as the byte-verification priority for that
+reason. **Independent re-fetching falsified the prediction**: every long reproduced block in §4.2 and §4.3
+was byte-accurate, character for character. What actually went wrong was the opposite shape, and it is more
+dangerous because it leaves no visible seam:
+
+- **A whole statement dropped from a block presented as reproduced.** §4.3's 0069 block originally showed one
+  of the file's *two* partial unique indexes; `issues_active_liveness_recovery_leaf_uq` was simply absent, and
+  the surviving text was well-formed SQL. The paper's own prose said *"per incident, and per leaf
+  fingerprint"* — **the inline description contradicted the block above it, and that contradiction was the
+  only available tell.**
+- **Sentence tails truncated and closed with a period rather than an ellipsis**, which converts a partial
+  quote into an apparently-complete one. The worst instance was §4.4's *"stalled"* definition, where dropping
+  two of three conditions **inverts the rule the section teaches** (now restored, with the failure recorded
+  in-place).
+
+**The lesson generalises past this paper: a fetched long block is trustworthy character-by-character and
+untrustworthy statement-by-statement.** Verify *completeness* against the source's structure — statement
+count, bullet count, list length — not *fidelity* of the text you were given. Internal contradiction between
+a block and the prose describing it is the cheapest available detector.
 
 **(c) A measured enumeration failure inside this paper.** The GitHub *contents* API listing of
 `packages/db/src/migrations` was summarized as **95 entries** ending at `0094_…`. The *git trees* API on the
@@ -496,8 +548,27 @@ The trees answer is corroborated three ways: the highest filename is `0206`; PR 
 0206 is consistent with the repo's documented practice, PR #4244 recording *"renumbered branch migrations to
 `0063` and `0064`"*[^commit-4244]; and the dispatch's own prior "200+" figure matches. **The contents-API
 count was wrong by 2×.** This is a *new* failure mode beside the known wrong-branch-404: a summarizing fetch
-can silently under-enumerate a listing. **Rule: use the git trees API, never a summarized contents listing,
-for any count that becomes a finding.**
+can silently under-enumerate a listing.
+
+**The rule that draft produced was too weak, and this paper then violated it.** The draft rule was *"use the
+git trees API, never a summarized contents listing."* Two things falsified it. First, the paper asserted a
+file count for `ui/src/pages` **sourced from the contents API** — the very method it had just ruled out.
+Second, when that count was re-sourced, **the trees API did not agree with itself**: three fetches of the
+same directory returned **147** (contents), **169** and **181** (trees, both `truncated: false`). A
+same-hour push cannot plausibly account for the spread. The adapter list behaved the same way — two of my
+fetches enumerated eleven built-in adapters, an independent fetch of the identical page enumerated twelve.
+
+**The corrected rule, and it is stricter:**
+
+1. **A count is a finding only when it is corroborated by a second, structurally different signal.** The
+   206-migration figure survives because it is cross-checked by monotonic filename numbering *and* by two
+   commit messages naming migration numbers — not because the trees API said so.
+2. **An uncorroborated count is stated as a floor ("at least N") or not stated at all.** The `ui/src/pages`
+   count is now **dropped** from §4.1; the adapter count is now **"at least eleven."** Neither carried any
+   argument, which is why dropping them costs nothing — *and that is the test to apply before quoting any
+   count: if the number is load-bearing, corroborate it; if it is decoration, delete it.*
+3. **The `.agents/skills` count of 20 is retained** because §5(g)'s "17 of 20" scoping depends on it and it
+   was independently confirmed via trees.[^agents-skills]
 
 **(d) The strongest case against §4.1 is that we have one operator.** An attention inbox is a solution to
 *many things demand a scarce human*. Today: one operator, a handful of dispatches, and `/standup` already
@@ -550,7 +621,7 @@ For the master-planning pass. Each row is sequenceable; costs are `derived` and 
 |---|---|---|---|---|
 | 1 | **Blocked-work queue in `/standup`** — typed rows (`blocking`/`review`), responsible party, since-when, one resolving command | New roadmap item; currently **homeless** | hours – 2 days | none |
 | 2 | **Maintained-decision-path rule** — no artifact may sit in a waiting state without a named decider and next action; absence is a surfaced state | Standards-amendment candidate + row-type for #1 | ≤ 1 day | sequence with #1 |
-| 3 | **Recovery taxonomy** — `cause`, `fingerprint`, `evidence`, `next_action`, `max_attempts`, `outcome` as typed fields on retried work | `Phase: Temporal Integration` | ~1 day design | Temporal port |
+| 3 | **Recovery taxonomy** — `cause`, `fingerprint`, `evidence`, `next_action`, `max_attempts`, `outcome` as typed fields on retried work, **plus the coarse/fine dedupe pairing** (one open recovery per work item *and* one per distinct cause) | `Phase: Temporal Integration` | ~1 day design | Temporal port |
 | 4 | **Liveness payload design** — activity heartbeat carries `lastOutputAt` + `lastUsefulActionAt`, not just aliveness; silence threshold with re-arm | `Phase: Temporal Integration`, **before** workers are written | hours (design), constrains build | `claude_cli` activity design |
 | 5 | **Skills injection via `--add-dir` temp symlink farm** — never pollute the checkout | `Phase: Temporal Integration` / edge worker | hours | none |
 | 6 | **`testEnvironment`-style capability preflight at worker registration** | `Phase: Temporal Integration`, worker startup | 2–4 days | worker contract |
@@ -596,12 +667,16 @@ Phase 4.
   with a `.sql` extension, `truncated: false`**; highest-numbered
   `0206_review_path_recovery_idempotency_index.sql`. Fetched 2026-08-04.
   https://api.github.com/repos/paperclipai/paperclip/git/trees/master:packages%2Fdb%2Fsrc%2Fmigrations
-[^ui-pages]: GitHub contents API, `ui/src/pages` (147 entries incl. tests) — includes `Inbox.tsx`,
-  `DecisionQueuePage.tsx`, `Approvals.tsx`, `ApprovalDetail.tsx`, `MyIssues.tsx`, `Dashboard.tsx`,
-  `DashboardLive.tsx`, `Activity.tsx`.
+[^ui-pages]: GitHub contents API, `ui/src/pages` — **no file count is cited from this source; three fetches
+  disagreed (147 / 169 / 181), see §5(c).** The named files — `Inbox.tsx`, `DecisionQueuePage.tsx`,
+  `Approvals.tsx`, `ApprovalDetail.tsx`, `MyIssues.tsx`, `Dashboard.tsx`, `DashboardLive.tsx`, `Activity.tsx`
+  — come from the contents-API listing, which enumerated names; the two trees fetches were prompted for
+  counts only and did not re-enumerate names, so the file *names* rest on a single fetch.
   https://api.github.com/repos/paperclipai/paperclip/contents/ui/src/pages?ref=master
 [^agents-skills]: GitHub contents API, `.agents/skills` — 20 skill directories including `create-agent-adapter`,
-  `diagnose-why-work-stopped`, `garden-inbox`, `check-pr`, `pr-gardening`, `prcheckloop`.
+  `diagnose-why-work-stopped`, `garden-inbox`, `check-pr`, `pr-gardening`, `prcheckloop`. **The count of 20 is
+  the one directory count this paper retains**, because §5(g)'s "17 of 20" scoping depends on it and it was
+  independently corroborated via the git trees API in critic round 1.
   https://api.github.com/repos/paperclipai/paperclip/contents/.agents/skills?ref=master
 [^evals]: GitHub contents API, `evals` — `README.md`, `promptfoo/`.
   https://api.github.com/repos/paperclipai/paperclip/contents/evals?ref=master
@@ -631,8 +706,9 @@ Phase 4.
 **First-party — commit provenance**
 
 [^commit-10675]: Commit `678728f650bf2a03f325922db32efb038dbb6ac9`, 2026-08-04T18:54:40Z — *"feat: maintained
-  in_review review-path contract + stalled-review actions (#10675)"*; 36 files, +3,420 / −60. Full message
-  retrieved via the commits API.
+  in_review review-path contract + stalled-review actions (#10675)"*; `changed_files: 47` per
+  `pulls/10675` (the commit's own `files` array carries 49 entries), `additions: 3420`, `deletions: 60`.
+  Full message retrieved via the commits API.
   https://api.github.com/repos/paperclipai/paperclip/commits/678728f650bf2a03f325922db32efb038dbb6ac9
 [^commit-4244]: Commit `a95739442027bdec8d291030a91e351dc434f635`, 2026-04-22T01:15:11Z — *"[codex] Add
   structured issue-thread interactions (#4244)"*, the commit introducing migration `0064`; contains the
@@ -669,7 +745,9 @@ Phase 4.
   https://raw.githubusercontent.com/paperclipai/paperclip/master/docs/start/architecture.md
 [^core-concepts]: `docs/start/core-concepts.md` (raw).
   https://raw.githubusercontent.com/paperclipai/paperclip/master/docs/start/core-concepts.md
-[^adapters-overview]: `docs/adapters/overview.md` (raw).
+[^adapters-overview]: `docs/adapters/overview.md` (raw). **Built-in adapter count is cited as a floor** — two
+  fetches of this page enumerated eleven, an independent fetch enumerated twelve (adding Droid /
+  `droid_local`); see §5(c).
   https://raw.githubusercontent.com/paperclipai/paperclip/master/docs/adapters/overview.md
 [^claude-local]: `docs/adapters/claude-local.md` (raw).
   https://raw.githubusercontent.com/paperclipai/paperclip/master/docs/adapters/claude-local.md
@@ -732,9 +810,11 @@ Ordered by how much each would change a decision.
    the re-arm interval, and check whether exactly one recovery row appears in `issue_recovery_actions`.
    **Settles §4.3 and §4.4** — whether the recovery machinery is real or structural. Budget: ~1 hour after
    item 1.
-3. **Byte-verify the long reproduced blocks outside a summarizing fetch** — §4.2's three commit sentences and
-   §4.3's four index definitions. Clone or `curl` the raw bytes. **Settles §5(b).** Cheapest item here; do it
-   first if the critic is budget-constrained.
+3. **Verify the long reproduced blocks for COMPLETENESS, not fidelity** — §4.2's three commit sentences and
+   §4.3's **five** index definitions across 0084 / 0069 / 0206. Clone or `curl` the raw bytes and **count
+   statements against the source file** rather than reading for wording; round 1 established that the
+   character sequences are accurate and that a whole statement had gone missing. **Settles §5(b).** Cheapest
+   item here; do it first if the critic is budget-constrained.
 4. **Prototype §4.1(a) against real repos for two weeks and measure.** Does the *Blocked — needs you* section
    surface anything `/standup` does not? How many rows per day, and how many are false alarms? **Settles
    §5(d)** — whether an attention queue is a real need at one operator or premature federation-shaped

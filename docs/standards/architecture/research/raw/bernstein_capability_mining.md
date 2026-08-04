@@ -10,7 +10,11 @@ Feeds:          docs/development/roadmap.md — new items across phases (named p
 Last validated: 2026-08-04
 Revalidate:     high — 2 weeks
 Confidence:     DEFINITIVE on repository-level scalars fetched from APIs (default_branch, stars,
-                pushed_at, licence, PyPI upload timestamps, directory listings, CRD field values).
+                pushed_at, licence, PyPI upload timestamps, CRD field values) and on SMALL directory
+                listings, which were verified exactly. NOT definitive — and withdrawn from this
+                paper — on counts taken from LARGE directory listings: enumerating a long JSON array
+                is the one operation §1.3 shows the fetch layer handling badly, and §1.4 states the
+                withdrawal.
                 DEFINITIVE-AT-DOCUMENTATION-LEVEL and UNVERIFIED-AT-BEHAVIOURAL-LEVEL on every
                 capability: all of it comes from bernstein's own docs, nothing was executed, and
                 bernstein itself documents that its docs lag its code (§7.2). DERIVED — and the
@@ -23,7 +27,10 @@ Negative:       Six findings of absence, each with its search method: no control
                 case in the user-facing use-case list despite five shipped modalities (§0.1); ADR
                 002 absent from the decisions directory (§7.4); lesson filing still unwired
                 (§4.11); no trace of anything resembling differentiator #3 (§0.3).
-Critic:         not-yet-verified — 2026-08-04
+Critic:         PASS-WITH-FIXES (ADR-005 spawn-overhead unit corrected per-batch→per-spawn;
+                DEFINITIVE-marked docs/ listing counts withdrawn as summarizer-derived; §5 cost-S
+                tally corrected nine→eight; §1.3 reworded from fabrication to summarizer truncation;
+                §0.1 headline splice marked) — 2026-08-04
 ```
 
 > **Read §0 first.** One of the two differentiators this paper was asked to re-check has moved. That
@@ -43,10 +50,12 @@ bernstein's current documentation on 2026-08-04.
 **The claim as written is no longer safe.** bernstein ships a typed activity boundary that admits
 non-coding modalities as first-class citizens of the same scheduler.
 
-`docs/operations/activity-boundary.md` states that "A non-coding modality -- research,
-browser/computer-use, data, ops -- participates through as a replayable step: every activity returns
-an artifact plus the hashes needed to replay it," names the modality set as "research / browser /
-data / ops / coding," and requires that "every modality returns an `ActivityResult`" carrying kind,
+`docs/operations/activity-boundary.md` states that "The typed activity boundary is the one contract a
+non-coding modality -- research, browser/computer-use, data, ops -- participates through as a
+replayable step" and that "every activity returns an artifact plus the hashes needed to replay it"
+*(two spans from the source, joined here for readability — they are not one sentence)*. It names the
+modality set as "research / browser / data / ops / coding," and requires that "every modality returns
+an `ActivityResult`" carrying kind,
 artifact, artifact_hash, evidence_set_hash, terminal_state and reason_code [S14].
 
 Two of those modalities have their own shipped documentation, and both are verified by something
@@ -124,8 +133,8 @@ the problem statement in these terms rather than as a scheduling-model differenc
 ### 0.3 Differentiator #3 — "the first edge builds the others, then operates inside them"
 
 **Not checked as a claim, and no trace found.** Search method: full enumeration of the mkdocs `nav:`
-tree [S2] (hundreds of page entries across the whole doc set) and of the 88-entry `docs/` root
-listing [S3], scanning for any self-construction, bootstrapping, or edge-authoring concept. The
+tree [S2] (hundreds of page entries across the whole doc set) and of the `docs/` root listing [S3],
+scanning for any self-construction, bootstrapping, or edge-authoring concept. The
 nearest neighbours in the tree are `decisions/003-self-evolution.md` (policy self-tuning, §4.12) and
 `concepts/scaffold.md` ("Prompt-to-repo scaffold", not fetched). Neither is the claim. **This is an
 absence in the nav enumeration, not a verified absence in the product** — the nav is the strongest
@@ -162,24 +171,39 @@ the Research Standard's strict verbatim bar is **not** claimed for these spans. 
 **quoted-span (raw source)** — strong evidence, one notch below verbatim.
 
 That distinction is not theoretical. **In this cycle, a summarising fetch of
-`https://pypi.org/pypi/bernstein/json` returned a tidy list of twelve releases dated one per day
-from 2026-05-02 to 2026-05-13. That list is false.** Narrow re-fetches of the per-version endpoints
-returned `bernstein-3.13.0-py3-none-any.whl` at `2026-08-01T16:45:04.125536Z`, `3.12.0` at
-`2026-08-01T01:50:29.983811Z`, and `3.0.0` at `2026-07-06T20:08:52.892817Z` [S43][S44][S45]. The
-fabricated list was internally consistent, plausible, and wrong by three months. Every numeric claim
-in this paper that mattered was re-fetched through the narrowest endpoint that could carry it.
+`https://pypi.org/pypi/bernstein/json` returned a partial release list that read as a complete
+history and was wrong as one** — a tidy run of releases dated across early-to-mid May 2026,
+presented as the package's latest state. Narrow re-fetches of the per-version endpoints returned
+`bernstein-3.13.0-py3-none-any.whl` at `2026-08-01T16:45:04.125536Z`, `3.12.0` at
+`2026-08-01T01:50:29.983811Z`, and `3.0.0` at `2026-07-06T20:08:52.892817Z` [S43][S44][S45]. **The mechanism is most likely truncation rather than invention:** a re-fetch of the
+same endpoint returned a much longer, plausible history whose 1.10.x line does cluster in that May
+window, so the summariser appears to have surfaced a genuine subset of a long array and presented it
+as the whole. That is a milder failure than fabrication and it is stated as the milder one — but it
+is *indistinguishable from fabrication at the point of use*, which is the whole reason the rule
+below exists. Every numeric claim in this paper that mattered was re-fetched through the narrowest
+endpoint that could carry it.
 
 ### 1.4 Coverage — stated as a limit, not smoothed over
 
-The prior cycle read 12 files. This cycle read **~35 additional first-party files spanning 13 of the
-58 `docs/` directories, plus 4 root-level doc files, plus the Helm chart, the CRDs and six contents-API
-listings.** The mkdocs nav enumerates hundreds of pages. **The large majority of bernstein's
-documentation remains unread**, and this paper is a broad sweep, not an exhaustive audit. Directories
-with zero coverage across both cycles include `gui/`, `mcp/`, `compliance/`, `trackers/`,
-`integrations/`, `protocols/`, `sandbox/`, `skills/`, `testing/`, `memory/`, `lineage/`, `api/`,
-`interop/`, `benchmarks/`, `blog/`, `events/` and `planning/`. `docs/CHANGELOG.md` was **not** read;
-`release-notes/unreleased.md` and `release-notes/v3.13.0.md` were read instead as the highest-density
-recent-defect seam.
+The prior cycle read 12 files. This cycle read **~35 additional first-party files** — 13 `docs/`
+subdirectories were touched, plus 4 root-level doc files, the Helm chart, the CRDs and six
+contents-API listings. **No denominator is stated for that coverage, deliberately.** An earlier draft
+gave one ("13 of 58 directories", "88 entries"); those figures came from a *summarizing* fetch
+counting a long JSON array, which is the single operation §1.3 shows this fetch layer handling badly,
+and a re-fetch of the identical endpoint returned a materially different tally. **The counts are
+therefore withdrawn rather than corrected** — the git trees API is the reliable enumeration method
+and this cycle did not use it. What is safe to say is qualitative and sufficient: the mkdocs `nav:`
+[S2] enumerates hundreds of pages, **the large majority of bernstein's documentation remains
+unread**, and this paper is a broad sweep, not an exhaustive audit. Directories with zero coverage
+across both cycles include `gui/`, `mcp/`, `compliance/`, `trackers/`, `integrations/`, `protocols/`,
+`sandbox/`, `skills/`, `testing/`, `memory/`, `lineage/`, `api/`, `interop/`, `benchmarks/`, `blog/`,
+`events/` and `planning/` — that list is read off the nav tree, not off a count.
+`docs/CHANGELOG.md` was **not** read; `release-notes/unreleased.md` and `release-notes/v3.13.0.md`
+were read instead as the highest-density recent-defect seam.
+
+**Direction of the error, stated because it matters to a consumer:** the withdrawn denominator
+*understated* this paper's own coverage. No claim in §4 or §5 is inflated by it; only the honesty
+bound was mis-sized.
 
 ---
 
@@ -191,7 +215,7 @@ recent-defect seam.
 | Licence | `Apache-2.0` | [S1][S42] |
 | Stars | 788 | [S1] |
 | Created / last push | `2026-03-22T14:52:26Z` / `2026-08-04T19:26:33Z` | [S1] |
-| Forks / open issues / watchers | 93 / 76 / 9 | [S1] |
+| Forks / open issues / watchers | 93 / 76 / 9 — the last is `subscribers_count`, which is what GitHub's UI labels "Watching"; the API's `watchers_count` field is a duplicate of the star count | [S1] |
 | Language, PyPI version, Python floor | Python, `3.13.0`, `>=3.12` | [S1][S42] |
 | Release cadence, **measured** | `3.0.0` 2026-07-06 → `3.13.0` 2026-08-01: **13 minor releases in 26 days**, two of them (`3.12.0`, `3.13.0`) on the same calendar day | [S43][S44][S45] |
 
@@ -379,9 +403,12 @@ model, and three failure modes:
 Only 3 of 12 agents proved reliable [S20].
 
 **What replaced it.** "Agents are short-lived. They spawn with a batch of 1–3 tasks, execute them
-sequentially, and exit cleanly." Pure single-task spawning was rejected because spawn overhead of
-"~3–5K tokens per batch" is wasteful for related work; batching 2–3 "amortizes spawn cost and
-preserves useful context." Two hard safeguards: "Agents are killed after a configurable wall-clock
+sequentially, and exit cleanly." Pure single-task spawning was rejected because the ADR prices
+context loading **per spawn**, not per unit of work — "With many tasks and ~3–5K tokens per spawn for
+context loading, pure pull accumulates significant spawn overhead" — so batching 2–3 related tasks
+"amortizes spawn cost and preserves useful context." **The batch cap exists because the two costs
+pull in opposite directions:** per-spawn context loading rewards larger batches, and context staleness
+punishes them. Two hard safeguards: "Agents are killed after a configurable wall-clock
 limit (default: 30 minutes) regardless of claimed progress," and a batch cap of "1–3 tasks. Above 3,
 context accumulates enough stale information that the agent's performance degrades measurably"
 [S20].
@@ -781,7 +808,8 @@ notes it becomes a first-class CLI spelling: "`bernstein eval --reliability K is
 spelling`" [S18].
 
 **Provenance note:** `pass^k` is not bernstein's invention — it is the metric introduced by τ-bench,
-already cited in this pool (`raw/backbone_edge_generality.md` [S33] → arXiv 2406.12045). **What
+already cited elsewhere in this pool as `backbone_edge_generality.md`'s **[S33]**, a *different*
+paper's label for arXiv 2406.12045 and not this paper's [S33] (`docs/eval/reliability.md`). **What
 bernstein contributes is operationalising it as a shipped gate**, which is the part we would
 otherwise have to figure out. *(derived.)*
 
@@ -951,8 +979,9 @@ topic, as priced inputs.
 | 19 | WAL / file-based state / journal (§4.12, ADR-004 [S51]) | **No** | **no** | — | — | superseded by Temporal |
 | 20 | mTLS machinery + DR runbook (§4.18) | **No** — take three constraints only | **no** | **L** | a cluster | deferred identity topic |
 
-**Nine of the fourteen unconditional "yes" items (rows 1–14) are cost S and depend on nothing.** *(DERIVED from the column
-values above.)* That is the actionable summary: the majority of the value in the nearest neighbour is
+**Eight of the fourteen unconditional "yes" items (rows 2, 4, 6, 8, 9, 10, 11, 12) are cost S and
+depend on nothing; a ninth (row 14, the local OTel projection) depends on nothing but is costed
+S–M.** *(DERIVED from the column values above.)* That is the actionable summary: the majority of the value in the nearest neighbour is
 in *interfaces and doctrine*, not in machinery — which is the expected result when the machinery
 question has already been answered by choosing Temporal.
 
@@ -1044,9 +1073,10 @@ adopting bernstein's numbers as **starting calibration explicitly labelled as th
 
 ### 7.4 Where this paper is weak, specifically
 
-- **Coverage is ~13 of 58 doc directories** (§1.4). Whole areas — `gui/`, `mcp/`, `compliance/`,
-  `trackers/`, `memory/`, `lineage/` — are unread. `docs/CHANGELOG.md` was not read at all, and it is
-  the richest remaining seam for design reversals.
+- **Coverage is a small minority of the doc set, and is stated without a denominator** (§1.4 — the
+  earlier numeric denominator was withdrawn as summarizer-derived). Whole areas — `gui/`, `mcp/`,
+  `compliance/`, `trackers/`, `memory/`, `lineage/` — are unread. `docs/CHANGELOG.md` was not read at
+  all, and it is the richest remaining seam for design reversals.
 - **The commit history was not analysed.** The dispatch's "~3,397 commits by one maintainer" is
   **not** verified here; no commit-author query was run. §2's single-maintainer risk is therefore
   supported only indirectly, by [S17].
@@ -1060,8 +1090,8 @@ adopting bernstein's numbers as **starting calibration explicitly labelled as th
 - **Every "quoted" span is §1.3-class, not strict-verbatim.** A critic re-fetching these URLs should
   expect the substance to match and should treat any character-level mismatch as a fetch-layer
   artefact to be reported, not as fabrication — but the possibility that a span was reworded by the
-  fetch layer cannot be excluded, and §1.3 shows the fetch layer inventing content under other
-  conditions.
+  fetch layer cannot be excluded, and §1.3 shows the fetch layer presenting partial content as
+  complete under other conditions.
 - **No independent corroboration of bernstein's self-reported measurements.** The pilot figures
   [S20] and the audit-chain benchmark [S21] are unreplicated first-party numbers.
 
@@ -1108,13 +1138,13 @@ GitHub contents/repo API. `default_branch` was confirmed as `main` via [S1] **be
 
 - **[S1]** GitHub REST API — repo metadata, `sipyourdrink-ltd/bernstein` (JSON). https://api.github.com/repos/sipyourdrink-ltd/bernstein
 - **[S2]** bernstein — `mkdocs.yml`, full `nav:` tree (raw YAML). https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/mkdocs.yml
-- **[S3]** GitHub contents API — `docs/` listing, 88 entries. https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/docs
+- **[S3]** GitHub contents API — `docs/` listing. **Cited for the *presence* of the named directories only; no count from this endpoint is used (§1.4).** https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/docs
 - **[S4]** GitHub contents API — `docs/cluster/` listing (2 files). https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/docs/cluster
 - **[S16]** GitHub contents API — `docs/decisions/` listing (9 files; 001, 003–010). https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/docs/decisions
 - **[S39]** GitHub contents API — `deploy/helm/bernstein/crds/` listing. https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/deploy/helm/bernstein/crds
 - **[S41]** GitHub contents API — `deploy/helm/bernstein/templates/` listing (16 files). https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/deploy/helm/bernstein/templates
 - **[S49]** GitHub contents API — `deploy/` listing (`github-app`, `grafana`, `helm`, `otel-collector`, `prometheus`) and repo-root listing (81 entries). https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/deploy · https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/
-- **[S42]** PyPI JSON API — package `bernstein` (version, licence, `requires_python`). https://pypi.org/pypi/bernstein/json — **see §1.3: this endpoint's summarised fetch produced a fabricated release-date list; only the scalar fields are used, and the dates come from [S43]–[S45].**
+- **[S42]** PyPI JSON API — package `bernstein` (version, licence, `requires_python`). https://pypi.org/pypi/bernstein/json — **see §1.3: this endpoint's summarised fetch returned a partial release list presented as a complete history; only the scalar fields are used, and every date comes from [S43]–[S45].**
 - **[S43]** PyPI JSON API — `bernstein` 3.13.0 upload timestamps. https://pypi.org/pypi/bernstein/3.13.0/json
 - **[S44]** PyPI JSON API — `bernstein` 3.12.0 upload timestamps. https://pypi.org/pypi/bernstein/3.12.0/json
 - **[S45]** PyPI JSON API — `bernstein` 3.0.0 upload timestamps. https://pypi.org/pypi/bernstein/3.0.0/json

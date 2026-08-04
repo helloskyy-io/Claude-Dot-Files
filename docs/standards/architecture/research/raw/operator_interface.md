@@ -25,7 +25,9 @@ Confidence:     DEFINITIVE on the shipped feature inventory of ten comparable sy
                 Temporal-covers-most argument (§4.1), the cost estimates (§4, §6), and the
                 sequenced minimum (§6). UNVERIFIED and therefore UNUSED: the widely
                 repeated "75% of Nextflow users" statistic (§5.6.5).
-Critic:         not-yet-verified — 2026-08-04
+Critic:         PASS-WITH-FIXES (Bainbridge §2.1 verbatim span de-drifted; "many edges
+                across many MDCs" re-attributed off problem-statement.md; §5.6.4
+                Prefect/Dagster tagline claim corrected; three precision nits) — 2026-08-04
 ```
 
 > **Quoting discipline, stated once and binding on every quote below.** Only [S31]
@@ -119,10 +121,13 @@ of the argument for a surface, and it is worth stating precisely rather than as 
   operator to be present in order to reveal that work stopped has a latency equal to the
   gap between operator sessions.
 - The operator is **absent from the machine**, so state that lives on the machine that ran
-  the dispatch (this repo's JSONL logs live at `<repo>/.claude/logs/` on the machine that
-  dispatched — confirmed by reading `scripts/workflows/*.sh`, every one of which sets
-  `LOG_DIR="${REPO_ROOT}/.claude/logs"`) is not reachable without knowing which machine to
-  go to.
+  the dispatch is not reachable without knowing which machine to go to. This repo's JSONL
+  logs are exactly that state: confirmed by reading `scripts/workflows/*.sh`, where the
+  parents and children set `LOG_DIR="${REPO_ROOT}/.claude/logs"` and `review-runs.sh`
+  — which reads rather than writes the corpus — resolves the same directory via
+  `${MAIN_REPO_ROOT}` so that a worktree dispatch still lands in the main repo's log dir.
+  Either way the path is **per-repo and per-machine**, which is the property that matters
+  here.
 - With **many edges across many MDCs**, "which machine" stops being a question the operator
   can answer from memory.
 
@@ -143,12 +148,13 @@ agent fabric. Read from the paper's own pages:
 > abnormalities, which therefore has to be done by an automatic alarm system connected to
 > sound signals." *(p. 776, §1.1.3)* **[verbatim]** [S31]
 
-> "In any situation where a low probability event must be noticed quickly then the operator
-> must be given artificial assistance, if necessary even alarms on alarms." *(p. 776, §2.1)*
+> "In any situation where a low probability event must be noticed quickly the operator must
+> be given artificial assistance, if necessary even alarms on alarms." *(p. 776, §2.1)*
 > **[verbatim]** [S31]
 
-And immediately after, the counterweight that makes the paper research rather than
-advocacy for dashboards:
+And in the **same paragraph**, two sentences later — one intervening sentence, on alarm
+analysis in a process with many loops — the counterweight that makes the paper research
+rather than advocacy for dashboards:
 
 > "Unfortunately a proliferation of flashing red lights will confuse rather than help."
 > *(p. 776, §2.1)* **[verbatim]** [S31]
@@ -165,8 +171,9 @@ constraints for everything below:
    `/standup` is a pull surface: it detects nothing until the operator invokes it. It is a
    *briefing*, not an alarm.
 2. **A push surface must be filtered or it degrades to noise.** "Alarms on alarms" and
-   "flashing red lights will confuse rather than help" are the same author, one paragraph
-   apart. This is the constraint §6.1's design must satisfy.
+   "flashing red lights will confuse rather than help" are the same author in the **same
+   paragraph**, two sentences apart — Bainbridge states the requirement and its own failure
+   mode in one breath. This is the constraint §6.1's design must satisfy.
 3. **The rarer intervention becomes, the more context the surface must carry.** Bainbridge's
    final irony says the successful automated system is the one whose operator is least
    prepared to intervene. The implication is not "notify more"; it is that when a
@@ -220,7 +227,7 @@ simultaneously. Atlantis uses D plus a single screen of A.
 | — its blocked-work primitive [S11] | *"A hold is a lightweight, heartbeat-renewed lease: acquire it before a gap in task submission, renew it periodically while you still need it, release it when you're done."* [quoted-via-fetch] | Free-text `reason` (documented example: `"waiting on human approval for phase 2"`); listed via `GET /orchestrator/holds`; cleared by `DELETE /orchestrator/holds/{hold_id}` or by TTL expiry |
 | — its mobile story [S9] | *"Install the Bernstein dashboard as a phone home-screen PWA via a Cloudflare / ngrok / bore / Tailscale tunnel with QR onboarding."* [quoted-via-fetch] | The operator surface is explicitly designed to be reachable when the operator is away from the machine |
 | **Paperclip** (MIT, 75,610★, default branch `master`, pushed 2026-08-04) [S14]–[S18] | Node.js server + React UI | **Dashboard** — *"The dashboard gives you a real-time overview of your autonomous company's health."* [quoted-via-fetch]: agent status counts (active / idle / running / error); task breakdown by status (todo / in progress / **blocked** / done); **stale tasks** (in progress without recent updates); cost summary vs budget with burn rate; recent activity. **Approvals page** — *"Paperclip includes approval gates that keep the human board operator in control of key decisions."* [quoted-via-fetch]; each approval shows requester, rationale, linked issues; actions approve / reject / *"Request revision — ask the agent to modify and resubmit."* [quoted-via-fetch]. **Overrides:** pause/resume agents, terminate agents, reassign tasks, override budgets. **Execution policy** [S17]: a three-layer gate — comment required (always on), review stage, approval stage — where a completed task transitions to `in_review` rather than `done` |
-| **`cli-agent-orchestrator`** (AWS Labs, 989★, pushed 2026-08-04) [S28][S29] | Explicit *"Control-plane selection"*: Web UI, shell CLI, operations MCP server, or plugins; Web UI at `localhost:9889`, described together with MCP Apps as *"browser and host-rendered fleet interfaces"* [quoted-via-fetch] | *"Manage sessions, spawn agents, create scheduled flows, configure agent directories, and interact with live terminals — all from the browser."* [quoted-via-fetch]; live status badges, an **inbox** (for agent-to-agent messaging), output viewer. Also tmux attach for direct session access |
+| **`cli-agent-orchestrator`** (AWS Labs, 989★, pushed 2026-08-04) [S28][S29] | Explicit *"Control-plane selection"*: Web UI, shell CLI, operations MCP server, or plugins; Web UI at `localhost:9889`, described together with MCP Apps as *"browser and host-rendered fleet interfaces"* [quoted-via-fetch] — all from the README [S28] | From the Web UI doc [S29]: *"Manage sessions, spawn agents, create scheduled flows, configure agent directories, and interact with live terminals — all from the browser."* [quoted-via-fetch]; live status badges, an **inbox** (for agent-to-agent messaging), output viewer. Also tmux attach for direct session access |
 
 ### 3.3 The convergence verdict
 
@@ -238,7 +245,7 @@ Four things are worth more than the headcount:
 
 1. **The convergence is not on "a dashboard." It is on "a control plane," and the word is
    used literally.** AWS Labs' tmux-based orchestrator — the system in this survey with the
-   strongest claim to being terminal-native — names its own configuration section
+   strongest claim to being terminal-native — offers a README entry titled
    *"Control-plane selection"* and ships a browser UI anyway [S28]. `bernstein`'s GUI doc
    opens by saying it *"Replaces the Textual TUI"* [S7]. The direction of travel in this
    category is TUI → browser, and it happened inside a few months in an actively-developed
@@ -518,9 +525,20 @@ The strongest version, stated fairly:
 **Where this argument breaks:** at the second edge, not the second operator. The moment a
 dispatch runs on a machine the operator is not sitting at, "which machine" becomes a
 question, and the JSONL logs — machine-local and repo-local by design — stop being
-reachable. `problem-statement.md` states the destination is *"many edges across many
-MDCs"*. The honest form of the finding is therefore: **the surface is not needed today and
-is needed at edge #2, so the correct time to build the cheap parts is now and the correct
+reachable.
+
+That the destination is multi-edge and multi-MDC is established by `problem-statement.md`
+structurally rather than by any single sentence, so it is cited that way here: its
+opening org diagram places SkyyNet as *"federation and central planning — places paid work
+across MDCs"* over a per-MDC SkyyCommand, and lists this repo alongside *"(future edges)"*;
+its `## The edges` section defines an edge as *"a machine with a capability and a
+credential"* and names building & industrial automation as the next one, *"Beyond it:
+robotics, bioinformatics, and whatever else has a machine, a credential, and a job."*
+(The compact phrasing *"For a fabric running many edges across MDCs"* is from `topics.md`
+line 59 — a sibling research doc, not the architecture statement.)
+
+The honest form of the finding is therefore: **the surface is not needed today and is
+needed at edge #2, so the correct time to build the cheap parts is now and the correct
 time to build the expensive parts is never, because the port covers them.**
 
 ### 5.2 The case against the inbox specifically — and it is the strongest counter-argument in this paper
@@ -650,8 +668,9 @@ copied as a design.
 and documented the cost.** *Search method:* the ten systems in §3, each checked
 first-party; plus a targeted web search for CLI-only / no-dashboard agent orchestrators,
 which surfaced `awslabs/cli-agent-orchestrator` as the leading candidate — and whose README,
-fetched raw, **disproved the search summary's claim** by documenting a Web UI at
-`localhost:9889` under a section named *"Control-plane selection"* [S28]. Atlantis is the
+fetched raw, **disproved the search summary's claim**. The README carries, as separate
+entries, a Web UI at `localhost:9889` and a *"Control-plane selection"* item offering the
+Web UI, shell CLI, operations MCP server or plugins [S28]. Atlantis is the
 closest thing to a counter-example and it still built one screen [S25]. **The absence of a
 documented CLI-only holdout is itself the finding**, and it is why §0 states the requirement
 as established rather than open.
@@ -660,8 +679,10 @@ as established rather than open.
 metadata retrieved via the GitHub API (Prefect: `main`, 23,551★; Dagster: `master`,
 15,930★) [S34][S35]; two candidate raw docs paths under `dagster-io/dagster` (`docs/docs/
 guides/operate/ui/index.md` and `.../operate/webserver/index.md`) both returned HTTP 404
-against the confirmed default branch `master`. Their taglines mention *"observation"* and
-*"observability"* respectively, but **this paper makes no claim about their UI contents.**
+against the confirmed default branch `master`. Dagster's API description mentions
+*"observation"* (*"An orchestration platform for the development, production, and
+observation of data assets"*); Prefect's mentions neither *observation* nor
+*observability*. Either way **this paper makes no claim about their UI contents.**
 Both are widely known to ship UIs; that knowledge is not sourced here and is therefore not
 used. Excluded from the 10/10 count in §3.3.
 

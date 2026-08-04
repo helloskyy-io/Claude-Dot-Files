@@ -19,11 +19,16 @@ Confidence:     DEFINITIVE on every Temporal semantic this paper's conclusions r
                 stated trade-offs. All were read as byte-for-byte file dumps from
                 raw.githubusercontent.com. DEFINITIVE on bernstein's cluster and task protobuf
                 surface and on its MESH claim-journal section (both byte-for-byte). DEFINITIVE on
-                the Kubernetes, GitHub Actions and GitLab routing semantics quoted. REDUCED —
-                sourced from summarizing fetches of raw files, quoted conservatively and never
-                load-bearing alone: Temporal workers.mdx (Worker Identity), worker-performance.mdx
-                (poller autoscaling), Kubernetes statefulset.md, Paperclip agents-runtime.md.
-                REDUCED — rendered page: Slurm sbatch. DERIVED, and the paper's own contribution:
+                the Kubernetes, GitHub Actions and GitLab routing semantics quoted — with the
+                caveat that the Kubernetes spans are verbatim-EQUIVALENT after Hugo-shortcode and
+                emphasis normalization rather than byte-identical to the raw file (transcription
+                note in §3.2). REDUCED — summarizing fetches of raw files, quoted conservatively:
+                Temporal workers.mdx (Worker Identity), worker-performance.mdx (poller
+                autoscaling), Kubernetes statefulset.md, Paperclip agents-runtime.md. REDUCED —
+                rendered page: Slurm sbatch. **TWO OF THOSE REDUCED SOURCES ARE LOAD-BEARING and
+                §6.4 says so:** Slurm is one of FOUR direct sources for the §3.4/§7
+                physical-capability ruling, and Paperclip is the sole external corroboration for
+                the §6.5 credential reframing. DERIVED, and the paper's own contribution:
                 the narrowed verdict (§7), the capability-discovery relocation argument (§4.4), the
                 credential-locality reframing (§6.5), the queue-axis conflict with the vendored
                 Worker Deployment Standard (§4.1), and every cost figure in §8.
@@ -33,7 +38,10 @@ Negative:       Five findings of absence, each with its search method — no fir
                 first-party capability-declaration surface at the Worker level (§4.4); and no
                 published account of a Temporal fleet running stable one-queue-per-physical-machine
                 topology with operational numbers (§6.6).
-Critic:         not-yet-verified — 2026-08-04
+Critic:         PASS-WITH-FIXES (removed an unsupported StatefulSet quote; repointed the
+                vendored-standard pre-flight citation from §8.3 to §8.2/§8.5; narrowed the
+                physical-capability ruling from five families to three direct; corrected the
+                load-bearing self-assessment for S20/S29) — 2026-08-04
 ```
 
 > **Volatility ruling (Research Standard §3, mixed-volatility rule).** The load-bearing Temporal
@@ -212,9 +220,11 @@ Sticky Execution looks like pinning and is not. From the complete file:
 > When stickiness is disabled, the Temporal Service reschedules the Workflow Task in the original
 > queue, allowing any Worker to pick it up and continue the Workflow Execution." [S5]
 
-*(Confidence: **definitive**.)* It is a five-second in-memory cache optimisation that **falls back to
-the pool by design**. It is the opposite of a non-fungibility mechanism. Any plan that cites sticky
-queues as evidence Temporal supports dedicated edges is citing the wrong thing.
+*(Confidence: **definitive**.)* It is an in-memory workflow-state cache whose *stickiness* is
+abandoned if the worker does not start the task within five seconds — the five seconds is the sticky
+schedule-to-start window, not the cache's lifetime — and it **falls back to the shared queue by
+design**. It is the opposite of a non-fungibility mechanism. Any plan that cites sticky queues as
+evidence Temporal supports dedicated edges is citing the wrong thing.
 
 ### 2.4 Worker Sessions are the right shape and are unavailable to us
 
@@ -326,7 +336,9 @@ the two systems is not capability; it is *which mode is the default and which is
 Stating the difference as "not a smaller version of the same design" overstates it at the mechanism
 level. It is defensible at the *default* level, and that is a smaller but still real claim.
 
-Paperclip (MIT, 75,610 stars, pushed 2026-08-04) [S18] is the volume comparator. Its agent-runtime
+Paperclip (MIT, ~75,600 stars as fetched 2026-08-04 — a live counter that moves hourly; a critic
+re-fetch the same day read 75,612, and nothing here depends on the exact figure, only the order of
+magnitude — pushed 2026-08-04) [S18] is the volume comparator. Its agent-runtime
 doc concedes the same locality that drives this design, from the other direction:
 
 > "For local CLI adapters (`claude_local`, `codex_local`, `opencode_local`, `hermes_local`,
@@ -336,7 +348,10 @@ doc concedes the same locality that drives this design, from the other direction
 > "Local CLI adapters run unsandboxed on the host machine." [S20]
 
 *(Confidence: **reduced** — this came from a summarizing fetch of a raw `.md`; the spans are short and
-specific but were not certified byte-for-byte. Nothing in this paper's verdict rests on them.)*
+specific but were not certified byte-for-byte. **Nothing in this section's comparison rests on them —
+but they ARE load-bearing in §6.5**, where [S20] is the sole external corroboration for the
+credential-locality reframing that §7 recommends. An earlier draft claimed nothing in the paper's
+verdict rested on them; corrected at critic round 1, see §6.4.)*
 
 ### 3.2 Infrastructure: dedicated, hardware-bound workers are completely ordinary
 
@@ -359,13 +374,24 @@ Five independent families, all first-party, four of them raw.
 
 > "A _DaemonSet_ ensures that all (or some) Nodes run a copy of a Pod." [S23]
 
-*(Confidence: **definitive** on all Kubernetes quotations except the StatefulSet one below.)*
+*(Confidence: **definitive** on all Kubernetes quotations except the StatefulSet one below.
+**Transcription note, added at critic round 1 — read this before diffing raw bytes.** The Kubernetes
+docs source is Hugo markdown containing shortcodes and emphasis markers that the fetch resolved. The
+first [S21] span appears in the source as `You can constrain a {{< glossary_tooltip text="Pod"
+term_id="pod" >}} so that it is _restricted_ to run on particular {{< glossary_tooltip text="node(s)"
+term_id="node" >}}`, and the two [S22] spans drop bold markers present in the source. These spans are
+therefore **verbatim-equivalent after shortcode normalization, not byte-identical to the raw file**.
+Meaning is unaffected and every span was confirmed present; the distinction is flagged so a
+re-verifier's byte diff does not read as fabrication.)*
 
 A DaemonSet is structurally *identical* to this design's shape: exactly one worker per node,
-addressed by node, never load-balanced. And StatefulSet exists precisely to model non-fungible
-workloads — the docs describe "a sticky identity for each of those Pods" and pods that are "not
-interchangeable" [S24]. *(Confidence: **reduced** — [S24] came from a summarizing fetch; quoted
-conservatively and not load-bearing.)*
+addressed by node, never load-balanced. And StatefulSet exists to model workloads whose instances
+carry identity — the docs describe "a sticky identity for each of those Pods" [S24]. *(Confidence:
+**reduced** — [S24] came from a summarizing fetch; the sticky-identity span was independently
+confirmed exact, and it is the only span from this source used. **Correction, critic round 1:** an
+earlier draft also attributed the phrase "not interchangeable" to [S24]. That word does not occur in
+the document — two independent fetches, one an explicit word search over the full text, confirm its
+absence. It is deleted rather than re-sourced, since the verified span carries the point unaided.)*
 
 **GitHub Actions — labels route, and the no-match behaviour is the interesting part.**
 
@@ -430,18 +456,35 @@ An edge is a machine with a physical capability and its own credential; a roboti
 bioinformatics task because it* is *a different thing, not a differently-labeled one."*
 
 **DERIVED, and this is the sharpest counter-finding in the paper.** The field does not draw that
-distinction, and the evidence is uniform:
+distinction. **The evidence is graded, not uniform** — this ruling goes against this repo's own
+stated position, so it is worth being exact about which sources carry it and which merely rhyme with
+it.
+
+**Carried directly — the fetched span names physical hardware (four sources, three families plus the
+substrate):**
 
 - A Kubernetes node with a GPU is addressed by a **label** (`nodeSelector`) and defended by a **taint** — and Kubernetes' own example for tainting is "a cluster where a small subset of nodes have specialized hardware (for example GPUs)" [S22]. The label is not a substitute for the physical capability; it is the *addressing scheme for* it.
-- A GitHub Actions runner with specific hardware is addressed by **labels** on `runs-on` [S25].
-- A Slurm node's physical features are exposed as **features** matched by `--constraint` [S29].
+- A Slurm node's physical features are exposed as **features** matched by `--constraint`: "Nodes can have features assigned to them by the Slurm administrator." [S29]
 - bernstein's `NodeCapacity` carries `gpu_available` and `supported_models` [S16] — physical capability, advertised, in a claim-based system.
 - Temporal's own routing page: "Some Workers might exist on GPU boxes versus non-GPU boxes. In this case, each type of box would have its own Task Queue and a Workflow can pick one to send Activity Tasks." [S2] — physical capability, addressed by queue name, which is a label.
 
-**A label is how every one of these systems names a physical capability.** "Distinguished by a label"
-is not the opposite of "is a different thing"; it is the standard *implementation* of "is a different
-thing." The sentence that carries the theory is the weakest sentence in claim #2, and a reviewer with
-Kubernetes or HPC experience will find it first. §6.5 proposes what to say instead.
+**Carried by routing-mechanism analogy only — the fetched spans establish label/tag *selection*, not
+hardware (two families):**
+
+- GitHub Actions matches a job to a runner on `runs-on` labels and groups [S25]. The span establishes selection semantics; it does **not** name hardware, and no hardware-specific first-party span was located for it in this sweep.
+- GitLab requires a runner to have "all of the tags defined in the job script block" [S27]. Same limitation.
+
+**The ruling stands on the four direct sources.** A label is how Kubernetes, Slurm, bernstein and
+Temporal itself name a physical capability; "distinguished by a label" is not the opposite of "is a
+different thing," it is the standard *implementation* of "is a different thing." The two analogy
+sources broaden the pattern's reach but are not load-bearing, and **the ruling does not need them** —
+a reviewer who checks GitLab and finds only generic tag matching has found a weak corroborator, not a
+hole in the finding. The sentence that carries the theory is the weakest sentence in claim #2, and a
+reviewer with Kubernetes or HPC experience will find it first. §6.5 proposes what to say instead.
+
+*(Correction, critic round 1: an earlier draft called this evidence "uniform" across five families
+and bundled all five citations behind one sentence. Three of the five did not carry hardware. The
+split above is the honest version; the verdict in §7 is unchanged.)*
 
 ---
 
@@ -576,7 +619,12 @@ against a missing node means "the Pod will not run, and in some cases may be aut
 
 **We already have the machinery, and it is already binding.** The vendored Worker Deployment Standard
 names this the silent dead-queue failure at §10.4, requires a live poller on a new queue before a
-routing PR merges, and sanctions a `describe_task_queue` pre-flight for high-risk dispatches (§8.3).
+routing PR merges, and sanctions a `describe_task_queue` pre-flight for high-risk dispatches — the
+mechanism is the verification-options table row in **§8.2** (`client.workflow_service.describe_task_queue(...)`
+pre-flight, for "High-risk dispatches where a 3s post-wait is unacceptable") together with **§8.5**
+("Pre-flight queue registration check (optional hardening)"). *(§8.3 is that standard's failure-mode
+taxonomy and contains no mechanism; an earlier draft of this paper pointed here, corrected at critic
+round 1.)*
 That is not new work; it is work that must be *extended to a new axis*.
 
 **Negative finding — no wake-on-task for our compute.** Temporal ships exactly the mechanism this
@@ -593,7 +641,8 @@ build or to decline.
 
 **Cost.** *DERIVED.* Deciding the per-workflow-class policy (wait ∞ / timeout-and-alert /
 timeout-and-reroute-to-shared): **one planning session**, gated on §4.6's classification. Wiring the
-`describe_task_queue` pre-flight into dispatch: **~1 day**, reusing the sanctioned §8.3 mechanism.
+`describe_task_queue` pre-flight into dispatch: **~1 day**, reusing the mechanism already sanctioned
+by the vendored standard's §8.2 table row and §8.5.
 Building wake-on-task for personal machines: **~1 week and out of scope** — recommend explicitly
 declining it and running workers always-on where the machine is always-on.
 
@@ -704,7 +753,7 @@ advertisement channel:
 | Kubernetes | node labels; taints | the scheduler, at placement |
 | GitHub Actions | runner labels | the job router, at placement |
 | Slurm | node features | the scheduler, at placement |
-| bernstein | `NodeCapacity{gpu_available, supported_models}` + `labels`, on `RegisterNode`/`Heartbeat` | the assigner, at claim or steal |
+| bernstein | `NodeCapacity{gpu_available, supported_models}` on both `RegisterNodeRequest` and `HeartbeatRequest`; `labels` on `RegisterNodeRequest` only [S16] | the assigner, at claim or steal |
 | **This design** | **undecided** | **whoever enqueues — eventually SkyyNet** |
 
 The problem statement's own consequence — *"Nothing may assume a single operator"* — is what makes
@@ -809,9 +858,9 @@ recovers the one property in this table that is worth having. It also narrows cl
 ### 6.1 The case that the claim is not a differentiator at all, argued at full strength
 
 1. **The mechanism is thirty years old.** Slurm `--nodelist` [S29], Kubernetes DaemonSet [S23], GitHub Actions labels [S25]. Nothing about routing work to a named machine is new.
-2. **Temporal has a named design pattern for it, with Python samples in four languages' repos** [S14]. A differentiator the vendor documents as a pattern is not a differentiator; it is a configuration.
+2. **Temporal has a named design pattern for it**, with inline code in Python, Go, Java and TypeScript and links to a working sample repo for each of those four languages [S14]. A differentiator the vendor documents as a pattern is not a differentiator; it is a configuration.
 3. **The nearest neighbour already supports it.** `Task.assigned_node`, `node_filter`, `NodeInfo.labels`, `CordonNode`, `DrainNode` [S15][S16]. The difference is a default, not a capability.
-4. **The theory is refuted by the field** (§3.4). Labels *are* how physical capability is expressed.
+4. **The theory is refuted by the field** (§3.4, on three direct comparator families plus the substrate). Labels *are* how physical capability is expressed.
 5. **The vendor rates the trade-off against us.** "Availability: Lower" [S14], and "not a good fit for … high-availability requirements (host failure blocks the Workflow)" [S14].
 
 ### 6.2 Where that case is wrong
@@ -836,9 +885,11 @@ discovery yet (§4.4's recommendation).
 
 ### 6.4 Where this paper is weak
 
-- **[S7], [S12], [S20], [S24] came from summarizing fetches** of raw sources rather than byte-for-byte dumps. Their quoted spans are short and specific, they are marked reduced at every point of use, and **no conclusion in §7 or §8 rests on any of them.**
-- **[S29] (Slurm) is a rendered page.** Used only as a fifth corroborating family in §3.2; removing it changes nothing.
-- **Every cost figure in §8 is derived, not measured.** They name their inputs (queue counts from §4.1, the existing §8.3/§10.4 machinery from the vendored standard, file counts from the current fleet) but no comparable build has been timed here. Treat them as ordering information, not as estimates.
+- **[S7], [S12], [S24] came from summarizing fetches** of raw sources rather than byte-for-byte dumps. Their quoted spans are short and specific, they are marked reduced at every point of use, and **no conclusion in §7 or §8 rests on any of them.** [S24]'s only surviving span was independently confirmed exact; an unsupported second span was deleted at critic round 1 (§3.2).
+- **⚠️ Two reduced-confidence sources ARE load-bearing, and an earlier draft said otherwise.** *(Correction, critic round 1 — this is the one place in the paper where under-reporting is worse than over-reporting, so it is stated at full strength.)*
+  - **[S29] (Slurm) is a rendered page, and it is one of the four direct sources — three comparator families plus the substrate — carrying §3.4/§7's physical-capability ruling.** An earlier draft called it "a fifth corroborating family… removing it changes nothing." That was wrong: removing it drops the ruling to two comparator families plus the substrate. The ruling still stands on Kubernetes, bernstein and Temporal, but the margin is thinner than the draft implied. **The one action this warrants: if §3.4 is ever challenged, re-source Slurm's `--constraint`/features from the man-page source rather than the rendered page.**
+  - **[S20] (Paperclip, summarizing fetch) is the sole external corroboration in §6.5**, which §7's proposed replacement wording draws on. An earlier draft said "nothing in this paper's verdict rests on them." That is true of the §3.1 comparison it appears in and **false of §6.5**. The credential-locality argument is primarily ours and stands on the problem statement's own economics; [S20] is what shows a 75,000-star comparator hitting the same constraint from the other side. **If the credential reframing is adopted, re-verify [S20] byte-for-byte first** — it is the only outside evidence for the paper's most consequential recommendation.
+- **Every cost figure in §8 is derived, not measured.** They name their inputs (queue counts from §4.1, the existing §8.2/§8.5/§10.4 machinery from the vendored standard, file counts from the current fleet) but no comparable build has been timed here. Treat them as ordering information, not as estimates.
 - **Survivorship bias in §3.2.** Every surveyed system that pins to hosts is a system that survived. Systems that pinned and were abandoned leave no docs to fetch.
 - **The federation tier is a stub.** SkyyNet and SkyyCommand have not had this exercise run against them, per the problem statement's own note. §4.4's federation argument is therefore an argument about a sketch, and should be re-run when the sketch becomes a specification.
 
@@ -856,7 +907,7 @@ credential."**
 A Claude Max subscription is bound to a person and authenticated on their machines. Another edge
 cannot take that work — not because it lacks a GPU, not because it is labelled differently, but
 because **it cannot authenticate as that subscriber.** No label grants it. No node affinity relaxes
-it. No work-stealing RPC can move it. And Paperclip, the 75,610-star comparator, concedes exactly this
+it. No work-stealing RPC can move it. And Paperclip, the ~75,600-star comparator, concedes exactly this
 constraint from the other side: local CLI adapters "assume the CLI is already installed and
 authenticated on the host machine" [S20].
 
@@ -872,7 +923,9 @@ analogy.
 
 *No account of a Temporal deployment running stable, long-lived, one-queue-per-physical-machine
 topology with operational numbers was located.* Search method: `docs/design-patterns` enumerated via
-the contents API (57 files) and the one directly on-topic file read in full [S14][S28];
+the contents API (57 files at the time of the sweep; a critic re-count the same day returned 61 files
+and 0 directories — the directory is growing fast, which weakens nothing here since the on-topic file
+is present in both) and the one directly on-topic file read in full [S14][S28];
 `docs/best-practices` enumerated (10 files) [S28]; `docs/encyclopedia/workers/` enumerated and its
 routing, queue, sticky and versioning pages read in full [S1][S2][S5][S6][S28];
 `docs/production-deployment/worker-deployments` enumerated (6 files + 1 dir) and its index read in
@@ -892,7 +945,7 @@ unchanged; what is unpublished is the operational experience.
 |---|---|
 | "The common model is a central queue where workers advertise a *role* and claim from a shared pool, with contention and force-claim as real conditions" | **Holds, and is understated.** `Task.role`, `rpc ClaimTask`, `TASK_STATUS_CLAIMED`, `rpc StealTasks` with donor/receiver, a claim journal resolving contention by lowest `entry_hash`, and leases retirable by any observer [S15][S16][S19]. |
 | "each edge is dedicated, sees only its own work, and no edge can claim another's" | **Holds as a default; too absolute as a rule.** Temporal's own pattern is two-tier and retains a shared queue [S14]; first-party guidance for pinned queues is to have a reroute plan [S4]; and the design currently gives up cross-machine failover for work that has no locality requirement (§5). |
-| "This is not a smaller version of the same design — it follows from a different theory of what a worker is. Role-pull assumes fungible workers distinguished by a label." | **Does not hold as stated.** Labels are how Kubernetes, GitHub Actions, GitLab and Slurm all address physical capability [S21][S22][S25][S27][S29], and bernstein advertises `gpu_available` and `supported_models` inside a claim-based system [S16]. The mechanism is ordinary. **The difference that survives is credential locality (§6.5), not physical capability.** |
+| "This is not a smaller version of the same design — it follows from a different theory of what a worker is. Role-pull assumes fungible workers distinguished by a label." | **Does not hold as stated** — on **three direct comparator families plus the substrate itself (four sources)**, with two more families by analogy only. Labels are how Kubernetes [S22], Slurm [S29] and Temporal itself [S2] address *physical hardware*, and bernstein advertises `gpu_available` and `supported_models` inside a claim-based system [S16]. GitHub Actions [S25] and GitLab [S27] corroborate the routing mechanism but their fetched spans establish label/tag *selection*, not hardware — see §3.4's graded split. The mechanism is ordinary. **The difference that survives is credential locality (§6.5), not physical capability.** |
 
 **Proposed replacement wording for the problem statement's claim #2** — offered as a candidate for the
 ratification pass, not written into the standard by this run, per Research Standard §7:
@@ -925,7 +978,7 @@ sequenced after; 8–9 are decisions to *decline* work.
 |---|---|---|---|---|
 | **1** | **Classify every workflow as repo-local or machine-independent.** A table in the phase doc. | Gates items 2, 3 and 5. Nothing about placement can be decided without it. Inputs: `scripts/workflows/` contents. | **~2 h** | — |
 | **2** | **Decide the queue axis and write it into `claude-dot-files-addendum.md`.** Recommend §4.1 option (c): `<domain>-<env>` shared + `<domain>-<machine>-<env>` pinned. **Surface the conflict with the vendored Worker Deployment Standard §1.1/§2.1/§2.2 as a standards-amendment candidate** — do not edit the vendored file. | The vendored standard has no machine slot; option (b) trips its named god-worker anti-pattern. Roadmap already lists this as addendum content. | **~1 day planning, no build** | 1 |
-| **3** | **Set a per-workflow-class no-poller policy.** For each class: wait ∞ / schedule-to-start timeout + alert / timeout + reroute to the shared tier. Then wire the sanctioned `describe_task_queue` pre-flight into dispatch. | Default is ∞ and the timeout does not reroute [S4]. Vendored §10.4 already names this the silent dead-queue failure and gates it; this extends the gate to the machine axis. | **~1 day** (policy) **+ ~1 day** (pre-flight, reusing §8.3) | 1 |
+| **3** | **Set a per-workflow-class no-poller policy.** For each class: wait ∞ / schedule-to-start timeout + alert / timeout + reroute to the shared tier. Then wire the sanctioned `describe_task_queue` pre-flight into dispatch. | Default is ∞ and the timeout does not reroute [S4]. Vendored §10.4 already names this the silent dead-queue failure and gates it; this extends the gate to the machine axis. | **~1 day** (policy) **+ ~1 day** (pre-flight, reusing the §8.2 table row / §8.5 mechanism) | 1 |
 | **4** | **Decide the Worker Deployment topology: one per machine, not one for the fleet.** | With one shared Deployment, an offline laptop blocks every rollout or forces `--ignore-missing-task-queues`, which the docs say leaves inconsistent configuration [S9]. Must be decided before the first worker ships — version history does not migrate. | **~2 h decide, ~2 days wire** (same edit as item 5) | — |
 | **5** | **Derive queue names and deployment names from explicit config, never from `gethostname()`, never with a UUID.** | [S14]'s sample uses `hostname-uuid`, correct for sessions and wrong here: a restart orphans a queue with work in it. Same class as vendored §2.3 "identities are explicit, never derived". | **~4 h** | 2, 4 |
 | **6** | **Pick a capability-declaration surface.** Recommend (a) static topology profile now, (b) Deployment Version metadata alongside item 4, (c) registration workflow deferred. **Record in the roadmap that (c) is a re-acquisition of capability advertisement**, not a new invention. | Temporal answers existence and liveness natively and capability not at all (§4.4). SkyyNet must know before it enqueues, because after it enqueues there is no fallback. Roadmap already names "topology profiles". | **(a) ~4 h · (b) ~1 day · (c) ~1 week, deferred** | 4 |
@@ -975,7 +1028,7 @@ gated on decisions the roadmap already flags as open.
 - **[S15]** bernstein — `proto/bernstein/v1/tasks.proto` (raw, complete file dump). https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/proto/bernstein/v1/tasks.proto
 - **[S16]** bernstein — `proto/bernstein/v1/cluster.proto` (raw, complete file dump). https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/proto/bernstein/v1/cluster.proto
 - **[S17]** bernstein — repository metadata (GitHub API JSON): Apache-2.0, `default_branch: main`, 788 stars, `pushed_at: 2026-08-04`. https://api.github.com/repos/sipyourdrink-ltd/bernstein
-- **[S18]** Paperclip — repository metadata (GitHub API JSON): MIT, `default_branch: master`, 75,610 stars, `pushed_at: 2026-08-04`, `archived: false`. https://api.github.com/repos/paperclipai/paperclip
+- **[S18]** Paperclip — repository metadata (GitHub API JSON): MIT, `default_branch: master`, `stargazers_count: 75610` **as fetched 2026-08-04** (live counter; a same-day re-fetch read 75,612), `pushed_at: 2026-08-04`, `archived: false`. https://api.github.com/repos/paperclipai/paperclip
 - **[S19]** bernstein — *Cluster deployment patterns*, MESH section (raw, section dumped byte-for-byte). https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein/main/docs/cluster/deployment-patterns.md
 - **[S20]** Paperclip — *Agents runtime* (raw file, **summarizing fetch — reduced confidence**). https://raw.githubusercontent.com/paperclipai/paperclip/master/docs/agents-runtime.md
 
@@ -990,15 +1043,21 @@ gated on decisions the roadmap already flags as open.
 - **[S27]** GitLab Docs — *Configure runners* (raw source markdown; tags and the "stuck" condition). https://gitlab.com/gitlab-org/gitlab/-/raw/master/doc/ci/runners/configure_runners.md
 - **[S29]** SchedMD — *sbatch* man page (**rendered page — reduced confidence**; `--nodelist`, `--constraint`). https://slurm.schedmd.com/sbatch.html
 
-**Source count: 29 cited. 23 fetched as complete or sectional byte-for-byte dumps (including [S3],
-which returned raw file text with its code blocks intact); 4 fetched from raw sources whose response
-summarized and are marked reduced at every point of use ([S7], [S12], [S20], [S24]); 1 rendered page
-([S29]); 1 API-metadata aggregate ([S28]). No search-engine result summary is cited as a source
-anywhere in this paper.**
+**Source count: 29 cited.** Fetch-method accounting, restated at critic round 1 so it survives a byte
+diff:
+
+- **19 fetched as complete or sectional byte-for-byte dumps** — [S1], [S2], [S3], [S4], [S5], [S6], [S8], [S9], [S10], [S11], [S13], [S14], [S15], [S16], [S19], [S21]\*, [S22]\*, [S23]\*, [S26]. ([S3] returned raw file text with its code blocks intact.)
+- **\*3 of those are Kubernetes Hugo sources** ([S21], [S22], [S23]) whose spans are **verbatim-equivalent after shortcode/emphasis normalization**, not byte-identical to the raw file — see the transcription note in §3.2.
+- **2 fetched raw with targeted phrase extraction** rather than a full dump — [S25], [S27]. Spans confirmed present; not certified as complete-file reproductions.
+- **4 fetched from raw sources whose response summarized**, marked reduced at every point of use — [S7], [S12], [S20], [S24]. Note §6.4: **[S20] is load-bearing in §6.5** despite being in this class.
+- **1 rendered page** — [S29]. Note §6.4: **also load-bearing**, as one of four direct sources for §3.4.
+- **1 API-metadata aggregate** — [S28].
+
+**No search-engine result summary is cited as a source anywhere in this paper.**
 
 **Repo artifacts referenced (not counted above):**
 `docs/standards/temporal/worker_deployment_standard.md` (vendored, MIRROR) §1.1, §1.4, §2.1, §2.2,
-§2.3, §3, §8.3, §10.4 — the queue-axis conflict in §4.1 and the existing dead-queue machinery in
+§2.3, §3, §8.2, §8.5, §10.4 — the queue-axis conflict in §4.1 and the existing dead-queue machinery in
 §4.2 are stated against this file. `docs/development/roadmap.md` § *Phase: Temporal Integration* —
 the addendum items this paper feeds. `docs/standards/architecture/problem-statement.md` § *Where we
 actually differ* — the claim under test.
