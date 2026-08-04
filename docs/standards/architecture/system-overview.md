@@ -4,7 +4,7 @@ What is built, and how the pieces fit. **The WHY is [`problem-statement.md`](pro
 
 ## What this is
 
-Iteration one of the backbone described in the problem statement, with **coding as the first edge**. A single operator, orchestration in bash, everything running on that operator's own machines under their own subscription.
+**Jarvis — the assistant edge**, and iteration one of the backbone described in the problem statement. Coding is its first function, not its definition; it sits under SkyyCommand, which sits under SkyyNet. A single operator, orchestration in bash, everything running on that operator's own machines under their own subscription.
 
 No server, no daemon, no framework. Workflows are shell scripts that invoke `claude -p` in isolated git worktrees; agents, skills and rules are markdown; memory is GitHub.
 
