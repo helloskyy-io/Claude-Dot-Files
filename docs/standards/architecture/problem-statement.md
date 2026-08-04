@@ -1,5 +1,20 @@
 # Problem Statement
 
+## Where this sits — read this first
+
+This repo is **not a product.** It is the **assistant edge** of a larger system, and almost every question about it is unanswerable without that frame.
+
+```
+SkyyNet          federation and central planning — places paid work across MDCs
+  └─ SkyyCommand    per-MDC local control — owns local services and workloads
+       ├─ Jarvis         the assistant edge  ← THIS REPO
+       └─ (future edges) building & industrial automation, and others
+```
+
+A previous attempt to describe this repo on its own terms failed three times, and the reason was altitude: judged as a standalone product it is one more coding-agent orchestrator in the most crowded category in the industry. Judged as **one edge of a federated fabric**, it is a component with a specific job. The second framing is the true one.
+
+**(stub — deliberately incomplete.)** SkyyNet and SkyyCommand have not had this exercise run against them yet. What follows about them is sketch, not specification, and is here so that work on this repo can orient against the real destination rather than against a subset of it.
+
 ## The trade-off that should not exist
 
 Organizations adopting agentic AI are forced to choose between two shapes, and neither one works.
@@ -10,78 +25,81 @@ Organizations adopting agentic AI are forced to choose between two shapes, and n
 
 Neither side supplies all four of the things an organization actually needs — **shared workflow logic**, **subscription-tier economics**, **credentials that stay at the edge**, and **durable orchestration**.
 
-## The gap underneath it
+## What is known, and what we intend to do with it
 
-Self-improvement in an agent is a **loop**: produce something, evaluate it, revise. Every implementation that survives past a single session writes something down where the next run can find it.
+Four capabilities make an autonomous agent system durable and capable. **None of them is ours, none is novel, and the field is converging on all four.** They are the recipe:
 
-**The industry made the artifacts durable. It did not make the loop durable.** The output survives; the reflection cycle that produced it does not. A run that learns something and then dies has learned nothing.
+**1. Durable execution.** Retries, resumption, and a written record of how far a run got — so a crash resumes rather than restarts.
 
-## What we are combining, and why it is novel
+**2. Layered self-improvement over durable artifacts.** Not one agent critiquing itself, but distinct actors at distinct layers — one that authors, one that judges with no stake in the work, one that dispositions — each reading and writing artifacts the others can see. The layering is what makes the improvement real rather than an agent agreeing with itself.
 
-Four things exist independently today. Each is well understood on its own. **Nobody has put them together**, and the combination is the contribution:
+**3. Typed memory between steps.** Results a step leaves behind that the *next* step reads **in code**, with no model in the loop. This is what turns a sequence into a program: a parent branches on what a child concluded because the conclusion is a value, not prose.
 
-**1. Durable execution for long-running processes.** Retries, resumption, and a written record of how far a run got — so a crash resumes rather than restarts. Mature technology, borrowed rather than invented.
+**4. High-level loops over persisted state.** Above the parents, a driver that chooses what runs next — if/then/else over the results of entire workflows, running unattended until an exit condition it can actually observe.
 
-**2. Layered self-improvement that exercises durable artifacts.** Not one agent critiquing itself, but distinct actors at distinct layers — one that authors, one that judges with no stake in the work, one that dispositions — each reading and writing artifacts the others can see. The layering is what makes the improvement real rather than an agent agreeing with itself.
+**The intent is not to invent this recipe. It is to execute it better than anyone else, and to acquire the lessons rather than re-learn them.** Competing projects have paid for hard-won knowledge in production; where their work is open, that knowledge is free to us. Mining it deliberately is the strategy, not an admission.
 
-**3. Memory management for persistent communication between steps.** Typed results a step leaves behind that the *next* step reads **in code**, with no model in the loop. This is the piece that turns a sequence into a program: a parent can branch on what a child concluded because the conclusion is a value, not prose.
+## Where we actually differ
 
-**4. High-level loops that orchestrate many parent workflows.** Above the parents, a driver that chooses what runs next from persisted state — if/then/else over the results of entire workflows, running unattended until an exit condition it can actually observe.
+Three differences survive first-party inspection of the nearest comparable systems. They are stated with their evidence status, because a differentiator nobody has verified is a hope.
 
-Each is ordinary. **Together they make autonomous long-running processes something you can build and experiment with** — because the loop survives failure, the layers keep it honest, the memory makes branching possible, and the driver strings it all together.
+**1. The backbone is domain-general; the edge is what changes.** Comparable systems are built for code — their verification vocabulary is *tests pass, lint clean, types correct*. Here, code is one edge among several, and machinery that only makes sense for git and PRs belongs at the edge rather than the backbone. *Evidence: confirmed absent from the nearest neighbor, three independent ways.*
 
-## Affordability is not a footnote — it is the enabler
+**2. Edges are dedicated and non-fungible.** The common model is a central queue where workers advertise a *role* and claim from a shared pool, with contention and force-claim as real conditions. Ours inverts it: **each edge is dedicated, sees only its own work, and no edge can claim another's.** This is not a smaller version of the same design — it follows from a different theory of what a worker is. Role-pull assumes fungible workers distinguished by a label. An edge is a machine with a physical capability and its own credential; a robotics edge cannot take a bioinformatics task because it *is* a different thing, not a differently-labeled one. *Evidence: confirmed different. Ours is designed, not yet built.*
 
-The fourth element is what makes the other three reachable: **the work runs at the edge, on each participant's own subscription.**
+**3. The first edge builds the others, then operates inside them.** See below. *Evidence: no trace of anything comparable.*
+
+**Not differentiators, stated plainly so nobody re-litigates them:** durable execution, checkpoint/resume, completion contracts, typed refusal, and Kubernetes-native deployment all exist in shipping competitors today. Several are ahead of us. Claiming them would be false and would discredit the claims that are true.
+
+## The nearest neighbor
+
+**[`bernstein`](https://github.com/sipyourdrink-ltd/bernstein)** (Apache-2.0) is the closest comparable system: a deterministic orchestrator for CLI coding agents, with no model in the coordination loop, per-task git worktrees, checkpoint/resume, a Kubernetes operator with CRDs, mTLS between workers, and typed completion contracts. It is a real, actively-released product and it is ahead of this repo on every axis except the three above.
+
+We name it deliberately. A problem statement that does not know its nearest neighbor is not a problem statement. Its designs — CRD-modeled runs, typed refusal, checkpointed retries — are reference material we intend to learn from and adapt onto our own durability substrate rather than copy wholesale, because our durability comes from Temporal and its does not.
+
+## Affordability is the enabler
+
+The work runs at the edge, on each participant's own subscription.
 
 Metered per-token billing makes experimentation expensive in proportion to curiosity. An autonomous loop that runs for hours, retries, branches, and occasionally goes nowhere is precisely the thing you cannot afford to explore when every turn has a price — so exploring it is restricted to organizations who can absorb the bill. **The interesting experiments are the wasteful ones**, and metered billing prices those out first.
 
-A flat per-person subscription inverts that. A long-running loop costs the same as a short one. Being wrong costs nothing but time. **This makes experimenting with loop logic and autonomous long-running processes trivial rather than a privilege of the well-funded** — and that access is the point, not a cost optimization.
+A flat per-person subscription inverts that. A long-running loop costs the same as a short one; being wrong costs nothing but time. **That access is the point, not a cost optimization.**
 
-## What is being built
+## The edges
 
-A two-tier system, shaped by the above:
+An edge is not a plugin. **It is a machine with a capability and a credential, running a worker that speaks the backbone's protocol.**
 
-- **Server tier** — durable orchestration plus a shared library of reusable workflow modules. Decides what runs next, records how far each run got, resumes rather than restarts. **Runs no agent compute.**
-- **Edge tier** — a worker on each participant's own machine, authenticated with that person's own subscription. **Credentials never leave the edge.** Multi-tenancy comes from everyone authenticating locally, not from a central service holding everyone's keys.
+### Jarvis — the assistant edge (this repo)
 
-The genuinely novel artifact is neither tier: it is **the shared workflow library** — composable modules one person writes and another can use without rewriting.
+**Jarvis is an assistant.** Coding is its current claim to fame because coding is what builds SkyyCommand — but the coding capability is the *first* function, not the definition.
 
-## Where this repo sits
+**(stub.)** Later functions are expected to be provider-shaped: the helpers available differ by which subscription backs the edge — Claude Code and Codex expose different capabilities, different session models, and different limits. The backbone should not care which; the edge should.
 
-**This repo is iteration one, and coding is the first edge.**
+**Why this edge is first, and permanent.** It is the edge that builds the others, and then works inside them.
 
-Everything here — the agents, the workflows, the memory model, the improvement loop — is that architecture built for a single participant, with orchestration still in bash. It is not a coding tool that might generalize later; **it is the backbone, exercised against the edge that was closest to hand.**
+- **It builds them.** Every new edge needs a worker, activities, and workflow modules. That is code, written by the edge that already exists — so each new edge costs less to stand up than the one before it.
+- **It works inside them, with a human in the loop.** Once an edge exists, the operator running it is not left alone with it. The assistant is present *in* that edge — reading its state, diagnosing failures, proposing changes — the same way it is present in a repository today.
 
-| | |
-|---|---|
-| **Now** | The backbone as a single-operator harness: workflows decomposed into composable parents and children, memory that outlives a context window, an improvement loop that reads the system's own execution record |
-| **Next** | Durable execution — the server tier on a remote host, this machine as an edge running a local worker |
-| **Then** | Additional edges: home automation, industrial automation, robotics, bioinformatics. **The backbone does not change; only the edge does** |
+That second role is easy to miss and it is where the compounding comes from. A conventional platform gets harder to operate as it grows, because each new domain is one more thing an operator must learn to run unaided. Here, **every new edge arrives with an assistant already fluent in the backbone that runs it.**
 
-An edge is not a plugin. It is a machine with a capability and a credential, running a worker that speaks the same protocol.
+### Building & industrial automation — the next edge
 
-### Why coding is the first edge, and not merely the earliest
+**(stub.)** The name is provisional and deliberately not "automation," which to a technical audience means CI rather than physical plant. This edge covers real-world control: buildings, HVAC, access, industrial equipment.
 
-The coding edge is not first because it was convenient. **It is the edge that builds the others, and then works inside them.**
+It is the natural second edge because **SkyyCommand already runs Home Assistant on the MDC** — the domain is present, the hardware exists, and the edge is not hypothetical. Jarvis dogfoods it twice over: as the assistant that helps *code* it, and as the operator interface *to* it.
 
-- **It builds them.** A home-automation, industrial or robotics edge needs a worker, a set of activities, and workflow modules. That is code, written by the edge that already exists — so each new edge costs less to stand up than the one before it.
-- **It works inside them, with a human in the loop.** Once an edge exists, the operator running it is not left alone with it. The coding assistant is present *in* that edge — reading its state, diagnosing its failures, proposing changes to its modules — the same way it is present in a repository today.
-
-That second role is the one easy to miss, and it is where the compounding comes from. A conventional platform gets harder to operate as it grows, because each new domain is one more thing an operator must learn to run unaided. Here, **every new edge arrives with an assistant already fluent in the backbone that runs it.**
-
-Which means the first edge is not a stepping stone to be moved past. It is permanent infrastructure that every later edge depends on, for construction *and* for operation — and it is why the investment in getting this one right compounds rather than being spent.
+Beyond it: robotics, bioinformatics, and whatever else has a machine, a credential, and a job. **The backbone does not change; only the edge does.**
 
 ## What this means for anything built here
 
 Three consequences, and they explain decisions that look over-engineered for a personal config repo:
 
 - **Nothing may assume a single operator.** A shortcut that works because one person runs everything is a shortcut that has to be removed later.
-- **Nothing may assume the coding edge.** Machinery that only makes sense for git and PRs belongs at the edge, not the backbone. The test: *would this still make sense if the edge were a robot?*
+- **Nothing may assume the coding edge.** The test: *would this still make sense if the edge were a building controller?*
 - **The improvement loop is a feature, not tooling.** It is the thing under study. Treating it as scaffolding is treating the thesis as scaffolding.
 
 ## Status and evidence
 
-**Not ratified as a standard.** This states the problem and the intent. Binding decisions live in `docs/standards/`; what is actually built and planned lives in [`../../development/roadmap.md`](../../development/roadmap.md).
+**Not ratified as a standard.** This states the problem and the intent. Binding decisions live in `docs/standards/`; what is built and planned lives in [`../../development/roadmap.md`](../../development/roadmap.md).
 
-The supporting evidence — the reference architecture, the design principles, the production cases, and the convergent adoption record — is in the research pool beside this file: [`research/synthesis.md`](research/synthesis.md) for the rolled-up version, [`research/raw/`](research/raw/) for the papers. Originally developed as a CSCI-6905.604 research project (2026-07).
+Supporting evidence is in the research pool beside this file: [`research/synthesis.md`](research/synthesis.md) rolled up, [`research/raw/`](research/raw/) for the papers. **[`research/raw/combination_prior_art.md`](research/raw/combination_prior_art.md) and [`research/raw/case_against.md`](research/raw/case_against.md) are the two that forced this document's rewrite** — both argue against the position this repo held, and both were commissioned to do exactly that. Originally developed as a CSCI-6905.604 research project (2026-07).
