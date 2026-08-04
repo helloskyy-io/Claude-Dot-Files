@@ -1,160 +1,94 @@
 # System Overview
 
-High-level architecture of the claude-dot-files repo — how the layers fit together, what decisions shape the system, and where the seams are.
+What is built, and how the pieces fit. **The WHY is [`problem-statement.md`](problem-statement.md); the rules are `docs/standards/`; what is planned is [`../../development/roadmap.md`](../../development/roadmap.md).** This file is the map, not the argument.
 
-## What this repo does
+## What this is
 
-Personal Claude Code configuration that syncs across multiple machines (workstation, laptop, remote VMs) via targeted symlinks. Provides:
+Iteration one of the backbone described in the problem statement, with **coding as the first edge**. A single operator, orchestration in bash, everything running on that operator's own machines under their own subscription.
 
-- Always-loaded global instructions (rules + CLAUDE.md stub)
-- Description-matched skills (on-demand methodology)
-- Named subagents (specialist Claude sessions)
-- Slash commands (interactive prompt-template injection)
-- Hook scripts (safety + notification gates)
-- Autonomous workflow scripts (`scripts/workflows/`)
-- A polling GitHub monitor service (`scripts/services/gh-monitor.sh`)
+No server, no daemon, no framework. Workflows are shell scripts that invoke `claude -p` in isolated git worktrees; agents, skills and rules are markdown; memory is GitHub.
 
-## Layered architecture
+## Layers
 
 ```
-Always-loaded layer (session start)
-├── CLAUDE.md           — stub redirect to /rules
-├── rules/*.md          — topical behavioral rules
-└── settings.json       — permissions + hook config
+scripts/workflows/
+  *.sh              PARENTS and monoliths — you dispatch these
+  children/         CHILD WORKFLOWS — a parent invokes these; shared, not owned
+  activities/       EXTERNAL I/O — workflow-agnostic, idempotent, never inlined in a parent
+  common/           SHARED TYPES AND CONTENT — no I/O, nothing executes
 
-On-demand layer (description-matched / explicit)
-├── skills/*.md         — methodology, loaded when context matches
-├── agents/*.md         — named specialists, invoked via Task tool
-└── commands/*.md       — slash commands, invoked via /<name>
-
-Hook layer (event-driven)
-├── PreToolUse → block-dangerous.sh   — safety gate before Bash
-└── Stop → notify-done.sh             — desktop notification on completion
-
-Workflow layer (autonomous via claude -p)
-├── scripts/workflows/lib/            — shared helpers (run-claude.sh, format-stream.sh)
-└── scripts/workflows/*.sh            — task-execution + analysis workflows
-
-Service layer (background)
-└── scripts/services/gh-monitor.sh    — systemd timer polls GitHub for @claude PR comments
+config/
+  agents/           subagents dispatched by workflows; one distinct lens each
+  skills/           methodology, loaded on demand when context matches
+  rules/            always-loaded global instructions
+  hooks/            PreToolUse safety, Stop notification
 ```
 
-Each layer has clean separation: rules are constraints, skills are methodology, agents are specialists, commands are templates, hooks are gates, workflows are autonomous orchestrators, services are background processes. No layer reaches into another layer's responsibilities.
+The organizing axis is **who invokes it**. That single question places every file.
 
-## Key architectural decisions
+`config/` is symlinked into `~/.claude/` by `install.sh`, so authored config is identical on every machine while credentials, sessions and per-project state stay local.
 
-Recorded here because each shaped the system meaningfully. Binding decisions with full trade-off analysis live in `docs/standards/` per the standards-governance rule; this section captures the architectural shape at a glance.
+## Composition
 
-### Sync strategy: targeted symlinks (not GNU Stow)
+A parent calls no model. It decides *if*, *when* and *what* to call, and holds no process code.
 
-`install.sh` creates 7 individual symlinks from `config/*` into `~/.claude/`. Chosen over GNU Stow (which mirrors entire directory trees) because:
+```
+revision.sh
+  ├─ children/revision-draft.sh    writes the change, opens an UNREVIEWED PR
+  ├─ children/revision-refine.sh   FRESH context: fidelity, review, corrections
+  └─ children/review-pr.sh         decide-only: MERGE | HOLD + a runway
+        └─ HOLD(redispatch) → one bounded loop-back, then stop
+```
 
-- Surgical control over what syncs vs what stays machine-local (`credentials/`, `projects/`, `sessions/`, `cache/`, telemetry — all machine-local by nature)
-- Idempotent reinstall with conflict backup to `~/.claude/backups/pre-install-<ts>/`
-- `--non-interactive` flag for Ansible automation on workstations/laptops
-- VM deployment uses interactive mode (auth requires browser OAuth)
+`revision-minor.sh` runs the identical sequence with lighter children. The handoff between runs is git plus the original task — nothing else crosses.
 
-### Dual permission model
+**The completion contract is the interface.** Each child declares a pattern its final output must contain, so `exit 0` provably means *finished*. A parent needs that plus one stable identifier on the final line, which is why composition here needs no framework.
 
-Interactive sessions: conservative allow/deny lists in `settings.json` with permission prompts for unlisted commands.
+## Memory
 
-Autonomous workflows: `--dangerously-skip-permissions` flag (no prompts, faster execution). Safety provided by `block-dangerous.sh` PreToolUse hook which fires regardless of the skip-permissions flag. Verified empirically that hooks fire under autonomous mode.
+No state files, no bookmarks. **Open is the to-do bit.**
 
-Two layers of defense, calibrated per workflow shape.
+| Surface | Holds | Lifecycle |
+|---|---|---|
+| PR threads | change-outcomes, decision logs, disposition rulings | closes at merge |
+| GitHub Issues | no-change outcomes — deferred work, planning STOPs | filed → ruled → closed |
+| Standup tracker | continuity — operating state, next moves | never closes; pruned |
 
-### Hook architecture
+`/standup` reads all three into a morning brief. Every reviewing actor verifies claims against the artifact rather than the account of it, and verifies a pointer by fetching it.
 
-Hooks defined in `settings.json` reference scripts in `config/hooks/`. Three hook types available, current usage:
+## The improvement loop
 
-- **PreToolUse** with matcher `Bash` → `block-dangerous.sh` (regex-based deny list for destructive commands)
-- **Stop** → `notify-done.sh` (desktop notification via `notify-send`, gracefully skips on headless machines)
+Two machine-produced evidence sources, no human gathering data:
 
-Hook scripts receive event JSON on stdin (NOT environment variables). Parse with `jq`. Output structured responses via JSON-on-stdout.
+- **Run logs** — every dispatch writes JSONL; `review-runs.sh` analyses a window across repos.
+- **Self-disclosure** — every workflow posts a decision log and tooling suggestions to its PR; `review-pr` mines them.
 
-PostToolUse auto-format hooks intentionally NOT used — formatting on every Write/Edit eats context window. Project-level formatting (prettier, black) runs at commit time instead.
+Findings reach an explicit ship / defer / reject in an append-only log, **ruled by a human**. The system observes itself and proposes; it does not modify itself.
 
-### Orchestration: bash-over-Python
+## Safety
 
-Bash scripts wrap `claude -p` invocations with structured stages, safety guards, visibility, and JSONL logging. Chosen over Python/Agent SDK because:
-
-- Portable forward (can migrate to SDK later without losing logic)
-- Debuggable with standard shell tools
-- Zero learning curve beyond what's already known
-- Native to the operator's environment
-
-Graduation triggers documented in `docs/development/roadmap.md` — move to Agent SDK only if real limitations surface (error handling, structured data, team scale).
-
-### Dual workflow model
-
-Two ways the operator works with Claude Code:
-
-- **Interactive** — daily small changes, in-the-loop approval, fast iteration
-- **Autonomous** — large planned features via `scripts/workflows/*.sh`, walk-away execution, PR delivery for review
-
-Each workflow script implements specific stages with numbered structure. See `docs/guide/workflows.md` for the full workflow inventory and `MAX_TURNS` per script.
-
-### Worktree-per-task isolation
-
-All workflow scripts that modify code use git worktrees in `.claude/worktrees/<workflow>-<timestamp>/`. The main working directory is never touched by autonomous runs. Two patterns:
-
-- **New branch:** Claude Code creates the worktree via `-w <name>` flag with auto-prefixed `worktree-` branch name
-- **Update existing PR:** Manually create worktree checked out to the PR's branch, then invoke claude inside it
-
-The main branch is sacred — autonomous changes only reach `main` through PR review and merge.
-
-### JSONL log contract
-
-Every workflow run writes a raw JSONL log to `.claude/logs/<workflow>-<timestamp>.jsonl`. Format invariant:
-
-- **Lossless** — no information dropped vs the stream-json events
-- **Self-diagnosable** — Claude can read the log directly to post-mortem a failed run
-- **Queryable** — `jq` extracts metrics (cost, turns, duration, errors)
-- **Formattable on demand** — `scripts/workflows/lib/format-stream.sh` converts JSONL → human-readable text
-
-Logs always live in the MAIN repo's `.claude/logs/`, not inside worktrees, so all logs aggregate in one place for analysis.
-
-### CPI loop (continuous process improvement)
-
-Real workflow runs produce JSONL logs. `scripts/workflows/review-runs.sh` analyzes recent logs and produces structured reports in `docs/development/reviews/`. The interactive architecture session reviews findings and ships/defers/rejects each one. Deferrals get appended to `docs/development/cpi-decisions.md` with explicit watch-criteria. Append-only — entries don't get deleted, just amended when previously-deferred items eventually ship.
-
-This is the mechanism by which the system improves itself over time without requiring all-knowing upfront design.
-
-### gh-monitor: local polling (not webhook)
-
-`scripts/services/gh-monitor.sh` runs as a systemd user timer polling GitHub every 5 minutes for `@claude` PR comments. Local polling chosen over GitHub Actions / webhooks because:
-
-- GitHub Actions runners require Claude API billing (not Max subscription)
-- Webhooks would require exposing an endpoint (Tailscale-hardened workstation, undesirable surface)
-- 5-minute polling latency is acceptable for the workflow ergonomics
-- Reaction-based deduplication (👀 / hooray / -1 / confused emojis) makes multi-machine concurrency safe
-
-### Standards-not-ADRs convention
-
-Architectural decisions are captured as standards documents in `docs/standards/<topic>.md`, not as numbered ADR files. Codified in `config/rules/standards-governance.md`. The architecture-decisions skill's methodology (trade-off analysis, alternatives, consequences) still applies — but the artifact is a standards doc. Standards are easier for AI to read and reference than scattered numbered ADRs.
-
-`docs/standards/architecture/` (this directory) holds high-level overviews and supporting docs (system-overview, threat-model, component-diagram) — not per-decision artifacts.
+Autonomous runs pass `--dangerously-skip-permissions`, so the `PreToolUse` hook is **the only control operating during a run** — worktree isolation only bounds blast radius, PR review is after the fact. `block-dangerous.sh` fails closed. Nothing reaches `main` except through a PR.
 
 ## Where the seams are
 
-Clean seams:
-- Config (`config/`) vs imperative scripts (`scripts/`)
-- Always-loaded (rules + CLAUDE.md) vs on-demand (skills + agents + commands)
-- Interactive permission model vs autonomous permission model
-- Per-task worktree isolation vs shared main branch
-- Workflow scripts vs background services
+Deliberate boundaries, each with a reason:
 
-Seams worth being aware of:
-- The `--dangerously-skip-permissions` + hook trust model: the hook is the load-bearing safety floor for autonomous mode; regex-based pattern matching has known limits worth understanding (see `docs/development/loose_ends.md` for threat model TODO)
-- Workflow prompt duplication across scripts: shared stages exist as bash variables in some scripts but not all; `DECISION_LOG_AND_REFLECTION` is copy-pasted across 6 scripts (extraction is a known refactor item)
-- `gh-monitor` single-instance assumption: no heartbeat / health-check — silent failures only surface when the operator notices missed PR replies
+| Seam | Why |
+|---|---|
+| author ≠ judge | the author of a change defends it; no wording fixes that |
+| parent ≠ child | every boundary is a retry/resume point |
+| activity ≠ workflow | a workflow doing network I/O cannot replay |
+| decide ≠ act | `review-pr` rules; a human or parent fires |
+| surface ≠ ratify | agents propose standards; humans write them |
 
-## Related documentation
+## What is not built
 
-- `docs/guide/workflows.md` — operating manual for the workflows
-- `docs/guide/cpi-cycle.md` — how the CPI loop runs
-- `docs/standards/workflow-scripts.md` — binding rules for workflow script structure
-- `docs/standards/hook-scripts.md` — binding rules for hook scripts
-- `docs/standards/services.md` — binding rules for long-running services
-- `docs/development/roadmap.md` — what we've built and what's next
-- `docs/development/cpi-decisions.md` — append-only log of CPI decisions
-- `docs/development/loose_ends.md` — deferred architectural items with re-evaluation triggers
+Durable execution, the server tier, additional edges, and typed handoff between runs — a parent still routes on a parsed token rather than a structured result. See the roadmap.
+
+## Related
+
+- [`problem-statement.md`](problem-statement.md) — the problem and the thesis
+- [`research/`](research/) — the evidence, non-binding
+- [`../workflow-scripts.md`](../workflow-scripts.md) — the binding rules for everything above
+- [`../../guide/operations.md`](../../guide/operations.md) — how to run it
+- [`../../guide/workflows.md`](../../guide/workflows.md) — workflow architecture in depth

@@ -117,7 +117,7 @@ claude-dot-files/
 │       │   │   └── synthesis.md                    # What the pool means for the product's direction. NON-BINDING
 │       │   ├── README.md                          # What goes here vs the rest of standards/
 │       │   ├── problem-statement.md                # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
-│       │   └── system-overview.md                 # Layered architecture, key decisions, where the seams are
+│       │   └── system-overview.md                 # THE MAP — layers, composition, memory, the seams and their reasons. Concise by design; detail lives in standards/roadmap
 │       ├── research/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
 │       │   ├── README.md                            # The two altitudes — product vs phase — and what each unblocks
 │       │   └── research_standard.md                 # Mini-paper contract, source floor, confidence marking, revalidation

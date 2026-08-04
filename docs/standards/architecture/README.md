@@ -3,7 +3,7 @@
 This directory holds high-level system overviews — the WHY behind how the repo is structured. Per `config/rules/standards-governance.md`, this repo does NOT use numbered ADR files. Binding architectural decisions are captured as standards documents in `docs/standards/<topic>.md`. This directory holds:
 
 - `problem-statement.md` — **read this first.** What problem the product solves, what this repo is the first iteration of, and why coding is the first edge rather than the product
-- `system-overview.md` — top-level architecture: components, layers, key decisions
+- `system-overview.md` — the map: layers, composition, memory, and the seams. **Deliberately concise** — it points at the standards, roadmap and phase docs rather than restating them
 - Optional supporting docs: component diagrams, data-flow descriptions, threat models
 
 ## What goes here vs `docs/standards/`
