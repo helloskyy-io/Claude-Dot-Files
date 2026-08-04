@@ -11,21 +11,32 @@ Feeds:          docs/standards/architecture/problem-statement.md as a whole — 
                 Read against docs/standards/architecture/system-overview.md for what is built.
 Last validated: 2026-08-03
 Revalidate:     high — 4 weeks
-Confidence:     DEFINITIVE on the four vendor-shipped durable agent runtimes (§2.1) — all four
-                quoted from first-party pages or raw docs, all dated. DEFINITIVE on the
-                first-party Temporal non-determinism rule (§2.2), the Kubernetes level-based
+Confidence:     Four classes only, per §3 — definitive / directional / unverified / derived.
+                "Rendered page — reduced confidence" is a MODIFIER on definitive, never a fifth
+                class: it means the span was quoted verbatim from a fetched page that carries
+                navigation and boilerplate, so it is usable as definitive but re-verify before
+                building on it.
+                DEFINITIVE on the vendor-shipped durable agent runtimes (§2.1). DEFINITIVE on
+                the first-party Temporal non-determinism rule (§2.2), the Kubernetes level-based
                 design principle (§2.5), the GitHub self-hosted-runner warning and the
                 CVE-2025-30066 advisory (§2.6), the OpenAI Agent Builder deprecation (§5.2),
                 and on the abstracts of the three arXiv results in §2.3 (fetched via arXiv API
-                / arXiv HTML). REDUCED-CONFIDENCE-RENDERED on the Anthropic, Cognition, Fowler,
-                Metz, Chroma, DBOS and Glass quotations — rendered pages, quoted conservatively
-                and marked at the point of use. DIRECTIONAL on Crash-Only Software and Daly
-                (2006), whose primaries did not extract. DERIVED, and labelled, on every
-                transfer of a published result to this architecture — that transfer is the
-                paper's own inference, never the source's. UNVERIFIED on the Cognition
-                softening (§5.4) and on the Dapr/npm-worm material used only as corroboration.
-                Six negative findings in §6.1 with stated search method.
-Critic:         not-yet-verified — 2026-08-03
+                / arXiv HTML). DEFINITIVE (rendered page — reduced confidence) on the Anthropic,
+                Cognition, Fowler, Metz, Chroma, DBOS and Glass quotations — all fetched, quoted
+                conservatively, and marked at the point of use. DIRECTIONAL on Crash-Only
+                Software and Daly (2006), whose primaries did not extract. DERIVED, and marked
+                AT POINT OF USE as well as in the roll-up, on every transfer of a published
+                result to this architecture — that transfer is the paper's own inference, never
+                the source's. UNVERIFIED on the Cognition softening (§5.4), on the OpenAI
+                AgentKit launch date (§5.2 — publisher page returned HTTP 403), and on the
+                Dapr publication date and npm-worm material used only as corroboration.
+                Eight negative findings in §6.1 with stated search method.
+Critic:         PASS-WITH-FIXES (removed a false past-window claim about a sibling paper; N6's
+                propagating pointer corrected §3→§6; dynamic-workflows maturity restored to
+                first-party GA; §2.1.5's market conclusion re-marked derived; point-of-use
+                derived marks added at §2.1.1 and §2.3.4; §0's vendor count reconciled to three
+                dated plus one undated; the fifth confidence label expressed as a modifier;
+                [S7] and [S2] upgraded to fetched; Glass Fact 17 added) — 2026-08-03
 ```
 
 > **Mixed volatility (§3).** The load-bearing section §2.1 is a **vendor product inventory**
@@ -42,12 +53,13 @@ The problem statement's load-bearing sentence is:
 
 > "**The industry made the artifacts durable. It did not make the loop durable.**"
 
-Between **2026-03-25 and 2026-05-28**, four separate vendors shipped products whose explicit,
-first-party-documented job is making the agent *loop* durable — not the artifact. One of them
-is Anthropic, in Claude Code, on the coding edge, and its announcement describes **code-written
-orchestration scripts, saved progress that resumes an interrupted run, adversarial cross-checking
-between agents, and convergence-based stopping** — four of the things the problem statement
-enumerates as the combination nobody has put together (§2.1).
+Between **2026-03-25 and 2026-05-28**, **three separate vendors** shipped products whose explicit,
+first-party-documented job is making the agent *loop* durable — not the artifact — **and a fourth
+ships the same pattern on a date this paper could not establish** (§2.1.4). One of the three is
+Anthropic, in Claude Code, on the coding edge, **generally available**, and its announcement
+describes **code-written orchestration scripts, saved progress that resumes an interrupted run,
+adversarial cross-checking between agents, and convergence-based stopping** — four of the things
+the problem statement enumerates as the combination nobody has put together (§2.1).
 
 That is the single most damaging finding in this paper and everything else is smaller. It does
 not say the architecture is worthless. It says the *sentence that motivates it* is a claim about
@@ -112,20 +124,29 @@ What this paper brings that neither has: the **architectural** case against laye
 
 ### 2.1 C1 (a) — someone made the loop durable, and it was announced while this pool was being written
 
-**This is the strongest attack in the paper, it is first-party, and it is dated.** Four
-independent implementations, listed oldest-announcement-first.
+**This is the strongest attack in the paper, it is first-party, and three of its four data points
+are dated.** Four independent implementations, listed oldest-announcement-first; the fourth
+(§2.1.4) carries no establishable publication date and is treated as corroboration only.
 
 **2.1.1 AWS — Bedrock AgentCore Runtime managed session storage, 2026-03-25.**
 
 Verbatim from the AWS what's-new page: the feature is "managed session storage for persistent
 agent filesystem state"; the persisted state includes "source files, installed packages, build
 artifacts, and git history"; it survives stop and resume cycles; retention is "14 days of idle
-time"; status "public preview" [S1]. AgentCore itself reached general availability 2025-10 [S2].
+time"; status "public preview" [S1]. AgentCore itself reached general availability on
+**2025-10-13**, under the announcement title "Amazon Bedrock AgentCore is now generally
+available" [S2].
 
-*Confidence: definitive on the quoted spans (first-party AWS announcement page, fetched). The
-persisted object here is a filesystem — closer to "durable artifact" than "durable loop" — but a
-persisted **working** filesystem across stop/resume is precisely the resumption primitive the
-problem statement says does not exist.*
+*Confidence: **definitive** on the quoted spans (both first-party AWS announcement pages,
+fetched). The persisted object here is a filesystem — closer to "durable artifact" than "durable
+loop" — which is a limitation on this data point, not a strength.*
+
+*(**DERIVED** — from [S1]'s enumeration of the persisted state ("source files, installed packages,
+build artifacts, and git history") across stop/resume, set against the problem statement §*The gap
+underneath it*: a persisted **working** filesystem across stop and resume is the resumption
+primitive that section says the industry did not build. AWS makes no claim about the problem
+statement; the equivalence is this paper's inference and is the weakest of the four in §2.1,
+because a filesystem is not a loop.)*
 
 **2.1.2 Cloudflare — Project Think, 2026-04-15.**
 
@@ -155,9 +176,18 @@ This is the one that lands closest. Verbatim from the first-party announcement:
 > instead of starting over." [S5]
 
 > "Agents address the problem from independent angles, other agents try to refute what they
-> found, and the run keeps iterating until the answers converge." [S5]
+> found, and the run keeps iterating until the answers converge—which is how a workflow reaches
+> results a single pass can't." [S5]
 
-Map those three sentences onto the problem statement's own enumeration:
+And on maturity, verbatim from the same page:
+
+> "Dynamic workflows are now generally available" [S5]
+
+> "generally available in the Claude Code CLI, Desktop, and the VS code extension for Pro, Max,
+> Team, and Enterprise plans, as well as on the Claude API, on Amazon Bedrock, Vertex AI, and
+> Microsoft Foundry." [S5]
+
+Map the first three sentences onto the problem statement's own enumeration:
 
 | Problem statement element | The 2026-05-28 announcement |
 |---|---|
@@ -166,11 +196,13 @@ Map those three sentences onto the problem statement's own enumeration:
 | 3. Memory the *next step reads in code* | "Claude dynamically writes orchestration scripts" — the routing is a script |
 | 4. High-level loops with an observable exit condition | "keeps iterating until the answers converge" |
 
-*Confidence: **definitive** that the announcement contains those spans (fetched from
-claude.com); **reduced-confidence** as page evidence because claude.com is a rendered marketing
-page — the quotes are short and visible, no figure is claimed, and the maturity label
-("research preview" per secondary reporting) was **not** verified first-party and is not relied
-on. **DERIVED** on the mapping table: the equivalence is this paper's inference from [S5] and the
+*Confidence: **definitive (rendered page — reduced confidence)** that the announcement contains
+those spans, all fetched from claude.com; the quotes are short and visible and no figure is
+claimed. **The maturity label is first-party GA, quoted above.** An earlier draft of this paper
+recorded it as "research preview per secondary reporting, not verified" — that was wrong, the
+page states general availability outright, and the correction runs **in favour of** this finding:
+a GA product is stronger evidence for D1 than a preview would be. **DERIVED** on the mapping
+table: the equivalence is this paper's inference from [S5] and the
 problem statement's own text, not Anthropic's claim. In particular "a single session" is a real
 scope difference from a multi-day, multi-machine loop — see §5.3, which is where that difference
 gets its full weight.*
@@ -180,15 +212,26 @@ gets its full weight.*
 First-party docs describe "Workflow-based execution using Dapr Workflows", "Persistent workflow
 state management across sessions and failures", "Deterministic execution with checkpointing",
 and state that "The conversation state and the execution are persisted and can resume across
-failures or restarts" [S6]. Undated in the fetched page — treated as corroboration of the
-pattern's spread, not as a dated data point.
+failures or restarts" [S6]. **No publication date is establishable** — treated as corroboration of
+the pattern's spread, not as a dated data point. *(The page foots with "Last modified August 3,
+2026", which is a modification date on living documentation and says nothing about when the
+DurableAgent capability shipped. **Unverified** as to date; the quoted capabilities are
+definitive.)*
 
 **2.1.5 What this collectively establishes, and what it does not.**
 
-*Establishes (definitive):* as of 2026-08-03, at least three major platform vendors ship, under
-first-party documentation, a runtime in which an interrupted agent run resumes rather than
-restarts. **The distinction between "durable artifact" and "durable loop" no longer separates
-this architecture from the market.**
+*Establishes (**definitive**, and this is the whole of what the sources say):* as of 2026-08-03,
+at least three major platform vendors ship, under dated first-party documentation, a runtime in
+which an interrupted agent run resumes rather than restarts. One of the three is generally
+available. That is a fact about four fetched pages ([S1], [S3], [S5], and [S2] for the GA date)
+and nothing more.
+
+*(**DERIVED** — from [S1], [S3] and [S5] set against the problem statement § *The gap underneath
+it*: **the distinction between "durable artifact" and "durable loop" no longer separates this
+architecture from the market.** This is an inference about *this architecture's position*, not a
+claim any of the three vendors makes, and it is the sentence in this paper most likely to be
+lifted forward into the synthesis. It is qualified immediately below and again, more heavily, in
+§5.3 — a consumer that carries this sentence without §5.3 has mis-carried it.)*
 
 *Does not establish (stated so the finding is not over-read):* that any of them is durable in the
 Temporal sense (event-sourced deterministic replay). Cloudflare's fibers are checkpoint-and-

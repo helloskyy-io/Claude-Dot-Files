@@ -5,8 +5,8 @@ Topic:          Does flat-rate, edge-held subscription billing actually make lon
 Feeds:          problem-statement.md § "Affordability is not a footnote — it is the enabler"
 Last validated: 2026-08-03
 Revalidate:     high — 2 weeks
-Confidence:     Definitive on published per-token prices, plan reset-window mechanics, and the documented existence of session/weekly caps (all from first-party raw-markdown docs). Directional on the status of the paused Agent SDK billing split. Unverified on absolute per-plan allowance quantities — Anthropic does not publish them. Derived on every cost-band and subsidy-ratio estimate, each marked at the point of use.
-Critic:         not-yet-verified — 2026-08-03
+Confidence:     Definitive on published per-token prices, plan reset-window mechanics, and the documented existence of session/weekly caps (all from first-party raw-markdown docs). Directional on the status of the paused Agent SDK billing split. Unverified on absolute per-plan allowance quantities — Anthropic does not publish them. Derived on every cost-band and subsidy-ratio estimate, on the cross-element inference in §5.1(a) that underwrites this paper's proposed correction to problem-statement.md, and on the policy-change base rate in §4.11 — each marked at the point of use.
+Critic:         PASS-WITH-FIXES (corrected a false past-window claim about anthropic_tos_and_enterprise.md in five places and removed T7's blocker; three quotations restored to source text; Zed corroboration re-characterised as a relay; §5.1(a) marked derived; two out-of-contract confidence labels replaced; three traceability gaps closed) — 2026-08-03
 ```
 
 ---
@@ -28,7 +28,7 @@ Three findings, each first-party, each load-bearing:
 
 The affordability argument does not collapse — it narrows. What it defensibly buys is *removal of the per-decision cost question below a ceiling*, not *free waste*. §5 argues the case against it as strongly as the evidence permits, and answers it.
 
-**Dependency note (do not re-litigate here):** whether edge-held subscription auth is *permitted* is settled by [`anthropic_tos_and_enterprise.md`](anthropic_tos_and_enterprise.md) — `Last validated: 2026-07-24`, `Revalidate: high — 4 weeks`, **currently past its window**, so per §5 of the Research Standard every claim borrowed from it below is treated as **unverified** and flagged as such. This paper's question is economic. The two touch at exactly one point, noted in §4.6.
+**Dependency note (do not re-litigate here):** whether edge-held subscription auth is *permitted* is settled by [`anthropic_tos_and_enterprise.md`](anthropic_tos_and_enterprise.md) — `Last validated: 2026-07-24`, `Revalidate: high — 4 weeks`, `Critic: PASS`. Under §5's mechanical gate it is **due 2026-08-21 and therefore current**, so claims borrowed from it below carry its own confidence marks rather than a staleness discount. (`temporal.md` is the pool's only past-window paper this cycle.) This paper's question is economic. The two touch at exactly one point, noted in §4.6.
 
 ---
 
@@ -58,14 +58,16 @@ This third shape is the one the problem statement's claim has to be evaluated ag
 
 Subscription (from [claude.com/pricing](https://claude.com/pricing) and [support: what is the Max plan](https://support.claude.com/en/articles/11049741-what-is-the-max-plan), both **rendered pages — reduced confidence**; the two fetches agreed on Pro and Max 5x and *disagreed* on Max 20x, so the Max 20x figure is taken from the support article only):
 
-| Plan | Price | Source confidence |
-|---|---|---|
-| Free | $0 | rendered |
-| Pro | $20/mo ($17 annual) | rendered, two sources agree |
-| Max 5x | $100/mo | rendered, two sources agree |
-| Max 20x | $200/mo | rendered, single source (pricing-page fetch was ambiguous — **stated as a fetch defect, not smoothed over**) |
-| Team | $20–25/seat standard; $100–125/seat premium | rendered |
-| Enterprise | $20/seat + usage at API rates | rendered |
+Confidence class per the four permitted values; *provenance* (raw vs rendered fetch, one source vs two) is annotated separately, per §4's raw-source rule.
+
+| Plan | Price | Confidence | Provenance |
+|---|---|---|---|
+| Free | $0 | definitive | rendered, single source |
+| Pro | $20/mo ($17 annual) | definitive | rendered, two sources agree |
+| Max 5x | $100/mo | definitive | rendered, two sources agree |
+| Max 20x | $200/mo | definitive | rendered, **single** source — the `claude.com/pricing` fetch rendered Max 20x as "From $100/month", which the support article contradicts at $200. First-party documentation exists (hence definitive), but corroboration does not. **Stated as a fetch defect, not smoothed over**; re-check on next touch. Independently consistent with the Agent SDK credit tiers in §2.4, which list Max 20x at $200 |
+| Team | $20–25/seat standard; $100–125/seat premium | definitive | rendered, single source |
+| Enterprise | $20/seat + usage at API rates | definitive | rendered, two sources agree |
 
 Metered, per million tokens ([pricing.md](https://platform.claude.com/docs/en/about-claude/pricing.md), raw markdown — **definitive**), abridged to what a coding loop would plausibly use:
 
@@ -115,15 +117,22 @@ And the multiplier, stated flatly: *"Agent teams use approximately 7x more token
 
 Announced 2026-05-14, effective 2026-06-15, **paused 2026-06-15**. The first-party page as fetched 2026-08-03 carries the pause banner verbatim (quoted in §0) and describes the change itself in future tense ([support 15036540](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) — **definitive as of fetch**):
 
-- Scope: *"This credit covers Claude Agent SDK usage, the `claude -p` command, and third-party apps built on the Agent SDK"* — plus the Claude Code GitHub Actions integration.
+- Scope, quoted as the page states it — a lead-in plus a list, not a sentence:
+  > *"The Agent SDK monthly credit applies to:"*
+  > - *"Claude Agent SDK usage in your own projects (Python or TypeScript)"*
+  > - *"The `claude -p` command in Claude Code (non-interactive mode)"*
+  > - *"The Claude Code GitHub Actions integration"*
+  > - *"Third-party apps that authenticate with your Claude subscription through the Agent SDK"*
 - Effect: *"Starting June 15, 2026, Claude Agent SDK and `claude -p` usage no longer counts toward your Claude plan's usage limits."*
 - Amounts: Pro $20 / Max 5x $100 / Max 20x $200 / Team Standard $20 / Team Premium $100 / Enterprise usage-based $20 / Enterprise Premium $200, per month.
 - Spillover: *"When your monthly credit runs out, additional Agent SDK usage flows to usage credits at standard API rates—but only if you've enabled usage credits."*
 - Carve-out: *"Using Claude Code in the terminal or your IDE continues to use your subscription usage limits exactly as before."*
 
-Corroborated independently by Zed, a vendor materially affected: *"The billing change described below is not taking effect yet. For now, ACP usage, `claude -p`, the Claude Agent SDK, and third-party apps built on the Agent SDK continue to work with Claude subscriptions exactly as they did before."* ([Zed blog](https://zed.dev/blog/anthropic-subscription-changes), rendered — **corroborating, second-party**.)
+**Relayed** — not independently corroborated — by Zed, a vendor materially affected. The leading clause matters and is restored here, because it establishes that Zed is repeating Anthropic rather than observing the state itself: *"**Update (June 16, 2026):** Anthropic has told subscribers that the billing change described below is not taking effect yet. For now, ACP usage, `claude -p`, the Claude Agent SDK, and third-party apps built on the Agent SDK continue to work with Claude subscriptions exactly as they did before."* ([Zed blog](https://zed.dev/blog/anthropic-subscription-changes), rendered — **definitive that Zed published this relay; it carries no independent evidentiary weight on the pause itself**.)
 
-**Contradiction, recorded rather than resolved.** One secondary source encountered during the sweep asserts the change went live 2026-07-10. It is contradicted by the first-party page and by Zed, both fetched today, and by a second search sweep that found only "cancelled/paused" reporting. I record it because a consumer of this paper must know the claim is circulating: **treat "paused" as true-as-of-fetch, not as settled, and re-verify on every touch.** This is the reason the `Revalidate:` interval is set at the fast end of the high band.
+**So the real count for "paused" is one first-party source plus one relay of that same source** — not two sources. Weigh the contradiction below accordingly.
+
+**Contradiction, recorded rather than resolved.** One secondary source encountered during the sweep asserts the change went live 2026-07-10: [help.apiyi.com](https://help.apiyi.com/en/anthropic-claude-subscription-agent-sdk-billing-split-june-2026-en.html) (**unverified** — a vendor blog, not retained beyond the search snippet, and not re-fetched). It is contradicted by the first-party page fetched today, and a second search sweep found only "cancelled/paused" reporting. I name the URL so the next touch can re-check the specific claim rather than re-discovering it. **Treat "paused" as true-as-of-fetch, not as settled, and re-verify on every touch.** This is the reason the `Revalidate:` interval is set at the fast end of the high band, and the reason T4 exists.
 
 **Why it matters here, precisely.** `raw/claude_code_integration_surface.md` (`Last validated: 2026-07-25`, `Critic: PASS`) establishes that `claude -p` is the invocation surface a programmatic edge worker uses. That is exactly and only the surface this change targets; the interactive TUI is explicitly carved out. **The architecture's edge tier is the one thing the announced change would meter.** If it lands, an edge worker on Max 20x has a $200/month API-priced budget for automation — which, per §3.3, is roughly what *one* human-paced Claude Code developer already consumes in token value.
 
@@ -142,7 +151,9 @@ Corroborated independently by Zed, a vendor materially affected: *"The billing c
 | **Cursor Pro (post-June 2025)** | $20/mo | *"$20 of frontier model usage per month at API pricing"*, then at-cost | **Yes** — the flat tier is a dollar budget, not a usage budget |
 | **Claude API / Console** | none | full per-token | **Yes**, linearly |
 
-Sources: [GitHub docs — Copilot requests](https://docs.github.com/en/copilot/concepts/billing/copilot-requests) (rendered, **definitive on the quoted rule**); [Codex/ChatGPT pricing](https://learn.chatgpt.com/docs/pricing) (rendered, **definitive on the quoted window language**); [gemini-cli README, raw](https://raw.githubusercontent.com/google-gemini/gemini-cli/main/README.md) (**definitive**); [Cursor blog, June 2025 pricing](https://cursor.com/blog/june-2025-pricing) (first-party, **definitive**).
+Sources: [GitHub docs — Copilot requests](https://docs.github.com/en/copilot/concepts/billing/copilot-requests) for the 300/1,500 allowances, the $0.04 overage and the autonomous-actions rule (rendered, **definitive on the quoted rule**); [GitHub docs — Copilot plans](https://docs.github.com/en/copilot/get-started/plans) for the *"$10 USD per month"* / *"$39 USD per month"* prices, which are **not** on the requests page (rendered, **definitive**); [Codex/ChatGPT pricing](https://learn.chatgpt.com/docs/pricing) (rendered, **definitive on the quoted window language**); [gemini-cli README, raw](https://raw.githubusercontent.com/google-gemini/gemini-cli/main/README.md) (**definitive**); [Cursor blog, June 2025 pricing](https://cursor.com/blog/june-2025-pricing) (first-party, **definitive**).
+
+> **Currency lead for the next touch — not a defect in this paper.** The `plans` page states *"Each plan comes with an allowance of GitHub AI Credits"* while the cited `copilot-requests` page still denominates allowances in premium requests (300/1,500). GitHub appears to be mid-migration from "premium requests" to "GitHub AI Credits". Since the Copilot row is this section's most important comparator, re-verify the unit before citing it again.
 
 **The most important row is Copilot's.** GitHub meters *human prompts*, not model turns — an autonomous run of any length inside one prompt is one premium request. **That is the exact property the problem statement claims for subscriptions, and it exists in the market — at GitHub, not at Anthropic.** The property is achievable and vendors sometimes choose it; Anthropic currently does not. (**Derived**, from the Copilot rule plus Anthropic's session/weekly mechanics.)
 
@@ -153,18 +164,19 @@ Published measurements, weakest-to-strongest provenance:
 | Measurement | Figure | Source & confidence |
 |---|---|---|
 | HAL benchmark sweep | *"21,730 agent rollouts across 9 models and 9 benchmarks… with a total cost of about $40,000"* → **~$1.84 per rollout, mean** (arithmetic mine) | [arXiv 2510.11977](https://arxiv.org/abs/2510.11977) abstract — **definitive on the two inputs, derived on the quotient** |
-| HAL per-task spread | $0.08 (DeepSeek R1) to $32.00 (Opus 4.1 High) on SWE-bench Verified — a ~400x spread | secondary review of the paper, not verified against the paper body — **unverified** |
+| HAL leaderboard, whole-run costs on SWE-bench Verified Mini | *"SWE-Agent Claude Sonnet 4.5 High (September 2025) 72.0% $463.90"*; *"SWE-Agent Claude Sonnet 4.5 (September 2025) 68.0% $505.92"*; *"SWE-Agent Claude Opus 4.1 (August 2025) 68.0% $1351.35"* — and the authors' own framing, *"agents can be 100x more expensive while only being 1% better"* | [hal.cs.princeton.edu](https://hal.cs.princeton.edu/), first-party from the HAL authors, rendered — **definitive**. *(Replaces a per-task spread figure carried in the first draft on a secondary review's authority; that figure is withdrawn as untraceable, and these whole-run costs are cited in its place.)* |
 | FARS autonomous research deployment | *"ran for 417 hours"*, *"consumed 21.6 billion model tokens"*, 166 papers, *"a total cost of approximately $186,000"*; amortized *"2.51 deployment hours, approximately 130 million model tokens, and about $1,120 per paper"* | [arXiv 2606.31651](https://arxiv.org/html/2606.31651v2) — **definitive** |
 | METR expenditure-horizon evaluation | *"up to $10,000 on a single evaluation run"* spanning 5 days; expenditure horizons of *"$0–$3K"* across six models | [METR](https://metr.org/blog/2026-07-21-expenditure-horizon/) — **definitive** |
 | Anthropic enterprise Claude Code deployments | *"the average cost is around $13 per developer per active day and $150-250 per developer per month, with costs remaining below $30 per active day for 90% of users"* | [costs.md](https://code.claude.com/docs/en/costs.md), raw markdown — **definitive** |
 | Anthropic Enterprise budgeting guide, Code seats | Power (top 10%) **$500**/mo, Typical (mean) **$215**/mo, Light (median) **$40**/mo — page states *"These figures are rough planning estimates"* | [support 14782391](https://support.claude.com/en/articles/14782391-claude-enterprise-consumption-guide), rendered — **definitive on the figures, which the page itself hedges** |
-| Sakana AI Scientist | ~$15 per generated paper (v1); v2 tree search more expensive | secondary reporting only — **unverified** |
+| This repo's own research cycle | *"~$58 / 44 min"* for a 5-topic research cycle — one bounded, largely-autonomous multi-agent run | [`docs/standards/research/research_standard.md`](../../../research/research_standard.md) §2 — **unverified**: the source does not state whether the figure is metered spend or a client-side `total_cost_usd` estimate, and §4.7 shows those differ |
 
 **Derived band** (from the definitive rows above; the inference is this paper's):
 
 | Unit of work | Metered cost, order of magnitude |
 |---|---|
-| One agentic task/rollout | $10⁰ — $10¹ ($0.10 – $32) |
+| One agentic task/rollout | $10⁰ (HAL mean $1.84; spread across models is wide but was not verifiable first-party — see the withdrawn row above) |
+| One agent evaluated across one benchmark suite | $10² — $10³ ($464 – $1,351 on SWE-bench Verified Mini) |
 | One human-paced day of agentic coding | $10¹ ($13 typical, <$30 for 90%) |
 | One month, one heavy developer | $10² ($215 typical, $500 power) |
 | One **unattended** multi-hour autonomous loop that branches and retries | $10¹ — $10³ |
@@ -203,7 +215,7 @@ Each item is something downstream planning can cite. Confidence marked per item.
 
 **4.5 Anthropic ships a first-party unattended-loop product that draws on subscription usage, which bounds how hostile the vendor is to the workload shape.** Routines *"execute on Anthropic-managed cloud infrastructure"*, *"run autonomously as full Claude Code cloud sessions: there is no permission-mode picker and no approval prompts during a run"*, and are *"available on Pro, Max, Team, and Enterprise plans"*. Critically: *"Routines draw down subscription usage the same way interactive sessions do. In addition to the standard subscription limits, routines have a daily cap on how many runs can start per account."* Minimum schedule interval is one hour; the feature is *"in research preview"*. ([routines.md](https://code.claude.com/docs/en/routines.md), raw markdown — **definitive**.) **Derived:** unattended autonomous execution funded by a subscription is a *sanctioned, shipped* pattern — but Anthropic gates it with a third cap (daily runs) on top of the two windows, and runs it on their infrastructure rather than the edge.
 
-**4.6 Anthropic's own edge/CI automation surface is metered, not subscription-funded — the one place where the economic and contractual questions touch.** The Claude Code GitHub Action documents only `ANTHROPIC_API_KEY` (or Bedrock/Vertex credentials) for authentication; no OAuth/subscription path appears anywhere on the page, and the page's own cost section is headed *"API costs"* ([github-actions.md](https://code.claude.com/docs/en/github-actions.md), raw markdown — **definitive on what the page documents; the absence of an OAuth option is a documented absence, not a proven prohibition**). This is the point where [`anthropic_tos_and_enterprise.md`](anthropic_tos_and_enterprise.md) governs — that paper (**currently past its window; treat as unverified**) establishes the permitted boundary. Economically the observation stands on its own: *the vendor's own answer to "run this unattended in CI" is an API key.*
+**4.6 Anthropic's own edge/CI automation surface is metered, not subscription-funded — the one place where the economic and contractual questions touch.** The Claude Code GitHub Action documents only `ANTHROPIC_API_KEY` (or Bedrock/Vertex credentials) for authentication; no OAuth/subscription path appears anywhere on the page. Its cost section is headed **"CI costs"**, within which *"API costs:"* is one of two bolded items, the other being *"GitHub Actions costs:"* ([github-actions.md](https://code.claude.com/docs/en/github-actions.md), raw markdown — **definitive on what the page documents; the absence of an OAuth option is a documented absence, not a proven prohibition**). This is the point where [`anthropic_tos_and_enterprise.md`](anthropic_tos_and_enterprise.md) governs — that paper (**current, `Critic: PASS`, due 2026-08-21**) establishes the permitted boundary. Economically the observation stands on its own: *the vendor's own answer to "run this unattended in CI" is an API key.*
 
 **4.7 Cost instrumentation exists at the edge and is adequate for a burn test — with a documented caveat.** `claude -p --output-format json` returns `total_cost_usd` and a per-model breakdown ([`claude_code_integration_surface.md`](claude_code_integration_surface.md), `Critic: PASS`, 2026-07-25). But: *"The `total_cost_usd` and `costUSD` fields are client-side estimates, not authoritative billing data… Do not bill end users or trigger financial decisions from these fields."* ([cost-tracking.md](https://code.claude.com/docs/en/agent-sdk/cost-tracking.md), raw markdown — **definitive**). For subagent-spawning runs, `total_cost_usd` and `model_usage` include subagent tokens but the `usage` field *"undercounts as soon as nesting occurs"* — a trap for anyone instrumenting a hierarchical loop. Allowance consumption, separately, is observable via `/usage` bars and the `rate_limits` status-line fields ([errors.md](https://code.claude.com/docs/en/errors.md)).
 
@@ -214,9 +226,19 @@ Each item is something downstream planning can cite. Confidence marked per item.
 
 **4.9 Falling unit prices are being consumed by rising unit counts.** **Derived**, from 4.8 plus §2.3's multipliers (agents 4x chat, multi-agent 15x chat, agent teams 7x standard sessions) plus the industry move to long-horizon agentic scaffolds. Cursor's own explanation of abandoning flat request quotas says the same thing from the vendor side: *"New models can spend more tokens per request on longer-horizon tasks… the hardest requests cost an order of magnitude more than simple ones."* ([Cursor](https://cursor.com/blog/june-2025-pricing) — **definitive**.) The affordability argument's shelf life therefore depends on a race between two exponentials, not on one trend.
 
-**4.10 Edge-held subscription execution is a recognised, vendor-named pattern — with a name.** Zed's documentation has a page titled *Use an Existing Subscription*, whose stated fit is *"You already pay for ChatGPT, Claude, Copilot, or another subscription"*, and which lists ChatGPT Plus/Pro (*"Sign in with OpenAI in Zed; no separate OpenAI API key is required"*), GitHub Copilot as a chat model provider, and Claude Pro/Max — the last one available *"only through Claude Agent or Claude Code where supported, not as direct Zed LLM providers"* ([Zed docs, raw](https://raw.githubusercontent.com/zed-industries/zed/main/docs/src/ai/use-an-existing-subscription.md), [llm-providers.md, raw](https://raw.githubusercontent.com/zed-industries/zed/main/docs/src/ai/llm-providers.md) — **definitive**). **Derived:** the pattern is common enough to have first-party documentation at a third-party vendor, and the Claude row's carve-out mirrors exactly the boundary the ToS paper documents. **What I found no evidence of, anywhere in the sweep, is the *multi-participant orchestrated* version** — work coordinated centrally but executed on many individuals' own subscriptions. Search method: the "bring your own subscription"/BYOK sweep returned only single-user tooling and API-key-based BYOK platforms; no orchestration product, paper, or vendor doc describing federated edge-subscription execution surfaced. **That absence is consistent with the problem statement's novelty claim, and is the economic half of what [`combination_prior_art.md`](combination_prior_art.md) tests directly.**
+**4.10 Edge-held subscription execution is a recognised, vendor-named pattern — with a name.** Zed's documentation has a page titled *Use an Existing Subscription*, whose stated fit is *"You already pay for ChatGPT, Claude, Copilot, or another subscription"* ([llm-providers.md, raw](https://raw.githubusercontent.com/zed-industries/zed/main/docs/src/ai/llm-providers.md) — **definitive**). It covers ChatGPT Plus/Pro (*"Sign in with OpenAI in Zed; no separate OpenAI API key is required"*), GitHub Copilot as a chat model provider, and Claude Pro/Max.
 
-**4.11 Flat-rate terms change, and the base rate is not low.** Four documented adverse-to-flat-rate changes in ~13 months, all first-party or vendor-confirmed: Anthropic weekly limits (announced 2025-07-28, effective 2025-08-28); Cursor request-quota → API-priced credits (June 2025, with a public apology — *"Our recent pricing changes for individual plans were not communicated clearly, and we take full responsibility"* — and refunds); Anthropic OAuth enforcement against third-party subscription routing (Feb 2026, per [`anthropic_tos_and_enterprise.md`](anthropic_tos_and_enterprise.md) — **unverified, past window**); Anthropic Agent SDK credit split (announced 2026-05-14, paused 2026-06-15). **Derived:** roughly one materially adverse flat-rate term change per vendor per year across 2025–2026. A business built on someone else's flat rate carries a policy risk a metered one does not, and the observed frequency is annual, not decadal.
+The Claude row is the interesting one, and it is quoted here as two separate artifacts rather than merged — the table row and the prose sentence say different things ([use-an-existing-subscription.md, raw](https://raw.githubusercontent.com/zed-industries/zed/main/docs/src/ai/use-an-existing-subscription.md) — **definitive**):
+
+> | Subscription | Zed AI features | External Agent via ACP | Terminal Thread | Notes |
+> |---|---|---|---|---|
+> | Claude Pro / Max | No direct Zed LLM provider path | Claude Agent | Claude Code | Separate from Anthropic API keys |
+
+> *"Use Claude Agent or Claude Code where supported if you want subscription-backed Claude behavior."*
+
+**Derived:** the pattern is common enough to have first-party documentation at a third-party vendor, and the Claude row's routing — no direct provider path, subscription-backed behaviour only via Claude Agent or Claude Code — mirrors exactly the boundary the ToS paper documents. **What I found no evidence of, anywhere in the sweep, is the *multi-participant orchestrated* version** — work coordinated centrally but executed on many individuals' own subscriptions. Search method: the "bring your own subscription"/BYOK sweep returned only single-user tooling and API-key-based BYOK platforms; no orchestration product, paper, or vendor doc describing federated edge-subscription execution surfaced. **That absence is consistent with the problem statement's novelty claim, and is the economic half of what [`combination_prior_art.md`](combination_prior_art.md) tests directly.**
+
+**4.11 Flat-rate terms change, and the base rate is not low.** Four documented adverse-to-flat-rate changes in ~13 months, all first-party or vendor-confirmed: Anthropic weekly limits (announced 2025-07-28, effective 2025-08-28); Cursor request-quota → API-priced credits (June 2025, with a public apology — *"Our recent pricing changes for individual plans were not communicated clearly, and we take full responsibility"* — and refunds); Anthropic OAuth enforcement against third-party subscription routing (server-side enforcement Jan 2026, policy codified 2026-02-19, per [`anthropic_tos_and_enterprise.md`](anthropic_tos_and_enterprise.md) — **current, `Critic: PASS`, due 2026-08-21; that paper rates the Anthropic-published policy language definitive**); Anthropic Agent SDK credit split (announced 2026-05-14, paused 2026-06-15). **Derived:** roughly one materially adverse flat-rate term change per vendor per year across 2025–2026 — a base rate resting on four inputs, all of which are first-party or vendor-confirmed. A business built on someone else's flat rate carries a policy risk a metered one does not, and the observed frequency is annual, not decadal.
 
 ---
 

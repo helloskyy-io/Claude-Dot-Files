@@ -12,20 +12,32 @@ Feeds:          `docs/standards/architecture/problem-statement.md` elements 3 an
 Last validated: 2026-08-03
 Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on what each cited framework documents as its own routing model —
-                every claim in §2 rests on a fetched first-party doc, and the load-bearing ones
-                (Google ADK, Argo, Airflow, Tekton TEP-0074, Microsoft Agent Framework) came
-                from raw markdown. DEFINITIVE on the OpenAI Structured Outputs guarantee and on
-                its stated limit. DEFINITIVE on what each cited study measured. DEFINITIVE on
-                the central NEGATIVE finding (N1): no head-to-head measurement of code-routing
-                versus model-routing of CONTROL FLOW exists in the located literature.
-                DIRECTIONAL on the single-author 2026 preprints (2604.27891, 2605.14102,
-                2607.17044, 2607.18476) and on everything quoted from a rendered page
-                (Anthropic engineering posts, Temporal blog, Restate docs, dottxt blog).
+                every claim in §2 rests on a fetched first-party doc. Raw-markdown provenance
+                (the strongest tier) covers Google ADK ×2, OpenAI Agents SDK, Tekton tasks +
+                TEP-0074, Airflow, Argo, GitHub Docs reusables and 12-Factor Agents; Microsoft
+                Agent Framework, AWS Step Functions and Airflow's rendered siblings were
+                retrieved as full document text and read directly rather than through a
+                summariser, which is the second tier. DEFINITIVE on the OpenAI Structured
+                Outputs guarantee and on its stated limits. DEFINITIVE on what each cited study
+                measured. DEFINITIVE on the central NEGATIVE finding (N1): no head-to-head
+                measurement of code-routing versus model-routing of CONTROL FLOW exists in the
+                located literature.
+                RENDERED-PAGE CARVE-OUT (applied consistently): a SHORT VERBATIM SPAN quoted
+                from a rendered page is marked definitive ON THE QUOTE where the span was
+                re-verified; any inference, figure or paraphrase drawn from a rendered page
+                stays directional. This covers [S2], [S23], [S9], [S10], [S11] and [S28].
+                DIRECTIONAL on the four 2026 preprints (2604.27891 — five authors;
+                2607.17044 — one named author plus a team; 2605.14102 and 2607.18476 —
+                single-author) and on the vendor-interested rebuttal [S28].
                 UNVERIFIED on the GitHub Actions 1 MB / 50 MB output caps — the figure did not
                 appear in the fetched primary (N4) — and on the Tekton termination-message
-                causal story. DERIVED, and flagged inline, on §0's verdict, §4.4, §5 P7/P9/P11
-                and §6.6.
-Critic:         not-yet-verified — 2026-08-03
+                causal story. DERIVED, and flagged inline, on §0's verdict, §2.4.2, §4.4,
+                §5 P2/P7/P9/P11 and §6.6.
+Critic:         PASS-WITH-FIXES (CrewAI removed from the six and N6 re-scoped, with ADK's graph
+                routing example added; [S24] false-switch rate corrected 0.03%→3% and §6.4
+                re-argued; three quotations restored or unquoted; [S11] unrelated-input case
+                re-grouped; rendered-page and raw-provenance labels made consistent; preprint
+                authorship descriptor corrected) — 2026-08-03
 ```
 
 > **Mixed volatility (§3).** The **high-volatility** material is §2.1–2.3 and §3.2 (agent-framework
@@ -40,13 +52,15 @@ Critic:         not-yet-verified — 2026-08-03
 
 Three findings, in order of how much they should change the problem statement.
 
-**1. The two-way framing does not describe the field.** Every production framework whose
+**1. The two-way framing does not describe the field.** Five production frameworks whose
 routing documentation was fetched for this paper — LangGraph, Microsoft Agent Framework,
-CrewAI Flows, Google ADK, Temporal, Restate — converges on the *same* middle pattern: **a model
+Google ADK, Temporal, Restate — converge on the *same* middle pattern: **a model
 emits a value from a closed vocabulary, and ordinary code branches on that value.** This is not
 a compromise between the two poles; it is the canonical example in each vendor's own docs
 (§2.2). The thesis's "no model in the loop" is true of the **branch** and false of the
 **decision**: the model still decided, it just decided in a typed field instead of a paragraph.
+*(CrewAI Flows was checked and is deliberately NOT in this five — its one `@router()` example
+branches on a value no model produced. That exception is the subject of finding 3(b).)*
 
 **2. There is no measured evidence that code-routing beats model-routing on control flow.**
 Not weak evidence — **none located** (N1). What exists is (a) vendors *asserting* the benefit
@@ -75,9 +89,14 @@ them if it wants a defensible claim:
 - **(b) Literal "no model in the loop."** A predicate over a value **the model did not choose**
   — an exit code, an empty diff, a test result, a finding-set difference — is a strictly
   stronger and genuinely different claim, and it is the one the pool's own
-  `convergence_stopping.md` P11 depends on. **No agent-framework doc located presents such a
-  value as its canonical branching example** (N6). That is a real gap in the field and the
-  strongest available reading of element 3.
+  `convergence_stopping.md` P11 depends on. **The pattern is not absent from the docs, but the
+  one located instance is a toy.** CrewAI's sole `@router()` example branches on
+  `random.choice([True, False])` stored in Pydantic state [S7] — a non-model value, and
+  therefore a genuine counter-example to any unqualified claim that the field never routes this
+  way, but a synthetic illustration of the decorator rather than a result produced by a
+  completed unit of work. Re-scoped honestly (N6): **no located agent-framework doc presents a
+  non-model value *carrying the outcome of real work* as its canonical branching example.**
+  That narrower gap is real and is the strongest available reading of element 3.
 
 Everything below is the evidence for those three.
 
@@ -116,8 +135,9 @@ precondition, which the rest of this paper is largely about:
 > handled separately, and where classification can be handled accurately, either by an LLM or a
 > more traditional classification model/algorithm." — [S2]
 
-*(Confidence: definitive on what the post says; quoted from a **rendered page**, short spans
-only, per the sourcing rule. LangChain's own docs restate the same distinction — "Workflows
+*(Confidence: **definitive on the quotes**, per the header's rendered-page carve-out — short
+verbatim spans only, and no figure or inference is drawn from this page. LangChain's own docs
+restate the same distinction — "Workflows
 have predetermined code paths and are designed to operate in a certain order" / "Agents are
 dynamic and define their own processes and tool usage" [S1] — from a `.md` fetch.)*
 
@@ -145,8 +165,9 @@ and the post states the design rationale as a rejection of code-routing for that
 > "You can't hardcode a fixed path for exploring complex topics, as the process is inherently
 > dynamic and path-dependent." — [S23]
 
-*(Confidence: definitive on the quotes; **rendered page**, short spans only. This is the single
-strongest first-party statement against the thesis's premise and is treated as such in §6.)*
+*(Confidence: **definitive on the quotes**, per the header's rendered-page carve-out — short
+verbatim spans only. This is the single strongest first-party statement against the thesis's
+premise and is treated as such in §6.)*
 
 **The published hierarchical architectures route by model.** The pool's own
 `raw/hierarchical_agents.md` establishes this across AgentOrchestra, HALO, AiScientist and
@@ -154,8 +175,20 @@ CORPGEN — each puts an LLM planner at the top. That paper is cited here rather
 
 ### 2.2 The convergent middle: a model emits a closed-vocabulary verdict, code branches on it
 
-This is the finding that dissolves the dispatch's binary. Five independent first-party sources,
-four of them fetched as raw markdown, document the *same* pattern as their canonical example.
+This is the finding that dissolves the dispatch's binary. **Five** independent first-party
+sources document the *same* pattern as their canonical example. Provenance, since it is this
+paper's reliability warrant: **two raw markdown** (Google ADK ×2, `raw.githubusercontent.com`),
+**one docs-`.md`** (LangChain), **one full document text read directly rather than through a
+summariser** (Microsoft Agent Framework), and **two rendered vendor pages** quoted in short
+verbatim spans only (Temporal, Restate). A sixth framework, CrewAI, was checked and **does
+not** document this pattern — §2.2.4 states what it documents instead, because a survey that
+silently drops its disconfirming case is not a survey.
+
+The same convergence is reported from outside the vendors by the 12-Factor Agents essay —
+"most of the products out there billing themselves as \"AI Agents\" are not all that agentic. A
+lot of them are mostly deterministic code, with LLM steps sprinkled in at just the right points"
+[S32] — which is uncorroborated single-author commentary and is used here only as corroboration
+of a pattern already established by the five first-party sources below.
 
 **2.2.1 LangGraph.** The Routing workflow in LangChain's own docs is a structured-output call
 constrained to a `Literal`, followed by a plain `if/elif` over the stored decision:
@@ -255,11 +288,66 @@ selling points that are exactly the thesis's, **asserted without measurement**:
 > "Enhance reliability: Improve the predictability of your agents by relying on structured node
 > definitions rather than prompts alone" — [S5]
 
-**2.2.4 CrewAI Flows.** `@router()` returns a label; `@listen()` methods subscribe to labels;
-state is a Pydantic `BaseModel` parameterised onto the Flow class for "type safety and
-validation" [S7]. Same shape. *(Confidence: definitive that the primitives exist and compose
-this way; the fetch of the `.md` returned a mix of quotation and summary, so no long quote is
-taken from it.)*
+And the graph docs' own routing sample is the pattern in its purest form — a model classifies
+into a closed vocabulary, a plain function normalises the string, and a **dict** dispatches:
+
+```python
+    process_message = Agent(
+        name="process_message",
+        model="gemini-flash-latest",
+        instruction="""Classify user message into either "BUG", "CUSTOMER_SUPPORT",
+          or "LOGISTICS". If you think a message applies to more than one category,
+          reply with a comma separated list of categories.
+       """,
+        output_schema=str,
+    )
+
+    def router(node_input: str):
+        routes = node_input.split(",")
+        routes = [route.strip() for route in routes]
+        return Event(route=routes)
+...
+           ( router,
+               {
+                   "BUG": response_1_bug,
+                   "CUSTOMER_SUPPORT": response_2_support,
+                   "LOGISTICS": response_3_logistics,
+               }
+           )
+```
+— [S5, raw markdown]. **Note what is missing:** `output_schema=str`. The closed vocabulary is
+enforced by the *prompt*, not by a schema or a decoder, and the instruction explicitly invites
+a multi-value answer. Any category the model invents simply fails to match a dict key. This is
+the §4.1 guarantee **not** being used, in the docs of a vendor that markets the pattern on
+predictability. *(Confidence: definitive on the code and on the absence of an enum; **derived**
+on the consequence.)*
+
+**2.2.4 CrewAI Flows — the checked case that does NOT fit, and why it matters.** The mechanism
+is the same shape: `@router()` returns a label, `@listen("label")` methods subscribe to it, and
+state is a Pydantic `BaseModel` parameterised onto the Flow class ("**Type Safety**: Leveraging
+Pydantic ensures that state attributes adhere to the specified types, reducing runtime errors."
+[S7]). **But the docs' only `@router()` example routes on a value no model produced:**
+
+```python
+    @start()
+    def start_method(self):
+        print("Starting the structured flow")
+        random_boolean = random.choice([True, False])
+        self.state.success_flag = random_boolean
+
+    @router(start_method)
+    def second_method(self):
+        if self.state.success_flag:
+            return "success"
+        else:
+            return "failed"
+```
+— [S7]. This is a synthetic illustration of the decorator, not a claim about where routing
+values come from. It is recorded prominently for one reason: **it is the documented
+counter-example to N6's earlier unqualified form**, and it is the reason N6 and P2 are now
+scoped to values *carrying the outcome of real work* rather than to non-model values in
+general. *(Confidence: definitive on the code; the re-scoping is this paper's own judgement and
+is marked derived at P2.)*
 
 **2.2.5 Temporal — the durable-execution vendor's answer to "where does the model sit."**
 Temporal's position is that the model's decision is an *activity result* and the workflow
@@ -273,9 +361,9 @@ dispatches on it:
 
 The accompanying loop calls `llm_decide_next_action` as an activity and passes
 `next_action.tool` straight into `workflow.execute_activity(...)` [S9]. *(Confidence:
-directional-to-definitive — **rendered vendor blog**; the three short quotes above appeared
-identically across two independent fetches of the page, the code block only in one. Quoted
-conservatively.)*
+**definitive on the quotes**, per the header's rendered-page carve-out — the three short spans
+above appeared identically across two independent fetches of the page. The code block appeared
+in one fetch only and is described rather than relied upon.)*
 
 **2.2.6 Restate** documents the same division for its durable-agent pattern: the developer
 writes the loop explicitly, the code checks the model's finish reason (final answer vs. tool
@@ -386,18 +474,31 @@ retreat and owes an explanation of why it will not repeat it.)*
 | Code-routing improves **determinism** | **Definitionally true; measured only for model-selection routing** | ORCH reports "The deterministic routing and merge pipeline improves stability across runs" — but its routing selects *which model answers*, not *which step runs* [S22]. |
 | Code-routing improves **cost** | **Not measured for control flow** (N2) | The nearest measured cost result is in the pool: judge-gated convergence detection at **+129% tokens** — the detector outspending the saving (`convergence_stopping.md` P10). |
 | Code-routing improves **debuggability** | **Not measured** (N2) | Asserted by every vendor; located only in uncorroborated commentary otherwise. |
-| Model routing is **inaccurate enough to matter** | **Measured** | 90–92% routing classification accuracy, ≤0.03% false switch, ~350 ms latency, on curated enterprise scenarios [S24]. |
+| Model routing is **inaccurate enough to matter** | **Measured** | 90–92% routing classification accuracy, up to **3%** false switch, ~350 ms latency, on curated enterprise scenarios [S24]. |
 | Repeated model decisions are **unstable** | **Measured** | τ-bench: "even state-of-the-art function calling agents (like gpt-4o) succeed on <50% of the tasks, and are quite inconsistent (pass^8 <25% in retail)" [S20]. |
 | Multi-agent coordination fails in characteristic ways | **Measured** | MAST: 1600+ annotated traces, 7 frameworks, 14 failure modes in 3 categories including "inter-agent misalignment", κ=0.88 [S21]. |
-| Orchestration **helps** | **Contradicted twice, in 2026** | §6.1 [S18]; §6.2 [S19]. |
+| Orchestration **helps** | **Contradicted twice in 2026 (both directional)** | §6.1 [S18]; §6.2 [S19]. |
 
 ### 3.2 The one paper that decomposes where reliability comes from
 
 `Where Does Agent Reliability Come From?` [S25] evaluates a production enterprise agent across
-SpreadsheetBench Verified, BullshitBench v2 and GAIA validation, reporting "+7 to +15
-percentage points over the base model across benchmarks," and attributes it thus: "most of it
-comes from scaffolding, routing, and specialist models rather than from the verification step
-itself," with verification contributing "only +1.5 points" [S25].
+SpreadsheetBench Verified, BullshitBench v2 and GAIA validation. The gains are reported
+per-benchmark, not as a range — verbatim:
+
+> "The full system improves over its frontier base model by +11.0 percentage points on
+> SpreadsheetBench (91.25% vs 80.25%, n=400, p<0.001), +7 to +10 percentage points on
+> BullshitBench (98% vs 91%, n=100), and roughly +15 points on GAIA validation (75.2% pass@1,
+> n=165; 83.0% best-of-k)." — [S25]
+
+And the attribution, also verbatim:
+
+> "most of it comes from scaffolding, routing, and specialist models rather than from the
+> verification step itself, whose isolated contribution is small (+1.5 points) but concentrated
+> at the top of the score distribution, where it converts otherwise-failing tasks." — [S25]
+
+*(An earlier draft compressed the three figures into a quoted "+7 to +15 percentage points
+across benchmarks" and quoted "only +1.5 points". Neither string is in the source. The
+synthesis was defensible; presenting it inside quotation marks was not.)*
 
 **Read carefully, because it is the most cite-able number on the pro-scaffolding side and it
 does not say what one would want it to say.** It attributes gain to scaffolding-and-routing *as
@@ -445,10 +546,20 @@ here establishes it for a `claude -p` process whose output is stdout.)*
 
 > "Structured Outputs can still contain mistakes." — [S11]
 
-The doc also names the residual cases where a schema-conformant response is unattainable at all
-— model refusals, token-limit truncation, input unrelated to the schema [S11]. So the
-guarantee is: **the shape is safe; the content is not, and there exist inputs for which no
-conforming answer is produced.**
+Two distinct residual classes, and OpenAI documents them separately. **Class one — no
+conforming answer is produced at all:** model refusals for safety reasons, and token-limit
+truncation [S11]. **Class two — a conforming answer is produced and it is fabricated**, which
+is first-party support for this section's whole thesis and is the sharper of the two:
+
+> "The model will always try to adhere to the provided schema, which can result in
+> **hallucinations if the input is completely unrelated to the schema.**" — [S11]
+
+The doc's own remedy is to push the problem back into the prompt: "If your application is using
+user-generated input, make sure your prompt includes **instructions on how to handle situations
+where the input cannot result in a valid response.**" [S11] — i.e. the vendor's answer to
+"schema-valid but wrong" is *ask the model to abstain*, which is precisely the mechanism §4.4
+argues is under-incentivised. So the guarantee is: **the shape is safe; the content is not; and
+the pressure to fill a required field is itself a documented hallucination source.**
 
 ### 4.3 Does forcing the shape damage the judgement? The literature is genuinely split
 
@@ -509,12 +620,19 @@ without establishing that typed routing reduces it.
 
 **P1. The field has converged on the middle, not on either pole.** Model emits a
 closed-vocabulary typed value; code branches on it. Documented as the canonical routing example
-by LangGraph [S1], Microsoft Agent Framework [S6], CrewAI [S7], Google ADK [S5], Temporal [S9]
-and Restate [S10]. *(definitive)*
+by LangGraph [S1], Microsoft Agent Framework [S6], Google ADK [S5], Temporal [S9] and Restate
+[S10] — five sources. **CrewAI [S7] was checked and is excluded**: it has the same primitives
+but its only `@router()` example branches on `random.choice([True, False])` (§2.2.4).
+*(definitive)*
 
-**P2. "No model in the loop" is false of the decision in every located instance.** Every
-canonical routing example located has a model producing the value the predicate reads (N6).
-*(definitive — negative finding, search method in §7.1)*
+**P2. "No model in the loop" is false of the decision in every located instance that routes on
+the outcome of real work.** Of six frameworks surveyed, five have a model producing the value
+the predicate reads; the sixth (CrewAI) routes on a synthetic random value in a decorator
+demonstration (N6). *(**derived** — the per-source enumeration is definitive, but the
+generalisation now depends on this paper's own judgement that a `random.choice` illustration
+does not count as a routing value "carrying the outcome of real work". That judgement is
+defensible and it is a judgement, so P2 does **not** carry a definitive mark. A consumer who
+rejects the distinction should read P2 as falsified by one of its own six sources.)*
 
 **P3. Code-routing over typed step results across process boundaries is ~decade-old, boring
 technology outside agents.** Step Functions Choice states [S8], Argo, Tekton, Airflow, GitHub
@@ -552,12 +670,14 @@ literature in §4.3 and by [S31]. *(definitive on the quote; **derived** on the 
 a code-router is a *faithful executor of a possibly-wrong judgement*, which is a different risk
 profile from a model-router, not a smaller one)*
 
-**P10. Model routing's measured accuracy on a curated enterprise benchmark is 90–92%.** The
-paper's prose states "more than 90% routing classification accuracy" and "less than 3% false
-agent switching rate"; its Table 7 gives per-domain figures of 92%/0%, 92%/0% and 90%/0.03%,
-with "Average latency of routing classification … about 350 ms" [S24]. *(definitive on what the
-paper reports; handcrafted scenarios from three enterprise domains, so read as an upper bound
-on in-the-wild accuracy)*
+**P10. Model routing's measured accuracy on a curated enterprise benchmark is 90–92%, with a
+false-switch rate up to 3%.** The paper's prose states "more than 90% routing classification
+accuracy" and "less than 3% false agent switching rate"; its Table 7 prints the same figures as
+**proportions** — 0.92/0.00, 0.92/0.00 and 0.90/**0.03** for Mortgage first layer, Mortgage
+second layer and Travel routing — i.e. the worst domain misroutes 3 conversations in 100, not
+3 in 10,000. "Average latency of routing classification is about 350 ms" [S24]. *(definitive on
+what the paper reports; handcrafted scenarios from three enterprise domains, so read as an
+upper bound on in-the-wild accuracy)*
 
 **P11. Typed state is a *precondition* for the mechanisms this pool already wants, independent
 of the routing question.** `convergence_stopping.md` P11 establishes that Class A (set fixpoint)
@@ -621,13 +741,35 @@ dynamic and path-dependent." [S23] For open-ended exploration this is a first-pa
 from the vendor whose model this repo runs, and it is not obviously wrong for the *research*
 workflows in this fleet, as opposed to the *revision* ones.
 
-### 6.4 Model routing may simply be accurate enough at this scale
+### 6.4 Model routing may be accurate enough at this scale — but this argument is weaker than it first looked
 
-90–92% routing classification accuracy with ≤0.03% false switching [S24] is, for a
-single-operator fleet dispatching a handful of workflows a day, a defect rate a human reviewing
-every PR will catch. **The cost of a wrong route here is a wasted run, not a wrong production
-transaction.** A design should not pay a structural price for a failure mode whose blast radius
-is one worktree.
+**Correction, stated in place because the correction is the finding.** An earlier draft of this
+section read [S24]'s false-switch rate as 0.03% and concluded that model routing was plainly
+good enough. Table 7 prints **proportions**: 0.03 is **3%**, which is what the paper's own prose
+says ("less than 3% false agent switching rate") [S24]. The counter-argument survives, but at
+one hundred times the error rate, and it must be re-made on the honest number.
+
+What survives: **the cost of a wrong route here is a wasted run, not a wrong production
+transaction.** A single-operator fleet dispatching a handful of workflows a day, with a human
+reviewing every PR, absorbs a misroute cheaply — the blast radius is one worktree, and this repo
+already bounds it (worktree isolation, nothing reaches `main` except through a PR). A design
+should not pay a structural price for a failure mode that costs an hour and is caught by an
+already-existing gate.
+
+What does not survive: the claim that the rate is negligible. 90–92% per-decision accuracy is
+**8–10 decisions in 100 misclassified**, with up to 3 in 100 actively dispatched to the wrong
+destination [S24]. *(**Derived**, and the assumption is almost certainly false: if k routing
+decisions in a chain were independent at 92%, a five-step chain would route end-to-end
+correctly 0.92⁵ ≈ 66% of the time. Routing errors are surely positively correlated — the hard
+inputs are hard for every decision — which flattens the curve, and no source located measures
+the correlation. The arithmetic is offered to show the direction the number moves under
+composition, not as an estimate. Element 4's driver is explicitly a *chain* of such decisions,
+which is where this matters.)*
+
+**Net:** §6.4 is still a real counter-argument, and it is now a narrower one — it defends model
+routing on *blast radius*, not on *accuracy*. Recorded this way because the honest-boundary
+section getting weaker on re-verification is exactly the kind of movement a consuming agent
+must be able to see.
 
 ### 6.5 Code-routing forfeits the unforeseen case by construction
 

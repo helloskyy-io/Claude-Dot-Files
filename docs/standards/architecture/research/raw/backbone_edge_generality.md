@@ -10,7 +10,7 @@ Feeds:          problem-statement.md § "Where this repo sits" (the "backbone do
                 (the binding design constraint on work happening today). Also system-overview.md
                 § "What is not built".
 Last validated: 2026-08-03
-Revalidate:     low — 5 months
+Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on what each surveyed platform shipped, extracted, or refused, and on the
                 numeric facts drawn from first-party raw sources (Kubernetes KEP + release blog,
                 Home Assistant ADRs + analytics endpoint + developer docs, OPC Foundation nodeset
@@ -23,29 +23,40 @@ Confidence:     DEFINITIVE on what each surveyed platform shipped, extracted, or
                 such: the Home Assistant integration tally (tool-side count of a large JSON), the
                 ISO 10218-1:2025 and EU Machinery Regulation Annex I content (first-party fetches
                 returned 403 / truncated before the Annex), and the nf-core Genome Biology figures.
-                NEGATIVE FINDINGS with search method: no measured cost-per-integration-N study
-                across unrelated domains; no documented post-mortem of premature platform
-                generalisation.
-Critic:         not-yet-verified — 2026-08-03
+Negative:       Four findings of absence, each stated with its search method — no measured
+                cost-per-integration-N study across unrelated domains (§3.4); no documented
+                post-mortem of premature platform generalisation (§6.3); no benchmark of an
+                assistant operating an orchestration substrate it helped author (§7.3); no platform
+                that added a genuinely unrelated second domain on an unchanged core (§8.4).
+Critic:         PASS-WITH-FIXES (re-cited the v1.31 and release-count claims off [S12]; header
+                interval raised to high — 6 weeks per §3 mixed-volatility ruling; OPC UA directory
+                count downgraded to ~80/approximate; unverified HA tally caveated at §5; search
+                method added to the §7.3 and §8.4 negative findings; source-count arithmetic
+                corrected) — 2026-08-03
 ```
 
-> **Volatility note (Research Standard §3, mixed-volatility rule) — and a declared deviation.**
-> Every load-bearing claim here rests on 1975–2026 fundamentals, mature standards bodies, and
-> *completed* migrations: ROS 1 → ROS 2, Kubernetes in-tree → out-of-tree, OPC UA companion specs,
-> the software-product-line economics literature, the YAGNI/rule-of-three/second-system corpus.
-> Those are low-volatility (§5: "Fundamentals, academic synthesis, classical antecedents", 3–6
-> months). **One section is not:** §7 (the compounding claim) cites agent benchmarks, which §5
-> classes as high-volatility AI/agent tooling. A literal read of the mixed-volatility rule would
-> force the whole header to *high*.
+> **Volatility note (Research Standard §3, mixed-volatility rule) — ruling applied 2026-08-03.**
+> Most of this paper is low-volatility: every load-bearing claim in §2–§6 rests on 1975–2026
+> fundamentals, mature standards bodies, and *completed* migrations — ROS 1 → ROS 2, Kubernetes
+> in-tree → out-of-tree, OPC UA companion specs, the software-product-line economics literature, the
+> YAGNI/rule-of-three/second-system corpus. **§7 is not.** It cites agent benchmarks, which §5
+> classes as high-volatility AI/agent tooling.
 >
-> **I set `low — 5 months` deliberately and flag the deviation for the critic.** The reasoning: §7's
-> result is a *negative* finding — "the evidence is too thin to test this claim." Negative findings
-> decay in exactly one direction. New evidence can only arrive and *strengthen* the paper's ability
-> to answer; it cannot silently make a stated absence wrong in the way a stale API surface goes
-> wrong. §7 is also ~15% of the paper, well under §3's one-third split threshold. **Explicit
-> trigger, overriding the interval:** revalidate immediately if a second edge is scheduled, or if a
-> first-party result on cross-domain agent operation appears. A refresh should re-verify §7 and may
-> leave §2–§6 alone.
+> The first draft proposed `low — 5 months` on the argument that §7 is a purely negative finding and
+> therefore decays in one direction. **That argument was put to the critic and rejected, and the
+> rejection is correct on the merits:** §7.1 and §7.2 assert positive quantitative facts from
+> high-volatility sources ([S31]–[S36]), and this paper concedes the point itself where it notes
+> that [S34]'s figure "moves across versions." §3's one-third threshold governs whether to *split*
+> the paper, not what interval the header takes — the rule is to take the highest tier present,
+> always. §3's tiebreak settles the rest: "the failure mode is over-refresh, never staleness."
+>
+> **The header therefore takes `high — 6 weeks`** — the top of §5's high band, justified because
+> §7's sources are published papers rather than a live API surface.
+>
+> **Refresh scope (per §3's provision for marking slower-decaying sections):** re-verify **§7 only**.
+> §2–§6 and §8–§9 may be skipped; their sources are stable and their claims are not
+> version-sensitive. **Explicit trigger, overriding the interval:** revalidate immediately if a
+> second edge is scheduled, or if a first-party result on cross-domain agent operation appears.
 
 ---
 
