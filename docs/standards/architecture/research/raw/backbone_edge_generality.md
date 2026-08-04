@@ -33,8 +33,8 @@ Negative:       Four findings of absence, each stated with its search method —
                 that added a genuinely unrelated second domain on an unchanged core (§8.4).
 Critic:         PASS-WITH-FIXES (round 3: §7.3 benchmark-set attribution corrected —
                 PersonalHomeBench re-cited to arXiv 2604.16813 as search-surfaced and AI2-THOR
-                re-cited or dropped, leaving [S36] credited only with the benchmarks it names)
-                — 2026-08-03
+                re-cited or dropped, leaving [S36] credited only with the benchmarks it names;
+                §7.3's [S36] span restored to full verbatim) — 2026-08-03
 ```
 
 > **Volatility note (Research Standard §3, mixed-volatility rule) — ruling applied 2026-08-03.**
@@ -615,9 +615,10 @@ high-volatility fact.)*
      [S36] SMH-Bench (1,100 tasks, up to 135 devices), and [S38] PersonalHomeBench (personalized
      smart home) — the last surfaced by the same search rather than by any other paper's citation.
    - **Named by [S36]'s related-work section**, verified verbatim in its HTML rendering:
-     "HomeBench Li et al. (2025), SmartHome-Bench Zhao et al. (2025) and SmartBench Zou et al.
-     (2026) study anomaly and safety-related scenarios, and SimuHome Seo et al. (2026) introduces
-     executable temporal simulation," alongside "CASAS Cook et al. (2013) and ARAS Alemdar et al.
+     "HomeBench Li et al. (2025) evaluates valid and invalid device-control instructions,
+     SmartHome-Bench Zhao et al. (2025) and SmartBench Zou et al. (2026) study anomaly and
+     safety-related scenarios, and SimuHome Seo et al. (2026) introduces executable temporal
+     simulation," alongside "CASAS Cook et al. (2013) and ARAS Alemdar et al.
      (2013) focus on activity recognition, while VirtualHome Puig et al. (2018), ALFRED Shridhar et
      al. (2020), TEACh Padmakumar et al. (2022), BEHAVIOR Srivastava et al. (2022), and ReALFRED
      Kim et al. (2024) emphasize navigation and physical manipulation in household environments."

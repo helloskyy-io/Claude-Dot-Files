@@ -34,7 +34,8 @@ Confidence:     Four classes only, per §3 — definitive / directional / unveri
 Critic:         PASS-WITH-FIXES (round 3: N6's dependent trace extended to durable_execution.md
                 §3, where the same threshold appears unhedged; [S5]'s citation entry corrected to
                 record the first-party GA verification; §2.1.2's element-count transfer marked
-                derived at point of use) — 2026-08-03
+                derived at point of use; pool-papers index reconciled with N6's two-site trace)
+                — 2026-08-03
 ```
 
 > **Mixed volatility (§3).** The load-bearing section §2.1 is a **vendor product inventory**
@@ -1138,7 +1139,8 @@ decays)**
 - `docs/standards/architecture/research/raw/durable_execution.md` — Last validated 2026-07-27;
   **Critic: PASS**. Owns the durable-execution primer, the vendor landscape, the
   checkpointing-is-not-durable-execution distinction (**§4**), and the ~30-minute threshold
-  (**§6**, bullet 1 — *not* §3) whose provenance N6 corrects.
+  (**§3**, Claude Agent SDK bullet — unhedged — and **§6**, bullet 1; see N6) whose provenance
+  N6 corrects.
 - `docs/standards/architecture/research/raw/anthropic_tos_and_enterprise.md` — Last validated
   2026-07-24; Critic: PASS; **in window — due 2026-08-21**, consumable as current evidence.
 - `docs/standards/architecture/research/raw/workflow_reuse_boundary.md` — owns the
