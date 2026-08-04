@@ -27,11 +27,11 @@
 | Convergence and the plateau | `Phase: Autonomous Operation` — "exit criteria that are real and observable"; the one-loop-back bound live in `revision.sh` | `raw/convergence_stopping.md` | 2026-08-03 | high — 6 weeks |
 | Parameterize vs fork | `problem-statement.md` § *the shared workflow library*; `Phase: Workflow Decomposition`'s gating ruling | `raw/workflow_reuse_boundary.md` | 2026-08-03 | high — 6 weeks |
 | Long activities, Python SDK | `Phase: Temporal Integration` → the `claude_cli` activity domain | `raw/python_sdk_long_activities.md` | 2026-08-03 | high — 4 weeks |
-| **Prior art on the combination** | `problem-statement.md` § *What we are combining, and why it is novel* — the novelty claim itself | `raw/combination_prior_art.md` | *(this cycle)* | *(this cycle)* |
-| **Code-routed control flow** | `problem-statement.md` elements 3 **and** 4; `system-overview.md` § *What is not built* | `raw/code_routed_control_flow.md` | *(this cycle)* | *(this cycle)* |
-| **Subscription economics as enabler** | `problem-statement.md` § *Affordability is not a footnote — it is the enabler* | `raw/subscription_economics.md` | *(this cycle)* | *(this cycle)* |
-| **The case against the thesis** | `problem-statement.md` overall — the adversarial brief the pool does not have | `raw/case_against.md` | *(this cycle)* | *(this cycle)* |
-| **Backbone / edge generality** | `problem-statement.md` § *Where this repo sits* + § *Nothing may assume the coding edge* | `raw/backbone_edge_generality.md` | *(this cycle)* | *(this cycle)* |
+| **Prior art on the combination** | `problem-statement.md` § *What we are combining, and why it is novel* — the novelty claim itself | `raw/combination_prior_art.md` | 2026-08-03 | high — 4 weeks |
+| **Code-routed control flow** | `problem-statement.md` elements 3 **and** 4; `system-overview.md` § *What is not built* | `raw/code_routed_control_flow.md` | 2026-08-03 | high — 6 weeks |
+| **Subscription economics as enabler** | `problem-statement.md` § *Affordability is not a footnote — it is the enabler* | `raw/subscription_economics.md` | 2026-08-03 | high — 2 weeks |
+| **The case against the thesis** | `problem-statement.md` overall — the adversarial brief the pool does not have | `raw/case_against.md` | 2026-08-03 | high — 4 weeks |
+| **Backbone / edge generality** | `problem-statement.md` § *Where this repo sits* + § *Nothing may assume the coding edge* | `raw/backbone_edge_generality.md` | 2026-08-03 | high — 6 weeks |
 
 ### Why these five, and not the others
 
@@ -63,3 +63,8 @@ The previous cycle asked *what does this fleet need next?* This one asks *does t
 | **Inter-process handoff contracts — the wire format** | `Phase: Memory Management Framework` (kind 2) | **Redirected, not deferred.** Phase-level; see *Deliberately NOT re-opened* above. Still the highest-value open research on the queue, and still blocked on the phase doc being unwritten. |
 | **Reflection-channel mining** | `Phase: Continuous Process Improvement` — the open "sweep the reflection channel systematically" milestone | Phase-level. The milestone is committed; the question is how to build the sweeper. |
 | **Bash → Python Stage A conversion** | `Phase: Temporal Integration` | Phase-level, and the direction is decided. Research does not settle execution. |
+| **Certification and conformity regimes for a physical edge** | `problem-statement.md` § *Where this repo sits* — the industrial/robotics edges | **Surfaced by this cycle**, by `raw/backbone_edge_generality.md` §8.4. Not deferred on priority — **not answerable with the access available.** Every authoritative source was paywalled, 403'd or truncated (iso.org, ISO OBP, TÜV SÜD, EUR-Lex CELEX 32023R1230 cut off before the Annexes). Plausibly the largest unpriced cost item in the architecture. Needs paid standards access, not another dispatch. |
+
+### What the novelty finding changes about this list
+
+`raw/combination_prior_art.md` found the combination built, which retires nothing but **re-points** several topics. Any future topic asking "is X novel" should now be scoped as "is X un-built *in this scoping*" — multi-participant, credentials-at-edge, server running no agent compute — because that is the only part of the thesis with no located instance. The one surviving novelty candidate, *a judging verdict that changes method rather than model choice*, is **explicitly untested** and is not yet a topic: it needs the 40 unread bernstein directories read first, which is a test-plan item, not a research cycle.
