@@ -28,11 +28,14 @@ Confidence:     DEFINITIVE on everything sourced from raw first-party artifacts 
                 every mapping from someone else's failure onto this system's exposure, on
                 every mitigation cost, and on the whole of §7's ranking. UNVERIFIED: the AWS
                 retry-storm article (JS-rendered, no body returned — see N4).
-Critic:         PASS-WITH-FIXES (S23 quotation replaced with the source's wording; N3 rewritten
-                to the git-trees count 207/206 truncated:false with the summarized-listing
-                method rule added; header "four"→"six"; directional markers applied at the
-                [S20]/[S21]/[S23]/[S24] body use sites; §5.2 "originally keyed on" marked
-                derived) — 2026-08-04
+Critic:         PASS-WITH-FIXES (S23 quotation replaced with the source's wording; N3 rewritten to
+                the git-trees count 207/206 truncated:false, [S28] added; N6 re-methodized against
+                the trees listing, absence re-confirmed by substring enumeration and its COUNT
+                withheld per the new N7; header "four"→"six"; directional markers applied at the
+                [S20]/[S21]/[S23]/[S24] body use sites; §5.2 "originally keyed on" marked derived)
+                — 2026-08-04. Round 2 raised N6 expecting the count 229; the author's independent
+                re-fetch returned 200, which FALSIFIED the premise of the fix and produced N7 —
+                the count itself is not reliably readable, so no number is stated. Absence stands.
 ```
 
 > **Mixed volatility (§3).** The **low-volatility** core is §2.5 (the peer-reviewed / preprint
@@ -435,8 +438,8 @@ self-recover" [S17] — which for this system is **not free**, because an API ke
 whole affordability thesis is flat-rate (§6.2).
 
 *Note on status:* **both issues are `closed`, and both were closed as `duplicate`** — #28827 and
-#29896 each carry the `duplicate` label, and #29896 additionally carries `state_reason:
-"duplicate"`. That matters more for #29896 than for #28827, because #29896 is the one carrying the
+#29896 each carry the `duplicate` label and `state_reason: "duplicate"`. That matters more for
+#29896 than for #28827, because #29896 is the one carrying the
 credential-*destruction* evidence: the failure this paper ranks first is sourced entirely to a
 report that was closed without a stated fix. Treat the *reported behaviour* as definitive and the
 *current* behaviour as unverified; §9/T1 makes it a test.
@@ -565,7 +568,7 @@ Costs are **derived estimates** in operator-hours, naming their inputs.
 | E6 | **`claude` binary version drift across machines.** `config/` is symlinked identically; the CLI is not pinned or recorded | [S2, #2610] admission receipts; [S2] nightly canary matrix; [S19] rainbow deployments | **Record it, then gate on it.** Stamp `claude --version` into every JSONL run log first (near-zero cost, makes drift *minable* by `review-runs.sh`); only add a version floor check after the log shows drift correlates with failures | ~1h to record; ~2h to gate |
 | E7 | *(withdrawn — see §4.1.)* An earlier draft of this paper listed identical-retry exposure. **Reading `revision.sh` L345–357 and `children/revision-refine.sh` L79–82 falsified it**: the loop-back passes `--correction-pass` and closes a named runway. Recorded rather than deleted, because a planner who read the failure ([S22b]) without the check would re-derive the same wrong item | — | none needed | — |
 | E8 | **A control whose failure mode is silence.** Our `PreToolUse` hook is, per `system-overview.md`, "the only control operating during a run" — and the roadmap flags that `--setting-sources project,local` "would strip it from every autonomous run" | [S2, #1850] classifier gated nothing *(raw)*; [S20] deadlock detector on an empty graph and [S21] cost rules not invoked *(both directional — summarized fetches; the pattern rests on #1850, which is raw)* | A **wiring test**: a dispatch fixture that issues a known-denied command and asserts the hook fired. This is the exact remedy bernstein adopted ("A regression test asserts the gate actually invokes the classifier") | ~3h |
-| E9 | **Rate-limit exhaustion is our budget ceiling, and nothing enforces one.** The roadmap records that "2 concurrent engineers + PM session can exhaust rate limits in half a metered period" | [S21] warn 60% / stop-spawning 90%; [S10] budgets as first-class | A **concurrency ceiling** on simultaneous dispatches — the flat-rate analogue of a USD cap. USD budgeting does not transfer (§6.2); concurrency does | ~2h |
+| E9 | **Rate-limit exhaustion is our budget ceiling, and nothing enforces one.** The roadmap records that "2 concurrent engineers + PM session can exhaust rate limits in half a metered period" | [S21] warn 60% / stop-spawning 90% *(directional — summarized fetch)*; [S10] budgets as first-class *(raw)* | A **concurrency ceiling** on simultaneous dispatches — the flat-rate analogue of a USD cap. USD budgeting does not transfer (§6.2); concurrency does | ~2h |
 | E10 | **Alert/incident storms once a driver files issues automatically.** Our no-change outcomes land as GitHub Issues; a loop that files one per failed leg will duplicate | [S11], [S12] — two dedupe indexes, at two granularities, retrofitted | An **origin-fingerprint convention** in the issue title/body plus a "search before file" step. Adopt Paperclip's two-level shape (incident id **and** fingerprint) from the start rather than discovering the second level later | ~2h |
 | E11 | **Prior-run text is an injection surface.** PR threads and issues written by earlier runs are read by later ones as memory | [S2] `MemoryTrustPolicy` | Provenance-tag machine-written comments and have consumers treat untagged/foreign-tagged text as data, not instruction. Low cost now, expensive to retrofit after multi-edge | ~3h |
 
@@ -785,7 +788,7 @@ and mitigation are in §4.2.)*
 | **6** | **E6 — `claude` binary drift** | The *recording* half is ~1h and makes drift minable by machinery we already run; the gating half can wait for evidence | Stamp `claude --version` into every run log now | ~1h | No |
 | **7** | **E9 — no ceiling on concurrent dispatches** | Already observed once (rate-limit exhaustion in half a metered period), and the flat-rate translation is the non-obvious part. *The comparator (bernstein's 60%/90% burn-rate stop, [S21]) is directional — summarized fetch* | Concurrency ceiling, not a USD cap | ~2h | Partly |
 | **8** | **E5 — orphaned worktrees / disk** | Slow-burning, easy to detect late, trivially fixed | Sweeper on the `gh-monitor` timer; note `git worktree prune` is insufficient | ~2h | No |
-| **9** | **E10 — incident storms** | Not live until a driver files issues automatically; adopting the two-level key *now* is nearly free and avoids Paperclip's DROP/CREATE cycle | Two-level origin fingerprint convention | ~2h | Partly |
+| **9** | **E10 — incident storms** | Not live until a driver files issues automatically; adopting the two-level key *now* is nearly free and avoids Paperclip's DROP/CREATE cycle. **Strengthened by the N3 correction:** the two retrofitted dedupe indexes sit in a schema with **206** migrations, not the ~94 an earlier draft recorded — roughly twice the schema-change history behind the same pattern *(derived — [S28] plus [S11]/[S12]; migrations are not all repairs and no source characterises the mix)* | Two-level origin fingerprint convention | ~2h | Partly |
 | **10** | **E11 — prior-run text as an injection surface** | Lowest likelihood today, but retrofit cost rises steeply once multiple edges write to shared memory | Provenance-tag machine-written comments | ~3h | No |
 | **—** | **E7 — withdrawn.** Falsified against the shipped scripts; kept in §4.2 so it is not re-derived | — | — | — | — |
 
@@ -830,17 +833,27 @@ objects, 206 of them `.sql`**, the highest being `0206_review_path_recovery_idem
 correctly-formatted, monotonically-numbered sequence that simply stopped early.
 
 **The transferable method rule, which is the actual finding:** *for any count that will become a
-finding, use the git trees API and read its `truncated` flag — never a summarized contents listing.*
-A truncated list of well-formed filenames is indistinguishable from a complete one, and the
-paper-visible symptom was an argument about a *cap* that was never in play. This is the same failure
-class as N5 and as the [S23] miscitation: a summarizing fetch degrading gracefully into something
-that reads correct.
+finding, use the git trees API and read its `truncated` flag — never a summarized contents listing;
+**and then corroborate the number against an enumerable anchor**, because `truncated: false` proves
+the API did not cut the list, not that the reader counted it correctly.* A truncated list of
+well-formed filenames is indistinguishable from a complete one, and the paper-visible symptom was an
+argument about a *cap* that was never in play. This is the same failure class as N5 and as the [S23]
+miscitation: a summarizing fetch degrading gracefully into something that reads correct.
+
+**The 206 figure is safe for a specific reason, and the reason is not the trees API.** It is safe
+because it is anchored to a **dense monotonic filename sequence** (`0000`–`0206`, with `0202`–`0205`
+separately confirmed to exist) and was reached independently by the sibling paper. The count itself
+came back stable across fetches *here*; it did not everywhere. See N7 — where the same endpoint
+returned three different totals and no anchor was available, this paper declines to state a number
+at all.
 
 Nothing else in this paper moves — the four migrations quoted in §2.2 and §5.2 were each fetched
-individually as raw SQL and are unaffected. What does move is §7's rank-9 reasoning: at 206
-migrations rather than 94, the "two dedupe indexes retrofitted at two granularities" pattern sits in
-a schema with roughly twice the accumulated repair history, which strengthens rather than weakens
-the case for adopting the two-level key up front.
+individually as raw SQL and are unaffected. One inference does move, and §7 rank 9 has been edited to
+carry it: at 206 migrations rather than 94, the "two dedupe indexes retrofitted at two granularities"
+pattern sits in a schema with roughly twice the accumulated **schema-change** history, of which the
+dedupe retrofits are a subset — which strengthens rather than weakens the case for adopting the
+two-level key up front. *(Derived — from [S28] plus [S11]/[S12]. [S28] establishes a migration
+count; migrations are not all repairs, and no source characterises the mix.)*
 
 **N4. AWS's retry-storm guidance could not be fetched.** `aws.amazon.com/builders-library/timeouts-
 retries-and-backoff-with-jitter/` 301-redirects to `builder.aws.com`, which returned a page header
@@ -855,10 +868,47 @@ declined verbatim reproduction. Every claim drawn from these six is marked **dir
 only where the fetch itself presented a span as exact. The load-bearing bernstein claims (§2.1, §2.3.6,
 §2.7.4, §2.2.6) all come from fetches that returned full raw markdown.
 
-**N6. Nothing was located on clock/timezone failures in scheduled agent work.** Searched via: the
-Temporal troubleshooting directory listing (7 files, none on time skew), bernstein's operations
-directory listing (107 files, none named for clocks), and web search. The gap may be real (schedulers
-own this and it rarely surfaces) or may reflect an inadequate search; stated as unresolved.
+**N6. Nothing was located on clock/timezone failures in scheduled agent work. The absence stands;
+the method behind it was wrong on first statement and has been redone.**
+
+An earlier draft searched "bernstein's operations directory listing (107 files, none named for
+clocks)" — a figure from a **summarized contents listing**, i.e. the exact under-enumeration N3
+documents, used to support an absence claim, in the paper that publishes the rule against it. That
+draft checked roughly half the directory and called it none.
+
+**Re-run via the git trees API** (`main:docs/operations`, `truncated: false`): **no filename contains
+`clock`, `timezone`, `tz`, `skew`, `drift`, or `ntp`.** The nearest misses are `schedule.md` (already
+cited as [S24]) and **`mission-timeline.md`**, neither of which concerns time *correctness*. The
+Temporal half of the original claim was correct as written and re-verified: the troubleshooting
+directory returns exactly **7 entries, `truncated: false`**, none on time skew.
+
+**The count of the bernstein directory is deliberately not stated — see N7.** The absence claim does
+not need it: it rests on a substring enumeration that agreed across independent fetches, not on a
+total that did not.
+
+The gap may be real (schedulers own this and it rarely surfaces in application docs) or may reflect
+an inadequate search — a failure named `mission-timeline` or buried inside `schedule.md`'s body would
+not surface by filename. **Stated as unresolved, and now honestly methodized.**
+
+**N7. A deterministic API endpoint returned three different totals for one directory, and this paper
+therefore states no count for it.** Fetching `main:docs/operations` for N6 produced: **107** (contents
+API, summarized — the original error), **229** (trees API, critic's fetch), and **200** (trees API,
+this author's re-fetch, `truncated: false`). Independently, the critic reported one of four trees
+fetches of the *Paperclip* path returning "285 entries" where three returned 207; and the sibling
+paper `paperclip_assessment.md` obtained four different totals from four fetches of one deterministic
+endpoint and **deleted the count rather than assert any of them**.
+
+**This is the refinement to N3's rule, and it is the sharpest methodological output of this cycle:**
+*a count read from a trees-API response still passes through the summarizing layer. `truncated:
+false` proves the API did not cut the list; it proves nothing about whether the reader counted it
+correctly. Corroborate every count against an **enumerable anchor** — a dense monotonic filename
+sequence, or agreement across independent fetches — and where no anchor exists, **state no number**.*
+
+Paperclip's 206 survives because it has an anchor (`0000`–`0206`, dense and monotonic, with
+`0202`–`0205` separately confirmed) and independent corroboration. bernstein's `docs/operations`
+count has neither — the filenames are unordered prose names — so this paper asserts only the
+property it actually verified (a substring enumeration that agreed) and leaves the total open.
+**Nothing in this paper depends on that total.**
 
 ### 8.2 Source list
 
@@ -926,6 +976,14 @@ own this and it rarely surfaces) or may reflect an inadequate search; stated as 
   https://raw.githubusercontent.com/paperclipai/paperclip/master/packages/db/src/migrations/0062_routine_run_dispatch_fingerprint.sql
 - [S26] `.../0064_issue_thread_interaction_idempotency.sql` (raw SQL).
   https://raw.githubusercontent.com/paperclipai/paperclip/master/packages/db/src/migrations/0064_issue_thread_interaction_idempotency.sql
+- [S28] Migration directory via the **git trees API** — `master:packages/db/src/migrations`,
+  `"truncated": false`, **207 tree objects / 206 `.sql`**, highest
+  `0206_review_path_recovery_idempotency_index.sql`, preceded by `0202_eminent_marvel_zombies.sql`,
+  `0203_interaction_resolver_governance.sql`, `0204_interaction_addressee.sql`,
+  `0205_narrow_shiva.sql`. The authority for the count in N3; safe because the sequence is a dense
+  monotonic anchor and the sibling paper reached it independently (N7). *The unencoded `/` in the
+  path segment resolves correctly; `%2F` is equivalent.*
+  https://api.github.com/repos/paperclipai/paperclip/git/trees/master:packages/db/src/migrations
 
 **Primary — Temporal, raw first-party (medium volatility)**
 
@@ -948,7 +1006,9 @@ own this and it rarely surfaces) or may reflect an inadequate search; stated as 
   2026-02-26, state `closed`, label `duplicate`. Body quoted verbatim from the API response.
   https://github.com/anthropics/claude-code/issues/28827
 - [S17] Issue #29896, *OAuth credentials silently wiped on failed token refresh — long-running agents
-  lose auth*, created 2026-03-01, state `closed`. Body quoted verbatim from the API response.
+  lose auth*, created 2026-03-01, state `closed`, label `duplicate`, `state_reason: "duplicate"`.
+  Body quoted verbatim from the API response. **Sole source for the credential-*wipe* behaviour
+  behind §7's rank-1 exposure, and closed without a stated fix — see §6.2 F.**
   https://github.com/anthropics/claude-code/issues/29896
 
 **Literature — arXiv Atom API (`export.arxiv.org/api/query?id_list=…`), abstracts (low volatility)**
@@ -989,27 +1049,32 @@ own this and it rarely surfaces) or may reflect an inadequate search; stated as 
 - `scripts/workflows/review-runs.sh` L24, L207 — `--days` default 7; `find … -mtime "-${DAYS}"`.
 - `docs/standards/research/research_standard.md` §5 — the date-based refresh gate.
 - `docs/standards/architecture/research/raw/convergence_stopping.md` — stopping rules, not re-derived.
-
-- [S28] Paperclip migration directory, **git trees API** —
-  `master:packages/db/src/migrations`, `"truncated": false`, 207 tree objects / 206 `.sql`, highest
-  `0206_review_path_recovery_idempotency_index.sql`. The authority for the count in N3.
-  https://api.github.com/repos/paperclipai/paperclip/git/trees/master:packages/db/src/migrations
+- `docs/standards/architecture/research/raw/paperclip_assessment.md` — sibling paper; independently
+  reached 206 migrations, and independently hit the count-instability of N7.
 
 *Sourcing posture: every GitHub artifact was fetched from `raw.githubusercontent.com` or the REST
 API rather than a blob page; both surveyed repositories' `default_branch` was confirmed via the
 repository API before any raw fetch, so no 404 in this sweep was recorded as an absence. arXiv
 metadata came from the Atom API, not from rendered `abs` pages.*
 
-***Three rules this sweep learned the hard way, all the same failure class — a summarizing fetch
+***Four rules this sweep learned the hard way, all the same failure class — a summarizing fetch
 degrading into something that reads correct:***
 
 1. ***For any count that becomes a finding, use the git trees API and read its `truncated` flag —
    never a summarized contents listing.*** A summarized listing under-enumerated 206 migrations as
    ~94 and produced no signal that it had stopped early (N3).
-2. ***A `raw.githubusercontent.com` URL does not guarantee raw text.*** Six raw fetches in this
+2. ***…and then corroborate the count against an enumerable anchor, because the trees response is
+   summarized too.*** `truncated: false` proves the API did not cut the list; it proves nothing
+   about whether the reader counted it correctly. One directory returned **107 / 229 / 200** across
+   three fetches of a deterministic endpoint; a sibling paper got four different totals from four
+   fetches of one path. **A count is trustworthy only with a dense monotonic filename anchor or
+   agreement across independent fetches — and where neither exists, state no number** (N7). *This
+   is the rule with the widest blast radius in this list: rule 1 alone would have produced a
+   confidently wrong 229 in place of a confidently wrong 107.*
+3. ***A `raw.githubusercontent.com` URL does not guarantee raw text.*** Six raw fetches in this
    sweep returned summaries anyway; one explicitly declined verbatim reproduction. Every claim from
    those six is marked directional **at each body use site**, not only in the header (N5).
-3. ***A span may carry quotation marks only if the exact character sequence was returned.*** One
+4. ***A span may carry quotation marks only if the exact character sequence was returned.*** One
    phrase in §5.1 was manufactured from a summarizing fetch's paraphrase and survived into a
    negative-result paragraph; the substance was true and only the marks were false, which is
    precisely why it was hard to see.
@@ -1021,9 +1086,9 @@ degrading into something that reads correct:***
 Ordered by decision value. Each names why research stopped.
 
 **T1. Measure the real credential lifetime and failure shape on our own edge.**
-*Because:* [S16]/[S17] are reports against Claude Code 2.1.59/2.1.63, both closed, one as a
-duplicate. Whether current behaviour still 401s, still wipes, and on what interval is **unverified**,
-and E1 is rank 1 in §7.
+*Because:* [S16]/[S17] are reports against Claude Code 2.1.59/2.1.63, **both closed as duplicates**,
+neither closure naming a fix. Whether current behaviour still 401s, still wipes, and on what interval
+is **unverified**, and E1 is rank 1 in §7.
 *Design:* run a `claude -p` loop unattended for 24h on a Max-auth machine with no interactive session
 present; log every non-zero exit with stderr and the `~/.claude/.credentials.json` mtime and size.
 *Reads out:* whether E1's mitigation is a probe (expiry) or a backup-and-restore (wipe) — different

@@ -19,12 +19,14 @@ Confidence:     DEFINITIVE at the schema/SQL/commit-message level — the load-b
                 executed, no TypeScript was read. One third-party page (rywalker) is cited only for
                 governance/adoption context and is marked reduced-confidence. COUNTS are stated only where
                 corroborated by a second structurally different signal (the 206 migrations); every other
-                count is a floor ("at least eleven") or has been dropped — see §5(c), where three fetches of
-                one directory returned three different totals.
-Critic:         PASS-WITH-FIXES (§4.4 "stalled" definition restored to all three conditions; §4.3 four→five
-                partial unique indexes with 0069's elided leaf_uq added; commit-10675 file count 36→47; six
-                non-verbatim spans de-quoted or ellipsed; eleven→twelve adapters; contents-API "147 pages"
-                count re-sourced or dropped per §5(c); §5(b) reworded from garbling to elision) — 2026-08-04
+                count is a floor ("at least eleven") or has been dropped — see §5(c), where four fetches of
+                one directory returned four different totals, all claiming completeness.
+Critic:         PASS-WITH-FIXES (r1: §4.4 "stalled" restored to all three conditions; §4.3 four→five partial
+                unique indexes, 0069's elided leaf_uq added; commit-10675 file count 36→47; six non-verbatim
+                spans de-quoted or ellipsed; adapter count restated as a floor; ui/src/pages count dropped —
+                four fetches, four totals; §5(b) reframed garbling→elision. r2: §2.4 "agent runtime"
+                un-inserted; the coarse/fine pairing claim restricted to 0069, where 0084's fine index is
+                subsumed; §6 item 4 given the stalled conjunction) — 2026-08-04
 ```
 
 > ## Headline — the roadmap item describes a product that does not exist, and the verdict is MINE AND DISCARD
@@ -127,10 +129,14 @@ directory"*.[^database]
 
 **2.4 The execution flow puts the agent on the client side of a REST API.** *"Trigger"* → *"Adapter
 invocation — Server calls the configured adapter's execute() function"* → *"Agent process — Adapter spawns
-the agent runtime (e.g. Claude Code CLI)"* → *"Agent work — The agent calls Paperclip's REST API to
-check assignments, checkout tasks, do work, and update status"* → *"Result capture"* → *"Run
-record"*.[^architecture] **This is the single most consequential structural fact in the paper**: Paperclip
-does not drive the agent step by step; it wakes the agent and the agent calls back.
+the agent (e.g. Claude Code CLI) with Paperclip env vars and a prompt"* → *"Agent work — The agent calls
+Paperclip's REST API to check assignments, checkout tasks, do work, and update status"* → *"Result
+capture"* → *"Run record"*.[^architecture] **This is the single most consequential structural fact in the
+paper**: Paperclip does not drive the agent step by step; it wakes the agent and the agent calls back. The
+tail of the third step — *"with Paperclip env vars and a prompt"* — is the seam §4.5's env-contract argument
+runs through, and a round-1 repair to this sentence dropped it while inserting a word (*"runtime"*) the
+source does not contain. **A repair to a quote is a new quote and needs the same verification the original
+did**; recorded in §5(b).
 
 **2.5 Work is directed, then locked.** *"Before doing any work on a task, checkout is required"*; *"This is
 an atomic operation. If two agents race to checkout the same task, exactly one succeeds and the other gets
@@ -203,9 +209,9 @@ throughout and name their inputs.**
   target with links), who decides, since when, and whether the review is stalled."*[^commit-10675]
 - **Backing surfaces exist as shipped pages**: `Inbox.tsx`, `DecisionQueuePage.tsx`, `Approvals.tsx`,
   `ApprovalDetail.tsx`, `MyIssues.tsx`, `Dashboard.tsx`, `DashboardLive.tsx`, `Activity.tsx`, all present in
-  `ui/src/pages/`.[^ui-pages] **No file count is asserted for that directory — three fetches returned three
-  different totals and none is trustworthy; see §5(c).** The named files are the finding; the size of the
-  directory is not, and nothing in this paper rests on it. The dashboard shows *"Agent status"*, *"Task
+  `ui/src/pages/`.[^ui-pages] **No file count is asserted for that directory — four fetches returned four
+  different totals, all claiming completeness; see §5(c).** The eight names above were independently
+  corroborated in critic round 1; the size of the directory was not, and nothing in this paper rests on it. The dashboard shows *"Agent status"*, *"Task
   breakdown"*, *"Stale tasks"*, *"Cost summary"*, *"Recent activity"*, and marks blocked tasks — *"these need
   your attention."*[^dashboard]
 - **Approvals are a distinct, structured row-type.** Approvals surface on a dedicated page — *"From the
@@ -320,15 +326,32 @@ CREATE UNIQUE INDEX "agent_wakeup_requests_review_path_recovery_idempotency_uq" 
     AND "agent_wakeup_requests"."status" <> 'skipped';
 ```
 
-**The paired shape is the design, and restoring the fifth index is what made it visible.** Both 0084 and 0069
-ship **two** indexes, not one, and the pairing is the same in each: a **coarse** guard keyed on the identity
-of the thing being recovered (`source_issue_id`; `origin_id`) that permits at most one open recovery *at all*,
-and a **fine** guard keyed on a content fingerprint (`cause, fingerprint`; `origin_fingerprint`) that permits
-at most one open recovery *of that particular kind*. The coarse guard stops a storm; the fine guard stops a
-loop on one cause while still allowing a genuinely different failure to escalate. **A single index cannot do
-both**, which is why there are two — and an earlier draft of this paper, showing only the coarse one from
-0069, reported the mechanism as strictly weaker than it is. *(derived — inputs: the five statements above and
-their `WHERE` clauses.)*
+**What the two migrations actually encode is a GRANULARITY CHOICE, and the two files resolve it differently.**
+Both ship two indexes, but they are not the same construction and an earlier draft of this section claimed
+they were:
+
+- **0069's pair is genuinely complementary.** `..._incident_uq` keys on `(company_id, origin_kind, origin_id)`
+  under `origin_id IS NOT NULL`; `..._leaf_uq` keys on `(company_id, origin_kind, origin_fingerprint)` under
+  `origin_fingerprint <> 'default'`. **Different third column, different extra predicate — neither key is a
+  superset of the other and neither predicate implies the other**, so both constraints do independent work.
+- **0084's pair is not.** `..._active_source_uq` keys on `(company_id, source_issue_id)` and
+  `..._active_fingerprint_uq` on `(company_id, source_issue_id, cause, fingerprint)` — **under the identical
+  partial predicate** `status in ('active','escalated')`. The second key is a strict superset of the first,
+  and **uniqueness on a subset implies uniqueness on any superset**, so the coarse index already enforces the
+  fine one. The fine index is *subsumed*: defensive, or positioned for a later relaxation of the coarse
+  guard. **A single index would do here.**
+
+**The transferable insight is the choice, not a mandatory pair.** A **coarse** guard (one open recovery per
+work item, whatever the cause) forbids two different failures on the same item from being recovered
+concurrently — safest, and it is what 0084 actually enforces. A **fine** guard alone (one open recovery per
+distinct cause) permits that concurrency. **Which one you want is a design decision with a real trade-off,
+and shipping both under identical predicates does not buy the second property — it buys nothing.**
+
+*(derived — inputs: the five statements above and their `WHERE` clauses. **An earlier draft asserted "a single
+index cannot do both, which is why there are two"; that is false for 0084 and is withdrawn.** The error is
+instructive: it was produced by reading the two files as instances of one pattern rather than comparing their
+key columns and predicates, and it is falsifiable in thirty seconds against the SQL block above — which is
+exactly the check that was not run.)*
 
 The same discipline appears on plan decomposition, which the execution-semantics doc calls *"an exact-once
 control-plane primitive"* keyed on *"`(sourceIssueId, acceptedPlanRevisionId)`"*[^exec-semantics] and which
@@ -540,6 +563,14 @@ untrustworthy statement-by-statement.** Verify *completeness* against the source
 count, bullet count, list length — not *fidelity* of the text you were given. Internal contradiction between
 a block and the prose describing it is the cheapest available detector.
 
+**A third mode appeared in round 2, and it is the one to watch: the REPAIR introduced the defect.** Fixing
+§2.4's truncated quote restored the missing parenthetical, **inserted a word the source does not contain
+(*"runtime"*), and dropped a different clause** — converting a truncation defect into a fabrication defect
+while appearing to resolve it. Round 1's version had no inserted word. **A repair to a quote is a new quote
+and carries the same verification duty as the original**, but it is systematically less likely to get one,
+because attention is on the item being closed rather than on the text being written. **Re-verify repaired
+spans against the source, not against the correction notice.**
+
 **(c) A measured enumeration failure inside this paper.** The GitHub *contents* API listing of
 `packages/db/src/migrations` was summarized as **95 entries** ending at `0094_…`. The *git trees* API on the
 identical path returned **207 objects, 206 `.sql`, `truncated: false`**, ending at `0206_…`.[^tree-migrations]
@@ -553,10 +584,12 @@ can silently under-enumerate a listing.
 **The rule that draft produced was too weak, and this paper then violated it.** The draft rule was *"use the
 git trees API, never a summarized contents listing."* Two things falsified it. First, the paper asserted a
 file count for `ui/src/pages` **sourced from the contents API** — the very method it had just ruled out.
-Second, when that count was re-sourced, **the trees API did not agree with itself**: three fetches of the
-same directory returned **147** (contents), **169** and **181** (trees, both `truncated: false`). A
-same-hour push cannot plausibly account for the spread. The adapter list behaved the same way — two of my
-fetches enumerated eleven built-in adapters, an independent fetch of the identical page enumerated twelve.
+Second, when that count was re-sourced, **the trees API did not agree with itself**: **four** fetches of the
+same directory returned **four** totals — **147** (contents), then **169**, **181** and **183** (trees) —
+**every one of them reporting `truncated: false`**. A same-hour push cannot plausibly account for the spread,
+and `truncated: false` is precisely the field that is supposed to certify completeness. The adapter list
+behaved the same way: two of my fetches enumerated eleven built-in adapters, an independent fetch of the
+identical page enumerated twelve.
 
 **The corrected rule, and it is stricter:**
 
@@ -569,6 +602,13 @@ fetches enumerated eleven built-in adapters, an independent fetch of the identic
    count: if the number is load-bearing, corroborate it; if it is decoration, delete it.*
 3. **The `.agents/skills` count of 20 is retained** because §5(g)'s "17 of 20" scoping depends on it and it
    was independently confirmed via trees.[^agents-skills]
+4. **The rule governs counts the paper MEASURES, not counts a source STATES.** §4.1's cost inputs cite 24
+   shared primitives / 206 feature components / 73 pages — those are **assertions inside
+   `COMPONENT-INVENTORY.md`**, quoted like any other first-party claim and verified exact against it, not
+   totals I obtained by enumerating a directory. A stated count inherits the reliability of its document; a
+   measured count inherits the reliability of the enumeration, which is what failed here. **Conflating the
+   two would either over-trust my arithmetic or gratuitously discard a source's own figures.** The tell is
+   simple: *did I count, or did I quote?*
 
 **(d) The strongest case against §4.1 is that we have one operator.** An attention inbox is a solution to
 *many things demand a scarce human*. Today: one operator, a handful of dispatches, and `/standup` already
@@ -621,8 +661,8 @@ For the master-planning pass. Each row is sequenceable; costs are `derived` and 
 |---|---|---|---|---|
 | 1 | **Blocked-work queue in `/standup`** — typed rows (`blocking`/`review`), responsible party, since-when, one resolving command | New roadmap item; currently **homeless** | hours – 2 days | none |
 | 2 | **Maintained-decision-path rule** — no artifact may sit in a waiting state without a named decider and next action; absence is a surfaced state | Standards-amendment candidate + row-type for #1 | ≤ 1 day | sequence with #1 |
-| 3 | **Recovery taxonomy** — `cause`, `fingerprint`, `evidence`, `next_action`, `max_attempts`, `outcome` as typed fields on retried work, **plus the coarse/fine dedupe pairing** (one open recovery per work item *and* one per distinct cause) | `Phase: Temporal Integration` | ~1 day design | Temporal port |
-| 4 | **Liveness payload design** — activity heartbeat carries `lastOutputAt` + `lastUsefulActionAt`, not just aliveness; silence threshold with re-arm | `Phase: Temporal Integration`, **before** workers are written | hours (design), constrains build | `claude_cli` activity design |
+| 3 | **Recovery taxonomy** — `cause`, `fingerprint`, `evidence`, `next_action`, `max_attempts`, `outcome` as typed fields on retried work. **Plus one explicit ruling: dedupe granularity.** Coarse (one open recovery per work item, whatever the cause) or fine (one per distinct cause, permitting concurrent recovery of different failures)? They are alternatives with a real trade-off — **not a pair to build both of**; see §4.3 | `Phase: Temporal Integration` | ~1 day design | Temporal port |
+| 4 | **Liveness payload design** — activity heartbeat carries `lastOutputAt` + `lastUsefulActionAt`, not just aliveness; silence threshold with re-arm. **The stalled predicate is a three-way conjunction: not running AND not waiting AND not already being recovered** — a detector on "not running" alone alarms on every legitimately-waiting item (§4.4) | `Phase: Temporal Integration`, **before** workers are written | hours (design), constrains build | `claude_cli` activity design |
 | 5 | **Skills injection via `--add-dir` temp symlink farm** — never pollute the checkout | `Phase: Temporal Integration` / edge worker | hours | none |
 | 6 | **`testEnvironment`-style capability preflight at worker registration** | `Phase: Temporal Integration`, worker startup | 2–4 days | worker contract |
 | 7 | **Web control surface** | Deferred — hold until edge count > 1 | 1–3 weeks | server tier (**not built**) |
@@ -667,11 +707,11 @@ Phase 4.
   with a `.sql` extension, `truncated: false`**; highest-numbered
   `0206_review_path_recovery_idempotency_index.sql`. Fetched 2026-08-04.
   https://api.github.com/repos/paperclipai/paperclip/git/trees/master:packages%2Fdb%2Fsrc%2Fmigrations
-[^ui-pages]: GitHub contents API, `ui/src/pages` — **no file count is cited from this source; three fetches
-  disagreed (147 / 169 / 181), see §5(c).** The named files — `Inbox.tsx`, `DecisionQueuePage.tsx`,
-  `Approvals.tsx`, `ApprovalDetail.tsx`, `MyIssues.tsx`, `Dashboard.tsx`, `DashboardLive.tsx`, `Activity.tsx`
-  — come from the contents-API listing, which enumerated names; the two trees fetches were prompted for
-  counts only and did not re-enumerate names, so the file *names* rest on a single fetch.
+[^ui-pages]: GitHub contents API, `ui/src/pages` — **no file count is cited from this source; four fetches
+  returned four totals (147 / 169 / 181 / 183), all reporting `truncated: false`. See §5(c).** The eight
+  named files — `Inbox.tsx`, `DecisionQueuePage.tsx`, `Approvals.tsx`, `ApprovalDetail.tsx`, `MyIssues.tsx`,
+  `Dashboard.tsx`, `DashboardLive.tsx`, `Activity.tsx` — were **independently corroborated present in critic
+  round 1** via a trees fetch answering per-name. Only the directory size is unresolved.
   https://api.github.com/repos/paperclipai/paperclip/contents/ui/src/pages?ref=master
 [^agents-skills]: GitHub contents API, `.agents/skills` — 20 skill directories including `create-agent-adapter`,
   `diagnose-why-work-stopped`, `garden-inbox`, `check-pr`, `pr-gardening`, `prcheckloop`. **The count of 20 is

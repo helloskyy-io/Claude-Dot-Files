@@ -20,17 +20,18 @@ Confidence:     DEFINITIVE on repository-level scalars fetched from APIs (defaul
                 bernstein itself documents that its docs lag its code (§7.2). DERIVED — and the
                 paper's contribution — on the capability ranking, on every cost estimate (§5), and
                 on the two-test split of architecture-fit vs. capability-worth. See §1.3 for a
-                measured fabrication caught in this cycle's own sourcing and what it costs the
-                quote-level claims.
+                measured sourcing failure caught in this cycle's own evidence-gathering and what it
+                costs the quote-level claims.
 Negative:       Six findings of absence, each with its search method: no controller documented for
                 the shipped CRDs (§4.9); no cross-organisation federation (§0.2); no non-coding use
                 case in the user-facing use-case list despite five shipped modalities (§0.1); ADR
                 002 absent from the decisions directory (§7.4); lesson filing still unwired
                 (§4.11); no trace of anything resembling differentiator #3 (§0.3).
-Critic:         PASS-WITH-FIXES (ADR-005 spawn-overhead unit corrected per-batch→per-spawn;
-                DEFINITIVE-marked docs/ listing counts withdrawn as summarizer-derived; §5 cost-S
-                tally corrected nine→eight; §1.3 reworded from fabrication to summarizer truncation;
-                §0.1 headline splice marked) — 2026-08-04
+Critic:         PASS-WITH-FIXES (ADR-005 spawn-overhead unit corrected per-batch→per-spawn and the
+                amortization argument rebuilt; summarizer-derived docs/ and repo-root listing counts
+                withdrawn; §5 cost-S tally corrected nine→eight with rows enumerated; §1.3 and its
+                echoes reworded from fabrication to summarizer truncation; §0.1 headline splice
+                marked and both spans re-verified) — 2026-08-04
 ```
 
 > **Read §0 first.** One of the two differentiators this paper was asked to re-check has moved. That
@@ -494,7 +495,7 @@ assertion", and "The check touches only the content store, so it holds with the 
 research-critic that re-fetches citations by hand. bernstein has mechanised the same idea: store the
 bytes, hash them, re-check the quoted span offline. It is domain-general (any edge that makes a claim
 about the world can pin the bytes it claimed from), and it is the direct mechanical answer to §1.3's
-fabrication.
+truncation failure.
 
 **Evidence.** [S12][S13]. *(definitive at documentation level.)*
 
@@ -1143,7 +1144,7 @@ GitHub contents/repo API. `default_branch` was confirmed as `main` via [S1] **be
 - **[S16]** GitHub contents API — `docs/decisions/` listing (9 files; 001, 003–010). https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/docs/decisions
 - **[S39]** GitHub contents API — `deploy/helm/bernstein/crds/` listing. https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/deploy/helm/bernstein/crds
 - **[S41]** GitHub contents API — `deploy/helm/bernstein/templates/` listing (16 files). https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/deploy/helm/bernstein/templates
-- **[S49]** GitHub contents API — `deploy/` listing (`github-app`, `grafana`, `helm`, `otel-collector`, `prometheus`) and repo-root listing (81 entries). https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/deploy · https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/
+- **[S49]** GitHub contents API — `deploy/` listing (`github-app`, `grafana`, `helm`, `otel-collector`, `prometheus`; small listing, verified exactly) and the repo-root listing. **The root listing is cited for the *presence* of `deploy/`, `src/`, `schemas/` and `proto/` only; no count from it is used (§1.4).** https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/deploy · https://api.github.com/repos/sipyourdrink-ltd/bernstein/contents/
 - **[S42]** PyPI JSON API — package `bernstein` (version, licence, `requires_python`). https://pypi.org/pypi/bernstein/json — **see §1.3: this endpoint's summarised fetch returned a partial release list presented as a complete history; only the scalar fields are used, and every date comes from [S43]–[S45].**
 - **[S43]** PyPI JSON API — `bernstein` 3.13.0 upload timestamps. https://pypi.org/pypi/bernstein/3.13.0/json
 - **[S44]** PyPI JSON API — `bernstein` 3.12.0 upload timestamps. https://pypi.org/pypi/bernstein/3.12.0/json
@@ -1206,7 +1207,8 @@ than silently closed. [S49] carries two URLs; [S46] and [S47] each carry an addi
 `api.github.com` repo endpoint used solely to confirm `default_branch` before the raw fetch.) Of
 these, 52 labels are first-party bernstein repository or package endpoints and 2 are non-bernstein
 standards sources. **Two fetched sources ([S50], [S55]) are recorded as yielding nothing this paper
-relies on**, and **one ([S42]) is recorded as having produced fabricated content**, with the
+relies on**, and **one ([S42]) is recorded as having returned a partial list presented as
+complete**, with the
 correction path stated (§1.3). Nothing in this paper is sourced from a search-engine result summary;
 no web search was used at any point — the entire evidence base is direct fetches of raw first-party
 endpoints.

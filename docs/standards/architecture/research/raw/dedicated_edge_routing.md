@@ -40,8 +40,9 @@ Negative:       Five findings of absence, each with its search method — no fir
                 topology with operational numbers (§6.6).
 Critic:         PASS-WITH-FIXES (removed an unsupported StatefulSet quote; repointed the
                 vendored-standard pre-flight citation from §8.3 to §8.2/§8.5; narrowed the
-                physical-capability ruling from five families to three direct; corrected the
-                load-bearing self-assessment for S20/S29) — 2026-08-04
+                physical-capability ruling from five families to three direct comparator families
+                plus the substrate; corrected the load-bearing self-assessment for S20/S29;
+                completed the fetch-method accounting to cover all 29 sources) — 2026-08-04
 ```
 
 > **Volatility ruling (Research Standard §3, mixed-volatility rule).** The load-bearing Temporal
@@ -1051,7 +1052,11 @@ diff:
 - **2 fetched raw with targeted phrase extraction** rather than a full dump — [S25], [S27]. Spans confirmed present; not certified as complete-file reproductions.
 - **4 fetched from raw sources whose response summarized**, marked reduced at every point of use — [S7], [S12], [S20], [S24]. Note §6.4: **[S20] is load-bearing in §6.5** despite being in this class.
 - **1 rendered page** — [S29]. Note §6.4: **also load-bearing**, as one of four direct sources for §3.4.
-- **1 API-metadata aggregate** — [S28].
+- **3 API fetches** — [S17], [S18] (repository metadata; live counters, see the star-count note at [S18]) and [S28] (contents/repository aggregate).
+
+**Buckets sum to 29, matching the cited count.** *(Corrected at critic round 2: an earlier version of
+this block summed to 27 because [S17] and [S18] fell in no bucket — an accounting block that fails
+its own arithmetic re-opens exactly the question it exists to close.)*
 
 **No search-engine result summary is cited as a source anywhere in this paper.**
 
