@@ -16,14 +16,30 @@ Workflow scripts implement the autonomous side of the Dual Workflow Model (see `
 
 ```
 activities/            generic executors, DOMAIN-organized (git/, runtime/, config/, ssh/, …)
-common/                shared types and utilities (types/, task_queue.py, constants)
-modules/               workflows, organized {module}/{purpose}/
-  └── {module}/{purpose}/{name}_workflow.py      orchestration (Layer 1)
-                        {name}_helper.py          pure compiler (Layer 2)
-                        {name}_activities.py      semantic wrappers (Layer 3a)
+common/                shared LIBRARY CODE — logging, audit, delegation, types. NOT workflows.
+modules/               workflows, organized {module}/{purpose}/{name}/
+  common/                workflows owned by no module
+  {module}/              ONE PER EDGE — assistant/, home_automation/, robotics/, …
+    {purpose}/             a slice of work — revision/, research/, provision/
+      {name}/                ONE workflow, and everything it needs
+        {name}_workflow.py     orchestration (Layer 1)
+        {name}_helper.py       pure compiler (Layer 2)
+        {name}_activities.py   semantic wrappers (Layer 3a)
+        {name}_inputs.py       typed input models
+        *.md                   prompts and resources, CO-LOCATED
+tests/                 tests for the workflows
+scripts/               kickoff entrypoints, until an SDK path replaces them
 ```
 
-A purpose folder holds **several trios side by side** — `modules/common/provision/` carries `genesis_*`, `cluster_provision_*` and `baseline_tailnet_push_*` — so a folder is a slice of work, not one workflow.
+**One workflow per folder (BINDING).** Verified against the live tree: `modules/common/provision/agent_join/` and `modules/common/ingest_github_token/` each hold a single workflow's trio plus its inputs. Older workflows in that same repo sit flat in the purpose folder — `genesis_*`, `cluster_provision_*` and `baseline_tailnet_push_*` side by side — and `temporal_standard.md` §3.2 still describes *that* as the rule, explicitly rejecting "a nested folder named after each workflow file." **The practice moved; the standard text has not caught up.** We follow the practice. This is a **conformance question for the upstream repo, not an open question for us** — and the amendment is owed to `MDC-Master-Planning` as a §3.2 correction. It does not go in our addendum: per that file's own scope rule, anything applying to both systems belongs upstream.
+
+**Co-location is why this matters more for us than for them.** An infrastructure workflow is three or four `.py` files; ours additionally carries **prompt `.md` files, sometimes several**. Prompts are the substance of an agentic workflow, and a prompt separated from its workflow drifts from it. The reference already does this for non-Python resources — `provision/baseline_tailnet_acl.hujson` and `baseline_tailnet_acl_rationale.md` sit beside the workflow they serve.
+
+**Prompts live in files, never in string literals.** This is a portability rule with teeth: prompt text inside a shell double-quoted string has twice broken a workflow at construction time, because a quote or backtick in prose terminates the string or executes. Python removes that specific hazard and introduces a smaller one via f-string braces. Files remove both, and make prompts diffable as prose. `lint-prompts.sh` exists to catch the bash-era version of this and retires when the last prompt leaves a string literal.
+
+**Two folders are named `common`, and they mean different things.** `common/` at the root is shared **library code** — logging setup, audit log, activity delegation. `modules/common/` holds **workflows** owned by no edge, such as a reviewer that several parents call. Do not merge them; do not put a workflow in the former.
+
+**Folder names MUST be valid Python identifiers (BINDING, inherited).** `home_automation`, not `home-automation`. `review_pr`, not `review-pr`. Several current names are hyphenated and must be renamed at the port boundary, not after.
 
 #### Current layout, and how each part maps
 
@@ -33,6 +49,14 @@ A purpose folder holds **several trios side by side** — `modules/common/provis
 | `common/` | `common/` | **Matches.** Gains `types/` when `ActivityResult` arrives |
 | `scripts/workflows/*.sh` (parents, monoliths) | `modules/{module}/{purpose}/` | Waypoint |
 | `children/` | **no equivalent — dissolves** | Known divergence, see below |
+
+#### The V2 tree is built beside the bash fleet, not on top of it
+
+**The Python/Temporal rewrite lands in `scripts/workflows/temporal/`, and the bash fleet is left untouched.** It keeps running while V2 is built, and each bash workflow is deleted only when its replacement is proven — not before, and never in a bulk move.
+
+This is deliberate: the bash files are in daily production use, and every one of them is going to be deleted anyway. **Reorganizing them to match the target shape is throwaway work** — it churns a working system to buy nothing, since the structure being defined here governs the tree we are about to create, where it costs nothing to get right the first time.
+
+Two shapes coexist for the duration. That is a migration, not a defect. The rename debt this avoids is the expensive kind: renaming fifty Python workflows later, rather than never renaming the bash ones at all.
 
 #### `children/` is a bash-era device with a known expiry
 

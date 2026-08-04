@@ -35,3 +35,18 @@ No upstream pattern defends against this, because no upstream producer has the f
 `worker_deployment_standard.md` §2 governs task-queue naming for workers segmented by capability. Ours are additionally segmented by **machine**, because Claude Code must run on the machine that holds the repo — a repo-locality constraint with no upstream equivalent.
 
 Read §2 before naming anything. Queue names are expensive to change once workers are deployed against them.
+
+## §A4 Prompts are a workflow resource — 📋 OPEN
+
+Upstream workflows have no prompts. Ours are *mostly* prompt: the `.md` text is the substance of the work, and the Python around it is scheduling. Nothing upstream reaches this, which is why it is here rather than in `workflow-scripts.md`.
+
+Two rules, both settled:
+
+- **Prompts live in files beside the workflow they serve** — never in string literals. Prompt text embedded in a shell double-quoted string has broken a workflow at construction time twice, because a quote or backtick in prose terminates the string or executes it. Python removes that hazard and adds a smaller one through f-string braces. Files remove both, and a prompt in a file is diffable as prose.
+- **Co-location is per-workflow, not per-purpose.** A prompt that drifts from the workflow it serves is worse than no standard at all, and the failure is silent.
+
+Open, and genuinely undecided:
+
+- **Whether a prompt is an input or a resource.** If a prompt is versioned with the code, a Temporal replay of an old execution loads *today's* prompt, not the one that ran. If it is an input, it sits on the workflow's payload and hits the limits §A1 already flags. Neither is obviously right and the choice interacts with retry semantics.
+- **How a shared prompt fragment is expressed.** `common/shared-prompts.sh` exists today. Its Python successor must not become a junk drawer, and the co-location rule above pushes against sharing at all.
+
