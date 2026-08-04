@@ -116,6 +116,7 @@ claude-dot-files/
 │       │   │   ├── raw/<topic>.md                 # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
 │       │   │   └── synthesis.md                    # What the pool means for the product's direction. NON-BINDING
 │       │   ├── README.md                          # What goes here vs the rest of standards/
+│       │   ├── problem-statement.md                # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
 │       │   └── system-overview.md                 # Layered architecture, key decisions, where the seams are
 │       ├── research/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
 │       │   ├── README.md                            # The two altitudes — product vs phase — and what each unblocks
