@@ -37,6 +37,14 @@ scripts/               kickoff entrypoints, until an SDK path replaces them
 
 **Prompts live in files, never in string literals.** This is a portability rule with teeth: prompt text inside a shell double-quoted string has twice broken a workflow at construction time, because a quote or backtick in prose terminates the string or executes. Python removes that specific hazard and introduces a smaller one via f-string braces. Files remove both, and make prompts diffable as prose. `lint-prompts.sh` exists to catch the bash-era version of this and retires when the last prompt leaves a string literal.
 
+**`{module}` is the DOMAIN of the work, never where it executes.** These are independent axes and collapsing them is the expensive mistake: module is a folder, execution locality is a **task queue** (see `temporal/claude-dot-files-addendum.md` §A3). The first module is `assistant/` — coding plus the general assistance that dogfoods every later edge; the rest are the edges themselves (`home_automation/`, `industrial_automation/`, `robotics/`, `bioinformatics/`).
+
+The assistant edge starts workflows that **execute on another edge's worker**, routed by queue to the machine holding that credential and that hardware. When it does, the workflow still belongs to the module whose domain it acts in: a workflow that *operates* building equipment is `modules/home_automation/` even though Jarvis started it, while a workflow where *the assistant diagnoses* that equipment is `modules/assistant/`. Same machine, same queue, different module.
+
+Filing by execution locality instead would pull every dogfooded workflow into `assistant/` and leave the edge modules empty. **Ask what domain the work is in, not which worker runs it.**
+
+Note what this does NOT do: routing work *to* a dedicated edge is not cross-edge pickup. No worker polls another edge's queue and none claims from a shared pool — the dispatcher decides and the worker never competes.
+
 **Two folders are named `common`, and they mean different things.** `common/` at the root is shared **library code** — logging setup, audit log, activity delegation. `modules/common/` holds **workflows** owned by no edge, such as a reviewer that several parents call. Do not merge them; do not put a workflow in the former.
 
 **Folder names MUST be valid Python identifiers (BINDING, inherited).** `home_automation`, not `home-automation`. `review_pr`, not `review-pr`. Several current names are hyphenated and must be renamed at the port boundary, not after.
