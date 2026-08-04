@@ -28,14 +28,18 @@ Confidence:     DEFINITIVE on everything sourced from raw first-party artifacts 
                 every mapping from someone else's failure onto this system's exposure, on
                 every mitigation cost, and on the whole of §7's ranking. UNVERIFIED: the AWS
                 retry-storm article (JS-rendered, no body returned — see N4).
-Critic:         PASS-WITH-FIXES (S23 quotation replaced with the source's wording; N3 rewritten to
-                the git-trees count 207/206 truncated:false, [S28] added; N6 re-methodized against
-                the trees listing, absence re-confirmed by substring enumeration and its COUNT
-                withheld per the new N7; header "four"→"six"; directional markers applied at the
-                [S20]/[S21]/[S23]/[S24] body use sites; §5.2 "originally keyed on" marked derived)
-                — 2026-08-04. Round 2 raised N6 expecting the count 229; the author's independent
-                re-fetch returned 200, which FALSIFIED the premise of the fix and produced N7 —
-                the count itself is not reliably readable, so no number is stated. Absence stands.
+Critic:         PASS-WITH-FIXES (S23 manufactured quotation replaced with the source's own wording;
+                N3 rewritten to the git-trees count 207/206 truncated:false, [S28] added and
+                anchored on the 0202–0206 sequence; N6 re-methodized — absence re-grounded on a
+                substring enumeration agreeing across independent fetches; N7 added recording count
+                instability across fetches of one endpoint; header "four"→"six"; directional
+                markers applied at every [S20]/[S21]/[S23]/[S24] use site; §5.2 "originally keyed
+                on" marked derived) — 2026-08-04. Round 2 raised N6 expecting a total of 229; the
+                author's re-fetch returned 200, falsifying that premise and producing N7. Round 3
+                resolved it: two independent fetches asked to enumerate rather than count both
+                returned identical 143-name listings, truncated:false — the instability was in
+                delegating the count, not in the endpoint. The absence stands on either grounding,
+                and no claim in this paper depends on the total.
 ```
 
 > **Mixed volatility (§3).** The **low-volatility** core is §2.5 (the peer-reviewed / preprint
@@ -843,9 +847,9 @@ miscitation: a summarizing fetch degrading gracefully into something that reads 
 **The 206 figure is safe for a specific reason, and the reason is not the trees API.** It is safe
 because it is anchored to a **dense monotonic filename sequence** (`0000`–`0206`, with `0202`–`0205`
 separately confirmed to exist) and was reached independently by the sibling paper. The count itself
-came back stable across fetches *here*; it did not everywhere. See N7 — where the same endpoint
-returned three different totals and no anchor was available, this paper declines to state a number
-at all.
+came back stable across fetches *here*; it did not everywhere — one fetch of this same path reported
+285. **See N7 for the mechanism and for the stronger rule that supersedes this paragraph's:** the
+trees API was never the fix; *asking the layer to enumerate rather than to count* is.
 
 Nothing else in this paper moves — the four migrations quoted in §2.2 and §5.2 were each fetched
 individually as raw SQL and are unaffected. One inference does move, and §7 rank 9 has been edited to
@@ -876,39 +880,71 @@ clocks)" — a figure from a **summarized contents listing**, i.e. the exact und
 documents, used to support an absence claim, in the paper that publishes the rule against it. That
 draft checked roughly half the directory and called it none.
 
-**Re-run via the git trees API** (`main:docs/operations`, `truncated: false`): **no filename contains
-`clock`, `timezone`, `tz`, `skew`, `drift`, or `ntp`.** The nearest misses are `schedule.md` (already
-cited as [S24]) and **`mission-timeline.md`**, neither of which concerns time *correctness*. The
-Temporal half of the original claim was correct as written and re-verified: the troubleshooting
-directory returns exactly **7 entries, `truncated: false`**, none on time skew.
+**Re-run via the git trees API, forcing enumeration rather than requesting a total** (see N7 for why
+that distinction is the whole trick): `main:docs/operations` returns **143 entries, `truncated:
+false`**. Three independent fetches — two by the critic on differing URL forms, one by this author —
+each asked the fetch layer to *list every `path` value* and returned **identical membership**; the
+critic's two came back in different sort orders (ASCII uppercase-first vs. case-insensitive), which
+is what establishes they were independently processed rather than one cached rendering served twice.
 
-**The count of the bernstein directory is deliberately not stated — see N7.** The absence claim does
-not need it: it rests on a substring enumeration that agreed across independent fetches, not on a
-total that did not.
+**Across all 143 names: no filename contains `clock`, `timezone`, `tz`, `skew`, `drift`, or `ntp`.**
+The only near misses are `schedule.md` (already cited as [S24]) and **`mission-timeline.md`**,
+neither of which concerns time *correctness*. The Temporal half of the original claim was correct as
+written and independently re-verified: the troubleshooting directory returns exactly **7 entries,
+`truncated: false`**, none on time skew.
 
-The gap may be real (schedulers own this and it rarely surfaces in application docs) or may reflect
-an inadequate search — a failure named `mission-timeline` or buried inside `schedule.md`'s body would
-not surface by filename. **Stated as unresolved, and now honestly methodized.**
+**The absence now rests on the complete listing rather than on roughly half of it.** The earlier
+107-entry listing was not randomly short — it was the first 107 names alphabetically, terminating
+cleanly at `secrets.md`, which is exactly the silent-early-stop mechanism N3 describes.
 
-**N7. A deterministic API endpoint returned three different totals for one directory, and this paper
-therefore states no count for it.** Fetching `main:docs/operations` for N6 produced: **107** (contents
-API, summarized — the original error), **229** (trees API, critic's fetch), and **200** (trees API,
-this author's re-fetch, `truncated: false`). Independently, the critic reported one of four trees
-fetches of the *Paperclip* path returning "285 entries" where three returned 207; and the sibling
-paper `paperclip_assessment.md` obtained four different totals from four fetches of one deterministic
-endpoint and **deleted the count rather than assert any of them**.
+**Residual limit, and it is the correct one to keep:** a filename search cannot see a clock or
+timezone failure discussed inside another document's body — `schedule.md` being the obvious
+candidate. The gap may therefore be real (schedulers own time correctness and it rarely surfaces in
+application docs) or may still reflect an inadequate search. **Stated as unresolved, now correctly
+methodized.**
 
-**This is the refinement to N3's rule, and it is the sharpest methodological output of this cycle:**
-*a count read from a trees-API response still passes through the summarizing layer. `truncated:
-false` proves the API did not cut the list; it proves nothing about whether the reader counted it
-correctly. Corroborate every count against an **enumerable anchor** — a dense monotonic filename
-sequence, or agreement across independent fetches — and where no anchor exists, **state no number**.*
+**The under-enumeration had a research cost, not only a methodological one — recorded so the next
+refresh starts there.** Four documents in the invisible tail bear directly on this paper's ranked
+exposures and were never read: **`stall-escalation.md`** (E3, rank 5 — stall detection),
+**`worktrees.md`** (E5, rank 8 — worktree lifecycle), **`token-growth-monitor.md`** (E9, rank 7 —
+the flat-rate budget analogue), and **`worker-process-identity.md`** (E6/E11). Also unread:
+`session-fast-resume.md`, `session-handoff.md`, `checkpointed-retries.md`, `auto-heal.md`. **None of
+this paper's claims rests on them, and none is contradicted by their existence** — but a bad
+directory listing quietly narrowed the evidence base for four of eleven exposures, which is a
+sharper argument for rule 2 in §8.2 than any of the counting arithmetic. **First targets for the
+next refresh.**
 
-Paperclip's 206 survives because it has an anchor (`0000`–`0206`, dense and monotonic, with
-`0202`–`0205` separately confirmed) and independent corroboration. bernstein's `docs/operations`
-count has neither — the filenames are unordered prose names — so this paper asserts only the
-property it actually verified (a substring enumeration that agreed) and leaves the total open.
-**Nothing in this paper depends on that total.**
+**N7. Seven fetches of two deterministic endpoints produced seven different totals — every one of
+them reporting `truncated: false`. The root cause is delegating the arithmetic, and it is fixable.**
+
+Fetching `main:docs/operations` for N6 produced **107** (contents API), **229** (trees API, critic),
+and **200** (trees API, this author). Independently, one of the critic's four trees fetches of the
+*Paperclip* migrations path reported "285 entries" where three reported 207, and the sibling paper
+`paperclip_assessment.md` obtained **four different totals from four fetches of one deterministic
+path** and deleted the count rather than assert any of them.
+
+**The discriminating variable is not the endpoint, not the URL form, and not `truncated`. It is what
+the fetch layer was asked to do.** Every unstable number above came from a prompt that asked for a
+**count**. When the prompt instead asked the layer to **enumerate every `path` value** and the count
+was taken from the returned list, three independent fetches returned **143 with identical membership
+and differing sort orders**. Asking a summarizing layer to perform arithmetic over a long list is
+asking it for the one thing it degrades at silently; asking it to transcribe a list and doing the
+arithmetic yourself removes the failure entirely.
+
+**The rule, one notch more specific than "use the trees API":** *never ask the fetch layer for a
+total. Ask it to enumerate, and count the enumeration yourself. `truncated: false` certifies that
+the API did not cut the list — it certifies nothing about the reader, and across seven fetches of
+two endpoints it was present and accompanied by a wrong number every single time.* Where enumeration
+is impractical, corroborate against an **anchor** — a dense monotonic filename sequence, or
+membership agreement across independent fetches.
+
+Paperclip's **206** holds on the first anchor: `0000`–`0206`, dense and monotonic, `0202`–`0205`
+separately confirmed, and independently reached by the sibling paper. bernstein's `docs/operations`
+has **no monotonic sequence** — the filenames are unordered prose names — so its **143** was
+established on the second anchor, and that agreement had to be *obtained* by forcing enumeration
+rather than requesting a total. **This paper's own drafting history is the demonstration: it stated
+107, then declined to state 229, then declined to state 200, and states 143 only because three
+enumerations agree on the membership.**
 
 ### 8.2 Source list
 
@@ -1063,14 +1099,19 @@ degrading into something that reads correct:***
 1. ***For any count that becomes a finding, use the git trees API and read its `truncated` flag —
    never a summarized contents listing.*** A summarized listing under-enumerated 206 migrations as
    ~94 and produced no signal that it had stopped early (N3).
-2. ***…and then corroborate the count against an enumerable anchor, because the trees response is
-   summarized too.*** `truncated: false` proves the API did not cut the list; it proves nothing
-   about whether the reader counted it correctly. One directory returned **107 / 229 / 200** across
-   three fetches of a deterministic endpoint; a sibling paper got four different totals from four
-   fetches of one path. **A count is trustworthy only with a dense monotonic filename anchor or
-   agreement across independent fetches — and where neither exists, state no number** (N7). *This
-   is the rule with the widest blast radius in this list: rule 1 alone would have produced a
-   confidently wrong 229 in place of a confidently wrong 107.*
+2. ***Never ask the fetch layer for a total. Ask it to ENUMERATE, and count the enumeration
+   yourself.*** The trees response is summarized too, and `truncated: false` certifies only that the
+   API did not cut the list — never that the reader counted it correctly. **Across seven fetches of
+   two deterministic endpoints, seven different totals were returned and `truncated: false` was
+   present and wrong every time.** Every one came from a prompt asking for a *count*
+   (107 / 229 / 200 on one path; 207 ×3 and 285 on another; four totals in a sibling paper). Three
+   prompts asking the layer to *list every `path` value* returned **143 with identical membership**
+   in differing sort orders. **The instability is in delegating the arithmetic, not in the
+   endpoint.** Where enumeration is impractical, fall back to an anchor — a dense monotonic filename
+   sequence, or membership agreement across independent fetches (N7). *This is the rule with the
+   widest blast radius here: rule 1 alone would have produced a confidently wrong 229 in place of a
+   confidently wrong 107, and the truncated listing had already cost the paper four topically
+   relevant documents it never knew existed (N6).*
 3. ***A `raw.githubusercontent.com` URL does not guarantee raw text.*** Six raw fetches in this
    sweep returned summaries anyway; one explicitly declined verbatim reproduction. Every claim from
    those six is marked directional **at each body use site**, not only in the header (N5).

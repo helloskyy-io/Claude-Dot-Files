@@ -24,9 +24,11 @@ Confidence:     DEFINITIVE at the schema/SQL/commit-message level — the load-b
 Critic:         PASS-WITH-FIXES (r1: §4.4 "stalled" restored to all three conditions; §4.3 four→five partial
                 unique indexes, 0069's elided leaf_uq added; commit-10675 file count 36→47; six non-verbatim
                 spans de-quoted or ellipsed; adapter count restated as a floor; ui/src/pages count dropped —
-                four fetches, four totals; §5(b) reframed garbling→elision. r2: §2.4 "agent runtime"
-                un-inserted; the coarse/fine pairing claim restricted to 0069, where 0084's fine index is
-                subsumed; §6 item 4 given the stalled conjunction) — 2026-08-04
+                four fetches, four totals, all reporting truncated:false; §5(b) reframed garbling→elision.
+                r2: §2.4 "agent runtime" un-inserted and its dropped tail restored; the "a single index
+                cannot do both" claim withdrawn — false for 0084, whose fine index is subsumed under an
+                identical predicate — and reframed as a granularity choice; §6 items 3 and 4 given the ruling
+                and the stalled conjunction. r3: verified clean, no new quoted spans introduced) — 2026-08-04
 ```
 
 > ## Headline — the roadmap item describes a product that does not exist, and the verdict is MINE AND DISCARD
@@ -345,7 +347,9 @@ they were:
 work item, whatever the cause) forbids two different failures on the same item from being recovered
 concurrently — safest, and it is what 0084 actually enforces. A **fine** guard alone (one open recovery per
 distinct cause) permits that concurrency. **Which one you want is a design decision with a real trade-off,
-and shipping both under identical predicates does not buy the second property — it buys nothing.**
+and shipping both under identical predicates does not buy the second property — it buys no additional
+constraint.** *(That is not the same as buying nothing: as noted above, a subsumed index is still defensive
+and still positioned for a later relaxation of the coarse guard. Do not read this as licence to delete one.)*
 
 *(derived — inputs: the five statements above and their `WHERE` clauses. **An earlier draft asserted "a single
 index cannot do both, which is why there are two"; that is false for 0084 and is withdrawn.** The error is
@@ -601,8 +605,20 @@ identical page enumerated twelve.
    argument, which is why dropping them costs nothing — *and that is the test to apply before quoting any
    count: if the number is load-bearing, corroborate it; if it is decoration, delete it.*
 3. **The `.agents/skills` count of 20 is retained** because §5(g)'s "17 of 20" scoping depends on it and it
-   was independently confirmed via trees.[^agents-skills]
-4. **The rule governs counts the paper MEASURES, not counts a source STATES.** §4.1's cost inputs cite 24
+   **satisfies rule 1**: two structurally different methods agreed on it — my contents-API enumeration and an
+   independent trees fetch in critic round 1.[^agents-skills] *(Retained because the two agreed, not because
+   trees reported it — rule 1 disclaims exactly that inference.)*
+4. **This is no longer a single-paper incident, and that changes what should happen to the rule.** The
+   sibling `fleet_failure_modes` analyst hit the identical failure independently, on a **different repository
+   and a different directory**: three fetches of one deterministic `bernstein` endpoint returned **107 / 229 /
+   200**, and that analyst also declined to state a total. **Across two papers and two codebases: seven
+   fetches, seven totals, every one reporting `truncated: false`.** The rule therefore rests on cross-subject
+   corroboration rather than on one bad afternoon against one repo — which makes it a **candidate for the
+   Research Standard itself** (a sourcing rule beside the existing raw-over-rendered and confirm-the-default-
+   branch rules), not a method note local to this paper. Surfaced here as a candidate only: the Research
+   Standard is vendored MIRROR and amendments go upstream through the human-ratified path, never from a
+   research run.
+5. **The rule governs counts the paper MEASURES, not counts a source STATES.** §4.1's cost inputs cite 24
    shared primitives / 206 feature components / 73 pages — those are **assertions inside
    `COMPONENT-INVENTORY.md`**, quoted like any other first-party claim and verified exact against it, not
    totals I obtained by enumerating a directory. A stated count inherits the reliability of its document; a
