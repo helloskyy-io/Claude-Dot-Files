@@ -194,6 +194,11 @@ else
 fi
 source "${SCRIPT_DIR}/activities/run-claude.sh"
 source "${SCRIPT_DIR}/common/shared-prompts.sh"
+source "${SCRIPT_DIR}/activities/paper-currency.sh"
+
+# Staleness is computed in bash and handed to the run — never asked of it.
+# See activities/paper-currency.sh for why.
+CURRENCY_BLOCK="$(render_paper_currency "$RESEARCH_DIR")"
 
 CONTEXT_BLOCK=""
 if [[ -n "$CONTEXT" ]]; then
@@ -201,6 +206,11 @@ if [[ -n "$CONTEXT" ]]; then
 --- additional context ---
 ${CONTEXT}
 --- end additional context ---
+"
+fi
+if [[ -n "$CURRENCY_BLOCK" ]]; then
+    CONTEXT_BLOCK="${CONTEXT_BLOCK}
+${CURRENCY_BLOCK}
 "
 fi
 
