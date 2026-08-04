@@ -879,6 +879,34 @@ Routing:
 
 ---
 
+## Burn-test round 3 — seven repairs from the research cycle's own self-report (SHIPPED 2026-08-04, `8f16bc7`)
+
+**Context a future cycle needs: this run killed the product's novelty claim.** The overnight research cycle found a shipping product — `bernstein`, v3.13.0, ~780 stars, 3,397 commits in 4.5 months, k8s operator with CRDs, mTLS, checkpoint/resume, typed refusal — satisfying **all four elements** of the problem statement's thesis, and **corrected its own verdict twice** to get there ("both errors were assertions of absence falsified by a source already in the citation list — a method failure, not a bad-luck miss"). `problem-statement.md` was rewritten the same day (`cb53944`) from *the combination is novel* to *the combination is the known recipe; the contribution is execution plus three differences*. **The novelty framing is dead, not revised.** Do not re-derive it.
+
+**All seven repairs came from the run's own Post-Run Reflection.** No human found any of them. That is the self-disclosure channel working as designed.
+
+**1. Completion signalling — a file marker is not a completion signal.** The loop watched for the `Critic:` header to detect analyst completion; analysts write that line *partway through* their edit sequence, so round-2 critics verified files still being written. Two critics detected the moving file; one noted *"a verdict pinned to a moving file is itself an integrity risk."* Fix: block on harness completion, always.
+
+**2. Resume contract.** `SendMessage` backgrounds a resumed agent with no foreground option, but resuming preserves paper context and beats a fresh spawn for correction rounds. The headless contract covered only fresh dispatch. Fix: bridge with a blocking `TaskOutput`.
+
+**3 + 4. Two instances of "a weak signal overrode a strong one," same cycle.** (a) The loop took a past-window count from the *previous synthesis* and told two analysts a paper was overdue when the computed table in its own dispatch listed exactly one — **a prior synthesis is a consumable, not an authority.** (b) An analyst guessed branch `main` against a repo whose default is `master`, and recorded the 404 as a gap for two rounds — against a project with **75,535 stars**, the second-largest data point in its paper. **An absence claim built on an unchecked 404 is a fabrication with extra steps.**
+
+**5. The sourcing rule names the wrong hazard — two independent proofs.** §4 codifies raw-over-rendered. Both blocking findings that survived to round 3 had a different root cause and **both sources were first-party**: one "verbatim" quote had a clause silently elided by a summarizing fetch; one date came from a search-engine result summary that was never a fetched page. Correct rule: *a span may be labelled verbatim only if its exact character sequence was returned by a fetch, and a fetch that summarizes cannot establish that.* Applied to `research-analyst` and `research-critic` here. **OWED UPSTREAM** to MDC-Master-Planning — the Research Standard is vendored MIRROR and cannot be amended locally.
+
+**6. The correction budget could not tell convergence from stalling.** It dropped a paper on *any* blocking finding at round 3, which treats "fixed the flagged defect, introduced a different one" identically to "same defect survived three attempts." Now: non-convergence is **the same finding surviving 3 rounds**, with a **hard ceiling of 6 rounds** behind it so it stays a runaway guard rather than a budget.
+
+**7. Vendored-standard amendments were homeless by construction.** Two were produced this cycle — one a **repeat from the prior cycle** — and both sat in `synthesis.md` because no surface existed. `review-pr`'s filing authority now covers them explicitly, filed on the **upstream** repo that owns the standard.
+
+**Immediate validation, unplanned:** repair #4 caught a live error within the hour — an interactive 404 against `paperclipai/paperclip`, default branch `master`. Same bug, and it turns out **the same repository** that produced the original finding. The rule works and the class is real.
+
+**Watch:**
+1. **Do moving-file verdicts disappear?** Signal: zero critic reports of a file changing mid-verification. If any recur, harness completion is not the only race.
+2. **Does the 6-round ceiling ever trip?** If it does, the per-finding convergence test is too loose and is letting a churning paper run. If it never trips across several cycles, consider whether the ceiling is doing anything.
+3. **Does cycle 4 produce homeless amendments again?** If it does, the filing surface did not take, and the problem is discovery rather than authority.
+4. **Does the verbatim-exactness rule raise UNVERIFIABLE counts?** Expected and healthy at first — it reclassifies claims that were previously passing as verified. A *drop* in blocking findings with no rise in unverifiable would suggest the rule is being ignored.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
