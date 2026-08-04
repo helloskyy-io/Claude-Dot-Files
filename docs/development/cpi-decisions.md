@@ -907,6 +907,28 @@ Routing:
 
 ---
 
+## Burn-test round 4 — five repairs from research cycle 3 (SHIPPED 2026-08-04)
+
+**First, the win, because it validates round 3 within hours.** Under the OLD correction-budget rule (*any* blocking finding at round 3 → drop), the `paperclip_assessment` paper would have been **dropped as non-convergent** — it carried three blocking-class items at round 3. The per-finding rule shipped that morning in `8f16bc7` correctly read it as *converging* (different defects each round, not one defect surviving) and it reached a clean verdict. **That paper carried the cycle's best-evidenced finding.** The amendment paid for itself in under a day.
+
+**1. Never ask a fetch layer for a COUNT — ask it to ENUMERATE and count the list yourself.** The cycle's highest-value methodological finding, and no existing rule caught it. **Seven fetches, two analysts, two codebases, seven different totals — with `truncated: false` present and wrong every time.** The mechanism was isolated at round 3: every unstable number came from requesting a total; every stable one from requesting a list. Consequence, not theory: the under-enumeration **silently narrowed the evidence base for four of eleven ranked exposures**, and four relevant documents were never known to be missing. Applied to both agents; prefer an authoritative API (git tree, JSON array) over any prose fetch.
+
+**2. A repair to a quote is a NEW quote.** Measured twice; once a round-1 repair **converted a truncation defect into an outright fabrication while appearing to close the item.** This class exists *only because review is happening* — original-sourcing discipline cannot prevent it, only re-verification can. Every span changed in response to a finding carries the full sourcing burden of a fresh claim.
+
+**3. Surface disagreement; do not conform.** Two critic errors were caught this cycle **only because analysts pushed back** — one mandated a source count the paper's own body contradicted, one asserted a directory total a re-fetch disproved. The behaviour was implicit and got lucky. Now explicit on both sides: analysts refuse-with-reasoning, critics treat pushback as signal rather than non-compliance.
+
+**4. The critic supplies verdict CONTENT; the analyst renders the header line.** Both defects in #3 were in **critic-authored text that the analyst transcribed** — the critic's words wearing the analyst's signature, bypassing the read-only boundary that stops a critic verifying its own writing. The alternative fix (let the critic write the line itself) was rejected: it would break the read-only-critic design that this same cycle's reflection independently praised as working.
+
+**5. Stage 1 verifies the dispatch context against the branch.** A run found `problem-statement.md` quoting a section that existed only on unpushed commits, and recovered by locating it. A run that grepped only its own worktree would have **silently researched the superseded frame**. Now: confirm quoted sections exist, work from the version the dispatch describes, report the discrepancy as low-confidence. **The operator-side half is a standing practice rather than a code change — commit and push before dispatching, so a run picks up the latest.** The `-w` flag hands worktree creation to Claude Code, so the script never selects the base commit; a blind fast-forward would have been guessing at behaviour we have not verified.
+
+**Watch:**
+1. **Do counts stabilise?** Signal: two analysts fetching the same directory report the same total. If they still diverge, enumeration is not being applied or the layer truncates lists too.
+2. **Does re-verification catch a repair-defect, or only cost rounds?** If several cycles pass with no repaired span found wrong, the rule is overhead and the round cost is the evidence.
+3. **Does disagreement actually surface?** A cycle with zero analyst pushback is more likely deference than agreement — the prior baseline was two errors caught per cycle by pushback alone.
+4. **Does the header seam stay closed?** Signal: a `Critic:` line contradicting its own paper's body. That was the observable both times.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
