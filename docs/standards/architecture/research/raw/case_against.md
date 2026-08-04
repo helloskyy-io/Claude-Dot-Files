@@ -31,12 +31,10 @@ Confidence:     Four classes only, per §3 — definitive / directional / unveri
                 AgentKit launch date (§5.2 — publisher page returned HTTP 403), and on the
                 Dapr publication date and npm-worm material used only as corroboration.
                 Eight negative findings in §6.1 with stated search method.
-Critic:         PASS-WITH-FIXES (removed a false past-window claim about a sibling paper; N6's
-                propagating pointer corrected §3→§6; dynamic-workflows maturity restored to
-                first-party GA; §2.1.5's market conclusion re-marked derived; point-of-use
-                derived marks added at §2.1.1 and §2.3.4; §0's vendor count reconciled to three
-                dated plus one undated; the fifth confidence label expressed as a modifier;
-                [S7] and [S2] upgraded to fetched; Glass Fact 17 added) — 2026-08-03
+Critic:         PASS-WITH-FIXES (round 3: N6's dependent trace extended to durable_execution.md
+                §3, where the same threshold appears unhedged; [S5]'s citation entry corrected to
+                record the first-party GA verification; §2.1.2's element-count transfer marked
+                derived at point of use) — 2026-08-03
 ```
 
 > **Mixed volatility (§3).** The load-bearing section §2.1 is a **vendor product inventory**
@@ -109,9 +107,11 @@ Per the dispatch's scope note, two pool papers already own material adjacent to 
 **cited, not re-derived**:
 
 - **`raw/convergence_stopping.md`** (Last validated 2026-08-03; Critic: PASS) — owns the
-  plateau/stopping-rule literature, the judge-pathology corpus ([S13], [S19]–[S21] there), the
-  "3–5 passes has no source" negative finding, and the measured per-pass recall figures. Where
-  this paper needs a stopping or judge fact, it points there.
+  plateau/stopping-rule literature, the judge-pathology corpus (CriticGPT, self-preference bias,
+  sycophancy and LLM-REVal, in its §2.2.5), the "3–5 passes has no source" negative finding, and
+  the measured per-pass recall figures. Where this paper needs a stopping or judge fact, it points
+  there. *(Sibling papers are referenced by source name and section, never by their `[Sn]`
+  numbers — those collide with this paper's own numbering and are a re-verification hazard.)*
 - **`raw/reflection_literature.md`** (Last validated 2026-07-23; Critic: PASS) — owns the
   reflection corpus and its four named gaps.
 
@@ -162,8 +162,16 @@ with state that "Syncs to all connected clients, survives restarts" [S4].
 *Confidence: definitive on the quoted spans — [S3] is the first-party Cloudflare blog (rendered;
 quotes kept to visible spans), [S4] is raw markdown from the first-party repo.*
 
-**Note what that parenthesis contains: durable execution, sub-agents, persistent sessions — three
-of the problem statement's four elements, bundled, in one vendor's base class.**
+**Note what that parenthesis contains: durable execution, sub-agents, persistent sessions —
+bundled, in one vendor's base class.**
+
+*(**DERIVED** — from [S3]'s primitive list quoted above, set against the problem statement §*What
+we are combining, and why it is novel*: those three primitives correspond to **three of that
+section's four enumerated elements**. Cloudflare enumerates primitives; it makes no claim about
+the problem statement, and the element count is this paper's mapping, not the vendor's. The
+correspondence is loosest on element 2 — "sub-agents" is a parallelism primitive, and the problem
+statement's element 2 requires *distinct actors at distinct layers, one with no stake in the
+work*, which [S3] does not claim.)*
 
 **2.1.3 Anthropic — dynamic workflows in Claude Code, 2026-05-28.**
 
@@ -183,9 +191,10 @@ And on maturity, verbatim from the same page:
 
 > "Dynamic workflows are now generally available" [S5]
 
-> "generally available in the Claude Code CLI, Desktop, and the VS code extension for Pro, Max,
+> "…generally available in the Claude Code CLI, Desktop, and the VS code extension for Pro, Max,
 > Team, and Enterprise plans, as well as on the Claude API, on Amazon Bedrock, Vertex AI, and
-> Microsoft Foundry." [S5]
+> Microsoft Foundry." [S5] *(leading ellipsis: the source sentence opens "Dynamic workflows are
+> generally available in the Claude Code CLI…")*
 
 Map the first three sentences onto the problem statement's own enumeration:
 
@@ -300,7 +309,8 @@ existing application" [S11].
 
 *Confidence: definitive on [S10] (raw first-party markdown) for the component list — note the
 fetched section does **not** state database requirements, so the "Cassandra cluster" claim rests
-on [S11] alone. [S11] is **vendor competitive marketing** and is marked as such; it is used as
+on [S11] alone. [S11] is **definitive (rendered page — reduced confidence)** on its own wording
+and is **vendor competitive marketing**, marked as such; it is used as
 evidence that a published architectural argument against the server tier exists, not as a neutral
 cost estimate. Third-party cost figures for self-hosting were located only on
 commentary/affiliate sites and are **not cited** — see N6.*
@@ -374,28 +384,37 @@ context isn't able to be shared thoroughly enough between the agents" [S15]; par
 "cannot see what the other was doing and so their work ends up being inconsistent with each
 other" [S15].
 
-**This is the sharpest architectural attack on element 2** because it is not about token cost. It
-says the *separation itself* — the thing the problem statement calls "what makes the improvement
-real" — is the mechanism of failure: a judge with no stake in the work is also a judge with none
-of the author's context, and the seam that removes bias also removes information.
+**DERIVED — and the extrapolation here is larger than it looks, so it is stated in full.** [S15]
+is about **parallel coding subagents making conflicting implementation decisions**: agents that
+*act*, concurrently, on the same artifact. The problem statement's element 2 is a different
+shape — a **judge that only reads and rules**, sequentially, with no authoring authority. This
+paper's inference, built from [S15]'s "dispersed" decision-making and its "cannot see what the
+other was doing" finding plus the problem statement's "one that judges with no stake in the work",
+is that the same mechanism should reach the judging case: *a judge with no stake in the work is
+also a judge with none of the author's context, and the seam that removes bias also removes
+information.* **Cognition does not say this.** The transfer from concurrent actors to a sequential
+reader is unestablished, and it is the reason this finding is ranked last (D7) rather than higher.
 
-*Confidence: quotes fetched from the first-party Cognition blog (rendered page — **reduced
-confidence**, short spans only). Note this cuts directly against the pool's own
-`convergence_stopping.md` §2.2.1 finding that removing production history **improves** review F1;
-the two are in genuine tension and §5.5 does not resolve it in the thesis's favour by fiat.*
+*Confidence: **definitive (rendered page — reduced confidence)** on the four quoted spans, all
+fetched from the first-party Cognition blog; **derived**, as marked above, on everything after
+them. Note the derived reading cuts directly against the pool's own `convergence_stopping.md`
+§2.2.1 finding that removing production history **improves** review F1; the two are in genuine
+tension and §5.5 does not resolve it in the thesis's favour by fiat.*
 **Cognition has since softened this position — see §5.4, which is the honest boundary.**
 
 **2.3.5 The vendor most invested in multi-agent publishes the cost multiplier and the anti-pattern.**
 
-Anthropic's own guidance states "multi-agent systems typically use 3-10x more tokens than
-single-agent approaches for equivalent tasks"; that in the anti-pattern case "improved prompting
+Anthropic's own guidance states "In our testing, multi-agent implementations typically use 3-10x
+more tokens than single-agent approaches for equivalent tasks"; that in the anti-pattern case
+"improved prompting
 on a single agent achieved equivalent results"; and "Outside these situations, the coordination
 costs typically exceed the benefits" [S16]. Its general engineering guidance is to "find the
 simplest solution possible, and only increasing complexity when needed", to have developers
 "start by using LLM APIs directly: many patterns can be implemented in a few lines of code", and
 notes "Agentic systems often trade latency and cost for better task performance" [S17].
 
-*Confidence: rendered first-party pages, short verbatim spans — **reduced-confidence-rendered**.
+*Confidence: **definitive (rendered page — reduced confidence)** — first-party pages, fetched,
+short verbatim spans.
 Note the 3-10x figure in [S16] and the widely-repeated 15x figure from Anthropic's 2025
 multi-agent-research post are different numbers from different pages; only [S16] was fetched, so
 only 3-10x is cited here.*
@@ -442,6 +461,19 @@ authorized chapter excerpt:
 > **Fact 15:** "Reuse-in-the-small (libraries of subroutines) began nearly 50 years ago and is a
 > well-solved problem." [S19]
 
+> **Fact 17:** "Reuse-in-the-large works best in families of related systems and thus is
+> domain-dependent. This narrows the potential applicability of reuse-in-the-large." [S19]
+
+**Fact 17 is the one aimed squarely at "only the edge does."** The roadmap's edge list is coding,
+home automation, industrial automation, robotics and bioinformatics. **That is not a family of
+related systems** — it is a deliberately maximal spread across unrelated domains, chosen to
+demonstrate generality. Glass's finding is that the spread is exactly what makes
+reuse-in-the-large fail, and that the successful cases are the narrow ones. **The generality
+claim's breadth, which is presented as the evidence for the backbone's value, is on Glass's
+account the strongest predictor that it will not hold.** *(**DERIVED** on the reading — Glass
+does not discuss agent backbones; the inputs are Fact 17 [S19] and the roadmap's own edge list in
+problem-statement.md § *Where this repo sits*.)*
+
 **Read Fact 18(b) against the roadmap.** The generality claim asserts a backbone stable across
 coding, home automation, industrial automation, robotics and bioinformatics, on the evidence of
 **one** application. Glass's threshold for calling a component general enough to *enter a library*
@@ -454,14 +486,12 @@ layers are reuse-in-the-small and are on the solved side. The *composable workfl
 person writes and another uses without rewriting* — the named novel artifact — is
 reuse-in-the-large, the unsolved side.
 
-*Confidence: definitive on the three quoted Facts (fetched from InformIT, the publisher's own
-excerpt of the book text — a rendered page, but an authorized reproduction of a primary text;
-marked reduced-confidence-rendered). The same chapter's Fact 17 ("reuse-in-the-large works best
-in families of related systems") appeared only in a search summary and was **not** fetched —
-**unverified**, and not relied on, though it would sharpen this attack considerably if it holds,
-because coding / robotics / bioinformatics are not a family of related systems. **DERIVED** on
-the transfer: Glass (2002) is about compiled software components, not markdown workflow modules
-invoked by shell scripts, and §5.6 states why that transfer is contestable.*
+*Confidence: **definitive (rendered page — reduced confidence)** on all four quoted Facts (15, 16,
+17, 18), each fetched from InformIT, the publisher's own excerpt of the book text — a rendered
+page, but an authorized reproduction of a primary text, and the Fact numbers were checked against
+it. **DERIVED** on every transfer: Glass (2002) is about compiled software components, not
+markdown workflow modules invoked by shell scripts, and §5.6 states why that transfer is
+contestable.*
 
 **2.4.2 Speculative generality has a named cost model.**
 
@@ -489,8 +519,8 @@ forward is back" [S21] — inline the abstraction, re-introduce duplication, del
 does not need. The described failure sequence is an abstraction extracted from one case, then
 parameterised repeatedly by later callers until it is incomprehensible [S21].
 
-*Confidence: rendered page, two short verbatim spans — **reduced-confidence-rendered**. **DERIVED**
-on the mapping: a backbone/edge split extracted from a single edge is exactly the "extracted from
+*Confidence: **definitive (rendered page — reduced confidence)** on the two quoted spans, fetched.
+**DERIVED** on the mapping: a backbone/edge split extracted from a single edge is exactly the "extracted from
 one case" starting condition [S21] describes. Note the pool's own
 `raw/workflow_reuse_boundary.md` covers the parameterise-vs-fork ruling — this paper does not
 re-open it and takes no position on it.*
@@ -517,7 +547,8 @@ Kubernetes' architectural design principles, verbatim:
 
 > "Components should be self-healing. For example, if you must keep some state (e.g., cache) the
 > content needs to be periodically refreshed, so that if an item does get erroneously stored or a
-> deletion event is missed etc, it will be soon fixed." [S22]
+> deletion event is missed etc, it will be soon fixed, ideally on timescales that are shorter
+> than what will attract attention from humans." [S22]
 
 > "Don't assume a component's decisions will not be overridden or rejected... Retry, but back off
 > and/or make alternative decisions." [S22]
@@ -569,8 +600,8 @@ specific workload this repo runs — review, critique, disposition — "resume w
 had" may be strictly worse than "restart clean against the artifact," which is what the system
 already does.** §5.7 states where this argument stops.
 
-*Confidence on [S26]: rendered first-party research page, short verbatim spans —
-reduced-confidence-rendered.*
+*Confidence on [S26]: **definitive (rendered page — reduced confidence)** — first-party research
+page, fetched, short verbatim spans.*
 
 ### 2.6 C6 — the multi-tenant edge topology has a catalogued failure model it has not met
 
@@ -633,9 +664,9 @@ participant none is needed.
 
 **2.6.4 The credential-permission question is answered elsewhere in the pool and is not re-derived
 here.** Whether subscription auth at the edge is *permitted* is `raw/anthropic_tos_and_enterprise.md`
-(Last validated 2026-07-24; Critic: PASS; **past its 4-week window as of 2026-08-03 and therefore
-to be treated as unverified per §5**). This paper's point is orthogonal: permission is not
-governance.
+(Last validated 2026-07-24; Critic: PASS; **in window** — a 4-week interval puts it due 2026-08-21,
+so §5's staleness gate does not fire and it is consumable as current evidence). This paper's point
+is orthogonal: permission is not governance.
 
 ---
 
@@ -649,9 +680,9 @@ Stated fairly, including where the counter-position is weak. Ordered as in §2.
 | **The loop should not be durable** | Kubernetes level-based principle [S22]; crash-only tradition [S24]; context-rot [S26] + pool §2.2.1 | **Weak as published evidence, strong as architecture.** No source applies it to agent loops (N1) | The most-cited practitioner manifesto asks for the opposite (§5.1) |
 | **Durable execution's costs bite here specifically** | TMPRL1100 [S8]; Temporal's own rebuttal post [S9]; DBOS positioning [S11] | **Moderate.** The mechanism is first-party; the transfer is derived | Temporal's answer (put nondeterminism in activities) is real and largely works; the residue is narrower than the attack implies (§5.2) |
 | **Layering does not pay** | Matched-budget SAS≥MAS [S12]; non-monotone call scaling [S13]; MAST [S14]; Cognition [S15]; Anthropic's own 3-10x [S16] | **Moderate-to-strong on cost; weak on transfer** | Every measured result is on reasoning/QA benchmarks; the pool's own review-topology results point the other way (§5.5) |
-| **The generality claim is premature** | Glass Facts 15/16/18 [S19]; Yagni [S20]; wrong abstraction [S21] | **Strong in principle, thin in evidence.** No modern post-mortem located (N2) | All three sources predate LLM-authored code, which changes the cost of building the second implementation (§5.6) |
+| **The generality claim is premature** | Glass Facts 15/16/**17**/18 [S19] — **Fact 17 (reuse-in-the-large is domain-dependent and works best in families of related systems) is the one aimed squarely at "only the edge does"**; Yagni [S20]; wrong abstraction [S21] | **Strong in principle, thin in evidence.** No modern post-mortem located (N2) | All three sources predate LLM-authored code, which changes the cost of building the second implementation (§5.6) |
 | **Multi-tenant edges fail in ways this cannot anticipate** | GitHub first-party warning [S27]; OWASP PPE [S28]; CVE-2025-30066 [S29] | **Strong on the mechanism.** Realised incidents, first-party sources | All evidence is from *open, untrusted-contributor* ecosystems; a closed trusted org is a different threat model (§5.8) |
-| **The platforms will eat this** | [S1][S3][S5]; AgentCore GA [S2] | **Moderate.** The trend is real and dated | OpenAI killed Agent Builder 8 months after shipping it [S32] — platform durability is itself unreliable (§5.2) |
+| **The platforms will eat this** | [S1][S3][S5]; AgentCore GA [S2] | **Moderate.** The trend is real and dated | OpenAI announced Agent Builder's deprecation on 2026-06-03, roughly eight months after its DevDay launch [S32] — platform durability is itself unreliable (§5.2). *[S32] documents only the deprecation; the launch date is unverified — see §5.2.* |
 
 **Two observations from the landscape, both derived.**
 
@@ -673,10 +704,14 @@ Stated fairly, including where the counter-position is weak. Ordered as in §2.
 Enumerated, each with source, confidence, and **what breaks in the problem statement if it is
 true**. Ranked by damage, most damaging first.
 
-**D1. The gap claim is falsified as a present-tense statement about the industry.** Four vendors
-ship durable agent loops; Anthropic's own May 2026 announcement covers four of the problem
-statement's enumerated elements at once, on the coding edge [S1][S3][S5][S6].
-*Confidence: definitive on the announcements; derived on the mapping.*
+**D1. The gap claim is falsified as a present-tense statement about the industry.** **Three
+vendors, on dated first-party announcements between 2026-03-25 and 2026-05-28**, ship runtimes in
+which an interrupted agent run resumes rather than restarts [S1][S3][S5]; a fourth ships the same
+pattern undated [S6]. Anthropic's 2026-05-28 announcement — **generally available**, not a preview
+— covers four of the problem statement's enumerated elements at once, on the coding edge [S5].
+*Confidence: definitive on the announcements and on the GA label; **derived** on the mapping of
+those announcements onto the problem statement's four elements (§2.1.3) and on the market
+conclusion (§2.1.5).*
 **Breaks:** the § *The gap underneath it* section entire, and the framing of § *What we are
 combining, and why it is novel* as a present-tense novelty claim.
 **Remedy:** date the claim ("as of <date>"), cite it, and put it on the highest revalidation tier
@@ -724,10 +759,13 @@ the transfer (N1).*
 second step rather than the right first one.
 **Remedy:** run T1 (§7) — measure what a crash actually costs today before buying durability.
 
-**D7. A separate judge loses the author's context, and dispersed decision-making is a named
-failure mode.** [S15]; [S14]'s taxonomy shape.
-*Confidence: reduced-confidence-rendered on [S15]; definitive on [S14]'s abstract; derived on the
-architectural reading.*
+**D7 (DERIVED, weakest of the seven). A separate judge may lose the author's context, because
+dispersed decision-making is a named failure mode for concurrent agents.** [S15]; [S14]'s
+taxonomy shape. The transfer from concurrent acting subagents to a sequential judge is this
+paper's inference and is unestablished (§2.3.4).
+*Confidence: definitive (rendered page — reduced confidence) on [S15]'s quoted spans; definitive
+on [S14]'s abstract; **derived** on the architectural reading and on the transfer from concurrent
+acting subagents to a sequential judge (§2.3.4).*
 **Breaks:** nothing outright — it is in direct tension with the pool's own contrary finding
 (§5.5), and is listed last because that tension is unresolved.
 **Remedy:** the decide-only disposition experiment already queued as next cycle's first topic in
@@ -769,8 +807,12 @@ Agent Builder that the product is being deprecated," with shutdown scheduled 202
 notice covers the Evals platform and reusable prompt objects, and the migration guidance for
 prompts is "move reusable prompt content into your application code" [S32].
 
-**This damages D1's forward-looking half.** Agent Builder shipped in October 2025 and was
-deprecated in June 2026. A hand-built backbone that outlives a vendor's orchestration product is
+**This damages D1's forward-looking half.** Agent Builder was announced at OpenAI DevDay in
+October 2025 and deprecated in June 2026 — roughly eight months. *(**The launch date is
+UNVERIFIED**: `openai.com/index/introducing-agentkit/` returned HTTP 403 and was not fetched.
+[S32] establishes only the deprecation dates, which are what the argument actually needs — a
+product deprecated within a year of any plausible launch date makes the point regardless of the
+exact interval.)* A hand-built backbone that outlives a vendor's orchestration product is
 not obviously the wrong bet, and "the platforms will eat this" is an argument that requires the
 platform to still be there. It does **not** damage D1's backward-looking half: the gap claim was
 still stale on 2026-05-28 regardless of what happens to any one product.
@@ -813,9 +855,11 @@ pointing the other way
 MAS task completion. **None measures review, critique or defect-finding**, which is what this
 system's layering does. Against that, `convergence_stopping.md` reports on-domain results in the
 opposite direction: repeated independent review passes produce largely disjoint finding sets and
-aggregating ten of them improved F1 by 43.67% (its [S6]), and a fresh separate reviewer beat
-same-session self-review (its [S8]). The pool also records OpenAI's CriticGPT result that a
-separate critic beats the author (its [S13]).
+aggregating ten of them improved F1 by 43.67% (SWR-Bench, in that paper's §2.2.2), and a fresh
+separate reviewer beat same-session self-review (Cross-Context Review, in that paper's §2.2.1).
+The pool also records OpenAI's CriticGPT result that a separate critic beats the author (that
+paper's §2.2.5). *(Named by source rather than by the sibling paper's `[Sn]` numbers, which
+collide with this paper's own numbering.)*
 
 **This is the single largest limitation on §2.3.** The transfer from reasoning benchmarks to
 review topology is unestablished in both directions, and the on-domain evidence such as it is
@@ -870,9 +914,15 @@ LangChain LangGraph position 2026`; `"durable execution" criticism "over-enginee
 was fetched and contains **no** argument against durability — the thread compares checkpointing to
 durable execution and treats the approaches as complementary. **The published disagreement in this
 space is entirely about *which* durability implementation is adequate (checkpoints vs. journals —
-[S7]), never about whether the loop should be durable at all.** §2.5 is therefore this paper's own
-architectural argument from adjacent fields, marked derived throughout. *This is the finding that
-most favours the thesis and it is reported first.*
+[S7]), never about whether the loop should be durable at all.** [S7] was fetched and is the
+sharpest available instance: it contrasts "Checkpointing says: 'I saved your state. You take it
+from here.'" with durable execution's "Your agent workflows will run to completion. Period. I
+handle everything," and concludes that "for production workloads where agent workflows process
+orders, manage infrastructure, handle customer requests...you need durable execution" [S7].
+**Note the direction: the one source located that most sharply criticises how the field implements
+durable loops argues that loops should be *more* durable, not less.** §2.5 is therefore this
+paper's own architectural argument from adjacent fields, marked derived throughout. *This is the
+finding that most favours the thesis and it is reported first.*
 
 **N2. No documented post-mortem was located of a domain-general agent, workflow or automation
 platform that failed to generalise across domains.** Searched via: `Gregor Hohpe platform trap
@@ -906,11 +956,30 @@ inference and is marked derived.
 failure-rate threshold below which durable execution is not worth adopting.** Searched via: the
 Temporal rules repo (TMPRL1100 fetched), the Temporal server architecture doc (fetched), the
 Temporal AI-agents blog post (fetched), the DBOS comparison page (fetched), and web search on
-`"durable execution" criticism "over-engineering" agents "you probably don't need"`. The
-"~30-minute task-duration threshold" recorded in the pool's `durable_execution.md` §3 traces to a
-community-authored production guide, **not** to a vendor. **Vendors do not publish the boundary of
-their own product's usefulness** — an unsurprising gap, but one that means the boundary has to be
-measured (§7 T1), not looked up.
+`"durable execution" criticism "over-engineering" agents "you probably don't need"`. **Vendors do
+not publish the boundary of their own product's usefulness** — an unsurprising gap, but one that
+means the boundary has to be measured (§7 T1), not looked up.
+
+> **N6 carries a correction into a sibling paper, so its dependent trace is stated in full.** The
+> "~30-minute task-duration threshold" appears in `durable_execution.md` at **TWO sites**, both
+> attributed to the same `claudelab.net` community-authored production guide, and **no vendor
+> states it** at either. The correction is to the *authority* a consumer might read into the
+> figure — not to the number, and not to the sibling paper's sourcing, which names its source
+> correctly in both places.
+>
+> | Site | Wording | Unearned-authority risk |
+> |---|---|---|
+> | **§3**, Claude Agent SDK bullet | "…observe an approximate thirty-minute task-duration threshold **below which the discipline is net cost**" | **HIGHEST — fix this one first.** Stated flatly, with no hedge, inside the 2026 convergence timeline, where the surrounding material is first-party vendor announcements. A reader scanning §3 will take the threshold for vendor guidance by adjacency. |
+> | **§6**, bullet 1 ("Short, in-process tasks") | notes "the ~30-minute threshold as **a rough heuristic**" | Lower — already hedged, and sits in the honest-boundary section where a reader expects judgement calls. |
+>
+> **An earlier draft of this note asserted that §3 "contains no such claim." That was wrong** —
+> §3 line 45 carries it, unhedged — and the error was the worse kind for a propagating finding,
+> because a downstream pass following the trace would have corrected the hedged site and left the
+> unhedged one standing. **Full dependent list:** `durable_execution.md` §3 (Claude Agent SDK
+> bullet) and §6 (bullet 1); any planning artifact that cites a horizon threshold as vendor
+> guidance; and §7 T1 of this paper, which exists precisely because the threshold has no
+> first-party source. *(This paper's separate pointer to `durable_execution.md` §4 for
+> "checkpointing is not durable execution" was checked and is correct.)*
 
 **N7. No source was located testing whether LLM-authored implementations change reuse economics**
 (§5.6). Searched incidentally during the Glass/Fowler/Metz sweep. The argument in §5.6 is derived
@@ -929,9 +998,10 @@ decays)**
   session storage for persistent agent filesystem state (preview).*
   https://aws.amazon.com/about-aws/whats-new/2026/03/bedrock-agentcore-runtime-session-storage
   *(first-party announcement page, fetched)*
-- [S2] Amazon Web Services (2025-10). *Amazon Bedrock AgentCore is now generally available.*
+- [S2] Amazon Web Services (posted **2025-10-13**). *Amazon Bedrock AgentCore is now generally
+  available.*
   https://aws.amazon.com/about-aws/whats-new/2025/10/amazon-bedrock-agentcore-available/
-  *(cited for the GA date, from search results — **unverified**, not fetched)*
+  *(**fetched** — first-party announcement page; title and posted date verified)*
 - [S3] Cloudflare (2026-04-15). *Project Think: building the next generation of AI agents on
   Cloudflare.* https://blog.cloudflare.com/project-think/ *(rendered first-party blog — short
   verbatim spans only)*
@@ -939,15 +1009,17 @@ decays)**
   https://raw.githubusercontent.com/cloudflare/agents/main/README.md *(raw markdown, first-party)*
 - [S5] Anthropic (2026-05-28). *Introducing dynamic workflows in Claude Code.*
   https://claude.com/blog/introducing-dynamic-workflows-in-claude-code *(rendered first-party
-  blog — short verbatim spans only; maturity label not verified)*
+  blog — short verbatim spans only; **maturity label verified first-party: "Dynamic workflows are
+  now generally available"**. Neither "research preview" nor "preview" appears on the page.)*
 - [S6] Dapr. *Dapr Agents core concepts.*
   https://docs.dapr.io/developing-ai/dapr-agents/dapr-agents-core-concepts/ *(rendered
   first-party docs; undated in the fetched page)*
 - [S7] Diagrid. *Why Checkpoints Aren't Durable Execution: LangGraph, CrewAI, Google ADK and
   others.*
   https://www.diagrid.io/blog/checkpoints-are-not-durable-execution-why-langgraph-crewai-google-adk-and-others-fall-short-for-production-agent-workflows
-  *(vendor competitive content, not fetched — cited by URL as the location of a published
-  position; **unverified**)*
+  *(**fetched** — vendor competitive content, so **definitive (rendered page — reduced
+  confidence)** on its own wording and not neutral analysis. Independently corroborated on the
+  checkpoint-vs-durable distinction by `durable_execution.md` §4.)*
 
 **Durable-execution cost case — first-party and vendor (MEDIUM–HIGH volatility)**
 
@@ -984,7 +1056,7 @@ decays)**
   first-party page — short verbatim spans only)*
 - [S17] Anthropic. *Building Effective Agents.*
   https://www.anthropic.com/engineering/building-effective-agents *(rendered first-party page —
-  short verbatim spans only; also cited in `convergence_stopping.md` as its [S31])*
+  short verbatim spans only; the same page is also cited in `convergence_stopping.md`)*
 - [S18] Ye, J., Wang, Y., Huang, Y., Chen, D., Zhang, Q., Moniz, N., Gao, T., Geyer, W., Huang,
   C., Chen, P.-Y., Chawla, N. V., & Zhang, X. (2024-10-03). *Justice or Prejudice? Quantifying
   Biases in LLM-as-a-Judge.* arXiv:2410.02736. https://arxiv.org/abs/2410.02736 *(abstract fetched
@@ -993,9 +1065,11 @@ decays)**
 **Generalisation and reuse — software-engineering fundamentals (LOW volatility)**
 
 - [S19] Glass, R. L. (2002). *Facts and Fallacies of Software Engineering*, Reuse chapter, Facts
-  15, 16 and 18. Publisher's authorized excerpt:
-  https://www.informit.com/articles/article.aspx?p=30091&seqNum=5 *(rendered page reproducing
-  primary book text — reduced-confidence-rendered; Fact 17 was **not** fetched and is not cited)*
+  **15, 16, 17 and 18**. Publisher's authorized excerpt:
+  https://www.informit.com/articles/article.aspx?p=30091&seqNum=5 *(**fetched twice** — rendered
+  page reproducing primary book text; **definitive (rendered page — reduced confidence)**. Fact
+  numbers verified against the page. Fact 17 was added on the second fetch after an earlier draft
+  wrongly recorded it as unfetched and declined to use it.)*
 - [S20] Fowler, M. *Yagni.* https://martinfowler.com/bliki/Yagni.html *(rendered page — short
   verbatim spans only)*
 - [S21] Metz, S. (2016-01-20). *The Wrong Abstraction.*
@@ -1062,21 +1136,26 @@ decays)**
 - `docs/standards/architecture/research/raw/reflection_literature.md` — Last validated 2026-07-23;
   **Critic: PASS**. Owns the reflection corpus and its four gaps.
 - `docs/standards/architecture/research/raw/durable_execution.md` — Last validated 2026-07-27;
-  **Critic: PASS**. Owns the durable-execution primer, the vendor landscape, and the ~30-minute
-  threshold whose provenance N6 corrects.
+  **Critic: PASS**. Owns the durable-execution primer, the vendor landscape, the
+  checkpointing-is-not-durable-execution distinction (**§4**), and the ~30-minute threshold
+  (**§6**, bullet 1 — *not* §3) whose provenance N6 corrects.
 - `docs/standards/architecture/research/raw/anthropic_tos_and_enterprise.md` — Last validated
-  2026-07-24; Critic: PASS; **past its 4-week window on 2026-08-03 — treat as unverified per §5**.
+  2026-07-24; Critic: PASS; **in window — due 2026-08-21**, consumable as current evidence.
 - `docs/standards/architecture/research/raw/workflow_reuse_boundary.md` — owns the
   parameterise-vs-fork ruling; §2.4.3 does not re-open it.
 
-*Sourcing posture, counted: 35 external sources. **29 were fetched**; of those, **16 came from raw
-markdown, the arXiv API/HTML, or a first-party announcement page** ([S1], [S4], [S8], [S10],
-[S12], [S13], [S14], [S18], [S22], [S23], [S27], [S28], [S32], [S33], [S34], [S35]) and **13 from
-rendered pages** ([S3], [S5], [S6], [S9], [S11], [S15], [S16], [S17], [S19], [S20], [S21], [S26],
-[S29]) — each marked reduced-confidence at the point of use and quoted only in spans visible in
-the fetch. **6 were NOT successfully fetched** ([S2], [S7], [S24], [S25], [S30], [S31]) and are
-marked unverified or directional in place; nothing load-bearing rests on any of them. Every
-§4 finding D1–D7 rests on at least one raw/API/first-party-fetched source.*
+*Sourcing posture, counted after the critic pass: 35 external sources. **31 were fetched** — [S2]
+and [S7] were upgraded from unfetched after the critic pass located both, and [S5] and [S19] were
+re-fetched to correct a maturity label and to add Glass Fact 17. Of the 31, **17 came from raw
+markdown, the arXiv API/HTML, or a first-party announcement page** ([S1], [S2], [S4], [S8], [S10],
+[S12], [S13], [S14], [S18], [S22], [S23], [S27], [S28], [S32], [S33], [S34], [S35]) and **14 from
+rendered pages** ([S3], [S5], [S6], [S7], [S9], [S11], [S15], [S16], [S17], [S19], [S20], [S21],
+[S26], [S29]) — each carrying the "rendered page — reduced confidence" modifier at the point of
+use and quoted only in spans visible in the fetch. **4 were NOT successfully fetched** ([S24]
+Candea & Fox and [S25] Daly, whose PDFs returned unparsed binary; [S30] CISA, HTTP 403; [S31] Unit
+42) and are marked directional or unverified in place; **nothing load-bearing rests on any of the
+four** — [S24] and [S25] are quoted nowhere, [S30] duplicates [S29], and [S31] is corroboration
+only. Every §4 finding D1–D7 rests on at least one raw/API/first-party-fetched source.*
 
 ---
 
@@ -1124,7 +1203,14 @@ replay. Research cannot settle this because it depends on this repo's change rat
 **T5. Test whether a judge with no author context loses findings.**
 *Because:* D7 and §5.5 — [S15] says separation disperses decision-making and loses context;
 `convergence_stopping.md` says separation *improves* review F1. **The pool now contains two
-sourced claims in direct opposition and no experiment.**
+sourced claims pointing opposite ways and no experiment — but they are NOT peers and should not
+be queued as though they were.** [S15] is a practitioner blog (rendered page, reduced confidence),
+about *concurrent acting* subagents rather than a sequential judge, and its author has publicly
+softened the position (§5.4, unverified). The `convergence_stopping.md` result is a controlled
+experiment, but a directional one — single model, injected errors, single-author preprint, and no
+fresh-context-twice arm. **The asymmetry favours the separation side**; what makes this worth an
+experiment is not that the two are evenly matched, it is that neither measures the topology this
+system actually runs.
 *Design:* the decide-only-disposition experiment already queued first in `topics.md`, extended with
 a context-rich judge arm: same PR, judged (a) with only the artifact, (b) with the artifact plus
 the author's full trace. Measure findings raised, verified and retracted.

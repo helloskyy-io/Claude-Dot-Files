@@ -12,12 +12,13 @@ Feeds:          `docs/standards/architecture/problem-statement.md` elements 3 an
 Last validated: 2026-08-03
 Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on what each cited framework documents as its own routing model —
-                every claim in §2 rests on a fetched first-party doc. Raw-markdown provenance
+                every claim in §2 rests on a fetched first-party doc. Raw-source provenance
                 (the strongest tier) covers Google ADK ×2, OpenAI Agents SDK, Tekton tasks +
-                TEP-0074, Airflow, Argo, GitHub Docs reusables and 12-Factor Agents; Microsoft
-                Agent Framework, AWS Step Functions and Airflow's rendered siblings were
-                retrieved as full document text and read directly rather than through a
-                summariser, which is the second tier. DEFINITIVE on the OpenAI Structured
+                TEP-0074, Argo, GitHub Docs reusables and 12-Factor Agents as raw markdown, and
+                Airflow as raw reStructuredText — same tier, different noun. Microsoft
+                Agent Framework and AWS Step Functions were retrieved as full document text and
+                read directly rather than through a summariser — the second tier, and NOT raw
+                markdown. DEFINITIVE on the OpenAI Structured
                 Outputs guarantee and on its stated limits. DEFINITIVE on what each cited study
                 measured. DEFINITIVE on the central NEGATIVE finding (N1): no head-to-head
                 measurement of code-routing versus model-routing of CONTROL FLOW exists in the
@@ -28,16 +29,19 @@ Confidence:     DEFINITIVE on what each cited framework documents as its own rou
                 stays directional. This covers [S2], [S23], [S9], [S10], [S11] and [S28].
                 DIRECTIONAL on the four 2026 preprints (2604.27891 — five authors;
                 2607.17044 — one named author plus a team; 2605.14102 and 2607.18476 —
-                single-author) and on the vendor-interested rebuttal [S28].
+                single-author), none of which is carried at definitive; and DIRECTIONAL on
+                [S28]'s FIGURES and CONCLUSIONS, which come from a rendered page published by a
+                vendor selling the library the result favours (the carve-out above covers only
+                its quoted spans, never its numbers).
                 UNVERIFIED on the GitHub Actions 1 MB / 50 MB output caps — the figure did not
                 appear in the fetched primary (N4) — and on the Tekton termination-message
                 causal story. DERIVED, and flagged inline, on §0's verdict, §2.4.2, §4.4,
                 §5 P2/P7/P9/P11 and §6.6.
-Critic:         PASS-WITH-FIXES (CrewAI removed from the six and N6 re-scoped, with ADK's graph
-                routing example added; [S24] false-switch rate corrected 0.03%→3% and §6.4
-                re-argued; three quotations restored or unquoted; [S11] unrelated-input case
-                re-grouped; rendered-page and raw-provenance labels made consistent; preprint
-                authorship descriptor corrected) — 2026-08-03
+Critic:         PASS-WITH-FIXES (round 3: N6's seven-document generalisation restricted to the
+                docs that contain a branching predicate, with [S3] and [S4] stated separately;
+                §2.2.3's ADK gloss reworded to name the missing enum rather than the present
+                output_schema=str; P1's definitive mark scoped to four legs with [S10]
+                directional) — 2026-08-03
 ```
 
 > **Mixed volatility (§3).** The **high-volatility** material is §2.1–2.3 and §3.2 (agent-framework
@@ -184,11 +188,12 @@ verbatim spans only (Temporal, Restate). A sixth framework, CrewAI, was checked 
 not** document this pattern — §2.2.4 states what it documents instead, because a survey that
 silently drops its disconfirming case is not a survey.
 
-The same convergence is reported from outside the vendors by the 12-Factor Agents essay —
-"most of the products out there billing themselves as \"AI Agents\" are not all that agentic. A
-lot of them are mostly deterministic code, with LLM steps sprinkled in at just the right points"
-[S32] — which is uncorroborated single-author commentary and is used here only as corroboration
-of a pattern already established by the five first-party sources below.
+The same convergence is reported from outside the vendors by the 12-Factor Agents essay:
+"… most of the products out there billing themselves as "AI Agents" are not all that agentic. A
+lot of them are mostly deterministic code, with LLM steps sprinkled in at just the right points
+to make the experience truly magical." [S32] That is uncorroborated single-author commentary and
+is used here only as corroboration of a pattern already established by the five first-party
+sources below — it carries no weight on its own.
 
 **2.2.1 LangGraph.** The Routing workflow in LangChain's own docs is a structured-output call
 constrained to a `Literal`, followed by a plain `if/elif` over the stored decision:
@@ -279,8 +284,11 @@ The same raw file carries a forward-looking note that matters for revalidation:
 > [dynamic workflows](/graphs/dynamic/)." — [S4, raw markdown]
 
 The graph docs then make the typed-handoff claim explicitly — "The framework automatically
-passes each node's typed return value to the next node via `event.Output`" — and offer two
-selling points that are exactly the thesis's, **asserted without measurement**:
+passes each node's typed return value to the next node via `event.Output`" [S5] — though two
+scope caveats belong with that span if it is ever cited for a design here: it appears in the
+source's **Go** section (the routing sample quoted below is Python), and the sentence continues
+"— no session state writes are needed", which is the property being sold. The same page offers
+two selling points that are exactly the thesis's, **asserted without measurement**:
 
 > "Run chains of functions without AI: Call agent tools and your own code without invoking a
 > generative AI model" — [S5]
@@ -315,12 +323,14 @@ into a closed vocabulary, a plain function normalises the string, and a **dict**
                }
            )
 ```
-— [S5, raw markdown]. **Note what is missing:** `output_schema=str`. The closed vocabulary is
-enforced by the *prompt*, not by a schema or a decoder, and the instruction explicitly invites
-a multi-value answer. Any category the model invents simply fails to match a dict key. This is
-the §4.1 guarantee **not** being used, in the docs of a vendor that markets the pattern on
-predictability. *(Confidence: definitive on the code and on the absence of an enum; **derived**
-on the consequence.)*
+— [S5, raw markdown]. **Note what is *not* there — any enum or `Literal`.** The sample declares
+`output_schema=str`, an unconstrained string, so the closed vocabulary
+`BUG | CUSTOMER_SUPPORT | LOGISTICS` is enforced by the *prompt* alone, not by a schema or a
+decoder — and the instruction explicitly invites a multi-value answer. Any category the model
+invents simply fails to match a dict key. This is the §4.1 guarantee **available and not
+used**, in the docs of a vendor that markets the pattern on predictability. *(Confidence:
+definitive on the code and on the absence of an enum constraint; **derived** on the
+consequence.)*
 
 **2.2.4 CrewAI Flows — the checked case that does NOT fit, and why it matters.** The mechanism
 is the same shape: `@router()` returns a label, `@listen("label")` methods subscribe to it, and
@@ -502,9 +512,12 @@ synthesis was defensible; presenting it inside quotation marks was not.)*
 
 **Read carefully, because it is the most cite-able number on the pro-scaffolding side and it
 does not say what one would want it to say.** It attributes gain to scaffolding-and-routing *as
-a bundle* against a bare base model. It does **not** compare a code router to a model router.
-*(Confidence: directional — single-organisation 2026 preprint; the fetched abstract came back
-partly paraphrased, so only the parenthesised fragments are treated as quotation.)*
+a bundle* against a bare base model. It does **not** compare a code router to a model router. Its "routing" is dispatch to
+task-specialised post-trained models — a *model*-mediated decision — so if anything it is
+evidence that model routing plus scaffolding works.
+*(Confidence: directional — 2026 preprint from one organisation (Arunabh Dastidar and the Leni
+Team), reporting on its own production system. Both quotations above were re-verified
+character-exact against the arXiv abstract after an earlier draft mis-quoted them.)*
 
 ### 3.3 Adjacent, and frequently mis-cited into this debate
 
@@ -623,7 +636,14 @@ closed-vocabulary typed value; code branches on it. Documented as the canonical 
 by LangGraph [S1], Microsoft Agent Framework [S6], Google ADK [S5], Temporal [S9] and Restate
 [S10] — five sources. **CrewAI [S7] was checked and is excluded**: it has the same primitives
 but its only `@router()` example branches on `random.choice([True, False])` (§2.2.4).
-*(definitive)*
+*(**definitive on four legs** — [S5] from raw markdown, [S1] from the docs-`.md` form, [S6]
+from full document text read directly, and [S9] on its quoted spans per the rendered-page
+carve-out. **Directional on [S10]**: the one
+verbatim Restate span located concerns durability, not the branching pattern, so the
+pattern-claim for that source is a paraphrase of a code sample on a rendered page. The claim is
+believed true — the page presents a developer-written loop that checks the model's finish
+reason and dispatches — but P1 is the property most likely to be lifted into a synthesis, and
+exporting a flat "definitive" over a paraphrased leg would overstate the warrant.)*
 
 **P2. "No model in the loop" is false of the decision in every located instance that routes on
 the outcome of real work.** Of six frameworks surveyed, five have a model producing the value
@@ -786,7 +806,9 @@ phase, or inform one?*):
 
 - **As worded in element 3 — ordinary.** "Typed results a step leaves behind that the next step
   reads in code" is Step Functions [S8], Argo, Tekton, Airflow, GitHub Actions, LangGraph,
-  Microsoft Agent Framework, CrewAI and ADK. It is also, in weaker form, already shipped here
+  Microsoft Agent Framework, ADK — and CrewAI too, which qualifies for *this* claim (code
+  branching on typed state) even though §2.2.4 excludes it from the narrower claim about
+  model-emitted verdicts. It is also, in weaker form, already shipped here
   [I1]. Presenting it as one of four novelty elements will not survive contact with a reviewer
   who has used any orchestrator.
 - **As worded in element 4 — ordinary in mechanism, unusual in scope.** "if/then/else over the
@@ -852,14 +874,39 @@ verdict vocabulary.** Searched via the N1/N2 queries plus the structured-output 
 [S31]; [S30] measures distributional collapse on open answer spaces, not abstention-arm usage.
 Both are §8 experiments, not literature questions.
 
-**N6. No agent-framework documentation located presents a NON-model-produced value as its
-canonical branching example.** Checked: LangChain/LangGraph workflows-and-agents [S1], OpenAI
-Agents SDK handoffs [S3], Google ADK template + graph workflows [S4], [S5], Microsoft Agent
-Framework edges [S6], CrewAI Flows [S7], Temporal's AI-agent blog [S9], Restate durable-agent
-patterns [S10]. In every case the canonical routing predicate reads a field a model produced.
-Non-model routing signals (activity failure, retry exhaustion, exit status) exist in these
-runtimes but are documented as *error handling*, not as *routing*. **Stated as a gap in the
-field's documentation, not as proof the pattern is unused.**
+**N6. RE-SCOPED AFTER VERIFICATION. No agent-framework documentation located presents a
+non-model-produced value *carrying the outcome of a completed unit of work* as its canonical
+branching example.** Checked: LangChain/LangGraph workflows-and-agents [S1], OpenAI Agents SDK
+handoffs [S3], Google ADK template + graph workflows [S4], [S5], Microsoft Agent Framework edges
+[S6], CrewAI Flows [S7], Temporal's AI-agent blog [S9], Restate durable-agent patterns [S10].
+
+**The earlier, unqualified form of this finding — "no NON-model-produced value" — was wrong,
+and one of its own checked sources falsifies it.** CrewAI's sole `@router()` example branches on
+`self.state.success_flag`, set from `random.choice([True, False])` in the preceding `@start()`
+method [S7] (§2.2.4). That is a non-model value. It is also a synthetic illustration of decorator
+mechanics rather than a result carrying work product, which is the distinction the re-scoped
+form turns on — and that distinction is **this paper's judgement, not the source's**, which is
+why P2 was downgraded from definitive to derived rather than merely reworded.
+
+**The remaining seven documents do not all belong in one bucket, and an earlier form of this
+sentence made exactly the over-generalisation that forced the re-scope above.** Precisely:
+
+- **Five contain a value-branching predicate, and in all five it reads a field a model
+  produced:** LangGraph `route_decision` [S1], ADK's `router` + dict dispatch [S5], Microsoft's
+  edge `condition` / `Case` predicates [S6], Temporal's dispatch on `next_action.tool` [S9],
+  Restate's check of the model's finish reason [S10].
+- **[S3] contains no value predicate at all** — the OpenAI Agents SDK routes by exposing the
+  handoff *as a tool the model calls*, so there is no branch for a value to feed.
+- **[S4] contains no value predicate either, and points the other way** — ADK's template
+  workflow agents sequence "according to their type, such as sequential, parallel, or loop,
+  without consulting an AI model for assistance with the orchestration" [S4]. Fixed-by-type
+  sequencing is genuinely model-free, and it is genuinely not *branching on a result*.
+
+N6's headline claim is unaffected by this correction: none of the seven presents a non-model
+value carrying work product as its canonical branching example. Non-model routing signals
+(activity failure, retry exhaustion, exit status) exist in these runtimes but are documented as
+*error handling*, not as *routing*. **Stated as a gap in the field's documentation, not as proof
+the pattern is unused.**
 
 ### 7.2 Source list
 
@@ -876,13 +923,26 @@ field's documentation, not as proof the pattern is unused.**
   https://raw.githubusercontent.com/google/adk-docs/main/docs/agents/workflow-agents/index.md
   *(raw md; rendered form at https://adk.dev/agents/workflow-agents/)*
 - [S5] Google ADK, *Graph-based workflows.*
-  https://raw.githubusercontent.com/google/adk-docs/main/docs/graphs/index.md *(raw md)*
+  https://raw.githubusercontent.com/google/adk-docs/main/docs/graphs/index.md *(raw md; the
+  BUG / CUSTOMER_SUPPORT / LOGISTICS classifier-plus-dict-dispatch sample in §2.2.3 was
+  reproduced from a second, character-exact re-fetch of this file)*
 - [S6] Microsoft Agent Framework, *Workflows — Edges.*
-  https://learn.microsoft.com/en-us/agent-framework/workflows/edges *(full document text
-  retrieved and read directly; sample code at
-  https://github.com/microsoft/agent-framework/blob/main/python/samples/03-workflows/control-flow/edge_condition.py)*
-- [S7] CrewAI, *Flows.* https://docs.crewai.com/en/concepts/flows.md *(docs `.md` form; fetch
-  returned mixed quotation and summary — no long quote taken)*
+  https://learn.microsoft.com/en-us/agent-framework/workflows/edges *(**rendered page, but
+  retrieved as full document text and read directly rather than through a summariser** — the
+  second-strongest provenance tier in this paper, not raw markdown. Every quotation in §2.2.2
+  was read from that text. The upstream authoring source is
+  https://github.com/MicrosoftDocs/semantic-kernel-pr `agent-framework/workflows/edges.md`; the
+  runnable sample is at
+  https://github.com/microsoft/agent-framework/blob/main/python/samples/03-workflows/control-flow/edge_condition.py
+  — note that the Learn page's explanatory comments, including `# is_spam drives the routing
+  decision taken by edge conditions`, are present on the Learn page and not in the GitHub
+  sample, so the Learn page is the correct citation for them.)*
+- [S7] CrewAI, *Flows.* https://docs.crewai.com/en/concepts/flows.md *(docs `.md` form. Re-fetched
+  during verification with a character-exact prompt; the `@router()` example and the "**Type
+  Safety**: Leveraging Pydantic ensures that state attributes adhere to the specified types,
+  reducing runtime errors." sentence are quoted from that re-fetch. An earlier draft attributed
+  the model-emits-verdict pattern to this source and quoted "type safety and validation" — both
+  were wrong; see §2.2.4 and N6.)*
 - [S23] Anthropic, *How we built our multi-agent research system.*
   https://www.anthropic.com/engineering/multi-agent-research-system *(rendered page — short
   verbatim spans only)*
@@ -951,8 +1011,9 @@ field's documentation, not as proof the pattern is unused.**
 - [S25] Dastidar, A., & the Leni Team (2026). *Where Does Agent Reliability Come From? A
   Cross-Benchmark Decomposition of Verification Loops, Specialist Models, and Scaffolding in a
   Production Enterprise Agent.* arXiv:2607.17044. https://arxiv.org/abs/2607.17044
-  *(2026 preprint — directional; abstract returned partly paraphrased, only quoted fragments
-  treated as quotation)*
+  *(2026 preprint, one named author plus "the Leni Team", reporting on its own production
+  system — directional. Both §3.2 quotations were re-fetched character-exact during
+  verification after an earlier draft presented a synthesised figure range as a quotation.)*
 - [S26] Lu, Y., Zhang, Q., Zhang, S., Yu, Z., Wang, Z., Chen, H., & Xing, J. (2026). *The Routing
   Plateau: Understanding and Breaking the Accuracy Limits of LLM Routers.* arXiv:2606.07587.
   https://arxiv.org/abs/2606.07587 *(model-selection routing — recorded to prevent

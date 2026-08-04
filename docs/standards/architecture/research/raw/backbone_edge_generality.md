@@ -20,19 +20,21 @@ Confidence:     DEFINITIVE on what each surveyed platform shipped, extracted, or
                 paper's core contribution — on the three-way split of what actually stays generic,
                 on the "amortisation vs. declining marginal cost" distinction, and on the
                 supervisory-not-control reframing of the server/edge seam. UNVERIFIED and stated as
-                such: the Home Assistant integration tally (tool-side count of a large JSON), the
-                ISO 10218-1:2025 and EU Machinery Regulation Annex I content (first-party fetches
-                returned 403 / truncated before the Annex), and the nf-core Genome Biology figures.
+                such at every point of use: the Home Assistant integration tally and the OPC UA
+                nodeset directory total (both tool-side counts of long listings, neither
+                independently recounted — order-of-magnitude only); the ISO 10218-1:2025 and EU
+                Machinery Regulation Annex I content (first-party fetches returned 403 / truncated
+                before the Annex, so NEITHER IS ASSERTED); and the nf-core Genome Biology figures
+                (unreachable, so NOT USED — the first-party site count is used instead).
 Negative:       Four findings of absence, each stated with its search method — no measured
                 cost-per-integration-N study across unrelated domains (§3.4); no documented
                 post-mortem of premature platform generalisation (§6.3); no benchmark of an
                 assistant operating an orchestration substrate it helped author (§7.3); no platform
                 that added a genuinely unrelated second domain on an unchanged core (§8.4).
-Critic:         PASS-WITH-FIXES (re-cited the v1.31 and release-count claims off [S12]; header
-                interval raised to high — 6 weeks per §3 mixed-volatility ruling; OPC UA directory
-                count downgraded to ~80/approximate; unverified HA tally caveated at §5; search
-                method added to the §7.3 and §8.4 negative findings; source-count arithmetic
-                corrected) — 2026-08-03
+Critic:         PASS-WITH-FIXES (round 3: §7.3 benchmark-set attribution corrected —
+                PersonalHomeBench re-cited to arXiv 2604.16813 as search-surfaced and AI2-THOR
+                re-cited or dropped, leaving [S36] credited only with the benchmarks it names)
+                — 2026-08-03
 ```
 
 > **Volatility note (Research Standard §3, mixed-volatility rule) — ruling applied 2026-08-03.**
@@ -114,14 +116,19 @@ industries, specific devices, specific use cases)" and to "specify how to use OP
 environments" [S1]. *(Confidence: definitive; rendered first-party page, quoted conservatively.)*
 
 The scale is checkable from a raw source. The OPC Foundation's `UA-Nodeset` repository — the
-machine-readable form of the companion models — carries **82 root directories** at the time of
-fetch, including `Robotics`, `MachineTool`, `Mining`, `Glass`, `PlasticsRubber`, `Woodworking`,
+machine-readable form of the companion models — carries **~80 root directories**, including
+`Robotics`, `MachineTool`, `Mining`, `Glass`, `PlasticsRubber`, `Woodworking`,
 `CommercialKitchenEquipment`, `LADS` (laboratory devices), `IEC61850`, `ISA-95`, `PackML`,
-`Powertrain`, `Scales`, `UnattendedRetail`, `Safety`, and `UAFX` [S2]. *(Confidence: definitive —
-directory listing from the GitHub contents API. Not every directory is a companion specification;
-some are tooling, schema, or demo models — `AnsiC`, `DotNet`, `Schema`, `TestModel`, `DemoModel`,
-`OpenApi`, `XML`, `.github` are visibly not domain models. The domain-model count is therefore
-**~70, not 82** — stated as an approximation rather than a fabricated exact figure.)*
+`Powertrain`, `Scales`, `UnattendedRetail`, `Safety`, and `UAFX` [S2].
+
+*(Confidence: **definitive** on the presence of every directory named above; **unverified /
+approximate** on the total. Two independent enumerations of the same contents-API endpoint on the
+same day returned 82 and 79 — both are tool-side tallies of a long listing, neither independently
+recounted, so the honest figure is "~80". This is the same evidence class marked unverified for the
+Home Assistant tally in §2.2, and it is marked the same way here deliberately. Not every directory
+is a companion specification: `AnsiC`, `DotNet`, `Schema`, `TestModel`, `DemoModel`, `OpenApi`,
+`XML` and `.github` are visibly tooling rather than domain models, putting the domain-model count at
+**~70** — an approximation, not a counted figure.)*
 
 **What stayed generic:** the address space, node classes, services, security model, and the
 transport. **What did not:** `Safety` and `UAFX` are in that list. Functional safety and
@@ -129,14 +136,16 @@ TSN-scheduled deterministic communication were not expressible as ordinary compa
 became *additional core-adjacent specifications*. That is the pattern's first tell: the domain
 ontology went to the edge, but the **timing and safety envelope came back toward the core.**
 
-### 2.2 Home Assistant — 1,115 integrations on one core, and a core that is not domain-free
+### 2.2 Home Assistant — ~1,000+ integrations on one core, and a core that is not domain-free
 
 Home Assistant is the strongest available evidence that a very large edge count on a shared core is
 achievable by a small team. Its own first-party analytics endpoint reports **661,738 active
-installations** and integrations reported across **~1,115 distinct integration identifiers** [S3].
-*(Confidence: definitive on active installations; **unverified** on the integration tally — that
-number is a tool-side count of a large JSON document I did not independently recount. Treat it as
-order-of-magnitude.)*
+installations** and integrations reported across **~1,000+ distinct integration identifiers** [S3].
+*(Confidence: **definitive** on `active_installations: 661738`, an exact scalar field verified
+independently twice; **unverified / order-of-magnitude** on the integration tally — independent
+tool-side counts of the same large JSON document returned ~1,115 and ~1,500+, and neither was an
+independent recount. The order of magnitude is what the argument uses; nothing here depends on the
+exact figure.)*
 
 The architecture is exactly the claimed shape: "An entity abstracts away the internal workings of
 Home Assistant" [S4], and integration authors subclass entity base classes rather than touching the
@@ -176,15 +185,29 @@ and developers" [S11]. The project's completion announcement puts numbers on wha
 absorbed: the migration removed "roughly 1.5 million lines of code" and reduced "the binary sizes of
 core components by approximately 40%", driven by "the growing complexity of maintaining native
 support for every cloud provider across millions of lines of Go code, and the desire to establish
-Kubernetes as a truly vendor-neutral platform" [S12]. The effort ran from as early as v1.7 to
-permanent removal in v1.31 [S12]. *(Confidence: definitive — KEP fetched raw; blog is first-party.)*
+Kubernetes as a truly vendor-neutral platform" [S12].
+
+The **duration** needs stating precisely, because §8.3 sizes a risk with it. [S12] says the goal was
+pursued "Since as early as Kubernetes v1.7" and that success came "After many releases," having
+"required several releases to bring each subsystem to GA-level maturity"; it gives no release count
+and — published 2024-05-20 — names no end version. KEP-2395 states: "GA is targeted for v1.31. One
+release after GA, the in-tree cloud providers can be safely removed," and cautions that "the removal
+of the code will depend on when we can remove the in-tree storage plugins, so the actual removal may
+end up in a later release" [S11]. **DERIVED:** v1.7 → v1.31 is 24 minor releases, and the KEP puts
+full removal at v1.32 or later — so the span is roughly *two dozen* releases.
+
+*(Confidence: definitive on the [S11] and [S12] quotations, both fetched raw / first-party; DERIVED
+on the release arithmetic. **Correction, 2026-08-03, after critic review:** an earlier draft
+asserted "permanent removal in v1.31 [S12]" and "a dozen releases." [S12] contains no occurrence of
+"1.31", and [S11] points to v1.32-or-later. The error understated the span by about half, in the
+direction that weakened this paper's own §8.3 conclusion.)*
 
 Read carefully, this case cuts **both** ways and should not be enlisted for one side:
 
 - It is evidence that a core *will* accrete domain-specific accommodation if you let it — 1.5M lines
   and 40% of the binary is not a rounding error.
 - It is also evidence that the extraction is survivable. Kubernetes did not die; it shipped the
-  refactor across a dozen releases while remaining the dominant platform in its category.
+  refactor across roughly two dozen releases while remaining the dominant platform in its category.
 
 ### 2.4 ROS and ROS 2 — the fail-left case, stated by the project itself
 
@@ -441,7 +464,8 @@ and converts C3 from a claim that is false as written into one that is true and 
 A plan may rely on these:
 
 1. **The shape is proven at scale in four unrelated domains.** OPC UA (~70 domain models on one base
-   model) [S1][S2], Home Assistant (~1,115 integrations on one core) [S3], Kubernetes (all cloud
+   model — approximate, see §2.1) [S1][S2], Home Assistant (~1,000+ integrations on one core —
+   *unverified, order-of-magnitude*, see §2.2) [S3], Kubernetes (all cloud
    vendors on one API machinery, post-extraction) [S11][S12], ROS 2 (many robots on one middleware)
    [S13].
 2. **What stays generic is specifically: transport, identity, discovery, lifecycle, retry, and the
@@ -507,7 +531,8 @@ not generalizable."
 
 ROS 1 [S13] and Kubernetes [S11][S12] are the two cleanest instances, and both are first-party
 accounts. ROS 1 could not be retrofitted — the project judged the risk "too much" and rewrote [S13].
-Kubernetes could be retrofitted, and it cost 1.5M lines and roughly a dozen releases [S12].
+Kubernetes could be retrofitted, and it cost 1.5M lines [S12] across roughly two dozen releases
+(v1.7 → v1.31 GA target, full removal v1.32 or later — DERIVED from [S11][S12], §2.3).
 
 ### 6.3 Negative finding: no post-mortem of premature *generalisation* was located
 
@@ -580,6 +605,40 @@ high-volatility fact.)*
    measured construct. No benchmark evaluates an assistant's competence at operating an
    orchestration substrate it helped author, in a domain it has not seen. This is the least
    falsifiable of the four claims — worth saying plainly rather than padding.
+
+   **Search method for that absence** (required by §3 — an unmethodized "does not exist" is
+   indistinguishable from "didn't look"). The benchmark set surveyed, with each name's provenance
+   stated so the method is reproducible:
+
+   - **Read directly:** [S33] τ-bench (tool-agent-user, retail/airline), [S34] TheAgentCompany
+     (simulated workplace, multi-tool), [S35] SimuHome (Matter-grounded smart home, 18 agents),
+     [S36] SMH-Bench (1,100 tasks, up to 135 devices), and [S38] PersonalHomeBench (personalized
+     smart home) — the last surfaced by the same search rather than by any other paper's citation.
+   - **Named by [S36]'s related-work section**, verified verbatim in its HTML rendering:
+     "HomeBench Li et al. (2025), SmartHome-Bench Zhao et al. (2025) and SmartBench Zou et al.
+     (2026) study anomaly and safety-related scenarios, and SimuHome Seo et al. (2026) introduces
+     executable temporal simulation," alongside "CASAS Cook et al. (2013) and ARAS Alemdar et al.
+     (2013) focus on activity recognition, while VirtualHome Puig et al. (2018), ALFRED Shridhar et
+     al. (2020), TEACh Padmakumar et al. (2022), BEHAVIOR Srivastava et al. (2022), and ReALFRED
+     Kim et al. (2024) emphasize navigation and physical manipulation in household environments."
+
+   Queries run: LLM-agent benchmarks for smart-home control and evaluation accuracy; LLM agents
+   operating unfamiliar domain platforms; coding-model transfer to non-coding operational systems;
+   LLMs for IEC 61131-3 / PLC programming; code-in-pretraining transfer to non-code tasks.
+
+   **Every benchmark located evaluates an agent against a platform it did not author.** The
+   authored-substrate variable is not manipulated anywhere in the set — which is why §9 item 5
+   proposes measuring it here rather than waiting for the literature.
+
+   *(Correction, 2026-08-03, round 3: an earlier draft attributed PersonalHomeBench and AI2-THOR to
+   [S36]'s related-work section. Neither string occurs in it — re-verified by direct fetch of
+   [S36]'s HTML, which enumerates the eleven names quoted above and no others. PersonalHomeBench is
+   real and is now cited to its own record [S38]; AI2-THOR is dropped rather than re-cited, since
+   nothing in the argument rests on it. Both were real benchmarks mis-attributed, not invented — but
+   a search method is only worth what it is reproducible to, and five-of-seven names is not
+   reproducible. **Conservative statement of the negative:** the two names' absence from [S36] is
+   established for the HTML rendering fetched; a fetch reported partial content, so it is strong
+   rather than exhaustive.)*
 2. **The measurable adjacent evidence identifies the failure mode as the backbone's own job.** Both
    smart-home benchmarks independently name *automation/workflow scheduling* as the weakest category
    [S35][S36]. If an assistant's differentiating asset on a new edge is supposed to be backbone
@@ -656,9 +715,11 @@ implementation is a cheap deletion. **Estimated exposure: low.**
 
 **If I am wrong to relax it** (the constraint is dropped and a second edge does arrive): the cost is
 ROS 1's and Kubernetes' [S12][S13]. ROS 1's was unrecoverable — the project rewrote rather than
-retrofit. Kubernetes' was recoverable at 1.5M lines and roughly a dozen releases. Both organisations
-were far better resourced than this one. **Estimated exposure: high, and the failure is not visible
-until the second edge is already being attempted.**
+retrofit. Kubernetes' was recoverable at 1.5M lines [S12] and **roughly two dozen releases** — a span
+this paper initially understated by about half (§2.3), which is worth flagging because the
+correction moves in the direction that *strengthens* this branch of the asymmetry. Both
+organisations were far better resourced than this one. **Estimated exposure: high, and the failure
+is not visible until the second edge is already being attempted.**
 
 **The asymmetry is the finding.** Not because the constraint is likely to pay off — §3 says its
 central economic premise is unsupported — but because the two error costs are of different orders
@@ -686,7 +747,7 @@ and only one of them is reversible. That is an argument for keeping a *cheap* fo
   pipelines as of Feb 2025; >2,600 contributors) are **not** used. The first-party site count of 155
   [S15] is used instead.
 - **Home Assistant's integration tally is a tool-side count** of a large JSON document [S3], not an
-  independent recount.
+  independent recount. Same for the OPC UA directory total (§2.1).
 - **Survivorship bias runs through §2.** Every platform surveyed succeeded. Backbones that
   generalised and died leave no first-party design documents to fetch.
 - **The single most important comparison is missing entirely:** a platform that started in one
@@ -694,6 +755,25 @@ and only one of them is reversible. That is an argument for keeping a *cheap* fo
   not find one. Every case in §2 either stayed within a domain family (OPC UA: all industrial; Home
   Assistant: all home devices) or changed the core to accommodate (Kubernetes, ROS). **That absence
   is arguably this paper's most significant finding, and it is a gap rather than a refutation.**
+
+  **Search method for that absence.** Platform survey scope — the candidates examined for §2, and
+  what disqualified each: industrial/IoT integration layers (**OPC UA** — ~70 companion models, all
+  industrial; **EtherCAT/ETG** — single-domain fieldbus); robotics middleware (**ROS 1 → ROS 2** —
+  core rewritten; **micro-ROS** — protocol changed for the constrained edge); home-automation
+  platforms with large integration counts (**Home Assistant** — ~1,000+ integrations, all home
+  devices, with the device ontology *in* core); lab/scientific and bioinformatics automation
+  (**Nextflow / nf-core**, **Snakemake**, **Galaxy**, **Cromwell/WDL** — domain-specific engines
+  chosen over general ones); general workflow engines used across unrelated domains (**Temporal**,
+  **Airflow**, **Camunda/Zeebe** — surveyed; each is domain-general at the *orchestration* layer and
+  carries no domain ontology at all, which is why none of them is a counterexample: they do not have
+  edges in the sense under test); and container/cloud platforms (**Kubernetes** — core changed, 1.5M
+  lines extracted). Queries run: domain-agnostic core with domain-specific plugins as pattern vs.
+  anti-pattern; what platform cores absorbed per domain; integration-layer architecture across
+  industrial, robotics, lab and home automation; general-purpose workflow engines adopted across
+  unrelated domains and their limits. **The disqualifying pattern is consistent enough to be a
+  finding in itself: every platform that kept its core unchanged did so by staying inside one
+  domain family.** What I cannot exclude is a case that exists but is not written up in first-party
+  form — which is exactly the survivorship point above.
 
 ---
 
@@ -768,8 +848,9 @@ Research got as far as it can on C1 and C2. The rest is experiment.
 - **[S35]** Seo, Yang, Pyo, Kim, Lee & Jo — *SimuHome: A Temporal- and Environment-Aware Benchmark for Smart Home LLM Agents*, arXiv:2509.24282. https://arxiv.org/abs/2509.24282
 - **[S36]** Li et al. — *SMH-Bench: Benchmarking LLM Agents for Environment-Grounded Reasoning and Action in Smart Homes*, arXiv:2606.01912. https://arxiv.org/abs/2606.01912
 - **[S37]** Home Assistant Developer Docs — *LLM API* (raw markdown). https://raw.githubusercontent.com/home-assistant/developers.home-assistant/master/docs/core/llm/index.md
+- **[S38]** Bharadwaj, Liu, Yang, Kim, Verma, Kim, Ferreira & Kim — *PersonalHomeBench: Evaluating Agents in Personalized Smart Homes*, arXiv:2604.16813. https://arxiv.org/abs/2604.16813 *(cited only in §7.3's search method, as a search-surfaced benchmark; no claim in this paper rests on its results)*
 
-**Source count: 37 cited; 34 fetched and verified, 3 ([S16], [S18]/[S19], [S26]) cited
+**Source count: 38 cited; 34 fetched and verified, 4 ([S16], [S18], [S19], [S26]) cited
 bibliographically with their unreachability stated at the point of use.**
 
 **Adjacent pool papers referenced (not counted above):**
