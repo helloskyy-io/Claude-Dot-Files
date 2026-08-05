@@ -25,15 +25,26 @@ COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 def run_draft(*, description: str, repo_root: Path, worktree: Path,
               pr_number: str | None = None, task_file: str | None = None,
+              plan_path: str | None = None, context: str = "",
               verbose: bool = False) -> str:
     """Draft the change. Returns the PR URL — the handoff to refine."""
     # Two prompts, two paths: updating an existing PR is a different task from
     # opening one, and the bash original branched the same way.
-    template = act.load_prompt(PROMPTS / ("update_pr.md" if pr_number else "new_branch.md"))
+    # THE ONLY PLACE plan-vs-description is consulted. One axis: where the task
+    # comes from. A plan run reads a doc and extracts success criteria to verify
+    # against; a description run has the sentence as its only criterion.
+    if plan_path:
+        wrapper, stages = "from_plan.md", "stages_1_to_4_from_plan.md"
+    else:
+        wrapper = "update_pr.md" if pr_number else "new_branch.md"
+        stages = "stages_1_to_4.md"
+    template = act.load_prompt(PROMPTS / wrapper)
 
     values = {
         "DESCRIPTION": description,
-        "STAGES_1_TO_4": act.load_prompt(PROMPTS / "stages_1_to_4.md"),
+        "STAGES_1_TO_4": act.load_prompt(PROMPTS / stages),
+        "PLAN_PATH": plan_path or "",
+        "CONTEXT_BLOCK": context,
         "RULES": act.shared_prompt("rules"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),

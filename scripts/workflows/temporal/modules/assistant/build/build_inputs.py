@@ -31,6 +31,7 @@ class BuildInput:
 
     description: str | None = None
     task_file: str | None = None
+    plan_path: str | None = None
     pr_number: str | None = None
     repo_target: str | None = None
     verbose: bool = False
@@ -39,10 +40,12 @@ class BuildInput:
         # Fail fast and loud at the boundary: exactly one task source, never both,
         # never neither. A run that reaches the draft child with no task produces
         # an empty PR that still costs a full review cycle to discover.
-        if bool(self.description) == bool(self.task_file):
+        sources = [bool(self.description), bool(self.task_file), bool(self.plan_path)]
+        if sum(sources) != 1:
             raise ValueError(
-                "exactly one of description or task_file is required "
-                f"(got description={self.description!r}, task_file={self.task_file!r})"
+                "exactly one task source is required — description, --task-file or --phase "
+                f"(got description={self.description!r}, task_file={self.task_file!r}, "
+                f"plan_path={self.plan_path!r})"
             )
 
 
