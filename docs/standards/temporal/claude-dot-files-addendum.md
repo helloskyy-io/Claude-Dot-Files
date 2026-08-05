@@ -48,5 +48,7 @@ Two rules, both settled:
 Open, and genuinely undecided:
 
 - **Whether a prompt is an input or a resource.** If a prompt is versioned with the code, a Temporal replay of an old execution loads *today's* prompt, not the one that ran. If it is an input, it sits on the workflow's payload and hits the limits §A1 already flags. Neither is obviously right and the choice interacts with retry semantics.
-- **How a shared prompt fragment is expressed.** `common/shared-prompts.sh` exists today. Its Python successor must not become a junk drawer, and the co-location rule above pushes against sharing at all.
+**Shared fragments — SETTLED by `temporal_standard.md` §10.1 rule 3.** No new doctrine needed: the promotion rule applies to `.md` exactly as to `.py`. A prompt fragment is promoted OUT of a workflow's folder to the parent level **if and only if more than one workflow uses it** — consumer count decides, never taste. A single-consumer prompt stays in its workflow's folder; a fragment two workflows share sits at the purpose or module level, where §10.1's payoff holds unchanged: **anything at a parent level is shared by definition**, so a reader never opens a file to learn its scope.
+
+This retires `common/shared-prompts.sh` as a **pattern**, not merely as a file. That file is a junk drawer by construction — one location everything sources regardless of consumer count. The promotion rule replaces it with a mechanical test: nothing is shared because it *might* be reused; it becomes shared when a second consumer appears, and demotes back into a workflow folder when one goes away.
 
