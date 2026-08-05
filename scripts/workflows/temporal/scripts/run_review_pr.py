@@ -61,7 +61,7 @@ def _dry_run(task: ReviewInput, repo_root: Path) -> int:
         act.count_prior_passes(task.pr_number, repo_root)
     )
     rendered = helper.render_prompt(
-        act.load_prompt(wf.PROMPT_PATH),
+        wf.assemble_prompt(task.review_type),
         pr_number=task.pr_number,
         pr_branch=pr["headRefName"],
         this_pass=this_pass,
