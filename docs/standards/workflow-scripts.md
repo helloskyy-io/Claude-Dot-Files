@@ -31,7 +31,16 @@ tests/                 tests for the workflows
 scripts/               kickoff entrypoints, until an SDK path replaces them
 ```
 
-**One workflow per folder (BINDING).** Verified against the live tree: `modules/common/provision/agent_join/` and `modules/common/ingest_github_token/` each hold a single workflow's trio plus its inputs. Older workflows in that same repo sit flat in the purpose folder — `genesis_*`, `cluster_provision_*` and `baseline_tailnet_push_*` side by side — and `temporal_standard.md` §3.2 still describes *that* as the rule, explicitly rejecting "a nested folder named after each workflow file." **The practice moved; the standard text has not caught up.** We follow the practice. This is a **conformance question for the upstream repo, not an open question for us** — and the amendment is owed to `MDC-Master-Planning` as a §3.2 correction. It does not go in our addendum: per that file's own scope rule, anything applying to both systems belongs upstream.
+**One workflow per folder (BINDING).** Verified against the live tree: `modules/common/provision/agent_join/` and `modules/common/ingest_github_token/` each hold a single workflow's trio plus its inputs. Older workflows in that same repo sit flat in the purpose folder — `genesis_*`, `cluster_provision_*` and `baseline_tailnet_push_*` side by side — and `temporal_standard.md` §3.2 still describes *that* as the rule, explicitly rejecting "a nested folder named after each workflow file." **RULED UPSTREAM 2026-08-05 (`temporal_standard.md` §10.1, vendored at `6fe3829`).** Folder-per-workflow is binding: *"Every workflow lives in a folder named for it, and every file in that folder carries the `{name}_` prefix. A workflow file at a purpose- or module-root is non-conformant."* The question this section previously raised is closed; §10.1 is the authority and the paragraphs below restate only what binds us.
+
+Four §10.1 rules bear directly on how we lay work out:
+
+- **The promotion rule (rule 3) is the ONLY test for what sits at a parent level.** A helper, activities or inputs module moves out of a workflow folder **if and only if more than one workflow uses it.** Consumer count decides, never taste. The payoff is that anything at a parent level is shared **by definition**, so a reader never opens a file to learn its scope.
+- **Folder name and file prefix MUST match (rule 4).** `config_apply/` holding `home_assistant_config_apply_*.py` is non-conformant.
+- **Purpose folders are optional; module folders are not (rule 5).** A purpose folder is used only *when the grouping earns its level*; a workflow with no natural purpose sibling sits directly under its module.
+- **A one-file workflow folder is conformant (rule 6)**, and an **activity-only module** with no workflow at all is an allowed shape that must not be "corrected" into a trio (rule 7).
+
+`{name}_inputs.py` is **optional** (rule 8): per §11.2 input models live in the helper by default and extract only when the helper grows unwieldy. Presence or absence is not a conformance signal.
 
 **Co-location is why this matters more for us than for them.** An infrastructure workflow is three or four `.py` files; ours additionally carries **prompt `.md` files, sometimes several**. Prompts are the substance of an agentic workflow, and a prompt separated from its workflow drifts from it. The reference already does this for non-Python resources — `provision/baseline_tailnet_acl.hujson` and `baseline_tailnet_acl_rationale.md` sit beside the workflow they serve.
 
