@@ -3,3 +3,7 @@
 
 # Legacy service config (replaced by config.yaml — kept for backwards compat)
 scripts/services/*.config.env
+
+# Python bytecode
+__pycache__/
+*.pyc
