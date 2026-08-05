@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.assistant.revision.revision.revision_inputs import RevisionInput  # noqa: E402
-from modules.assistant.revision.revision.revision_workflow import run_revision  # noqa: E402
+from modules.assistant.revision.revision_inputs import RevisionInput  # noqa: E402
+from modules.assistant.revision.revision_workflow import run_revision  # noqa: E402
 
 BANNER = "=" * 64
 

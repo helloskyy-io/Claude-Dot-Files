@@ -36,7 +36,7 @@ from .revision_inputs import RevisionInput, RevisionResult, Verdict
 # Children are resolved by name, not by folder tier -- child-ness is a call graph
 # property, not a location. `review_pr` is SHARED: several parents call it, and it
 # is independently dispatchable against any returned PR.
-_BASH_FLEET = Path(__file__).resolve().parents[5]
+_BASH_FLEET = Path(__file__).resolve().parents[4]
 DRAFT = _BASH_FLEET / "children" / "revision-draft.sh"
 REFINE = _BASH_FLEET / "children" / "revision-refine.sh"
 REVIEW_PR = _BASH_FLEET / "children" / "review-pr.sh"

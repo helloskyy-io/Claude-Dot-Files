@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.assistant.revision.revision import revision_helper as helper  # noqa: E402
-from modules.assistant.revision.revision.revision_inputs import (  # noqa: E402
+from modules.assistant.revision import revision_helper as helper  # noqa: E402
+from modules.assistant.revision.revision_inputs import (  # noqa: E402
     ChildResult,
     RevisionInput,
     Verdict,
