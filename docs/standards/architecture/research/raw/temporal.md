@@ -13,17 +13,33 @@ Feeds:          Phase: Temporal Integration — the self-hosted-vs-Cloud decisio
                 (dedicated_edge_routing.md).
 Last validated: 2026-08-05
 Revalidate:     high — 6 weeks   (see the volatility ruling below)
-Confidence:     DEFINITIVE on the licence (MIT), the release inventory (enumerated from the
-                GitHub releases API), the workflow-execution limits, and the orchestration
-                primitive semantics — all first-party and documented. DEFINITIVE-AS-A-NEGATIVE
-                on the absence of any first-party Anthropic/Claude runtime integration, reached
-                by enumerating `temporalio/contrib`. REDUCED on every span drawn from a
-                documentation `.mdx` — see the fetch-fidelity note; these were extraction
-                fetches, NOT byte-for-byte dumps, so nothing below is presented as a quotation.
-                REDUCED and rendered-page-only on all Temporal Cloud pricing. DERIVED on the
-                cost verdict (§5), the primitive-to-failure-mode mapping (§2.2) and the
-                self-host-vs-Cloud reading (§3).
-Critic:         not-yet-verified — 2026-08-05
+Confidence:     DEFINITIVE on the licence (MIT), the workflow-execution limits, the
+                orchestration primitive semantics, the Temporal Cloud billing model and the
+                definition of a billable Action — all first-party and documented.
+                DEFINITIVE-AS-A-NEGATIVE on the absence of any first-party Anthropic/Claude
+                runtime integration, reached by enumerating `temporalio/contrib`. DEFINITIVE
+                on the release WINDOW (which releases postdate 2026-07-04), established by a
+                paginated walk plus tag-existence probes — NOT by any list total, which the
+                API's retrieval layer truncates (§6.1). WORDING-UNCERTIFIED, but definitive
+                as to substance, on every span drawn from a documentation source: these were
+                extraction fetches, not byte-for-byte dumps, so nothing below is presented as
+                a quotation — see §0, and note that this marker is about TRANSCRIPTION, never
+                about whether the fact is first-party. REDUCED on Temporal Cloud pricing
+                FIGURES (rendered pages, though now documentation-grade rather than marketing
+                only). DERIVED on the cost verdict (§5), the primitive-to-failure-mode mapping
+                (§2.2) and the self-host-vs-Cloud reading (§3).
+Critic:         PASS-WITH-FIXES (verified every cited source exists and was fetched; found no
+                fabrication and no false quotation — the §0 no-quotation discipline was checked
+                mechanically against every quote-mark in the paper and held. Four corrections
+                applied: a release count that was a truncated-fetch artifact asserted under an
+                "enumerated, not counted by a retrieval layer" heading, now replaced by a
+                paginated walk plus 404 tag probes; two false negatives — "no first-party Cloud
+                pricing" and "no first-party definition of a billable Action" — both of which
+                were repo-path absences reported as documentation absences, now replaced with
+                the sourced billing model and Action categories, with every downstream
+                recommendation re-derived; and a documentation-restructure claim built on a
+                path the sibling paper never cited, now restated as the two-locations finding
+                it actually is) — 2026-08-05
 ```
 
 > **Volatility ruling (Research Standard §3 mixed-volatility rule, §5 bounds).** The header takes
@@ -62,11 +78,24 @@ layer was asked for verbatim spans and returned prose containing them, which doe
 byte-identity.
 
 **Consequence, applied throughout: this paper contains no quotation marks around any
-documentation-derived span.** Everything from a `.mdx` is paraphrased and marked
-`[S-n, doc, reduced]`. The *facts* are first-party and documented; the *wording* is not certified.
-A downstream author who needs a literal quote must re-fetch the file and certify it themselves.
-This costs the paper some rhetorical force and is the correct trade — a paraphrase wearing quote
-marks is a fabrication regardless of how good the URL was.
+documentation-derived span.** Everything from a documentation source is paraphrased and marked
+`[S-n, doc, wording-uncertified]`. The *facts* are first-party and documented; the *wording* is not
+certified. A downstream author who needs a literal quote must re-fetch the file and certify it
+themselves. This costs the paper some rhetorical force and is the correct trade — a paraphrase
+wearing quote marks is a fabrication regardless of how good the URL was.
+
+**Two markers, deliberately distinguished — read this before downgrading anything.** An earlier
+draft used `reduced` for both of the situations below, which let a section read in isolation
+downgrade a fact the header calls definitive. They are now separate tokens:
+
+| Marker | What is uncertain | What is NOT uncertain |
+|---|---|---|
+| `[S-n, doc, wording-uncertified]` | Only the **transcription** — the exact characters were not certified by the fetch | Nothing else. The source is first-party and documented, and the **fact is definitive**. |
+| `[S-n, rendered, reduced]` | The **fact itself** carries lower confidence — a rendered/JS-heavy page, per §3's sourcing rules | — |
+
+So: `wording-uncertified` is not a weaker class of evidence, it is a weaker class of *quotation*.
+A consuming agent should treat a `wording-uncertified` fact as definitive and simply not reproduce
+its phrasing as a quote.
 
 ## §0.1 Scope discipline — what this paper owns
 
@@ -101,14 +130,14 @@ event, not an existential one.
 **What you run when you self-host.** The self-hosted deployment guide describes the core Temporal
 Server plus a separate UI server, backed by a persistence store; the databases named are Apache
 Cassandra, MySQL, or PostgreSQL, with SQLite appearing for the local/dev path, and Elasticsearch
-appearing for advanced visibility [S9, doc, reduced]. The server README's local-start path is
-`brew install temporal` then `temporal server start-dev` [S5, doc, reduced] — a single-binary dev
+appearing for advanced visibility [S9, doc, wording-uncertified]. The server README's local-start path is
+`brew install temporal` then `temporal server start-dev` [S5, doc, wording-uncertified] — a single-binary dev
 server, which is what makes the *evaluation* cost near zero and is frequently mistaken for the
 *production* cost. §5 separates them.
 
 **What Temporal itself tells self-hosters they are signing up for.** The production-readiness
 checklist is unusually candid, and three of its statements are load-bearing for our decision
-[S8, doc, reduced]:
+[S8, doc, wording-uncertified]:
 
 - Shard capacity — and often overall service throughput — is set at build time and **cannot be
   adjusted later**. This is a one-way door taken before the first workflow runs.
@@ -123,7 +152,7 @@ latest patch of each before advancing, because backward compatibility is guarant
 two successive minor versions — skipping versions risks older data formats becoming unreadable.
 Schema migration is a distinct step run with `temporal-sql-tool` (Postgres/MySQL),
 `temporal-cassandra-tool`, or `temporal-elasticsearch-tool`, and roughly ten minutes per version
-should be allowed for the History Service to reload shards [S7, doc, reduced].
+should be allowed for the History Service to reload shards [S7, doc, wording-uncertified].
 
 **[derived, from S7 + S8 + S2]** The upgrade obligation is the real recurring cost of self-hosting,
 and it compounds with this repo's fleet shape. Sequential-minor upgrades plus a schema migration
@@ -143,19 +172,19 @@ what is sourced is that each named primitive exists and behaves as stated.
 
 | Agentic failure mode | Temporal primitive | Source, and the qualification that matters |
 |---|---|---|
-| LLM call fails or is rate-limited mid-run | Activities with retry policies | Activities retry **by default**; workflows do **not** — a workflow execution is not associated with a default retry policy. Defaults: initial interval 1 second, backoff coefficient 2.0, maximum interval 100× the initial interval, maximum attempts unlimited [S11, doc, reduced]. **The unlimited default is a hazard for paid LLM calls and must be overridden.** |
+| LLM call fails or is rate-limited mid-run | Activities with retry policies | Activities retry **by default**; workflows do **not** — a workflow execution is not associated with a default retry policy. Defaults: initial interval 1 second, backoff coefficient 2.0, maximum interval 100× the initial interval, maximum attempts unlimited [S11, doc, wording-uncertified]. **The unlimited default is a hazard for paid LLM calls and must be overridden.** |
 | Run must survive hours/days and process restarts | Durable workflow execution | Concept settled in [`durable_execution.md`](durable_execution.md); not re-derived. |
-| Multi-agent coordination (planner delegates to sub-agents) | Child workflows | **Heavily qualified.** A child workflow is spawned from within another workflow in the same namespace. Temporal advises a single parent should not spawn more than **1,000** children; children produce more event-history events than activities do; children do **not** carry over when the parent continues-as-new; and Temporal recommends starting with one workflow using activities until there is a clear need, stating there is no reason to use child workflows merely for code organisation [S12, doc, reduced]. |
-| Agent must pause and wait for an external event | Signals, timers — **and Updates** | Signals are asynchronous write requests with no awaitable response or error. Queries are read requests that cannot block. **Updates are synchronous tracked write requests whose sender can await completion or failure** [S13, doc, reduced]. **The old table omitted Updates entirely** — for a human-approval gate that needs an acknowledgement, Update, not Signal, is the primitive. |
+| Multi-agent coordination (planner delegates to sub-agents) | Child workflows | **Heavily qualified.** A child workflow is spawned from within another workflow in the same namespace. Temporal advises a single parent should not spawn more than **1,000** children; children produce more event-history events than activities do; children do **not** carry over when the parent continues-as-new; and Temporal recommends starting with one workflow using activities until there is a clear need, stating there is no reason to use child workflows merely for code organisation [S12, doc, wording-uncertified]. |
+| Agent must pause and wait for an external event | Signals, timers — **and Updates** | Signals are asynchronous write requests with no awaitable response or error. Queries are read requests that cannot block. **Updates are synchronous tracked write requests whose sender can await completion or failure** [S13, doc, wording-uncertified]. **The old table omitted Updates entirely** — for a human-approval gate that needs an acknowledgement, Update, not Signal, is the primitive. |
 | Tool call is non-idempotent and could double-fire | Deterministic replay + activity idempotency | Determinism is a *constraint on the author*, not a free property — §2.3. Activity-level idempotency mechanics are owned by [`python_sdk_long_activities.md`](python_sdk_long_activities.md). |
-| Undo partial work when a downstream step fails | Saga via compensating activities | First-party design pattern: each step is a local transaction with a corresponding compensation, executed in reverse order on failure. **Its own stated limits:** eventual consistency only, intermediate states remain visible, and some operations have no meaningful compensation [S19, doc, reduced]. |
+| Undo partial work when a downstream step fails | Saga via compensating activities | First-party design pattern: each step is a local transaction with a corresponding compensation, executed in reverse order on failure. **Its own stated limits:** eventual consistency only, intermediate states remain visible, and some operations have no meaningful compensation [S19, doc, wording-uncertified]. |
 | Inspect what the agent did after the fact | Event history + query API | Queries read live state but cannot block [S13]; history is bounded — §2.2. |
-| **Stop a runaway agent without killing it** *(new — the old table had no row)* | **Workflow Pause** | Pause stops a workflow execution from making new progress until unpaused. Self-hosted requires **server v1.30.0+** with `frontend.WorkflowPauseEnabled`, CLI v1.6.0+, and self-hosted UI v2.47.2+; on Temporal Cloud, pre-release access is invite-only [S15, doc, reduced]. **Directional on maturity, definitive that a version floor exists.** |
-| **Stream partial output to an operator surface** *(new)* | **Workflow Streams** | A durable event channel hosted inside a workflow; publishers append to topics, subscribers attach by workflow ID and consume by long-polling, with independent offsets and reconnect without loss. Sized for modest fan-out — tens of publishers/subscribers — not ultra-low latency [S14, doc, reduced]. Directly relevant to the pool's open operator-interface question. |
+| **Stop a runaway agent without killing it** *(new — the old table had no row)* | **Workflow Pause** | Pause stops a workflow execution from making new progress until unpaused. Self-hosted requires **server v1.30.0+** with `frontend.WorkflowPauseEnabled`, CLI v1.6.0+, and self-hosted UI v2.47.2+; on Temporal Cloud, pre-release access is invite-only [S15, doc, wording-uncertified]. **Directional on maturity, definitive that a version floor exists.** |
+| **Stream partial output to an operator surface** *(new)* | **Workflow Streams** | A durable event channel hosted inside a workflow; publishers append to topics, subscribers attach by workflow ID and consume by long-polling, with independent offsets and reconnect without loss. Sized for modest fan-out — tens of publishers/subscribers — not ultra-low latency [S14, doc, wording-uncertified]. Directly relevant to the pool's open operator-interface question. |
 
 ### 2.2 The limits a workflow author must design against
 
-From the workflow-execution limits page [S17, doc, reduced], corroborated against server source read
+From the workflow-execution limits page [S17, doc, wording-uncertified], corroborated against server source read
 independently by [`python_sdk_long_activities.md`](python_sdk_long_activities.md) §4 on 2026-08-03,
 which agrees on every value:
 
@@ -169,14 +198,16 @@ which agrees on every value:
 
 The self-hosted defaults page adds that these four pending-command types fail when the concurrent
 pending count exceeds 2,000, recommends staying under 500 for performance, and notes that as of
-v1.21 the individual pending limits are overridable via dynamic configuration [S6, doc, reduced].
+v1.21 the individual pending limits are overridable via dynamic configuration [S6, doc, wording-uncertified].
 
 **Continue-as-new is the sanctioned answer to all of it.** It checkpoints workflow state and starts
 a fresh execution; state is passed as arguments to the new run, which keeps the same workflow ID but
-gets a new run ID and **its own fresh event history** [S16, doc, reduced]. The page gives three
-reasons it is needed: a long or large history bogs down performance; an execution may generate more
-events than the limits allow; and a long-lived execution can hit workflow-versioning problems when
-it started on older code and continues on newer code [S16].
+gets a new run ID and **its own fresh event history** [S16, doc, wording-uncertified]. The page states
+the following reasons it is needed — presented as the facts the page carries, without asserting the
+page's own enumeration boundary, which two independent extractions grouped differently: a long or
+large history bogs down performance; an execution may generate more events than the limits allow;
+and a long-lived execution can hit workflow-versioning problems when it started on older code and
+continues on newer code [S16, doc, wording-uncertified].
 
 **[derived, from S12 + S16]** Two of those interact badly and a planner should see it before
 designing the agent topology: **child workflows do not carry over continue-as-new** [S12], and
@@ -193,7 +224,7 @@ produce commands — timers, activity scheduling, child workflows, signalling ex
 Nexus operations, ending executions, `patched()` calls, upserting search attributes and memos, side
 effects — must not be reordered, added, or removed without proper versioning; a definition may not
 branch on local time or a random number; and operations that do not purely mutate execution state
-should go through an SDK API [S18, doc, reduced].
+should go through an SDK API [S18, doc, wording-uncertified].
 
 **[gap — not closed.]** I could not obtain, from `encyclopedia/workflow/patching.mdx`, a first-party
 statement of *why* patching is required, of what a non-deterministic change causes in general, or an
@@ -210,7 +241,9 @@ in this sweep**; `durable_execution.md` §6 states it qualitatively.
 The *engine* comparison (Restate, Inngest, LangGraph, Cadence, DBOS) is settled in
 [`durable_execution.md`](durable_execution.md) §4 and
 [`python_sdk_long_activities.md`](python_sdk_long_activities.md) §6.2 and is **not re-run here**.
-The live comparison for a vendor-commitment paper is *self-host versus Cloud*.
+The live comparison for a vendor-commitment paper is *self-host versus Cloud* — which is how Temporal
+itself frames the deployment choice: its production-deployment index offers exactly a Cloud guide, a
+self-hosted guide, and Worker Deployments [S33, doc, wording-uncertified].
 
 ### 3.1 Self-hosted
 
@@ -220,44 +253,89 @@ sequential-minor upgrade treadmill with a schema-migration step [S7, S8]. The si
 `temporal server start-dev` path [S5] makes evaluation nearly free and is **not** the production
 shape.
 
-### 3.2 Temporal Cloud — pricing, and an honest warning about its provenance
+### 3.2 Temporal Cloud — the billing model, and where it is and is not documented
 
-**Provenance first: none of these figures exist in the documentation repository.** I enumerated
-`docs/cloud` (24 entries) and `docs/cloud/billing-and-usage` (4 entries: `actions-usage.mdx`,
-`billing-api.mdx`, `billing.mdx`, `index.mdx`) [S30]; fetched `index.mdx` and `billing.mdx`, both of
-which point at a pricing page and carry no figures; and `docs/cloud/pricing.mdx` returns **HTTP 404**.
-The figures below therefore come from the **rendered marketing page** at `temporal.io/pricing` and
-carry §3's reduced-confidence marking for rendered sources [S26, rendered, reduced].
+**A provenance correction, stated first because an earlier draft of this paper got it backwards.**
+The pricing material is **absent from the documentation REPOSITORY but present on the documentation
+SITE**. Those are different claims and only the first is true of the repo. Specifically:
 
-| Plan | Entry price | Included |
+- `docs/cloud` enumerates to **24 entries** with no `pricing.mdx`, and `docs/cloud/billing-and-usage`
+  to **4** (`actions-usage.mdx`, `billing-api.mdx`, `billing.mdx`, `index.mdx`) [S30, definitive —
+  enumerated].
+- The raw path `docs/cloud/pricing.mdx` returns **HTTP 404**, and so does `docs/cloud/actions.mdx`.
+- **But `docs.temporal.io/cloud/pricing` and `docs.temporal.io/cloud/actions` are live first-party
+  DOCUMENTATION pages** carrying the full model [S34, S35].
+
+**The lesson, recorded because it is the reusable part:** a 404 on a repo path establishes only that
+the content is not at that path. An earlier draft turned that into "not in first-party
+documentation" and then built a decision-blocking gap on it. Repo-absence is not documentation-absence.
+
+**The billing model** [S34, doc, wording-uncertified — rendered docs page]. The monthly charge is a
+platform fee expressed as a *floor against a percentage of usage*, which the plan tables elsewhere
+compress into a misleading "starting at":
+
+| Plan | Monthly platform fee | Included |
 |---|---|---|
-| Essentials | from $100/mo | 1M Actions, 1 GB active storage, 40 GB retained storage |
-| Business | from $500/mo | 2.5M Actions, 2.5 GB active storage, 100 GB retained storage |
-| Enterprise | contact sales | 10M Actions, 10 GB active storage, 400 GB retained storage |
+| Essentials | **greater of $100/mo or 5% of Usage Spend** | 1M Actions, 1 GB active storage, 40 GB retained storage |
+| Business | **greater of $500/mo or 10% of Usage Spend** | 2.5M Actions, 2.5 GB active storage, 100 GB retained storage |
+| Enterprise | priced annually (contact Sales) | 10M Actions, 10 GB active storage, 400 GB retained storage |
+| **Mission Critical** | priced annually (contact Sales) | 10M Actions, 10 GB active storage, 400 GB retained storage |
 
-Overage is tiered per additional block of Actions, declining from $50 down to $25 per unit block as
-volume rises, with over-200M volumes routed to sales; storage is billed at $0.042/GBh active and
-$0.00105/GBh retained. A $1,000 trial credit and a $6,000 startup-program credit for companies under
-$30M funding are advertised. Self-hosting is presented as the free option
-[S26, rendered, reduced — figures transcribed conservatively; re-verify before any budget decision].
+*(Note the fourth plan — the marketing page [S26] shows three; the documentation page [S34] shows
+four. Trust the documentation page.)*
 
-**[gap — the billable unit is not pinned.]** I could not obtain a first-party definition of an
-"Action" or a complete enumeration of what counts as one. Search method: fetched
-`docs/cloud/billing-and-usage/actions-usage.mdx` raw asking for the definition and the billable
-list; the extraction returned only an exclusion list from a tip box (Query, Activity Heartbeats,
-rejected Update executions, Export, Schedule, Replicated Actions) framed as items excluded from
-*estimates*, and reported no definition present. **Without the definition, the Cloud cost of an
-agent workload cannot be modelled** — an agent loop's Action count is exactly the unknown, and each
-LLM-call-as-activity plausibly multiplies it. This is the single largest unpriced item in the
-vendor question and it is a research gap, not an engineering one.
+Action overage runs in declining per-million tiers — $50 for the first 5M, then $45, $40, $35, $30,
+and $25 across the 5M–200M range, with over-200M routed to Sales. Storage is $0.042/GBh active and
+$0.00105/GBh retained [S34, doc, wording-uncertified; every figure independently matched against the
+marketing page S26]. A $1,000 trial credit and a $6,000 startup-program credit for companies under
+$30M funding are advertised on the marketing page only [S26, rendered, reduced]. Self-hosting is
+presented as the free option.
 
-**[derived, from S26 + the repo's own economics.]** The Essentials tier's $100/mo entry point sits at
-exactly the same order as the Claude Max subscription this repo's economics already assume
-(`subscription_economics.md` owns that thesis). For a single-operator fleet, Cloud is therefore not
-obviously disqualified on price — but the decision cannot be made until the Action-count gap above
-is closed, because the plan's 1M included Actions is meaningless without knowing what an agent run
-consumes. **Recommendation: do not decide self-host-vs-Cloud on the current evidence.** §8's test T3
-closes it cheaply.
+**What a billable Action is — the gap an earlier draft wrongly declared open.** Three first-party
+sources define it. The glossary, which is a **raw `.md`** at the root of `docs/` — one directory above
+the `docs/cloud` listing enumerated above — defines an Action as the fundamental pricing unit in
+Temporal Cloud and the building block of workflow executions, and links to `/cloud/pricing#action`
+[S36, definitive — raw source; wording uncertified per §0, substance not]. The dedicated Actions page
+describes them as the primary unit of consumption-based pricing, tracking billable operations such as
+starting workflows, recording a heartbeat, or sending signals [S35, doc, wording-uncertified].
+
+**The billable categories, enumerated from [S35]:** Workflow (starts, resets, search-attribute
+updates, execution-option changes), Activity (scheduling, retries, **and heartbeat recording**, for
+both standard and local activities), Timer (including implicit timeouts), Signal, Query, Update
+(accepted **and rejected**), Schedule, Nexus, Export, Fairness (an hourly charge when enabled), and
+Capacity (provisioned capacity). Counting that enumeration: **11 categories**
+[S35, doc, wording-uncertified].
+
+*(The narrower finding from `actions-usage.mdx` survives and is worth keeping: its tip-box lists
+Query, Activity Heartbeats, rejected Updates, Export, Schedule and Replicated Actions as excluded
+from **estimates** [S31]. That is a statement about the estimator's coverage, not about billability —
+and [S35] shows several of those same items ARE billable. Do not read the estimator's exclusions as a
+discount.)*
+
+**[derived, from S34 + S35 + the repo's own economics — and this REPLACES the earlier
+"do not decide" recommendation.]** The blocking gap is closed, so the deferral it justified no longer
+stands on that ground. What the corrected evidence supports:
+
+1. **The model is now sizeable, not unknown.** An agent workload's Action count is dominated by
+   activity scheduling and retries, and — the detail that matters most for this repo — **activity
+   heartbeats are billable Actions** [S35]. `python_sdk_long_activities.md` recommends heartbeating
+   per `stream-json` line on a 10–60 minute activity, on the reasoning that the SDK's throttle makes
+   heartbeats *free*. **That reasoning is correct about SDK/network cost and does not transfer to
+   Temporal Cloud billing.** The throttle bounds the rate to roughly 0.8 × `heartbeat_timeout`, so
+   the count is bounded and computable — but it is not zero, and a fleet of hour-long
+   heartbeating activities is the exact shape where this line item grows.
+2. **The $100/mo is a FLOOR on a usage-scaled fee, not an entry price.** For a single-operator fleet
+   whose usage spend is small, 5% of usage will sit far below $100, so **the floor binds and $100/mo
+   is the real number** — which is the same order as the Claude Max subscription this repo's
+   economics already assume (`subscription_economics.md` owns that thesis). The earlier draft reached
+   a similar conclusion by reading $100 as an entry point; the conclusion survives, but it survives
+   *because the floor binds*, and a reader must be able to see that rather than infer it.
+3. **Revised recommendation:** self-host-vs-Cloud is **no longer research-blocked**. It is now a
+   sizing question with a known model, and the remaining unknown is a measurement — how many Actions
+   one representative agent run consumes — not a missing definition. T3 is accordingly re-framed in
+   §8 from "close the blocker" to "calibrate against a known billing model." The one genuine
+   caution that still argues for measuring before committing is (1): the heartbeat line item is
+   easy to overlook precisely because the SDK treats heartbeats as free.
 
 ## §4 What this provides — enumerated, citable properties
 
@@ -265,26 +343,27 @@ Properties a plan may rely on, anchored at server v1.31.2 [S2] / Python SDK 1.31
 
 1. **A permissive, forkable licence.** MIT [S1, definitive]. Self-hosting is a permanent option, not
    a vendor concession.
-2. **A slow, predictable server release cadence.** Enumerated in §6.1 [S2, definitive].
+2. **A slow, predictable server release cadence.** Established in §6.1 by a paginated walk plus tag
+   probes — no release in the four weeks to 2026-08-05 [S2, S37, definitive].
 3. **A documented, sequential upgrade path** with per-database schema tooling and a stated
-   compatibility window of two successive minor versions [S7, doc, reduced].
+   compatibility window of two successive minor versions [S7, doc, wording-uncertified].
 4. **Activity-level retry as a default**, with documented default backoff parameters [S11, doc,
    reduced] — and the matching fact that workflows do not retry by default.
 5. **Three distinct message-passing shapes** with different guarantees: Signal (async write, no
    response), Query (non-blocking read), Update (synchronous tracked write with a response)
-   [S13, doc, reduced].
+   [S13, doc, wording-uncertified].
 6. **Child workflows with a stated fan-out ceiling** (~1,000 per parent) and explicit first-party
-   advice to prefer activities until a clear need exists [S12, doc, reduced].
+   advice to prefer activities until a clear need exists [S12, doc, wording-uncertified].
 7. **Hard, knowable workflow-execution limits**: 51,200 events / 50 MB history, 2,000 pending
-   operations per class, 30 pending Nexus operations [S17, doc, reduced], corroborated against server
+   operations per class, 30 pending Nexus operations [S17, doc, wording-uncertified], corroborated against server
    source by a sibling paper.
 8. **A first-party history-bounding mechanism** — continue-as-new, with documented carry-over
-   semantics [S16, doc, reduced].
+   semantics [S16, doc, wording-uncertified].
 9. **A first-party compensation pattern** with its limitations stated by the vendor [S19, doc,
    reduced].
 10. **A pause/unpause control plane** for stopping a running execution without terminating it, with
-    a stated self-hosted version floor of server v1.30.0+ [S15, doc, reduced].
-11. **A durable streaming channel** for operator-facing partial output [S14, doc, reduced].
+    a stated self-hosted version floor of server v1.30.0+ [S15, doc, wording-uncertified].
+11. **A durable streaming channel** for operator-facing partial output [S14, doc, wording-uncertified].
 12. **A large, enumerable design-pattern catalogue** — `docs/design-patterns` contains **46 files**,
     reached by enumerating the GitHub contents listing and counting the enumeration [S21,
     definitive-as-a-count], including `saga-pattern`, `long-running-activity`, `resumable-activity`,
@@ -299,7 +378,7 @@ advocacy. The case against:
   costing error.** `temporal server start-dev` [S5] is one command; the production system is a
   multi-role server plus a persistence store plus, for advanced visibility, Elasticsearch [S9], with
   infrastructure the operator builds and maintains [S8].
-- **Shard capacity is a one-way door.** Set at build time, not adjustable later [S8, doc, reduced].
+- **Shard capacity is a one-way door.** Set at build time, not adjustable later [S8, doc, wording-uncertified].
   A self-hosted deployment stood up casually for a two-machine fleet encodes a throughput ceiling
   before anyone has measured what the fleet needs.
 - **The upgrade treadmill is the recurring cost.** Sequential minors, no skipping, schema migrations,
@@ -314,8 +393,14 @@ advocacy. The case against:
 - **The default retry policy is wrong for paid work.** Unlimited maximum attempts [S11] against a
   metered LLM API is a cost incident waiting to happen; every activity in this repo's design must
   override it.
-- **Cloud is unpriceable for our workload today** — the Action definition gap (§3.2) means the
-  headline $100/mo tells us nothing about what an agent fleet actually costs.
+- **Cloud's cost scales with a unit our design emits heavily, and the headline number hides it.**
+  The $100/mo Essentials figure is a *floor on a usage-scaled fee*, not a flat price [S34], and the
+  billable-Action categories include **activity scheduling, retries and heartbeats** [S35]. An
+  hour-long heartbeating activity per agent run — precisely the shape
+  [`python_sdk_long_activities.md`](python_sdk_long_activities.md) recommends — is a workload whose
+  Action count is driven by a mechanism the SDK correctly describes as free at the *transport* layer
+  and which is *not* free at the *billing* layer. This is a sizing hazard, not a blocker: the model
+  is fully documented and the count is measurable (T3).
 - **The AI-facing surfaces we would most want are previews.** Workflow Pause is invite-only
   pre-release on Cloud and needs a specific self-hosted server floor [S15]; Serverless Workers is
   Public Preview on AWS Lambda and Pre-release on GCP Cloud Run [S25]; the LangGraph plugin declares
@@ -328,26 +413,45 @@ advocacy. The case against:
 
 ## §6 What moved since 2026-07-04
 
-### 6.1 Releases — enumerated, not counted by a retrieval layer
+### 6.1 Releases — established by a paginated walk, not by a list total
 
-**Temporal Server**, from the releases API [S2, definitive]. Enumerating the returned list and
-counting the enumeration: **seven** releases are listed, of which **two** were published after
-2026-07-04 — v1.31.2 and v1.30.6, both on 2026-07-08. Full listing as returned: v1.31.2
-(2026-07-08), v1.30.6 (2026-07-08), v1.30.5 (2026-06-15), v1.29.7 (2026-06-12), v1.31.1
-(2026-06-10), v1.30.4.1 (2026-05-01), v1.31.0 (2026-04-29). *(Caveat: this is the first page of the
-API listing, so it is a count of releases **in the returned page**, not of all releases ever; for
-the question asked — what shipped since 2026-07-04 — the page covers the window with margin.)*
+**No total is asserted here, and that is deliberate.** An earlier draft of this paper reported that
+the releases API "lists seven releases" under a heading claiming enumeration. That number was a
+**truncated-fetch artifact**, and the truncation is demonstrable: `?per_page=100` and `?per_page=15`
+both return the *same* 7 items — while the response's own element-count claim disagreed with the rows
+it returned — yet `?per_page=6&page=2` returns six *further* releases (v1.31.0, v1.29.6.1, v1.30.4,
+v1.29.6, v1.28.4, v1.30.3) and `?per_page=6&page=3` six more (v1.29.5, v1.28.3.1, v1.29.4.1, v1.30.2,
+v1.28.3, v1.29.4). A retrieval layer that caps at 7 regardless of `per_page` is not describing a
+7-element population. **Per §3, a count from a retrieval layer is not evidence, so this paper reports
+the window it walked instead of a total** [S2, definitive as to the walk].
+
+**A second hazard, which is why the negative needs a method rather than a glance at the top of the
+list: the GitHub releases endpoint sorts by `created_at`, not `published_at`, and this very list
+demonstrates it** — v1.29.6.1 (`published_at` 2026-05-06, `created_at` 2026-04-24) sorts *below*
+v1.31.0 (`published_at` 2026-04-29, `created_at` 2026-04-29) [S2, definitive]. So "nothing recent at
+the top" would not have established "nothing published recently."
+
+**What was actually established.** Walking pages 1–3 covers the 18 most recent releases by
+`created_at`; across all 18, exactly **two** carry a `published_at` after 2026-07-04 — **v1.31.2 and
+v1.30.6, both 2026-07-08** — and every other walked release has `published_at` on or before
+2026-06-15 [S2]. The absence of anything newer is corroborated independently of the listing by two
+tag-existence probes: `releases/tags/v1.31.3` and `releases/tags/v1.30.7` both return **HTTP 404**
+[S37], and `releases/latest` returns v1.31.2 [S2]. **Together those establish the negative — no
+server release in the four weeks to 2026-08-05 — without relying on any list total.**
 
 v1.31.2's release body identifies it as a security patch addressing **CVE-2026-5724 (MEDIUM)**, with
 a stated potential breaking change: deployments using authorization with replication should set the
 `system.disableStreamingAuthorizer` dynamic config to `true` to opt out and avoid replication
 connection errors [S2, definitive — release body returned as structured API data].
 
-**[derived, and it is the volatility finding.]** No server release in the four weeks to 2026-08-05.
-The server is not a fast-moving surface, which is what justifies §5's 6-week interval.
+**[derived, from S2 + S37 — and it is the volatility finding.]** No server release in the four weeks
+to 2026-08-05, and the newest patch in each active minor line is confirmed newest by tag probe. The
+server is not a fast-moving surface, which is what justifies §5's 6-week interval.
 
-**Python SDK** [S3, definitive]: enumerating the returned list, **fifteen** releases are listed, of
-which **one** postdates 2026-07-04 — **1.31.0, published 2026-07-29**. Its notable changes include a
+**Python SDK** [S3, definitive]: the same no-total discipline applies — the returned page reaches back
+to 1.23.0 (2026-02-18), and within that walked window exactly **one** release postdates 2026-07-04:
+**1.31.0, published 2026-07-29**, corroborated as newest by `releases/latest` [S3]. No total is
+asserted. Its notable changes include a
 breaking move of payload size limits from `DataConverter` to `Client.connect` via
 `PayloadLimitsConfig`, removal of the deprecated `PayloadSizeWarning`, and a breaking change
 requiring custom workflow runners to pass `payload_converter_factory` rather than
@@ -360,27 +464,53 @@ a backport of GCP Cloud Run scaling options. Note this is **ahead of** the v1.7.
 the server v1.31.2 admin-tools note [S2], and ahead of the v1.6.0+ floor Workflow Pause requires
 [S15].
 
-### 6.2 Documentation restructure — a sibling paper's citation path has moved
+### 6.2 Serverless Workers documentation exists at TWO paths
 
-`dedicated_edge_routing.md` (validated 2026-08-04, one day before this sweep) cites Serverless
-Workers at `docs/production-deployment/serverless-workers/index.mdx`. **That path now returns HTTP
-404.** Enumerating `docs/production-deployment` today returns six entries — `data-encryption.mdx`,
+**A correction to an earlier draft of this paper, stated plainly because it made a false claim about
+a sibling.** That draft asserted `dedicated_edge_routing.md` cites Serverless Workers at
+`docs/production-deployment/serverless-workers/index.mdx`, that the path now 404s, and that a
+documentation restructure had therefore rotted the sibling's citation. **All three are wrong.** The
+sibling's [S8], read directly from its citation list at line 1018, is
+`docs/encyclopedia/workers/serverless-workers/index.mdx` — **a different path, which is live**. The
+404 was on a path this paper constructed and never verified against the sibling.
+**`dedicated_edge_routing.md` needs no correction on this point.**
+
+**The real finding, verified at both locations: two copies of this content exist.**
+
+| Path | Contents |
+|---|---|
+| `docs/encyclopedia/workers/serverless-workers/` — the sibling's citation [S38] | 3 entries: `aws-lambda.mdx`, `cloud-run.mdx`, `index.mdx` |
+| `docs/production-deployment/worker-deployments/serverless-workers/` [S25] | 3 entries: `aws-lambda/`, `cloud-run/`, `index.mdx` |
+
+Both counts reached by enumerating the contents listing and counting the enumeration [S25, S38,
+definitive]. `docs/production-deployment` itself enumerates to six entries — `data-encryption.mdx`,
 `index.mdx`, `multi-tenant-patterns.mdx`, `self-hosted-guide/`, `temporal-proxy/`,
-`worker-deployments/` — with no `serverless-workers` directory [S32]. The content lives at
-`docs/production-deployment/worker-deployments/serverless-workers/` [S25].
+`worker-deployments/` — with no top-level `serverless-workers` directory [S32, definitive].
 
-**Maturity is unchanged at the new path**: AWS Lambda support is Public Preview; GCP Cloud Run
-support is Pre-release with APIs that may change in backwards-incompatible ways. The two compute
-providers are AWS Lambda (Temporal assumes an IAM role to invoke the function) and GCP Cloud Run
-(Temporal impersonates a service account to scale a Worker Pool) [S25, doc, reduced].
-**`dedicated_edge_routing.md`'s negative finding — no bare-metal or wake-on-LAN provider — still
-holds**, and its substantive conclusion is unaffected; only the URL rotted.
+**Maturity is identical at both paths**, checked independently at each: AWS Lambda support is Public
+Preview; GCP Cloud Run support is Pre-release with APIs that may change in backwards-incompatible
+ways. The two compute providers are AWS Lambda (Temporal assumes an IAM role to invoke the function)
+and GCP Cloud Run (Temporal scales a Cloud Run Worker Pool via the admin API)
+[S25, S38, doc, wording-uncertified]. **`dedicated_edge_routing.md`'s negative finding — no
+bare-metal or wake-on-LAN provider — still holds**, unchanged and uncontradicted.
 
-**[gap.]** Whether Serverless Workers functions on a self-hosted service or requires Temporal Cloud
-is **not stated** on the index page I fetched [S25]. Search method: fetched
-`worker-deployments/serverless-workers/index.mdx` raw and asked directly whether Cloud is required;
-the extraction reported the page does not say. A `self-hosted-setup` sibling page appears in search
-results but was not fetched in this sweep, and a search-result title is not a source. Unresolved.
+**One provider constraint worth carrying, and it disqualifies Lambda for our shape.** The
+encyclopedia copy states that on AWS Lambda an activity must finish within the invocation limit, a
+maximum of 15 minutes, whereas GCP Cloud Run instances are long-lived so no per-invocation limit
+applies [S38, doc, wording-uncertified]. **[derived, from S38 +
+[`python_sdk_long_activities.md`](python_sdk_long_activities.md)]** This repo's `claude_cli` activity
+is specified at 10–60 minutes, so **Serverless Workers on AWS Lambda cannot host it** — more than
+half the target range exceeds the ceiling. Only the Cloud Run path is even shape-compatible, and
+neither is bare-metal.
+
+**[gap — genuine, and now evidenced by enumeration rather than a search-result hedge.]** Whether
+Serverless Workers functions against a self-hosted service or requires Temporal Cloud is **not stated
+on either index page**, checked at both [S25, S38]. Search method: fetched both `index.mdx` files and
+asked each directly whether Cloud is required — neither says. Additionally, **neither directory
+contains a self-hosted-setup page**: both enumerate to exactly the three entries tabled above
+[S25, S38]. An earlier draft hedged this gap on a `self-hosted-setup` page seen in search results; a
+search result is not a source, and the enumeration shows no such page at either location. The gap
+stands, on better evidence.
 
 ### 6.3 The Anthropic question — answered as a negative finding, by enumeration
 
@@ -401,9 +531,11 @@ coding tools to build Temporal applications — Claude Code, Claude Desktop, Cod
 plus packaged Skills (a Temporal Developer Skill and a Temporal Cloud Skill) and a **Temporal
 Knowledge Base MCP Server** offering access to practices compiled from documentation, educational
 material, forum responses and Slack channels, authenticated via MCP OAuth with a Google or GitHub
-account [S27, doc, reduced].
+account [S27, doc, wording-uncertified].
 
-**[derived]** The asymmetry `durable_execution.md` identified is intact and now has a sharper shape:
+**[derived, from S22 + S27 + `durable_execution.md`'s 2026-07-27 finding that first-party Claude ↔
+Temporal integration lagged OpenAI and Google]** The asymmetry that paper identified is intact and
+now has a sharper shape:
 **Temporal's Anthropic surface is a tooling relationship, not a runtime one.** It helps a human write
 Temporal code inside Claude Code; it does not make a Claude agent durable. Two consequences for this
 repo: (a) the `claude_cli` activity domain remains hand-rolled, exactly as
@@ -427,12 +559,12 @@ candidate for the synthesis, not a design change.
 - **Workflow Pause** [S15] — new to the pool entirely.
 - **OpenAI Agents maturity, still contradictory.** `durable_execution.md` flagged that Temporal's
   Replay blog said GA while the bundle page said Public Preview. The `sdk-python` README read today
-  describes the OpenAI Agents SDK integration as being in public preview [S24, doc, reduced].
+  describes the OpenAI Agents SDK integration as being in public preview [S24, doc, wording-uncertified].
   **That is a third first-party data point, and it sides with Public Preview.** The contradiction is
   narrowing but is not resolved; treat GA as unsupported.
 
 **[minor contradiction, flagged, not load-bearing.]** The `sdk-python` README extraction reported a
-minimum of Python 3.9+ [S24, doc, reduced], whereas `python_sdk_long_activities.md` read
+minimum of Python 3.9+ [S24, doc, wording-uncertified], whereas `python_sdk_long_activities.md` read
 `requires-python = ">=3.10"` directly from `pyproject.toml` on 2026-08-03. **Trust `pyproject.toml`**
 — it is raw source and it is the file that actually gates installation. Recorded so a reader who
 hits the README does not think the sibling is wrong.
@@ -467,7 +599,7 @@ delete the only home for that question.
 **One thesis correction, which §3's rules require be stated in the body and not only in the diff.**
 The old paper's closing claim was that the LangGraph / CrewAI / OpenAI-Assistants layer "handles the
 flow logic of an agent, but skips almost every one of the failure modes above" and is therefore
-"prototype-grade orchestration, not production-grade." **That framing is now contradicted by
+"Prototype-grade orchestration, not production-grade." **That framing is now contradicted by
 first-party evidence.** Temporal ships `temporalio/contrib/langgraph`, whose stated purpose is to run
 LangGraph nodes as Temporal activities so that LangGraph agent workflows get durable execution,
 retries and timeouts [S23], alongside `openai_agents`, `google_adk_agents` and `strands` [S22]. The
@@ -485,11 +617,15 @@ persists between nodes but not inside them, and does not enforce activity-level 
 2. **T2 — Shard-capacity sizing.** Before any production stand-up, determine the shard count the
    fleet needs and record the reasoning. §1's one-way door [S8] makes this a decision that must be
    made deliberately once, not discovered later.
-3. **T3 — Action accounting (highest value, closes §3.2's blocking gap).** Run one representative
-   agent workflow against a Temporal Cloud trial (the advertised $1,000 credit [S26] covers it) and
-   read the actual billed Action count out of the billing API [S30, `billing-api.mdx`]. This converts
-   the unpriceable Cloud option into a priced one and is the input the self-host-vs-Cloud decision is
-   currently blocked on.
+3. **T3 — Action accounting: CALIBRATION against a known billing model, not a blocker-closer.**
+   *(Re-framed after §3.2's gap was corrected — the billing model and the 11 billable Action
+   categories are documented [S34, S35]; what is unmeasured is our workload's Action count, which is
+   an empirical quantity no amount of reading settles.)* Run one representative agent workflow
+   against a Temporal Cloud trial (the advertised $1,000 credit [S26] covers it) and read the billed
+   Action count out of the billing API [S30, `billing-api.mdx`]. **Instrument the heartbeat
+   contribution separately** — heartbeat recording is a billable Activity Action [S35] and the
+   long-activity design heartbeats continuously, so this is the line item most likely to surprise.
+   Compare against a self-hosted total-cost estimate from T1 and T4.
 4. **T4 — Upgrade rehearsal.** Perform one sequential minor-version server upgrade including the
    schema-migration step on a staging instance and time it [S7]. The recurring cost of self-hosting
    is this number.
@@ -507,14 +643,25 @@ persists between nodes but not inside them, and does not enforce activity-level 
 
 ## §9 Gaps — findings, each with its search method
 
-1. **Temporal Cloud pricing is not in first-party documentation.** Enumerated `docs/cloud` (24
-   entries) and `docs/cloud/billing-and-usage` (4 entries) [S30]; fetched `index.mdx` and
-   `billing.mdx` — both point at a pricing page and carry no figures; `docs/cloud/pricing.mdx`
-   returns HTTP 404. All figures in §3.2 are rendered-page only [S26].
-2. **No first-party definition or enumeration of a billable "Action".** Fetched
-   `docs/cloud/billing-and-usage/actions-usage.mdx` raw requesting the definition and the billable
-   list; the extraction returned only an exclusions tip-box and reported no definition present [S31].
-   **This blocks the Cloud costing decision** — see T3.
+1. **Temporal Cloud pricing is not in the documentation REPOSITORY — but it IS on the documentation
+   SITE.** *(Corrected: an earlier draft stated the second clause as "not in first-party
+   documentation," which was false.)* Established: `docs/cloud` enumerates to 24 entries with no
+   `pricing.mdx`, `docs/cloud/billing-and-usage` to 4 [S30], and both `docs/cloud/pricing.mdx` and
+   `docs/cloud/actions.mdx` return HTTP 404. NOT a gap: `docs.temporal.io/cloud/pricing` is a live
+   first-party documentation page carrying the full model [S34]. **Residual gap: none of it is
+   available in raw form**, so every pricing figure is transcribed from a rendered page and
+   re-verification before a budget decision is still warranted.
+2. **~~No first-party definition or enumeration of a billable "Action".~~ CLOSED — this was a FALSE
+   NEGATIVE.** Recorded rather than deleted, because the failure mode is the reusable part: the
+   original search method (fetch `actions-usage.mdx` [S31], find no definition) executed correctly
+   but was scoped to one file in one directory, and "not at the path I tried" was written up as
+   "does not exist" — then used to block a live decision. The definition is in `docs/glossary.md`,
+   **a raw `.md` one directory ABOVE the `docs/cloud` tree that was enumerated** [S36]; the 11
+   billable categories are on `docs.temporal.io/cloud/actions` [S35]; and
+   `billing-and-usage/index.mdx` — a file that WAS fetched — points at the Actions page. **Lesson:
+   a negative finding must state the boundary of its search, and a one-directory search cannot
+   support a documentation-wide negative.** §3.2 now carries the sourced model and every dependent
+   recommendation has been re-derived.
 3. **The integration inventory is not enumerable from source.** `docs/integrations.mdx` renders a
    dynamic `<IntegrationsGrid />` component; the raw file contains the component call, not the list
    [S28]. **No count of Temporal integrations is asserted anywhere in this paper.** The `contrib`
@@ -522,9 +669,12 @@ persists between nodes but not inside them, and does not enforce activity-level 
 4. **Patching/versioning cost is unpriced.** `docs/encyclopedia/workflow/patching.mdx` fetched raw;
    the extraction reported it covers only `patched()` mechanics and contains no why-required
    statement, no general non-determinism consequence, and no breaking-change list (§2.3).
-5. **Serverless Workers on self-hosted: undetermined.** The index page does not state it [S25]; a
-   `self-hosted-setup` page appears in search results and was not fetched. A search result is not a
-   source (§6.2).
+5. **Serverless Workers on self-hosted: undetermined — but the search method is now an enumeration,
+   not a hedge.** Neither of the two `index.mdx` copies states whether Temporal Cloud is required,
+   checked at both [S25, S38]. **Neither directory contains a self-hosted-setup page**: both
+   enumerate to exactly three entries [S25, S38]. *(An earlier draft hedged this on a
+   `self-hosted-setup` page seen in a search result — not a source, and not present at either
+   location.)* The gap is real; the evidence for it is now stronger.
 6. **OpenAI Agents SDK maturity remains contradictory across three first-party surfaces** — Replay
    blog (GA), bundle page (Public Preview), `sdk-python` README (public preview) [S24 + prior pool
    evidence]. Treat GA as unsupported.
@@ -544,18 +694,21 @@ persists between nodes but not inside them, and does not enforce activity-level 
 
 - [S1] [temporalio/temporal `LICENSE`](https://raw.githubusercontent.com/temporalio/temporal/main/LICENSE) — MIT License; Temporal Technologies Inc. 2025, Uber Technologies Inc. 2020
 - [S5] [temporalio/temporal `README.md`](https://raw.githubusercontent.com/temporalio/temporal/main/README.md) — `brew install temporal`, `temporal server start-dev`, MIT link
-- [S23] [`temporalio/contrib/langgraph/__init__.py`](https://raw.githubusercontent.com/temporalio/sdk-python/main/temporalio/contrib/langgraph/__init__.py) — LangGraph nodes as activities; "experimental", caution against production use
+- [S23] [`temporalio/contrib/langgraph/__init__.py`](https://raw.githubusercontent.com/temporalio/sdk-python/main/temporalio/contrib/langgraph/__init__.py) — LangGraph nodes as activities; experimental, caution against production use
 - [S24] [temporalio/sdk-python `README.md`](https://raw.githubusercontent.com/temporalio/sdk-python/main/README.md) — OpenAI Agents integration described as public preview; Python-version statement (contradicts `pyproject.toml`, §6.4)
+- [S36] [`docs/glossary.md`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/glossary.md) — **the `Action` entry**: fundamental pricing unit in Temporal Cloud, building block of Workflow Executions; links to `/cloud/pricing#action`. **Raw `.md`; wording uncertified per §0, substance definitive.**
 
 **First-party — GitHub API (structured data; enumerations and counts taken from these)**
 
 - [S2] [temporalio/temporal releases](https://api.github.com/repos/temporalio/temporal/releases?per_page=15) and [latest](https://api.github.com/repos/temporalio/temporal/releases/latest) — v1.31.2 (2026-07-08), CVE-2026-5724, `system.disableStreamingAuthorizer`; full release enumeration
 - [S3] [temporalio/sdk-python releases](https://api.github.com/repos/temporalio/sdk-python/releases?per_page=15) — 1.31.0 published 2026-07-29 and its breaking changes
 - [S4] [temporalio/cli latest release](https://api.github.com/repos/temporalio/cli/releases/latest) — v1.8.2, 2026-07-31, GCP Cloud Run scaling backport
-- [S10] [contents: `docs/production-deployment/self-hosted-guide`](https://api.github.com/repos/temporalio/documentation/contents/docs/production-deployment/self-hosted-guide) — 14-file enumeration
+- [S10] [contents: `docs/production-deployment/self-hosted-guide`](https://api.github.com/repos/temporalio/documentation/contents/docs/production-deployment/self-hosted-guide) — 14-file enumeration. **Method citation:** used to locate §1's and §5's self-hosting sources (`checklist`, `upgrade-server`, `deployment`, `defaults`) and to establish that the directory holds no pricing or capacity-sizing page.
+- [S37] [`releases/tags/v1.31.3`](https://api.github.com/repos/temporalio/temporal/releases/tags/v1.31.3) and [`releases/tags/v1.30.7`](https://api.github.com/repos/temporalio/temporal/releases/tags/v1.30.7) — **both HTTP 404.** The tag-existence probes that establish §6.1's negative independently of any list total.
+- [S38] [contents: `docs/encyclopedia/workers/serverless-workers`](https://api.github.com/repos/temporalio/documentation/contents/docs/encyclopedia/workers/serverless-workers) — 3-entry enumeration — and [its `index.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workers/serverless-workers/index.mdx) — **the path `dedicated_edge_routing.md` actually cites**; Lambda Public Preview / Cloud Run Pre-release; the 15-minute Lambda invocation ceiling
 - [S21] [contents: `docs/design-patterns`](https://api.github.com/repos/temporalio/documentation/contents/docs/design-patterns) — 46-file enumeration
 - [S22] [contents: `temporalio/contrib`](https://api.github.com/repos/temporalio/sdk-python/contents/temporalio/contrib) — 11-entry enumeration; **no `anthropic`/`claude` package**
-- [S29] [contents: `docs/encyclopedia`](https://api.github.com/repos/temporalio/documentation/contents/docs/encyclopedia) — 25-entry enumeration used to locate §2's sources
+- [S29] [contents: `docs/encyclopedia`](https://api.github.com/repos/temporalio/documentation/contents/docs/encyclopedia) — 25-entry enumeration. **Method citation:** this is how §2's primitive sources (`retry-policies`, `child-workflows`, `workflow-message-passing`, `workflow`, `workflow-execution`) were located rather than guessed at, and how `workflow-streams` and `workflow-pause` were discovered.
 - [S30] [contents: `docs/cloud`](https://api.github.com/repos/temporalio/documentation/contents/docs/cloud) and [`docs/cloud/billing-and-usage`](https://api.github.com/repos/temporalio/documentation/contents/docs/cloud/billing-and-usage) — 24- and 4-entry enumerations establishing the pricing gap
 - [S32] [contents: `docs/production-deployment`](https://api.github.com/repos/temporalio/documentation/contents/docs/production-deployment) — 6-entry enumeration establishing the Serverless Workers path move
 
@@ -581,9 +734,11 @@ persists between nodes but not inside them, and does not enforce activity-level 
 - [S31] [`docs/cloud/billing-and-usage/actions-usage.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/cloud/billing-and-usage/actions-usage.mdx) — exclusions tip-box; **no Action definition returned**
 - [S33] [`production-deployment/index.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/production-deployment/index.mdx) — sub-page structure: Cloud guide, self-hosted guide, Worker Deployments
 
-**First-party — rendered page (reduced confidence per §3 sourcing rules)**
+**First-party — rendered pages (transcription uncertified per §0; the two `docs.temporal.io` pages are documentation-grade, the marketing page is not)**
 
-- [S26] [Temporal pricing](https://temporal.io/pricing) — Essentials / Business / Enterprise tiers, Action overage tiers, storage rates, trial and startup credits. **Re-verify before any budget decision.**
+- [S34] [Temporal Cloud pricing — docs.temporal.io](https://docs.temporal.io/cloud/pricing) — **the platform-fee STRUCTURE**: greater of $100/mo or 5% of Usage Spend (Essentials), greater of $500/mo or 10% (Business); four plans including Mission Critical; Action overage ladder $50→$25; storage $0.042/GBh active, $0.00105/GBh retained
+- [S35] [Temporal Cloud Actions — docs.temporal.io](https://docs.temporal.io/cloud/actions) — Actions as the primary unit of consumption-based pricing; the 11 billable categories, **including Activity heartbeat recording**
+- [S26] [Temporal pricing — temporal.io (marketing)](https://temporal.io/pricing) — plan tiers, Action overage ladder, storage rates, $1,000 trial and $6,000 startup credits. Every overlapping figure matched against [S34]; shows only three plans where [S34] shows four. **Marketing page — prefer [S34].**
 
 **Sibling pool papers (cross-referenced, not re-derived)**
 
