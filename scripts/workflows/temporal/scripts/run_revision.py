@@ -50,7 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     task = parse_args(argv)
 
     try:
-        result = run_revision(task)
+        repo_root = Path(task.repo_target) if task.repo_target else Path.cwd()
+        worktree_name = f"revision-{int(__import__('time').time())}"
+        result = run_revision(task, repo_root, worktree_name)
     except (RuntimeError, FileNotFoundError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.
