@@ -18,6 +18,8 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-draft"
+# Derived from V1, never re-declared — see assistant_activities.v1_constant.
+V1_SCRIPT = "build-draft.sh"
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
@@ -38,10 +40,18 @@ def run_draft(*, description: str, repo_root: Path, worktree_name: str,
     if pr_number:
         values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number, repo_root)}
 
+    # ISOLATION IS UNCONDITIONAL. A --pr run gets a worktree on the PR branch,
+    # exactly as V1 does; an earlier ternary here skipped it and put the run on
+    # the operator's live working tree.
+    worktree = act.worktree_add(
+        repo_root, worktree_name,
+        f"origin/{values['PR_BRANCH']}" if pr_number else "HEAD",
+    )
     output = act.run_claude(
         act.render(template, values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=repo_root, worktree_name=None if pr_number else worktree_name,
+        repo_root=worktree,
+        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
         verbose=verbose,
     )
 

@@ -23,6 +23,47 @@ _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"
 PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
 
 
+def v1_constant(script: str, name: str) -> str:
+    """Read a constant from the V1 bash script rather than re-declaring it.
+
+    THIS FUNCTION EXISTS BECAUSE RE-DECLARATION CAUSED THREE PRODUCTION FAILURES.
+    The V2 port restated V1's constants and contracts instead of deriving from
+    them, so divergence was silent and only surfaced at runtime — most expensively
+    when a draft ran at MAX_TURNS=120 against V1's 250 and burned a full budget
+    producing nothing recoverable. V1's own logs already held the answer: the same
+    task class had completed in 130 turns.
+
+    Deriving makes divergence impossible rather than merely detectable. Delete
+    this only when the V1 script it reads is deleted.
+    """
+    path = _WORKFLOWS / "children" / script if "/" not in script else _WORKFLOWS / script
+    if not path.exists():
+        raise FileNotFoundError(f"V1 script not found for constant derivation: {path}")
+    m = re.search(rf"^{name}=(\S+)", path.read_text(), re.M)
+    if not m:
+        raise ValueError(f"{name} not found in {path} — V1 changed shape; do not guess a value")
+    return m.group(1).strip("\"'")
+
+
+def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
+    """Create an isolated worktree, matching V1's behaviour exactly.
+
+    ISOLATION IS AN INVARIANT, NOT A PARAMETER. An earlier V2 skipped the
+    worktree on `--pr` runs via a ternary, which put a run directly on the
+    operator's main working tree — a live host here. A run dying mid-write would
+    leave that tree dirty on a checked-out foreign branch with no discard path.
+    V1 always creates one (`git worktree add -f` on the PR branch); so does this.
+    """
+    wt = repo_root / ".claude" / "worktrees" / name
+    subprocess.run(["git", "fetch", "-q", "origin", ref.replace("origin/", "")],
+                   cwd=str(repo_root), capture_output=True, text=True)
+    r = subprocess.run(["git", "worktree", "add", "-f", str(wt), ref],
+                       cwd=str(repo_root), capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"worktree add failed for {ref}: {r.stderr.strip()}")
+    return wt
+
+
 def load_prompt(path: Path) -> str:
     if not path.exists():
         raise FileNotFoundError(f"prompt file missing: {path}")

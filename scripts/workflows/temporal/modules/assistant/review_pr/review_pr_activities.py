@@ -28,7 +28,7 @@ from .. import assistant_activities as _shared
 load_prompt = _shared.load_prompt
 render = _shared.render
 
-MAX_TURNS = 120
+V1_SCRIPT = "review-pr.sh"
 
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
@@ -73,5 +73,5 @@ def run_disposition(prompt: str, repo_root: Path, model_key: str,
     """Invoke the disposition pass. Delegates to the promoted runner."""
     return _shared.run_claude(
         prompt, model_key=model_key, completion_pattern=completion_pattern,
-        repo_root=repo_root, max_turns=MAX_TURNS, verbose=verbose,
+        repo_root=repo_root, max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
     )

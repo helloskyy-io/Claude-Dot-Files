@@ -19,6 +19,7 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-refine"
+V1_SCRIPT = "build-refine.sh"
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
@@ -51,7 +52,8 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refine.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=repo_root, worktree_name=worktree_name, verbose=verbose,
+        repo_root=act.worktree_add(repo_root, worktree_name, f"origin/{act.pr_branch(pr_number, repo_root)}"),
+        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
     )
 
     url = act.extract_pr_url(output)
