@@ -83,7 +83,12 @@ def run_disposition(prompt: str, worktree: Path, model_key: str,
     That is deliberate for the transition: one implementation of the contract,
     not two that can disagree.
     """
-    runner = worktree.parents[2] / "activities" / "run-claude.sh"
+    # Resolved from THIS module's location, never from the worktree — the
+    # worktree is caller-supplied and may be anywhere, including a repo root
+    # whose parents[2] is the user's home directory.
+    runner = Path(__file__).resolve().parents[4] / "activities" / "run-claude.sh"
+    if not runner.exists():
+        raise FileNotFoundError(f"run-claude activity not found: {runner}")
     script = (
         f'source "{runner}"; MODEL_KEY="{model_key}"; '
         f'COMPLETION_PATTERN=\'{completion_pattern}\'; '
