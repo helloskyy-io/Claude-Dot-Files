@@ -41,15 +41,33 @@ Four capabilities make an autonomous agent system durable and capable. **None of
 
 ## Where we actually differ
 
-Three differences survive first-party inspection of the nearest comparable systems. They are stated with their evidence status, because a differentiator nobody has verified is a hope.
+Four differences survive first-party inspection of the nearest comparable systems, **ordered by how well they hold**. Each carries its evidence status, because a differentiator nobody has verified is a hope — and two of these were narrowed or outright replaced by research commissioned to break them.
 
-**1. The backbone is domain-general; the edge is what changes.** Comparable systems are built for code — their verification vocabulary is *tests pass, lint clean, types correct*. Here, code is one edge among several, and machinery that only makes sense for git and PRs belongs at the edge rather than the backbone. *Evidence: confirmed absent from the nearest neighbor, three independent ways.*
+**1. The trust boundary — the strongest claim, and the most durable.** The nearest neighbour documents its own fleet mode as *"multi-project, **not** multi-tenant in the security sense… assumed to be run by the same operator, on a network the operator trusts,"* and its federation roadmap lists *"cross-tenant federation across organisations"* as out of scope. Our destination is three distinct trust tiers:
 
-**2. Edges are dedicated and non-fungible.** The common model is a central queue where workers advertise a *role* and claim from a shared pool, with contention and force-claim as real conditions. Ours inverts it: **each edge is dedicated, sees only its own work, and no edge can claim another's.** This is not a smaller version of the same design — it follows from a different theory of what a worker is. Role-pull assumes fungible workers distinguished by a label. An edge is a machine with a physical capability and its own credential; a robotics edge cannot take a bioinformatics task because it *is* a different thing, not a differently-labeled one. *Evidence: confirmed different. Ours is designed, not yet built.*
+| Tier | What it is | What it may do |
+|---|---|---|
+| **Edge** | a participant's own machine, possibly a laptop | holds its own credential, which never leaves it |
+| **MDC** | the local trusted network | runs local services and workloads — secure, but one operator's domain |
+| **Federated** | SkyyNet, across MDCs and operators | deliberately limited: sends work over the trunk, holds no edge credential |
+
+Distinct operators in distinct trust domains is not a harder version of what exists — **it is outside the closest system's shipped scope, by its own documentation.** *Evidence: first-party, current.*
+
+**2. The credential pins work to a machine — a label never could.** An earlier version of this claim said role-pull *"assumes fungible workers distinguished by a label."* **That was refuted.** Labels are exactly how Kubernetes, Slurm and Temporal itself address physical hardware — Temporal's own docs describe GPU and non-GPU boxes each having their own task queue — and the nearest neighbour advertises `gpu_available` inside a claim-based system. Hardware-bound workers are ordinary infrastructure; they are unusual only in *agent orchestration*.
+
+What survives every counter-case is narrower and stronger: **no label grants one edge the ability to authenticate as another subscriber.** That is not a scheduling property, it is the affordability thesis expressed as topology — work runs where the subscription lives, because that is the only place it can. *Evidence: confirmed. Designed, not yet built.*
 
 **3. The first edge builds the others, then operates inside them.** See below. *Evidence: no trace of anything comparable.*
 
-**Not differentiators, stated plainly so nobody re-litigates them:** durable execution, checkpoint/resume, completion contracts, typed refusal, and Kubernetes-native deployment all exist in shipping competitors today. Several are ahead of us. Claiming them would be false and would discredit the claims that are true.
+**4. The backbone is domain-general — comparable systems are *sold* for code.** This is the weakest of the four and was narrowed by direct inspection. The nearest neighbour has **already generalised its execution boundary**: a five-modality set (research / browser / data / ops / coding) where every modality returns one typed result, and two non-coding modalities are verified by something other than tests — re-hashing sources to confirm a quoted span still occurs, or reattaching DOM bytes by hash. So *"built only for code"* is no longer true at the boundary.
+
+What remains defensible: its positioning, front door and every published use case are software development. **The nearest one generalised its execution boundary without generalising its product.** *Evidence: first-party. Weaker than previously stated.*
+
+**That narrowing is worth more as reference material than as a differentiator** — the domain-general result contract we expected to invent has a shipped, documented shape we can read.
+
+**Not differentiators, stated plainly so nobody re-litigates them:** durable execution, checkpoint/resume, completion contracts, typed refusal, Kubernetes-native deployment, and **subscription-auth at the edge** all exist in shipping products today — the last with precedent in a 75,600-star project. Several are ahead of us. Claiming them would be false and would discredit the claims that are true.
+
+**One honest cost of claim #2, unresolved.** The design currently gives up cross-machine failover for *all* work, not only work with a genuine locality requirement. Temporal's own pattern is two-tier and retains a shared queue alongside pinned ones. Pinning a workflow that needs no credential and no local repo buys nothing and costs failover — that is overshoot, not principle, and the ruling is open.
 
 ## The nearest neighbor
 

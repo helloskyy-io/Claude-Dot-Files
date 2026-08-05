@@ -251,7 +251,7 @@ Scheduled dispatch owned by the durable-execution layer rather than by the edge 
 
 - [ ] **Move scheduled dispatch off `claude schedule` / systemd timers onto Temporal schedules** — the current design puts the trigger on whichever workstation happens to be awake. A Temporal schedule survives the machine being off, is visible in one place, and its history is queryable.
 - [ ] **Decide what is actually cron-shaped** — CPI sweeps and research revalidation are the obvious candidates because they are time-driven. PR disposition is event-driven and should stay event-driven; do not put it on a timer because the timer exists.
-- [ ] **Define failure behaviour for a missed window** — catch-up run, skip, or alert. Different answers for a CPI sweep (skip is fine) and a research revalidation (skipping silently lets a paper rot).
+- [ ] **Define failure behaviour for a missed window** — catch-up run, skip, or alert. The discriminator is **window-scoped vs. state-converging**, and an earlier version of this item had the two backwards. A **CPI sweep is window-scoped**: `review-runs.sh` selects logs with a trailing `find -mtime -${DAYS}`, so a skipped sweep lets those days age out of every future window — the data is **lost permanently**, and this is the case that needs a catch-up run. **Research revalidation is state-converging**: a paper past its date stays past its date until something refreshes it, so skipping delays the work without losing it. Verified against the code, not assumed.
 
 ---
 
@@ -361,7 +361,7 @@ Realistic estimate: **10-15% of Opus turns offloaded** with zero quality loss. T
 
 These are worth investigating but not committed to the roadmap yet:
 
-- **Paperclip** — UI overlay for Claude Code. Offers visual workflow design, agent management, parallel project tracking, and PR review. May overlap with native headless mode + triggers. Evaluate after Phase 4 to see what gaps remain.
+- **Paperclip** — ~~evaluate after Phase 4~~ **ASSESSED 2026-08-04, architecture rejected.** See [`research/raw/paperclip_assessment.md`](../standards/architecture/research/raw/paperclip_assessment.md). It is not a UI overlay for Claude Code — that description is one the project itself disclaims. It is a Node/React agent-management platform organised around an org-chart metaphor (CEO hires PMs, PMs hire engineers) that **invokes headless Claude Code as its substrate**, which makes the overlap question this item asked the wrong one. Its durability is bespoke on Postgres — heartbeat liveness, recovery dedupe, idempotency indexes — not Temporal, so adopting it conflicts with the settled direction. **Capabilities worth mining are recorded in the assessment**, notably the stalled-run predicate and the blocked-work inbox. No further evaluation gate.
 - **Claude Agent SDK** — TypeScript/Python framework that powers Claude Code under the hood. Enables building custom agents for non-coding workflows. Worth exploring if we need automation beyond what Claude Code provides natively (e.g., custom CI pipelines, Slack bots, monitoring agents).
 
 ---
