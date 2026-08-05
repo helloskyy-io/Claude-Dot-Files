@@ -26,6 +26,8 @@ def parse_args(argv: list[str] | None = None) -> BuildInput:
     )
     parser.add_argument("description", nargs="?", help="what to revise")
     parser.add_argument("--task-file", help="read the task from a file (bypasses shell parsing)")
+    parser.add_argument("--phase", dest="plan_path",
+                        help="path to a plan doc — extract success criteria and verify against them")
     parser.add_argument("--pr", dest="pr_number", help="update an existing PR instead of opening one")
     parser.add_argument("--repo", dest="repo_target", help="target repo (never derived from cwd)")
     parser.add_argument("--verbose", "-v", action="store_true")
@@ -38,6 +40,7 @@ def parse_args(argv: list[str] | None = None) -> BuildInput:
         return BuildInput(
             description=args.description,
             task_file=args.task_file,
+            plan_path=args.plan_path,
             pr_number=args.pr_number,
             repo_target=args.repo_target,
             verbose=args.verbose,

@@ -20,13 +20,29 @@ COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
 def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
-                    pr_number: str | None = None, verbose: bool = False) -> str:
+                    pr_number: str | None = None, plan_path: str | None = None,
+                    context: str = "", verbose: bool = False) -> str:
     """Draft a scoped change. Returns the PR URL — the handoff to refine."""
-    template = act.load_prompt(PROMPTS / ("update_pr.md" if pr_number else "new_branch.md"))
+    # Same single axis as the major tier. Scope is what makes this the minor
+    # tier — a 100-turn cap — not the information source. A small fix scoped to
+    # a phase still benefits from that phase's success criteria to verify against.
+    if plan_path:
+        wrapper, stages = "from_plan.md", "stages_1_to_4_from_plan.md"
+    else:
+        wrapper = "update_pr.md" if pr_number else "new_branch.md"
+        stages = None
+    template = act.load_prompt(PROMPTS / wrapper)
     values = {
         "DESCRIPTION": description,
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
     }
+    if stages:
+        values |= {
+            "STAGES_1_TO_4": act.load_prompt(PROMPTS / stages),
+            "RULES": act.shared_prompt("rules"),
+            "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+            "PLAN_PATH": plan_path, "CONTEXT_BLOCK": context,
+        }
     if pr_number:
         values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number, repo_root)}
 

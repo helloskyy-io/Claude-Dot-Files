@@ -32,7 +32,7 @@ from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
-    description = task.description or Path(task.task_file).read_text()
+    description = task.description or Path(task.task_file or task.plan_path).read_text()
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
@@ -42,7 +42,7 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
 
     pr_url = draft.run_draft_minor(
         description=description, repo_root=repo_root,
-        worktree=worktree, pr_number=task.pr_number,
+        worktree=worktree, pr_number=task.pr_number, plan_path=task.plan_path,
         verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url)
