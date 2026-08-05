@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.assistant.build.build import build_helper as helper  # noqa: E402
-from modules.assistant.build.build.build_inputs import (  # noqa: E402
+from modules.assistant.build import build_helper as helper  # noqa: E402
+from modules.assistant.build.build_inputs import (  # noqa: E402
     ChildResult,
     BuildInput,
     Verdict,

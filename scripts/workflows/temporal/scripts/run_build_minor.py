@@ -14,14 +14,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.assistant.build.build_inputs import BuildInput  # noqa: E402
-from modules.assistant.build.build.build_workflow import run_build  # noqa: E402
+from modules.assistant.build.build_minor.build_minor_workflow import run_build_minor  # noqa: E402
 
 BANNER = "=" * 64
 
 
 def parse_args(argv: list[str] | None = None) -> BuildInput:
     parser = argparse.ArgumentParser(
-        prog="build",
+        prog="build-minor",
         description="Draft, refine and disposition a change as a reviewed PR.",
     )
     parser.add_argument("description", nargs="?", help="what to revise")
@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         repo_root = Path(task.repo_target) if task.repo_target else Path.cwd()
         worktree_name = f"build-{int(__import__('time').time())}"
-        result = run_build(task, repo_root, worktree_name)
+        result = run_build_minor(task, repo_root, worktree_name)
     except (RuntimeError, FileNotFoundError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.

@@ -29,9 +29,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import build_helper as helper
-from .build_activities import wait_for_ci
-from .build_inputs import BuildInput, BuildResult, Verdict
+from .. import build_helper as helper
+from ..build_activities import wait_for_ci
+from ..build_inputs import BuildInput, BuildResult, Verdict
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput
 from ..build_draft import build_draft_workflow as draft
