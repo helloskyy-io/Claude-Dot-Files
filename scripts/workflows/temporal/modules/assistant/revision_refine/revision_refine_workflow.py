@@ -31,7 +31,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
         "DESCRIPTION": description,
         "RULES": act.shared_prompt("rules"),
         "PR_NUMBER": pr_number,
-        "PR_BRANCH": act.pr_branch(pr_number),
+        "PR_BRANCH": act.pr_branch(pr_number, repo_root),
         # Both notes are always substituted — empty when not applicable, so the
         # prompt never carries a literal ${...} and never needs a branch here.
         "CORRECTION_NOTE": (
@@ -51,7 +51,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refine.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        cwd=repo_root, worktree_name=worktree_name, verbose=verbose,
+        repo_root=repo_root, worktree_name=worktree_name, verbose=verbose,
     )
 
     url = act.extract_pr_url(output)

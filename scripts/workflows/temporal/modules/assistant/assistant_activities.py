@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import re
 import subprocess
+import os
+from datetime import datetime
 from pathlib import Path
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
@@ -58,38 +60,69 @@ def extract_pr_url(output: str) -> str | None:
 
 
 def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
-               cwd: Path, worktree_name: str | None = None,
-               verbose: bool = False) -> str:
+               repo_root: Path, worktree_name: str | None = None,
+               max_turns: int = 120, verbose: bool = False) -> str:
     """Invoke the model via the existing bash activity.
 
     Delegates rather than reimplementing model invocation, logging and the
     completion-contract check — one implementation of the contract, not two
     that can disagree mid-migration.
+
+    CONTRACT ORDER MATTERS. `run-claude.sh` asserts LOG_FILE, MAX_TURNS,
+    VERBOSE, FORMATTER and MODEL_KEY with `: "${VAR:?...}"` at SOURCE time, so
+    every one must be exported BEFORE the source line. An earlier version
+    sourced first and assigned after, which tripped the guard at source time and
+    exited 127 — the delegation did not satisfy the contract it delegated to.
     """
     runner = _WORKFLOWS / "activities" / "run-claude.sh"
-    if not runner.exists():
-        raise FileNotFoundError(f"run-claude activity not found: {runner}")
+    formatter = _WORKFLOWS / "common" / "format-stream.sh"
+    for required in (runner, formatter):
+        if not required.exists():
+            raise FileNotFoundError(f"required activity not found: {required}")
 
+    log_dir = repo_root / ".claude" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_file = log_dir / f"{model_key}-{stamp}.jsonl"
+
+    env = {
+        **os.environ,
+        "LOG_FILE": str(log_file),
+        "MAX_TURNS": str(max_turns),
+        "VERBOSE": "true" if verbose else "false",
+        "FORMATTER": str(formatter),
+        "MODEL_KEY": model_key,
+        "COMPLETION_PATTERN": completion_pattern,
+    }
     wt = f' -w "{worktree_name}"' if worktree_name else ""
-    script = (
-        f'source "{runner}"; MODEL_KEY="{model_key}"; '
-        f"COMPLETION_PATTERN='{completion_pattern}'; "
-        f'VERBOSE={"true" if verbose else "false"}; run_claude "$1"{wt}'
+    result = subprocess.run(
+        ["bash", "-c", f'source "{runner}"; run_claude "$1"{wt}', "_", prompt],
+        cwd=str(repo_root), env=env, capture_output=True, text=True,
     )
-    result = subprocess.run(["bash", "-c", script, "_", prompt],
-                            cwd=str(cwd), capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(
-            f"{model_key} FAILED (exit {result.returncode}).\n{result.stderr[-2000:]}"
+            f"{model_key} FAILED (exit {result.returncode}). Log: {log_file}\n"
+            f"{result.stderr[-2000:]}"
         )
     return result.stdout
 
 
-def pr_branch(pr_number: str, repo: str | None = None) -> str:
-    cmd = ["gh", "pr", "view", pr_number, "--json", "headRefName", "-q", ".headRefName"]
-    if repo:
-        cmd += ["--repo", repo]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+def gh(args: list[str], repo_root: Path) -> str:
+    """Run `gh` INSIDE the target repo rather than passing --repo.
+
+    `--repo` in our CLIs is a FILESYSTEM PATH; `gh --repo` wants an OWNER/NAME
+    slug. Conflating them is how an earlier version passed None to gh and let it
+    derive the repo from the process cwd — which is exactly what the flag's own
+    documentation promises never happens. Setting cwd keeps the identity
+    explicit without needing to parse a remote URL into a slug.
+    """
+    r = subprocess.run(["gh", *args], cwd=str(repo_root),
+                       capture_output=True, text=True)
     if r.returncode != 0:
-        raise RuntimeError(f"gh pr view {pr_number} failed: {r.stderr.strip()}")
-    return r.stdout.strip()
+        raise RuntimeError(f"gh {' '.join(args)} failed in {repo_root}: {r.stderr.strip()}")
+    return r.stdout
+
+
+def pr_branch(pr_number: str, repo_root: Path) -> str:
+    return gh(["pr", "view", pr_number, "--json", "headRefName",
+               "-q", ".headRefName"], repo_root).strip()

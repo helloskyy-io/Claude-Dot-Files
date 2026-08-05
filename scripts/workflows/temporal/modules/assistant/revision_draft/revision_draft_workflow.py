@@ -36,12 +36,12 @@ def run_draft(*, description: str, repo_root: Path, worktree_name: str,
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
     if pr_number:
-        values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number)}
+        values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number, repo_root)}
 
     output = act.run_claude(
         act.render(template, values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        cwd=repo_root, worktree_name=None if pr_number else worktree_name,
+        repo_root=repo_root, worktree_name=None if pr_number else worktree_name,
         verbose=verbose,
     )
 

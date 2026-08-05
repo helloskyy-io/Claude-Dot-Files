@@ -50,15 +50,15 @@ def parse_args(argv: list[str] | None = None) -> tuple[ReviewInput, bool]:
     return task, args.dry_run
 
 
-def _dry_run(task: ReviewInput) -> int:
+def _dry_run(task: ReviewInput, repo_root: Path) -> int:
     """Prove the plumbing without invoking the model.
 
     Everything the real path does up to the model call: fetch the PR, count
     prior passes, load both prompt sources, render, and check for leftovers.
     """
-    pr = act.fetch_pr(task.pr_number, task.repo_target)
+    pr = act.fetch_pr(task.pr_number, repo_root)
     this_pass, prior_pass = helper.pass_numbers(
-        act.count_prior_passes(task.pr_number, task.repo_target)
+        act.count_prior_passes(task.pr_number, repo_root)
     )
     rendered = helper.render_prompt(
         act.load_prompt(wf.PROMPT_PATH),
@@ -80,13 +80,15 @@ def _dry_run(task: ReviewInput) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     task, dry = parse_args(argv)
+    # --repo is a FILESYSTEM PATH (never a gh OWNER/NAME slug). gh is then run
+    # with this as its cwd, which keeps repo identity explicit without parsing a
+    # remote URL — see assistant_activities.gh.
+    repo_root = Path(task.repo_target) if task.repo_target else Path.cwd()
     try:
         if dry:
-            return _dry_run(task)
+            return _dry_run(task, repo_root)
 
-        # The worktree is the repo root today; a caller that isolates provides
-        # its own. Kept explicit rather than derived — same doctrine as --repo.
-        worktree = Path(task.repo_target) if task.repo_target else Path.cwd()
+        worktree = repo_root
         result = wf.run_review(task, worktree)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         print(f"\n✗ {exc}", file=sys.stderr)

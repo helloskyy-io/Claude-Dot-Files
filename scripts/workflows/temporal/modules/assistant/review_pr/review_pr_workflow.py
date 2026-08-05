@@ -43,9 +43,9 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             f"criteria are not yet implemented; BUILD criteria were applied."
         )
 
-    pr = act.fetch_pr(task.pr_number, task.repo_target)
+    pr = act.fetch_pr(task.pr_number, worktree)
     this_pass, prior_pass = helper.pass_numbers(
-        act.count_prior_passes(task.pr_number, task.repo_target)
+        act.count_prior_passes(task.pr_number, worktree)
     )
 
     prompt = helper.render_prompt(
