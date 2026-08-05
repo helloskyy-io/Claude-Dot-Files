@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import assistant_activities as act
+from ... import assistant_activities as act
 
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"

@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.assistant.build.build_inputs import BuildInput  # noqa: E402
-from modules.assistant.build.build_workflow import run_build  # noqa: E402
+from modules.assistant.build.build.build_inputs import BuildInput  # noqa: E402
+from modules.assistant.build.build.build_workflow import run_build  # noqa: E402
 
 BANNER = "=" * 64
 

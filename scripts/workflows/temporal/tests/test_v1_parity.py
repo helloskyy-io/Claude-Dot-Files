@@ -19,8 +19,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.assistant import assistant_activities as act  # noqa: E402
-from modules.assistant.build_draft import build_draft_workflow as draft  # noqa: E402
-from modules.assistant.build_refine import build_refine_workflow as refine  # noqa: E402
+from modules.assistant.build.build_draft import build_draft_workflow as draft  # noqa: E402
+from modules.assistant.build.build_refine import build_refine_workflow as refine  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as rpa  # noqa: E402
 
 PASS, FAIL = [], []
