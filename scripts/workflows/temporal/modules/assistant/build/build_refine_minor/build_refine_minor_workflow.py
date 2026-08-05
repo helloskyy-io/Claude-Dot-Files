@@ -26,6 +26,7 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
     branch = act.pr_branch(pr_number, repo_root)
     values = {
         "DESCRIPTION": description,
+        "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
         "PR_NUMBER": pr_number,
         "PR_BRANCH": branch,
         "RULES": act.shared_prompt("rules"),

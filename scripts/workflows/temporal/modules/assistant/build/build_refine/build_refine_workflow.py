@@ -30,6 +30,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     """Review and correct the draft's PR. Returns its PR URL."""
     values = {
         "DESCRIPTION": description,
+        "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
         "RULES": act.shared_prompt("rules"),
         "PR_NUMBER": pr_number,
         "PR_BRANCH": act.pr_branch(pr_number, repo_root),

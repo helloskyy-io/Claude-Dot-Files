@@ -33,6 +33,7 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
 
     values = {
         "DESCRIPTION": description,
+        "STAGES_1_TO_4": act.load_prompt(PROMPTS / "stages_1_to_4.md"),
         "RULES": act.shared_prompt("rules"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),

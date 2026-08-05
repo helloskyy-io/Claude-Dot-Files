@@ -130,10 +130,26 @@ def render(template: str, values: dict[str, str]) -> str:
     shell, all full of literal braces. An unsubstituted placeholder reaches the
     model as an instruction about a variable, so it raises rather than ships.
     """
+    # SUBSTITUTE TO A FIXED POINT. A prompt fragment can itself contain
+    # placeholders — stages_2_to_4.md carries ${PR_NUMBER} — so a single pass
+    # leaves them unresolved whenever the block is inserted after its own
+    # placeholders were processed. Bash had no such problem: it expanded the
+    # whole string at once. Iterate until stable, bounded so a self-referential
+    # fragment fails loudly rather than spinning.
     out = template
-    for k, v in values.items():
-        out = out.replace("${" + k + "}", str(v))
-    leftover = sorted(set(re.findall(r"\$\{[A-Z_]+\}", out)))
+    for _ in range(10):
+        before = out
+        for k, v in values.items():
+            out = out.replace("${" + k + "}", str(v))
+        if out == before:
+            break
+    else:
+        raise ValueError("prompt substitution did not converge — check for a self-referential fragment")
+    # [A-Z_0-9] — DIGITS MATTER. An earlier [A-Z_]+ silently missed
+    # ${STAGES_1_TO_4}, so a prompt shipped with its entire stage body replaced
+    # by a literal placeholder and this check raised nothing. The guard was
+    # blind to the one thing it existed to catch.
+    leftover = sorted(set(re.findall(r"\$\{[A-Z_][A-Z_0-9]*\}", out)))
     if leftover:
         raise ValueError(f"unsubstituted prompt placeholders: {leftover}")
     return out
