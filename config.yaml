@@ -18,7 +18,7 @@
 gh-monitor:
   # DISABLED 2026-07-29 — @claude PR-comment dispatch is not in use. gh-monitor IS
   # the @claude subsystem (the routes live in its parse_command), so this one flag
-  # turns both off. Kept consistent with the revision rename rather than left to
+  # turns both off. Kept consistent with the build rename rather than left to
   # rot, so re-enabling is safe. DECISION POINT: if still unused by ~2026-08-19,
   # delete the service rather than carry dead code.
   enabled: false
@@ -27,8 +27,8 @@ gh-monitor:
   # Folders that don't exist on this machine are silently skipped
   repo-folders: "~/Repos /opt/skyy-net"
 
-  # Global safety cap on concurrent TOP-LEVEL workflow processes (revision.sh,
-  # revision-minor.sh, plan-revision.sh, build-phase.sh). revision.sh's own
+  # Global safety cap on concurrent TOP-LEVEL workflow processes (build.sh,
+  # build-minor.sh, plan-revision.sh, build-phase.sh). build.sh's own
   # children (children/) are NOT counted separately — one logical run, one slot.
   # Counts BOTH manual
   # terminal invocations AND gh-monitor dispatches. Does NOT count interactive
@@ -40,11 +40,11 @@ gh-monitor:
 
   # Route enablement (set to false to disable specific command routes).
   # Route names match script names 1:1 — that invariant is what makes re-enabling
-  # safe. `revision` is the reviewed two-step parent; `revision-minor` is the
-  # light single-pass fix. The old `revision-major` route is retired (renamed to
-  # `revision`); no key remains for it.
-  enable-revision: true
-  enable-revision-minor: true
+  # safe. `build` is the reviewed two-step parent; `build-minor` is the
+  # light single-pass fix. The old `build-major` route is retired (renamed to
+  # `build`); no key remains for it.
+  enable-build: true
+  enable-build-minor: true
   enable-plan-revision: true
   enable-build-phase: true
   enable-help: true
@@ -79,13 +79,13 @@ gh-monitor:
 #
 # Changes take effect on the NEXT dispatch — no restarts required.
 models:
-  revision-draft-minor: sonnet  # minor tier, child 1: writes the scoped change
-  revision-refine-minor: sonnet # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
-  revision-draft: opus          # parent step 1: writes the change, opens an unreviewed PR
-  revision-refine: opus         # parent step 2: FRESH context — fidelity, review, corrections
+  build-draft-minor: sonnet  # minor tier, child 1: writes the scoped change
+  build-refine-minor: sonnet # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
+  build-draft: opus          # parent step 1: writes the change, opens an unreviewed PR
+  build-refine: opus         # parent step 2: FRESH context — fidelity, review, corrections
   build-phase: opus             # phase implementation — the default engineer
   plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
-  plan-revision: opus           # planning revision (was fable — see 2026-07-27 economics retier)
+  plan-revision: opus           # planning build (was fable — see 2026-07-27 economics retier)
   review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship

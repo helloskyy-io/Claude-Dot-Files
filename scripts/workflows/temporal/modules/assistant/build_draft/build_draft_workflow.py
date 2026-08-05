@@ -1,4 +1,4 @@
-"""revision-draft — writes the change and opens an UNREVIEWED PR.
+"""build-draft — writes the change and opens an UNREVIEWED PR.
 
 Folder holds only this file, which §10.1 rule 6 states is conformant: draft and
 refine are a family sharing one promoted trio (`assistant_activities.py`), so
@@ -17,7 +17,7 @@ from .. import assistant_activities as act
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
-MODEL_KEY = "revision-draft"
+MODEL_KEY = "build-draft"
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
@@ -48,7 +48,7 @@ def run_draft(*, description: str, repo_root: Path, worktree_name: str,
     url = act.extract_pr_url(output)
     if not url:
         raise RuntimeError(
-            "revision-draft produced no PR URL — cannot hand off to refine. "
+            "build-draft produced no PR URL — cannot hand off to refine. "
             "The draft step must open (or update) a PR and print its URL as its final line."
         )
     return url

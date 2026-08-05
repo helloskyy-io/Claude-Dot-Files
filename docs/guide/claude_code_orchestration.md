@@ -213,13 +213,13 @@ Based on the lessons above, our workflows follow these rules:
 6. **Verify everything** — include a review/test stage before anything irreversible
 7. **Kill instead of recover** — if a stage fails, restart cleanly instead of fixing mid-flight. Corollary learned the hard way: **make the kill loud**, and make `exit 0` provably mean *done* (see the completion contract in [claude_code_headless.md](claude_code_headless.md#outcomes)). A silent success is worse than a failure
 8. **WIP limit** — maximum 3-5 concurrent workers
-9. **Separate the actor that produces from the actor that judges** — *(added from production)*. The single highest-value structural change made to this fleet. A run that authors work and then rules on the review findings about it defends the work; splitting those across two runs with no shared context is the only thing that fixed it. See [workflows.md](workflows.md#the-revision-split--why-authoring-and-judging-are-separate-runs)
+9. **Separate the actor that produces from the actor that judges** — *(added from production)*. The single highest-value structural change made to this fleet. A run that authors work and then rules on the review findings about it defends the work; splitting those across two runs with no shared context is the only thing that fixed it. See [workflows.md](workflows.md#the-build-split--why-authoring-and-judging-are-separate-runs)
 
 ## Where This Repo Landed
 
 Of the seven options above, this repo runs **option 2 — bash script chaining** — and has stayed there deliberately as the workflows grew from single-stage scripts to a parent orchestrating two independent children.
 
-The reason it holds up is worth stating, because it is not "bash is good enough." **Composition never needed a framework.** A parent workflow needs exactly two things from a child: a reliable exit code, and one stable identifier on its last line. Once children declare a completion contract (see [claude_code_headless.md](claude_code_headless.md#outcomes)), bash has everything required to sequence them, branch on failure, and wait on external state between them. `revision.sh` polls for CI to settle between its two children in ~40 lines of shell — the kind of thing a framework is usually adopted *for*.
+The reason it holds up is worth stating, because it is not "bash is good enough." **Composition never needed a framework.** A parent workflow needs exactly two things from a child: a reliable exit code, and one stable identifier on its last line. Once children declare a completion contract (see [claude_code_headless.md](claude_code_headless.md#outcomes)), bash has everything required to sequence them, branch on failure, and wait on external state between them. `build.sh` polls for CI to settle between its two children in ~40 lines of shell — the kind of thing a framework is usually adopted *for*.
 
 ## When to Graduate Beyond Bash
 

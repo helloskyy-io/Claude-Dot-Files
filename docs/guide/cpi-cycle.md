@@ -17,7 +17,7 @@ The output is incremental, evidence-based improvements to workflow scripts, agen
 ## Prerequisites
 
 - The repo whose logs you want to analyze must have run autonomous workflows recently — `review-runs.sh` operates on `<repo>/.claude/logs/*.jsonl`.
-- You run `review-runs.sh` **from inside the repo whose logs you want to analyze** (the repo with the workflow runs in it, e.g., a project repo where `build-phase.sh` or `revision.sh` ran).
+- You run `review-runs.sh` **from inside the repo whose logs you want to analyze** (the repo with the workflow runs in it, e.g., a project repo where `build-phase.sh` or `build.sh` ran).
 - The report itself is always written to `claude-dot-files/docs/development/reviews/` regardless of which repo's logs were analyzed — single searchable location across all analyzed repos.
 - The CPI decisions log lives at `claude-dot-files/docs/development/cpi-decisions.md`.
 
@@ -143,7 +143,7 @@ Don't conflate the cadences either — running review-sprint weekly burns tokens
 The log is for **claude-dot-files-level decisions ONLY**.
 
 **Belongs:**
-- Decisions about workflow scripts (`revision.sh`, `build-phase.sh`, etc.)
+- Decisions about workflow scripts (`build.sh`, `build-phase.sh`, etc.)
 - Decisions about agents (`code-reviewer`, `standards-architect`, etc.)
 - Decisions about skills (`standards-enforcement`, `project-organization`, etc.)
 - Decisions about rules (`engineering-quality.md`, etc.)

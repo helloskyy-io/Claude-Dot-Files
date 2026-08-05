@@ -12,8 +12,8 @@
 
 | Script | Purpose | Agents Used | Max Turns |
 |---|---|---|---|
-| `revision.sh` | Significant code rework — **PARENT** over the three children below | none itself (pure bash) | n/a |
-| `revision-minor.sh` | Small scoped fixes — **PARENT**, same shape, lighter middle child | none itself (pure bash) | n/a |
+| `build.sh` | Significant code rework — **PARENT** over the three children below | none itself (pure bash) | n/a |
+| `build-minor.sh` | Small scoped fixes — **PARENT**, same shape, lighter middle child | none itself (pure bash) | n/a |
 | `build-phase.sh` | Implement from a plan doc | code-reviewer, refactoring-evaluator, standards-auditor | 300 |
 | `plan-new.sh` | Define new project from scratch | architect, planner, security-auditor | 500 |
 | `plan-revision.sh` | Revise existing planning docs | architect, planner, security-auditor, standards-architect | 300 |
@@ -28,10 +28,10 @@ Children are **shared, not owned**: `review-pr` is the last child of every PR-pr
 
 | Child | Role | Agents Used | Max Turns |
 |---|---|---|---|
-| `revision-draft.sh` | Writes the change, opens an UNREVIEWED PR. Holds NO review authority | none | 250 |
-| `revision-refine.sh` | FRESH context: fidelity → peer review → resolve → verify | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 250 |
-| `revision-draft-minor.sh` | Same role, minor tier | none | 100 |
-| `revision-refine-minor.sh` | Same role, minor tier — **ONE** lens, because at this scope the risk is a change that is *wrong*, not a design that will not scale | code-reviewer | 100 |
+| `build-draft.sh` | Writes the change, opens an UNREVIEWED PR. Holds NO review authority | none | 250 |
+| `build-refine.sh` | FRESH context: fidelity → peer review → resolve → verify | code-reviewer, refactoring-evaluator, standards-auditor, quality-control | 250 |
+| `build-draft-minor.sh` | Same role, minor tier | none | 100 |
+| `build-refine-minor.sh` | Same role, minor tier — **ONE** lens, because at this scope the risk is a change that is *wrong*, not a design that will not scale | code-reviewer | 100 |
 | `review-pr.sh` | Decide-only disposition → `MERGE` \| `HOLD - redispatch` \| `HOLD - needs-assistance` | none (it reads, it does not review code) | 120 |
 
 ### Layers (`scripts/workflows/`) — sourced, never dispatched
@@ -47,22 +47,22 @@ Children are **shared, not owned**: `review-pr` is the last child of every PR-pr
 |---|---|---|
 | `gh-monitor.sh` | Poll GitHub for @claude PR comments | `scripts/services/` |
 
-## The revision split — why authoring and judging are separate runs
+## The build split — why authoring and judging are separate runs
 
-`revision.sh` is a **parent workflow**: pure bash that runs two independent
+`build.sh` is a **parent workflow**: pure bash that runs two independent
 `claude -p` children in sequence and calls no model itself.
 
 ```
-revision.sh  (parent — no model, no turn budget)
-  ├─ 1. children/revision-draft.sh    250 turns   writes the change, opens an UNREVIEWED PR
-  ├─ 2. children/revision-refine.sh   250 turns   FRESH context: fidelity, review, corrections
+build.sh  (parent — no model, no turn budget)
+  ├─ 1. children/build-draft.sh    250 turns   writes the change, opens an UNREVIEWED PR
+  ├─ 2. children/build-refine.sh   250 turns   FRESH context: fidelity, review, corrections
   └─ 3. children/review-pr.sh         120 turns   decide-only: MERGE, or HOLD + a runway
         │
         ├─ MERGE                   → finish
         ├─ HOLD - needs-assistance → stop NOW; more passes cannot produce a human ruling
         └─ HOLD - redispatch       → loop back ONCE (refine --correction-pass → review-pr), then stop
 
-revision-minor.sh runs the IDENTICAL sequence with the minor children — same
+build-minor.sh runs the IDENTICAL sequence with the minor children — same
 shape, same routing, same single loop-back. One mental model, two weights.
 ```
 
@@ -108,7 +108,7 @@ The 200s these replaced were set when the split was unproven and a runaway was
 the live worry. Two burn-test cycles later the shape holds — the highest draft
 observed used 143 — so the ceilings were raised to sit clear of real work rather
 than near it. Each child carries its own
-`MODEL_KEY` (`revision-draft`, `revision-refine`) and its own completion
+`MODEL_KEY` (`build-draft`, `build-refine`) and its own completion
 contract; the parent's contract is the children's exit codes plus a PR URL.
 If draft fails, refine never runs. If refine fails, the parent says so loudly:
 the PR exists and is **unreviewed**, and must not be merged as-is.
@@ -135,9 +135,9 @@ Both take `--pr <N>` to extend an existing research PR rather than opening a new
 
 Review-stage workflows dispatch a parallel **trio** (3 agents) by default. `plan-revision.sh` dispatches **four** — adding `standards-architect` alongside `architect`, `planner`, and `security-auditor`.
 
-**Why the extra agent on `plan-revision`:** `standards-architect` surfaces corpus-level implications (cross-document drift, gap detection, ADR candidates, bloat patterns) that the other three agents — focused on the immediate revision — don't catch. CPI cycles validated this across multiple separate runs where `standards-architect` findings were unique to its lens.
+**Why the extra agent on `plan-revision`:** `standards-architect` surfaces corpus-level implications (cross-document drift, gap detection, ADR candidates, bloat patterns) that the other three agents — focused on the immediate build — don't catch. CPI cycles validated this across multiple separate runs where `standards-architect` findings were unique to its lens.
 
-Code-revision workflows (`revision-refine`, `build-phase`) keep the 3-agent trio because the review surface is narrower (specific files in a worktree, not corpus-wide), so the broader-lens agent isn't typically the binding constraint. `review-sprint.sh` uses a different 3-agent trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because it's whole-repo end-of-sprint review, where security and test-coverage lenses dominate.
+Code-build workflows (`build-refine`, `build-phase`) keep the 3-agent trio because the review surface is narrower (specific files in a worktree, not corpus-wide), so the broader-lens agent isn't typically the binding constraint. `review-sprint.sh` uses a different 3-agent trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) because it's whole-repo end-of-sprint review, where security and test-coverage lenses dominate.
 
 All review-trios are dispatched in a single assistant message containing N `Agent` tool calls — multiple `Agent` calls in one message run concurrently, while splitting them across messages forces sequential execution and roughly doubles or triples wall time on the review stage.
 
@@ -155,7 +155,7 @@ All review-trios are dispatched in a single assistant message containing N `Agen
 
 Names are **`<family>-<qualifier>`**, uniform across the fleet. The family is what the script *is*; the qualifier narrows it. Read backwards it is wrong — a PR is not a *type of thing that gets reviewed*; review is the family. Two names violated this (`pr-review`, `sprint-review`) and both were renamed.
 
-- **`revision*`** — fix existing code. `revision.sh` is the reviewed default, `revision-minor.sh` the lighter tier. **Both are parents**; the difference is the weight of the middle child (4 review lenses vs 1)
+- **`build*`** — fix existing code. `build.sh` is the reviewed default, `build-minor.sh` the lighter tier. **Both are parents**; the difference is the weight of the middle child (4 review lenses vs 1)
 - **`build-*`** — implement from plans
 - **`plan-*`** — create or revise planning docs
 - **`review-*`** — analyze and decide (`review-runs` on logs, `review-sprint` on a sprint, `review-pr` on a PR)
@@ -244,7 +244,7 @@ The primary autonomous path. You kick off a single command and get a PR ready fo
 Or for a smaller change:
 
 ```bash
-./scripts/workflows/revision-minor.sh "fix the null check in login()"
+./scripts/workflows/build-minor.sh "fix the null check in login()"
 ```
 
 Workflow scripts handle the worktree creation, claude invocation, logging, and PR creation internally — you just provide the task description.
@@ -408,8 +408,8 @@ Given this model, the scope of what we actually build is narrower than it might 
 
 **For Stage A (Initial Autonomous Run):**
 - Workflow scripts in `scripts/workflows/`:
-  - `revision-minor.sh` — minor corrections, three-child parent (built)
-  - `revision.sh` — significant rework, three-child parent (built)
+  - `build-minor.sh` — minor corrections, three-child parent (built)
+  - `build.sh` — significant rework, three-child parent (built)
   - `build-phase.sh` — architect & build a phase (planned)
   - `plan-new.sh` — research & planning (built)
 
@@ -442,11 +442,11 @@ These were considered and rejected based on research and the dual-flow principle
 
 **The anti-rug-sweep doctrine (baked in as binding):** "recommend we move on", "low value", and "acceptable as-is" are forbidden. **"Pre-existing / existing condition" is abolished as an excuse** — a pre-existing issue is dispositioned like any other. **"Out of scope" is an input, not a disposition.** **Cost-of-dispatch is never a rationale** — a disproportionate-fix belief is a `HOLD(scope)` for the operator to rule on, never a self-granted waiver. **DEFERRED never creates a parking spot** — it only points at work that already has a home (review-pr can't write trackers, so a valid target must already exist); the reviewed PR is never a valid pointer, because *merging it is the burial*. A real but un-homed non-blocking follow-up becomes a HOLD next-step (redispatch if its home is an obvious doc edit, needs-assistance if where it belongs is a judgment call) — never buried by the merge. This doctrine exists because the first meal reasoned work away exactly as the producing run had; the fix was to state the value function explicitly (get issues corrected, don't help the PR pass) rather than patch each dodge.
 
-**Why it works — and the premise was re-founded once already.** It used to read *"the producing run is commitment-biased."* That went false the moment `revision.sh` split authoring from judging, and every other PR-producing workflow is headed the same way. The durable premise is **every account is an account**: the PR body, a run summary, a prior pass's prescription and an agent's finding are all *claims about* the code, none of them are the code — so verify against the artifact, never the narrative, regardless of who produced the PR or whether they had a stake. That version survives any topology, and it explains what the bias framing could not: pointer-verification caught a bad disposition shape in the *reviewer's* output, against an actor with nothing to defend. **Bias does not vanish when work is split; it relocates to whoever wrote the account you are reading.**
+**Why it works — and the premise was re-founded once already.** It used to read *"the producing run is commitment-biased."* That went false the moment `build.sh` split authoring from judging, and every other PR-producing workflow is headed the same way. The durable premise is **every account is an account**: the PR body, a run summary, a prior pass's prescription and an agent's finding are all *claims about* the code, none of them are the code — so verify against the artifact, never the narrative, regardless of who produced the PR or whether they had a stake. That version survives any topology, and it explains what the bias framing could not: pointer-verification caught a bad disposition shape in the *reviewer's* output, against an actor with nothing to defend. **Bias does not vanish when work is split; it relocates to whoever wrote the account you are reading.**
 
 **Decide-only (additive-automation).** It takes NO actions: never merges, closes, fixes, dispatches, or edits standards/sprints. When a fix is genuinely needed it writes a scoped, ready-to-fire `dispatch_context` into the PR comment (a `fix-needed` HOLD).
 
-**Fix-dispatch authority has now been partly earned — and review-pr still does not hold it.** As of 2026-08-02 `revision.sh` calls review-pr as its third child and *acts on the verdict*: one bounded loop-back on `HOLD - redispatch`, immediate escalation on `HOLD - needs-assistance`. The actor that decides is still not the actor that fires; the **parent** fires, from a token review-pr wrote to a durable artifact. That separation is the point, and it is the Temporal child-workflow shape exactly: return a decision, let the parent act on it.
+**Fix-dispatch authority has now been partly earned — and review-pr still does not hold it.** As of 2026-08-02 `build.sh` calls review-pr as its third child and *acts on the verdict*: one bounded loop-back on `HOLD - redispatch`, immediate escalation on `HOLD - needs-assistance`. The actor that decides is still not the actor that fires; the **parent** fires, from a token review-pr wrote to a durable artifact. That separation is the point, and it is the Temporal child-workflow shape exactly: return a decision, let the parent act on it.
 
 **The routing token is a decision, not a derived value.** `hold_kind` lives per-finding, so a HOLD mixing five `redispatch` items with one `needs-assistance` has no single answer written anywhere. Rather than have the caller aggregate — a caller with no stake making a judgement about the review — review-pr aggregates it itself onto its terminal line (`VERDICT: HOLD - needs-assistance` when ANY item needs a human). Merge authority remains entirely un-earned: nothing merges without you.
 
@@ -468,7 +468,7 @@ MODEL_OVERRIDE=fable ./scripts/workflows/build-phase.sh docs/development/phases/
 
 **Missing key = hard failure.** If a workflow's `MODEL_KEY` has no entry in the map, the dispatch aborts loudly rather than running on an inherited default. New workflow scripts MUST add their key to `config.yaml models:` and set `MODEL_KEY` before sourcing `run-claude.sh`.
 
-**Parent workflows have no model.** `revision.sh` is pure bash orchestration — it never calls a model, so it has no `MODEL_KEY` and does not source `run-claude.sh`. Its children do: `revision-draft` and `revision-refine` are separate rows in the map, which means the two halves of one logical revision can be tiered independently (e.g. a cheaper drafter with an expensive reviewer) by editing two lines.
+**Parent workflows have no model.** `build.sh` is pure bash orchestration — it never calls a model, so it has no `MODEL_KEY` and does not source `run-claude.sh`. Its children do: `build-draft` and `build-refine` are separate rows in the map, which means the two halves of one logical build can be tiered independently (e.g. a cheaper drafter with an expensive reviewer) by editing two lines.
 
 **Agent models are separate:** agents pin their own model in `config/agents/*.md` frontmatter (static markdown — cannot reference config.yaml). The canonical agent-tier map is documented as a comment block in the config.yaml `models:` section; agent files must conform (checked at CPI time).
 
@@ -482,8 +482,8 @@ Quick decision guide:
 **"I want a second opinion on my design"** → Workflow 1 + `/review` or manually invoke code-reviewer agent
 **"I have a well-planned feature, build it"** → Workflow 2, Stage A
 **"I'm starting a major new subsystem"** → Workflow 2, Stage A with detailed plan
-**"Small scoped code fix"** → `revision-minor.sh` (reviewed by one lens, then dispositioned)
-**"Significant rework — I want it reviewed before I see it"** → `revision.sh` (drafts, then judges with fresh eyes)
+**"Small scoped code fix"** → `build-minor.sh` (reviewed by one lens, then dispositioned)
+**"Significant rework — I want it reviewed before I see it"** → `build.sh` (drafts, then judges with fresh eyes)
 **"The PR is 90% right, just fix a few things"** → Workflow 2, Stage C (PR comments)
 **"The PR needs major rework"** → Workflow 2, Stage D (full re-run)
 **"I'm not sure where to start"** → Workflow 1, ask Claude to help you plan

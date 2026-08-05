@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# revision-refine.sh — the REVISION-REFINE child workflow (CHILD of revision.sh)
+# build-refine-minor.sh — the BUILD-MINOR-REFINE child (CHILD of build-minor.sh)
 # Reviews and corrects a draft PR with a FRESH context. Requires --pr.
 #
-# NOT INVOKED DIRECTLY by PMs — the parent `revision.sh` runs
-# `revision-draft.sh` first, then calls this against the PR it produced.
+# NOT INVOKED DIRECTLY by PMs — the parent `build.sh` runs
+# `build-draft.sh` first, then calls this against the PR it produced.
 #
 # WHY THIS IS A SEPARATE RUN: it did not write the code. That is the entire
 # point. A context that both authors a change and judges it defends the
@@ -16,16 +16,16 @@
 #
 # Stages:
 #   1. FIDELITY — original task vs what was delivered (present/missing/extra)
-#   2. PEER REVIEW — code-reviewer + refactoring-evaluator + standards-auditor
-#                    in parallel, then quality-control sequentially
+#   2. PEER REVIEW — code-reviewer ONLY (one lens; the minor tier's dominant
+#                    risk is a wrong change, not an unscalable design)
 #   3. RESOLVE — disposition EVERY finding (fixed/rejected/deferred/surfaced)
 #                and fix. DEFERRED requires a FETCHED pointer, never a plausible one.
 #   4. VERIFY — scoped regression after the corrections
 #   5. SUBMIT — commit, push, update the PR
 #
 # Usage:
-#   ./revision-refine.sh --pr <N> "the original task text"
-#   ./revision-refine.sh --pr <N> --task-file /tmp/task.md --verbose
+#   ./build-refine-minor.sh --pr <N> "the original task text"
+#   ./build-refine-minor.sh --pr <N> --task-file /tmp/task.md --verbose
 #
 # Flags:
 #   --pr <number>   REQUIRED — the draft PR to review and correct
@@ -33,7 +33,7 @@
 #   --verbose, -v   Stream formatted Claude output live
 #
 # Logging:
-#   Every run writes a structured JSONL log to .claude/logs/revision-refine-<ts>.jsonl
+#   Every run writes a structured JSONL log to .claude/logs/build-refine-<ts>.jsonl
 #
 # See docs/guide/workflows.md for the full
 # architectural context behind this workflow.
@@ -50,7 +50,7 @@ FORMATTER="${SCRIPT_DIR}/../common/format-stream.sh"
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-MAX_TURNS=250
+MAX_TURNS=100
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -92,9 +92,8 @@ line-wrap and keeps options visible):
   $(basename "$0") --verbose --pr 22 --task-file /tmp/rework.md
   $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
-This workflow is for SIGNIFICANT rework — not minor fixes.
-For minor corrections, use revision-minor.sh. This step is normally run by the
-parent (scripts/workflows/revision.sh), not invoked directly.
+Reviews and corrects a build-draft-minor PR with ONE lens (code-reviewer).
+Normally run by the parent (scripts/workflows/build-minor.sh), not directly.
 EOF
 }
 
@@ -176,8 +175,8 @@ fi
 # --pr is REQUIRED: refine always operates on an existing draft PR, and it needs
 # the ORIGINAL task (positional or --task-file) to check fidelity against it.
 if [[ -z "$PR_NUMBER" ]]; then
-    echo "Error: --pr <number> is required — revision-refine reviews an existing draft PR." >&2
-    echo "       (It is normally invoked by the parent: scripts/workflows/revision.sh)" >&2
+    echo "Error: --pr <number> is required — build-refine reviews an existing draft PR." >&2
+    echo "       (It is normally invoked by the parent: scripts/workflows/build-minor.sh)" >&2
     exit 1
 fi
 if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
@@ -208,17 +207,17 @@ require_environment "$REPO_TARGET" "$FORMATTER"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-refine-${TIMESTAMP}"
+WORKTREE_NAME="build-refine-minor-${TIMESTAMP}"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-refine-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/build-refine-minor-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
 # Summary banner
 # ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  REVISION-REFINE WORKFLOW"
+echo "  BUILD-MINOR-REFINE"
 echo "================================================================"
 # A --task-file description can run to 90+ lines; echoing it whole buries the
 # rest of the banner, and the split prints one banner per child. Show the shape,
@@ -250,7 +249,7 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision-refine"
+MODEL_KEY="build-refine-minor"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/../activities/run-claude.sh"
 
@@ -286,69 +285,26 @@ You did NOT write this code. A different run did, in a context you do not share,
 
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
-## Stage 2: PEER REVIEW (two-phase)
+## Stage 2: PEER REVIEW (ONE lens)
 
-Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens reviewers in parallel; phase 2b runs the holistic quality-control reviewer sequentially with access to 2a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
+Dispatch the `code-reviewer` agent — **one agent, and that is the whole review**. This is the minor tier: its scope is a scoped correction to known lines, where the dominant risk is a change that is simply WRONG (an inverted condition, an off-by-one, a case the fix misses), not a design that will not scale. Correctness is the lens that catches that class; the structural, standards and holistic lenses that `build-refine` runs are sized for multi-file architectural work and would spend most of this run's budget confirming there is nothing to say.
 
-### Stage 2a: NARROW PEER REVIEW (parallel)
+**If the review keeps finding structural or standards problems, that is a ROUTING signal, not a reason to add agents here.** It means the task was mis-sized for the minor tier and belongs on `build.sh`. Say so plainly in your summary.
 
-Dispatch all THREE peer-review agents — code-reviewer, refactoring-evaluator, and standards-auditor — back-to-back BEFORE processing any results. They review the SAME artifact — the draft run's diff on this PR branch, as read in Stage 1 — independently; there is no ordering dependency between them.
-
-**The dispatch contract (headless-safe):** dispatch all three as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL three narrow-lens results are in hand.
-
-Each agent's review focus:
+**The dispatch contract (headless-safe):** dispatch code-reviewer as a FOREGROUND agent (`run_in_background: false`). A text-only turn with no tool call ENDS a headless run, so you must NEVER background-dispatch and then wait — the wait itself becomes a run-killing turn — and must NEVER use ScheduleWakeup to wait for it.
 
 #### code-reviewer agent — correctness and code quality
-Analyze findings by severity:
+Give it the diff and the original task. Analyze findings by severity:
 - Critical issues: must fix before proceeding
 - Warnings: should fix if scope allows
 - Info: note for future improvement
 
-#### refactoring-evaluator agent — structural improvements
-Analyze findings by priority:
-- High priority: implement if scope allows
-- Medium priority: implement if quick and low risk
-- Low priority: defer to future work
-
-#### standards-auditor agent — project conventions and documented standards
-Analyze findings by severity:
-- Critical violations: must fix before proceeding
-- Warnings: should fix if scope allows
-- Info: note for future improvement
-
-If one agent has no findings, note it inline (e.g., "refactoring-evaluator: no findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
-
-### Stage 2b: HOLISTIC REVIEW (sequential, after 2a returns)
-
-After Stage 2a's three agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
-
-The quality-control prompt MUST include:
-- The work being reviewed (file paths changed, summary of the change)
-- The structured findings from Stage 2a (code-reviewer + refactoring-evaluator + standards-auditor outputs, verbatim or paraphrased clearly)
-- Instruction to apply the holistic six-dimension lens AND look for meta-patterns across the trio's findings ("do these findings together suggest the work was rushed, under-specified, or quality-compromised?")
-
-quality-control applies the senior-engineer integration test: would a peer reviewer at a top-tier engineering organization sign off on this? Its lens is HOLISTIC — it pulls signals across dimensions that no narrow reviewer catches. See `quality-control-methodology` skill for the six dimensions (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor) and severity calibration.
-
-quality-control runs SEQUENTIALLY (not in parallel with 5a) because its lens benefits from seeing 2a's findings. This is the only review agent that runs sequentially — narrow-lens agents stay parallel.
-
-### Consolidating findings (after both 5a and 5b)
-
-After all four reviews complete (5a's three + 5b's quality-control), fix any Critical issues found across ANY of the four reviews.
-
-**Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
-- **code-reviewer** judges engineering quality — correctness, safety, robustness, real-world failure modes
-- **refactoring-evaluator** judges structural improvement potential — uses High/Medium/Low priority, not Critical/Warning
-- **standards-auditor** judges documented-standard conformance — whether an explicit rule is violated
-- **quality-control** judges the senior-engineer integration test — would a top-tier-org peer sign off
-
-**When severities conflict on the same code, the engineering-quality bar is the override authority.** A code-reviewer Critical or quality-control Critical trumps a standards-auditor Info on the same finding — real correctness/safety/quality concerns win over "no documented violation." Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
-
-Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
+If it has no findings, say so inline — a clean review is a result, not a skipped stage.
 
 ## Stage 3: RESOLVE — disposition AND fix
 You hold the disposition authority the draft run deliberately does not, because you did not author the work. Use it: **every finding from Stages 1 and 2 gets an explicit disposition, and you FIX what should be fixed.** This is not a summary stage.
 
-For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards-auditor, quality-control), exactly ONE of these four. There is no fifth, and you may not invent one:
+For each finding (fidelity gaps and code-reviewer), exactly ONE of these four. There is no fifth, and you may not invent one:
 
 - **FIXED** — you corrected it here. Say what you changed.
 - **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
@@ -381,7 +337,7 @@ source "${SCRIPT_DIR}/../common/shared-prompts.sh"
 RULES=$(cat <<'RULES_EOF'
 Rules:
 - Follow each stage in order — do not skip stages
-- Be thorough — this is a major revision, not a quick fix
+- Be thorough — this is a major build, not a quick fix
 - **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER `cd` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use `(cd <worktree-abs-path> && command)` in a subshell rather than a top-level `cd`.
 - **File-reading discipline:** after the first full Read of a file, subsequent Reads MUST use `offset`+`limit` or use Grep to target a specific region. Do NOT re-read the entire file. Unbounded re-reads of already-read files are the single largest source of wasted tokens observed in production (one run hit 17× full reads of the same 1500-line file = ~45k redundant tokens). Narrow Reads after Edits are legitimate verification.
 - **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling. Common culprits: roadmap.md, sprint/phase docs, loose_ends files, standards docs, .jsonl logs. When in doubt, check size first.
@@ -454,9 +410,9 @@ A \`review-pr\` disposition engine has already ruled on this PR and returned HOL
         CORRECTION_NOTE=""
     fi
 
-    PROMPT="You are executing the REVISION-REFINE workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+    PROMPT="You are executing the BUILD-REFINE workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This is a SIGNIFICANT rework — not a minor fix. Follow all 5 stages thoroughly.
+This is the MINOR tier: a scoped correction, reviewed by one lens. Follow all 5 stages.
 
 Task: ${DESCRIPTION}
 
@@ -469,7 +425,7 @@ ${CORRECTION_NOTE}
 ${STAGES_2_TO_4}
 
 ## Stage 5: SUBMIT
-- Stage any uncommitted changes remaining from stages 2-4 (fidelity and peer-review fixes) and commit them with the final message format: \"revision-refine: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+- Stage any uncommitted changes remaining from stages 2-4 (fidelity and review fixes) and commit them with the final message format: \"build-refine-minor: <short description>\". If everything was already captured by the Stage 3 checkpoint and no review fixes were needed, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - **Update the PR's SELF-DESCRIPTION**: the PR body must describe what the PR NOW contains, and docs/file_structure.txt must reflect any files added/removed/renamed. A fix that leaves the PR's own description stale mechanically manufactures findings for the next review pass (measured: 1-2 per round, and one pass found ZERO code defects — only self-description drift).
 - Push the branch (this updates PR #${PR_NUMBER})
 - **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
@@ -480,7 +436,7 @@ ${DECISION_LOG_AND_REFLECTION}
 ${RULES}"
 
     echo
-    echo "→ Launching Claude in revision-refine mode (updating PR #${PR_NUMBER})..."
+    echo "→ Launching Claude in build-refine mode (updating PR #${PR_NUMBER})..."
     echo
 
     (
@@ -492,7 +448,7 @@ fi
 
 echo
 echo "================================================================"
-echo "  REVISION-REFINE WORKFLOW COMPLETE"
+echo "  BUILD-MINOR-REFINE COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"

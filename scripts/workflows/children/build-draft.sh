@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# revision-draft.sh — the REVISION-DRAFT child workflow (CHILD of revision.sh)
+# build-draft.sh — the BUILD-DRAFT child workflow (CHILD of build.sh)
 # Writes the change and opens an UNREVIEWED draft PR.
 #
-# NOT INVOKED DIRECTLY by PMs — the parent `revision.sh` calls this, then calls
-# `revision-refine.sh --pr <N>` against the PR this produces.
+# NOT INVOKED DIRECTLY by PMs — the parent `build.sh` calls this, then calls
+# `build-refine.sh --pr <N>` against the PR this produces.
 #
 # WHY THIS EXISTS AS ITS OWN RUN: the author of a change defends it. When the
 # same context both writes the code and dispositions the review findings about
@@ -12,7 +12,7 @@
 # reason a fresh-eyes pass catches what four in-context review agents did not.
 # So this step deliberately runs NO review agents and holds NO disposition
 # authority: it builds, it surfaces, it stops. Judgement happens in a separate
-# process with a fresh context (revision-refine), and the handoff is git.
+# process with a fresh context (build-refine), and the handoff is git.
 #
 # Stages:
 #   1. ASSESS — analyze proposed fixes against existing implementation
@@ -22,22 +22,22 @@
 #   5. SUBMIT — commit, push, create/update the PR (a DRAFT: never reviewed)
 #
 # Usage:
-#   ./revision-draft.sh "description of changes needed"
-#   ./revision-draft.sh "description of changes needed" --pr <pr-number>
-#   ./revision-draft.sh "description" --verbose
+#   ./build-draft.sh "description of changes needed"
+#   ./build-draft.sh "description of changes needed" --pr <pr-number>
+#   ./build-draft.sh "description" --verbose
 #
 # Examples:
-#   ./revision-draft.sh "the auth flow needs to use sessions instead of JWT"
-#   ./revision-draft.sh "refactor the data access layer to use repository pattern"
-#   ./revision-draft.sh "address all code review findings from PR #5" --pr 5
-#   ./revision-draft.sh "restructure the API routes" --verbose
+#   ./build-draft.sh "the auth flow needs to use sessions instead of JWT"
+#   ./build-draft.sh "refactor the data access layer to use repository pattern"
+#   ./build-draft.sh "address all code review findings from PR #5" --pr 5
+#   ./build-draft.sh "restructure the API routes" --verbose
 #
 # Flags:
 #   --pr <number>   Update an existing PR instead of creating a new one
 #   --verbose, -v   Stream formatted Claude output live
 #
 # Logging:
-#   Every run writes a structured JSONL log to .claude/logs/revision-draft-<ts>.jsonl
+#   Every run writes a structured JSONL log to .claude/logs/build-draft-<ts>.jsonl
 #
 # See docs/guide/workflows.md for the full
 # architectural context behind this workflow.
@@ -89,8 +89,8 @@ line-wrap and keeps options visible):
   $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
 This workflow is for SIGNIFICANT rework — not minor fixes.
-For minor corrections, use revision-minor.sh. This step is normally run by the
-parent (scripts/workflows/revision.sh), not invoked directly.
+For minor corrections, use build-minor.sh. This step is normally run by the
+parent (scripts/workflows/build.sh), not invoked directly.
 EOF
 }
 
@@ -183,17 +183,17 @@ require_environment "$REPO_TARGET" "$FORMATTER"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-draft-${TIMESTAMP}"
+WORKTREE_NAME="build-draft-${TIMESTAMP}"
 
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-draft-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/build-draft-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
 # Summary banner
 # ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  REVISION-DRAFT WORKFLOW"
+echo "  BUILD-DRAFT WORKFLOW"
 echo "================================================================"
 # A --task-file description can run to 90+ lines; echoing it whole buries the
 # rest of the banner, and the split prints one banner per child. Show the shape,
@@ -223,7 +223,7 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision-draft"
+MODEL_KEY="build-draft"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/../activities/run-claude.sh"
 
@@ -314,7 +314,7 @@ source "${SCRIPT_DIR}/../common/shared-prompts.sh"
 RULES=$(cat <<'RULES_EOF'
 Rules:
 - Follow each stage in order — do not skip stages
-- Be thorough — this is a major revision, not a quick fix
+- Be thorough — this is a major build, not a quick fix
 - **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER `cd` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use `(cd <worktree-abs-path> && command)` in a subshell rather than a top-level `cd`.
 - **File-reading discipline:** after the first full Read of a file, subsequent Reads MUST use `offset`+`limit` or use Grep to target a specific region. Do NOT re-read the entire file. Unbounded re-reads of already-read files are the single largest source of wasted tokens observed in production (one run hit 17× full reads of the same 1500-line file = ~45k redundant tokens). Narrow Reads after Edits are legitimate verification.
 - **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling. Common culprits: roadmap.md, sprint/phase docs, loose_ends files, standards docs, .jsonl logs. When in doubt, check size first.
@@ -357,7 +357,7 @@ if [[ -n "$PR_NUMBER" ]]; then
     echo "→ Creating worktree at ${WORKTREE_PATH}..."
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
-    PROMPT="You are executing the REVISION-DRAFT workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+    PROMPT="You are executing the BUILD-DRAFT workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
 
@@ -368,7 +368,7 @@ ${HEADLESS_EXECUTION_GUARD}
 ${STAGES_1_TO_4}
 
 ## Stage 5: SUBMIT
-- Stage any uncommitted changes remaining from stages 3-4 and commit them with the final message format: \"revision-draft: <short description>\". If the Stage 3 checkpoint already captured everything, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+- Stage any uncommitted changes remaining from stages 3-4 and commit them with the final message format: \"build-draft: <short description>\". If the Stage 3 checkpoint already captured everything, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - **Update the PR's SELF-DESCRIPTION**: the PR body must describe what the PR NOW contains, and docs/file_structure.txt must reflect any files added/removed/renamed. A fix that leaves the PR's own description stale mechanically manufactures findings for the next review pass (measured: 1-2 per round, and one pass found ZERO code defects — only self-description drift).
 - Push the branch (this updates PR #${PR_NUMBER})
 - **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
@@ -379,7 +379,7 @@ ${DECISION_LOG_AND_REFLECTION}
 ${RULES}"
 
     echo
-    echo "→ Launching Claude in revision-draft mode (updating PR #${PR_NUMBER})..."
+    echo "→ Launching Claude in build-draft mode (updating PR #${PR_NUMBER})..."
     echo
 
     (
@@ -388,8 +388,8 @@ ${RULES}"
     )
 
 else
-    # ---- New revision path ------------------------------------------------
-    PROMPT="You are executing the REVISION-DRAFT workflow on a new branch.
+    # ---- New build path ------------------------------------------------
+    PROMPT="You are executing the BUILD-DRAFT workflow on a new branch.
 
 This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
 
@@ -400,9 +400,9 @@ ${HEADLESS_EXECUTION_GUARD}
 ${STAGES_1_TO_4}
 
 ## Stage 5: SUBMIT
-- Stage any uncommitted changes remaining from stages 3-4 and commit them with the final message format: \"revision-draft: <short description>\". If the Stage 3 checkpoint already captured everything, skip this commit — the checkpoint is enough and the PR body carries the real summary.
+- Stage any uncommitted changes remaining from stages 3-4 and commit them with the final message format: \"build-draft: <short description>\". If the Stage 3 checkpoint already captured everything, skip this commit — the checkpoint is enough and the PR body carries the real summary.
 - Push the branch
-- Create a new PR using 'gh pr create'. Title format: \"revision-draft: <short description>\". In the body, include:
+- Create a new PR using 'gh pr create'. Title format: \"build-draft: <short description>\". In the body, include:
   - Summary of what was changed
   - Deviations from plan (if any)
   - Review findings addressed and deferred
@@ -415,7 +415,7 @@ ${DECISION_LOG_AND_REFLECTION}
 
 ${RULES}"
 
-    echo "→ Launching Claude in revision-draft mode (new branch)..."
+    echo "→ Launching Claude in build-draft mode (new branch)..."
     echo
 
     run_claude "$PROMPT" -w "$WORKTREE_NAME"
@@ -423,7 +423,7 @@ fi
 
 echo
 echo "================================================================"
-echo "  REVISION-DRAFT WORKFLOW COMPLETE"
+echo "  BUILD-DRAFT WORKFLOW COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"

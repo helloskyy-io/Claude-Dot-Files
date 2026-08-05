@@ -15,8 +15,8 @@ We use a dual workflow model:
 **Workflow 2 (Autonomous — separate terminals):** I kick off workflow scripts that run independently in isolated git worktrees. They produce PRs for me to review. I often run 2-3 of these in parallel while we work here.
 
 Available workflow scripts (run from terminal, not from this chat):
-- `revision-minor.sh "description"` — minor code fixes, single pass, no review agents
-- `revision.sh "description"` — significant code rework. **Parent workflow**: a draft run writes the change, then a SECOND run with fresh context reviews and corrects it (code-reviewer + refactoring-evaluator + standards-auditor + quality-control)
+- `build-minor.sh "description"` — minor code fixes, single pass, no review agents
+- `build.sh "description"` — significant code rework. **Parent workflow**: a draft run writes the change, then a SECOND run with fresh context reviews and corrects it (code-reviewer + refactoring-evaluator + standards-auditor + quality-control)
 - `build-phase.sh path/to/plan.md "context"` — implement from a plan document
 - `plan-new.sh "project-name" "context"` — define a new project from scratch (architect + planner + security-auditor review)
 - `plan-revision.sh "description" "context"` — revise existing planning docs (architect + planner review)
@@ -27,8 +27,8 @@ All support `--pr <N>` (update existing PR) and `--verbose` (live output). The s
 **Which script do I need?**
 - New repo from scratch → `plan-new.sh`
 - Revise planning docs in existing repo → `plan-revision.sh`
-- Small code fix → `revision-minor.sh`
-- Large code rework → `revision.sh`
+- Small code fix → `build-minor.sh`
+- Large code rework → `build.sh`
 - Implement from a plan doc → `build-phase.sh`
 - Analyze workflow logs → `review-runs.sh`
 
@@ -62,7 +62,7 @@ CONTEXT
 2. Review any open PRs from autonomous workflows
 3. Plan what to tackle — check off completed items, identify next steps
 4. Dispatch autonomous workflows in other terminals while we work interactively here
-5. Review results as they come in, merge or request revisions
+5. Review results as they come in, merge or request builds
 6. Update the roadmap and documentation as we go
 
 ## Key Principles

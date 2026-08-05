@@ -1,4 +1,4 @@
-"""revision-refine — FRESH context: did this deliver what was asked, then review and fix.
+"""build-refine — FRESH context: did this deliver what was asked, then review and fix.
 
 Folder holds only this file (§10.1 rule 6) — the family's trio is promoted to
 `assistant_activities.py`.
@@ -18,7 +18,7 @@ from .. import assistant_activities as act
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
-MODEL_KEY = "revision-refine"
+MODEL_KEY = "build-refine"
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
@@ -57,7 +57,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     url = act.extract_pr_url(output)
     if not url:
         raise RuntimeError(
-            f"revision-refine produced no PR URL on PR #{pr_number}. "
+            f"build-refine produced no PR URL on PR #{pr_number}. "
             f"The PR EXISTS and is UNREVIEWED — it must not be merged as-is."
         )
     return url

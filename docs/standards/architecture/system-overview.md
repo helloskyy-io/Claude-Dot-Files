@@ -33,14 +33,14 @@ The organizing axis is **who invokes it**. That single question places every fil
 A parent calls no model. It decides *if*, *when* and *what* to call, and holds no process code.
 
 ```
-revision.sh
-  ├─ children/revision-draft.sh    writes the change, opens an UNREVIEWED PR
-  ├─ children/revision-refine.sh   FRESH context: fidelity, review, corrections
+build.sh
+  ├─ children/build-draft.sh    writes the change, opens an UNREVIEWED PR
+  ├─ children/build-refine.sh   FRESH context: fidelity, review, corrections
   └─ children/review-pr.sh         decide-only: MERGE | HOLD + a runway
         └─ HOLD(redispatch) → one bounded loop-back, then stop
 ```
 
-`revision-minor.sh` runs the identical sequence with lighter children. The handoff between runs is git plus the original task — nothing else crosses.
+`build-minor.sh` runs the identical sequence with lighter children. The handoff between runs is git plus the original task — nothing else crosses.
 
 **The completion contract is the interface.** Each child declares a pattern its final output must contain, so `exit 0` provably means *finished*. A parent needs that plus one stable identifier on the final line, which is why composition here needs no framework.
 

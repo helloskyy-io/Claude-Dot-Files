@@ -1,11 +1,11 @@
-"""Pure compiler for the revision workflow — Layer 2.
+"""Pure compiler for the build workflow — Layer 2.
 
 BINDING PROPERTY: nothing in this module performs I/O. No subprocess, no
 network, no filesystem, no clock. Every function is a deterministic map from
 inputs to a value, which is what makes it unit-testable with no mocks and what
 makes the workflow above it replayable once Temporal arrives.
 
-Everything here was inline in `revision.sh`. The bash version was already
+Everything here was inline in `build.sh`. The bash version was already
 correct about the boundary — its own comment says the verdict parsing and URL
 extraction "deliberately stay HERE ... pure string to decision, no I/O, and they
 ARE the if/then a parent exists to hold." This module is that paragraph made
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from .revision_inputs import ChildResult, RevisionInput, Verdict
+from .build_inputs import ChildResult, BuildInput, Verdict
 
 # The draft child's completion contract: it must open (or update) a PR and print
 # its URL. A run that produced no URL did not finish, whatever it exited with.
@@ -30,7 +30,7 @@ _VERDICT = re.compile(
 )
 
 # Exactly one loop-back. Not a knob, and deliberately not configurable — see
-# revision_workflow for why the bound comes from the plateau rather than a budget.
+# build_workflow for why the bound comes from the plateau rather than a budget.
 MAX_LOOPS = 1
 
 
@@ -79,7 +79,7 @@ def should_loop_back(verdict: Verdict, loops_used: int) -> bool:
     return verdict is Verdict.HOLD_REDISPATCH and loops_used < MAX_LOOPS
 
 
-def child_args(task: RevisionInput) -> list[str]:
+def child_args(task: BuildInput) -> list[str]:
     """Flags every child receives. Flags first, positional last.
 
     Positional-in-the-middle gets stepped on by terminal line-wrap, which is why
@@ -93,7 +93,7 @@ def child_args(task: RevisionInput) -> list[str]:
     return args
 
 
-def task_args(task: RevisionInput) -> list[str]:
+def task_args(task: BuildInput) -> list[str]:
     """The task itself, as the child expects to receive it.
 
     --task-file bypasses shell parsing entirely, so quotes, newlines and
@@ -104,14 +104,14 @@ def task_args(task: RevisionInput) -> list[str]:
     return [task.description or ""]
 
 
-def draft_args(task: RevisionInput) -> list[str]:
+def draft_args(task: BuildInput) -> list[str]:
     args = child_args(task)
     if task.pr_number:
         args += ["--pr", task.pr_number]
     return args + task_args(task)
 
 
-def refine_args(task: RevisionInput, pr: str, *, correction_pass: bool, ci_unsettled: bool) -> list[str]:
+def refine_args(task: BuildInput, pr: str, *, correction_pass: bool, ci_unsettled: bool) -> list[str]:
     args = child_args(task)
     if correction_pass:
         args.append("--correction-pass")
@@ -120,7 +120,7 @@ def refine_args(task: RevisionInput, pr: str, *, correction_pass: bool, ci_unset
     return args + ["--pr", pr] + task_args(task)
 
 
-def review_args(task: RevisionInput, pr: str) -> list[str]:
+def review_args(task: BuildInput, pr: str) -> list[str]:
     return child_args(task) + ["--pr", pr]
 
 
@@ -133,12 +133,12 @@ def draft_handoff(result: ChildResult) -> str:
     """
     if not result.ok:
         raise RuntimeError(
-            "revision-draft FAILED — stopping before refine. Nothing was reviewed."
+            "build-draft FAILED — stopping before refine. Nothing was reviewed."
         )
     url = extract_pr_url(result.output)
     if not url:
         raise RuntimeError(
-            "revision-draft produced no PR URL — cannot hand off to refine. "
+            "build-draft produced no PR URL — cannot hand off to refine. "
             "The draft step must open (or update) a PR and print its URL as its final line."
         )
     return url

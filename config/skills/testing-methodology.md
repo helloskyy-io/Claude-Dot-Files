@@ -136,7 +136,7 @@ Three levels, each with different tradeoffs:
 | You're about to push | Tests for the affected modules |
 | You're in CI | Everything |
 
-### In Revision/Build Workflows
+### In Build/Build Workflows
 When fixing or implementing something:
 1. Identify which tests are relevant to the change
 2. Run **only those** tests first
@@ -333,8 +333,8 @@ TDD is a tool for specific situations, not a religion. Use it when it helps:
 
 ## Integration With Our Workflows
 
-### Revision Workflow (`revision.sh`)
-The revision workflow runs tests as part of verification. When using this skill:
+### Build Workflow (`build.sh`)
+The build workflow runs tests as part of verification. When using this skill:
 - Scope tests narrowly (only run tests for changed files)
 - If tests don't exist, the change is minimal enough to skip, or add them if the task warrants
 - If tests fail, fix them before committing — but only if the failure is from YOUR changes

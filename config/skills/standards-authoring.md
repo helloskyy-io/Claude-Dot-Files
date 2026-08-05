@@ -38,7 +38,7 @@ Concision tests:
 - Does the WHY drift into "originally...", "we decided...", "in Sprint X..."? That's HISTORY masquerading as WHY — cut it.
 - Is the WHY longer than the rule itself? Suspicious. Re-read it asking what the reader actually needs to make a judgment call.
 
-A standards doc with 30 rules each having a 2-line WHY is a 90-line standard. A standards doc with 30 rules each having a 6-line WHY is a 210-line standard. The bloat compounds at every prompt load, every audit, every revision. Tight WHY is durable; verbose WHY rots into dated narrative over time.
+A standards doc with 30 rules each having a 2-line WHY is a 90-line standard. A standards doc with 30 rules each having a 6-line WHY is a 210-line standard. The bloat compounds at every prompt load, every audit, every build. Tight WHY is durable; verbose WHY rots into dated narrative over time.
 
 ### Standards are loaded into AI context every dispatch
 
@@ -170,7 +170,7 @@ When the standards-architect surfaces bloat-pattern findings, it should:
 This skill is loaded by:
 
 - **standards-architect agent** — for corpus audits looking for bloat patterns
-- **plan-revision.sh** workflows that touch `docs/standards/*` — to ensure the revision doesn't add bloat
+- **plan-revision.sh** workflows that touch `docs/standards/*` — to ensure the build doesn't add bloat
 - **plan-new.sh** workflows that author new standards — to ensure the new doc starts timeless
 
 When standards-architect runs as part of `review-sprint.sh` or `plan-revision.sh`'s peer-review stage, bloat-pattern findings should surface in the structured report alongside the existing checks (cross-reference integrity, gap analysis, drift, etc.).

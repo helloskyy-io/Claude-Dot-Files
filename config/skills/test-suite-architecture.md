@@ -430,7 +430,7 @@ Same pattern as Ansible:
 
 ### What Autonomous Workflows Must Do
 
-When a workflow (revision-draft, build-phase) creates tests during implementation:
+When a workflow (build-draft, build-phase) creates tests during implementation:
 
 1. **Place test files in the standard hierarchy** — follow the project's testing standard
 2. **Verify discovery** — run the component suite to confirm the test is found

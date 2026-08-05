@@ -3,7 +3,7 @@
 # plan-new.sh — the PLAN-NEW workflow
 # Research and planning workflow for defining new projects from scratch.
 #
-# This is the heaviest autonomous workflow. Unlike revision workflows that fix
+# This is the heaviest autonomous workflow. Unlike build workflows that fix
 # existing code or build-phase that implements from a plan, this workflow
 # CREATES the plan. It takes a project name and optional context, then walks
 # through the full project definition process: requirements gathering, tech
@@ -96,7 +96,7 @@ line-wrap and keeps options visible):
 
 This workflow defines a new project from scratch — requirements, architecture,
 phasing, and documentation. For building from an existing plan, use build-phase.sh.
-For corrections to existing code, use revision-minor.sh (light fixes) or revision.sh (reviewed rework).
+For corrections to existing code, use build-minor.sh (light fixes) or build.sh (reviewed rework).
 EOF
 }
 

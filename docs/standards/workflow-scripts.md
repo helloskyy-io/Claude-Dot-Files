@@ -20,7 +20,7 @@ common/                shared LIBRARY CODE — logging, audit, delegation, types
 modules/               workflows, organized {module}/{purpose}/{name}/
   common/                workflows owned by no module
   {module}/              ONE PER EDGE — assistant/, home_automation/, robotics/, …
-    {purpose}/             a slice of work — revision/, research/, provision/
+    {purpose}/             a slice of work — build/, research/, provision/
       {name}/                ONE workflow, and everything it needs
         {name}_workflow.py     orchestration (Layer 1)
         {name}_helper.py       pure compiler (Layer 2)
@@ -133,7 +133,7 @@ This ensures:
 
 ## Required Features
 
-**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`revision-minor.sh`, `children/revision-draft.sh`, `children/revision-refine.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
+**Scope:** The subsections below apply to **task-execution workflows** — scripts that take a user-supplied task description and produce a PR (`build-minor.sh`, `children/build-draft.sh`, `children/build-refine.sh`, `build-phase.sh`, `plan-new.sh`, `plan-revision.sh`).
 
 **Analysis workflows** that derive their inputs from the filesystem without a user-supplied task (e.g. `review-runs.sh`, which scans `.claude/logs/`) MUST still implement the non-task-specific features: verbose flag, JSONL logging, stream format, `run_claude` helper, environment checks, repo-root operation, banners, and a structured prompt. They are exempt from the task-input features (`--pr <N>`, `--task-file <path>`, flags-first positional convention) because those features have no referent — there is no task string to carry. Every subsection below is marked **(task-execution only)** where it applies narrowly.
 
@@ -158,7 +158,7 @@ done
 
 ### 2. `--pr <N>` Flag (task-execution only)
 
-Task-execution workflow scripts must support updating an existing PR instead of creating a new one. This enables iterative revision loops — rerun the workflow against a PR after review feedback, and it commits and pushes to the PR's existing branch rather than creating a second PR.
+Task-execution workflow scripts must support updating an existing PR instead of creating a new one. This enables iterative build loops — rerun the workflow against a PR after review feedback, and it commits and pushes to the PR's existing branch rather than creating a second PR.
 
 ```bash
 PR_NUMBER=""
@@ -232,11 +232,11 @@ For scripts that take a positional task description, all examples in usage text 
 
 ```bash
 # Preferred — flags visible at the start, positional at the end
-./revision.sh --verbose --pr 22 --task-file /tmp/task.md
-./revision.sh --pr 5 "address all findings from PR #5"
+./build.sh --verbose --pr 22 --task-file /tmp/task.md
+./build.sh --pr 5 "address all findings from PR #5"
 
 # Avoid — positional in the middle gets stepped on by terminal line-wrap
-./revision.sh "address findings" --pr 5 --verbose
+./build.sh "address findings" --pr 5 --verbose
 ```
 
 Rationale: terminals line-wrap long commands. A trailing positional stays visible and editable even when earlier portions wrap. Flags at the front keep the options obvious at a glance.
@@ -351,7 +351,7 @@ Every run starts with a summary banner showing the configuration:
 
 ```bash
 echo "================================================================"
-echo "  REVISION WORKFLOW"
+echo "  BUILD WORKFLOW"
 echo "================================================================"
 echo "  Description : ${DESCRIPTION}"
 echo "  Target      : ${TARGET}"
@@ -412,7 +412,7 @@ This is the opposite case from `config/CLAUDE.md :: Terminal Commands & Prompts`
 
 **Quoted vs unquoted sentinel:** Use an unquoted `EOF` when the heredoc body must interpolate shell variables (like `${DESCRIPTION}`). Use a quoted `'EOF'` sentinel for any static block that should pass through literally — backticks, `$symbols`, and dollar-brace tokens all survive untouched, so you don't have to hunt down escape edge cases. Default to quoted when the block has no variables; it's the safer choice.
 
-`scripts/workflows/children/revision-refine.sh` shows both idioms in one file: the stage block and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so the stage text, `${RULES}`, and `${DESCRIPTION}` can interpolate. Safety from accidental expansion is the reason for the quoted sentinels.
+`scripts/workflows/children/build-refine.sh` shows both idioms in one file: the stage block and `RULES` are quoted (`'STAGES_EOF'`, `'RULES_EOF'`) because they're static, and the final `PROMPT` is built with double-quoted string concatenation so the stage text, `${RULES}`, and `${DESCRIPTION}` can interpolate. Safety from accidental expansion is the reason for the quoted sentinels.
 
 ## Composition (BINDING)
 
@@ -478,7 +478,7 @@ Use rules in the prompt to constrain behavior. Autonomous mode uses `--dangerous
 Be explicit about what Claude should NOT do.
 
 ### Single claude -p vs Multiple
-For small workflows (like `revision.sh`), a single `claude -p` call handles all stages in one session. Context bloat isn't a concern for small tasks.
+For small workflows (like `build.sh`), a single `claude -p` call handles all stages in one session. Context bloat isn't a concern for small tasks.
 
 For larger workflows (like `build-phase.sh`), break into multiple `claude -p` calls with state passed via files. This gets fresh context per stage and avoids context bloat.
 
@@ -688,7 +688,7 @@ Before marking a new workflow script as complete:
 ## Critical Rules
 
 - **Workflow scripts MUST support `--verbose` flag** — visibility is not optional
-- **Task-execution workflow scripts MUST support `--pr <N>` flag** — enables iterative revision and gh-monitor integration (does not apply to analysis workflows like `review-runs.sh` that have no user-supplied task)
+- **Task-execution workflow scripts MUST support `--pr <N>` flag** — enables iterative build and gh-monitor integration (does not apply to analysis workflows like `review-runs.sh` that have no user-supplied task)
 - **Task-execution workflow scripts MUST support `--task-file <path>` flag** — required for multi-paragraph/special-character payloads (same scope carve-out)
 - **Workflow scripts MUST log to `.claude/logs/`** — post-mortem analysis matters
 - **Workflow scripts MUST validate environment upfront** — fail fast

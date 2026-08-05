@@ -19,9 +19,9 @@ The problem is not that models write bad code. It is that **the author of a chan
 So the boundary is structural rather than textual:
 
 ```
-revision.sh  (parent — pure bash, calls no model itself)
-  ├─ 1. children/revision-draft.sh    writes the change, opens an UNREVIEWED PR
-  ├─ 2. children/revision-refine.sh   FRESH context: did this deliver what was asked? then review, fix
+build.sh  (parent — pure bash, calls no model itself)
+  ├─ 1. children/build-draft.sh    writes the change, opens an UNREVIEWED PR
+  ├─ 2. children/build-refine.sh   FRESH context: did this deliver what was asked? then review, fix
   └─ 3. children/review-pr.sh         decide-only: MERGE, or HOLD with a runway
 ```
 
@@ -56,7 +56,7 @@ Prerequisites, VM and Ansible paths, troubleshooting: **[Deployment guide →](d
 **Autonomous** is for planned work you can walk away from. A workflow runs headless in an isolated git worktree, reviews its own output through agent panels, and delivers a PR:
 
 ```bash
-./scripts/workflows/revision.sh "restructure the auth flow to use sessions"
+./scripts/workflows/build.sh "restructure the auth flow to use sessions"
 ./scripts/workflows/build-phase.sh docs/development/phases/phase-1.md --verbose
 ./scripts/workflows/children/review-pr.sh --pr 42
 ```

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
-# revision-minor.sh — the REVISION-MINOR workflow (PARENT)
+# build-minor.sh — the BUILD-MINOR workflow (PARENT)
 # Minor scoped corrections, delivered as a reviewed PR.
 #
 # This is a PARENT workflow: pure bash orchestration over two independent
 # child runs. It calls no model itself, so it has no MODEL_KEY and no
 # COMPLETION_PATTERN — each child carries its own.
 #
-#   1. children/revision-draft-minor.sh   — writes the change, opens an UNREVIEWED PR
-#   2. children/revision-refine-minor.sh  — FRESH context: reviews and corrects it
+#   1. children/build-draft-minor.sh   — writes the change, opens an UNREVIEWED PR
+#   2. children/build-refine-minor.sh  — FRESH context: reviews and corrects it
 #   3. review-pr.sh                 — decide-only: MERGE, or HOLD + a runway
 #
 # review-pr is called at the TOP level, not from children/, and that is
-# deliberate. children/ means "ONLY a parent invokes this" — revision-draft-minor
+# deliberate. children/ means "ONLY a parent invokes this" — build-draft-minor
 # alone produces an unreviewed PR that is never a deliverable. review-pr is a
 # complete, useful act on ANY returned PR whatever produced it, so it stays
 # independently dispatchable. A parent calling a top-level workflow is normal;
@@ -43,20 +43,20 @@
 # composition.
 #
 # Usage:
-#   ./revision-minor.sh "description of changes needed" [options]
-#   ./revision-minor.sh --task-file path/to/task.md [options]
+#   ./build-minor.sh "description of changes needed" [options]
+#   ./build-minor.sh --task-file path/to/task.md [options]
 #
 # Options:
 #   --pr <number>        Rework an EXISTING PR (draft updates it in place)
 #   --repo <path>        Target repo (explicit identity, never derived from cwd)
 #   --verbose, -v        Stream formatted Claude output live
 #
-# The LIGHT tier. Same three-child shape as revision.sh — deliberately, so
+# The LIGHT tier. Same three-child shape as build.sh — deliberately, so
 # there is one mental model rather than two — but the middle child runs ONE
 # review lens (code-reviewer) instead of four, on a cheaper model with half the
 # turn budget. That is the whole difference, and it is a real one: roughly $7
 # against $25-50. If the review keeps surfacing structural or standards
-# problems, the task was mis-sized and belongs on revision.sh.
+# problems, the task was mis-sized and belongs on build.sh.
 #
 # See docs/guide/workflows.md for the dual-flow model.
 # See docs/standards/workflow-scripts.md for the standard this script follows.
@@ -64,8 +64,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DRAFT="${SCRIPT_DIR}/children/revision-draft-minor.sh"
-REFINE="${SCRIPT_DIR}/children/revision-refine-minor.sh"
+DRAFT="${SCRIPT_DIR}/children/build-draft-minor.sh"
+REFINE="${SCRIPT_DIR}/children/build-refine-minor.sh"
 PR_REVIEW="${SCRIPT_DIR}/children/review-pr.sh"
 
 show_usage() {
@@ -73,9 +73,9 @@ show_usage() {
 Usage: $(basename "$0") "description of changes needed" [options]
        $(basename "$0") --task-file path/to/task.md [options]
 
-Runs the three-child minor-revision cycle:
-  1. revision-draft-minor   — writes the change, opens an unreviewed PR
-  2. revision-refine-minor  — FRESH context: fidelity, ONE review lens, corrections
+Runs the three-child minor-build cycle:
+  1. build-draft-minor   — writes the change, opens an unreviewed PR
+  2. build-refine-minor  — FRESH context: fidelity, ONE review lens, corrections
   3. review-pr              — decide-only disposition: MERGE, or HOLD with a runway
 
 On HOLD(redispatch) the parent loops back ONCE (refine -> review-pr) and then
@@ -98,7 +98,7 @@ Examples (flags FIRST, positionals LAST):
   $(basename "$0") --pr 42 "address the findings from PR #42"
   $(basename "$0") --repo /opt/skyy-net/skyy-command --task-file /tmp/task.md
 
-For multi-file or architectural rework, use revision.sh.
+For multi-file or architectural rework, use build.sh.
 EOF
 }
 
@@ -141,7 +141,7 @@ if [[ -n "$PR_NUMBER" && ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
     echo "Error: --pr requires a positive integer" >&2; exit 1
 fi
 # Validate here as well as in the children. The children would catch it, but the
-# failure would arrive wrapped in "revision-draft-minor FAILED", which reads like a
+# failure would arrive wrapped in "build-draft-minor FAILED", which reads like a
 # model failure rather than a typo in the path.
 if [[ -n "$TASK_FILE" && ! -r "$TASK_FILE" ]]; then
     echo "Error: task file not readable: ${TASK_FILE}" >&2; exit 1
@@ -166,15 +166,15 @@ TASK_ARGS=()
 if [[ -n "$TASK_FILE" ]]; then TASK_ARGS+=(--task-file "$TASK_FILE"); else TASK_ARGS+=("$DESCRIPTION"); fi
 
 echo "================================================================"
-echo "  REVISION-MINOR WORKFLOW (parent: draft → refine → review-pr)"
+echo "  BUILD-MINOR WORKFLOW (parent: draft → refine → review-pr)"
 echo "================================================================"
 if [[ -n "$PR_NUMBER" ]]; then
     echo "  Target      : PR #${PR_NUMBER} (rework in place)"
 else
     echo "  Target      : new branch and PR"
 fi
-echo "  Child 1     : revision-draft-minor   (writes the change)"
-echo "  Child 2     : revision-refine-minor  (fresh context: one lens, corrects)"
+echo "  Child 1     : build-draft-minor   (writes the change)"
+echo "  Child 2     : build-refine-minor  (fresh context: one lens, corrects)"
 echo "  Child 3     : review-pr              (decide-only: MERGE | HOLD + runway)"
 echo "  On HOLD     : ONE loop-back (refine → review-pr), then stop. Never twice."
 echo "================================================================"
@@ -186,13 +186,13 @@ echo
 DRAFT_ARGS=("${CHILD_ARGS[@]}")
 [[ -n "$PR_NUMBER" ]] && DRAFT_ARGS+=(--pr "$PR_NUMBER")
 
-echo "→ [1/3] revision-draft-minor…"
+echo "→ [1/3] build-draft-minor…"
 echo
 DRAFT_LOG="$(mktemp)"
 TMP_LOGS+=("$DRAFT_LOG")
 if ! "$DRAFT" "${DRAFT_ARGS[@]}" "${TASK_ARGS[@]}" 2>&1 | tee "$DRAFT_LOG"; then
     echo >&2
-    echo "✗ revision-draft-minor FAILED — stopping before refine." >&2
+    echo "✗ build-draft-minor FAILED — stopping before refine." >&2
     echo "  Nothing was reviewed. Inspect the draft output above; the worktree (if any) persists." >&2
     exit 1
 fi
@@ -202,7 +202,7 @@ fi
 PR_URL=$(grep -oE 'https://github\.com/[^ )]+/pull/[0-9]+' "$DRAFT_LOG" | tail -1)
 if [[ -z "$PR_URL" ]]; then
     echo >&2
-    echo "✗ revision-draft-minor produced no PR URL — cannot hand off to refine." >&2
+    echo "✗ build-draft-minor produced no PR URL — cannot hand off to refine." >&2
     echo "  The draft step must open (or update) a PR and print its URL as its final line." >&2
     exit 1
 fi
@@ -238,11 +238,11 @@ run_refine() {
     local args=("${CHILD_ARGS[@]}" "$@")
     $CI_UNSETTLED && args+=(--ci-unsettled)
 
-    echo "→ ${label} revision-refine-minor on PR #${DRAFT_PR}…"
+    echo "→ ${label} build-refine-minor on PR #${DRAFT_PR}…"
     echo
     if ! "$REFINE" "${args[@]}" --pr "$DRAFT_PR" "${TASK_ARGS[@]}"; then
         echo >&2
-        echo "✗ revision-refine-minor FAILED on PR #${DRAFT_PR}." >&2
+        echo "✗ build-refine-minor FAILED on PR #${DRAFT_PR}." >&2
         echo "  The PR EXISTS and is unreviewed — it must not be merged as-is." >&2
         echo "  Re-run just the review step:" >&2
         echo "    ${REFINE} --pr ${DRAFT_PR} <the same task>" >&2
@@ -254,7 +254,7 @@ run_refine() {
 # run_pr_review <label> — the disposition child; echoes its routing token
 # ---------------------------------------------------------------------------
 # review-pr lives at the TOP level, not in children/, and is called in place.
-# children/ means "only a parent invokes this" — revision-draft-minor alone produces
+# children/ means "only a parent invokes this" — build-draft-minor alone produces
 # an unreviewed PR that is never a deliverable. review-pr is a complete, useful
 # act on ANY returned PR regardless of which workflow produced it, so it stays
 # independently dispatchable. A parent calling a top-level workflow is normal:
@@ -332,14 +332,14 @@ run_pr_review "[3/3]" || exit 1
 
 case "$VERDICT_LINE" in
     "VERDICT: MERGE")
-        finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} drafted, refined, dispositioned MERGE" \
+        finish "BUILD-MINOR COMPLETE — PR #${DRAFT_PR} drafted, refined, dispositioned MERGE" \
                "  review-pr found nothing holding this PR. Ready to merge."
         exit 0 ;;
 
     "VERDICT: HOLD - needs-assistance")
         # No loop, ever. A human ruling is not something more passes can produce,
         # so spending them is pure waste.
-        finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} HELD, needs a human" \
+        finish "BUILD-MINOR COMPLETE — PR #${DRAFT_PR} HELD, needs a human" \
                "  review-pr found at least one item only YOU can rule on. No automated
   loop-back was attempted: more passes cannot produce a human decision.
   The runway is in the pr_review: block on the PR."
@@ -361,12 +361,12 @@ wait_for_ci "$DRAFT_PR"
 run_pr_review "[loop 2/2]" || exit 1
 
 if [[ "$VERDICT_LINE" == "VERDICT: MERGE" ]]; then
-    finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} MERGE after one correction loop" \
+    finish "BUILD-MINOR COMPLETE — PR #${DRAFT_PR} MERGE after one correction loop" \
            "  The runway closed unattended. Ready to merge."
     exit 0
 fi
 
-finish "REVISION-MINOR COMPLETE — PR #${DRAFT_PR} still HELD after the correction loop" \
+finish "BUILD-MINOR COMPLETE — PR #${DRAFT_PR} still HELD after the correction loop" \
        "  The automated loop is SPENT — one loop-back is the cap, because passes
   beyond it produce justification rather than correction. This PR now needs you.
   What remains is in the latest pr_review: block on the PR

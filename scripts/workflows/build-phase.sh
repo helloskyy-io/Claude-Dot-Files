@@ -4,7 +4,7 @@
 # Architect and build a planned phase or feature from a plan document.
 #
 # This is the primary autonomous workflow for implementing a planned phase or
-# feature. Unlike revision workflows that take a free-text description, this
+# feature. Unlike build workflows that take a free-text description, this
 # workflow takes a PATH to a plan document (phase doc, feature doc, or roadmap
 # section) as its primary input. Claude reads the plan, extracts scope and
 # success criteria, validates dependencies, then implements, tests, reviews,
@@ -86,7 +86,7 @@ line-wrap and keeps options visible):
   $(basename "$0") --verbose docs/development/roadmap.md
 
 This workflow reads a plan document and builds what it describes.
-For corrections to existing code, use revision-minor.sh (light fixes) or revision.sh (reviewed rework) instead.
+For corrections to existing code, use build-minor.sh (light fixes) or build.sh (reviewed rework) instead.
 EOF
 }
 

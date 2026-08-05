@@ -1,4 +1,4 @@
-"""Kickoff entrypoint for the revision workflow.
+"""Kickoff entrypoint for the build workflow.
 
 Lives in scripts/ because it is a launch concern, not a workflow concern. When
 the Temporal path exists this is replaced by a client that starts the workflow
@@ -13,15 +13,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.assistant.revision.revision_inputs import RevisionInput  # noqa: E402
-from modules.assistant.revision.revision_workflow import run_revision  # noqa: E402
+from modules.assistant.build.build_inputs import BuildInput  # noqa: E402
+from modules.assistant.build.build_workflow import run_build  # noqa: E402
 
 BANNER = "=" * 64
 
 
-def parse_args(argv: list[str] | None = None) -> RevisionInput:
+def parse_args(argv: list[str] | None = None) -> BuildInput:
     parser = argparse.ArgumentParser(
-        prog="revision",
+        prog="build",
         description="Draft, refine and disposition a change as a reviewed PR.",
     )
     parser.add_argument("description", nargs="?", help="what to revise")
@@ -31,11 +31,11 @@ def parse_args(argv: list[str] | None = None) -> RevisionInput:
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args(argv)
 
-    # RevisionInput validates the exactly-one-task-source rule and raises with a
+    # BuildInput validates the exactly-one-task-source rule and raises with a
     # readable message; converting it to argparse's error path keeps the CLI
     # contract in one place.
     try:
-        return RevisionInput(
+        return BuildInput(
             description=args.description,
             task_file=args.task_file,
             pr_number=args.pr_number,
@@ -51,8 +51,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         repo_root = Path(task.repo_target) if task.repo_target else Path.cwd()
-        worktree_name = f"revision-{int(__import__('time').time())}"
-        result = run_revision(task, repo_root, worktree_name)
+        worktree_name = f"build-{int(__import__('time').time())}"
+        result = run_build(task, repo_root, worktree_name)
     except (RuntimeError, FileNotFoundError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.
@@ -62,11 +62,11 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print(BANNER)
     if result.ready_to_merge:
-        headline = f"REVISION COMPLETE — PR #{result.pr_number} dispositioned MERGE"
+        headline = f"BUILD COMPLETE — PR #{result.pr_number} dispositioned MERGE"
         if result.loops_used:
             headline += f" after {result.loops_used} correction loop"
     else:
-        headline = f"REVISION COMPLETE — PR #{result.pr_number} HELD ({result.verdict.value})"
+        headline = f"BUILD COMPLETE — PR #{result.pr_number} HELD ({result.verdict.value})"
     print(f"  {headline}")
     print(BANNER)
     print()

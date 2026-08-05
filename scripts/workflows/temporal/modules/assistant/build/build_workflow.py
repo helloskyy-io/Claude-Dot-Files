@@ -1,4 +1,4 @@
-"""The revision parent — Layer 1 orchestration.
+"""The build parent — Layer 1 orchestration.
 
 A parent calls no model. It decides IF, WHEN and WHAT to call, and holds no
 process code. Every branch is a pure decision from the helper; every side effect
@@ -29,16 +29,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import revision_helper as helper
-from .revision_activities import wait_for_ci
-from .revision_inputs import RevisionInput, RevisionResult, Verdict
+from . import build_helper as helper
+from .build_activities import wait_for_ci
+from .build_inputs import BuildInput, BuildResult, Verdict
 from ..review_pr import review_pr_workflow as review_pr
 from ..review_pr.review_pr_helper import ReviewInput
-from ..revision_draft import revision_draft_workflow as draft
-from ..revision_refine import revision_refine_workflow as refine
+from ..build_draft import build_draft_workflow as draft
+from ..build_refine import build_refine_workflow as refine
 
 
-def run_revision(task: RevisionInput, repo_root: Path, worktree_name: str) -> RevisionResult:
+def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
     description = task.description or Path(task.task_file).read_text()
@@ -71,11 +71,11 @@ def run_revision(task: RevisionInput, repo_root: Path, worktree_name: str) -> Re
         notes.append("The automated loop is SPENT — one loop-back is the cap, because "
                      "passes beyond it produce justification rather than correction.")
 
-    return RevisionResult(pr_number=pr, pr_url=pr_url, verdict=verdict,
+    return BuildResult(pr_number=pr, pr_url=pr_url, verdict=verdict,
                           loops_used=loops, notes=notes)
 
 
-def _refine_then_dispose(task: RevisionInput, description: str, pr: str,
+def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          repo_root: Path, worktree_name: str,
                          notes: list[str], *, correction: bool) -> Verdict:
     """One refine pass followed by one disposition pass."""

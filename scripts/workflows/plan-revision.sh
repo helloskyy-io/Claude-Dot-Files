@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# plan-revision.sh — the PLAN-REVISION workflow
+# plan-revision.sh — the PLAN-BUILD workflow
 # Daily planning workflow for revising existing planning docs.
 #
 # This workflow is for PLANNING changes, not code changes. It revises
@@ -80,8 +80,8 @@ line-wrap and keeps options visible):
   $(basename "$0") --pr 18 --task-file /tmp/context.md "revise Phase 5 requirements"
   $(basename "$0") --verbose "realign roadmap milestones"
 
-This workflow is for PLANNING doc revisions — not code changes.
-For code changes, use revision-minor.sh (light fixes) or revision.sh (reviewed rework) instead.
+This workflow is for PLANNING doc builds — not code changes.
+For code changes, use build-minor.sh (light fixes) or build.sh (reviewed rework) instead.
 EOF
 }
 
@@ -195,7 +195,7 @@ mkdir -p "$LOG_DIR"
 # Summary banner
 # ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  PLAN-REVISION WORKFLOW"
+echo "  PLAN-BUILD WORKFLOW"
 echo "================================================================"
 echo "  Description : ${DESCRIPTION}"
 if [[ -n "$CONTEXT" ]]; then
@@ -279,13 +279,13 @@ plan_stop:
 - The resolving artifact closes it (research PR body says \`Closes #N\`; a waiver re-dispatch cites #N). gh-monitor safety: NO line in the issue body may START with \`@claude\` — put any dispatch-command illustration inside a code fence.
 - Then print the issue URL as your FINAL line — it is the STOP's completion signal (exit-0-means-done holds for stop-outcomes too).
 
-**Workflow-fit check — do this BEFORE proceeding past Stage 1.** Assess whether this task actually belongs on plan-revision. If the task is predominantly a bulk rename, find-and-replace, or mechanical refactor across many files (not a genuine plan/architecture/requirements revision), STOP and report:
+**Workflow-fit check — do this BEFORE proceeding past Stage 1.** Assess whether this task actually belongs on plan-revision. If the task is predominantly a bulk rename, find-and-replace, or mechanical refactor across many files (not a genuine plan/architecture/requirements build), STOP and report:
 
-> This task looks like a bulk rename/refactor rather than a plan revision. plan-revision.sh is sized for review-based planning changes and would burn through the turn budget on per-occurrence Edits. Recommend dispatching via revision-minor.sh or revision.sh with `sed -i` or `Edit(replace_all: true)` instead.
+> This task looks like a bulk rename/refactor rather than a plan build. plan-revision.sh is sized for review-based planning changes and would burn through the turn budget on per-occurrence Edits. Recommend dispatching via build-minor.sh or build.sh with `sed -i` or `Edit(replace_all: true)` instead.
 
 Exit without proceeding to Stage 2. Red flags that indicate miscategorization: the task is "rename X to Y everywhere," "update all references from A to B," "replace every occurrence of Z," or anything requiring dozens of identical edits across many files.
 
-If the task is a legitimate planning revision, summarize the current state before proceeding. Focus on the areas relevant to the requested changes.
+If the task is a legitimate planning build, summarize the current state before proceeding. Focus on the areas relevant to the requested changes.
 
 ## Stage 2: PLAN
 Determine what specifically needs to change:
@@ -329,12 +329,12 @@ Dispatch all FOUR peer-review agents — architect, planner, security-auditor, a
 
 **The dispatch contract (headless-safe):** dispatch all four as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL four narrow-lens results are in hand.
 
-**CLASSIFY THE REVISION FIRST, and tell each agent which lens to apply.** Planning revisions come in two shapes and the question sets differ:
+**CLASSIFY THE BUILD FIRST, and tell each agent which lens to apply.** Planning builds come in two shapes and the question sets differ:
 
 - **PROPOSING** — the doc puts forward a design, plan, or direction not yet built. The per-agent focus questions below apply as written.
 - **RECORDING (reflect-stage)** — the doc records what a build ALREADY produced: flipping status, surfacing what the build exposed, correcting stale gate language. This shape recurs constantly (every build landing against a phase doc generates one), and the proposing questions fit it badly — asking 'are the trade-offs documented' of a doc whose job is to record an outcome yields a stretch or a shrug.
 
-**When the revision is RECORDING, each agent applies this lens INSTEAD of its proposing questions** (keeping its own specialty as the angle):
+**When the build is RECORDING, each agent applies this lens INSTEAD of its proposing questions** (keeping its own specialty as the angle):
 - **Does the doc accurately describe what actually happened?** Verify claims against the tree, not against the doc's own narrative.
 - **Are its claims tree-qualified?** A status flipped to done, a gate declared satisfied, a count asserted — each must be checkable against the current tree, and you check it. An unqualified claim in a record is the defect.
 - **Did everything the build surfaced actually reach a durable surface?** Amendment candidates, follow-ups, newly-exposed gaps — each needs a home (a queue section, an issue, a phase-doc entry). Anything surfaced by the build and recorded nowhere is the finding.
@@ -361,25 +361,25 @@ Each agent's review focus (PROPOSING shape — see the RECORDING lens above when
 - Do the proposed changes introduce new attack surface (network endpoints, auth paths, secret handling, privilege escalation paths)?
 - Are existing security boundaries preserved or weakened?
 - Do new components introduce dependencies that need security review?
-- Are there security-relevant standards that this revision should align with (input validation, secret rotation, RBAC scoping, audit logging)?
-- For revisions that modify existing security-relevant patterns, is the change strictly safer or strictly equivalent? Anything weaker needs explicit justification.
-- Severity: Critical / High / Medium / Low. Cite the specific section of the planning doc and the security concern. Don't manufacture findings — if the revision has no security implications (e.g., a roadmap date bump), say so and move on.
+- Are there security-relevant standards that this build should align with (input validation, secret rotation, RBAC scoping, audit logging)?
+- For builds that modify existing security-relevant patterns, is the change strictly safer or strictly equivalent? Anything weaker needs explicit justification.
+- Severity: Critical / High / Medium / Low. Cite the specific section of the planning doc and the security concern. Don't manufacture findings — if the build has no security implications (e.g., a roadmap date bump), say so and move on.
 
 #### standards-architect agent — standards corpus interactions
 - **Cross-reference integrity:** do references to `docs/standards/*.md` from the revised planning docs resolve? Is the content accurate? When a doc references a specific sub-section (e.g., "§6b", "Section 3.2", "the Deployment Standard networking section"), verify that sub-section actually exists — not just the parent document.
-- **Gap analysis:** does this revision propose new work (phases, features, components) that will need new standards? Flag gaps — do not create draft standards in this stage.
+- **Gap analysis:** does this build propose new work (phases, features, components) that will need new standards? Flag gaps — do not create draft standards in this stage.
 - **Documentation-structure conformance:** does the revised doc follow the four-bucket convention (architecture=WHY, development=WHAT, standards=HOW, guide=USER-FACING) and the documentation-structure skill?
-- **Drift risk:** does the revision introduce duplication between planning docs and standards docs (same rule stated in 2+ places)?
-- **Direct standards changes:** if the revision modifies `docs/standards/*.md` directly, is the change internally consistent and aligned with exemplar files in the code?
+- **Drift risk:** does the build introduce duplication between planning docs and standards docs (same rule stated in 2+ places)?
+- **Direct standards changes:** if the build modifies `docs/standards/*.md` directly, is the change internally consistent and aligned with exemplar files in the code?
 
-If one agent has no findings (e.g., a pure roadmap date bump triggers no security or standards implications), note inline (e.g., "security-auditor: no findings — revision has no security implications"). Do NOT emit a SKIPPED marker for the sub-phase as a whole — the sub-phase still ran.
+If one agent has no findings (e.g., a pure roadmap date bump triggers no security or standards implications), note inline (e.g., "security-auditor: no findings — build has no security implications"). Do NOT emit a SKIPPED marker for the sub-phase as a whole — the sub-phase still ran.
 
 ### Stage 4b: HOLISTIC REVIEW (sequential, after 4a returns)
 
 After Stage 4a's four agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
 
 The quality-control prompt MUST include:
-- The planning artifact being reviewed (file paths, summary of the revision)
+- The planning artifact being reviewed (file paths, summary of the build)
 - The structured findings from Stage 4a (architect + planner + security-auditor + standards-architect outputs, verbatim or paraphrased clearly)
 - Instruction to apply the holistic six-dimension lens to the PLAN itself AND look for meta-patterns across the quad's findings ("do these findings together suggest the plan is compromised, under-specified, or not enterprise-grade?")
 
@@ -428,7 +428,7 @@ source "${SCRIPT_DIR}/common/shared-prompts.sh"
 RULES=$(cat <<'RULES_EOF'
 Rules:
 - Follow each stage in order — do not skip stages
-- This is a PLANNING revision — do not modify code, scripts, or configuration files
+- This is a PLANNING build — do not modify code, scripts, or configuration files
 - Only modify files in docs/ (and the root CLAUDE.md if it references planning state)
 - **Worktree CWD discipline:** the workflow starts you in a git worktree at a specific absolute path. NEVER `cd` to the main repo's checkout — operations there land outside the worktree's branch and are invisible to the PR (silently lost work). When running sed/find/xargs across many files, pass the worktree's absolute path explicitly. If you need a Bash command in a different directory, use `(cd <worktree-abs-path> && command)` in a subshell rather than a top-level `cd`.
 - **File-reading discipline:** after the first full Read of a file, subsequent Reads MUST use `offset`+`limit` or use Grep to target a specific region. Do NOT re-read the entire file. Unbounded re-reads of already-read files are the single largest source of wasted tokens observed in production (one run hit 17× full reads of the same 1500-line file = ~45k redundant tokens). Narrow Reads after Edits are legitimate verification.
@@ -438,7 +438,7 @@ Rules:
 - **Re-Read before re-Editing anything you wrote earlier:** Edit requires a fresh Read. The classic failures: revising a /tmp staging file (e.g. `/tmp/claude-pr-body.md`) several turns after Writing it, or re-Editing a repo file many turns after its last Read (applying review findings). Either Read the file again first, or for staging files simply Write the full replacement content instead of Editing.
 - **Prefer relative paths inside the worktree:** the workflow places you at the worktree root. For Read/Grep/Glob/Edit/Write of files inside the worktree, use paths relative to the root rather than re-typing the long absolute worktree path. The model occasionally typos long absolute paths (e.g., `.claire/` instead of `.claude/`) — relative paths eliminate that bug class entirely.
 - **Parallel tool calls in the gather phase:** when gathering context (Read/Grep/Glob), batch 3+ independent tool calls into a single assistant turn. Sequential gather wastes turns. Parallel gather is a pure efficiency win — higher-parallelism runs are not more error-prone.
-- **Identifier/anchor rename pre-grep:** when the revision involves renaming identifiers, section IDs, anchor links, or cross-reference patterns, run a comprehensive `grep -E` BEFORE Stage 3 to enumerate ALL match variants (full IDs, bare prefixes with no suffix, anchor links, narrative references). Build the rename plan against the full match set; do NOT iterate "find another stale reference type" multiple times. Patterns like `\b1-1\.A1\b` only match digits-after-letter — also check for the bare-letter case `\b1-1\.A\b` and any narrative references.
+- **Identifier/anchor rename pre-grep:** when the build involves renaming identifiers, section IDs, anchor links, or cross-reference patterns, run a comprehensive `grep -E` BEFORE Stage 3 to enumerate ALL match variants (full IDs, bare prefixes with no suffix, anchor links, narrative references). Build the rename plan against the full match set; do NOT iterate "find another stale reference type" multiple times. Patterns like `\b1-1\.A1\b` only match digits-after-letter — also check for the bare-letter case `\b1-1\.A\b` and any narrative references.
 - **Tool parameter naming gotchas** (these cause recurring InputValidationErrors):
   - Grep on a single file uses `path`, NOT `file_path`. Read/Edit/Write use `file_path`.
   - Read does NOT take a `command` parameter — that's Bash.
@@ -473,9 +473,9 @@ if [[ -n "$PR_NUMBER" ]]; then
     echo "→ Creating worktree at ${WORKTREE_PATH}..."
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
-    PROMPT="You are executing the PLAN-REVISION workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+    PROMPT="You are executing the PLAN-BUILD workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This is a PLANNING doc revision workflow — not a code change workflow. Follow all 6 stages thoroughly.
+This is a PLANNING doc build workflow — not a code change workflow. Follow all 6 stages thoroughly.
 
 Task: ${DESCRIPTION}
 ${CONTEXT_BLOCK}
@@ -510,9 +510,9 @@ ${RULES}"
 
 else
     # ---- New branch path --------------------------------------------------
-    PROMPT="You are executing the PLAN-REVISION workflow on a new branch.
+    PROMPT="You are executing the PLAN-BUILD workflow on a new branch.
 
-This is a PLANNING doc revision workflow — not a code change workflow. Follow all 6 stages thoroughly.
+This is a PLANNING doc build workflow — not a code change workflow. Follow all 6 stages thoroughly.
 
 Task: ${DESCRIPTION}
 ${CONTEXT_BLOCK}
@@ -545,7 +545,7 @@ fi
 
 echo
 echo "================================================================"
-echo "  PLAN-REVISION WORKFLOW COMPLETE"
+echo "  PLAN-BUILD WORKFLOW COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"

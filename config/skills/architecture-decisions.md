@@ -326,14 +326,14 @@ Writing ADRs for decisions you made without documentation. The real context is a
 
 ## Integration With Workflows
 
-### revision.sh
-- Minor revisions don't usually need ADRs
-- If a revision surfaces a decision, pause and decide whether it needs an ADR
+### build.sh
+- Minor builds don't usually need ADRs
+- If a build surfaces a decision, pause and decide whether it needs an ADR
 
-### revision.sh (via children/revision-draft.sh)
-- Major revisions often involve architectural re-thinking
+### build.sh (via children/build-draft.sh)
+- Major builds often involve architectural re-thinking
 - This skill activates to analyze the proposed changes
-- New ADRs may be written as part of the revision
+- New ADRs may be written as part of the build
 
 ### build-phase.sh
 - Phases sometimes encounter decisions not anticipated in planning

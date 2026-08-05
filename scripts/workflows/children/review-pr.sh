@@ -9,7 +9,7 @@
 #
 # The founding premise is "every account is an account," NOT "the producing run
 # is biased." The bias framing was true when one run authored and self-judged;
-# it went false the moment revision.sh split authoring from judging, and every
+# it went false the moment build.sh split authoring from judging, and every
 # other PR-producing workflow is headed the same way. A premise that expires
 # invites future softening of the machinery it justifies. This one does not
 # expire: it holds for a stake-free producer, and it explains what was actually
@@ -323,7 +323,7 @@ Reach exactly ONE verdict:
   **CONVERGENCE RULE — severity, not count.** A flat open-item count reads as a stall when it is actually convergence: measured across three passes the count sat at 1 while severity fell live-bug → diagnostics-bug → preventive-only. **The first pass whose findings are ALL preventive (no live defect, no incorrect behaviour, nothing user- or security-visible — only 'a future change could regress this') IS convergence: return MERGE**, and say so ('converged: this pass's only findings are preventive'). List the preventive items as recommendations in the body so they are visible without holding the PR. Do not HOLD a PR whose remaining findings would never have blocked it on pass 1.
 
 - **HOLD** — the catch-all: ANYTHING still needs something to be right before this can merge. HOLD is NOT a rejection of the PR — it is a **runway**: the explicit, ordered list of what must happen so the NEXT pass is a MERGE. Every HOLD next-step is exactly one of two shapes:
-  1. **redispatch** — the correction is obvious and known. You write a scoped \`dispatch_context\` (which findings to fix, what to change, what NOT to touch) and NAME THE TOOL that should carry it, sized to the work: \`revision-minor.sh --pr ${PR_NUMBER}\` for a scoped correction that needs no review cycle (the common case — a known fix to known lines), \`revision.sh --pr ${PR_NUMBER}\` when the correction is substantial enough that it should itself be reviewed by a fresh context before merging, or \`plan-revision.sh\` when the real home is a doc/plan edit. A human fires it now; a parent workflow fires it once earned. Sizing the dispatch is part of the decision — an under-sized tool stalls at its turn cap, an over-sized one spends a review cycle on a one-line fix.
+  1. **redispatch** — the correction is obvious and known. You write a scoped \`dispatch_context\` (which findings to fix, what to change, what NOT to touch) and NAME THE TOOL that should carry it, sized to the work: \`build-minor.sh --pr ${PR_NUMBER}\` for a scoped correction that needs no review cycle (the common case — a known fix to known lines), \`build.sh --pr ${PR_NUMBER}\` when the correction is substantial enough that it should itself be reviewed by a fresh context before merging, or \`plan-revision.sh\` when the real home is a doc/plan edit. A human fires it now; a parent workflow fires it once earned. Sizing the dispatch is part of the decision — an under-sized tool stalls at its turn cap, an over-sized one spends a review cycle on a one-line fix.
   2. **needs-assistance** — human-in-the-loop is genuinely required. Use this when: you cannot confidently resolve an item; a follow-up has no home and where it belongs is a judgment call; the fix's economics/scope is the operator's call; the review uncovered something BIGGER than the PR (**a gap in the architecture or the plan**); or the PR's inputs include research artifacts and you find a **research defect** — apply the materiality test: *does correcting the defect change the outcome of the decision built on it?* NO → it rides the scheduled revalidation sweep (note it, do not hold on it). YES → needs-assistance with why_human \`research-defect\`: the research must be re-validated (a research-currency re-run) and any dependent planning re-run before this can merge. For each needs-assistance item, present your best RECOMMENDED resolution reasoned through /decide + /best-practices — and print the working: a one-line \`reframe:\` (the /decide reframed question) and a one-line \`bp:\` (the best-practice alignment) BEFORE the recommendation, so the operator audits your judgment at standup speed instead of trusting lens-flavored prose. Surfacing a real gap and asking for direction is a success, not a failure.
 
 Not all HOLD means dispatch. A HOLD may be entirely needs-assistance (e.g. the review found a planning gap and nothing else) — that is exactly the kind of major catch this workflow exists to surface. When you read your own verdict back, a human should see MERGE, or HOLD with a clear \"here is what happens next, and once it does this merges\" list.
@@ -376,7 +376,7 @@ pr_review:
       issue_repo: <owner/repo — where the WORK lives, not centralized>
       qualified: unrelated + substantial + not-already-covered   # state how each of the three was met
       # kind: redispatch — the correction is obvious/known:
-      dispatch_tool: <revision-minor.sh | revision.sh | plan-revision.sh>   # sized to the work (see Stage 4)
+      dispatch_tool: <build-minor.sh | build.sh | plan-revision.sh>   # sized to the work (see Stage 4)
       dispatch_context: |
         <the exact scoped task that dispatch_tool --pr ${PR_NUMBER} would carry:
          which findings to fix, what to change, and explicitly what NOT to touch.>

@@ -1,4 +1,4 @@
-"""External I/O for the revision workflow — Layer 3.
+"""External I/O for the build workflow — Layer 3.
 
 Everything that touches the outside world lives here. Under step 3 these gain
 `@activity.defn` and nothing else changes; that is the whole reason for putting
@@ -18,7 +18,7 @@ import sys
 import time
 from pathlib import Path
 
-from .revision_inputs import ChildResult
+from .build_inputs import ChildResult
 
 # How long CI is given to settle before a review reads its result. The bash
 # activity polled the GitHub API; this preserves the behaviour and the boundary.

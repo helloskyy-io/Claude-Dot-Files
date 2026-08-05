@@ -1,4 +1,4 @@
-"""Typed inputs and results for the revision workflow.
+"""Typed inputs and results for the build workflow.
 
 Layer boundary note: these are plain dataclasses with no Temporal import. Under
 the port's step 3 they become the payloads on `execute_activity` calls; today
@@ -26,7 +26,7 @@ class Verdict(str, Enum):
 
 
 @dataclass(frozen=True)
-class RevisionInput:
+class BuildInput:
     """What the operator asked for. Immutable for the life of the run."""
 
     description: str | None = None
@@ -64,7 +64,7 @@ class ChildResult:
 
 
 @dataclass
-class RevisionResult:
+class BuildResult:
     """The workflow's own typed return.
 
     This replaces the bash version's exit code plus stdout scraping. A caller

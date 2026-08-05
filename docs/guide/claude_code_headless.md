@@ -219,10 +219,10 @@ The figures below were early estimates and ran low once agent dispatch and revie
 
 | Workflow class | Cap | Example |
 |---|---|---|
-| Light single-pass fix | 100 | `revision-minor.sh` |
-| Reviewed child of a parent | 100–250 | `revision-refine-minor.sh` (100) · `revision-refine.sh` (250) |
+| Light single-pass fix | 100 | `build-minor.sh` |
+| Reviewed child of a parent | 100–250 | `build-refine-minor.sh` (100) · `build-refine.sh` (250) |
 | Disposition (decide-only, no code written) | 120 | `children/review-pr.sh` |
-| Phase implementation, planning revision | 300 | `build-phase.sh`, `plan-revision.sh` |
+| Phase implementation, planning build | 300 | `build-phase.sh`, `plan-revision.sh` |
 | Greenfield planning, whole-repo review | 500–600 | `plan-new.sh`, `review-sprint.sh` |
 
 **A cap is a RUNAWAY GUARD, not a budget.** An unused turn costs nothing — spend is driven by turns actually consumed, so raising a ceiling from 200 to 250 costs zero on every run that never reaches it, and only changes when the guard fires.

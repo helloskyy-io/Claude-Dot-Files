@@ -739,11 +739,11 @@ If a doc describes behavior that could be enforced in code (types, tests, lintin
 
 This skill is foundational for workflows that create documentation:
 
-### `revision.sh` (minor revisions)
-- Usually doesn't need this skill — revisions are code changes, not doc changes
-- If the revision creates or modifies docs, this skill activates
+### `build.sh` (minor builds)
+- Usually doesn't need this skill — builds are code changes, not doc changes
+- If the build creates or modifies docs, this skill activates
 
-### `revision.sh` (significant rework)
+### `build.sh` (significant rework)
 - May create ADRs to document major decisions
 - May update phase docs to reflect reality
 - This skill activates for those doc operations

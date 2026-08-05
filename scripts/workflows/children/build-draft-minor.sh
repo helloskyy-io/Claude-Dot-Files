@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# revision-draft-minor.sh — the REVISION-MINOR-DRAFT child (CHILD of revision-minor.sh)
+# build-draft-minor.sh — the BUILD-MINOR-DRAFT child (CHILD of build-minor.sh)
 # Minor corrections and fixes to existing code.
 #
-# The light sibling of revision.sh. revision.sh is the reviewed two-step parent
+# The light sibling of build.sh. build.sh is the reviewed two-step parent
 # (draft run, then a FRESH-context review run); this is a single pass with no
 # review agents, for changes where a review cycle would cost more than it finds.
-# Stage 1 carries a WORKFLOW-FIT CHECK that stops and escalates to revision.sh
+# Stage 1 carries a WORKFLOW-FIT CHECK that stops and escalates to build.sh
 # when the task turns out to be bigger than that.
 #
 # This is the lightest autonomous workflow in the dual-flow model. It:
@@ -16,15 +16,15 @@
 #   4. Commits, pushes, and either creates or updates a PR
 #
 # Usage:
-#   ./revision-minor.sh "description of what to revise"
-#   ./revision-minor.sh "description of what to revise" --pr <pr-number>
-#   ./revision-minor.sh "description" --verbose
+#   ./build-minor.sh "description of what to revise"
+#   ./build-minor.sh "description of what to revise" --pr <pr-number>
+#   ./build-minor.sh "description" --verbose
 #
 # Examples:
-#   ./revision-minor.sh "fix the null check in login()"
-#   ./revision-minor.sh "add error handling to the webhook handler"
-#   ./revision-minor.sh "correct the typo in the README header" --pr 42
-#   ./revision-minor.sh "update the import path" --verbose
+#   ./build-minor.sh "fix the null check in login()"
+#   ./build-minor.sh "add error handling to the webhook handler"
+#   ./build-minor.sh "correct the typo in the README header" --pr 42
+#   ./build-minor.sh "update the import path" --verbose
 #
 # Flags:
 #   --pr <number>   Update an existing PR instead of creating a new one
@@ -32,7 +32,7 @@
 #                   responses, and final token/cost summary)
 #
 # Logging:
-#   Every run writes a structured JSONL log to .claude/logs/revision-minor-<ts>.jsonl
+#   Every run writes a structured JSONL log to .claude/logs/build-minor-<ts>.jsonl
 #   regardless of --verbose mode. Use for post-mortem analysis of runs.
 #
 # See docs/guide/workflows.md for the full
@@ -178,7 +178,7 @@ done
 # from the invocation directory. cwd DRIFTS as a side effect of other workflow
 # runs (observed independently by two PMs: a session left cwd inside
 # claude-dot-files/scripts/workflows, and inside a worktree after a background
-# dispatch). revision-minor.sh is the most-used, least-watched workflow, so a
+# dispatch). build-minor.sh is the most-used, least-watched workflow, so a
 # wrong-repo worktree here is the likeliest to go unnoticed.
 if [[ -n "$REPO_TARGET" ]]; then
     [[ -d "$REPO_TARGET" ]] || { echo "Error: --repo path not found: ${REPO_TARGET}" >&2; exit 1; }
@@ -204,20 +204,20 @@ cd "$REPO_ROOT"
 # Naming and paths
 # ---------------------------------------------------------------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKTREE_NAME="revision-draft-minor-${TIMESTAMP}"
+WORKTREE_NAME="build-draft-minor-${TIMESTAMP}"
 
 # Log directory is always in the main repo .claude/logs (not inside worktrees)
 # Raw JSONL — lossless, can be read by Claude for diagnosis or piped through
 # the formatter on demand for human reading.
 LOG_DIR="${REPO_ROOT}/.claude/logs"
-LOG_FILE="${LOG_DIR}/revision-draft-minor-${TIMESTAMP}.jsonl"
+LOG_FILE="${LOG_DIR}/build-draft-minor-${TIMESTAMP}.jsonl"
 mkdir -p "$LOG_DIR"
 
 # ---------------------------------------------------------------------------
 # Summary banner
 # ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  REVISION WORKFLOW"
+echo "  BUILD WORKFLOW"
 echo "================================================================"
 echo "  Description : ${DESCRIPTION}"
 if [[ -n "$PR_NUMBER" ]]; then
@@ -235,7 +235,7 @@ echo
 # ---------------------------------------------------------------------------
 # run_claude helper (shared library)
 # ---------------------------------------------------------------------------
-MODEL_KEY="revision-draft-minor"
+MODEL_KEY="build-draft-minor"
 COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 source "${SCRIPT_DIR}/../activities/run-claude.sh"
 
@@ -268,7 +268,7 @@ if [[ -n "$PR_NUMBER" ]]; then
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
     PROMPT=$(cat <<EOF
-You are executing the REVISION workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+You are executing the BUILD workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 Task: ${DESCRIPTION}
 
@@ -278,9 +278,9 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
-   WORKFLOW-FIT CHECK — do this BEFORE implementing. revision-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
+   WORKFLOW-FIT CHECK — do this BEFORE implementing. build-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
 
-   > This task is sized for revision.sh (the reviewed two-step parent), not revision-minor.sh. Nothing has been changed. revision-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with revision.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
+   > This task is sized for build.sh (the reviewed two-step parent), not build-minor.sh. Nothing has been changed. build-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with build.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
 
    Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
 
@@ -299,7 +299,7 @@ Follow these stages exactly:
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "revision: <short description>"
+4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build: <short description>"
 
    SELF-DESCRIPTION (required on this path): update the PR body to describe what the PR NOW contains, and update docs/file_structure.txt if you added, removed, or renamed files. A fix that leaves the PR's own description stale mechanically manufactures a finding for the next review pass — measured: every fix round generated 1-2 new "body doesn't describe the new work / test count stale / new file missing from map" findings, and one review pass found ZERO code defects and only self-description drift. Updating it here breaks that loop.
 
@@ -327,7 +327,7 @@ EOF
 )
 
     echo
-    echo "→ Launching Claude in revision mode (updating PR #${PR_NUMBER})..."
+    echo "→ Launching Claude in build mode (updating PR #${PR_NUMBER})..."
     echo
 
     (
@@ -336,9 +336,9 @@ EOF
     )
 
 else
-    # ---- New revision path ------------------------------------------------
+    # ---- New build path ------------------------------------------------
     PROMPT=$(cat <<EOF
-You are executing the REVISION workflow on a new branch.
+You are executing the BUILD workflow on a new branch.
 
 Task: ${DESCRIPTION}
 
@@ -348,9 +348,9 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
-   WORKFLOW-FIT CHECK — do this BEFORE implementing. revision-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
+   WORKFLOW-FIT CHECK — do this BEFORE implementing. build-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
 
-   > This task is sized for revision.sh (the reviewed two-step parent), not revision-minor.sh. Nothing has been changed. revision-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with revision.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
+   > This task is sized for build.sh (the reviewed two-step parent), not build-minor.sh. Nothing has been changed. build-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with build.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
 
    Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
 
@@ -369,11 +369,11 @@ Follow these stages exactly:
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "revision: <short description>"
+4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build: <short description>"
 
 5. PUSH: Push the branch to origin.
 
-6. PR: Create a new PR using 'gh pr create'. Use title format: "revision: <short description>". In the body, describe what was changed and why. Report the PR URL at the end.
+6. PR: Create a new PR using 'gh pr create'. Use title format: "build: <short description>". In the body, describe what was changed and why. Report the PR URL at the end.
 
 7. REFLECT: ${DECISION_LOG_AND_REFLECTION}
 
@@ -394,7 +394,7 @@ Rules:
 EOF
 )
 
-    echo "→ Launching Claude in revision mode (new branch)..."
+    echo "→ Launching Claude in build mode (new branch)..."
     echo
 
     run_claude "$PROMPT" -w "$WORKTREE_NAME"
@@ -402,7 +402,7 @@ fi
 
 echo
 echo "================================================================"
-echo "  REVISION WORKFLOW COMPLETE"
+echo "  BUILD WORKFLOW COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"

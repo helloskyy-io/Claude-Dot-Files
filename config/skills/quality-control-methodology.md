@@ -154,7 +154,7 @@ For these: **PRECISION REQUIRED.** Before surfacing any factual claim:
 
 ## Application Contexts
 
-### Code Review (revision-refine, build-phase)
+### Code Review (build-refine, build-phase)
 
 Apply all six dimensions to code changes. Focus weight on:
 - Enterprise-readiness (does the code hold up under realistic conditions?)

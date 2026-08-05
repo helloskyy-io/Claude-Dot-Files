@@ -15,7 +15,7 @@ Three surfaces, three different jobs. They are not interchangeable, and collapsi
 | Surface | Holds | Lifecycle | Read by |
 |---|---|---|---|
 | **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | closes at merge | `/standup`, `review-pr.sh` |
-| **Issues** | no-change outcomes — deferred work `review-pr` filed, and planning STOPs | filed → ruled → **closed** | `/standup`, both `revision` children |
+| **Issues** | no-change outcomes — deferred work `review-pr` filed, and planning STOPs | filed → ruled → **closed** | `/standup`, both `build` children |
 | **Standup tracker** | continuity — operating state, next moves, work in flight | **never closes**; items are **pruned** | `/standup` |
 
 **Why three.** The first two cover *transactions*: something changed, or something was consciously not changed. Neither covers **continuity** — a multi-day vendor migration or a live incident is not development (so not a sprint item) and has no single done-state (so not an issue). Before the tracker existed, that work lived in session context and died at a session boundary.
@@ -76,13 +76,13 @@ Two distinctions do the work, and both are easy to miss:
 - **`activities/` vs `common/`** — the split is **does it touch the outside world?** `activities/` holds external I/O (invoking Claude, polling the GitHub API): workflow-agnostic, single-responsibility, idempotent, and **never inlined into a parent** — a workflow that does network I/O cannot replay, which is why Temporal enforces this boundary rather than merely recommending it. `common/` holds shared types and content that execute nothing. Keeping them apart stops `activities/` becoming the generic dumping ground.
 - **`workflows/` vs `children/`** — the axis is *who invokes it*, and nothing else. Top level = **you dispatch it**. `children/` = **a parent invokes it**; you only run one by hand when something upstream went wrong (a failed review half, a PR from a workflow not yet decomposed). That is the whole rule.
 
-  **Children are shared, not owned.** `children/review-pr.sh` will be called by every parent that produces a PR — `revision.sh` today, `build-phase.sh` and the planning workflows as they get decomposed. A child belongs to no single parent, which is what makes it reusable; Temporal treats child workflows the same way. So `children/` is not namespaced per parent and should not become so.
+  **Children are shared, not owned.** `children/review-pr.sh` will be called by every parent that produces a PR — `build.sh` today, `build-phase.sh` and the planning workflows as they get decomposed. A child belongs to no single parent, which is what makes it reusable; Temporal treats child workflows the same way. So `children/` is not namespaced per parent and should not become so.
 
 As more long-running workflows get split into parent + children, `children/` is what keeps the top level meaning *"things you dispatch."*
 
 ## Workflows
 
-**Naming is `<family>-<qualifier>`, and it is now uniform across the fleet.** The family is what the script *is*; the qualifier narrows it. `review-runs` and `review-sprint` are both reviews, of run logs and of a sprint. `revision-draft` and `revision-refine` are both revision steps, authoring and correcting. `plan-new` and `plan-revision` are both planning.
+**Naming is `<family>-<qualifier>`, and it is now uniform across the fleet.** The family is what the script *is*; the qualifier narrows it. `review-runs` and `review-sprint` are both reviews, of run logs and of a sprint. `build-draft` and `build-refine` are both build steps, authoring and correcting. `plan-new` and `plan-revision` are both planning.
 
 Read backwards it is wrong — a PR is not a *type of thing that gets reviewed*, review is the family. Two scripts violated this (`pr-review`, `sprint-review`) and both were renamed; the value is that families now group in `ls`, and a new script's name is a decision you make once rather than a coin flip.
 
@@ -90,8 +90,8 @@ Bash scripts that run Claude headless in an isolated git worktree and deliver a 
 
 > **Flags FIRST, positional LAST.** Terminals line-wrap long commands; a trailing positional stays visible and editable when the front wraps. For anything multi-paragraph or containing quotes, write it to `/tmp/claude-<name>.md` and use `--task-file` — it bypasses command-line parsing entirely.
 
-### `revision.sh` — significant code rework (PARENT)
-The flagship, and the assembly template. **draft → refine → review-pr**, with one bounded correction loop. Pure bash — it calls no model itself; every stage is a child run. Full rationale in [workflows.md](workflows.md#the-revision-split--why-authoring-and-judging-are-separate-runs).
+### `build.sh` — significant code rework (PARENT)
+The flagship, and the assembly template. **draft → refine → review-pr**, with one bounded correction loop. Pure bash — it calls no model itself; every stage is a child run. Full rationale in [workflows.md](workflows.md#the-build-split--why-authoring-and-judging-are-separate-runs).
 
 On `review-pr`'s verdict the parent routes itself:
 
@@ -103,8 +103,8 @@ On `review-pr`'s verdict the parent routes itself:
 
 **Exactly one loop-back, and it is not configurable.** Self-correction plateaus at roughly 3–5 passes; past it the same model justifies rather than corrects. Counting across the pipeline — refine 1, review-pr 2, loop refine 3, review-pr 4 — one loop-back lands inside the band and two would clear it. The number comes from the research, so there is no knob to tune past it.
 ```bash
-./scripts/workflows/revision.sh "restructure the auth flow to use sessions"
-./scripts/workflows/revision.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-task.md
+./scripts/workflows/build.sh "restructure the auth flow to use sessions"
+./scripts/workflows/build.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-task.md
 ```
 
 ### `children/review-pr.sh` — the disposition engine (120 turns, DECIDE-ONLY)
@@ -113,26 +113,26 @@ Called automatically by every parent that produces a PR. Mines the place a run t
 ./scripts/workflows/children/review-pr.sh --pr 42
 ```
 
-### `children/revision-draft-minor.sh` · `children/revision-refine-minor.sh` — children of `revision-minor.sh`
-Same roles as the pair below, one tier lighter. `revision-refine-minor` reviews with `code-reviewer` alone: at this scope the dominant risk is a change that is simply **wrong** (inverted condition, off-by-one, a missed case), not a design that will not scale — and correctness is the lens that catches that class.
+### `children/build-draft-minor.sh` · `children/build-refine-minor.sh` — children of `build-minor.sh`
+Same roles as the pair below, one tier lighter. `build-refine-minor` reviews with `code-reviewer` alone: at this scope the dominant risk is a change that is simply **wrong** (inverted condition, off-by-one, a missed case), not a design that will not scale — and correctness is the lens that catches that class.
 
-### `children/revision-draft.sh` · `children/revision-refine.sh` — children of `revision.sh`
-**Not dispatched directly** in normal use. `revision-refine.sh --pr <N> "<the same task>"` is the recovery path when the review half fails and the draft PR is sitting unreviewed — pass the *same* task, or refine loses its fidelity check.
+### `children/build-draft.sh` · `children/build-refine.sh` — children of `build.sh`
+**Not dispatched directly** in normal use. `build-refine.sh --pr <N> "<the same task>"` is the recovery path when the review half fails and the draft PR is sitting unreviewed — pass the *same* task, or refine loses its fidelity check.
 ```bash
-./scripts/workflows/children/revision-refine.sh --pr 42 "the original task text"
+./scripts/workflows/children/build-refine.sh --pr 42 "the original task text"
 ```
 
-### `revision-minor.sh` — small scoped fixes (PARENT)
-The light tier, and **deliberately the same three-child shape as `revision.sh`** so there is one mental model rather than two: draft → refine → review-pr, with the same single bounded loop-back. The difference is entirely in the middle child — `revision-refine-minor` runs **one** review lens (`code-reviewer`) instead of four, on a cheaper model with half the turn budget. Roughly **$7 against $25–50**.
+### `build-minor.sh` — small scoped fixes (PARENT)
+The light tier, and **deliberately the same three-child shape as `build.sh`** so there is one mental model rather than two: draft → refine → review-pr, with the same single bounded loop-back. The difference is entirely in the middle child — `build-refine-minor` runs **one** review lens (`code-reviewer`) instead of four, on a cheaper model with half the turn budget. Roughly **$7 against $25–50**.
 
-The draft child's Stage 1 still stops and escalates to `revision.sh` if the task turns out bigger than it looked. And if the review keeps surfacing *structural or standards* problems rather than correctness ones, that is a routing signal — the task was mis-sized for this tier.
+The draft child's Stage 1 still stops and escalates to `build.sh` if the task turns out bigger than it looked. And if the review keeps surfacing *structural or standards* problems rather than correctness ones, that is a routing signal — the task was mis-sized for this tier.
 ```bash
-./scripts/workflows/revision-minor.sh "fix the null check in login()"
-./scripts/workflows/revision-minor.sh --pr 42 "add error handling to the webhook handler"
+./scripts/workflows/build-minor.sh "fix the null check in login()"
+./scripts/workflows/build-minor.sh --pr 42 "add error handling to the webhook handler"
 ```
 
 ### `build-phase.sh` — implement from a written plan doc (300 turns)
-The heavy engineer. Takes a phase document as its input rather than a prose task, so the plan is the contract. Reach for this when `revision.sh` would run out of turns.
+The heavy engineer. Takes a phase document as its input rather than a prose task, so the plan is the contract. Reach for this when `build.sh` would run out of turns.
 ```bash
 ./scripts/workflows/build-phase.sh docs/development/phases/phase-1.md "follow all standards" --verbose
 ```
@@ -179,9 +179,9 @@ A different trio (`security-auditor` + `refactoring-evaluator` + `test-writer`) 
 
 | The work | Use | Why |
 |---|---|---|
-| Known fix to known lines | `revision-minor.sh` | A review cycle would cost more than it finds |
-| Multi-file, new seam, architecture touched, or "review it before I see it" | `revision.sh` | Two independent runs; the second has no stake in the first's choices |
-| Won't fit in `revision.sh` | write a phase doc → `build-phase.sh` | Turn-cap pressure is a **routing** signal, not a budget one |
+| Known fix to known lines | `build-minor.sh` | A review cycle would cost more than it finds |
+| Multi-file, new seam, architecture touched, or "review it before I see it" | `build.sh` | Two independent runs; the second has no stake in the first's choices |
+| Won't fit in `build.sh` | write a phase doc → `build-phase.sh` | Turn-cap pressure is a **routing** signal, not a budget one |
 | Planning docs | `plan-revision.sh` (existing) / `plan-new.sh` (from scratch) | Different agents entirely |
 | A returned PR | `review-pr.sh` | Always, before merging |
 
@@ -305,7 +305,7 @@ Always-loaded global instructions. Unlike skills, these are not on-demand — ev
 | Need | Go to |
 |---|---|
 | Install / deploy / sync | [deployment.md](deployment.md) |
-| Why the revision split exists, model management, escalation ladder | [workflows.md](workflows.md) |
+| Why the build split exists, model management, escalation ladder | [workflows.md](workflows.md) |
 | Running the CPI cycle and reading the decisions log | [cpi-cycle.md](cpi-cycle.md) |
 | Decision history — what shipped, what was deferred, and why | [`docs/development/cpi-decisions.md`](../development/cpi-decisions.md) |
 | Writing a new workflow / agent / skill / rule | [`docs/standards/`](../standards/) |

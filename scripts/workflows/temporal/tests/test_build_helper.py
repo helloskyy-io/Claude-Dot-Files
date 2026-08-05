@@ -11,10 +11,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from modules.assistant.revision import revision_helper as helper  # noqa: E402
-from modules.assistant.revision.revision_inputs import (  # noqa: E402
+from modules.assistant.build import build_helper as helper  # noqa: E402
+from modules.assistant.build.build_inputs import (  # noqa: E402
     ChildResult,
-    RevisionInput,
+    BuildInput,
     Verdict,
 )
 
@@ -62,19 +62,19 @@ check("merge never loops", helper.should_loop_back(Verdict.MERGE, 0), False)
 
 # --- input validation at the boundary ----------------------------------------
 try:
-    RevisionInput()
+    BuildInput()
     check("no task source rejected", "accepted", "ValueError")
 except ValueError:
     check("no task source rejected", "ValueError", "ValueError")
 
 try:
-    RevisionInput(description="x", task_file="/tmp/y")
+    BuildInput(description="x", task_file="/tmp/y")
     check("both task sources rejected", "accepted", "ValueError")
 except ValueError:
     check("both task sources rejected", "ValueError", "ValueError")
 
 # --- arg compilation ---------------------------------------------------------
-task = RevisionInput(description="fix auth", repo_target="/opt/x", verbose=True)
+task = BuildInput(description="fix auth", repo_target="/opt/x", verbose=True)
 check(
     "flags first, positional last",
     helper.draft_args(task),
@@ -87,7 +87,7 @@ check(
 )
 check(
     "task-file bypasses shell parsing",
-    helper.task_args(RevisionInput(task_file="/tmp/t.md")),
+    helper.task_args(BuildInput(task_file="/tmp/t.md")),
     ["--task-file", "/tmp/t.md"],
 )
 
