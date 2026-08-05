@@ -110,7 +110,19 @@ check(
     "https://github.com/o/r/pull/7",
 )
 
-print(f"\n{len(PASS)} passed, {len(FAIL)} failed")
-for f in FAIL:
-    print(f"  FAIL  {f}")
-raise SystemExit(1 if FAIL else 0)
+def test_all() -> None:
+    """pytest entry — the module-level checks above populate PASS/FAIL.
+
+    Wrapped rather than left as a module-level SystemExit: script-style tests
+    crash pytest at COLLECTION with INTERNALERROR, so the whole suite ran zero
+    tests while each file passed standalone. A guard that only fires when someone
+    remembers to invoke it directly is a guard on borrowed time.
+    """
+    assert not FAIL, "\n".join(FAIL)
+
+
+if __name__ == "__main__":
+    print(f"\n{len(PASS)} passed, {len(FAIL)} failed")
+    for f in FAIL:
+        print(f"  FAIL  {f}")
+    raise SystemExit(1 if FAIL else 0)

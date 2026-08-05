@@ -20,7 +20,7 @@ COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
 def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
-                     worktree_name: str, correction_pass: bool = False,
+                     worktree: Path, correction_pass: bool = False,
                      ci_unsettled: bool = False, verbose: bool = False) -> str:
     """Review and correct the draft's PR. Returns its PR URL."""
     branch = act.pr_branch(pr_number, repo_root)
@@ -45,7 +45,7 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refine.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=act.worktree_add(repo_root, worktree_name, f"origin/{branch}"),
+        repo_root=worktree,
         max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
         verbose=verbose,
     )

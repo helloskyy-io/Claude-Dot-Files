@@ -32,6 +32,7 @@ from pathlib import Path
 from .. import build_helper as helper
 from ..build_activities import wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
+from ... import assistant_activities as act
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput
 from ..build_draft import build_draft_workflow as draft
@@ -43,11 +44,17 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     notes: list[str] = []
     description = task.description or Path(task.task_file).read_text()
 
+    # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
+    # create one — two children creating the same named worktree is a
+    # `fatal: already exists` that killed the draft->refine handoff.
+    ref = f"origin/{act.pr_branch(task.pr_number, repo_root)}" if task.pr_number else "HEAD"
+    worktree = act.worktree_add(repo_root, worktree_name, ref)
+
     # --- Step 1: DRAFT -----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the
     # child raises if it produced none, so `exit 0` cannot mean unfinished.
     pr_url = draft.run_draft(
-        description=description, repo_root=repo_root, worktree_name=worktree_name,
+        description=description, repo_root=repo_root, worktree=worktree,
         pr_number=task.pr_number, task_file=task.task_file, verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url)
@@ -55,14 +62,14 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # --- Steps 2 & 3: REFINE then DISPOSITION, with one bounded loop-back --
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                   worktree_name, notes, correction=False)
+                                   worktree, notes, correction=False)
 
     while helper.should_loop_back(verdict, loops):
         loops += 1
         notes.append("HOLD (redispatch): the runway closes with a scoped fix. "
                      "Looping back ONCE — this is the last automated pass.")
         verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                       worktree_name, notes, correction=True)
+                                       worktree, notes, correction=True)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         notes.append("review-pr found at least one item only a human can rule on. No "
@@ -76,7 +83,7 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
 
 
 def _refine_then_dispose(task: BuildInput, description: str, pr: str,
-                         repo_root: Path, worktree_name: str,
+                         repo_root: Path, worktree: Path,
                          notes: list[str], *, correction: bool) -> Verdict:
     """One refine pass followed by one disposition pass."""
     ci_settled = wait_for_ci(pr, repo=task.repo_target)
@@ -85,7 +92,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
 
     refine.run_refine(
         description=description, pr_number=pr, repo_root=repo_root,
-        worktree_name=worktree_name, task_file=task.task_file,
+        worktree=worktree, task_file=task.task_file,
         correction_pass=correction, ci_unsettled=not ci_settled, verbose=task.verbose,
     )
 

@@ -24,6 +24,7 @@ from ..build_activities import wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ..build_draft_minor import build_draft_minor_workflow as draft
 from ..build_refine_minor import build_refine_minor_workflow as refine
+from ... import assistant_activities as act
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 
@@ -33,16 +34,22 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
     notes: list[str] = []
     description = task.description or Path(task.task_file).read_text()
 
+    # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
+    # create one — two children creating the same named worktree is a
+    # `fatal: already exists` that killed the draft->refine handoff.
+    ref = f"origin/{act.pr_branch(task.pr_number, repo_root)}" if task.pr_number else "HEAD"
+    worktree = act.worktree_add(repo_root, worktree_name, ref)
+
     pr_url = draft.run_draft_minor(
         description=description, repo_root=repo_root,
-        worktree_name=f"{worktree_name}-draft", pr_number=task.pr_number,
+        worktree=worktree, pr_number=task.pr_number,
         verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url)
 
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                   worktree_name, notes, correction=False)
+                                   worktree, notes, correction=False)
 
     # ONE loop-back, same bound as the major tier and for the same reason:
     # self-correction plateaus at roughly 3-5 passes, and past it the model
@@ -51,7 +58,7 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
         loops += 1
         notes.append("HOLD (redispatch): looping back ONCE — the last automated pass.")
         verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                       worktree_name, notes, correction=True)
+                                       worktree, notes, correction=True)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         notes.append("review-pr found an item only a human can rule on; no loop-back "
@@ -64,7 +71,7 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
 
 
 def _refine_then_dispose(task: BuildInput, description: str, pr: str,
-                         repo_root: Path, worktree_name: str,
+                         repo_root: Path, worktree: Path,
                          notes: list[str], *, correction: bool) -> Verdict:
     ci_settled = wait_for_ci(pr, repo=task.repo_target)
     if not ci_settled:
@@ -72,7 +79,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
 
     refine.run_refine_minor(
         description=description, pr_number=pr, repo_root=repo_root,
-        worktree_name=f"{worktree_name}-refine", correction_pass=correction,
+        worktree=worktree, correction_pass=correction,
         ci_unsettled=not ci_settled, verbose=task.verbose,
     )
 

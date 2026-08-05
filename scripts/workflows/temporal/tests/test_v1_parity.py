@@ -22,6 +22,8 @@ from modules.assistant import assistant_activities as act  # noqa: E402
 from modules.assistant.build.build_draft import build_draft_workflow as draft  # noqa: E402
 from modules.assistant.build.build_refine import build_refine_workflow as refine  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as rpa  # noqa: E402
+from modules.assistant.build.build import build_workflow as parent  # noqa: E402
+from modules.assistant.build.build_minor import build_minor_workflow as parent_minor  # noqa: E402
 
 PASS, FAIL = [], []
 
@@ -51,11 +53,29 @@ for bad, why in [("nonexistent.sh", "missing script"), ("build-draft.sh", "missi
 # --- 3. Isolation is UNCONDITIONAL — no ternary may skip the worktree ---------
 # The regression this guards: `worktree_name=None if pr_number else worktree_name`
 # put a --pr run on the operator's live working tree with no discard path.
+# Isolation is established ONCE BY THE PARENT and passed down. Two children
+# creating the same named worktree is `fatal: already exists`, which killed the
+# draft->refine handoff — the round-1 fix was right in principle and applied at
+# the wrong altitude.
 for mod, name in [(draft, "build_draft"), (refine, "build_refine")]:
     src = inspect.getsource(mod)
-    check(f"{name} creates a worktree", "worktree_add" in src)
-    check(f"{name} does not conditionally skip isolation",
-          "None if pr_number" not in src)
+    check(f"{name} does NOT create its own worktree", "act.worktree_add(" not in src)  # a CALL, not a mention in prose
+    check(f"{name} receives a worktree path", "worktree: Path" in src)
+    check(f"{name} does not conditionally skip isolation", "None if pr_number" not in src)
+
+for mod, name in [(parent, "build"), (parent_minor, "build_minor")]:
+    src = inspect.getsource(mod)
+    check(f"{name} parent establishes isolation", "act.worktree_add(" in src)
+
+# A negative outcome must be OBSERVED, never asserted — a banner once claimed
+# nothing was pushed when 9 files had landed, costing a duplicate full run.
+obs = inspect.getsource(act.observe_outcome)
+check("observe_outcome reads git log", '"log"' in obs)
+check("observe_outcome reads git status", '"status"' in obs)
+check("observe_outcome refuses to guess when it cannot read",
+      "cannot determine" in obs or "do not assume" in obs)
+check("failure path reports observed state",
+      "observed git state" in inspect.getsource(act.run_claude))
 
 # --- 4. The delegated contract's five variables are all supplied --------------
 run_src = inspect.getsource(act.run_claude)
@@ -64,7 +84,19 @@ for var in ("LOG_FILE", "MAX_TURNS", "VERBOSE", "FORMATTER", "MODEL_KEY"):
 check("env is built BEFORE the source line",
       run_src.index("LOG_FILE") < run_src.index('source "{runner}"'))
 
-print(f"\n{len(PASS)} passed, {len(FAIL)} failed")
-for f in FAIL:
-    print(f"  FAIL  {f}")
-raise SystemExit(1 if FAIL else 0)
+def test_all() -> None:
+    """pytest entry — the module-level checks above populate PASS/FAIL.
+
+    Wrapped rather than left as a module-level SystemExit: script-style tests
+    crash pytest at COLLECTION with INTERNALERROR, so the whole suite ran zero
+    tests while each file passed standalone. A guard that only fires when someone
+    remembers to invoke it directly is a guard on borrowed time.
+    """
+    assert not FAIL, "\n".join(FAIL)
+
+
+if __name__ == "__main__":
+    print(f"\n{len(PASS)} passed, {len(FAIL)} failed")
+    for f in FAIL:
+        print(f"  FAIL  {f}")
+    raise SystemExit(1 if FAIL else 0)

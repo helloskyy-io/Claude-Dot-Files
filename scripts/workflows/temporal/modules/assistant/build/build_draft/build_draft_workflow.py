@@ -23,7 +23,7 @@ V1_SCRIPT = "build-draft.sh"
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
-def run_draft(*, description: str, repo_root: Path, worktree_name: str,
+def run_draft(*, description: str, repo_root: Path, worktree: Path,
               pr_number: str | None = None, task_file: str | None = None,
               verbose: bool = False) -> str:
     """Draft the change. Returns the PR URL — the handoff to refine."""
@@ -40,13 +40,12 @@ def run_draft(*, description: str, repo_root: Path, worktree_name: str,
     if pr_number:
         values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number, repo_root)}
 
-    # ISOLATION IS UNCONDITIONAL. A --pr run gets a worktree on the PR branch,
-    # exactly as V1 does; an earlier ternary here skipped it and put the run on
-    # the operator's live working tree.
-    worktree = act.worktree_add(
-        repo_root, worktree_name,
-        f"origin/{values['PR_BRANCH']}" if pr_number else "HEAD",
-    )
+    # ISOLATION IS ESTABLISHED ONCE, BY THE PARENT, and this child RECEIVES the
+    # worktree path. An earlier version had every child call worktree_add with
+    # the same parent-supplied name, so draft created it and refine died on
+    # `fatal: ... already exists` — the fix was right in principle and applied at
+    # the wrong altitude. A child that creates its own isolation cannot know
+    # whether a sibling already did.
     output = act.run_claude(
         act.render(template, values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,

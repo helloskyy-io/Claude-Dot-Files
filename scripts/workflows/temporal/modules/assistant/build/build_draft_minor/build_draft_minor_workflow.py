@@ -19,7 +19,7 @@ V1_SCRIPT = "build-draft-minor.sh"          # constants DERIVED, never re-declar
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
-def run_draft_minor(*, description: str, repo_root: Path, worktree_name: str,
+def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
                     pr_number: str | None = None, verbose: bool = False) -> str:
     """Draft a scoped change. Returns the PR URL — the handoff to refine."""
     template = act.load_prompt(PROMPTS / ("update_pr.md" if pr_number else "new_branch.md"))
@@ -30,11 +30,6 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree_name: str,
     if pr_number:
         values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number, repo_root)}
 
-    # Isolation is unconditional — see assistant_activities.worktree_add.
-    worktree = act.worktree_add(
-        repo_root, worktree_name,
-        f"origin/{values['PR_BRANCH']}" if pr_number else "HEAD",
-    )
     output = act.run_claude(
         act.render(template, values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,

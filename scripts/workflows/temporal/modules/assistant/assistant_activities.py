@@ -64,6 +64,54 @@ def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     return wt
 
 
+def observe_outcome(worktree: Path, branch: str | None = None) -> str:
+    """Read what git ACTUALLY did. Never assert a negative without reading.
+
+    THIS EXISTS BECAUSE A FAILURE BANNER LIED. A run that exhausted its turn cap
+    printed "NOTHING was committed or pushed" — and it had committed and pushed,
+    9 files and +798/-111, landing on the PR branch. The operator read the banner,
+    concluded the work was lost, and dispatched a second full-budget run against
+    work that was already there.
+
+    The banner asserted what the harness BELIEVED rather than reading what git
+    DID, because the turn-cap path exits before observing state. A false negative
+    on the failure path is worse than a crash: a crash is obviously wrong, while
+    a confident wrong answer gets acted on.
+
+    Returns a human-readable observation. If it cannot determine the state it
+    SAYS SO — it never reports a negative it did not verify.
+    """
+    def _git(*args: str) -> tuple[int, str]:
+        r = subprocess.run(["git", *args], cwd=str(worktree),
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout.strip()
+
+    if not worktree.exists():
+        return f"Worktree {worktree} no longer exists — cannot determine what landed."
+
+    lines: list[str] = []
+    rc, head = _git("log", "-1", "--format=%h %s")
+    if rc != 0:
+        return f"Could not read git state in {worktree}. Inspect it by hand before re-running."
+    lines.append(f"HEAD in worktree: {head}")
+
+    rc, dirty = _git("status", "--porcelain")
+    lines.append(f"Uncommitted changes: {'YES — ' + str(len(dirty.splitlines())) + ' file(s)' if dirty else 'none'}")
+
+    if branch:
+        rc, unpushed = _git("log", f"origin/{branch}..HEAD", "--oneline")
+        if rc == 0:
+            lines.append(
+                f"Commits NOT yet on origin/{branch}: {len(unpushed.splitlines()) if unpushed else 0}"
+                + (f"\n  {unpushed}" if unpushed else "")
+            )
+        else:
+            lines.append(f"Could not compare against origin/{branch} — do not assume either way.")
+
+    lines.append(f"Worktree retained at: {worktree}")
+    return "\n".join(lines)
+
+
 def load_prompt(path: Path) -> str:
     if not path.exists():
         raise FileNotFoundError(f"prompt file missing: {path}")
@@ -141,8 +189,13 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         cwd=str(repo_root), env=env, capture_output=True, text=True,
     )
     if result.returncode != 0:
+        # OBSERVE before reporting. A turn-cap exit may have committed and
+        # pushed real work; asserting otherwise costs a duplicate full-budget run.
         raise RuntimeError(
             f"{model_key} FAILED (exit {result.returncode}). Log: {log_file}\n"
+            f"--- observed git state (read, not assumed) ---\n"
+            f"{observe_outcome(repo_root)}\n"
+            f"--- end observed state ---\n"
             f"{result.stderr[-2000:]}"
         )
     return result.stdout
