@@ -85,6 +85,21 @@ Deliberate boundaries, each with a reason:
 
 Durable execution, the server tier, additional edges, and typed handoff between runs — a parent still routes on a parsed token rather than a structured result. See the roadmap.
 
+## Deployment target — settled, and stated here because tools read this file
+
+**Temporal is SELF-HOSTED. Temporal Cloud is not on the table.** Decided 2026-07-12.
+
+| | |
+|---|---|
+| **Two servers, never combined** | one for infrastructure, one for the AI edge (Jarvis). An agent-facing control plane must not share a server with the one that runs the datacentre |
+| **HA on k3s** | not serverless. AWS Lambda's hard 15-minute activity ceiling cannot host a `claude -p` run, which takes 10–60 minutes |
+| **Workers** | systemd on the machine holding the repo and the credential |
+| **Owned by** | SkyyCommand. This repo is an edge and consumes the decision; it does not make it |
+
+**Stated here for a specific reason.** This decision lived only in conversation, and a research cycle then spent effort pricing Temporal Cloud and produced two action candidates against a deployment ruled out three weeks earlier. **A settled decision that is not written down gets re-derived wrongly by every tool that reads the docs** — and consequences follow from it that are not obvious: Cloud's billable-Action pricing does not apply, serverless worker patterns are unavailable, and shard capacity becomes a build-time one-way door we own rather than a vendor default.
+
+The binding standard belongs upstream in `MDC-Master-Planning` alongside the other Temporal standards, and vendors down like them. This paragraph is the consuming edge's copy, not the authority.
+
 ## Related
 
 - [`problem-statement.md`](problem-statement.md) — the problem and the thesis
