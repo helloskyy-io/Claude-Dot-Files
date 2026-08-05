@@ -28,18 +28,23 @@ Confidence:     DEFINITIVE on the licence (MIT), the workflow-execution limits, 
                 FIGURES (rendered pages, though now documentation-grade rather than marketing
                 only). DERIVED on the cost verdict (§5), the primitive-to-failure-mode mapping
                 (§2.2) and the self-host-vs-Cloud reading (§3).
-Critic:         PASS-WITH-FIXES (verified every cited source exists and was fetched; found no
-                fabrication and no false quotation — the §0 no-quotation discipline was checked
-                mechanically against every quote-mark in the paper and held. Four corrections
-                applied: a release count that was a truncated-fetch artifact asserted under an
-                "enumerated, not counted by a retrieval layer" heading, now replaced by a
-                paginated walk plus 404 tag probes; two false negatives — "no first-party Cloud
-                pricing" and "no first-party definition of a billable Action" — both of which
-                were repo-path absences reported as documentation absences, now replaced with
-                the sourced billing model and Action categories, with every downstream
-                recommendation re-derived; and a documentation-restructure claim built on a
-                path the sibling paper never cited, now restated as the two-locations finding
-                it actually is) — 2026-08-05
+Critic:         PASS-WITH-FIXES (two independent verification passes. Every cited source
+                re-fetched and confirmed to exist; every count in the paper re-derived by
+                independent enumeration; no fabrication and no false quotation survives, with
+                the §0 no-quotation discipline checked mechanically both times. Pass 1 fixed:
+                a release count that was a truncated-fetch artifact asserted under an
+                "enumerated" heading, now carried by a paginated walk plus two 404 tag probes;
+                two FALSE NEGATIVES — "no first-party Cloud pricing" and "no first-party
+                definition of a billable Action" — which were repo-path absences written up as
+                documentation absences, now replaced by the sourced billing model and the
+                eleven billable Action categories; and a restructure claim built on a path the
+                sibling paper never cited, restated as the two-locations finding it is. Pass 2
+                re-verified all four at source and caught two defects INTRODUCED by those
+                repairs: a marketing-page plan-count discrepancy that does not exist (a
+                re-fetch returns all four tiers; the claim is deleted, not softened), and a
+                stale §7 clause still calling the Cloud decision blocked after §3.2 had
+                unblocked it. Plus marker, confidence-tag, citation-entry and quotation
+                cleanups. NOT a clean pass — the repair rounds are the record) — 2026-08-05
 ```
 
 > **Volatility ruling (Research Standard §3 mixed-volatility rule, §5 bounds).** The header takes
@@ -78,7 +83,13 @@ layer was asked for verbatim spans and returned prose containing them, which doe
 byte-identity.
 
 **Consequence, applied throughout: this paper contains no quotation marks around any
-documentation-derived span.** Everything from a documentation source is paraphrased and marked
+documentation-derived span.** Quote marks appear in exactly three permitted classes, all
+self-referential and none load-bearing on a vendor fact — (1) spans from the **pre-standard version
+of this paper**, quoted so corrections are auditable and verified character-exact against
+`git show fff8aec`; (2) spans from **earlier drafts of this refresh**, quoted in the correction
+notes; (3) **rhetorical or hypothetical** phrasing that is the paper's own. Any quote mark outside
+those three classes is a defect — the invariant is mechanically checkable and has been checked twice.
+Everything from a documentation source is paraphrased and marked
 `[S-n, doc, wording-uncertified]`. The *facts* are first-party and documented; the *wording* is not
 certified. A downstream author who needs a literal quote must re-fetch the file and certify it
 themselves. This costs the paper some rhetorical force and is the correct trade — a paraphrase
@@ -270,9 +281,8 @@ SITE**. Those are different claims and only the first is true of the repo. Speci
 the content is not at that path. An earlier draft turned that into "not in first-party
 documentation" and then built a decision-blocking gap on it. Repo-absence is not documentation-absence.
 
-**The billing model** [S34, doc, wording-uncertified — rendered docs page]. The monthly charge is a
-platform fee expressed as a *floor against a percentage of usage*, which the plan tables elsewhere
-compress into a misleading "starting at":
+**The billing model** [S34, rendered, reduced]. The monthly charge is a platform fee expressed as a
+*floor against a percentage of usage* — a structure that a starting-at framing obscures:
 
 | Plan | Monthly platform fee | Included |
 |---|---|---|
@@ -281,15 +291,21 @@ compress into a misleading "starting at":
 | Enterprise | priced annually (contact Sales) | 10M Actions, 10 GB active storage, 400 GB retained storage |
 | **Mission Critical** | priced annually (contact Sales) | 10M Actions, 10 GB active storage, 400 GB retained storage |
 
-*(Note the fourth plan — the marketing page [S26] shows three; the documentation page [S34] shows
-four. Trust the documentation page.)*
-
 Action overage runs in declining per-million tiers — $50 for the first 5M, then $45, $40, $35, $30,
 and $25 across the 5M–200M range, with over-200M routed to Sales. Storage is $0.042/GBh active and
-$0.00105/GBh retained [S34, doc, wording-uncertified; every figure independently matched against the
+$0.00105/GBh retained [S34, rendered, reduced; every figure independently matched against the
 marketing page S26]. A $1,000 trial credit and a $6,000 startup-program credit for companies under
-$30M funding are advertised on the marketing page only [S26, rendered, reduced]. Self-hosting is
+$30M funding are advertised on the marketing page [S26, rendered, reduced]. Self-hosting is
 presented as the free option.
+
+*(An earlier draft of this paper claimed the marketing page showed only three plans against the
+documentation page's four, and told the reader to distrust [S26] on that basis. **That discrepancy
+does not exist** — a re-fetch of [S26] with a prompt asking explicitly for every tier including
+add-ons returned Mission Critical, both in the plan-comparison table and as an Enterprise support
+add-on. The original omission was an artifact of a narrower extraction prompt, not a difference
+between the vendor's pages. The claim is deleted rather than softened. **Standing caution: an
+absence claim about a JS-heavy rendered page is sourcing-fragile under §3 regardless of how the
+fetch comes back** — this paper makes no absence claims about [S26] or [S34].)*
 
 **What a billable Action is — the gap an earlier draft wrongly declared open.** Three first-party
 sources define it. The glossary, which is a **raw `.md`** at the root of `docs/` — one directory above
@@ -312,18 +328,27 @@ from **estimates** [S31]. That is a statement about the estimator's coverage, no
 and [S35] shows several of those same items ARE billable. Do not read the estimator's exclusions as a
 discount.)*
 
-**[derived, from S34 + S35 + the repo's own economics — and this REPLACES the earlier
-"do not decide" recommendation.]** The blocking gap is closed, so the deferral it justified no longer
-stands on that ground. What the corrected evidence supports:
+**[derived, from S34 + S35 + [`python_sdk_long_activities.md`](python_sdk_long_activities.md) §1.4
+and §7.3 + the repo's own economics — and this REPLACES the earlier "do not decide"
+recommendation.]** The blocking gap is closed, so the deferral it justified no longer stands on that
+ground. What the corrected evidence supports:
 
-1. **The model is now sizeable, not unknown.** An agent workload's Action count is dominated by
-   activity scheduling and retries, and — the detail that matters most for this repo — **activity
-   heartbeats are billable Actions** [S35]. `python_sdk_long_activities.md` recommends heartbeating
-   per `stream-json` line on a 10–60 minute activity, on the reasoning that the SDK's throttle makes
-   heartbeats *free*. **That reasoning is correct about SDK/network cost and does not transfer to
-   Temporal Cloud billing.** The throttle bounds the rate to roughly 0.8 × `heartbeat_timeout`, so
-   the count is bounded and computable — but it is not zero, and a fleet of hour-long
-   heartbeating activities is the exact shape where this line item grows.
+1. **The model is now sizeable, not unknown — and the size is BOUNDED.** An agent workload's Action
+   count is dominated by activity scheduling and retries, and — the detail that matters most for
+   this repo — **activity heartbeat recording is a billable Action** [S35].
+   [`python_sdk_long_activities.md`](python_sdk_long_activities.md) recommends heartbeating per
+   `stream-json` line on a 10–60 minute activity, on the reasoning that the SDK's throttle makes
+   per-line heartbeats free. **That reasoning is correct about SDK and network cost and does not
+   transfer to Temporal Cloud billing.**
+   **But the same throttle that makes heartbeats free locally also CAPS what they can cost.** That
+   sibling reads the effective interval from raw SDK source as
+   **min(0.8 × `heartbeat_timeout`, `max_heartbeat_throttle_interval`)**, where the latter defaults
+   to **60 s** — so heartbeat Actions are emitted at most once per throttle interval regardless of
+   how often the activity calls `heartbeat()`. **Worked ceiling:** at the 60 s default, a 60-minute
+   activity emits at most ~60 heartbeat Actions; a 60 s `heartbeat_timeout` gives 48 s intervals and
+   ~75. Per-line heartbeating does **not** mean per-line billing. The line item is real, is not zero,
+   and is computable in advance — state it that way, because a planner told only "heartbeats are
+   billable" will over-price it by orders of magnitude.
 2. **The $100/mo is a FLOOR on a usage-scaled fee, not an entry price.** For a single-operator fleet
    whose usage spend is small, 5% of usage will sit far below $100, so **the floor binds and $100/mo
    is the real number** — which is the same order as the Claude Max subscription this repo's
@@ -347,8 +372,8 @@ Properties a plan may rely on, anchored at server v1.31.2 [S2] / Python SDK 1.31
    probes — no release in the four weeks to 2026-08-05 [S2, S37, definitive].
 3. **A documented, sequential upgrade path** with per-database schema tooling and a stated
    compatibility window of two successive minor versions [S7, doc, wording-uncertified].
-4. **Activity-level retry as a default**, with documented default backoff parameters [S11, doc,
-   reduced] — and the matching fact that workflows do not retry by default.
+4. **Activity-level retry as a default**, with documented default backoff parameters
+   [S11, doc, wording-uncertified] — and the matching fact that workflows do not retry by default.
 5. **Three distinct message-passing shapes** with different guarantees: Signal (async write, no
    response), Query (non-blocking read), Update (synchronous tracked write with a response)
    [S13, doc, wording-uncertified].
@@ -359,8 +384,8 @@ Properties a plan may rely on, anchored at server v1.31.2 [S2] / Python SDK 1.31
    source by a sibling paper.
 8. **A first-party history-bounding mechanism** — continue-as-new, with documented carry-over
    semantics [S16, doc, wording-uncertified].
-9. **A first-party compensation pattern** with its limitations stated by the vendor [S19, doc,
-   reduced].
+9. **A first-party compensation pattern** with its limitations stated by the vendor
+   [S19, doc, wording-uncertified].
 10. **A pause/unpause control plane** for stopping a running execution without terminating it, with
     a stated self-hosted version floor of server v1.30.0+ [S15, doc, wording-uncertified].
 11. **A durable streaming channel** for operator-facing partial output [S14, doc, wording-uncertified].
@@ -418,8 +443,7 @@ advocacy. The case against:
 **No total is asserted here, and that is deliberate.** An earlier draft of this paper reported that
 the releases API "lists seven releases" under a heading claiming enumeration. That number was a
 **truncated-fetch artifact**, and the truncation is demonstrable: `?per_page=100` and `?per_page=15`
-both return the *same* 7 items — while the response's own element-count claim disagreed with the rows
-it returned — yet `?per_page=6&page=2` returns six *further* releases (v1.31.0, v1.29.6.1, v1.30.4,
+both return the *same* 7 items, yet `?per_page=6&page=2` returns six *further* releases (v1.31.0, v1.29.6.1, v1.30.4,
 v1.29.6, v1.28.4, v1.30.3) and `?per_page=6&page=3` six more (v1.29.5, v1.28.3.1, v1.29.4.1, v1.30.2,
 v1.28.3, v1.29.4). A retrieval layer that caps at 7 regardless of `per_page` is not describing a
 7-element population. **Per §3, a count from a retrieval layer is not evidence, so this paper reports
@@ -554,7 +578,7 @@ candidate for the synthesis, not a design change.
 - **`temporalio/contrib/strands`** and **`temporalio/contrib/google_genai`** appear in the
   enumeration [S22] and are not covered anywhere in the pool.
 - **`temporalio/contrib/workflow_streams`** [S22] confirms Workflow Streams has landed in the SDK,
-  alongside a full encyclopedia page [S14] — a maturity step up from the "Public Preview"
+  alongside a full encyclopedia page [S14] — a maturity step up from the Public Preview
   announcement `durable_execution.md` recorded from Replay 2026.
 - **Workflow Pause** [S15] — new to the pool entirely.
 - **OpenAI Agents maturity, still contradictory.** `durable_execution.md` flagged that Temporal's
@@ -589,12 +613,21 @@ what cost in complexity?"* had two halves and both failed, differently:
    2026-08-04 this paper had been hollowed out by its own pool.**
 
 **Why it is not retirement.** §6 retires a topic whose *subject* died. Temporal did not die — it is
-the substrate of a live phase. What died was the *question*. And the sweep found a real, unowned,
-decision-blocking question sitting underneath it: **nobody in the pool owns the cost and commitment
-of the vendor.** No paper stated the licence. No paper priced Cloud. No paper carried the upgrade
-obligation, the shard-capacity one-way door, or the workflow-side limits. The self-host-vs-Cloud
-decision is live, is unmade, and now has a named gap (§3.2) blocking it. A retirement here would
-delete the only home for that question.
+the substrate of a live phase. What died was the *question*. And the sweep found a real, unowned
+question sitting underneath it: **nobody in the pool owns the cost and commitment of the
+vendor.** No paper stated the licence. No paper priced Cloud. No paper carried the upgrade
+obligation, the shard-capacity one-way door, or the workflow-side limits. **That ownership gap is
+the whole justification** — it does not depend on any particular question being unanswered today.
+
+**A correction to an earlier draft of this section, because it is exactly the trap this ruling has
+to avoid.** That draft justified keeping the topic partly on the ground that the self-host-vs-Cloud
+decision was "unmade, and now has a named gap blocking it." **§3.2 no longer says that** — the gap
+was a false negative, it is closed, and the decision is no longer research-blocked. Had that clause
+survived, a synthesis reading only §7 would have inherited the very conclusion §3.2 reversed. The
+topic survives because the *ownership* is missing, not because a *blocker* is present; a paper that
+justifies its existence by an open question quietly acquires an interest in that question staying
+open. A retirement here would delete the only home for the vendor-cost question — and that remains
+true now that the question is answerable.
 
 **One thesis correction, which §3's rules require be stated in the body and not only in the diff.**
 The old paper's closing claim was that the LangGraph / CrewAI / OpenAI-Assistants layer "handles the
@@ -701,7 +734,7 @@ persists between nodes but not inside them, and does not enforce activity-level 
 **First-party — GitHub API (structured data; enumerations and counts taken from these)**
 
 - [S2] [temporalio/temporal releases](https://api.github.com/repos/temporalio/temporal/releases?per_page=15) and [latest](https://api.github.com/repos/temporalio/temporal/releases/latest) — v1.31.2 (2026-07-08), CVE-2026-5724, `system.disableStreamingAuthorizer`; full release enumeration
-- [S3] [temporalio/sdk-python releases](https://api.github.com/repos/temporalio/sdk-python/releases?per_page=15) — 1.31.0 published 2026-07-29 and its breaking changes
+- [S3] [temporalio/sdk-python releases](https://api.github.com/repos/temporalio/sdk-python/releases?per_page=15) and [latest](https://api.github.com/repos/temporalio/sdk-python/releases/latest) — 1.31.0 published 2026-07-29 and its breaking changes; `latest` corroborates it as newest
 - [S4] [temporalio/cli latest release](https://api.github.com/repos/temporalio/cli/releases/latest) — v1.8.2, 2026-07-31, GCP Cloud Run scaling backport
 - [S10] [contents: `docs/production-deployment/self-hosted-guide`](https://api.github.com/repos/temporalio/documentation/contents/docs/production-deployment/self-hosted-guide) — 14-file enumeration. **Method citation:** used to locate §1's and §5's self-hosting sources (`checklist`, `upgrade-server`, `deployment`, `defaults`) and to establish that the directory holds no pricing or capacity-sizing page.
 - [S37] [`releases/tags/v1.31.3`](https://api.github.com/repos/temporalio/temporal/releases/tags/v1.31.3) and [`releases/tags/v1.30.7`](https://api.github.com/repos/temporalio/temporal/releases/tags/v1.30.7) — **both HTTP 404.** The tag-existence probes that establish §6.1's negative independently of any list total.
@@ -723,7 +756,7 @@ persists between nodes but not inside them, and does not enforce activity-level 
 - [S13] [`encyclopedia/workflow-message-passing/workflow-message-passing.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workflow-message-passing/workflow-message-passing.mdx) — Signal / Query / Update semantics
 - [S14] [`encyclopedia/workflow-message-passing/workflow-streams.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workflow-message-passing/workflow-streams.mdx) — durable event channel; long-polling subscribers; modest fan-out
 - [S15] [`encyclopedia/workflow/workflow-pause.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workflow/workflow-pause.mdx) — pause semantics; server v1.30.0+, CLI v1.6.0+, UI v2.47.2+; Cloud invite-only pre-release
-- [S16] [`encyclopedia/workflow/workflow-execution/continue-as-new.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workflow/workflow-execution/continue-as-new.mdx) — definition; three reasons; new run ID and fresh history
+- [S16] [`encyclopedia/workflow/workflow-execution/continue-as-new.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workflow/workflow-execution/continue-as-new.mdx) — definition; the reasons it is needed; new run ID and fresh history
 - [S17] [`encyclopedia/workflow/workflow-execution/limits.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workflow/workflow-execution/limits.mdx) — 51,200 events / 50 MB; 2,000 pending per class; 30 pending Nexus
 - [S18] [`encyclopedia/workflow/workflow-definition.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workflow/workflow-definition.mdx) — determinism constraints; command-producing call list
 - [S19] [`design-patterns/saga-pattern.mdx`](https://raw.githubusercontent.com/temporalio/documentation/main/docs/design-patterns/saga-pattern.mdx) — compensation in reverse order; eventual consistency; no-meaningful-compensation limit
@@ -738,7 +771,7 @@ persists between nodes but not inside them, and does not enforce activity-level 
 
 - [S34] [Temporal Cloud pricing — docs.temporal.io](https://docs.temporal.io/cloud/pricing) — **the platform-fee STRUCTURE**: greater of $100/mo or 5% of Usage Spend (Essentials), greater of $500/mo or 10% (Business); four plans including Mission Critical; Action overage ladder $50→$25; storage $0.042/GBh active, $0.00105/GBh retained
 - [S35] [Temporal Cloud Actions — docs.temporal.io](https://docs.temporal.io/cloud/actions) — Actions as the primary unit of consumption-based pricing; the 11 billable categories, **including Activity heartbeat recording**
-- [S26] [Temporal pricing — temporal.io (marketing)](https://temporal.io/pricing) — plan tiers, Action overage ladder, storage rates, $1,000 trial and $6,000 startup credits. Every overlapping figure matched against [S34]; shows only three plans where [S34] shows four. **Marketing page — prefer [S34].**
+- [S26] [Temporal pricing — temporal.io (marketing)](https://temporal.io/pricing) — plan tiers (Essentials, Business, Enterprise, Mission Critical), Action overage ladder, storage rates, $1,000 trial and $6,000 startup credits. **Every overlapping figure matched against [S34], with no divergence found.** Prefer [S34] for the fee structure, which this page states in starting-at form.
 
 **Sibling pool papers (cross-referenced, not re-derived)**
 
@@ -757,3 +790,10 @@ persists between nodes but not inside them, and does not enforce activity-level 
 > is subprocess-specific — but it narrows the search method's claim of absence, and the sibling's
 > negative finding should be re-stated against this directory at its next touch.** Surfaced here rather
 > than edited into that paper, which is outside this dispatch's write boundary.
+>
+> **A second, cheap flag — for `dedicated_edge_routing.md`'s next touch, not a finding.** The server
+> v1.31.0 release body (2026-04-29 — outside this paper's §6 diff window, which is why it gets no §6
+> entry) states the Worker **Deployment APIs** are fully GA, while the newer `CreateWorkerDeployment*`
+> creation APIs remain pre-release. That sibling's line 51 characterises the **CLI command's**
+> experimental note — a different object, so there is no contradiction to resolve. Worth a look when
+> that paper next refreshes its §4.3.
