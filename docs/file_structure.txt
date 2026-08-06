@@ -179,11 +179,21 @@ claude-dot-files/
 │           ├── revision-draft-minor.sh              # Child 1 of revision-minor.sh — writes the scoped change (was the monolithic revision-minor.sh)
 │           └── revision-refine-minor.sh             # Child 2 of revision-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
 │
+├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
+│   ├── run-all.sh                                   # Master runner — the single "run everything" entry point.
+│   │                                                #   ./testing/run-all.sh [unit|integration|e2e] [component]
+│   ├── suites/
+│   │   └── python.sh                                # pytest suite runner. pytest is the ONLY adopted framework here, so it is the
+│   │                                                #   only runner — a bash/bats runner gets added with the first .bats file, not before
+│   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
+│
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
 ├── config.yaml                                      # Centralized service/workflow configuration (gh-monitor + per-workflow models map)
+├── conftest.py                                      # Repo-root pytest config — RLIMIT_AS memory guardrail (Testing Standard § Test Resource Safety, binding)
 ├── install.sh                                       # Creates symlinks from config/* into ~/.claude/
 ├── LICENSE                                          # MIT license
+├── pytest.ini                                       # Pins pytest rootdir here, which is what guarantees conftest.py loads on every invocation
 └── README.md                                        # Repo documentation
 
 ---

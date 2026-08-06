@@ -1,0 +1,92 @@
+"""The repo-root memory guardrail actually binds this process.
+
+Testing Standard § Test Resource Safety (binding) requires every pytest run to
+be memory-bounded so a runaway test fails as a MemoryError rather than as a host
+outage — a self-recursive `asyncio.sleep` mock once grew pytest to ~28 GB and
+OOM-killed a control-plane VM on every workflow test run.
+
+The guardrail is only worth having if it is ACTIVE, and "the conftest exists" is
+not the same claim. The first test below reads the live rlimit of the very
+process running it, so it fails if the root conftest is ever skipped — which is
+precisely what happens if `pytest.ini` stops pinning rootdir and a subdirectory
+invocation computes a rootdir below the repo root.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import resource
+from pathlib import Path
+
+import pytest
+
+_REPO_ROOT = Path(__file__).resolve().parents[5]
+_ROOT_CONFTEST = _REPO_ROOT / "conftest.py"
+
+_GIB = 1024**3
+
+
+def _load_root_conftest():
+    """Import the root conftest under a private name.
+
+    Not `import conftest` — that resolves to whichever conftest is first on
+    sys.path and would silently test the wrong file.
+    """
+    spec = importlib.util.spec_from_file_location("repo_root_conftest", _ROOT_CONFTEST)
+    assert spec and spec.loader, f"could not load {_ROOT_CONFTEST}"
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def restore_rlimit():
+    """Save and restore RLIMIT_AS around a test that deliberately changes it."""
+    original = resource.getrlimit(resource.RLIMIT_AS)
+    yield
+    resource.setrlimit(resource.RLIMIT_AS, original)
+
+
+def test_the_running_pytest_process_is_memory_bounded() -> None:
+    """The binding property, read off the live process."""
+    soft, _hard = resource.getrlimit(resource.RLIMIT_AS)
+    assert soft != resource.RLIM_INFINITY, (
+        "RLIMIT_AS is unbounded in this pytest process — the root conftest.py "
+        "guardrail did not load. Check that pytest.ini still pins rootdir to the "
+        "repo root; without it a subdirectory invocation collects no root conftest "
+        "and a runaway test takes down the host instead of failing as a test."
+    )
+    assert soft <= 8 * _GIB, (
+        f"RLIMIT_AS soft limit is {soft / _GIB:.1f} GiB, above the 8 GiB default. "
+        "Raising the cap to accommodate a test that should have been bounded is "
+        "the documented way to break this rule."
+    )
+
+
+def test_root_conftest_is_where_the_guardrail_lives() -> None:
+    assert _ROOT_CONFTEST.is_file(), (
+        f"{_ROOT_CONFTEST} is missing — the guardrail must sit at the repo root "
+        "so it loads for every pytest invocation, not just via testing/run-all.sh"
+    )
+
+
+def test_cap_honours_the_env_override(monkeypatch: pytest.MonkeyPatch, restore_rlimit) -> None:
+    conftest = _load_root_conftest()
+    monkeypatch.setenv("PYTEST_MEM_CAP_GIB", "2")
+    conftest._apply_memory_cap()
+    soft, _hard = resource.getrlimit(resource.RLIMIT_AS)
+    assert soft == 2 * _GIB, f"env override ignored — soft limit is {soft}, expected {2 * _GIB}"
+
+
+@pytest.mark.parametrize("bad", ["not-a-number", "0", "-1", ""])
+def test_a_malformed_cap_refuses_to_run_rather_than_running_unbounded(
+    monkeypatch: pytest.MonkeyPatch, bad: str
+) -> None:
+    """Fail loud. A malformed cap that silently fell back to "no limit" would
+    leave the suite unbounded while the conftest reported success — a guardrail
+    that appears to address the problem while leaving it live.
+    """
+    conftest = _load_root_conftest()
+    monkeypatch.setenv("PYTEST_MEM_CAP_GIB", bad)
+    with pytest.raises(RuntimeError, match="refusing to run unbounded"):
+        conftest._apply_memory_cap()
