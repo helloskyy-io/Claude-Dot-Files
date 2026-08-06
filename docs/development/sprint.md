@@ -120,6 +120,7 @@ Make the system improve its own tooling from evidence it generates itself.
 - [x] **Post-Run Reflection** — every workflow posts a decision log and tooling suggestions to its PR
 - [x] **`review-pr` mines reflections** — the run's own words are its primary evidence surface
 - [ ] **Sweep the reflection channel systematically** — tooling suggestions are written by every run and read opportunistically; nothing sweeps them the way `review-runs.sh` sweeps logs
+- [ ] **Read out the judge's marginal yield** — classify a window of PRs' disposition items as already-stated-by-the-producing-run versus new. No new dispatches; it reads the JSONL logs and PR threads that already exist. It is the first measurement of whether the review stage earns its keep, and a near-zero yield falsifies that more cheaply than any experiment which runs one
 
 ---
 
@@ -168,9 +169,38 @@ Monolithic agent files are not a problem; they are dumb and simple and that is a
 - [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
 - [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
 
+## Sprint: Edge Trust & Queue Topology — 📋 QUEUED, NEEDS A DECISION FIRST
+
+**Phase doc:** not yet written. Every item here is a **ruling**, and each one constrains a design that has not been drawn yet. Deliberately placed ahead of Temporal Integration: the pinned-edge queue design assumes answers this sprint has not produced.
+
+The credential is what pins work to a machine, and the whole three-tier split follows from a credential nobody can mint. That makes queue topology a trust question rather than a scheduling one — and the trust boundary at a laptop edge has a price that has never been written down.
+
+- [ ] **Settle whether a worker can be prevented from polling a queue it should not serve** — undocumented first-party; "a custom Authorizer gates polling" is a hypothesis, not a fact. Gates everything else here, and it is cheap now and expensive once workers exist
+- [ ] **Resolve the queue-axis conflict with the vendored Worker Deployment Standard** — machine axis or role axis, ruled once
+- [ ] **Rule the laptop trust boundary** — both major CI vendors publish guidance against a self-hosted runner holding a credential the dispatcher lacks, and their mitigation is ephemeral isolated execution, which a laptop resists. The available resolution is that the credential is the operator's own, so the operator is inside the boundary. Writing that down *is* the ruling
+- [ ] **Rule the failover question** — pinning work that needs no credential and no local repo costs failover and buys nothing. A third option exists: pin the credential and proxy the model call instead of moving the work. It does not work for `claude-cli` runtimes, and that exclusion is what closes the ruling rather than leaving it open
+- [ ] **No fallback queue** — an unresolvable assignee PARKs with a typed event. A silent fallback moves work off the edge holding the credential, which the trust model forbids
+
+Evidence: [`../standards/architecture/research/synthesis.md`](../standards/architecture/research/synthesis.md) §2, §7
+
+## Sprint: Fleet Liveness & Recovery — 📋 QUEUED, NEEDS PLANNING
+
+**Phase doc:** not yet written. **One design session, not several** — the recovery guards, the liveness predicates and the dedupe granularity are one contract, and planning them apart produces partial ones.
+
+What tells the difference between a run that is working, a run that is stuck, and a run nobody ever picked up — and what an operator is told when the answer is the second or third. Two independent comparators say this belongs **before workers are written**, which puts it ahead of Temporal Integration's worker stages rather than inside them.
+
+- [ ] **Adopt the three-legged liveness taxonomy** — stalled (no output), looping (identical output), stranded (never claimed). Liveness ≠ progress ≠ permission-to-continue
+- [ ] **Design the pre-worker recovery contract in one session** — per-subsystem restart recovery, a durable dispatch id, and the live-PID / dead-PID / absolute-cap guards
+- [ ] **Rule the dedupe granularity** — a ruling, not a build, and explicitly not a pair to build both of. What happens to a task already handed to a worker that then sleeps is what sets it
+- [ ] **Three cheap guards** — credential expiry, false completion, and a safety-hook wiring test. Credential expiry at an unattended edge has no prior art anywhere, so there is nothing to copy
+- [ ] **Build the blocked-work notifier — and no operator dashboard** — the negative is the finding. This is where the blocked-work inbox gets a home
+- [ ] **Per-edge quota headroom from observed cap-errors** — no provider telemetry required. Take the telemetry, not the rotation: rotation presumes more than one subscription
+
+Evidence: [`../standards/architecture/research/synthesis.md`](../standards/architecture/research/synthesis.md) §4
+
 ## Sprint: Temporal Integration — 📋 QUEUED, NEEDS PLANNING
 
-The port to durable execution. **Gated on the two phases above** — not by preference, by dependency: Temporal is being adopted for durability, resumability and cross-run observability, **NOT to gain composition**, which already works in bash. A parent needs a child's exit code plus one stable identifier on its final line, and the completion contract already supplies both. Porting before the decomposition and the handoff contract are settled would mean porting a shape we are still changing.
+The port to durable execution. **Gated on Workflow Decomposition and the Memory Management Framework** — not by preference, by dependency: Temporal is being adopted for durability, resumability and cross-run observability, **NOT to gain composition**, which already works in bash. A parent needs a child's exit code plus one stable identifier on its final line, and the completion contract already supplies both. Porting before the decomposition and the handoff contract are settled would mean porting a shape we are still changing.
 
 **Direction is settled; nothing is planned.** Decision record: [`skyy-net-seed-handoff.md`](skyy-net-seed-handoff.md). Binding standard the port conforms to: `standards/development/temporal/` in `mdc-master-planning` — the three-tier model (generic activities → composable child workflows → parent workflows), `ActivityResult`, `ACTIVITY_MAP`.
 
@@ -363,9 +393,25 @@ Realistic estimate: **10-15% of Opus turns offloaded** with zero quality loss. T
 
 # Tools to Evaluate
 
-These are worth investigating but not committed to the roadmap yet:
+**Two categories, not one list.** A comparator either competes with the **backbone** — the orchestration layer — or with **Claude Code**, the runtime our edge already contains. Holding both under one heading is why an unassessed comparator with five times the adoption of anything else here looked low-priority for three cycles.
+
+### Backbone comparators
+
+Systems that would replace the orchestration layer.
 
 - **Paperclip** — ~~evaluate after Phase 4~~ **ASSESSED 2026-08-04, architecture rejected.** See [`research/raw/paperclip_assessment.md`](../standards/architecture/research/raw/paperclip_assessment.md). It is not a UI overlay for Claude Code — that description is one the project itself disclaims. It is a Node/React agent-management platform organised around an org-chart metaphor (CEO hires PMs, PMs hire engineers) that **invokes headless Claude Code as its substrate**, which makes the overlap question this item asked the wrong one. Its durability is bespoke on Postgres — heartbeat liveness, recovery dedupe, idempotency indexes — not Temporal, so adopting it conflicts with the settled direction. **Capabilities worth mining are recorded in the assessment**, notably the stalled-run predicate and the blocked-work inbox. No further evaluation gate.
+
+### Edge runtimes
+
+Systems that compete with Claude Code — the thing sitting *inside* our edge. Judged on backbone axes they fail trivially and teach nothing, which is exactly the category error the split exists to prevent.
+
+- **OpenClaw** (`openclaw/openclaw`, MIT, OpenClaw Foundation) — **ASSESSED 2026-08-06, architecture rejected, mined heavily.** See [`research/raw/openclaw_assessment.md`](../standards/architecture/research/raw/openclaw_assessment.md). It is not an orchestrator and its own `VISION.md` lists orchestration layers and agent hierarchies as non-goals; it is a single-Gateway personal-assistant control plane with SQLite-backed recovery, companion devices as peripherals, and an explicit one-trusted-operator-per-Gateway security model. **Not adoptable as a backbone and not buildable on.** It is nonetheless the pool's strongest evidence for two of our positions — credentials at the edge, and the limit of shipped multi-tenancy — and the sharpest counter-example to the "sold for code" framing. Ten transferable items are recorded in the assessment. **No further evaluation gate.**
+- **Hermes Agent** (`NousResearch/hermes-agent`, MIT) — **ASSESSED 2026-08-06, architecture rejected as a backbone, mined.** See [`research/raw/hermes_assessment.md`](../standards/architecture/research/raw/hermes_assessment.md). A Python personal-AI-agent runtime, and the name is overloaded — it is not the Hermes model family from the same organisation, nor Meta's JavaScript engine. Its own orchestration layer states its limit: the task board is deliberately single-host, a local SQLite file with a dispatcher that spawns workers on the same machine and detects crashes by host-local PID. A federated destination cannot be built on a substrate whose crash detector cannot see the other machine. **Eight transferable items are recorded in the assessment**, one of which unblocked a gap the research pool had carried for two cycles. **No further evaluation gate.**
+
+### Frameworks and libraries
+
+Not comparators — things we might build with.
+
 - **Claude Agent SDK** — TypeScript/Python framework that powers Claude Code under the hood. Enables building custom agents for non-coding workflows. Worth exploring if we need automation beyond what Claude Code provides natively (e.g., custom CI pipelines, Slack bots, monitoring agents).
 
 ---
