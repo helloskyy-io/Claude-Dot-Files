@@ -63,6 +63,44 @@ Create it with the header explaining the two flags, who sets which, and the neve
 
 State plainly: how many candidates you **added**, how many you **restated under an existing ID**, and how many existing rows you **left alone**. A cycle that adds nothing new is a legitimate outcome — say so rather than manufacturing candidates to look productive.
 
+## Stage 4c: APPEND TO `direction.md` — BINDING
+
+Some findings are not design work. They are **recommendations about what the project believes** — that a differentiator is overstated, that a comparator is mis-framed, that a claim rests on an assumption nobody named. Those belong to the operator, not to a planner and not to you.
+
+`${RESEARCH_DIR}/direction.md` is where they go.
+
+> **`candidates.md` is the machine's document. `direction.md` is the human's.**
+
+**You NEVER edit `problem-statement.md`.** It is the thesis every other document derives from, and the judgement in it is not delegable. You recommend; the operator rules; the operator writes.
+
+### What belongs here rather than in `candidates.md`
+
+| Goes in `direction.md` | Goes in `candidates.md` |
+|---|---|
+| A differentiator is overstated, refuted, or should be restated | Build this, adopt that, decide a ruling |
+| The problem statement claims something the evidence no longer supports | A standards amendment, a phase item, a guard to ship |
+| A comparator is mis-framed or missing an axis | Anything with an implementation |
+| A stated assumption is load-bearing and unnamed | |
+
+**If you cannot tell, ask: does acting on this change what we BELIEVE, or what we BUILD?** Belief goes here.
+
+### Row shape
+
+| ID | Recommendation | Why it matters | Source | `status` |
+
+**You set:** `ID` · `Recommendation` · `Why it matters` · `Source`.
+**You NEVER set `status`** — that is the operator's, and it is one of `open` · `applied` · `rejected`. Leave it `` `open` ``.
+
+### If the file already exists
+
+Same discipline as `candidates.md`: **read every row first**, reuse the original ID for anything you are restating, never renumber, never delete, and **do not re-propose something already marked `rejected`** unless new evidence overturns it — in which case say so explicitly.
+
+IDs are `D-001`, `D-002`, … and are independent of the `C-` series.
+
+### In your PR body
+
+**List the `direction.md` items separately from the candidates, as their own table.** They are the reason a research PR carries `HOLD - needs-assistance` rather than merging unattended: a human must rule on them, and no number of additional passes can produce that ruling.
+
 ## Stage 5: SUBMIT
 ${SUBMIT_PROMPT}
 

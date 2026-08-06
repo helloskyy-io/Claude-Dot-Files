@@ -36,6 +36,9 @@ It exists because live-operational work — a multi-day vendor migration, an inc
 
 ## Stage 1 — Sweep (dumb, complete enumeration)
 
+**Read `docs/standards/architecture/research/direction.md` if it exists.** It holds recommendations about what the project *believes* — a differentiator overstated, a claim resting on an unnamed assumption — surfaced by research and **awaiting the operator's ruling**. Every row with `status: open` is a decision only the human can make. If the file is absent, say so in one line and move on.
+
+
 For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers the repo, or pass `--repo`), gather EVERYTHING — do not filter here; enumeration is complete and unfiltered, filtering happens in Stage 2:
 
 1. **Open PRs + their machine state.** `gh pr list --state open --json number,title,author,createdAt,headRefName`. For each, read the disposition: `gh pr view <N> --json comments --jq '.comments[].body'` and find the LATEST comment containing a `pr_review:` yaml block. Classify:
@@ -49,25 +52,41 @@ For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers
 
 ## Stage 2 — Format the brief (this is where filtering happens)
 
-**You know which items are YOURS** — the PRs and issues this session created, dispatched, or is tracking, from your own task list, memory, and dispatch history. Everything else belongs to another PM's lane. No labels or registry tell you this; involvement is known by the actor. Format accordingly:
+**You know which items are YOURS** — the PRs and issues this session created, dispatched, or is tracking. No label tells you; involvement is known by the actor. Everything else is another lane.
 
-1. **Where we left off — the standup tracker.** The opening section, ahead of everything else. Render the tracker's sections in ITS order (`BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED`), lines verbatim with their `owner:` / `blocked on:` fields intact.
+### RECONCILE BEFORE YOU RENDER — this is not optional
 
-   **The obligation is per LINE, not on the document.** "Reviewed the tracker" is not a disposition — that is the exact non-attendance failure that killed the loose-ends convention, relocated one level up: a document nobody rules on, only acknowledges. For every unresolved line under `BLOCKED` / `READY` / `IN FLIGHT`, prompt the operator for one of three:
+**A standup that reports state it did not verify trains the operator to distrust it.** Before rendering any line, check it against the surfaces you just swept:
 
-   - **acted on** — moves to `RESOLVED` with a date
-   - **re-stated** — with what changed
-   - **explicitly carried** — WITH the reason it cannot move. "Still carried" alone is not a reason.
+- A tracker item pointing at a PR — **is that PR still open?** Merged or closed means the line is stale.
+- A tracker item pointing at an issue — **is it still open?**
+- A tracker item describing work — **did commits land in the window that contradict it?**
 
-   **Then surface the pruning obligation.** Flag every `RESOLVED` item dated **≥7 days ago** for deletion. Items are meant to *flow through* this document — **a tracker that grows month over month is failing**, and prompting for the prune is what keeps that true. You flag; the operator prunes.
+**Report the discrepancy, never the stale line.** *"T-12 says the port is step 2 of three; 22 commits since the last standup completed it"* is the useful output. Rendering T-12 verbatim is not. If you cannot verify a line, **say you could not** — never assert its state either way.
 
-2. **Since last standup** — merged work from the window, one line each. Outcomes, not narration ("PR #42 merged: etcd-freshness guard added" — not a play-by-play).
-3. **Blockers needing THIS session's human** — your-lane HOLD PRs and your-lane open issues, each with its PRE-WRITTEN next-step attached verbatim so the operator decides, never re-derives. This is the section that earns the command.
+### OUTPUT IS TABLES
 
-   **State the disposition obligation on every open issue: an issue MUST NOT survive a standup in the same state.** The four exits are: **resolved now** / **scheduled into existing planning** / **planned as new work** / **closed as invalid**. Prompt the operator to pick one — acknowledging an issue is not ruling on it, and an un-ruled issue is how the previous convention rotted.
-4. **Next logical steps** — drawn from your open work's runway sections and this session's task list.
-5. **Other PMs' lanes — progress notes ONLY.** One line per foreign PR/issue: "PM2: guide restructure open, N commits since window — theirs." **You MUST NOT frame a foreign item as actionable for this session.** Foreign items are addressed in the window of the PM that created them; cross-lane takeover is the failure mode where the operator loses the thread of who's building what. Note them for awareness; never as your to-do.
-6. **Timers / watch-items** — only if this session's memory carries any (optional; omit if none).
+**Every section is a table.** Prose only where a table genuinely cannot carry the meaning — a table plus a paragraph restating it is the failure this rule exists to stop. **Each row carries at least two full sentences** of description: what it is, and why it matters now. A truncated title is not a description, and the operator should never have to open a file to know whether a row needs them.
+
+Render these, in order, each as its own table:
+
+**1 · Where we left off — the standup tracker.** Sections in ITS order (`BLOCKED` → `READY` → `IN FLIGHT` → `RESOLVED`), fields intact including `owner:` and `blocked on:`. Every unresolved line ends in **acted on** (moves to `RESOLVED` with a date) / **re-stated** (with what changed) / **explicitly carried** (WITH the reason it cannot move — "still carried" is not a reason). Flag every `RESOLVED` item dated **≥14 days ago** for pruning; you flag, the operator prunes.
+
+**2 · Sprint items.** From `sprint.md`. What each sprint is, and its state right now — reconciled, not as written.
+
+**3 · Open issues.** Every one. **An issue MUST NOT survive a standup in the same state** — the four exits are *resolved now* / *scheduled into existing planning* / *planned as new work* / *closed as invalid*. Acknowledging an issue is not ruling on it.
+
+**4 · Direction decisions awaiting the operator.** From `direction.md`, every row with `status: open`. **These are the items nobody else can rule on** — they change what the project believes, and no amount of further work substitutes for the decision. Omit the table entirely if the file has no open rows; do not render an empty one.
+
+**5 · Since last standup.** Merged work in the window, outcomes not narration.
+
+**6 · Blockers needing this session's human.** Your-lane HOLD PRs with their PRE-WRITTEN next-step attached **verbatim** — the disposition engine already wrote it; you deliver it, you never re-derive it.
+
+**7 · Other lanes — awareness only.** One row each. **You MUST NOT frame a foreign item as actionable for this session.** Cross-lane takeover is how the operator loses the thread of who is building what.
+
+**8 · Timers / watch-items.** Only if any exist.
+
+**Empty is a valid report.** If a surface has nothing, say so in one line rather than manufacturing rows to fill a table.
 
 ## Rules
 
