@@ -208,7 +208,7 @@ Before detailed planning, sketch the architecture at a high level.
 
 #### System Overview
 
-Create `docs/standards/architecture/system-overview.md` with:
+Create `docs/standards/architecture/architectural_standard.md` with:
 
 **Component diagram:** What are the major pieces?
 ```
@@ -401,7 +401,7 @@ Create `docs/development/sprint.md`:
 
 ## Related Documentation
 - [Requirements](requirements.md)
-- [Architecture Overview](../architecture/system-overview.md)
+- [Architecture Overview](../architecture/architectural_standard.md)
 - [Tech Stack](../architecture/tech-stack.md)
 ```
 
@@ -416,7 +416,7 @@ docs/
 │   ├── ADR-001-tech-stack.md
 │   ├── ADR-002-database.md
 │   ├── ADR-003-auth.md
-│   ├── system-overview.md
+│   ├── architectural_standard.md
 │   ├── tech-stack.md
 │   └── security.md
 ├── development/
@@ -453,7 +453,7 @@ After project definition is complete, you should have:
 
 **Documents:**
 - [ ] `docs/development/requirements.md` — functional, non-functional, constraints, assumptions, out of scope
-- [ ] `docs/standards/architecture/system-overview.md` — high-level architecture
+- [ ] `docs/standards/architecture/architectural_standard.md` — high-level architecture
 - [ ] `docs/standards/architecture/tech-stack.md` — summary of stack choices
 - [ ] `docs/standards/architecture/security.md` — security considerations
 - [ ] `docs/standards/architecture/ADR-###-*.md` — one ADR per major stack decision

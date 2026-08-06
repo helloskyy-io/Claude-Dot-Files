@@ -44,5 +44,5 @@ Two consequences now binding, recorded in [`../../standards/hook-scripts.md`](..
 ## Where this landed
 
 - [`../../standards/hook-scripts.md`](../../../standards/hook-scripts.md) — the standard, including the headless safety invariant
-- [`../../architecture/system-overview.md`](../../../standards/architecture/system-overview.md) — hook architecture and the stdin JSON contract
+- [`../../architecture/architectural_standard.md`](../../../standards/architecture/architectural_standard.md) — hook architecture and the stdin JSON contract
 - `config/hooks/` — the implementations

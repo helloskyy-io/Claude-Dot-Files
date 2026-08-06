@@ -25,7 +25,7 @@ The governing rule carries an override, and you are it:
 | Expand an existing section with a new milestone | Design *how* anything gets built |
 | Re-order sections to reflect dependency | Flip a completion checkbox |
 | Set `decision` in the candidates file | Set `status` in the candidates file |
-| | Edit `problem-statement.md`, `system-overview.md`, or anything under `docs/standards/` |
+| | Edit `problem-statement.md`, `architectural_standard.md`, or anything under `docs/standards/` |
 
 **The decision was made — implement your portion only.** A decided candidate does not become finished work because you decided it. Something else places it in a phase doc, and something else again builds it.
 
@@ -41,7 +41,8 @@ Read, in this order, and do not skip any:
 2. **`${CANDIDATES_PATH}`** — the running list. Note which rows have a blank `decision` (untriaged, your job) versus a set one (already ruled, leave alone unless new evidence overturns it).
 3. **`${RESEARCH_DIR}/synthesis.md`** — what the evidence currently says. **This is your evidence input. DO NOT READ THE RAW PAPERS.** The Research Standard is explicit that downstream consumers take the synthesis and never the pool, and a triage pass that opens 21 papers is an hour-long run doing a job the synthesis already did. The paper *list* below is for coverage checking only — noticing a title the synthesis never mentions. **Open a paper only if a specific candidate cannot be ruled on without it, and say in your report which one and why.**
 4. **`docs/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** You read it because a sprint that does not serve the thesis is the failure this workflow exists to catch.
-5. **`docs/standards/architecture/system-overview.md`** — what is actually built, including settled decisions like the deployment target. A candidate contradicting a settled decision is a `reject`, and the reason is that it was already decided.
+5. **`docs/standards/architecture/architectural_standard.md`** — the binding vocabulary and the seams. A candidate that violates a seam is a `reject`, and the reason is the seam.
+6. **`docs/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. A candidate contradicting a settled stack decision is a `reject`, and the reason is that it was already decided. Note its "What we do NOT use" section: that list exists because a research cycle once costed out a product ruled out three weeks earlier.
 
 ${EXISTING_WORK}
 

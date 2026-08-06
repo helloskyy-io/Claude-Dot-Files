@@ -341,7 +341,7 @@ Guiding principles: boring is beautiful, team expertise matters, operational sim
 ## Stage 4: ARCHITECTURE
 Design the high-level architecture.
 
-Create `docs/standards/architecture/system-overview.md` with:
+Create `docs/standards/architecture/architectural_standard.md` with:
 - **Component diagram:** Major pieces and how they connect
 - **Data flow:** Request lifecycle, write path, read path, background processing
 - **External integrations:** Third-party APIs, webhooks, identity providers

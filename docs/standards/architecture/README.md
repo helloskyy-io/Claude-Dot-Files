@@ -3,7 +3,7 @@
 This directory holds high-level system overviews — the WHY behind how the repo is structured. Per `config/rules/standards-governance.md`, this repo does NOT use numbered ADR files. Binding architectural decisions are captured as standards documents in `docs/standards/<topic>.md`. This directory holds:
 
 - `problem-statement.md` — **read this first.** What problem the product solves, what this repo is the first iteration of, and why coding is the first edge rather than the product
-- `system-overview.md` — the map: layers, composition, memory, and the seams. **Deliberately concise** — it points at the standards, roadmap and phase docs rather than restating them
+- `architectural_standard.md` — the map: layers, composition, memory, and the seams. **Deliberately concise** — it points at the standards, roadmap and phase docs rather than restating them
 - Optional supporting docs: component diagrams, data-flow descriptions, threat models
 
 ## What goes here vs `docs/standards/`
@@ -11,7 +11,7 @@ This directory holds high-level system overviews — the WHY behind how the repo
 | Type | Lives in | Example |
 |---|---|---|
 | Binding architectural decision with alternatives considered | `docs/standards/<topic>.md` | symlinks-vs-Stow rationale → `docs/standards/sync-strategy.md` |
-| High-level system overview | `docs/standards/architecture/system-overview.md` | "here's how the layers fit together" |
+| High-level system overview | `docs/standards/architecture/architectural_standard.md` | "here's how the layers fit together" |
 | Threat model / security architecture | `docs/standards/architecture/threat-model.md` | enumerated attack classes the hooks address |
 | Implementation guidance for a standard | n/a — that's `docs/guide/` | how to use a particular workflow |
 
