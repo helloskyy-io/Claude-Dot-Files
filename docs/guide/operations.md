@@ -134,7 +134,7 @@ The draft child's Stage 1 still stops and escalates to `build.sh` if the task tu
 ### `build-phase.sh` — implement from a written plan doc (300 turns)
 The heavy engineer. Takes a phase document as its input rather than a prose task, so the plan is the contract. Reach for this when `build.sh` would run out of turns.
 ```bash
-./scripts/workflows/build-phase.sh docs/development/phases/phase-1.md "follow all standards" --verbose
+./scripts/workflows/build-phase.sh docs/development/phase-1.md "follow all standards" --verbose
 ```
 
 ### `plan-new.sh` — define a new project from scratch (500 turns)

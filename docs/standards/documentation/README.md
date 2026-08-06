@@ -30,7 +30,7 @@ These are the rules that make a doc corpus maintainable rather than merely large
 
 Roughly a third of the document describes a planning structure this repo does not have. Ignore, do not adapt:
 
-- **Sprint Tracking**, **Sprint Close-Out**, **Cross-Roadmap Integration Pattern** — no sprints here; this repo plans in named phases (`docs/development/roadmap.md`)
+- **Sprint Tracking**, **Sprint Close-Out**, **Cross-Roadmap Integration Pattern** — no sprints here; this repo plans in named phases (`docs/development/sprint.md`)
 - **Development Planning Files** — assumes the master-planning layout
 - **The Standup Tracker** — that artifact lives in `mdc-master-planning`; our side is the *reader* (`/standup`), not the owner
 - **Deferred Work — GitHub Issues** — the mechanism is shared, but the routing described is platform-specific

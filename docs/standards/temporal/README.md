@@ -46,4 +46,4 @@ Both are recorded in `claude-dot-files-addendum.md` as they get decided. **The a
 
 - `docs/standards/workflow-scripts.md` — how these rules apply to the bash fleet today
 - `docs/development/skyy-net-seed-handoff.md` — the topology and decision record
-- `docs/development/roadmap.md` → *Phase: Temporal Integration* — the migration path
+- `docs/development/sprint.md` → *Phase: Temporal Integration* — the migration path

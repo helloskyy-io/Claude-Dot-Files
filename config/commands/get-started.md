@@ -58,7 +58,7 @@ CONTEXT
 
 ## Our Pattern Each Session
 
-1. Check the roadmap for where we are (`docs/development/roadmap.md`)
+1. Check the roadmap for where we are (`docs/development/sprint.md`)
 2. Review any open PRs from autonomous workflows
 3. Plan what to tackle — check off completed items, identify next steps
 4. Dispatch autonomous workflows in other terminals while we work interactively here

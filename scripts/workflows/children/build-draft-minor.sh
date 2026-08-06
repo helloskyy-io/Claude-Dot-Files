@@ -319,7 +319,7 @@ Rules:
 - **Re-Read before re-Editing anything you wrote earlier:** Edit requires a fresh Read. The classic failures: revising a /tmp staging file (e.g. \`/tmp/claude-pr-body.md\`) several turns after Writing it, or re-Editing a repo file many turns after its last Read (applying review findings). Either Read the file again first, or for staging files simply Write the full replacement content instead of Editing.
 - **Prefer relative paths inside the worktree:** the workflow places you at the worktree root. For Read/Grep/Glob/Edit/Write of files inside the worktree, use paths relative to the root (e.g., \`lib/temporal/foo.py\`) rather than re-typing the long absolute worktree path. The model occasionally typos long absolute paths (e.g., \`.claire/\` instead of \`.claude/\`) — relative paths eliminate that bug class entirely.
 - Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
+- For known-large files (sprint.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, briefly confirm what was done (1-2 sentences max — the commit message and PR description already convey the details)
@@ -387,7 +387,7 @@ Rules:
 - **Re-Read before re-Editing anything you wrote earlier:** Edit requires a fresh Read. The classic failures: revising a /tmp staging file (e.g. \`/tmp/claude-pr-body.md\`) several turns after Writing it, or re-Editing a repo file many turns after its last Read (applying review findings). Either Read the file again first, or for staging files simply Write the full replacement content instead of Editing.
 - **Prefer relative paths inside the worktree:** the workflow places you at the worktree root. For Read/Grep/Glob/Edit/Write of files inside the worktree, use paths relative to the root (e.g., \`lib/temporal/foo.py\`) rather than re-typing the long absolute worktree path. The model occasionally typos long absolute paths (e.g., \`.claire/\` instead of \`.claude/\`) — relative paths eliminate that bug class entirely.
 - Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
+- For known-large files (sprint.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Always verify tests pass before committing
 - If tests cannot be made to pass, stop and clearly report the failure
 - At the end, report just the PR URL (the PR description already has the details)

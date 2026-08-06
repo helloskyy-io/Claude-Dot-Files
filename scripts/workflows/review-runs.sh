@@ -28,7 +28,7 @@
 # Logging:
 #   Every run writes a structured JSONL log to .claude/logs/review-runs-<ts>.jsonl
 #
-# See docs/development/roadmap.md Phase 5a for the design context.
+# See docs/development/sprint.md Phase 5a for the design context.
 # See docs/standards/workflow-scripts.md for the standard this script follows.
 
 set -euo pipefail
@@ -349,7 +349,7 @@ ${PROMPT_FILE_LIST}
 - Always disclose sample size and confidence level
 - If prior reviews exist in docs/development/reviews/, check them for resolved patterns
 - Focus on patterns, not one-off anomalies (unless severe)
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
+- For known-large files (sprint.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 EOF
 )
 

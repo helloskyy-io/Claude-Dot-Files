@@ -102,7 +102,7 @@ Organize plans as a roadmap with detailed phase docs:
 
 ```
 docs/development/
-├── roadmap.md                    ← high-level phases overview
+├── sprint.md                    ← high-level phases overview
 ├── phase-1-data-models.md        ← detailed steps, checkboxes
 ├── phase-2-api-endpoints.md      ← depends on phase 1
 ├── phase-3-auth.md               ← depends on phase 2

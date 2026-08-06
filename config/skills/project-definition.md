@@ -372,7 +372,7 @@ Every project that handles secrets must document a secrets management strategy. 
 
 Now assemble everything into the top-level roadmap.
 
-Create `docs/development/roadmap.md`:
+Create `docs/development/sprint.md`:
 
 ```markdown
 # Project Name — Roadmap
@@ -420,7 +420,7 @@ docs/
 │   ├── tech-stack.md
 │   └── security.md
 ├── development/
-│   ├── roadmap.md
+│   ├── sprint.md
 │   ├── requirements.md
 │   └── features/
 │       └── (empty initially, populated as features are planned)
@@ -457,7 +457,7 @@ After project definition is complete, you should have:
 - [ ] `docs/standards/architecture/tech-stack.md` — summary of stack choices
 - [ ] `docs/standards/architecture/security.md` — security considerations
 - [ ] `docs/standards/architecture/ADR-###-*.md` — one ADR per major stack decision
-- [ ] `docs/development/roadmap.md` — top-level phased plan
+- [ ] `docs/development/sprint.md` — top-level phased plan
 - [ ] `docs/development/features/` — directory ready for feature docs
 - [ ] `docs/standards/` — initial coding standards
 - [ ] `docs/guide/` — directory ready for user docs

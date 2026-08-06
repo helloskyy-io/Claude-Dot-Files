@@ -26,8 +26,8 @@ This is the meta-layer above `documentation-structure` (which is about where doc
     CLAUDE.md
     docs/
       standards/                    ← binding architectural decisions (the ADRs)
-      development/                  ← roadmap.md + topic-folders with phase docs
-        <topic>/roadmap.md
+      development/                  ← sprint.md + topic-folders with phase docs
+        <topic>/sprint.md
         <topic>/phase-N.md
         common/loose_ends/
       architecture/                 ← high-level system/tech-stack overviews
@@ -127,12 +127,12 @@ Multi-component projects use a three-level hierarchy for planning, with checkbox
 
 ```
 sprint.md              ← orders phased planning by dependency / logical order
-  <topic>/roadmap.md   ← per-topic phased overview
+  <topic>/sprint.md   ← per-topic phased overview
     <topic>/phase-N.md ← detailed implementation plan per phase
 ```
 
 - **`sprint.md`** lives at the master-planning repo root (or `docs/development/sprint.md`). Orders what gets built when. Captures dependencies across topics.
-- **`<topic>/roadmap.md`** lives in each topic folder under `docs/development/`. Phased overview of the topic, with checkboxes for each phase.
+- **`<topic>/sprint.md`** lives in each topic folder under `docs/development/`. Phased overview of the topic, with checkboxes for each phase.
 - **`<topic>/phase-N.md`** (or epic-named-after-the-work) lives alongside the roadmap. Detailed plan for one phase, with checkboxes for individual deliverables.
 
 ### Reading-order discipline when starting work
@@ -140,7 +140,7 @@ sprint.md              ← orders phased planning by dependency / logical order
 When starting work that touches a topic, read up the hierarchy:
 
 1. `sprint.md` — where am I in the project sequence? What just shipped? What's next?
-2. `<topic>/roadmap.md` — what's the topic-level plan? Which phase am I in?
+2. `<topic>/sprint.md` — what's the topic-level plan? Which phase am I in?
 3. The specific phase/epic doc — what am I implementing right now?
 
 Don't skip levels. Reading the phase doc alone without the surrounding sequence/topic context degrades the agent's understanding of constraints, dependencies, and "why this approach."

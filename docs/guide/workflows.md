@@ -463,7 +463,7 @@ Every workflow dispatch runs with an **explicit `--model`**, resolved at dispatc
 **Per-dispatch A/B override** (bypasses the map for one run, no config change):
 
 ```bash
-MODEL_OVERRIDE=fable ./scripts/workflows/build-phase.sh docs/development/phases/phase-2.md --verbose
+MODEL_OVERRIDE=fable ./scripts/workflows/build-phase.sh docs/development/phase-2.md --verbose
 ```
 
 **Missing key = hard failure.** If a workflow's `MODEL_KEY` has no entry in the map, the dispatch aborts loudly rather than running on an inherited default. New workflow scripts MUST add their key to `config.yaml models:` and set `MODEL_KEY` before sourcing `run-claude.sh`.

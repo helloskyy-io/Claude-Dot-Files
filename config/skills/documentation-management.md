@@ -42,7 +42,7 @@ The full set of artifacts under doc-manager's purview:
 
 ### Planning artifacts
 - `sprint.md` (or equivalent ordering doc) — sprint-level scheduling
-- `docs/development/<topic>/roadmap.md` — per-topic phased plans with checkboxes
+- `docs/development/<topic>/sprint.md` — per-topic phased plans with checkboxes
 - `docs/development/<topic>/phase-N.md` (or epic docs) — detailed implementation plans
 - `docs/development/common/loose_ends/*.md` — tracked tech debt and follow-ups
 
@@ -112,7 +112,7 @@ Drafts new documentation content per established conventions. Substance always f
 - Reference applicable standards from `docs/standards/`
 - Output: draft phase doc at proposed path for human review
 
-**Roadmaps** (`docs/development/<topic>/roadmap.md`)
+**Roadmaps** (`docs/development/<topic>/sprint.md`)
 - Use `planning-methodology` skill's phased structure
 - List phases with checkboxes
 - Each phase entry: name, brief description, status, pointer to phase doc
@@ -170,7 +170,7 @@ Drafts new documentation content per established conventions. Substance always f
 
 ### Downstream coordination needed
 - [if this doc lands, what else needs updating?]
-- [e.g., "if this phase doc lands, roadmap.md needs an entry and sprint.md needs ordering review"]
+- [e.g., "if this phase doc lands, sprint.md needs an entry and sprint.md needs ordering review"]
 
 ### Summary
 [1-2 sentences: what this draft accomplishes + top decision needed]
@@ -183,7 +183,7 @@ Propagates changes through the doc system so consistency is maintained. This is 
 #### Triggers (when to invoke coordination mode)
 - A new standard was just authored → which CLAUDE.mds need to reference it?
 - A standard was renamed or restructured → which docs reference it and need updates?
-- A new phase doc was created → roadmap.md needs an entry; sprint.md may need ordering review
+- A new phase doc was created → sprint.md needs an entry; sprint.md may need ordering review
 - Sprint.md was reordered → downstream phase docs still valid?
 - A CLAUDE.md was edited → does it still follow the standards-reference convention?
 - A repo was added to a multi-repo project → does the master-planning CLAUDE.md need updates? Does the new repo's CLAUDE.md reference master-planning standards?
@@ -195,14 +195,14 @@ For each triggering change, doc-manager performs structured propagation analysis
 
 **Forward propagation**: what NEEDS to be updated as a result of this change?
 - If new standard X authored → CLAUDE.mds in scope need standards-reference entries for X
-- If phase doc Y created → roadmap.md needs entry pointing at Y
+- If phase doc Y created → sprint.md needs entry pointing at Y
 - If sprint.md reordered → phase docs may need start-condition updates
 - If CLAUDE.md edited → standards-reference convention re-validation
 
 **Backward propagation**: what already references this and needs review?
 - If standard X renamed → grep all docs for old name → produce update list
 - If phase doc Y archived → references to Y in other docs need redirect or removal
-- If roadmap.md restructured → sprint.md ordering needs validation
+- If sprint.md restructured → sprint.md ordering needs validation
 
 **Consistency verification**: after a change, is the system internally consistent?
 - All forward references resolve
@@ -279,13 +279,13 @@ Per `project-organization` skill: per-repo CLAUDE.md MUST list each applicable s
 
 **Check 3: Planning hierarchy integrity**
 For projects using sprint → roadmap → phase hierarchy:
-- For each phase in sprint.md, does the topic roadmap.md exist?
-- For each phase in each roadmap.md, does the phase doc exist?
+- For each phase in sprint.md, does the topic sprint.md exist?
+- For each phase in each sprint.md, does the phase doc exist?
 - Are there orphans (phase docs with no roadmap entry)?
 - Are there gaps (roadmap entries pointing at missing phase docs)?
 
 **Check 4: Checkbox / reality drift**
-For phase docs and roadmap.md files with checkboxes:
+For phase docs and sprint.md files with checkboxes:
 - For each "done" checkbox, verify the work was actually done (git log, code grep, deliverable file existence)
 - For each "not done" checkbox, check if work HAS been done but doc not updated
 
@@ -431,7 +431,7 @@ Mechanical edits within strict authority limits. Audits PLUS edits eligible item
 | `docs/standards/*.md` | YES — substance always human-approved | Surface dependencies | YES | NO — substance only via authoring drafts |
 | `docs/standards/architecture/*.md` | YES — substance always human-approved | Surface dependencies | YES | NO |
 | `sprint.md` / `sprints.md` | YES — draft for review | Surface sprint→roadmap dependencies (never edit) | YES | NO — HiL only, surface candidates via PR/handoff (see standards-governance.md) |
-| `docs/development/<topic>/roadmap.md` | YES — draft for review | Propagate roadmap→phase dependencies | YES | LIMITED — checkbox state, ref fixes |
+| `docs/development/<topic>/sprint.md` | YES — draft for review | Propagate roadmap→phase dependencies | YES | LIMITED — checkbox state, ref fixes |
 | `docs/development/<topic>/phase-N.md` | YES — draft for review | Propagate phase dependencies | YES | LIMITED — checkbox state, ref fixes |
 | `docs/development/common/loose_ends/*.md` | YES — draft for review | Surface resolution dependencies | YES | LIMITED — resolved markers when verifiable |
 | `docs/guide/*.md` | YES — draft for review | Surface user-impact dependencies | YES | NO — substance only via authoring drafts |

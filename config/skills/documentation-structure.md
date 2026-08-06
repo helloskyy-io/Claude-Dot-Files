@@ -80,7 +80,7 @@ Some files are navigation tools or metadata about the repo itself, not content. 
 **Purpose:** Active work tracking. The WHAT we're building and when.
 
 **What goes here:**
-- **roadmap.md** — top-level roadmap with status for the whole project
+- **sprint.md** — top-level roadmap with status for the whole project
 - **features/** — feature specs, usually with phases nested inside (most common organization)
 - **phases/** — standalone phase docs (for setup plans or non-feature-driven projects)
 - **reviews/** — continuous improvement reports from workflow runs (future)
@@ -108,7 +108,7 @@ Features are the primary unit of work. Each feature may have multiple phases.
 
 ```
 development/
-├── roadmap.md
+├── sprint.md
 └── features/
     ├── auth/
     │   ├── overview.md
@@ -130,7 +130,7 @@ Phases are project-level milestones. Each phase contains work on multiple featur
 
 ```
 development/
-├── roadmap.md
+├── sprint.md
 └── phases/
     ├── phase-1-mvp/
     │   ├── overview.md
@@ -151,7 +151,7 @@ Phases are sequential milestones in a single project, no features involved.
 
 ```
 development/
-├── roadmap.md
+├── sprint.md
 ├── phase-1-cross-device-sync.md
 ├── phase-2-safety-guardrails.md
 └── phase-3-planning-agents.md
@@ -639,7 +639,7 @@ The roadmap is the top-level tracking document. It shows phases and epics with *
 - Other: descriptive name (e.g., `system-overview.md`, `tech-stack.md`)
 
 **Development:**
-- Roadmap: always `roadmap.md` at the top
+- Roadmap: always `sprint.md` at the top
 - Phases: `phases/<name>/README.md` — a folder per phase, named not numbered, with `research/` inside it
 - Features: `features/feature-name.md`
 

@@ -11,14 +11,14 @@
 | Altitude | Location | Backs |
 |---|---|---|
 | **Product** — the holistic layer | [`docs/standards/architecture/research/`](../architecture/research/) | The whole approach. Findings that could change *what* we build |
-| **Phase** — ~98% of research | `docs/development/phases/<phase>/research/` | That phase's planning. Findings that decide *how* to build something already committed to |
+| **Phase** — ~98% of research | `docs/development/<phase>/research/` | That phase's planning. Findings that decide *how* to build something already committed to |
 
 The test between them: **would this finding invalidate a phase, or inform one?** Invalidating is product-level; informing is phase-level.
 
 At the phase altitude, a phase is a folder, so research lives *inside* it:
 
 ```
-docs/development/phases/<phase>/
+docs/development/<phase>/
 ├── <phase>.md              the phase doc
 └── research/
     ├── raw/<topic>.md      the pool — one mini-paper per topic (§3 contract)
@@ -32,7 +32,7 @@ This is co-location taken as far as it goes: the evidence sits beside the plan t
 ## Running it
 
 ```bash
-./scripts/workflows/research.sh docs/development/phases/<phase>/research "<the question>"
+./scripts/workflows/research.sh docs/development/<phase>/research "<the question>"
 ./scripts/workflows/research-refresh.sh          # revalidates papers that have come due
 ```
 
@@ -50,5 +50,5 @@ Three queued phases need evidence before they can be planned, and all three are 
 
 ## Related
 
-- [`../../development/phases/`](../../development/phases/) — the phases, each carrying its own pools
+- [`../../development/`](../../development/) — the phases, each carrying its own pools
 - [`../documentation/`](../documentation/) — research is a distinct non-binding file type there

@@ -57,7 +57,7 @@ Prerequisites, VM and Ansible paths, troubleshooting: **[Deployment guide →](d
 
 ```bash
 ./scripts/workflows/build.sh "restructure the auth flow to use sessions"
-./scripts/workflows/build-phase.sh docs/development/phases/phase-1.md --verbose
+./scripts/workflows/build-phase.sh docs/development/phase-1.md --verbose
 ./scripts/workflows/children/review-pr.sh --pr 42
 ```
 
@@ -77,7 +77,7 @@ Autonomous runs pass `--dangerously-skip-permissions`, so the `PreToolUse` hook 
 | **[Operations](docs/guide/operations.md)** | Running it day to day; the full roster |
 | **[Workflows](docs/guide/workflows.md)** | Architecture: the split, model management, escalation |
 | **[CPI cycle](docs/guide/cpi-cycle.md)** | How the system improves itself |
-| **[Roadmap](docs/development/roadmap.md)** | What is built, what is queued, what was rejected and why |
+| **[Roadmap](docs/development/sprint.md)** | What is built, what is queued, what was rejected and why |
 | **[Decisions log](docs/development/cpi-decisions.md)** | Append-only record of every ship / defer / reject, with evidence |
 | **[Standards](docs/standards/)** | Binding rules for contributing — workflows, agents, skills, hooks, services, docs |
 | **[File structure](docs/file_structure.txt)** | Annotated map of the whole repo |

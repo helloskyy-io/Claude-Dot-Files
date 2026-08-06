@@ -118,6 +118,6 @@ Three consequences, and they explain decisions that look over-engineered for a p
 
 ## Status and evidence
 
-**Not ratified as a standard.** This states the problem and the intent. Binding decisions live in `docs/standards/`; what is built and planned lives in [`../../development/roadmap.md`](../../development/roadmap.md).
+**Not ratified as a standard.** This states the problem and the intent. Binding decisions live in `docs/standards/`; what is built and planned lives in [`../../development/sprint.md`](../../development/sprint.md).
 
 Supporting evidence is in the research pool beside this file: [`research/synthesis.md`](research/synthesis.md) rolled up, [`research/raw/`](research/raw/) for the papers. **[`research/raw/combination_prior_art.md`](research/raw/combination_prior_art.md) and [`research/raw/case_against.md`](research/raw/case_against.md) are the two that forced this document's rewrite** — both argue against the position this repo held, and both were commissioned to do exactly that. Originally developed as a CSCI-6905.604 research project (2026-07).

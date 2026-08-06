@@ -53,7 +53,7 @@ claude-dotfiles/
 
 ## Development
 
-See `docs/development/roadmap.md` for the full phased migration plan. Phases 0-3 complete, current focus is Phase 4 (Autonomous Execution).
+See `docs/development/sprint.md` for the full phased migration plan. Phases 0-3 complete, current focus is Phase 4 (Autonomous Execution).
 
 ## Reference Documentation
 
@@ -76,7 +76,7 @@ For contributing to this repo, follow the standards:
 - For service standards, refer to `docs/standards/services.md`
 - For slash command standards, refer to `docs/standards/slash-commands.md`
 - For workflow script standards, refer to `docs/standards/workflow-scripts.md`
-- For research standards, refer to `docs/standards/research/` — **vendored (MIRROR)**. Research is EVIDENCE, never binding; pools live at TWO altitudes — `docs/standards/architecture/research/` for findings that could change WHAT we build, and `docs/development/phases/<phase>/research/` for the ~98% that decide HOW to build something already committed to.
+- For research standards, refer to `docs/standards/research/` — **vendored (MIRROR)**. Research is EVIDENCE, never binding; pools live at TWO altitudes — `docs/standards/architecture/research/` for findings that could change WHAT we build, and `docs/development/<phase>/research/` for the ~98% that decide HOW to build something already committed to.
 - For documentation standards, refer to `docs/standards/documentation/` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`. Binding here: standards state the rule never completion-state; cite a codified block rather than re-listing it; cross-reference instead of repeating; and **a CLAUDE.md references standards, it never contains standards content**.
 - For testing standards, refer to `docs/standards/testing/` — **vendored (MIRROR)**. Three tiers: master runner (`testing/run-all.sh`), framework suite runners (`testing/suites/`), and per-unit `tests/` directories categorized `unit/` / `integration/` / `e2e/`. **pytest**, not script-style tests. The V2 Python tree does not conform yet — see `docs/standards/workflow-scripts.md`.
 - For Temporal standards, refer to `docs/standards/temporal/` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`, which states what binds today (§3 three-layer architecture, §3.4 composition, §7 idempotency) versus what applies only once workers exist. Local additions go in `claude-dot-files-addendum.md`.

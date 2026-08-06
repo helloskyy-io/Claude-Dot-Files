@@ -74,7 +74,7 @@ claude-dot-files/
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
-│   │   ├── roadmap.md                               # Phased migration plan (Phases 0-5 mostly complete)
+│   │   ├── sprint.md                               # Phased migration plan (Phases 0-5 mostly complete)
 │   │   ├── phases/                                  # One FOLDER per phase — README.md is the phase doc, research/ holds its evidence
 │   │   │   ├── <phase>/<phase>.md                   # The phase doc — goal, completion criteria, work, decisions-with-reasoning, where it landed
 │   │   │   ├── <phase>/research/raw/<topic>.md      # The pool — one mini-paper per topic; every citation fetched by research-critic

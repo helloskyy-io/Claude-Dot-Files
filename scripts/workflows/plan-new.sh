@@ -22,7 +22,7 @@
 #   6. EPICS — identify major features per phase
 #   7. DEPENDENCIES — map internal and external
 #   8. SECURITY — initial security review
-#   9. ROADMAP — assemble into docs/development/roadmap.md
+#   9. ROADMAP — assemble into docs/development/sprint.md
 #  10. DOCUMENTATION — set up four-bucket docs layout, CLAUDE.md, file_structure.txt
 #  11. ARCHITECT REVIEW — review tech stack, architecture, system overview for consistency
 #  12. PLANNER REVIEW — review phases, epics, dependencies for actionability and completeness
@@ -391,7 +391,7 @@ Create `docs/standards/architecture/security.md` capturing foundational security
 ## Stage 9: ROADMAP
 Assemble everything into the top-level roadmap.
 
-Create `docs/development/roadmap.md` with:
+Create `docs/development/sprint.md` with:
 - Overview (1-2 paragraph summary of what and why)
 - Top-level success criteria from Stage 2
 - Phase listing with status, descriptions, and links to phase docs
@@ -510,7 +510,7 @@ Rules:
 - **Prefer relative paths inside the worktree:** the workflow places you at the worktree root. For Read/Grep/Glob/Edit/Write of files inside the worktree, use paths relative to the root rather than re-typing the long absolute worktree path. The model occasionally typos long absolute paths (e.g., `.claire/` instead of `.claude/`) — relative paths eliminate that bug class entirely.
 - The project-definition skill (config/skills/project-definition.md) has the full methodology — reference it for detailed guidance on each stage
 - Do not re-read files whose content you already know and haven't modified since you last read them
-- For known-large files (roadmap.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
+- For known-large files (sprint.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Scale the process to the project size (see the skill's "Scaling the Process" section)
 - Every major tech stack decision needs an ADR
 - Success criteria must be measurable, not vague

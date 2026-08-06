@@ -161,11 +161,11 @@ Two things about user timers that bite:
 
 The fleet runs today as bash scripts invoked from a terminal on the machine that holds the repo. **There is nothing to deploy beyond the symlinks.**
 
-A durable-execution topology — a Temporal server on a backed-up VM, worker processes on each machine holding repos, and the secrets handling that implies — is planned and **not built**. It is deliberately absent from this guide rather than sketched, because a deployment guide describing a deployment nobody can perform is worse than one that stops at the truth. See `docs/development/roadmap.md § Phase: Temporal Integration` for the direction and `docs/development/skyy-net-seed-handoff.md` for the topology decision record.
+A durable-execution topology — a Temporal server on a backed-up VM, worker processes on each machine holding repos, and the secrets handling that implies — is planned and **not built**. It is deliberately absent from this guide rather than sketched, because a deployment guide describing a deployment nobody can perform is worse than one that stops at the truth. See `docs/development/sprint.md § Phase: Temporal Integration` for the direction and `docs/development/skyy-net-seed-handoff.md` for the topology decision record.
 
 ## Related
 
 - [`operations.md`](operations.md) — running the harness day to day
 - [`workflows.md`](workflows.md) — workflow architecture
 - [`../standards/services.md`](../standards/services.md) — conventions for anything long-running
-- [`../development/roadmap.md`](../development/roadmap.md) — what is planned
+- [`../development/sprint.md`](../development/sprint.md) — what is planned
