@@ -27,7 +27,9 @@ MODEL_KEY = "research"
 # than the old stage 4: verify, fix, trace into the synthesis, and verify the
 # synthesis. No historical measurement exists for that combination because it
 # has never run. Cycle 3 alone ran 15 critic dispatches against 5 analyst ones.
-MAX_TURNS = 300
+# MEASURED: cycle 4 used 68 on the first pass and 48 on the correction pass. The prior 300
+# was an estimate; this is 3x the observed peak, which is headroom rather than a budget.
+MAX_TURNS = 200
 
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 

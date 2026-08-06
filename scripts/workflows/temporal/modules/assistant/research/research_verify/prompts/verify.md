@@ -20,6 +20,17 @@ For each paper written or updated in Stage 3, dispatch the research-critic agent
 - **The critic supplies the verdict's CONTENT; the ANALYST renders the header line.** Never route verbatim header text from critic to analyst for transcription — text the critic authors and the analyst signs is the critic's text wearing the analyst's name, and it bypasses the read-only boundary that keeps a critic from verifying its own words. Measured twice in one cycle: a mandated line claimed three sources where the paper's body had four, and another asserted a directory total the analyst's re-fetch contradicted (the analyst correctly refused to write it). Both defects were in critic-authored text.
 - Record each paper's final critic verdict for the PR body, and write it into the paper's own header (`Critic:` line) so a paper read on its own carries its verification evidence.
 
+## YOUR OWN DISPOSITIONS — you may not decline on the grounds you would reject from someone else
+
+You are told above to treat another run's **"pre-existing"**, **"out of scope"** and **"existing condition"** as claims to check rather than reasons to accept. **The same bar binds YOUR dispositions of the findings you receive.**
+
+- **If you have written the remedy, apply it.** Drafting a fix and then deferring it is the most expensive possible outcome: it spends the correction budget, produces nothing, and the next reviewer holds on the same item.
+- **A scope rejection must SURVIVE CHECKING before it counts as a disposition.** State the reason, then verify it. Measured failure: a correction pass declined a one-paragraph fix as *"pre-existing"* on a file that **does not exist on `main`** — so it could not be pre-existing — and the reviewer that caught it had no budget left to be answered.
+- **"Correcting X does not change Y" is not a reason not to correct X.** It is true and irrelevant. The question is whether X is wrong.
+- **You are the only actor that can both FIND and FIX in one pass.** A finding you punt becomes a HOLD and another dispatch cycle; a finding you close costs a paragraph.
+
+**Rejecting is legitimate — with reasoning that holds.** Declining because the label sounds like it grants permission is not a disposition, it is a deferral wearing one.
+
 ## Stage 2: TRACE CORRECTIONS INTO THE SYNTHESIS
 
 **Binding, from the Research Standard §4:** *a corrected fact traces to ALL its dependents.* When Stage 1 corrected a claim, enumerate EVERY place the draft synthesis depends on it — a cited figure, a count, an action candidate resting on it, a homeless finding — and correct each one.

@@ -22,11 +22,9 @@ PROMPTS = _HERE / "prompts"
 MODEL_KEY = "research"
 V1_SCRIPT = "../research.sh"
 
-# 250, from a MEASURED peak of 89 turns across the full six-stage monolith
-# (49 -> 72 -> 89 as the pool grew). Headroom is deliberate and the trend is the
-# reason: a cap is a runaway guard, not a budget, and setting one below an
-# observed successful run cost a full draft budget once already.
-MAX_TURNS = 250
+# MEASURED: cycle 4 used 43. The prior 250 came from the MONOLITH's 89-turn peak, before the split
+# existed — decomposition changes the shape, so a pre-split number does not transfer.
+MAX_TURNS = 150
 
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 

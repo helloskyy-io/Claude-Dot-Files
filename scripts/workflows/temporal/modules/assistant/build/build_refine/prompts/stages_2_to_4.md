@@ -85,6 +85,17 @@ After all four reviews complete (5a's three + 5b's quality-control), fix any Cri
 
 Per the finding-disposition rule, every finding must reach fixed / rejected-with-reasoning / documented-deferral — never silent pass-through. Note which agent raised each finding when documenting.
 
+## YOUR OWN DISPOSITIONS — you may not decline on the grounds you would reject from someone else
+
+You are told above to treat another run's **"pre-existing"**, **"out of scope"** and **"existing condition"** as claims to check rather than reasons to accept. **The same bar binds YOUR dispositions of the findings you receive.**
+
+- **If you have written the remedy, apply it.** Drafting a fix and then deferring it is the most expensive possible outcome: it spends the correction budget, produces nothing, and the next reviewer holds on the same item.
+- **A scope rejection must SURVIVE CHECKING before it counts as a disposition.** State the reason, then verify it. Measured failure: a correction pass declined a one-paragraph fix as *"pre-existing"* on a file that **does not exist on `main`** — so it could not be pre-existing — and the reviewer that caught it had no budget left to be answered.
+- **"Correcting X does not change Y" is not a reason not to correct X.** It is true and irrelevant. The question is whether X is wrong.
+- **You are the only actor that can both FIND and FIX in one pass.** A finding you punt becomes a HOLD and another dispatch cycle; a finding you close costs a paragraph.
+
+**Rejecting is legitimate — with reasoning that holds.** Declining because the label sounds like it grants permission is not a disposition, it is a deferral wearing one.
+
 ## Stage 3: RESOLVE — disposition AND fix
 You hold the disposition authority the draft run deliberately does not, because you did not author the work. Use it: **every finding from Stages 1 and 2 gets an explicit disposition, and you FIX what should be fixed.** This is not a summary stage.
 
