@@ -114,6 +114,11 @@ check("env is built BEFORE the source line",
 # Logs must never be written inside a worktree — they vanish with it, which
 # made cost accounting impossible for two of five pipeline legs.
 check("run_claude refuses a worktree as its log root", ".claude/worktrees" in run_src)
+# review-pr must read the PR's branch, not the repo's checkout — V1 does
+# `git worktree add -f ... origin/$PR_BRANCH` for exactly this reason.
+from modules.assistant.review_pr import review_pr_workflow as _rpw  # noqa: E402
+_rp = inspect.getsource(_rpw)
+check("review_pr checks out the PR branch", "worktree_add(" in _rp and "headRefName" in _rp)
 check("run_claude separates exec dir from log dir", "cwd = worktree or repo_root" in run_src)
 check("run_claude STREAMS rather than capturing silently",
       "Popen" in run_src and "for line in proc.stdout" in run_src)  # a CALL, not prose

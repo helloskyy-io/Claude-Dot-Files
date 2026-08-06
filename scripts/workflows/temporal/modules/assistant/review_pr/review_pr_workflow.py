@@ -13,6 +13,7 @@ Every decision below comes from the helper; every side effect is an activity.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from . import review_pr_activities as act
@@ -83,8 +84,14 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         headless_guard=act.load_shared_block("HEADLESS_EXECUTION_GUARD", SHARED_PROMPTS),
     )
 
+    # The reviewer must read the PR's branch, not the repo's checkout.
+    pr_tree = _shared.worktree_add(
+        worktree, f"review-pr-{task.pr_number}-{int(time.time())}",
+        f"origin/{pr['headRefName']}",
+    )
     output = act.run_disposition(
-        prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN, task.verbose
+        prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
+        worktree=pr_tree, verbose=task.verbose,
     )
 
     verdict, parseable = helper.parse_verdict(output)

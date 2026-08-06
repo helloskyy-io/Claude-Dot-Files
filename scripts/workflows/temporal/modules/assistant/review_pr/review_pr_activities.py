@@ -69,9 +69,20 @@ def load_shared_block(name: str, shared_sh: Path) -> str:
 
 
 def run_disposition(prompt: str, repo_root: Path, model_key: str,
-                    completion_pattern: str, verbose: bool = False) -> str:
-    """Invoke the disposition pass. Delegates to the promoted runner."""
+                    completion_pattern: str, worktree: Path | None = None,
+                    verbose: bool = False) -> str:
+    """Invoke the disposition pass on the PR's OWN tree.
+
+    ISOLATION IS NOT OPTIONAL HERE EITHER, and for a reason beyond safety: a
+    review executed in the repo root reads whatever that root has checked out —
+    `main` — not the branch under review. V1 checks the PR branch out into a
+    worktree (`git worktree add -f ... origin/$PR_BRANCH`) precisely so the
+    reviewer reads the code it is ruling on. An earlier V2 passed the repo root
+    as the execution directory, so the disposition engine would have verified
+    claims against the wrong tree while reporting full confidence.
+    """
     return _shared.run_claude(
         prompt, model_key=model_key, completion_pattern=completion_pattern,
-        repo_root=repo_root, worktree=repo_root, max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
+        repo_root=repo_root, worktree=worktree or repo_root,
+        max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
     )
