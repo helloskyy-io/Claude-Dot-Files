@@ -53,7 +53,7 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "verify.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=worktree, max_turns=MAX_TURNS, verbose=verbose,
+        repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )
     from ...assistant_activities import extract_pr_url
     url = extract_pr_url(output)

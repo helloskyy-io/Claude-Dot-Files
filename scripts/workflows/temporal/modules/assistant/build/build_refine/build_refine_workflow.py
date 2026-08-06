@@ -53,7 +53,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refine.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=worktree,
+        repo_root=repo_root, worktree=worktree,
         max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
     )
 

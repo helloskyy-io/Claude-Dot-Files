@@ -49,7 +49,7 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(template, values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=worktree,
+        repo_root=repo_root, worktree=worktree,
         max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
         verbose=verbose,
     )

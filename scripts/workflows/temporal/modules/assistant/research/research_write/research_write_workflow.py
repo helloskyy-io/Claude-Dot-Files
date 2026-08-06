@@ -46,7 +46,7 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "write.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=worktree, max_turns=MAX_TURNS, verbose=verbose,
+        repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )
     from ...assistant_activities import extract_pr_url
     url = extract_pr_url(output)

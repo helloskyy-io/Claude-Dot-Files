@@ -77,12 +77,46 @@ check("observe_outcome refuses to guess when it cannot read",
 check("failure path reports observed state",
       "observed git state" in inspect.getsource(act.run_claude))
 
+# --- 3b. PROMPT COMPLETENESS — every ${VAR} has a supplier -------------------
+# Three prompt bodies once shipped MISSING behind 46 passing assertions, and a
+# run then completed cleanly on two-thirds of its instructions. Exit 0 is not
+# evidence a prompt arrived intact; only a check against the source is.
+# MIGRATION-SCOPED: the reference is the bash original, so this retires with it.
+import re as _re
+_ASSISTANT = Path(__file__).resolve().parents[1] / "modules" / "assistant"
+_PLACEHOLDER = _re.compile(r"\$\{([A-Z_][A-Z_0-9]*)\}")
+
+for _prompt in sorted(_ASSISTANT.rglob("prompts/*.md")):
+    _rel = str(_prompt).split("modules/assistant/")[-1]
+    _names = set(_PLACEHOLDER.findall(_prompt.read_text()))
+    # A supplier is either the workflow beside it or a promoted shared prompt.
+    _wf_dir = _prompt.parent.parent
+    _src = "".join(f.read_text() for f in _wf_dir.glob("*.py")) if _wf_dir.exists() else ""
+    _shared = {p.stem.upper() for p in (_ASSISTANT / "prompts").glob("*.md")}
+    _sibling = {p.stem.upper() for p in _prompt.parent.glob("*.md")}
+    for _n in sorted(_names):
+        _supplied = (f'"{_n}"' in _src) or (_n in _shared) or (_n in _sibling)
+        check(f"{_rel}: ${{{_n}}} has a supplier", _supplied)
+    # A wrapper prompt that references a stage body must find that body present.
+    for _n in _names:
+        if _n.startswith("STAGES_"):
+            # The workflow may select a VARIANT (stages_1_to_4_from_plan.md),
+            # so require a file whose stem starts with the placeholder name.
+            check(f"{_rel}: a {_n.lower()}*.md body exists beside it",
+                  any(f.stem.startswith(_n.lower()) for f in _prompt.parent.glob("*.md")))
+
 # --- 4. The delegated contract's five variables are all supplied --------------
 run_src = inspect.getsource(act.run_claude)
 for var in ("LOG_FILE", "MAX_TURNS", "VERBOSE", "FORMATTER", "MODEL_KEY"):
     check(f"run_claude supplies {var}", f'"{var}"' in run_src)
 check("env is built BEFORE the source line",
       run_src.index("LOG_FILE") < run_src.index('source "{runner}"'))
+# Logs must never be written inside a worktree — they vanish with it, which
+# made cost accounting impossible for two of five pipeline legs.
+check("run_claude refuses a worktree as its log root", ".claude/worktrees" in run_src)
+check("run_claude separates exec dir from log dir", "cwd = worktree or repo_root" in run_src)
+check("run_claude STREAMS rather than capturing silently",
+      "Popen" in run_src and "for line in proc.stdout" in run_src)  # a CALL, not prose
 
 def test_all() -> None:
     """pytest entry — the module-level checks above populate PASS/FAIL.

@@ -56,7 +56,7 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refresh.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
-        repo_root=worktree, max_turns=MAX_TURNS, verbose=verbose,
+        repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )
     url = extract_pr_url(output)
     if not url:

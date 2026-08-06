@@ -73,5 +73,5 @@ def run_disposition(prompt: str, repo_root: Path, model_key: str,
     """Invoke the disposition pass. Delegates to the promoted runner."""
     return _shared.run_claude(
         prompt, model_key=model_key, completion_pattern=completion_pattern,
-        repo_root=repo_root, max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
+        repo_root=repo_root, worktree=repo_root, max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
     )

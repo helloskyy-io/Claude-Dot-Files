@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import os
 from datetime import datetime
 from pathlib import Path
@@ -165,13 +166,20 @@ def extract_pr_url(output: str) -> str | None:
 
 
 def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
-               repo_root: Path, worktree_name: str | None = None,
+               repo_root: Path, worktree: Path | None = None,
                max_turns: int = 120, verbose: bool = False) -> str:
     """Invoke the model via the existing bash activity.
 
     Delegates rather than reimplementing model invocation, logging and the
     completion-contract check — one implementation of the contract, not two
     that can disagree mid-migration.
+
+    TWO LOCATIONS, TWO JOBS. `repo_root` is where LOGS live and MUST be the real
+    repository — never a worktree, or the log is deleted with the worktree it sat
+    inside and cost accounting for that leg becomes impossible. `worktree` is
+    where the model EXECUTES. An earlier version passed the worktree as
+    repo_root, which buried every V2 log and reproduced a defect already reported
+    against review-pr.
 
     CONTRACT ORDER MATTERS. `run-claude.sh` asserts LOG_FILE, MAX_TURNS,
     VERBOSE, FORMATTER and MODEL_KEY with `: "${VAR:?...}"` at SOURCE time, so
@@ -185,6 +193,12 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         if not required.exists():
             raise FileNotFoundError(f"required activity not found: {required}")
 
+    if ".claude/worktrees" in str(repo_root):
+        raise ValueError(
+            f"repo_root must be the REPOSITORY, not a worktree: {repo_root}. "
+            f"Logs written inside a worktree are deleted with it."
+        )
+    cwd = worktree or repo_root
     log_dir = repo_root / ".claude" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -199,22 +213,39 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         "MODEL_KEY": model_key,
         "COMPLETION_PATTERN": completion_pattern,
     }
-    wt = f' -w "{worktree_name}"' if worktree_name else ""
-    result = subprocess.run(
-        ["bash", "-c", f'source "{runner}"; run_claude "$1"{wt}', "_", prompt],
-        cwd=str(repo_root), env=env, capture_output=True, text=True,
+    # STREAM AND CAPTURE. `capture_output=True` produced a 70-minute run with
+    # zero visible output, so --verbose did nothing and an operator could not
+    # distinguish a working run from a hung one — the reported symptom was
+    # "it's not working" when it was. Popen lets output be watched live AND
+    # collected for the completion-contract check.
+    print(f"→ {model_key}  log: {log_file}", flush=True)
+    print(f"→ {model_key}  exec: {cwd}  (max_turns={max_turns})", flush=True)
+    proc = subprocess.Popen(
+        ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt],
+        cwd=str(cwd), env=env, stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, bufsize=1,
     )
-    if result.returncode != 0:
+    captured: list[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        captured.append(line)
+        if verbose:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+    code = proc.wait()
+    output = "".join(captured)
+
+    if code != 0:
         # OBSERVE before reporting. A turn-cap exit may have committed and
         # pushed real work; asserting otherwise costs a duplicate full-budget run.
         raise RuntimeError(
-            f"{model_key} FAILED (exit {result.returncode}). Log: {log_file}\n"
+            f"{model_key} FAILED (exit {code}). Log: {log_file}\n"
             f"--- observed git state (read, not assumed) ---\n"
-            f"{observe_outcome(repo_root)}\n"
+            f"{observe_outcome(cwd)}\n"
             f"--- end observed state ---\n"
-            f"{result.stderr[-2000:]}"
+            f"{output[-2000:]}"
         )
-    return result.stdout
+    return output
 
 
 def gh(args: list[str], repo_root: Path) -> str:
