@@ -48,20 +48,28 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
                     pr_number: str | None = None, correction_pass: bool = False,
                     verbose: bool = False) -> str:
     """Triage candidates, sequence the sprint, report. Returns the PR URL."""
+    # Paths arrive rooted at the REPO because that is where they are configured,
+    # but the run reads and writes inside the WORKTREE. Count what the model will
+    # actually see, and later re-count what it actually wrote.
+    rel_candidates = candidates_path.relative_to(repo_root)
+    rel_research = research_dir.relative_to(repo_root)
+    wt_candidates = worktree / rel_candidates
+
     # Counted in code so the report cannot assert a total it invented.
-    counts = act.candidate_counts(candidates_path)
+    counts = act.candidate_counts(wt_candidates)
 
     values = {
         "SPRINT_PATH": str(sprint_path.relative_to(repo_root)),
-        "CANDIDATES_PATH": str(candidates_path.relative_to(repo_root)),
-        "RESEARCH_DIR": str(research_dir.relative_to(repo_root)),
+        "CANDIDATES_PATH": str(rel_candidates),
+        "RESEARCH_DIR": str(rel_research),
         "CORRECTION_NOTE": (
             "\nThis is a CORRECTION PASS. A prior review returned HOLD with a scoped "
             "runway; close it. This is the last automated pass."
             if correction_pass else
             f"\n**Counted in code, authoritative — do not recount:** "
             f"{counts['total']} candidates, {counts['untriaged']} untriaged, "
-            f"{counts['triaged']} already ruled."
+            f"{counts['triaged']} already ruled.\n\n"
+            f"{act.direction_ceiling(worktree / rel_research)}"
         ),
         "EXISTING_WORK": act.existing_work(repo_root, research_dir),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, "plan-sprint: triage candidates and update the sprint plan"),
@@ -81,5 +89,17 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
         raise RuntimeError(
             "plan-sprint produced no PR URL. Its triage is UNREVIEWED — the "
             "candidates file and sprint plan must not be trusted as ruled."
+        )
+
+    # OBSERVE, DO NOT ASSERT. The run reports its own triage counts; this reads
+    # the file it actually wrote. A partial triage that reports as complete is
+    # the failure mode worth catching — the PR looks ruled and is not, and the
+    # untriaged rows are invisible until the next cycle re-proposes them.
+    after = act.candidate_counts(wt_candidates)
+    if after["untriaged"]:
+        raise RuntimeError(
+            f"plan-sprint left {after['untriaged']} of {counts['untriaged']} candidates "
+            f"untriaged: {', '.join(after['untriaged_ids'])}. Every row must reach "
+            f"ship / requires review / reject — see {url}"
         )
     return url

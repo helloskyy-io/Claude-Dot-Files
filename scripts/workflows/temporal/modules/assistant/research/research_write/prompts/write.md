@@ -132,6 +132,8 @@ Same discipline as `candidates.md`: **read every row first**, reuse the original
 
 IDs are `D-001`, `D-002`, … and are independent of the `C-` series.
 
+**You are not the only writer.** `plan-sprint` also appends here — it is where a candidate it triages as `requires review` gets handed to the operator, carrying its `C-NNN` in the Source column. So **read every row and continue from the highest ID**; never assume the file holds only your own cycles' rows.
+
 ### In your PR body
 
 **List the `direction.md` items separately from the candidates, as their own table.** They are the reason a research PR carries `HOLD - needs-assistance` rather than merging unattended: a human must rule on them, and no number of additional passes can produce that ruling.

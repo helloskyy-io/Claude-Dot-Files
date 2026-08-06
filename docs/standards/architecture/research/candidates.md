@@ -19,14 +19,38 @@ A candidate surfaced in `synthesis.md` disappeared on the next research cycle, s
 
 | Flag | Values | Who sets it |
 |---|---|---|
-| **`decision`** | `ship` · `reject` · **blank = not yet triaged** | **`plan-sprint`, and only `plan-sprint`.** This is its triage output |
+| **`decision`** | `ship` · `requires review` · `reject` · **blank = not yet triaged** | **`plan-sprint`, and only `plan-sprint`.** This is its triage output |
 | **`status`** | `open` · `closed` | **A later process.** `plan-feature` when the item lands in a phase doc; the build that completes it |
 
-**`ship` means "we have decided to do this." It does NOT mean done.** A shipped candidate stays `open` until something actually implements it — and neither `plan-sprint` nor `plan-tech-stack` does detailed phase design, so neither can close one on its own.
+## The three dispositions
+
+Every candidate ends at exactly one of these. There is no fourth, and **leaving a row blank is not a disposition** — it means triage has not happened yet.
+
+### `ship` — we have decided to do this
+
+The work is **understood well enough to schedule.** Somebody could pick it up and know what "done" looks like without another decision being made first.
+
+**`ship` does NOT mean done.** A shipped candidate stays `open` until something actually implements it, and neither `plan-sprint` nor `plan-tech-stack` does detailed phase design, so neither can close one on its own.
+
+### `requires review` — only the operator can rule on this
+
+The candidate is **not ready to be scheduled, and no amount of further automated work makes it ready.** An open question, an unresolved trade-off, a ruling that changes what the project believes. Shipping it would put a question mark in the plan; rejecting it would throw away a real finding.
+
+**Where it goes:** `plan-sprint` writes a `D-NNN` row into [`direction.md`](direction.md) — the operator's file — and sets `decision` here to `requires review`. The row stays in this file as the pointer, and **`status` stays `open`** because the decision is outstanding, just outstanding with a human.
+
+**It then leaves the automation's working set entirely.** A non-blank decision is not re-triaged, so it never comes back around. It surfaces at `/standup` as an open direction decision, the operator rules, and only then does the disposition change to `ship` or `reject`.
+
+> **This is the release valve.** Without it, `ship` and `reject` are the only doors out, and an open question that deserves neither gets forced through one of them. That is exactly what happened on the first `plan-sprint` run: eleven unresolved questions were shipped into the sprint plan as milestones, which produced two sprints that build nothing.
+
+### `reject` — we are not doing this
+
+State why in the Note. **The reasoning is the point** — a rejection without it gets re-proposed on the next cycle by a run that cannot see why it was refused.
+
+## Where a shipped decision lands depends on its size
+
+A candidate large enough to need its own sprint section gets one, added by `plan-sprint` — that is the **entire** extent of `plan-sprint`'s implementation. **Most shipped candidates are not that size.** They belong inside an *existing* sprint or phase doc, placed by `plan-feature`, and `plan-sprint` does nothing with them beyond setting `decision`.
 
 **A blank decision is not the same as `open`.** Blank means nobody has triaged it; `open` means the work is outstanding. Collapsing the two is what turns this file into a to-do list nobody agreed to — the failure that put seven untriaged candidates on the standup tracker.
-
-**Where a decision lands depends on its size.** A candidate large enough to need its own sprint section gets one, added by `plan-sprint` — that is the extent of `plan-sprint`'s implementation. Smaller ones belong inside an *existing* phase doc, placed by `plan-feature`, and `plan-sprint` does nothing with them beyond setting `decision`.
 
 **Every workflow that touches this file states its own portion in its prompt:** *the decision was made — implement your portion only.*
 

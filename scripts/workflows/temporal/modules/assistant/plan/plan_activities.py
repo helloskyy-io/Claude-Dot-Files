@@ -26,6 +26,11 @@ observe_outcome = shared.observe_outcome
 # A candidate row: | C-001 | title | source | `decision` | `status` | note |
 _ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", re.M)
 
+# A direction row: | D-001 | recommendation | why | source | `status` |
+_DIRECTION_ID = re.compile(r"^\|\s*`?D-(\d{3})`?\s*\|", re.M)
+
+_BLANK = ("", "—", "-")
+
 
 def candidate_counts(candidates_path: Path) -> dict[str, int]:
     """Count rows by triage state — computed in code, never asked of a model.
@@ -40,12 +45,32 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
             f"plan-sprint triages candidates; without the file there is nothing to triage."
         )
     rows = _ROW.findall(candidates_path.read_text())
-    untriaged = sum(1 for _id, dec, _st in rows if dec.strip() in ("", "—"))
+    untriaged = [i for i, dec, _st in rows if dec.strip().strip("`") in _BLANK]
     return {
         "total": len(rows),
-        "untriaged": untriaged,
-        "triaged": len(rows) - untriaged,
+        "untriaged": len(untriaged),
+        "triaged": len(rows) - len(untriaged),
+        "untriaged_ids": untriaged,
     }
+
+
+def direction_ceiling(research_dir: Path) -> str:
+    """The next free D-NNN, computed in code and handed over.
+
+    Same discipline as `candidate_ceiling` in the research family: a run that
+    guesses the next ID collides with an existing row or skips a block, and
+    either way the file's promise that an ID is stable breaks silently.
+    """
+    f = research_dir / "direction.md"
+    if not f.exists():
+        return ("`direction.md` does NOT exist yet — create it with the header row "
+                "and start at `D-001`.")
+    ids = sorted(_DIRECTION_ID.findall(f.read_text()))
+    if not ids:
+        return "`direction.md` exists but holds no rows — start at `D-001`."
+    return (f"`direction.md` holds **{len(ids)} rows**, highest ID **D-{ids[-1]}**. "
+            f"A NEW recommendation starts at **D-{int(ids[-1]) + 1:03d}**. "
+            f"Never renumber an existing row.")
 
 
 def existing_work(repo_root: Path, research_dir: Path) -> str:
