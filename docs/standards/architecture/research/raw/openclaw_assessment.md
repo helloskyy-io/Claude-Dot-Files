@@ -14,9 +14,15 @@ Revalidate:     high — 3 weeks
 Confidence:     DEFINITIVE at the first-party-documentation level for every axis: the load-bearing findings
                 (§3.6 trust model, §3.4 credential locality, §3.1 durability, §4.2 maturity taxonomy) come
                 from raw first-party markdown under the project's own editorial control, returned as quoted
-                spans by the fetch layer. DEFINITIVE for repository metadata and the licence (GitHub JSON
-                API; LICENSE returned as a reproduced code block — the only unsummarized whole-file fetch in
-                this paper). DERIVED for the architecture verdict (§3.7), for the domain-generality reading
+                spans by the fetch layer — with ONE carve-out added at the 2026-08-06 critic round: in §4.2
+                the six promotion CRITERIA are definitive (exact characters from the raw markup), but the
+                mapping of each criterion to a level TRANSITION is DERIVED, because the source labels no
+                transition anywhere; §4.2 states the reading, its evidence, and the rejected alternative.
+                DEFINITIVE for repository metadata and the licence (GitHub JSON API; LICENSE returned as a
+                reproduced code block — the only unsummarized whole-file fetch in the ORIGINAL sweep; the
+                critic round obtained two more whole-file fetches, and two further documents that returned
+                exact characters without whole-file reproduction — four exact-character sources in all, see
+                §1.3). DERIVED for the architecture verdict (§3.7), for the domain-generality reading
                 (§3.2), for the "durability starts at admission" finding (§3.1), for the fourth-coordination-
                 shape finding (§3.3) and for every cost estimate (§4, §6) — each names its inputs. UNVERIFIED
                 at the behavioural level: no code was read, nothing was installed, nothing was executed. The
@@ -26,7 +32,38 @@ Confidence:     DEFINITIVE at the first-party-documentation level for every axis
                 floor ("at least N named") because contents-API listings are a measured under-enumeration
                 surface in this pool (§5(c)). The two numbers that DO appear (repo metadata; "50 surfaces -
                 281 capability areas") are quoted from a source, not counted by me.
-Critic:         not-yet-verified — 2026-08-06
+Critic:         PASS — 2026-08-06, TWO rounds; the second re-verified the first round's repairs at source.
+                ROUND 1 (PASS-WITH-FIXES): no fabricated sources across 54 citations; three fixes applied
+                after I re-fetched the raw sources myself: (1) §4.2's promotion criteria were mapped one level
+                early — the raw markup of `taxonomy.md` binds each criterion to its own level's row and labels
+                no transition, so they are now stated as level-ENTRY gates, the previously-missing M3→M4 gate
+                is quoted, the mapping is marked DERIVED with its evidence and its rejected alternative, and
+                the recommendation is re-pinned to the M4-entry bar; (2) §3.6's "signed device identity …
+                device pairing request" sentence was attributed to `gateway/pairing.md`, where a whole-file
+                fetch shows it does not appear — re-attributed to `nodes/index.md` and quoted in full, with
+                the SSH-verification span left on `pairing.md`; (3) §1.3's sourcing note narrowed to record
+                the four documents that returned exact characters this round. One round-1 finding RULED
+                AGAINST: the §3.4 `PATH` quote was reported as verbatim drift, but a whole-file reproduction
+                of `cli-backends.md` shows the paper's characters are exact — the file carries that sentence
+                AND a second Claude-specific one, and both are now quoted.
+                ROUND 2 (read-only re-verification of those repairs — verdict PASS, no blocking finding): the
+                fixes were re-checked against the sources rather than taken on my word. §4.2 — it forced a
+                true raw fetch of `taxonomy.md` (its default fetch layer summarized that file on the first
+                attempt, corroborating §1.3's note), enumerated the promotion fields itself and counted six,
+                matched all six quoted criteria character-exact to their rows, found the M3→M4 text verbatim
+                in the M4 row, and confirmed both the DERIVED marking and that the recommendation now follows
+                from the corrected mapping. §3.6 — full raw fetches of both files confirmed the sentence is
+                genuinely absent from `pairing.md` (which instead gates the `connect` handshake on device
+                pairing for role `node`), present character-exact in `nodes/index.md` including its trailing
+                `for role: node` clause, and the SSH-verification and revocation spans genuinely in
+                `pairing.md`. §3.4 — my ruling-against was independently confirmed: it enumerated every
+                "PATH" sentence in `cli-backends.md`, found both quoted sentences verbatim, and a
+                full-document grep placed the quote in §3.4 and nowhere in §2, overturning the round-1
+                finding on direct evidence. It also re-enumerated the "four exact-character returns" and the
+                54-citation figure — both match — and judged this Critic line accurate. Its one non-blocking
+                item was a clarity note on the header reading "two more" (whole-file fetches) against §1.3's
+                "four documents"; I ruled to disambiguate, and the Confidence line now names both categories
+                rather than flattening them.
 ```
 
 > ## Headline — the comparator set is missing its largest member, and the verdict is MINE HEAVILY, ADOPT NOTHING
@@ -166,6 +203,17 @@ and nothing is quoted that was not returned inside quotation marks. Two separate
 `README.md` as a raw block — including one explicitly demanding a fenced code block, character for character —
 both returned summarized prose. **README-sourced claims are therefore held to quoted spans only and are the
 lowest-confidence first-party material here.**
+
+**Amendment — the 2026-08-06 critic round (this paragraph's claim narrowed).** Four raw documents were
+re-fetched during the correction pass, with better returns than the original sweep got:
+`docs/gateway/pairing.md` and `docs/gateway/cli-backends.md` came back as **whole-file unsummarized
+reproductions**;[^pairing][^clibackends] `docs/maturity/taxonomy.md` refused whole-file reproduction on length
+grounds but returned the M0–M5 rows as **raw JSX markup, tags and all**;[^taxonomy] and `docs/nodes/index.md`
+returned the requested paragraphs **as a fenced verbatim block**, not as prose.[^nodes] All four are
+exact-character returns for the material quoted from them. So `LICENSE` is no longer the only file for which
+this paper holds characters rather than spans — what §3.4, §3.6(i)–(iii), §4.2 and §4.6 quote from those four
+files is exact-character verified. Everything else in the paper remains held to the quoted-spans standard
+described above.
 
 **Volatility note (§3 mixed-volatility rule).** The header takes `high — 3 weeks`, one step tighter than the
 sibling Paperclip paper's four, for a specific reason: this repo was **pushed on the day of the sweep** and cut
@@ -375,8 +423,9 @@ costs it the thing we want (many peers in many trust domains) while buying it th
 
 - **For CLI backends, the credential must already be on the host.** *"Before OpenClaw can use `claude-cli`,
   Claude Code itself must be logged in on the same host"*, requiring `claude auth login`, and
-  *"The gateway service must have the CLI on its `PATH`."*[^clibackends] **This is subscription-auth at the
-  edge as a hard prerequisite, not an option.** *(The doc did not state, in the spans returned, whether that
+  *"The gateway service must have the CLI on its `PATH`."* — restated for Claude specifically a few sections
+  later as *"The gateway service must resolve `claude` on `PATH`."*[^clibackends] **This is subscription-auth
+  at the edge as a hard prerequisite, not an option.** *(The doc did not state, in the spans returned, whether that
   login is a subscription or an API key — `not stated`, recorded as a gap. For Gemini it does state an API-key
   profile is required.)*[^clibackends]
 - **For remote execution, credentials do not travel — the calls do.** *"Model calls are proxied back through
@@ -464,10 +513,10 @@ choice; it is a pattern.
 
 **For the sibling identity/trust paper this cycle, three things here are worth mining and are deliberately
 not developed further in this paper:** (i) node pairing uses a signed device identity verified **out of band** —
-*"A node presents a signed device identity during connect; the Gateway creates a device pairing request"*, and
-approval *"connects back to the pairing host (`BatchMode`, `StrictHostKeyChecking=yes`), runs `openclaw node
-identity --json` there, and approves only when the remote device id and public key match the pending request
-exactly"*; (ii) revocation is specified, not implied — *"`node.pair.remove` … revokes the device's `node` role
+*"A node presents a signed device identity during connect; the Gateway creates a device pairing request for
+`role: node`."*[^nodes] and approval *"connects back to the pairing host (`BatchMode`,
+`StrictHostKeyChecking=yes`), runs `openclaw node identity --json` there, and approves only when the remote
+device id and public key match the pending request exactly"*[^pairing]; (ii) revocation is specified, not implied — *"`node.pair.remove` … revokes the device's `node` role
 in the paired-device store, drops the approved node surface with it, and invalidates/disconnects that device's
 node-role sessions"*; (iii) the honest residual — *"Node pairing approval records the trusted capability
 surface. It does **not** pin the live node command surface per node"*, and *"Commands queued before pairing
@@ -563,12 +612,38 @@ flows."* **M2 - Alpha:** *"Real users can try it, but breaking changes and incom
 *"Recommended path for normal users. Failures are treated as regressions."* **M5 - Clawesome:** *"Polished,
 delightful, well-instrumented, and competitive with the best comparable workflow."*[^taxonomy]
 
-The **gates** are the mineable part, because they are evidence requirements rather than opinions:
-**M0→M1** *"Design issue, owner, and target surface exist."*; **M1→M2** *"Maintainer can run the scenario from
-current main."*; **M2→M3** *"Documented setup, basic tests, known caveats, and at least one real-environment
-proof."*; **M3→M4** *"Install/update docs, regression tests, support runbook, and successful scenario proof
-across the expected environment."*; **M4→M5** *"Stable plus user scorecard pass across representative
-users."*[^taxonomy]
+The **promotion criteria** are the mineable part, because they are evidence requirements rather than opinions.
+**How the source is structured, stated because the mapping below depends on it:** the raw markup of
+`taxonomy.md` places code, level name, definition and a single `Promotion:` field inside *one* element per
+level — six rows, six `Promotion:` fields — and **the source nowhere labels which transition a given field
+governs.**[^taxonomy] The gate texts below are `definitive` (raw first-party markup, exact characters);
+**the mapping of each text to a transition is `derived`, not stated by the source.** Read as *the gate to
+ENTER the row's own level*:
+
+| Gate | Criterion (verbatim) |
+|---|---|
+| **→ M0 Planned** | *"Design issue, owner, and target surface exist."* |
+| **M0 → M1 Experimental** | *"Maintainer can run the scenario from current main."* |
+| **M1 → M2 Alpha** | *"Documented setup, basic tests, known caveats, and at least one real-environment proof."* |
+| **M2 → M3 Beta** | *"Install/update docs, regression tests, support runbook, and successful scenario proof across the expected environment."* |
+| **M3 → M4 Stable** | *"Release gate, doctor/troubleshooting path, broad docs, and repeated real-world proof."* |
+| **M4 → M5 Clawesome** | *"Stable plus user scorecard pass across representative users."* |
+
+*(all six criteria: [^taxonomy])*
+
+**Why this reading, and why it is `derived` rather than definitive** *(inputs: the six rows' raw markup; the
+six level definitions above)*. The M5 row's own field reads *"Stable plus user scorecard pass across
+representative users."* — it names **M4's level name** as the baseline and adds an increment, which is
+coherent only as the gate *into* M5, since nothing sits above M5 to leave it for. The same shape holds down
+the ladder: M1's field (*"Maintainer can run the scenario from current main."*) matches M1's own definition
+(*"maintainer-only flows"*) rather than M2's (*"Real users can try it"*), and M4's field (*"Release gate,
+doctor/troubleshooting path, broad docs, and repeated real-world proof."*) matches M4 Stable
+(*"Recommended path for normal users"*) rather than M5 Clawesome. **The alternative reading — each field as
+the gate to LEAVE its row's level — leaves M5's field with no destination and its "Stable" baseline
+unexplained, so this paper rejects it.** A prior draft of this paper used that alternative reading, which
+shifted four gates one level early and omitted the M3→M4 criterion entirely; corrected at the 2026-08-06
+critic round after re-fetching the raw markup. **A consumer who needs the transition boundaries to be
+load-bearing should confirm them against the project rather than against this paper.**
 
 And the governing rule, which is the single best sentence in OpenClaw's documentation for our purposes:
 ***"Coverage is deliberately evidence-led: an area does not become 'ready' just because the implementation
@@ -581,14 +656,21 @@ me — the §5(c) distinction.)*[^scorecard]
 readiness bar, no promotion gate, and no distinction between *"the code exists"* and *"an operator other than
 the author can run this."* In a fabric of edges built by the first edge,[^problem-statement] **"is this edge
 ready for someone else to run?" is the question that decides whether edge #2 costs less than edge #1** — and
-nothing currently asks it. Note also that OpenClaw's own scorecard rates *"Security, auth, pairing, and
+nothing currently asks it. **Under the corrected mapping the criterion that asks exactly that question is the
+gate into M4 Stable** — *"Release gate, doctor/troubleshooting path, broad docs, and repeated real-world
+proof."*[^taxonomy] — *"broad docs"* plus *"repeated real-world proof"* is the operator-readiness bar this
+repo lacks, and it is the single gate a per-phase readiness line should be written against. Note also that OpenClaw's own scorecard rates *"Security, auth, pairing, and
 secrets"* at Beta and *"Kubernetes hosting"* at Alpha:[^scorecard] **a project willing to publish that about
 itself is producing a more useful artifact than one that publishes only successes.**
 
-**Cost.** *(derived — inputs: `taxonomy.md`'s six definitions and five gates; this repo's roadmap and phase-doc
-conventions.)* **~1 day to adopt the taxonomy** as a standards amendment plus a per-phase readiness line;
-**recurring hours per phase** thereafter. Dependencies: none. **The gates transfer nearly verbatim** — only M5's
-"representative users" needs restating for a single-operator system.
+**Cost.** *(derived — inputs: `taxonomy.md`'s six definitions and six `Promotion:` fields; this repo's roadmap
+and phase-doc conventions.)* **~1 day to adopt the taxonomy** as a standards amendment plus a per-phase
+readiness line pinned to the **M4-entry** criterion; **recurring hours per phase** thereafter. Dependencies:
+none. **Five of the six criteria transfer nearly verbatim** — only M5's *"representative users"* needs
+restating for a single-operator system. **What a standards amendment must NOT copy across is the
+transition mapping itself**: the labels above are this paper's derived reading of an unlabelled source, so
+an amendment should state the criteria as level-entry bars in our own words rather than cite OpenClaw for a
+transition boundary the project never wrote down.
 
 ### 4.3 — The lossless worktree-reaping rule `RANK 3`
 
@@ -981,8 +1063,8 @@ behavioural level rather than the documentary one.
 
 **First-party — raw repository root files**
 
-[^license]: `LICENSE` (raw, `main`) — **the only file in this paper returned as an unsummarized reproduced
-  block**: `MIT License`, `Copyright (c) 2026 OpenClaw Foundation`, plus the trailing note *"Third-party
+[^license]: `LICENSE` (raw, `main`) — **the only file returned as an unsummarized reproduced block in the
+  original sweep** (the 2026-08-06 critic round obtained two more; see §1.3): `MIT License`, `Copyright (c) 2026 OpenClaw Foundation`, plus the trailing note *"Third-party
   notices for incorporated or adapted code are recorded in THIRD_PARTY_NOTICES.md."*
   https://raw.githubusercontent.com/openclaw/openclaw/main/LICENSE
 [^readme]: `README.md` (raw, `main`) — **two fetches, both returned summarized prose despite an explicit
@@ -1003,7 +1085,10 @@ behavioural level rather than the documentary one.
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/gateway/cloud-workers.md
 [^scopes]: `docs/gateway/operator-scopes.md` (raw) — at least eight named scopes; enforcement and disclaimers.
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/gateway/operator-scopes.md
-[^clibackends]: `docs/gateway/cli-backends.md` (raw) — `claude-cli` and `google-gemini-cli`; the
+[^clibackends]: `docs/gateway/cli-backends.md` (raw; **whole file reproduced verbatim on re-fetch 2026-08-06**,
+  which confirms it carries BOTH *"The gateway service must have the CLI on its `PATH`."* under *Quick start*
+  AND *"The gateway service must resolve `claude` on `PATH`."* under *Claude CLI specifics* — §3.4 quotes both)
+  — `claude-cli` and `google-gemini-cli`; the
   logged-in-on-the-same-host requirement. **Whether that login is a subscription or an API key was `not
   stated` in the spans returned — recorded as a gap.**
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/gateway/cli-backends.md
@@ -1016,7 +1101,8 @@ behavioural level rather than the documentary one.
   detector: the questions "does it detect stalled or dead work" and "what does it do on detection" both
   returned `not stated`.**
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/gateway/heartbeat.md
-[^pairing]: `docs/gateway/pairing.md` (raw) — signed device identity, out-of-band SSH verification, revocation,
+[^pairing]: `docs/gateway/pairing.md` (raw; **whole file reproduced verbatim on re-fetch 2026-08-06**) —
+  out-of-band SSH verification, revocation,
   and the approved-set-vs-live-set caveat.
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/gateway/pairing.md
 [^sandboxing]: `docs/gateway/sandboxing.md` (raw) — off by default; "not a perfect security boundary".
@@ -1086,13 +1172,18 @@ behavioural level rather than the documentary one.
 [^clawflow]: `docs/automation/clawflow.md` (raw) — rename stub: "ClawFlow was renamed to Task Flow".
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/automation/clawflow.md
 [^nodes]: `docs/nodes/index.md` (raw) — node definition, `connect.commands`, "Pin exec to a specific node",
-  "peripherals, not gateways".
+  "peripherals, not gateways", **and the signed-device-identity / device-pairing-request sentence quoted in
+  §3.6(i)** — that sentence was attributed to `gateway/pairing.md` before the 2026-08-06 critic round; a
+  whole-file fetch of `pairing.md` confirmed it is not there, and a verbatim fetch of this file confirmed it is.
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/nodes/index.md
 [^scorecard]: `docs/maturity/scorecard.md` (raw) — evidence-led coverage rule; individual area→level pairs
   cited in §3.5 and §4.2. **§5(f) records that the fetch's level-grouping was internally inconsistent; no
   distribution or per-level count is asserted from this source.**
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/maturity/scorecard.md
-[^taxonomy]: `docs/maturity/taxonomy.md` (raw) — the six M0–M5 definitions and the five promotion gates.
+[^taxonomy]: `docs/maturity/taxonomy.md` (raw) — the six M0–M5 definitions and the **six** `Promotion:` fields,
+  one per level row. Re-fetched 2026-08-06 as raw JSX markup: each row is a single element carrying code, name,
+  definition and promotion together, and **no transition label appears anywhere in it** — §4.2 states the
+  entry-gate reading as `derived`.
   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/maturity/taxonomy.md
 
 **Third-party — rendered page, reduced confidence (§3 raw-over-rendered rule)**

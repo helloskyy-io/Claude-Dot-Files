@@ -36,7 +36,45 @@ Confidence:     DEFINITIVE that same-actor same-context self-correction fails on
                 edit" as an experimental variable. Search method in §6.1 N1/N2.
                 DERIVED (marked inline) on the adjudication of the pool's internal contradiction
                 and on the regime discriminator taken from [S18]'s own stated prediction.
-Critic:         not-yet-verified — 2026-08-06
+Critic:         PASS-WITH-FIXES (round 1) → repairs independently re-verified PASS (round 2) —
+                both 2026-08-06.
+                ROUND 1 found no fabricated source among the 26 enumerated in §6.2 and confirmed
+                [S9] (arXiv:2603.12123) resolves with its four F1 figures intact against the
+                arXiv API. Three defects were corrected, each re-checked against its primary
+                before being reported fixed: (1) the [S1] p.194 operation-5 span had two words
+                ("that result") and a trailing parenthetical elided WITHOUT an ellipsis inside
+                text presented as an exact transcription — restored from the PDF page image, with
+                the one typographic detail unresolvable at scan resolution now disclosed in §6.0
+                rather than asserted; (2) §6.2 recorded `case_against.md`'s verdict as PASS when
+                that paper's own header records PASS-WITH-FIXES with a round-3 list — corrected,
+                and the list checked against the sections this paper draws on; (3) the §2 T1 row
+                called same-session self-review [S9]'s WORST arm, which [S9]'s abstract
+                contradicts (only the repeated variant SR2 ranks last) — fixed in T1, §3.2 and
+                P1's headline.
+                ROUND 2 was a separate read-only pass over those repairs — the point being that a
+                repair is itself a new claim and is where a fresh error most easily enters — and
+                it returned PASS on every one. It retrieved the Fagan PDF and read page 194 (PDF
+                page 13) itself, confirming the restored span is now character-exact including
+                "errors that result" and the full parenthetical, that it stops at a sentence
+                boundary with nothing internally elided, and that the adjacent p.193 and p.194
+                operation-4 spans match. It judged the §6.0 dash disclosure the correct call: the
+                printed page sets the label dash unspaced ("Rework—All errors") and this paper
+                spaces it, so disclosing the normalization beats asserting it. It fetched [S9]'s
+                raw Atom API XML and confirmed the abstract verbatim — all four F1 figures, every
+                attached p-value and Cohen's d, and the "reviewing twice in the same session did
+                not beat reviewing once (p=0.11)" sentence — and that T1, §3.2 and P1 now each
+                state something the source supports. It read `case_against.md` directly and
+                confirmed its header verdict and the content of lines 763 / 840-850 / 852-867, so
+                none of its round-3 fixes touches D7, §5.4 or §5.5 and the §4.6 item 1 withdrawal
+                recommendation stands as supported. It judged §6.1's sharpened N1/N2 disclosure
+                correctly calibrated — claiming no non-existence, dropping no caveat — and
+                re-enumerated the sources independently as S1–S26 with no gaps or duplicates.
+                Standing disclosure: I did not re-read the [S1] spans on pp. 187/188/190 myself
+                in either round. Round 2 re-checked all three against the page images as due
+                diligence — the p.190 moderator-independence quote, the p.188 38%-fewer-errors
+                quote and the p.190 Table 3 objectives-column quote — and reports each an exact
+                match. Those spans therefore carry an independent page-image check, but not one
+                by this paper's author. See §6.0.
 ```
 
 ---
@@ -94,7 +132,7 @@ Not "multi-agent yes/no." These four, in ascending order of separation:
 
 | # | Topology | Who reviews | Can the reviewer edit? | Evidence class |
 |---|---|---|---|---|
-| **T1** | Same-session self-review | The author, same context | Yes | R1 — measured, and it is the *worst* option in the one controlled on-domain study [S9] |
+| **T1** | Same-session self-review | The author, same context | Yes | R1 — measured, and it **loses** to fresh-context review in the one controlled on-domain study: F1 24.6% vs. 28.6%, p=0.008, d=0.52 [S9]. It is *not* the worst arm in that study — only the **repeated** variant SR2 is (21.7%), and plain SR beat the context-aware subagent arm SA (23.8%) |
 | **T2** | Fresh-context reviser | A separate process, artifact only | Yes | R2 — this is `build-refine` |
 | **T3** | Fresh-context decide-only judge | A separate process, artifact only | **No** | R2 — this is `review-pr`. **No published study isolates this cell.** |
 | **T4** | Concurrent multi-writer subagents | Several, in parallel, on shared state | Yes | R3 — this is where the failure evidence is strongest [S19][S22] |
@@ -117,7 +155,9 @@ The process then separates detection from repair into distinct numbered operatio
 
 > "4. *Rework* — All errors or problems noted in the inspection report are resolved by the designer or coder/implementor."
 
-> "5. *Follow-Up* — It is imperative that every issue, concern, and error be entirely resolved at this level, or errors can be 10 to 100 times more expensive to fix if found later in the process" [S1]
+> "5. *Follow-Up* — It is imperative that every issue, concern, and error be entirely resolved at this level, or errors that result can be 10 to 100 times more expensive to fix if found later in the process (programmer time only, machine time not included)." [S1]
+
+*(Operation 5 continues past this sentence with the moderator's verification duties and a five-percent reinspection threshold; the quotation stops at a sentence boundary, and nothing internal to it is elided. **Repair, 2026-08-06:** an earlier draft of this span silently dropped the words "that result" and cut the trailing parenthetical without an ellipsis, while presenting the result as an exact transcription. Both were restored after re-reading the p.194 page image directly — provenance and the re-verification method are in §6.0.)*
 
 And the independence of the judge is a stated design goal (p. 190):
 
@@ -141,7 +181,7 @@ The most important thing the human literature contributes is not support. It is 
 
 > "The recommended review rate of 200 LOC/hour or less was found to be an effective rate for individual reviews, identifying nearly two-thirds of the defects in design reviews and more than half of the defects in code reviews." [S2]
 
-**A human author reviewing their own work at a controlled pace finds ~2/3 of design defects and >1/2 of code defects.** The LLM case is the *opposite*: same-context self-review scored lowest but one of four conditions [S9], and intrinsic self-correction actively degrades reasoning performance [S4].
+**A human author reviewing their own work at a controlled pace finds ~2/3 of design defects and >1/2 of code defects.** The LLM case is the *opposite*: same-context self-review lost to a fresh-context reviewer on the same artifacts (F1 24.6% vs. 28.6%, p=0.008) [S9], and intrinsic self-correction actively degrades reasoning performance [S4]. *(Corrected 2026-08-06: an earlier draft said self-review "scored lowest but one of four conditions." Re-verified against [S9]'s abstract via the arXiv API — the ranking is CCR 28.6% > SR 24.6% > SA 23.8% > SR2 21.7%, so SR is second-**highest**, not second-lowest. The asymmetry argued here survives the correction, because it rests on SR losing to CCR, not on SR's absolute rank.)*
 
 **The asymmetry is a finding in its own right, and it cuts both ways.** It means (i) the human-inspection literature cannot be transferred wholesale to justify the LLM design — the human premise "authors can't check their own work" is false; and (ii) the LLM case for separation is *stronger* than the human case, because the LLM's self-review deficit is measured and the human's is not. *(Confidence: definitive on the [S2] quotes — abstract read directly from the publisher-hosted PDF's first page. **Derived** on the asymmetry argument, from [S2] against [S4][S9].)*
 
@@ -304,7 +344,7 @@ Neither controls compute. Both are the class of result [S18] says is confounded.
 
 ## 4. What this provides — enumerated properties a plan may rely on
 
-**P1. Same-actor same-context self-review is the worst available option, and this is measured twice.** Intrinsic self-correction degrades reasoning performance [S4]; and in the one controlled review-shaped experiment, same-session self-review (F1 24.6%) and repeated same-session self-review (21.7%) both lost to fresh-context review (28.6%) [S9]. *(definitive on [S4]; directional on [S9] — single-author preprint.)*
+**P1. Same-actor same-context self-review loses to fresh-context review, and the deficit is measured twice.** Intrinsic self-correction degrades reasoning performance [S4]; and in the one controlled review-shaped experiment, same-session self-review (F1 24.6%) and repeated same-session self-review (21.7%) both lost to fresh-context review (28.6%) [S9]. **What P1 does NOT say:** that same-session self-review is the worst arm available. It is not — in [S9] it beat the context-aware subagent arm (23.8%), and only its repeated variant ranked last. *(definitive on [S4]; directional on [S9] — single-author preprint.)*
 
 **P2. The field's negative self-correction results are explicitly scoped away from the cross-actor case.** [S5]'s own conclusion (2) is *"self-correction works well in tasks that can use reliable external feedback."* A consumer citing "LLMs can't self-correct" against this design is misapplying the source. *(definitive)*
 
@@ -330,7 +370,7 @@ Neither controls compute. Both are the class of result [S18] says is confounded.
 
 Per §7 of the Research Standard these are surfaced here for the synthesis to carry as action candidates; this paper writes nothing outside `research/`.
 
-1. **`case_against.md` D7 should be downgraded or withdrawn.** Its derivation ("a separate judge loses the author's context") transfers [S22]'s parallel-writer finding to a sequential reader. [S22]'s own text excludes that transfer (§3.6), and [S23] — which `case_against.md` §5.4 correctly flagged as UNVERIFIED — is now **verified and fetched**, and states the opposite. **Consequence if not corrected:** a ranked finding in the pool argues against the seam that the same source endorses, and a future planning run may act on it.
+1. **`case_against.md` D7 should be downgraded or withdrawn.** Its derivation ("a separate judge loses the author's context") transfers [S22]'s parallel-writer finding to a sequential reader. [S22]'s own text excludes that transfer (§3.6), and [S23] — which `case_against.md` §5.4 correctly flagged as UNVERIFIED — is now **verified and fetched**, and states the opposite. **Consequence if not corrected:** a ranked finding in the pool argues against the seam that the same source endorses, and a future planning run may act on it. *(Checked 2026-08-06: `case_against.md` carries a PASS-WITH-FIXES verdict, and none of its four recorded round-3 fixes touches D7, §5.4 or §5.5 — so this recommendation is aimed at text that is still standing as written. Full check in §6.2.)*
 2. **`case_against.md` §5.4's unverified item is now closed.** The follow-up exists at `cognition.com/blog/multi-agents-working`, dated 04.22.26 in the byline, and its refined principle is quoted in §3.6 above.
 3. **`convergence_stopping.md` and this repo's standards should stop treating "fresh context" and "no authoring authority" as one mechanism.** They have different evidence bases — one directional, one empty — and `workflow-scripts.md § Composition` currently justifies both with a single argument ("A run that both authors work and rules on the review findings about it will defend its own work"), which is a *provenance* argument and supports only the first.
 
@@ -387,6 +427,8 @@ Stated plainly, because a paper that cannot name its own null case is advocacy:
 
 - **arXiv abstracts** ([S4]–[S21], [S25], [S26]) were fetched from the **arXiv Atom API** (`export.arxiv.org/api/query?id_list=...`), a raw XML response, and quoted from the `<summary>` element. This is the strongest posture available here.
 - **[S1], [S2], [S3]** are PDFs. They did not extract through the fetch layer; the binaries were retrieved and I read the **page images directly**. Quoted spans are therefore my transcription of a rendered page, not a returned character stream. **This is one step weaker than an API response and I mark it as such**: page numbers are given for every span so a verifier can check them, and I kept spans short. [S1] in particular is a scan of a 1976 journal with no text layer.
+  - **Known limit of this posture, demonstrated on this paper (2026-08-06).** Page-image transcription is exactly where a silent elision can hide, and one did: the [S1] p.194 operation-5 span dropped two words and a trailing parenthetical with no ellipsis. Critic review caught it; the span was re-verified and restored by re-fetching the PDF binary and re-reading the p.194 page image, whose footer reads "194 FAGAN IBM SYST J". The adjacent p.193 spans (operation 3) and the p.194 operation-4 span were re-read in the same pass and match word-for-word. The pp. 187/188/190 spans were verified by the critic against the page images and were not re-read by me in this pass — they are marked accordingly here rather than claimed as re-verified.
+  - **One disclosed normalization.** In transcribing [S1], the dash separating an operation's italic label from its text is rendered as a spaced em dash (" — "); the printed page sets it unspaced, and the page scan does not resolve finely enough for me to assert em vs. en. **Words are exact; that one typographic detail is normalized and is disclosed here rather than asserted.**
 - **[S22], [S23], [S24]** are rendered vendor pages fetched through a summarizing layer. **Reduced confidence, short spans only.** Where a span was ambiguous across two independent fetches I discarded it rather than choose (§3.6).
 - **No search-engine result summary is cited anywhere in this paper.** Search was used to locate sources; every cited claim traces to a fetch of the source itself. The Cognition follow-up [S23] is the clearest case: search suggested it existed, I enumerated `cognition.com/blog` to obtain the slug, then fetched the post.
 - **Counts.** The only count asserted here is the source count, obtained by enumerating the list in §6.2 and counting the enumeration: **26**.
@@ -396,6 +438,8 @@ Stated plainly, because a paper that cannot name its own null case is advocacy:
 **N1. No study was located, in the human software-inspection literature, that isolates "the reviewer may not fix what they find" as an experimental variable.** Fagan states the rule and gives a rationale [S1]; his one comparative quality measurement (38% fewer errors than walkthrough) varies an entire method, not one rule. Searched via: web search on `experiment reviewer permitted to fix versus only report defects effect on defect detection software inspection controlled study` (four successive reformulations within one search session, returning inspection-technique comparisons — checklist vs ad hoc, perspective-based reading, meeting vs no meeting, detection-method replications — none varying fix authority); web search on `software inspection rule "find errors" not "find solutions" moderator author role separation Fagan`; and direct reading of [S1] pp. 187-195 and [S2] p. 1. **The rule is universally *stated* and never *tested*.**
 
 **N2. No study was located, in the LLM literature, that ablates a reviewing agent's edit authority while holding model, prompt, context and artifact constant.** Searched via: web search on `LLM agent "read-only" reviewer ablation critic without edit permission defect detection separation of roles study` and `arxiv ablation "cannot modify" reviewer agent versus reviewer that can patch code multi-agent defect detection measured`. These surfaced the pattern being *advocated* in industry commentary (vendor guides describing "a fresh-context reviewer with read-only tools and a pinned model from a different family") and *implemented* in research pipelines ([S11]'s cold-start cross-model critic; [S12]'s four specialized agents), but **in every case the read-only property is bundled with fresh context and/or a different model family, never varied alone.** The closest ablation located, [S12]'s all-15-combinations sweep, varies *which* agents participate, not their authority.
+
+**How much weight N1 and N2 can carry — stated because P8 is this paper's central negative finding.** Both rest on **one search session and a handful of query reformulations each**, plus direct reading of the primaries named. That is enough to support *"I did not find it, and here is where I looked"*; it is **not** enough to support *"it does not exist."* A reader should conclude that the isolating experiment is **not readily locatable by an analyst looking for it** — which is itself the operative fact, since a result that cannot be found cannot be cited by a plan either — and should NOT conclude that the literature has been swept. The cheap disconfirmation is a systematic query of a citation index rather than a web search; that was not done here and is named as a limit, not deferred quietly. Consequence if this is over-read: §7's E2 gets built to re-discover something already published. Remedy: whoever runs E2 spends one hour on an indexed search first.
 
 **N3. No source was located that frames authority separation as an OBSERVABILITY property** (a finding must be stated rather than absorbed) rather than a bias property. Searched incidentally across N1 and N2 and across the [S25] uptake material. The framing in §1.1(b) is this paper's own and is marked derived.
 
@@ -453,7 +497,8 @@ Stated plainly, because a paper that cannot name its own null case is advocacy:
 
 **Intra-repo inputs (not external sources; read, not cited as evidence)**
 
-- `docs/standards/architecture/research/raw/case_against.md` — §2.3, §5.4, §5.5, D7, T5. Critic: PASS. Adjudicated in §3.9; corrections proposed in §4.6.
+- `docs/standards/architecture/research/raw/case_against.md` — §2.3, §5.4, §5.5, D7, T5. **Critic: PASS-WITH-FIXES — 2026-08-03**, with a round-3 correction list. *(Corrected 2026-08-06: this entry previously recorded "PASS", which understated the sibling's correction history. Verdict re-read from that paper's own header block.)* Its four recorded round-3 fixes are: N6's dependent trace extended to `durable_execution.md` §3; [S5]'s citation entry corrected to record first-party GA verification; §2.1.2's element-count transfer marked derived at point of use; and the pool-papers index reconciled with N6's two-site trace.
+  **Check performed here, because §4.6 item 1 recommends withdrawing that paper's D7:** I read the round-3 list against the sections this paper draws on and **none of the four touches D7, §5.4 or §5.5.** All four sit in the durable-execution / vendor-inventory material (§2.1, §2.2's threshold, N6) — a different argument from the multi-agent one. Verified by reading `case_against.md` directly: D7 at line 763 still rests on the [S15]→sequential-judge transfer and still flags it as unestablished; §5.4 (lines 840–850) still records the Cognition follow-up as **UNVERIFIED and not fetched**; §5.5 (lines 852–867) still states "None measures review, critique or defect-finding." **The §4.6 recommendation therefore stands as written and needs no re-examination.** *(definitive — read from the sibling file in this repo.)*
 - `docs/standards/architecture/research/raw/convergence_stopping.md` — §1.2, §2.2.1-2.2.6. Critic: PASS. Adjudicated in §3.9.
 - `scripts/workflows/children/review-pr.sh` lines 190-220; `scripts/workflows/build-minor.sh` lines 79-82, 278-373; `scripts/workflows/activities/run-claude.sh` (JSONL logging).
 

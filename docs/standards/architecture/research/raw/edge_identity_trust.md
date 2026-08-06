@@ -15,8 +15,8 @@ Confidence:     DEFINITIVE (first-party documented, raw-source verified): the SP
                 and federation model; the SPIRE node-attestor catalogue; RFC 8693 / 9449 / 9334 /
                 8628 semantics; NIST SP 800-207 tenets; BeyondCorp's managed-device requirement;
                 GitHub's and GitLab's self-hosted-runner security guidance; Temporal's self-hosted
-                default authorizer, namespace semantics, multi-tenant patterns and data-converter
-                placement.
+                default authorizer, namespace semantics, multi-tenant patterns, data-converter
+                placement, and the pull-based Worker/Task-Queue polling model.
                 DERIVED (this paper's inference across those sources, flagged inline): the tier
                 mapping table (§3), the verdict on differentiator #1 (§7), the "why nobody built
                 it" analysis (§6.3), and the Temporal task-queue-binding gap (§2.8).
@@ -25,8 +25,29 @@ Confidence:     DEFINITIVE (first-party documented, raw-source verified): the SP
                 Consumer Terms — the latter corroborated by an existing pool paper.
                 UNVERIFIED / GAPS: whether any agent orchestrator ships subscription-at-edge with
                 cross-machine dispatch (§6.2); Temporal Nexus cross-namespace authorization (§2.8);
-                whether Temporal can bind a task queue to an attested worker identity (§2.8).
-Critic:         not-yet-verified — 2026-08-06
+                whether Temporal can bind a task queue to an attested worker identity (§2.8);
+                Temporal's redelivery behaviour for a Task already dispatched to a worker that then
+                sleeps or disconnects (§5 row 1, §9 item 11 — not researched, not assumed).
+Critic:         PASS at round 2 (2026-08-06), with one round-3 correction applied on the same date.
+                Round 1 checked all 32 original citations, found every one existing and correctly
+                cited with no fabricated source, judged the confidence marks correctly calibrated,
+                and raised two defects. Both were repaired: a misquoted Codec Server definition
+                span in §2.8 Finding 3 (the paper had "decode your encoded payloads remotely",
+                a conflation of two adjacent sentences; the source reads "decode your data
+                remotely"), and the pull-based Worker/Task-Queue polling premise (§2.7, §3, §4 #7,
+                §5, §7), which had no source behind it and is now cited to first-party Temporal
+                encyclopedia docs [S33][S34].
+                Round 2 re-verified those repairs against its own fetches and returned PASS: both
+                corrected [S24] spans character-exact, [S33] and [S34] resolving with every quoted
+                span matching the raw source at each of the five sites claiming it, and the
+                34-source list reconciled by enumeration with no orphans in either direction.
+                Round 3 (this pass) fixed the one factual defect round 2 flagged as non-blocking:
+                the §2.8 repair note left the impression that its four agreeing fetches had settled
+                the quoted sentence's wording as unique in the source. A fresh four-fetch
+                enumeration of that document found a near-identical sibling sentence two paragraphs
+                below it. The quoted span itself is unchanged and re-confirmed exact; the note now
+                records the sibling and the enumerate-before-quoting remedy. No other section of
+                the paper was touched in round 3.
 ```
 
 **Mixed-volatility notice (per Research Standard §3).** This paper spans two decay rates. The
@@ -298,8 +319,19 @@ automatically pull the desired state declarations from the source"* and *"Softwa
 continuously observe actual system state and attempt to apply the desired state"* [S18]
 (*definitive*). **Derived:** the pull model is the cheapest structural way to keep a credential
 inside a boundary — the agent inside the boundary reaches out; nothing outside needs an inbound path
-or a credential. Temporal's worker model is already a pull model (workers poll task queues), which
-means this property is obtained for free by the substrate already chosen.
+or a credential.
+
+Temporal's worker model is itself a pull model, and this is first-party documented rather than
+folklore: *"A Worker Process is responsible for polling a Task Queue, dequeueing a Task, executing
+your code in response to a Task, and responding to the Temporal Service with the results"* and
+*"A Worker Entity listens and polls on a single Task Queue"* [S33]; *"A Task Queue is a lightweight,
+dynamically allocated queue that one or more Worker Entities poll for Tasks"* and *"Workers poll for
+Tasks in Task Queues via synchronous RPC"* [S34] (all *definitive*). Temporal draws the reachability
+consequence itself: *"Worker Processes connect directly to the Temporal Service for secure
+communication without needing to open exposed ports"* [S34] (*definitive*). **Derived from
+[S18]+[S33]+[S34]: the pull property this design needs at the edge is obtained for free from the
+substrate already chosen** — the dispatcher never initiates a connection to the edge, so no inbound
+path, no stable address, and no dispatcher-held edge credential are required for dispatch to work.
 
 **Mesh identity.** WireGuard reduces peer identity to a key: *"In WireGuard, peers are identified
 strictly by their public key, a 32-byte Curve25519 point"*, with *"an association between a peer
@@ -349,12 +381,69 @@ by default and becomes a trust boundary only when a ClaimMapper + Authorizer mak
 **Finding 3 — payload confidentiality across the trunk is already solved.** *"With encryption
 enabled, data exists unencrypted only on the Client and the Worker process, on hosts that you
 control"*, and *"Payloads on the Temporal Service (whether on Temporal Cloud or self-hosted) remain
-encrypted"*; a Codec Server is *"an HTTP server that uses your custom Codec logic to decode your
-encoded payloads remotely"* whose output is *"decoded and returned on the client side only"*, and
-*"You create, operate, and manage access to your Codec Server in your own environment"* [S24]
-(*definitive*). **This is a direct win for the federated tier**: the trunk can carry work whose
-inputs and outputs it cannot read, using a shipped, documented mechanism. It is the strongest
-single piece of substrate support for differentiator #1 found in this cycle.
+encrypted"*; a Codec Server is *"an HTTP server that uses your custom Codec logic to decode your data
+remotely"* whose output is *"decoded and returned on the client side only"*, and *"You create,
+operate, and manage access to your Codec Server in your own environment"* [S24] (*definitive*).
+**This is a direct win for the federated tier**: the trunk can carry work whose inputs and outputs it
+cannot read, using a shipped, documented mechanism. It is the strongest single piece of substrate
+support for differentiator #1 found in this cycle.
+
+> **Repair note (2026-08-06, critic round 1 — a repaired span is a new claim, §3).** The Codec
+> Server definition sentence above previously read *"…to decode your encoded payloads remotely"*.
+> That was a conflation of two adjacent sentences in [S24]: the definition sentence
+> (*"A Codec Server is an HTTP server that uses your custom Codec logic to decode your data
+> remotely."*) and the sentence preceding it (*"Use a Codec Server to programmatically decode your
+> encoded payloads."*, which carries an inline markdown link on *payloads*). The critic reported
+> that its own fetches of this URL returned differing renderings of the passage and could neither
+> confirm nor refute the wording. **Re-verification method:** four fetches of the raw `.mdx` — three
+> against the `main` raw URL under three different prompt shapes (enumerate-all-Codec-Server-
+> sentences; reproduce-these-two-sentences; reproduce-the-whole-defining-section) and one against
+> the `HEAD` raw URL to obtain a cache-independent retrieval. All four returned the definition
+> sentence and the *"in your own environment"* sentence identically, in the wording now quoted
+> above — which establishes agreement on the *wording of those two sentences*, and **not** that either
+> wording is unique in the document; see the round-3 addendum below. The two spans are treated as
+> certifiably verbatim and retain the *definitive* mark. **Neither span is load-bearing for the finding itself**: Finding 3's claim — that the
+> Temporal Service never holds decrypted payloads — rests on the two *"unencrypted only on the
+> Client and the Worker process"* / *"remain encrypted"* spans, which reproduced identically across
+> every fetch by both the analyst and the critic. The Codec Server spans establish only *where the
+> decode capability lives*, which reinforces the finding rather than carrying it.
+
+> **Round-3 addendum (2026-08-06) — the source contains a near-duplicate sibling sentence, and that
+> is the actual failure class.** A round-3 enumeration of `data-encryption.mdx` — four fresh fetches,
+> three prompt shapes against the `main` raw URL (every sentence containing "environment"; every
+> sentence containing "Codec Server"; verbatim reproduction of the contiguous block spanning both)
+> and one against the `HEAD` raw URL — found a **second sentence carrying a near-identical phrase**,
+> a few lines below the one quoted in Finding 3: *"Because you create, operate, and manage access to
+> your Codec Server in your controlled environment, ensure that you consider the following:"* Every
+> round-3 fetch that was asked to enumerate returned this sentence with identical characters, and the
+> contiguous-block fetch places it two paragraphs after *"You create, operate, and manage access to
+> your Codec Server in your own environment."* **The span quoted in Finding 3 is the *own
+> environment* sentence; it is unchanged, still character-exact, and still correctly attributed.**
+> What was wrong was the round-1 note's implicature that four agreeing fetches had settled the
+> passage — they settled a *wording*, not its *uniqueness*, and a reader was entitled to take the
+> stronger reading. Correcting that is the whole of this round's change.
+>
+> **What this changes about the lesson.** This document contains **two** near-duplicate Codec Server
+> sentence pairs, not one: the *own / controlled environment* pair above, and the
+> *"Use a Codec Server to programmatically decode your encoded payloads."* /
+> *"…uses your custom Codec logic to decode your data remotely."* pair named in the round-1 note.
+> The round-1 defect — *"decode your encoded payloads remotely"* — is exactly a concatenation of the
+> second pair's two halves, so for **that** pair, a summarizing fetch layer blending near-duplicate
+> siblings is **demonstrated, not hypothesised**. For the *environment* pair the same mechanism is
+> **plausible but not directly observed**: this paper cannot inspect what the round-1 critic's
+> fetches returned, and does not claim to have reproduced that blend. **Stated as one instance, not
+> a general law:** where a source contains near-duplicate siblings, re-fetching harder is the wrong
+> remedy, because every retrieval can return the same stable blend and agreement then certifies
+> nothing. The remedy that works is to **enumerate every occurrence of the distinctive phrase before
+> quoting one of them** — which round 3 did and rounds 1 and 2 did not.
+>
+> **A second, smaller fetch-layer defect observed while doing this.** Two of the three filtered
+> enumerations returned items that do **not** contain the string they were asked to filter on —
+> seven spurious items in one, one in the other — and one of the two appended its own corrective
+> note narrowing the list afterwards. Both true matches appeared in every enumeration that asked for
+> them, so over-inclusion rather than omission was the failure direction *here*; four fetches of one
+> document cannot establish that omission does not also occur. Operational consequence: check each
+> enumerated item for the literal string yourself rather than trusting the layer's filter.
 
 **Gap 1 — task-queue-to-worker binding is not documented as a Temporal mechanism.** Nothing in
 [S21][S22][S23] states a way to restrict *which worker process may poll a given task queue* by
@@ -385,7 +474,7 @@ mechanism for MDC↔MDC calls and its authorization model is **not established b
 ## §3 Comparative landscape — what each model supplies per tier
 
 **DERIVED table.** Every cell is this paper's mapping of the cited source onto the problem
-statement's tiers; the sources make no claim about SkyyNet. Sources: [S1]–[S29].
+statement's tiers; the sources make no claim about SkyyNet. Sources: [S1]–[S29], [S33]–[S34].
 
 | Model | Edge tier (credential stays put) | MDC tier (one operator's domain) | Federated tier (holds no edge credential) |
 |---|---|---|---|
@@ -402,7 +491,7 @@ statement's tiers; the sources make no claim about SkyyNet. Sources: [S1]–[S29
 | **GitOps pull** [S18] | Agent inside the boundary pulls | Reconciler owns the cluster credential | Control plane needs no inbound path or credential |
 | **WireGuard** [S14] | Peer *is* its public key | Cryptokey routing table | No PKI — key distribution unsolved at federation scale |
 | **BOINC** [S15] | **Holds no participant credential at all** | Project server | **Accepts uncontrolled participants; verifies by redundancy, not trust** |
-| **Temporal (self-hosted)** [S21][S22][S24] | Worker polls (pull); payloads encrypted client-side | Namespace + ClaimMapper/Authorizer | **Trunk can carry payloads it cannot read [S24]**; task-queue binding undocumented |
+| **Temporal (self-hosted)** [S21][S22][S24][S33][S34] | Worker polls (pull), no exposed ports [S33][S34]; payloads encrypted client-side [S24] | Namespace + ClaimMapper/Authorizer | **Trunk can carry payloads it cannot read [S24]**; task-queue binding undocumented |
 
 **Reading of the table (derived):** for the *Federated* tier — the tier the problem statement calls
 the strongest claim — **six independent models already supply the property**. The claim's novelty is
@@ -427,8 +516,11 @@ not there.
    authorization grant [S9]. *(definitive)*
 6. **A substrate-native answer to trunk confidentiality**: Temporal's data converter leaves payloads
    unencrypted *only* on client and worker hosts you control [S24]. *(definitive)*
-7. **A substrate-native pull model**, so no inbound path to the edge is required [S18] + Temporal's
-   polling workers. *(derived from [S18] and Temporal's documented worker model)*
+7. **A substrate-native pull model**, so no inbound path to the edge is required. Temporal's
+   Workers poll Task Queues [S33][S34] and *"connect directly to the Temporal Service … without
+   needing to open exposed ports"* [S34]; GitOps states the same principle generically [S18].
+   *(the two polling/port facts are* definitive *and first-party [S33][S34]; the conclusion that
+   this satisfies the edge's reachability requirement is* derived *from [S18]+[S33]+[S34])*
 8. **A priced warning, with named failure modes, for exactly this configuration** — persistent
    compromise, cross-job secret visibility via process arguments, fork-initiated compromise
    [S26][S28]. *(definitive)*
@@ -448,8 +540,8 @@ Each item states whether the prior art *solves* it or *assumes it away*.
 
 | Failure mode | Prior art's position | Verdict |
 |---|---|---|
-| **Intermittent connectivity, sleep/suspend** | BOINC states it as a premise: computers *"are frequently turned off or disconnected from the Internet"* [S15] and designs around it with work units and backoff | **Solved in principle** — by an architecture that assumes it. Temporal's task-queue polling model tolerates a disconnected worker; a task simply is not picked up. *(derived from [S15] + Temporal's pull model)* |
-| **NAT, no stable address** | BOINC: participants *"often behind network-address translators (NATs) or firewalls"* [S15]; GitOps pull makes inbound reachability unnecessary [S18]; WireGuard supports roaming endpoints [S14] | **Solved** — by never dispatching inbound. Pull-only is not a preference, it is the requirement. |
+| **Intermittent connectivity, sleep/suspend** | BOINC states it as a premise: computers *"are frequently turned off or disconnected from the Internet"* [S15] and designs around it with work units and backoff | **Solved in principle** — by an architecture that assumes it. Temporal's task-queue polling model tolerates a disconnected worker; a task simply is not picked up. *(derived from [S15] + Temporal's documented polling model [S33][S34]. Note: research did not establish what happens to a Task already dispatched to a worker that then sleeps — that is a timeout/retry question, §9 item 11.)* |
+| **NAT, no stable address** | BOINC: participants *"often behind network-address translators (NATs) or firewalls"* [S15]; GitOps pull makes inbound reachability unnecessary [S18]; WireGuard supports roaming endpoints [S14]; Temporal's Workers poll and *"connect directly to the Temporal Service … without needing to open exposed ports"* [S34] | **Solved** — by never dispatching inbound. Pull-only is not a preference, it is the requirement, and the chosen substrate documents it [S33][S34]. |
 | **No HSM / no managed attestation root** | BeyondCorp *requires* a *"managed device… procured and actively managed by the enterprise"* with the cert in a TPM [S12]; SPIRE's ten documented node attestors reduce, on an unmanaged laptop, to pre-shared secrets [S4][S5] | **ASSUMED AWAY by the prior art.** This is the largest unsolved gap. Every mature model either owns the device or has a cloud instance-identity document. |
 | **The operator does not physically control the machine** | NIST Assumption 2: *"Devices on the network may not be owned or configurable by the enterprise"* [S11] — but its remedy is CDM/posture monitoring, i.e. the operator still *measures* the device | **Partially addressed, at a cost we may not be able to pay** (posture agents on a participant's personal laptop). |
 | **The user can read every secret on their own machine** | WebAuthn is the only cited model that addresses this head-on: the private key *"is expected to never be exposed to any other party, not even to the owner of the authenticator"* [S16] — and it achieves that with an authenticator, i.e. hardware | **ASSUMED AWAY**, unless hardware is in play. For an OAuth subscription token on disk, the user is inside the trust boundary. This may be acceptable (the credential is *theirs*), and stating that explicitly is the honest resolution. |
@@ -602,10 +694,13 @@ this paper found no prior art for ephemeral isolation on an unmanaged personal m
 retains a long-lived subscription session.** That is the honest bill.
 
 **Where the design is genuinely well-served by the substrate already chosen.** Temporal's worker
-model is pull-based (no inbound path to the edge; §2.7), and its data converter leaves payloads
-readable *"only on the Client and the Worker process, on hosts that you control"* [S24]. Those two
-properties together mean the trunk can dispatch work it can neither perform nor read — a large part
-of differentiator #1, obtained from a documented feature of a dependency already committed to.
+model is pull-based — *"Workers poll for Tasks in Task Queues via synchronous RPC"* and
+*"Worker Processes connect directly to the Temporal Service for secure communication without needing
+to open exposed ports"* [S34], cf. [S33] and §2.7 — and its data converter leaves payloads readable
+*"only on the Client and the Worker process, on hosts that you control"* [S24]. Those two properties
+together mean the trunk can dispatch work it can neither perform nor read — a large part of
+differentiator #1, obtained from documented features of a dependency already committed to. **Both
+halves are first-party documented; only the conjunction is this paper's.**
 
 **When this whole topic is NOT needed.** If every participant turns out to be inside one operator's
 domain — one household, one company, one lab — then the MDC tier is the only tier, bernstein's
@@ -660,6 +755,17 @@ absence). [S29] is therefore cited from the rendered site at reduced confidence.
 - **[S28]** GitLab Runner documentation, *Security risks for runners* (raw markdown source). https://gitlab.com/gitlab-org/gitlab-runner/-/raw/main/docs/security/_index.md
 - **[S29]** HashiCorp Vault, *Response Wrapping* — **rendered page, reduced confidence** (raw path unavailable, see note above). https://developer.hashicorp.com/vault/docs/concepts/response-wrapping
 - **[S30]** Anthropic Consumer Terms of Service, §2 — **rendered page, reduced confidence; corroborated by [S32]**. https://www.anthropic.com/legal/consumer-terms
+- **[S33]** Temporal documentation, *Workers* encyclopedia entry (raw; both load-bearing spans re-verified by a second fetch against the `HEAD` raw URL). https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workers/workers.mdx
+- **[S34]** Temporal documentation, *Task Queues* encyclopedia entry (raw; all three load-bearing spans re-verified by a second fetch against the `HEAD` raw URL). https://raw.githubusercontent.com/temporalio/documentation/main/docs/encyclopedia/workers/task-queues.mdx
+
+**Volatility note on [S33]–[S34].** These are vendor product docs and sit in this section by source
+type, but the facts drawn from them — that Workers poll Task Queues and require no inbound port —
+are core architectural properties of Temporal, not a fast-moving product surface. A refresh may
+treat them as **[LOW]** unless Temporal announces a dispatch-model change.
+
+**Source-list provenance.** [S1]–[S32] are the paper's original citations, all of which the
+2026-08-06 critic pass verified as existing and correctly cited. [S33]–[S34] were added in that same
+pass to close an untraced premise (the pull-based worker model), not to support a new argument.
 
 **Internal pool papers (evidence, non-binding):**
 
@@ -724,3 +830,12 @@ Each item is framed as an experiment with an observable outcome.
 10. **The sequencing question research cannot answer:** does a second operator exist within the
     planning horizon? §7 shows the three-tier model is unpaid complexity until one does. *Settles:*
     by operator decision, not by evidence.
+
+11. **What happens to a Task already dispatched to a worker that then sleeps or disconnects?**
+    [S33][S34] establish that Workers *poll* — so an offline worker takes no new work, which is the
+    §5 row-1 claim. They do **not** establish the behaviour of a Task already handed to a worker that
+    goes away mid-execution; this paper did not research Temporal's timeout and retry semantics, and
+    states that as a gap rather than assuming the pull model covers it. *Experiment:* start a
+    long-running Activity on a laptop worker, suspend the machine, and observe when the Task is
+    redelivered and to whom. *Settles:* whether laptop sleep is a non-event or a duplicate-execution
+    hazard — which bears directly on idempotency requirements at the edge.

@@ -1,30 +1,39 @@
 # Synthesis — product-level research
 
-**Cycle:** 2026-08-06 (cycle 4) · **Pool:** 25 papers · **Tier:** Large / architecture-layer · **This cycle: 4 papers added, 0 retired, 0 revalidated**
+**Cycle:** 2026-08-06 (cycle 4) · **Pool:** 25 papers · **Tier:** Large / architecture-layer · **This cycle: 4 papers added, 0 retired, 0 revalidated** · **Verified 2026-08-06 — all four new papers passed the critic gate**
 
 Read this instead of the pool. It says what the evidence means for the product's direction and ends in reviewable candidates. Nothing here is binding — research is evidence, and a finding becomes a rule only by being codified into a standard through human review.
 
-> ## ⚠️ THIS IS A DRAFT
+> ## ✅ VERIFIED — and what the gate caught
 >
-> **The four new papers carry `Critic: not-yet-verified`.** In the decomposed research pipeline, verification is a separate fresh-context run that checks every source, applies corrections, and traces each correction through to this document per §4's trace-to-all-dependents rule. **Every claim below that rests on a cycle-4 paper is unverified evidence and every consumer must treat it as such** (§3). The 21 carried-forward papers were verified in prior cycles and their verdicts are cited below.
+> The four new papers were verified by a separate fresh-context run that re-fetched sources itself. **All four now carry a passing verdict**; corrections were applied by the authoring analyst and re-verified by the critic, never transcribed through the orchestrator. Rounds taken: OpenClaw 2, Hermes 4, edge-identity 3, decide-only 2.
 >
-> **Highest-priority verification targets, named so the verify run does not have to find them:**
-> 1. **OpenClaw's star count (385,334)** — it is the sole basis for "nearest by adoption" and it is an extraordinary number. Sourced to a GitHub API JSON field, which is first-party, but it is ~5× the previously-largest datum in this pool. If it is wrong, one designation claim falls; nothing else does.
-> 2. **`decide_only_disposition.md`'s quantitative spans** — the F1 figures and p-values attributed to a single-author preprint (arXiv:2603.12123), and the Fagan page-number transcriptions, which were read from **page images** because the PDF has no text layer. The paper marks both honestly; they still need checking.
-> 3. **Every long quoted span in `hermes_assessment.md`** — its analyst measured the fetch layer refusing one full-document reproduction while granting others in the same session, and returning re-wrapped text on a re-fetch. It responded correctly by keeping all spans short, but the provenance guarantee is weakened session-wide. See § *Homeless findings*.
+> **The three targets the draft named were all checked, and two of them moved:**
+> 1. **OpenClaw's 385,334 stars — CONFIRMED.** The critic fetched the GitHub API itself and observed `stargazers_count: 385340` roughly 27 minutes after the paper's own fetch, on a repository pushed the same day. The +6 drift is organic growth, not error. The "nearest by adoption" designation stands, and candidate 6's verification dependency is discharged.
+> 2. **`decide_only_disposition.md`'s quantitative spans — one real defect, found and fixed.** arXiv:2603.12123 resolves; all four F1 figures and every attached p-value and Cohen's *d* were confirmed verbatim against the arXiv API. But the Fagan p.194 page-image transcription had **two words and a trailing parenthetical silently elided with no ellipsis, inside a span presented as an exact transcription** — exactly the failure class this gate exists to catch. Restored from the page image and independently re-read. A separate overstatement (a table calling same-session self-review the study's *worst* arm, which its own abstract contradicts) was corrected in three places.
+> 3. **Every long quoted span in `hermes_assessment.md` — CONFIRMED, verdict PASS on the first round.** All 29 sources were re-fetched and every high-risk span matched character-for-character. The paper's reduced-confidence marking on `kanban.md` was deliberately retained rather than cleared — see § *Homeless findings*, where the reason became a finding in its own right.
+>
+> **Two further defect classes the gate caught that nobody had named in advance:**
+>
+> - **A quote that exists in no source.** `edge_identity_trust.md` quoted a Temporal sentence that was a summarizing fetch layer's concatenation of two adjacent real sentences. Corrected, and the mechanism is now a named failure class below.
+> - **Sibling critic verdicts get copied down, and copied wrong — three times in one cycle.** `decide_only_disposition.md` cited `case_against.md` as `PASS` when its header says `PASS-WITH-FIXES`; **this synthesis's own carried-forward table did the same to `code_routed_control_flow.md` and `subscription_economics.md`**, both corrected here. Three instances of one class is not carelessness, it is a hand-copied field that should be generated from the papers' own headers. Understating a verdict hides correction history precisely where a reader looks to judge whether a claim is settled.
 
 ---
 
 ## Inputs
 
-**Added this cycle.** All four are unverified — see the draft warning above.
+**Added this cycle.** All four verified 2026-08-06. Each paper's own header carries its full round-by-round verification record.
 
 | Paper | Last validated | Revalidate | Critic verdict |
 |---|---|---|---|
-| `raw/openclaw_assessment.md` | 2026-08-06 | high — 3 weeks | **not-yet-verified** |
-| `raw/hermes_assessment.md` | 2026-08-06 | high — 3 weeks | **not-yet-verified** |
-| `raw/edge_identity_trust.md` | 2026-08-06 | high — 6 weeks (mixed-volatility; slow sections marked `[LOW]` in the body) | **not-yet-verified** |
-| `raw/decide_only_disposition.md` | 2026-08-06 | medium — 2 months | **not-yet-verified** |
+| `raw/openclaw_assessment.md` | 2026-08-06 | high — 3 weeks | **PASS** (round 1 PASS-WITH-FIXES → repairs re-verified PASS) |
+| `raw/hermes_assessment.md` | 2026-08-06 | high — 3 weeks | **PASS** on the body at round 1 — no citation defects found; rounds 3–4 corrected bookkeeping in the paper's own header and one enumeration in §6(h) |
+| `raw/edge_identity_trust.md` | 2026-08-06 | high — 6 weeks (mixed-volatility; slow sections marked `[LOW]` in the body) | **PASS** (round 2, after two repairs; one non-blocking note closed at round 3) |
+| `raw/decide_only_disposition.md` | 2026-08-06 | medium — 2 months | **PASS** (round 1 PASS-WITH-FIXES → repairs re-verified PASS) |
+
+**What the gate changed, so a reader knows which claims moved.** `edge_identity_trust.md` gained two first-party sources (now 34) for a premise it had asserted untraced — Temporal's pull-based worker polling — and a new gap (§9 item 11); its misquoted Codec Server span was corrected. `decide_only_disposition.md` had one transcription elision and one three-site overstatement corrected. `openclaw_assessment.md` had its §4.2 maturity-gate criteria re-mapped one level (they are level-*entry* gates, and the mapping is now marked derived) and one quote re-attributed to the file it actually came from. `hermes_assessment.md` needed no correction to its research.
+
+**One finding was RULED AGAINST and the ruling held.** The critic reported a verbatim-drift defect in an OpenClaw `PATH` quote; the analyst fetched the whole file, found the source carries **both** that sentence and a second Claude-specific one, and declined the correction. An independent pass then confirmed the analyst was right. Recorded because a gate that only ever ratifies its own findings is not a gate.
 
 **Carried forward, unchanged. The currency table computed at dispatch marks all 21 CURRENT — no paper in the pool is past its window.**
 
@@ -38,10 +47,10 @@ Read this instead of the pool. It says what the evidence means for the product's
 | `raw/fleet_failure_modes.md` | 2026-08-04 | high — 4 weeks | PASS-WITH-FIXES |
 | `raw/backbone_edge_generality.md` | 2026-08-03 | high — 6 weeks | PASS-WITH-FIXES |
 | `raw/case_against.md` | 2026-08-03 | high — 4 weeks | PASS-WITH-FIXES |
-| `raw/code_routed_control_flow.md` | 2026-08-03 | high — 6 weeks | PASS |
+| `raw/code_routed_control_flow.md` | 2026-08-03 | high — 6 weeks | PASS-WITH-FIXES (round 3) |
 | `raw/combination_prior_art.md` | 2026-08-03 | high — 4 weeks | PASS-WITH-FIXES |
 | `raw/convergence_stopping.md` | 2026-08-03 | high — 6 weeks | PASS |
-| `raw/subscription_economics.md` | 2026-08-03 | high — 2 weeks | PASS |
+| `raw/subscription_economics.md` | 2026-08-03 | high — 2 weeks | PASS-WITH-FIXES (round 3) |
 | `raw/workflow_reuse_boundary.md` | 2026-08-03 | high — 6 weeks | PASS-WITH-FIXES |
 | `raw/python_sdk_long_activities.md` | 2026-08-03 | high — 4 weeks | PASS-WITH-FIXES |
 | `raw/durable_execution.md` | 2026-07-27 | low — 6 months | PASS |
@@ -79,7 +88,9 @@ This was the cycle's primary target: the strongest claim in `problem-statement.m
 
 `edge_identity_trust.md` §0.3 is the finding a planner most needs and the one this pool has never had. The closest **operational** analogue to *"a federated layer dispatches work onto a machine holding a credential the dispatcher does not have"* is a **self-hosted CI runner** — and both major vendors publish guidance against exactly that configuration. GitHub: a self-hosted runner *"should almost never be used for public repositories"* and *"can be persistently compromised by untrusted code in a workflow."* GitLab corroborates independently that a Developer-role user *"could compromise the security of the environment hosting the runner."*
 
-**This does not refute the trust model. It prices it** — and the price is ephemeral, isolated execution at the edge, which is precisely what a laptop is bad at. The paper's §5 table is the honest inventory: of nine laptop-edge failure modes, connectivity and NAT are **solved** (by pull-only dispatch, which Temporal already gives us); credential/session expiry at an unattended edge is **unsolved and undocumented anywhere**; and two are **assumed away by every mature model** — no HSM or managed attestation root, and the user being able to read every secret on their own machine.
+**This does not refute the trust model. It prices it** — and the price is ephemeral, isolated execution at the edge, which is precisely what a laptop is bad at. The paper's §5 table is the honest inventory: of nine laptop-edge failure modes, connectivity and NAT are **solved** (by pull-only dispatch); credential/session expiry at an unattended edge is **unsolved and undocumented anywhere**; and two are **assumed away by every mature model** — no HSM or managed attestation root, and the user being able to read every secret on their own machine.
+
+**Verification narrowed the first of those, and the narrowing is load-bearing.** "Pull-only dispatch, which Temporal already gives us" was asserted in the draft with no source behind it; it is now first-party documented — workers *"poll for Tasks in Task Queues via synchronous RPC"* and *"connect directly to the Temporal Service … without needing to open exposed ports"*, which is Temporal drawing the no-inbound-path consequence itself, not our inference. **But it covers only the dispatch direction.** What happens to a Task *already handed to a worker* that then sleeps is a timeout/retry question the paper did not research and explicitly declines to assume the pull model answers (`edge_identity_trust.md` §9 item 11). **Laptop sleep is either a non-event or a duplicate-execution hazard, and which one it is sets idempotency requirements at the edge.** Cheap to settle; do not let "connectivity is solved" carry more weight than the dispatch direction.
 
 That last one has an honest resolution the paper names: the credential is *theirs*, so the user being inside the trust boundary may be acceptable. **Saying so explicitly is the resolution; leaving it unsaid is the risk.**
 
@@ -117,7 +128,7 @@ The two-tests rule earned its keep again. Neither architecture is adoptable; **e
 
 | Claimed mechanism | Status |
 |---|---|
-| **Fresh context** — the judge does not carry the author's reasoning | **Supported, directionally, on-domain.** One controlled review-shaped experiment has fresh-context review beating same-session self-review, and — decisively — reviewing *twice* in-session did **not** beat once, which rules out repetition as the explanation. The negative self-correction literature explicitly scopes itself away from the cross-actor case. |
+| **Fresh context** — the judge does not carry the author's reasoning | **Supported, directionally, on-domain.** One controlled review-shaped experiment has fresh-context review beating same-session self-review (F1 28.6% vs 24.6%, p=0.008, d=0.52), and reviewing *twice* in-session did **not** beat once (p=0.11) — a null result the study reads as ruling out repetition as the explanation. The negative self-correction literature explicitly scopes itself away from the cross-actor case. **Note what this does NOT say:** same-session self-review is not the worst arm in that study — it beat the context-aware subagent arm, and only its repeated variant ranked last. A single-author preprint; directional, not definitive. |
 | **No authoring authority** — the judge cannot quietly patch what it found | **UNEVIDENCED as an isolated variable.** Fifty years of human inspection research and the entire LLM-evaluation literature contain **no study that varies "the reviewer may edit" while holding everything else constant.** |
 
 Fagan states the rule in 1976 — *"no specific solution hunting is to take place during inspection… it is intended just to find errors!"* — but his only quality measurement varies seven things at once. **The rule is universally stated and never tested.**
@@ -136,7 +147,7 @@ Fagan states the rule in 1976 — *"no specific solution hunting is to take plac
 
 **Two concrete rulings, and the first is material:**
 
-1. **`case_against.md`'s D7 should be downgraded or withdrawn.** D7 derives *"a separate judge loses the author's context"* from Cognition's *Don't Build Multi-Agents*. **That post's own text excludes the transfer:** *"it never does work in parallel with the subtask agent, and the subtask agent is usually only tasked with answering a question, not writing any code."* **A ranked finding in the pool currently argues against the very seam its cited source endorses** — and a planning run could act on it.
+1. **`case_against.md`'s D7 should be downgraded or withdrawn.** D7 derives *"a separate judge loses the author's context"* from Cognition's *Don't Build Multi-Agents*. **That post's own text excludes the transfer:** *"it never does work in parallel with the subtask agent, and the subtask agent is usually only tasked with answering a question, not writing any code."* **A ranked finding in the pool currently argues against the very seam its cited source endorses** — and a planning run could act on it. **Checked at the gate:** `case_against.md` carries PASS-WITH-FIXES, and none of its four recorded round-3 fixes touches D7, §5.4 or §5.5 — verified by reading those line ranges directly. The recommendation is aimed at text that is still standing as written, not at something already repaired.
 2. **`case_against.md` §5.4's UNVERIFIED item is now closed.** The follow-up post exists, was fetched, and its refined principle — *"multi-agent systems work best today when writes stay single-threaded and the additional agents contribute intelligence rather than actions"* — **is the `decide ≠ act` seam, restated by the pool's strongest cited authority against layering.**
 
 **The one genuine conflict is about cost, not defects.** The matched-compute objection stands unanswered: the correct control is not "author alone" but *"author given the judge's budget to keep authoring."* No on-domain paper runs it. That is the experiment, and it is designed against this repo's real surfaces in §7 of the paper.
@@ -153,7 +164,7 @@ Fagan states the rule in 1976 — *"no specific solution hunting is to take plac
 
 Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run surfaces candidates in this document and **writes nothing outside `research/`** — routing is the reviewer's and the operator's.
 
-**All of candidates 1–16 rest on `Critic: not-yet-verified` papers.** Candidates 17–29 are carried forward from prior verified cycles.
+**Every candidate now rests on a verified paper.** Candidates 1–16 rest on this cycle's four papers, all of which passed the critic gate on 2026-08-06; candidates 17–29 are carried forward from prior verified cycles. That removes the draft's blanket caveat — but it does not make any candidate binding, and the per-candidate confidence marks in the source papers still govern.
 
 | # | Candidate | Type | Rests on |
 |---|---|---|---|
@@ -162,7 +173,7 @@ Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run sur
 | 3 | **Settle whether a Temporal worker can be prevented from polling a queue it should not serve — BEFORE the pinned-edge design is built on.** Undocumented first-party; the "custom Authorizer gates polling" answer is a derived hypothesis, not a fact. Cheap to test, expensive to discover late | adopt | `edge_identity_trust.md` §2.8, §9 |
 | 4 | **Record that self-hosted Temporal ships `noopAuthorizer` by default and the namespace is the only credential boundary offered.** Authorisation is code we write. No free multi-tenancy in the substrate | adopt | `edge_identity_trust.md` §4 item 11 |
 | 5 | **Split `roadmap.md` § *Tools to Evaluate* into backbone comparators and edge runtimes.** bernstein/Paperclip compete with the backbone; OpenClaw/Hermes compete with Claude Code. Found independently by two analysts. Cost 0, and it is why an unassessed comparator looked low-priority for three cycles | change direction | `hermes_assessment.md` §3, §8; `openclaw_assessment.md` §7 |
-| 6 | **Give "nearest neighbour" an axis: bernstein by architecture, OpenClaw by thesis.** Two of the four differentiators are now most sharply tested by OpenClaw. **Verification dependency:** the *by adoption* leg rests on the 385,334-star figure and should not be stated until the verify run confirms it | change direction | `openclaw_assessment.md` §3.8 |
+| 6 | **Give "nearest neighbour" an axis: bernstein by architecture, OpenClaw by thesis.** Two of the four differentiators are now most sharply tested by OpenClaw. **The *by adoption* leg is confirmed** — the 385,334-star figure was independently re-fetched at the gate (385,340 some 27 minutes later, on a repo pushed that day). Volatile by nature, which is why this paper carries the pool's tightest revalidation window | change direction | `openclaw_assessment.md` §3.8 |
 | 7 | **Add OpenClaw to the roadmap as ASSESSED-and-closed, not as an evaluation gate.** Proposed entry text is drafted in the paper. Its absence from the comparator set is itself the finding | adopt | `openclaw_assessment.md` §7 |
 | 8 | **Add Hermes under the new edge-runtimes heading.** It has no entry to correct — this is an addition, not a rewrite | adopt | `hermes_assessment.md` §8 |
 | 9 | **Plan the three pre-worker recovery items as ONE design session, not three.** OpenClaw's restart-recovery contract + durable dispatch id, and Hermes' three-guard liveness. Both papers independently say *before workers are written*. Hours of design; constrains the build | adopt | `openclaw_assessment.md` §6 items 3–4; `hermes_assessment.md` §7 item 4 |
@@ -195,9 +206,16 @@ Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run sur
 
 Named here rather than parked elsewhere, per §7 — a homeless finding means the surface is missing.
 
-- **This repo still has no surface that holds "an upstream standards amendment we owe."** Carried from four cycles. The Research Standard is **vendored MIRROR** from `MDC-Master-Planning`, so amendments cannot be made here. **The missing surface is the finding**, and the debt now stands at five owed amendments.
+- **This repo still has no surface that holds "an upstream standards amendment we owe."** Carried from four cycles. The Research Standard is **vendored MIRROR** from `MDC-Master-Planning`, so amendments cannot be made here. **The missing surface is the finding.**
 
-- **A THIRD distinct fetch-layer failure class, and this one corrupts provenance rather than content.** Prior cycles measured (i) under-enumeration — page totals reported as populations, seven fetches giving seven different answers with `truncated: false` present and wrong every time — and (ii) silent elision. This cycle adds (iii): the layer **declared a 125-character quote ceiling and refused one full-document reproduction while granting long reproductions of other documents in the same session**, and returned **re-wrapped text** on a re-fetch of a document it had already returned. The analyst responded correctly, keeping every span short and distinctive and asserting no long block as byte-exact — but **one refusal invalidates verbatim status session-wide**, because the artifact can no longer distinguish "exact characters returned" from "reproduced under a ceiling." §3's *"verbatim means the exact characters were returned"* rule is **not satisfiable by the available tooling**, and no amount of analyst discipline fixes that. The remedy the paper proposes is a `git clone` + `grep -F` re-verification pass. **Three distinct failure classes across four cycles is well past the threshold where this is an observation.**
+  **The verification run could not confirm the debt count, and that is the finding sharpening rather than a bookkeeping nit.** Prior wording put the debt at "five owed amendments." Nothing in `research/` enumerates them — which is exactly what the bullet itself asserts, so the count is *unverifiable by construction*: a tally of items no surface holds. **It is also now provably stale in at least one direction** — this cycle retired one of the five, since the sizing-rubric item turns out to need the standard *applied* rather than amended (see the sizing bullet below), and the count was not adjusted. A number that cannot be checked and is known to be wrong should not be carried; **the debt is stated here as unenumerated pending a surface that holds it.** The cost of the missing surface is no longer hypothetical — it has started corrupting the claims made about it.
+
+- **FIVE distinct fetch-layer failure classes now, and this cycle's verification run added the two worst.** Prior cycles measured (i) under-enumeration — page totals reported as populations, seven fetches giving seven different answers with `truncated: false` present and wrong every time — and (ii) silent elision. The cycle-4 papers added (iii): the layer **declared a 125-character quote ceiling and refused one full-document reproduction while granting long reproductions of other documents in the same session**, and returned **re-wrapped text** on a re-fetch. The verification run then measured two more, and both defeat the standing remedies:
+
+  - **(iv) Non-determinism on an unchanged URL.** `hermes_assessment.md`'s analyst got a summarized response from a raw URL; three later passes fetched the *same unchanged URL* and got clean content — four observations across four sessions, one summarized, three clean. The paper deliberately **retained** its reduced-confidence marking rather than clearing it, on the correct reasoning that a later clean fetch certifies content but cannot retroactively certify the fetch that actually produced the paper's spans. **An intermittent hazard is not cleared by a passing sample**, and re-fetching is therefore not a verification strategy.
+  - **(v) Near-duplicate blending — and this one produces a quote that exists in no source.** `edge_identity_trust.md` quoted Temporal as saying *"decode your encoded payloads remotely"*. That sentence does not exist: it is a concatenation of two real adjacent sentences (*"Use a Codec Server to programmatically decode your encoded payloads."* + *"…to decode your data remotely."*). **This survives perfect retrieval** — the standing raw-over-rendered and re-fetch-harder remedies both target retrieval fidelity, and a stable blend returns identically every time. Its remedy is a different verb: **enumerate every occurrence of a distinctive phrase before quoting one.** Confirmed once by demonstration and once by a plausible-but-unobserved second instance in the same document; thin for codifying, strong enough to watch for.
+
+  §3's *"verbatim means the exact characters were returned"* rule is **not satisfiable by the available tooling**, and no amount of analyst discipline fixes that. The remedy the papers propose is a `git clone` + `grep -F` re-verification pass. **Five distinct failure classes across four cycles, two of them found only because a separate verification run existed, is long past the threshold where this is an observation.** It is also the cycle's strongest evidence *for* the gate: class (v) was invisible to the authoring run by construction and was caught by the pass that re-fetched independently.
 
 - **The sizing rubric was never applied as written, and this cycle corrects its own predecessor.** Cycle 3 recorded the 21-topic overrun as *"a finding about the rubric"* needing an upstream amendment. **§2 already prescribes the remedy** and uses this pool's own destinations as its example: *"a plan, plus a thesis, plus a competitive read are three consumers, not one — and the correct response is to check whether it is one component before widening the band."* The 25 topics split cleanly into thesis (9), plan (12) and competitive read (4), each at or near a normal band. **The overrun is a splitting signal, not a calibration failure**, and the standard needs applying rather than amending. *(This is this cycle's own inference from §2's text — not an analyst finding. The split itself is a structural change to `research/` and is a decision for the operator, not for a research run.)*
 
@@ -214,6 +232,7 @@ Named here rather than parked elsewhere, per §7 — a homeless finding means th
 - **`zeroclaw-labs/zeroclaw`** — surfaced during OpenClaw disambiguation (Rust, *"fully autonomous AI personal assistant infrastructure"*), unassessed. A new edge-runtime comparator candidate.
 - **Cross-family judging, and self-report auditing as a distinct task** — both surfaced by `decide_only_disposition.md` as follow-on topics. The first is also candidate 15; the second (N5) is the homeless finding above.
 - **Re-authentication of an expired subscription session at an unattended edge** — nothing found across the RFC series, NIST, BeyondCorp or either CI vendor. Unsolved industry-wide, not just here.
+- **What happens to a Task already dispatched to a worker that then sleeps** — **new, surfaced by the verification run** while sourcing the pull-model premise. Temporal's documented polling establishes that an offline worker takes no *new* work; it says nothing about work already in that worker's hands. This is a timeout/retry question nobody researched, and its answer sets idempotency requirements at the edge. Small, cheap, and upstream of the pinned-edge design (`edge_identity_trust.md` §9 item 11).
 - **Ephemeral isolation on an unmanaged laptop that also retains a long-lived session** — no prior art found.
 - **The quota-headroom view** is no longer blocked (candidate 11) but is **not yet sized** beyond the ~1 day + hours estimate.
 - **Temporal patching/versioning cost**, and the **OpenAI Agents GA-vs-Preview contradiction** — refresh-owned, unchanged.

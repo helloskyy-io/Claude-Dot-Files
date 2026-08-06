@@ -22,7 +22,10 @@ Confidence:     DEFINITIVE at the documentation level for every axis: the subjec
                 corroborated by a THIRD party's adapter registry.
                 REDUCED for everything sourced from `features/kanban.md`: two fetches of that one
                 file returned a prose-summarized version and a re-wrapped version, so its spans are
-                quoted only where both fetches agreed and are marked in place.
+                quoted only where both fetches agreed and are marked in place. Three later
+                independent fetches (2026-08-06) could NOT reproduce the summarization — so this
+                marking is now scoped to VERBATIM/PROVENANCE status; the substance of those spans
+                is corroborated by three later clean fetches. Ruling and reasoning in §6(b′).
                 DERIVED for the architecture verdict (§4), the category split (§3), every cost
                 estimate (§5, §7), and the claim refinements in §8 — each names its inputs.
                 UNVERIFIED at the behavioural level: nothing was executed, no Python was read.
@@ -34,7 +37,62 @@ Confidence:     DEFINITIVE at the documentation level for every axis: the subjec
                 125-character quote ceiling and REFUSED one full-document reproduction while
                 granting others in the same session. No long block in this paper is presented as
                 byte-exact, and every quoted span is kept short and distinctive as a result.
-Critic:         not-yet-verified — 2026-08-06
+Critic:         PASS-WITH-FIXES — 2026-08-06. Four verification rounds. Rounds 1-2 verified the body
+                and are its evidence; rounds 3-4 did no new checking of the body's research claims.
+                Round 3 corrected bookkeeping in this header block AND one enumeration in §6(h);
+                round 4 corrected this line only.
+                ROUND 1 (PASS): an independent read-only pass re-fetched the 23 EXTERNAL sources
+                cited in §9 — 17 Hermes raw-markdown fetches (16 distinct files; `features/kanban.md`
+                is fetched twice, once per URL form), 4 GitHub REST calls (3 repository-metadata
+                JSON, 1 git-trees listing), the HuggingFace models API, and the third-party adapter
+                doc — and found none fabricated and none miscited. The other 6 of §9's 29 entries
+                are documents in THIS repository; no external-re-fetch claim is made for them. All
+                29 inline footnote tags reconcile 1:1 with the §9 list, no orphan on either side.
+                Every high-risk quoted span was re-fetched and matched character-for-character —
+                the single-host and PID-locality clauses in §4.1, the managed-scope and
+                tenancy-boundary spans in §2.5, the credentials auto-seed, and the judge contract
+                and liveness guards in §5 — each confirmed DOCUMENTED rather than inferred. The
+                §1.1 identification chain was re-derived from direct API calls. Confidence marks
+                were judged correctly calibrated, with the RANK-1 quota-headroom item correctly
+                held as DERIVED rather than as a shipped Hermes capability. §6(h)'s
+                unfetched-document list was spot-checked against a live git-trees listing (real
+                paths), and §6(c)'s truncation reproduced. One non-blocking observation on
+                `features/kanban.md` was raised; it is ruled on in §6(b′), and the REDUCED marking
+                is retained deliberately.
+                ROUND 2: a narrow re-verification of the then-new §6(b′) plus the footnote
+                reconciliation. §6(b′) was judged sound — correctly attributed, accurately scoped,
+                not overclaimed — and the 29-tag reconciliation was independently re-enumerated and
+                held. That pass also ran its own fetch of the plain `main` kanban URL, which came
+                back clean; it is recorded as the fourth observation in §6(b′).
+                ROUND 3: four edits in three places — this line, the Confidence block above, and the
+                body at §6(h). (1) THIS line's source-type breakdown did not survive enumeration: the
+                raw-markdown bucket was overstated by one, and the buckets silently omitted the
+                git-trees call and the six this-repo citations while sitting beside the total 29.
+                Re-enumerated from §9 and now reconciling: 17 + 4 + 1 + 1 = 23 external, plus 6
+                this-repo = 29. (2) The kanban ruling was pointed at §6(b) when the ruling is in
+                §6(b′); both references to that ruling — the Confidence block's and this line's
+                ROUND 1 entry — now resolve to §6(b′). (3) The Confidence block's kanban paragraph was
+                brought to the post-round-2 state: THREE later clean fetches, not two. (4) §6(h)
+                replaced an approximate "~18" with an enumerated 16 distinct documents / 17
+                raw-markdown fetches; the absence claims there are unchanged in substance, and that
+                edit carries its own in-place annotation in §6(h). Round 3 did NOT re-verify the
+                body's research claims — rounds 1 and 2 remain their evidence — but it DID edit the
+                body at (4). Those are different claims and an earlier version of this line conflated
+                them.
+                ROUND 4 (nothing in the body changed): a read-only pass re-enumerated §9 and
+                confirmed the round-3 figures (17 raw-markdown over 16 distinct files, 4 GitHub REST
+                including the git-trees call, 1 HuggingFace, 1 adapter doc, 6 this-repo, 29 total),
+                re-resolved the §6(b′) pointer, re-counted §6(b′)'s four observations against its
+                header, and endorsed the §6(h) correction on the merits. Its one finding was against
+                the ROUND 3 entry itself: that entry described its own scope as confined to this line
+                and named two of the four edits, so a reader could not have reconstructed round 3
+                from it — which is the entry's only job. Rewritten above.
+                NOT VERIFIED: no version history was available to the pass that rewrote the ROUND 3
+                entry, so the edit list is reconstructed from in-place evidence (§6(h)'s own
+                annotation; both pointers now reading §6(b′); the Confidence block's fetch counts
+                matching §6(b′)'s post-round-2 observation set) plus the round-4 pass's report. Items
+                (1) and (4) are self-evidencing in the text; the exact round in which (2) and (3)
+                landed is attested, not diffed.
 ```
 
 > ## Headline — the subject is **Hermes Agent** (`NousResearch/hermes-agent`), and the useful finding is a CATEGORY ERROR in the comparator set
@@ -544,6 +602,33 @@ apparently-complete reproductions. A second fetch of `features/kanban.md` return
    *refuses*, which happened once in roughly a dozen fetches. **A single refusal invalidates the
    verbatim status of every long block in the same session, not just the refused one.**
 
+**(b′) The `kanban.md` summarization did NOT reproduce in two later sessions — and the REDUCED marking
+is kept anyway.** *(Added 2026-08-06 at the verification gate; observers named.)* The plain `main` URL
+that returned summarized prose to the analyst returned accurate, unsummarized content to **three later
+independent fetches on the same day** — one by the read-only verification pass and one by the pass that
+recorded the critic verdict, both of which retrieved the `"crash-detection path assumes PIDs are
+host-local"` clause inside its full surrounding sentence, plus one by the round-2 verification pass,
+which reported clean unsummarized content without making a span-level claim.[^kanban] That third
+observer added a caveat worth carrying: its own fetch layer summarizes by construction, so it
+corroborates *content* and certifies no bytes — which is equally true of the other two clean fetches,
+and is precisely why ground (i) below is the ruling. **Ruling: the analyst's observation
+stands as written and the REDUCED marking is retained**, on three grounds. (i) A later session's clean
+fetch corroborates the *content*; it cannot retroactively certify the *fetch* that actually produced
+this paper's spans, and §6(b)(3) above already states that this hazard class leaves content accurate
+while destroying the provenance guarantee — so a content-level corroboration is not the thing in doubt.
+(ii) Four fetches across four sessions of one unchanged URL yielding two different response
+characters — **one summarized, three clean** — is **evidence of fetch-layer non-determinism**, which
+makes the reduced marking *more* warranted, not less: a hazard that appears intermittently cannot be
+cleared by a passing sample. The 1-in-4 rate is stated plainly because it cuts both ways: it is a low
+enough rate that a reviewer may reasonably read the original summarization as an outlier, and a high
+enough one that no single clean fetch settles anything.
+(iii) Removing the marking would delete a measured observation about the tooling, which this pool has
+been tracking as a distinct failure class. **What DOES change:** the reduced confidence on
+`features/kanban.md` should now be read as scoped to **verbatim/provenance status only** — the
+*substance* of the spans this paper draws from that file is corroborated by three later clean fetches
+in three separate sessions and is not in question. Anyone re-testing this should expect the failure to be intermittent and should
+not treat one successful fetch as a clearance.
+
 **(c) No document count is asserted for the docs tree.** The git-trees fetch of `main:website/docs`
 (`recursive=1`) was **truncated by the fetch layer mid-listing** and did not return a usable
 `truncated` field. The enumeration was used to *locate* documents, never to count them. The HuggingFace
@@ -586,7 +671,9 @@ lessons mined from *claims* (README feature bullets) are not.
 `user-guide/features/batch-processing.md`, `user-guide/docker.md`, `user-guide/multi-profile-gateways.md`,
 `user-guide/secrets/*`, `user-guide/features/kanban-tutorial.md`, and
 `guides/migrate-from-openclaw.md`.[^tree-docs] **Any claim of absence about Hermes in this paper is
-scoped to the ~18 documents actually fetched** and must not be read as a claim about the product.
+scoped to the 16 distinct Hermes documents cited in §9** (17 raw-markdown fetches — `features/kanban.md`
+appears twice, once per URL form; enumerated at the round-3 gate, replacing an earlier approximation of
+"~18") and must not be read as a claim about the product.
 
 **(i) Overlap risk with the sibling OpenClaw paper is real and un-deconflicted.** Both subjects are
 personal-AI-assistant runtimes with messaging gateways, and Hermes ships a migration path *from*
