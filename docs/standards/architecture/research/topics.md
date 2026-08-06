@@ -34,10 +34,10 @@ Each part sizes at or near its band. Prior cycles recorded the overshoot as *a f
 
 | Topic | Feeds | Paper | Last validated | Revalidate |
 |---|---|---|---|---|
-| **OpenClaw — architecture, and what is worth taking regardless** | `roadmap.md` § *Tools to Evaluate* (no item exists yet — the gap is part of the finding); `problem-statement.md` § *Where we actually differ* #4 and § *The edges* | `raw/openclaw_assessment.md` | 2026-08-06 | high — 4 weeks |
-| **Hermes — architecture, and what is worth taking regardless** | `roadmap.md` § *Tools to Evaluate*; `problem-statement.md` § *The edges* — the provider-shaped-edge sketch | `raw/hermes_assessment.md` | 2026-08-06 | high — 4 weeks |
+| **OpenClaw — architecture, and what is worth taking regardless** | `roadmap.md` § *Tools to Evaluate* (no item exists yet — the gap is part of the finding); `problem-statement.md` § *Where we actually differ* #4 and § *The edges* | `raw/openclaw_assessment.md` | 2026-08-06 | high — 3 weeks |
+| **Hermes — architecture, and what is worth taking regardless** | `roadmap.md` § *Tools to Evaluate* (no item exists yet); `problem-statement.md` § *The edges* — the provider-shaped-edge sketch | `raw/hermes_assessment.md` | 2026-08-06 | high — 3 weeks |
 | **Multi-edge identity, trust and credential distribution** | `problem-statement.md` § *Where we actually differ* **#1 — the strongest claim we make and the least-evidenced**; `Phase: Temporal Integration` — worker placement, queue naming, what a worker may hold | `raw/multi_edge_identity_trust.md` | 2026-08-06 | high — 6 weeks |
-| **Decide-only disposition — does a judging stage with no authoring authority reduce defects?** | `problem-statement.md` element 2 (*"one that authors, one that judges with no stake in the work"*); validates `docs/standards/workflow-scripts.md § Composition` and the `review-pr` decide-only design | `raw/decide_only_disposition.md` | 2026-08-06 | medium — 3 months |
+| **Decide-only disposition — does a judging stage with no authoring authority reduce defects?** | `problem-statement.md` element 2 (*"one that authors, one that judges with no stake in the work"*); validates `docs/standards/workflow-scripts.md § Composition` and the `review-pr` decide-only design | `raw/decide_only_disposition.md` | 2026-08-06 | high — 6 weeks, **on-trigger** (see below) |
 | Mining the nearest neighbor — `bernstein` | `roadmap.md` — new items across phases; `problem-statement.md` § *The nearest neighbor* | `raw/bernstein_capability_mining.md` | 2026-08-04 | high — 2 weeks |
 | Paperclip — durability machinery, operator surface, Claude Code integration | `roadmap.md` § *Tools to Evaluate*; `Phase: Temporal Integration` | `raw/paperclip_assessment.md` | 2026-08-04 | high — 4 weeks |
 | The operator interface — is a control surface a requirement, and what must it show | `roadmap.md` — no phase holds this today; the named gap | `raw/operator_interface.md` | 2026-08-04 | high — 4 weeks |
@@ -83,9 +83,30 @@ Cycle 3 asked *is the trajectory right, and what are we missing?* and answered t
 - **The two stubs in `problem-statement.md`** — the SkyyNet/SkyyCommand frame and the building-and-industrial-automation edge. Both marked deliberately incomplete and awaiting their own exercise.
 - **Inter-process handoff contracts — the wire format.** Redirected to `docs/development/phases/memory-management-framework/research/`; that redirect stands.
 
+### Three intervals differ from what this assessment proposed, and the papers win
+
+The sizing pass proposed an interval per topic; each analyst then re-established it against what its subject actually did, which is what §5 requires (*"the agent re-establishes each paper's interval within those bounds on every touch"*). Where the two differ the **paper's header is authoritative** and the table above has been reconciled to it:
+
+- **OpenClaw and Hermes: `high — 3 weeks`**, not 4. Both justified the fast end of the band on the same evidence class — a repo pushed the day of the sweep, breaking changes inside the last two months, and a feature-doc surface large enough to decay faster than Paperclip's.
+- **Decide-only: `high — 6 weeks`**, not `medium — 3 months`. §3 binds the header to the **highest-volatility tier present**, and although the paper's centre of gravity is academic and classical (which would be low/medium), its §6 product census of thirteen shipping systems is high-volatility. The paper marks its slow-decaying sections so a refresh can skip them, which is exactly the §3 mixed-volatility contract.
+
 ## Retirements
 
-**None.** No subject died this cycle. No paper in the pool is excluded from the synthesis, and no paper carries `Revalidate: retired`.
+**None this cycle** — but one is proposed, and the proposal is surfaced rather than executed.
+
+### `decide_only_disposition.md` — RETIREMENT RECOMMENDED BY THE PAPER, NOT APPLIED HERE
+
+The paper's §11 rules: **retire the research topic, keep the shipped design, promote the question to the experiment queue.** Its reasoning is that the gap it found (N1 — nobody has run the controlled comparison between *a reviewer that may also fix* and *a judge that may only rule*) is **not a gap in coverage but a gap in what anyone has measured**, so a further reading cycle will find newer preprints doing the same thing and settle nothing.
+
+**Three reasons this cycle does not apply it:**
+
+1. **A retirement now would delete the finding.** Stage 4 excludes `Revalidate: retired` papers from the synthesis entirely — not cited, not drawn on, not informing a single candidate. Retiring a paper written hours ago would suppress the very result that was commissioned to end the topic's three-cycle displacement.
+2. **The paper does not actually ask for an immediate retirement.** It asks for an **on-trigger** interval that *"lapse[s] into a retirement if the trigger has not fired"* — the trigger being a published (ii)-vs-(iii) ablation, most likely as a new arm on an existing code-review-agent benchmark (c-CRAB, SWE-Review). That is a live paper with a conditional end, not a dead one.
+3. **Retiring a topic is a disposition, and this run does not hold that authority.** §7 gives the research run the power to surface and the reviewer the power to dispose. The retirement is surfaced as an action candidate in `synthesis.md`.
+
+**The rule for the next cycle, stated so it is not re-derived:** if the trigger has not fired by **2026-09-17** (six weeks), retire the paper — set `Revalidate: retired — 12 months` with `Superseded by: promoted to the experiment queue; see §10 T1–T3`, and record it here. Do not run it as a research topic a fifth time.
+
+No other subject died. Every other paper in the pool is an input to the synthesis and none carries `Revalidate: retired`.
 
 ## Gaps named, not covered this cycle
 
