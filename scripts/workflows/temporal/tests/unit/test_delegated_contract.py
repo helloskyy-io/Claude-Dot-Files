@@ -16,8 +16,21 @@ exactly, and each assertion below is a precondition that was once violated:
   `--verbose` did nothing and an operator could not distinguish a working run
   from a hung one. The reported symptom was "it's not working" when it was.
 
-These are structural (source-inspection) checks, so the predicates carry a
-positive control per Testing Standard § Structural tests need a positive control.
+These are structural (source-inspection) checks, so EVERY predicate below carries
+a positive control per Testing Standard § Structural tests need a positive
+control — proving the predicate still distinguishes a violating sample from a
+conforming one, rather than having quietly become a permanent pass.
+
+WHAT A SOURCE-GREP CAN AND CANNOT PROVE. It detects DRIFT: a guard deleted, a
+call reshaped, an ordering inverted, a variable dropped from the env dict. It
+cannot prove the module EXECUTES — a name that does not resolve, an import that
+was never added, a signature that no longer matches its caller are all invisible
+to it, because the offending token is present and spelled correctly. That gap is
+not hypothetical here: `test_review_pr_checks_out_the_pr_branch` below is green
+against a `review_pr_workflow` that raises `NameError` on its first call (see the
+PR body's untested-surface list). Closing it needs a test that IMPORTS and RUNS
+the workflow, which is integration-tier and does not exist yet — no amount of
+positive control on a substring predicate reaches it.
 """
 
 from __future__ import annotations
@@ -47,6 +60,29 @@ def _builds_env_before_sourcing(source: str) -> bool:
     return source.index("LOG_FILE") < source.index('source "{runner}"')
 
 
+def _guards_worktree_as_log_root(source: str) -> bool:
+    return ".claude/worktrees" in source
+
+
+def _separates_exec_dir_from_log_dir(source: str) -> bool:
+    return "cwd = worktree or repo_root" in source
+
+
+def _streams_output(source: str) -> bool:
+    """Popen PLUS a read loop. Popen alone still permits `proc.communicate()`,
+    which buffers to completion and reproduces the silent-run symptom exactly.
+    """
+    return "Popen" in source and "for line in proc.stdout" in source
+
+
+def _checks_out_the_pr_branch(source: str) -> bool:
+    """Resolves the PR's head ref AND creates a tree from it. Either half alone
+    is insufficient: reading `headRefName` without checking it out reviews the
+    wrong tree just as thoroughly as not reading it at all.
+    """
+    return "worktree_add(" in source and "headRefName" in source
+
+
 @pytest.mark.parametrize("var", DELEGATED_ENV_VARS)
 def test_run_claude_supplies_the_delegated_env_var(var: str) -> None:
     assert _supplies_env_var(RUN_CLAUDE_SOURCE, var), (
@@ -68,7 +104,7 @@ def test_run_claude_refuses_a_worktree_as_its_log_root() -> None:
     """Logs must never be written inside a worktree — they vanish with it, which
     made cost accounting impossible for two of five pipeline legs.
     """
-    assert ".claude/worktrees" in RUN_CLAUDE_SOURCE, (
+    assert _guards_worktree_as_log_root(RUN_CLAUDE_SOURCE), (
         "run_claude lost its guard against a worktree being passed as repo_root. "
         "repo_root is where LOGS live and must be the real repository; the "
         "worktree is only where the model EXECUTES."
@@ -76,7 +112,7 @@ def test_run_claude_refuses_a_worktree_as_its_log_root() -> None:
 
 
 def test_run_claude_separates_exec_dir_from_log_dir() -> None:
-    assert "cwd = worktree or repo_root" in RUN_CLAUDE_SOURCE, (
+    assert _separates_exec_dir_from_log_dir(RUN_CLAUDE_SOURCE), (
         "run_claude no longer distinguishes where it EXECUTES from where it LOGS. "
         "An earlier version passed the worktree as repo_root and buried every V2 log."
     )
@@ -84,7 +120,7 @@ def test_run_claude_separates_exec_dir_from_log_dir() -> None:
 
 def test_run_claude_streams_rather_than_capturing_silently() -> None:
     """A CALL, not prose: Popen plus a read loop over stdout."""
-    assert "Popen" in RUN_CLAUDE_SOURCE and "for line in proc.stdout" in RUN_CLAUDE_SOURCE, (
+    assert _streams_output(RUN_CLAUDE_SOURCE), (
         "run_claude went back to capturing output silently. That produced a "
         "70-minute run with zero visible output where --verbose did nothing and "
         "an operator could not tell a working run from a hung one."
@@ -98,7 +134,7 @@ def test_review_pr_checks_out_the_pr_branch() -> None:
     reviewing the wrong tree produces a confident verdict about code that is not
     under review.
     """
-    assert "worktree_add(" in REVIEW_PR_SOURCE and "headRefName" in REVIEW_PR_SOURCE, (
+    assert _checks_out_the_pr_branch(REVIEW_PR_SOURCE), (
         "review_pr no longer resolves the PR's head branch and checks it out. "
         "It would review whatever the repo currently has checked out and emit a "
         "verdict on the wrong tree."
@@ -106,10 +142,11 @@ def test_review_pr_checks_out_the_pr_branch() -> None:
 
 
 def test_delegated_contract_predicates_positive_control() -> None:
-    """Positive control: both predicates must fire on a violating sample.
+    """Positive control: EVERY predicate above must fire on a violating sample.
 
-    Without this, a quoting change (`"LOG_FILE"` -> `'LOG_FILE'`) turns every
-    assertion above into a permanent pass while the contract is unenforced.
+    Without this, a quoting change (`"LOG_FILE"` -> `'LOG_FILE'`) turns the
+    assertion that depends on it into a permanent pass while the contract it
+    names goes unenforced — and nothing signals that the check stopped looking.
     """
     assert _supplies_env_var('env = {"LOG_FILE": str(log_file)}', "LOG_FILE") is True
     assert _supplies_env_var("env = {}", "LOG_FILE") is False
@@ -119,3 +156,21 @@ def test_delegated_contract_predicates_positive_control() -> None:
     assert _builds_env_before_sourcing(ordered) is True
     assert _builds_env_before_sourcing(reversed_) is False
     assert _builds_env_before_sourcing("no contract here at all") is False
+
+    assert _guards_worktree_as_log_root('if ".claude/worktrees" in str(repo_root):') is True
+    assert _guards_worktree_as_log_root("log_dir = repo_root / 'logs'") is False
+
+    assert _separates_exec_dir_from_log_dir("cwd = worktree or repo_root") is True
+    assert _separates_exec_dir_from_log_dir("cwd = repo_root") is False
+
+    # Popen alone must NOT satisfy it: `communicate()` buffers to completion and
+    # is the exact shape that produced the 70-minute silent run.
+    assert _streams_output("proc = Popen(...)\nfor line in proc.stdout:") is True
+    assert _streams_output("proc = Popen(...)\nout = proc.communicate()") is False
+    assert _streams_output("subprocess.run(cmd, capture_output=True)") is False
+
+    # Likewise each half alone is insufficient — reading the ref without checking
+    # it out reviews the wrong tree just as surely as never reading it.
+    assert _checks_out_the_pr_branch('worktree_add(root, name, pr["headRefName"])') is True
+    assert _checks_out_the_pr_branch('branch = pr["headRefName"]') is False
+    assert _checks_out_the_pr_branch("worktree_add(root, name, 'origin/main')") is False

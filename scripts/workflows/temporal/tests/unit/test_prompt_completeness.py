@@ -105,8 +105,9 @@ def test_referenced_stage_body_exists_beside_the_wrapper(prompt: Path, name: str
     requirement is a file whose stem STARTS WITH the placeholder name, not an
     exact match.
     """
-    candidates = sorted(f.name for f in prompt.parent.glob("*.md"))
-    assert any(f.stem.startswith(name.lower()) for f in prompt.parent.glob("*.md")), (
+    beside = sorted(prompt.parent.glob("*.md"))
+    candidates = [f.name for f in beside]
+    assert any(f.stem.startswith(name.lower()) for f in beside), (
         f"{_rel(prompt)} references ${{{name}}} but no {name.lower()}*.md body "
         f"sits beside it. Present in that directory: {candidates}. This is the "
         f"exact shape of the failure where three prompt bodies shipped missing "

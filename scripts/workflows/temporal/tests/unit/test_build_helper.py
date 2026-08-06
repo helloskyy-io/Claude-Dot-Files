@@ -112,17 +112,16 @@ def test_should_loop_back(verdict: Verdict, loops_used: int, expected: bool) -> 
 # --- input validation at the boundary ----------------------------------------
 
 @pytest.mark.parametrize(
-    ("kwargs", "why"),
+    "kwargs",
     [
-        pytest.param({}, "no task source", id="no-task-source-rejected"),
+        pytest.param({}, id="no-task-source-rejected"),
         pytest.param(
             {"description": "x", "task_file": "/tmp/y"},
-            "two task sources",
             id="both-task-sources-rejected",
         ),
     ],
 )
-def test_build_input_requires_exactly_one_task_source(kwargs: dict, why: str) -> None:
+def test_build_input_requires_exactly_one_task_source(kwargs: dict) -> None:
     """A run that reaches the draft child with no task produces an empty PR that
     still costs a full review cycle to discover.
     """

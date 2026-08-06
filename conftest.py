@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import resource
+import sys
 
 # Matches the reference implementation (skyy-command/conftest.py). Env-tunable
 # under the same name so an operator debugging a genuine large-fixture case has
@@ -50,9 +51,17 @@ def _apply_memory_cap() -> None:
     cap_bytes = int(cap_gib * 1024**3)
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     # Never attempt to exceed an inherited hard limit — setrlimit would raise and
-    # abort collection for a reason unrelated to any test.
-    if hard != resource.RLIM_INFINITY:
-        cap_bytes = min(cap_bytes, hard)
+    # abort collection for a reason unrelated to any test. Say so when it happens:
+    # a systemd unit or CI runner with `LimitAS=` set can silently drop the
+    # effective cap far below the documented default, and the resulting
+    # MemoryError on a legitimate test would otherwise point at nothing.
+    if hard != resource.RLIM_INFINITY and hard < cap_bytes:
+        print(
+            f"NOTE: memory cap clamped to the inherited hard RLIMIT_AS "
+            f"({hard / 1024**3:.2f} GiB); {cap_gib} GiB was requested.",
+            file=sys.stderr,
+        )
+        cap_bytes = hard
     resource.setrlimit(resource.RLIMIT_AS, (cap_bytes, hard))
 
 

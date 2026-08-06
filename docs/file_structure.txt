@@ -171,14 +171,13 @@ claude-dot-files/
 │       ├── review-sprint.sh                         # REVIEW-SPRINT — comprehensive whole-repo end-of-sprint review
 │       ├── revision.sh                              # REVISION — PARENT: pure-bash orchestration of revision-draft then revision-refine (no model of its own)
 │       ├── revision-minor.sh                        # REVISION-MINOR — PARENT: draft → refine (ONE lens) → review-pr. Same shape as revision.sh, lighter middle child
-│       └── children/                                # Child WORKFLOWS — full workflows (own model key, turn budget, worktree) INVOKED BY A PARENT, not dispatched by you.
+│       ├── children/                                # Child WORKFLOWS — full workflows (own model key, turn budget, worktree) INVOKED BY A PARENT, not dispatched by you.
 │                                                    #   Children are SHARED, not owned: review-pr is called by every PR-producing parent. Not namespaced per parent.
 │           ├── review-pr.sh                         # Disposition engine (decide-only) — every parent's last child. Verdict: MERGE | HOLD - redispatch | HOLD - needs-assistance
 │           ├── revision-draft.sh                    # Child 1 of revision.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
 │           ├── revision-refine.sh                   # Child 2 of revision.sh — FRESH context: fidelity, peer-review trio + quality-control, corrections
 │           ├── revision-draft-minor.sh              # Child 1 of revision-minor.sh — writes the scoped change (was the monolithic revision-minor.sh)
 │           └── revision-refine-minor.sh             # Child 2 of revision-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
-│
 │       │
 │       └── temporal/                                # V2 PORT: the bash workflows re-expressed in Python against the Temporal
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,

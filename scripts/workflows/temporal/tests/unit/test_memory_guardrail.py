@@ -31,6 +31,12 @@ def _load_root_conftest():
 
     Not `import conftest` — that resolves to whichever conftest is first on
     sys.path and would silently test the wrong file.
+
+    Executing the module re-runs its bottom-level `_apply_memory_cap()` call as a
+    side effect, re-applying the DEFAULT cap. That is idempotent and harmless
+    here — every caller below either restores the limit via `restore_rlimit` or
+    raises before reaching `setrlimit` — but it is worth knowing before adding a
+    test that assumes loading is inert.
     """
     spec = importlib.util.spec_from_file_location("repo_root_conftest", _ROOT_CONFTEST)
     assert spec and spec.loader, f"could not load {_ROOT_CONFTEST}"
@@ -71,11 +77,27 @@ def test_root_conftest_is_where_the_guardrail_lives() -> None:
 
 
 def test_cap_honours_the_env_override(monkeypatch: pytest.MonkeyPatch, restore_rlimit) -> None:
+    """The requested cap is applied, floored by any inherited HARD limit.
+
+    The `min(requested, hard)` clamp is not an implementation detail to assert
+    around — asserting a bare `== 2 GiB` couples this test to the host. On a
+    systemd unit with `LimitAS=` or a memory-constrained CI container the hard
+    limit can sit below 2 GiB, and the test would go red for a reason that has
+    nothing to do with whether the override is honoured. Verified: under
+    `ulimit -Hv 1048576` the bare form fails while this one passes.
+    """
     conftest = _load_root_conftest()
+    _soft_before, hard = resource.getrlimit(resource.RLIMIT_AS)
+    expected = 2 * _GIB if hard == resource.RLIM_INFINITY else min(2 * _GIB, hard)
+
     monkeypatch.setenv("PYTEST_MEM_CAP_GIB", "2")
     conftest._apply_memory_cap()
+
     soft, _hard = resource.getrlimit(resource.RLIMIT_AS)
-    assert soft == 2 * _GIB, f"env override ignored — soft limit is {soft}, expected {2 * _GIB}"
+    assert soft == expected, (
+        f"env override ignored — soft limit is {soft}, expected {expected} "
+        f"(requested 2 GiB, inherited hard limit {hard})"
+    )
 
 
 @pytest.mark.parametrize("bad", ["not-a-number", "0", "-1", ""])

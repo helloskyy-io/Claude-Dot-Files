@@ -45,8 +45,14 @@ def _hardcodes_a_turn_cap(source: str) -> bool:
 
 # --- 1. Every V2 workflow DERIVES its turn cap; none hardcodes one ------------
 
-@pytest.mark.parametrize(("module", "script", "expected"), TURN_CAP_OWNERS)
-def test_turn_cap_is_derived_from_v1(module, script: str, expected: int) -> None:
+# `_module` / `_expected` below: TURN_CAP_OWNERS is deliberately ONE table — it is
+# the single source of truth for the module <-> script <-> V1-value mapping, and
+# splitting it per-test would duplicate exactly the thing that must not diverge.
+# The underscore marks the field this particular test does not read, so someone
+# editing a row can see at a glance which test will and will not notice.
+
+@pytest.mark.parametrize(("_module", "script", "expected"), TURN_CAP_OWNERS)
+def test_turn_cap_is_derived_from_v1(_module, script: str, expected: int) -> None:
     derived = int(act.v1_constant(script, "MAX_TURNS"))
     assert derived == expected, (
         f"{script} now declares MAX_TURNS={derived}, this suite expected {expected}. "
@@ -55,8 +61,8 @@ def test_turn_cap_is_derived_from_v1(module, script: str, expected: int) -> None
     )
 
 
-@pytest.mark.parametrize(("module", "script", "expected"), TURN_CAP_OWNERS)
-def test_no_workflow_hardcodes_a_turn_cap(module, script: str, expected: int) -> None:
+@pytest.mark.parametrize(("module", "script", "_expected"), TURN_CAP_OWNERS)
+def test_no_workflow_hardcodes_a_turn_cap(module, script: str, _expected: int) -> None:
     source = inspect.getsource(module)
     assert not _hardcodes_a_turn_cap(source), (
         f"{module.__name__} states a turn cap as a literal instead of calling "
