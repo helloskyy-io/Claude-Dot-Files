@@ -81,15 +81,21 @@ def test_hardcoded_cap_predicate_positive_control() -> None:
 # --- 2. Derivation FAILS LOUD rather than guessing ----------------------------
 
 @pytest.mark.parametrize(
-    ("script", "constant", "why"),
+    ("script", "constant", "expected_error"),
     [
-        pytest.param("nonexistent.sh", "MAX_TURNS", "missing script", id="missing-script"),
-        pytest.param("build-draft.sh", "NO_SUCH_CONST", "missing constant", id="missing-constant"),
+        # The two branches are disjoint and deterministic, so each case names the
+        # ONE exception it must raise. A tuple of both would still pass if a
+        # future edit swapped which branch raises which — an over-broad
+        # pytest.raises is a named anti-pattern in the Testing Standard.
+        pytest.param("nonexistent.sh", "MAX_TURNS", FileNotFoundError, id="missing-script"),
+        pytest.param("build-draft.sh", "NO_SUCH_CONST", ValueError, id="missing-constant"),
     ],
 )
-def test_derivation_raises_rather_than_guessing(script: str, constant: str, why: str) -> None:
+def test_derivation_raises_rather_than_guessing(
+    script: str, constant: str, expected_error: type[Exception]
+) -> None:
     """A silent default here is the whole failure mode: a guessed cap looks like
     a working run right up until the budget is gone.
     """
-    with pytest.raises((FileNotFoundError, ValueError)):
+    with pytest.raises(expected_error):
         act.v1_constant(script, constant)

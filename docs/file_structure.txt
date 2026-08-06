@@ -179,6 +179,22 @@ claude-dot-files/
 │           ├── revision-draft-minor.sh              # Child 1 of revision-minor.sh — writes the scoped change (was the monolithic revision-minor.sh)
 │           └── revision-refine-minor.sh             # Child 2 of revision-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
 │
+│       │
+│       └── temporal/                                # V2 PORT: the bash workflows re-expressed in Python against the Temporal
+│           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
+│           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
+│           ├── modules/assistant/                   # The assistant edge — build/, research/, review_pr/ families + shared activities
+│           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
+│           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
+│               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
+│               └── unit/                            # Pure: no I/O, no mocks. Each assertion encodes a production failure that happened
+│                   ├── test_build_helper.py         # Verdict parsing + fail-safe routing, arg compilation, handoff validation
+│                   ├── test_v1_parity.py            # Turn caps are DERIVED from V1, never re-declared; derivation fails loud
+│                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
+│                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
+│                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+│                   └── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
+│
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── run-all.sh                                   # Master runner — the single "run everything" entry point.
 │   │                                                #   ./testing/run-all.sh [unit|integration|e2e] [component]

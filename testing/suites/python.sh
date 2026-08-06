@@ -57,6 +57,9 @@ mapfile -t SUITE_DIRS < <(
         -not -path "*/archive/*" \
         -not -path "*/__pycache__/*" \
         -not -path "*/node_modules/*" \
+        -not -path "*/site-packages/*" \
+        -not -path "./.venv/*" \
+        -not -path "./venv/*" \
     | sed 's|^\./||' | sort
 )
 
@@ -116,4 +119,15 @@ if [[ $rc -eq 5 ]]; then
     exit 1
 fi
 
-exit $rc
+# NORMALIZE. Never let a raw pytest exit code reach the caller, because pytest's
+# own code 3 ("internal error") collides with this script's sentinel 3 ("no such
+# category in the tree") and the master runner reads 3 as a SKIP — so a pytest
+# crash would be reported as "nothing to run" and the overall run would pass.
+# pytest 1/2/3/4 are all failures (tests failed / interrupted / internal error /
+# usage error); collapse every one of them to 1 so the sentinel stays unambiguous.
+if [[ $rc -ne 0 ]]; then
+    echo "python/$CATEGORY: pytest exited $rc" >&2
+    exit 1
+fi
+
+exit 0
