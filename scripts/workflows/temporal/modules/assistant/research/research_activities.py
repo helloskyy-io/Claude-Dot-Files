@@ -96,6 +96,68 @@ def candidate_ceiling(research_dir: Path) -> str:
             f"A restatement of an existing candidate REUSES its ID — do not mint a new one.")
 
 
+# Research Standard §1 names TWO altitudes and one location each. The product
+# pool is a single known path; everything else is a component pool.
+PRODUCT_POOL = Path("docs/standards/architecture/research")
+
+
+def altitude(research_dir: Path, repo_root: Path) -> str:
+    """PRODUCT or COMPONENT, DERIVED from the path — never declared twice.
+
+    The invocation already states the altitude by naming the directory, so a
+    flag would be a second source of truth for one fact (`derive != declare`).
+    Asking the model to infer it is worse again: altitude decides the write
+    boundary, and a wrong inference puts a component's findings in the pool
+    that drives the whole product.
+    """
+    try:
+        rel = research_dir.resolve().relative_to(repo_root.resolve())
+    except ValueError:
+        raise ValueError(
+            f"research dir {research_dir} is not inside the repo {repo_root} — "
+            f"altitude cannot be derived, and it decides the write boundary."
+        ) from None
+    return "PRODUCT" if rel == PRODUCT_POOL else "COMPONENT"
+
+
+def upstream_block(research_dir: Path, repo_root: Path) -> str:
+    """POINT a component run at the product pool. Deliberately not inlined.
+
+    Without this a component run re-derives what the product pool already
+    settled and produces a second answer that can drift from the first.
+
+    A POINTER, not the content: inlining the synthesis cost 48k characters and
+    tripled the prompt, and it is inconsistent with how the rest of this prompt
+    works — the research standard, `topics.md` and the existing papers are all
+    pointed at and read in Stage 1. Only COMPUTED values are inlined, because
+    those are the ones a run cannot obtain by reading. The counts below are
+    computed for exactly that reason: they make an unread pool visible.
+    """
+    if altitude(research_dir, repo_root) == "PRODUCT":
+        return ""
+    synthesis = repo_root / PRODUCT_POOL / "synthesis.md"
+    if not synthesis.exists():
+        return ("--- upstream product research ---\n"
+                "The product pool has NO synthesis yet, so you have no upstream evidence. "
+                "Do not invent any, and state the absence in your PR body.\n"
+                "--- end upstream product research ---")
+    papers = sorted((repo_root / PRODUCT_POOL / "raw").glob("*.md"))
+    return "\n".join([
+        "--- upstream product research (READ-ONLY) ---",
+        f"The product pool holds **{len(papers)} papers** and a synthesis of them:",
+        "",
+        f"  {PRODUCT_POOL}/synthesis.md   <- READ THIS IN STAGE 1, BEFORE YOU SIZE",
+        f"  {PRODUCT_POOL}/raw/           <- the pool behind it; open a paper only when a topic needs it",
+        "",
+        "Counted in code and authoritative: " + ", ".join(f"`{p.name}`" for p in papers),
+        "",
+        "**Cite it, never re-derive it, and never write to it.** A topic settled upstream",
+        "does not need a second paper in your component pool — cite the upstream paper and",
+        "move on. Your sizing in Stage 2 must state which topics upstream already covers.",
+        "--- end upstream product research ---",
+    ])
+
+
 def submit_prompt(pr_number: str | None, label: str) -> str:
     """The SUBMIT stage's two shapes — new PR versus updating one."""
     if pr_number:

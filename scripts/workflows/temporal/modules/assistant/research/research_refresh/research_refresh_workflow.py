@@ -46,14 +46,22 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     if not due:
         raise ValueError("run_refresh called with no due papers — the gate should have exited first")
 
+    # Same altitude split as research-write, and for the same reason: a
+    # component pool that grows its own candidates.md and direction.md forks
+    # the operator's inbox. Derived from the path, never declared.
+    level = act.altitude(research_dir, repo_root)
+    fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
+
     values = {
         "RESEARCH_DIR": str(research_dir),
         "DUE_LIST": "\n".join(f"- {p}" for p in due),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-refresh: {research_dir}"),
-        "CANDIDATE_CEILING": act.candidate_ceiling(research_dir),
+        "ALTITUDE_BLOCK": act.load_prompt(PROMPTS / fragment),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
+    if level == "PRODUCT":
+        values["CANDIDATE_CEILING"] = act.candidate_ceiling(research_dir)
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refresh.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,

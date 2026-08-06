@@ -34,14 +34,30 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
               verbose: bool = False) -> str:
     """Discover, size, research, draft the synthesis, submit. Returns the PR URL."""
     currency, _due = act.paper_currency(research_dir)
+
+    # Altitude is DERIVED from the pool path (Research Standard §1 names two
+    # locations, one each). It decides which stages exist at all: candidates.md
+    # and direction.md are product-pool surfaces, and a component pool that
+    # grows its own forks the operator's inbox.
+    level = act.altitude(research_dir, repo_root)
+    fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
+
+    blocks = [b for b in (context, act.upstream_block(research_dir, repo_root), currency) if b]
+
     values = {
         "RESEARCH_DIR": str(research_dir),
-        "CONTEXT_BLOCK": f"{context}\n\n{currency}" if context else currency,
+        "CONTEXT_BLOCK": "\n\n".join(blocks),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research: {research_dir}"),
-        "CANDIDATE_CEILING": act.candidate_ceiling(research_dir),
+        "ALTITUDE_BLOCK": act.load_prompt(PROMPTS / fragment),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
+    # Only the product fragment carries ${CANDIDATE_CEILING}; supplying it at
+    # component altitude would be supplying a next-ID for a file that must not
+    # exist there. render() substitutes to a fixed point, so the fragment's own
+    # placeholder is resolved in the same pass.
+    if level == "PRODUCT":
+        values["CANDIDATE_CEILING"] = act.candidate_ceiling(research_dir)
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "write.md"), values),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
