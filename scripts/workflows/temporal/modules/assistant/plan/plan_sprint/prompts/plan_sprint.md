@@ -39,7 +39,7 @@ Read, in this order, and do not skip any:
 
 1. **`${SPRINT_PATH}`** — every section, its status marker, and the conventions block at the top. That block is binding on you: sprints are named not numbered, order reflects rough dependency, and **a sprint plan is never a history lesson** — it states what is built or will be built, nothing else. Retrospective prose does not go here.
 2. **`${CANDIDATES_PATH}`** — the running list. Note which rows have a blank `decision` (untriaged, your job) versus a set one (already ruled, leave alone unless new evidence overturns it).
-3. **`${RESEARCH_DIR}/synthesis.md`** — what the evidence currently says.
+3. **`${RESEARCH_DIR}/synthesis.md`** — what the evidence currently says. **This is your evidence input. DO NOT READ THE RAW PAPERS.** The Research Standard is explicit that downstream consumers take the synthesis and never the pool, and a triage pass that opens 21 papers is an hour-long run doing a job the synthesis already did. The paper *list* below is for coverage checking only — noticing a title the synthesis never mentions. **Open a paper only if a specific candidate cannot be ruled on without it, and say in your report which one and why.**
 4. **`docs/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** You read it because a sprint that does not serve the thesis is the failure this workflow exists to catch.
 5. **`docs/standards/architecture/system-overview.md`** — what is actually built, including settled decisions like the deployment target. A candidate contradicting a settled decision is a `reject`, and the reason is that it was already decided.
 
@@ -80,7 +80,7 @@ You may also **re-order** existing sections where the evidence changed what depe
 Three documents must support each other. Check, and report — **you fix none of them**:
 
 1. **Does the sprint plan serve the problem statement?** Work that advances no stated differentiator is worth flagging.
-2. **Does the sprint plan reflect the research?** Work through the paper list above: a significant finding with **no home anywhere** — not in the sprint plan, not in a component, not in an open issue — is a finding. So is a sprint item resting on evidence since corrected.
+2. **Does the sprint plan reflect the research?** Compare the synthesis against the sprint plan — **not the papers**. Two shapes count: a significant synthesis finding with **no home anywhere** (not in the sprint plan, not in a component, not in an open issue), and a sprint item resting on evidence the synthesis says has since been corrected. Scan the paper *titles* for a subject the synthesis never mentions; that is a coverage gap worth naming, not a reason to read the paper.
 3. **Do the three contradict each other anywhere?** A settled decision missing from one of them is the specific failure that has already cost a research cycle.
 
 Each finding names the document, the contradiction, and what you would change — as a **recommendation for the operator**, never an edit.
