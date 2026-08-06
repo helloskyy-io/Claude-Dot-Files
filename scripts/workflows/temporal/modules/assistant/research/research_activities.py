@@ -78,6 +78,24 @@ def paper_currency(research_dir: Path, today: date | None = None) -> tuple[str, 
     return table, due
 
 
+def candidate_ceiling(research_dir: Path) -> str:
+    """The highest C-NNN in use, computed in code and handed over.
+
+    A run that guesses the next ID collides with an existing one or skips a
+    block; either way the file's promise — that an ID is stable and never
+    reused — breaks silently. Same discipline as every other count here.
+    """
+    f = research_dir / "candidates.md"
+    if not f.exists():
+        return ("`candidates.md` does NOT exist yet — create it and start at `C-001`.")
+    ids = sorted(re.findall(r"^\|\s*C-(\d{3})\s*\|", f.read_text(), re.M))
+    if not ids:
+        return "`candidates.md` exists but holds no rows — start at `C-001`."
+    return (f"`candidates.md` holds **{len(ids)} rows**, highest ID **C-{ids[-1]}**. "
+            f"A NEW candidate starts at **C-{int(ids[-1]) + 1:03d}**. "
+            f"A restatement of an existing candidate REUSES its ID — do not mint a new one.")
+
+
 def submit_prompt(pr_number: str | None, label: str) -> str:
     """The SUBMIT stage's two shapes — new PR versus updating one."""
     if pr_number:

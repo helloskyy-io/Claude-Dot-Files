@@ -38,6 +38,7 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
         "RESEARCH_DIR": str(research_dir),
         "CONTEXT_BLOCK": f"{context}\n\n{currency}" if context else currency,
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research: {research_dir}"),
+        "CANDIDATE_CEILING": act.candidate_ceiling(research_dir),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

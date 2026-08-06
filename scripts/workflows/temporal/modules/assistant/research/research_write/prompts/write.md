@@ -68,6 +68,36 @@ Write (or fully rewrite) ${RESEARCH_DIR}/synthesis.md per the standard's synthes
 
 **This synthesis is a DRAFT.** A separate fresh-context run verifies every paper, applies corrections, and traces each correction through to this document per §4's trace-to-all-dependents rule. Write it as your best reading of the pool; do not treat it as final.
 
+## Stage 4b: APPEND TO `candidates.md` — BINDING
+
+`${RESEARCH_DIR}/candidates.md` is the **durable** home for action candidates. `synthesis.md` is rewritten every cycle; that file is not, and a candidate that lives only in the synthesis loses its disposition the moment the next cycle runs. That has happened: candidates already ruled on were re-proposed, and seven ended up parked on a tracker whose own rules forbid it.
+
+**The division of labour is absolute:**
+
+> **Research creates and appends. Planning dispositions.**
+
+**You set:** `ID` · `Candidate` · `Source`
+**You NEVER set or alter:** `decision` · `status` — those are `plan-sprint`'s and a later process's. Leave `decision` as `—` and `status` as `` `open` `` on every row you add.
+
+${CANDIDATE_CEILING}
+
+### If the file already exists — read it BEFORE you write
+
+1. **Read every existing row.** Note the highest `C-NNN` in use.
+2. **For each candidate in your synthesis, decide: is this NEW, or a RESTATEMENT of one already there?**
+   - **A restatement REUSES the original ID.** Do not mint a new one. If your wording is better, update the `Candidate` cell in place and leave the ID, `decision` and `status` untouched. A carried-forward candidate is the *same* candidate.
+   - **Only genuinely new candidates get new IDs**, continuing from the highest in use. **IDs are never reused and never renumbered**, even if a row is rejected.
+3. **A candidate already marked `reject` must NOT be re-proposed.** Read the reasoning; if new evidence genuinely overturns it, say so explicitly in the Note and in your PR body rather than quietly adding it again. That file exists so a rejection sticks.
+4. **Never delete a row.** Not a rejected one, not a stale one.
+
+### If the file does not exist
+
+Create it with the header explaining the two flags, who sets which, and the never-delete / never-renumber rules — then add your candidates starting at `C-001`.
+
+### In your PR body
+
+State plainly: how many candidates you **added**, how many you **restated under an existing ID**, and how many existing rows you **left alone**. A cycle that adds nothing new is a legitimate outcome — say so rather than manufacturing candidates to look productive.
+
 ## Stage 5: SUBMIT
 ${SUBMIT_PROMPT}
 
