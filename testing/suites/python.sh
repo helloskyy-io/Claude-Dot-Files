@@ -11,7 +11,8 @@
 #
 # Exit codes are a contract the master runner branches on:
 #   0  the suite ran and passed
-#   1  the suite ran and failed, OR it was asked to run tests that do not exist
+#   1  the suite ran and failed, OR it was asked to run tests that do not exist,
+#      OR a test file was found sitting outside a category directory
 #   3  nothing to run — no `tests/<category>/` directory anywhere in the tree
 #
 # The 1-vs-3 split matters. Exit 3 means the category is simply not present in
@@ -50,17 +51,59 @@ fi
 # nothing while exiting cleanly.
 cd "$REPO_ROOT"
 
-mapfile -t SUITE_DIRS < <(
-    find . -type d -path "*/tests/$CATEGORY" \
-        -not -path "./.git/*" \
-        -not -path "./.claude/*" \
-        -not -path "*/archive/*" \
-        -not -path "*/__pycache__/*" \
-        -not -path "*/node_modules/*" \
-        -not -path "*/site-packages/*" \
-        -not -path "./.venv/*" \
-        -not -path "./venv/*" \
+# Paths that are never part of this repo's own test tree. Held in ONE array
+# because two finds consume it: an exclusion added to the suite scan and
+# forgotten in the orphan scan below would leave the two disagreeing about what
+# the tree contains, which is precisely the failure this file is guarding.
+PRUNE=(
+    -not -path "./.git/*"
+    -not -path "./.claude/*"
+    -not -path "*/archive/*"
+    -not -path "*/__pycache__/*"
+    -not -path "*/node_modules/*"
+    -not -path "*/site-packages/*"
+    -not -path "./.venv/*"
+    -not -path "./venv/*"
+)
+
+# ORPHAN GUARD — Testing Standard § Discovery completeness (ratified 2026-07-24):
+# a test that exists outside `run-all.sh` discovery is a DEFECT, not a gap; and
+# § Purpose names an orphaned test file as a standards violation outright.
+#
+# Suite discovery below matches `*/tests/<category>` only, so a `test_*.py` one
+# directory too high — `tests/test_foo.py` rather than `tests/unit/test_foo.py` —
+# is invisible to it. Nothing else notices either: the file count printed below
+# silently excludes the file and the run exits zero, which reads as "those tests
+# passed". Not hypothetical — `tests/test_build_helper.py` and
+# `tests/test_v1_parity.py` were both live in this state on `main`.
+#
+# Two deliberate properties:
+#   - CATEGORY-INDEPENDENT. A file in `tests/unit/` is not an orphan during the
+#     `integration` pass, so the scan asks only "is it inside ANY category
+#     directory", never "is it inside THIS category".
+#   - Runs BEFORE the exit-3 early return, so a tree whose only test files are
+#     orphaned FAILS instead of reporting "nothing to run".
+mapfile -t ORPHAN_TESTS < <(
+    find . -type f -name 'test_*.py' \
+        -not -path "*/tests/unit/*" \
+        -not -path "*/tests/integration/*" \
+        -not -path "*/tests/e2e/*" \
+        "${PRUNE[@]}" \
     | sed 's|^\./||' | sort
+)
+
+if [[ ${#ORPHAN_TESTS[@]} -gt 0 ]]; then
+    echo "FATAL: ${#ORPHAN_TESTS[@]} test file(s) sit outside tests/{unit,integration,e2e}/" >&2
+    echo "       and will never be executed by any runner:" >&2
+    for orphan in "${ORPHAN_TESTS[@]}"; do echo "         - $orphan" >&2; done
+    echo "       Move each into a category directory. A test that exists but never" >&2
+    echo "       runs is worse than a missing one — it reports protection the suite" >&2
+    echo "       does not have, and the summary table stays green over its absence." >&2
+    exit 1
+fi
+
+mapfile -t SUITE_DIRS < <(
+    find . -type d -path "*/tests/$CATEGORY" "${PRUNE[@]}" | sed 's|^\./||' | sort
 )
 
 if [[ ${#SUITE_DIRS[@]} -eq 0 ]]; then

@@ -13,11 +13,19 @@ The sibling files carry the rest of what the original single parity module
 asserted: `test_isolation_invariants.py` (worktree isolation and observed
 outcomes), `test_prompt_completeness.py` (every ${VAR} has a supplier) and
 `test_delegated_contract.py` (the five variables run-claude.sh demands).
+
+Section 3 is the other half of this module's job and is not about turn caps at
+all: it is the EXECUTABILITY sweep, the class-level guard against a name that is
+used but never imported. It lives here because it arrived here — it was added to
+the single parity module and has to survive the split into siblings.
 """
 
 from __future__ import annotations
 
 import inspect
+import shutil
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -105,3 +113,70 @@ def test_derivation_raises_rather_than_guessing(
     """
     with pytest.raises(expected_error):
         act.v1_constant(script, constant)
+
+
+# --- 3. EXECUTABILITY — a name that is used but never imported ----------------
+#
+# Tests IMPORT modules; they do not CALL into every branch. A NameError in an
+# unexercised path stays invisible until a real run reaches it — which is how
+# `_shared.worktree_add` crashed the LAST leg of a 40-minute pipeline, after the
+# draft and refine legs had both completed real work and after the engineer who
+# found it had correctly declined to fix it out of scope.
+#
+# ruff's F821 sweep closes the class without executing anything: it resolves
+# every name in every module, including the branches no test reaches.
+
+COMPONENT_ROOT = Path(__file__).resolve().parents[2]
+
+# Everything this component ships that Python has to be able to resolve.
+SWEEP_TARGETS = [COMPONENT_ROOT / name for name in ("modules", "scripts", "tests")]
+
+
+def _ruff_f821(*targets: Path) -> subprocess.CompletedProcess[str]:
+    """ruff's undefined-name check over `targets`, returncode 0 iff clean."""
+    return subprocess.run(
+        ["ruff", "check", "--select", "F821", "--no-cache", "-q", *(str(t) for t in targets)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_ruff_is_installed_so_the_sweep_is_not_inert() -> None:
+    """Absent ruff FAILS rather than skips.
+
+    A skip here would report a green suite for a guard that never ran, which is
+    the exact shape of the problem the sweep exists to remove. An inert guard is
+    worse than no guard: it occupies the slot where a real one would go.
+    """
+    assert shutil.which("ruff"), (
+        "ruff is not on PATH — the F821 executability sweep below cannot run. "
+        "Install ruff (`pip install ruff`); do not skip this test."
+    )
+
+
+def test_no_undefined_names_in_the_component() -> None:
+    result = _ruff_f821(*SWEEP_TARGETS)
+    assert result.returncode == 0, (
+        "ruff F821 found a name used but never bound — this is a live NameError "
+        "waiting on the first run that reaches that branch, not a lint nit:\n"
+        f"{result.stdout.strip()}"
+    )
+
+
+def test_the_sweep_detects_an_undefined_name(tmp_path: Path) -> None:
+    """Positive control for the sweep above.
+
+    Testing Standard § Structural tests need a positive control. Without it a
+    changed flag, a renamed rule or a target list that stopped resolving turns
+    the sweep into a permanent pass and nothing signals that it stopped looking.
+    The probe reproduces the original defect verbatim: `_shared` used, never
+    imported.
+    """
+    probe = tmp_path / "probe.py"
+    probe.write_text("def crash():\n    return _shared.worktree_add()\n")
+
+    result = _ruff_f821(probe)
+
+    assert result.returncode != 0, "the F821 sweep did not fire on a known undefined name"
+    assert "F821" in result.stdout, f"expected an F821 diagnostic, got: {result.stdout!r}"

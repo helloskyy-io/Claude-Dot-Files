@@ -23,14 +23,24 @@ conforming one, rather than having quietly become a permanent pass.
 
 WHAT A SOURCE-GREP CAN AND CANNOT PROVE. It detects DRIFT: a guard deleted, a
 call reshaped, an ordering inverted, a variable dropped from the env dict. It
-cannot prove the module EXECUTES — a name that does not resolve, an import that
-was never added, a signature that no longer matches its caller are all invisible
-to it, because the offending token is present and spelled correctly. That gap is
-not hypothetical here: `test_review_pr_checks_out_the_pr_branch` below is green
-against a `review_pr_workflow` that raises `NameError` on its first call (see the
-PR body's untested-surface list). Closing it needs a test that IMPORTS and RUNS
-the workflow, which is integration-tier and does not exist yet — no amount of
-positive control on a substring predicate reaches it.
+cannot prove the module EXECUTES — a name that does not resolve, a signature
+that no longer matches its caller are invisible to it, because the offending
+token is present and spelled correctly. That gap was not hypothetical: this
+module's checks stayed green against a `review_pr_workflow` that used
+`_shared.worktree_add` with no import for `_shared`, and the resulting NameError
+crashed the last leg of a 40-minute pipeline.
+
+The undefined-name half of that gap is now CLOSED, and not by the integration
+tier — `test_v1_parity.py` § 3 runs a ruff F821 sweep over `modules/`,
+`scripts/` and `tests/`, which resolves every name in every branch without
+executing anything. It is unit-tier, it is cheap, and it catches the whole class
+rather than the one instance. The import it was written for is present today
+(`review_pr_workflow.py:19`).
+
+What remains outside reach of both a grep and a name resolver is BEHAVIOUR: a
+signature that drifted from its caller, an argument passed in the wrong order, a
+branch that raises at runtime. Closing that needs a test that imports and RUNS
+the workflow, which is integration-tier and does not exist yet.
 """
 
 from __future__ import annotations

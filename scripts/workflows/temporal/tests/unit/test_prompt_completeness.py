@@ -19,6 +19,9 @@ from pathlib import Path
 
 import pytest
 
+from modules.assistant import assistant_activities as _act
+from modules.assistant.review_pr import review_pr_helper as _review_helper
+
 _ASSISTANT = Path(__file__).resolve().parents[2] / "modules" / "assistant"
 _PLACEHOLDER = re.compile(r"\$\{([A-Z_][A-Z_0-9]*)\}")
 
@@ -132,3 +135,63 @@ def test_supplier_predicate_positive_control(tmp_path: Path) -> None:
     assert _placeholders(target) == ["NOBODY_SUPPLIES_THIS", "PR_NUMBER"]
     assert _has_a_supplier(target, "PR_NUMBER") is True
     assert _has_a_supplier(target, "NOBODY_SUPPLIES_THIS") is False
+
+
+# --- The leftover guard, in BOTH renderers -----------------------------------
+#
+# The supplier checks above are static: they read prompts off disk. This section
+# covers the dispatch-time backstop — the guard that refuses to hand a prompt to
+# the model while a `${NAME}` is still literal in it.
+#
+# There are two renderers, and the guard is written out twice. It was wrong in
+# both: `[A-Z_]+` does not match a digit, so `${STAGES_1_TO_4}` slipped past and
+# a prompt shipped with its entire stage body replaced by the placeholder's own
+# name — a run that reported success on roughly 8kB of missing instructions.
+# `assistant_activities.render` was corrected; the review-pr copy was not, and
+# stayed latent only because review-pr's own placeholders happen to be
+# digit-free. Both are exercised below with the SAME digit-bearing name, since
+# the failure was never that one of them was wrong — it was that they differed.
+
+_DIGIT_BEARING = "${STAGES_1_TO_4}"
+
+
+def test_shared_render_catches_a_digit_bearing_placeholder() -> None:
+    with pytest.raises(ValueError, match="unsubstituted prompt placeholders"):
+        _act.render(f"do the work\n{_DIGIT_BEARING}\n", {"PR_NUMBER": "31"})
+
+
+def test_review_pr_render_catches_a_digit_bearing_placeholder() -> None:
+    with pytest.raises(ValueError, match="unsubstituted prompt placeholders"):
+        _review_helper.render_prompt(
+            f"review PR ${{PR_NUMBER}}\n{_DIGIT_BEARING}\n",
+            pr_number="31",
+            pr_branch="build/x",
+            this_pass=1,
+            prior_pass=0,
+            headless_guard="guard",
+        )
+
+
+@pytest.mark.parametrize(
+    ("render_name", "render_call"),
+    [
+        pytest.param("assistant_activities.render",
+                     lambda t: _act.render(t, {"PR_NUMBER": "31"}), id="shared"),
+        pytest.param("review_pr_helper.render_prompt",
+                     lambda t: _review_helper.render_prompt(
+                         t, pr_number="31", pr_branch="build/x",
+                         this_pass=1, prior_pass=0, headless_guard="guard"),
+                     id="review-pr"),
+    ],
+)
+def test_a_fully_substituted_prompt_is_not_rejected(render_name: str, render_call) -> None:
+    """Negative control for the two guards above.
+
+    A guard that raised on everything would pass both digit tests while making
+    every dispatch impossible. This proves each still lets a clean prompt
+    through — and that the digit-aware pattern did not start matching the
+    literal `$` and `{` that these prompts are full of.
+    """
+    clean = 'review PR ${PR_NUMBER} — the JSON is {"a": 1} and the shell is ${\n'
+    out = render_call(clean)
+    assert "31" in out, f"{render_name} did not substitute a supplied placeholder"
