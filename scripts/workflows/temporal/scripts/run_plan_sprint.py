@@ -37,7 +37,7 @@ def main(argv=None) -> int:
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — no V1 to derive from)")
             rendered = act.render(act.load_prompt(wf.PROMPTS / "plan_sprint.md"), {
                 "SPRINT_PATH": a.sprint, "CANDIDATES_PATH": a.candidates, "RESEARCH_DIR": a.research,
-                "CORRECTION_NOTE": "", "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
+                "CORRECTION_NOTE": "", "EXISTING_WORK": act.existing_work(repo_root, research), "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
                 "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
                 "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard")})
             print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")

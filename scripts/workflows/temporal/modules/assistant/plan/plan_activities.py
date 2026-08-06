@@ -48,6 +48,48 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
     }
 
 
+def existing_work(repo_root: Path, research_dir: Path) -> str:
+    """Enumerate what a candidate might ALREADY have a home in.
+
+    Deliberately NOT included: `cpi-decisions.md` and `loose_ends.md`. The first
+    is the tooling-improvement loop, a different concern from product trajectory;
+    the second is thematic deferrals, not a work queue. Feeding either to a
+    triage pass invites it to re-decide things outside its remit.
+
+    Computed in code and handed over, rather than asked of the model: a triage
+    that ships a candidate already tracked as an open issue creates two homes for
+    one item, which is the duplication the candidates file exists to prevent.
+    """
+    import subprocess
+
+    lines: list[str] = []
+
+    comps = sorted(d.name for d in (repo_root / "docs" / "development").iterdir()
+                   if d.is_dir() and d.name != "reviews")
+    lines.append("**Existing components** (a candidate may belong inside one rather than needing its own sprint section):")
+    lines += [f"  - `docs/development/{c}/`" for c in comps]
+
+    papers = sorted(p.name for p in (research_dir / "raw").glob("*.md"))
+    lines.append(f"\n**Research pool** — {len(papers)} papers. A significant finding with no home in the "
+                 f"sprint plan is a Stage 4 coherence finding:")
+    lines += [f"  - `{n}`" for n in papers]
+
+    r = subprocess.run(["gh", "issue", "list", "--state", "open", "--limit", "50",
+                        "--json", "number,title"], cwd=str(repo_root),
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        import json
+        issues = json.loads(r.stdout)
+        lines.append(f"\n**Open issues** — {len(issues)}. **A candidate matching one of these is ALREADY tracked**; "
+                     f"say so and do not create a second home for it:")
+        lines += [f"  - #{i['number']} {i['title']}" for i in issues]
+    else:
+        lines.append("\n**Open issues: COULD NOT BE READ.** Do not assume there are none — "
+                     "say in your report that this check did not run.")
+
+    return "\n".join(lines)
+
+
 def submit_prompt(pr_number: str | None, label: str) -> str:
     if pr_number:
         return (f"- Stage and commit your changes with message `{label}`\n"

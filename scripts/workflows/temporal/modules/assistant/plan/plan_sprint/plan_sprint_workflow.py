@@ -63,6 +63,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
             f"{counts['total']} candidates, {counts['untriaged']} untriaged, "
             f"{counts['triaged']} already ruled."
         ),
+        "EXISTING_WORK": act.existing_work(repo_root, research_dir),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, "plan-sprint: triage candidates and update the sprint plan"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),

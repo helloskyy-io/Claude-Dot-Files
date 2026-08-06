@@ -43,6 +43,8 @@ Read, in this order, and do not skip any:
 4. **`docs/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** You read it because a sprint that does not serve the thesis is the failure this workflow exists to catch.
 5. **`docs/standards/architecture/system-overview.md`** — what is actually built, including settled decisions like the deployment target. A candidate contradicting a settled decision is a `reject`, and the reason is that it was already decided.
 
+${EXISTING_WORK}
+
 Report what you found: how many candidates are untriaged, how many sprint sections exist, and anything in the sprint plan that already looks stale against the evidence.
 
 ## Stage 2: TRIAGE — the core of this workflow
@@ -57,6 +59,8 @@ For each, set `ship` or `reject` and write the reasoning into the Note column:
 **Rejecting is not failure.** Three candidates were already rejected because they assumed a deployment model settled three weeks earlier. Catching that is the job working.
 
 **Where a candidate is genuinely unrulable by you**, leave `decision` blank and list it in your report under *needs the operator* — with the specific question that would unblock it. A ruling that needs a human is a legitimate outcome; pretending to make it is not.
+
+**Before ruling, check whether it already has a home.** The enumeration above lists open issues, existing components and the research pool. A candidate matching an open issue **is already tracked** — say which one, and do not create a second home for it. Two surfaces holding one item is the failure this file was built to end.
 
 **Do not renumber or delete any row.** A candidate restated by a later research cycle keeps its **original ID**.
 
@@ -76,7 +80,7 @@ You may also **re-order** existing sections where the evidence changed what depe
 Three documents must support each other. Check, and report — **you fix none of them**:
 
 1. **Does the sprint plan serve the problem statement?** Work that advances no stated differentiator is worth flagging.
-2. **Does the sprint plan reflect the research?** A significant finding with no home, or a sprint item resting on evidence that has since been corrected.
+2. **Does the sprint plan reflect the research?** Work through the paper list above: a significant finding with **no home anywhere** — not in the sprint plan, not in a component, not in an open issue — is a finding. So is a sprint item resting on evidence since corrected.
 3. **Do the three contradict each other anywhere?** A settled decision missing from one of them is the specific failure that has already cost a research cycle.
 
 Each finding names the document, the contradiction, and what you would change — as a **recommendation for the operator**, never an edit.
