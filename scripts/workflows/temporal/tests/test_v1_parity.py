@@ -141,6 +141,23 @@ else:
     check("ruff present for the F821 sweep", False, "install ruff or this guard is inert")
 
 
+# --- 7. MODEL KEYS RESOLVE — lint-prompts.sh only sees the BASH fleet -------
+# plan-sprint shipped with no config.yaml entry and was caught at dispatch by
+# run-claude's own guard, which refused to run on an inherited default. That
+# guard is the last line, not the first: a key missing here is a workflow that
+# cannot launch, which is exactly how revision-minor shipped unlaunchable.
+import re as _re2  # noqa: E402
+_cfg = (Path(__file__).resolve().parents[3].parent / "config.yaml")
+if _cfg.exists():
+    _cfg_text = _cfg.read_text()
+    for _wf in sorted((_ASSISTANT).rglob("*_workflow.py")) + sorted((_ASSISTANT).rglob("*_activities.py")):
+        for _k in _re2.findall(r'MODEL_KEY = "([a-z-]+)"', _wf.read_text()):
+            check(f"MODEL_KEY '{_k}' resolves in config.yaml",
+                  _re2.search(rf"^  {_re2.escape(_k)}:", _cfg_text, _re2.M) is not None)
+else:
+    check("config.yaml findable from the test suite", False, str(_cfg))
+
+
 def test_all() -> None:
     """pytest entry — the module-level checks above populate PASS/FAIL.
 
