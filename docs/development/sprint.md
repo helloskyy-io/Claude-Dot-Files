@@ -35,7 +35,7 @@ Research sits *inside* the component it belongs to, so the plan and the evidence
 
 ## Sprint: Explore ~/.claude ✅ COMPLETE
 
-**Phase doc:** [`phases/explore-claude-directory/explore-claude-directory.md`](phases/explore-claude-directory/explore-claude-directory.md)
+**Phase doc:** [`explore-claude-directory/explore-claude-directory.md`](explore-claude-directory/explore-claude-directory.md)
 
 Mapped what Claude Code stores in `~/.claude/` and classified every path as portable or machine-local, before deciding what to sync.
 
@@ -47,7 +47,7 @@ The directory mixes two very different things: what you *author* — agents, ski
 
 ## Sprint: Cross-Device Sync ✅ COMPLETE
 
-**Phase doc:** [`phases/cross-device-sync/cross-device-sync.md`](phases/cross-device-sync/cross-device-sync.md)
+**Phase doc:** [`cross-device-sync/cross-device-sync.md`](cross-device-sync/cross-device-sync.md)
 
 Get the repo deploying to every machine, so everything built later propagates automatically rather than being hand-copied.
 
@@ -61,7 +61,7 @@ One idempotent installer creates seven targeted symlinks from `config/` into `~/
 
 ## Sprint: Safety & Guardrails ✅ COMPLETE
 
-**Phase doc:** [`phases/safety-and-guardrails/safety-and-guardrails.md`](phases/safety-and-guardrails/safety-and-guardrails.md)
+**Phase doc:** [`safety-and-guardrails/safety-and-guardrails.md`](safety-and-guardrails/safety-and-guardrails.md)
 
 Make it safe to say yes quickly in interactive mode, and safe to walk away in autonomous mode — two different problems needing two different layers.
 
@@ -75,7 +75,7 @@ Permissions prompt on anything unlisted, so approving in a live session is fast 
 
 ## Sprint: Planning & Agents ✅ COMPLETE
 
-**Phase doc:** [`phases/planning-and-agents/planning-and-agents.md`](phases/planning-and-agents/planning-and-agents.md)
+**Phase doc:** [`planning-and-agents/planning-and-agents.md`](planning-and-agents/planning-and-agents.md)
 
 Build the specialists a workflow can dispatch — the actors that plan, review and verify without a human in the loop.
 
@@ -89,7 +89,7 @@ Each agent answers **one question no other agent answers** — narrow lenses rat
 
 ## Sprint: Autonomous Execution ✅ COMPLETE
 
-**Phase doc:** [`phases/autonomous-execution/autonomous-execution.md`](phases/autonomous-execution/autonomous-execution.md)
+**Phase doc:** [`autonomous-execution/autonomous-execution.md`](autonomous-execution/autonomous-execution.md)
 
 Build the plan → execute → PR pipeline — scripts that run Claude headless in an isolated worktree, review their own output, and deliver a pull request with nobody watching.
 
@@ -107,7 +107,7 @@ A dispatch gets its own git worktree, so a bad run damages nothing outside it, a
 
 ## Sprint: Continuous Process Improvement 🟡 IN PROGRESS
 
-**Phase doc:** [`phases/continuous-process-improvement/continuous-process-improvement.md`](phases/continuous-process-improvement/continuous-process-improvement.md)
+**Phase doc:** [`continuous-process-improvement/continuous-process-improvement.md`](continuous-process-improvement/continuous-process-improvement.md)
 
 Make the system improve its own tooling from evidence it generates itself.
 
@@ -137,7 +137,7 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 - [x] **Extract the activities layer** — `run-claude`, `wait-for-ci`, `require-environment`
 - [x] **Write it down** — `docs/standards/workflow-scripts.md § Composition`
 
-Evidence and confidence levels: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md)
+Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
 ## Sprint: Memory Management Framework — 📋 QUEUED, NEEDS PLANNING
 
@@ -155,7 +155,7 @@ Two distinct kinds of memory, currently conflated and only half-built. Both exis
 - [ ] **Document Kind 1 as a framework** — it exists as prose in `operations.md` and behaviour spread across prompts
 - [ ] **Convergence-based stopping** — *"did this pass find anything not in the previous pass's result?"* is answerable against two typed payloads, not two prose logs. Depends on the above
 
-Evidence, prior art and the plateau correction: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md)
+Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
 ## Sprint: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
 
