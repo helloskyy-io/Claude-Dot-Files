@@ -33,6 +33,7 @@ being reachable the moment the PR merges.
 from __future__ import annotations
 
 import inspect
+from typing import Callable
 
 import pytest
 
@@ -123,48 +124,76 @@ def test_parent_establishes_isolation(module) -> None:
     )
 
 
-def test_isolation_predicates_positive_control() -> None:
-    """Positive control: each predicate must fire on a violating sample.
-
-    Without this, a rename (`act.worktree_add` -> `wt.add`) silently turns every
-    assertion above into a permanent pass — the checks would still be green with
-    the invariant gone.
-    """
-    assert _creates_a_worktree("wt = act.worktree_add(repo_root, name, ref)") is True
+# Positive controls for both predicate families — isolation above, observation
+# below. Without them a rename (`act.worktree_add` -> `wt.add`) silently turns
+# every assertion that uses the predicate into a permanent pass: the checks stay
+# green with the invariant gone.
+#
+# Enumerated at COLLECTION time, one case per (predicate, sample) pair. Bundled
+# into one test body, the first failing assert aborts the function and every
+# later predicate's control never runs — so a second predicate that also went
+# blind stays hidden until the first is fixed. A control that can mask a
+# regression is the exact failure controls exist to prevent, and
+# test_prompt_completeness.py enumerates its pairs for the same reason.
+PREDICATE_CONTROLS = [
+    ("creates_a_worktree/call", _creates_a_worktree,
+     "wt = act.worktree_add(repo_root, name, ref)", True),
     # The trailing `(` IS the discriminator: a CALL, not a mention in prose. A
     # child's docstring may legitimately explain that its parent calls
     # worktree_add, and that must not read as the child calling it.
-    assert _creates_a_worktree("# the parent calls act.worktree_add for us") is False
-    assert _creates_a_worktree("wt = passed_in_worktree") is False
+    ("creates_a_worktree/prose-mention", _creates_a_worktree,
+     "# the parent calls act.worktree_add for us", False),
+    ("creates_a_worktree/absent", _creates_a_worktree,
+     "wt = passed_in_worktree", False),
 
-    assert _receives_a_worktree_path("def run(*, worktree: Path) -> str:") is True
-    assert _receives_a_worktree_path("def run(*, worktree) -> str:") is False
+    ("receives_a_worktree_path/annotated", _receives_a_worktree_path,
+     "def run(*, worktree: Path) -> str:", True),
+    ("receives_a_worktree_path/unannotated", _receives_a_worktree_path,
+     "def run(*, worktree) -> str:", False),
 
-    assert _conditionally_skips_isolation("name = None if pr_number else name") is True
-    assert _conditionally_skips_isolation("name = worktree_name") is False
+    ("conditionally_skips_isolation/ternary", _conditionally_skips_isolation,
+     "name = None if pr_number else name", True),
+    ("conditionally_skips_isolation/unconditional", _conditionally_skips_isolation,
+     "name = worktree_name", False),
 
-
-def test_observation_predicates_positive_control() -> None:
-    """Positive control for the observed-outcome checks below.
-
-    Each is a literal-membership check, which is exactly the shape that decays
-    into a permanent pass when the surrounding text changes for an unrelated
-    reason. These samples prove the predicates still discriminate.
-    """
-    assert _reads_git_subcommand('run(["git", "log", "--oneline"])', "log") is True
+    ("reads_git_subcommand/log-argv", lambda s: _reads_git_subcommand(s, "log"),
+     'run(["git", "log", "--oneline"])', True),
     # The bare word appears in `log_file`, in `logging`, and in prose. If the
     # quoted argv token stopped being the discriminator, this check would keep
     # passing after the `git log` call itself was deleted.
-    assert _reads_git_subcommand("log_file = repo_root / 'run.log'", "log") is False
-    assert _reads_git_subcommand('run(["git", "status", "-s"])', "status") is True
-    assert _reads_git_subcommand('run(["git", "log"])', "status") is False
+    ("reads_git_subcommand/log-bare-word", lambda s: _reads_git_subcommand(s, "log"),
+     "log_file = repo_root / 'run.log'", False),
+    ("reads_git_subcommand/status-argv", lambda s: _reads_git_subcommand(s, "status"),
+     'run(["git", "status", "-s"])', True),
+    ("reads_git_subcommand/status-absent", lambda s: _reads_git_subcommand(s, "status"),
+     'run(["git", "log"])', False),
 
-    assert _refuses_to_guess("notes.append('cannot determine push state')") is True
-    assert _refuses_to_guess("notes.append('do not assume work was lost')") is True
-    assert _refuses_to_guess("notes.append('nothing was pushed')") is False
+    ("refuses_to_guess/cannot-determine", _refuses_to_guess,
+     "notes.append('cannot determine push state')", True),
+    ("refuses_to_guess/do-not-assume", _refuses_to_guess,
+     "notes.append('do not assume work was lost')", True),
+    ("refuses_to_guess/asserts-a-negative", _refuses_to_guess,
+     "notes.append('nothing was pushed')", False),
 
-    assert _reports_observed_state("banner += f'observed git state: {obs}'") is True
-    assert _reports_observed_state("banner += 'the run failed'") is False
+    ("reports_observed_state/observed", _reports_observed_state,
+     "banner += f'observed git state: {obs}'", True),
+    ("reports_observed_state/asserted", _reports_observed_state,
+     "banner += 'the run failed'", False),
+]
+
+
+@pytest.mark.parametrize(
+    ("predicate", "sample", "expected"),
+    [pytest.param(p, s, e, id=label) for label, p, s, e in PREDICATE_CONTROLS],
+)
+def test_predicate_positive_control(
+    predicate: Callable[[str], bool], sample: str, expected: bool
+) -> None:
+    assert predicate(sample) is expected, (
+        f"the predicate no longer distinguishes this sample — it returned "
+        f"{not expected} for {sample!r}. Every assertion that relies on it has "
+        f"become a permanent pass while the invariant it names goes unchecked."
+    )
 
 
 # --- a negative outcome must be OBSERVED, never asserted ----------------------

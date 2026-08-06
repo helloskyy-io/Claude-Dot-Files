@@ -21,6 +21,7 @@ way to break this rule.
 
 from __future__ import annotations
 
+import math
 import os
 import resource
 import sys
@@ -45,8 +46,16 @@ def _apply_memory_cap() -> None:
             raise RuntimeError(
                 f"{_ENV_VAR}={raw!r} is not a number — refusing to run unbounded"
             ) from exc
-        if cap_gib <= 0:
-            raise RuntimeError(f"{_ENV_VAR}={raw!r} must be positive — refusing to run unbounded")
+        # `inf` and `nan` survive float() AND survive a bare `<= 0` test — NaN
+        # compares false against everything, and inf genuinely is positive. Left
+        # unchecked they reach int() below and abort collection with
+        # OverflowError/ValueError, naming neither the variable nor the fix. An
+        # infinite cap is also literally the unbounded state this file exists to
+        # prevent, so it belongs on the refuse path rather than the crash path.
+        if not math.isfinite(cap_gib) or cap_gib <= 0:
+            raise RuntimeError(
+                f"{_ENV_VAR}={raw!r} must be a finite positive number — refusing to run unbounded"
+            )
 
     cap_bytes = int(cap_gib * 1024**3)
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)

@@ -23,8 +23,13 @@ claude-dotfiles/
 │   ├── guide/                    ← OPERATING MANUAL: user-facing docs
 │   ├── standards/                ← THE HOW: conventions and patterns
 │   └── file_structure.txt        ← annotated map of the repo
+├── testing/                      ← Tier 1 + 2 of the Testing Standard: run-all.sh, suites/
+├── conftest.py                   ← repo-root pytest memory guardrail (RLIMIT_AS)
+├── pytest.ini                    ← pins rootdir so that guardrail is invocation-agnostic
 └── README.md
 ```
+
+This is an orientation sketch, not the exhaustive map — `docs/file_structure.txt` is that, and it is authoritative. (`scripts/` is a top-level directory this sketch has never listed.)
 
 **Documentation layout follows the four-bucket convention** (see `config/skills/documentation-structure.md`). Each bucket answers one question: architecture (WHY), development (WHAT), standards (HOW), guide (USER-FACING).
 

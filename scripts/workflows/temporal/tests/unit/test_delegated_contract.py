@@ -47,6 +47,7 @@ the workflow, which is integration-tier and does not exist yet. Tracked at issue
 from __future__ import annotations
 
 import inspect
+from typing import Callable
 
 import pytest
 
@@ -152,36 +153,69 @@ def test_review_pr_checks_out_the_pr_branch() -> None:
     )
 
 
-def test_delegated_contract_predicates_positive_control() -> None:
-    """Positive control: EVERY predicate above must fire on a violating sample.
+# Positive controls: EVERY predicate above must still distinguish a violating
+# sample from a conforming one. Without them, a quoting change
+# (`"LOG_FILE"` -> `'LOG_FILE'`) turns the assertion that depends on a predicate
+# into a permanent pass while the contract it names goes unenforced — and
+# nothing signals that the check stopped looking.
+#
+# Enumerated at COLLECTION time, one case per (predicate, sample) pair, for the
+# same reason test_prompt_completeness.py enumerates its pairs: a single bundled
+# test body aborts at the first failing assert, so a SECOND predicate that also
+# went blind is masked until the first is fixed and the suite re-run. A control
+# that can hide a regression is the failure mode controls exist to prevent.
+PREDICATE_CONTROLS = [
+    ("supplies_env_var/present", lambda s: _supplies_env_var(s, "LOG_FILE"),
+     'env = {"LOG_FILE": str(log_file)}', True),
+    ("supplies_env_var/absent", lambda s: _supplies_env_var(s, "LOG_FILE"),
+     "env = {}", False),
 
-    Without this, a quoting change (`"LOG_FILE"` -> `'LOG_FILE'`) turns the
-    assertion that depends on it into a permanent pass while the contract it
-    names goes unenforced — and nothing signals that the check stopped looking.
-    """
-    assert _supplies_env_var('env = {"LOG_FILE": str(log_file)}', "LOG_FILE") is True
-    assert _supplies_env_var("env = {}", "LOG_FILE") is False
+    ("builds_env_before_sourcing/ordered", _builds_env_before_sourcing,
+     'env = {"LOG_FILE": p}\nsubprocess.run(f\'source "{runner}"\')', True),
+    ("builds_env_before_sourcing/reversed", _builds_env_before_sourcing,
+     'subprocess.run(f\'source "{runner}"\')\nenv = {"LOG_FILE": p}', False),
+    ("builds_env_before_sourcing/neither", _builds_env_before_sourcing,
+     "no contract here at all", False),
 
-    ordered = 'env = {"LOG_FILE": p}\nsubprocess.run(f\'source "{runner}"\')'
-    reversed_ = 'subprocess.run(f\'source "{runner}"\')\nenv = {"LOG_FILE": p}'
-    assert _builds_env_before_sourcing(ordered) is True
-    assert _builds_env_before_sourcing(reversed_) is False
-    assert _builds_env_before_sourcing("no contract here at all") is False
+    ("guards_worktree_as_log_root/guarded", _guards_worktree_as_log_root,
+     'if ".claude/worktrees" in str(repo_root):', True),
+    ("guards_worktree_as_log_root/unguarded", _guards_worktree_as_log_root,
+     "log_dir = repo_root / 'logs'", False),
 
-    assert _guards_worktree_as_log_root('if ".claude/worktrees" in str(repo_root):') is True
-    assert _guards_worktree_as_log_root("log_dir = repo_root / 'logs'") is False
-
-    assert _separates_exec_dir_from_log_dir("cwd = worktree or repo_root") is True
-    assert _separates_exec_dir_from_log_dir("cwd = repo_root") is False
+    ("separates_exec_dir_from_log_dir/separated", _separates_exec_dir_from_log_dir,
+     "cwd = worktree or repo_root", True),
+    ("separates_exec_dir_from_log_dir/merged", _separates_exec_dir_from_log_dir,
+     "cwd = repo_root", False),
 
     # Popen alone must NOT satisfy it: `communicate()` buffers to completion and
     # is the exact shape that produced the 70-minute silent run.
-    assert _streams_output("proc = Popen(...)\nfor line in proc.stdout:") is True
-    assert _streams_output("proc = Popen(...)\nout = proc.communicate()") is False
-    assert _streams_output("subprocess.run(cmd, capture_output=True)") is False
+    ("streams_output/read-loop", _streams_output,
+     "proc = Popen(...)\nfor line in proc.stdout:", True),
+    ("streams_output/communicate", _streams_output,
+     "proc = Popen(...)\nout = proc.communicate()", False),
+    ("streams_output/capture_output", _streams_output,
+     "subprocess.run(cmd, capture_output=True)", False),
 
     # Likewise each half alone is insufficient — reading the ref without checking
     # it out reviews the wrong tree just as surely as never reading it.
-    assert _checks_out_the_pr_branch('worktree_add(root, name, pr["headRefName"])') is True
-    assert _checks_out_the_pr_branch('branch = pr["headRefName"]') is False
-    assert _checks_out_the_pr_branch("worktree_add(root, name, 'origin/main')") is False
+    ("checks_out_the_pr_branch/both-halves", _checks_out_the_pr_branch,
+     'worktree_add(root, name, pr["headRefName"])', True),
+    ("checks_out_the_pr_branch/reads-only", _checks_out_the_pr_branch,
+     'branch = pr["headRefName"]', False),
+    ("checks_out_the_pr_branch/wrong-ref", _checks_out_the_pr_branch,
+     "worktree_add(root, name, 'origin/main')", False),
+]
+
+
+@pytest.mark.parametrize(
+    ("predicate", "sample", "expected"),
+    [pytest.param(p, s, e, id=label) for label, p, s, e in PREDICATE_CONTROLS],
+)
+def test_delegated_contract_predicate_positive_control(
+    predicate: Callable[[str], bool], sample: str, expected: bool
+) -> None:
+    assert predicate(sample) is expected, (
+        f"the predicate no longer distinguishes this sample — it returned "
+        f"{not expected} for {sample!r}. The assertion that depends on it has "
+        f"become a permanent pass, and the contract it names is unenforced."
+    )

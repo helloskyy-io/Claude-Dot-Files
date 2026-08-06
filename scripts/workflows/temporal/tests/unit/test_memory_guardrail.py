@@ -100,13 +100,19 @@ def test_cap_honours_the_env_override(monkeypatch: pytest.MonkeyPatch, restore_r
     )
 
 
-@pytest.mark.parametrize("bad", ["not-a-number", "0", "-1", ""])
+@pytest.mark.parametrize("bad", ["not-a-number", "0", "-1", "", "inf", "-inf", "nan"])
 def test_a_malformed_cap_refuses_to_run_rather_than_running_unbounded(
     monkeypatch: pytest.MonkeyPatch, bad: str
 ) -> None:
     """Fail loud. A malformed cap that silently fell back to "no limit" would
     leave the suite unbounded while the conftest reported success — a guardrail
     that appears to address the problem while leaving it live.
+
+    `inf`/`nan` are here because they are the cases that pass BOTH obvious
+    guards: `float()` accepts them, and `<= 0` rejects neither (NaN compares
+    false against everything; inf is positive). Before the finiteness check they
+    reached `int(cap_gib * 1024**3)` and aborted collection with a bare
+    OverflowError/ValueError that named neither the env var nor the remedy.
     """
     conftest = _load_root_conftest()
     monkeypatch.setenv("PYTEST_MEM_CAP_GIB", bad)
