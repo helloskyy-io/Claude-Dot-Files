@@ -3,10 +3,10 @@
 ```
 Topic:          Is subscription-tier authentication at the edge viable under Anthropic's terms?
 Feeds:          Phase: Managed Configuration + edge-worker topology — whether edge auth is viable
-Last validated: 2026-07-24
-Revalidate:     high — 4 weeks
-Confidence:     Definitive where it quotes published policy; directional on enterprise-tier interpretation. Policy is the most volatile input in the pool.
-Critic:         PASS — 2026-07-24
+Last validated: 2026-08-06
+Revalidate:     high — 2 weeks   (tightened: the subject changed three times in four months)
+Confidence:     Definitive where it quotes published policy; directional on enterprise-tier interpretation. **§1–§8 MISSED three policy events that predate their own validation date — read §9 FIRST.** Policy is the most volatile input in the pool.
+Critic:         PASS — 2026-07-24 · HAND-CORRECTED 2026-08-06 (§9 appended, NOT critic-verified)
 ```
 
 **Prepared:** 2026-07-24
@@ -225,3 +225,51 @@ The paper can now cite an Anthropic-owned URL that names the exact architectural
 - Direct Anthropic-published policy language (items 1–8, 11): definitive.
 - Anthropic personnel statements (items 12–13): directional signal.
 - Third-party enforcement history (items 14–19): use for historical / calibration context only; do not use as primary policy support.
+
+
+---
+
+# §9 — HAND CORRECTION, 2026-08-06
+
+**This section was written by hand from news sources, not by a research pass, and has NOT been through `research-critic`. Treat it as directional and re-verify before citing it as definitive.**
+
+## Why this correction exists
+
+**§1–§8 were validated 2026-07-24 and miss three policy events that all occurred before that date.** This is not staleness — it is a coverage gap in a paper whose own header claims to be *"definitive where it quotes published policy"*, sitting under the affordability thesis, on the most volatile subject the pool tracks.
+
+## What actually happened
+
+**1 · 2026-04-04 — third-party agent access BLOCKED.** Anthropic stopped Claude Pro and Max subscribers using flat-rate plans with third-party agent frameworks including OpenClaw and OpenCode. Boris Cherny, head of Claude Code, attributed it to **capacity constraints** — subscriptions were not built for third-party usage patterns. Reported cost increases up to **50×** for affected users. *(TNW; heise online; techbuzz.ai)*
+
+**2 · 2026-05-14 — announced: programmatic use exits the subscription pool.** Claude Agent SDK **and `claude -p` (headless)** would leave Pro/Max/Team/Enterprise pools on 2026-06-15, moving to a **separate monthly dollar credit billed at standard API rates, with no rollover.** Proposed: **$20** Pro · **$100** Max 5× · **$200** Max 20× · **$200** Enterprise Premium. Third-party agents were simultaneously **reinstated** under this mechanism. *(VentureBeat; digitalapplied; claudefa.st)*
+
+**3 · 2026-06-15 — PAUSED.** Anthropic deferred the separate credit pool. **As of this correction, programmatic usage — Agent SDK, `claude -p`, and third-party apps — still draws from subscription usage limits.** Terminal and IDE use is unchanged. *(koromo; Tygart Media)*
+
+## Current state
+
+**`claude -p` draws from the subscription.** Confirmed operationally: this fleet's own run logs return `rate_limit_info` with `"rateLimitType": "five_hour"` and no credit balance — a time-windowed subscription limit, not a metered pool.
+
+## The consequence §7.2 does not carry
+
+**§7.2's claim — that subscription-tier authentication at the edge "sidesteps ToS gray areas by design" — is currently true and rests on a deferred policy change, not on a structural property.**
+
+The affordability thesis states that a long-running loop costs the same as a short one. Under the paused mechanism it would not: at **$200/month for Max 20×, billed at API rates**, this fleet's own measured usage — **$78 for one research cycle, $108 for another** — exhausts the allocation in roughly two cycles before any build or review work.
+
+**And the usage pattern Anthropic named as the problem is ours**: multi-hour autonomous runs with heavy sub-agent fan-out.
+
+## The unanswered question this correction cannot settle
+
+**Does `claude -p` invoked by an operator's own local script fall under the sanctioned "Claude Code on your own machine" path, or under "programmatic Agent SDK use"?** The May announcement named `claude -p` explicitly alongside the SDK, which suggests the latter — but the pause means the distinction is currently untested, and no first-party source states how a personal automation is classified versus a distributed product driving users' installs.
+
+**That distinction is load-bearing for the affordability differentiator and for any future multi-participant deployment.** It is the single most important open question in this paper and should be a topic in its own right.
+
+## Sources
+
+- Anthropic removes OpenClaw from Claude subscriptions — heise online
+- Anthropic blocks OpenClaw from Claude subscriptions in cost crackdown — TNW
+- Anthropic reinstates OpenClaw and third-party agent usage on Claude subscriptions — with a catch — VentureBeat
+- Claude Credit Overhaul 2026: Anthropic Pauses the June 15 Change — digitalapplied
+- The Complete Guide to Claude Agent SDK Credits: How `claude -p` and GitHub Actions Billing Changes on June 15, 2026 — koromo
+- Claude Code Billing in 2026: Subscription Usage vs the Agent Credit Pool — Tygart Media
+
+**Honest boundary:** every source above is secondary reporting. **No first-party Anthropic policy page was fetched for this correction**, which is exactly the standard §3 requires and exactly what a hand-correction cannot supply. A proper research pass must re-verify all of it against Anthropic's own published terms and support pages.
