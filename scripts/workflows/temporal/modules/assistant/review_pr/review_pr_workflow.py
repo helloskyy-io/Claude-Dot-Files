@@ -16,6 +16,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+from .. import assistant_activities as _shared
 from . import review_pr_activities as act
 from . import review_pr_helper as helper
 from .review_pr_helper import ReviewInput, ReviewResult, ReviewType

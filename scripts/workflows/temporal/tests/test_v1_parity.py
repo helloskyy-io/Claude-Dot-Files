@@ -123,6 +123,24 @@ check("run_claude separates exec dir from log dir", "cwd = worktree or repo_root
 check("run_claude STREAMS rather than capturing silently",
       "Popen" in run_src and "for line in proc.stdout" in run_src)  # a CALL, not prose
 
+# --- 6. EXECUTABILITY — a name used but never imported ----------------------
+# Tests import modules; they do not CALL into every branch. A NameError in an
+# unexercised path stays invisible until a real run reaches it — which is how
+# `_shared.worktree_add` crashed the LAST leg of a 40-minute pipeline, after the
+# engineer had already flagged it and correctly declined to fix it in scope.
+import shutil as _shutil  # noqa: E402
+import subprocess as _sp  # noqa: E402
+
+_root = Path(__file__).resolve().parents[1]
+if _shutil.which("ruff"):
+    _r = _sp.run(["ruff", "check", "--select", "F821", "--no-cache", "-q",
+                  str(_root / "modules"), str(_root / "scripts"), str(_root / "tests")],
+                 capture_output=True, text=True)
+    check("no undefined names (ruff F821)", _r.returncode == 0, _r.stdout.strip()[:200])
+else:
+    check("ruff present for the F821 sweep", False, "install ruff or this guard is inert")
+
+
 def test_all() -> None:
     """pytest entry — the module-level checks above populate PASS/FAIL.
 
