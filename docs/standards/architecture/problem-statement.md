@@ -43,7 +43,15 @@ Four capabilities make an autonomous agent system durable and capable. **None of
 
 Four differences survive first-party inspection of the nearest comparable systems, **ordered by how well they hold**. Each carries its evidence status, because a differentiator nobody has verified is a hope — and two of these were narrowed or outright replaced by research commissioned to break them.
 
-**1. The trust boundary — the strongest claim, and the most durable.** The nearest neighbour documents its own fleet mode as *"multi-project, **not** multi-tenant in the security sense… assumed to be run by the same operator, on a network the operator trusts,"* and its federation roadmap lists *"cross-tenant federation across organisations"* as out of scope. Our destination is three distinct trust tiers:
+**1. The credential is unmintable, so the topology is FORCED — not chosen, and not novel.** State the two halves together or the claim collapses in one direction or the other.
+
+**The topology is not an invention.** Three administratively isolated trust domains exchanging only public key material — so a foreign domain can *validate* identities it cannot *issue* — is **SPIFFE Federation with different nouns**. Presenting it as new would not survive first contact with a reviewer who knows SPIFFE, and the dispatcher-without-target-credential property ships at mass scale in CI→cloud OIDC.
+
+**What no surveyed model has is our constraint.** SPIFFE, OIDC federation, Vault, Kubernetes, every cloud workload-identity product — all assume the edge credential is **mintable by an authority inside one of the tiers**. That assumption *is* their mechanism. Ours is a per-person consumer subscription minted by a fourth party: the edge cannot attenuate it, cannot delegate it, cannot present proof-of-possession for it on the backbone's behalf, and is contractually forbidden from sharing it.
+
+**So the three-tier split is not a design preference we could trade away. It is the only shape that credential permits** — and a competitor cannot adopt it without acquiring the same constraint.
+
+The tiers:
 
 | Tier | What it is | What it may do |
 |---|---|---|
@@ -75,6 +83,15 @@ What remains defensible: its positioning, front door and every published use cas
 
 We name it deliberately. A problem statement that does not know its nearest neighbor is not a problem statement. Its designs — CRD-modeled runs, typed refusal, checkpointed retries — are reference material we intend to learn from and adapt onto our own durability substrate rather than copy wholesale, because our durability comes from Temporal and its does not.
 
+**"Nearest" needs an axis, because two different systems hold the title.**
+
+| | Nearest by | Why |
+|---|---|---|
+| **`bernstein`** | **architecture** | deterministic orchestration, worktree isolation, typed contracts — and it explicitly *refuses* the orchestrator role we are building, listing "agent-hierarchy frameworks" and "heavy orchestration layers" among its published non-goals |
+| **`OpenClaw`** | **thesis** | credential at the edge, domain-general assistant, your own machines, a supervised long-lived process. 385k stars |
+
+**A reader who only knows `bernstein` will over-rate differentiators #1 and #4.** OpenClaw is the harder comparison for the *idea*; bernstein is the harder comparison for the *build*.
+
 ## Affordability is the enabler
 
 The work runs at the edge, on each participant's own subscription.
@@ -82,6 +99,18 @@ The work runs at the edge, on each participant's own subscription.
 Metered per-token billing makes experimentation expensive in proportion to curiosity. An autonomous loop that runs for hours, retries, branches, and occasionally goes nowhere is precisely the thing you cannot afford to explore when every turn has a price — so exploring it is restricted to organizations who can absorb the bill. **The interesting experiments are the wasteful ones**, and metered billing prices those out first.
 
 A flat per-person subscription inverts that. A long-running loop costs the same as a short one; being wrong costs nothing but time. **That access is the point, not a cost optimization.**
+
+### This differentiator depends on a pricing position, and states so
+
+**It is true today.** `claude -p` draws from the subscription, and this fleet's own run logs confirm it operationally — `rate_limit_info` returns a five-hour window with no credit balance.
+
+**It rests on a change that was announced and deferred, not abandoned.** On 2026-05-14 Anthropic announced that Agent SDK **and `claude -p`** usage would leave subscription pools on 2026-06-15, moving to a monthly dollar credit at standard API rates with no rollover — **$200/month at Max 20×**. That change was **paused** on 2026-06-15. Third-party agents had been blocked outright on 2026-04-04 and reinstated in May under the same mechanism. Evidence: [`research/raw/anthropic_tos_and_enterprise.md`](research/raw/anthropic_tos_and_enterprise.md) §9.
+
+**What resuming would cost us, in measured numbers.** One research cycle cost **$78** in API-equivalent; another **$108**. A $200 monthly allocation covers roughly **two cycles** before any build or review work. And the usage pattern Anthropic named as its reason — multi-hour autonomous runs with heavy sub-agent fan-out — is exactly ours.
+
+**One question decides it, and no first-party source answers it:** does `claude -p`, invoked by an operator's own script on their own machine, count as the sanctioned *Claude Code on your machine* path, or as *programmatic Agent SDK use*? The May announcement named `claude -p` explicitly alongside the SDK.
+
+**Stated plainly because a thesis that hides its load-bearing assumption is weaker than one that names it.** What would break is this *argument* — that wasteful experiments are free. What would not: credentials still stay at the edge, the credential is still unmintable, and the topology is still forced. **And the design is itself the hedge** — because every participant authenticates locally, a pricing change lands identically on each of them rather than centrally on an operator holding everyone's keys.
 
 ## The edges
 
