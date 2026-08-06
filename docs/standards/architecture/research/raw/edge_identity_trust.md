@@ -28,7 +28,10 @@ Confidence:     DEFINITIVE (first-party documented, raw-source verified): the SP
                 whether Temporal can bind a task queue to an attested worker identity (§2.8);
                 Temporal's redelivery behaviour for a Task already dispatched to a worker that then
                 sleeps or disconnects (§5 row 1, §9 item 11 — not researched, not assumed).
-Critic:         PASS at round 2 (2026-08-06), with one round-3 correction applied on the same date.
+Critic:         PASS at round 2 (2026-08-06) and still standing: the round-3 correction was
+                confirmed, and a round-4 repair to the §5 credential-expiry row's dangling
+                search-method pointer was independently re-verified with no blocking findings —
+                every round on the same date.
                 Round 1 checked all 32 original citations, found every one existing and correctly
                 cited with no fabricated source, judged the confidence marks correctly calibrated,
                 and raised two defects. Both were repaired: a misquoted Codec Server definition
@@ -48,6 +51,16 @@ Critic:         PASS at round 2 (2026-08-06), with one round-3 correction applie
                 below it. The quoted span itself is unchanged and re-confirmed exact; the note now
                 records the sibling and the enumerate-before-quoting remedy. No other section of
                 the paper was touched in round 3.
+                Round 4 (2026-08-06) repaired a §3 conformance defect in the §5 table: the
+                credential-expiry row — the table's only UNSOLVED verdict — sent readers to §8 for
+                its search method, but §8 is the source list and describes no method for it, so the
+                paper's strongest negative claim was effectively unmethodized and a reader could not
+                tell "we looked and found nothing" from "we did not look". The pointer now carries
+                an inline method, deliberately limited to what this artifact can actually evidence:
+                the corpora are named from the row's own citations plus the synthesis's matching
+                characterisation, and the cell says outright that the queries were not recorded and
+                cannot be recovered. No method was reconstructed or inferred; the row's verdict and
+                evidence column are unchanged, as is every other row and section.
 ```
 
 **Mixed-volatility notice (per Research Standard §3).** This paper spans two decay rates. The
@@ -545,7 +558,7 @@ Each item states whether the prior art *solves* it or *assumes it away*.
 | **No HSM / no managed attestation root** | BeyondCorp *requires* a *"managed device… procured and actively managed by the enterprise"* with the cert in a TPM [S12]; SPIRE's ten documented node attestors reduce, on an unmanaged laptop, to pre-shared secrets [S4][S5] | **ASSUMED AWAY by the prior art.** This is the largest unsolved gap. Every mature model either owns the device or has a cloud instance-identity document. |
 | **The operator does not physically control the machine** | NIST Assumption 2: *"Devices on the network may not be owned or configurable by the enterprise"* [S11] — but its remedy is CDM/posture monitoring, i.e. the operator still *measures* the device | **Partially addressed, at a cost we may not be able to pay** (posture agents on a participant's personal laptop). |
 | **The user can read every secret on their own machine** | WebAuthn is the only cited model that addresses this head-on: the private key *"is expected to never be exposed to any other party, not even to the owner of the authenticator"* [S16] — and it achieves that with an authenticator, i.e. hardware | **ASSUMED AWAY**, unless hardware is in play. For an OAuth subscription token on disk, the user is inside the trust boundary. This may be acceptable (the credential is *theirs*), and stating that explicitly is the honest resolution. |
-| **Credential/session expiry at an unattended edge** | RFC 8628 gives the *acquisition* shape — authorise on a second device [S9]; Fulcio's answer is 10-minute certs [S19]; nothing found addresses re-authentication when no human is present | **UNSOLVED / not documented.** Negative finding; search method in §8. |
+| **Credential/session expiry at an unattended edge** | RFC 8628 gives the *acquisition* shape — authorise on a second device [S9]; Fulcio's answer is 10-minute certs [S19]; nothing found addresses re-authentication when no human is present | **UNSOLVED / not documented.** Negative finding; **method stated at corpus level only, because that is all the record supports**: the bodies actually consulted are the ones cited on this row and around it — RFC 8628 [S9], Fulcio [S19], NIST SP 800-207 [S11], BeyondCorp [S12], and both CI vendors' runner guidance [S26][S28] — and `research/synthesis.md` characterises the same sweep as *"nothing found across the RFC series, NIST, BeyondCorp or either CI vendor"*. The **queries behind it were never recorded and are not reconstructible from this artifact**, so treat the sweep as unaudited below corpus granularity and re-run it as an explicit, recorded search at next revalidation. |
 | **Revocation when a laptop is lost** | SPIFFE bundles rotate and *"This exchange should occur on a regular basis"* [S1]; short-lived credentials bound revocation latency [S19][S27]; BeyondCorp revokes at the inventory/certificate layer [S12] | **Solved for credentials the system mints; unsolved for the exogenous subscription**, which only its issuer can revoke. |
 | **Untrusted work landing on a credential-holding machine** | GitHub: *"can be persistently compromised by untrusted code in a workflow"* [S26]; GitLab: shell executor jobs *"can steal code from other projects"* [S28] | **Solved only by ephemerality**, which a laptop resists. See §7. |
 | **Cross-job secret leakage on a shared host** | GitHub: *"Some jobs will use secrets as command-line arguments which can be seen by another job running on the same runner, such as `ps x -w`"* [S26] | **Named and documented**; mitigation is process/user isolation per run. |
