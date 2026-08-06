@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# plan-revision.sh — the PLAN-BUILD workflow
+# plan-revision.sh — the PLAN-REVISION workflow
 # Daily planning workflow for revising existing planning docs.
 #
 # This workflow is for PLANNING changes, not code changes. It revises
@@ -195,7 +195,7 @@ mkdir -p "$LOG_DIR"
 # Summary banner
 # ---------------------------------------------------------------------------
 echo "================================================================"
-echo "  PLAN-BUILD WORKFLOW"
+echo "  PLAN-REVISION WORKFLOW"
 echo "================================================================"
 echo "  Description : ${DESCRIPTION}"
 if [[ -n "$CONTEXT" ]]; then
@@ -473,7 +473,7 @@ if [[ -n "$PR_NUMBER" ]]; then
     echo "→ Creating worktree at ${WORKTREE_PATH}..."
     git worktree add -f "$WORKTREE_PATH" "origin/${PR_BRANCH}"
 
-    PROMPT="You are executing the PLAN-BUILD workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+    PROMPT="You are executing the PLAN-REVISION workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 This is a PLANNING doc build workflow — not a code change workflow. Follow all 6 stages thoroughly.
 
@@ -510,7 +510,7 @@ ${RULES}"
 
 else
     # ---- New branch path --------------------------------------------------
-    PROMPT="You are executing the PLAN-BUILD workflow on a new branch.
+    PROMPT="You are executing the PLAN-REVISION workflow on a new branch.
 
 This is a PLANNING doc build workflow — not a code change workflow. Follow all 6 stages thoroughly.
 
@@ -545,7 +545,7 @@ fi
 
 echo
 echo "================================================================"
-echo "  PLAN-BUILD WORKFLOW COMPLETE"
+echo "  PLAN-REVISION WORKFLOW COMPLETE"
 echo "================================================================"
 echo
 echo "Worktree: .claude/worktrees/${WORKTREE_NAME}"
