@@ -55,6 +55,12 @@ cd "$REPO_ROOT"
 # because two finds consume it: an exclusion added to the suite scan and
 # forgotten in the orphan scan below would leave the two disagreeing about what
 # the tree contains, which is precisely the failure this file is guarding.
+#
+# `.git/` and `.claude/` are anchored at the repo root because that is the only
+# place they legitimately exist. Everything else is anchored with `*/` so it
+# prunes at ANY depth: a virtualenv nested inside a component ships thousands of
+# third-party `test_*.py` files, and an unpruned one would trip the orphan guard
+# below and fail the whole run on vendored code nobody here wrote.
 PRUNE=(
     -not -path "./.git/*"
     -not -path "./.claude/*"
@@ -62,9 +68,43 @@ PRUNE=(
     -not -path "*/__pycache__/*"
     -not -path "*/node_modules/*"
     -not -path "*/site-packages/*"
-    -not -path "./.venv/*"
-    -not -path "./venv/*"
+    -not -path "*/.venv/*"
+    -not -path "*/venv/*"
 )
+
+# `find` must fail LOUD, and it cannot do that from a process substitution:
+# `mapfile -t X < <(find ...)` discards the subshell's exit status entirely, so
+# an unreadable directory would yield a PARTIAL walk that both scans below then
+# treat as the whole tree. That is not a cosmetic loss. A truncated orphan scan
+# under-reports orphans, and a truncated suite scan lands on the exit-3 path,
+# which the master runner renders as SKIP — "nothing to run" printed over tests
+# that exist. Assign first, check the status, and refuse to report a count
+# derived from a walk that did not finish.
+#
+# The result lands in the global SCAN_OUTPUT rather than on stdout on purpose:
+# `$(scan_or_die ...)` would run the function in a subshell, where `exit 1`
+# terminates only that subshell and the script sails on — the identical trap
+# this function exists to close.
+SCAN_OUTPUT=""
+scan_or_die() {
+    local what="$1"
+    shift
+    if ! SCAN_OUTPUT="$(find "$@" | sed 's|^\./||' | sort)"; then
+        echo "FATAL: the $what could not walk the tree — find exited non-zero." >&2
+        echo "       Refusing to report a result derived from a partial walk." >&2
+        exit 1
+    fi
+}
+
+# `mapfile <<< ""` yields a one-element array holding an empty string, which
+# would read as "one orphan found". Guard the empty case explicitly.
+read_scan_into() {
+    local -n _dest="$1"
+    _dest=()
+    if [[ -n "$SCAN_OUTPUT" ]]; then
+        mapfile -t _dest <<< "$SCAN_OUTPUT"
+    fi
+}
 
 # ORPHAN GUARD — Testing Standard § Discovery completeness (ratified 2026-07-24):
 # a test that exists outside `run-all.sh` discovery is a DEFECT, not a gap; and
@@ -83,14 +123,12 @@ PRUNE=(
 #     directory", never "is it inside THIS category".
 #   - Runs BEFORE the exit-3 early return, so a tree whose only test files are
 #     orphaned FAILS instead of reporting "nothing to run".
-mapfile -t ORPHAN_TESTS < <(
-    find . -type f -name 'test_*.py' \
-        -not -path "*/tests/unit/*" \
-        -not -path "*/tests/integration/*" \
-        -not -path "*/tests/e2e/*" \
-        "${PRUNE[@]}" \
-    | sed 's|^\./||' | sort
-)
+scan_or_die "orphan scan" . -type f -name 'test_*.py' \
+    -not -path "*/tests/unit/*" \
+    -not -path "*/tests/integration/*" \
+    -not -path "*/tests/e2e/*" \
+    "${PRUNE[@]}"
+read_scan_into ORPHAN_TESTS
 
 if [[ ${#ORPHAN_TESTS[@]} -gt 0 ]]; then
     echo "FATAL: ${#ORPHAN_TESTS[@]} test file(s) sit outside tests/{unit,integration,e2e}/" >&2
@@ -102,9 +140,8 @@ if [[ ${#ORPHAN_TESTS[@]} -gt 0 ]]; then
     exit 1
 fi
 
-mapfile -t SUITE_DIRS < <(
-    find . -type d -path "*/tests/$CATEGORY" "${PRUNE[@]}" | sed 's|^\./||' | sort
-)
+scan_or_die "suite scan" . -type d -path "*/tests/$CATEGORY" "${PRUNE[@]}"
+read_scan_into SUITE_DIRS
 
 if [[ ${#SUITE_DIRS[@]} -eq 0 ]]; then
     echo "python/$CATEGORY: no tests/$CATEGORY directories in the tree — nothing to run"

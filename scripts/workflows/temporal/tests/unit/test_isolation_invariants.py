@@ -25,8 +25,9 @@ there: a source-grep catches DRIFT — a guard removed, a call reshaped, a terna
 reintroduced. It does NOT prove the module runs, and it does not prove
 `observe_outcome` produces a CORRECT report; only that it still reads the two
 things it must read. Proving the behaviour needs a real git repo in `tmp_path`,
-which is integration-tier and does not exist yet (see the PR body's
-untested-surface list).
+which is integration-tier and does not exist yet. That gap is tracked at issue
+#36, which carries the ranked list — NOT in a PR body, because a PR body stops
+being reachable the moment the PR merges.
 """
 
 from __future__ import annotations

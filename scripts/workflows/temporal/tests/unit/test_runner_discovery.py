@@ -21,6 +21,7 @@ depend on the state of the checkout the test happens to run in.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -52,6 +53,14 @@ def sandbox(tmp_path: Path) -> Path:
     return tmp_path
 
 
+# Wall-clock backstop. Each sandbox run is a bash script plus a one-file pytest
+# invocation — sub-second in practice. The bound exists because this call spawns
+# a NESTED pytest: without it, a hang in the child (a stuck import, a prompt for
+# input on a tty-less runner) wedges the parent suite indefinitely rather than
+# failing it, and this suite is what gates autonomous dispatch.
+_RUNNER_TIMEOUT_S = 120
+
+
 def _run(sandbox: Path, category: str = "unit") -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(sandbox / "testing" / "suites" / "python.sh"), category],
@@ -59,6 +68,7 @@ def _run(sandbox: Path, category: str = "unit") -> subprocess.CompletedProcess[s
         text=True,
         check=False,
         cwd=sandbox,
+        timeout=_RUNNER_TIMEOUT_S,
     )
 
 
@@ -123,6 +133,41 @@ def test_an_orphan_fails_even_when_it_is_the_only_test(tmp_path: Path) -> None:
     assert result.returncode == 1, (
         f"expected exit 1, got {result.returncode} — exit 3 here would surface as "
         f"SKIP in the summary table while a real test file went unrun.\n{result.stderr}"
+    )
+
+
+@pytest.mark.skipif(
+    os.geteuid() == 0,
+    reason="root bypasses the permission bits this test uses to make find fail; "
+    "the property is real but cannot be exercised as root",
+)
+def test_a_partial_tree_walk_fails_the_run(sandbox: Path) -> None:
+    """A `find` that cannot finish must not be reported as a completed scan.
+
+    Process substitution (`mapfile -t X < <(find ...)`) discards the subshell's
+    exit status, so an unreadable directory used to yield a PARTIAL walk that
+    both scans treated as the whole tree. The dangerous half is the suite scan:
+    truncated to empty, it takes the exit-3 "nothing to run" path, which the
+    master runner renders as SKIP — "nothing to run" printed over tests that
+    exist, which is the same silent green the orphan guard above exists to stop.
+    """
+    unreadable = sandbox / "component" / "unreadable"
+    unreadable.mkdir(parents=True)
+    unreadable.chmod(0o000)
+    try:
+        result = _run(sandbox)
+    finally:
+        # Restore before pytest's tmp_path cleanup, which cannot remove 0o000.
+        unreadable.chmod(0o755)
+
+    assert result.returncode == 1, (
+        f"a partial tree walk did not fail the run (exit {result.returncode}). "
+        "A scan that could not finish must never be reported as a completed one.\n"
+        f"{result.stdout}\n{result.stderr}"
+    )
+    assert "could not walk the tree" in result.stderr, (
+        "the run failed but did not say the walk was partial, so an operator "
+        f"would chase the wrong cause:\n{result.stderr}"
     )
 
 

@@ -132,6 +132,15 @@ COMPONENT_ROOT = Path(__file__).resolve().parents[2]
 SWEEP_TARGETS = [COMPONENT_ROOT / name for name in ("modules", "scripts", "tests")]
 
 
+# Wall-clock backstop. The sweep takes well under a second on this tree, so any
+# value here is generous — the point is that an unbounded `subprocess.run` in
+# test infrastructure that gates autonomous dispatch does not FAIL a stage when
+# it goes wrong, it WEDGES one, and a wedged stage burns its whole turn budget
+# with nothing to show. Same reason the root conftest bounds memory: a runaway
+# must fail AS A TEST.
+_RUFF_TIMEOUT_S = 60
+
+
 def _ruff_f821(*targets: Path) -> subprocess.CompletedProcess[str]:
     """ruff's undefined-name check over `targets`, returncode 0 iff clean."""
     return subprocess.run(
@@ -139,6 +148,7 @@ def _ruff_f821(*targets: Path) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         check=False,
+        timeout=_RUFF_TIMEOUT_S,
     )
 
 

@@ -40,7 +40,8 @@ rather than the one instance. The import it was written for is present today
 What remains outside reach of both a grep and a name resolver is BEHAVIOUR: a
 signature that drifted from its caller, an argument passed in the wrong order, a
 branch that raises at runtime. Closing that needs a test that imports and RUNS
-the workflow, which is integration-tier and does not exist yet.
+the workflow, which is integration-tier and does not exist yet. Tracked at issue
+#36 alongside the rest of the ranked coverage gaps.
 """
 
 from __future__ import annotations

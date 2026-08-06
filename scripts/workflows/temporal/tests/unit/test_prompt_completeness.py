@@ -54,6 +54,18 @@ def _has_a_supplier(prompt: Path, name: str) -> bool:
     return (f'"{name}"' in source) or (name in shared) or (name in sibling)
 
 
+def _stage_body_present(prompt: Path, name: str) -> bool:
+    """True when a body file for `${name}` sits beside the wrapper that references it.
+
+    The workflow may select a VARIANT (`stages_1_to_4_from_plan.md`), so the
+    requirement is a file whose stem STARTS WITH the placeholder name, not an
+    exact match.
+
+    Kept as a named predicate so the positive control below can prove it fires.
+    """
+    return any(f.stem.startswith(name.lower()) for f in prompt.parent.glob("*.md"))
+
+
 def _supplier_cases() -> list:
     return [
         pytest.param(prompt, name, id=f"{_rel(prompt)}-{name}")
@@ -102,20 +114,44 @@ def test_every_placeholder_has_a_supplier(prompt: Path, name: str) -> None:
 
 @pytest.mark.parametrize(("prompt", "name"), _stage_body_cases())
 def test_referenced_stage_body_exists_beside_the_wrapper(prompt: Path, name: str) -> None:
-    """A wrapper prompt that references a stage body must find that body present.
-
-    The workflow may select a VARIANT (stages_1_to_4_from_plan.md), so the
-    requirement is a file whose stem STARTS WITH the placeholder name, not an
-    exact match.
-    """
-    beside = sorted(prompt.parent.glob("*.md"))
-    candidates = [f.name for f in beside]
-    assert any(f.stem.startswith(name.lower()) for f in beside), (
+    """A wrapper prompt that references a stage body must find that body present."""
+    candidates = [f.name for f in sorted(prompt.parent.glob("*.md"))]
+    assert _stage_body_present(prompt, name), (
         f"{_rel(prompt)} references ${{{name}}} but no {name.lower()}*.md body "
         f"sits beside it. Present in that directory: {candidates}. This is the "
         f"exact shape of the failure where three prompt bodies shipped missing "
         f"and the run completed on two-thirds of its instructions."
     )
+
+
+def test_stage_body_predicate_positive_control(tmp_path: Path) -> None:
+    """Positive control for the structural check above.
+
+    Testing Standard § Structural tests need a positive control. This predicate
+    only ever runs against real, already-conforming prompt directories, so
+    nothing else here would notice if it stopped discriminating — a changed
+    variant-naming convention or a moved prompts directory would turn it into a
+    permanent pass, which is the same hollow-green the module exists to prevent.
+
+    The probe reproduces the original defect: a wrapper that references a stage
+    body with no such body beside it.
+    """
+    prompts_dir = tmp_path / "some_workflow" / "prompts"
+    prompts_dir.mkdir(parents=True)
+    wrapper = prompts_dir / "wrapper.md"
+    wrapper.write_text("do the work\n${STAGES_1_TO_4}\n")
+
+    # The body is MISSING — the predicate must say so.
+    assert _stage_body_present(wrapper, "STAGES_1_TO_4") is False
+
+    # A VARIANT stem satisfies it; an exact match is not required.
+    (prompts_dir / "stages_1_to_4_from_plan.md").write_text("the stage body\n")
+    assert _stage_body_present(wrapper, "STAGES_1_TO_4") is True
+
+    # An unrelated body does not satisfy it — the predicate must not be matching
+    # "any .md beside the wrapper", which is how a startswith check silently
+    # degrades into a directory-is-non-empty check.
+    assert _stage_body_present(wrapper, "STAGES_5_TO_7") is False
 
 
 def test_supplier_predicate_positive_control(tmp_path: Path) -> None:
