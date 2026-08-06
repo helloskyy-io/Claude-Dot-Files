@@ -64,12 +64,18 @@ Critic:         PASS at round 2 (2026-08-06) and still standing: the round-3 cor
 ```
 
 **Mixed-volatility notice (per Research Standard §3).** This paper spans two decay rates. The
-header takes the highest tier present. Sections marked **[LOW]** — §1, §2.1–2.7, §4, §5 — rest on
-RFCs, NIST publications, peer-reviewed and archival papers, and versioned protocol specs; a refresh
-may skip re-verifying them absent a spec revision. Sections marked **[HIGH]** — §2.8 (Temporal's
-auth surface), §2.6 (CI-runner vendor guidance), §6.2 (the agent-category negative finding), and the
-Anthropic-terms citation in §6.3 — are product/vendor surfaces and are the reason for the 6-week
-interval. The fast-moving material is roughly a quarter of the paper, below the ~one-third threshold
+header takes the highest tier present. Sections marked **[LOW]** — §1, §2.1–2.7, §4, and §5
+*except the rows cited below* — rest on RFCs, NIST publications, peer-reviewed and archival papers,
+and versioned protocol specs; a refresh may skip re-verifying them absent a spec revision. Sections
+marked **[HIGH]** — §2.8 (Temporal's auth surface), §2.6 (CI-runner vendor guidance), §6.2 (the
+agent-category negative finding), the Anthropic-terms citation in §6.3, **and the three §5 rows
+resting on [S26]/[S28] CI-runner guidance — including the table's only `UNSOLVED` verdict** — are
+product/vendor surfaces and are the reason for the 6-week interval.
+
+**Why §5 is split rather than tiered whole.** Its self-hosted-runner rows cite the same CI-vendor
+guidance this notice already classes `[HIGH]`. Leaving them under `[LOW]` would tell a refresh to
+skip re-verifying precisely the claims the paper says decay fastest — and differentiator #1's
+costing rests on one of them. The fast-moving material is roughly a quarter of the paper, below the ~one-third threshold
 at which §3 prefers a split; **if §2.8 grows past a page, split it into a `temporal_auth_surface.md`
 paper and drop this one to medium.**
 
