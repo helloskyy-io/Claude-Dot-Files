@@ -123,7 +123,7 @@ Make the system improve its own tooling from evidence it generates itself.
 
 ---
 
-## Sprint: Workflow Decomposition — 📋 QUEUED, NEEDS PLANNING
+## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
 
 **Phase doc:** not yet written — writing it is the planning step.
 

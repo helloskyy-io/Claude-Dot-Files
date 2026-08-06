@@ -1,6 +1,8 @@
-> **HISTORICAL — written 2026-04-10 under the old numbered-phase scheme.** Kept as a record of what was planned;
-> not a live plan. See [`../sprint.md`](../../sprint.md) for current status, and note that
-> automated PR generation now conflicts with `standards-governance.md` and needs restating before it is scheduled.
+> **HISTORICAL — written 2026-04-10 under the old numbered-phase scheme.** Kept as the design record.
+> **The work SHIPPED**: `scripts/services/gh-monitor.{sh,service,timer}`, delivered under
+> [`../sprint.md`](../sprint.md) → *Sprint: Autonomous Execution*, whose phase doc records the outcome at
+> [`../autonomous-execution/autonomous-execution.md`](../autonomous-execution/autonomous-execution.md) § PR comment automation.
+> The "Not started" status below is stale and refers to the 2026-04 plan, not the delivered system.
 
 # Phase 4d: PR Comment Automation — Local GitHub Monitor
 
