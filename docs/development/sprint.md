@@ -8,28 +8,32 @@ The through-line: *the run that authors work should not be the run that judges i
 
 ---
 
-**What this file is:** the phase list. Each phase carries its milestones as checkboxes and links to a detailed planning doc in [`phases/`](phases/). Nothing else lives here — repo structure, setup and command reference are in [`../../README.md`](../../README.md), [`../guide/deployment.md`](../guide/deployment.md) and [`../guide/operations.md`](../guide/operations.md).
+**What this file is:** the sprint list. Each sprint carries its milestones as checkboxes and links to a component folder beside this file. Nothing else lives here — repo structure, setup and command reference are in [`../../README.md`](../../README.md), [`../guide/deployment.md`](../guide/deployment.md) and [`../guide/operations.md`](../guide/operations.md).
 
 ## How to use it
 
-1. **Pick a milestone** from a phase below.
-2. **Open its phase doc.** That is where the planning, the task-level checkboxes and the completion criteria live. A phase with no doc yet is not ready to work — writing the doc *is* the planning step.
+1. **Pick a milestone** from a sprint below.
+2. **Open its phase doc.** That is where the planning, the task-level checkboxes and the completion criteria live. A sprint with no doc yet is not ready to work — writing the doc *is* the planning step.
 3. **Work the phase doc** until its boxes are checked and the result is tested.
-4. **Then check the box here.** A roadmap checkbox means *shipped and validated*, not *attempted*.
+4. **Then check the box here.** A checkbox here means *shipped and validated*, not *attempted*.
 
-**Phases are named, never numbered**, and headings read `## Phase: <name>`. Numbering made reordering expensive and encoded a sequence that stopped being true. Order reflects rough dependency; **phases are not worked to completion in order**, and moving between them to unblock something is normal.
+**Sprints are named, never numbered**, and headings read `## Sprint: <name>`. Numbering made reordering expensive and encoded a sequence that stopped being true. Order reflects rough dependency; **sprints are not worked to completion in order**, and moving between them to unblock something is normal.
 
-**A roadmap is never a history lesson.** It states what is built or is going to be built — nothing else. Why a decision was made, what an approach cost, what got abandoned and on what reasoning: all of that belongs in the phase doc. An abandoned item is struck there with its explanation; it does not appear here at all. Retrospective notes in a roadmap turn it into a dumping ground and bury the one thing it exists to show.
+**A sprint plan is never a history lesson.** It states what is built or is going to be built — nothing else. Why a decision was made, what an approach cost, what got abandoned and on what reasoning: all of that belongs in the phase doc. An abandoned item is struck there with its explanation; it does not appear here at all. Retrospective notes here turn it into a dumping ground and bury the one thing it exists to show.
 
-**A phase is a folder, not a file.** `phases/<name>/<name>.md` is the phase doc — named for the phase rather than `README.md`, so a tab, a grep hit or a search result identifies itself without its directory. `phases/<name>/research/` holds the evidence that phase's planning cites: `raw/` for the pool, `synthesis.md` for what it means. Research sits *inside* the phase it belongs to, so the plan and the evidence for it are never more than one directory apart and there is no central corpus to hunt through. Research is **non-binding** — a phase doc may cite a pool, never treat one as a decision already made.
+**A component is a folder, not a file.** `<name>/<name>.md` is its phase doc — named for the component rather than `README.md`, so a tab, a grep hit or a search result identifies itself without its directory. `<name>/research/` holds the evidence its planning cites: `raw/` for the pool, `synthesis.md` for what it means.
 
-**Phase docs are written when a phase is picked up, not in advance.** A detailed plan for work that has not started yet is a guess that ages badly — the same reason skills are written after a methodology has been explained twice.
+Research sits *inside* the component it belongs to, so the plan and the evidence for it are never more than one directory apart and there is no central corpus to hunt through. Research is **non-binding** — a phase doc may cite a pool, never treat one as a decision already made.
+
+**A component that outgrows one phase gets its own `roadmap.md` plus numbered `phaseN_<name>.md` files**, in the same folder. One phase needs no roadmap; do not create one to be tidy. This matches `MDC-Master-Planning`'s `development/service/<component>/` shape, so a workflow can find the same artifacts by name in either repo.
+
+**Phase docs are written when a sprint is picked up, not in advance.** A detailed plan for work that has not started yet is a guess that ages badly — the same reason skills are written after a methodology has been explained twice.
 
 **Status markers:** ✅ COMPLETE · 🟡 IN PROGRESS · 📋 QUEUED, NEEDS PLANNING · 🔵 NOT SCHEDULED · ⚠️ needs restating
 
 ---
 
-## Phase: Explore ~/.claude ✅ COMPLETE
+## Sprint: Explore ~/.claude ✅ COMPLETE
 
 **Phase doc:** [`phases/explore-claude-directory/explore-claude-directory.md`](phases/explore-claude-directory/explore-claude-directory.md)
 
@@ -41,7 +45,7 @@ The directory mixes two very different things: what you *author* — agents, ski
 
 ---
 
-## Phase: Cross-Device Sync ✅ COMPLETE
+## Sprint: Cross-Device Sync ✅ COMPLETE
 
 **Phase doc:** [`phases/cross-device-sync/cross-device-sync.md`](phases/cross-device-sync/cross-device-sync.md)
 
@@ -55,7 +59,7 @@ One idempotent installer creates seven targeted symlinks from `config/` into `~/
 
 ---
 
-## Phase: Safety & Guardrails ✅ COMPLETE
+## Sprint: Safety & Guardrails ✅ COMPLETE
 
 **Phase doc:** [`phases/safety-and-guardrails/safety-and-guardrails.md`](phases/safety-and-guardrails/safety-and-guardrails.md)
 
@@ -69,7 +73,7 @@ Permissions prompt on anything unlisted, so approving in a live session is fast 
 
 ---
 
-## Phase: Planning & Agents ✅ COMPLETE
+## Sprint: Planning & Agents ✅ COMPLETE
 
 **Phase doc:** [`phases/planning-and-agents/planning-and-agents.md`](phases/planning-and-agents/planning-and-agents.md)
 
@@ -83,7 +87,7 @@ Each agent answers **one question no other agent answers** — narrow lenses rat
 
 ---
 
-## Phase: Autonomous Execution ✅ COMPLETE
+## Sprint: Autonomous Execution ✅ COMPLETE
 
 **Phase doc:** [`phases/autonomous-execution/autonomous-execution.md`](phases/autonomous-execution/autonomous-execution.md)
 
@@ -101,7 +105,7 @@ A dispatch gets its own git worktree, so a bad run damages nothing outside it, a
 
 ---
 
-## Phase: Continuous Process Improvement 🟡 IN PROGRESS
+## Sprint: Continuous Process Improvement 🟡 IN PROGRESS
 
 **Phase doc:** [`phases/continuous-process-improvement/continuous-process-improvement.md`](phases/continuous-process-improvement/continuous-process-improvement.md)
 
@@ -119,7 +123,7 @@ Make the system improve its own tooling from evidence it generates itself.
 
 ---
 
-## Phase: Workflow Decomposition — 📋 QUEUED, NEEDS PLANNING
+## Sprint: Workflow Decomposition — 📋 QUEUED, NEEDS PLANNING
 
 **Phase doc:** not yet written — writing it is the planning step.
 
@@ -135,7 +139,7 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 
 Evidence and confidence levels: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md)
 
-## Phase: Memory Management Framework — 📋 QUEUED, NEEDS PLANNING
+## Sprint: Memory Management Framework — 📋 QUEUED, NEEDS PLANNING
 
 **Phase doc:** not yet written. Kind 2 below **needs real research first** — the problem is well understood, the answer is not.
 
@@ -153,7 +157,7 @@ Two distinct kinds of memory, currently conflated and only half-built. Both exis
 
 Evidence, prior art and the plateau correction: [`phases/burn-test-intake-2026-08-02.md`](phases/burn-test-intake-2026-08-02.md)
 
-## Phase: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
+## Sprint: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
 
 **Phase doc:** not yet written. **The boundary decision comes first** — the mechanism follows from it, and picking a mechanism first is backwards.
 
@@ -164,7 +168,7 @@ Monolithic agent files are not a problem; they are dumb and simple and that is a
 - [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
 - [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
 
-## Phase: Temporal Integration — 📋 QUEUED, NEEDS PLANNING
+## Sprint: Temporal Integration — 📋 QUEUED, NEEDS PLANNING
 
 The port to durable execution. **Gated on the two phases above** — not by preference, by dependency: Temporal is being adopted for durability, resumability and cross-run observability, **NOT to gain composition**, which already works in bash. A parent needs a child's exit code plus one stable identifier on its final line, and the completion contract already supplies both. Porting before the decomposition and the handoff contract are settled would mean porting a shape we are still changing.
 
@@ -229,9 +233,9 @@ Generic executors under `activities/` are **plain functions** — verified in Sk
 
 ---
 
-## Phase: Autonomous Operation — 🔵 NOT SCHEDULED
+## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED
 
-> **Gated on Temporal Integration, deliberately placed after it.** Distinct from `Phase: Autonomous Execution` above, which is about building the workflows themselves. This phase is about running the fleet with nobody pressing the button.
+> **Gated on Temporal Integration, deliberately placed after it.** Distinct from `Sprint: Autonomous Execution` above, which is about building the workflows themselves. This phase is about running the fleet with nobody pressing the button.
 
 The tier above parents. Where a parent composes children into one task-complete unit of work, this composes **parents** into a loop that keeps going: what ran, what it concluded, and what should run next — decided from memory, in code, with no human in the loop and no AI choosing the route.
 
@@ -255,7 +259,7 @@ Scheduled dispatch owned by the durable-execution layer rather than by the edge 
 
 ---
 
-## Phase: MCP Servers — 🔵 NOT SCHEDULED
+## Sprint: MCP Servers — 🔵 NOT SCHEDULED
 
 Untouched since April and nothing depends on it. Still plausible, still unstarted — recorded honestly rather than left looking active. Revisit when a concrete need appears rather than on a calendar.
 
@@ -289,7 +293,7 @@ MCP servers can run as Docker containers, which provides isolation and reproduci
 
 ---
 
-## Phase: Local AI Offloading — 🔵 NOT SCHEDULED
+## Sprint: Local AI Offloading — 🔵 NOT SCHEDULED
 
 Untouched since April. The hardware exists and the idea holds, but model management went a different direction in the meantime (per-workflow explicit `--model` resolved from `config.yaml`), so the integration points below predate the current design and would need re-reading before any of it is built.
 
