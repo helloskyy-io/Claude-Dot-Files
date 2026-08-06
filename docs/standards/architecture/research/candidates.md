@@ -82,6 +82,22 @@ Cycle-3 rows come from `synthesis.md` on `main` and are settled. **Cycle-4 rows 
 | C-035 | Run E1b first — classify 30 PRs' disposition items to read out the judge's marginal yield | cycle-4 pool | — | `open` | cheap, and it sizes C-034 |
 | C-037 | Cross-machine failover — **a third option**: pin the credential, not the work | amends C-019 | — | `open` |  |
 
+## Evicted from the sprint plan — 2026-08-06
+
+Nine ideas that lived in the sprint plan under *Future Ideas (Not Yet Committed)*, some since April. **None was ever committed to and none had been triaged** — a candidates list wearing a plan's clothes, which is exactly the shape this file exists to hold. Moved verbatim in substance; the plan file is not the place to park an idea.
+
+| ID | Candidate | Source | `decision` | `status` | Note |
+|---|---|---|---|---|---|
+| C-038 | Cross-project intelligence — aggregate CPI analysis across repos so a pattern in one informs another | sprint plan, Future Idea A | — | `open` | needs centralized log collection or report aggregation |
+| C-039 | Workflow composition / chaining — an orchestrator running a pipeline of workflows end to end | sprint plan, Future Idea B | — | `open` | **largely overtaken** — parent/child composition ships today; re-read before triage |
+| C-040 | Project templates for `plan-new` — stack preferences and boilerplate decisions pre-made per project type | sprint plan, Future Idea C | — | `open` |  |
+| C-041 | Team scaling — per-user config overrides, aggregated CPI, role-based workflow access, onboarding | sprint plan, Future Idea D | — | `open` | bears on the SkyyNet multi-participant question |
+| C-042 | Metrics dashboard over the JSONL logs — cost trends, efficiency, failure types, agent utilization | sprint plan, Future Idea E | — | `open` | **tension**: cycle-4 evidence argues a blocked-work notifier over a dashboard |
+| C-043 | `/rollback-cpi` — revert the last CPI PR and mark that pattern tried-and-failed | sprint plan, Future Idea F | — | `open` | grows in value as CPI automation increases |
+| C-044 | SkyyCommand AI decision engine — the lean-agent + rich-skill pattern applied to VM placement | sprint plan, Future Idea G | — | `open` | out of this repo's scope; belongs to SkyyCommand |
+| C-045 | Prompt pattern library — capture phrasings that measurably produce better output | sprint plan, Future Idea H | — | `open` |  |
+| C-046 | `plan-new` greenfield — handle `git init`, initial commit and remote setup rather than requiring a repo | sprint plan, Future Idea I | — | `open` | found during the 1Password vault manager test, 2026-04-11 |
+
 ---
 
 ## Where things stand

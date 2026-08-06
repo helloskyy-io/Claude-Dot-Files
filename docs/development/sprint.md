@@ -1,4 +1,4 @@
-# Roadmap
+# Sprint Plan
 
 **What is being built:** a Claude Code environment that improves itself. Custom agents and methodology skills, autonomous workflows that run headless and deliver reviewed PRs, a memory model built on git rather than state files, and a continuous-improvement loop that reads the system's own run logs and feeds findings back as tracked decisions. It syncs to every machine from one repo.
 
@@ -96,7 +96,7 @@ Build the plan → execute → PR pipeline — scripts that run Claude headless 
 A dispatch gets its own git worktree, so a bad run damages nothing outside it, and every run ends at a **pull request** rather than a push — which is what makes running with permissions bypassed acceptable. Each one leaves a JSONL log of everything it did, and those logs are what the improvement loop later reads. Five workflows cover the range from a one-line correction to defining a project from scratch.
 
 - [x] **Foundation validated** — headless mode, worktree isolation, `gh` auth, and the full dispatch → worktree → commit → PR pipeline in one command
-- [x] **Five workflows** — `revision`, `revision-major`, `build-phase`, `plan-new`, `plan-revision`
+- [x] **Five workflows** — `build`, `build-minor`, `build-phase`, `plan-new`, `plan-revision`
 - [x] **`init-project.sh`** — pure bash project scaffolding, zero AI tokens
 - [x] **Shared library** — `run_claude`, stream formatter, and common prompt blocks sourced by every workflow
 - [x] **Four standards written** — agents, hooks, skills, slash commands, all referenced from `CLAUDE.md`
@@ -127,13 +127,13 @@ Make the system improve its own tooling from evidence it generates itself.
 
 **Phase doc:** not yet written — writing it is the planning step.
 
-Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. **Half-built already**: `revision.sh` and `revision-minor.sh` shipped as three-child parents before any of it was written down.
+Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. **Half-built already**: `build.sh` and `build-minor.sh` shipped as three-child parents before any of it was written down.
 
 - [ ] **Rule fork-vs-parameterize** — gates everything else here. Refines are ~82% shared (parameterize); drafts are ~9% shared and are a *behaviour* decision, not a deduplication. Rule before a third copy family exists
-- [ ] **Decompose `build-phase.sh`** — `review-pr` drops in free; the open question is whether draft/refine fit, given `build` carries a plan-conformance obligation revision does not
+- [x] **Absorb `build-phase.sh` into `build` as `--phase`** — one family, one set of children
 - [ ] **`lint-docs.sh`** — gate the stale-doc class: a script no doc names, or a doc stating a turn count its script disagrees with
-- [x] **Split `revision.sh` into draft → refine → review-pr** — shipped, two burn-test cycles
-- [x] **Split `revision-minor.sh` on the same shape** — shipped, one-lens middle child
+- [x] **Split `build.sh` into draft → refine → review-pr** — shipped, two burn-test cycles
+- [x] **Split `build-minor.sh` on the same shape** — shipped, one-lens middle child
 - [x] **Extract the activities layer** — `run-claude`, `wait-for-ci`, `require-environment`
 - [x] **Write it down** — `docs/standards/workflow-scripts.md § Composition`
 
@@ -168,244 +168,77 @@ Monolithic agent files are not a problem; they are dumb and simple and that is a
 - [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
 - [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
 
-## Sprint: Temporal Integration — 📋 QUEUED, NEEDS PLANNING
+## Sprint: Temporal Integration — 🟡 IN PROGRESS
 
-The port to durable execution. **Gated on the two phases above** — not by preference, by dependency: Temporal is being adopted for durability, resumability and cross-run observability, **NOT to gain composition**, which already works in bash. A parent needs a child's exit code plus one stable identifier on its final line, and the completion contract already supplies both. Porting before the decomposition and the handoff contract are settled would mean porting a shape we are still changing.
+**Phase doc:** [`temporal-integration/temporal-integration.md`](temporal-integration/temporal-integration.md)
 
-**Direction is settled; nothing is planned.** Decision record: [`skyy-net-seed-handoff.md`](skyy-net-seed-handoff.md). Binding standard the port conforms to: `standards/development/temporal/` in `mdc-master-planning` — the three-tier model (generic activities → composable child workflows → parent workflows), `ActivityResult`, `ACTIVITY_MAP`.
+The port to durable execution, in three stages: convert the fleet to Python, wrap it as activities, then orchestrate. **Gated on Workflow Decomposition and the Memory Management Framework** — Temporal buys durability and resumability, not composition, and porting before the shape settles means porting a shape we are still changing.
 
-**What is already true and should not be re-derived:**
-
-- **Our layers already map.** `children/` are child workflows, not activities (an activity must be idempotent per §7.1, and a child that pushes commits is not). `activities/` are the generic executors. Parents are parent workflows. That alignment was done deliberately so the port is a re-host rather than a redesign.
-- **No helper/compiler tier is needed** for our shape — the standard exempts direct-dispatch orchestrations (parents naming the callable inline) from the step-dict execution-plan pattern. That exemption stops applying when git/gh operations move out of the model's turn and something has to compile their inputs.
-- **Topology, from the seed handoff:** server (Temporal + Postgres) on a backed-up VM so event history is a backed-up asset; workers as **bare systemd processes, never containerized**, on every machine that holds repos. Claude Code must run on the machine holding the repo — that repo-locality constraint drives the whole worker placement.
-
-**Open, and the thing to settle before any build:**
-
-- [ ] **The invocation must be indistinguishable from an operator running the command in a terminal.** This is a design constraint, not a permission question, and it is the one that decides whether the port is viable on a subscription model at all. It is being tested separately.
-- [ ] **A `claude_cli` activity domain** — heartbeating for 10–60 minute runs, transcript-to-file for payload limits. This is the genuinely new work; most of the rest is a port.
-- [ ] **Plan the migration order** — which workflow moves first, and what runs in parallel during the cutover.
-- [ ] **Decide what happens to the bash fleet after** — retired, or kept as the edge fallback.
-
-### Implementation Language — ✅ DECIDED 2026-08-03: Python
-
-**Bash is not an option, and that is not a preference.** Temporal has no bash SDK. A worker is a long-running process that implements the task-queue protocol and, for workflow code, guarantees deterministic replay. Bash cannot do either. The SDKs are Go, Java, Python, TypeScript, .NET, PHP and Ruby — pick one or do not port.
-
-**But the bash does not die.** Skyy-Command's activities already shell out via `subprocess` in several domains, and every activity we would write ultimately invokes `claude -p` anyway. A bash script survives as *an executable an activity calls*. The question is only whether that indirection earns its keep once the caller is already a real program.
-
-**Why Python, recorded once so it is not re-argued.** The inputs were never open questions:
-
-- The framework being ported **is Python** — `lib/temporal/` in Skyy-Command, 123 non-test modules.
-- The **Worker Deployment Standard is written in Python** — `python:3.11-slim` base image, `CMD ["python", "<worker>_worker.py"]`. Conforming to a binding standard while choosing a different language means diverging from it on day one.
-- The seed handoff already specifies the worker as a Python venv with `temporalio` + the `claude` CLI.
-
-Choosing anything else is not "evaluating options," it is proposing to diverge from a standard we have already agreed to conform to. **The narrow thing that does deserve checking** is whether any Python-SDK constraint bites our specific shape — 10–60 minute activities need heartbeating, and large transcripts hit payload limits. Both are already flagged as known work in the seed handoff, which is evidence the constraint is understood rather than unexplored.
-
-**Convert → test → orchestrate. The port does not need a big bang, and the standard's own architecture is what allows this.**
-
-Generic executors under `activities/` are **plain functions** — verified in Skyy-Command: no `@activity.defn`, no `temporalio` import, just `subprocess` and a returned `ActivityResult`. Decoration happens one layer up, in the semantic wrappers. So the port splits into stages that are each independently valuable:
-
-| Stage | What exists at the end | Temporal needed? |
-|---|---|---|
-| **A — Convert** | The fleet as plain Python functions plus a CLI entrypoint. Same invocation UX as today, now unit-testable, and the prompts-are-code escaping class disappears with real string literals | **No** |
-| **B — Wrap** | Semantic wrappers add `@activity.defn`; the plain functions from A are untouched | Yes, but nothing orchestrates yet |
-| **C — Orchestrate** | Workflows and parents compose the wrappers; schedules replace timers | Yes |
-
-**Stage A is a valid resting place.** If Temporal slips, we still have a tested Python fleet that runs exactly like the bash one and has shed an entire class of outage. That is the property that makes this safe to start before everything else is settled.
-
-**DECIDED: Python. Do not re-open this.** The framework being ported is Python, the Worker Deployment Standard is written in Python, and the seed handoff already specifies a Python venv worker. Choosing otherwise would mean diverging from a binding standard on day one for no stated benefit. Recorded here so the decision is not made a second time.
-
-**The agreed migration path, end to end:**
-
-1. **Convert the existing fleet to Python, in place.** Everything in `activities/`, `common/`, `children/` and the top-level parents becomes Python with a CLI entrypoint. Same invocation UX, same behaviour, no Temporal. This is Stage A, and it stands on its own.
-2. **Stand up Temporal.**
-3. **Refactor into the Temporal file layout** — the `{name}_workflow.py` / `{name}_helper.py` / `{name}_activities.py` trio beside each other in a module purpose folder, generic executors under `activities/`, per Temporal Standard §3 and §10. `activities/` and `common/` map straight across. **`children/` dissolves** — there is no such directory in the Temporal model, because a child workflow is not a kind of file in a place, it is a workflow another workflow starts; every workflow lands in `modules/` regardless of who calls it. The directory exists today only because bash has no call graph to read.
-4. **Bring the Temporal standards over** — `temporal_standard.md`, `worker_deployment_standard.md` and `stateful_patterns.md` from `mdc-master-planning`, adopted here rather than re-derived, with a claude-dot-files addendum only for what is genuinely ours (long-activity discipline for 10–60 minute `claude -p` runs, machine-axis queue naming, topology profiles).
-
-- [ ] **Confirm the two known SDK constraints** — heartbeating for long activities, payload limits for transcripts.
-- [ ] **Decide what happens to the bash fleet after Stage A** — retired, or kept as an edge fallback needing no runtime.
-
----
-
-### Counter-argument, recorded
-
-**Counter-argument, stated fairly:** bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — **it only pays off as part of this port**, and Stage A above is what makes it pay off early rather than at the end.
+- [x] **Stage A — the Python tree** — `scripts/workflows/temporal/`, parent/child modules with a CLI entrypoint, no Temporal runtime
+- [x] **V1 parity suite** — the Python fleet checked against the bash one it replaces
+- [ ] **A `claude_cli` activity domain** — heartbeating for 10–60 minute runs, transcript-to-file for payload limits. The genuinely new work; the rest is a port
+- [ ] **Port the remaining workflows** — `plan-new`, `plan-revision`, `review-runs`, `review-sprint`
+- [ ] **Stand up the Temporal server** — Postgres-backed, on the VM that gets backed up
+- [ ] **Stage B — semantic wrappers** — `@activity.defn` over the plain functions from Stage A
+- [ ] **Stage C — orchestrate** — workflows compose the wrappers; schedules replace timers
 
 ---
 
 ## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED
 
-> **Gated on Temporal Integration, deliberately placed after it.** Distinct from `Sprint: Autonomous Execution` above, which is about building the workflows themselves. This phase is about running the fleet with nobody pressing the button.
+**Phase doc:** [`autonomous-operation/autonomous-operation.md`](autonomous-operation/autonomous-operation.md) — shape notes, deliberately not a plan
 
-The tier above parents. Where a parent composes children into one task-complete unit of work, this composes **parents** into a loop that keeps going: what ran, what it concluded, and what should run next — decided from memory, in code, with no human in the loop and no AI choosing the route.
+The tier above parents: a driver that composes **parents** into a loop that keeps going, choosing each next dispatch from persisted state rather than a script written in advance. **Gated on Temporal Integration.** Distinct from *Autonomous Execution* above, which built the workflows themselves.
 
-**The shape, as far as it is understood:**
-
-- **A driver that runs many parent workflows in sequence**, choosing each next dispatch from persisted state rather than from a script written in advance. This is the payoff of the Memory Management Framework — the typed result a parent leaves behind is what the next decision reads.
-- **Exit criteria that are real and observable** — a `HOLD` on a PR needing human judgement, a convergence signal, a budget ceiling. **None of this is designed.** The one thing already known: it must be able to stop and hand back, and "stop" has to be a state something can *observe*, not a turn count.
-- **Cron-driven entry** for the time-shaped work (below).
-
-**Not designed. Not planned. Do not build toward it yet** — the loop is only safe once memory is typed and durable execution can resume a failed leg. Recorded now so the earlier phases are built with it in view.
-
-### Temporal Crons — 📋 STUB
-
-Scheduled dispatch owned by the durable-execution layer rather than by the edge machine. Depends entirely on **Temporal Integration** landing first.
-
-**This is where `review-runs.sh` gets its scheduling.** The workflow itself already exists and belongs to Continuous Process Improvement — nothing about it moves here. What moves here is only the *trigger*.
-
-- [ ] **Move scheduled dispatch off `claude schedule` / systemd timers onto Temporal schedules** — the current design puts the trigger on whichever workstation happens to be awake. A Temporal schedule survives the machine being off, is visible in one place, and its history is queryable.
-- [ ] **Decide what is actually cron-shaped** — CPI sweeps and research revalidation are the obvious candidates because they are time-driven. PR disposition is event-driven and should stay event-driven; do not put it on a timer because the timer exists.
-- [ ] **Define failure behaviour for a missed window** — catch-up run, skip, or alert. The discriminator is **window-scoped vs. state-converging**, and an earlier version of this item had the two backwards. A **CPI sweep is window-scoped**: `review-runs.sh` selects logs with a trailing `find -mtime -${DAYS}`, so a skipped sweep lets those days age out of every future window — the data is **lost permanently**, and this is the case that needs a catch-up run. **Research revalidation is state-converging**: a paper past its date stays past its date until something refreshes it, so skipping delays the work without losing it. Verified against the code, not assumed.
+- [ ] **A driver that dispatches from persisted state** — the payoff of the Memory Management Framework
+- [ ] **Observable exit criteria** — a `HOLD`, a convergence signal, a budget ceiling. Not a turn count
+- [ ] **Scheduled dispatch on Temporal schedules** — off `claude schedule` and systemd timers, so a schedule survives the machine being off
+- [ ] **Catch-up behaviour per schedule** — decided by the window-scoped vs state-converging split in the phase doc
 
 ---
 
 ## Sprint: MCP Servers — 🔵 NOT SCHEDULED
 
-Untouched since April and nothing depends on it. Still plausible, still unstarted — recorded honestly rather than left looking active. Revisit when a concrete need appears rather than on a calendar.
+**Phase doc:** [`mcp-servers/mcp-servers.md`](mcp-servers/mcp-servers.md) — April notes, not a plan
 
+Extend Claude's reach to external tools and APIs. Untouched since April and nothing depends on it — revisit when a concrete need appears rather than on a calendar.
 
-
-**Serves: Both workflows** — Extends Claude's reach to external tools and APIs.
-
-Dependencies: Phase 1 (for config sync)
-
-- [ ] **Evaluate GitHub MCP need** — `gh` CLI already handles PR creation, simple operations, and saves context tokens. Only add GitHub MCP if we need complex operations (reading PR comments programmatically, triaging issues with structured data, cross-repo queries). Rule: `gh` CLI for high-frequency simple ops, MCP for complex structured queries.
-- [ ] **Create .mcp.json template** — A starter project-level MCP config for team repos. Committed to git. Secrets via `${env:VAR_NAME}`.
-- [ ] **Add 1–2 stack-specific servers** — Choose based on daily workflow. Candidates:
-  - Playwright (browser testing)
-  - Sentry (error monitoring)
-  - PostgreSQL/Supabase (database access)
-  - Linear/Jira (issue tracking)
-  - Don't add everything at once — each server has a context cost.
-- [ ] **Document team MCP setup** — Instructions for team members: how to add tokens locally, how to verify servers (`claude mcp list`)
-
-### MCP Scopes
-
-- **User scope** (`~/.claude.json`): personal API keys, tokens. NOT synced by this repo (contains secrets).
-- **Project scope** (`.mcp.json` in repo root): shared server definitions, committed to git. No secrets — use `${env:VAR_NAME}`.
-- **Local scope** (default): only on current machine. Good for experimental servers.
-
-Transport types: stdio (local process, most common), HTTP (remote/cloud services, recommended for new servers), SSE (deprecated — use HTTP).
-
-### MCP via Docker
-
-MCP servers can run as Docker containers, which provides isolation and reproducibility. Useful for servers that have complex dependencies or need specific runtime environments. If using Docker Desktop, the MCP server runs inside a container and communicates via stdio or HTTP.
+- [ ] **A `.mcp.json` template** — project-level config committed to git, secrets via `${env:VAR_NAME}`
+- [ ] **One or two stack-specific servers** — chosen against daily workflow, added one at a time
+- [ ] **Setup documentation** — adding tokens locally, verifying with `claude mcp list`
 
 ---
 
 ## Sprint: Local AI Offloading — 🔵 NOT SCHEDULED
 
-Untouched since April. The hardware exists and the idea holds, but model management went a different direction in the meantime (per-workflow explicit `--model` resolved from `config.yaml`), so the integration points below predate the current design and would need re-reading before any of it is built.
+**Phase doc:** [`local-ai-offloading/local-ai-offloading.md`](local-ai-offloading/local-ai-offloading.md) — April notes, not a plan
 
+Offload mechanical work — file summarization, classification, boilerplate — to local GPU hardware, to preserve Claude Max rate limits. Untouched since April; model management has changed shape since, so the April integration points need re-reading before any of this is built.
 
-
-**Serves: Both workflows** — Preserves Claude Max rate limits by offloading mechanical tasks (file summarization, classification, boilerplate) to local GPU hardware. Estimated savings: ~10-15% of Opus turns per workflow with zero quality loss on offloaded tasks.
-
-**Priority elevated (2026-04-12):** Real-world usage showed 2 concurrent engineers + PM session can exhaust rate limits in half a metered period. Local offloading is now a near-term priority, not a future nice-to-have.
-
-Dependencies: Phase 6 (MCP knowledge — Ollama connects via MCP server). NOTE: Ollama installation and GPU provisioning are handled by SkyyCommand, not this repo.
-
-### Model Testing and Selection
-
-Test candidate models on real project files before committing to the MCP integration. Quality and speed must be validated empirically.
-
-**Hardware allocation:**
-
-```
-RTX 4080 (16GB VRAM):
-├── Qwen 2.5 Coder 7B (Q4_K_M)  — ~5GB  — candidate for summarization
-├── Timpi Node                    — ~1.6GB — passive income (colocated)
-└── Free                          — ~9GB
-
-A6000 (48GB VRAM):
-├── Qwen 2.5 Coder 14B (Q4_K_M) — ~10GB — candidate for summarization (higher quality?)
-└── Free                          — ~38GB
-```
-
-- [ ] **Deploy Qwen 2.5 Coder 7B on RTX 4080** — via Ollama on SkyyCommand-managed instance
-- [ ] **Deploy Qwen 2.5 Coder 14B on A6000** — via Ollama on SkyyCommand-managed instance
-- [ ] **Benchmark summarization quality** — Feed the same 10 project files through both models. Compare summaries for accuracy, completeness, and missed details. Use real files from skyy-command and mdc-master-planning.
-- [ ] **Benchmark speed** — Measure tokens/sec on each GPU for each model. Target: responses under 5 seconds for typical file summaries.
-- [ ] **Decide: 7B or 14B for summarization** — If 7B quality is comparable to 14B, use 7B (faster, less VRAM). If 7B misses important details, use 14B.
-- [ ] **Validate Timpi coexistence** — Confirm Timpi node (1.6GB) runs alongside the chosen model without VRAM contention.
-
-### Local-Model MCP Integration
-
-Connect the winning model to Claude Code via MCP server.
-
-- [ ] **Add Ollama MCP server to Claude Code** — Use mcp-local-llm or similar MCP server pointing at SkyyCommand-managed Ollama instances.
-- [ ] **Add delegation rules to global CLAUDE.md** — "For file summarization and classification, use mcp__local-llm__* tools. For architecture decisions, code review, and complex logic, handle directly."
-- [ ] **Test end-to-end** — Run a workflow where Opus delegates file reading to the local model. Verify summaries are accurate and workflow quality is maintained.
-- [ ] **Measure savings** — Compare Opus turn count and rate limit utilization with and without local offloading.
-
-### Local-Model Workflow Integration
-
-Embed local model usage into the workflow scripts.
-
-- [ ] **Create a summarization skill** — Methodology for when to offload to local model vs read directly. Rules: summarize when exploring/filtering, read directly when editing or reviewing specific lines.
-- [ ] **Update workflow prompts** — Add guidance to use local model tools for file scanning and summarization phases.
-- [ ] **CPI analysis** — After several workflow runs with offloading, analyze logs for quality impact and savings.
-
-### What Gets Offloaded (and What Doesn't)
-
-| Task | Offload? | Why |
-|---|---|---|
-| File reading for context | **Yes** — summarize for Opus | Simple comprehension |
-| Filtering files by relevance | **Yes** — local model scans, tells Opus which to read | Classification task |
-| Writing/editing code | **No** | Quality matters |
-| Code review | **No** | Nuance matters (already Sonnet) |
-| Architecture decisions | **No** | Deep reasoning needed |
-| Boilerplate generation | **Maybe** — test quality first | Simple patterns |
-
-Realistic estimate: **10-15% of Opus turns offloaded** with zero quality loss. The savings compound — every workflow run benefits.
+- [ ] **A summarization model deployed and benchmarked** — 7B on the RTX 4080 against 14B on the A6000, on real project files, for accuracy and speed
+- [ ] **The winning model reachable from Claude Code** — mechanism unsettled; the April plan assumed MCP
+- [ ] **A summarization skill** — when to offload versus read directly
+- [ ] **Measured savings** — Opus turn count and rate-limit utilization, with and without
 
 ---
 
 # Tools to Evaluate
 
-These are worth investigating but not committed to the roadmap yet:
+Not committed to the plan. **Two categories, not one list:** a comparator either competes with the **backbone** — the orchestration layer — or with **Claude Code**, the runtime inside our edge. Judged on backbone axes an edge runtime fails trivially and teaches nothing, which is why the split exists.
 
-- **Paperclip** — ~~evaluate after Phase 4~~ **ASSESSED 2026-08-04, architecture rejected.** See [`research/raw/paperclip_assessment.md`](../standards/architecture/research/raw/paperclip_assessment.md). It is not a UI overlay for Claude Code — that description is one the project itself disclaims. It is a Node/React agent-management platform organised around an org-chart metaphor (CEO hires PMs, PMs hire engineers) that **invokes headless Claude Code as its substrate**, which makes the overlap question this item asked the wrong one. Its durability is bespoke on Postgres — heartbeat liveness, recovery dedupe, idempotency indexes — not Temporal, so adopting it conflicts with the settled direction. **Capabilities worth mining are recorded in the assessment**, notably the stalled-run predicate and the blocked-work inbox. No further evaluation gate.
-- **Claude Agent SDK** — TypeScript/Python framework that powers Claude Code under the hood. Enables building custom agents for non-coding workflows. Worth exploring if we need automation beyond what Claude Code provides natively (e.g., custom CI pipelines, Slack bots, monitoring agents).
+### Backbone comparators
 
----
+- **Paperclip** — **ASSESSED 2026-08-04, architecture rejected, capabilities mined.** Bespoke Postgres durability rather than Temporal, which conflicts with settled direction. See [`paperclip_assessment.md`](../standards/architecture/research/raw/paperclip_assessment.md). No further evaluation gate.
 
-# Future Ideas (Not Yet Committed)
+### Edge runtimes
 
-Potential future capabilities identified during development. These are ideas worth exploring but not prioritized into phases yet. When one becomes actionable, create a phase doc and add it to the roadmap.
+- **OpenClaw** — **ASSESSED 2026-08-06, architecture rejected, mined heavily.** See [`openclaw_assessment.md`](../standards/architecture/research/raw/openclaw_assessment.md).
+- **Hermes Agent** — **ASSESSED 2026-08-06, architecture rejected as a backbone, mined.** See [`hermes_assessment.md`](../standards/architecture/research/raw/hermes_assessment.md).
 
-### A. Cross-Project Intelligence
-Aggregate CPI analysis across multiple repos. Patterns from one project could inform another. "Across your 5 repos, the testing stage consistently takes the most turns — here's why." Requires centralized log collection or report aggregation.
+### Frameworks and libraries
 
-### B. Workflow Composition / Chaining
-Chain workflows in sequence: `plan-revision.sh → build-phase.sh → review-runs.sh`. A workflow orchestrator that runs a pipeline of workflows end-to-end. Bash-native version of what Agent Teams or Paperclip offers.
-
-### C. Project Templates
-Pre-configured `plan-new.sh` contexts for common project types. "FastAPI microservice," "React dashboard," "CLI tool," "Ansible role." Each template provides stack preferences, common patterns, and boilerplate decisions already made. Eliminates repetitive context in plan-new prompts.
-
-### D. Team Scaling
-Adapt the system for multi-developer use:
-- Shared `config.yaml` with per-user overrides
-- Team-wide CPI reports aggregated across members
-- Role-based workflow access (juniors: revision only, seniors: plan-new)
-- Shared skills capturing team methodology
-- Onboarding workflow that sets up new developers
-
-### E. Metrics Dashboard
-Visualize JSONL log data: cost trends, workflow efficiency, failure types, agent utilization. Could be a static HTML page generated weekly by a CPI workflow. Makes trends visible without reading raw reports.
-
-### F. Rollback Automation
-A `/rollback-cpi` command that reverts the last CPI PR and marks that pattern as "tried and failed." Prevents repeated application of changes that don't work. Important as CPI automation increases.
-
-### G. SkyyCommand AI Decision Engine
-Claude + agent infrastructure as the decision engine for SkyyCommand VM placement. Agents evaluate GPU requirements, server capacity, network topology. The same lean-agent + rich-skill pattern transfers directly to infrastructure management. See memory note `project_skyycommand_ai.md`.
-
-### H. Prompt Pattern Library
-As workflows run across real projects, effective prompts emerge. Capturing these as **prompt patterns** (similar to design patterns but for AI interaction) creates a reusable asset. "This phrasing produces better build-phase output" becomes institutional knowledge.
-
-### I. plan-new.sh Greenfield Improvements
-Currently `plan-new.sh` requires a pre-existing git repo. For a true greenfield workflow, it should handle `git init`, initial commit, and remote setup automatically. Discovered during the 1Password vault manager test (2026-04-11).
+- **Claude Agent SDK** — the framework Claude Code is built on. Worth exploring if automation is ever needed beyond what Claude Code provides natively. Unassessed.
 
 ---
 
-# Reference
+**Ideas not committed to anything** live in [`candidates.md`](../standards/architecture/research/candidates.md), not here. A plan file that carries an idea list stops being a plan.
