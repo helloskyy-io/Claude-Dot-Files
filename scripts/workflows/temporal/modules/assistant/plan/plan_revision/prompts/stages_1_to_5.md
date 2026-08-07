@@ -180,4 +180,5 @@ Review all changes made across stages 3-4. Produce a consolidated summary:
 - Security review findings: addressed vs deferred
 - Planner review findings: addressed vs deferred
 - Standards review findings: addressed vs deferred
+- Quality-control review findings: addressed vs deferred — **and it is an override authority**, so a Critical here outranks a lower severity elsewhere on the same content
 - Any remaining concerns or known gaps
