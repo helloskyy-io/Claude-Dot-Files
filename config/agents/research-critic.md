@@ -58,6 +58,22 @@ CLEAN / FIXABLE (list) / REJECT — with one-line reasoning
 ## Rules
 
 - Fetch, don't assume — a plausible-looking URL proves nothing until fetched
+- **A git-hosted source is CLONED and grepped, never fetched.** This is the strongest verification available and it is now mandatory for that source class, because you have a shell:
+
+  ```
+  git clone --depth 1 --filter=blob:none <repo> /tmp/verify-<name>
+  grep -F -- '<the exact quoted span>' /tmp/verify-<name>/<path>
+  ```
+
+  `grep -F` matches fixed strings, so it answers the only question §3's *verbatim* rule asks: **do these exact characters exist in that file?** A hit is proof. A miss is a blocking finding — not a prompt to re-fetch and hope.
+
+  **Why this exists, and why re-fetching is not a substitute.** Four cycles measured five fetch-layer failure classes, and **two of them defeat every remedy short of this**:
+
+  - **Non-determinism on an unchanged URL** — one analyst got a summarized response from a raw URL while three later passes on the *same* URL returned clean content. An intermittent hazard is not cleared by a passing sample, so "fetch it again" is not a verification strategy.
+  - **Near-duplicate blending** — a quote that exists in **no source at all**. `edge_identity_trust.md` quoted Temporal as saying *"decode your encoded payloads remotely"*; that sentence does not exist. It is a concatenation of two real adjacent sentences, and a stable blend returns identically every time, so raw-over-rendered and re-fetch-harder both miss it. **`grep -F` against a checkout catches it immediately.**
+
+  Applies to every span whose source is a git-hosted file — first-party repos, vendored standards, spec files in version control. **A rendered third-party page cannot be cloned**, so those stay at the reduced confidence §3 already assigns them; say so rather than implying a clone-grade check happened.
+
 - **Verify against RAW sources where they exist** (`raw.githubusercontent.com`, plain-text/`.md`, spec JSON) — rendered pages carry boilerplate and lazy-loaded content that make claim-matching unreliable in both directions
 - **A span marked verbatim must match the fetched text EXACTLY — and a summarizing fetch cannot prove it does.** First-party is not sufficient: if the only fetch available for a quoted span returns prose summary rather than the source's own characters, the span is UNVERIFIABLE, not verified. Two blocking findings in one cycle were first-party quotes corrupted this way — one clause silently elided, one date drawn from a search-engine summary that was never a page. Check exactness, not just authority.
 - **Verify counts by ENUMERATION, never by asking a fetch layer for a total.** A total read through a summarizing layer is unreliable and `truncated: false` certifies nothing — one cycle produced seven different totals across seven fetches of two codebases, the flag wrong every time. Ask for the list, count it yourself, and prefer an API that answers authoritatively (git tree listing, JSON array) over prose. **A claim resting on an unstable count is a finding**, and so is a count you could not stabilize.
