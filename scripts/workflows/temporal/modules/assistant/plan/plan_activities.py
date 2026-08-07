@@ -1,8 +1,13 @@
 """Shared I/O for the planning family — promoted per §10.1 rule 3.
 
-Sits at module level because `plan_sprint` and `plan_tech_stack` will both use
-it. Today it has one consumer; the second is why it is here rather than inside
-plan_sprint/, and the promotion rule is satisfied the moment that lands.
+Sits at module level because more than one workflow uses it: `plan_sprint` and
+`plan_revision` today, `plan_tech_stack` when it lands. The promotion rule was
+anticipatory when this file was written and is now satisfied outright.
+
+The triage helpers below (`candidate_counts`, `direction_ceiling`,
+`existing_work`) remain single-consumer — `plan_sprint` only. They are here
+because this file is the family's shared surface, not because a second caller
+exists; if one never appears they belong back inside plan_sprint/.
 
 NOT IDEMPOTENT (§7.1): these push commits and open PRs. Under Temporal a retry
 is a NEW ATTEMPT, not a replay.
@@ -24,6 +29,7 @@ worktree_add = shared.worktree_add
 pr_branch = shared.pr_branch
 extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
+v1_constant = shared.v1_constant
 
 # A candidate row: | C-001 | title | source | `decision` | `status` | note |
 _ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", re.M)

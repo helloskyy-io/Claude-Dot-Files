@@ -32,6 +32,7 @@ import pytest
 from modules.assistant import assistant_activities as act
 from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_refine import build_refine_workflow as refine
+from modules.assistant.plan.plan_revision import plan_revision_workflow as plan_revision
 from modules.assistant.review_pr import review_pr_activities as rpa
 
 # (module, V1 script it must agree with, the value V1 declares today)
@@ -39,6 +40,8 @@ TURN_CAP_OWNERS = [
     pytest.param(draft, "build-draft.sh", 250, id="build-draft"),
     pytest.param(refine, "build-refine.sh", 250, id="build-refine"),
     pytest.param(rpa, "review-pr.sh", 120, id="review-pr"),
+    # Top-level, not a child of `children/` — see the resolution test in §2.
+    pytest.param(plan_revision, "plan-revision.sh", 300, id="plan-revision"),
 ]
 
 
@@ -113,6 +116,29 @@ def test_derivation_raises_rather_than_guessing(
     """
     with pytest.raises(expected_error):
         act.v1_constant(script, constant)
+
+
+@pytest.mark.parametrize(
+    ("script", "where"),
+    [
+        pytest.param("build-draft.sh", "children/", id="child"),
+        pytest.param("plan-revision.sh", "workflows root", id="top-level"),
+    ],
+)
+def test_derivation_resolves_a_script_in_either_location(script: str, where: str) -> None:
+    """V1 scripts live in TWO places and both must resolve.
+
+    An earlier resolver branched on whether the name contained a "/" and could
+    find only `children/`. A top-level script raised FileNotFoundError while
+    sitting right there, and the workaround one caller reached for
+    (`"../research.sh"`) resolved to `scripts/research.sh`, which does not
+    exist. That caller never invoked it, so nothing went red — but the next
+    porter's only remaining option was to re-declare the constant by hand,
+    which is the failure `v1_constant` exists to make impossible.
+    """
+    assert int(act.v1_constant(script, "MAX_TURNS")) > 0, (
+        f"{script} did not resolve from the {where} location"
+    )
 
 
 # --- 3. EXECUTABILITY — a name that is used but never imported ----------------
