@@ -147,7 +147,7 @@ One closing line: the tally of what Stage 2 cleared, and anything you could not 
 
 ## Rules
 
-- **Read-only everywhere EXCEPT the standup tracker.** Every other `gh` call is a read (`list`, `view`); never `merge`, `comment`, `close`, or edit a file. The tracker is updated by `gh issue edit 26 --body-file` and nothing else is written.
+- **You write in exactly TWO places: the standup tracker, and closing a done issue.** `gh issue edit <tracker> --body-file` and `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
 - **Resolve on EVIDENCE, never on impression.** A line moves to `resolved` because you checked the surface and it is done — a merged PR, a file that exists, a passing suite you ran. "It looks finished" is not evidence, and a wrongly-resolved line is worse than a stale one because the stamp makes it invisible.
 - **Never set `status: ready`.** That flag is the operator's authorisation and only they set it. You set `state`, and you stamp `resolved:`.
 - Deliver pre-written actions verbatim; do not re-reason a HOLD's next-step — the disposition engine already did that work and the operator wants it as-written.
