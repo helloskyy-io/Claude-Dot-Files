@@ -67,6 +67,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # OMITTED, so `plan_revision.sh ""` parses cleanly and would cut a worktree
     # and spend a model call to discover it has no task. V1 rejected an empty
     # DESCRIPTION explicitly (`[[ -z "$DESCRIPTION" ]]`); so does this.
+    #
+    # DECLARED DEVIATION FROM V1, deliberately wider: `[[ -z ]]` catches only the
+    # empty string, so V1 accepts `plan_revision.sh "   "` and dispatches a real
+    # worktree and model call against a blank task. `.strip()` catches that too.
+    # Declared here rather than left implied because this is a re-host, and an
+    # undeclared behavioural difference is the thing a re-host must not ship —
+    # same discipline `test_v1_parity.py` demands of turn-cap divergence. The
+    # check strips; the value handed to the model does not (`a.description` is
+    # passed through unstripped, as V1 does), so no real description is altered.
     if not a.description.strip():
         p.error("description cannot be empty")
     return a

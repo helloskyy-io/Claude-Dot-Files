@@ -42,10 +42,19 @@ def v1_constant(script: str, name: str) -> str:
     version branched on whether the name contained a "/" and could resolve
     NEITHER — `v1_constant("plan-revision.sh", ...)` looked only under
     `children/`, and the `"../research.sh"` spelling one caller adopted to work
-    around that resolves to `scripts/research.sh`, which does not exist. That
-    caller never invoked it, so the break stayed latent; the next one to try
-    would have had to re-declare the constant, which is the failure this whole
-    function exists to prevent.
+    around that went to `scripts/research.sh`, which does not exist. That caller
+    never invoked it, so the break stayed latent; the next one to try would have
+    had to re-declare the constant, which is the failure this whole function
+    exists to prevent.
+
+    PASS A BARE FILENAME. Widening the search to two locations also made `../`
+    spellings start working, which is worse than the raise they replaced: the
+    first candidate `children/../research.sh` resolves through a real directory
+    to a real file, so a stale declaration nobody calls turns from a loud
+    FileNotFoundError into a quiet wrong answer. That is not hypothetical — it
+    is why `research_write_workflow.py` now carries an explicit comment saying
+    it has no `V1_SCRIPT` and why one must not be added back. Relative spellings
+    are not part of this contract; both locations are searched for you.
     """
     for candidate in (_WORKFLOWS / "children" / script, _WORKFLOWS / script):
         if candidate.exists():
@@ -80,13 +89,20 @@ def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     `origin/`-prefixed refs because the other callers pass a local ref (`HEAD`,
     a bare branch name) that resolves without the network, and V1's own
     new-branch path did no fetch at all.
+
+    STRIP THE PREFIX, NOT THE SUBSTRING. `removeprefix` and not `replace` here:
+    branch names legitimately contain "origin/" mid-string (`sync-origin/main`,
+    `team/origin/legacy-migration`), and `replace` would fetch a ref that does
+    not exist. Paired with the fatal check above that turns a mangled name into
+    a hard failure whose message names the wrong branch — wrong AND misleading.
     """
     wt = repo_root / ".claude" / "worktrees" / name
-    f = subprocess.run(["git", "fetch", "-q", "origin", ref.replace("origin/", "")],
+    remote_branch = ref.removeprefix("origin/")
+    f = subprocess.run(["git", "fetch", "-q", "origin", remote_branch],
                        cwd=str(repo_root), capture_output=True, text=True)
     if f.returncode != 0 and ref.startswith("origin/"):
         raise RuntimeError(
-            f"git fetch origin {ref.replace('origin/', '')} failed: {f.stderr.strip()}. "
+            f"git fetch origin {remote_branch} failed: {f.stderr.strip()}. "
             f"Refusing to cut a worktree from {ref} — a stale local copy of that ref "
             f"would succeed here and put the run on a base that has already moved."
         )

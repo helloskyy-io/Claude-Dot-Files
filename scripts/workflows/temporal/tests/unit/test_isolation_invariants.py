@@ -300,3 +300,40 @@ def test_a_failed_fetch_of_a_local_ref_is_not_fatal(
     monkeypatch.setattr(act.subprocess, "run", fake)
 
     assert act.worktree_add(tmp_path, "wt", "HEAD") == tmp_path / ".claude" / "worktrees" / "wt"
+
+
+@pytest.mark.parametrize(
+    ("ref", "expected_branch"),
+    [
+        pytest.param("origin/plan/x", "plan/x", id="plain"),
+        pytest.param("origin/sync-origin/main", "sync-origin/main", id="prefix-repeats-in-name"),
+        pytest.param("origin/team/origin/legacy", "team/origin/legacy", id="prefix-repeats-mid-path"),
+    ],
+)
+def test_only_the_leading_origin_is_stripped_from_the_fetch_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, ref: str, expected_branch: str,
+) -> None:
+    """ONE "origin/" COMES OFF, NOT EVERY ONE.
+
+    `ref.replace("origin/", "")` was the original spelling, and the sibling test
+    above could never have caught it: `origin/plan/x` has exactly one occurrence,
+    so replace and removeprefix agree on it. A branch that legitimately contains
+    "origin/" further along — `sync-origin/main` is an ordinary mirror-sync name
+    — got every occurrence stripped, and the fetch went after a ref that does not
+    exist. Paired with the fatal-fetch raise directly above, that is not a silent
+    near-miss: the run dies naming a branch nobody has.
+
+    Asserts the ARGV git actually received, because the bug was invisible in the
+    return value — worktree_add still returned the right path.
+    """
+    fake = _FakeRun(fail_on=None)
+    monkeypatch.setattr(act.subprocess, "run", fake)
+
+    act.worktree_add(tmp_path, "wt", ref)
+
+    fetch = next(a for a in fake.calls if "fetch" in a)
+    assert fetch[-1] == expected_branch, (
+        f"fetched {fetch[-1]!r} for ref {ref!r} — expected {expected_branch!r}. "
+        "Every 'origin/' was stripped instead of just the leading one."
+    )
+    assert any("worktree" in a for a in fake.calls), "the worktree was never cut"

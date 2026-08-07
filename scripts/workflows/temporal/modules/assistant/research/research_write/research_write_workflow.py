@@ -20,8 +20,16 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research"
-V1_SCRIPT = "../research.sh"
 
+# NO `V1_SCRIPT` HERE, DELIBERATELY — do not re-add one. This module is the one
+# place where deriving the turn cap from V1 would be WRONG, so the declaration
+# every sibling carries is absent on purpose rather than by omission.
+# `research.sh` declares MAX_TURNS=250; the 150 below is a later, measured
+# decision that deliberately supersedes it. A dead `V1_SCRIPT = "../research.sh"`
+# sat here and resolved to nothing until the resolver learned to search the
+# workflows root too — at which point it silently started returning 250, one
+# rglob-for-V1_SCRIPT sweep away from "fixing" the mismatch by reverting the 150.
+#
 # MEASURED: cycle 4 used 43. The prior 250 came from the MONOLITH's 89-turn peak, before the split
 # existed — decomposition changes the shape, so a pre-split number does not transfer.
 MAX_TURNS = 150
