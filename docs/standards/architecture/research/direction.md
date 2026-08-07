@@ -35,6 +35,7 @@
 | `D-004` | Amend `workflow-scripts.md § Composition` and `architectural_standard.md § 3`'s `author ≠ judge` seam, which justify two mechanisms with an argument supporting only the first | Fresh context is directionally evidenced and no-authoring-authority has no isolating study, so both documents currently imply measured backing that does not exist | `C-032` | `open` |
 | `D-005` | Rule whether a cross-family judge for `review-pr` is in scope at all | Every genuinely cross-family option requires a second provider credential, which cuts against the subscription-economics thesis and the unmintable-credential differentiator | `C-034` | `open` |
 | `D-006` | Rule whether multi-participant support belongs to this repo or to SkyyNet | The four team-scaling items cannot be sized until that boundary is set, and the problem statement's *nothing may assume a single operator* constraint depends on the answer | `C-041` | `open` |
+| `D-007` | Rule whether the VERDICT-token-on-stdout completion contract keeps standing unchanged in `workflow-scripts.md § Composition` and `architectural_standard.md § 2`, gains a write-time gate, or is replaced | Every located instance of parsing a machine value out of a human artifact pairs it with enforcement at authoring time and ours has none, but the same pool found no evidence the incumbent has ever produced a wrong route — so this is a cost to weigh, not a defect to fix | `memory-management-framework/research/synthesis.md` #14 | `open` |
 
 ## Related
 
