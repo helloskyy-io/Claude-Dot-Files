@@ -1,6 +1,6 @@
-# Research — github-actions-integration
+# Research — managed-configuration
 
-Evidence backing this phase's planning. Governed by [`research_standard.md`](../../../standards/research/research_standard.md).
+Evidence backing this phase's planning. Governed by [`research_standard.md`](../../../../standards/research/research_standard.md).
 
 ```
 research/
@@ -17,5 +17,5 @@ research/
 Create a pool by asking a question:
 
 ```bash
-./scripts/workflows/research.sh docs/development/github-actions-integration/research "<the question>"
+./scripts/workflows/research.sh docs/development/managed-configuration/research "<the question>"
 ```

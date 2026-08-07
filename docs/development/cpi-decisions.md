@@ -929,6 +929,60 @@ Routing:
 
 ---
 
+## 2026-08-06 — Reflection sweep, PR #31 (V2 test suite, 4 disposition passes)
+
+**Source: the reflection channel, swept BY HAND.** `review-runs.sh` sweeps run logs; nothing sweeps Post-Run Reflections. That gap is an open milestone in Sprint: Continuous Process Improvement, and this entry exists because a human did the sweep manually. Eighteen tooling suggestions across four passes; five cleared the second-occurrence bar; two shipped, three deferred below.
+
+### SHIPPED
+
+**1. `NOTED` — a fourth terminal disposition for a preventive finding with no defect behind it.** `review_pr/prompts/disposition.md`. The schema had FIXED / REJECTED / DEFERRED, and a real-but-non-blocking recommendation fit none of them: too real to reject, nothing to fix, no home to defer to. Passes carried them forward as prose instead. **Measured: one item was carried three times, and its REASONING was corrected by two different passes while its disposition never changed once.** An item whose reasoning moves and whose disposition cannot is a schema gap, and pass 4 stated the cost directly — "the absence of the field is generating work every cycle." Guarded against becoming a disposal chute by three conjunctive conditions, a required `no_live_defect_check` field naming the check actually run, and one discriminator: **is something broken right now?** If yes, NOTED is laundering.
+
+**2. Deleted-artifact sweep — mandatory whenever a PR deletes, splits, moves or renames a file.** Same prompt, Stage 2. **Two guard losses on ONE PR, same class, same file.** The first was caught only because git surfaced it as a merge conflict; its sibling two sections below produced no conflict and survived three review passes, a peer-review trio and quality-control. It was found by enumerating every assertion in the deleted file and mapping each to a destination — nothing else would have found it, and the guard it nearly deleted was one `main` had added the same day, for a failure observed that morning. Loss is the characteristic defect of a restructure and is invisible in a diff that is mostly additions.
+
+### DEFERRED — watch-criteria stated
+
+**3. `attempt:` is unreconstructible after the fact.** Raised in two passes; pass 4 had to guess and said so. A dispatch that dies at its turn cap leaves NO trace — no comment, no marker — so neither the attempt count nor the pass numbering can be rebuilt later. Both facts become inferences from absence. **Observed live the same day:** a `build-minor` run capped out at turn 101 and left nothing behind. Proposed fix is a one-line marker comment written by the parent when a pass STARTS, not only when one finishes. **Watch-criteria: ship on the next pass that records a wrong `attempt`, or on any post-hoc question about a PR's pass history that cannot be answered from its thread.**
+
+**4. Nothing prevents or detects two dispatches against the same target.** Flagged in a build reflection; **a live instance occurred the same day in a different family** — two research runs on cycle 4, one of which produced PR #32 and was closed as the losing twin after its worktree was destroyed mid-run. Cross-family recurrence, which is stronger evidence than two hits in one family. Proposed fix is a pre-flight check in the parent (is another run live against this PR number / research dir). **Watch-criteria: ship on the third occurrence, or on the first occurrence that reaches a merge conflict or contradictory artifacts rather than being caught by a human.** Deferred rather than shipped because the detection mechanism is a design question — PID files, lock files and a `gh` query all have different failure modes when a run dies uncleanly, and that has already happened once.
+
+**5. Peer-review agents dispatched without tool grants.** `build-refine`'s prompt tells the orchestrator to dispatch peer-review agents and says nothing about their tools; three of four ran without Bash and silently degraded to fetch-layer evidence. **Same class as issue #39**, filed for the research family — which makes this cross-family recurrence, not a first sighting. Deferred because the fix is not one line: it needs a decision about whether tool grants belong in the dispatching prompt, the agent definition, or both, and that interacts with the Managed Configuration sprint's unresolved managed-vs-user boundary. **Watch-criteria: ship as soon as Managed Configuration produces its boundary ruling, or immediately on the first review finding that a peer agent got WRONG because it lacked a shell.**
+
+**Watch (all three):** the shared signal is that all five findings this cycle came from the reflection channel, and none would have surfaced through `review-runs.sh`. **If the next sweep also has to be manual, the missing sweeper is the finding** — not the individual items.
+
+---
+
+## 2026-08-07 — Reflection sweep, PR #45 (plan-revision port, 2 disposition passes)
+
+Two structural findings from the run's own reflections. **One rejected on verification, one deferred to a design that does not exist yet.** The rejection is the more valuable entry.
+
+### REJECTED — "review agents have no Bash, so they review the tree instead of the diff"
+
+The run reported that all four Stage 4a agents lacked Bash and therefore could not run `git diff main...HEAD` — *"the exact command the stage prompt instructs them to run"* — concluding they reviewed the tree rather than the PR's changes, and recommending: *"either grant the review agents Bash or stop telling them to run git."*
+
+**Checked, and it does not hold.** There is no `git diff` instruction in any workflow prompt or agent definition. The only `git` strings in the eight review-agent definitions are incidental prose — "secrets in git history", "recommend where content should go (PR description, git history, phase doc…)". Neither is a command.
+
+**The dispatch prompt says TREE, deliberately and twice:** *"Verify claims against the tree, not against the doc's own narrative"* and *"each must be checkable against the current tree, and you check it."* For a RECORDING-shape planning review — a doc recording what a build already produced — tree-checking is correct BY DESIGN, because the question is whether the doc describes reality. A diff cannot answer that.
+
+So the agents did exactly what they were told and there is no mismatch. **The remedy would have been eight read-only agents granted shell access to fix a problem that does not exist.**
+
+**Why this is logged rather than dropped.** It is the third sighting of a tool-grant claim in three families, and yesterday's deferral (2026-08-06 entry, item 5) carried the watch-criterion *"ship immediately on the first review finding that a peer agent got WRONG because it lacked a shell."* This looked exactly like that trigger. **It was not, and the deferral stands unfired.**
+
+**It also casts doubt backwards, and that is recorded here rather than quietly ignored:** yesterday's `build-refine` version of the same claim — "three of four ran without Bash" — has the identical shape and was never verified either. It is now suspect evidence. **Re-check it before it is cited again.** Two agent reflections making the same unverified structural claim about their own tooling is itself a pattern worth watching.
+
+**Watch-criteria:** a fourth sighting is not additional evidence unless it names the specific prompt line instructing a git command AND that line is confirmed present. A reflection's claim about its own tool grants is an ACCOUNT, and the artifact is the agent definition plus the dispatch prompt — verify against those, as with any other finding.
+
+### DEFERRED — a correction pass cannot machine-read the prior pass's runway
+
+> *"A correction pass has no way to see the pass-1 review's reasoning except by reading PR comments as prose. The machine-readable YAML block in the review comment is genuinely excellent and I used it, but I had to page through a 37KB comment dump to find it."*
+
+Real, and **not a prompt fix.** A parent hands a child a PR number; the child re-derives the runway by scraping prose out of a comment thread. That is the typed-handoff gap — Kind 2 in the Memory Management Framework sprint — and it is the same root as the `attempt:` counter deferred yesterday: both are a parent and its children communicating through a channel only a human can read.
+
+**Deferred deliberately, not for cost.** The component research pool landed today (`docs/development/memory-management-framework/research/`), and its two papers are `dual_channel_outcome_records` — how production systems relate a durable human-readable record to a typed machine one — and `non_model_observables`. Shipping a bespoke retrieval convention now would be building the thing the evidence is about to describe.
+
+**Watch-criteria: ship as part of the Memory Management phase doc, or immediately if a correction pass MISREADS a runway** — as opposed to merely finding it awkward to read. A pass that acts on the wrong prior finding is a different severity from one that pages through 37KB and gets it right.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

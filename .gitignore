@@ -7,3 +7,5 @@ scripts/services/*.config.env
 # Python bytecode
 __pycache__/
 *.pyc
+# Test run output — ephemeral, per Testing Standard § What Does NOT Go in tests/
+testing/logs/

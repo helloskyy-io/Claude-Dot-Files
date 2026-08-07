@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 
+from .. import routing
 from .build_inputs import ChildResult, BuildInput, Verdict
 
 # The draft child's completion contract: it must open (or update) a PR and print
@@ -24,14 +25,6 @@ _PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
 
 # review-pr's terminal line. Anchored and exhaustive on purpose: an unanchored
 # match would find the token inside prose discussing it.
-_VERDICT = re.compile(
-    r"^VERDICT: (MERGE|HOLD - (?:redispatch|needs-assistance))$",
-    re.MULTILINE,
-)
-
-# Exactly one loop-back. Not a knob, and deliberately not configurable — see
-# build_workflow for why the bound comes from the plateau rather than a budget.
-MAX_LOOPS = 1
 
 
 def extract_pr_url(output: str) -> str | None:
@@ -44,39 +37,13 @@ def extract_pr_url(output: str) -> str | None:
     return matches[-1] if matches else None
 
 
-def pr_number_from_url(url: str) -> str:
-    """The trailing number. Raises rather than guessing on a malformed URL."""
-    match = _PR_URL.search(url)
-    if not match:
-        raise ValueError(f"not a PR URL: {url!r}")
-    return match.group(1)
-
-
-def parse_verdict(output: str) -> tuple[Verdict, bool]:
-    """Return (verdict, was_parseable).
-
-    FAILS SAFE TO THE HUMAN BRANCH. An unparseable verdict becomes
-    HOLD_NEEDS_ASSISTANCE, never MERGE and never a redispatch — the routing
-    contract's rule is that ambiguity routes to the branch requiring a person,
-    because the cost of wrongly merging is unbounded and the cost of wrongly
-    asking is one message.
-
-    The boolean is returned rather than logged here so the caller can report the
-    degradation; a helper that printed would not be pure.
-    """
-    matches = _VERDICT.findall(output)
-    if not matches:
-        return Verdict.HOLD_NEEDS_ASSISTANCE, False
-    return Verdict(matches[-1]), True
-
-
-def should_loop_back(verdict: Verdict, loops_used: int) -> bool:
-    """Only a redispatch verdict loops, and only while the budget holds.
-
-    needs-assistance never loops at any count: a human ruling is not something
-    more passes can produce, so spending them is pure waste.
-    """
-    return verdict is Verdict.HOLD_REDISPATCH and loops_used < MAX_LOOPS
+# Routing vocabulary lives in `..routing` — ONE definition, three consumers
+# (§10.1). Re-exported under the names this module already published so no
+# caller changes, and so there is exactly one place a verdict is parsed.
+pr_number_from_url = routing.pr_number_from_url
+parse_verdict = routing.parse_verdict
+should_loop_back = routing.should_loop_back
+MAX_LOOPS = routing.MAX_LOOPS
 
 
 def child_args(task: BuildInput) -> list[str]:

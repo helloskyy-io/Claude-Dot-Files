@@ -1,6 +1,12 @@
-> **HISTORICAL — written 2026-04-10 under the old numbered-phase scheme.** Kept as a record of what was planned;
-> not a live plan. See [`../sprint.md`](../../sprint.md) for current status, and note that
-> automated PR generation now conflicts with `standards-governance.md` and needs restating before it is scheduled.
+> **HISTORICAL — written 2026-04-10 under the old numbered-phase scheme.** Kept as the design record;
+> not a live plan. **Not built**: `review-runs.sh` contains no PR-creation path.
+>
+> **The conflict note this header used to carry was wrong.** It claimed automated PR generation conflicts with
+> `standards-governance.md`. That rule forbids autonomous runs creating or modifying **standards artifacts**;
+> CPI-driven edits to workflow scripts are not standards artifacts. `architectural_standard.md` §5 says the system
+> *"observes itself and **proposes**; it does not modify itself"* — and a human-gated PR is a proposal, not a
+> self-modification. So the premise is not governance-blocked. Whether it is still wanted, now that `cpi-decisions.md`
+> routes findings through an operator ruling, is an open question for triage — not a settled rejection.
 
 # Phase 5b: Automated PR Generation
 

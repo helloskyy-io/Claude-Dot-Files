@@ -23,8 +23,13 @@ claude-dotfiles/
 │   ├── guide/                    ← OPERATING MANUAL: user-facing docs
 │   ├── standards/                ← THE HOW: conventions and patterns
 │   └── file_structure.txt        ← annotated map of the repo
+├── testing/                      ← Tier 1 + 2 of the Testing Standard: run-all.sh, suites/
+├── conftest.py                   ← repo-root pytest memory guardrail (RLIMIT_AS)
+├── pytest.ini                    ← pins rootdir so that guardrail is invocation-agnostic
 └── README.md
 ```
+
+This is an orientation sketch, not the exhaustive map — `docs/file_structure.txt` is that, and it is authoritative. (`scripts/` is a top-level directory this sketch has never listed.)
 
 **Documentation layout follows the four-bucket convention** (see `config/skills/documentation-structure.md`). Each bucket answers one question: architecture (WHY), development (WHAT), standards (HOW), guide (USER-FACING).
 
@@ -78,7 +83,7 @@ For contributing to this repo, follow the standards:
 - For workflow script standards, refer to `docs/standards/workflow-scripts.md`
 - For research standards, refer to `docs/standards/research/` — **vendored (MIRROR)**. Research is EVIDENCE, never binding; pools live at TWO altitudes — `docs/standards/architecture/research/` for findings that could change WHAT we build, and `docs/development/<phase>/research/` for the ~98% that decide HOW to build something already committed to.
 - For documentation standards, refer to `docs/standards/documentation/` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`. Binding here: standards state the rule never completion-state; cite a codified block rather than re-listing it; cross-reference instead of repeating; and **a CLAUDE.md references standards, it never contains standards content**.
-- For testing standards, refer to `docs/standards/testing/` — **vendored (MIRROR)**. Three tiers: master runner (`testing/run-all.sh`), framework suite runners (`testing/suites/`), and per-unit `tests/` directories categorized `unit/` / `integration/` / `e2e/`. **pytest**, not script-style tests. The V2 Python tree does not conform yet — see `docs/standards/workflow-scripts.md`.
+- For testing standards, refer to `docs/standards/testing/` — **vendored (MIRROR)**. Three tiers: master runner (`testing/run-all.sh`), framework suite runners (`testing/suites/`), and per-unit `tests/` directories categorized `unit/` / `integration/` / `e2e/`. **pytest**, not script-style tests. The V2 Python tree conforms: `testing/run-all.sh` → `testing/suites/python.sh` → `scripts/workflows/temporal/tests/unit/`. No tier is gated on the merge path yet — issue #30.
 - For Temporal standards, refer to `docs/standards/temporal/` — **vendored (MIRROR)** from MDC-Master-Planning. Start with its `README.md`, which states what binds today (§3 three-layer architecture, §3.4 composition, §7 idempotency) versus what applies only once workers exist. Local additions go in `claude-dot-files-addendum.md`.
 
 **Vendored standards are verbatim copies and MUST NOT be edited here** — amendments go upstream, then re-vendor with `scripts/helpers/vendor-standards.sh`. `--check` fails on local drift.

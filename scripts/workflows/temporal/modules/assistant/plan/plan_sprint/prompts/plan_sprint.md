@@ -116,12 +116,37 @@ Only `ship` candidates reach this stage. `requires review` went to `direction.md
 
 ### The bar for a new sprint section
 
-All four, or it is not a sprint:
+**A sprint is SUBSTANTIAL. The calibration is roughly 160 hours of development** — about a month of focused work. That is a calibration and not a hard rule; something smaller can qualify. But if what you are holding is days of work, it is not a sprint, and no amount of good reasoning makes it one.
 
+All five, or it is not a sprint:
+
+- **It is substantial.** Measure it against the 160-hour calibration and say what you got.
 - **At least three milestones that are things built**, not questions answered
 - **No existing sprint owns the work.** If it is *about* Temporal queues, it belongs to Temporal Integration — carving it out and placing it in front fragments one sprint into three, none of which can be worked alone
 - **It is workable on its own** — somebody could pick it up without another sprint being finished first
 - **You can name it in three words** without an "and"
+
+#### The strongest single test: would it need its own research?
+
+**A genuine sprint almost always needs a component-level research pool of its own before it can be planned.** That is what being substantial means in practice — enough unknowns that somebody has to go find out, rather than enough clarity that somebody can just start.
+
+So ask: *would I commission a research pool for this before anyone wrote a phase doc?* If the honest answer is no — if the work is well enough understood to just do — **it is a milestone inside an existing sprint, not a sprint.**
+
+This test is more reliable than the hour estimate, because you can estimate hours badly and still get this right.
+
+#### If it is small and genuinely has no home
+
+It can still become a sprint. But **a small item with no home is almost always a member of a larger category that has not been named yet** — and the category is the sprint, not the item.
+
+When that is the case: **name the sprint after the CATEGORY, never after the small task you happen to be placing today.** A sprint named for the first thing dropped into it is a sprint nobody can add the second thing to, and it locks in a scope decided by the accident of which candidate got triaged first.
+
+You must confirm the category is real before you name it — say in your report which OTHER work would belong there. If you cannot name a second member, you have not found a category, you have found one item wearing a category's name. In that case leave it unplaced and report it.
+
+#### Your scope is the sprint plan, and it ends where phases begin
+
+If an item is **phase-specific** — it belongs inside one component's detailed design rather than to the plan of what gets built — **flag it as phase-specific and your task on that item is DONE.** Say which phase it belongs to if you know. The next agent, doing phase planning, picks it up from there.
+
+That is a complete outcome, not a deferral, and you should not feel it as unfinished work. **The failure this prevents:** a triage pass that cannot say "not mine" ends up inventing sprint items for phase-level detail, and the plan fills with entries nobody can work because they were never sprint-shaped to begin with.
 
 **Justification for the placement goes in your PR body, never in the file.** A sprint section that argues for its own existence has already failed the house style.
 
@@ -186,8 +211,9 @@ Then, separately:
 
 - **Triage summary** — counts across all three dispositions. **They must sum to the untriaged total you were given**; if they do not, say which rows you could not rule on and why.
 - **Handed to the operator** — every `D-NNN` row you wrote, with its recommendation. These are why this PR needs a human before it merges: no further pass can produce these rulings.
-- **For placement** — shipped candidates too small for a sprint change, so a later pass knows what is waiting.
-- **Sprint sections added** — if any. **State which of the four bar conditions each one clears.** If you added none, say so plainly; that is the expected outcome, not a shortfall.
+- **For placement** — shipped candidates too small for a sprint change, so a later pass knows what is waiting. Name the existing sprint each one belongs to where you can.
+- **Phase-specific — NOT YOURS, and complete** — items that belong inside a component's detailed design. Name the phase where you know it. **This is a finished outcome; do not apologise for it and do not manufacture a sprint item to avoid it.**
+- **Sprint sections added** — if any. **State which of the five bar conditions each one clears, your read on the 160-hour calibration, and your answer to the would-it-need-its-own-research test.** If you named it after a category, name a second member of that category. If you added no sections, say so plainly; that is the expected outcome, not a shortfall.
 - **Coherence findings** — the Stage 4 output, as recommendations.
 
 **Answer these three plainly**, because they are why this workflow exists:
