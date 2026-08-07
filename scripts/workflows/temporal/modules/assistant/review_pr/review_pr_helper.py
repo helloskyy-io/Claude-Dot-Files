@@ -131,7 +131,16 @@ def render_prompt(template: str, *, pr_number: str, pr_branch: str,
 
     # An unsubstituted placeholder is a silent defect — it reaches the model as
     # literal `${FOO}` and reads as an instruction about a variable. Fail loud.
-    leftover = re.findall(r"\$\{[A-Z_]+\}", rendered)
+    #
+    # [A-Z_0-9] — DIGITS MATTER. An earlier [A-Z_]+ silently missed
+    # ${STAGES_1_TO_4}, so a prompt shipped with its entire stage body replaced
+    # by a literal placeholder and this check raised nothing. The guard was
+    # blind to the one thing it existed to catch. review-pr's own placeholders
+    # are digit-free today, which makes the same bug latent here rather than
+    # live — a guard that only holds for the current inputs is not a guard.
+    # Kept character-identical to assistant_activities.render() deliberately:
+    # two spellings of one rule is how the twin drifted in the first place.
+    leftover = re.findall(r"\$\{[A-Z_][A-Z_0-9]*\}", rendered)
     if leftover:
         raise ValueError(f"unsubstituted prompt placeholders: {sorted(set(leftover))}")
     return rendered

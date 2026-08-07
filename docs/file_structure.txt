@@ -74,34 +74,42 @@ claude-dot-files/
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
-│   │   ├── sprint.md                               # Phased migration plan (Phases 0-5 mostly complete)
-│   │   ├── phases/                                  # One FOLDER per phase — README.md is the phase doc, research/ holds its evidence
-│   │   │   ├── <phase>/<phase>.md                   # The phase doc — goal, completion criteria, work, decisions-with-reasoning, where it landed
-│   │   │   ├── <phase>/research/raw/<topic>.md      # The pool — one mini-paper per topic; every citation fetched by research-critic
-│   │   │   ├── <phase>/research/synthesis.md        # The deliverable — what the pool means for THIS phase's direction. NON-BINDING
-│   │   │   │
-│   │   │   ├── autonomous-execution/                # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
-│   │   │   ├── automated-pr-generation/             # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
-│   │   │   ├── continuous-process-improvement/      # IN PROGRESS — two evidence sources; why the ruling is always a human's
-│   │   │   ├── cross-device-sync/                   # COMPLETE — install.sh, idempotency as the enabling feature
-│   │   │   ├── explore-claude-directory/            # COMPLETE — portable vs machine-local; projects/ is path-keyed
-│   │   │   ├── github-actions-integration/          # HISTORICAL (Apr 2026) — record of what was planned
-│   │   │   ├── planning-and-agents/                 # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
-│   │   │   ├── safety-and-guardrails/               # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
-│   │   │   └── burn-test-intake-2026-08-02.md       # NOT a phase — intake record feeding three of them; delete once absorbed
+│   │   ├── sprint.md                                # The sprint plan — what gets built and in what order. NEVER a history lesson
+│   │   ├── burn-test-intake-2026-08-02.md           # NOT a sprint — intake record feeding three of them; delete once absorbed
+│   │   │
+│   │   │                                            # One FOLDER per sprint, directly under development/ (there is no phases/ level).
+│   │   │                                            # <name>/<name>.md is the doc; research/, where present, holds its evidence:
+│   │   │                                            #   <name>/research/raw/<topic>.md   the pool — one mini-paper per topic
+│   │   │                                            #   <name>/research/synthesis.md     what the pool means HERE. NON-BINDING
+│   │   ├── autonomous-execution/                    # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
+│   │   ├── autonomous-operation/                    # NOT DESIGNED — the tier above parents; gated on typed memory + durable execution
+│   │   ├── automated-pr-generation/                 # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
+│   │   ├── continuous-process-improvement/          # IN PROGRESS — two evidence sources; why the ruling is always a human's
+│   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
+│   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
+│   │   ├── github-actions-integration/              # HISTORICAL (Apr 2026) — record of what was planned
+│   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
+│   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
+│   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
+│   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
+│   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
 │   │       ├── review-2026-04-24-mdc-master-planning.md
 │   │       ├── review-2026-04-24-skyy-command.md
+│   │       ├── review-desired-state-sturdy-wheat-pelican-2026-07-24.md
+│   │       ├── review-mdc-ansible-collections-2026-07-24.md
 │   │       ├── review-mdc-master-planning-2026-05-03.md
 │   │       ├── review-mdc-master-planning-2026-05-09.md
+│   │       ├── review-mdc-master-planning-2026-07-24.md
 │   │       ├── review-skyy-command-2026-05-03.md
-│   │       └── review-skyy-command-2026-05-09.md
+│   │       ├── review-skyy-command-2026-05-09.md
+│   │       └── review-skyy-command-2026-07-24.md
 │   │
 │   ├── guide/                                       # USER-FACING — operating manuals
 │   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
 │   │   ├── operations.md                            # THE OPERATING MANUAL — memory model, daily loop, and the single roster of every workflow/agent/command/skill/rule
-│   │   ├── workflows.md                             # Workflow architecture — the revision split, model management, escalation ladder, MAX_TURNS table
+│   │   ├── workflows.md                             # Workflow architecture — the build split, model management, escalation ladder, MAX_TURNS table
 │   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
 │   │   ├── claude_code_agents.md                    # PLATFORM BACKGROUND — what agents are, frontmatter, tool guardrails, dispatch patterns
 │   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
@@ -110,14 +118,15 @@ claude-dot-files/
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
-│       ├── architecture/                          # WHY the system is shaped this way — high-level overviews, not numbered ADRs
-│       │   ├── research/                          # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
-│       │   │   ├── topics.md                       # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
-│       │   │   ├── raw/<topic>.md                 # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
-│       │   │   └── synthesis.md                    # What the pool means for the product's direction. NON-BINDING
-│       │   ├── README.md                          # What goes here vs the rest of standards/
-│       │   ├── problem-statement.md                # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
-│       │   └── architectural_standard.md                 # THE MAP — layers, composition, memory, the seams and their reasons. Concise by design; detail lives in standards/roadmap
+│       ├── architecture/                            # WHY the system is shaped this way — high-level overviews, not numbered ADRs
+│       │   ├── research/                            # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
+│       │   │   ├── topics.md                        # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
+│       │   │   ├── raw/<topic>.md                   # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
+│       │   │   └── synthesis.md                     # What the pool means for the product's direction. NON-BINDING
+│       │   ├── README.md                            # What goes here vs the rest of standards/
+│       │   ├── problem-statement.md                 # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
+│       │   ├── stack_reference.md                   # WHAT WE RUN ON — settled stack decisions and what was ruled out. SEEDED, not complete: absence here is not a decision
+│       │   └── architectural_standard.md            # THE MAP — layers, composition, memory, the seams and their reasons. Concise by design; detail lives in standards/roadmap
 │       ├── research/                                # VENDORED (MIRROR) from MDC-Master-Planning — do not edit
 │       │   ├── README.md                            # The two altitudes — product vs phase — and what each unblocks
 │       │   └── research_standard.md                 # Mini-paper contract, source floor, confidence marking, revalidation
@@ -130,6 +139,8 @@ claude-dot-files/
 │       │   ├── stateful_patterns.md                 # Persistence boundaries, idempotent writes, cleanup on failure
 │       │   ├── temporal_standard.md                 # Three-layer architecture, ACTIVITY_MAP, directory structure
 │       │   └── worker_deployment_standard.md        # Worker segmentation, queue naming, immutable images
+│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/. No README yet — see issue #35
+│       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
 │       ├── agents.md                                # Standards for writing custom agents
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
 │       ├── rules.md                                 # Standards for writing global rules
@@ -143,7 +154,7 @@ claude-dot-files/
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
 │   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
 │   │   ├── lint-prompts.sh                          # Ship-gate (3 passes): backtick scan, sandbox-CONSTRUCTS every multi-line prompt fragment, verifies every MODEL_KEY resolves in config.yaml
-│   │   └── vendor-standards.sh                     # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   └── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
@@ -162,6 +173,8 @@ claude-dot-files/
 │       │   ├── format-stream.sh                     # Stream-json → human-readable formatter (pure transformation)
 │       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
 │       │
+│       ├── build.sh                                 # BUILD — PARENT: pure-bash orchestration of build-draft then build-refine (no model of its own)
+│       ├── build-minor.sh                           # BUILD-MINOR — PARENT: draft → refine (ONE lens) → review-pr. Same shape as build.sh, lighter middle child
 │       ├── build-phase.sh                           # BUILD-PHASE — implement from a plan doc
 │       ├── plan-new.sh                              # PLAN-NEW — greenfield project definition
 │       ├── plan-revision.sh                         # PLAN-REVISION — revise existing planning docs
@@ -169,21 +182,47 @@ claude-dot-files/
 │       ├── research-refresh.sh                      # RESEARCH-REFRESH — revalidate due papers (bash-side gate, clean no-op; --pr gates on that PR's pool)
 │       ├── review-runs.sh                           # REVIEW-RUNS — CPI log analysis, produces reports
 │       ├── review-sprint.sh                         # REVIEW-SPRINT — comprehensive whole-repo end-of-sprint review
-│       ├── revision.sh                              # REVISION — PARENT: pure-bash orchestration of revision-draft then revision-refine (no model of its own)
-│       ├── revision-minor.sh                        # REVISION-MINOR — PARENT: draft → refine (ONE lens) → review-pr. Same shape as revision.sh, lighter middle child
-│       └── children/                                # Child WORKFLOWS — full workflows (own model key, turn budget, worktree) INVOKED BY A PARENT, not dispatched by you.
+│       ├── children/                                # Child WORKFLOWS — full workflows (own model key, turn budget, worktree) INVOKED BY A PARENT, not dispatched by you.
 │                                                    #   Children are SHARED, not owned: review-pr is called by every PR-producing parent. Not namespaced per parent.
 │           ├── review-pr.sh                         # Disposition engine (decide-only) — every parent's last child. Verdict: MERGE | HOLD - redispatch | HOLD - needs-assistance
-│           ├── revision-draft.sh                    # Child 1 of revision.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
-│           ├── revision-refine.sh                   # Child 2 of revision.sh — FRESH context: fidelity, peer-review trio + quality-control, corrections
-│           ├── revision-draft-minor.sh              # Child 1 of revision-minor.sh — writes the scoped change (was the monolithic revision-minor.sh)
-│           └── revision-refine-minor.sh             # Child 2 of revision-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
+│           ├── build-draft.sh                       # Child 1 of build.sh — writes the change, opens an UNREVIEWED PR; holds NO review authority
+│           ├── build-refine.sh                      # Child 2 of build.sh — FRESH context: fidelity, peer-review trio + quality-control, corrections
+│           ├── build-draft-minor.sh                 # Child 1 of build-minor.sh — writes the scoped change (was the monolithic build-minor.sh)
+│           └── build-refine-minor.sh                # Child 2 of build-minor.sh — FRESH context: fidelity, ONE lens (code-reviewer), corrections
+│       │
+│       └── temporal/                                # V2 PORT: the bash workflows re-expressed in Python against the Temporal
+│           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
+│           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
+│           ├── modules/assistant/                   # The assistant edge — build/, research/, review_pr/ families + shared activities
+│           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
+│           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
+│               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
+│               └── unit/                            # Each assertion encodes a production failure that happened. No mocks anywhere;
+│                   │                                #   the few tests that touch the OS do so because the property IS an OS property
+│                   ├── test_build_helper.py         # Verdict parsing + fail-safe routing, arg compilation, handoff validation
+│                   ├── test_v1_parity.py            # Turn caps are DERIVED from V1, never re-declared; plus the ruff F821 executability sweep
+│                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
+│                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
+│                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+│                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
+│                   └── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
+│
+├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
+│   ├── run-all.sh                                   # Master runner — the single "run everything" entry point.
+│   │                                                #   ./testing/run-all.sh [unit|integration|e2e] [component]
+│   ├── suites/
+│   │   └── python.sh                                # pytest suite runner. pytest is the ONLY adopted framework here, so it is the
+│   │                                                #   only runner — a bash/bats runner gets added with the first .bats file, not before.
+│   │                                                #   Refuses to run at all while a test_*.py sits outside tests/{unit,integration,e2e}/
+│   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
 ├── config.yaml                                      # Centralized service/workflow configuration (gh-monitor + per-workflow models map)
+├── conftest.py                                      # Repo-root pytest config — RLIMIT_AS memory guardrail (Testing Standard § Test Resource Safety, binding)
 ├── install.sh                                       # Creates symlinks from config/* into ~/.claude/
 ├── LICENSE                                          # MIT license
+├── pytest.ini                                       # Pins pytest rootdir here, which is what guarantees conftest.py loads on every invocation
 └── README.md                                        # Repo documentation
 
 ---
