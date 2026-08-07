@@ -25,22 +25,55 @@ Confidence:     DEFINITIVE on what each cited system documents as its own branch
                 text), and the GitLab CI JSON schema (spec JSON).
                 REDUCED CONFIDENCE, quoted in short spans only: the Monitoring Plugins
                 guidelines (rendered HTML) — §1.3's four-value table.
-                DIRECTIONAL on all arXiv material: the abstracts were retrieved through the
-                arXiv Atom API and through `arxiv.org/abs` pages read by a summarising layer;
-                short spans are used, and no figure is carried as a quotation unless it came
-                back in an unabridged API `<summary>` (this holds for [S30] only).
+                REDUCED CONFIDENCE, PARAPHRASED AND DELIBERATELY NOT QUOTED: GitLab's
+                per-value `when` prose (§2.1). The first-party raw docs source does carry it,
+                but four fetches of that one file returned mutually inconsistent renderings,
+                so only the substance corroborated across every rendering is stated, and no
+                span of it is presented as a quotation — see N4.
+                DIRECTIONAL on all arXiv material, which is preprint/conference work rather
+                than first-party documentation. Provenance is uniform: every span this paper
+                presents in quotation marks from [S23], [S24], [S25], [S27], [S28], [S29] and
+                [S30] was character-checked against an unabridged `<summary>` returned by
+                `export.arxiv.org/api/query`, and nothing read through a summarising fetch of
+                an `arxiv.org/abs` page is carried as a quotation anywhere in this paper.
                 DERIVED, and flagged inline: §0's three findings, §1.4's taxonomy boundaries,
                 §4's P4/P7/P9/P12/P13/P14, and the whole of §5.2 and §5.5.
                 UNVERIFIED: nothing is carried at this tier; two candidate claims were dropped
                 rather than asserted (see N3, N5).
-Critic:         not-yet-verified — 2026-08-06
+Critic:         PASS-WITH-FIXES — 2026-08-06. Verification held on the substance: every URL
+                resolves; every span the body presents as a quotation matched its source
+                character-for-character on re-fetch, the sole exception being the Tekton elision
+                at (4); every count was independently re-enumerated and stood (13 Airflow trigger
+                rules, 6 GitLab `when` values, 7 pytest exit codes); and every claim about this
+                repo's `build.sh` / `run-claude.sh` — including the negative one, that
+                `.is_error` is never read, re-confirmed here by grepping the whole `scripts/`
+                tree for zero matches — was exact. Five fixes applied, all
+                re-verified by fresh fetches before being reported closed. (1) **N4 was a
+                fabricated gap and is withdrawn**: GitLab's per-value `when` prose does exist in
+                the first-party raw source; the original "section absent" reading came from one
+                intermittent truncation. §2.1 now carries the semantics, and N4 records the real
+                and narrower limit — three retrievals across two hosts returned three different
+                wordings, so the content is certain and no span of it may be quoted.
+                (2) The `system/api_retry` `error` enum was miscited to
+                `claude_code_integration_surface.md` §7; it is enumerated in that paper's §5 and
+                applied in its §8, and §3.4 plus the cross-reference entry now say so.
+                (3) The header restricted arXiv quotation to [S30] while the body quoted six
+                other preprints; all of [S23]–[S30] were re-retrieved through the unabridged
+                arXiv Atom API, every span matched, and the header now grants them the tier the
+                body was already using. (4) §2.1's Tekton quote had silently dropped the source's
+                markdown link markup — restored. (5) The stated preprint range "2022–2026" was
+                wrong; enumerating each paper's `<published>` field gives 2021–2024, corrected in
+                both places. One repair of my own was caught and reverted before it shipped: an
+                unsourced "later an ICLR 2024 paper" I had written into [S27]'s note.
 ```
 
 > **Mixed volatility (§3 of the Research Standard).** The **low/medium-volatility** material —
 > and it is most of the paper — is §1–§3's CI/CD, workflow-orchestration, Kubernetes, systemd
 > and OTP semantics, which have been stable for years and change by deprecation notice.
-> The **high-volatility** material is §2.4 (the agent-side execution-verification literature,
-> all 2022–2026 preprints) and §3.4 / §5.4 (this fleet's `claude -p` result envelope, which
+> The **high-volatility** material is §2.4 (the agent-side execution-verification literature —
+> the cited preprints were published 2021–2024, enumerated from the `<published>` field of each
+> paper's arXiv Atom API record, but the subfield itself moves fast enough that the *set* of
+> relevant work decays quickly) and §3.4 / §5.4 (this fleet's `claude -p` result envelope, which
 > moves with CLI releases — the pool's `claude_code_integration_surface.md` carries
 > `Revalidate: high` for that reason). The header takes the highest tier present, per §3.
 > **A refresh may skip re-verifying §1.1–§1.3, §2.1–§2.3 and §3.1–§3.3** unless a deprecation
@@ -256,13 +289,28 @@ reproduced verbatim in §3.3.
 Note the same implicit default as GitHub Actions: **success is the assumed predicate; every
 other route is opt-in.**
 
+The first-party prose docs [S33] additionally define each value against **upstream stage
+outcome**, which is the property this paper cares about. Stated as a paraphrase rather than a
+quotation, and limited to the substance that every retrieval of that file agreed on (see N4 for
+why): `on_success` is the default and runs the job when all jobs in earlier stages succeeded;
+`on_failure` runs it when at least one job in an earlier stage failed; `always` runs it
+regardless of earlier-stage status; `never` does not run it; `manual` runs it only on a manual
+trigger; `delayed` defers execution by a specified time (two of the three renderings tie this to
+the `start_in` keyword, the third does not, so that coupling is *not* asserted here). *(reduced
+confidence — first-party source, unstable rendering; the closed vocabulary and the default are
+separately definitive from the schema [S3].)* **The `on_success`/`on_failure` pair is the same
+route-on-upstream-outcome primitive as Airflow's `all_success`/`one_failed` [S7] and GitHub
+Actions' `success()`/`failure()` [S1] — three independent vocabularies converging on the same
+two members.**
+
 **Tekton.** `when` expressions are guards evaluated before the Task runs, over `Parameters` and
 prior-Task `Results`:
 
 > "The declared `when` expressions are evaluated before the `Task` is run. If all the `when`
 > expressions evaluate to `True`, the `Task` is run. If any of the `when` expressions evaluate to
-> `False`, the `Task` is not run and the `Task` is listed in the `Skipped Tasks` section of the
-> `PipelineRunStatus`." — [S4, raw md]
+> `False`, the `Task` is not run and the `Task` is listed in the [`Skipped Tasks` section of the
+> `PipelineRunStatus`](pipelineruns.md#monitoring-execution-status)." — [S4, raw md; the source's
+> markdown link markup is retained, as it is in §2.3's Kubernetes probe quote]
 
 Two design properties worth carrying: the operator vocabulary is **closed to `in` / `notin`**,
 and *"Using `Results` in a `when` expression in a guarded `Task` introduces a resource dependency
@@ -471,8 +519,8 @@ strongest evidence in the whole paper *for* preferring computed observables to a
   self-correction" [S27]. Its definition of the thing that fails is exactly a class (iii) routing
   input — "intrinsic self-correction, whereby an LLM attempts to correct its initial responses
   based solely on its inherent capabilities, without the crutch of external feedback" [S27].
-  *(directional — 2026-era preprint/conference paper retrieved via a summarising fetch of the
-  arXiv abs page.)*
+  *(directional — a preprint, arXiv `<published>` 2023-10-03; both spans were character-checked
+  against the unabridged `<summary>` returned by the arXiv Atom API.)*
 - **Execution results are the external feedback that does work.** Self-Debugging reports the
   model "is able to identify its mistakes by investigating the execution results," and improves
   baseline accuracy "by up to 12%" on TransCoder and MBPP "where unit tests are available"
@@ -518,7 +566,8 @@ Every surveyed system has an answer, and **none of them is "fall through."**
 - Tekton: a `False` guard skips the Task and **records it** in the `Skipped Tasks` section of the
   PipelineRunStatus [S4] — the non-execution is itself an observable.
 - GitHub Actions / GitLab CI: an implicit `success()` / `on_success` default on every conditional
-  [S1], [S3].
+  [S1], [S3] — and GitLab's prose docs state the default a second time, on the value itself
+  [S33, paraphrase].
 - Airflow: `all_success` is the default trigger rule [S7]; the ShortCircuitOperator's skip
   propagation is configurable and documented [S26].
 - Kubernetes probes: `Unknown` is a named outcome with a named action ("no action should be
@@ -584,11 +633,12 @@ runtime observable read from the envelope; the second is a class (ii) predicate 
 own output text.
 
 **What is genuinely absent, and the dispatch is right about this:** **`.is_error` is never
-read.** Neither is `permission_denials[]`, `num_turns` against the cap, `duration_ms`, or
-`system/api_retry`'s `error` enum — all of which the pool's
-`claude_code_integration_surface.md` §7 enumerates as available in the result envelope and
-`system/init` (that paper is the citation for the field list; it is not re-established here).
-Its §5 also records that **there is no first-party exit-code table** for `claude`, and that
+read.** Neither is `permission_denials[]`, `num_turns` against the cap, or `duration_ms` — which
+the pool's `claude_code_integration_surface.md` **§7 ("Observability")** enumerates as available
+in the result envelope and `system/init` — nor `system/api_retry`'s `error` enum, whose ten
+values that paper enumerates in **§5 ("Failure and error surfaces")** and then applies in its
+§8 failure-classification table (that paper is the citation for both field lists; neither is
+re-established here). Its §5 also records that **there is no first-party exit-code table** for `claude`, and that
 "Codes for auth failure, rate limit exhaustion, `--max-turns` exceeded, and `--max-budget-usd`
 exceeded are **not documented**." That is directly load-bearing: **class (i) routing in this
 fleet is currently resting on an undocumented mapping.** A child that ends with `is_error: true`
@@ -668,7 +718,8 @@ pipelines. The surviving difference is *stationary rate vs. fixable defect*.
 one-directional.** Self-correction without external feedback "at times… degrades" performance
 [S27], while execution-grounded methods report gains [S24], [S25], [S28], [S29]. *(**derived**
 across five directional sources; no single source states the comparison this way, and every
-input is a preprint or conference paper read through a summarising fetch.)*
+input is a preprint rather than first-party documentation — see §5.3 on the benchmark shape that
+bounds the transfer.)*
 
 ---
 
@@ -742,17 +793,24 @@ class (iii).
 
 ### 5.4 Where this paper's own evidence is weakest
 
-- **The agent-side section (§2.4) is directional throughout.** Every source is a preprint or
-  conference paper whose abstract was read through a fetch layer that summarises. Only [S30]'s
-  figures came back as an unabridged API `<summary>`; the others are short spans.
+- **The agent-side section (§2.4) is directional throughout** — not because of how it was
+  retrieved, but because of what it is: every source is a preprint, i.e. not first-party
+  documentation of a system this paper is describing, and none of it has been replicated in the
+  setting this fleet operates in (§5.3). Provenance itself is sound: every quoted span from
+  [S23], [S24], [S25], [S27], [S28], [S29] and [S30] was character-checked against the
+  unabridged `<summary>` element returned by `export.arxiv.org/api/query`.
 - **[S20] (Monitoring Plugins) is a rendered HTML page** and is used only for the four-value
   table, in short spans, corroborating a point already made by three raw sources.
 - **No source located measures the RATE at which any of these observables is wrong in an agent
   context.** The flaky-test figure [S23] and the weak-test figure [S30] are the nearest
   quantifications, and neither is about an orchestrator's routing channel. **N3.**
-- **The GitLab evidence is a schema, not prose.** [S3] establishes the closed `when` vocabulary
-  and its default; it does not establish the runtime semantics of each value. The prose
-  documentation was sought and not obtained in a verbatim-quotable form — **N4**.
+- **The GitLab per-value semantics are a paraphrase, not a quotation.** [S3] (the schema)
+  establishes the closed `when` vocabulary and its default definitively. The per-value runtime
+  semantics come from the first-party prose docs [S33], which *do* document them — but four
+  fetches of that one file returned mutually inconsistent renderings, so §2.1 carries only the
+  substance all of them agreed on, explicitly unquoted and at reduced confidence — **N4**. This
+  is the paper's one instance of a first-party source whose content is certain and whose exact
+  characters are not.
 
 ### 5.5 The counter-case to §0 finding 3 — DERIVED
 
@@ -806,13 +864,49 @@ confidence [S23]; 31.08% suspicious passed patches [S30]), not about a routing d
 candidate claim of the form "observables are more reliable than verdicts by X" was available in
 uncorroborated commentary and is **not asserted here**.
 
-**N4. GitLab CI's prose documentation of `when` values was not obtained in a verbatim-quotable
-form.** Method: `gitlab.com/gitlab-org/gitlab/-/raw/master/doc/ci/yaml/_index.md` returned
-truncated content with the `when` section absent; `doc/ci/jobs/job_control.md` and
-`doc/ci/jobs/job_rules.md` were fetched and neither contains the enumerated definition. `master`
-was confirmed as the correct ref by the successful `ci.json` fetch on the same path prefix.
-**What IS carried** is the CI JSON schema [S3], which is a stronger source for the closed
-vocabulary and its default and a weaker one for per-value semantics.
+**N4 (RESTATED 2026-08-06 — the earlier version of this finding was WRONG and is corrected
+here). GitLab CI's prose documentation of the `when` values EXISTS and is first-party; what
+could not be established is a character-exact rendering of it, because the retrieval layer
+available to this paper renders that one file inconsistently.**
+
+The superseded claim — that `doc/ci/yaml/_index.md` "returned truncated content with the `when`
+section absent," and that the per-value prose was therefore unobtainable — was an artifact of a
+single fetch, not a property of the source. It is withdrawn. A fabricated gap is as damaging as
+a fabricated fact, and this was one.
+
+Method, re-run 2026-08-06 and enumerated rather than summarised — four retrievals targeting the
+`when` keyword's own section heading:
+
+1. `gitlab.com/gitlab-org/gitlab/-/raw/master/doc/ci/yaml/_index.md` — returned the complete
+   section: heading, `**Keyword type**`, `**Supported values**` with six per-value bullets, a
+   YAML example, and `**Additional details**`.
+2. The same URL, different prompt — reported the document truncated before the section, exactly
+   the failure the superseded N4 recorded. **The failure is intermittent, so a single occurrence
+   of it is not evidence of absence.**
+3. The same URL, third prompt — returned the six bullets again, with the same six values in a
+   different order and **materially different wording** from (1).
+4. `raw.githubusercontent.com/gitlabhq/gitlabhq/master/doc/ci/yaml/_index.md` (a second host) —
+   returned the six bullets a third time, with wording different again from both (1) and (3).
+
+**What this establishes, and at what tier.** *Definitive:* the first-party prose documents all
+six `when` values with per-value semantics, corroborated by four retrievals across two hosts —
+consistent with the schema's enum [S3]. *Reduced confidence:* the semantics themselves, carried
+in §2.1 as a paraphrase restricted to what every rendering agreed on. *Not established, and not
+asserted:* any verbatim span. Renderings (1), (3) and (4) disagree on the exact characters of
+every bullet, so under §3 ("a fetch that summarizes cannot establish [verbatim]") none of them
+is a quotation, and the disagreement between them is direct evidence that at least two are
+paraphrases.
+
+The two other files the superseded finding named — `doc/ci/jobs/job_control.md` and
+`doc/ci/jobs/job_rules.md` — genuinely do not carry the enumerated per-value definition; that
+half of the original finding stands. `master` is the correct ref, confirmed both by the
+successful `ci.json` fetch on the same path prefix and by the successful `_index.md` retrievals
+above.
+
+**Method note worth carrying beyond this paper:** the defect was a negative finding built on one
+failed retrieval. The general rule §3 states for a 404 against a guessed default branch applies
+identically to a truncation: **an absence claim needs the absence to be reproducible**, and here
+it was not.
 
 **N5. No source located states an exit-status convention that a wrapper around a
 non-deterministic producer should adopt.** Searched via the exit-code conventions in [S15],
@@ -841,6 +935,13 @@ wrong in a production orchestration setting.** Searched via the agent-verificati
   https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json
   *(spec JSON. Enumerated values, counted from the enumeration: `on_success`, `on_failure`,
   `always`, `never`, `manual`, `delayed` — six.)*
+- [S33] GitLab, *CI/CD YAML syntax reference* — the `when` keyword's `Supported values`.
+  https://gitlab.com/gitlab-org/gitlab/-/raw/master/doc/ci/yaml/_index.md
+  (second host: https://raw.githubusercontent.com/gitlabhq/gitlabhq/master/doc/ci/yaml/_index.md)
+  *(**raw md, but rendered inconsistently by the retrieval layer — reduced confidence, PARAPHRASE
+  ONLY, no span quoted.** Four retrievals across the two URLs above produced three mutually
+  inconsistent wordings of the same six bullets plus one truncation. §2.1 carries only the
+  substance common to all of them. Full method in N4.)*
 - [S4] Tekton, *Pipelines* — "Guard `Task` execution using `when` expressions."
   https://raw.githubusercontent.com/tektoncd/pipeline/main/docs/pipelines.md *(raw md)*
 - [S5] Argo Workflows, *Exit handlers.*
@@ -913,34 +1014,46 @@ wrong in a production orchestration setting.** Searched via the agent-verificati
   https://www.gnu.org/software/bash/manual/bash.txt *(plain text; two earlier attempts returned
   HTTP 429 and the third succeeded)*
 
-**Agent-side execution verification (high volatility — 2022–2026)**
+**Agent-side execution verification (high volatility — cited preprints published 2021–2024)**
+
+*Provenance for this whole block (uniform, re-established 2026-08-06):* every abstract was
+retrieved as an unabridged `<summary>` element from `http://export.arxiv.org/api/query?id_list=<id>&max_results=1`,
+and every span this paper presents in quotation marks was character-checked against it. Each
+year below is the `<published>` element of that same API record, enumerated per paper and
+counted here: 2021 ×1 [S23]; 2022 ×2 [S24], [S25]; 2023 ×4 [S27], [S28], [S29], [S31];
+2024 ×1 [S30] — eight papers, spanning **2021 to 2024**. No cited preprint is from 2025 or 2026.
 
 - [S23] Gruber, M., Lukasczyk, S., Kroiß, F., & Fraser, G. (2021). *An Empirical Study of Flaky
-  Tests in Python.* arXiv:2101.09077. https://arxiv.org/abs/2101.09077 *(abstract via the arXiv
-  Atom API — directional)*
+  Tests in Python.* arXiv:2101.09077. https://arxiv.org/abs/2101.09077
+  *(`<published>` 2021-01-22 — directional)*
 - [S24] Wang, X., Wei, J., Schuurmans, D., Le, Q., Chi, E., Narang, S., Chowdhery, A., & Zhou, D.
   (2022). *Self-Consistency Improves Chain of Thought Reasoning in Language Models.*
-  arXiv:2203.11171. https://arxiv.org/abs/2203.11171 *(directional)*
+  arXiv:2203.11171. https://arxiv.org/abs/2203.11171 *(`<published>` 2022-03-21 — directional)*
 - [S25] Chen, B., Zhang, F., Nguyen, A., Zan, D., Lin, Z., Lou, J.-G., & Chen, W. (2022).
   *CodeT: Code Generation with Generated Tests.* arXiv:2207.10397.
-  https://arxiv.org/abs/2207.10397 *(directional)*
+  https://arxiv.org/abs/2207.10397 *(`<published>` 2022-07-21 — directional)*
 - [S27] Huang, J., Chen, X., Mishra, S., Zheng, H. S., Yu, A. W., Song, X., & Zhou, D. (2023).
   *Large Language Models Cannot Self-Correct Reasoning Yet.* arXiv:2310.01798.
-  https://arxiv.org/abs/2310.01798 *(directional)*
+  https://arxiv.org/abs/2310.01798 *(`<published>` 2023-10-03 — directional. The paper's earlier
+  disclosure that this abstract came from "a summarising fetch of the arXiv abs page" was
+  accurate for the original pass and is superseded: both quoted spans were re-retrieved and
+  character-checked against the unabridged Atom API `<summary>` on 2026-08-06.)*
 - [S28] Chen, X., Lin, M., Schärli, N., & Zhou, D. (2023). *Teaching Large Language Models to
-  Self-Debug.* arXiv:2304.05128. https://arxiv.org/abs/2304.05128 *(abstract via the arXiv Atom
-  API — directional)*
+  Self-Debug.* arXiv:2304.05128. https://arxiv.org/abs/2304.05128
+  *(`<published>` 2023-04-11 — directional)*
 - [S29] Shinn, N., Cassano, F., Berman, E., Gopinath, A., Narasimhan, K., & Yao, S. (2023).
   *Reflexion: Language Agents with Verbal Reinforcement Learning.* arXiv:2303.11366.
-  https://arxiv.org/abs/2303.11366 *(abstract via the arXiv Atom API — directional)*
+  https://arxiv.org/abs/2303.11366 *(`<published>` 2023-03-20 — directional)*
 - [S30] Aleithan, R., Xue, H., Mohajer, M. M., Nnorom, E., Uddin, G., & Wang, S. (2024).
   *SWE-Bench+: Enhanced Coding Benchmark for LLMs.* arXiv:2410.06992.
-  https://arxiv.org/abs/2410.06992 *(directional. The figures in §0 and §2.4 come from an
-  unabridged `<summary>` returned by `export.arxiv.org/api/query?id_list=2410.06992&max_results=1`
-  after a first, ellipsis-containing fetch was discarded.)*
+  https://arxiv.org/abs/2410.06992 *(`<published>` 2024-10-09 — directional. The figures in §0
+  and §2.4 come from an unabridged `<summary>` returned by
+  `export.arxiv.org/api/query?id_list=2410.06992&max_results=1` after a first,
+  ellipsis-containing fetch was discarded; re-checked 2026-08-06.)*
 - [S31] Jimenez, C. E., Yang, J., Wettig, A., Yao, S., Pei, K., Press, O., & Narasimhan, K.
   (2023). *SWE-bench: Can Language Models Resolve Real-World GitHub Issues?* arXiv:2310.06770.
-  https://arxiv.org/abs/2310.06770 *(abstract via the arXiv Atom API — directional)*
+  https://arxiv.org/abs/2310.06770 *(`<published>` 2023-10-10 — directional; cited for the
+  benchmark's existence and role, no span quoted)*
 
 **Pool cross-references (cited, NOT re-derived, and this paper writes nothing to them)**
 
@@ -955,9 +1068,15 @@ wrong in a production orchestration setting.** Searched via the agent-verificati
   typed comparable finding records); P10 (+129% tokens); §5.1–5.7 (the case against a naive
   "stop when a pass finds nothing" rule). **Not re-researched here.**
 - `docs/standards/architecture/research/raw/claude_code_integration_surface.md` — header records
-  `Last validated: 2026-07-25`, `Critic: PASS`. Cited for: §7's result-envelope field list and
-  `system/init` inventory; §5's statement that there is no first-party exit-code table and that
-  several codes are undocumented. **The envelope field list is not re-established here.**
+  `Last validated: 2026-07-25`, `Critic: PASS`. Cited for: **§7 ("Observability")** — the
+  result-message field list (`is_error`, `duration_ms`, `num_turns`, `permission_denials[]`, …)
+  and the `system/init` inventory; **§5 ("Failure and error surfaces")** — the `system/api_retry`
+  categorical `error` enum (ten values, counted from that paper's enumeration:
+  `authentication_failed`, `oauth_org_not_allowed`, `billing_error`, `rate_limit`, `overloaded`,
+  `invalid_request`, `model_not_found`, `server_error`, `max_output_tokens`, `unknown`), plus its
+  statement that there is no first-party exit-code table and that several codes are undocumented;
+  **§8 ("Integration implications")** — the failure-classification table that applies that enum.
+  **None of these lists is re-established here.**
 
 *(Currency: this component's research pool was empty before this paper, so no revalidation
 verdict is asserted for any upstream paper beyond what its own header states, quoted above.)*

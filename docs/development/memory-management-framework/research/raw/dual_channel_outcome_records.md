@@ -15,9 +15,17 @@ Confidence:     Definitive on the arrangement inventory and on every quoted firs
                 GitHub-API forms — no rendered HTML page is quoted anywhere in this paper). Derived on
                 the four-arrangement taxonomy itself, on the "which channel wins" column, on the
                 lifecycle-mismatch analysis (§5), and on every recommendation in §6 — those are this
-                paper's inferences across the cited sources, not statements any source makes. Six
-                explicit gaps in §7.1, each with its search method. NOT verified by a critic yet.
-Critic:         not-yet-verified — 2026-08-06
+                paper's inferences across the cited sources, not statements any source makes. Seven
+                explicit gaps in §7.1 (N1–N7), each with its search method — count reached by
+                enumerating the N-markers in that section and counting the enumeration.
+Critic:         PASS-WITH-FIXES — 2026-08-06. A critic pass re-fetched every source and checked every
+                quoted span at byte level — all 26 external sources, all 3 sibling-paper citations,
+                all 4 local-script citations — and found no fabricated source, no miscitation, and no
+                confidence inflation. Two counts were wrong and are corrected in this revision: this
+                header's §7.1 gap count (read "six", enumerates to seven), and N7's Argo occurrence
+                count and characterisation (read "four mentions … all table rows", enumerates to five,
+                of which three are table rows). Both corrected counts were re-derived by my own
+                enumeration, not taken from the critic.
 ```
 
 **Revalidate justification (§3 mixed-volatility rule, §5 bounds).** The prior art here is
@@ -206,8 +214,11 @@ with authoring guidance aimed squarely at humans:
 > "Accumulate repeated events in the client, especially for frequent events, to reduce data volume,
 > load on the system, and noise exposed to users."
 
-*(definitive on all quoted spans, from the raw markdown of `kubernetes/community`. Two separate
-targeted fetches of the same raw file returned the conditions spans consistently.)*
+*(definitive on all quoted spans, from the raw markdown of `kubernetes/community`. **Unverified process
+note, not evidence:** two separate targeted fetches of the same raw file returned the conditions spans
+consistently. That is a report about this paper's own fetch history — no later reader can check it, and
+it is recorded for transparency only. It adds no confidence beyond what the quoted spans carry on their
+own, and nothing in this paper rests on it.)*
 
 **The lifecycle inversion — the finding.** In Kubernetes, the *human narrative* channel is the
 **ephemeral** one and the *typed* channel is the durable one. The kube-apiserver reference documents
@@ -767,12 +778,40 @@ quotation). Nothing in §3–§6 depends on the Checks API.
 
 **N7 — The Argo Workflows "keep useful logs, export only specific JSON" distinction named in the
 research brief was not corroborated at the location checked.** Search method: raw fetch of
-`argoproj/argo-workflows` `docs/variables.md` on default branch `main` [S25], prompted for every mention
-of `outputs.result` — four mentions were returned, all table rows describing what the variable resolves
-to, with **NOT FOUND** for any size limit or stdout warning; a follow-up raw fetch of
-`docs/script-templates.md` returned HTTP 404 at that path. Argo's *size* caps are separately documented
-and already recorded upstream in `code_routed_control_flow.md` §2.4.1 [I1] — cite that, not this paper,
-for Argo.
+`argoproj/argo-workflows` `docs/variables.md` [S25] on default branch `main`, confirmed as
+`"default_branch": "main"` via the repos API before the fetch. **The fetch layer's own enumeration of
+this file proved unstable** — three enumeration prompts against the same raw URL returned three
+different lists, and one of them reported as a verbatim matching line a sentence that does not contain
+the search string at all. The population was therefore established a different way: the document was
+reproduced **verbatim in four contiguous chunks covering it end to end** (start → `### Simple`;
+`### Expression` → end of its `#### Examples`; `## Reference` → the line before
+`### Container/Script Templates`; `### Container/Script Templates` → last line), and the occurrences
+were counted from that reproduction rather than from any layer-reported total.
+
+Enumerating the literal string `outputs.result` across the full reproduction gives **five** occurrences:
+
+1. *Template Tag Kinds → Expression*, inline example — "…`inputs.parameters['my-param']` or
+   `steps['my-step'].outputs.result`."
+2. *Reference → Steps Templates*, table row — `` | `steps.<STEPNAME>.outputs.result` | Output result of any previous container, script, or HTTP step | ``
+3. *Reference → DAG Templates*, table row — `` | `tasks.<TASKNAME>.outputs.result` | Output result of any previous container, script, or HTTP task | ``
+4. *Reference → Outputs of Skipped and Omitted Nodes*, prose — "References to its declared output
+   parameters and `outputs.result` resolve as follows:"
+5. *Metrics*, table row — `` | `outputs.result` | Output result of the metric-emitting template | ``
+
+So **three** are table rows, not four; the other two are an inline expression example and a prose
+sentence. **Neither non-table-row occurrence bears on the size-limit / stdout question this finding is
+about.** (1) is syntax guidance for hyphenated names and map indexing. (4) heads an
+**absence-semantics** rule, gated "> v3.7.16, v4.0.7, and after", whose substance is that a skipped or
+omitted node's outputs resolve to a declared `valueFrom.default` or else are *absent*: "Otherwise the
+output is *absent*, which is not the same as an empty string." That is relevant **in kind** to P11
+(absence must be given a declared meaning) and says nothing about payload size or stdout capture.
+
+Across the full verbatim reproduction there is **no size limit, no byte limit, no truncation statement
+and no stdout warning anywhere in the document** — this is now a NOT FOUND read off the complete text,
+not off a summarizing layer's negative answer. A follow-up raw fetch of `docs/script-templates.md`
+returned HTTP 404 at that path (re-confirmed on this pass, on the same confirmed default branch). Argo's
+*size* caps are separately documented and already recorded upstream in `code_routed_control_flow.md`
+§2.4.1 [I1] — cite that, not this paper, for Argo.
 
 ---
 
@@ -819,9 +858,21 @@ Every quoted span in this paper was returned by a fetch of a **raw or structured
 `api.github.com` JSON response. **No rendered HTML page is quoted anywhere in this paper**, and no claim
 rests on one. Where a fetch returned prose rather than the exact spans requested, the material is
 presented as description, not quotation, or recorded as a gap in §7.1. Directory listings used to locate
-files were obtained by asking the GitHub contents API to **enumerate** entries; the one count asserted in
-the paper (SARIF's four `level` values, §2.1) was reached by enumerating the enum members and counting
-the enumeration.
+files were obtained by asking the GitHub contents API to **enumerate** entries; those listings are
+discovery methodology and no claim rests on them (S7 is the one such listing in the citation table, and
+it is marked as such).
+
+**Every count this paper asserts was reached by enumerating the population and counting the
+enumeration** — never by asking a retrieval layer for a total:
+
+- SARIF's **four** `level` values (§2.1) — from the enum members in the raw JSON schema [S6].
+- **Five** occurrences of `outputs.result` in Argo's `variables.md` (§7.1 N7) — the fetch layer's own
+  enumerations disagreed across three attempts, so the count was taken from a verbatim end-to-end
+  reproduction of the document instead; the instability and the four reproduction chunks are recorded
+  in N7.
+- **26** external sources (§9.2) — from the rows of the citation table.
+- **Five** human→machine instances underwriting P7 (§7.1 N5) — from the enumerated instance list.
+- **Seven** negative findings in §7.1 (header `Confidence:`) — from the enumerated N-markers N1–N7.
 
 ### 9.2 External sources
 
@@ -833,7 +884,7 @@ the enumeration.
 | S4 | Prow, "Metadata Artifacts" — https://raw.githubusercontent.com/kubernetes-sigs/prow/main/site/content/en/docs/metadata-artifacts.md | raw md |
 | S5 | Prow, "Life of a Prow Job" — https://raw.githubusercontent.com/kubernetes-sigs/prow/main/site/content/en/docs/life-of-a-prow-job.md | raw md |
 | S6 | OASIS SARIF 2.1.0 JSON schema — https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/prose/sarif-schema-2.1.0.json | raw JSON |
-| S7 | OASIS `sarif-spec` repository contents (used to locate S6) — https://api.github.com/repos/oasis-tcs/sarif-spec/contents/ and `/sarif-2.1`, `/sarif-2.1/prose` | GitHub contents API |
+| S7 | **Discovery methodology only — no claim in this paper is sourced to S7, and it is deliberately not cited inline.** OASIS `sarif-spec` repository contents, used to locate S6's path — https://api.github.com/repos/oasis-tcs/sarif-spec/contents/ and `/sarif-2.1`, `/sarif-2.1/prose` | GitHub contents API |
 | S8 | GitHub Docs, "SARIF support for code scanning" — https://raw.githubusercontent.com/github/docs/main/content/code-security/reference/code-scanning/sarif-files/sarif-support.md | raw md |
 | S9 | in-toto Attestation Framework, Statement layer v1 — https://raw.githubusercontent.com/in-toto/attestation/main/spec/v1/statement.md | raw md |
 | S10 | SLSA, "Attestation model" — https://raw.githubusercontent.com/slsa-framework/slsa/main/spec/attestation-model.md | raw md |

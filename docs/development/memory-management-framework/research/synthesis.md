@@ -1,10 +1,14 @@
-# Synthesis — Memory Management Framework (DRAFT)
+# Synthesis — Memory Management Framework
 
-**Cycle:** 1 (2026-08-06) · **Pool:** 2 papers · **Tier:** Small (§2: 1–2 topics) · **Status: DRAFT — no paper in this pool has been through the critic gate.**
+**Cycle:** 1 (2026-08-06) · **Pool:** 2 papers · **Tier:** Small (§2: 1–2 topics) · **Status: verified — both pool papers are through the critic gate, and so is this document.**
 
-> ## ⚠️ THIS IS AN UNVERIFIED DRAFT
+> ### What verification actually happened, stated exactly
 >
-> Both input papers carry `Critic: not-yet-verified — 2026-08-06`, which the Research Standard §3 names as a legal and honest value. A **separate fresh-context run** re-fetches every citation, applies corrections, and traces each correction through to this document. Until that runs, every claim below is this pool's best reading and nothing more. The run that writes a paper cannot certify it.
+> Both input papers were read by an **independent read-only critic** in a fresh context, which re-fetched every citation and checked every quoted span against its source. The findings were applied by each paper's analyst, and **each repaired span was re-verified against its source before the finding was reported closed** (Research Standard §3: a repaired span is a new claim). Both papers now carry `Critic: PASS-WITH-FIXES — 2026-08-06` in their own headers, with the fixes enumerated there — see the Inputs table below.
+>
+> **This synthesis went through the same gate** and was corrected in the same pass. Five defects were found here and fixed: **one span presented as a quotation that was not character-exact** (the A2A phrase in §11); **one table row recording a disagreement that does not exist** (§11 — a first look was credited with a claim it never made); **one conflation of two distinct Argo mechanisms** (§11, traced into `topics.md` as well); **one false section locator** (Escalations); and **one wrong pool count** ("0 of 0", now enumerated). One further span was hardened rather than corrected: §7's SWE-Bench+ figure was a bolded near-verbatim paraphrase sitting next to the word "reports" — not a quotation, so not a §3 breach, but close enough to be lifted as one downstream, and it is now the character-exact sentence. Every replacement was re-verified against its source: the unabridged arXiv Atom API for the two abstracts, and a direct read for each local document.
+>
+> **What this does NOT mean.** Verification checked that sources exist and that claims match them. It did not re-run the research, and it does not upgrade any claim's confidence tier: the *derived* and *directional* marks in the source papers still bound what may be relied on.
 
 Read this instead of the pool. It answers three questions the sprint item asked — *how do we get both memory layers cleanly, what do other organisations actually use, and what does our LLM-producer constraint change* — and ends in candidates a standup can rule on. **Nothing here is binding.** Research is evidence; a finding becomes a rule only by being codified into a standard through human review.
 
@@ -12,14 +16,14 @@ Read this instead of the pool. It answers three questions the sprint item asked 
 
 ## Inputs
 
-**This pool.** Both written this cycle, both unverified.
+**This pool.** Both written this cycle, both verified this cycle. Verdicts and "what was fixed" are transcribed from each paper's own `Critic:` header line — the authoritative record for them.
 
-| Paper | Last validated | Revalidate | Critic verdict |
+| Paper | Last validated | Revalidate | Critic verdict — and what was fixed |
 |---|---|---|---|
-| [`raw/dual_channel_outcome_records.md`](raw/dual_channel_outcome_records.md) | 2026-08-06 | medium — 3 months | **not-yet-verified** |
-| [`raw/non_model_observables.md`](raw/non_model_observables.md) | 2026-08-06 | high — 6 weeks (mixed-volatility; the slow §§ are marked skippable in the paper) | **not-yet-verified** |
+| [`raw/dual_channel_outcome_records.md`](raw/dual_channel_outcome_records.md) | 2026-08-06 | medium — 3 months | **PASS-WITH-FIXES**. Every source re-fetched and every quoted span checked at byte level — 26 external sources, 3 sibling-paper citations, 4 local-script citations — with **no fabricated source, no miscitation, no confidence inflation**. Two **counts** were wrong and were corrected: the §7.1 gap count (read "six", enumerates to **seven**), and N7's Argo occurrence count and characterisation (read "four … all table rows", enumerates to **five**, of which three are table rows) |
+| [`raw/non_model_observables.md`](raw/non_model_observables.md) | 2026-08-06 | high — 6 weeks (mixed-volatility; the slow §§ are marked skippable in the paper) | **PASS-WITH-FIXES**. Every URL resolved, every quoted span matched on re-fetch, every count re-enumerated and stood. Five fixes: **(1) N4 was a fabricated gap and is withdrawn** — GitLab's per-value `when` prose does exist first-party, and §2.1 now carries the semantics as a reduced-confidence paraphrase; (2) the `system/api_retry` `error` enum was miscited to `claude_code_integration_surface.md` §7 — it is enumerated in that paper's **§5** and applied in its **§8**; (3) the header's arXiv-quotation warrant was widened from [S30] alone to all seven quoted preprints, which the body was already relying on; (4) a Tekton quote had silently dropped the source's markdown link markup — restored; (5) the stated preprint range "2022–2026" was wrong — enumerating each paper's `<published>` field gives **2021–2024** |
 
-**No paper in this pool is retired**, so none is excluded here. **0 of 0 papers are past a revalidation window** (computed at dispatch).
+**No paper in this pool is retired**, so none is excluded here. **0 of 2 papers are past a revalidation window** — the pool directory enumerates to exactly two papers (the two rows above), both carrying `Last validated: 2026-08-06` against windows of 3 months and 6 weeks respectively, so both are inside. *(A "0 of 0" reading produced by the dispatch-time currency check was a tooling artifact — it scanned the main-repo path, where this branch's files do not exist yet. The count above is from enumerating the directory.)*
 
 **Upstream product-pool papers cited, never re-derived.** Dates and verdicts are taken from each paper's own header block — the most authoritative source for them.
 
@@ -27,7 +31,7 @@ Read this instead of the pool. It answers three questions the sprint item asked 
 |---|---|---|---|
 | `standards/architecture/research/raw/code_routed_control_flow.md` | 2026-08-03 | PASS-WITH-FIXES (round 3) | §2.4 CI/CD payload caps + the TEP-0074 retreat; P4/P5/P12/P13; §4 on what a typed value buys with an LLM producer; §6.6's "ordinary as stated" verdict; N6 |
 | `standards/architecture/research/raw/convergence_stopping.md` | 2026-08-03 | PASS | P11 — convergence detection *requires* typed comparable finding records; §5.1–5.7 — the case against a naive "stop when nothing new" rule |
-| `standards/architecture/research/raw/claude_code_integration_surface.md` | 2026-07-25 | PASS | §1 `--json-schema` → validated `structured_output`; §7 the `result` envelope field list; §5 the absence of a first-party exit-code table |
+| `standards/architecture/research/raw/claude_code_integration_surface.md` | 2026-07-25 | PASS | §1 `--json-schema` → validated `structured_output`; §7 ("Observability") the `result` envelope field list; §5 ("Failure and error surfaces") the absence of a first-party exit-code table **and the `system/api_retry` `error` enum**, which its §8 then applies in a failure-classification table |
 
 ⚠️ **`claude_code_integration_surface.md` carries `high — 4 weeks` and comes due around 2026-08-22.** Three candidates below depend on it. It is a **product-pool** paper — a component run may not refresh it, and this note is the handoff.
 
@@ -78,6 +82,9 @@ The phase doc's hardest-looking constraint — durable human record, transient m
 - Airflow has **13 named trigger rules** over upstream task state alone.
 - Kubernetes routes Job outcomes on **container exit codes** with an ordered rule list and a documented default.
 - Tekton guards a Task on a `when` expression, and **records the skip** in `Skipped Tasks` — the non-execution is itself an observable.
+- GitLab CI's `when` keyword closes over six values with `on_success` as the documented default (definitive, from the CI JSON schema), and its first-party prose defines `on_success` / `on_failure` against **upstream-stage outcome** (reduced confidence — the prose renders inconsistently, so the paper paraphrases it rather than quoting it; see N4 there).
+
+**That last one is a correction landed by the critic pass, and it strengthens the finding rather than qualifying it.** GitLab's `on_success`/`on_failure` is a **third independent first-party vocabulary** routing on upstream-stage outcome, alongside Airflow's `all_success`/`one_failed` and GitHub Actions' `success()`/`failure()` — three vocabularies converging on the same two members.
 
 **Consequence for the phase doc: stop treating "route on an observable" as a design novelty.** Borrow the shape. Kubernetes `podFailurePolicy`'s *ordered rules, first match wins, documented default* is a ready-made fail-safe contract.
 
@@ -115,8 +122,8 @@ The dispatch asked this to be tested rather than adopted. It does not survive in
 
 **CI has the well-formed-plausible-wrong-result problem in a different costume, and it is measured:**
 
-- *"A 95% confidence that a passing test case is not flaky on average would require 170 reruns"* — an empirical study across 22,352 PyPI projects. Green means "this run was green."
-- SWE-Bench+ screened SWE-Agent+GPT-4's *successful* patches and reports **31.08% of passed patches suspicious due to weak test cases**. A computed observable certified a wrong artifact in roughly one case in three.
+- *"A 95% confidence that a passing test case is not flaky on average would require 170 reruns"* — from an empirical study of flaky tests in Python that *"sampled 22352 open source projects from the popular PyPI package index, and analyzed their 876186 test cases for flakiness"* (arXiv:2101.09077). Green means "this run was green."
+- SWE-Bench+ manually screened SWE-Agent+GPT-4's *successful* patches and reports that *"31.08% of the passed patches are suspicious patches due to weak test cases, i.e., the tests were not adequate to verify the correctness of a patch"* (arXiv:2410.06992). A computed observable certified a wrong artifact in roughly one case in three.
 - GitHub Actions ships `continue-on-error` and documents the divergence itself: *"When a `continue-on-error` step fails, the `outcome` is `failure`, but the final `conclusion` is `success`."* A green build over a failed step is a **keyword**, not a bug.
 - Mutation testing and coverage thresholds exist precisely because "the tests pass" under-certifies — both are gates *on the adequacy of the gate*.
 
@@ -149,24 +156,25 @@ What the evidence *does* support is narrower and still sufficient: it is the one
 
 **And the strongest justification is upstream and independent of routing entirely:** `convergence_stopping.md` P11 establishes that convergence detection *requires* typed, comparable finding records. That argument has no working incumbent to beat. **Lead the phase doc with it.**
 
-### 11. Where the burn-test intake and the verified paper disagree
+### 11. How the burn-test intake's first look held up — it survives intact
 
-`burn-test-intake-2026-08-02.md` § *Item 4* marks itself a lead — one interactive session, never a `research.sh` run, never through `research-critic`. Per the dispatch, **the verified paper wins and the discrepancy is noted rather than averaged**:
+`burn-test-intake-2026-08-02.md` § *Item 4* marks itself a lead — one interactive session, never a `research.sh` run, never through `research-critic`. Per the dispatch, where it and a verified paper disagree the paper wins and the discrepancy is noted rather than averaged. **Checked claim by claim against Item 4's actual text, there is no such disagreement to note** — every claim it makes is either corroborated or untouched:
 
 | Item 4's first look | The verified paper |
 |---|---|
-| Cites GitHub Actions' deprecation of stdout output-passing as security-motivated | Not covered either way — **not contradicted, and not corroborated** |
-| Implies documented GH Actions output caps | **N4: the widely-cited 1 MB / 50 MB figures were NOT found in the fetched primary** and are treated as unverified. What GitHub *does* document there is secret redaction and matrix last-writer-wins collision |
-| Tekton's 4096-byte cap teaches "references, not payloads" | **Corroborated and strengthened** — Tekton 4 KB, Argo 1 MB with `@filename` offload, Airflow "small amounts of data", plus TEP-0074's withdrawal of a rich typed handoff object for coupling and conceptual opacity |
-| A2A's task-state enum validates a closed vocabulary but is "the wrong layer" | Consistent with both new papers |
+| Cites GitHub Actions' deprecation of stdout output-passing (`set-output` → `$GITHUB_OUTPUT`) as security-motivated | Not covered either way — **not contradicted, and not corroborated** |
+| Tekton's **4096-byte cap** teaches "references, not payloads" | **Corroborated and strengthened** — Tekton 4 KB, Airflow "small amounts of data", Argo's 1 MB etcd resource ceiling, plus TEP-0074's withdrawal of a rich typed handoff object for coupling and conceptual opacity |
+| A2A's task-state enum validates a closed vocabulary, but is *"right idea about state, wrong layer"* for a parent shelling out to a child on the same box | Consistent with both new papers |
 
-**Net:** Item 4's *convergent sentence* — the producer writes structured output to a path the caller declares, the caller reads the file, the log stays a log — is exactly arrangement A and survives. Its **cap figures do not**, and the phase doc must not cite them.
+**Net:** Item 4's *convergent sentence* — the producer writes structured output to a path the caller declares, the caller reads the file, the log stays a log — is exactly arrangement A and survives. So does its only cap figure, Tekton's 4096 bytes.
+
+**A caution that is NOT about Item 4, and was previously misattributed to it here.** The widely-cited GitHub Actions **1 MB / 50 MB** output caps were **not found in the fetched primary** (`code_routed_control_flow.md` N4 — what GitHub *does* document there is secret redaction and matrix last-writer-wins collision). Those figures appear nowhere in the burn-test intake; the phase doc simply must not cite them from anywhere.
 
 ---
 
 ## Escalations — findings above this component's altitude
 
-**One.** Per §2 of this workflow's own guidance, more than one or two would signal drift upward rather than trouble in the project.
+**One.** This workflow's own component-altitude guidance says an escalation is rare, and that producing more than one or two signals the analyst has drifted upward rather than that the project is in trouble. *(That guidance sits in an unnumbered subsection of the run's altitude brief — no section number is cited here, because the one previously given pointed at an unrelated rule.)*
 
 - **`non_model_observables.md` materially closes upstream negative finding N6, and closing it weakens the last defensible reading of problem-statement element 3.** `code_routed_control_flow.md` §6.6 already ruled element 3 "ordinary as stated" and offered two narrower re-cuts, of which **(b) — routing on values the model did not author — was called *"the strongest available reading of element 3."*** This cycle finds that pattern documented as the **canonical branching example** in Argo, GitHub Actions, Airflow, Tekton and Kubernetes. N6's gap was in the agent corpus's documentation, not in the field's practice, and the upstream paper said so; this pool supplies the instances. **What it bears on:** `docs/standards/architecture/problem-statement.md` element 3, and any differentiator resting on it. **What I think it means:** re-cut (b) should be retired as a novelty claim, leaving re-cut (a) — cross-process, cross-run, disjoint-context, resumed-from-persisted-state — as the only reading still uncovered by the located literature. **This is not mine to file.** The product pool is read-only to this run; the operator disposes.
 
@@ -174,7 +182,7 @@ What the evidence *does* support is narrower and still sufficient: it is the one
 
 ## Action candidates
 
-Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run surfaces candidates here and **writes nothing outside `research/`** — routing is the reviewer's and the operator's. **Every candidate rests on an UNVERIFIED paper** (see the banner); the per-claim confidence marks in the source papers govern.
+Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run surfaces candidates here and **writes nothing outside `research/`** — routing is the reviewer's and the operator's. **Every candidate rests on a paper that is through the critic gate** (both carry `PASS-WITH-FIXES — 2026-08-06`; see Inputs). Verification does not flatten confidence: **the per-claim marks in the source papers still govern** — several candidates below rest on claims marked *derived* or *directional*, and those are labelled where they occur.
 
 | # | Candidate | Type | Rests on |
 |---|---|---|---|
@@ -192,7 +200,7 @@ Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run sur
 | 12 | **Run T1 and T5 before the design is fixed — both are cheap and either can move it.** T1: does `claude -p` ever exit 0 with `is_error: true` on the pinned version, and what are the exit codes for turn-cap and auth failure (N2 says undocumented). T5: replay archived `stream-json` logs through the current `grep -oE '^VERDICT:'` predicate and **count the misses** — if the fall-through count is zero across the sample, the transport upgrade buys nothing measurable at this scale and candidate 7's ordering becomes load-bearing | adopt | `non_model_observables.md` T1; `dual_channel_outcome_records.md` T5 |
 | 13 | **A capability the sprint item does not name: a definite-progress signal, and the stall/liveness axis on top of it.** "Did it stall?" is answerable in principle from class (i), but its precondition is unmet — nothing in the fleet emits a progress signal a probe could read. This composes with the product pool's already-surfaced three-legged liveness taxonomy (**stalled** / **looping** / **stranded**), which names this component as one of its destinations. **Scope call for the operator: in this component, or deferred to Autonomous Operation?** | new concept | `non_model_observables.md` P8, P9, §5.1 |
 | 14 | **Standards-amendment candidate — `docs/standards/workflow-scripts.md § Composition` codifies the VERDICT-over-stdout contract, which the evidence identifies as the one arrangement the corpus never ships without a write-time gate.** Not urgent and not a defect claim (see candidate 7), but the standard currently states a mechanism the pool's comparative evidence recommends against. Human-ratified path only; a **planning run** writes it, never this one — **and see the homeless finding below, because the surface §7 routes it to does not exist for this component** | change direction | `dual_channel_outcome_records.md` §3, P7 |
-| 15 | **Correct `burn-test-intake-2026-08-02.md` § Item 4's GitHub Actions cap figures, or mark them unverified.** N4 records that the widely-cited 1 MB / 50 MB numbers were not found in the fetched primary. Item 4's convergent sentence survives intact; only the figures are affected. Cost: one line | change direction | `code_routed_control_flow.md` N4; `dual_channel_outcome_records.md` §2.1 |
+| 15 | **Keep the widely-cited GitHub Actions 1 MB / 50 MB output caps out of the phase doc** — N4 records they were not found in the fetched primary, so they are unverified wherever they are met. **No correction to `burn-test-intake-2026-08-02.md` is warranted**: an earlier draft of this synthesis attributed those figures to its § Item 4, and Item 4 does not state them — its only cap figure is Tekton's 4096 bytes, which is corroborated. Nothing to file; recorded so the retracted correction is not re-proposed | no change *(the retraction is the finding)* | `code_routed_control_flow.md` N4; `burn-test-intake-2026-08-02.md` § Item 4, read directly |
 
 ---
 
@@ -215,4 +223,4 @@ Named here rather than parked elsewhere, per §7 — a homeless finding means th
 - **OpenTelemetry's general "attributes vs. body" placement rubric was NOT FOUND** in the two documents where it was expected (N2 in `dual_channel_outcome_records.md`); only the narrower body-is-display-only rule was located.
 - **GitHub Checks API `conclusion` semantics** could not be obtained from a raw first-party source (N6 there), so nothing in the pool depends on them.
 - **The Argo "keep useful logs, export only specific JSON" distinction named in the dispatch brief was not corroborated** at the paths checked (N7). Argo's size caps are cited to the upstream paper instead. **The brief's claim should not be repeated without a source.**
-- **GitLab CI's prose `when` semantics** were not obtainable verbatim (N4 there); the CI JSON schema is carried instead, which establishes the closed vocabulary and its default but not each value's runtime semantics.
+- **GitLab CI's prose `when` semantics are carried, but no span of them may be quoted** (N4 there, restated after the critic pass withdrew an earlier, wrong version of this finding). The semantics *are* first-party and *are* in the paper's §2.1 — as an explicitly-labelled reduced-confidence paraphrase, because four retrievals across two hosts returned three mutually inconsistent wordings, so the content is certain and the exact characters are not. The closed vocabulary and the `on_success` default remain definitive from the CI JSON schema. **The residual limit is quotability, not knowledge** — a consumer needing to quote GitLab's wording must re-retrieve it.
