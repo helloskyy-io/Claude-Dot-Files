@@ -44,7 +44,8 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "refine.md"), values),
+        act.render(act.load_prompt(PROMPTS / "refine.md"), values,
+                   opaque=frozenset({"DESCRIPTION"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
         max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),

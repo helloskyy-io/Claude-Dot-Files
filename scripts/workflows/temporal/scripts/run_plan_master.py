@@ -14,6 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from preflight import preflight  # noqa: E402
+
 from modules.assistant import routing  # noqa: E402
 from modules.assistant.plan.plan_master.plan_master_workflow import run_plan_master  # noqa: E402
 
@@ -38,7 +40,17 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--verbose", "-v", action="store_true")
     a = p.parse_args(argv)
 
-    repo_root = Path(a.repo_target).resolve() if a.repo_target else Path.cwd()
+    try:
+
+        repo_root = preflight(a.repo_target)
+
+    except RuntimeError as exc:
+
+        # Nothing has been created yet — that is the point of preflight.
+
+        print(f"\n✗ {exc}", file=sys.stderr)
+
+        return 1
     research_dir = repo_root / a.research
 
     try:

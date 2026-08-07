@@ -19,3 +19,12 @@ COMPONENT_ROOT = Path(__file__).resolve().parents[1]
 
 if str(COMPONENT_ROOT) not in sys.path:
     sys.path.insert(0, str(COMPONENT_ROOT))
+
+# `scripts/` holds the launch-concern modules — `preflight` and the run_* CLIs.
+# An entrypoint gets this directory for free when Python runs it directly; a
+# test importing the same module does not, and the preconditions in there are
+# exactly the code that must be tested rather than trusted.
+SCRIPTS_ROOT = COMPONENT_ROOT / "scripts"
+
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
