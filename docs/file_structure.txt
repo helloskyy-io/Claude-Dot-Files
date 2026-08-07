@@ -193,7 +193,9 @@ claude-dot-files/
 │       └── temporal/                                # V2 PORT: the bash workflows re-expressed in Python against the Temporal
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
 │           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
-│           ├── modules/assistant/                   # The assistant edge — build/, research/, review_pr/ families + shared activities
+│           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
+│           │                                        #   plan/ holds plan_master (parent), plan_sprint and plan_revision (children);
+│           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
@@ -205,6 +207,12 @@ claude-dot-files/
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
+│                   ├── test_master_runner_results.py# run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
+│                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
+│                   ├── test_plan_master_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
+│                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
+│                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
+│                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
 │                   └── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy

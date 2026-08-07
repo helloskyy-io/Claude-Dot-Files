@@ -36,10 +36,26 @@ def v1_constant(script: str, name: str) -> str:
 
     Deriving makes divergence impossible rather than merely detectable. Delete
     this only when the V1 script it reads is deleted.
+
+    V1 SCRIPTS LIVE IN TWO PLACES and the name is searched in both. Children sit
+    in `children/`; top-level workflows sit at the workflows root. An earlier
+    version branched on whether the name contained a "/" and could resolve
+    NEITHER — `v1_constant("plan-revision.sh", ...)` looked only under
+    `children/`, and the `"../research.sh"` spelling one caller adopted to work
+    around that resolves to `scripts/research.sh`, which does not exist. That
+    caller never invoked it, so the break stayed latent; the next one to try
+    would have had to re-declare the constant, which is the failure this whole
+    function exists to prevent.
     """
-    path = _WORKFLOWS / "children" / script if "/" not in script else _WORKFLOWS / script
-    if not path.exists():
-        raise FileNotFoundError(f"V1 script not found for constant derivation: {path}")
+    for candidate in (_WORKFLOWS / "children" / script, _WORKFLOWS / script):
+        if candidate.exists():
+            path = candidate
+            break
+    else:
+        raise FileNotFoundError(
+            f"V1 script not found for constant derivation: {script} is in neither "
+            f"{_WORKFLOWS / 'children'} nor {_WORKFLOWS}"
+        )
     m = re.search(rf"^{name}=(\S+)", path.read_text(), re.M)
     if not m:
         raise ValueError(f"{name} not found in {path} — V1 changed shape; do not guess a value")
