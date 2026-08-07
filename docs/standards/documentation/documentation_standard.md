@@ -70,14 +70,14 @@ Every development domain (infra, vm, container, service, workload, etc.) uses th
 
 A recurring failure mode: work that is neither a roadmap nor a phase doc gets dropped in as a **standalone named design doc** (`some_design.md`, `*_notes.md`, `*_plan.md`). **There is no such category.** Every planning doc is exactly one of two things:
 
-- **A new component** — a distinct domain of work (a service, a subsystem, a cross-domain program) — gets its **own folder** with a `sprint.md` + `phase{N}_{name}.md` docs. The full structure.
-- **A new phase of an EXISTING component** — work that falls under a component that already has a roadmap — is **just a `phase{N}_{name}.md`** in that component's folder + a row in its `sprint.md`. No new folder, no second roadmap.
+- **A new component** — a distinct domain of work (a service, a subsystem, a cross-domain program) — gets its **own folder** with a `roadmap.md` + `phase{N}_{name}.md` docs. The full structure.
+- **A new phase of an EXISTING component** — work that falls under a component that already has a roadmap — is **just a `phase{N}_{name}.md`** in that component's folder + a row in its `roadmap.md`. No new folder, no second roadmap.
 
 **Decide with one question: does this work stand up a new domain, or extend an existing one?** New domain → component. Extends an existing domain → a phase doc under it. If you find yourself writing a `*_design.md` that is neither, you skipped this decision — go back and pick.
 
 *(Exempt — NOT planning docs, so this rule does not govern them: `research/` notes, workflow-generated `dependencies.md`/`requirements.md`/`review-resolutions.md`, archived `old/` + `old_files_for_reference/` material, and `CLAUDE.md`.)*
 
-### 1. Roadmap (`sprint.md`)
+### 1. Roadmap (`roadmap.md`)
 
 The overview for a domain or feature area. Written for quick understanding, not implementation.
 
@@ -159,7 +159,7 @@ Phase docs serve two distinct purposes that must be kept separate: tracking work
 | Layer | Mutable? | Conveys | Lives in |
 |---|---|---|---|
 | Phase number | NO | identity (like a ticket number) | filename + roadmap entry |
-| Roadmap position | YES | logical rollout order within the domain | `sprint.md` ordering |
+| Roadmap position | YES | logical rollout order within the domain | `roadmap.md` ordering |
 | Sprint position | YES | execution order across all domains | `sprints.md` |
 
 **Guiding principle:** Live docs are the source of truth; git history is the archaeology layer. The roadmap describes the project NOW; commit history describes the path TO now. When deciding whether to retain a tombstone entry vs delete a relocated one, ask: *"does this entry serve a reader who lacks git access?"* If the breadcrumb is recoverable in under two minutes from `git log` or `git blame`, it does not need to live in the live doc. Pristine live docs set the pattern that future planning dispatches (human and agent) match against — drift in exemplars propagates to drift in new work.
@@ -203,11 +203,11 @@ The previous convention was silent on what to do when a new phase needed to be i
 - (b) drop the number entirely (`phase_<name>.md`);
 - (c) inject sub-letters retroactively, forcing renumbering of subsequent phases plus a cross-reference sweep across the corpus.
 
-All three created a recurring cleanup cost. This rule eliminates the ambiguity by making phase number a mechanical identifier (count existing, add 1) and moving order-expressing concerns to `sprint.md` (logical rollout order) and `sprints.md` (execution order). The 2026-05-08 `cluster_provision` and `networking` restructures were the trigger for this codification.
+All three created a recurring cleanup cost. This rule eliminates the ambiguity by making phase number a mechanical identifier (count existing, add 1) and moving order-expressing concerns to `roadmap.md` (logical rollout order) and `sprints.md` (execution order). The 2026-05-08 `cluster_provision` and `networking` restructures were the trigger for this codification.
 
 ### Planning Folder Structure
 
-Planning is organized by **component/concept**, not by abstract architectural layer. Each component has its own directory containing a `sprint.md` and phase files.
+Planning is organized by **component/concept**, not by abstract architectural layer. Each component has its own directory containing a `roadmap.md` and phase files.
 
 **Planning folders (post-2026-05-07 restructure):**
 
@@ -217,7 +217,7 @@ Planning is organized by **component/concept**, not by abstract architectural la
 4. **skyy-net/** — future federation layer (multi-MDC orchestration).
 
 **Historical note (2026-05-07 restructure):** earlier top-level domain folders `/development/infra/`, `/development/vm/`, `/development/container/` (the "six-domain" planning structure) have been collapsed:
-- `/development/infra/` (Layer 1: physical hosts) absorbed into `/development/common/django/sprint.md` Phases 4 + 5 — host orchestration is Django's job, the planning belongs there
+- `/development/infra/` (Layer 1: physical hosts) absorbed into `/development/common/django/roadmap.md` Phases 4 + 5 — host orchestration is Django's job, the planning belongs there
 - `/development/vm/` (Layer 2: VM lifecycle) absorbed into Django roadmap Phase 7 — VM lifecycle is similarly Django-orchestrated
 - `/development/container/` (Layer 3) renamed to `/development/common/cluster_provision/` — was always cluster-provisioning planning, never container-runtime planning
 
@@ -237,9 +237,9 @@ The planning structure does NOT dictate build order. Implementation order is det
 
 **Rule (codified 2026-05-08):** when a platform service component (1Password, Vault, Harbor, Zabbix, etc.) lands in a sprint, **two distinct concerns must be planned separately**:
 
-1. **Service deployment** — the service deploys as a standalone capability (Temporal workflows + SDK/API integration; ArgoCD-managed pod; per-service standards-conformance). Lives in the service's own roadmap (`/development/service/<service>/sprint.md`). Lands first as its own sprint item.
+1. **Service deployment** — the service deploys as a standalone capability (Temporal workflows + SDK/API integration; ArgoCD-managed pod; per-service standards-conformance). Lives in the service's own roadmap (`/development/service/<service>/roadmap.md`). Lands first as its own sprint item.
 
-2. **Django integration** — the service surfaces in the Django admin UI for operator-facing management (credential management, lifecycle ops, integration health, audit logs). Lives in the [Django Backend Roadmap](../../development/common/django/sprint.md) as a phase or sub-phase. Lands separately, often a sprint or two later.
+2. **Django integration** — the service surfaces in the Django admin UI for operator-facing management (credential management, lifecycle ops, integration health, audit logs). Lives in the [Django Backend Roadmap](../../development/common/django/roadmap.md) as a phase or sub-phase. Lands separately, often a sprint or two later.
 
 **Why separate:** services are USABLE without Django integration — Temporal workflows can call the service's SDK directly. Django integration adds operator convenience (admin UI for the service) but is rarely a hard prerequisite. Bundling integration with service deployment forces every service deployment to also block on Django UI work; separating them lets services land on their own timeline and Django integration batch multiple services together for efficiency.
 
@@ -248,8 +248,8 @@ The planning structure does NOT dictate build order. Implementation order is det
 **Override:** if Django is REQUIRED for the service to function (rare — usually only when the service has no programmatic API and is admin-UI-driven by design), bundle integration at deployment time. The override must be justified in the service's roadmap Key Decisions block.
 
 **Bidirectional cross-references:**
-- The service roadmap names its corresponding Django-integration phase as a follow-up: *"Django integration tracked at [Django Backend Roadmap Phase X](../../common/django/sprint.md)."*
-- The Django roadmap phase cross-links back to the service roadmap: *"Couples to [Service Roadmap Phase Y](../../service/<service>/sprint.md) — that roadmap owns the service-side."*
+- The service roadmap names its corresponding Django-integration phase as a follow-up: *"Django integration tracked at [Django Backend Roadmap Phase X](../../common/django/roadmap.md)."*
+- The Django roadmap phase cross-links back to the service roadmap: *"Couples to [Service Roadmap Phase Y](../../service/<service>/roadmap.md) — that roadmap owns the service-side."*
 - Neither view is incomplete; both can find the other.
 
 **Why this matters:** without the rule, Django integration leaks into service phase docs (because the service author thinks "I'll just add the admin UI here"), the service roadmap grows beyond its scope, the Django roadmap can't see what's coming, and integration work fragments across many service-specific phase docs that no one reads as a coherent Django-side trajectory. Codifying the rule makes "where does Django integration go" a 1-second decision instead of a per-service judgment call.
@@ -262,7 +262,7 @@ The planning structure does NOT dictate build order. Implementation order is det
 
 **The project does not use numbered ADR (Architecture Decision Record) artifacts.** Architectural decisions are recorded in one of two places:
 
-1. **"Key Decisions" blocks inside a domain's `sprint.md`** — for decisions scoped to that domain's phasing and design (e.g. `service/1password/sprint.md §Key Decisions`). Preferred for single-domain decisions.
+1. **"Key Decisions" blocks inside a domain's `roadmap.md`** — for decisions scoped to that domain's phasing and design (e.g. `service/1password/roadmap.md §Key Decisions`). Preferred for single-domain decisions.
 2. **New or amended standards in `standards/`** — for decisions that bind behavior across multiple domains or establish platform-wide invariants (e.g. Networking Standard, Tailscale Standard).
 
 **Rationale — this choice is deliberate and AI-agent-driven:** the project is predominantly AI-agent-driven, not human-driven. Standards-docs and Key Decisions blocks present the **current, synthesized state** in one place per domain, which is what agents consume when they read documentation to plan or build. ADRs present decisions as an **append-only historical ledger** that requires readers to reconstruct current state by walking numbered files, detecting supersession, and synthesizing. That mismatches how agents read docs and would actively slow every planning and engineering run down. Human readers benefit equally — when you want the current rule you read the current rule, not 50 ADRs you have to synthesize yourself.
@@ -325,7 +325,7 @@ Sprint tracking lives in `development/sprints.md` and is the authoritative sourc
 
 ### Sprint editing authority — human-in-the-loop only (binding)
 
-`sprints.md` MUST NOT be edited without a human in the loop. It is the **exception** to the general planning-artifact rule: phase docs, `sprint.md`, loose-ends entries, and epic breakdowns are dispatch-scope and MAY be edited by autonomous engineer runs — but the **sprint execution plan is not**. It is the operator's cross-domain sequencing surface, and every edit (new item, re-sequencing, checkbox flip, hour re-total) happens under human review.
+`sprints.md` MUST NOT be edited without a human in the loop. It is the **exception** to the general planning-artifact rule: phase docs, `roadmap.md`, loose-ends entries, and epic breakdowns are dispatch-scope and MAY be edited by autonomous engineer runs — but the **sprint execution plan is not**. It is the operator's cross-domain sequencing surface, and every edit (new item, re-sequencing, checkbox flip, hour re-total) happens under human review.
 
 Autonomous workflow dispatches and non-operator-reviewed sessions **surface** sprint-item candidates — they never write `sprints.md` themselves. A candidate discovered mid-dispatch (a new item, a re-order, a done checkbox) is raised in the PR body or a handoff for human-reviewed editing; it is **not** committed to `sprints.md` by the dispatch.
 
@@ -335,7 +335,7 @@ Autonomous workflow dispatches and non-operator-reviewed sessions **surface** sp
 
 ### Completion checkboxes are human-in-the-loop everywhere (binding)
 
-A **completion checkbox** — any `[ ]`/`[x]` asserting that work is done — is flipped only under human review, in every planning artifact: `sprints.md`, phase docs, `sprint.md`, epic breakdowns, loose-ends entries. This narrows the dispatch-scope rule above: phase docs and `sprint.md` remain dispatch-scope for **prose** — requirements, amendment candidates, handoff notes, supply lists, corrections — but not for completion marks.
+A **completion checkbox** — any `[ ]`/`[x]` asserting that work is done — is flipped only under human review, in every planning artifact: `sprints.md`, phase docs, `roadmap.md`, epic breakdowns, loose-ends entries. This narrows the dispatch-scope rule above: phase docs and `roadmap.md` remain dispatch-scope for **prose** — requirements, amendment candidates, handoff notes, supply lists, corrections — but not for completion marks.
 
 Autonomous dispatches **surface** completion: a run that finishes work states what it completed in its PR body or reflection, and the flip is made by the accountable owner under review. A dispatch that flips a completion checkbox has asserted a verification it is not the one accountable for.
 
@@ -615,7 +615,7 @@ Prior to 2026-04-15, the guide lived at `skyy-command/docs/official_documentatio
 
 ## Documentation Lifecycle
 
-1. **Create all roadmaps up front** — every domain should have a sprint.md before detailed planning begins, so the master roadmap can be built from real scope, not hypotheticals
+1. **Create all roadmaps up front** — every domain should have a roadmap.md before detailed planning begins, so the master roadmap can be built from real scope, not hypotheticals
 2. **Create phase files when starting work** — don't fully detail all phase files up front; create each one when you begin that phase (roadmaps provide the high-level plan until then)
 3. **Edit as you go** — phase files are living documents; update them as decisions are made and steps complete
 4. **Mark complete honestly** — a checkbox means "done and verified," not "I think this works"
