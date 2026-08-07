@@ -50,7 +50,8 @@
 #   - A second person uses these workflows on their own machine and
 #     would expect stronger guarantees than "trust the regex"
 #
-# Full threat-model documentation is tracked in `docs/development/loose_ends.md`
+# Full threat-model documentation is deferred with watch-criteria in
+# `docs/development/cpi-decisions.md`; the hook's own tests are issue #52
 # as a deferred item.
 # ---------------------------------------------------------------------------
 

@@ -138,7 +138,7 @@ For each finding, follow this flow:
 
 2. **Fix it now if simple.** If addressing the finding takes a few lines and doesn't expand the PR's scope meaningfully, just fix it. Don't defer trivial improvements to avoid work.
 
-3. **Document deferrals as loose ends.** If genuinely choosing to defer, create a tracked entry somewhere persistent — epic doc, planning doc, TODO comment, GitHub issue, whatever the project uses. "Deferred" without a location is silent dismissal. The deferral must be findable by a future maintainer.
+3. **Place the deferral, do not park it.** Documentation Standard § Deferred Work is binding and its two placement questions come FIRST: does it have a done-state today, and is it an expansion of something that already exists. A trigger-gated item is a **checkbox on the phase that owns the trigger**; a related one **expands the existing item**; only what fails both becomes an issue. **A carried-work ledger — a loose-ends file, a per-sprint deferral list — is a VIOLATION, not a fallback.** "Deferred" without a placement is silent dismissal.
 
 4. **Never skip the decision.** Every finding ends in: fixed / rejected-with-reasoning / documented-deferral. Straight-through to the next stage with unexamined findings is not allowed. If the turn budget is running low, prioritize addressing findings over polishing other work — the findings are the signal.
 
@@ -173,19 +173,19 @@ When multiple review agents run in a workflow stage, each has a distinct lens. D
 
 Workflow review stages run **narrow-lens agents in parallel** (single assistant message, multiple Agent calls) for efficiency. **Integration-lens agents (currently `quality-control`) run SEQUENTIALLY after** the parallel narrow-lens phase, so they can see the narrow agents' findings and detect meta-patterns ("these findings together suggest the work was rushed").
 
-## Loose-ends entries are the LAST option, not the first
+## A deferral is PLACED, and a carried-work ledger is never the answer
 
 When disposing of a finding — yours, an agent's, or one surfaced by an engineer dispatch in a returned PR — choose the cheapest path that fits the actual work, not the fastest path to "moving on."
 
 Default order of preference:
 
-1. **Resolve live.** If the fix is small AND you have the context loaded, just do it. The cost of writing a loose-end entry plus the later context-rebuild almost always exceeds the cost of doing the fix now. Process-of-creating-the-loose-end taking longer than the fix is the smell.
+1. **Resolve live.** If the fix is small AND you have the context loaded, just do it. The cost of recording a deferral plus the later context-rebuild almost always exceeds the cost of doing the fix now. **The process of recording it taking longer than the fix is the smell.**
 
-2. **`@claude` PR comment** (for autonomous-dispatch PRs). If the finding is in-scope for the current PR and the engineer can address it in the next pass, leave a comment. The PR-handler workflow processes it on its own; no loose-end needed.
+2. **`@claude` PR comment** (for autonomous-dispatch PRs). If the finding is in-scope for the current PR and the engineer can address it in the next pass, leave a comment. The PR-handler workflow processes it on its own; nothing needs recording elsewhere.
 
-3. **Loose-end entry — last resort.** Only when ALL of: (a) genuinely out-of-scope for current work, (b) non-blocking, (c) large enough to warrant separate context-rebuild later, (d) won't be reached in this session.
+3. **Place it — last resort, and NEVER into a ledger.** Only when ALL of: (a) genuinely out-of-scope for current work, (b) non-blocking, (c) large enough to warrant a separate context-rebuild later, (d) won't be reached this session. Then the two placement questions decide *where*: a trigger-gated item is a **phase checkbox**; a related one **expands the existing item**; a deferral carrying watch-criteria goes in the **CPI decisions log**; only what fails all three becomes a **GitHub issue**.
 
-The failure mode this prevents: piling small or in-scope findings into loose-ends because it feels like progress. It isn't. It pushes higher-cost-tomorrow work to avoid lower-cost-now work, and burns tokens on the entry itself. Loose-ends should be rare, deliberate, and large.
+**There is no fourth option, and inventing one is the failure.** A loose-ends file, a per-sprint carried-work list, a running section in a phase doc — each looks like progress and is the opposite. This repo ran such a file for ten weeks: two of its entries described work that was completed the same day the file was finally read, and one had a run explicitly flag six weeks earlier that its trigger had fired. **A store that accepts anything gets read by nobody**, and it pushes higher-cost-tomorrow work to avoid lower-cost-now work while burning tokens on the entry itself.
 
 Applies to both autonomous engineers disposing of their own findings AND interactive PMs disposing of engineer-surfaced findings on a returned PR.
 

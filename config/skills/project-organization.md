@@ -29,7 +29,7 @@ This is the meta-layer above `documentation-structure` (which is about where doc
       development/                  ← sprint.md + topic-folders with phase docs
         <topic>/sprint.md
         <topic>/phase-N.md
-        common/loose_ends/
+        common/                       ← shared cross-component planning
       architecture/                 ← high-level system/tech-stack overviews
       guide/                        ← user-facing operating manual
     sprint.md (or equivalent)       ← orders phased planning by dependency

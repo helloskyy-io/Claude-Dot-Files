@@ -87,10 +87,10 @@ def direction_ceiling(research_dir: Path) -> str:
 def existing_work(repo_root: Path, research_dir: Path) -> str:
     """Enumerate what a candidate might ALREADY have a home in.
 
-    Deliberately NOT included: `cpi-decisions.md` and `loose_ends.md`. The first
-    is the tooling-improvement loop, a different concern from product trajectory;
-    the second is thematic deferrals, not a work queue. Feeding either to a
-    triage pass invites it to re-decide things outside its remit.
+    Deliberately NOT included: `cpi-decisions.md`. It is the tooling-improvement
+    loop and the home for deferrals carrying watch-criteria — a different concern
+    from product trajectory. Feeding it to a triage pass invites the run to
+    re-decide things outside its remit.
 
     Computed in code and handed over, rather than asked of the model: a triage
     that ships a candidate already tracked as an open issue creates two homes for

@@ -26,7 +26,7 @@ The project's documentation isn't a write-once artifact. It's a LIVING SYSTEM:
 - Sprint planning happens repeatedly
 - CLAUDE.mds need standards-references kept current
 - Cross-repo coordination is required (multi-repo projects with master-planning)
-- Loose-ends accumulate, get worked, get resolved
+- Deferred work is placed at filing time — phase checkbox, expansion, or issue — never parked in a ledger
 
 Without active management, this system drifts. Cross-references break. New standards land but never propagate to CLAUDE.mds. Phase docs finish but sit unarchived. Roadmaps lose touch with sprint reality. Standards-authoring discipline slips. The doc system becomes a liability instead of an asset.
 
@@ -44,7 +44,7 @@ The full set of artifacts under doc-manager's purview:
 - `sprint.md` (or equivalent ordering doc) — sprint-level scheduling
 - `docs/development/<topic>/sprint.md` — per-topic phased plans with checkboxes
 - `docs/development/<topic>/phase-N.md` (or epic docs) — detailed implementation plans
-- `docs/development/common/loose_ends/*.md` — tracked tech debt and follow-ups
+- deferred work lives as a phase checkbox, an expansion of an existing item, or a GitHub issue — **never a carried-work file**
 
 ### User-facing documentation
 - `docs/guide/*.md` — user-facing operating manuals, how-to guides

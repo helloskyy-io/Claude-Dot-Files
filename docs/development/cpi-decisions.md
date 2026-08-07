@@ -1025,6 +1025,53 @@ ESCALATED came from PR #51 being held on `needs-assistance` because `research-cr
 
 ---
 
+## 2026-08-07 (evening) — `loose_ends.md` drained and deleted
+
+**Documentation Standard § Deferred Work now makes a carried-work ledger a violation, not a fallback** — *"recreating that directory, or any per-sprint carried-work ledger like it, is a violation of the section rather than a fallback when placement is hard."* Vendored today at `3fd4ffa`. Upstream drained 139 items across 13 files to close it; ours was one file and ~20 items, and it demonstrated the same failure on itself.
+
+**It had already stopped working, measurably.** Two entries described work that was completed *the same day the file was read*:
+
+- *"**Tests for the system itself.** Zero `tests/` directory"* — 337 tests across three tiers, merged that morning
+- *"**CI on this repo.** No `.github/workflows/`"* — shipped that afternoon, gating `main`
+
+Neither was touched. **One of them had a run explicitly flag six weeks earlier that its trigger had fired** — the entry was updated to say so and then left. That is the whole failure mode in one line: the store records that an item is ready and nothing takes it out.
+
+### Filed as issues — the two with a done-state today
+
+**#52 — `block-dangerous.sh` has ~40 regex patterns and zero tests.** Sharper now than in May: `architectural_standard.md` §6 makes that hook **the only control operating during an autonomous run**, load-bearing rather than defence-in-depth, and failing closed. A pattern that silently stops matching is indistinguishable from one that never matched. It is also the first `.bats` test, which is what earns `testing/suites/bash.sh` its existence under the Testing Standard's only-frameworks-in-use rule.
+
+**#53 — the lint half of the CI gate.** The pytest half shipped as #30; `shellcheck`, `bash -n` and config validity are still unchecked on the merge path. Same class the `ruff --select F821` sweep closed for Python, unclosed for nine bash workflows and the hook scripts.
+
+### DEFERRED here — trigger-gated, no done-state today
+
+Each carried an explicit trigger already, which is why this log is the correct home rather than an issue: an issue with no closable state reads as neglect at every standup while being structurally unable to move.
+
+1. **Safety-hook threat-model document.** Attack-corpus fixtures and a written threat model beyond the inline header. **Ship when** anyone other than the operator uses these workflows, or a run shows evidence of obfuscation attempts. Distinct from #52 — that is the tests, this is the document.
+2. **Multi-machine drift detection.** `install.sh --verify` plus a per-machine last-installed-commit state file. **Ship when** a third machine is added, or drift causes a real failure.
+3. **Disaster recovery.** `uninstall.sh` plus a documented rollback. **Ship before** deploying to a machine without backup. The laptop is currently unbacked.
+4. **Cost alerting.** Per-run and monthly totals ship today; budget alerts and per-workflow breakdown do not. **Ship when** monthly totals approach a limit — **watch this one:** 2026-08-07 alone cost ~$220 across 21 runs against a $200/month subscription, which is the first time the trigger has been anywhere near.
+5. **Proactive observability between CPI cycles.** Success rate, p50/p95 turns and cost per workflow, hook-block frequency. **Ship when** CPI cycles lag the feedback velocity needed.
+6. **Onboarding doc.** **Ship before** a second engineer.
+7. **`settings.json` schema and grouping pass.** **Ship when** adding a permission becomes painful.
+8. **Workflow script versioning.** The entry's own words: *"probably never."* **Ship when** a breaking change to workflow args is actually needed.
+9. **`doc-manager` invocation inside workflows.** The operator declined it; the PM-side rule covers the case. **Ship if** CPI surfaces doc drift the PM-side discipline misses.
+
+### REJECTED or already shipped — retained here for calibration, removed from the drained file
+
+- **`gh-monitor` heartbeat / dead-man-switch** — **moot pending T-13**, the dated decision on whether `gh-monitor` survives at all (2026-08-19). Building a liveness probe for a service that may be deleted in eleven days is work with negative expected value.
+- **Author standards for 8+ implicit architectural decisions** — its stated trigger was *"after `system-overview.md` lands"*. That file was split into `architectural_standard.md` and `stack_reference.md` and **deleted** at `01f0074`, so the trigger is moot as written. The underlying want — that undocumented decisions get standards — is now served by `direction.md` and the standards-governance rule.
+- **PM1 Stage-4 coverage-check guidance** — rejected 2026-05-29, watch-criteria 3+ dispatches across projects. Unchanged.
+- **PM3 `gh-monitor` verb-prefix catcher** — rejected 2026-06-03. Unchanged.
+- **Bash CWD rule wording** — shipped 2026-05-29.
+- **STOP→issue writer** — resolved 2026-07-27.
+- **Quality-control severity calibration** — partial fix shipped 2026-05-29, still under watch.
+- **Quality-control binding-vs-implementation drift** — one miss, watch-criteria 2-3 more dispatches.
+- **Best-practices vs project-standards rule effectiveness** — evaluate at the next CPI cycle.
+
+**Watch, for the practice rather than any item:** this file is now the single home for a deferral with a trigger. **If a second carried-work surface appears anywhere — a new file, a section in a phase doc, a running list in a PR body — that is the same defect returning**, and the standard now names it as a violation rather than a shortcut.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
