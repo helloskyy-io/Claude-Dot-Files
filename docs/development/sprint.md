@@ -120,6 +120,7 @@ Make the system improve its own tooling from evidence it generates itself.
 - [x] **Post-Run Reflection** — every workflow posts a decision log and tooling suggestions to its PR
 - [x] **`review-pr` mines reflections** — the run's own words are its primary evidence surface
 - [ ] **Sweep the reflection channel systematically** — tooling suggestions are written by every run and read opportunistically; nothing sweeps them the way `review-runs.sh` sweeps logs
+- [ ] **Measure the judge's marginal yield** — classify 30 PRs' disposition items as already-stated-by-the-run or new, over logs and threads that already exist
 
 ---
 
@@ -167,6 +168,20 @@ Monolithic agent files are not a problem; they are dumb and simple and that is a
 - [ ] **⚠️ Resolve the safety blocker first** — `hooks.PreToolUse → block-dangerous.sh` lives in **user-level** `settings.json`, and headless runs pass `--dangerously-skip-permissions`, making it the only live control. `--setting-sources project,local` would strip it from every autonomous run. The hook must change scope, or be supplied another way, before the flag is touched
 - [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
 - [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
+
+## Sprint: Fleet Reliability — 📋 QUEUED, NEEDS PLANNING
+
+**Phase doc:** not yet written — writing it is the planning step.
+
+The fleet fails in ways nothing watches for. A credential expires overnight, a run reports a success it did not achieve, a dispatch is never claimed at all — and the operator finds out by noticing that nothing happened.
+
+This is the layer that notices, and the one channel that reaches a human when work is blocked rather than a dashboard nobody opens. **It lands before workers**: a restart-recovery contract retrofitted onto running workers is a rewrite, and the guards apply to the fleet that runs today regardless of what it is ported onto.
+
+- [ ] **Three cheap guards** — credential expiry, false completion, and a safety-hook wiring test
+- [ ] **A restart-recovery contract** — durable dispatch id and per-subsystem recovery, designed once and covering all three guards
+- [ ] **The three-legged liveness predicate** — stalled, looping and stranded, each detected separately
+- [ ] **A blocked-work notifier** — and an inbox the operator reads, in place of a dashboard
+- [ ] **Per-credential quota headroom** — derived from observed cap-errors, with no provider telemetry
 
 ## Sprint: Temporal Integration — 🟡 IN PROGRESS
 

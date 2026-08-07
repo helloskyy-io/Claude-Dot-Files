@@ -66,45 +66,45 @@ Cycle-3 rows come from `synthesis.md` on `main` and are settled. **Cycle-4 rows 
 |---|---|---|---|---|---|
 | C-001 | Heartbeat clause on `python_sdk_long_activities.md` — heartbeats free at the SDK layer, billable on Cloud | `temporal.md` | `reject` | `closed` | billing is moot on self-hosted. The *ceiling* survives for a different reason: every heartbeat is a persistence write on our own cluster |
 | C-002 | Schedule the self-host-vs-Cloud decision | `temporal.md` | `reject` | `closed` | decided 2026-07-12, self-hosted. Recorded in `system-overview.md` § Deployment target |
-| C-003 | Decide shard capacity before the first self-hosted workflow runs | `temporal.md` | — | `open` | build-time one-way door, and now *more* relevant since we self-host |
-| C-004 | Override the default retry policy on every activity wrapping a paid API — Temporal defaults to unlimited attempts | `temporal.md` | — | `open` |  |
+| C-003 | Decide shard capacity before the first self-hosted workflow runs | `temporal.md` | `ship` | `open` | build-time one-way door, and now *more* relevant since we self-host. **Ship:** a parameter of the server stand-up, not a question — Temporal Integration phase-doc detail |
+| C-004 | Override the default retry policy on every activity wrapping a paid API — Temporal defaults to unlimited attempts | `temporal.md` | `ship` | `open` | **Ship:** a concrete rule for every activity wrapper; Temporal Integration Stage B phase-doc detail |
 | C-005 | Amend the Serverless Workers reading — Lambda caps an activity at 15 min | `dedicated_edge_routing.md` | `reject` | `closed` | k3s pods, not serverless |
-| C-006 | Record that no first-party Claude ↔ Temporal runtime integration exists | `temporal.md` | — | `open` |  |
+| C-006 | Record that no first-party Claude ↔ Temporal runtime integration exists | `temporal.md` | `ship` | `open` | **Ship:** scopes the hand-rolled `claude_cli` integration as permanent rather than temporary. Natural home is `stack_reference.md`, which is human-in-the-loop — Temporal Integration phase doc meanwhile |
 | C-007 | Correct differentiator #1 in `problem-statement.md` | `bernstein_capability_mining.md` §0.1 | `ship` | `closed` | `b9710d5` |
 | C-008 | Replace differentiator #2 with the credential version | `dedicated_edge_routing.md` §7 | `ship` | `closed` | `b9710d5` |
 | C-009 | Add the trust-domain claim — stronger than any scheduling-model difference | `bernstein_capability_mining.md` §0.2 | `ship` | `closed` | `b9710d5`, promoted to differentiator #1 |
-| C-010 | Resolve the queue-axis conflict before Temporal Integration is planned | `dedicated_edge_routing.md` §4.1 | — | `open` | gates that sprint; addendum §A3 |
-| C-011 | Ship three cheap guards: credential expiry, false completion, safety-hook wiring test (~9 h) | `fleet_failure_modes.md` §7 | — | `open` |  |
-| C-012 | Do NOT build an operator dashboard; build the blocked-work notifier | `operator_interface.md` §0, §6 | — | `open` | the negative *is* the finding |
+| C-010 | Resolve the queue-axis conflict before Temporal Integration is planned | `dedicated_edge_routing.md` §4.1 | `requires review` | `open` | gates that sprint; addendum §A3. **`D-001`** — the resolution is a commitment against a vendored standard, and C-022's spike is the evidence it needs first |
+| C-011 | Ship three cheap guards: credential expiry, false completion, safety-hook wiring test (~9 h) | `fleet_failure_modes.md` §7 | `ship` | `open` | **Ship:** three things built with a stated cost. Placed as a *Fleet Reliability* milestone |
+| C-012 | Do NOT build an operator dashboard; build the blocked-work notifier | `operator_interface.md` §0, §6 | `ship` | `open` | the negative *is* the finding. **Ship:** both halves are concrete. Placed as a *Fleet Reliability* milestone |
 | C-013 | Close the "evaluate Paperclip after Phase 4" gate and rewrite the item | `paperclip_assessment.md` §7 | `ship` | `closed` | `b9710d5` |
-| C-014 | Adopt the eight cost-S, dependency-free interface/doctrine items | `bernstein_capability_mining.md` §5 | — | `open` | case-by-case, not a bundle |
+| C-014 | Adopt the eight cost-S, dependency-free interface/doctrine items | `bernstein_capability_mining.md` §5 | `ship` | `open` | case-by-case, not a bundle. **Ship:** §5 already names a home for each of the eight (rows 2/4/6/8/9/10/11/12) across five existing sprints plus one problem-statement amendment — phase-doc detail, not a sprint change |
 | C-015 | Fix the missed-window assumption in the sprint plan — backwards, verified against the code | `fleet_failure_modes.md` §5.2 | `ship` | `closed` | `b9710d5` |
-| C-016 | Design the stalled predicate as a three-way conjunction before workers are written | `paperclip_assessment.md` §4.4 | — | `open` | claims the failure mode is live here today; **unverified** |
-| C-017 | Decide dedupe granularity as a ruling, not a build | `paperclip_assessment.md` §4.3, §6 | — | `open` | explicitly not a pair to build both of |
+| C-016 | Design the stalled predicate as a three-way conjunction before workers are written | `paperclip_assessment.md` §4.4 | `reject` | `open` | claims the failure mode is live here today; **unverified**. **Reject:** folded into C-029 — the three-legged taxonomy supersedes the two-way framing, and one design does not need two homes |
+| C-017 | Decide dedupe granularity as a ruling, not a build | `paperclip_assessment.md` §4.3, §6 | `requires review` | `open` | explicitly not a pair to build both of. **ALREADY TRACKED at issue #41**, whose *Proposed next action* is this exact ruling — worktree scan vs comment recency vs a real lock, decided once for both the bash and Python paths. No `D-` row: one item, one home |
 | C-018 | Drop any uniqueness framing on subscription-auth-at-the-edge | `paperclip_assessment.md` §4.6 | `ship` | `closed` | `b9710d5` |
-| C-019 | Reconsider giving up cross-machine failover for *all* work | `dedicated_edge_routing.md` §5, §7 | — | `open` | amended by C-037 — read both |
+| C-019 | Reconsider giving up cross-machine failover for *all* work | `dedicated_edge_routing.md` §5, §7 | `requires review` | `open` | amended by C-037 — read both. **`D-002`**, jointly with C-037 — one ruling, one row |
 
 ## Cycle 4 — 2026-08-06 · PROVISIONAL (PR #33 unmerged)
 
 | ID | Candidate | Source | `decision` | `status` | Note |
 |---|---|---|---|---|---|
-| C-020 | Restate differentiator #1 on the credential, not the topology — state both halves together | cycle-4 pool | — | `open` |  |
-| C-021 | Cost differentiator #1 with the self-hosted-CI-runner warning; rule on the laptop trust boundary | cycle-4 pool | — | `open` |  |
-| C-022 | Settle whether a Temporal worker can be prevented from polling a queue it should not serve — **before** the pinned-edge design | cycle-4 pool | — | `open` | bears directly on C-010 |
-| C-023 | Record that self-hosted Temporal ships `noopAuthorizer` by default; the namespace is the only credential boundary offered | cycle-4 pool | — | `open` | security-relevant to the two-server split |
-| C-024 | Split the sprint plan's *Tools to Evaluate* into backbone comparators and edge runtimes | cycle-4 pool | — | `open` | the row whose evidence the held item concerns |
-| C-025 | Give "nearest neighbour" an axis: bernstein by architecture, OpenClaw by thesis | cycle-4 pool | — | `open` |  |
-| C-026 | Add OpenClaw as ASSESSED-and-closed, not as an evaluation gate | cycle-4 pool | — | `open` |  |
-| C-027 | Add Hermes under a new edge-runtimes heading | cycle-4 pool | — | `open` | an addition, not a rewrite |
-| C-028 | Plan the three pre-worker recovery items as ONE design session | cycle-4 pool | — | `open` |  |
-| C-029 | Adopt the three-legged liveness taxonomy: stalled / looping / stranded | cycle-4 pool | — | `open` | supersedes C-016's two-way framing |
-| C-030 | Unblock quota-headroom — derivable from observed cap-errors, no provider telemetry needed | cycle-4 pool | — | `open` |  |
-| C-031 | No fallback queue: an unresolvable assignee PARKs with a typed event, never silently falls back | cycle-4 pool | — | `open` | a negative design decision |
-| C-032 | Amend `workflow-scripts.md` § Composition — it justifies two mechanisms with an argument supporting only the first | cycle-4 pool | — | `open` |  |
-| C-033 | Withdraw or downgrade `case_against.md`'s D7 — contradicted by its own primary source | cycle-4 pool | — | `open` |  |
-| C-034 | Switch `review-pr` to a cross-family judge — self-preference bias is causally linked to self-recognition | cycle-4 pool | — | `open` |  |
-| C-035 | Run E1b first — classify 30 PRs' disposition items to read out the judge's marginal yield | cycle-4 pool | — | `open` | cheap, and it sizes C-034 |
-| C-037 | Cross-machine failover — **a third option**: pin the credential, not the work | amends C-019 | — | `open` |  |
+| C-020 | Restate differentiator #1 on the credential, not the topology — state both halves together | cycle-4 pool | `ship` | `open` | **Ship — already applied** at `f2b80a6`; `problem-statement.md` §1 states both halves together |
+| C-021 | Cost differentiator #1 with the self-hosted-CI-runner warning; rule on the laptop trust boundary | cycle-4 pool | `requires review` | `open` | **`D-003`** — the costing is a `problem-statement.md` edit and the boundary is a ruling; neither is automation's |
+| C-022 | Settle whether a Temporal worker can be prevented from polling a queue it should not serve — **before** the pinned-edge design | cycle-4 pool | `ship` | `open` | bears directly on C-010. **Ship:** an empirical spike with an artifact, not a preference — run it before `D-001` is ruled. Temporal Integration phase-doc detail |
+| C-023 | Record that self-hosted Temporal ships `noopAuthorizer` by default; the namespace is the only credential boundary offered | cycle-4 pool | `ship` | `open` | security-relevant to the two-server split. **Ship:** natural home is `stack_reference.md` § *What we do NOT use*, which is human-in-the-loop — Temporal Integration phase doc meanwhile |
+| C-024 | Split the sprint plan's *Tools to Evaluate* into backbone comparators and edge runtimes | cycle-4 pool | `ship` | `open` | the row whose evidence the held item concerns. **Ship — already applied**; the sprint plan carries both categories |
+| C-025 | Give "nearest neighbour" an axis: bernstein by architecture, OpenClaw by thesis | cycle-4 pool | `ship` | `open` | **Ship — already applied** at `f2b80a6`; `problem-statement.md` § *The nearest neighbor* carries the axis table |
+| C-026 | Add OpenClaw as ASSESSED-and-closed, not as an evaluation gate | cycle-4 pool | `ship` | `open` | **Ship — already applied**; listed under *Edge runtimes*, ASSESSED with no evaluation gate |
+| C-027 | Add Hermes under a new edge-runtimes heading | cycle-4 pool | `ship` | `open` | an addition, not a rewrite. **Ship — already applied**; listed under *Edge runtimes* |
+| C-028 | Plan the three pre-worker recovery items as ONE design session | cycle-4 pool | `ship` | `open` | **Ship:** one session producing one restart-recovery contract. Placed as a *Fleet Reliability* milestone |
+| C-029 | Adopt the three-legged liveness taxonomy: stalled / looping / stranded | cycle-4 pool | `ship` | `open` | supersedes C-016's two-way framing. **Ship:** placed as a *Fleet Reliability* milestone |
+| C-030 | Unblock quota-headroom — derivable from observed cap-errors, no provider telemetry needed | cycle-4 pool | `ship` | `open` | **Ship:** the telemetry transfers, the rotation does not — we hold one subscription. Placed as a *Fleet Reliability* milestone |
+| C-031 | No fallback queue: an unresolvable assignee PARKs with a typed event, never silently falls back | cycle-4 pool | `ship` | `open` | a negative design decision. **Ship:** it is queue topology, so Temporal Integration owns it — phase-doc detail |
+| C-032 | Amend `workflow-scripts.md` § Composition — it justifies two mechanisms with an argument supporting only the first | cycle-4 pool | `requires review` | `open` | **`D-004`** — a standards amendment against two binding documents, and `architectural_standard.md` §3's `author ≠ judge` seam restates the same over-claim. Agents surface, humans write |
+| C-033 | Withdraw or downgrade `case_against.md`'s D7 — contradicted by its own primary source | cycle-4 pool | `ship` | `open` | **Ship:** a bounded correction to one paper with a named source. Needs a `research-refresh` dispatch against `case_against.md`, not a sprint item |
+| C-034 | Switch `review-pr` to a cross-family judge — self-preference bias is causally linked to self-recognition | cycle-4 pool | `requires review` | `open` | **`D-005`** — every genuinely cross-family option needs a second provider credential, which is a thesis-level commitment, not a one-line change |
+| C-035 | Run E1b first — classify 30 PRs' disposition items to read out the judge's marginal yield | cycle-4 pool | `ship` | `open` | cheap, and it sizes C-034. **Ship:** reads existing logs and PR threads, no new dispatches. Added as a Continuous Process Improvement milestone |
+| C-037 | Cross-machine failover — **a third option**: pin the credential, not the work | amends C-019 | `requires review` | `open` | **`D-002`**, jointly with C-019 — the same ruling, so one row rather than two |
 
 ## Evicted from the sprint plan — 2026-08-06
 
@@ -112,22 +112,26 @@ Nine ideas that lived in the sprint plan under *Future Ideas (Not Yet Committed)
 
 | ID | Candidate | Source | `decision` | `status` | Note |
 |---|---|---|---|---|---|
-| C-038 | Cross-project intelligence — aggregate CPI analysis across repos so a pattern in one informs another | sprint plan, Future Idea A | — | `open` | needs centralized log collection or report aggregation |
-| C-039 | Workflow composition / chaining — an orchestrator running a pipeline of workflows end to end | sprint plan, Future Idea B | — | `open` | **largely overtaken** — parent/child composition ships today; re-read before triage |
-| C-040 | Project templates for `plan-new` — stack preferences and boilerplate decisions pre-made per project type | sprint plan, Future Idea C | — | `open` |  |
-| C-041 | Team scaling — per-user config overrides, aggregated CPI, role-based workflow access, onboarding | sprint plan, Future Idea D | — | `open` | bears on the SkyyNet multi-participant question |
-| C-042 | Metrics dashboard over the JSONL logs — cost trends, efficiency, failure types, agent utilization | sprint plan, Future Idea E | — | `open` | **tension**: cycle-4 evidence argues a blocked-work notifier over a dashboard |
-| C-043 | `/rollback-cpi` — revert the last CPI PR and mark that pattern tried-and-failed | sprint plan, Future Idea F | — | `open` | grows in value as CPI automation increases |
-| C-044 | SkyyCommand AI decision engine — the lean-agent + rich-skill pattern applied to VM placement | sprint plan, Future Idea G | — | `open` | out of this repo's scope; belongs to SkyyCommand |
-| C-045 | Prompt pattern library — capture phrasings that measurably produce better output | sprint plan, Future Idea H | — | `open` |  |
-| C-046 | `plan-new` greenfield — handle `git init`, initial commit and remote setup rather than requiring a repo | sprint plan, Future Idea I | — | `open` | found during the 1Password vault manager test, 2026-04-11 |
+| C-038 | Cross-project intelligence — aggregate CPI analysis across repos so a pattern in one informs another | sprint plan, Future Idea A | `reject` | `open` | needs centralized log collection or report aggregation. **Reject: delivered.** Continuous Process Improvement's *Cross-repo reporting* milestone centralises with source-repo metadata, so patterns spanning repos are already visible |
+| C-039 | Workflow composition / chaining — an orchestrator running a pipeline of workflows end to end | sprint plan, Future Idea B | `reject` | `open` | **largely overtaken** — parent/child composition ships today. **Reject:** two live sprints cover it — Workflow Decomposition ships the composition and its standard, and a driver above parents is Autonomous Operation |
+| C-040 | Project templates for `plan-new` — stack preferences and boilerplate decisions pre-made per project type | sprint plan, Future Idea C | `reject` | `open` | **Reject:** presupposes a settled stack reference, and `stack_reference.md` is explicitly seeded-not-complete pending a research pass. Re-propose once it lands and two projects want the same boilerplate |
+| C-041 | Team scaling — per-user config overrides, aggregated CPI, role-based workflow access, onboarding | sprint plan, Future Idea D | `requires review` | `open` | bears on the SkyyNet multi-participant question. **`D-006`** — the four items cannot be sized until the repo/SkyyNet boundary is ruled |
+| C-042 | Metrics dashboard over the JSONL logs — cost trends, efficiency, failure types, agent utilization | sprint plan, Future Idea E | `reject` | `open` | **tension**: cycle-4 evidence argues a blocked-work notifier over a dashboard. **Reject:** the tension resolves against it — `operator_interface.md` argues explicitly for the notifier, which C-012 carries |
+| C-043 | `/rollback-cpi` — revert the last CPI PR and mark that pattern tried-and-failed | sprint plan, Future Idea F | `reject` | `open` | grows in value as CPI automation increases. **Reject:** CPI changes are human-ruled and already reversible by `git revert` plus an append to `cpi-decisions.md`, and the operation has never been performed once. Re-propose the first time a CPI change is reverted and the log fails to record why |
+| C-044 | SkyyCommand AI decision engine — the lean-agent + rich-skill pattern applied to VM placement | sprint plan, Future Idea G | `reject` | `open` | out of this repo's scope; belongs to SkyyCommand. **Reject:** out of scope by the problem statement's own frame — this repo is the Jarvis edge, and VM placement is SkyyCommand's |
+| C-045 | Prompt pattern library — capture phrasings that measurably produce better output | sprint plan, Future Idea H | `reject` | `open` | **Reject:** *measurably* is the blocker — nothing here can read out a phrasing's marginal yield, and `cpi-decisions.md` already records shipped prompt changes with their reasoning. Re-propose once C-035 shows the fleet can measure a prompt change at all |
+| C-046 | `plan-new` greenfield — handle `git init`, initial commit and remote setup rather than requiring a repo | sprint plan, Future Idea I | `reject` | `open` | found during the 1Password vault manager test, 2026-04-11. **Reject: delivered.** `scripts/helpers/init-project.sh` runs `git init --initial-branch=main`, makes the initial commit and creates the GitHub remote; `plan-new` correctly requires an existing repo |
 
 ---
 
 ## Where things stand
 
-**6 decided `ship` and `closed`**, all in `b9710d5`, all corrections to `problem-statement.md` and the sprint plan driven by cycle-3 evidence.
+**Nothing is untriaged.** All 45 rows carry a decision as of the 2026-08-06 `plan-sprint` pass: **25 `ship`**, **8 `requires review`**, **12 `reject`**.
 
-**3 rejected**, all for the same reason: they assumed **Temporal Cloud**. That decision was settled 2026-07-12 and was not written down anywhere a tool could read, so a research cycle costed out a vendor product ruled out three weeks earlier. Now recorded in `system-overview.md` § Deployment target — which is what stops C-002 and C-005 being proposed a third time.
+**The `requires review` rows are the live queue.** Seven are filed as `D-001`–`D-006` in [`direction.md`](direction.md); **C-017** is not, because issue #41 already tracks that ruling and one item does not get two homes. Nothing here moves until the operator rules.
 
-**27 UNTRIAGED** — blank decision, nobody has ruled. That is `plan-sprint`'s first job. Four of them gate other work: **C-010** (queue axis, gates Temporal Integration), **C-017** (dedupe granularity), **C-037** (failover), and **C-022**, which arrived in cycle 4 and bears directly on C-010.
+**Six `ship` rows were already applied before triage** — C-020, C-024, C-025, C-026 and C-027 landed in `f2b80a6` and the sprint-plan comparator split, and C-007/C-008/C-009/C-013/C-015/C-018 in `b9710d5`. A candidate can be delivered before anyone gets round to ruling it; recording that is cheaper than re-deriving it.
+
+**12 rejected, and the reasoning is the point.** Three assumed **Temporal Cloud**, settled 2026-07-12 and unwritten at the time, so a research cycle costed out a product ruled out three weeks earlier — now recorded in `stack_reference.md`. Four more were **already delivered** by shipped work. The rest name what would have to change for them to be re-proposed.
+
+**Known gap in this file's own model:** `status` is set by "a later process" — `plan-feature` on landing, or the build that completes it. A `reject` never lands in a phase doc and no build completes it, so nothing will ever close one. The 2026-08-06 rejects therefore sit at `status: open`, which reads as outstanding work when it is not.
