@@ -11,6 +11,7 @@ is a NEW ATTEMPT, not a replay.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 from .. import assistant_activities as shared
@@ -31,6 +32,9 @@ _ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", r
 _DIRECTION_ID = re.compile(r"^\|\s*`?D-(\d{3})`?\s*\|", re.M)
 
 _BLANK = ("", "—", "-")
+
+# Strips the leading marker so a section name is just its name.
+_SECTION_NAME = re.compile(r"^## Sprint:\s*")
 
 
 def candidate_counts(candidates_path: Path) -> dict[str, int]:
@@ -114,6 +118,49 @@ def existing_work(repo_root: Path, research_dir: Path) -> str:
                      "say in your report that this check did not run.")
 
     return "\n".join(lines)
+
+
+def new_sprint_sections(worktree: Path, sprint_rel: str, base_ref: str = "origin/main") -> list[str]:
+    """Sprint sections this branch ADDED — read from the diff, in code.
+
+    A NON-MODEL OBSERVABLE. The parent must know which components are new so it
+    can research and plan only those, and asking the triage child to report them
+    would make the parent trust an account rather than read the artifact. `git`
+    already knows, and a diff is not something a model can be wrong about.
+
+    Matched on the added-heading form specifically: a section merely EDITED
+    shows as a changed body with no added `## Sprint:` line, and researching an
+    existing component because its prose moved would spend a full cycle on
+    nothing.
+    """
+    out = subprocess.run(
+        ["git", "diff", f"{base_ref}...HEAD", "--", sprint_rel],
+        cwd=str(worktree), capture_output=True, text=True,
+    )
+    if out.returncode != 0:
+        raise RuntimeError(
+            f"could not diff {sprint_rel} against {base_ref} in {worktree}: "
+            f"{out.stderr.strip()}. The parent cannot tell which components are "
+            f"new, and guessing would research the wrong ones."
+        )
+    return [
+        _SECTION_NAME.sub("", line[1:]).split("—")[0].strip()
+        for line in out.stdout.splitlines()
+        if line.startswith("+## Sprint:")
+    ]
+
+
+def component_dir(repo_root: Path, section_name: str) -> Path:
+    """`Fleet Reliability` -> `docs/development/fleet-reliability`.
+
+    The convention the whole tree already follows, applied in code rather than
+    asked of a model — a component whose folder name does not match its sprint
+    section is invisible to every reconciliation that walks one against the other.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", section_name.lower()).strip("-")
+    if not slug:
+        raise ValueError(f"sprint section {section_name!r} yields no folder name")
+    return repo_root / "docs" / "development" / slug
 
 
 def submit_prompt(pr_number: str | None, label: str) -> str:

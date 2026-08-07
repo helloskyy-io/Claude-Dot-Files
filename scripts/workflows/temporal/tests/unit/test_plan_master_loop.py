@@ -35,6 +35,8 @@ class _Calls:
         self.triage = 0
         self.review = 0
         self.correction_passes: list[bool] = []
+        self.research_pools: list[Path] = []
+        self.triage_pools: list[Path] = []
 
 
 @pytest.fixture
@@ -45,10 +47,22 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     def fake_triage(**kw: object) -> str:
         calls.triage += 1
         calls.correction_passes.append(bool(kw.get("correction_pass", False)))
+        calls.triage_pools.append(kw["research_dir"])
+        return PR_URL
+
+    def fake_write(**kw: object) -> str:
+        calls.research_pools.append(kw["research_dir"])
         return PR_URL
 
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_triage)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
+    monkeypatch.setattr(pm.write, "run_write", fake_write)
+    monkeypatch.setattr(pm.verify, "run_verify", lambda **kw: PR_URL)
+    # No new sections by default: the research fan-out is opt-in per test, and a
+    # real `git diff` against a fake worktree would fail for the wrong reason.
+    monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(pm.act, "component_dir",
+                        lambda root, name: Path("/tmp/wt/docs/development/x"))
     return calls
 
 
@@ -161,6 +175,7 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     added: list[str] = []
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
+    monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: [])
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.review_pr, "run_review",
                         lambda ri, rr: ReviewResult(pr_number="43",
@@ -168,3 +183,48 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
                                                     this_pass=1, notes=[]))
     _run()
     assert added == ["wt"], f"expected exactly one worktree, got {added}"
+
+
+def _with_sections(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
+    monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: list(names))
+    monkeypatch.setattr(pm.act, "component_dir",
+                        lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
+
+
+def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The common case. A triage that adds no section must spend nothing on research."""
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _run()
+    assert wired.research_pools == []
+
+
+def test_each_new_section_is_researched_into_its_OWN_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Per-component pools, not one shared one.
+
+    Research Standard §1 puts a component pool inside its component; two
+    components sharing a pool would give each the other's evidence.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_sections(monkeypatch, "Alpha", "Beta")
+    _run()
+    assert wired.research_pools == [
+        Path("/tmp/wt/docs/development/alpha/research"),
+        Path("/tmp/wt/docs/development/beta/research"),
+    ]
+
+
+def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """REGRESSION. The loop originally rebound `research_dir`, the parameter
+    naming the PRODUCT pool that plan-sprint triages — so after researching one
+    component, the loop-back would hand plan-sprint that component's pool
+    instead. A shadowed parameter is a silent wrong-argument bug: nothing
+    raises, and the triage simply reads the wrong evidence.
+    """
+    product_pool = Path("/repo/r")
+    _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
+    _with_sections(monkeypatch, "Alpha")
+    _run()
+    assert wired.triage_pools == [product_pool, product_pool], (
+        f"plan-sprint was handed {wired.triage_pools} — the loop-back must still "
+        f"receive the PRODUCT pool, not a component's"
+    )
