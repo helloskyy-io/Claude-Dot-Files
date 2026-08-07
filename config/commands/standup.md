@@ -92,6 +92,8 @@ Then apply the whole updated body with `gh issue edit <N> --body-file <path>`. *
 | Issues | the issue is OPEN right now | closed, at any point, for any reason |
 | `direction.md` | `status: open` | `applied` or `rejected` |
 
+**A TIMER whose date is still in the future does not render either.** An item parked on a date — a decision deliberately deferred until enough time passes — needs nothing from the operator until that date is close. Rendering it daily until then is the same noise as rendering a finished item: eleven mornings of a row nobody can act on. **Render a timer only within 3 days of its date, or once it has passed.** Outside that window it is a count in the tally, nothing more.
+
 **`resolved` and `closed` are terminal. A terminal item never appears in a table again**, whether you resolved it thirty seconds ago or it has been sitting stamped for a week waiting out its pruning window. The pruning delay exists so a wrong resolution stays *re-openable on the tracker* — it is not a reason to keep showing the operator finished work.
 
 The only place a completed item is ever mentioned is **the single closing tally line**, as a count and a list of IDs. Never a row, never a table, never a section.
