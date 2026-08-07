@@ -2,29 +2,30 @@
 
 **Component:** [Memory Management Framework](roadmap.md) · **Status: not started**
 
-Five experiments the research could not settle and the design depends on. Two of them can shrink [Phase 3](phase3_typed_exit_record.md). This phase produces **a measured record, not a design** — every experiment ends in a written ruling, and the rulings are the deliverable.
+Six experiments the research could not settle and the design depends on. Three of them can shrink or cancel work downstream. This phase produces **a measured record, not a design** — every experiment ends in a written ruling, and the rulings are the deliverable.
 
 ---
 
 ## Requirements for completion
 
-This phase is done when all five experiments below have run against the pinned CLI and the archived logs, each has its observed data recorded **in this document**, and each carries an explicit ruling of one of three kinds:
+This phase is done when all six experiments below have run against the pinned CLI and the archived artifacts, each has its observed data recorded **in this document**, and each carries an explicit ruling of one of three kinds:
 
-- **Changes the design** — names what in [Phase 3](phase3_typed_exit_record.md) must be different, and that phase's checklist is amended before it starts.
+- **Changes the design** — names what in [Phase 3](phase3_typed_exit_record.md), [Phase 4](phase4_fleet_migration.md) or [Phase 5](phase5_convergence_stopping.md) must be different, and that phase's checklist is amended before it starts.
 - **Confirms the design** — the Key Decision it bears on stands as written in the [roadmap](roadmap.md), with this measurement now cited as its evidence rather than a derived claim.
 - **No-op** — the work the measurement was gating is not warranted, stated with the number that shows it.
 
 "We ran it and it looked fine" is not a ruling. A ruling names a downstream consequence.
 
-**Also required:** the `§Runtime Verification` block below is re-run and its date refreshed if this doc is substantively revised, per [Documentation Standard § Live-Runtime Verification](../../standards/documentation/documentation_standard.md).
+**Also required:** the `§Runtime Verification` block below is re-run and its date refreshed if this doc is substantively revised. That block is adopted from the vendored Documentation Standard's practice; the [applicability note](../../standards/documentation/README.md) excludes that section from binding here, and this phase follows it because a component that reads a vendor CLI's output surface is exactly what it was written for.
 
 ---
 
 ## Dependencies
 
-- **None built.** This phase depends only on the pinned `claude` CLI and the archived run logs, both of which exist today.
-- **Evidence:** [`research/synthesis.md`](research/synthesis.md); experiment designs are taken from `research/raw/non_model_observables.md` §7 (T1, T2, T3) and `research/raw/dual_channel_outcome_records.md` §8 (T2, T3, T5, T6). Where the two papers number differently, this doc uses the label in its own experiment heading and cites both sources.
+- **None built.** This phase depends only on the pinned `claude` CLI and the archived run logs and PR comments, all of which exist today.
+- **Evidence:** [`research/synthesis.md`](research/synthesis.md); experiment designs are adapted from `research/raw/non_model_observables.md` §7 and `research/raw/dual_channel_outcome_records.md` §8. **Those papers number their tests T1–T6 with two different meanings for `T3`.** This doc uses its own E-labels and cites the source tests inline, so a reader is never resolving a `T` against the wrong paper. The [roadmap](roadmap.md) refers to these experiments by E-label only.
 - **Cites but does not re-derive:** `docs/standards/architecture/research/raw/claude_code_integration_surface.md` §5 (no first-party exit-code table; the `system/api_retry` error enum) and §7 (the result-envelope field list). **Comes due 2026-08-22** — if this phase runs after that date, note the staleness in the ruling rather than silently relying on it.
+- **Cites and does not re-derive:** `../fleet-reliability/research/raw/liveness_signal_measurement.md`, which already measured the `stream-json` event vocabulary and identified the progress signals. This phase does **not** re-run that measurement; see the close-out.
 
 ---
 
@@ -45,87 +46,108 @@ $ claude --help | grep -iE "json-schema|output-format"
 
 **What this establishes.** `--json-schema` and `--output-format` are both present on the CLI actually installed here. The upstream paper documents `structured_output` as available from v2.1.205+; the installed version is **2.1.224**, so the transport this component's Key Decisions name as option (a) is not hypothetical. **What it does NOT establish** — and E1 is what settles it — is whether the flag delivers a validated `structured_output` under `--dangerously-skip-permissions`, inside a worktree, at a child's turn budget. Flag presence is not flag behaviour.
 
-**The incumbent routing surface, verified by reading the shipped scripts** (not by citing a description of them):
+**The incumbent surfaces, verified by reading the shipped code** (not by citing a description of it):
 
 | Fact | Where |
 |---|---|
 | The parent's shell propagates the child's non-zero exit through `tee` | `scripts/workflows/build.sh:60` (`set -euo pipefail`), `:266` |
-| The parent parses the routing token out of the child's prose stdout | `scripts/workflows/build.sh:281` |
+| **Two** bash parents parse the routing token out of prose stdout | `scripts/workflows/build.sh:277` and `scripts/workflows/build-minor.sh:281` |
+| Two bash parents extract the PR URL by anchored regex | `build.sh:198`, `build-minor.sh:202` |
 | The runtime reads the envelope's `subtype` for turn-cap death | `scripts/workflows/activities/run-claude.sh:167` |
 | The runtime reads `.result` against the declared completion pattern | `scripts/workflows/activities/run-claude.sh:201-204` |
-| The routing vocabulary is declared once for the Python tree | `scripts/workflows/temporal/modules/assistant/routing.py:24-56` |
-| Ten workflows declare a PR-URL completion pattern | `grep -rn "COMPLETION_PATTERN=" scripts/` → 11 declarations, 10 PR-URL-shaped, 1 `^VERDICT:` |
+| Measured turn-cap termination rate, already recorded by the fleet | `run-claude.sh:157-160` — **0.9% (4/443 runs)** |
+| The routing vocabulary is declared once in the Python tree | `scripts/workflows/temporal/modules/assistant/routing.py:24-56`, re-exported at `review_pr/review_pr_helper.py:67` |
+| Completion patterns are declared in **both** fleets | `grep -rnE "COMPLETION_PATTERN\s*=" scripts/` → **21** total: 11 bash, 10 Python |
+| `review-pr` already emits a convergence flag and stable finding ids | `children/review-pr.sh:323` (the rule), `:355` (`converged: true\|false`), `:221` and `:357` (stable ids reused verbatim across passes) |
 | Archived run logs available for replay | `.claude/logs/` at the repo root → 60 JSONL files as of 2026-08-07 |
 
-**`is_error` appears nowhere in the fleet.** Verify this is still true when the phase starts — `grep -rn "is_error" scripts/` — and record the result, because a non-empty result changes E1's framing.
+**Two greps this phase must run with the right pattern.** `grep -rn "COMPLETION_PATTERN=" scripts/` finds only the 11 bash declarations — Python writes `COMPLETION_PATTERN = r"…"` with spaces and is invisible to it. Use `grep -rnE "COMPLETION_PATTERN\s*="`. The same applies to any enumeration this phase produces: **a bash-shaped grep measures one of the two fleets.**
+
+**`is_error` and `permission_denials` appear nowhere in the fleet.** Verified 2026-08-07 — `grep -rn "is_error\|permission_denial" scripts/` returns nothing. Re-verify when the phase starts; a non-empty result changes E1's framing.
 
 ---
 
 ## Implementation steps
 
-Experiments are ordered by decision value: E1 and E5 come first because either can move the design, and running them last would mean designing on assumptions they can overturn.
+Experiments are ordered by decision value: E1, E5 and E7 come first because each can cancel work downstream, and running them last would mean designing on assumptions they can overturn.
 
-### E1 — The exit-code ↔ `is_error` relationship on the pinned version
+### E1 — The envelope observables on the pinned version
 
-*Because:* there is no first-party exit-code table for `claude` (`claude_code_integration_surface.md` §5 records that codes for auth failure, rate-limit exhaustion and `--max-turns` exceeded are undocumented), and the whole "gate on `is_error`" milestone assumes the exit status and `is_error` can disagree. **If they never disagree, that milestone is a no-op and this phase says so with the data.**
+*(Source: `non_model_observables.md` T1.)* *Because:* there is no first-party exit-code table for `claude` — `claude_code_integration_surface.md` §5 records that codes for auth failure, rate-limit exhaustion and `--max-turns` exceeded are undocumented — and the whole "read the rest of the envelope" milestone assumes these values carry information the exit status does not.
 
 - [ ] Force each failure mode in turn — auth failure, rate-limit exhaustion, `--max-turns` exceeded, `--max-budget-usd` exceeded, a usage-policy refusal, `SIGTERM` — using a trivial throwaway prompt, not a real dispatch
-- [ ] For each, record the tuple: process exit code, `result.subtype`, `result.is_error`, whether `result.result` is non-empty
+- [ ] For each, record the **full** tuple: process exit code, `result.subtype`, `result.is_error`, `result.num_turns` against the configured cap, `result.permission_denials[]` (length and contents), whether any `system/api_retry` `error` value appeared, and whether `result.result` is non-empty
 - [ ] Record the same tuple for a **successful** run, so the baseline is measured rather than assumed
+- [ ] Force at least one run that trips `block-dangerous.sh`, so `permission_denials[]` is observed non-empty at least once. **This is the fleet's only scheduled opportunity to see the sole in-run safety control leave a trace** — under `--dangerously-skip-permissions` a denial does not fail the run, and the array is all there is
 - [ ] Run each mode inside a worktree under `--dangerously-skip-permissions`, matching the real child-invocation shape — a measurement taken in a different invocation shape measures a different thing
-- [ ] Also record, for one run, whether `--output-format json --json-schema <schema>` produces a `structured_output` field that validates against the schema (this is the transport question the `§Runtime Verification` block above could not answer)
-- [ ] **Ruling:** does `.is_error` carry information the shell's propagated exit status does not? Name the consequence for Phase 3's composition rule and Phase 4's envelope-reads step
+- [ ] Record, for one run, whether `--output-format json --json-schema <schema>` produces a `structured_output` field that validates against the schema
+- [ ] **Ruling, one per observable, not one for the experiment.** For `is_error` and `num_turns`-against-cap: does each carry information the propagated exit status does not? For the transport: which of the two options does the evidence support, judged on **isolation and Temporal replay cost as well as availability** — a file the child writes outside its worktree is a new write channel across the isolation boundary and a second I/O boundary under Temporal; `structured_output` is neither. `permission_denials[]` gets no redundancy ruling — it is recorded regardless
 
 ### E5 — How often the current prose grep actually misses
 
-*Because:* the case for replacing the prose channel is currently a robustness argument, not a demonstrated-defect argument, and the pool says a doc claiming the incumbent is broken would be overclaiming. **This experiment is the only thing that can convert that argument, in either direction.**
+*(Source: `dual_channel_outcome_records.md` T5.)* *Because:* the case for replacing the prose channel is currently a robustness argument, not a demonstrated-defect argument, and a doc claiming the incumbent is broken would be overclaiming. **This experiment is the only thing that can convert that argument, in either direction — so its method has to be stated, or a zero is unreadable.**
 
-- [ ] Replay every archived `.claude/logs/*.jsonl` through the exact predicate `build.sh` uses today (`grep -oE '^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$'`), taking the last match
-- [ ] Count the runs where the predicate found nothing **but a real verdict is present in the log** — these are the fail-closed misses, and the count is the headline number
-- [ ] Separately count runs where the predicate matched a verdict quoted from a *previous* pass rather than the run's own — the anchored, last-match-wins design is meant to prevent this, and the count tests that it does
-- [ ] State the sample size alongside the count. A zero over 60 logs is a different claim from a zero over 600, and the doc must not let the reader mistake one for the other
-- [ ] **Ruling:** if the miss count is zero, the transport upgrade buys nothing *measurable at this scale*, the roadmap's "lead with the measurement argument" decision becomes load-bearing rather than stylistic, and Phase 3's justification is rewritten accordingly. If it is non-zero, record each miss's cause
+- [ ] Replay every archived `.claude/logs/*.jsonl` through the exact predicate the parents use today (`grep -oE '^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$'`, last match wins)
+- [ ] **State the adjudication procedure before counting.** "A real verdict is present" is established by a deliberately looser unanchored search over the final assistant message, producing a candidate set; the difference between the loose and strict match sets is adjudicated by hand. Report the raw strict count, the raw loose count, and the adjudicated miss count separately
+- [ ] Count the runs where the strict predicate found nothing but adjudication says a verdict was present — this is the headline number
+- [ ] Separately count runs where the predicate matched a verdict quoted from a *previous* pass rather than the run's own. The anchored, last-match-wins design is meant to prevent this, and the count tests that it does
+- [ ] State the sample size alongside every count. A zero over 60 logs is a different claim from a zero over 600
+- [ ] **Ruling:** if the adjudicated miss count is zero, the transport upgrade buys nothing *measurable at this scale*, the roadmap's "lead with the measurement argument" decision becomes load-bearing rather than stylistic, and Phase 3's justification is rewritten accordingly. If it is non-zero, record each miss's cause
+
+### E7 — Does the convergence delta ever fire?
+
+*Because:* [Phase 5](phase5_convergence_stopping.md) builds a computed convergence signal, and if the delta between consecutive passes is never empty over the fleet's real history, that signal is decorative and Phases 3 and 4 would have been built partly to serve it. **This measurement was originally scheduled inside Phase 5 itself, which is exactly the "gate the same run walks past" failure this phase exists to prevent.** Its corpus exists today: archived PRs carry `pr_review:` blocks with `pass:`, stable finding ids and `converged`.
+
+- [ ] Enumerate archived PRs carrying more than one `pr_review:` block and extract each block's `pass`, finding `id` set, and `converged` value
+- [ ] Compute the finding-id delta between consecutive passes and count how often it was empty
+- [ ] Count how often the shipped `converged: true` was asserted, and cross-tab it against the computed delta — the two disagreeing is the most informative cell, because it is the difference between the class-(iii) heuristic and the class-(ii) computation
+- [ ] Count how often the same finding recurred across passes under the same id, versus recurring under a new id — this measures whether the stable-id convention actually holds in practice, which [Phase 5](phase5_convergence_stopping.md) depends on outright
+- [ ] Report every count with its denominator
+- [ ] **Ruling:** if the delta is never empty, Phase 5's predicate never fires and the phase says so before it is built. If the stable-id convention does not hold, Phase 5's step 1 becomes the phase's hard part rather than its premise
 
 ### E2 — Does a turn-cap death leave a partial typed record?
 
-*Because:* a run killed at its cap leaves no comment and possibly no final result. A **partial** typed record would be worse than none — absence has a declared meaning under the fail-safe contract, and a truncated record could satisfy a parser while carrying a wrong value.
+*(Source: both papers' T2.)* *Because:* a run killed at its cap leaves no comment and possibly no final result. A **partial** typed record would be worse than none — absence has a declared meaning under the fail-safe contract, and a truncated record could satisfy a parser while carrying a wrong value. The fleet already measures the rate this matters at: **0.9%, 4 of 443 runs** (`run-claude.sh:157-160`), so this is rare but not hypothetical.
 
-- [ ] Force a low `--max-turns` on a task that cannot finish inside it, using each candidate transport (file-at-declared-path, and `structured_output` if E1 showed it works)
+- [ ] Force a low `--max-turns` on a task that cannot finish inside it, using each candidate transport still live after E1's ruling
 - [ ] Observe whether any typed artifact exists at the declared path, and if so whether it parses
 - [ ] Repeat for `SIGTERM` mid-run and for a run killed while the record is being written
-- [ ] **Ruling:** is absence the only absence path, or must Phase 3's contract also defend against a partial record? If the latter, name the mechanism (atomic write, terminal sentinel field, or a length/complete flag) as a Phase 3 requirement
+- [ ] Note that this experiment is **only meaningful for the file transport** — `structured_output` rides in the CLI's own result envelope and has no partial-record class. If E1 selects that transport, record that as the reason E2 is closed rather than run
+- [ ] **Ruling:** is absence the only absence path, or must Phase 3's contract also defend against a partial record? If the latter, name the mechanism — a consumer-side completeness check the parent enforces, with atomic write as an additional producer-side measure — as a Phase 3 requirement
 
-### E3 — The disagreement four-cell table, measured before any policy is built
+### E3 — The disagreement four-cell table
 
-*Because:* no surveyed system defines precedence between an asserted result and a computed one, since none has an asserting producer. There is no prior art to borrow, so the fleet must pick — and it should pick knowing which cells actually occur.
+*(Source: `non_model_observables.md` T3.)* *Because:* no surveyed system defines precedence between an asserted result and a computed one, since none has an asserting producer. There is no prior art to borrow, so the fleet must pick — and it should pick knowing which cells actually occur.
 
-- [ ] Instrument, **without changing routing behaviour**, the cross-tab of (`is_error` clean / dirty) × (`VERDICT:` MERGE / HOLD) over N ≥ 30 completed runs
-- [ ] Record which cells are populated and with what frequency; name the empty cells explicitly as empty rather than omitting them
-- [ ] While the instrumentation is in place, also count the disagreements between each PR's `pr_review:` verdict and that PR's open/closed state — this is the input to the **who owns the to-do bit** ruling that Phase 3 must make and that nothing upstream decides
-- [ ] **Ruling:** if the off-diagonal cells are empty, Phase 3 adopts the record-both-under-distinct-names shape anyway (it costs nothing and preserves the option) but **builds no composition machinery** for a case that has never occurred — and the doc says that is why
+- [ ] **Determine the data source first, and state it.** The result envelope carries `is_error` whether or not any script reads it, so the archived JSONL very likely already contain the tuple. Check. If they do, this experiment is retrospective over the archived corpus, N is the archived count, and no instrumentation ships
+- [ ] Only if the archived logs do not carry it: instrument, **without changing routing behaviour**, and state the expected elapsed time to reach N ≥ 30. Phase 3's disagreement-policy and to-do-bit requirements are the only two that block on this, and the doc must say so rather than letting the whole of Phase 3 inherit an unbounded wait
+- [ ] Record the cross-tab of (`is_error` clean / dirty) × (`VERDICT:` MERGE / HOLD); name empty cells explicitly as empty rather than omitting them
+- [ ] Count the disagreements between each PR's `pr_review:` verdict and that PR's open/closed state — the input to the **who owns the to-do bit** ruling that Phase 3 must make and that nothing upstream decides
+- [ ] **Ruling:** if the off-diagonal cells are empty, Phase 3 adopts the record-both-under-distinct-names shape anyway (it costs one field and preserves the option) but **builds no composition machinery** for a case that has never occurred — and the doc says that is why
 
 ### E6 — The smallest envelope that routes every parent
 
-*Because:* the proposed envelope is roughly five fields derived from one caller, and every field a parent branches on becomes API surface the moment it does. The union must be enumerated, not guessed.
+*(Source: `dual_channel_outcome_records.md` T6.)* *Because:* the proposed envelope is roughly five fields derived from one caller, and every field a parent branches on becomes API surface the moment it does. The union must be enumerated, not guessed.
 
-- [ ] Enumerate every branch point in `build.sh`, `build-minor.sh`, `build-phase.sh` and each Python parent under `scripts/workflows/temporal/modules/assistant/`, recording the value each one reads
-- [ ] Add the values the planned parents need: Phase 5's convergence comparison, and Autonomous Operation's "dispatch from persisted state" driver
+- [ ] Enumerate every branch point in the bash parents (`build.sh`, `build-minor.sh`, `build-phase.sh`) **and** the Python parents under `scripts/workflows/temporal/modules/assistant/`, recording the value each one reads. Use language-agnostic patterns; a bash-shaped grep sees half the fleet
+- [ ] Add the values [Phase 5](phase5_convergence_stopping.md)'s convergence comparison needs — that consumer is specified
+- [ ] **Add nothing on behalf of [Autonomous Operation](../autonomous-operation/autonomous-operation.md).** Its own doc says it is not designed and not to be built toward; a field invented for it would become permanent API surface on a guess. Unanticipated consumers are served by Phase 3's additive `schema_version` extension rule
 - [ ] Take the union, and for each field state which consumer requires it. **A field with no named consumer does not enter the envelope**
-- [ ] Verify the enumeration is complete by grepping for prose parsing across the fleet (`grep -rnE "grep -oE|re\.search|re\.compile" scripts/workflows/`) and checking every hit is either in the list or explicitly out of scope
+- [ ] Verify the enumeration is complete by grepping for prose parsing across both fleets (`grep -rnE "grep -oE|re\.search|re\.compile" scripts/workflows/`) and checking every hit is either in the list or explicitly out of scope
 - [ ] **Ruling:** the concrete field list Phase 3 writes down as its contract, with each field's consumer named beside it
 
 ### Close-out
 
 - [ ] Every experiment above has its observed data recorded in this document — numbers and tuples, not summaries
-- [ ] Every experiment has one of the three ruling types, and each ruling names a downstream consequence in a specific phase
+- [ ] Every experiment has one of the three ruling types, and each ruling names a downstream consequence in a specific phase. E1's observables get one ruling each, not one for the group
 - [ ] Any experiment that could not be run is recorded here with the reason and what it blocks; it is **not** dropped and it is **not** replaced with a guess
-- [ ] Findings that belong to another component — notably whether a definite-progress predicate is derivable from the `stream-json` event stream — are written up here and surfaced for [Fleet Reliability](../fleet-reliability/), which owns the liveness axis. This phase does not build it
+- [ ] **The liveness question is closed by citation, not by measurement.** `../fleet-reliability/research/raw/liveness_signal_measurement.md` already measured the `stream-json` event vocabulary and identified the progress signals. This phase's only obligation is to confirm nothing E1 or E2 observed contradicts that paper's findings, and to say so in one line. Re-deriving it here would produce an ad-hoc phase-doc measurement competing for authority with a critic-gated paper
 
 ---
 
 ## Notes and gotchas
 
-- **The instrumentation in E3 must not change routing.** A measurement that alters the thing being measured produces a table describing the instrumented fleet, not the fleet.
+- **Any instrumentation must not change routing.** A measurement that alters the thing being measured produces a table describing the instrumented fleet, not the fleet.
 - **E1's failure modes cost real API calls.** Use a trivial prompt; the measurement is of the envelope, not of the work.
 - **`--max-budget-usd` and rate-limit exhaustion may not be forceable on demand.** If a mode cannot be induced, record it as un-measured rather than inferring the tuple from the others — the whole point of E1 is that the mapping is undocumented, and an inferred row would reintroduce exactly the assumption being tested.
-- **Sample-size honesty is a requirement, not a courtesy.** Every count in this doc carries its denominator. The pool's own critic pass caught three wrong counts across two papers; the same discipline applies to measurements taken here.
+- **Sample-size honesty is a requirement, not a courtesy.** Every count in this doc carries its denominator. The research pool's own critic pass caught three wrong counts across two papers, and this plan's first draft asserted a completion-pattern count that was half the true number because the grep was bash-shaped. The same discipline applies to every measurement taken here.

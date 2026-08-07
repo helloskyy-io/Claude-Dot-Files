@@ -78,9 +78,9 @@ claude-dot-files/
 │   │   ├── burn-test-intake-2026-08-02.md           # NOT a sprint — intake record feeding three of them; delete once absorbed
 │   │   │
 │   │   │                                            # One FOLDER per sprint, directly under development/ (there is no phases/ level).
-│   │   │                                            # Two shapes, both per Documentation Standard §0:
-│   │   │                                            #   <name>/<name>.md                 single-doc components (all but one today)
-│   │   │                                            #   <name>/roadmap.md + phase{N}_*.md  the full structure, when the work spans phases
+│   │   │                                            # Two shapes, both per the convention in sprint.md:
+│   │   │                                            #   <name>/<name>.md                 fits in one phase (all but one today)
+│   │   │                                            #   <name>/roadmap.md + phase{N}_*.md  outgrows one phase. Don't create to be tidy
 │   │   │                                            # research/, where present, holds the component's evidence:
 │   │   │                                            #   <name>/research/raw/<topic>.md   the pool — one mini-paper per topic
 │   │   │                                            #   <name>/research/synthesis.md     what the pool means HERE. NON-BINDING
