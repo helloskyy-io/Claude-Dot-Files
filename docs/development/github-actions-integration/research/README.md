@@ -1,6 +1,6 @@
 # Research — github-actions-integration
 
-Evidence backing this phase's planning. Governed by [`research_standard.md`](../../../../standards/research/research_standard.md).
+Evidence backing this phase's planning. Governed by [`research_standard.md`](../../../standards/research/research_standard.md).
 
 ```
 research/
