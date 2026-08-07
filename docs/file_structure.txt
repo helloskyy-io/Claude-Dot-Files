@@ -78,7 +78,10 @@ claude-dot-files/
 │   │   ├── burn-test-intake-2026-08-02.md           # NOT a sprint — intake record feeding three of them; delete once absorbed
 │   │   │
 │   │   │                                            # One FOLDER per sprint, directly under development/ (there is no phases/ level).
-│   │   │                                            # <name>/<name>.md is the doc; research/, where present, holds its evidence:
+│   │   │                                            # Two shapes, both per Documentation Standard §0:
+│   │   │                                            #   <name>/<name>.md                 single-doc components (all but one today)
+│   │   │                                            #   <name>/roadmap.md + phase{N}_*.md  the full structure, when the work spans phases
+│   │   │                                            # research/, where present, holds the component's evidence:
 │   │   │                                            #   <name>/research/raw/<topic>.md   the pool — one mini-paper per topic
 │   │   │                                            #   <name>/research/synthesis.md     what the pool means HERE. NON-BINDING
 │   │   ├── autonomous-execution/                    # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
@@ -90,6 +93,14 @@ claude-dot-files/
 │   │   ├── github-actions-integration/              # HISTORICAL (Apr 2026) — record of what was planned
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
+│   │   ├── memory-management-framework/             # PLANNED — the only component on the §0 full structure (roadmap + 5 phase docs)
+│   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
+│   │   │   ├── phase1_measure_the_channel.md        # Five experiments; two can shrink Phase 3. Measure before designing
+│   │   │   ├── phase2_kind1_framework.md            # Kind 1 written down as an interface, not prose describing behaviour
+│   │   │   ├── phase3_typed_exit_record.md          # Arrangement A, split abstention, fail-safe contract, one pair proven
+│   │   │   ├── phase4_fleet_migration.md            # Fleet-wide rollout; archive as by-product. Zero prompt content changes
+│   │   │   ├── phase5_convergence_stopping.md       # The payoff — and the justification with no incumbent to beat
+│   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
