@@ -82,13 +82,25 @@ For EVERY item in EVERY source, reach one of these — and **write the first thr
 
 Then apply the whole updated body with `gh issue edit <N> --body-file <path>`. **Preserve the tracker's structure exactly** — its section order, its per-line fields, `owner:` and `blocked on:` included even when the answer is "none". You are updating values, never reshaping the document.
 
-### What NEVER reaches the brief
+### THE FILTER — one rule, applied to every row
 
-- **Anything you just resolved or closed.** One tally line: *"Cleared 6 — T-05, T-14, T-17 resolved on the tracker; #30, #36, #44 closed as done."*
-- **Anything already `state: resolved` and under 14 days old.** It is done and not yet prunable, so it needs nothing. A count, not a row.
-- **Anything derivable from a surface already rendered elsewhere in the brief.** One item, one row, one place.
+**A row reaches a table if and only if it is OPEN.** Not open-ish, not recently-closed, not resolved-but-unpruned. Open.
 
-**Resolved and ≥14 days old: DELETE IT from the tracker.** Its own pruning rule says *"delete at the first standup ≥14 days after that date"*, and this IS that standup. Do not render it, do not offer it as a prune candidate — the delay before deletion is what made the resolution re-openable, and that window has closed. Say how many you pruned in the tally.
+| Source | Reaches the table | Never reaches it |
+|---|---|---|
+| Tracker | `state:` is `blocked`, `queued` or `in-progress` | `state: resolved` — **at ANY age**, pruned or not |
+| Issues | the issue is OPEN right now | closed, at any point, for any reason |
+| `direction.md` | `status: open` | `applied` or `rejected` |
+
+**`resolved` and `closed` are terminal. A terminal item never appears in a table again**, whether you resolved it thirty seconds ago or it has been sitting stamped for a week waiting out its pruning window. The pruning delay exists so a wrong resolution stays *re-openable on the tracker* — it is not a reason to keep showing the operator finished work.
+
+The only place a completed item is ever mentioned is **the single closing tally line**, as a count and a list of IDs. Never a row, never a table, never a section.
+
+**Also excluded, for a different reason:** anything already rendered under another section. One item, one row, one place.
+
+### Pruning is an action you take, not something you report
+
+Resolved and **≥14 days old** → delete it from the tracker body. Its own rule says *"delete at the first standup ≥14 days after that date"*, and this is that standup. Count it in the tally; do not render it and do not offer it as a candidate.
 
 ## Stage 3 — The brief: three tables, then the catchup
 
@@ -114,17 +126,17 @@ Jargon from the artifact means nothing to a reader who did not write it. Say wha
 
 ### The four sections, in this order and no others
 
-**1 · Standup tracker** — operating state and continuity. Only items that survived Stage 2.
+**1 · Standup tracker** — operating state and continuity. **OPEN ONLY**: `blocked`, `queued`, `in-progress`. No `resolved` line, at any age.
 
 | Item | What it is, and why it matters now | Status |
 |---|---|---|
 
-**2 · Open issues** — discrete deferred work. Only items that survived Stage 2.
+**2 · Open issues** — discrete deferred work. **OPEN ONLY**: if `gh` reports it closed, it is not here.
 
 | # | What it is, and why it matters now | Status |
 |---|---|---|
 
-**3 · Direction decisions** — rulings only the operator can make. Every `status: open` row.
+**3 · Direction decisions** — rulings only the operator can make. **OPEN ONLY**: `status: open`, never `applied` or `rejected`.
 
 | ID | The ruling, and what it unblocks | Status |
 |---|---|---|
