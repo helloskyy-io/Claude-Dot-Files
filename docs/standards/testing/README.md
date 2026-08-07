@@ -35,7 +35,7 @@ The standard is written in `MDC-Master-Planning`, which has **no tests and no CI
 | `run-all.sh` + `suites/` | yes | yes |
 | `testing/README.md` | yes | yes |
 | `fixtures/` | yes | **no** — nothing needs one yet |
-| CI gating the master runner | **no** — one workflow runs one test file | **yes** |
+| CI gating the master runner | **no** — five workflows, all path-filtered, none runs the master runner | **yes** |
 
 **We gate the master runner and the reference implementation does not.** That is a divergence in our favour, and it is surfaced upstream rather than quietly enjoyed — the standard's own Tier Enforcement clause binds both repos.
 
