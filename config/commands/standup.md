@@ -140,6 +140,14 @@ Jargon from the artifact means nothing to a reader who did not write it. Say wha
 
 **3 · Direction decisions** — rulings only the operator can make. **OPEN ONLY**: `status: open`, never `applied` or `rejected`.
 
+**A DIRECTION ROW MUST NOT SURVIVE A STANDUP IN THE SAME STATE**, exactly as an issue must not. Three exits, and the third is real:
+
+- **`applied`** — ruled, and the change it implies has landed
+- **`rejected`** — ruled against, with the reasoning in the row
+- **carried, WITH the specific thing it waits on** — a named spike, a named decision, a dated event. *"Still thinking about it"* is not a blocker and does not qualify
+
+**Say which exit each row is heading for**, and if the answer is carried, name the blocker. These are the only items on the board that nobody but the operator can move, so a row that survives untouched is not deferred work — it is a decision the project is making by default, in the direction of not deciding.
+
 | ID | The ruling, and what it unblocks | Status |
 |---|---|---|
 
