@@ -48,7 +48,7 @@ from ...research.research_verify import research_verify_workflow as verify
 from ..plan_sprint import plan_sprint_workflow as sprint
 
 
-def run_plan_master(*, repo_root: Path, worktree_name: str, sprint_path: Path,
+def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                     candidates_path: Path, research_dir: Path,
                     pr_number: str | None = None, repo_target: str | None = None,
                     verbose: bool = False) -> tuple[str, routing.Verdict, int, list[str]]:

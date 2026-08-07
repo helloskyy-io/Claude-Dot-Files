@@ -27,7 +27,7 @@ Create a focused plan for the changes. Reference existing requirements or docume
 **MATCH LOCAL PRECEDENT:** before writing, search the same file/module for sibling implementations of the pattern you are touching and match them wholesale — local precedent beats general principle. **EXECUTION-CONTEXT CHECK:** if your change moves code into a different context (subshell, command substitution, pipeline, background job, trap), enumerate EVERYTHING that context changes before finishing — command substitution alone clears errexit AND captures stdout, which produced two separately-found defects from one root cause.
 Before writing code, discover the applicable standards:
 - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-- If docs/standards/architecture/ exists, scan for relevant ADRs
+- If docs/standards/ exists, scan for relevant standards
 - Read the specific docs/standards/*.md files relevant to your task area
 
 Execute the plan. Make the changes.

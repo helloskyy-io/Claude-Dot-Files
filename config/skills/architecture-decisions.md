@@ -1,13 +1,15 @@
 ---
 name: architecture-decisions
-description: How to make and document architectural decisions — when to write an ADR, trade-off analysis, reversibility considerations, researching alternatives, and the ADR format. Use when making significant technical choices, evaluating trade-offs between approaches, writing ADRs, or deciding whether a decision is architecture-worthy.
+description: How to make and document architectural decisions — when to record it as a standard, trade-off analysis, reversibility considerations, researching alternatives, and the standard format. Use when making significant technical choices, evaluating trade-offs between approaches, writing standards, or deciding whether a decision is architecture-worthy.
 ---
 
 # Architecture Decisions
 
 This skill is about **making and documenting decisions that shape the system**. It covers when to treat something as an architectural decision, how to analyze trade-offs rigorously, and how to capture decisions for future readers.
 
-The ADR template and placement rules live in `documentation-structure`. This skill focuses on the THINKING, not the formatting.
+> **This repo does NOT use numbered ADRs.** An architectural decision is captured as `docs/standards/<topic>.md` — a living rule, amended in place, never a dated immutable record. The methodology below (trade-off analysis, rationale, alternatives, consequences) is unchanged; only the artifact differs. See `config/rules/standards-governance.md`.
+
+The standards-doc template and placement rules live in `documentation-structure`. This skill focuses on the THINKING, not the formatting.
 
 ## First Principles
 
@@ -25,9 +27,9 @@ Some decisions are **one-way doors** — hard to reverse. Others are **two-way d
 
 ## What Counts as an Architectural Decision?
 
-Not every technical choice is an architectural decision. Writing an ADR for every variable name would be noise. Writing ADRs only for mega-decisions would lose valuable context.
+Not every technical choice is an architectural decision. Writing a standard for every variable name would be noise. Writing standards only for mega-decisions would lose valuable context.
 
-### Write an ADR When:
+### Record a standard When:
 
 **The decision affects how the system works structurally:**
 - Choice of programming language, framework, or major library
@@ -54,7 +56,7 @@ Not every technical choice is an architectural decision. Writing an ADR for ever
 - Infrastructure decisions with vendor lock-in
 - Patterns that the team has built on top of
 
-### Don't Write an ADR For:
+### Don't Record a standard For:
 
 - Routine implementation choices (variable names, file organization)
 - Decisions with no meaningful alternatives (the language requires it)
@@ -62,7 +64,7 @@ Not every technical choice is an architectural decision. Writing an ADR for ever
 - Decisions made 6 months ago without documentation — that context is already lost, don't pretend otherwise
 - Changes that are trivially reversible
 
-**Rule of thumb:** If you can explain the decision in a sentence and nobody would question it, skip the ADR. If you need to explain WHY you chose X over Y, write the ADR.
+**Rule of thumb:** If you can explain the decision in a sentence and nobody would question it, skip the standard. If you need to explain WHY you chose X over Y, write the standard.
 
 ## The Reversibility Spectrum
 
@@ -73,7 +75,7 @@ Examples: variable names, file organization, internal helper functions, UI layou
 
 **How to approach:**
 - Decide quickly
-- Don't write an ADR
+- Don't record it as a standard
 - Revisit later if it's wrong
 - Let real usage inform the decision
 
@@ -86,7 +88,7 @@ Examples: API endpoint shapes, component architecture, testing patterns, module 
 - Spend moderate time on the decision
 - Consider 2-3 alternatives
 - Document the reasoning inline in code comments or short design notes
-- Write an ADR if the team will build on this decision repeatedly
+- Record a standard if the team will build on this decision repeatedly
 
 **Time investment:** Hours to days. Not weeks.
 
@@ -98,7 +100,7 @@ Examples: core language/framework, database technology, authentication model, di
 - Research alternatives thoroughly (at least 3)
 - Prototype if uncertain
 - Consult stakeholders
-- Write a detailed ADR
+- Write a detailed standard
 - Consider reversibility as a deciding factor — sometimes the reversible option is worth picking even if it's slightly worse
 
 **Time investment:** Days to weeks. Getting it wrong is expensive.
@@ -110,7 +112,7 @@ Many decisions claim to be reversible but have real migration costs. A database 
 
 ## The Decision-Making Process
 
-For decisions worth an ADR, follow this process.
+For decisions worth a standard, follow this process.
 
 ### Stage 1: Understand the Problem
 
@@ -124,7 +126,7 @@ Before considering solutions, get clear on the problem.
 - Who is affected by this decision?
 - When does this decision need to be made?
 
-**Output:** A paragraph describing the problem, the forces, and the constraints. This becomes the Context section of the ADR.
+**Output:** A paragraph describing the problem, the forces, and the constraints. This becomes the Context section of the standard.
 
 ### Stage 2: Research Alternatives
 
@@ -190,32 +192,32 @@ Based on the analysis, make the choice.
 
 ### Stage 5: Document the Consequences
 
-BEFORE writing the ADR, think through what will happen as a result.
+BEFORE writing the standard, think through what will happen as a result.
 
 **Positive consequences:** What gets easier because of this decision?
 **Negative consequences:** What gets harder?
 **Neutral consequences:** What changes in how the team works?
 **Downstream effects:** What other decisions does this enable or constrain?
 
-This section is often the most valuable part of the ADR. Future readers want to know "what did we give up?" as much as "what did we get?"
+This section is often the most valuable part of the standard. Future readers want to know "what did we give up?" as much as "what did we get?"
 
-### Stage 6: Write the ADR
+### Stage 6: Write the standard
 
-Use the ADR template from `documentation-structure` skill. The format is already defined there — this skill focuses on what CONTENT to put in it.
+Use the standards-doc template from `documentation-structure` skill. The format is already defined there — this skill focuses on what CONTENT to put in it.
 
-**ADR section guidance:**
+**Standards-doc section guidance:**
 
 **Context:** Describe the problem, forces, and constraints. Enough that someone unfamiliar with the decision can understand why it was needed. Don't include the solution here.
 
 **Decision:** State the decision clearly and specifically. "We will use X" not "We might consider using X."
 
-**Consequences:** Honest assessment of positive AND negative outcomes. If you only list positives, your ADR is propaganda, not documentation.
+**Consequences:** Honest assessment of positive AND negative outcomes. If you only list positives, your standard is propaganda, not documentation.
 
 **Alternatives Considered:** For each rejected alternative, explain why. "We considered Y but rejected it because Z." Don't trash the alternatives — explain the trade-off honestly. Someone reading this later might be considering the alternative for a different context.
 
-**Rules for writing ADRs:**
+**Rules for writing a standards doc:**
 
-1. **Write as you decide, not after.** Retrospective ADRs miss the real context because humans rationalize after the fact.
+1. **Write as you decide, not after.** Retrospective standards miss the real context because humans rationalize after the fact.
 
 2. **Be specific.** "We'll use PostgreSQL" not "We'll use a relational database."
 
@@ -223,13 +225,13 @@ Use the ADR template from `documentation-structure` skill. The format is already
 
 4. **Include status.** Proposed / Accepted / Deprecated / Superseded.
 
-5. **Link to evidence.** Benchmarks, research, related ADRs, code locations.
+5. **Link to evidence.** Benchmarks, research, related standards, code locations.
 
-6. **One decision per ADR.** If it's really two decisions, write two ADRs.
+6. **One decision per standard.** If it's really two decisions, write two standards.
 
-7. **Immutable once accepted.** Don't edit accepted ADRs except to change status.
+7. **Amended in place, through human review.** A standard is a living rule, not a dated record — when it changes, the doc changes and the reasoning goes with it. There is no status field and nothing is frozen.
 
-8. **Supersede, don't replace.** When a later decision invalidates an ADR, write a new ADR that supersedes it. Both stay in the history.
+8. **Amend, don't accumulate.** When a later decision invalidates a rule, the standard is corrected rather than shadowed by a second doc that supersedes it. Both stay in the history.
 
 ## Trade-off Analysis Deep Dive
 
@@ -271,10 +273,10 @@ Decisions aren't forever. Situations change. Sometimes a good decision today bec
 - The system has grown beyond the original scope
 
 ### How to Revisit:
-- Write a new ADR that references the old one
+- Amend the standard, stating what changed and why
 - Explain what changed and why
-- If you're superseding, mark the old ADR as "Superseded by ADR-###"
-- Don't just edit the old ADR — preserve history
+- Record the previous rule and the reason it changed inside the standard itself
+- git history preserves the previous text; the doc states the current rule
 
 ## Red Flags in Decision-Making
 
@@ -304,45 +306,45 @@ The person advocating loudest isn't always right. Structured analysis prevents d
 ### Analysis Paralysis
 Endless research without decision. At some point, pick something. A good decision now beats a perfect decision next quarter.
 
-### Retrofit ADRs
-Writing ADRs for decisions you made without documentation. The real context is already lost. Either skip the ADR or explicitly note it's a retrospective reconstruction.
+### Retrofit standards
+Writing a standard for a decision made without documentation. The real context is already lost. Either skip the standard or explicitly note it's a retrospective reconstruction.
 
 ## Integration With Other Skills
 
 ### documentation-structure
-- Provides the ADR template and filename conventions
-- Defines where ADRs live (`docs/standards/architecture/ADR-###-title.md`)
+- Provides the standards-doc template and naming conventions
+- Defines where standards live (`docs/standards/<topic>.md`; `docs/standards/architecture/` is for system-architecture descriptions, never per-decision files)
 - This skill focuses on the thinking; that skill on the format
 
 ### planning-methodology
 - Planning often surfaces architectural decisions
 - When planning, if you need to choose between approaches, that's when to invoke this skill
-- Reference the resulting ADR from the plan
+- Reference the resulting standard from the plan
 
 ### project-definition
 - New projects make many foundational architectural decisions
 - That skill coordinates; this skill handles the decision-making for each choice
-- Expect multiple ADRs during project definition
+- Expect multiple standards during project definition
 
 ## Integration With Workflows
 
 ### build.sh
-- Minor builds don't usually need ADRs
-- If a build surfaces a decision, pause and decide whether it needs an ADR
+- Minor builds don't usually need standards
+- If a build surfaces a decision, pause and decide whether it needs a standard
 
 ### build.sh (via children/build-draft.sh)
 - Major builds often involve architectural re-thinking
 - This skill activates to analyze the proposed changes
-- New ADRs may be written as part of the build
+- New standards may be written as part of the build
 
 ### build-phase.sh
 - Phases sometimes encounter decisions not anticipated in planning
 - This skill activates for those decisions
-- Build-phase should pause and write the ADR, not plow through
+- Build-phase should pause and write the standard, not plow through
 
 ### plan-new.sh
-- Project definition creates many ADRs (tech stack, auth, database, etc.)
-- Each foundational decision should get an ADR
+- Project definition creates many standards (tech stack, auth, database, etc.)
+- Each foundational decision should get a standard
 - This skill is heavily used during plan-new
 
 ## Quick Decision Guide
@@ -354,15 +356,15 @@ Writing ADRs for decisions you made without documentation. The real context is a
 3. Will future contributors need the context?
 4. Is it hard to reverse?
 
-If 2+ of these are yes → write an ADR.
+If 2+ of these are yes → record it as a standard.
 
 **How much effort to spend?**
 
 - Two-way door → minutes, just pick
 - Medium door → hours, consider 2-3 options
-- One-way door → days, research 3+ options, prototype, write detailed ADR
+- One-way door → days, research 3+ options, prototype, write a detailed standard
 
-**Before writing the ADR:**
+**Before writing the standard:**
 
 - Do I understand the problem clearly?
 - Have I considered at least the minimum number of alternatives?
@@ -383,6 +385,6 @@ When making an architectural decision:
 - [ ] Have I thought through second-order effects?
 - [ ] Am I biased by novelty or familiarity?
 - [ ] Can I explain the decision honestly, including what I gave up?
-- [ ] Am I writing the ADR now, while the context is fresh?
-- [ ] Does the ADR follow the format from documentation-structure?
-- [ ] Is the ADR placed in `docs/standards/architecture/` with correct naming?
+- [ ] Am I writing the standard now, while the context is fresh?
+- [ ] Does the standard follow the format from documentation-structure?
+- [ ] Is the standard placed in `docs/standards/architecture/` with correct naming?

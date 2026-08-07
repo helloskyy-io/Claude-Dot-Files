@@ -1,7 +1,7 @@
 """The routing vocabulary every parent branches on — declared ONCE.
 
 Promoted here per §10.1 rule 3: three consumers (`build`, `review_pr`,
-`plan_master`), and the promotion rule is consumer count, never taste.
+`plan_project`), and the promotion rule is consumer count, never taste.
 
 WHY IT MOVED. `Verdict` and its parser were typed twice — byte-identical
 members, byte-identical regex, differing only in docstring prose — and issue #34

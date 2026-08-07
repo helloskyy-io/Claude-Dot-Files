@@ -230,7 +230,7 @@ for bucket in architecture development standards guide; do
             architecture)
                 echo "# Architecture" > "docs/${bucket}/README.md"
                 echo "" >> "docs/${bucket}/README.md"
-                echo "Architectural decisions (ADRs) and system design. The WHY." >> "docs/${bucket}/README.md"
+                echo "Architecture standards and system design. The WHY." >> "docs/${bucket}/README.md"
                 ;;
             development)
                 echo "# Development" > "docs/${bucket}/README.md"
@@ -260,7 +260,7 @@ else
     cat > docs/file_structure.txt <<FSTRUCT
 ${PROJECT_NAME}/
 ├── docs/
-│   ├── architecture/              # THE WHY: ADRs, system design
+│   ├── architecture/              # THE WHY: architecture standards, system design
 │   ├── development/               # THE WHAT: roadmap, phases, features
 │   ├── standards/                 # THE HOW: conventions, patterns
 │   ├── guide/                     # OPERATING MANUAL: user-facing docs
@@ -286,7 +286,7 @@ else
 ## Documentation
 
 This project follows the four-bucket documentation layout:
-- \`docs/standards/architecture/\` — THE WHY: ADRs, system design
+- \`docs/standards/architecture/\` — THE WHY: architecture standards, system design
 - \`docs/development/\` — THE WHAT: roadmap, phases, features
 - \`docs/standards/\` — THE HOW: conventions, patterns
 - \`docs/guide/\` — OPERATING MANUAL: user-facing docs

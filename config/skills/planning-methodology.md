@@ -371,9 +371,9 @@ Don't solve all of these in v1 — but **acknowledge them** in the plan so the d
 - Establishes file naming conventions
 
 ### architecture-decisions
-- When planning surfaces an architectural decision, write an ADR
-- Reference the ADR from the plan
-- Planning is the trigger for many ADRs
+- When planning surfaces an architectural decision, SURFACE it as a standards candidate — this repo uses `docs/standards/<topic>.md`, never numbered ADRs
+- Reference the standard from the plan once it is ratified
+- Standards are human-in-the-loop: planning proposes, a human writes
 
 ### testing-methodology
 - Every phase should include testing tasks

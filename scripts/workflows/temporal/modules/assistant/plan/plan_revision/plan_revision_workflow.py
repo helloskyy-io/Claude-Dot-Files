@@ -19,7 +19,7 @@ to `plan_activities`.
 THIS WORKFLOW CALLS A MODEL, SO IT IS A CHILD. It receives a worktree and never
 creates one — two actors creating the same named worktree is a
 `fatal: already exists` that has killed a handoff before. It calls no other
-workflow. A parent will orchestrate it; wiring it into `plan_master` is
+workflow. A parent will orchestrate it; wiring it into `plan_project` is
 deliberately NOT part of this port.
 
 NOT IDEMPOTENT (§7.1): it pushes commits and opens PRs. Under Temporal a retry

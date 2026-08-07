@@ -165,7 +165,7 @@ For each layer of the stack, apply the decision-making process from `architectur
 **Monitoring:** How do you see it? (Datadog, Sentry, CloudWatch)
 **Testing:** What frameworks? (Per language — see testing-scaffolding)
 
-**For each decision, write an ADR.** These are foundational decisions that will be questioned later. Capture the reasoning now.
+**For each decision, write a standards doc** at `docs/standards/<topic>.md`. These are foundational decisions that will be questioned later. **This repo does not use numbered ADRs** — a standard is a living rule, amended in place. Capture the reasoning now.
 
 #### Guiding Principles for Stack Selection
 
@@ -185,18 +185,18 @@ For each layer of the stack, apply the decision-making process from `architectur
 
 8. **Consider the 5-year operational cost.** Licenses, infra, ops time, hiring difficulty.
 
-#### Writing Tech Stack ADRs
+#### Writing tech-stack standards
 
-Each major stack decision gets its own ADR. Use the format from `documentation-structure`.
+Each major stack decision gets its own standards doc, named for its topic. Use the format from `documentation-structure`.
 
-Required ADRs for most projects:
+Required standards for most projects:
 - Language(s) choice
 - Framework choice
 - Database choice
 - Deployment target
 - Authentication approach
 
-Optional ADRs (write if decision is non-obvious):
+Optional standards (write if the decision is non-obvious):
 - Caching strategy
 - Queue choice
 - Monitoring stack
@@ -413,9 +413,9 @@ Set up the full four-bucket layout per `documentation-structure` skill:
 docs/
 ├── architecture/
 │   ├── README.md              (explains purpose)
-│   ├── ADR-001-tech-stack.md
-│   ├── ADR-002-database.md
-│   ├── ADR-003-auth.md
+│   ├── stack_reference.md
+│   ├── database.md
+│   ├── authentication.md
 │   ├── architectural_standard.md
 │   ├── tech-stack.md
 │   └── security.md
@@ -456,7 +456,7 @@ After project definition is complete, you should have:
 - [ ] `docs/standards/architecture/architectural_standard.md` — high-level architecture
 - [ ] `docs/standards/architecture/tech-stack.md` — summary of stack choices
 - [ ] `docs/standards/architecture/security.md` — security considerations
-- [ ] `docs/standards/architecture/ADR-###-*.md` — one ADR per major stack decision
+- [ ] `docs/standards/<topic>.md` — one standard per major stack decision, named for the topic
 - [ ] `docs/development/sprint.md` — top-level phased plan
 - [ ] `docs/development/features/` — directory ready for feature docs
 - [ ] `docs/standards/` — initial coding standards
@@ -485,21 +485,21 @@ Not every project needs all of this. Scale to the project size.
 
 ### Very Small (1-2 weeks, solo)
 - Skip formal requirements doc, use README
-- 1-2 ADRs for the big decisions
+- 1-2 standards for the big decisions
 - Simple roadmap with 1-3 phases
 - Minimal standards (rely on defaults)
 - Total definition time: 1-4 hours
 
 ### Small (1-3 months, 1-2 people)
 - Requirements doc (functional only, lighter on non-functional)
-- 3-5 ADRs
+- 3-5 standards
 - Detailed Phase 0 and Phase 1
 - Basic standards
 - Total definition time: 1-2 days
 
 ### Medium (3-12 months, small team)
 - Full requirements doc
-- 5-10 ADRs
+- 5-10 standards
 - Detailed Phase 0, Phase 1, Phase 2
 - Comprehensive standards
 - Security review
@@ -507,7 +507,7 @@ Not every project needs all of this. Scale to the project size.
 
 ### Large (1+ years, multi-team)
 - Multi-section requirements with versioning
-- 10-20 ADRs
+- 10-20 standards
 - Detailed phases through Phase 3+
 - Complete standards library
 - Formal security review
@@ -560,7 +560,7 @@ If Phase 1 alone isn't valuable, you've built a horizontal slice that ships noth
 
 ### architecture-decisions
 - Use it for each tech stack decision during Stage 3
-- Each major decision becomes an ADR
+- Each major decision becomes a standard
 - This skill orchestrates; that skill executes each decision
 
 ### testing-scaffolding
@@ -575,7 +575,7 @@ This skill is specifically designed for `plan-new.sh`. It's heavy machinery — 
 - Primary consumer of this skill
 - Produces all the deliverables listed above
 - Creates the full documentation scaffolding
-- Makes the foundational ADRs
+- Makes the foundational standards
 
 ### Other workflows
 - This skill should NOT activate for other workflows
@@ -589,7 +589,7 @@ This skill is specifically designed for `plan-new.sh`. It's heavy machinery — 
 - No → Use planning-methodology (existing project work) or architecture-decisions (existing project architecture)
 
 **Should I do full project definition or a lighter version?**
-- Very small (<2 weeks) → Light version: README, 1-2 ADRs, brief roadmap
+- Very small (<2 weeks) → Light version: README, 1-2 standards, brief roadmap
 - Small (<3 months) → Standard version with functional requirements
 - Medium+ → Full version with all deliverables
 
@@ -604,7 +604,7 @@ This skill is specifically designed for `plan-new.sh`. It's heavy machinery — 
 - [ ] Have I defined out-of-scope explicitly?
 - [ ] Have I identified stakeholders?
 - [ ] Have I defined measurable success criteria?
-- [ ] Have I chosen the tech stack with ADRs?
+- [ ] Have I chosen the tech stack, with a standard per major decision?
 - [ ] Have I written the system overview?
 - [ ] Have I done an initial security review?
 - [ ] Have I broken the project into phases?

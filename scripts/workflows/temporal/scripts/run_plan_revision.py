@@ -26,7 +26,7 @@ EPILOG = """\
 Examples (flags FIRST, positionals LAST — protects positionals from
 line-wrap and keeps options visible):
   plan_revision.sh "update roadmap to reflect Phase 4 completion"
-  plan_revision.sh "add ADR for switching from REST to gRPC" "focus on performance rationale"
+  plan_revision.sh "record the REST to gRPC switch in the planning docs" "focus on performance rationale"
   plan_revision.sh --pr 18 --task-file /tmp/context.md "revise Phase 5 requirements"
   plan_revision.sh --verbose "realign roadmap milestones"
 
@@ -39,7 +39,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="plan-revision",
         description="Revise existing planning docs — roadmaps, phase docs, "
-                    "requirements, ADRs, epics. A PLANNING build, not a code change.",
+                    "requirements, epics. A PLANNING build, not a code change.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

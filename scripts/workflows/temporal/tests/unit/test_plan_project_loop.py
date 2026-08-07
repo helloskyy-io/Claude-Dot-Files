@@ -1,4 +1,4 @@
-"""plan-master routes on the verdict, and loops exactly once.
+"""plan-project routes on the verdict, and loops exactly once.
 
 WHY THIS EXISTS. `plan-sprint` ran twice with no parent, so its output reached
 the operator UNJUDGED — on the only autonomous write to `sprint.md`. This parent
@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from modules.assistant import routing
-from modules.assistant.plan.plan_master import plan_master_workflow as pm
+from modules.assistant.plan.plan_project import plan_project_workflow as pm
 from modules.assistant.review_pr.review_pr_helper import ReviewResult
 
 PR_URL = "https://github.com/o/r/pull/43"
@@ -77,7 +77,7 @@ def _verdicts(monkeypatch: pytest.MonkeyPatch, calls: _Calls, *sequence: routing
 
 
 def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str]]:
-    return pm.run_plan_master(
+    return pm.run_plan_project(
         repo_root=Path("/repo"), worktree_name="wt",
         sprint_path=Path("/repo/docs/development/sprint.md"),
         candidates_path=Path("/repo/c.md"), research_dir=Path("/repo/r"), **kw,

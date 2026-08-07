@@ -157,7 +157,7 @@ Common areas where detailed methodology adds value:
 **Planning & Design:**
 - Feature planning methodology
 - Requirements gathering process
-- Architecture decision-making (ADR format, trade-off analysis)
+- Architecture decision-making (standards-doc format, trade-off analysis)
 - Task breakdown and estimation
 
 **Implementation:**

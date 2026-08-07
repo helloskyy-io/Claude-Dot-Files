@@ -1,5 +1,48 @@
 # Workflows Guide
 
+## TWO FLEETS — read this first
+
+There are **two implementations** of the workflow fleet, and the Python one is where new work happens.
+
+| | V1 — bash | V2 — Python |
+|---|---|---|
+| Lives in | `scripts/workflows/*.sh` | `scripts/workflows/temporal/` |
+| Status | **still runs; not yet retired** | **the active fleet** — every dispatch in this session used it |
+| Retires when | its V2 replacement is PROVEN, one at a time | — |
+
+**Dispatch V2 unless you have a specific reason not to.** V1 is kept because a bash workflow dies only when its replacement is proven, and because V2's parity suite re-extracts V1's prompts on every run to prove they have not drifted apart.
+
+### V2 — `scripts/workflows/temporal/scripts/`
+
+| Entrypoint | Role | Chains |
+|---|---|---|
+| `build.sh` | **parent** | `build-draft` → `build-refine` → `review-pr` → one bounded loop-back |
+| `build_minor.sh` | **parent** | same shape, lighter middle child |
+| `research.sh` | **parent** | `research-write` → `research-verify` → `review-pr`. **Altitude is DERIVED from the pool path** — `docs/standards/architecture/research/` is project-level, `docs/development/<component>/research/` is component-level. One workflow, two altitudes |
+| `plan_project.sh` | **parent** | `plan-sprint` → research children per NEW component → `review-pr`. Was `plan-master` |
+| `plan_sprint.sh` | child, independently dispatchable | triages `candidates.md`, maintains `sprint.md`, reconciles sections against newer research |
+| `plan_revision.sh` | child, independently dispatchable | roadmaps, phase docs, requirements, epics |
+| `review_pr.sh` | child, **SHARED** by every parent | decide-only: `MERGE` \| `HOLD - redispatch` \| `HOLD - needs-assistance`. Takes `--type build\|research\|planning` |
+
+**A parent calls no model.** It decides what runs and in what order; every side effect is an activity or a child. Isolation is established once by the parent and passed down — a child never creates its own worktree.
+
+**Child-ness is a call-graph property, not a location.** `review-pr` is a child of four parents and stays independently dispatchable against any returned PR.
+
+### Where the planning fleet is going
+
+The chain below is the target shape; `plan-roadmap`, `plan-phase` and the sprint-hours calculation do not exist yet, and `plan-feature` has no parent.
+
+```
+research(project)  →  HiL
+plan-project       →  plan-sprint  →  research(component)  →  plan-roadmap  →  plan-phase  →  review-pr
+research(feature)  →  HiL
+plan-feature       →  plan-roadmap →  plan-phase  →  review-pr
+```
+
+Three document layers, one owner each: **`sprint.md`** (clean, one entry per component) → **`<component>/roadmap.md`** (architecture, decisions, success criteria) → **`<component>/phaseN_*.md`** (build detail). `plan-roadmap` is blocked on that middle layer being defined, and the whole chain is gated on the Memory Management Framework — at seven children the prose handoff channel stops being survivable.
+
+---
+
 ## Quick Reference — All Scripts
 
 ### Helper Scripts (no AI, pure bash)

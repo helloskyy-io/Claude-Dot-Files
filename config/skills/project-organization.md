@@ -25,7 +25,7 @@ This is the meta-layer above `documentation-structure` (which is about where doc
   <master-planning-repo>/
     CLAUDE.md
     docs/
-      standards/                    ← binding architectural decisions (the ADRs)
+      standards/                    ← binding architectural decisions (standards docs, never numbered ADRs)
       development/                  ← sprint.md + topic-folders with phase docs
         <topic>/sprint.md
         <topic>/phase-N.md

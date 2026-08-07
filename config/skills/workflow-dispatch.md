@@ -14,7 +14,7 @@ Two questions every dispatch answers: (1) which workflow fits this task? (2) how
 | Small code fix | `build-minor.sh` | Single file or small area, clear bounded scope, one concept |
 | Significant code rework | `build.sh` | Multiple files, architecture changes, refactor, review feedback. A **parent** — drafts in one run, then judges in a SECOND run with fresh context |
 | Implement from a plan doc | `build-phase.sh` | Phase/feature doc exists; engineer follows it step-by-step |
-| Revise planning docs | `plan-revision.sh` | Updating roadmap, phase docs, requirements, ADRs, epics |
+| Revise planning docs | `plan-revision.sh` | Updating roadmap, phase docs, requirements, epics |
 | Define new project | `plan-new.sh` | Greenfield — project scope, stack, architecture undefined |
 
 ### Anti-patterns (DON'T)
@@ -155,7 +155,7 @@ Describe the project briefly while capturing hard constraints:
 **Target environment:** <deployment, scale, compliance>
 
 ## Expected deliverables
-<documentation buckets, phase docs, ADRs>
+<documentation buckets, phase docs, standards>
 ```
 
 ## @claude PR Comment Format

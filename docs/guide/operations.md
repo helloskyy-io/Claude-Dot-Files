@@ -261,7 +261,7 @@ Methodology documents Claude loads on demand when the context matches. You rarel
 | Skill | Covers |
 |---|---|
 | `planning-methodology` | Feature and phase breakdowns, dependencies, sizing |
-| `architecture-decisions` | When a decision needs an ADR, trade-off analysis, reversibility |
+| `architecture-decisions` | When a decision needs recording as a standard, trade-off analysis, reversibility |
 | `decision-methodology` | Five-whys reframing — behind `/decide` |
 | `troubleshooting-methodology` | Bisection + hypothesis testing + structured escalation — behind `/troubleshoot` |
 | `testing-methodology` | Principles, scoping, execution for writing and fixing tests |

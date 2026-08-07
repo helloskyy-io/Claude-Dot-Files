@@ -16,7 +16,7 @@
 # Stages:
 #   1. REQUIREMENTS — gather functional, non-functional, constraints
 #   2. STAKEHOLDERS — identify who cares, define success criteria
-#   3. TECH STACK — select and document with ADRs
+#   3. TECH STACK — select and document as standards docs
 #   4. ARCHITECTURE — high-level system overview
 #   5. PHASES — break into independently deliverable phases
 #   6. EPICS — identify major features per phase
@@ -325,7 +325,7 @@ Define measurable success criteria:
 - Include anti-success criteria (early warning signs of going off track)
 
 ## Stage 3: TECH STACK
-Select the technology stack. Each major decision gets an ADR in `docs/standards/architecture/`.
+Select the technology stack. Each major decision gets a standards doc at `docs/standards/<topic>.md`. **This repo does NOT use numbered ADRs** — a standard states the rule in the present tense and is amended in place.
 
 Evaluate and document decisions for:
 - Language(s), runtime, framework
@@ -334,7 +334,7 @@ Evaluate and document decisions for:
 - CI/CD, monitoring, testing frameworks
 - Authentication approach
 
-For each decision, write an ADR following the project's ADR format. Create a summary in `docs/standards/architecture/tech-stack.md`.
+For each decision, write a standards doc following the project's standards format. Create a summary in `docs/standards/architecture/tech-stack.md`.
 
 Guiding principles: boring is beautiful, team expertise matters, operational simplicity wins, start simple.
 
@@ -404,7 +404,7 @@ Set up the full project documentation scaffolding.
 Set up the four-bucket documentation layout:
 ```
 docs/
-├── architecture/     (THE WHY: ADRs, system design, security)
+├── architecture/     (THE WHY: architecture standards, system design, security)
 ├── development/      (THE WHAT: roadmap, requirements, phases, features)
 ├── standards/        (THE HOW: conventions and patterns)
 ├── guide/            (OPERATING MANUAL: user-facing docs)
@@ -430,10 +430,10 @@ Use the architect agent to review the work produced in Stages 3-4 for internal c
 
 The architect should evaluate:
 - **Tech stack coherence:** Do the selected technologies work well together? Are there conflicts or redundancies?
-- **Architecture alignment:** Does the system overview align with the tech stack decisions and ADRs?
+- **Architecture alignment:** Does the system overview align with the tech stack decisions and standards?
 - **Component boundaries:** Are responsibilities clearly separated? Are there missing or overlapping components?
 - **Scalability and operational concerns:** Are there obvious bottlenecks or operational gaps in the design?
-- **ADR consistency:** Do the ADRs reference each other correctly? Are trade-offs internally consistent?
+- **Standards consistency:** Do the standards reference each other correctly? Are trade-offs internally consistent?
 
 Review the architect's findings. Critical concerns must be noted for Stage 13.
 
@@ -512,7 +512,7 @@ Rules:
 - Do not re-read files whose content you already know and haven't modified since you last read them
 - For known-large files (sprint.md, standards docs, .jsonl logs), use limit:200 on first read or run wc -l to check size first — unbounded reads on large files cause errors
 - Scale the process to the project size (see the skill's "Scaling the Process" section)
-- Every major tech stack decision needs an ADR
+- Every major tech stack decision needs a standards doc
 - Success criteria must be measurable, not vague
 - Phase 0 and Phase 1 must be fully detailed; later phases can be lighter
 - If you cannot complete a stage, stop and clearly report why
@@ -559,7 +559,7 @@ ${SHARED_STAGES}
 - Push the branch (this updates PR #${PR_NUMBER})
 - **As your FINAL line, print the PR URL** — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
 - Report a summary of the entire workflow including:
-  - Deliverables created (documents, ADRs, configs)
+  - Deliverables created (documents, standards, configs)
   - Key decisions made and their rationale
   - Any stages that were scaled down and why
 
@@ -594,7 +594,7 @@ ${SHARED_STAGES}
 - Create a new PR using 'gh pr create'. Title format: \"plan-new: ${PROJECT_NAME} foundation\". In the body, include:
   - Summary of all deliverables created
   - Key decisions made (tech stack, architecture, phasing)
-  - ADRs written and their conclusions
+  - Standards written and their conclusions
   - Phase breakdown overview
   - Success criteria defined
   - Documentation structure set up
