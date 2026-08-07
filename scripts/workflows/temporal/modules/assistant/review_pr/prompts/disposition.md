@@ -112,6 +112,20 @@ Both still block MERGE. Only LAUNDERED counts against the producing run.
 
 **Self-check for a novel case — if I get this wrong, is the failure LOUD or QUIET?** A false no-change outcome is **loud**: no plan was produced and the operator sees it immediately. A buried deferral is **quiet**: the PR still reads clean and nobody notices. **The gate exists for the quiet one.** If getting it wrong would be loud, it is not the operation this constrains.
 
+**PLACEMENT COMES FIRST — two questions, BEFORE the qualification test below.** Both default **against** a new issue. Documentation Standard § Deferred Work → *Placement* (vendored, binding).
+
+**1. Does it have a done-state TODAY?** An item whose remedy waits on a **named trigger**, or on a system **not yet built or still in progress**, cannot be closed — only carried. A carried issue reads as neglect at every standup while being structurally unable to move, and the anti-rot flag misfires on it. That item is a **checkbox on the phase that owns the trigger**, where its readiness and its parent's readiness are the same event.
+
+**Assume the checkbox fits; file an issue only when it demonstrably does not.** The order is load-bearing — evaluated the other way round everything looks issue-shaped, **because an issue accepts anything.**
+
+**2. Is it closely related to something that already exists?** Then it is an **expansion of that item**, not a sibling. Two entries describing one concern cost two dispositions, two reviews, and eventually two PRs contending over the same files while the second author re-derives the first's decisions. Expand the existing item — its title, its body, its checkbox list.
+
+**Decide from the BODY, never the title.** Titles state a consequence and therefore read alike across very different items. Measured upstream the same day the rule landed: a title-driven triage nominated four issues for re-filing and **one of four survived reading the bodies** — one had been folded into an unrelated migration on "both are file moves", another read as blocked on an undeployed system whose own body pre-refuted exactly that.
+
+**State which question you answered, and how, in the disposition entry.** A filing that does not show its placement reasoning has not done this step — and `remedy: create-missing-surface` is where that shows up.
+
+Neither question relaxes anything below: **work small enough to fix in place is still fixed in place**, not filed anywhere. These decide *where a filed item lives*, not *whether small work gets recorded*.
+
 **Qualification — all THREE, conjunctive. Fail any one and it is not an issue:**
 1. **Unrelated to the work in hand.** The primary discriminator, and the one that stops a PR offloading its own scope into the queue. Work this PR is responsible for is fixed or redispatched, never filed.
 2. **Substantial in size or effort.** Anything failing this is fixed in place or stays a redispatch item. This bar protects the PLANNING PIPELINE, not the issue queue — routing a ten-minute doc fix into planning is absurd.
