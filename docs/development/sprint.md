@@ -192,7 +192,8 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 - [x] **Stage A — the Python tree** — `scripts/workflows/temporal/`, parent/child modules with a CLI entrypoint, no Temporal runtime
 - [x] **V1 parity suite** — the Python fleet checked against the bash one it replaces
 - [ ] **A `claude_cli` activity domain** — heartbeating for 10–60 minute runs, transcript-to-file for payload limits. The genuinely new work; the rest is a port
-- [ ] **Port the remaining workflows** — `plan-new`, `plan-revision`, `review-runs`, `review-sprint`
+- [ ] **Port `review-runs`** — the CPI log sweep, the one of the four with a live role and a run history
+- [ ] **Rule on `plan-new` and `review-sprint`** — 1,228 lines between them and **neither has ever executed**; decide whether they die with the bash fleet or earn a port
 - [ ] **Stand up the Temporal server** — Postgres-backed, on the VM that gets backed up
 - [ ] **Stage B — semantic wrappers** — `@activity.defn` over the plain functions from Stage A
 - [ ] **Stage C — orchestrate** — workflows compose the wrappers; schedules replace timers
