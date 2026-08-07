@@ -142,7 +142,7 @@ Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-int
 
 ## Sprint: Memory Management Framework — 📋 QUEUED, NEEDS PLANNING
 
-**Phase doc:** not yet written. Kind 2 below **needs real research first** — the problem is well understood, the answer is not.
+**Phase doc:** not yet written — writing it is the planning step.
 
 Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
@@ -150,9 +150,8 @@ Two distinct kinds of memory, currently conflated and only half-built. Both exis
 
 **Kind 2 — machine handoff in a file, read by CODE.** Not built. A parent must decide *in code, with no AI in the loop*, which child to invoke next.
 
-- [ ] **Read the result envelope; gate on `is_error`** — the last line of every `stream-json` log already carries `is_error`, `subtype`, `terminal_reason`, and **the parent gates on none of them**. A child can fail and the parent greps on regardless. Replaces a 307-line log scrape
-- [ ] **Research the payload contract** — GitHub Actions *deprecated* stdout output-passing for a caller-declared file path; Argo and Tekton converge on the same shape; Tekton's 4096-byte cap is the lesson that this channel carries **references, not payloads**
-- [ ] **Design it** — closed-vocabulary verdict plus the payload the bare token cannot carry. Absent or malformed must fail safe to the human branch, because **our producer is an LLM that can emit a plausible-looking but wrong result** — an assumption no surveyed CI system has to defend against
+- [ ] **Read the rest of the result envelope** — `subtype` and `.result` are read today; `is_error`, `permission_denials[]` and `num_turns`-against-cap are not, and no published exit-code table backs the mapping
+- [ ] **Design it** — the child writes a typed record at exit to a channel the parent owns, on a closed vocabulary that splits *could-not-check* from *needs-a-ruling*, with a total fail-safe default
 - [ ] **Document Kind 1 as a framework** — it exists as prose in `operations.md` and behaviour spread across prompts
 - [ ] **Convergence-based stopping** — *"did this pass find anything not in the previous pass's result?"* is answerable against two typed payloads, not two prose logs. Depends on the above
 
