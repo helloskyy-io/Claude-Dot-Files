@@ -33,13 +33,25 @@ Confidence:     DEFINITIVE for every identity-model claim about an external syst
                 Builders' Library article and the IETF datatracker status page are rendered pages
                 and are quoted only in short spans; Temporal's default Activity retry policy is
                 NOT asserted from my own fetch (it summarized) and is cited to the upstream pool.
+                ALSO REDUCED: Candea & Fox's "Crash-Only Software" (§1.1, §3.6) was read as PAGE
+                IMAGES of a PDF, so its spans are transcribed visually rather than returned as
+                characters; it corroborates and carries nothing (§7.5, §8 gap 4).
                 UNVERIFIED at the behavioural level: nothing was executed. No dispatch was run
                 with `--session-id`, no resume was attempted, no Temporal workflow was started.
                 §9 is the handoff.
                 ONE COUNT is asserted (§7.3, the log enumeration) and it is stated as a FLOOR with
                 its method; the 0.9% (4/443) figure in the code is quoted as an in-repo assertion
                 and explicitly NOT corroborated (§7.3 is a negative finding).
-Critic:         not-yet-verified — 2026-08-07
+Critic:         PASS-WITH-FIXES (extended three silently-truncated quotations to their source
+                sentence ends — the `assistant_activities.py` docstring in §1.2 and both
+                `sessions.md` spans in §2.6, all re-fetched before rewriting; withdrew the
+                Candea & Fox "unretrievable" negative finding after re-fetching the EPFL PDF and
+                reading it through a page renderer, and rewrote §0.4, §1.1, §3.6, §7.5 and §8
+                gap 4 around the now-cited source; corrected §0.3's `headless.md` version
+                enumeration from 8 to 11 point releases; named SQS's source form explicitly in
+                §2.4. One critic finding DISPUTED with evidence: SQS is not a rendered-page
+                source — both its `.md` and `.html` paths return the same markdown, see §2.4)
+                — 2026-08-07
 ```
 
 > ## Headline — the status-quo comment is right about resume and silent about identity, and those are different decisions
@@ -113,7 +125,7 @@ highest present.
 
 | Material | Class | Why |
 |---|---|---|
-| **§2.6, §4.1, §7 item 5, §8 gaps 1–3 — the Claude Code session/resume surface** | **HIGH** | Both source documents record behaviour changes at **point-release** granularity. `sessions.md` names v2.1.169, .196, .198, .211, .221 and .223 as boundaries where behaviour differed; `headless.md` names v2.1.163, .182, .204, .205, .211, .214, .219 and .221.[^sessions][^headless] A surface documenting that many changes inside one minor version is the fastest-decaying evidence here. |
+| **§2.6, §4.1, §7 item 5, §8 gaps 1–3 — the Claude Code session/resume surface** | **HIGH** | Both source documents record behaviour changes at **point-release** granularity. `sessions.md` names v2.1.169, .196, .198, .211, .221 and .223 as boundaries where behaviour differed; `headless.md` names v2.1.163, .169, .182, .203, .204, .205, .211, .214, .219, .221 and .223 — **eleven distinct point releases in one document**. *(Method for both lists: each document was re-fetched whole, I asked the fetch layer to ENUMERATE every `v2.1.NNN` occurrence with its containing sentence rather than to total them, and I reduced the enumeration to distinct versions myself. An earlier draft of this row omitted `headless.md`'s .169, .203 and .223 — the .169–.203 batch-delivery window that v2.1.204 closed, and the cross-directory session-ID lookup boundary — which understated the very volatility this row argues for.)*[^sessions][^headless] A surface documenting that many changes inside one minor version is the fastest-decaying evidence here. |
 | §2.1–§2.5, §3, §5 — Temporal identity semantics, state-store trade-offs, the port shape | Medium–Low | `WorkflowIdReusePolicy` is a stable protobuf enum; the only recent change is a *deprecation* with a stated replacement.[^proto] SQLite's and git's constraints are decade-stable. |
 | §4, §6 — the contract shape itself | Low | It is a design artifact, not a fact about a vendor. |
 
@@ -148,9 +160,18 @@ normalized** and nothing else changed (GitLab §2.2, Claude Code §2.6). Where a
 template include rather than prose, the include's target file is fetched and quoted separately
 rather than spliced into the row — see §2.2.
 
-**One academic antecedent could not be obtained as text and is therefore not cited as evidence** —
-see §8 gap 4. This paper's antecedents are industrial and first-party, and that limitation is
-stated rather than hidden.
+**One source is a PDF, and it is quoted from page images rather than from a character stream.**
+Candea & Fox's *Crash-Only Software* was recorded in an earlier draft as unretrievable; a re-check
+retrieved it — not by finding a new URL but by reading the downloaded PDF through a page renderer
+instead of a prose-summarizing fetch layer (§8 gap 4, which records the withdrawal and the two legs
+that remain contested). Its spans are therefore transcribed **visually**, marked at reduced
+confidence in §11, and used only to corroborate §3.6 and §2.7. Every other antecedent here is
+industrial and first-party.
+
+**One presentational convention for quoted source code:** where a docstring or comment is quoted
+from a Python or bash file, the source's hard line wraps are joined with single spaces and nothing
+else is changed (§1.2, §4.3). Elisions inside any quotation in this paper are marked; a quotation
+that runs to a closing punctuation mark runs to the source's own sentence end.
 
 ---
 
@@ -169,6 +190,20 @@ A single opaque string answers none of them reliably. Every system surveyed in �
 with the *same two-level shape* — a caller-owned logical identifier plus a system-owned per-attempt
 identifier — plus, in the systems that take retries seriously, three further components most
 hand-rolled designs omit.
+
+**The academic antecedent, added on re-check** *(§8 gap 4; source read as page images, so **reduced
+confidence on exact characters** — §0.4).* Candea & Fox's *Crash-Only Software* (HotOS-IX, 2003)
+states the design stance this entire contract assumes — that recovery is the normal path, not the
+exceptional one: *"Recovery code deals with exceptional situations, and must run flawlessly.
+Unfortunately, exceptional situations are difficult to handle, occur seldom, and are not trivial to
+simulate during development; this often leads to unreliable recovery code. In crash-only systems,
+however, recovery code is exercised every time the system starts up, which should ultimately improve
+its reliability."*[^crashonly] It also names, in 2003, two of the components §2.7 finds missing from
+this fleet: it requires *"self-describing requests that carry a time-to-live and information on
+whether they are idempotent"* — component #4's fingerprint and component #5's horizon, in one clause
+— and that *"all important non-volatile state be kept in dedicated state stores"*, which is §3.6's
+tier split stated twenty-three years earlier.[^crashonly] **It corroborates; nothing here rests on
+it** (§7.5).
 
 ### 1.2 What this fleet is, read from the code
 
@@ -208,8 +243,8 @@ workflow**.[^activities]
 `.claude/` is version-controlled, so nothing under `.claude/` crosses a machine boundary.** The
 Python port encodes the one durability rule that already exists here, in a docstring: `repo_root`
 "is where LOGS live and MUST be the real repository — never a worktree, or the log is deleted with
-the worktree it sat inside," enforced by a guard that raises on `".claude/worktrees" in
-str(repo_root)`.[^activities]
+the worktree it sat inside and cost accounting for that leg becomes impossible." It is enforced by a
+guard that raises on `".claude/worktrees" in str(repo_root)`.[^activities]
 
 **The completion contract already exists, and it already knows exit codes lie.** `run-claude.sh`
 comments that "**exit 0 must mean the workflow actually finished**" because a headless run "ends on
@@ -371,8 +406,16 @@ AWS SQS supplies the third component the two-level shape does not carry — **a 
 message delivery. It ensures that within a 5-minute deduplication window, only one instance of a
 message with the same deduplication ID is processed and delivered."*[^sqs]
 
-*(definitive; the RabbitMQ and Kafka spans came from raw `.md` fetches that added their own
-headings around the quoted spans — the spans are exact, the framing is the layer's.)*
+*(definitive, and the source form is now stated per system rather than in one blanket tag. RabbitMQ
+and Kafka: raw `.md` fetches that added their own headings around the quoted spans — the spans are
+exact, the framing is the layer's. **SQS: also a markdown document, and the claim was contested and
+re-checked** — a critic pass reported that no raw form exists because a non-redirect-following
+request to the `.md`-suffixed path returns `301`. On re-fetch I retrieved **both** the `.md` and the
+`.html` path and each returned the **same markdown source** — `<a name="using-messagededuplicationid-property"></a>`
+anchors and `.md`-suffixed cross-links in the "Topics" list, which a rendered-HTML page would not
+carry — with the span above character-exact in both. The `301` is real and is a redirect to the
+markdown, not evidence of its absence, so SQS stays in the raw/plain-text tier. §11's entry records
+both URL forms.)*
 
 ### 2.5 HTTP idempotency keys — the fingerprint, the expiry, and a standards gap
 
@@ -457,10 +500,16 @@ And from `sessions.md`, reproduced whole:[^sessions]
   where `<project>` is your working directory path with non-alphanumeric characters replaced by `-`."*
 - Retention is *"the 30-day retention"*, configurable via `cleanupPeriodDays`; storage relocatable
   via `CLAUDE_CONFIG_DIR`; writes suppressible per-run via `--no-session-persistence`.
-- **The constraint that decides §7:** *"Permission mode: the mode the session was in. `plan` and
-  `bypassPermissions` are never restored; [bypassing permissions] must be enabled again at launch"*,
-  and *"If the session depended on `--mcp-config`, `--settings`, `--plugin-dir`, `--fallback-model`,
-  or directories added with `--add-dir`, pass them again when you resume."*
+- **The constraint that decides §7**, both spans carried to the source's own sentence end, with the
+  inline markdown link targets left intact so the characters are the document's:
+  *"Permission mode: the mode the session was in. `plan` and `bypassPermissions` are never restored;
+  [bypassing permissions](/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode) must
+  be enabled again at launch, with one of its launch flags or `permissions.defaultMode:
+  "bypassPermissions"` in [settings](/docs/en/settings#permission-settings)."* — and —
+  *"If the session depended on `--mcp-config`, `--settings`, `--plugin-dir`, `--fallback-model`, or
+  directories added with `--add-dir`, pass them again when you resume; directories added mid-session
+  with `/add-dir` aren't restored either, though the session picker still uses them to locate the
+  session."*
 - **The constraint that decides §3:** the cross-project ID search covers *"every other project on
   this machine"* — there is no documented cross-machine resolution.
 
@@ -631,7 +680,9 @@ needs a home outside it** — which is why choosing that home now is not wasted 
 
 *(**derived** — inputs: §3.1–§3.5; §2.6's machine-local, 30-day transcript storage; the upstream
 finding that Temporal's External Payload Storage keeps large payloads out of history and lands
-"only references" in it.[^durexec])*
+"only references" in it;[^durexec] Candea & Fox's requirement that *"all important non-volatile
+state be kept in dedicated state stores"*, which is the same split reached from the
+crash-only direction.[^crashonly])*
 
 - **Tier 1 — the dispatch RECORD.** Small, fixed-schema, one per logical dispatch. Contains the six
   components of §2.7 plus pointers. Lives **git-native** (`refs/dispatch/*` with CAS creation), and
@@ -987,8 +1038,15 @@ hand-rolled equivalent is deleted.
 - **No behavioural verification.** Nothing was executed. Every claim about `--session-id`,
   `--resume`, ref CAS under concurrent writers, and Temporal's behaviour on a killed worker is
   documentation-derived. §9 is the handoff and it is not optional.
-- **The academic leg is missing** (§8 gap 4). The antecedent literature on recovery-oriented design
-  could not be retrieved as text, so this paper's antecedents are entirely industrial.
+- **The academic leg is thin, and its single member is visually transcribed.** An earlier draft
+  claimed this paper's antecedents were *entirely* industrial because the recovery-oriented-design
+  literature could not be retrieved; that claim is **withdrawn** — Candea & Fox is retrievable and
+  is now cited (§1.1, §3.6, §8 gap 4). The honest residue is smaller but real: it is **one** paper,
+  obtained as **page images** rather than as a character stream, so I can see the spans I quote but
+  cannot certify them character-exact the way a raw `.md` fetch certifies the rest of §2. It is used
+  as **corroboration only** — it supports §3.6's tier split and §2.7's fingerprint component;
+  neither rests on it, and removing it changes no recommendation. A second, independently retrieved
+  academic source would strengthen the lineage; this paper does not have one.
 - **The row set in §4.2 is a floor.** It enumerates the subsystems the current fleet has; a fleet
   with a notifier, a queue or a scheduler will have more, and the table must be re-opened then
   rather than assumed complete.
@@ -1013,12 +1071,24 @@ hand-rolled equivalent is deleted.
    project on this machine"*; no mechanism to move or replicate a session across machines is
    described. *Method:* same three documents. **This is a hard constraint on any future resume
    design, not merely a gap.**[^sessions]
-4. **The academic antecedent could not be sourced and is therefore NOT cited.** Candea & Fox,
-   *Crash-Only Software* (HotOS IX, 2003) was sought as a peer-reviewed antecedent for
-   recovery-as-the-normal-path. *Method:* `usenix.org` legacy PDF **403**, `usenix.org` legacy HTML
-   **403**, `web.stanford.edu/~candea/...` **404**, `dslab.epfl.ch/pubs/crashonly.pdf` returned an
-   unextractable binary PDF, `api.semanticscholar.org` **429**. **No text was obtained, so the paper
-   is named here as an unretrieved lead and used nowhere as evidence.**
+4. **WITHDRAWN on re-check — the academic antecedent WAS retrievable and is now cited** (§1.1,
+   §3.6). Candea & Fox, *Crash-Only Software* — the page-1 header reads *"Appears in Proceedings of
+   the 9th Workshop on Hot Topics in Operating Systems (HotOS-IX), May 2003"* — was sought as a
+   peer-reviewed antecedent for recovery-as-the-normal-path, and an earlier draft of this gap
+   asserted it could not be obtained. *Original method:* `usenix.org` legacy PDF **403**,
+   `usenix.org` legacy HTML **403**, `web.stanford.edu/~candea/...` **404**,
+   `dslab.epfl.ch/pubs/crashonly.pdf` returned an unextractable binary PDF,
+   `api.semanticscholar.org` **429**. A critic pass reported that three of those five legs resolve
+   cleanly under `curl` + `pdftotext`. *Re-check method, run for this correction round:* both
+   `usenix.org` legacy URLs returned **403 again** from my tooling, so **those two legs did not
+   reproduce the critic's result and remain contested** — the difference is the client, not the
+   document. `dslab.epfl.ch/pubs/crashonly.pdf` returned the same 132.4 KB binary my prose-fetch
+   layer still could not parse — **but the binary was retained on disk, and reading it through a PDF
+   page renderer produced legible pages 1–3.** The route the original run missed was therefore not a
+   different URL but a different **reader**, and "unextractable binary PDF" was a statement about my
+   tooling that I wrote as a statement about the source. **The negative finding is withdrawn.** What
+   survives is narrower and is stated at §7.5 and §11: the text arrived as **page images**, so its
+   spans are transcribed visually and cannot be certified character-exact.
 5. **The 0.9% denominator is not reconstructible.** §7.3, with method.
 6. **Temporal's default Activity retry policy is not asserted from my own fetch.** The
    `retry-policies.mdx` fetch returned fetch-layer prose with its own headings rather than a
@@ -1115,7 +1185,7 @@ rules,[^standard] they are named here and nothing is written outside `research/`
 
 [^rfc9562]: RFC 9562, *Universally Unique IDentifiers (UUIDs)*, Standards Track, May 2024 — §5.7 UUID Version 7. https://www.rfc-editor.org/rfc/rfc9562.txt
 
-[^sqs]: AWS, *Using the message deduplication ID in Amazon SQS* — returned as the page's markdown source. https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html
+[^sqs]: AWS, *Using the message deduplication ID in Amazon SQS* — fetched at BOTH the `.md` and the `.html` path; both returned the identical markdown source (anchor tags and `.md` cross-links intact), and the quoted span is character-exact in both. See §2.4's tag for the contested-and-re-checked note. `…/using-messagededuplicationid-property.md` and https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html
 
 [^stripe]: Stripe API reference, *Idempotent requests* — returned as markdown. https://docs.stripe.com/api/idempotent_requests
 
@@ -1131,7 +1201,9 @@ rules,[^standard] they are named here and nothing is written outside `research/`
 
 [^ghapi-kafka]: GitHub REST API repository metadata for `apache/kafka` — `"default_branch": "trunk"`. https://api.github.com/repos/apache/kafka
 
-**Rendered pages — reduced confidence, quoted only in short spans:**
+**Rendered pages and page-image sources — reduced confidence, quoted only in short spans:**
+
+[^crashonly]: G. Candea, A. Fox, *Crash-Only Software*, Stanford University — *"Appears in Proceedings of the 9th Workshop on Hot Topics in Operating Systems (HotOS-IX), May 2003"* (page-1 header). **Retrieval method, stated because it bounds the confidence:** `usenix.org`'s legacy PDF and HTML both returned **403** to my fetcher on two separate rounds; the EPFL mirror returned the PDF as a 132.4 KB binary that the prose-fetch layer could not parse, and the retained binary was then read through a PDF **page renderer**, yielding legible images of pages 1–3. The quoted spans are therefore **transcribed visually, not returned as a character stream**, and are not claimed as character-exact. Used for corroboration only (§1.1, §3.6); no recommendation depends on it. https://dslab.epfl.ch/pubs/crashonly.pdf
 
 [^aws]: M. Featonby, *Making retries safe with idempotent APIs*, Amazon Builders' Library. https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/
 

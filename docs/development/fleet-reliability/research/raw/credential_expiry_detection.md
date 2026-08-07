@@ -19,21 +19,48 @@ Confidence:     DEFINITIVE (first-party documented, raw-source verified): the ex
                 `system/api_retry` event schema and its `error` enum; that a `-p` in-run
                 failure such as missing authentication is printed as the result on stdout;
                 that there is no non-interactive re-login path for a subscription login;
-                the `ResultMessage` / `AssistantMessage` field sets in the Python Agent SDK.
+                the `ResultMessage` / `AssistantMessage` field sets in the Python Agent SDK;
+                that `claude auth login`, `auth status` and `auth logout` were all added in
+                v2.1.41, and five later changelog entries touching that family — including
+                v2.1.139, which documents expired credentials deadlocking `claude auth
+                status` itself (each verified at its own tagged ref); that a refresh-token
+                race could take out every parallel session on a machine at once (v2.1.133).
                 DERIVED (this paper's inference over those sources, flagged inline): the
                 precise reason today's preflight passes an expired credential through (§2.1);
                 the failure-class distinguishability table (§4.3); that `expiresAt` is the
                 wrong field to gate a dispatch on and `refreshTokenExpiresAt` is the
-                horizon-relevant one (§3.3); the guard design recommendation (§5).
+                horizon-relevant one (§3.3); the guard design recommendation (§5); that
+                `claude auth status` consumes no turn and no quota (§4.6) — flagged as the
+                WEAKEST derivation in this paper, because it is inferred from documentation
+                *silence* about a model request rather than from any stated fact, and
+                silence is evidence only as far as the docs are complete. Treat it as
+                derived-but-untested until T2 runs.
                 UNVERIFIED (community-sourced or locally observed, uncorroborated by
                 first-party docs): the `.credentials.json` key set and the ~8h access-token /
-                ~11.5d refresh-token horizons; mid-run 401 blast-radius behaviour across
-                concurrent children; the claim that `claude auth status` costs no quota.
+                ~11.5d refresh-token horizons; the claim that sub-agent CHILDREN die at a
+                token rollover while the parent survives (§4.4 — note the sibling-session
+                blast radius it was bundled with is now first-party via v2.1.133, but the
+                parent/child asymmetry is not).
                 GAPS (stated as findings with search method in §6): the `claude auth status`
                 JSON schema; whether its exit 1 covers "logged in but expired" or only
-                "no credential"; whether it performs a network validation; its introducing
-                version; the CLI's exit code on an auth failure inside a `-p` run.
-Critic:         not-yet-verified — 2026-08-07
+                "no credential"; whether it performs a network validation; the CLI's exit
+                code on an auth failure inside a `-p` run. (Its introducing version was a
+                gap in the first draft and is now RESOLVED — v2.1.41, §2.2 and §6.3 G6.)
+Critic:         PASS-WITH-FIXES, 3 rounds (R1–R2: the subcommands `claude auth
+                login`/`status`/`logout` are all INTRODUCED at v2.1.41 — the draft had wrongly
+                placed a `claude auth login` changelog mention at v2.1.200, which is in fact a
+                v2.1.202 sign-in-URL fix and introduces nothing; retracted G6, which had
+                falsely reported `auth status` absent from the changelog; moved "costs no
+                quota" from UNVERIFIED to DERIVED to match §4.6; fixed a §1.2 cross-reference.
+                R3: retracted the round-2 repair's claim that the only later changelog mentions
+                were cosmetic and touched `login` only — five further entries exist, and
+                v2.1.139 names `status` and documents expired credentials DEADLOCKING it,
+                which sharpens G2 and adds a mandatory timeout to the §5 preflight; added
+                first-party corroboration of machine-wide 401 blast radius from v2.1.133;
+                stated plainly that whole-file changelog enumeration could NOT be performed,
+                so the six entries are "at least these", never a complete list; cited [S24]
+                inline. All changelog spans verified individually at their own tagged refs)
+                — 2026-08-07
 ```
 
 **Altitude:** COMPONENT. This paper is about *how to build the guard*. Whether a
@@ -44,7 +71,7 @@ upstream and is out of scope — see §8 Escalation.
 was returned by a **raw-source fetch** (plain `.md`, `.py`, or a JSON API response) and
 its characters were read directly. Three mechanical renderings are applied and are the
 *only* alterations: inline documentation hyperlinks `[text](/path)` are rendered as
-their link text; a leading list bullet (`* `) or source-comment prefix (`# `) is
+their link text; a leading list bullet (`* ` or `- `) or source-comment prefix (`# `) is
 dropped; and an ellipsis `…` marks an elision, always within a sentence. No wording is
 changed. Where a fetch **summarized** rather than returned raw text, the source carries
 that flag in §9 and **no span from it is quoted anywhere in this paper** — this applies
@@ -79,7 +106,7 @@ about which credential is in play if they run in the same environment**, and an
 OAuth 2.0 defines refresh tokens as credentials used to obtain new access tokens when
 the current access token expires, with issuance at the authorization server's
 discretion (RFC 6749 §1.5, [S18]; *definitive* for the protocol, paraphrased — see the
-sourcing note in §6). Claude Code implements exactly this shape: the saved login is
+sourcing note on [S18] in §9). Claude Code implements exactly this shape: the saved login is
 renewed automatically until renewal fails.
 
 Anthropic documents the terminal state precisely: Claude Code "tried to renew your
@@ -162,10 +189,63 @@ The CLI reference documents a subcommand the fleet does not use (*definitive*, [
 
 Adjacent commands in the same table carry explicit version gates ("Requires Claude Code
 v2.1.208 or later", "Available in Claude Code v2.1.195 and later"); the `claude auth
-status` row carries none. Sibling `claude auth login` and `claude auth logout` rows are
-documented alongside it, and `claude auth login` appears in the changelog at v2.1.200
-[S12]. `claude auth status` itself does **not** appear anywhere in the changelog — see
-the gap in §6.
+status` row carries none. **The changelog supplies the gate the docs page omits.** The
+`CHANGELOG.md` entry under heading `## 2.1.41` records (*definitive*, [S12]):
+
+> Added `claude auth login`, `claude auth status`, and `claude auth logout` CLI
+> subcommands
+
+All three subcommands landed together in **v2.1.41**. Five further changelog entries
+touch the `claude auth` family. Each was read at **its own tagged ref**, where that
+release is the first heading in the file (*definitive*, [S12]):
+
+- **v2.1.79** — "Added `--console` flag to `claude auth login` for Anthropic Console
+  (API billing) authentication". Touches `login`.
+- **v2.1.126** — "`claude auth login` now accepts the OAuth code pasted into the terminal
+  when the browser callback can't reach localhost (WSL2, SSH, containers)". Touches
+  `login`; relevant to §3.2's "a human at a browser in the same environment", since it
+  loosens *where* that browser must be.
+- **v2.1.139** — "Fixed a deadlock where expired credentials and the
+  `forceRemoteSettingsRefresh` policy setting blocked `claude auth login`/`logout`/`status`
+  with no way to recover". **Names `status` explicitly, and is not cosmetic** — see below.
+- **v2.1.202** — "Fixed the sign-in URL printed by `claude auth login` and `claude mcp
+  login --no-browser` not being reliably clickable when it wraps over SSH — it is now
+  emitted as a single hyperlink". Touches `login`.
+- **v2.1.212** — "Updated the auth status panel title from "Cloud authentication" to
+  "Authentication"". Cosmetic. **Note the ambiguity:** the entry says *"auth status
+  panel"*, and nothing in it establishes whether that panel is the `claude auth status`
+  subcommand's own output or a separate interactive surface. Not relied on.
+
+**The v2.1.139 entry is the one that matters for this paper**, and the first draft
+missed it twice over — first by claiming `auth status` appeared nowhere in the changelog,
+then by claiming the only later mention was cosmetic and touched `login` only. Both
+claims are **retracted**. Its significance is developed in §6.3 G2.
+
+**Method note — and an honest limit on it.** Every span above was read from the raw
+`CHANGELOG.md` at the tagged ref for its own version, where the entry cannot be truncated
+away. The repository's default branch was confirmed to be `main` via the GitHub
+repository-metadata API **before** any fetch against `main` ([S24]), so the partial
+results described next are a retrieval-layer limit, not a wrong-branch artifact.
+
+The tagged-ref method is reliable, and is why the spans above are marked *definitive*. It
+does **not**, however, establish exhaustiveness. Repeated attempts to enumerate the whole
+file at `main` failed in a way worth recording, because it is the same failure that
+produced the first draft's error: one such fetch returned exactly one occurrence and
+mis-attributed it to v2.1.216; a later one reported **zero** occurrences of substrings
+already verified to exist, and gave a file length contradicted by the other attempts.
+
+**What is therefore NOT asserted: that these six are all of them.** Per the count rule, a
+total from a retrieval layer that cannot be shown to have read the whole population is
+not evidence, so the enumeration above is stated as *at least these six, each verified
+individually* — never as a complete list. Closing this needs a local clone and a real
+grep, which is cheap and is filed as **T9** rather than left as a standing caveat.
+
+*Derived* (arithmetic over the verified version numbers): `claude auth status` predates
+by more than 160 version numbers every auth behaviour this paper version-gates elsewhere
+(v2.1.203, .206, .210, .211, .212, .217). It is the **oldest** surface in the guard
+design — a point in option B's favour the first draft did not have. Note this is an
+argument about age, **not** about stability: v2.1.139 is direct evidence the subcommand's
+behaviour has changed at least once since introduction.
 
 This is the single most useful surface for the guard, and three properties of it are
 **not documented** — see §6 G1–G3. In particular, the docs do not say whether the
@@ -230,7 +310,7 @@ exists but is not, by itself, machine-readable from a dispatch script.
 | # | Design | Detects | Turn/quota cost | Status |
 |---|---|---|---|---|
 | A | **Status quo** — `claude -p "ping"` probe, grep stderr | rate limit only, and only when it reaches stderr | one turn per dispatch | Ships today; misses the target class entirely (§2.1) |
-| B | **`claude auth status` exit-code gate** before dispatch | "logged in" per the CLI's own definition | none (*derived*, unconfirmed — G3) | Documented command [S3]; three undocumented properties (§6 G1–G3) |
+| B | **`claude auth status` exit-code gate** before dispatch | "logged in" per the CLI's own definition | none (*derived*, unconfirmed — G3) | Documented command [S3], shipped since v2.1.41 [S12]; three undocumented properties (§6 G1–G3); **must be timeout-bounded** — v2.1.139 documents this path deadlocking on expired credentials (§6.3 G2) |
 | C | **Credentials-file horizon check** — read `refreshTokenExpiresAt`, refuse to dispatch inside a margin | *impending* expiry, before it bites | none | File shape is undocumented first-party (§3.3); *unverified* |
 | D | **Mid-run stream classification** — classify `stream-json` events, park on `authentication_failed` | expiry that begins mid-run | none (reads the log already written) | Event fields documented [S4][S10][S11]; see §4 |
 | E | **Change the credential**: `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (one-year) | — (avoids the class) | none | First-party recommendation for automation [S1][S2][S6] |
@@ -423,13 +503,22 @@ Two caveats, both *unverified* and both consequential for a fleet:
   real on Linux, a parent-level stream check would see a *successful-looking* run —
   which is precisely the false-completion guard's territory, and an argument for
   designing the two guards together as the sprint already requires.
-- **Blast radius is machine-wide.** The same report describes two unrelated interactive
-  sessions taking the same 401 inside the same window ([S15]). Anthropic documents the
-  underlying coordination: "Parallel sessions on one machine share a saved login and
+- **Blast radius is machine-wide — and this is no longer only a community claim.** The
+  [S15] report describes two unrelated interactive sessions taking the same 401 inside
+  the same window (*unverified*). **Anthropic documents the same failure shape
+  first-party:** the `CHANGELOG.md` entry under `## 2.1.133` reads "Fixed parallel
+  sessions all dead-ending at 401 after a refresh-token race wiped shared credentials"
+  (*definitive*, [S12], read at the `v2.1.133` tagged ref). That is a vendor
+  acknowledgement that a single credential event can take out **every** session on a
+  machine at once, which is exactly the fleet-relevant property. Anthropic also documents
+  the coordination mechanism: "Parallel sessions on one machine share a saved login and
   coordinate its renewal so that only one process refreshes the token at a time"
   (*definitive*, [S5]), with a v2.1.211 fix for double-renewal after wake-from-sleep.
   **Derived:** credential failure is a per-machine event, not a per-dispatch one, so the
-  guard's park/notify state belongs at machine scope, not run scope.
+  guard's park/notify state belongs at machine scope, not run scope. This derivation now
+  rests on first-party evidence rather than on one community report. Note what is *not*
+  corroborated: [S15]'s specific claim about **sub-agent children** dying while the parent
+  survives remains *unverified* — v2.1.133 is about sibling sessions, not parent/child.
 
 ### 4.5 What a guard can DO on an unattended machine
 
@@ -457,10 +546,15 @@ from revocation before dispatch.
 Today's probe costs one model turn per dispatch against the subscription's session and
 weekly allowances ([S2][S19]). `claude auth status` is a distinct CLI subcommand, not a
 `-p` query, and nothing in its documentation describes a model request ([S3]) —
-**derived: it consumes no turn and no quota.** Whether it makes any *network* call
-(and therefore whether it can fail on a flaky VM link, or detect a server-side
-revocation that the local file cannot) is **not documented** (G3) and is the single
-highest-value item in the test plan.
+**derived: it consumes no turn and no quota.** Grade this derivation honestly: it rests
+on documentation *silence*, not on a stated fact, so it is weaker than the other
+derivations in this paper (which reason over things the docs positively assert) and it
+is only as strong as the docs are complete. The header carries the same caveat. Whether
+it makes any *network* call (and therefore whether it can fail on a flaky VM link, or
+detect a server-side revocation that the local file cannot) is **not documented** (G3)
+and is the single highest-value item in the test plan; T2 settles the network question
+and, by observing whether a `result`-shaped event or cost is produced at all, also
+converts this quota derivation into an observation.
 
 ---
 
@@ -472,8 +566,14 @@ something concrete to accept or reject.
 Replace the `else` branch of `check_rate_limit()` — not the function — with a
 classification, and keep the model probe only for what only it can see:
 
-1. **Preflight, before the probe:** `claude auth status` (discard stdout). Exit 1 →
-   **park + notify, do not dispatch.** Exit 0 → continue. Cost: no turn.
+1. **Preflight, before the probe:** `claude auth status` (discard stdout), **wrapped in
+   an explicit `timeout`**. Exit 1 → **park + notify, do not dispatch.** Exit 0 →
+   continue. **Timeout → park + notify, never pass.** Cost: no turn. The timeout is not
+   defensive boilerplate: v2.1.139 documents this exact path — `auth status` against an
+   expired credential — deadlocking "with no way to recover" under the
+   `forceRemoteSettingsRefresh` policy setting ([S12], §6.3 G2). A hung preflight on an
+   unattended runner is a worse outcome than a wrong answer, because nothing times it out
+   but this.
 2. **Preflight, advisory:** if `~/.claude/.credentials.json` parses and
    `refreshTokenExpiresAt` is inside a margin exceeding this workflow's expected
    duration, **warn** (never block — the field is undocumented and #83834 shows it can
@@ -550,18 +650,61 @@ error handling; fetched **as raw markdown** each of `authentication.md` [S1],
 [S8]; grep'd the retrieved raw text for `credentials.json`, `auth status`, `expiresAt`,
 `refresh token`, `exit code`, `Login expired`, `authentication_failed`; fetched
 `CHANGELOG.md` from `raw.githubusercontent.com` [S12] for the substrings `auth status`,
-`auth login`, `auth logout`, `claude auth`; and queried the GitHub issues search API on
+`auth login`, `auth logout`, `claude auth` — at `main` first, and then, after the `main`
+fetches proved unreliable, **at the tagged refs `v2.1.41`, `v2.1.79`, `v2.1.126`,
+`v2.1.133`, `v2.1.139`, `v2.1.202`, `v2.1.212` and `v2.1.216`**, where the release of
+interest is the file's first heading (see the method note in §2.2); confirmed the default
+branch via the repository-metadata API [S24] before any `main` fetch, and consulted the
+GitHub tags API [S25] to select refs; and queried the GitHub issues search API on
 `anthropics/claude-code` for `"auth status"` and `".credentials.json"`.
+
+**A caveat that binds every negative below — strengthened after two failures.** A "not
+found" over a long single-file source is only as good as the retrieval, and this paper
+has now been burned by that twice: the first draft's G6 false negative, and the round-2
+repair's claim that later changelog mentions were all cosmetic. Both came from treating
+a `main` fetch of `CHANGELOG.md` as an exhaustive grep when it was silently partial —
+one attempt even reported **zero** occurrences of substrings verified to exist. Negatives
+derived from short raw pages (the docs `.md` files, the SDK `.py` files) are sound and
+are unaffected. **No negative over the changelog is asserted anywhere in this paper**;
+every changelog claim is a positive verified at a tagged ref, and the family enumeration
+in §2.2 is explicitly "at least these", not "all". Settling this properly needs a local
+clone and a real grep — recorded as T9.
 
 - **G1 — the `claude auth status` JSON schema is not documented.** `cli-reference.md`
   states it outputs JSON [S3]; no page in the index defines a field. Consequence: a
   guard can rely on the exit code but must not parse the JSON without pinning a version
   and testing it. → T1.
 - **G2 — whether exit 1 covers "saved login, expired" or only "no credential" is not
-  documented.** `errors.md` documents that `/status` (interactive) shows an
-  `Expired — log in again` row from v2.1.210 [S2], which makes parity plausible, but
-  plausible is not documented and this paper does not assert it. **This is the guard's
-  single load-bearing unknown.** → T1.
+  documented. SURVIVES, and is now sharper.** `errors.md` documents that `/status`
+  (interactive) shows an `Expired — log in again` row from v2.1.210 [S2], which makes
+  parity plausible, but plausible is not documented and this paper does not assert it.
+  **This is the guard's single load-bearing unknown.** → T1.
+
+  **What v2.1.139 adds, and what it does not.** The changelog entry quoted in §2.2 —
+  expired credentials plus `forceRemoteSettingsRefresh` "blocked `claude auth
+  login`/`logout`/`status` with no way to recover" [S12] — is the **first first-party
+  evidence that `claude auth status` has expired-credential behaviour at all.** Until
+  now this paper could only observe that the docs were silent; silence was consistent
+  with the subcommand never inspecting expiry. It plainly does: expiry reaches that code
+  path hard enough to have hung it. That **narrows** G2 from "does exit 1 have anything
+  to do with expiry?" to "*which* exit code does the expired-but-saved case now
+  produce?".
+
+  **It does not close G2, and reading it as closing G2 would be an error.** A deadlock is
+  neither exit 0 nor exit 1 — it is no exit at all. The entry records that a hang was
+  fixed; it does not state what the fixed path *returns* for an expired credential, which
+  is precisely the fact the guard branches on. Anyone tempted to infer "expired ⇒ exit 1"
+  from this entry is inferring a return value from a bug report about a hang. **I agree
+  with the critic's reading here** and reached it independently: sharper, not closed.
+
+  **A new requirement falls out of it, which is the more valuable finding.** v2.1.139 is
+  first-party evidence that this exact code path — `claude auth status` against an expired
+  credential — has a documented history of **hanging with no way to recover**, under a
+  policy setting a managed machine could carry. On an unattended fleet a preflight that
+  hangs is worse than one that answers wrongly: a wrong answer fails the dispatch, a hang
+  blocks the runner indefinitely and silently. **The guard must therefore bound the
+  subcommand with an explicit timeout and treat timeout as park-and-notify, not as pass.**
+  → §5 step 1, and T1 must record wall-clock duration, not just the exit code.
 - **G3 — whether `claude auth status` performs a network validation is not documented.**
   Determines whether it detects server-side revocation, and whether it can fail on a
   flaky link. → T2.
@@ -575,13 +718,24 @@ error handling; fetched **as raw markdown** each of `authentication.md` [S1],
   recorded the absence of any first-party exit-code table ([S22] §5) — **this is the one
   claim reused from the pool paper rather than re-derived**, because it is a negative
   about the whole corpus. → T4.
-- **G6 — the introducing version of `claude auth status` is unrecorded.** Its
-  `cli-reference.md` row carries no version gate while neighbouring rows do [S3], and
-  the substring `auth status` returned no match in the changelog [S12]. **Caveat on
-  that negative:** the same changelog fetch returned one bullet attributed to `claude
-  auth` whose quoted text does not contain the substring, so the retrieval layer is not
-  reliable for exhaustive search and this negative is weaker than a grep over a local
-  copy. Treat as "not established", not "confirmed absent". → T5.
+- **G6 — RESOLVED, and the first draft's finding here was wrong.** This entry previously
+  asserted that the introducing version of `claude auth status` was unrecorded and that
+  the substring `auth status` returned no match in the changelog. **Both are false.**
+  `CHANGELOG.md` at heading `## 2.1.41` records all three subcommands being added
+  together — the span is quoted in full in §2.2 — verified at the `v2.1.41` tagged ref
+  where that entry is the first heading in the file [S12]. The `cli-reference.md` row
+  still carries no version gate [S3]; the changelog carries it instead. Five later
+  entries touch the family (§2.2), one of which — v2.1.139 — names `status` and is
+  load-bearing for G2. **Root cause of the error:** a truncated, silently-partial fetch
+  of the file at `main` was treated as an exhaustive grep — twice, since the round-2
+  repair then asserted the later mentions were all cosmetic on the same bad basis.
+  **Consequence of the correction, in the guard's favour:** the
+  version-floor concern that motivated T5 largely dissolves — v2.1.41 is far below any
+  plausible fleet install, so option B does not need a fallback path for older CLIs, and
+  T5 shrinks to a confirmation (below). What is *not* settled by this is whether the
+  subcommand's **behaviour** changed between v2.1.41 and today; the changelog records no
+  such change, but per the caveat above that negative is not exhaustive, so T1 must still
+  run on a pinned version. → T5 (narrowed), T1.
 - **G7 — the subscription access-token and refresh-token lifetimes are not documented.**
   The ~8h / ~11.5d figures in §3.3 are one local sample plus community reports. Anthropic
   documents only the *warning* interval (3 days), never the lifetime [S1]. → T3.
@@ -603,8 +757,11 @@ recorded in the result.
   auth logout`, repeat; (b) restore a login and hand-edit `expiresAt` and
   `refreshTokenExpiresAt` into the past in a *copy* of the config dir selected via
   `CLAUDE_CONFIG_DIR`, repeat; (c) with `ANTHROPIC_API_KEY` set, repeat. Record the JSON
-  body verbatim in each case. **Decides:** whether option B alone is a sufficient
-  preflight, or must be paired with option C.
+  body verbatim in each case, **and record wall-clock duration for every case** — per
+  §6.3 G2, this path has a documented hang history, so "how long did it take" is a
+  result, not instrumentation noise. Case (b) is the one that settles G2. **Decides:**
+  whether option B alone is a sufficient preflight, or must be paired with option C, and
+  what timeout §5 step 1 should carry.
 - **T2 — network dependence (settles G3).** Run `claude auth status` with outbound
   traffic to `api.anthropic.com` and `claude.ai` blocked. If it still exits 0 on a valid
   login, it is a local check and cannot see revocation; if it fails, the preflight
@@ -619,9 +776,16 @@ recorded in the result.
   full stdout, full stderr separately (no `2>&1`). **Decides:** whether the preflight
   can branch on exit code alone or must match message text, and confirms §2.1's derived
   claim that the failure text lands on stdout.
-- **T5 — version floor (settles G6).** Run `claude auth status --text` on each fleet
-  machine and record `claude --version`. **Decides:** whether the guard needs a fallback
-  path for older installs.
+- **T5 — version floor (NARROWED; G6 is now closed by documentation, not experiment).**
+  The introducing version is recorded as v2.1.41 [S12], which is far below any plausible
+  fleet install, so the open version question this test originally existed to settle is
+  gone. What remains is a one-line confirmation, not an experiment: record
+  `claude --version` on each fleet machine and assert it is ≥ v2.1.41 (and ≥ the higher
+  floors the *other* documented behaviours need — v2.1.203/.206/.210 — which is the real
+  binding constraint, and is a §5 step-6 assertion rather than a test). **Decides:**
+  nothing on its own now; folded into T1, which must run on a pinned version anyway
+  because a behavioural change since v2.1.41 would not necessarily appear in the
+  changelog (see the §6.3 exhaustiveness caveat).
 - **T6 — mid-run capture.** Force an expiry mid-run (start a long dispatch, then
   `/logout` from another shell on the same machine, or expire the copied config dir) and
   capture the full `stream-json` log. **Decides:** the exact `jq` filter for §5 step 4,
@@ -636,6 +800,15 @@ recorded in the result.
   sub-agents and check whether children fail while the parent's result still reports
   success. **Decides:** whether this guard and the false-completion guard must share a
   detection path.
+- **T9 — exhaustive changelog grep (settles the §6.3 retrieval caveat, and it is the
+  cheapest item here).** `git clone --filter=blob:none` the `anthropics/claude-code`
+  repo and run a real `grep -n "claude auth" CHANGELOG.md`, walking back to each hit's
+  nearest preceding `^## ` heading. **Decides:** whether §2.2's "at least these six"
+  becomes an assertable complete enumeration, and whether any further entry bears on G2.
+  **Why it is a test and not research:** every fetch-based attempt to enumerate this
+  file returned a different, silently-partial answer, so the population is not
+  retrievable through the research tooling — but it is trivially enumerable with a
+  clone. This is the correct handoff, not a gap to live with.
 
 ---
 
@@ -674,8 +847,9 @@ Two items sit above COMPONENT altitude. **Named here; not acted on in this paper
 - **[S9]** Anthropic, documentation index — https://code.claude.com/docs/llms.txt (used to enumerate the pages above)
 - **[S10]** Anthropic, `claude-agent-sdk-python`, `src/claude_agent_sdk/types.py` — https://raw.githubusercontent.com/anthropics/claude-agent-sdk-python/main/src/claude_agent_sdk/types.py (`ResultMessage`, `AssistantMessage`, `AssistantMessageError`)
 - **[S11]** Anthropic, `claude-agent-sdk-python`, `src/claude_agent_sdk/_internal/message_parser.py` — https://raw.githubusercontent.com/anthropics/claude-agent-sdk-python/main/src/claude_agent_sdk/_internal/message_parser.py (raw-JSON key names)
-- **[S12]** Anthropic, `claude-code` `CHANGELOG.md` — https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md (targeted substring search; see G6 caveat)
+- **[S12]** Anthropic, `claude-code` `CHANGELOG.md`. **Every quoted span comes from a TAGGED ref**, where the cited release is the first heading in the file and cannot be truncated away — `https://raw.githubusercontent.com/anthropics/claude-code/<TAG>/CHANGELOG.md` for `v2.1.41` (introduces all three subcommands), `v2.1.79` (`--console`), `v2.1.126` (pasted OAuth code), `v2.1.133` (parallel-session 401 race, §4.4), `v2.1.139` (expired-credential deadlock naming `status`, §6.3 G2), `v2.1.202` (sign-in-URL fix), `v2.1.212` (auth status panel title). `v2.1.216` was fetched to disprove a mis-attribution. **The `main` ref — https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md — is cited for NOTHING.** Across three attempts it returned mutually contradictory results: one occurrence mis-attributed to v2.1.216; then zero occurrences of substrings independently verified to exist; and file lengths that disagreed with each other. It is recorded here as a failed method, not a source. **No negative and no count in this paper rests on it** (§2.2 method note, §6.3 caveat).
 - **[S24]** GitHub REST API, `anthropics/claude-code` repository metadata — https://api.github.com/repos/anthropics/claude-code (`default_branch: "main"`, confirmed before any raw fetch against that branch; `archived: false`)
+- **[S25]** GitHub REST API, `anthropics/claude-code` tags (first page) — https://api.github.com/repos/anthropics/claude-code/tags?per_page=100. Listed `v2.1.202` and `v2.1.216` explicitly; the page ran from `v2.1.224` down to `v2.1.105` only, so it does **not** establish `v2.1.41` — that tag's existence is established instead by the raw fetch at that ref returning a file whose first heading is `## 2.1.41`. No count is asserted from this endpoint (it is one page of a paginated list, exactly the population the count rule forbids totalling).
 
 **Community-sourced — GitHub issue bodies fetched via the REST API (*unverified*; one reporter each unless noted):**
 

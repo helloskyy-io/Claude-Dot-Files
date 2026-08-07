@@ -29,8 +29,43 @@ Confidence:     DEFINITIVE on the documented retention, priority and escalation 
                 NEGATIVE FINDINGS with stated search method in §5.6: no channel surveyed
                 publishes an ordering guarantee; APNs offline-storage behaviour could not be
                 fetched; Gotify documents no retention; SMS is unanchored and therefore
-                excluded from the ranking.
-Critic:         not-yet-verified — 2026-08-07
+                excluded from the ranking. ONE RETRACTED NEGATIVE, marked in place at §1.2:
+                a round-3 claim that Airflow ships no dedicated human-in-the-loop document
+                was disproved at round 4 — it exists at `airflow-core/docs/tutorial/hitl.rst`
+                [S25][S26], is cited for its section headings only, and is NOT mined here.
+Critic:         PASS-WITH-FIXES (24 sources all fetchable; every retention, delivery and
+                in-repo current-state figure verified; no fabricated source, no confidence
+                inflation. Six repairs, none of which move a conclusion: Airflow's
+                `awaiting_input` gloss was a restructured paraphrase presented as a quote and
+                is replaced by the two verbatim sentences; two quotations had a trailing
+                clause silently dropped — Airflow's stuck-task cleanup now reads through
+                "if it has available retries", FCM's `collapse_key` through "for future
+                delivery"; [S18] was in the citation list but never cited inline and is now
+                bracketed at both §5.6.8 and §5.6.10 where its enumerations are used;
+                `config.yaml` re-enumerated at 114 lines, not 115; and §3.3's negative
+                delivery finding did not cover its own Matrix row, so [S17] was re-fetched
+                under the same explicit prompt and added to the stated search method,
+                upgrading that row's retention cell from "Not fetched" to "Not stated".
+                ROUND 3 re-verified all six of those repairs as genuine with no conclusion
+                moved, and closed the two traceability gaps that remained: [S24] was listed
+                but never cited inline, so the negative finding it backs — no `hitl.rst`
+                among the 22 entries at Airflow's `core-concepts/`, re-enumerated and counted
+                from the contents API — is now stated in §1.2 prose with its search method
+                and the full listing reproduced at [S24]; and the markup convention I had
+                relied on to strip RST literal markers was invoked without existing, so it
+                is now written into the quoting-discipline banner, scoped to markup markers
+                only and explicitly not to elision. ROUND 4 verified both round-3 closures
+                genuine, and its one item — that the markup caveat did not name the RST
+                `:doc:` role-stripping it already relied on — led me to re-fetch the raw
+                construct, whose target `../tutorial/hitl` DISPROVED a negative finding I had
+                written in round 3. `hitl.rst` does exist, one directory over; §1.2's
+                "no dedicated HITL document" claim is RETRACTED in place, the tutorial
+                directory re-enumerated at 7 entries [S25], the document itself cited for its
+                section headings only and explicitly not mined [S26], and the highest-value
+                research follow-up on the paper added at §7.3. The markup caveat now covers
+                both constructs and states that a dropped link target is rendering while a
+                dropped clause is a defect. Sources 24 → 26, both new ones cited inline.
+                No conclusion in the paper moved) — 2026-08-07
 ```
 
 > **Quoting discipline, stated once and binding on every quotation below.** No source in
@@ -42,6 +77,29 @@ Critic:         not-yet-verified — 2026-08-07
 > [S13] Google SRE Book, [S16] Firebase, [S23] arXiv abstract page — carry a further
 > reduction and are kept deliberately short. A critic re-fetching these should expect the
 > substance to hold and should not treat a comma as a finding.
+>
+> **Markup rendering inside quoted spans — one convention, applied throughout.** Where a
+> quoted span comes from a source carrying inline markup, that markup is rendered to the text
+> a reader of the published page would see. Two constructs are covered, and both occur in
+> §1.2's [S15] quotations:
+>
+> 1. **Inline literal markers** (reStructuredText double-backticks, markdown backticks) are
+>    dropped, leaving the literal's text. §1.2 quotes [S15]'s `TaskInstance`, `TaskInstances`
+>    and `running` without the RST markers surrounding them in the raw `.rst`.
+> 2. **RST cross-reference roles are reduced to their link text, and the link target is
+>    dropped.** §1.2's `awaiting_input` quote renders the raw source's
+>    `:doc:` role over *Human-in-the-loop* — whose target is `../tutorial/hitl` — as the bare
+>    words *Human-in-the-loop*. A **dropped link target is rendering**; it removes a pointer,
+>    not a proposition, and the sentence asserts exactly what it asserted before.
+>
+> **No character outside those two constructs is altered, and neither one licenses removing
+> content.** A dropped *sentence clause* is a defect, not rendering — as are a restructured
+> sentence and any elision of words the reader would have seen on the page. Both defect
+> classes occurred in this paper's first draft, in this same paragraph, and were repaired
+> under critic review; the caveat exists to make the remaining differences from the raw
+> source checkable, never to pre-authorise new ones. Note also that a dropped target is
+> *cheap to drop and expensive to forget*: §1.2's retracted negative finding was caused by
+> ignoring precisely the target this convention removes.
 
 > **Mixed volatility (Research Standard §3).** The high-volatility material is §3.1–§3.2
 > (product feature and retention inventories for ntfy, Gotify, Pushover, FCM, GitHub) and
@@ -143,17 +201,54 @@ The dispatch asks for the standard vocabulary. Two independent bodies of first-p
 documentation supply it, and they agree.
 
 **Task-state vocabulary (workflow engines).** Apache Airflow enumerates task-instance states
-and distinguishes, as separate states with separate meanings [S15, all spans quoted-via-fetch]:
+and distinguishes, as separate states with separate meanings [S15, all spans quoted-via-fetch;
+the `awaiting_input` and *stuck* spans re-fetched from the raw `.rst` in short exact segments
+on 2026-08-07 after a critic pass found the first rendering of each defective]:
 
 - `failed` — *"The task had an error during execution and failed to run"*
 - `up_for_retry` — *"The task failed, but has retry attempts left and will be rescheduled"*
 - `deferred` — *"The task has been deferred to a trigger"*
-- `awaiting_input` — *"Task awaiting human response in Human-in-the-loop workflows"*
+- `awaiting_input` — *"The task is a Human-in-the-loop task waiting for a human response."*
+  (the same entry continues: *"It is managed by the scheduler and uses neither a worker slot
+  nor the triggerer."*)
 - `queued` — *"The task has been assigned to an Executor and is awaiting a worker"*
 
 and, separately from all of these, a *stuck* condition: *"TaskInstances may get stuck in a
 running state despite their associated jobs being inactive...Airflow will find these
-periodically, clean them up, and mark the TaskInstance as failed or retry it."* [S15].
+periodically, clean them up, and mark the TaskInstance as failed or retry it if it has
+available retries."* [S15]. Note the trailing condition: the cleanup is a retry only where
+retries remain, otherwise a failure.
+
+**Where that vocabulary lives — and a RETRACTION of this paper's earlier claim about where it
+does not.** An earlier revision of this section asserted that no dedicated human-in-the-loop
+document existed upstream, resting on `hitl.rst` being absent from the 22 entries at
+`airflow-core/docs/core-concepts/` [S24]. **That absence is real; the conclusion drawn from it
+was wrong, and it is withdrawn here.** The `awaiting_input` entry quoted above carries an RST
+cross-reference role whose target is `../tutorial/hitl` — the pointer was inside the very
+sentence this paper was quoting. Enumerating `airflow-core/docs/tutorial/` via the contents
+API returns seven entries — `fundamentals.rst`, `hitl.rst`, `index.rst`, `objectstorage.rst`,
+`pipeline.rst`, `pipeline_example.csv`, `taskflow.rst`, listed and counted by this analyst from
+that response — so **a dedicated HITL document does exist** [S25], one directory over from
+where this paper looked. *The general lesson, recorded because it is cheap:* an absence
+established in one directory is not an absence in the corpus, and a cross-reference inside the
+quoted span is the first place to look before asserting one.
+
+*What that document contains — reconnaissance depth only.* [S26] was fetched on 2026-08-07 and
+its top-level headings enumerated: HITLOperator (Human-in-the-loop); An HITL Example Dag; Input
+Provision; Option Selection; Approval or Rejection; Branch Selection; **Notifiers**; Testing
+HITL Dags locally; Benefits and Common Use Cases; See also. At least two are squarely on this
+paper's topic — a `Notifiers` section, and a response-timeout notion governing a task nobody
+answers. **No span from [S26] is quoted or relied on anywhere in this paper.** It was read
+through a single summarizing fetch, and one span that fetch offered up was labelled by the
+fetch itself as only *"implicitly present"* — the exact signature of the paraphrase-as-quote
+defect this paper already had to repair once. Mining it properly is a named follow-up (§7.3),
+not a claim made here.
+
+*Consequence for the paper:* the derived table below is **unchanged** — it classifies THIS
+fleet's failure modes, which no upstream document can supply — but the justification the
+earlier revision gave for it ("no first-party doc supplies this") was false and is retracted.
+The honest statement is that a first-party HITL design document exists, was located, and was
+deliberately not mined at this depth.
 
 `awaiting_input` is the concept this milestone is about, and it is worth noting that a
 mature, decade-old orchestrator needed a **distinct state name** for it rather than
@@ -297,7 +392,7 @@ behaviour, which is the closest thing to a dedupe primitive in the transport lay
 collapse_key is set, and there's an existing message with the same collapse key and
 registration token waiting for delivery, the old message is discarded and then new message
 takes its place. However, if the collapse key is not set, both the new and old messages are
-stored."* [S16].
+stored for future delivery."* [S16].
 
 **APNs' equivalent behaviour is a gap in this paper** — see §5.6.1 for the search method.
 
@@ -310,12 +405,19 @@ stored."* [S16].
 | Gotify | Not stated | Not documented (§5.6.2) | Not stated |
 | Pushover | Not stated | Until verified delivered; 21 days if unverified [S8] | Not stated |
 | FCM (under B-via-Play, C, E) | Not stated | 4 weeks default, 28 days max [S16] | Not stated |
-| Matrix | Not stated | Not fetched | Not stated |
+| Matrix | Not stated [S17] | Not stated [S17] | Not stated [S17] |
 
 **This is a negative finding, and it is the most consequential one in the paper.** *Search
 method:* the retention/delivery sections of [S3], [S4], [S6], [S7], [S8], [S16], [S19] and
 [S20] were each fetched with a prompt explicitly asking for statements about at-most-once /
-at-least-once semantics, offline delivery and ordering. None returned such a statement. The
+at-least-once semantics, offline delivery and ordering. The Matrix row was added to that
+sweep on 2026-08-07: [S17]'s raw `push.md` was re-fetched under the same explicit prompt,
+extended to cover retry-on-failure, and returned no statement on any of the four — which is
+why its retention cell now reads *"Not stated"* rather than the earlier *"Not fetched"*. The
+one tangential span the re-fetch did surface concerns a push gateway storing APNS failures
+and returning `rejected` on the next use of that pushkey — gateway error handling, not a
+delivery guarantee, and it is not relied on here. None of the nine sources returned such a
+statement. The
 vocabulary these products publish is **retention**, not **guarantee** — how long a message is
 kept, never whether it is certain to arrive or in what order.
 
@@ -698,8 +800,8 @@ markdown contains the limit only as an unexpanded template variable:
 `"You can add up to {% data variables.projects.sub-issue_limit %} sub-issues per parent issue"`
 [S21]. The nesting depth *is* stated in prose (*"create up to eight levels of nested
 sub-issues"*) and is used. *Search method:* raw fetch of the file after enumerating
-`content/issues/tracking-your-work-with-issues/using-issues/` via the contents API (15 entries,
-listed and counted by this analyst). Resolving the variable requires the rendered docs site or
+`content/issues/tracking-your-work-with-issues/using-issues/` via the contents API [S18]
+(15 entries, listed and counted by this analyst). Resolving the variable requires the rendered docs site or
 the repo's data files, neither of which was fetched.
 
 **5.6.9 — No first-party documentation of the dead-man's-switch / inverse-alert pattern was
@@ -716,12 +818,13 @@ reordered is not addressed. *Search method:* raw fetches of
 `subscriptions-and-notifications/concepts/about-notifications.md` and
 `reference/inbox-filters.md`, both explicitly prompted for delivery and retention statements,
 after enumerating `content/subscriptions-and-notifications/` (6 entries), its `concepts/`
-(3 entries) and its `reference/` (4 entries) via the contents API — each listed and counted by
+(3 entries) and its `reference/` (4 entries) via the contents API [S18] — each listed and counted by
 this analyst. This is the same gap as every other channel (§3.3) and is why the paper's design
 conclusion does not depend on any channel's semantics.
 
 **5.6.11 — There is no notification configuration in this repo today beyond one desktop
-hook.** *Search method:* full read of `config.yaml` (115 lines; sections `gh-monitor` and
+hook.** *Search method:* full read of `config.yaml` (114 lines, re-enumerated 2026-08-07 by
+reading the whole file and taking the last line number; sections `gh-monitor` and
 `models` only — no notification section); enumeration of `scripts/services/` (three files:
 `gh-monitor.service`, `gh-monitor.sh`, `gh-monitor.timer`); and a repo-wide case-insensitive
 grep for `ntfy|pushover|gotify|matrix.org|apprise|smtp|sendmail|notify-send|osascript`, which
@@ -832,6 +935,13 @@ Four rules, each falsifiable:
   comparison.
 - **Resolve GitHub's per-parent sub-issue limit** (§5.6.8) if the inbox design uses sub-issues
   as its primary structure rather than labels.
+- **Mine Airflow's HITL tutorial [S26] properly** (§1.2) — located at round 4 and deliberately
+  not mined. Its `Notifiers` section and its response-timeout semantics are the two most
+  on-topic pieces of first-party prior art this sweep found and did not read: a mature
+  orchestrator's answer to *"what do you do when a human does not answer"* is exactly §3.5's
+  severity-ladder question. Fetch the raw `.rst` and quote it in short exact segments (the
+  125-character-per-span technique that recovered §1.2's other quotations), **not** through a
+  single whole-document summarizing fetch. Highest-value follow-up on this list.
 
 ### 7.4 Questions this paper deliberately does not answer
 
@@ -873,7 +983,9 @@ Four rules, each falsifiable:
 - **[S11]** Prometheus, *Alerting* best practices (raw `.md`) — https://raw.githubusercontent.com/prometheus/docs/main/docs/practices/alerting.md
 - **[S14]** Apprise README (raw `.md`) — https://raw.githubusercontent.com/caronc/apprise/master/README.md
 - **[S15]** Apache Airflow, *Tasks* — task-instance states (raw `.rst`) — https://raw.githubusercontent.com/apache/airflow/main/airflow-core/docs/core-concepts/tasks.rst
-- **[S24]** Apache Airflow `airflow-core/docs/core-concepts/` contents listing (GitHub API; 22 entries enumerated and counted by this analyst — used to establish that no `hitl.rst` exists at that path) — https://api.github.com/repos/apache/airflow/contents/airflow-core/docs/core-concepts
+- **[S24]** Apache Airflow `airflow-core/docs/core-concepts/` contents listing (GitHub API) — cited inline at §1.2 to establish that no `hitl.rst` exists **at that path** — a true absence from which this paper once drew a false corpus-wide conclusion, retracted at §1.2 and corrected by [S25]. Enumerated and counted by this analyst from the JSON array, 22 entries: `asset-state-store.rst`, `auth-manager`, `backfill.rst`, `dag-run.rst`, `dags.rst`, `debug.rst`, `executor`, `index.rst`, `message-queues.rst`, `multi-team.rst`, `objectstorage.rst`, `operators.rst`, `overview.rst`, `params.rst`, `resumable-tasks.rst`, `sensors.rst`, `task-and-asset-state-store.rst`, `task-state-store.rst`, `taskflow.rst`, `tasks.rst`, `variables.rst`, `xcoms.rst` — https://api.github.com/repos/apache/airflow/contents/airflow-core/docs/core-concepts
+- **[S25]** Apache Airflow `airflow-core/docs/tutorial/` contents listing (GitHub API) — cited inline at §1.2 to establish that `hitl.rst` DOES exist there, retracting an earlier absence claim. Enumerated and counted by this analyst from the JSON array, 7 entries: `fundamentals.rst`, `hitl.rst`, `index.rst`, `objectstorage.rst`, `pipeline.rst`, `pipeline_example.csv`, `taskflow.rst` — https://api.github.com/repos/apache/airflow/contents/airflow-core/docs/tutorial
+- **[S26]** Apache Airflow, *HITLOperator (Human-in-the-loop)* tutorial (raw `.rst`) — cited inline at §1.2 for its enumerated section headings ONLY. **Fetched but deliberately not mined; no span from it is quoted or relied on** (single summarizing fetch; one offered span was self-labelled "implicitly present"). Follow-up at §7.3 — https://raw.githubusercontent.com/apache/airflow/main/airflow-core/docs/tutorial/hitl.rst
 
 **First-party — GitHub as channel and inbox**
 
