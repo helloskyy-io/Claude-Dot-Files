@@ -15,17 +15,10 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
+from .. import routing
 
-class Verdict(str, Enum):
-    """review-pr's terminal routing token.
 
-    The caller branches on this rather than re-deriving a judgement the
-    reviewer already made.
-    """
-
-    MERGE = "MERGE"
-    HOLD_REDISPATCH = "HOLD - redispatch"
-    HOLD_NEEDS_ASSISTANCE = "HOLD - needs-assistance"
+Verdict = routing.Verdict
 
 
 class ReviewType(str, Enum):
@@ -71,10 +64,7 @@ class ReviewResult:
 
 # Anchored and exhaustive: an unanchored match would find the token inside prose
 # discussing it. MULTILINE because the line sits in a stream of output.
-_VERDICT = re.compile(
-    r"^VERDICT: (MERGE|HOLD - (?:redispatch|needs-assistance))$",
-    re.MULTILINE,
-)
+_VERDICT = routing._VERDICT   # ONE parser (§10.1); see routing.py and issue #34
 
 # The completion contract. `exit 0` means finished only if output matches this.
 COMPLETION_PATTERN = r"^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$"

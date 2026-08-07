@@ -20,6 +20,7 @@ shared_prompt = shared.shared_prompt
 render = shared.render
 run_claude = shared.run_claude
 worktree_add = shared.worktree_add
+pr_branch = shared.pr_branch
 extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
 

@@ -9,20 +9,17 @@ the point of defining them now.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+from .. import routing
 from enum import Enum
 
 
-class Verdict(str, Enum):
-    """The routing token review-pr emits on its terminal line.
-
-    This IS the interface between the disposition child and its caller. The
-    child aggregates per-finding hold_kind values into one token so the caller
-    never re-derives a judgement the reviewer already made.
-    """
-
-    MERGE = "MERGE"
-    HOLD_REDISPATCH = "HOLD - redispatch"
-    HOLD_NEEDS_ASSISTANCE = "HOLD - needs-assistance"
+# ONE definition, in `..routing`. It was typed here AND in review_pr_helper --
+# byte-identical members, byte-identical parser -- and build bridged the two
+# with `Verdict(result.verdict.value)`, converting an enum into an identical
+# enum. Issue #34 recorded the cost: the copy deciding whether a PR MERGES
+# had zero tests while its twin had twenty.
+Verdict = routing.Verdict
 
 
 @dataclass(frozen=True)
