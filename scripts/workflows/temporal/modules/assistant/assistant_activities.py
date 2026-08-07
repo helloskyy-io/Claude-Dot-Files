@@ -70,10 +70,26 @@ def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     operator's main working tree — a live host here. A run dying mid-write would
     leave that tree dirty on a checked-out foreign branch with no discard path.
     V1 always creates one (`git worktree add -f` on the PR branch); so does this.
+
+    A FAILED FETCH IS FATAL WHEN THE REF IS A REMOTE ONE. V1 ran its fetch under
+    `set -euo pipefail`, so a fetch that failed aborted the script. Here it was
+    unchecked, and the silent case is the dangerous one: when `origin/<branch>`
+    already exists locally from an earlier run, `git worktree add` then SUCCEEDS
+    against stale content and the run plans on top of a base that has moved —
+    the kind of wrong answer that gets acted on. The check is scoped to
+    `origin/`-prefixed refs because the other callers pass a local ref (`HEAD`,
+    a bare branch name) that resolves without the network, and V1's own
+    new-branch path did no fetch at all.
     """
     wt = repo_root / ".claude" / "worktrees" / name
-    subprocess.run(["git", "fetch", "-q", "origin", ref.replace("origin/", "")],
-                   cwd=str(repo_root), capture_output=True, text=True)
+    f = subprocess.run(["git", "fetch", "-q", "origin", ref.replace("origin/", "")],
+                       cwd=str(repo_root), capture_output=True, text=True)
+    if f.returncode != 0 and ref.startswith("origin/"):
+        raise RuntimeError(
+            f"git fetch origin {ref.replace('origin/', '')} failed: {f.stderr.strip()}. "
+            f"Refusing to cut a worktree from {ref} — a stale local copy of that ref "
+            f"would succeed here and put the run on a base that has already moved."
+        )
     r = subprocess.run(["git", "worktree", "add", "-f", str(wt), ref],
                        cwd=str(repo_root), capture_output=True, text=True)
     if r.returncode != 0:

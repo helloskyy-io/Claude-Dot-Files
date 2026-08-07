@@ -62,6 +62,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # from the plan, not from the run.
     if a.context and a.task_file:
         p.error("cannot use both a positional context and --task-file")
+
+    # argparse's required-positional check fires only when the argument is
+    # OMITTED, so `plan_revision.sh ""` parses cleanly and would cut a worktree
+    # and spend a model call to discover it has no task. V1 rejected an empty
+    # DESCRIPTION explicitly (`[[ -z "$DESCRIPTION" ]]`); so does this.
+    if not a.description.strip():
+        p.error("description cannot be empty")
     return a
 
 
@@ -83,17 +90,22 @@ def _read_task_file(path_str: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     a = parse_args(argv)
-    repo_root = Path(a.repo_target) if a.repo_target else Path.cwd()
+    invoked_from = Path(a.repo_target) if a.repo_target else Path.cwd()
 
     try:
-        # V1's own precondition. Checked here rather than left to git: without a
-        # repo there is no worktree to create, and the failure would otherwise
-        # surface as a `git worktree add` error that names neither the cause nor
-        # the fix.
-        if subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=str(repo_root),
-                          capture_output=True, text=True).returncode != 0:
-            print(f"\n✗ not inside a git repository: {repo_root}", file=sys.stderr)
+        # V1's own precondition, and V1's own NORMALISATION. `REPO_ROOT="$(git
+        # rev-parse --show-toplevel)"; cd "$REPO_ROOT"` — the answer is used, not
+        # just its exit code. Everything downstream is anchored on repo_root:
+        # `.claude/worktrees/` and `.claude/logs/` both hang off it, so keeping
+        # the invocation directory would scatter worktrees and logs into
+        # whatever subdirectory the operator happened to be standing in, where
+        # /cleanup-merged-worktrees does not look for them.
+        probe = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=str(invoked_from),
+                               capture_output=True, text=True)
+        if probe.returncode != 0:
+            print(f"\n✗ not inside a git repository: {invoked_from}", file=sys.stderr)
             return 1
+        repo_root = Path(probe.stdout.strip())
 
         context = _read_task_file(a.task_file) if a.task_file else a.context
 
@@ -104,8 +116,14 @@ def main(argv: list[str] | None = None) -> int:
         if context:
             # First line only, capped: a --task-file body is routinely pages
             # long and echoing it buries the rest of the banner.
-            head = context.splitlines()[0][:80]
-            print(f"  Context     : {head}{'…' if context.strip() != head else ''}")
+            first = context.splitlines()[0]
+            head = first[:80]
+            # The ellipsis has to mean "there is more", so compare like with
+            # like: `head` against the line it came from, plus whether any
+            # further lines exist. Comparing it against the whole stripped
+            # context printed a … for a short single line with stray padding.
+            truncated = head != first or len(context.splitlines()) > 1
+            print(f"  Context     : {head}{'…' if truncated else ''}")
         print(f"  Target      : {f'PR #{a.pr_number} (updating existing)' if a.pr_number else 'new branch and PR'}")
         print(BANNER)
         print()

@@ -8,6 +8,7 @@ the parts a reader could get wrong by hand.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -65,28 +66,56 @@ def test_completion_url(output: str, expected: str | None) -> None:
     assert wf.completion_url(output) == expected
 
 
-def test_a_pr_outranks_an_issue_it_cites() -> None:
-    """PR first, never last-wins across both kinds.
-
-    A PR body routinely says `Closes` with a full issue URL, and that line is
-    printed after the PR is opened. Last-wins would hand back the issue and
-    report a completed plan as a STOP — which routes the operator to run
-    research that the plan did not need.
+def test_a_completed_run_outranks_the_issue_its_pr_body_cites() -> None:
+    """A PR body routinely says `Closes` with a full issue URL while it is being
+    written — and Stage 6 then mandates the PR URL as the run's FINAL line, so
+    the PR still comes last. Returning the issue here would report a completed
+    plan as a STOP and route the operator to research the plan did not need.
     """
     output = (
         "opened https://github.com/o/r/pull/7\n"
         "body: Closes https://github.com/o/r/issues/44\n"
+        "https://github.com/o/r/pull/7\n"
     )
     assert wf.completion_url(output) == "https://github.com/o/r/pull/7"
 
 
+def test_a_stop_outranks_a_pr_it_merely_quoted() -> None:
+    """The mirror case, and the reason the rule is positional rather than
+    type-priority.
+
+    A planning run reads docs and PR bodies full of PR URLs before it decides
+    anything. If Stage 1 then STOPs — research required, or evidence
+    structurally faulty — it files an issue and prints THAT as its final line.
+    A rule that always preferred a PR would hand back a PR this run never
+    opened, reporting a correct ~$2 gate as a finished plan and inviting a
+    re-dispatch straight past it.
+    """
+    output = (
+        "the phase doc cites https://github.com/o/r/pull/12 as prior art\n"
+        "STOPPING: research required. Filed:\n"
+        "https://github.com/o/r/issues/44\n"
+    )
+    assert wf.completion_url(output) == "https://github.com/o/r/issues/44"
+
+
 # --- the CLI contract --------------------------------------------------------
 
-def test_description_is_required() -> None:
+@pytest.mark.parametrize("argv", [
+    pytest.param([], id="omitted"),
+    pytest.param([""], id="empty-string"),
+    pytest.param(["   "], id="whitespace-only"),
+])
+def test_description_is_required(argv: list[str]) -> None:
     """V1 printed usage and exited 1 on a bare invocation. A run with no task
-    still costs a worktree and a model call to discover it has nothing to do."""
+    still costs a worktree and a model call to discover it has nothing to do.
+
+    The empty-string cases are the ones argparse alone does NOT catch: its
+    required-positional check fires only on OMISSION, so `plan_revision.sh ""`
+    parsed cleanly and dispatched against a blank task.
+    """
     with pytest.raises(SystemExit):
-        cli.parse_args([])
+        cli.parse_args(argv)
 
 
 def test_positional_context_and_task_file_are_mutually_exclusive() -> None:
@@ -134,3 +163,69 @@ def test_a_task_file_is_read_literally(tmp_path: Path) -> None:
     f = tmp_path / "ctx.md"
     f.write_text(body)
     assert cli._read_task_file(str(f)) == body
+
+
+# --- main(): the repo root is the ANSWER git gives, not the invocation dir ----
+
+def _stub_git_toplevel(monkeypatch: pytest.MonkeyPatch, *, returncode: int, stdout: str) -> None:
+    """Stand in for the one `git rev-parse --show-toplevel` main() runs."""
+    monkeypatch.setattr(cli.subprocess, "run", lambda argv, **_: subprocess.CompletedProcess(
+        argv, returncode, stdout=stdout, stderr="not a git repository" if returncode else ""))
+
+
+def _must_not_run(*_a, **_k):
+    raise AssertionError("a worktree was created for a directory that is not a repo")
+
+
+def test_the_repo_root_is_normalised_to_the_git_toplevel(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """V1 did `REPO_ROOT="$(git rev-parse --show-toplevel)"; cd "$REPO_ROOT"` —
+    it USED the answer. An earlier version of this port ran the same command
+    purely as a pass/fail gate and threw the output away, leaving repo_root as
+    the invocation directory.
+
+    Everything hangs off repo_root: `.claude/worktrees/` and `.claude/logs/`
+    both. Dispatching from a subdirectory would scatter worktrees and logs into
+    it, where /cleanup-merged-worktrees does not look and the operator does not
+    either.
+    """
+    toplevel = tmp_path / "repo"
+    subdir = toplevel / "docs" / "development"
+    subdir.mkdir(parents=True)
+
+    _stub_git_toplevel(monkeypatch, returncode=0, stdout=f"{toplevel}\n")
+
+    seen: dict[str, Path] = {}
+
+    def fake_worktree_add(root: Path, name: str, ref: str) -> Path:
+        seen["worktree_root"] = root
+        return Path("/wt")
+
+    def fake_run(**kwargs) -> str:
+        seen["workflow_root"] = kwargs["repo_root"]
+        return "https://github.com/o/r/pull/7"
+
+    monkeypatch.setattr(cli.act, "worktree_add", fake_worktree_add)
+    monkeypatch.setattr(cli.wf, "run_plan_revision", fake_run)
+    monkeypatch.chdir(subdir)
+
+    assert cli.main(["bump the roadmap"]) == 0
+    assert seen["worktree_root"] == toplevel, (
+        f"worktree would be cut under {seen['worktree_root']}, not the repo root {toplevel}"
+    )
+    assert seen["workflow_root"] == toplevel, (
+        "the workflow was handed the invocation directory, so its logs would land there"
+    )
+
+
+def test_a_directory_outside_a_repo_is_refused_before_anything_is_created(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """The precondition still has to FAIL when it should. Normalising the happy
+    path is worthless if the unhappy one stopped being detected."""
+    _stub_git_toplevel(monkeypatch, returncode=128, stdout="")
+    monkeypatch.setattr(cli.act, "worktree_add", _must_not_run)
+    monkeypatch.chdir(tmp_path)
+
+    assert cli.main(["bump the roadmap"]) == 1

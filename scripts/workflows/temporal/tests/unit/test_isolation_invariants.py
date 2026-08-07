@@ -33,6 +33,7 @@ being reachable the moment the PR merges.
 from __future__ import annotations
 
 import inspect
+import subprocess
 from typing import Callable
 
 import pytest
@@ -42,10 +43,18 @@ from modules.assistant.build.build import build_workflow as parent
 from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_minor import build_minor_workflow as parent_minor
 from modules.assistant.build.build_refine import build_refine_workflow as refine
+from modules.assistant.plan.plan_revision import plan_revision_workflow as plan_revision
 
+# HAND-MAINTAINED, AND THAT IS THE WEAKNESS. A child absent from this list is
+# not checked at all, so the net covers only what someone remembered to add:
+# measured, 3 of the 10 modules that fit this file's own definition of a child,
+# and 2 of the 5 that fit its definition of a parent. Converting both lists to
+# the auto-discovery sweep `test_prompt_completeness` already uses is tracked at
+# issue #47. Until that lands, ADD YOUR CHILD HERE.
 CHILDREN = [
     pytest.param(draft, id="build_draft"),
     pytest.param(refine, id="build_refine"),
+    pytest.param(plan_revision, id="plan_revision"),
 ]
 
 PARENTS = [
@@ -229,3 +238,65 @@ def test_failure_path_reports_observed_state() -> None:
         "turn-cap exit may have committed and pushed real work; asserting "
         "otherwise costs a duplicate full-budget run."
     )
+
+
+# --- worktree_add: a failed fetch is fatal for a REMOTE ref -------------------
+#
+# Behavioural, not structural, and it is the one behaviour of worktree_add that
+# is unit-testable without a real repo: the decision to raise is made from the
+# fetch's return code and the ref's shape, both of which a fake can supply.
+# (Its remaining behaviours — the already-exists collision, git's stderr on a
+# genuine failure — need a real repo in tmp_path and are tracked at issue #36
+# item 6.)
+
+class _FakeRun:
+    """Records the git argv it was handed and fails whatever it is told to fail."""
+
+    def __init__(self, fail_on: str | None) -> None:
+        self.fail_on = fail_on
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv, **_kwargs):
+        self.calls.append(argv)
+        failed = self.fail_on is not None and self.fail_on in argv
+        return subprocess.CompletedProcess(
+            argv, 1 if failed else 0, stdout="", stderr="fatal: could not read from remote",
+        )
+
+
+def test_a_failed_fetch_of_a_remote_ref_refuses_to_cut_a_worktree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    """THE SILENT CASE IS THE DANGEROUS ONE.
+
+    When the fetch fails but a stale `origin/<branch>` already exists locally
+    from an earlier run, `git worktree add` SUCCEEDS — against content that has
+    since moved — and the run plans on top of a base that is no longer real.
+    Nothing downstream can tell that apart from a good run. V1 had this for free
+    under `set -euo pipefail`; here it has to be explicit.
+    """
+    fake = _FakeRun(fail_on="fetch")
+    monkeypatch.setattr(act.subprocess, "run", fake)
+
+    with pytest.raises(RuntimeError, match="git fetch origin plan/x failed"):
+        act.worktree_add(tmp_path, "wt", "origin/plan/x")
+
+    assert not any("worktree" in a for a in fake.calls), (
+        "worktree add ran anyway after the fetch failed — the raise is not "
+        "preventing the stale checkout, only reporting it afterwards"
+    )
+
+
+def test_a_failed_fetch_of_a_local_ref_is_not_fatal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    """Scoped to `origin/` refs on purpose, and this pins the scope.
+
+    The new-branch path cuts from `HEAD`, which resolves with no network at
+    all — V1's new-branch path did no fetch whatsoever. Raising there would turn
+    every offline run into a failure over a fetch whose result is never used.
+    """
+    fake = _FakeRun(fail_on="fetch")
+    monkeypatch.setattr(act.subprocess, "run", fake)
+
+    assert act.worktree_add(tmp_path, "wt", "HEAD") == tmp_path / ".claude" / "worktrees" / "wt"

@@ -67,15 +67,32 @@ def context_block(context: str) -> str:
 def completion_url(output: str) -> str | None:
     """The run's completion signal: its PR URL, or a STOP's issue URL.
 
-    PR first, then issue — not "last URL of either kind". A normal run's PR body
-    routinely cites an issue (`Closes #N`) as full URL, so a last-wins rule would
-    hand back the issue and report a successful plan as a stop.
+    WHICHEVER KIND APPEARS LAST WINS, because both prompt paths mandate the same
+    thing and the position is therefore the signal, not the kind: Stage 6 says
+    "as your FINAL line, print the PR URL", and the STOP path says "print the
+    issue URL as your FINAL line — it is the STOP's completion signal".
+
+    A rule that always preferred a PR would mis-report a genuine STOP that
+    happened to quote any PR URL earlier — a planning run reads docs full of
+    them — as a completed plan, sending the operator to an unrelated PR and
+    inviting a re-dispatch straight past the gate that just fired. Position gets
+    the mirror case right for free: a normal run's PR body cites `Closes <issue
+    URL>` while it is being written, and the mandated PR line still comes after
+    it.
+
+    Ties go to the PR: `extract_pr_url` is the shared spelling every sibling
+    uses for the ordinary path, and the ordinary path is the PR.
     """
     pr = act.extract_pr_url(output)
-    if pr:
-        return pr
     issues = _STOP_ISSUE.findall(output)
-    return issues[-1] if issues else None
+    if not issues:
+        return pr
+    issue = issues[-1]
+    if not pr:
+        return issue
+    # rfind, not the match objects: `extract_pr_url` is shared and returns a
+    # string, so the position is recovered here rather than reaching around it.
+    return pr if output.rfind(pr) >= output.rfind(issue) else issue
 
 
 def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
