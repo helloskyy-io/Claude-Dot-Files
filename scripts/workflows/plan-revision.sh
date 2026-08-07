@@ -4,13 +4,13 @@
 # Daily planning workflow for revising existing planning docs.
 #
 # This workflow is for PLANNING changes, not code changes. It revises
-# roadmaps, phase docs, requirements, ADRs, and epics. It uses the
+# roadmaps, phase docs, requirements, standards amendments, and epics. It uses the
 # architect and planner agents for review instead of code-focused agents.
 #
 # Stages:
 #   1. ASSESS — read existing planning docs, verify task fits this workflow (not a bulk rename)
 #   2. PLAN — determine what specifically needs to change
-#   3. REVISE — make the planning changes (requirements, phases, epics, ADRs, roadmap)
+#   3. REVISE — make the planning changes (requirements, phases, epics, standards amendments, roadmap)
 #   4. PEER REVIEW — architect + planner + standards-architect dispatched in PARALLEL
 #   5. RESOLVE — address critical findings, document addressed vs deferred
 #   6. SUBMIT — commit, push, create/update PR
@@ -23,7 +23,7 @@
 #
 # Examples:
 #   ./plan-revision.sh "update roadmap to reflect Phase 4 completion"
-#   ./plan-revision.sh "add ADR for switching from REST to gRPC" "focus on performance rationale"
+#   ./plan-revision.sh "record the REST to gRPC switch in the planning docs" "focus on performance rationale"
 #   ./plan-revision.sh "revise Phase 5 requirements based on learnings from Phase 4"
 #   ./plan-revision.sh "update epic breakdown for auth migration" --pr 18
 #   ./plan-revision.sh "realign roadmap milestones with Q3 deadlines" --verbose
@@ -76,7 +76,7 @@ Options:
 Examples (flags FIRST, positionals LAST — protects positionals from
 line-wrap and keeps options visible):
   $(basename "$0") "update roadmap to reflect Phase 4 completion"
-  $(basename "$0") "add ADR for switching from REST to gRPC" "focus on performance rationale"
+  $(basename "$0") "record the REST to gRPC switch in the planning docs" "focus on performance rationale"
   $(basename "$0") --pr 18 --task-file /tmp/context.md "revise Phase 5 requirements"
   $(basename "$0") --verbose "realign roadmap milestones"
 
@@ -251,7 +251,7 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 ## Stage 1: ASSESS
 Read the existing planning docs in docs/ (architecture/, development/, guide/, standards/). Understand:
 - The current state of the roadmap, phases, and epics
-- What ADRs exist and what decisions they capture
+- What standards exist and what decisions they capture (`docs/standards/` — this repo uses standards docs, NEVER numbered ADRs)
 - The current requirements and success criteria
 - How the existing planning docs relate to each other
 
@@ -289,9 +289,9 @@ If the task is a legitimate planning build, summarize the current state before p
 
 ## Stage 2: PLAN
 Determine what specifically needs to change:
-- Which planning docs need updates (roadmap, phase docs, requirements, ADRs, epics)
+- Which planning docs need updates (roadmap, phase docs, requirements, standards amendments, epics)
 - What content needs to be added, modified, or removed
-- What new docs need to be created (e.g., new ADRs)
+- What new docs need to be created. **Not standards** — those are human-ratified; surface the candidate instead
 - Dependencies between changes (e.g., roadmap update depends on phase doc update)
 - Risks: could these changes create inconsistencies with other planning docs?
 
@@ -299,7 +299,7 @@ Keep the plan specific and actionable. List the files and the changes for each.
 
 ## Stage 3: REVISE
 Make the planning changes. Work through the plan methodically:
-- Update requirements, phases, epics, ADRs, and roadmap as needed
+- Update requirements, phases, epics and roadmap as needed. **Standards amendments are SURFACED, never written** — they are human-in-the-loop
 - Ensure cross-references between docs remain consistent
 - Follow the four-bucket documentation convention (architecture=WHY, development=WHAT, standards=HOW, guide=USER-FACING)
 - Use clear, specific language — avoid vague phrases like "improve performance"
@@ -348,7 +348,7 @@ Each agent's review focus (PROPOSING shape — see the RECORDING lens above when
 - Are the technical decisions consistent with existing architecture?
 - Are trade-offs clearly documented?
 - Are there architectural implications that haven't been considered?
-- Do ADRs properly capture context, decision, and consequences?
+- Do the standards docs properly capture context, decision, and consequences?
 
 #### planner agent — actionability, dependencies, ordering
 - Are requirements actionable and implementable?

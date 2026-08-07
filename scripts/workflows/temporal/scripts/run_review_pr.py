@@ -14,6 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from preflight import preflight  # noqa: E402
+
 from modules.assistant.review_pr import review_pr_activities as act  # noqa: E402
 from modules.assistant.review_pr import review_pr_helper as helper  # noqa: E402
 from modules.assistant.review_pr import review_pr_workflow as wf  # noqa: E402
@@ -83,7 +85,12 @@ def main(argv: list[str] | None = None) -> int:
     # --repo is a FILESYSTEM PATH (never a gh OWNER/NAME slug). gh is then run
     # with this as its cwd, which keeps repo identity explicit without parsing a
     # remote URL — see assistant_activities.gh.
-    repo_root = Path(task.repo_target) if task.repo_target else Path.cwd()
+    try:
+        repo_root = preflight(task.repo_target)
+    except RuntimeError as exc:
+        # Nothing has been created yet — that is the point of preflight.
+        print(f"\n✗ {exc}", file=sys.stderr)
+        return 1
     try:
         if dry:
             return _dry_run(task, repo_root)

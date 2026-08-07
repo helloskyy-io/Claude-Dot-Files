@@ -67,7 +67,8 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     if level == "PRODUCT":
         values["CANDIDATE_CEILING"] = act.candidate_ceiling(research_dir)
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "write.md"), values),
+        act.render(act.load_prompt(PROMPTS / "write.md"), values,
+                   opaque=frozenset({"CONTEXT_BLOCK"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )

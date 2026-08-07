@@ -983,6 +983,48 @@ Real, and **not a prompt fix.** A parent hands a child a PR number; the child re
 
 ---
 
+## 2026-08-07 (afternoon) — six tooling fixes shipped in-session, plus a fifth disposition
+
+**The operator's standing correction, and the reason this entry exists:** *"these are tooling fixes, which is exactly what we seek out to make in real time not store for later."* Every item below was surfaced by a run reviewing its own work and was fixed the same session rather than filed. Six issues closed, and **two of them turned out to be one fix wearing two filings** — which is the argument against deferring, stated as evidence rather than principle.
+
+### SHIPPED — research family (#37, #39)
+
+**Two of three research agents had no shell**, so verification-shaped checks degraded to the fetch layer this pool has spent four cycles measuring as unreliable. Granted with a discipline written for agents that AUTHOR files, unlike the critic: the shell reads, it never changes state.
+
+**A git-hosted quote is now CLONED and grepped, never fetched** — `git clone --depth 1 --filter=blob:none` then `grep -F`. That answers the only question the standard's *verbatim* rule asks. It closes the two failure classes nothing else could touch: fetch non-determinism on an unchanged URL, where a passing re-fetch clears nothing, and **near-duplicate blending — a quote existing in NO source**, where a stable blend returns identically every time.
+
+**These were ONE fix.** Clone-and-grep is only possible because the critic has a shell. Split across two issues that dependency was invisible; fixed together it was obvious in thirty seconds.
+
+### SHIPPED — entrypoints and rendering (#46, #47, #48, #49)
+
+**Operator text is now inserted last and never re-scanned.** `render()` ran one loop over everything, so a `${...}` token in a task file was treated as a template placeholder — it either got substituted into the task statement or killed the dispatch. **Both happened, twice in one afternoon, both on briefs describing this exact mechanism.**
+
+**The isolation net discovers its own subjects** — 10 children and 5 parents, up from 3 and 2 hand-listed. Classified by behaviour read from source, because child-ness is a call-graph property.
+
+**One shared preflight** resolves the repo root via `git rev-parse` (six of seven entrypoints used `Path.cwd()`, scattering worktrees and logs where cleanup never looks) and checks dependencies **before** anything is created.
+
+### SHIPPED — the disposition enum grew twice in two days
+
+**NOTED** (2026-08-06) for a preventive finding with no defect behind it. **ESCALATED** (today) for a live defect that is **not this PR's**.
+
+ESCALATED came from PR #51 being held on `needs-assistance` because `research-critic`'s write ban contradicted its own clone rule — **in two files that PR never touched.** Five verified papers waited on a bug elsewhere. Every other disposition was wrong: NOTED is barred because there IS a live defect, DEFERRED needs a home, FIXED and REJECTED are both false.
+
+**Watch: a third enum gap inside a month means the taxonomy is being derived from failures rather than designed.** Two is a correction; three is a signal to sit down with the whole disposition space at once.
+
+### The self-inflicted class worth naming
+
+**Three of today's defects were introduced by today's fixes**, all within an hour:
+
+1. The critic's clone rule contradicted its own write ban — same file, same commit.
+2. `require_dependencies(names=_REQUIRED)` bound the tuple at definition, making it untestable.
+3. `run_plan_revision.py` was left out of the preflight migration.
+
+**All three were caught by tests or reviews written alongside the fix**, not by inspection. That is the argument for shipping the guard in the same commit as the change: (2) and (3) were caught within a minute of the test existing, and (1) by the next run through.
+
+**Watch-criterion:** if a fix-introduced defect ever reaches `main` un-caught, the same-commit-guard practice has a hole and the next entry says where.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

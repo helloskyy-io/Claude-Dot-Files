@@ -66,7 +66,7 @@ A bare discrepancy is not a finding. 'X does not match Y' becomes a finding only
 **ONE FINDING = ONE ENTRY = ONE RULING (binding).** If an item would require the operator to make more than one decision, it is a BUNDLE, and a bundle is a DEFECT — split it into separate findings with separate ids and separate reasoning. 'Give the nine action candidates a home' is nine findings. 'One standards amendment pass (four items)' is four findings. Applying your lenses to a bundle instead of to each decision is lens theater: it reads as rigorous and gives the operator nothing rulable.
 
 ## Stage 3: DISPOSITION (the core — no rubber stamps, no rug-sweeps)
-For EACH enumerated item, reach exactly one terminal disposition using genuine /decide (reframe: is this the real issue, or a symptom of an upstream one?) + /best-practices (what does the correct approach demand?) reasoning. There are exactly four terminal dispositions — FIXED, REJECTED, DEFERRED, NOTED — and their bars are HIGH:
+For EACH enumerated item, reach exactly one terminal disposition using genuine /decide (reframe: is this the real issue, or a symptom of an upstream one?) + /best-practices (what does the correct approach demand?) reasoning. There are exactly five terminal dispositions — FIXED, REJECTED, DEFERRED, NOTED, ESCALATED — and their bars are HIGH:
 
 **Every finding ALSO carries a `remedy:` from this fixed vocabulary (extend-never-rename).** The disposition says what STATE the item is in; the remedy says what ACTION resolves it. Choose from the list — do NOT invent freeform actions, because an unbounded action space collapses to whatever is cheapest:
 - `fix-in-place` — correct it in this PR (rides a redispatch)
@@ -84,6 +84,21 @@ For EACH enumerated item, reach exactly one terminal disposition using genuine /
   (b) the work is **already in motion** in a live concurrent PR/dispatch → pointer = that PR/dispatch.
   (c) you FILE a GitHub Issue for it under the filing authority below → pointer = that issue URL, `pointer_verified: true`.
   Cases (a) and (b) point at work that is ALREADY scheduled or ALREADY happening. Case (c) is the ONE thing you may create, and only under the three conjunctive criteria below — it is not a parking spot because a filed issue carries a standing disposition obligation at standup (it may not survive a standup in the same state), which a loose-end never did. Outside those three cases, if the work has no existing home it is NOT deferrable. **The reviewed PR (its body, thread, comments) is NEVER a valid pointer — merging it is the burial.** 'The architecture session' / 'the standards queue' are not pointers unless you name the committed file that queue reads from.
+
+- **ESCALATED** — a **LIVE defect that is NOT this PR's**, needs someone now, and **does not hold this PR**.
+
+  The shape: something is genuinely broken on the default branch, you found it while reviewing something else, it is too small for the filing bar, and no existing item covers it. Every other disposition is wrong for it — `NOTED` is barred because there IS a live defect, `DEFERRED` needs a home it does not have, `FIXED` is false, `REJECTED` is false.
+
+  **Without this, the only honest option was HOLD** — which stops a PR for a defect independent of it. Measured: a research pool of five verified papers was held on `needs-assistance` because the `research-critic` agent's write ban contradicted its own clone rule. Two files that PR never touched. The pool was clean and waited anyway.
+
+  **Three conditions, all required:**
+  1. **Name where it lives** — file and line on the default branch, not in this PR's diff. If it is in the diff it is this PR's, and that is a normal finding.
+  2. **Say why this PR does not own it.** If the answer is strained, it is not an escalation.
+  3. **State the remedy in one line**, so the operator acts rather than investigates.
+
+  It appears in its own section of your comment, above the disposition table, because it is the one item someone may need to act on before reading anything else. **The PR's verdict is computed as if it were not there** — an ESCALATED item never contributes to a HOLD.
+
+  **This is not a softer HOLD.** If the defect makes THIS PR unsafe to merge, it is a HOLD and always was. The test is whether merging this PR changes the defect's severity at all — if not, holding it buys nothing and costs a review cycle.
 
 - **NOTED** — the item is REAL, has NO defect behind it, and carries NO work. A preventive recommendation: a convention worth adopting, a consistency argument, a "this is right today but nothing guards it." It does not gate MERGE and nothing is being deferred, because there is nothing to schedule.
 
@@ -111,6 +126,20 @@ Both still block MERGE. Only LAUNDERED counts against the producing run.
 **The constraint governs an OPERATION, not a surface — and not a list of workflows.** The gated operation is: *filing work a run could have done, recorded elsewhere so its own output reads as complete.* It does NOT gate an issue that IS the run's deliverable — a **no-change outcome** (a planning STOP, a research candidate with no home) produced no work product at all, so nothing is being excluded; the issue is the entire result. Stated as an operation rather than an actor list, a workflow that ships tomorrow answers this by inspection instead of reopening the question.
 
 **Self-check for a novel case — if I get this wrong, is the failure LOUD or QUIET?** A false no-change outcome is **loud**: no plan was produced and the operator sees it immediately. A buried deferral is **quiet**: the PR still reads clean and nobody notices. **The gate exists for the quiet one.** If getting it wrong would be loud, it is not the operation this constrains.
+
+**PLACEMENT COMES FIRST — two questions, BEFORE the qualification test below.** Both default **against** a new issue. Documentation Standard § Deferred Work → *Placement* (vendored, binding).
+
+**1. Does it have a done-state TODAY?** An item whose remedy waits on a **named trigger**, or on a system **not yet built or still in progress**, cannot be closed — only carried. A carried issue reads as neglect at every standup while being structurally unable to move, and the anti-rot flag misfires on it. That item is a **checkbox on the phase that owns the trigger**, where its readiness and its parent's readiness are the same event.
+
+**Assume the checkbox fits; file an issue only when it demonstrably does not.** The order is load-bearing — evaluated the other way round everything looks issue-shaped, **because an issue accepts anything.**
+
+**2. Is it closely related to something that already exists?** Then it is an **expansion of that item**, not a sibling. Two entries describing one concern cost two dispositions, two reviews, and eventually two PRs contending over the same files while the second author re-derives the first's decisions. Expand the existing item — its title, its body, its checkbox list.
+
+**Decide from the BODY, never the title.** Titles state a consequence and therefore read alike across very different items. Measured upstream the same day the rule landed: a title-driven triage nominated four issues for re-filing and **one of four survived reading the bodies** — one had been folded into an unrelated migration on "both are file moves", another read as blocked on an undeployed system whose own body pre-refuted exactly that.
+
+**State which question you answered, and how, in the disposition entry.** A filing that does not show its placement reasoning has not done this step — and `remedy: create-missing-surface` is where that shows up.
+
+Neither question relaxes anything below: **work small enough to fix in place is still fixed in place**, not filed anywhere. These decide *where a filed item lives*, not *whether small work gets recorded*.
 
 **Qualification — all THREE, conjunctive. Fail any one and it is not an issue:**
 1. **Unrelated to the work in hand.** The primary discriminator, and the one that stops a PR offloading its own scope into the queue. Work this PR is responsible for is fixed or redispatched, never filed.
@@ -188,8 +217,9 @@ pr_review:
       title: <the CONSEQUENCE in one line — what breaks/is risked/gets decided wrongly. NOT the mismatch.>
       category: <from the fixed enum — NO existing-condition>
       consequence: <REQUIRED — what happens if this is not addressed. If you cannot state it, this is a note, not a finding.>
-      disposition: fixed | rejected | deferred | noted | hold
+      disposition: fixed | rejected | deferred | noted | escalated | hold
       remedy: fix-in-place | reject | defer-to-existing-work | extend-upstream-artifact | create-missing-surface | ratify-standard-change | operator-action | none
+      escalation_location: <REQUIRED if escalated — file:line on the DEFAULT BRANCH, plus why this PR does not own it>
       no_live_defect_check: <REQUIRED if noted — the check you RAN that proves nothing is broken now. Not "it looks fine".>
       hold_kind: redispatch | needs-assistance   # REQUIRED when disposition: hold — links this finding to its next_steps entry
       pointer: <REQUIRED if deferred — the already-existing sprint item or live PR, VERIFIED present. Never the reviewed PR.>

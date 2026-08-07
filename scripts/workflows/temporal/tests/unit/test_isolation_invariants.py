@@ -32,6 +32,9 @@ being reachable the moment the PR merges.
 
 from __future__ import annotations
 
+import importlib
+from pathlib import Path
+
 import inspect
 import subprocess
 from typing import Callable
@@ -45,22 +48,69 @@ from modules.assistant.build.build_minor import build_minor_workflow as parent_m
 from modules.assistant.build.build_refine import build_refine_workflow as refine
 from modules.assistant.plan.plan_revision import plan_revision_workflow as plan_revision
 
-# HAND-MAINTAINED, AND THAT IS THE WEAKNESS. A child absent from this list is
-# not checked at all, so the net covers only what someone remembered to add:
-# measured, 3 of the 10 modules that fit this file's own definition of a child,
-# and 2 of the 5 that fit its definition of a parent. Converting both lists to
-# the auto-discovery sweep `test_prompt_completeness` already uses is tracked at
-# issue #47. Until that lands, ADD YOUR CHILD HERE.
-CHILDREN = [
-    pytest.param(draft, id="build_draft"),
-    pytest.param(refine, id="build_refine"),
-    pytest.param(plan_revision, id="plan_revision"),
-]
+# AUTO-DISCOVERED. The previous hand-maintained lists covered 3 of the 10
+# modules that fit this file's own definition of a child and 2 of the 5 parents
+# — a net whose coverage depended on someone remembering to add a line, which is
+# not a net. Adding a workflow now adds it to the sweep, and a workflow that
+# fits neither definition is reported rather than silently skipped.
+_ASSISTANT = Path(__file__).resolve().parents[2] / "modules" / "assistant"
 
-PARENTS = [
-    pytest.param(parent, id="build"),
-    pytest.param(parent_minor, id="build_minor"),
-]
+
+def _workflow_modules() -> list[tuple[str, str]]:
+    """(import-path, source) for every *_workflow.py in the assistant tree."""
+    found = []
+    for f in sorted(_ASSISTANT.rglob("*_workflow.py")):
+        if "__pycache__" in f.parts:
+            continue
+        rel = f.relative_to(_ASSISTANT.parent.parent)
+        found.append((".".join(rel.with_suffix("").parts), f.read_text()))
+    return found
+
+
+def _classify() -> tuple[list, list, list]:
+    """Split the tree by what each module DOES, read from its source.
+
+    Classified on behaviour rather than on a name or a folder: child-ness is a
+    call-graph property, and a module that creates its own worktree is a parent
+    no matter where it sits.
+    """
+    children, parents, neither = [], [], []
+    for dotted, src in _workflow_modules():
+        short = dotted.rsplit(".", 1)[-1].removesuffix("_workflow")
+        mod = importlib.import_module(dotted)
+        if "act.worktree_add(" in src:
+            parents.append(pytest.param(mod, id=short))
+        elif "worktree: Path" in src:
+            children.append(pytest.param(mod, id=short))
+        else:
+            neither.append(short)
+    return children, parents, neither
+
+
+CHILDREN, PARENTS, UNCLASSIFIED = _classify()
+
+
+def test_the_sweep_actually_found_workflows() -> None:
+    """POSITIVE CONTROL on discovery itself.
+
+    A glob that matched nothing would make every parametrised test below vacuous
+    and the suite would report green over zero coverage — which is exactly the
+    silent-hole this replaced.
+    """
+    assert CHILDREN, "no child workflows discovered — the sweep is inert"
+    assert PARENTS, "no parent workflows discovered — the sweep is inert"
+
+
+def test_every_workflow_is_classifiable() -> None:
+    """A module that neither creates nor receives a worktree is UNCHECKED.
+
+    It is not necessarily wrong — but it is invisible to every isolation
+    assertion in this file, and invisible is how the previous net failed.
+    """
+    assert not UNCLASSIFIED, (
+        f"these workflows neither create nor receive a worktree, so no isolation "
+        f"invariant is checked against them: {UNCLASSIFIED}"
+    )
 
 
 def _creates_a_worktree(source: str) -> bool:

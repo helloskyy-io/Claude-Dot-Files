@@ -223,7 +223,7 @@ How to tell if a refactor was worth it:
 
 ### architecture-decisions
 - Structural refactors sometimes require architectural decisions
-- If the refactor changes component boundaries, write an ADR
+- If the refactor changes component boundaries, surface a standards candidate — never a numbered ADR
 
 ## Integration With Workflows
 

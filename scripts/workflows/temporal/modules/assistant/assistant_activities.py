@@ -172,37 +172,63 @@ def shared_prompt(name: str) -> str:
     return load_prompt(_SHARED_PROMPTS / f"{name}.md")
 
 
-def render(template: str, values: dict[str, str]) -> str:
+def render(template: str, values: dict[str, str], *,
+           opaque: frozenset[str] = frozenset()) -> str:
     """Substitute ${NAME} placeholders and fail loud on any left over.
 
     Deliberately not str.format/f-strings: these prompts carry JSON, yaml and
     shell, all full of literal braces. An unsubstituted placeholder reaches the
     model as an instruction about a variable, so it raises rather than ships.
+
+    `opaque` names keys whose VALUE IS OPERATOR CONTENT rather than a prompt
+    fragment. Those are inserted last, in one pass, and never re-scanned.
     """
-    # SUBSTITUTE TO A FIXED POINT. A prompt fragment can itself contain
-    # placeholders — stages_2_to_4.md carries ${PR_NUMBER} — so a single pass
-    # leaves them unresolved whenever the block is inserted after its own
-    # placeholders were processed. Bash had no such problem: it expanded the
-    # whole string at once. Iterate until stable, bounded so a self-referential
-    # fragment fails loudly rather than spinning.
+    # PASS 1 — fragments only, substituted TO A FIXED POINT. A prompt fragment
+    # can itself contain placeholders (a stages file carries ${PR_NUMBER}), so a
+    # single pass leaves them unresolved whenever the block is inserted after
+    # its own placeholders were processed. Bash had no such problem: it expanded
+    # the whole string at once. Iterate until stable, bounded so a
+    # self-referential fragment fails loudly rather than spinning.
+    fragments = {k: v for k, v in values.items() if k not in opaque}
     out = template
     for _ in range(10):
         before = out
-        for k, v in values.items():
+        for k, v in fragments.items():
             out = out.replace("${" + k + "}", str(v))
         if out == before:
             break
     else:
         raise ValueError("prompt substitution did not converge — check for a self-referential fragment")
-    # [A-Z_0-9] — DIGITS MATTER. An earlier [A-Z_]+ silently missed
+
+    # THE GUARD RUNS BEFORE OPERATOR CONTENT GOES IN, and that ordering is the
+    # whole point. [A-Z_0-9] — DIGITS MATTER: an earlier [A-Z_]+ silently missed
     # ${STAGES_1_TO_4}, so a prompt shipped with its entire stage body replaced
-    # by a literal placeholder and this check raised nothing. The guard was
-    # blind to the one thing it existed to catch.
-    leftover = sorted(set(re.findall(r"\$\{[A-Z_][A-Z_0-9]*\}", out)))
+    # by a literal placeholder and this check raised nothing.
+    # An opaque key is legitimately still present here — pass 2 fills it — so
+    # exclude those and only those. Everything else must already be resolved.
+    still_expected = {"${" + k + "}" for k in opaque}
+    leftover = sorted(set(re.findall(r"\$\{[A-Z_][A-Z_0-9]*\}", out)) - still_expected)
     if leftover:
         raise ValueError(f"unsubstituted prompt placeholders: {leftover}")
-    return out
 
+    # PASS 2 — operator content, ONE pass, never re-scanned and never checked.
+    #
+    # WHY THIS IS SEPARATE. A task file is prose a human wrote, and prose about
+    # this system routinely contains a literal ${LIKE_THIS} token — describing
+    # the placeholder bug, quoting a prompt, explaining the guard. Scanned with
+    # everything else, that token either gets SUBSTITUTED into the model's task
+    # statement (silently changing what was asked) or trips the leftover check
+    # and kills the dispatch. Both happened: two runs died the same afternoon,
+    # both on briefs that were *describing* this exact mechanism, and there was
+    # no way to escape a token.
+    #
+    # Inserting last and not re-scanning means operator text is passed through
+    # LITERALLY, which is the only correct behaviour for content the system did
+    # not author.
+    for k in opaque:
+        if k in values:
+            out = out.replace("${" + k + "}", str(values[k]))
+    return out
 
 def extract_pr_url(output: str) -> str | None:
     """Last PR URL in a run's output — the completion contract's payload.

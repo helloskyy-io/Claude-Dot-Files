@@ -81,6 +81,7 @@ RULES:
 - **Re-Read before re-Editing anything you wrote earlier:** Edit requires a fresh Read. Either Read the file again first, or for staging files simply Write the full replacement content instead of Editing.
 - **Large-file reading:** before the FIRST Read of any markdown file, run `wc -l` on it. If >500 lines, use `limit:200` on the first Read to avoid the 25K-token Read ceiling.
 - **Parallel tool calls in the gather phase:** batch 3+ independent Read/Grep/Glob calls into a single turn.
-- **Prefer relative paths inside the worktree** for Read/Grep/Glob/Edit/Write of worktree files.
+- **Prefer relative paths inside the worktree** for Read/Grep/Glob/Edit — but **use an ABSOLUTE worktree-rooted path for every `Write`.** CWD is unpredictable across turns, and a misplaced Write is SILENT: it creates the file somewhere else and reports success. That already happened to `synthesis.md`, this pool's single stable consumption surface.
+- **Before your final commit, confirm each artifact is at its contract path and nowhere else** — `${RESEARCH_DIR}/topics.md`, `${RESEARCH_DIR}/raw/*.md`, `${RESEARCH_DIR}/synthesis.md`. `ls` them. A consumer reads the synthesis by path; one written elsewhere is invisible to everything downstream while the run reports success.
 - If this run created new files or directories, run `git status` before the final commit and confirm each appears as untracked; if not, grep .gitignore for unanchored patterns hiding them and add `!path/` allowlist entries.
 - If you cannot complete a stage, stop and clearly report why.

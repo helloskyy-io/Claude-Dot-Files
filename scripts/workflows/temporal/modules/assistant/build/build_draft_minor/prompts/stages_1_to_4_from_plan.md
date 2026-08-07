@@ -32,7 +32,7 @@ If the plan is not actionable, stop and clearly report what's missing. Otherwise
 ## Stage 3: IMPLEMENT
 Before writing code, discover the applicable standards:
 - Read root CLAUDE.md plus any nested CLAUDE.md in directories you will touch
-- If docs/standards/architecture/ exists, scan for relevant ADRs
+- If docs/standards/ exists, scan for relevant standards
 - Read the specific docs/standards/*.md files relevant to your task area
 
 Build what the plan describes. Work through the scope methodically.

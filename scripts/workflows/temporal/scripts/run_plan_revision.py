@@ -15,6 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from preflight import preflight  # noqa: E402
+
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_revision import plan_revision_workflow as wf  # noqa: E402
 
@@ -24,7 +26,7 @@ EPILOG = """\
 Examples (flags FIRST, positionals LAST — protects positionals from
 line-wrap and keeps options visible):
   plan_revision.sh "update roadmap to reflect Phase 4 completion"
-  plan_revision.sh "add ADR for switching from REST to gRPC" "focus on performance rationale"
+  plan_revision.sh "record the REST to gRPC switch in the planning docs" "focus on performance rationale"
   plan_revision.sh --pr 18 --task-file /tmp/context.md "revise Phase 5 requirements"
   plan_revision.sh --verbose "realign roadmap milestones"
 
@@ -37,7 +39,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="plan-revision",
         description="Revise existing planning docs — roadmaps, phase docs, "
-                    "requirements, ADRs, epics. A PLANNING build, not a code change.",
+                    "requirements, epics. A PLANNING build, not a code change.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -99,22 +101,18 @@ def _read_task_file(path_str: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     a = parse_args(argv)
-    invoked_from = Path(a.repo_target) if a.repo_target else Path.cwd()
+    try:
+        # Shared with every other entrypoint: resolve the REPO ROOT (never the
+        # invocation directory, which scatters worktrees and logs where cleanup
+        # does not look) and fail on a missing dependency BEFORE anything is
+        # created. This file had the root probe already and lacked the
+        # dependency check; both now come from one place.
+        repo_root = preflight(a.repo_target)
+    except RuntimeError as exc:
+        print(f"\n✗ {exc}", file=sys.stderr)
+        return 1
 
     try:
-        # V1's own precondition, and V1's own NORMALISATION. `REPO_ROOT="$(git
-        # rev-parse --show-toplevel)"; cd "$REPO_ROOT"` — the answer is used, not
-        # just its exit code. Everything downstream is anchored on repo_root:
-        # `.claude/worktrees/` and `.claude/logs/` both hang off it, so keeping
-        # the invocation directory would scatter worktrees and logs into
-        # whatever subdirectory the operator happened to be standing in, where
-        # /cleanup-merged-worktrees does not look for them.
-        probe = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=str(invoked_from),
-                               capture_output=True, text=True)
-        if probe.returncode != 0:
-            print(f"\n✗ not inside a git repository: {invoked_from}", file=sys.stderr)
-            return 1
-        repo_root = Path(probe.stdout.strip())
 
         context = _read_task_file(a.task_file) if a.task_file else a.context
 

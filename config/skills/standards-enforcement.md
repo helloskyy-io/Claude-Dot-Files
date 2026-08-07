@@ -52,7 +52,7 @@ Based on what was changed, pull the specific `docs/standards/*.md` files that ap
 Don't read standards docs that aren't relevant to the changes.
 
 ### Step 3: Check Architecture Docs
-If `docs/standards/architecture/` exists, scan for ADRs relevant to the changed area. Architecture decisions constrain implementation — a change that contradicts an ADR is a standards violation.
+If `docs/standards/architecture/` exists, scan for standards relevant to the changed area. Architecture decisions constrain implementation — a change that contradicts an ADR is a standards violation.
 
 ### Step 4: Find Exemplars
 For each type of artifact being changed, grep for existing exemplars:
@@ -103,7 +103,7 @@ Only report High and Medium confidence findings as violations. Low confidence fi
 - Referenced standards are actually read and applied
 
 ### Architecture Compliance
-- Changes don't contradict ADR decisions
+- Changes don't contradict a ratified standard
 - New patterns align with documented architecture
 - Integration points match system design
 

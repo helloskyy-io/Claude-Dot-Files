@@ -47,7 +47,8 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
         values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number, repo_root)}
 
     output = act.run_claude(
-        act.render(template, values),
+        act.render(template, values,
+                   opaque=frozenset({"DESCRIPTION"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
         max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),

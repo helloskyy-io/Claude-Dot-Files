@@ -58,7 +58,7 @@ Some files are navigation tools or metadata about the repo itself, not content. 
 **Purpose:** Captures architectural decisions and system design. The WHY.
 
 **What goes here:**
-- **ADRs** — Architecture Decision Records (primary content)
+- **Standards docs** — the binding rules, one per topic (primary content)
 - **System overview** — `architectural_standard.md` with high-level description
 - **Component diagrams** — Mermaid or similar, showing relationships
 - **Data flow** — `data-flow.md` describing how data moves
@@ -71,7 +71,7 @@ Some files are navigation tools or metadata about the repo itself, not content. 
 - Task lists (those go in development/)
 
 **When to create:**
-- Before making a significant architectural decision (write the ADR as you decide)
+- Before making a significant architectural decision (surface the standards candidate as you decide; a human ratifies it)
 - When onboarding needs context about system design
 - When patterns emerge that warrant explicit documentation
 
@@ -191,7 +191,7 @@ Use Model C when the ENTIRE project is a phased plan (like a migration, setup, o
 - When "how we do X" needs to be documented for consistency
 - Before a new contributor joins
 
-**Standards vs ADRs:** A standard is "we do X this way" (applies going forward). An ADR is "we decided X over Y and here's why" (documents the decision). Sometimes you'll have both: an ADR that documents the decision to adopt a standard, then the standard itself.
+**A standard, not an ADR:** a standard is "we do X this way", stated in the present tense and amended when it changes. The ADR shape — "we decided X over Y and here's why" (documents the decision). Sometimes you'll have both: an ADR that documents the decision to adopt a standard, then the standard itself.
 
 ### Bucket 4: `docs/guide/`
 
@@ -247,7 +247,7 @@ project-name/
 │       └── user.ts                        # User model
 │
 ├── docs/
-│   ├── architecture/                      # Architectural decisions (ADRs)
+│   ├── architecture/                      # Architecture standards and system design
 │   ├── development/                       # Roadmap and phase docs
 │   ├── standards/                         # Coding conventions
 │   ├── guide/                             # User-facing documentation
@@ -298,30 +298,40 @@ You might wonder why we maintain this manually instead of generating it from the
 
 Each bucket has expected formats. Follow these templates.
 
-### ADR Format (Architecture)
+### Standards-Doc Format (Architecture)
 
-**Filename:** `ADR-001-short-title.md` (numbered sequentially)
+> **This repo does NOT use numbered ADRs.** A decision that would be an ADR elsewhere is a **standards doc** here — a living rule amended in place, not a dated immutable record. `docs/standards/architecture/` holds system-architecture descriptions and tech-stack overviews, **never per-decision files**. Binding: `config/rules/standards-governance.md`.
+
+**Filename:** `docs/standards/<topic>.md` — named for the topic it governs, never numbered. Numbering encodes a sequence that stops being true and makes reordering expensive.
 
 **Template:**
 ```markdown
-# ADR-001: [Short Title of the Decision]
+# <Topic> Standard
 
-## Status
-[Proposed | Accepted | Deprecated | Superseded by ADR-###]
+One line: what this governs and who it binds.
 
-## Date
-YYYY-MM-DD
+## The rule (binding)
 
-## Context
-[What is the problem we're solving? What forces are at play?
-What constraints are we working within? What assumptions are we making?
-This section should give enough context that a reader unfamiliar with
-the decision can understand why it was needed.]
+State it as a rule in the present tense. Not what was decided on a date — what is true now.
 
-## Decision
-[What did we decide to do? Be specific and actionable.]
+## Why, and what it cost
 
-## Consequences
+The trade-off analysis, the alternatives considered, and the consequences accepted.
+This is the part an ADR carried and the part most worth keeping.
+
+## Breaking it looks like
+
+Concrete, recognisable symptoms. A rule nobody can violate-detect is a preference.
+
+## Related
+```
+
+**Rules:**
+
+- **A standard states the rule, NEVER the completion state.** "We do X" — not "X is planned" or "X is done". Status belongs in the sprint plan.
+- **Amended in place.** When the decision changes, the doc changes and the reasoning changes with it. No status field, no supersede chain, no second doc shadowing the first — git history holds the previous text.
+- **Human-ratified.** Agents and autonomous runs SURFACE candidates; a human writes the standard. This is binding and has its own rule.
+- **One topic per doc.** If it needs two rulings, it is two standards.
 
 ### Positive
 - [Benefit 1]
@@ -349,15 +359,15 @@ the decision can understand why it was needed.]
 **Why rejected:** ...
 
 ## References
-- Related ADRs: ADR-###
+- Related standards: `<topic>.md`
 - External links: [URL]
 - Code locations: `src/path/to/file.ts`
 ```
 
-**Rules for ADRs:**
-- **Immutable once accepted.** Don't edit an accepted ADR except to change its status to Superseded.
-- **Write as you decide.** Don't write ADRs retrospectively — the context gets lost.
-- **Keep them focused.** One decision per ADR. If it's really two decisions, write two ADRs.
+**Rules for standards:**
+- **Amended in place.** A standard is a living rule; when it changes, the doc changes. Superseded.
+- **Write as you decide.** Don't write standards retrospectively — the context gets lost.
+- **Keep them focused.** One topic per standard. If it's really two rulings, write two standards.
 - **Link forward and backward.** When superseding, link both directions.
 
 ### Phase Doc Format (Development)
@@ -422,7 +432,7 @@ Research belongs *inside* the phase that cites it, not in a central corpus. Co-l
 **Rules for phase docs:**
 - Use checkboxes so progress is visible
 - Keep task descriptions specific enough to be actionable
-- Link to relevant ADRs, standards, or code
+- Link to relevant standards or code
 - Update status as work progresses — don't let it go stale
 - Archive or delete when the phase is complete and merged
 
@@ -538,7 +548,7 @@ The roadmap is the top-level tracking document. It shows phases and epics with *
 [When is it OK to deviate from these rules? List specific exception conditions.]
 
 ## Related
-- ADR-###: [Related decision]
+- `<topic>.md`: [Related decision]
 - [Link to related standard]
 ```
 
@@ -635,7 +645,7 @@ The roadmap is the top-level tracking document. It shows phases and epics with *
 ### Bucket-Specific Conventions
 
 **Architecture:**
-- ADRs: `ADR-###-short-title.md` (three-digit zero-padded number)
+- Standards: `<topic>.md` — named for the topic, never numbered
 - Other: descriptive name (e.g., `architectural_standard.md`, `tech-stack.md`)
 
 **Development:**
@@ -653,10 +663,10 @@ The roadmap is the top-level tracking document. It shows phases and epics with *
 
 ### Numbering Discussion
 
-Some docs benefit from numbering (ADRs, phases in order). Others don't (standards, guide topics).
+Some docs benefit from numbering (phases in order). Others don't (standards, guide topics).
 
 **Use numbers when:**
-- Order matters (ADRs are chronological)
+- Order matters (phases are sequential)
 - There's a sequence (Phase 1 → Phase 2 → Phase 3)
 - You want to preserve historical order
 
@@ -672,7 +682,7 @@ Documents should link to each other when there's a meaningful relationship.
 ### Relative Paths
 Always use relative paths for cross-references:
 ```markdown
-See [ADR-001](../architecture/ADR-001-tech-stack.md) for the reasoning.
+See [the stack reference](../standards/architecture/stack_reference.md) for the reasoning.
 ```
 
 Not absolute URLs or broken paths.
@@ -681,11 +691,11 @@ Not absolute URLs or broken paths.
 
 | From | To | When |
 |------|-----|------|
-| Phase doc | ADR | "We're implementing this as decided in ADR-###" |
+| Phase doc | Standard | "We're implementing this as the standard requires" |
 | Phase doc | Standard | "Follow the testing standards when implementing" |
-| ADR | Standard | "This decision led to the standard in ..." |
-| Guide | ADR | "If you're curious why, see ADR-###" |
-| Standard | ADR | "This standard comes from ADR-###" |
+| Standard | Standard | "This rule follows from ..." |
+| Guide | Standard | "If you're curious why, see `<topic>.md`" |
+| Standard | Research | "The evidence behind this rule is ..." |
 | Guide | Reference | "See the API reference for details" |
 
 ### Avoid Circular Dependencies
@@ -744,13 +754,13 @@ This skill is foundational for workflows that create documentation:
 - If the build creates or modifies docs, this skill activates
 
 ### `build.sh` (significant rework)
-- May create ADRs to document major decisions
+- May SURFACE standards candidates for major decisions; a human writes them
 - May update phase docs to reflect reality
 - This skill activates for those doc operations
 
 ### `build-phase.sh` (feature build)
 - Updates phase docs as work progresses
-- May create ADRs for architectural decisions during the build
+- May SURFACE standards candidates during the build; never write one
 - May create guide docs for new features
 - This skill activates heavily
 
@@ -776,7 +786,7 @@ When creating or organizing documentation, ask:
 - [ ] Am I linking to related docs with relative paths?
 - [ ] Is this content that will be maintained, or will it drift?
 - [ ] Does this belong in docs at all, or should it be code/tests/comments?
-- [ ] If this is a decision, is it an ADR?
+- [ ] If this is a decision, has it been surfaced as a standards candidate?
 - [ ] If this is active work, is it in the right development model (features/phases/flat)?
 - [ ] If this is a convention, is it a standard?
 - [ ] If this is user-facing, is it a guide?

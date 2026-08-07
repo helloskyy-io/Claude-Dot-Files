@@ -1,4 +1,4 @@
-"""Kickoff entrypoint for the plan-master workflow.
+"""Kickoff entrypoint for the plan-project workflow.
 
 Lives in scripts/ because it is a launch concern, not a workflow concern. When
 the Temporal path exists this is replaced by a client that starts the workflow
@@ -14,8 +14,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from preflight import preflight  # noqa: E402
+
 from modules.assistant import routing  # noqa: E402
-from modules.assistant.plan.plan_master.plan_master_workflow import run_plan_master  # noqa: E402
+from modules.assistant.plan.plan_project.plan_project_workflow import run_plan_project  # noqa: E402
 
 BANNER = "=" * 64
 
@@ -28,7 +30,7 @@ DEFAULT_RESEARCH = "docs/standards/architecture/research"
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        prog="plan-master",
+        prog="plan-project",
         description="Triage research candidates into the sprint plan, then judge the result.",
     )
     p.add_argument("--sprint", default=DEFAULT_SPRINT, help=f"sprint plan (default: {DEFAULT_SPRINT})")
@@ -38,13 +40,23 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--verbose", "-v", action="store_true")
     a = p.parse_args(argv)
 
-    repo_root = Path(a.repo_target).resolve() if a.repo_target else Path.cwd()
+    try:
+
+        repo_root = preflight(a.repo_target)
+
+    except RuntimeError as exc:
+
+        # Nothing has been created yet — that is the point of preflight.
+
+        print(f"\n✗ {exc}", file=sys.stderr)
+
+        return 1
     research_dir = repo_root / a.research
 
     try:
-        url, verdict, loops, notes = run_plan_master(
+        url, verdict, loops, notes = run_plan_project(
             repo_root=repo_root,
-            worktree_name=f"plan-master-{int(time.time())}",
+            worktree_name=f"plan-project-{int(time.time())}",
             sprint_path=repo_root / a.sprint,
             candidates_path=research_dir / "candidates.md",
             research_dir=research_dir,

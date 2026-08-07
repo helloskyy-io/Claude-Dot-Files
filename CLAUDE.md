@@ -18,7 +18,7 @@ claude-dotfiles/
 │   └── skills/                  ← reusable skill definitions (.md files)
 ├── install.sh                   ← creates individual symlinks into ~/.claude/
 ├── docs/
-│   ├── architecture/             ← THE WHY: ADRs, system design
+│   ├── architecture/             ← THE WHY: architecture standards, system design
 │   ├── development/              ← THE WHAT: roadmap, phases, features
 │   ├── guide/                    ← OPERATING MANUAL: user-facing docs
 │   ├── standards/                ← THE HOW: conventions and patterns
