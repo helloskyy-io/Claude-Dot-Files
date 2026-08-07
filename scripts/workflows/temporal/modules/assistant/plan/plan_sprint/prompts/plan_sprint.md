@@ -66,7 +66,7 @@ Report what you found: how many candidates are untriaged, how many sprint sectio
 | **`requires review`** | Only the operator can rule on it, and no further automated work makes it ready | Set `decision`, **and write a `D-NNN` row into `direction.md`** |
 | **`reject`** | We are not doing this | Set `decision`, and **state why** in the Note |
 
-**`ship` does not size, schedule, or design anything.** It says we have decided to do it.
+**`ship` does not size or design anything.** It says we have decided to do it. Stage 3 then PLACES it — choosing which existing sprint owns a milestone is placement, not scheduling: it says where the work belongs, never when it happens or in what order.
 
 **A rejection without reasoning is worthless** — the whole purpose of this file is that a rejected candidate stays visibly rejected and stops being re-proposed. *"Not now"* is not a reason. Rejecting is not failure: three candidates were already rejected because they assumed a deployment model settled three weeks earlier, and catching that is the job working.
 
@@ -131,7 +131,14 @@ All five, or it is not a sprint:
 
 **A genuine sprint almost always needs a component-level research pool of its own before it can be planned.** That is what being substantial means in practice — enough unknowns that somebody has to go find out, rather than enough clarity that somebody can just start.
 
-So ask: *would I commission a research pool for this before anyone wrote a phase doc?* If the honest answer is no — if the work is well enough understood to just do — **it is a milestone inside an existing sprint, not a sprint.**
+So ask: *would I commission a research pool for this before anyone wrote a phase doc?*
+
+**A "no" has two shapes and they point OPPOSITE WAYS. Say which one you mean:**
+
+- **"No — it is well enough understood to just do."** Disqualifying. It is a milestone inside an existing sprint, not a sprint.
+- **"No — the research already exists, it just sits in another pool."** **The opposite: this is evidence FOR a sprint.** Work with a body of evidence behind it and no home of its own is precisely a component nobody has named yet. Say which pool holds it and treat the condition as MET.
+
+Collapsing the two reads a satisfied prerequisite as a failed one, and quietly filters out exactly the sprints that are most ready to start.
 
 This test is more reliable than the hour estimate, because you can estimate hours badly and still get this right.
 
@@ -242,7 +249,8 @@ Then, separately:
 
 - **Triage summary** — counts across all three dispositions. **They must sum to the untriaged total you were given**; if they do not, say which rows you could not rule on and why.
 - **Handed to the operator** — every `D-NNN` row you wrote, with its recommendation. These are why this PR needs a human before it merges: no further pass can produce these rulings.
-- **For placement** — shipped candidates too small for a sprint change, so a later pass knows what is waiting. Name the existing sprint each one belongs to where you can.
+- **For placement** — shipped candidates too small for a sprint change, so a later pass knows what is waiting. Name the existing sprint each one belongs to **where one exists**.
+- **Shipped and genuinely homeless** — real, decided, and owned by no existing sprint while not clearing the bar for its own. **This is a legitimate outcome and it needs no apology.** List each with what you checked, and stop. **Do NOT invent a home to avoid an awkward row** — a candidate filed under a sprint that does not own it is harder to find later than one honestly listed as homeless, and the pressure to tidy is exactly what produces the wrong filing.
 - **Phase-specific — NOT YOURS, and complete** — items that belong inside a component's detailed design. Name the phase where you know it. **This is a finished outcome; do not apologise for it and do not manufacture a sprint item to avoid it.**
 - **Sprint sections added** — if any. **State which of the five bar conditions each one clears, your read on the 160-hour calibration, and your answer to the would-it-need-its-own-research test.** If you named it after a category, name a second member of that category. If you added no sections, say so plainly; that is the expected outcome, not a shortfall.
 - **Reconciled milestones** — every existing milestone you rewrote or removed in Stage 4a, with **the before line, the after line, and the synthesis passage that justified it**. If you reconciled none, say so and say whether that is because the sections were already accurate or because no component research exists yet — those are different answers.
