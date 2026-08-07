@@ -56,8 +56,22 @@ to proceed while an orphan exists, because a test that exists and never
 executes is worse than no test — the count grows and the coverage does not.
 
 **Ship the guard's demonstration with the guard.** A test that cannot fail is
-not a test. Break the property deliberately, watch the test go red, restore it,
-and say so in the commit. Two bugs were caught this way within a minute of the
+not a test. Use the harness rather than doing it by hand:
+
+```bash
+testing/scripts/mutate.sh <file> <old-string> <new-string> <pytest-target>
+```
+
+It runs baseline → mutated → restored and reports whether the guard actually
+fired. It refuses a mutation string that is not present, because a mutation
+that changes nothing proves nothing.
+
+**Do not hand-roll this loop.** CPython validates cached bytecode on
+whole-second mtime *plus* source byte size, so a length-preserving edit applied
+within one second silently runs the STALE `.pyc` — the test passes having
+tested nothing. `PYTHONDONTWRITEBYTECODE=1` does **not** fix it: that suppresses
+*writing* a cache, not *reading* one. The harness gives every leg its own
+`PYTHONPYCACHEPREFIX`, which is the only reliable defeat. Two bugs were caught this way within a minute of the
 tests existing — both in the fix that shipped alongside them.
 
 ## The gate
