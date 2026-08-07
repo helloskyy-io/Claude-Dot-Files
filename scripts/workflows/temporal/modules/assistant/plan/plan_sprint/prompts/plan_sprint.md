@@ -22,6 +22,7 @@ The governing rule carries an override, and you are it:
 | You MAY | You MAY NOT |
 |---|---|
 | Expand an existing sprint section with a new milestone | Write or edit any phase doc |
+| **RECONCILE a milestone against research that has since corrected it** — see Stage 4 | Rewrite a milestone you merely disagree with |
 | Add a new sprint section — **rare, and it must clear the Stage 3 bar** | Design *how* anything gets built |
 | Re-order sections to reflect dependency | Flip a completion checkbox |
 | Set `decision` in the candidates file | Set `status` in the candidates file |
@@ -42,7 +43,7 @@ Read, in this order, and do not skip any:
 
 1. **`${SPRINT_PATH}`** — every section, its status marker, and the conventions block at the top. That block is binding on you: sprints are named not numbered, order reflects rough dependency, and **a sprint plan is never a history lesson** — it states what is built or will be built, nothing else. Retrospective prose does not go here.
 2. **`${CANDIDATES_PATH}`** — the running list. Note which rows have a blank `decision` (untriaged, your job) versus a set one (already ruled, leave alone unless new evidence overturns it).
-3. **`${RESEARCH_DIR}/synthesis.md`** — what the evidence currently says. **This is your evidence input. DO NOT READ THE RAW PAPERS.** The Research Standard is explicit that downstream consumers take the synthesis and never the pool, and a triage pass that opens 21 papers is an hour-long run doing a job the synthesis already did. The paper *list* below is for coverage checking only — noticing a title the synthesis never mentions. **Open a paper only if a specific candidate cannot be ruled on without it, and say in your report which one and why.**
+3. **`${RESEARCH_DIR}/synthesis.md`** — what the PRODUCT-level evidence currently says. **Also read EVERY component synthesis listed in the enumeration below.** A component's synthesis is evidence about a sprint section that already exists, and it is almost always NEWER than that section — research is commissioned after the item is written, so the section states what was believed before the evidence arrived. Reconciling them is Stage 4's job. **This is your evidence input. DO NOT READ THE RAW PAPERS.** The Research Standard is explicit that downstream consumers take the synthesis and never the pool, and a triage pass that opens 21 papers is an hour-long run doing a job the synthesis already did. The paper *list* below is for coverage checking only — noticing a title the synthesis never mentions. **Open a paper only if a specific candidate cannot be ruled on without it, and say in your report which one and why.**
 4. **`docs/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** You read it because a sprint that does not serve the thesis is the failure this workflow exists to catch.
 5. **`docs/standards/architecture/architectural_standard.md`** — the binding vocabulary and the seams. A candidate that violates a seam is a `reject`, and the reason is the seam.
 6. **`docs/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. A candidate contradicting a settled stack decision is a `reject`, and the reason is that it was already decided. Note its "What we do NOT use" section: that list exists because a research cycle once costed out a product ruled out three weeks earlier.
@@ -190,15 +191,45 @@ Four things are wrong with it, and each is a rule:
 
 **If nothing warrants a sprint change, change nothing.** A pass that triages every candidate and touches no sprint section is a complete, successful pass — and given the placement ranking above, it is a likely one.
 
-## Stage 4: COHERE
+## Stage 4: RECONCILE THE SPRINT AGAINST THE RESEARCH — then COHERE
 
-Three documents must support each other. Check, and report — **you fix none of them**:
+### 4a: Reconcile — the ONE place you edit an existing milestone
+
+**A sprint section is almost always OLDER than the research backing it.** Research is commissioned *after* an item is written, so the section states what was believed before the evidence arrived. There are two scenarios and you handle both:
+
+| Scenario | What you do |
+|---|---|
+| Research exists, **no sprint section** | Stage 3 — create one, if it clears the bar |
+| Research exists, **the section does too** | **Here.** Bring the section up to what the evidence now says |
+
+**Without 4a, a research cycle changes nothing.** The pool merges, the plan keeps saying what it said before, and the next person to read the sprint acts on superseded evidence. That is a paper we paid for and did not use.
+
+**For EVERY component synthesis, walk its sprint section milestone by milestone.** Each milestone falls into exactly one of these:
+
+- **STILL ACCURATE** → leave it completely alone. This is the common case and it needs no comment.
+- **EVIDENCE CORRECTED IT** → rewrite the milestone so it states what the synthesis says. Keep it in house style: one line, names a thing built, carries no argument.
+- **THE RESEARCH SATISFIED IT** → a milestone that asked for research the pool has now delivered is no longer work. **Remove it**, and explain in your PR body. The sprint plan states what is built or will be built; a satisfied research request is neither, and the file's own rule is that a superseded item does not appear here at all.
+- **THE EVIDENCE MADE IT MOOT** → same: remove it, explain in the PR body.
+
+### The bar for touching an existing milestone — all three, every time
+
+1. **Point at the finding.** Quote the specific synthesis passage that corrects it. *"The synthesis says X, the milestone says Y"* — if you cannot quote it, you are not reconciling, you are editing.
+2. **The evidence must CONTRADICT the milestone**, not merely relate to it. New evidence that supports a milestone changes nothing.
+3. **Show the before and after** in your change table, both lines in full.
+
+**You may NOT rewrite a milestone you simply disagree with**, would have worded differently, or would have sequenced elsewhere. **Sequencing disagreement is not a defect.** The operator wrote these; your warrant is the evidence, and it extends exactly as far as the evidence does.
+
+**Never flip a checkbox to done.** Removing a milestone the research satisfied is not the same as marking work complete — you are saying it is not work, not that it is finished. If you cannot tell the difference for a given item, leave it and report it.
+
+### 4b: Cohere
+
+Three documents must support each other. Check, and report — **you fix none of these**:
 
 1. **Does the sprint plan serve the problem statement?** Work that advances no stated differentiator is worth flagging.
 2. **Does the sprint plan reflect the research?** Compare the synthesis against the sprint plan — **not the papers**. Two shapes count: a significant synthesis finding with **no home anywhere** (not in the sprint plan, not in a component, not in an open issue), and a sprint item resting on evidence the synthesis says has since been corrected. Scan the paper *titles* for a subject the synthesis never mentions; that is a coverage gap worth naming, not a reason to read the paper.
 3. **Do the three contradict each other anywhere?** A settled decision missing from one of them is the specific failure that has already cost a research cycle.
 
-Each finding names the document, the contradiction, and what you would change — as a **recommendation for the operator**, never an edit.
+Each finding names the document, the contradiction, and what you would change — as a **recommendation for the operator**, never an edit. **4a is the sole exception**, and only within its three-part bar.
 
 ## Stage 5: REPORT — the change table
 
@@ -214,7 +245,8 @@ Then, separately:
 - **For placement** — shipped candidates too small for a sprint change, so a later pass knows what is waiting. Name the existing sprint each one belongs to where you can.
 - **Phase-specific — NOT YOURS, and complete** — items that belong inside a component's detailed design. Name the phase where you know it. **This is a finished outcome; do not apologise for it and do not manufacture a sprint item to avoid it.**
 - **Sprint sections added** — if any. **State which of the five bar conditions each one clears, your read on the 160-hour calibration, and your answer to the would-it-need-its-own-research test.** If you named it after a category, name a second member of that category. If you added no sections, say so plainly; that is the expected outcome, not a shortfall.
-- **Coherence findings** — the Stage 4 output, as recommendations.
+- **Reconciled milestones** — every existing milestone you rewrote or removed in Stage 4a, with **the before line, the after line, and the synthesis passage that justified it**. If you reconciled none, say so and say whether that is because the sections were already accurate or because no component research exists yet — those are different answers.
+- **Coherence findings** — the Stage 4b output, as recommendations.
 
 **Answer these three plainly**, because they are why this workflow exists:
 

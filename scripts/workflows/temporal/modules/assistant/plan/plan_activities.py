@@ -100,10 +100,24 @@ def existing_work(repo_root: Path, research_dir: Path) -> str:
 
     lines: list[str] = []
 
-    comps = sorted(d.name for d in (repo_root / "docs" / "development").iterdir()
+    comps = sorted(d for d in (repo_root / "docs" / "development").iterdir()
                    if d.is_dir() and d.name != "reviews")
     lines.append("**Existing components** (a candidate may belong inside one rather than needing its own sprint section):")
-    lines += [f"  - `docs/development/{c}/`" for c in comps]
+    for c in comps:
+        syn = c / "research" / "synthesis.md"
+        mark = " — **HAS COMPONENT RESEARCH**: `" + str(syn.relative_to(repo_root)) + "`" if syn.exists() else ""
+        lines.append(f"  - `docs/development/{c.name}/`{mark}")
+
+    withres = [c for c in comps if (c / "research" / "synthesis.md").exists()]
+    if withres:
+        lines.append(
+            f"\n**{len(withres)} component(s) carry their own research synthesis, listed above and counted in code.** "
+            f"Each one is evidence about a sprint section that ALREADY EXISTS, and it is almost always NEWER than the "
+            f"section it backs — research is commissioned after a sprint item is written, so the section states what "
+            f"was believed BEFORE the evidence arrived. **Read every one of them in Stage 1** and reconcile its "
+            f"sprint section against it in Stage 4. A synthesis nobody reads back into the plan is a paper we paid "
+            f"for and did not use."
+        )
 
     papers = sorted(p.name for p in (research_dir / "raw").glob("*.md"))
     lines.append(f"\n**Research pool** — {len(papers)} papers. A significant finding with no home in the "
