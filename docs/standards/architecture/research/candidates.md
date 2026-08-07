@@ -82,7 +82,7 @@ Cycle-3 rows come from `synthesis.md` on `main` and are settled. **Cycle-4 rows 
 | C-016 | Design the stalled predicate as a three-way conjunction before workers are written | `paperclip_assessment.md` §4.4 | `reject` | `open` | claims the failure mode is live here today; **unverified**. **Reject:** folded into C-029 — the three-legged taxonomy supersedes the two-way framing, and one design does not need two homes |
 | C-017 | Decide dedupe granularity as a ruling, not a build | `paperclip_assessment.md` §4.3, §6 | `requires review` | `open` | explicitly not a pair to build both of. **ALREADY TRACKED at issue #41**, whose *Proposed next action* is this exact ruling — worktree scan vs comment recency vs a real lock, decided once for both the bash and Python paths. No `D-` row: one item, one home |
 | C-018 | Drop any uniqueness framing on subscription-auth-at-the-edge | `paperclip_assessment.md` §4.6 | `ship` | `closed` | `b9710d5` |
-| C-019 | Reconsider giving up cross-machine failover for *all* work | `dedicated_edge_routing.md` §5, §7 | `requires review` | `open` | amended by C-037 — read both. **`D-002`**, jointly with C-037 — one ruling, one row |
+| C-019 | Reconsider giving up cross-machine failover for *all* work | `dedicated_edge_routing.md` §5, §7 | `ship` | `closed` | **RULED via `D-002` 2026-08-07** — pin to the initiating edge; the reconsideration is closed |
 
 ## Cycle 4 — 2026-08-06 · PROVISIONAL (PR #33 unmerged)
 
@@ -104,7 +104,7 @@ Cycle-3 rows come from `synthesis.md` on `main` and are settled. **Cycle-4 rows 
 | C-033 | Withdraw or downgrade `case_against.md`'s D7 — contradicted by its own primary source | cycle-4 pool | `ship` | `open` | **Ship:** a bounded correction to one paper with a named source. Needs a `research-refresh` dispatch against `case_against.md`, not a sprint item |
 | C-034 | Switch `review-pr` to a cross-family judge — self-preference bias is causally linked to self-recognition | cycle-4 pool | `requires review` | `open` | **`D-005`** — every genuinely cross-family option needs a second provider credential, which is a thesis-level commitment, not a one-line change |
 | C-035 | Run E1b first — classify 30 PRs' disposition items to read out the judge's marginal yield | cycle-4 pool | `ship` | `open` | cheap, and it sizes C-034. **Ship:** reads existing logs and PR threads, no new dispatches. Added as a Continuous Process Improvement milestone |
-| C-037 | Cross-machine failover — **a third option**: pin the credential, not the work | amends C-019 | `requires review` | `open` | **`D-002`**, jointly with C-019 — the same ruling, so one row rather than two |
+| C-037 | Cross-machine failover — **a third option**: pin the credential, not the work | amends C-019 | `ship` | `closed` | **RULED via `D-002` 2026-08-07** — the proxy option excludes `claude-cli` by name, so it does not apply here |
 
 ## Evicted from the sprint plan — 2026-08-06
 

@@ -75,7 +75,15 @@ What remains defensible: its positioning, front door and every published use cas
 
 **Not differentiators, stated plainly so nobody re-litigates them:** durable execution, checkpoint/resume, completion contracts, typed refusal, Kubernetes-native deployment, and **subscription-auth at the edge** all exist in shipping products today — the last with precedent in a 75,600-star project. Several are ahead of us. Claiming them would be false and would discredit the claims that are true.
 
-**One honest cost of claim #2, unresolved.** The design currently gives up cross-machine failover for *all* work, not only work with a genuine locality requirement. Temporal's own pattern is two-tier and retains a shared queue alongside pinned ones. Pinning a workflow that needs no credential and no local repo buys nothing and costs failover — that is overshoot, not principle, and the ruling is open.
+**Claim #2's placement rule, ruled 2026-08-07.** **Work is pinned to the edge that initiated it.** Not as a compromise, and not pending a better answer — it follows from what an edge is.
+
+A dispatch runs against the initiating machine's working tree, its credential, and its logs. No other machine holds that state, so no other machine can take responsibility for the work. And a parent workflow is a process on that machine: it holds the loop counter, the worktree path and the routing, so handing a child elsewhere would mean distributing the parent, which is a different architecture nobody has proposed.
+
+**The cost is real and accepted:** if the initiating machine is off, its work does not run. That is the definition of an edge, not a defect in the routing.
+
+**The one alternative worth recording, so it is not re-proposed:** keep the credential still and proxy the model call back to it, letting work run anywhere. A shipping product does exactly this — and **excludes CLI runtimes by name**, `claude-cli` among them, which is precisely our runtime. The pattern generalises to API-keyed work and not to `claude -p` on a subscription.
+
+Revisit only if a concrete case appears that this rule serves badly. None exists today.
 
 ## The nearest neighbor
 
