@@ -64,7 +64,7 @@ For each repo in the Stage 0 set (run `gh` from inside the repo dir so it infers
 |---|---|---|
 | **Standup tracker** (issue #26) | the work is finished on a surface you checked | `state: resolved` + `resolved: <today>` |
 | **GitHub Issues** | the thing it asked for exists, or the condition it described is gone | **`gh issue close <N> --comment <evidence>`** — a done issue is CLOSED, never reported as done |
-| **`direction.md`** | *(you never resolve these)* | nothing — `status` is the operator's alone. You may only correct a row whose stated facts have changed |
+| **`direction.md`** | *(you never RULE these)* | nothing — `status` is the operator's alone. **But you DO rotate:** delete any `applied` or `rejected` row ruled ≥90 days ago **whose reasoning is recorded in its source candidate's Note**. No record, no rotation — the record is what makes deletion safe. You may also correct a row whose stated facts have changed |
 
 **Closing an issue is the point, not a side effect.** An issue reported as "this is already done" every morning is the exact stacking the operator asked this command to stop. If you verified it is done, close it with the evidence in the comment and it never appears again.
 
@@ -101,6 +101,8 @@ The only place a completed item is ever mentioned is **the single closing tally 
 **Also excluded, for a different reason:** anything already rendered under another section. One item, one row, one place.
 
 ### Pruning is an action you take, not something you report
+
+**A ruled `direction.md` row ≥90 days old → delete it**, on the same terms: only once its reasoning lives in the source candidate, which never deletes. That file is the operator's inbox, and an inbox that only grows stops being read. Count them in the tally.
 
 Resolved and **≥14 days old** → delete it from the tracker body. Its own rule says *"delete at the first standup ≥14 days after that date"*, and this is that standup. Count it in the tally; do not render it and do not offer it as a candidate.
 
