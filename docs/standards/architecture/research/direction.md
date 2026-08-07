@@ -11,9 +11,38 @@
 > **Automation appends and leaves `status` at `open`. The operator sets `status`.**
 
 - **IDs are `D-001`, `D-002`, …**, independent of the `C-` series in [`candidates.md`](candidates.md). Never reused, never renumbered.
-- **Nobody deletes a row.** A `rejected` row stays visible so the same recommendation is not re-proposed.
+- **A row is a RECEIPT once ruled, not a record.** The durable home of a ruling is elsewhere — see *Resolving a row* below — and a ruled row rotates out on the schedule at the bottom of this file.
 - **`Source` carries the `C-NNN` it came from**, so this file and `candidates.md` stay linked.
 - **Recommendation and *Why it matters* are one sentence each.** These are read at standup.
+
+## Resolving a row — four steps, and step 3 is the one that matters
+
+**This file is the human's. `candidates.md` is the machine's.** A question goes up; an answer must come back down, in a form `plan-sprint` can act on. A ruling that lives only here is a decision the automation cannot see.
+
+**1 · Rule it.** Define the resolution properly, or reject it. A ruling that restates the question is not a ruling.
+
+**2 · If REJECTED** — set `status: rejected`, and **write the reasoning into the source candidate's Note** in `candidates.md`. That file never deletes a row, so the reasoning is what stops the same recommendation being re-proposed by a later research cycle. Then abandon it in place; a rejection is a design decision, not unfinished work.
+
+**3 · If ACCEPTED** — set `status: applied`, and:
+
+- **Set the source candidate's `decision` back to BLANK**, with the ruling written into its Note. **Blank is deliberate and it is not a downgrade.** Blank means *needs triage*, which is now true — the question that blocked it has an answer. `plan-sprint` re-triages it on the next run, reads the ruling as its input, and places it in the same pass.
+- **Do NOT set it to `ship` by hand.** `plan-sprint` only places candidates it shipped in that same run — a hand-set `ship` is decided and never placed, and it will sit that way indefinitely.
+- **Amend the document the ruling governs** if it changes what the project believes. `D-002`'s ruling lives in `problem-statement.md`, not here.
+
+**4 · Next run picks it up.** `plan-sprint` triages, ships, and places — or reports it *for placement* if it is too small for the sprint file.
+
+## Rotation — a ruled row is deleted once its reasoning lives somewhere permanent
+
+**A ruled row rotates out at the first standup ≥90 days after it was ruled.** This file is the operator's inbox, and an inbox that only grows stops being read.
+
+**Rotation is safe ONLY because the reasoning is durable elsewhere by then**, which is the whole point of steps 2 and 3:
+
+| Ruled | Durable home | Rotates when |
+|---|---|---|
+| `rejected` | the source candidate's Note in `candidates.md`, which never deletes | reasoning is recorded there |
+| `applied` | the amended document, plus the source candidate's Note | the amendment has landed |
+
+**No durable record, no rotation.** Same discipline as the standup tracker's pruning stamp: the record is what makes deletion safe, and a row whose reasoning was never written down stays here until it is. **Deleting an unrecorded ruling loses the one thing that stops it being re-proposed.**
 
 ## Statuses
 
