@@ -929,6 +929,28 @@ Routing:
 
 ---
 
+## 2026-08-06 — Reflection sweep, PR #31 (V2 test suite, 4 disposition passes)
+
+**Source: the reflection channel, swept BY HAND.** `review-runs.sh` sweeps run logs; nothing sweeps Post-Run Reflections. That gap is an open milestone in Sprint: Continuous Process Improvement, and this entry exists because a human did the sweep manually. Eighteen tooling suggestions across four passes; five cleared the second-occurrence bar; two shipped, three deferred below.
+
+### SHIPPED
+
+**1. `NOTED` — a fourth terminal disposition for a preventive finding with no defect behind it.** `review_pr/prompts/disposition.md`. The schema had FIXED / REJECTED / DEFERRED, and a real-but-non-blocking recommendation fit none of them: too real to reject, nothing to fix, no home to defer to. Passes carried them forward as prose instead. **Measured: one item was carried three times, and its REASONING was corrected by two different passes while its disposition never changed once.** An item whose reasoning moves and whose disposition cannot is a schema gap, and pass 4 stated the cost directly — "the absence of the field is generating work every cycle." Guarded against becoming a disposal chute by three conjunctive conditions, a required `no_live_defect_check` field naming the check actually run, and one discriminator: **is something broken right now?** If yes, NOTED is laundering.
+
+**2. Deleted-artifact sweep — mandatory whenever a PR deletes, splits, moves or renames a file.** Same prompt, Stage 2. **Two guard losses on ONE PR, same class, same file.** The first was caught only because git surfaced it as a merge conflict; its sibling two sections below produced no conflict and survived three review passes, a peer-review trio and quality-control. It was found by enumerating every assertion in the deleted file and mapping each to a destination — nothing else would have found it, and the guard it nearly deleted was one `main` had added the same day, for a failure observed that morning. Loss is the characteristic defect of a restructure and is invisible in a diff that is mostly additions.
+
+### DEFERRED — watch-criteria stated
+
+**3. `attempt:` is unreconstructible after the fact.** Raised in two passes; pass 4 had to guess and said so. A dispatch that dies at its turn cap leaves NO trace — no comment, no marker — so neither the attempt count nor the pass numbering can be rebuilt later. Both facts become inferences from absence. **Observed live the same day:** a `build-minor` run capped out at turn 101 and left nothing behind. Proposed fix is a one-line marker comment written by the parent when a pass STARTS, not only when one finishes. **Watch-criteria: ship on the next pass that records a wrong `attempt`, or on any post-hoc question about a PR's pass history that cannot be answered from its thread.**
+
+**4. Nothing prevents or detects two dispatches against the same target.** Flagged in a build reflection; **a live instance occurred the same day in a different family** — two research runs on cycle 4, one of which produced PR #32 and was closed as the losing twin after its worktree was destroyed mid-run. Cross-family recurrence, which is stronger evidence than two hits in one family. Proposed fix is a pre-flight check in the parent (is another run live against this PR number / research dir). **Watch-criteria: ship on the third occurrence, or on the first occurrence that reaches a merge conflict or contradictory artifacts rather than being caught by a human.** Deferred rather than shipped because the detection mechanism is a design question — PID files, lock files and a `gh` query all have different failure modes when a run dies uncleanly, and that has already happened once.
+
+**5. Peer-review agents dispatched without tool grants.** `build-refine`'s prompt tells the orchestrator to dispatch peer-review agents and says nothing about their tools; three of four ran without Bash and silently degraded to fetch-layer evidence. **Same class as issue #39**, filed for the research family — which makes this cross-family recurrence, not a first sighting. Deferred because the fix is not one line: it needs a decision about whether tool grants belong in the dispatching prompt, the agent definition, or both, and that interacts with the Managed Configuration sprint's unresolved managed-vs-user boundary. **Watch-criteria: ship as soon as Managed Configuration produces its boundary ruling, or immediately on the first review finding that a peer agent got WRONG because it lacked a shell.**
+
+**Watch (all three):** the shared signal is that all five findings this cycle came from the reflection channel, and none would have surfaced through `review-runs.sh`. **If the next sweep also has to be manual, the missing sweeper is the finding** — not the individual items.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

@@ -43,6 +43,12 @@ List EVERY surfaced item, from all sources above, exhaustively. Sources of items
 - Friction / reflection notes that imply an unresolved problem
 - Anything in the DIFF that looks wrong but went unmentioned (your fresh eyes — the producing run's blind spots are exactly what you exist to catch)
 
+**DELETED-ARTIFACT SWEEP — mandatory whenever this PR deletes, splits, moves or renames a file.** For EVERY deleted file, enumerate its assertions, exports, guards and contracts, and NAME where each one now lives. Loss is the characteristic defect of a restructure, and **loss is invisible in a diff that is mostly additions** — nothing renders as a red line when a guard simply fails to reappear.
+
+Do not rely on git to surface it. A carried-forward guard only produces a merge CONFLICT when the same lines changed on both sides; a section nobody touched upstream deletes silently. Measured on one PR: two guard losses in one file, and the first was caught only because it happened to conflict. Its sibling two sections below produced no conflict and survived three review passes, a peer-review trio and quality-control — it was found by enumeration, and nothing else would have found it.
+
+Enumerate by NAME and map each to a destination. "The tests were carried across" is not the check; "§1→A, §2→B, §3→C, §7→NOWHERE" is. A gap found this way is a **correctness** finding, not doc-drift.
+
 Give each item a stable kebab-slug id (reuse prior-pass ids per Stage 1) and a category from this fixed enum (extend if truly needed, NEVER rename — recurrence mining keys on these): correctness | security | standards-implication | scope | deferral | friction | test-gap | doc-drift. (There is deliberately NO 'existing-condition' category — it is abolished; a pre-existing issue is categorized by its actual type.)
 
 **THE CONSEQUENCE GATE — apply to every candidate item BEFORE it becomes a finding.** State what BREAKS, is RISKED, or gets DECIDED WRONGLY if this is not addressed. **If you cannot state that, it is NOT a finding** — demote it to a one-line note in your Post-Run Reflection. Notes do not enter the runway; the runway costs the operator a ruling per entry and must contain only things worth ruling on.
@@ -60,7 +66,7 @@ A bare discrepancy is not a finding. 'X does not match Y' becomes a finding only
 **ONE FINDING = ONE ENTRY = ONE RULING (binding).** If an item would require the operator to make more than one decision, it is a BUNDLE, and a bundle is a DEFECT — split it into separate findings with separate ids and separate reasoning. 'Give the nine action candidates a home' is nine findings. 'One standards amendment pass (four items)' is four findings. Applying your lenses to a bundle instead of to each decision is lens theater: it reads as rigorous and gives the operator nothing rulable.
 
 ## Stage 3: DISPOSITION (the core — no rubber stamps, no rug-sweeps)
-For EACH enumerated item, reach exactly one terminal disposition using genuine /decide (reframe: is this the real issue, or a symptom of an upstream one?) + /best-practices (what does the correct approach demand?) reasoning. There are exactly three terminal dispositions — FIXED, REJECTED, DEFERRED — and their bars are HIGH:
+For EACH enumerated item, reach exactly one terminal disposition using genuine /decide (reframe: is this the real issue, or a symptom of an upstream one?) + /best-practices (what does the correct approach demand?) reasoning. There are exactly four terminal dispositions — FIXED, REJECTED, DEFERRED, NOTED — and their bars are HIGH:
 
 **Every finding ALSO carries a `remedy:` from this fixed vocabulary (extend-never-rename).** The disposition says what STATE the item is in; the remedy says what ACTION resolves it. Choose from the list — do NOT invent freeform actions, because an unbounded action space collapses to whatever is cheapest:
 - `fix-in-place` — correct it in this PR (rides a redispatch)
@@ -78,6 +84,19 @@ For EACH enumerated item, reach exactly one terminal disposition using genuine /
   (b) the work is **already in motion** in a live concurrent PR/dispatch → pointer = that PR/dispatch.
   (c) you FILE a GitHub Issue for it under the filing authority below → pointer = that issue URL, `pointer_verified: true`.
   Cases (a) and (b) point at work that is ALREADY scheduled or ALREADY happening. Case (c) is the ONE thing you may create, and only under the three conjunctive criteria below — it is not a parking spot because a filed issue carries a standing disposition obligation at standup (it may not survive a standup in the same state), which a loose-end never did. Outside those three cases, if the work has no existing home it is NOT deferrable. **The reviewed PR (its body, thread, comments) is NEVER a valid pointer — merging it is the burial.** 'The architecture session' / 'the standards queue' are not pointers unless you name the committed file that queue reads from.
+
+- **NOTED** — the item is REAL, has NO defect behind it, and carries NO work. A preventive recommendation: a convention worth adopting, a consistency argument, a "this is right today but nothing guards it." It does not gate MERGE and nothing is being deferred, because there is nothing to schedule.
+
+  **Three conjunctive conditions, and you state all three:**
+  1. **You verified there is no live defect — name the check you ran.** "I re-ran all three branches and they behave correctly" is a check. "It looks fine" is not.
+  2. **Nothing breaks if this is never done.** If something breaks later, that is a defect with a delay, and it is DEFERRED with a pointer.
+  3. **There is no work item.** The moment you can name the file and the change, it is `fix-in-place` or it is DEFERRED. NOTED is not a description of work you would rather not do.
+
+  **THE DISCRIMINATOR: is something broken right now?** If yes, NOTED is the wrong disposition and choosing it is laundering. Run the check before you answer, because "probably fine" resolves to NOTED every time and that is exactly how this becomes a disposal chute.
+
+  **Why this exists.** Without it, a preventive recommendation had no terminal state: it was too real to REJECT, had nothing to FIX, and had no home to DEFER to — so it was carried forward as prose, pass after pass. Measured on one PR: the same item was carried three times, and its *reasoning* was corrected by two different passes while its disposition never changed once. An item whose reasoning moves and whose disposition cannot is a schema gap, and the absence was generating work every cycle.
+
+  NOTED items appear in the disposition table like any other and are **excluded from the laundered-deferral count**, because nothing was deferred.
 
 **VERIFY every DEFERRED pointer like research-critic verifies a citation — open it and confirm the item is ACTUALLY THERE** (`gh issue view`, `gh pr view`, or Read the committed file). A pointer that does not resolve to the item is a disposition failure. **Then classify WHICH failure it is — these are two different problems with two different owners:**
 - **LAUNDERED** — a pointer EXISTS but resolves to a dead/invalid/wrong surface (including the reviewed PR itself). This is a **producing-run failure**: it tried to bury the item behind a plausible-looking pointer. Counts in `laundered_deferrals`.
@@ -169,8 +188,9 @@ pr_review:
       title: <the CONSEQUENCE in one line — what breaks/is risked/gets decided wrongly. NOT the mismatch.>
       category: <from the fixed enum — NO existing-condition>
       consequence: <REQUIRED — what happens if this is not addressed. If you cannot state it, this is a note, not a finding.>
-      disposition: fixed | rejected | deferred | hold
-      remedy: fix-in-place | reject | defer-to-existing-work | extend-upstream-artifact | create-missing-surface | ratify-standard-change | operator-action
+      disposition: fixed | rejected | deferred | noted | hold
+      remedy: fix-in-place | reject | defer-to-existing-work | extend-upstream-artifact | create-missing-surface | ratify-standard-change | operator-action | none
+      no_live_defect_check: <REQUIRED if noted — the check you RAN that proves nothing is broken now. Not "it looks fine".>
       hold_kind: redispatch | needs-assistance   # REQUIRED when disposition: hold — links this finding to its next_steps entry
       pointer: <REQUIRED if deferred — the already-existing sprint item or live PR, VERIFIED present. Never the reviewed PR.>
       pointer_verified: true|false   # deferred only — did you open it and confirm the item is there?
