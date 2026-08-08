@@ -781,7 +781,20 @@ def test_every_fixed_pattern_has_a_deny_case(pattern: str) -> None:
 # case while the guard above stayed green, contradicting the guarantee this
 # suite claims to make. This closes that gap: it is purely additive and does
 # not weaken or replace the two tests above.
-_PATTERN_MATCH_LINE = re.compile(r"grep -q[EF]i")
+# Broadened after the docstring below was found to promise more than the
+# regex delivered. `grep -q[EF]i` matches NEITHER `grep -qiE` (flags reordered)
+# NOR `grep -q -E -i` (flags split) NOR a bash `=~` test — each of which is an
+# ordinary way to write the same match. Kept deliberately over-broad: a false
+# positive here costs one line in the arrays below, a false negative ships an
+# unguarded pattern on the only control running during an autonomous dispatch.
+_PATTERN_MATCH_LINE = re.compile(
+    r"""(?x)
+      grep (?:\s+-{1,2}[\w-]+)* \s+-\w*q            # any grep carrying -q, flags in any order
+    | grep (?:\s+-{1,2}[\w-]+)+ .* >\s*/dev/null     # or a grep silenced by redirect
+    | =~                                             # bash regex test
+    | \bcase\s+"\$                                   # case dispatch on a variable
+    """
+)
 _LOOP_START = re.compile(r'for pattern in "\$\{(?:REGEX_PATTERNS|FIXED_PATTERNS)\[@\]\}"; do')
 
 
@@ -792,11 +805,20 @@ def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> 
     A dumb line scanner, matching `_extract_patterns`'s own style: it tracks
     whether the current line sits inside a loop opened by `for pattern in
     "${REGEX_PATTERNS[@]}"; do` / `"${FIXED_PATTERNS[@]}"; do` and closed by a
-    bare `done`, and flags every `grep -qEi`/`grep -qFi` invocation found
-    outside one. If a third matching site is added — inside or outside a
-    loop — this fails and names the line, which is the point: extend the
-    coverage guard to see it before adding it, rather than discovering the
-    gap the way this test itself was discovered.
+    bare `done`, and flags matching sites found outside one.
+
+    WHAT IT SEES, stated precisely, because an overstated guarantee is the
+    defect this very suite exists to catch — and the first version of this
+    docstring committed it. Covered: any `grep` carrying `-q` with flags in any
+    order or split apart, a `grep` silenced by `>/dev/null`, a bash `=~` test,
+    and `case "$..."` dispatch.
+
+    WHAT IT DOES NOT SEE: a match delegated to an external helper, a Python or
+    awk subprocess, or a mechanism nobody has thought of. This is a line
+    scanner over one small file, not a shell parser. If you add a matching site
+    by a route not listed above, **extend this scanner in the same commit** —
+    the guard is only as wide as the list, and its value is that the list is
+    written down rather than implied.
     """
     inside_loop = False
     match_lines: list[tuple[int, bool]] = []  # (1-based lineno, was inside a loop)

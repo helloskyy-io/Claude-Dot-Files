@@ -197,9 +197,17 @@ if [[ "$MUTATED_VERDICT" == RED && "$AFTER_VERDICT" == GREEN ]]; then
     exit 0
 fi
 if [[ "$MUTATED_VERDICT" == GREEN ]]; then
-    echo "✗ THE GUARD DID NOT FIRE. The mutation broke the property and every test" >&2
-    echo "  still passed. Either nothing asserts this property, or the assertion" >&2
-    echo "  cannot distinguish the mutated value from the original." >&2
+    echo "✗ THE GUARD DID NOT FIRE — and this result is AMBIGUOUS. Three causes," >&2
+    echo "  and you must tell them apart before acting:" >&2
+    echo "    1. nothing asserts this property (a missing guard — the usual case)" >&2
+    echo "    2. the assertion cannot distinguish the mutated value from the original" >&2
+    echo "    3. THE MUTATION ITSELF DID NOT CHANGE BEHAVIOUR — it applied to the" >&2
+    echo "       file but altered nothing the code actually depends on. The guard" >&2
+    echo "       is fine and the mutation missed." >&2
+    echo "  Refusing an absent OLD rules out the crudest form of 3, not all of it." >&2
+    echo "  Confirm the mutated line is on a path the target exercises before you" >&2
+    echo "  conclude a guard is missing: deleting a working guard on a wrong" >&2
+    echo "  mutation is the expensive direction of this error." >&2
     exit 1
 fi
 echo "✗ THE TREE DID NOT RESTORE CLEANLY — red after restore. Investigate before" >&2
