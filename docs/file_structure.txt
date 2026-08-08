@@ -156,6 +156,7 @@ claude-dot-files/
 │       │   ├── README.md                            # Applicability: which half binds HERE, how this repo diverges, and § The gate — the six checks tests.yml runs
 │       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
 │       ├── agents.md                                # Standards for writing custom agents
+│       ├── exit-protocol.md                       # DRAFT, NOT BINDING — the child→parent handoff contract; values are owned by MMF phases
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
 │       ├── rules.md                                 # Standards for writing global rules
 │       ├── services.md                              # Standards for long-running services/daemons
