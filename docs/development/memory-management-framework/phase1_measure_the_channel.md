@@ -279,11 +279,41 @@ Over the entire archived history — **7 consecutive-pass pairs across 5 PRs, th
 
 *(Source: both papers' T2.)* *Because:* a run killed at its cap leaves no comment and possibly no final result. A **partial** typed record would be worse than none — absence has a declared meaning under the fail-safe contract, and a truncated record could satisfy a parser while carrying a wrong value. The fleet already measures the rate this matters at: **0.9%, 4 of 443 runs** (`run-claude.sh:157-160`), so this is rare but not hypothetical.
 
-- [ ] Force a low `--max-turns` on a task that cannot finish inside it, using each candidate transport still live after E1's ruling
-- [ ] Observe whether any typed artifact exists at the declared path, and if so whether it parses
-- [ ] Repeat for `SIGTERM` mid-run and for a run killed while the record is being written
-- [ ] Note that this experiment is **only meaningful for the file transport** — `structured_output` rides in the CLI's own result envelope and has no partial-record class. If E1 selects that transport, record that as the reason E2 is closed rather than run
-- [ ] **Ruling:** is absence the only absence path, or must Phase 3's contract also defend against a partial record? If the latter, name the mechanism — a consumer-side completeness check the parent enforces, with atomic write as an additional producer-side measure — as a Phase 3 requirement
+- [x] Force a low `--max-turns` on a task that cannot finish inside it, using each candidate transport still live after E1's ruling
+- [x] Observe whether any typed artifact exists at the declared path, and if so whether it parses
+- [x] Repeat for `SIGTERM` mid-run and for a run killed while the record is being written
+- [x] Note that this experiment is **only meaningful for the file transport** — `structured_output` rides in the CLI's own result envelope and has no partial-record class. If E1 selects that transport, record that as the reason E2 is closed rather than run
+- [x] **Ruling:** is absence the only absence path, or must Phase 3's contract also defend against a partial record? If the latter, name the mechanism — a consumer-side completeness check the parent enforces, with atomic write as an additional producer-side measure — as a Phase 3 requirement
+
+#### E2 — Observed
+
+**This experiment was RUN, not closed by E1's transport ruling — and running it was the right call.** The checklist offered to close E2 on the reasoning that *"`structured_output` … has no partial-record class."* That is an assertion about a vendor binary's behaviour, of exactly the kind this phase exists to stop taking on trust, and it costs four haiku calls to check. It was checked. **The assertion is correct, and checking it found a second absence path the design did not anticipate.**
+
+Four runs, all with `--json-schema` declared, real child shape (`-w`, `--dangerously-skip-permissions`), 2.1.224:
+
+| Forced condition | exit | `subtype` | `is_error` | `result` key | **`structured_output` key** | verdict |
+|---|---|---|---|---|---|---|
+| `--max-turns 1`, task needs more | 1 | `error_max_turns` | `true` | **absent** | **absent** | no artifact |
+| `--max-budget-usd 0.005` | 1 | `error_max_budget_usd` | `true` | **absent** | **absent** | no artifact |
+| `SIGTERM` at ~22s | 143 | `error_during_execution` | `true` | **absent** | **absent** | no artifact |
+| **model cannot satisfy the schema** | **0** | **`success`** | **`false`** | **present** (prose) | **absent** | **no artifact, on a clean run** |
+
+**No partial record was produced in any of the four.** In every case the key is **absent entirely** — never present-and-truncated, never present-and-invalid. There is no state between "a validated object" and "no key".
+
+**The mechanism, observed rather than assumed.** `--json-schema` is implemented as a **`StructuredOutput` tool the model must call**. The schema-violation run's own assistant turn says so verbatim: *"the tool's schema constrains the `verdict` parameter to an enum that only accepts `MERGE` or `HOLD` … I can't call the tool with `BANANA`."* The model declined to call the tool and asked a clarifying question instead. The run **completed successfully** — exit 0, `subtype: success`, `is_error: false`, `.result` carrying 200 characters of polite prose — and emitted **no `structured_output` at all**.
+
+**That is a second absence path, and it is the dangerous one.** The three error rows are loud: every signal the fleet reads already says the run died. The fourth row is **silent** — every signal says clean, and the typed record is simply not there.
+
+#### E2 — Ruling
+
+**Absence IS the only absence path — CONFIRMS Phase 3's contract shape. But the population of that arm is larger than the design assumed, which CHANGES one Phase 3 requirement.**
+
+**(a) No partial-record defence is needed. CONFIRMS.** 0 of 4 forced deaths produced a partial or unparseable record. Phase 3 therefore does **not** need the consumer-side completeness check or the producer-side atomic write the checklist named as the contingency. **Consequence: that requirement is dropped from Phase 3, and this is the measurement that drops it** — one fewer mechanism to build, test and document. This is the transport's real advantage over a file, and it is now measured rather than argued: a file transport would have all four of these rows *plus* a genuine partial-write class.
+
+**(b) A `success` run with no typed record is a REAL, REACHABLE state. CHANGES THE DESIGN (Phase 3).** The fail-safe contract cannot be written as "absent record ⟹ the run died", because the fourth row is a run that did not die. Phase 3's residual arm must be reachable from `subtype: success`, and the parent must not infer failure from absence — it must record *absence* as its own named state, which is exactly what the `podFailurePolicy`-derived shape Phase 3 already borrows is for. **Consequence:** Phase 3's fail-safe contract gains an explicit ordered rule for `subtype == success && structured_output absent`, distinct from its rule for the error subtypes, and the residual arm's documented population includes "the model declined to call the `StructuredOutput` tool." Phase 3's checklist is amended below.
+
+**(c) One design constraint falls out of the mechanism, and it is not a fail-safe question.** Because the schema is a *tool the model chooses to call*, the record's presence is **model-dependent**, not transport-dependent. A schema the model finds unsatisfiable — an over-constrained enum, a required field the run has no value for — produces silence rather than an error. **Consequence for Phase 3's schema design:** every required field must be one the child can always fill, and the abstention vocabulary Phase 3 already specifies (a computed *could-not-check* arm and an asserted *needs-a-ruling* arm) is what makes that possible. This measurement is the reason that vocabulary is load-bearing rather than decorative — without an in-schema way to say "I don't know," the model's only remaining option is to not call the tool at all.
+
 
 ### E3 — The disagreement four-cell table
 
