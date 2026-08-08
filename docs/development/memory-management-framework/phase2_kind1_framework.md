@@ -1,6 +1,8 @@
 # Phase 2 — Document Kind 1 as a framework
 
-**Component:** [Memory Management Framework](roadmap.md) · **Status: not started**
+**Component:** [Memory Management Framework](roadmap.md) · **Status: ✅ COMPLETE (2026-08-08)**
+
+**Deliverable: [`docs/guide/memory-model.md`](../../guide/memory-model.md).** [`operations.md` § The memory model](../../guide/operations.md) is reduced to orientation plus a pointer — its table and rationale were **moved**, not copied, so there remains exactly one description of the model.
 
 Kind 1 — durable memory in git, read by humans and AI — is built, in daily use, and undocumented **as a framework**. It exists as prose describing behaviour in [`operations.md` § The memory model](../../guide/operations.md) and as behaviour spread across workflow prompts. This phase turns it into a stated interface, because [Phase 3](phase3_typed_exit_record.md) has to render into it and [Phase 4](phase4_fleet_migration.md) has to not break it.
 
@@ -34,46 +36,60 @@ Plus: the doc is placed in the **guide** bucket (user-facing operating manual �
 
 ### Establish the ground truth before writing anything
 
-- [ ] Read the emitting script for the `pr_review:` block (`scripts/workflows/children/review-pr.sh`) and record the block's actual field set, including optional fields and their absence semantics
-- [ ] Read `config/commands/standup.md` and record exactly what `/standup` parses from each of the three surfaces — this is the consumer list, and it must come from the consumer, not from the producer's idea of what it emits
-- [ ] Grep the fleet for every other reader of these surfaces (`grep -rn "pr_review\|gh issue list\|gh pr list" scripts/ config/`) and add each to the consumer list
-- [ ] Record any field that is **emitted but read by nobody** — those are candidates for removal, and naming them is more useful than documenting them as though they matter
-- [ ] Record any field a consumer reads that the producer does not reliably emit — that is a live defect, and it is found by this comparison or not at all
+- [x] Read the emitting script for the `pr_review:` block (`scripts/workflows/children/review-pr.sh`) and record the block's actual field set, including optional fields and their absence semantics
+- [x] Read `config/commands/standup.md` and record exactly what `/standup` parses from each of the three surfaces — this is the consumer list, and it must come from the consumer, not from the producer's idea of what it emits
+- [x] Grep the fleet for every other reader of these surfaces (`grep -rn "pr_review\|gh issue list\|gh pr list" scripts/ config/`) and add each to the consumer list
+- [x] Record any field that is **emitted but read by nobody** — those are candidates for removal, and naming them is more useful than documenting them as though they matter
+- [x] Record any field a consumer reads that the producer does not reliably emit — that is a live defect, and it is found by this comparison or not at all
+
+#### Ground truth — four asserted facts this phase found FALSE
+
+Recorded here rather than only in the framework doc, because three of them are facts *this doc itself* asserted and a reader of the plan should see the correction beside the assertion. All measured at `bcdb519`.
+
+**Finding 1 — `/standup` is not read-only, and has not been since `1e7d6ce` / `88c4e81`.** It writes in exactly two places: `gh issue edit <tracker> --body-file` and `gh issue close <N> --comment <evidence>` (`config/commands/standup.md:3`, § Rules). The claim stood in this doc's gotchas *and* in three places in `operations.md`. **Consequence:** a consumer list omitting a writer is worse than no list — Phase 4 verifies fleet-wide against that list. Corrected in both docs; see [`memory-model.md` §2.3](../../guide/memory-model.md).
+
+**Finding 2 — there are FOUR Kind 1 surfaces, not three.** [`direction.md`](../../standards/architecture/research/direction.md) satisfies all five interface properties: durable, human- and machine-readable, carries outcome *and* reasoning, has a to-do bit (`status: open`), addressable (`D-NNN`), survives context death. **Its to-do bit is a column in a committed markdown table, not GitHub `open`, and its writer is in the V2 Python tree.** So this fleet already runs **two bindings** of Kind 1 — which converts the interface/binding split from an argument into an observation. Documented as §2.4 and used as the evidence for §9's inherit/re-implement table.
+
+**Finding 3 — Phase 1 E6's "nine fields" is not an enumeration of the `pr_review:` block, and reading it as one would mis-scope Phase 3.** E6 enumerated the *Kind 2 envelope* — the union of values 15 branch sites read. The block emits **~31 leaf fields**; the overlap is **4** (`verdict`≈`outcome`, `hold_kind`, `findings[].id`, `findings[].disposition`). Nothing in E6's ruling is withdrawn. What the two sets together establish is the shape of the problem: **the durable record carries roughly seven times what any machine reads**, and that ratio is the cost of arrangement A stated as a number. See §4.4.
+
+**Finding 4 — the block marker is declared three incompatible ways, and two of them are wrong.** `review-pr.sh:142` (`test("pr_review:")`) and `review_pr_activities.py:51` (plain substring) match any comment merely *mentioning* the key; only `replay_pr_review_blocks.py:45` is fence-anchored. Measured over all 39 PRs: **18 matches vs 15, i.e. 3 false positives on 2 of the 8 PRs carrying a block.** PR #31's blocks run `pass: 1, 2, 4` because a `build-refine` comment between them was counted — **there was never a pass 3**; PR #66's single block is labelled `pass: 3` and is pass 1.
+
+> **This changes something Phase 1 recorded as structural.** E7's *"pass numbers are not dense"* (`phase1:309`) instructs Phase 5 to derive consecutiveness from block ordering rather than the integer. **That instruction is correct and stands** — but the reason given, that non-density is a property of the archive, is wrong: it is this over-match, and it is fixable in two files. `pass:` is a durable field of the durable record and it is currently wrong on the most recently reviewed PR in the repo. **Phase 2 documents the convention and names the defect; it does not fix it** — this phase documents what exists, and the remedy is a code change. Surfaced without a tracker pointer rather than filed, per `review-pr.sh` § FILING AUTHORITY (a producing run surfaces; it does not file its own).
 
 ### Write the framework
 
-- [ ] State the surface-selection rule as a rule: which outcome class goes to a PR thread, which to an Issue, which to the standup tracker, and what makes them non-interchangeable. Collapsing any two is a recurring failure and the doc should say which two get collapsed and what happens when they are
-- [ ] State the lifecycle of each surface explicitly, including the asymmetry: PR threads close at merge, Issues close when ruled, the tracker **never closes** and is pruned instead. A tracker that grows month over month is failing — that is a property of the framework, not a housekeeping note
-- [ ] Document the `pr_review:` block as an interface: field, type, who emits it, who reads it, what absence means. Cite the emitting script rather than re-typing a schema that would then drift from it — per [Documentation Standard § Single-source codified fields](../../standards/documentation/documentation_standard.md), the doc points, it does not copy
-- [ ] State what *open is the to-do bit* buys and what it costs: no bookmarks to maintain, and no way to express "current but not actionable" except by prose in the item
-- [ ] State the discipline that makes the whole thing work — every surface is written by the actor that knows something and read by an actor that needs it; nothing is written "for the record" — and the corollary that an account is not the artifact, so a pointer is verified by fetching it
+- [x] State the surface-selection rule as a rule: which outcome class goes to a PR thread, which to an Issue, which to the standup tracker, and what makes them non-interchangeable. Collapsing any two is a recurring failure and the doc should say which two get collapsed and what happens when they are
+- [x] State the lifecycle of each surface explicitly, including the asymmetry: PR threads close at merge, Issues close when ruled, the tracker **never closes** and is pruned instead. A tracker that grows month over month is failing — that is a property of the framework, not a housekeeping note
+- [x] Document the `pr_review:` block as an interface: field, type, who emits it, who reads it, what absence means. Cite the emitting script rather than re-typing a schema that would then drift from it — per [Documentation Standard § Single-source codified fields](../../standards/documentation/documentation_standard.md), the doc points, it does not copy
+- [x] State what *open is the to-do bit* buys and what it costs: no bookmarks to maintain, and no way to express "current but not actionable" except by prose in the item
+- [x] State the discipline that makes the whole thing work — every surface is written by the actor that knows something and read by an actor that needs it; nothing is written "for the record" — and the corollary that an account is not the artifact, so a pointer is verified by fetching it
 
 ### Specify retrievability — the half of the interface nobody wrote down
 
 A surface a later actor cannot *address* is a surface that only a human can read, which is the gap this whole component exists to close. `docs/development/cpi-decisions.md` carries a deferral whose watch-criteria are literally *"ship as part of the Memory Management phase doc"*: **a correction pass cannot machine-read the prior pass's runway** — it has the excellent `pr_review:` yaml and had to page a 37 KB comment dump to find it. That trigger has fired; this section is where it lands.
 
-- [ ] State how a subsequent dispatch locates the **latest** `pr_review:` block on a PR without reading the whole thread — the addressing convention, whatever it turns out to be (a marker, a query, an ordering rule). This is the deliverable, not the mechanism's implementation
-- [ ] Include the same for the pass number: a correction pass must be able to establish *which pass it is* and *what the prior pass ruled* from the surface, since `review-pr` already tracks `THIS_PASS` / `PRIOR_PASS` and already requires prior finding ids to be reused verbatim
-- [ ] Record the retrieval cost as it stands today (the 37 KB paging), so the improvement is measurable rather than asserted
-- [ ] Cross-reference the CPI entry so the deferral's resolution is traceable from both ends
+- [x] State how a subsequent dispatch locates the **latest** `pr_review:` block on a PR without reading the whole thread — the addressing convention, whatever it turns out to be (a marker, a query, an ordering rule). This is the deliverable, not the mechanism's implementation
+- [x] Include the same for the pass number: a correction pass must be able to establish *which pass it is* and *what the prior pass ruled* from the surface, since `review-pr` already tracks `THIS_PASS` / `PRIOR_PASS` and already requires prior finding ids to be reused verbatim
+- [x] Record the retrieval cost as it stands today (the 37 KB paging), so the improvement is measurable rather than asserted
+- [x] Cross-reference the CPI entry so the deferral's resolution is traceable from both ends
 
 ### Name the seam Kind 2 will attach to
 
-- [ ] State which parts of Kind 1 are **rendered output** (and could therefore be produced from a typed record) versus **independently authored prose** (and could not) — this is the boundary [Phase 3](phase3_typed_exit_record.md) has to respect, and getting it wrong means a schema that silently drops what the operator actually reads
-- [ ] Enumerate the prose the human record carries that a schema would have to model explicitly or lose — the reviewing agent's working shown to the operator is the known example. **This enumeration is the cost of arrangement A and the doc must not hide it**
-- [ ] State the open question this phase does **not** answer: which channel owns the to-do bit when a typed record carries a verdict and the PR carries open/closed. [Phase 1](phase1_measure_the_channel.md) measures the disagreements; [Phase 3](phase3_typed_exit_record.md) rules. Recording it here as open is correct; ruling on it here is not
+- [x] State which parts of Kind 1 are **rendered output** (and could therefore be produced from a typed record) versus **independently authored prose** (and could not) — this is the boundary [Phase 3](phase3_typed_exit_record.md) has to respect, and getting it wrong means a schema that silently drops what the operator actually reads
+- [x] Enumerate the prose the human record carries that a schema would have to model explicitly or lose — the reviewing agent's working shown to the operator is the known example. **This enumeration is the cost of arrangement A and the doc must not hide it**
+- [x] State the open question this phase does **not** answer: which channel owns the to-do bit when a typed record carries a verdict and the PR carries open/closed. [Phase 1](phase1_measure_the_channel.md) measures the disagreements; [Phase 3](phase3_typed_exit_record.md) rules. Recording it here as open is correct; ruling on it here is not
 
 ### Verify
 
-- [ ] Walk the five completion questions above against the finished doc as a reader who has not seen the scripts — each must be answerable without opening one
-- [ ] Verify every cross-reference resolves and every cited line number matches the current file, not a remembered one
-- [ ] Check the doc against the existing `operations.md` section for contradiction and for duplication — a second statement of the same rule is drift waiting to happen, and the fix is a cross-reference
-- [ ] Confirm nothing under `docs/standards/` was modified by this phase; anything that wants to be binding is listed in the roadmap's Standards-amendment candidates instead
+- [x] Walk the five completion questions above against the finished doc as a reader who has not seen the scripts — each must be answerable without opening one
+- [x] Verify every cross-reference resolves and every cited line number matches the current file, not a remembered one
+- [x] Check the doc against the existing `operations.md` section for contradiction and for duplication — a second statement of the same rule is drift waiting to happen, and the fix is a cross-reference
+- [x] Confirm nothing under `docs/standards/` was modified by this phase; anything that wants to be binding is listed in the roadmap's Standards-amendment candidates instead
 
 ---
 
 ## Notes and gotchas
 
 - **The tracker is a GitHub issue only because of the substrate**, not because it is an issue semantically — it never closes, and items flow through it. Documenting it under the Issues surface would be a category error the framework exists to prevent.
-- **`/standup` is strictly read-only, including the tracker.** Any framework statement implying an automated writer to the tracker contradicts the shipped behaviour.
+- ~~**`/standup` is strictly read-only, including the tracker.** Any framework statement implying an automated writer to the tracker contradicts the shipped behaviour.~~ **FALSE as of this phase's ground-truth pass — see Finding 1 below.** `/standup` writes in exactly two places (`config/commands/standup.md:3`, § Rules). The gotcha inverted the risk: the framework statement that would have contradicted shipped behaviour was the one this bullet asked for.
 - **Resist the pull to make this a standard.** It describes a system that works and is human-facing; the guide bucket is where it belongs. A rule that must bind autonomous runs is a candidate for `docs/standards/`, surfaced through the roadmap and ratified by a human.
