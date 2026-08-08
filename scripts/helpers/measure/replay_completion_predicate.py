@@ -27,7 +27,13 @@ the JSONL is the union of assistant text turns, which is what the console
 carries, so this script reconstructs it and flags where the two surfaces differ.
 
 Usage:  python3 scripts/helpers/measure/replay_completion_predicate.py [LOG_DIR]
-        (LOG_DIR defaults to <repo root>/.claude/logs)
+
+PASS LOG_DIR EXPLICITLY WHEN RUNNING FROM A WORKTREE, which is the fleet's
+normal dispatch shape. The default resolves three parents up from this file,
+which inside `.claude/worktrees/<name>/` is the WORKTREE root -- and `.claude/`
+is globally gitignored, so no `logs/` exists there. The run then reports an
+empty corpus, which is loud but diagnoses badly. The archive lives in the main
+checkout: `<main checkout>/.claude/logs`.
 """
 
 from __future__ import annotations
@@ -38,7 +44,17 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-# Verbatim from review-pr.sh:186 / routing.py:43 / review_pr_helper.py:70.
+# Verbatim from review-pr.sh:186 (the ERE the child's own gate compiles) and
+# review_pr_helper.py:70. NOT byte-identical to routing.py:43, which spells the
+# inner alternation non-capturing; the difference is invisible to `.search()`
+# and visible to `.findall()`, so every extraction below goes through
+# `finditer()` + `group(0)` rather than `findall()`.
+#
+# DELIBERATELY COPIED, NOT IMPORTED. A replay tool pins the predicate it
+# replays: importing the live `routing._VERDICT` would make a re-run in a year
+# silently measure a CHANGED rule against the SAME archived logs and report the
+# result as the same number. The drift this copy risks is loud (a test asserts
+# parity with the shipped ERE); the drift an import risks is silent.
 STRICT_VERDICT = re.compile(
     r"^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$", re.MULTILINE
 )
@@ -47,11 +63,21 @@ STRICT_VERDICT = re.compile(
 # emits. The DIFFERENCE between the two sets is what gets adjudicated by hand.
 LOOSE_VERDICT = re.compile(r"VERDICT:?\s*\**\s*(MERGE|HOLD)", re.IGNORECASE)
 
-# Verbatim from build.sh:198 / build-minor.sh:202 and the six workflows that
-# declare it as their COMPLETION_PATTERN.
+# Verbatim from build.sh:198 / build-minor.sh:202 and the 16 pull-only
+# COMPLETION_PATTERN declarations across both fleets (8 bash, 8 Python).
 PR_URL = re.compile(r"https://github\.com/[^ )]+/pull/[0-9]+")
 
+# `plan-revision` and `plan-new` declare a WIDER pattern: they may legitimately
+# complete by opening a STOP **issue** instead of a PR, and their gates say so
+# (`plan-revision.sh:220`, `plan-new.sh:245`,
+# `plan_revision_workflow.py:49` -> `/(pull|issues)/`). Replaying those logs
+# against the pull-only pattern would score a lawful issue-URL completion as a
+# miss and inflate exactly the number this tool exists to report honestly.
+# E6's P6 row documents the same path from the parent's side.
+PR_OR_ISSUE_URL = re.compile(r"https://github\.com/[^ )]+/(?:pull|issues)/[0-9]+")
+
 VERDICT_WORKFLOWS = ("review-pr",)
+ISSUE_ALTERNATIVE_WORKFLOWS = ("plan-revision", "plan-new")
 
 
 def workflow_of(path: Path) -> str:
@@ -59,9 +85,16 @@ def workflow_of(path: Path) -> str:
     return re.sub(r"-\d{8}-\d{6}$", "", path.stem)
 
 
-def read_log(path: Path) -> tuple[dict | None, list[str]]:
-    """Return (result envelope or None, assistant text turns in order)."""
-    envelope, turns = None, []
+def read_log(path: Path) -> tuple[dict | None, list[str], int]:
+    """Return (result envelope or None, assistant text turns, unparseable count).
+
+    The third element exists because a silently-dropped line is indistinguishable
+    from a line that was never there. A truncated FINAL line is the expected,
+    benign case (the run was still writing); a malformed line anywhere else is
+    real corruption that would quietly shrink the reconstructed console stream
+    and change a count with no trace. The caller reports the number either way.
+    """
+    envelope, turns, unparseable = None, [], 0
     for line in path.read_text(errors="replace").splitlines():
         line = line.strip()
         if not line:
@@ -69,10 +102,10 @@ def read_log(path: Path) -> tuple[dict | None, list[str]]:
         try:
             ev = json.loads(line)
         except json.JSONDecodeError:
-            # A truncated final line is itself an observation, not an error to
-            # swallow silently — the caller sees it as a missing envelope.
+            unparseable += 1
             continue
         if not isinstance(ev, dict):
+            unparseable += 1
             continue
         if ev.get("type") == "result":
             envelope = ev
@@ -80,7 +113,7 @@ def read_log(path: Path) -> tuple[dict | None, list[str]]:
             for block in ev.get("message", {}).get("content", []) or []:
                 if isinstance(block, dict) and block.get("type") == "text":
                     turns.append(block.get("text", ""))
-    return envelope, turns
+    return envelope, turns, unparseable
 
 
 def main(log_dir: Path) -> int:
@@ -94,12 +127,18 @@ def main(log_dir: Path) -> int:
 
     for path in logs:
         wf = workflow_of(path)
-        envelope, turns = read_log(path)
+        envelope, turns, unparseable = read_log(path)
         result = "" if envelope is None else (envelope.get("result") or "")
         console = "\n".join(turns)
-        pattern_kind = "verdict" if wf in VERDICT_WORKFLOWS else "pr_url"
-        strict = STRICT_VERDICT if pattern_kind == "verdict" else PR_URL
-        loose = LOOSE_VERDICT if pattern_kind == "verdict" else PR_URL
+        if wf in VERDICT_WORKFLOWS:
+            pattern_kind = "verdict"
+            strict, loose = STRICT_VERDICT, LOOSE_VERDICT
+        elif wf in ISSUE_ALTERNATIVE_WORKFLOWS:
+            pattern_kind = "pr_or_issue_url"
+            strict = loose = PR_OR_ISSUE_URL
+        else:
+            pattern_kind = "pr_url"
+            strict = loose = PR_URL
 
         rows.append(
             {
@@ -119,16 +158,35 @@ def main(log_dir: Path) -> int:
                 "loose_result": bool(loose.search(result)),
                 "strict_console": bool(strict.search(console)),
                 "loose_console": bool(loose.search(console)),
-                "strict_matches_console": len(strict.findall(console)),
+                # `group(0)` via finditer, never `findall()`: STRICT_VERDICT
+                # carries capturing groups (verbatim from the shipped ERE), so
+                # `findall()` would return tuples here and a string for the
+                # URL patterns — the same field with two shapes.
+                "strict_matches_console": sum(1 for _ in strict.finditer(console)),
                 "last_strict_result": (
-                    strict.findall(result)[-1] if strict.search(result) else None
+                    [m.group(0) for m in strict.finditer(result)][-1]
+                    if strict.search(result)
+                    else None
                 ),
+                "unparseable_lines": unparseable,
             }
         )
 
     print(f"# corpus: {len(logs)} JSONL under {log_dir}")
     for wf, n in sorted(by_workflow.items()):
         print(f"#   {wf}: {n}")
+    in_flight = [r["log"] for r in rows if r["envelope"] == "missing"]
+    if in_flight:
+        # A log with no `result` event is most often the CURRENTLY-RUNNING
+        # dispatch — including the one invoking this tool. It is not a fleet
+        # failure and must not be counted as a strict-negative without saying
+        # so; E5 recorded one of these as a "truncated log" before it finished.
+        print(f"# no result envelope ({len(in_flight)}) — in-flight or truncated,")
+        print("#   adjudicate each before counting it as a miss:")
+        for name in in_flight:
+            print(f"#     {name}")
+    total_unparseable = sum(r["unparseable_lines"] for r in rows)
+    print(f"# unparseable JSONL lines across corpus: {total_unparseable}")
     print()
     print(json.dumps(rows, indent=1))
     return 0

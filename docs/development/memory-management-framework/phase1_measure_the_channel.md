@@ -1,6 +1,6 @@
 # Phase 1 — Measure the channel before designing it
 
-**Component:** [Memory Management Framework](roadmap.md) · **Status: complete — measured 2026-08-08, all six experiments run, thirteen rulings recorded**
+**Component:** [Memory Management Framework](roadmap.md) · **Status: complete — measured 2026-08-08, all six experiments run, thirteen rulings recorded; three of them re-taken the same day (E7, E6's field list, E5's denominator) and marked inline**
 
 Six experiments the research could not settle and the design depends on. Three of them can shrink or cancel work downstream. This phase produces **a measured record, not a design** — every experiment ends in a written ruling, and the rulings are the deliverable.
 
@@ -24,6 +24,7 @@ This phase is done when all six experiments below have run against the pinned CL
 
 - **None built.** This phase depends only on the pinned `claude` CLI and the archived run logs and PR comments, all of which exist today.
 - **Evidence:** [`research/synthesis.md`](research/synthesis.md); experiment designs are adapted from `research/raw/non_model_observables.md` §7 and `research/raw/dual_channel_outcome_records.md` §8. **Those papers number their tests T1–T6 with two different meanings for `T3`.** This doc uses its own E-labels and cites the source tests inline, so a reader is never resolving a `T` against the wrong paper. The [roadmap](roadmap.md) refers to these experiments by E-label only.
+- **There is no E4, deliberately.** The label space is stable so a citation to `E6` means the same thing across drafts. E4 was the liveness/progress-signal question, and it is **closed by citation rather than by measurement** — `liveness_signal_measurement.md` already measured it, and re-deriving it here would produce an ad-hoc phase-doc measurement competing for authority with a critic-gated paper. See the close-out.
 - **Cites but does not re-derive:** `docs/standards/architecture/research/raw/claude_code_integration_surface.md` §5 (no first-party exit-code table; the `system/api_retry` error enum) and §7 (the result-envelope field list). **Comes due 2026-08-22** — if this phase runs after that date, note the staleness in the ruling rather than silently relying on it.
 - **Cites and does not re-derive:** `../fleet-reliability/research/raw/liveness_signal_measurement.md`, which already measured the `stream-json` event vocabulary and identified the progress signals. This phase does **not** re-run that measurement; see the close-out.
 
@@ -33,7 +34,7 @@ This phase is done when all six experiments below have run against the pinned CL
 
 Required because this phase orchestrates an external runtime — the `claude` CLI, a vendor binary whose documented surface is the thing being measured.
 
-**Date performed: 2026-08-08** (re-run for the execution of this phase; the block below replaces the 2026-08-07 planning-run version) · **Host:** `puma-workstation-mint` · **Performed during:** the build-draft run that executed E1–E7
+**Date performed: 2026-08-08** (re-run for the execution of this phase; the block below replaces the 2026-08-07 planning-run version) · **Host:** `puma-workstation-mint` · **Performed during:** the build-draft run that executed E1–E7, and **re-run unchanged during the same day's build-refine pass** — same version, same three results
 
 ```
 $ claude --version
@@ -62,7 +63,7 @@ $ claude --help | grep -c -- "--max-turns"
 | Two bash parents extract the PR URL by anchored regex | `build.sh:198`, `build-minor.sh:202` |
 | The runtime reads the envelope's `subtype` for turn-cap death | `scripts/workflows/activities/run-claude.sh:167` |
 | The runtime reads `.result` against the declared completion pattern | `scripts/workflows/activities/run-claude.sh:201-204` |
-| Measured turn-cap termination rate, already recorded by the fleet | `run-claude.sh:157-160` — **0.9% (4/443 runs)**. Cite verified 2026-08-08 (the figure is at `:159`). **E5 cross-checked it and the only re-measurable sample runs 3–4× higher** — 2 `error_max_turns` in 73 archived logs (2.7%), both from August. Different populations, so not a claim the rate rose; see E5 |
+| Measured turn-cap termination rate, already recorded by the fleet | `run-claude.sh:157-160` — **0.9% (4/443 runs)**. Cite verified 2026-08-08 (the figure is at `:159`). **E5 cross-checked it and the only re-measurable sample runs 3–4× higher** — 2 `error_max_turns` in 72 completed archived logs (2.8%), both from August. Different populations, so not a claim the rate rose; see E5 |
 | The routing vocabulary is declared once in the Python tree | `scripts/workflows/temporal/modules/assistant/routing.py:24-56`, re-exported at `review_pr/review_pr_helper.py:67` |
 | Completion patterns are declared in **both** fleets | `grep -rnE "COMPLETION_PATTERN\s*=" scripts/` → **21** total: 11 bash, 10 Python |
 | `review-pr` already emits a convergence flag and stable finding ids | `children/review-pr.sh:323` (the rule), `:355` (`converged: true\|false`), `:221` and `:357` (stable ids reused verbatim across passes) |
@@ -175,7 +176,7 @@ with a matching `{"type":"system","subtype":"permission_denied","tool_name":"Bas
 - **Loose** = deliberately weaker: unanchored, case-insensitive, tolerant of markdown emphasis and leading whitespace (`VERDICT:?\s*\**\s*(MERGE|HOLD)`). This is the candidate set.
 - A log is a **miss** only where strict found nothing *and* hand adjudication of the envelope says a real terminal outcome was present. Every strict/loose difference and every strict-negative was opened by hand; the adjudications are recorded below individually.
 
-**Scoping correction — 22 of the 73 are anachronistic and are excluded, with the exclusion stated rather than hidden in a denominator.** Applying today's predicate to a log from a workflow that did not declare one measures a rule that was not in force. `revision` (6) and `revision-major` (13) are **retired** — no such script exists in `scripts/workflows/` today. `review-runs` (3) exists but declares no `COMPLETION_PATTERN` at all. All 22 are from 2026-04. **In-scope corpus: 51 logs** across the 10 workflows that declare a pattern today.
+**Scoping correction — 22 of the 73 are anachronistic and are excluded, with the exclusion stated rather than hidden in a denominator.** Applying today's predicate to a log from a workflow that did not declare one measures a rule that was not in force. `revision` (6) and `revision-major` (13) are **retired** — no such script exists in `scripts/workflows/` today. `review-runs` (3) exists but declares no `COMPLETION_PATTERN` at all. All 22 are from 2026-04. **In-scope corpus: 51 logs** across the 10 workflows that declare a pattern today — **50 once the in-flight self-log is removed** (see the correction under the adjudication table), which is the denominator every count below should be read against.
 
 | | denominator | strict matched | strict found nothing | loose matched | strict ≠ loose |
 |---|---|---|---|---|---|
@@ -183,6 +184,9 @@ with a matching `{"type":"system","subtype":"permission_denied","tool_name":"Bas
 | **PR-URL predicate** (9 workflows) | **37** | **34** | **3** | 34 | **0** |
 | in-scope total | **51** | 48 | 3 | 48 | **0** |
 | *(excluded: retired / no pattern)* | *22* | *17* | *5* | *17* | *0* |
+| **corrected** — in-flight self-log removed | **50** | 48 | **2** | 48 | **0** |
+
+**Two of the nine PR-URL workflows declare a wider pattern than this table replayed.** `plan-revision` and `plan-new` gate on `/(pull|issues)/` — a STOP **issue** URL is a lawful completion for them (`plan-revision.sh:220`, `plan-new.sh:245`, `plan_revision_workflow.py:49`; E6's P6 row is the same path seen from the parent). The replay originally applied the pull-only pattern to all nine. **Both archived `plan-revision` logs completed via `pull/` URLs, so no count above changes** — verified by re-running with the corrected pattern. The tool now carries `PR_OR_ISSUE_URL` for those two workflows, because the next issue-URL completion would otherwise be scored as a miss and inflate exactly the number this experiment exists to report honestly.
 
 **The three in-scope strict-negatives, adjudicated individually — all three are CORRECT REJECTIONS, none is a miss:**
 
@@ -190,29 +194,33 @@ with a matching `{"type":"system","subtype":"permission_denied","tool_name":"Bas
 |---|---|---|
 | `build-draft-minor-20260806-173722` | `subtype: error_max_turns`, `num_turns: 101/100`, **`result` key absent**, `errors: ["Reached maximum number of turns (100)"]` | No PR URL anywhere in the file. The run genuinely produced nothing. Correct rejection. |
 | `build-draft-minor-20260808-122206` | `subtype: error_max_turns`, `num_turns: 101/100`, **`result` key absent** | **A `github.com/…/pull/N` URL IS present in the file** — the run opened a PR and then died at its cap. The predicate correctly reports no completion (nothing was in `.result` because there was no `.result`), and `run-claude.sh:167` fires first regardless. Correct rejection — but see the ruling. |
-| `build-draft-20260808-145403` | **no `result` event at all** — the JSONL ends without one | Truncated log. `jq -r '… .result // ""'` yields `""` and the check fails loud. Correct rejection. |
+| `build-draft-20260808-145403` | **no `result` event at all** — the JSONL ends without one | ~~Truncated log. `jq -r '… .result // ""'` yields `""` and the check fails loud. Correct rejection.~~ **NOT A FLEET OBSERVATION — see the correction below.** |
 
-**Adjudicated miss count: 0 of 51.** Zero of 14 for the `VERDICT` predicate specifically.
+> **CORRECTION (build-refine, 2026-08-08). The third strict-negative was this measurement observing its own in-flight run, and it should not have been in the corpus.** `build-draft-20260808-145403.jsonl` is the log of the build-draft run that *wrote this table*. It had no `result` event because it had not finished yet — not because anything failed. It has since completed, and replaying it now yields a **strict match** (`.result` carries the PR #66 URL). Corrected figures at the time of measurement: **72 completed logs, 50 in-scope, 2 strict-negatives** — both `error_max_turns`, both genuine — not 73 / 51 / 3. **The adjudicated miss count of 0 is unchanged in either accounting**, since a completed self-log is a match rather than a miss, so no ruling moves. What moves is the denominator and one adjudication row that described a measurement artifact as a fleet property, in a doc whose closing line is *"sample-size honesty is a requirement, not a courtesy."*
+>
+> **This recurs on every re-run unless it is handled**, because the tool is kept to be re-run and any run invoking it has its own open log in the directory. `replay_completion_predicate.py` now lists every envelope-less log separately, under a header saying they are in-flight-or-truncated and must be adjudicated before being counted as misses.
+
+**Adjudicated miss count: 0 of 50 completed in-scope logs** (0 of 51 counting the in-flight self-log, which is a match now that it has finished — the zero does not depend on which accounting is used). **Zero of 14** for the `VERDICT` predicate specifically.
 
 **Quoted-prior-pass matches: 0 of 14.** No `review-pr` log contained more than one strict `^VERDICT:` match anywhere in its assistant-text stream, so the anchored last-match-wins design was never even put under load. One log had two strict matches (`revision-major-20260410-115958`, two PR URLs) — out of scope, retired workflow, and PR-URL not `VERDICT`.
 
-**A surface difference between the two parsers, found while reconstructing the predicate and worth recording because it is not what the design assumes.** `run-claude.sh:204` applies the pattern to `jq -r '.result'` — the final result only. `build.sh:277` and `build-minor.sh:281` apply it to `"$log"`, the **tee'd console output of the whole child process**, which carries every streamed assistant message. The parent's surface is strictly wider than the child's. Replayed over the reconstructed assistant-text stream, the two surfaces agreed on **51 of 51** logs — but that is agreement by luck of the corpus, not by construction: a model that writes a well-formed `VERDICT:` line mid-run and then a different one at the end would route the parent one way and pass the child's gate another.
+**A surface difference between the two parsers, found while reconstructing the predicate and worth recording because it is not what the design assumes.** `run-claude.sh:204` applies the pattern to `jq -r '.result'` — the final result only. `build.sh:277` and `build-minor.sh:281` apply it to `"$log"`, the **tee'd console output of the whole child process**, which carries every streamed assistant message. The parent's surface is strictly wider than the child's. Replayed over the reconstructed assistant-text stream, the two surfaces agreed on **50 of 50** completed in-scope logs — but that is agreement by luck of the corpus, not by construction: a model that writes a well-formed `VERDICT:` line mid-run and then a different one at the end would route the parent one way and pass the child's gate another.
 
-**Turn-cap rate, cross-checked against this doc's own cited figure.** `run-claude.sh:159` records **0.9% (4/443 runs, 3 of them from April)**. The archived corpus shows **2 `error_max_turns` in 73 logs (2.7%)**, or **2 in 51 in-scope (3.9%)** — and *both are from August* (2026-08-06, 2026-08-08), where the cited figure had only one non-April occurrence. The two denominators are not the same population (443 runs vs 73 archived logs), so this is **not** a claim that the rate rose. It is a flag: the cited comment's own reopen condition is "if the rate climbs", and the only sample that can be checked today runs 3–4× the recorded figure. Surfaced for the operator; not fixed here.
+**Turn-cap rate, cross-checked against this doc's own cited figure.** `run-claude.sh:159` records **0.9% (4/443 runs, 3 of them from April)**. The archived corpus shows **2 `error_max_turns` in 72 completed logs (2.8%)**, or **2 in 50 completed in-scope (4.0%)** — and *both are from August* (2026-08-06, 2026-08-08), where the cited figure had only one non-April occurrence. The two denominators are not the same population (443 runs vs 73 archived logs), so this is **not** a claim that the rate rose. It is a flag: the cited comment's own reopen condition is "if the rate climbs", and the only sample that can be checked today runs 3–4× the recorded figure. Surfaced for the operator; not fixed here.
 
 #### E5 — Ruling
 
 **NO-OP for the defect argument, and it CHANGES what Phase 3's justification is allowed to say.**
 
-The adjudicated miss count is **zero over 51 in-scope logs, zero over the 14 that carry the `VERDICT` predicate**. The strict and loose match sets are identical — there is not a single log where a real verdict was present in a shape the anchored predicate could not see. The prose grep has never, in the archived history, produced a wrong route or a missed one.
+The adjudicated miss count is **zero over 50 completed in-scope logs, zero over the 14 that carry the `VERDICT` predicate**. The strict and loose match sets are identical — there is not a single log where a real verdict was present in a shape the anchored predicate could not see. The prose grep has never, in the archived history, produced a wrong route or a missed one.
 
 **Consequences, named:**
 
 1. **Phase 3's justification is rewritten to lead with the measurement, and the measurement is this zero.** The roadmap's "lead with the measurement argument" decision becomes **load-bearing rather than stylistic**: a Phase 3 doc that opens by calling the incumbent broken would be contradicted by its own phase's evidence.
-2. **The transport upgrade's case does not rest here — it rests on E1(d).** E5 found no defect in the predicate *given a `.result` to read*. E1 found that on every error subtype **there is no `.result` to read at all**, and this replay reproduced that in the wild: 2 of 51 archived runs (3.9%) had the `result` key absent, one of them after having already opened a PR. **The prose channel's failure mode is not misparsing; it is non-existence.** Phase 3 argues from the channel's absence under failure, not from the grep's accuracy. That is a stronger and a *measured* argument, and it is the one E5 was supposed to be able to supply in either direction.
+2. **The transport upgrade's case does not rest here — it rests on E1(d).** E5 found no defect in the predicate *given a `.result` to read*. E1 found that on every error subtype **there is no `.result` to read at all**, and this replay reproduced that in the wild: 2 of 50 completed in-scope runs (4.0%) had the `result` key absent, one of them after having already opened a PR. **The prose channel's failure mode is not misparsing; it is non-existence.** Phase 3 argues from the channel's absence under failure, not from the grep's accuracy. That is a stronger and a *measured* argument, and it is the one E5 was supposed to be able to supply in either direction.
 3. **The `zero` is small and must be reported as small.** 14 logs for the `VERDICT` predicate is a thin base. This ruling states a zero over 14, not a zero over the fleet's history.
 
-**What this feeds — `D-007`, and this is written to be usable as that row's evidence directly.** Open direction row `D-007` (`docs/standards/architecture/research/direction.md:67`) asks whether the VERDICT-token-on-stdout completion contract *stands unchanged*, *gains a write-time gate*, or *is replaced*. Its stated tension is that every located comparable system pairs machine-parsing-a-human-artifact with authoring-time enforcement while ours has none, against no evidence the incumbent ever mis-routed. **This experiment supplies the missing half of that: the miss count is 0/14 for the token specifically and 0/51 across both patterns, with the loose set identical to the strict set.** Two further inputs `D-007` did not have: (a) a write-time gate **already exists** on the child side — `run-claude.sh:201-204` fails the run loud when the pattern is absent from `.result`, which is authoring-time enforcement by any reasonable reading, so the "ours has none" premise is *false as stated*; and (b) the parent's parse surface (`build.sh:277`, the whole console) is wider than the gate's (`.result`), so the gate does not cover everything the parent reads. **`D-007` is the operator's to rule and this phase does not rule it** — but the ruling it needs to make is now the narrower one of whether that surface mismatch is worth closing, not whether the token has been missing routes.
+**What this feeds — `D-007`, and this is written to be usable as that row's evidence directly.** Open direction row `D-007` (`docs/standards/architecture/research/direction.md:67`) asks whether the VERDICT-token-on-stdout completion contract *stands unchanged*, *gains a write-time gate*, or *is replaced*. Its stated tension is that every located comparable system pairs machine-parsing-a-human-artifact with authoring-time enforcement while ours has none, against no evidence the incumbent ever mis-routed. **This experiment supplies the missing half of that: the miss count is 0/14 for the token specifically and 0/50 completed in-scope logs across all three patterns, with the loose set identical to the strict set.** Two further inputs `D-007` did not have: (a) a write-time gate **already exists** on the child side — `run-claude.sh:201-204` fails the run loud when the pattern is absent from `.result`, which is authoring-time enforcement by any reasonable reading, so the "ours has none" premise is *false as stated*; and (b) the parent's parse surface (`build.sh:277`, the whole console) is wider than the gate's (`.result`), so the gate does not cover everything the parent reads. **`D-007` is the operator's to rule and this phase does not rule it** — but the ruling it needs to make is now the narrower one of whether that surface mismatch is worth closing, not whether the token has been missing routes.
 
 
 ### E7 — Does the convergence delta ever fire?
@@ -249,6 +257,26 @@ The adjudicated miss count is **zero over 51 in-scope logs, zero over the 14 tha
 
 **Pairs with an empty delta: 0 of 7.** **Pairs where any id was dropped: 0 of 7.** The finding-id set is **strictly monotonically growing** in every observed pass sequence — no pass ever carried fewer ids than the one before it, and the smallest delta observed was 1.
 
+> **CORRECTION (build-refine, 2026-08-08). Both of those numbers are guaranteed by the reporting schema, and the table above measures the wrong set.** The `pr_review:` block is **cumulative**: `review-pr.sh:221` instructs each pass to reuse every prior finding's id slug verbatim, and the archive does exactly that — **pass N restates every id pass N-1 carried and updates that finding's `disposition` in place** (`hold` → `fixed` / `deferred` / `rejected`). Verified directly against PR #58: all 10 of pass 1's ids reappear in pass 2, seven of them flipped to `disposition: fixed`. So an id *cannot* be dropped and the full set *cannot* shrink, at any N, for any fleet behaviour. "0 dropped of 25" is a tautology of the block's shape, not a measurement of the stable-id convention, and "the convention holds in both directions" claimed more than the corpus can show. The **added** column is unaffected and remains a genuine empirical result. The set that carries meaning is measured below.
+
+**The OPEN-subset delta — the set that can actually go empty.** Recomputed over the findings still carrying outstanding work in each block (`disposition` not in `{fixed, deferred, rejected, noted}`; `hold` and `escalated` both leave work open). Same 7 pairs, same corpus:
+
+| PR | passes | all ids | open ids | open **added** | open **closed** |
+|---|---|---|---|---|---|
+| #31 | 1 → 2 | 18 → 20 | 6 → 2 | 1 | **5** |
+| #31 | 2 → 4 | 20 → 24 | 2 → 2 | 2 | 2 |
+| #33 | 1 → 2 | 11 → 16 | 5 → 1 | 1 | **5** |
+| #42 | 1 → 2 | 6 → 9 | **2 → 0** | **0** | 2 |
+| #45 | 1 → 2 | 15 → 20 | 2 → 1 | 1 | 2 |
+| #58 | 1 → 2 | 10 → 15 | 7 → 2 | 2 | **7** |
+| #58 | 2 → 3 | 15 → 16 | 2 → 2 | **0** | 0 |
+
+**Pairs whose OPEN delta is empty: 2 of 7** (#42 1→2, #58 2→3) — against **0 of 7** for the all-ids delta. Ids leave the open set constantly (5, 2, 5, 2, 2, 7, 0 closed per pair); the all-ids view erased every one of those transitions, which is the entire convergence motion the archive contains.
+
+**The open set reaches zero exactly once in 14 blocks — PR #42 pass 2**, which is also the only `MERGE` verdict and the only `converged: true` in the archive.
+
+**Per-finding vocabulary actually shipped, counted across all 195 archived findings.** `disposition` — `fixed` 74, `deferred` 58, `hold` 37, `rejected` 21, `noted` 3, `escalated` 2. `category` — `correctness` 67, `doc-drift` 30, `standards-implication` 29, `test-gap` 28, `scope` 16, `deferral` 14, `friction` 10, `security` 1. **A `severity` field appears on 0 of the 195.** Every finding carries a `disposition`; none carries a severity.
+
 **`converged` cross-tab — 14 blocks, every one carrying the key:**
 
 | | computed delta empty | computed delta non-empty | no prior block |
@@ -256,14 +284,27 @@ The adjudicated miss count is **zero over 51 in-scope logs, zero over the 14 tha
 | `converged: true` | **0** | **1** | 0 |
 | `converged: false` | **0** | 6 | 7 |
 
-**`converged: true` was asserted exactly once in 14 blocks** — PR #42 pass 2, the only `MERGE` verdict in the corpus. Its computed delta was **3 newly-added ids** (`escalation-locator-miscited`, `nmo-source-count-33`, `analyst-fetch-asymmetry-remedy-unlisted`). **The single cell where both the class-(iii) heuristic and the class-(ii) computation had a value is a cell where they DISAGREE: 1 of 1.** The heuristic (`review-pr.sh:323` — "this pass's only findings are preventive") said converged; the delta computation says three new findings appeared. Both are defensible on their own terms, and that is precisely the point: they are measuring different things and the archive contains no case where they agree.
+**`converged: true` was asserted exactly once in 14 blocks** — PR #42 pass 2, the only `MERGE` verdict in the corpus. Its computed delta was **3 newly-added ids** (`escalation-locator-miscited`, `nmo-source-count-33`, `analyst-fetch-asymmetry-remedy-unlisted`).
+
+> **CORRECTION (build-refine, 2026-08-08). The one cell with data is AGREEMENT, not disagreement — the original reading was an artifact of computing the delta over the cumulative set.** PR #42 pass 2 has **0 open findings**: all nine of its ids are `fixed`, `deferred` or `rejected`. So the class-(iii) heuristic (`review-pr.sh:323` — "this pass's only findings are preventive") and the class-(ii) computation over the **open** subset both say converged. **They agree, 1 of 1.** The three "newly-added" ids are new findings that were *disposed within the same pass*, which is exactly what the heuristic's "only preventive findings" wording describes. The previous claim — *"they are measuring different things and the archive contains no case where they agree"* — was wrong, and it was the load-bearing premise for replacing the computed signal rather than re-scoping it.
+
+**Corrected cross-tab, over the OPEN subset — 14 blocks, every one carrying the key:**
+
+| | open delta empty | open delta non-empty | no prior block |
+|---|---|---|---|
+| `converged: true` | **1** | **0** | 0 |
+| `converged: false` | **1** | 5 | 7 |
+
+The one `converged: false` with an empty open delta is #58 pass 2→3 — two open findings carried forward unchanged, none closed, none added. A stopping rule reading *"the open set stopped changing"* would have fired there and been **wrong**; a rule reading *"the open set is empty"* would not have. That distinction is a Phase 5 design input, and it is now measured rather than assumed.
 
 **Stable-id convention — it holds.** 25 ids were added across the 7 pairs. Each was adjudicated against the prior pass's id set by slug and title; the two closest candidates had their finding bodies read in full:
 
 - `quality-control-findings-have-no-slot-in-the-shipped-artifact` (#45 pass 2) vs `security-lens-findings-have-no-slot-in-the-shipped-pr-body-template` (#45 pass 1) — near-identical phrasing, but the bodies show a **different reviewer, different lines, different fix**; the pass-1 finding was already fixed by pass 2. **Distinct.**
 - `merge-drops-the-model-key-guard` (#31 pass 4) vs `merge-drops-executability-guard` (#31 pass 1) — same defect *shape*, two different guards. **Distinct.**
 
-**0 of 25 added ids are a restatement of an existing finding under a new slug. 0 of 25 prior ids were dropped or renamed.** The convention holds in both directions across the whole corpus.
+**0 of 25 added ids are a restatement of an existing finding under a new slug.** That is a genuine adjudication over the added column and it stands.
+
+> **CORRECTION (build-refine, 2026-08-08).** The companion claim — *"0 of 25 prior ids were dropped or renamed; the convention holds in both directions"* — **is not a measurement.** The block is cumulative, so no id can be dropped regardless of what the reviewer does (see the correction above). What the corpus supports is the **added** direction only: when a finding persists it keeps its slug, adjudicated 25 of 25. Phase 5 may rely on that. It may **not** treat "ids never disappear" as evidence about reviewer behaviour, because the reporting shape guarantees it either way.
 
 **Two structural facts Phase 5 needs and the archive does not advertise:**
 
@@ -272,17 +313,33 @@ The adjudicated miss count is **zero over 51 in-scope logs, zero over the 14 tha
 
 #### E7 — Ruling
 
-**CHANGES THE DESIGN — Phase 5's predicate, as specified, never fires. This is the ruling this phase exists to be able to produce, and it is not softened to keep Phase 5 intact.**
+> **THIS RULING WAS RE-TAKEN (build-refine, 2026-08-08) AND ITS CONSEQUENCE REVERSED.** The draft measured the delta over the *cumulative* id set, which cannot go empty by construction, and concluded from 0-of-7 that set-difference is the wrong mechanism. Re-measured over the **open** subset — the only one the schema lets change — the delta goes empty **2 of 7**, and the set empties completely on exactly the one PR that converged. The mechanism is right; the *set* was wrong. **The original ruling would have cancelled a working predicate and redirected Phase 5 onto a `severity` field that does not exist in a single one of the 195 archived findings.** Both the superseded text and the corrected ruling are kept below, because the failure mode — measuring a monotone-by-construction set and reading its monotonicity as a fleet property — is the reusable lesson.
 
-Over the entire archived history — **7 consecutive-pass pairs across 5 PRs, the only 5 that have ever had more than one review pass** — the finding-id delta was empty **zero** times. Not rarely. Never. A stopping rule reading "stop when the delta between consecutive passes is empty" would not have fired once in the fleet's history, and the set is *strictly growing*, so there is no trend toward it either.
+**CHANGES THE DESIGN — but the change is to the predicate's INPUT SET, not to its mechanism.**
+
+Over the entire archived history — **7 consecutive-pass pairs across 5 PRs, the only 5 that have ever had more than one review pass** — the delta over **all** finding ids was empty **zero** times, because the `pr_review:` block restates every prior id and the set therefore cannot shrink. Over the **open** subset (`disposition` still outstanding) the same 7 pairs give an empty delta **2 times**, and the open set reaches **zero once — PR #42 pass 2, the only `MERGE` and the only `converged: true` in the archive.**
 
 **Consequences, named:**
 
-1. **[Phase 5](phase5_convergence_stopping.md) must say this before it is built, and its predicate must change.** An empty-delta predicate is decorative. What the data actually shows is that each pass **adds** findings while the *severity* falls — which is exactly the incumbent heuristic at `review-pr.sh:323` ("the first pass whose findings are ALL preventive IS convergence"), and that heuristic *did* fire, once, correctly, on the one PR that reached `MERGE`. **The computed signal Phase 5 should build is a severity/category-based one over the typed findings, not a set-difference one.** Phase 5's checklist is amended below to record this.
-2. **The one cross-tab cell that has data is a disagreement, so Phase 5 cannot treat the shipped `converged` flag as a label to reproduce.** 1 of 1. It is a different measurement, not a noisy version of the same one.
-3. **Phase 5's step 1 is NOT the phase's hard part.** The stable-id convention holds at 25/25 added and 0/25 dropped or renamed. Phase 5 may rely on ids; it may **not** rely on titles or on `pass` numbers being dense.
-4. **This does not cancel Phases 3 and 4.** The concern the phase doc raised — that 3 and 4 would have been built "partly to serve" a decorative signal — does not land: E1(d) and E1(f) give Phase 3 consumers independent of convergence, and Phase 4's `subtype` routing is independent of Phase 5 entirely. **What is cancelled is one predicate, not a phase.**
-5. **Denominator honesty, stated plainly.** 7 pairs, 5 PRs, 14 blocks, out of 38 PRs. This is a small corpus and a bigger one could contain an empty delta. It could not, however, contain a *shrinking* id set without contradicting 7 of 7 observations, and the predicate needs shrinkage-to-zero, not merely a smaller delta.
+1. **[Phase 5](phase5_convergence_stopping.md)'s predicate is re-scoped, not replaced.** It computes the set difference over the **open** findings — those whose `disposition` is not one of `fixed` / `deferred` / `rejected` / `noted` — and its stopping condition is **the open set being EMPTY**, not merely unchanged. Both halves are measured: empty fired 1 of 14 blocks, precisely on the converged one; *unchanged-but-non-empty* fired at #58 pass 2→3, where stopping would have been **wrong**. A predicate reading "nothing changed" would have produced one correct stop and one incorrect one; "nothing is open" produced one correct stop and no incorrect ones.
+2. **Phase 5 must NOT build on a `severity` field.** The draft ruling named one. **`severity` appears on 0 of the 195 archived findings** — the shipped per-finding vocabulary is `disposition` (6 values) and `category` (8). A predicate specified against `severity` would require inventing a field, backfilling it, and validating it, in place of one the fleet has emitted on every finding it has ever recorded.
+3. **The shipped `converged` flag and the computed signal AGREE where both have a value — 1 of 1.** Phase 5 may therefore treat `converged` as a label the computation should reproduce, and has one archived positive case to check it against. This reverses the draft's consequence 2 outright.
+4. **Phase 5's step 2 is NOT the phase's hard part — but for a narrower reason than the draft gave.** The stable-id convention is measured to hold on the **added** direction, 25 of 25 adjudicated. The "0 dropped" half is a property of the cumulative block, not evidence. Phase 5 may rely on ids; it may **not** rely on titles, on `pass` numbers being dense, or on id-disappearance meaning anything.
+5. **This cancels nothing in Phases 3 and 4.** E1(d) and E1(f) give Phase 3 consumers independent of convergence, and Phase 4's `subtype` routing is independent of Phase 5 entirely.
+6. **Denominator honesty, stated plainly.** 7 pairs, 5 PRs, 14 blocks, 195 findings, out of 39 PRs. **The open-set-empty predicate has exactly ONE positive observation.** One case is enough to falsify "it never fires"; it is nowhere near enough to establish a firing *rate*, and Phase 5 must not quote 1-of-14 as one. The honest statement is: the mechanism is viable and the archive contains a single confirming instance.
+
+<details><summary><b>Superseded draft ruling (2026-08-08, kept for the lesson)</b></summary>
+
+> **CHANGES THE DESIGN — Phase 5's predicate, as specified, never fires.**
+>
+> 1. An empty-delta predicate is decorative. The computed signal Phase 5 should build is a **severity/category-based** one over the typed findings, not a set-difference one.
+> 2. The one cross-tab cell that has data is a **disagreement**, so Phase 5 cannot treat the shipped `converged` flag as a label to reproduce. 1 of 1.
+> 3. The stable-id convention holds at 25/25 added and **0/25 dropped or renamed**.
+> 5. A bigger corpus could contain an empty delta. It could not contain a *shrinking* id set without contradicting 7 of 7 observations.
+>
+> **Why it was wrong, in one line:** the id set is monotone *by construction*, so "7 of 7 observations of monotonicity" observed the schema, not the fleet — and every conclusion drawn from the monotonicity inherited that error.
+
+</details>
 
 
 ### E2 — Does a turn-cap death leave a partial typed record?
@@ -427,7 +484,7 @@ Four runs, all with `--json-schema` declared, real child shape (`-w`, `--dangero
 | 1 | `wait-for-ci.sh:61` | parses **`gh`'s** check states, not a child's |
 | 1 | `build_workflow.py:90`, `build_minor_workflow.py:77` (`ci_settled`) | an **activity return value** from `wait_for_ci`, already typed; not a child's exit record |
 
-**What Phase 5 needs, added because that consumer is specified.** Per E7's amendment: per-finding **`id`** (identity — measured to hold, 25/25 added and 0/25 renamed) and per-finding **severity/category** (the predicate E7's ruling redirects Phase 5 onto). **Not** `pass`, which E7 measured as non-dense, and **not** finding `title`, which E7 measured as unstable under a stable id.
+**What Phase 5 needs, added because that consumer is specified.** Per E7's re-taken ruling: per-finding **`id`** (identity — measured to hold on the added direction, 25/25) and per-finding **`disposition`** (the field that decides whether a finding is still open, and therefore the input to the open-subset predicate). **Not** `pass`, which E7 measured as non-dense; **not** finding `title`, which E7 measured as unstable under a stable id; and **not `severity`**, which E7's correction measured as appearing on **0 of 195** archived findings.
 
 **Nothing added on behalf of Autonomous Operation.** Checked and honoured: no field below exists for it.
 
@@ -447,7 +504,7 @@ Four runs, all with `--json-schema` declared, real child shape (`-w`, `--dangero
 | `completion_ref.url` | string | **B1, B2, P4**, and the human-facing banners at `build.sh:210,292` |
 | `permission_denials` | count + per-entry `{tool_name, matched_rule}`, **`tool_input` redacted** | **E1(f)** — an operator reviewing whether a dispatch tried something the hook stopped. Measured: the run exits **0** with `is_error: false` and `subtype: success`, so nothing else can answer it. Redaction per Phase 3 step 1 and `code_routed_control_flow.md` P13 |
 | `findings[].id` | string slug | **Phase 5** identity, and Phase 3 step 8's render↔record invariant |
-| `findings[].severity` | enum | **Phase 5**'s stopping predicate, as redirected by E7's ruling |
+| `findings[].disposition` | enum — measured vocabulary `hold` \| `fixed` \| `deferred` \| `rejected` \| `noted` \| `escalated` | **Phase 5**'s stopping predicate. This is the field that partitions a block's findings into open and closed, and the open subset is the only set whose delta can go empty (E7's correction). Present on **195 of 195** archived findings, so promoting it costs no backfill |
 
 **Explicitly NOT in the envelope, each with the reason — this half of the ruling is the one that keeps it small:**
 
@@ -460,6 +517,8 @@ Four runs, all with `--json-schema` declared, real child shape (`-w`, `--dangero
 | `converged` | Zero code readers today, and E7 measured it disagreeing with the computed signal 1 of 1. Phase 5 rules on the key; Phase 3 does not ship it as routing surface |
 | `attempt` | Zero code readers. Human-facing continuity, and Kind 1's surface ([Phase 2](phase2_kind1_framework.md)) |
 | `findings[].title`, `pass` | E7: title is unstable under a stable id; `pass` is not dense (#31 runs 1, 2, 4) |
+| `findings[].severity` | **Does not exist.** 0 of 195 archived findings carry one. E7's draft ruling named it as Phase 5's predicate input; the correction replaced it with `disposition`, which every finding already carries. A field with no producer is worse than a field with no consumer |
+| `findings[].category` | Real (8 measured values) and human-useful, but **no named consumer**: E7's corrected predicate reads `disposition`, not `category`. Held out under this ruling's own bar; it enters later by the additive `schema_version` rule if a consumer appears |
 | `ci_settled` | Already a typed activity return from `wait_for_ci`; not a child's exit record |
 | anything for Autonomous Operation | Its own doc says it is not designed. Served by the additive `schema_version` rule |
 
@@ -488,14 +547,16 @@ Four runs, all with `--json-schema` declared, real child shape (`-w`, `--dangero
 | **E1(e)** auth ≡ `SIGTERM` in the envelope | **changes the design** | Phase 4 cannot route auth failure from the envelope; a live unbounded-hang gap surfaced to the operator |
 | **E1(f)** `permission_denials[]` | **changes the design** | Required field in Phase 3's envelope, with a named consumer |
 | **E1(g)** transport | **confirms** | `structured_output`, plus a new constraint: the schema is an inline shell argument |
-| **E5** prose-grep miss rate | **no-op** for the defect argument | 0 misses / 51; Phase 3's justification rewritten; `D-007` given its missing evidence and one false premise corrected |
-| **E7** convergence delta | **changes the design** | **Phase 5's empty-delta predicate never fires (0/7) and is replaced with a severity-based one** |
+| **E5** prose-grep miss rate | **no-op** for the defect argument | 0 misses / 50 completed in-scope; Phase 3's justification rewritten; `D-007` given its missing evidence and one false premise corrected |
+| **E7** convergence delta | **changes the design** | **Phase 5's predicate is RE-SCOPED to the open subset, not replaced.** Over all ids the delta is empty 0/7 — but that set is cumulative and cannot shrink; over the **open** subset it is empty **2/7** and empties completely on the one converged PR. `disposition`, not `severity`, is its input |
 | **E2** partial records | **confirms** + **changes** | Completeness check and atomic write DROPPED from Phase 3; a silent `success`-path absence added to its fail-safe contract |
 | **E3(a)** disagreement policy | **no-op** | Two names, no composition engine — for a *structural* reason, not a small-N one |
 | **E3(b)** to-do bit | **changes the design** | `open` owns it (6/7 disagreements, 31/38 PRs have no typed verdict); Phase 3 states what the typed verdict is for instead |
 | **E6** envelope union | **changes the design** | Nine fields, not the roadmap's "roughly five"; `plan-revision`'s issue-URL path is a second caller the guess omitted |
 
-**Amendments made to downstream phase docs, per this phase's own mandate:** [Phase 3](phase3_typed_exit_record.md) step 1 (E1, E2), step 5 (E2 — one requirement dropped, one added), step 6 (E3, two rows); [Phase 5](phase5_convergence_stopping.md) step 2 (E7 — premise confirmed), step 3 (E7 — **predicate replaced**), step 4 (E7 — one mode answered). Phase 4 is **not** amended: E1(c) and E1(e) change what it reads, but its checklist is written at a level that already accommodates both, and amending it to restate a Phase 1 ruling would duplicate rather than direct.
+**Amendments made to downstream phase docs, per this phase's own mandate:** [Phase 3](phase3_typed_exit_record.md) step 1 (E1, E2), step 5 (E2 — one requirement dropped, one added), step 6 (E3, two rows); [Phase 5](phase5_convergence_stopping.md) step 2 (E7 — premise confirmed, and one half of it withdrawn), step 3 (E7 — **predicate re-scoped to the open subset**), step 4 (E7 — one mode re-answered). Phase 4 is **not** amended: E1(c) and E1(e) change what it reads, but its checklist is written at a level that already accommodates both, and amending it to restate a Phase 1 ruling would duplicate rather than direct.
+
+**Three rulings were re-taken during the build-refine pass (2026-08-08), all marked inline where they occur.** E7's, whose consequence **reversed** — it would have cancelled a working predicate and pointed Phase 5 at a field that has never shipped; E6's field list, which inherited that error via `findings[].severity`; and E5's denominator, which counted the measuring run's own in-flight log as a fleet observation. **No E1, E2 or E3 ruling moved**, and every measured figure in those experiments reproduced exactly on re-run. **The lesson generalises past this doc:** each of the three came from measuring an artifact the measurement itself was inside of, or whose shape guaranteed the answer — a cumulative ledger read as if it could shrink, and a log directory read while the reader was writing to it. *Ask what the reporting shape makes impossible before reading a zero as evidence.*
 
 ---
 
