@@ -33,8 +33,17 @@ jobs:
       # refuses to start without it and the config reads need it. pytest is
       # the suite runner. Pinned to majors so a breaking release fails the
       # gate loudly rather than changing behaviour underneath it.
+      #
+      # shellcheck-py vendors the shellcheck binary, so the version is pinned
+      # in the same place and the same way as everything else here rather than
+      # floating with the runner image. Its pin is TIGHTER than the others
+      # (<0.11, not <1) for a linter-specific reason: shellcheck is 0.x, so its
+      # MINOR releases are the breaking ones — each adds new checks, which on a
+      # gate means new failures appearing without a commit to this repo. That
+      # is precisely the "changes behaviour underneath the gate" case the pins
+      # above exist to prevent. Bumping it is a deliberate, reviewable change.
       - name: Install dependencies
-        run: pip install "pytest>=7,<9" "pyyaml>=6,<7" "ruff>=0.6,<1"
+        run: pip install "pytest>=7,<9" "pyyaml>=6,<7" "ruff>=0.6,<1" "shellcheck-py>=0.10,<0.11"
 
       # Tier 1. Discovers component tests/ dirs, runs unit -> integration ->
       # e2e in order, and exits non-zero if ANY suite fails or if nothing ran
@@ -60,6 +69,132 @@ jobs:
       # there.
       - name: Executability sweep
         run: ruff check --select F821 .
+
+      # The bash-side equivalent of the sweep above, and the highest-value
+      # check on this page. CATCHES: "prompt strings are code" — a workflow's
+      # PROMPT is a double-quoted bash assignment, so a backtick, a $( ), or a
+      # stray double quote in prose EXECUTES at dispatch. Two fleet outages in
+      # one day came from this class (3975ed6), both exit 127 before Stage 1,
+      # one caught by another team on a live dispatch. `bash -n` PASSED BOTH:
+      # the backtick is valid syntax, and the stray quotes balanced, so the
+      # file was valid bash that simply meant something else. The lint catches
+      # them by CONSTRUCTING each prompt block under `env -i` with only `cat`
+      # on PATH and failing if bash does anything but assign a string — an
+      # execution check, not a pattern check, because a pattern list built for
+      # the first vector certified the file that carried the second.
+      #
+      # workflow-scripts.md already says prompt edits MUST pass this. It was a
+      # MUST enforced by memory: referenced in three docs, gated nowhere.
+      #
+      # DOES NOT CATCH: its Pass 3 (every MODEL_KEY resolves in config.yaml)
+      # self-skips when `yq` is absent and still prints the clean line, so do
+      # not read a green here as covering that. It is covered independently by
+      # test_model_keys_resolve.py under the master runner above. Passes 1 and
+      # 2 — the outage class — need nothing beyond bash.
+      - name: Prompt-construction lint
+        run: ./scripts/helpers/lint-prompts.sh
+
+      # NOT GATED HERE: scripts/helpers/vendor-standards.sh --check, the drift
+      # detector for the four vendored MIRROR standard sets CLAUDE.md forbids
+      # editing locally. It belongs on this page and it is clean locally, but
+      # it compares against a clone of MDC-Master-Planning on disk and exits 1
+      # when it finds none — which on a runner is every time, red on arrival on
+      # a branch-protected job. Making it green would mean deciding how the
+      # upstream reaches CI (checkout of a private repo, a token, a pinned
+      # ref), and that ruling is out of scope here. Skipping the step when the
+      # clone is absent is NOT the fallback: it emits a green check that
+      # verified nothing, which is worse than the gap it hides. Tracked at #55.
+
+      # CATCHES: a malformed settings.json, and a hook path that points at a
+      # file which is not there. Nothing anywhere parses this file as a check —
+      # install.sh only symlinks it. It configures the permission model and the
+      # hooks, so a broken one can mean the hooks never load at all, silently
+      # removing the only control that operates during an autonomous run. The
+      # hook-path assertion is worth more than the parse: install.sh symlinks
+      # ~/.claude/hooks -> config/hooks, so every "$HOME/.claude/hooks/x.sh"
+      # command must resolve to an executable config/hooks/x.sh here. The
+      # zero-references guard is the same principle as the master runner's
+      # "nothing ran at all" exit: a check that silently verified nothing after
+      # a restructure looks healthiest of all.
+      #
+      # DOES NOT CATCH: whether the permission globs mean what their author
+      # intended, or whether a hook does the right thing when it does load.
+      - name: Validate settings.json
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          PATH = "config/settings.json"
+          PREFIX = "$HOME/.claude/hooks/"
+
+          with open(PATH) as fh:
+              cfg = json.load(fh)
+
+          checked, bad = 0, []
+          for event, entries in cfg.get("hooks", {}).items():
+              for entry in entries:
+                  for hook in entry.get("hooks", []):
+                      cmd = hook.get("command", "")
+                      if PREFIX not in cmd:
+                          continue
+                      checked += 1
+                      local = "config/hooks/" + cmd.split(PREFIX, 1)[1].split()[0]
+                      if not os.path.isfile(local):
+                          bad.append(f"{event}: {cmd} -> {local} does not exist")
+                      elif not os.access(local, os.X_OK):
+                          bad.append(f"{event}: {cmd} -> {local} is not executable")
+
+          if not checked:
+              sys.exit(f"{PATH}: no hook references {PREFIX} — this check verified nothing")
+          if bad:
+              sys.exit(f"{PATH}: " + "; ".join(bad))
+          print(f"{PATH}: valid JSON; {checked} hook reference(s) resolve to executable files in config/hooks/")
+          PY
+
+      # CATCHES: unparseable bash, anywhere in the tree. All 37 .sh files pass
+      # today, so this is a ratchet that adds no noise on arrival.
+      #
+      # DOES NOT CATCH — and this is the whole point of the step above: a file
+      # can be valid bash and still mean something catastrophically different.
+      # `bash -n` passed both outages in 3975ed6. Read this as a SYNTAX FLOOR,
+      # not as coverage of the prompt class; the lint is what covers that.
+      # Kept anyway because the two checks are complementary and documented as
+      # such — bash -n is the one that catches quote IMBALANCE, which the
+      # sandbox construction can miss when the file will not parse at all.
+      - name: Bash syntax floor
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "SYNTAX ERROR: $f"; fail=1; }
+          done < <(find . -name '*.sh' -not -path './.git/*')
+          echo "bash -n: checked $(find . -name '*.sh' -not -path './.git/*' | wc -l) files"
+          exit $fail
+
+      # CATCHES: the shellcheck ERROR class — constructs that are outright
+      # wrong rather than merely unidiomatic. Measured across all 37 files
+      # before adopting, because nobody here had ever run it: error 0,
+      # warning 38, info 82, style 84. Gated at the strictest level that is
+      # clean, with NO baseline file, NO excluded codes and NO `|| true` — a
+      # gate everyone learns to ignore is worse than none, and `|| true` is
+      # that failure in its purest form. Ratchet to warning later only by
+      # fixing the 38, not by suppressing them (32 are SC2034 unused-variable).
+      #
+      # WHY `-s bash`: two files — activities/run-claude.sh and
+      # common/shared-prompts.sh — are sourced libraries with no shebang, and
+      # shellcheck raises SC2148 (unknown shell) as an ERROR on both. That is
+      # the ONLY thing between this step and green. The conventional fix is a
+      # `# shellcheck shell=bash` directive in each, i.e. editing a script to
+      # satisfy a linter; declaring the dialect CI-side instead touches no
+      # file and changes nothing for the other 35, which all already declare
+      # bash via `#!/usr/bin/env bash`. SC2148 on those two is reported as a
+      # finding rather than silenced by pretending it was never raised.
+      #
+      # DOES NOT CATCH: the prompt-construction class. shellcheck flags
+      # SC1078/SC2140 on research.sh and research-refresh.sh — the exact two
+      # files from the 3975ed6 outage — and both are FALSE POSITIVES on the
+      # already-escaped forms. It is not a substitute for the lint above.
+      - name: Shellcheck
+        run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck -s bash --severity=error
 
       # The runner writes per-suite logs. On a red run they are the first
       # thing a human wants and the one thing a CI page does not show.

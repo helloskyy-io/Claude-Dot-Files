@@ -238,6 +238,14 @@ claude-dot-files/
 │   │                                                #   A pattern added to the hook without a deny case FAILS the coverage guard here
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
+├── .github/
+│   └── workflows/
+│       └── tests.yml                                # TIER ENFORCEMENT — the merge-path gate. `main` is branch-protected on its `suite` job.
+│                                                    #   Runs the master runner, then the checks that exist in this repo but would otherwise
+│                                                    #   be invoked by convention only: ruff F821, lint-prompts.sh, settings.json validity,
+│                                                    #   bash -n, shellcheck --severity=error. Deliberately UNFILTERED (no `paths:`).
+│                                                    #   vendor-standards.sh --check is the one control still off it — see issue #55.
+│
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
 ├── config.yaml                                      # Centralized service/workflow configuration (gh-monitor + per-workflow models map)
