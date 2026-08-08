@@ -208,11 +208,14 @@ jobs:
           exit $fail
 
       # CATCHES: the shellcheck ERROR class — constructs that are outright
-      # wrong rather than merely unidiomatic. Measured across all 37 files
-      # before adopting, because nobody here had ever run it — on shellcheck
-      # 0.10.0, the version this pin resolves to: error 0, warning 38, info 82,
-      # style 84. The version matters to those numbers and is recorded with
-      # them, because a pin bump is exactly when they stop being true. Gated at
+      # wrong rather than merely unidiomatic. Census on shellcheck 0.10.0,
+      # the version this pin resolves to, re-measured against the current
+      # tree (38 files) rather than trusted from adoption time, since a
+      # stale count is exactly the false-measurement-in-a-comment class this
+      # gate exists to close: error 0, warning 38, info 44, style 2. The
+      # version matters to those numbers and is recorded with them, because
+      # a pin bump — or the tree growing another file — is exactly when they
+      # stop being true. Gated at
       # the strictest level that is clean, with NO baseline file, NO excluded
       # codes and NO `|| true` — a gate everyone learns to ignore is worse than
       # none, and `|| true` is that failure in its purest form. Ratchet to
