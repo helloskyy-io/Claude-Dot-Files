@@ -49,6 +49,33 @@ grep -qF -- "$OLD" "$FILE" || {
     exit 2
 }
 
+# AMBIGUITY IS A HARD ERROR, because the mutation below replaces only the FIRST
+# occurrence. If the string appears more than once, "the first one" is whichever
+# the file happens to list earliest — routinely a mention inside a comment
+# header rather than the live code beneath it. Mutating a comment changes no
+# behaviour, every leg stays green, and the harness reports "✗ THE GUARD DID NOT
+# FIRE" over a guard that is in fact working. That is a FALSE NEGATIVE from a
+# tool whose entire job is telling you whether to trust a test, and it is not
+# hypothetical: on 2026-08-08 a review run hit exactly this against
+# `config/hooks/block-dangerous.sh`, where `git reset --hard` appears both in
+# the THREAT MODEL comment block and in the pattern array.
+#
+# The caller disambiguates — usually by including the surrounding syntax, e.g.
+# passing "'git reset --hard'" WITH the shell quotes so it matches the array
+# entry and not the prose.
+OCCURRENCES="$(grep -cF -- "$OLD" "$FILE" || true)"
+if [[ "$OCCURRENCES" -gt 1 ]]; then
+    echo "✗ AMBIGUOUS: the string to mutate appears on $OCCURRENCES lines of $FILE:" >&2
+    echo "    $OLD" >&2
+    grep -nF -- "$OLD" "$FILE" | sed 's/^/      /' >&2
+    echo "  Only the FIRST occurrence would be replaced, and if that one sits in a" >&2
+    echo "  comment the mutation changes no behaviour — every leg stays green and" >&2
+    echo "  this harness reports a guard failure that did not happen." >&2
+    echo "  Narrow the string until it matches exactly one line (including the" >&2
+    echo "  surrounding quotes or indentation is usually enough)." >&2
+    exit 2
+fi
+
 CACHE_ROOT="$(mktemp -d)"
 BACKUP="$(mktemp)"
 cp "$FILE" "$BACKUP"

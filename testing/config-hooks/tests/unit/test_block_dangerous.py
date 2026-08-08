@@ -74,7 +74,20 @@ class HookResult:
 
     @property
     def denied(self) -> bool:
-        return self.stdout.strip() != ""
+        """True iff the hook emitted an actual deny DECISION.
+
+        Keyed on the payload's `decision` field, not merely on stdout being
+        non-empty. The two are equivalent against today's hook — its only
+        non-empty-stdout branch is the deny payload — but that equivalence is
+        incidental, and nearly every assertion in this file rests on this one
+        property. Under the looser definition a stray `echo` added to an allow
+        path would silently reclassify every allow in the suite as a denial,
+        and the suite would keep passing while measuring the wrong thing.
+        Non-JSON on stdout raises here rather than counting as a deny.
+        """
+        if self.stdout.strip() == "":
+            return False
+        return json.loads(self.stdout).get("decision") == "deny"
 
     @property
     def payload(self) -> dict:
@@ -203,16 +216,28 @@ DANGEROUS: list[tuple[str, str]] = [
 # during ordinary work that sits close enough to a pattern to be worth pinning.
 # ---------------------------------------------------------------------------
 SAFE: list[tuple[str, str]] = [
-    # Privilege escalation — the `(^|[^a-z])` guard means a letter before the
-    # keyword is not a match. These pin that guard.
-    ("'sudo' inside a word", 'echo "pseudo random value"'),
-    ("'su' inside a word", 'git commit -m "resume -- the work"'),
+    # Privilege escalation — the `(^|[^a-z])` LEFT-boundary guard. These two
+    # entries are CONSTRUCTED rather than organic, deliberately: no ordinary
+    # command puts a lowercase letter immediately before `sudo ` or `su -`, and
+    # a command that is not that shape does not exercise the guard AT ALL. They
+    # are the only thing in this corpus that pins it — delete `(^|[^a-z])` from
+    # either pattern and both of these go red. A natural-looking near-miss that
+    # merely lacks the substring (`pseudo`, `resume`) stays green with the guard
+    # removed, which is exactly the silent-drift failure this suite exists to
+    # catch. `doas` below pins the trailing-space half of that pattern instead.
+    ("letter before 'sudo ' (constructed)", "echo usesudo now"),
+    ("letter before 'su -' (constructed)", "echo resu - now"),
     ("'doas' not followed by a space", "cat doas.conf"),
     # File deletion — the pattern requires a dash-flag, so an unflagged rm and
     # a long-flag rm both pass. Deleting one file is normal work.
+    #
+    # There is deliberately no "rm inside a word" case here: `rm +-r?f?r? `
+    # carries NO left word boundary, so `rm` mid-word followed by a short flag
+    # DOES match — that is the `./confirm -f yes` entry in OVERMATCHES. The
+    # entry below is an ordinary-work sanity case, not a boundary test.
     ("rm with no flags", "rm build/output.txt"),
     ("rm with a long flag", "git rm --cached secrets.env"),
-    ("'rm' inside 'npm'", "npm run build"),
+    ("ordinary npm invocation", "npm run build"),
     # Git — ordinary pushes and the non-destructive halves of each pair.
     ("plain push", "git push origin main"),
     ("--follow-tags is not -f", "git push --follow-tags origin main"),
@@ -221,6 +246,7 @@ SAFE: list[tuple[str, str]] = [
     ("checkout of a named path", "git checkout -- src/app.py"),
     # Database — creating and narrowly-scoped deleting.
     ("CREATE TABLE", 'psql -c "CREATE TABLE users (id int)"'),
+    ("CREATE SCHEMA", 'psql -c "CREATE SCHEMA analytics"'),
     ("underscore, not a space", "grep -r drop_table_log ."),
     ("'TRUNCATE' inside a word", "echo truncated output"),
     ("DELETE with a real predicate", 'psql -c "DELETE FROM users WHERE id = 42"'),
@@ -230,9 +256,14 @@ SAFE: list[tuple[str, str]] = [
     ("fdisk listing", "fdisk -l"),
     ("parted version query", "parted --version"),
     ("'wipefs' with no trailing space", "man wipefs"),
+    # Reading FROM a block device while writing to a regular file — the near
+    # miss for the three `> /dev/sd|nvme|hd` patterns. Imaging a disk is real
+    # work and a denial here would abort it.
+    ("dd reading a device, writing a file", "dd if=/dev/sda of=./backup.img bs=1M count=1"),
     # Redirects that are routine.
     ("redirect to /dev/null", "echo hi > /dev/null"),
     ("reading, not writing, /etc", "grep -c root /etc/passwd"),
+    ("reading /etc/sudoers", "grep -c NOPASSWD /etc/sudoers"),
     ("reading /boot", "cat /boot/config-6.8.0 | head"),
     # System control — the `(^|[^a-z])` and `( |$)` guards.
     ("'shutdown' followed by underscore", "grep -r shutdown_handler src/"),
@@ -240,6 +271,7 @@ SAFE: list[tuple[str, str]] = [
     ("'halt' inside 'asphalt'", "echo asphalt"),
     ("'poweroff' followed by underscore", "grep poweroff_state x"),
     ("systemctl status", "systemctl --user status gh-monitor.timer"),
+    ("'mask' as a word, not the verb", "systemctl list-unit-files | grep masked"),
     # `init` is in almost every setup script; only `init 0` / `init 6` are runlevels.
     ("git init", "git init"),
     ("npm init", "npm init -y"),
@@ -475,10 +507,19 @@ def test_multiline_command_is_still_inspected() -> None:
 # NOTE ON WHAT THESE ASSERT. Every case below currently ALLOWS. That is
 # fail-OPEN, and `docs/standards/hook-scripts.md § The headless safety
 # invariant` point 2 says the opposite: "A hook must fail CLOSED. If it cannot
-# parse its input or evaluate a rule, it denies." The divergence is a finding
-# raised in the PR body, not something this suite fixes — see the module
-# docstring. These tests pin today's behaviour so that a fix, when the operator
-# rules on one, is a visible red-to-green change rather than a silent one.
+# parse its input or evaluate a rule, it denies."
+#
+# BUT THE STANDARD IS SPLIT AGAINST ITSELF, and that matters more than the
+# divergence. The same file's § Critical Rules says: "Hook scripts MUST fail
+# safe — if something goes wrong, prefer allowing the action over blocking."
+# The hook's current behaviour satisfies that clause and violates the other, so
+# "the hook diverges from the standard" is only half true — which half binds is
+# an open question, not a settled one. Recorded on issue #61 so nobody resolves
+# a standards ambiguity by editing code. Standards here are human-in-the-loop:
+# this suite states the contradiction, it does not pick a side.
+#
+# These tests pin today's behaviour so that a change, whichever way the
+# operator rules, is a visible red-to-green event rather than a silent one.
 # ---------------------------------------------------------------------------
 
 MALFORMED: list[tuple[str, str]] = [
@@ -514,8 +555,10 @@ def test_malformed_input_does_not_crash(stdin: str) -> None:
 def test_malformed_input_currently_fails_open(stdin: str) -> None:
     """CHARACTERIZED, NOT ENDORSED — malformed input is allowed through.
 
-    See the section note above: this contradicts the fail-closed invariant in
-    `hook-scripts.md`. The case that matters most is 'absent tool_name', where
+    See the section note above: this satisfies `hook-scripts.md § Critical
+    Rules` ("prefer allowing the action over blocking") and violates that same
+    file's § The headless safety invariant ("must fail CLOSED"). The case that
+    matters most is 'absent tool_name', where
     a fully dangerous command rides along in a payload the hook never inspects.
     Pinned so the divergence is visible and so closing it is a deliberate,
     reviewable change.
@@ -648,9 +691,14 @@ def _extract_patterns(array_name: str) -> list[str]:
 
     Deliberately a dumb line scanner rather than a bash parser: the arrays are
     one-entry-per-line by convention, and a scanner that silently returned
-    fewer entries than the file holds would weaken the very guard it feeds. The
-    caller asserts a non-zero count, so a formatting change that defeats this
-    fails loudly instead of quietly shrinking coverage.
+    fewer entries than the file holds would weaken the very guard it feeds.
+
+    So a line inside the array that is neither blank, nor a comment, nor a
+    parseable entry is a hard ERROR here rather than a skip. Skipping it is the
+    dangerous shape: the pattern on that line would get no parametrized case at
+    all, and the coverage guard would stay green over a pattern it never
+    checked — silent degradation on unexpected input, which is the same defect
+    class this suite exists to interrogate in the hook itself.
     """
     patterns: list[str] = []
     inside = False
@@ -661,9 +709,18 @@ def _extract_patterns(array_name: str) -> list[str]:
         if inside:
             if line.startswith(")"):
                 break
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
             match = _ARRAY_ENTRY.match(line)
-            if match:
-                patterns.append(match.group("pattern"))
+            assert match, (
+                f"unparseable line inside {array_name}: {line!r}. This scanner "
+                f"feeds the coverage guard; a line it cannot read would be "
+                f"DROPPED, and the pattern on it would ship with no test case "
+                f"while the guard stayed green. Keep entries one-per-line and "
+                f"single-quoted, or teach this scanner the new shape."
+            )
+            patterns.append(match.group("pattern"))
     assert inside, f"array {array_name} not found in {HOOK}"
     assert patterns, f"array {array_name} parsed to zero entries — the scanner is broken"
     return patterns

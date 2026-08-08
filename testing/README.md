@@ -74,7 +74,13 @@ testing/scripts/mutate.sh <file> <old-string> <new-string> <pytest-target>
 
 It runs baseline → mutated → restored and reports whether the guard actually
 fired. It refuses a mutation string that is not present, because a mutation
-that changes nothing proves nothing.
+that changes nothing proves nothing — and it refuses one that matches more
+than one line, because only the first is replaced and "the first" is often a
+mention in a comment header rather than the live code. That case is the nasty
+one: the mutation changes no behaviour, every leg stays green, and the harness
+reports a guard failure that never happened. Narrow the string until it is
+unambiguous — including the surrounding quotes is usually enough
+(`"'git reset --hard'"`, not `'git reset --hard'`).
 
 **Do not hand-roll this loop.** CPython validates cached bytecode on
 whole-second mtime *plus* source byte size, so a length-preserving edit applied
