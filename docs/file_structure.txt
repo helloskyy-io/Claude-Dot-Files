@@ -216,12 +216,23 @@ claude-dot-files/
 │                   └── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
+│   ├── README.md                                    # How to run the suite and how to add a test
 │   ├── run-all.sh                                   # Master runner — the single "run everything" entry point.
 │   │                                                #   ./testing/run-all.sh [unit|integration|e2e] [component]
 │   ├── suites/
 │   │   └── python.sh                                # pytest suite runner. pytest is the ONLY adopted framework here, so it is the
 │   │                                                #   only runner — a bash/bats runner gets added with the first .bats file, not before.
 │   │                                                #   Refuses to run at all while a test_*.py sits outside tests/{unit,integration,e2e}/
+│   ├── scripts/
+│   │   └── mutate.sh                                # Mutation harness — falsify a guard, show red, restore, show green. Gives every leg
+│   │                                                #   its own PYTHONPYCACHEPREFIX; a length-preserving edit would otherwise run stale .pyc
+│   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
+│   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
+│   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
+│   │   └── tests/unit/
+│   │       └── test_block_dangerous.py              # Characterization suite for the PreToolUse safety hook (issue #52). Attack corpus +
+│   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
+│   │                                                #   A pattern added to the hook without a deny case FAILS the coverage guard here
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .gitignore                                       # Git ignore rules

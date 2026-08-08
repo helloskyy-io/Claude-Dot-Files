@@ -11,6 +11,8 @@ applies here.
 testing/
 ├── run-all.sh              TIER 1 · the single "run everything" entry point
 ├── suites/python.sh        TIER 2 · one runner per framework actually in use
+├── scripts/mutate.sh       the mutation harness (see "Adding a test" below)
+├── config-hooks/tests/     TIER 3 · tests for config/hooks/ — see its README
 └── logs/                   per-suite output (gitignored)
 
 scripts/workflows/temporal/tests/
@@ -20,6 +22,14 @@ scripts/workflows/temporal/tests/
 There is no `suites/bash.sh` and that is deliberate — the standard says to
 create a suite runner only for a framework actually in use, and there is not
 one `.bats` file here. It ships with the first bats test, not before it.
+
+`config-hooks/` is the one component whose tests do NOT sit beside the code
+they cover, because `install.sh` symlinks `config/hooks` wholesale into
+`~/.claude/hooks` and a `tests/` directory there would land in the operator's
+live config on every machine. The reasoning is in
+[`config-hooks/README.md`](config-hooks/README.md). It is discovered by the
+unmodified runner like any other component — that is the bar a placement has
+to clear.
 
 `integration/` and `e2e/` do not exist yet either. `run-all.sh` reports them
 as `SKIP (no tests/integration)` rather than as passes, because a skip and a
