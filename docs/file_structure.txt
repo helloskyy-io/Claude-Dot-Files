@@ -121,7 +121,8 @@ claude-dot-files/
 │   │
 │   ├── guide/                                       # USER-FACING — operating manuals
 │   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
-│   │   ├── operations.md                            # THE OPERATING MANUAL — memory model, daily loop, and the single roster of every workflow/agent/command/skill/rule
+│   │   ├── operations.md                            # THE OPERATING MANUAL — memory model orientation, daily loop, and the single roster of every workflow/agent/command/skill/rule
+│   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — Kind 1 as a substrate-free interface, this fleet's four-surface binding, per-field consumer lists, the addressing convention
 │   │   ├── workflows.md                             # Workflow architecture — the build split, model management, escalation ladder, MAX_TURNS table
 │   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
 │   │   ├── claude_code_agents.md                    # PLATFORM BACKGROUND — what agents are, frontmatter, tool guardrails, dispatch patterns

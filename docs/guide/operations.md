@@ -8,23 +8,24 @@ Two things to understand before the inventory: where the platform keeps its memo
 
 ## The memory model
 
-Long-running work outlives any single session. Context windows do not. So the platform keeps **no state files and no bookmarks** — memory lives entirely in Git surfaces, and **"open" IS the to-do bit**. An open PR or issue is current by definition; nothing has to mark it as such.
+Long-running work outlives any single session. Context windows do not. So the platform keeps **no state files and no bookmarks** — memory lives entirely in durable records, and **the record's own to-do bit is what marks work as current**. On this fleet's main surfaces that bit is `open`: an open PR or issue is current by definition, and nothing has to mark it as such.
 
-Three surfaces, three different jobs. They are not interchangeable, and collapsing any two of them is a recurring failure:
+Four surfaces, four different jobs, chosen by two questions — *did something change*, and *does it have a single done-state*:
 
-| Surface | Holds | Lifecycle | Read by |
+| Surface | Holds | To-do bit | Lifecycle |
 |---|---|---|---|
-| **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | closes at merge | `/standup`, `review-pr.sh` |
-| **Issues** | no-change outcomes — deferred work `review-pr` filed, and planning STOPs | filed → ruled → **closed** | `/standup`, both `build` children |
-| **Standup tracker** | continuity — operating state, next moves, work in flight | **never closes**; items are **pruned** | `/standup` |
+| **PR threads** | change-outcomes — what got built, the run's decision log and reflection, and the `pr_review:` disposition ruling | PR `open` | closes at merge |
+| **Issues** | no-change outcomes with a done-state — deferred work `review-pr` filed, and planning STOPs | issue `open` | filed → ruled → **closed** |
+| **Standup tracker** | continuity — operating state, next moves, work in flight | per-line `state:` | **never closes**; items are **pruned** |
+| **`direction.md`** | rulings only the operator can make | row `status: open` | appended → ruled → **rotated out** |
 
-**Why three.** The first two cover *transactions*: something changed, or something was consciously not changed. Neither covers **continuity** — a multi-day vendor migration or a live incident is not development (so not a sprint item) and has no single done-state (so not an issue). Before the tracker existed, that work lived in session context and died at a session boundary.
+They are not interchangeable, and collapsing any two is a recurring failure.
 
-**The tracker is a GitHub issue only because of the substrate.** Several sessions edit it daily; one API call beats a branch and a merge conflict on the artifact least able to afford being stale. Its semantics are its own: it never closes, items flow through it, and **a tracker that grows month over month is failing**.
+**The tracker is a GitHub issue only because of the substrate** — its semantics are its own, and **a tracker that grows month over month is failing**. `direction.md` is a committed markdown table rather than a GitHub object at all, which is the fleet's own proof that this model is not a GitHub model.
 
-**What makes this work is that every surface is written by the actor that knows something, and read by an actor that needs it.** A workflow run posts its decision log because a later reviewer will mine it. `review-pr` files an issue because nobody else will. `/standup` reads all three because you were not watching live. Nothing is written "for the record."
+**What makes it work is that every surface is written by the actor that knows something, and read by an actor that needs it.** Nothing is written "for the record." **The corresponding discipline:** an account is not the artifact — a PR body, a run summary, a prior pass's prescription and an agent's finding are all *claims about* the code, and every reviewing actor is bound to verify against the artifact, and to verify a pointer by **fetching** it.
 
-**The corresponding discipline:** an account is not the artifact. A PR body, a run summary, a prior pass's prescription and an agent's finding are all *claims about* the code. Every reviewing actor in this harness is bound to verify against the artifact — and to verify a pointer by **fetching** it, never by plausibility.
+> **[`memory-model.md`](memory-model.md) is the framework** — the interface stated substrate-free, this fleet's binding of it, the selection rule, per-field consumer lists, and the addressing convention a later dispatch retrieves a record by. Read it before changing anything a surface emits or parses.
 
 ---
 
@@ -36,7 +37,7 @@ morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (asyn
                 └──────────────  review-pr.sh  ←──  PR returns  ←─────┘
 ```
 
-**1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, and merges since the window. It is strictly read-only, including the tracker.
+**1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, `direction.md`'s open rulings, and merges since the window. **It writes in exactly two places** — it reconciles the tracker, and it closes an issue whose work it verified done, with the evidence in the closing comment. Everything else is a read. The write is what stops a finished item being re-reported every morning forever.
 
 **2. Rule on what it surfaces.** This is the part that earns the command, and it is the part that rots if skipped:
 
@@ -49,7 +50,7 @@ morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (asyn
 
 **4. When a PR comes back, run `review-pr.sh` on it.** It is **decide-only** — it never merges, fixes, or dispatches. It returns `MERGE` or `HOLD`, and a `HOLD` carries a runway: the ordered list of what must happen for the next pass to be a `MERGE`. You fire the redispatch; it never fires itself.
 
-**5. Merge, or redispatch with the runway.** Then the tracker gets updated — in conversation, by you and the session. No autonomous dispatch writes to it.
+**5. Merge, or redispatch with the runway.** Then the tracker gets updated — by you and the session in conversation, or by `/standup`'s own reconciliation pass. **No autonomous dispatch writes to it**; that remains true and is a different claim from step 1's, since `/standup` runs in an operator session.
 
 **The CPI loop runs on top of this**, not inside it: `review-runs.sh` analyzes the JSONL logs every run leaves in `.claude/logs/`, and findings land in `docs/development/cpi-decisions.md` as ship/defer/reject with explicit watch-criteria. See [cpi-cycle.md](cpi-cycle.md).
 
@@ -202,7 +203,7 @@ Interactive-mode prompt templates. Type `/<name>` in a session.
 | Command | What it does | Example |
 |---|---|---|
 | `/get-started` | Session primer — sets working roles, the dual-workflow model, and the operating pattern. Run at the start of a session. | `/get-started` |
-| `/standup` | Reads the standup tracker, then sweeps PRs, issues, and merges into an attention brief. Read-only. | `/standup --since 48h` |
+| `/standup` | Reads the standup tracker, then sweeps PRs, issues, and merges into an attention brief. Writes in two places only: reconciling the tracker, and closing a verified-done issue. | `/standup --since 48h` |
 | `/review` | Runs `code-reviewer` on recent changes, reported by severity. | `/review` |
 | `/best-practices` | Primes the session with the industry-standard approach to a topic before you build. | `/best-practices retry backoff in distributed queues` |
 | `/decide` | Five-whys reframing cascade — reframes the question before answering, for low/mid-confidence calls. | `/decide should we pin model versions per workflow?` |
