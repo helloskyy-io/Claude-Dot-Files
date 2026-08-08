@@ -8,24 +8,11 @@ Two things to understand before the inventory: where the platform keeps its memo
 
 ## The memory model
 
-Long-running work outlives any single session. Context windows do not. So the platform keeps **no state files and no bookmarks** — memory lives entirely in durable records, and **the record's own to-do bit is what marks work as current**. On this fleet's main surfaces that bit is `open`: an open PR or issue is current by definition, and nothing has to mark it as such.
+Long-running work outlives any single session. Context windows do not. So the platform keeps **no state files and no bookmarks**: memory lives in durable records, and the record's own to-do bit is what marks work as current.
 
-Four surfaces, four different jobs, chosen by two questions — *did something change*, and *does it have a single done-state*:
+Four surfaces carry it — **PR threads**, **GitHub Issues**, the **standup tracker**, and **`direction.md`** — and they are not interchangeable. Which one a given outcome belongs to, what each holds and for how long, who reads and writes each field, and how a later dispatch addresses a record it needs are all answered in **one** document, and it is not this one.
 
-| Surface | Holds | To-do bit | Lifecycle |
-|---|---|---|---|
-| **PR threads** | change-outcomes — what got built, the run's decision log and reflection, and the `pr_review:` disposition ruling | PR `open` | closes at merge |
-| **Issues** | no-change outcomes with a done-state — deferred work `review-pr` filed, and planning STOPs | issue `open` | filed → ruled → **closed** |
-| **Standup tracker** | continuity — operating state, next moves, work in flight | per-line `state:` | **never closes**; items are **pruned** |
-| **`direction.md`** | rulings only the operator can make | row `status: open` | appended → ruled → **rotated out** |
-
-They are not interchangeable, and collapsing any two is a recurring failure.
-
-**The tracker is a GitHub issue only because of the substrate** — its semantics are its own, and **a tracker that grows month over month is failing**. `direction.md` is a committed markdown table rather than a GitHub object at all, which is the fleet's own proof that this model is not a GitHub model.
-
-**What makes it work is that every surface is written by the actor that knows something, and read by an actor that needs it.** Nothing is written "for the record." **The corresponding discipline:** an account is not the artifact — a PR body, a run summary, a prior pass's prescription and an agent's finding are all *claims about* the code, and every reviewing actor is bound to verify against the artifact, and to verify a pointer by **fetching** it.
-
-> **[`memory-model.md`](memory-model.md) is the framework** — the interface stated substrate-free, this fleet's binding of it, the selection rule, per-field consumer lists, and the addressing convention a later dispatch retrieves a record by. Read it before changing anything a surface emits or parses.
+> **[`memory-model.md`](memory-model.md) is the framework.** It states the durable record as a substrate-free interface, this fleet's binding of it, the selection rule, the per-field consumer lists, and the addressing convention. **Read it before changing anything a surface emits or parses** — and before restating any of it here. Exactly one description of this model exists by design; a second one is drift with a delay on it.
 
 ---
 
@@ -37,7 +24,7 @@ morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (asyn
                 └──────────────  review-pr.sh  ←──  PR returns  ←─────┘
 ```
 
-**1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, `direction.md`'s open rulings, and merges since the window. **It writes in exactly two places** — it reconciles the tracker, and it closes an issue whose work it verified done, with the evidence in the closing comment. Everything else is a read. The write is what stops a finished item being re-reported every morning forever.
+**1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, `direction.md`'s open rulings, and merges since the window. **It is a writer on three of the four surfaces** — it reconciles the tracker, closes an issue whose work it verified done with the evidence in the closing comment, and rotates ruled rows out of `direction.md`. Everything else is a read. The writes are what stop a finished item being re-reported every morning forever; the full write set is enumerated in [`memory-model.md` §2.3](memory-model.md).
 
 **2. Rule on what it surfaces.** This is the part that earns the command, and it is the part that rots if skipped:
 

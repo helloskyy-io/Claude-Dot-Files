@@ -37,7 +37,7 @@ A Kind 1 record is any record with all five. Nothing below names GitHub, git, a 
 
 **The to-do bit is property 4 and it is load-bearing.** Everything the platform does *not* have — no state files, no bookmarks, no "current work" registry — is bought by it. The bit lives on the record, so the record is self-describing and there is no second thing to keep in sync.
 
-**Measured, not asserted.** [Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E3(b) tested whether a typed verdict could own the to-do bit instead. Over the whole archive the typed verdict **disagreed with the record's own state in 6 of the 7 cases where both existed**, and **31 of 38 PRs carried no typed verdict at all** — for those, the record's own bit is not merely primary, it is the only one that exists. Property 4 belongs to Kind 1. What the typed verdict is *for* instead is [Phase 3](../development/memory-management-framework/phase3_typed_exit_record.md)'s to state.
+**Measured, not asserted — and the measurement lives at the binding layer, where it belongs.** The rival design is that a *separate* typed channel owns the to-do bit and the record merely describes. [Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E3(b) tested that against this fleet's archive and it lost twice over: where both bits existed they disagreed far more often than they agreed, and in the large majority of cases the typed bit did not exist at all, so the record's own bit was not merely primary — it was the only one. **§7.3 carries the figures**, because they are facts about a GitHub archive rather than about the interface. Property 4 belongs to the durable record.
 
 ### 1.1 · The selection rule, at the interface layer
 
@@ -66,7 +66,7 @@ Three GitHub surfaces plus one file surface. They are not interchangeable, and c
 | **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | PR `open` | closes at merge | every PR-producing workflow; `review-pr` posts the disposition comment | `/standup`, `review-pr.sh` (prior-pass detection), `review_pr_activities.py`, the operator |
 | **Issues** | no-change outcomes — deferred work `review-pr` filed, and planning STOPs | issue `open` | filed → ruled → **closed** | `review-pr` (sole autonomous filer), `plan-new` / `plan-revision` (STOP issues), the operator | `/standup` (**and closes them**), every build child's prior-art search, the operator |
 | **Standup tracker** | continuity — operating state, next moves, work in flight | per-line `state:` | **never closes**; items are **pruned** | `/standup` (sole automated writer), operator and PM sessions | `/standup`, the operator |
-| **`direction.md`** | rulings only the operator can make — a real finding whose answer is a preference, not a fact | row `status: open` | appended → ruled → **rotated out** at 90 days | `plan-sprint` appends (V2 tree only); **the operator alone sets `status`** | `/standup` (renders + rotates), `plan-sprint` (reads the ruling back via `candidates.md`), the operator |
+| **`direction.md`** | rulings only the operator can make — a real finding whose answer is a preference, not a fact | row `status: open` | appended → ruled → **rotated out** at 90 days | `plan-sprint` appends (V2 tree only); **`/standup` deletes rotated rows and corrects stale ones** (§2.3); **the operator alone sets `status`** | `/standup` (renders), `plan-sprint` (reads the ruling back via `candidates.md`), the operator |
 
 ### 2.1 · The selection rule, bound
 
@@ -90,9 +90,19 @@ Two consequences bind every reader:
 
 ### 2.3 · `/standup` is a WRITER, and the corrected record of that matters
 
-`/standup` writes in exactly two places: **`gh issue edit <tracker> --body-file`** and **`gh issue close <N> --comment <evidence>`** (`config/commands/standup.md` § Rules). Everything else it does is a read.
+**`/standup` writes on three of the four surfaces**, derived from its Stage 2 body rather than from its own § Rules summary — which is the distinction §1.2 is about, and getting it wrong is how the first two attempts at this paragraph were both undercounts:
 
-**This corrects a stale statement that stood in two places** — `operations.md` and [Phase 2](../development/memory-management-framework/phase2_kind1_framework.md)'s own gotchas both said *"strictly read-only, including the tracker."* That was true before commits `1e7d6ce` and `88c4e81`, and both docs predate them. It is corrected here because the writer set is exactly what §5 is a list of, and a consumer list that omits a writer is worse than no list.
+| Write | Surface | Declared at |
+|---|---|---|
+| `gh issue edit <tracker> --body-file` — reconciles per-line `state:`, prunes `resolved` ≥14 days | standup tracker | `config/commands/standup.md:83`, `:107` |
+| `gh issue close <N> --comment <evidence>` — closes an issue whose work it verified done | Issues | `:66`, `:69` |
+| **deletes** a ruled row ≥90 days old whose reasoning is recorded downstream; **may correct** a row whose stated facts changed | **`direction.md`** | `:67`, `:105` |
+
+Everything else it does is a read. **It never sets `status:`** — the ruling stays the operator's; what it does is rotate and repair.
+
+**Two corrections are stacked here, and the second is the instructive one.** The original claim in `operations.md` and in [Phase 2](../development/memory-management-framework/phase2_kind1_framework.md)'s own gotchas — *"strictly read-only, including the tracker"* — was true before commits `1e7d6ce` and `88c4e81` and stale after them. **The replacement claim, "writes in exactly two places", was also wrong**, and it was wrong for a subtler reason: it was taken from `standup.md`'s § Rules summary of itself (`:174`), which undercounts its own Stage 2 table (`:67`). *An account is not the artifact* (§1.2) — and a command's summary of itself is an account. The consumer/writer map is what [Phase 4](../development/memory-management-framework/phase4_fleet_migration.md) verifies fleet-wide against, and a map that omits a writer is worse than no map.
+
+**`standup.md` itself states its write set two contradictory ways** — `:3` forbids closing issues and editing files, `:66`/`:105`/`:174` direct exactly that. That is a live defect in a Kind 1 consumer; it is surfaced rather than fixed, because this phase documents what exists and does not edit prompts.
 
 **Why the write exists, so it is not read as scope creep:** a reconciler that can see an item is finished but cannot say so re-reports that dead item every morning, forever. The write is what makes the read worth doing. **No autonomous *dispatch* writes to the tracker** — that remains true, and it is a different claim: `/standup` runs in an operator session, which is the human-in-the-loop.
 
@@ -100,7 +110,7 @@ Two consequences bind every reader:
 
 [`docs/standards/architecture/research/direction.md`](../standards/architecture/research/direction.md) is a committed markdown table of `D-NNN` rows. Check it against §1: durable (in git), human- and machine-readable (`/standup` parses it, `plan-sprint` reads rulings back), carries outcome *and* reasoning (`Recommendation` and `Why it matters`, one sentence each), has a to-do bit (`status: open`), addressable (`D-NNN`, never reused, never renumbered), survives context death. **Five for five.**
 
-**And its to-do bit is not GitHub `open`.** It is a column in a file. Its lifecycle is not close-at-merge or filed-then-closed but **ruled-then-rotated**: a ruled row is a receipt, its durable reasoning goes back down into `candidates.md`, and the receipt is deleted after 90 days because *an inbox that only grows stops being read*. Its writer is in the V2 Python tree; its reader is a slash command.
+**And its to-do bit is not GitHub `open`.** It is a column in a file. Its lifecycle is not close-at-merge or filed-then-closed but **ruled-then-rotated**: a ruled row is a receipt, its durable reasoning goes back down into `candidates.md`, and the receipt is then deleted. Its appending writer is in the V2 Python tree, its rotating writer is a slash command, and neither may rule. **The rule itself is stated once, in the file** — [`direction.md` § Rotation](../standards/architecture/research/direction.md); this document cites it rather than re-typing it, for the same reason §4 cites the emitting script.
 
 Nothing about that record is a GitHub fact. It is the same interface on a different substrate, **shipped, in daily use, in this repo** — which is why §1's five properties are a description and not an aspiration.
 
@@ -144,11 +154,13 @@ Three lifecycle shapes exist, and **a substrate must provide all three or the mo
 | Standup tracker | permanent document, transient lines | `state: resolved` + ≥14 days → deleted from the body | month-over-month growth |
 | `direction.md` | permanent file, transient rows | ruled ≥90 days ago **and** reasoning recorded in the source candidate → row deleted | rows accumulating unruled |
 
-**`direction.md`'s pruning rule carries a precondition the others do not, and it is the interesting one:** a row rotates out *only once its reasoning lives somewhere that never deletes*. No record, no rotation. That is property 3 (outcome **and** reasoning) enforced at the deletion boundary — the receipt may go because the reasoning stayed.
+**`direction.md`'s pruning rule carries a precondition the others do not, and it is the interesting one:** a row rotates out *only once its reasoning lives somewhere that never deletes*. That is property 3 (outcome **and** reasoning) enforced at the deletion boundary — the receipt may go because the reasoning stayed. The rule's authoritative statement is in [`direction.md` § Rotation](../standards/architecture/research/direction.md); the row above is the consumer-map entry, not a second copy of it.
 
 ---
 
-## 4 · The `pr_review:` block, as the interface it already is
+## 4 · The `pr_review:` block — this fleet's machine-facing half of the record
+
+> **Binding layer, throughout.** §4 names scripts and line numbers on purpose; a different substrate inherits none of it. The word *interface* is not used below in §1's sense — this block is a **wire format**, which is a narrower thing.
 
 `review-pr` posts one comment per pass with two parts: a human-readable disposition table, and a fenced `yaml` block keyed `pr_review:`. **The block is the machine-facing half of Kind 1 on this substrate**, and it is the record Phase 3's typed envelope will be rendered into or reconciled against.
 
@@ -220,7 +232,7 @@ Independent of substrate, a Kind 1 record has exactly three change classes that 
 | `verdict`'s value set | `/standup` Stage 1.1 | a value standup does not recognise renders as neither blocker nor ready — it vanishes from the brief |
 | `next_steps[]`'s shape | `/standup` Stage 1.1 | the runway stops reaching the operator; `review-pr` still writes it, nobody delivers it |
 | `findings[].id` stability | `replay_pr_review_blocks.py`, [Phase 5](../development/memory-management-framework/phase5_convergence_stopping.md) | the convergence predicate reads a false delta. **Silent** |
-| `findings[].disposition`'s enum | same | a value outside `{hold, fixed, deferred, rejected, noted, escalated}` is scored as *open* by the closed-set reading, so the open set can never empty. **Silent** |
+| `findings[].disposition`'s enum | same | a value outside the **archive's measured vocabulary** — `{hold, fixed, deferred, rejected, noted, escalated}`, counted across all 195 archived findings ([Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E7) — is scored as *open* by the closed-set reading, so the open set can never empty. **Silent.** Note this is the set a replaying reader must handle, **not** the set the emitter declares: `review-pr.sh:361` declares four (`fixed \| rejected \| deferred \| hold`), and `noted` / `escalated` reach the archive from earlier passes. **Narrowing the emitter does not narrow the archive** |
 | the prose `VERDICT:` line | `build.sh:277`, `build-minor.sh:281`, `routing.py:72`, `run-claude.sh:201-204` | the parent's completion gate fails loud (child side) or synthesises `HOLD - needs-assistance` (parent side) |
 | anything in §4.2 | no code | nothing breaks; **a human loses information and nothing tells them** |
 | the tracker's section order or per-line fields | `/standup` Stage 0.3 | the readiness ordering (`BLOCKED`→`READY`→`IN FLIGHT`→`RESOLVED`) is how the operator triages; normalising it destroys the property |
@@ -313,7 +325,15 @@ The disposition **table** (id · category · disposition · pointer), the verdic
 
 ### 7.2 · Authored — prose a schema must model explicitly or lose
 
-**Enumerated, not gestured at. This is the cost of arrangement A and this document does not hide it.** Fourteen items; the three marked ⚠ have **no yaml field at all today**, so they are lost outright unless Phase 3 adds one.
+**Enumerated, not gestured at. This is the cost of arrangement A and this document does not hide it.** Fourteen items.
+
+**Read these three first — they have no yaml field at all today** (rows 3, 4 and 11, marked ⚠), so a render-from-record drops them silently rather than degrading visibly:
+
+1. **the per-finding disposition reasoning** — the *why* behind each ruling
+2. **the one-line verdict rationale** — the first thing a human reads
+3. **the Post-Run Reflection** — friction and tooling signal, and a primary CPI input
+
+The other eleven exist in the yaml and are at risk only of being treated as derivable when they are authored.
 
 | # | The prose | Where it lives | Why a schema cannot infer it |
 |---|---|---|---|
@@ -338,7 +358,7 @@ The disposition **table** (id · category · disposition · pointer), the verdic
 
 **Which channel owns the to-do bit when a typed record carries a verdict and the durable record carries open/closed.**
 
-[Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E3(b) measured it: the typed verdict disagreed with the PR's disposition in **6 of 7** cases where both existed, and **31 of 38** PRs carry no typed verdict at all. On that evidence `open` owns the bit and §1 records it as measured rather than asserted.
+**This is where §1's property-4 measurement lives**, because it is a fact about a GitHub archive rather than about the interface. [Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E3(b): the typed verdict disagreed with the PR's disposition in **6 of 7** cases where both existed, and **31 of 38** PRs carry no typed verdict at all. On that evidence `open` owns the bit on this binding.
 
 **What remains open is not who wins — it is what the loser is for.** [Phase 3](../development/memory-management-framework/phase3_typed_exit_record.md) rules on that, and its own checklist demands it. **Recording the question here as open is correct; ruling on it here is not.**
 
@@ -367,7 +387,7 @@ The question this table answers: *a new component's work product is not code in 
 | **To-do bit** | that there is one, on the record, binary | that it is GitHub `open` — **and note this fleet already has an exception**: `direction.md`'s is a `status:` column (§2.4) |
 | **Change safety** | §5.1's three non-local change classes | §5.2's per-field consumer list |
 | **Address** | §6.1's four parts, and that sequence derives from ordering | §6.2's PR number / yaml fence / comment order / `pass:` key |
-| **Discipline** | §1.2 — written by an actor that knows, read by an actor that needs; an account is not the artifact | the specific fetch commands that verify a pointer |
+| **Discipline** | §1.2 — written by an actor that knows, read by an actor that needs; an account is not the artifact | the specific fetch commands that verify a pointer — **not stated here**; they live in `engineering-quality.md` § *A deferral is PLACED* and in each workflow's own prompt (§8) |
 | **The seam** | that authored reasoning exists and must be modelled or consciously dropped | §7.2's fourteen specific items, which are `review-pr`-shaped |
 
 **Read the right column as the migration cost.** It is four rows of mechanism and one row of enumeration — and none of the left column moves. That is the claim the split was made to support, and §2.4 is the instance that already tested it.
