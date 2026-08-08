@@ -88,6 +88,8 @@ Read backwards it is wrong — a PR is not a *type of thing that gets reviewed*,
 
 Bash scripts that run Claude headless in an isolated git worktree and deliver a PR. Every run writes a JSONL log to `.claude/logs/<workflow>-<timestamp>.jsonl`. All accept `--verbose` (stream output live), `--repo <path>` (explicit target, never derived from cwd), and `--task-file <path>` where a task is taken.
 
+> **Any MEASURED number in a brief carries the commit it was measured at.** A dispatch cannot verify *"baseline on `main`: 5101 passed"* — it can only believe it or spend turns disproving it, and briefs go stale between writing and firing. Write `5101 passed at 417162f`; the run then checks in one command. **Measured: that exact figure was 5112 at the actual branch point**, and the run had to discover it. This is the same class as a drift check reading a stale clone — a comparison is only as good as the freshness of what it compares to, and a bare number names no baseline at all.
+
 > **Flags FIRST, positional LAST.** Terminals line-wrap long commands; a trailing positional stays visible and editable when the front wraps. For anything multi-paragraph or containing quotes, write it to `/tmp/claude-<name>.md` and use `--task-file` — it bypasses command-line parsing entirely.
 
 ### `build.sh` — significant code rework (PARENT)
