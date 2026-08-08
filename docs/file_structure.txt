@@ -171,10 +171,17 @@ claude-dot-files/
 │   │   ├── check-settings.sh                        # Ship-gate: validates config/settings.json — malformed JSON, hook paths that don't resolve to an executable config/hooks/*.sh
 │   │   ├── check_settings.py                        # The importable validation logic check-settings.sh runs; also imported directly by its pytest suite
 │   │   ├── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   ├── measure/                                 # Replay tools over the fleet's OWN archived artifacts. Read-only, off every merge path
+│   │   │   │                                        #   Kept (not one-shots) because each answers a rate over a denominator that GROWS — see its README
+│   │   │   ├── README.md                            # What each tool answers and which open decision reads it
+│   │   │   ├── replay_completion_predicate.py       # How often the completion grep misses a real terminal outcome → direction row D-007, MMF Phase 1 E5
+│   │   │   └── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
-│   │           └── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
+│   │           ├── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
+│   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
+│   │           └── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
