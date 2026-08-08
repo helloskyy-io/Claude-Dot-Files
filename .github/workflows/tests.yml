@@ -19,9 +19,19 @@ on:
   push:
     branches: [main]
 
+# Least privilege: every step here reads the tree and writes nothing back. The
+# artifact upload uses the actions API, not contents:write.
+permissions:
+  contents: read
+
 jobs:
   suite:
     runs-on: ubuntu-latest
+    # The whole job is ~20s. A cap well above that turns a hung step into a
+    # fast red instead of holding a branch-protected merge for the 360-minute
+    # GHA default — lint-prompts.sh executes constructed prompt blocks under
+    # `env -i bash -c`, which is the one plausible hang here.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +63,15 @@ jobs:
       - name: Run the master runner
         run: ./testing/run-all.sh
 
+      # EVERY CHECK BELOW CARRIES `if: '!cancelled()'`, DELIBERATELY. Actions
+      # aborts a job at the first failing step, so without this a PR that trips
+      # the master runner never learns whether it also trips shellcheck, bash -n
+      # or the prompt lint — each defect costs its own push and its own CI
+      # round-trip. The checks share no data and no ordering dependency, so
+      # there is nothing to protect by serialising their failures. The job still
+      # fails if any of them fail; the author just gets all the findings at once.
+      # `!cancelled()` rather than `always()` so a cancelled run stops promptly.
+
       # The executability sweep. A name used but never imported passes every
       # unit test and crashes at runtime — it once killed the last leg of a
       # 40-minute pipeline. Cheap, and it catches a class the suite cannot.
@@ -68,6 +87,7 @@ jobs:
       # of them under .claude/worktrees/, though hundreds of .py files sit
       # there.
       - name: Executability sweep
+        if: '!cancelled()'
         run: ruff check --select F821 .
 
       # The bash-side equivalent of the sweep above, and the highest-value
@@ -86,13 +106,34 @@ jobs:
       # workflow-scripts.md already says prompt edits MUST pass this. It was a
       # MUST enforced by memory: referenced in three docs, gated nowhere.
       #
-      # DOES NOT CATCH: its Pass 3 (every MODEL_KEY resolves in config.yaml)
-      # self-skips when `yq` is absent and still prints the clean line, so do
-      # not read a green here as covering that. It is covered independently by
-      # test_model_keys_resolve.py under the master runner above. Passes 1 and
-      # 2 — the outage class — need nothing beyond bash.
+      # WHY THE `yq` ASSERTION BELOW, AND WHY IT IS NOT PEDANTRY: the lint's
+      # Pass 3 (every MODEL_KEY resolves in config.yaml) is guarded by
+      # `command -v yq` and SELF-SKIPS when yq is absent — while still printing
+      # the clean "every MODEL_KEY resolves" line. And Pass 3 is the ONLY thing
+      # anywhere that checks the 12 bash-fleet MODEL_KEYs: the pytest that looks
+      # like a backstop, test_model_keys_resolve.py, sweeps `modules/assistant`
+      # for the Python spelling `MODEL_KEY = "..."` and says so in its own
+      # docstring — the two cover DISJOINT sets, not overlapping ones. So on a
+      # runner that ever stops shipping yq, coverage of the bash fleet silently
+      # drops to zero behind a green tick. ubuntu-latest ships yq today, which
+      # means Pass 3 does run here; asserting it makes that a fact the gate
+      # enforces rather than a property of the image. The class Pass 3 catches
+      # is a RENAME (revision.sh -> revision-minor.sh moved the config key while
+      # MODEL_KEY kept the old name, leaving the workflow unlaunchable and
+      # silent about it until someone tried to dispatch). Tracked at #57.
+      #
+      # DOES NOT CATCH: whether a prompt says something sensible — only that
+      # constructing it does not execute anything. Passes 1 and 2, the outage
+      # class above, need nothing beyond bash.
       - name: Prompt-construction lint
-        run: ./scripts/helpers/lint-prompts.sh
+        if: '!cancelled()'
+        run: |
+          command -v yq >/dev/null || {
+            echo "yq is absent: lint-prompts.sh Pass 3 would self-skip and still report clean."
+            echo "That would leave the 12 bash-fleet MODEL_KEYs ungated. Failing loudly instead."
+            exit 1
+          }
+          ./scripts/helpers/lint-prompts.sh
 
       # NOT GATED HERE: scripts/helpers/vendor-standards.sh --check, the drift
       # detector for the four vendored MIRROR standard sets CLAUDE.md forbids
@@ -117,38 +158,83 @@ jobs:
       # "nothing ran at all" exit: a check that silently verified nothing after
       # a restructure looks healthiest of all.
       #
+      # WHY IT TOKENISES INSTEAD OF SUBSTRING-MATCHING: a hook `command` is a
+      # shell command line, not a path. Splitting on a literal "$HOME/..."
+      # prefix gets it wrong in BOTH directions — a quoted "$HOME/.../x.sh"
+      # carries the closing quote into the path and goes RED on a
+      # branch-protected job for a file that is fine, while a hook written
+      # `~/.claude/hooks/x.sh` or `${HOME}/...` matches no prefix at all and is
+      # silently skipped, which is the false green this whole page argues
+      # against. shlex + expandvars/expanduser handles every spelling, and
+      # EVERY token that looks like a hooks/*.sh path is checked, so a
+      # `a.sh && b.sh` command cannot hide its second half.
+      #
+      # WHY `checked == total` RATHER THAN `checked > 0`: a bare non-zero guard
+      # only catches the case where ALL hooks became unreadable. With two hooks
+      # and one rewritten to an unrecognised form, `checked` is 1, the step is
+      # green, and one hook went unverified. Requiring every hook command to
+      # resolve closes the partial case by construction — and it catches the
+      # half of hook-scripts.md's "Always reference via $HOME/.claude/hooks/
+      # (symlinked path), never the source repo path" that actually breaks the
+      # deployment model: a source-repo path now fails loudly instead of being
+      # quietly ignored. Stated precisely, because the other half is NOT
+      # enforced — `~/.claude/hooks/x.sh` expands to the same file and passes
+      # here, so this step does not police the spelling, only that every hook
+      # command reaches an executable file under config/hooks/.
+      #
       # DOES NOT CATCH: whether the permission globs mean what their author
       # intended, or whether a hook does the right thing when it does load.
       - name: Validate settings.json
+        if: '!cancelled()'
         run: |
           python3 - <<'PY'
-          import json, os, sys
+          import json, os, re, shlex, sys
 
           PATH = "config/settings.json"
-          PREFIX = "$HOME/.claude/hooks/"
+          CANONICAL = "$HOME/.claude/hooks/"
+          # Any token ending in a hooks/<name>.sh path, however $HOME is spelled.
+          HOOKISH = re.compile(r"(?:^|/)\.claude/hooks/([^/\s]+\.sh)$")
 
           with open(PATH) as fh:
               cfg = json.load(fh)
 
-          checked, bad = 0, []
+          total, checked, bad = 0, 0, []
           for event, entries in cfg.get("hooks", {}).items():
+              if not isinstance(entries, list):
+                  sys.exit(f"{PATH}: {event}: expected a list of hook entries, got {type(entries).__name__}")
               for entry in entries:
                   for hook in entry.get("hooks", []):
                       cmd = hook.get("command", "")
-                      if PREFIX not in cmd:
+                      total += 1
+                      # Expand every spelling of $HOME to one canonical form, then
+                      # tokenise so args, redirects and `&&` chains cannot corrupt
+                      # the path the way a substring split does.
+                      resolved = os.path.expanduser(os.path.expandvars(cmd.replace("${HOME}", "$HOME")))
+                      try:
+                          tokens = shlex.split(resolved)
+                      except ValueError as exc:
+                          bad.append(f"{event}: {cmd!r} is not a parseable command line ({exc})")
+                          continue
+                      hits = [m.group(1) for m in (HOOKISH.search(t) for t in tokens) if m]
+                      if not hits:
+                          bad.append(f"{event}: {cmd!r} references no .claude/hooks/*.sh path — "
+                                     f"hook-scripts.md requires {CANONICAL}<name>.sh")
                           continue
                       checked += 1
-                      local = "config/hooks/" + cmd.split(PREFIX, 1)[1].split()[0]
-                      if not os.path.isfile(local):
-                          bad.append(f"{event}: {cmd} -> {local} does not exist")
-                      elif not os.access(local, os.X_OK):
-                          bad.append(f"{event}: {cmd} -> {local} is not executable")
+                      for name in hits:
+                          local = os.path.join("config/hooks", name)
+                          if not os.path.isfile(local):
+                              bad.append(f"{event}: {cmd} -> {local} does not exist")
+                          elif not os.access(local, os.X_OK):
+                              bad.append(f"{event}: {cmd} -> {local} is not executable")
 
-          if not checked:
-              sys.exit(f"{PATH}: no hook references {PREFIX} — this check verified nothing")
+          if not total:
+              sys.exit(f"{PATH}: no hook commands found at all — this check verified nothing")
           if bad:
               sys.exit(f"{PATH}: " + "; ".join(bad))
-          print(f"{PATH}: valid JSON; {checked} hook reference(s) resolve to executable files in config/hooks/")
+          if checked != total:
+              sys.exit(f"{PATH}: only {checked} of {total} hook commands were resolvable — refusing to report clean")
+          print(f"{PATH}: valid JSON; all {checked} hook command(s) resolve to executable files in config/hooks/")
           PY
 
       # CATCHES: unparseable bash, anywhere in the tree. All 37 .sh files pass
@@ -161,23 +247,42 @@ jobs:
       # Kept anyway because the two checks are complementary and documented as
       # such — bash -n is the one that catches quote IMBALANCE, which the
       # sandbox construction can miss when the file will not parse at all.
+      #
+      # WHY `./.claude/*` IS PRUNED: this repo's own worktrees live under
+      # .claude/worktrees/, each a full checkout carrying its own copy of every
+      # .sh file. On a runner they do not exist, but an engineer running this
+      # line from the main clone would sweep every sibling branch's work — and
+      # go red for a WIP file CI will never see. A local run that cannot
+      # reproduce the CI result is a local run people stop trusting.
+      # testing/suites/python.sh carries the same exclusion for the same reason.
+      #
+      # WHY THE ZERO-FILE GUARD: a sweep whose find expression stops matching
+      # prints "checked 0 files" and exits 0 — green, having verified nothing.
+      # That is the failure mode the master runner's "nothing ran at all" exit
+      # and the settings.json guard above both exist to prevent, and this step
+      # is not exempt from the principle just because it is a one-liner.
       - name: Bash syntax floor
+        if: '!cancelled()'
         run: |
-          fail=0
+          fail=0 count=0
           while IFS= read -r f; do
+            count=$((count + 1))
             bash -n "$f" || { echo "SYNTAX ERROR: $f"; fail=1; }
-          done < <(find . -name '*.sh' -not -path './.git/*')
-          echo "bash -n: checked $(find . -name '*.sh' -not -path './.git/*' | wc -l) files"
+          done < <(find . -name '*.sh' -not -path './.git/*' -not -path './.claude/*')
+          [ "$count" -gt 0 ] || { echo "sweep matched no .sh files — this check verified nothing"; exit 1; }
+          echo "bash -n: checked $count files"
           exit $fail
 
       # CATCHES: the shellcheck ERROR class — constructs that are outright
       # wrong rather than merely unidiomatic. Measured across all 37 files
-      # before adopting, because nobody here had ever run it: error 0,
-      # warning 38, info 82, style 84. Gated at the strictest level that is
-      # clean, with NO baseline file, NO excluded codes and NO `|| true` — a
-      # gate everyone learns to ignore is worse than none, and `|| true` is
-      # that failure in its purest form. Ratchet to warning later only by
-      # fixing the 38, not by suppressing them (32 are SC2034 unused-variable).
+      # before adopting, because nobody here had ever run it — on shellcheck
+      # 0.10.0, the version this pin resolves to: error 0, warning 38, info 82,
+      # style 84. The version matters to those numbers and is recorded with
+      # them, because a pin bump is exactly when they stop being true. Gated at
+      # the strictest level that is clean, with NO baseline file, NO excluded
+      # codes and NO `|| true` — a gate everyone learns to ignore is worse than
+      # none, and `|| true` is that failure in its purest form. Ratchet to
+      # warning later by fixing the 38, not by suppressing them (32 are SC2034).
       #
       # WHY `-s bash`: two files — activities/run-claude.sh and
       # common/shared-prompts.sh — are sourced libraries with no shebang, and
@@ -189,12 +294,24 @@ jobs:
       # bash via `#!/usr/bin/env bash`. SC2148 on those two is reported as a
       # finding rather than silenced by pretending it was never raised.
       #
+      # THE HONEST COST OF `-s bash`, since this page condemns overselling: the
+      # flag OVERRIDES a shebang, it does not merely supply a missing one. If a
+      # `#!/bin/sh` script is ever added, it is linted as bash and the POSIX
+      # dialect checks (SC3xxx) that would have flagged its bashisms go quiet.
+      # That costs nothing at --severity=error, where SC3xxx does not report
+      # anyway, and no such file exists today — but it is a real hole to close
+      # if this step is ever ratcheted to warning.
+      #
       # DOES NOT CATCH: the prompt-construction class. shellcheck flags
       # SC1078/SC2140 on research.sh and research-refresh.sh — the exact two
       # files from the 3975ed6 outage — and both are FALSE POSITIVES on the
       # already-escaped forms. It is not a substitute for the lint above.
+      #
+      # Empty input needs no guard here the way bash -n does: xargs runs
+      # shellcheck once with no arguments, which exits non-zero.
       - name: Shellcheck
-        run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck -s bash --severity=error
+        if: '!cancelled()'
+        run: find . -name '*.sh' -not -path './.git/*' -not -path './.claude/*' -print0 | xargs -0 shellcheck -s bash --severity=error
 
       # The runner writes per-suite logs. On a red run they are the first
       # thing a human wants and the one thing a CI page does not show.

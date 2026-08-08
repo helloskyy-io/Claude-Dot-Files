@@ -138,8 +138,8 @@ claude-dot-files/
 │       │   ├── stateful_patterns.md                 # Persistence boundaries, idempotent writes, cleanup on failure
 │       │   ├── temporal_standard.md                 # Three-layer architecture, ACTIVITY_MAP, directory structure
 │       │   └── worker_deployment_standard.md        # Worker segmentation, queue naming, immutable images
-│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/
-│       │   ├── README.md                            # Applicability: which half of the vendored standard binds HERE, and how this repo diverges
+│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/. The README is ours and IS editable
+│       │   ├── README.md                            # Applicability: which half binds HERE, how this repo diverges, and § The gate — the six checks tests.yml runs
 │       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
 │       ├── agents.md                                # Standards for writing custom agents
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
