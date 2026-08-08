@@ -26,6 +26,7 @@ from measure.replay_completion_predicate import (
     PR_OR_ISSUE_URL,
     PR_URL,
     STRICT_VERDICT,
+    last_whole_match,
     read_log,
     workflow_of,
 )
@@ -77,14 +78,23 @@ def test_strict_matches_are_ordered_so_last_wins():
     ]
 
 
-def test_strict_extraction_uses_group_zero_not_findall():
+def test_last_whole_match_returns_one_shape_for_both_pattern_families():
     # STRICT_VERDICT carries capturing groups (verbatim from the shipped ERE at
     # review-pr.sh:186), so `findall()` yields TUPLES while the URL patterns
-    # yield strings. The tool's `last_strict_result` must be one shape for both;
-    # this pins the whole-match extraction that makes it so.
-    out = "VERDICT: HOLD - redispatch"
-    assert isinstance(STRICT_VERDICT.findall(out)[-1], tuple)
-    assert [m.group(0) for m in STRICT_VERDICT.finditer(out)][-1] == out
+    # yield strings — the same output field with two shapes. This is the guard
+    # on `last_strict_result` being a string either way.
+    verdict = "VERDICT: HOLD - redispatch"
+    assert isinstance(STRICT_VERDICT.findall(verdict)[-1], tuple)  # the hazard
+    assert last_whole_match(STRICT_VERDICT, verdict) == verdict
+
+    url = "https://github.com/o/r/pull/7"
+    assert last_whole_match(PR_URL, f"see {url} now") == url
+
+
+def test_last_whole_match_takes_the_LAST_match_and_None_when_there_is_none():
+    out = "VERDICT: MERGE\nlater\nVERDICT: HOLD - redispatch"
+    assert last_whole_match(STRICT_VERDICT, out) == "VERDICT: HOLD - redispatch"
+    assert last_whole_match(STRICT_VERDICT, "no verdict here") is None
 
 
 # --- LOOSE_VERDICT: strictly wider, or the adjudication measures nothing ---

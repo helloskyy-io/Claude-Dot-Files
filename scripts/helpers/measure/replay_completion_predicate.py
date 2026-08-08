@@ -85,6 +85,19 @@ def workflow_of(path: Path) -> str:
     return re.sub(r"-\d{8}-\d{6}$", "", path.stem)
 
 
+def last_whole_match(pattern: re.Pattern, text: str) -> str | None:
+    """The last WHOLE match, as a string, whatever groups the pattern carries.
+
+    `findall()` cannot do this job: it returns group tuples for a pattern with
+    capturing groups and strings for one without, so the same output field
+    would carry two shapes depending on which predicate produced it.
+    STRICT_VERDICT has capturing groups (verbatim from the shipped ERE); the
+    URL patterns do not.
+    """
+    matches = [m.group(0) for m in pattern.finditer(text)]
+    return matches[-1] if matches else None
+
+
 def read_log(path: Path) -> tuple[dict | None, list[str], int]:
     """Return (result envelope or None, assistant text turns, unparseable count).
 
@@ -158,16 +171,8 @@ def main(log_dir: Path) -> int:
                 "loose_result": bool(loose.search(result)),
                 "strict_console": bool(strict.search(console)),
                 "loose_console": bool(loose.search(console)),
-                # `group(0)` via finditer, never `findall()`: STRICT_VERDICT
-                # carries capturing groups (verbatim from the shipped ERE), so
-                # `findall()` would return tuples here and a string for the
-                # URL patterns — the same field with two shapes.
                 "strict_matches_console": sum(1 for _ in strict.finditer(console)),
-                "last_strict_result": (
-                    [m.group(0) for m in strict.finditer(result)][-1]
-                    if strict.search(result)
-                    else None
-                ),
+                "last_strict_result": last_whole_match(strict, result),
                 "unparseable_lines": unparseable,
             }
         )
