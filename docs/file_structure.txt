@@ -94,10 +94,10 @@ claude-dot-files/
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
-│   │   ├── memory-management-framework/             # Phase 1 MEASURED (2026-08-08); Phases 2-5 planned, nothing built. First component on the roadmap+phases shape sprint.md mandates
+│   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phases 3-5 planned, nothing built. First component on the roadmap+phases shape sprint.md mandates
 │   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
 │   │   │   ├── phase1_measure_the_channel.md        # COMPLETE — six experiments, thirteen rulings. Cancelled nothing; re-scoped Phase 5's predicate
-│   │   │   ├── phase2_kind1_framework.md            # Kind 1 written down as an interface, not prose describing behaviour
+│   │   │   ├── phase2_kind1_framework.md            # COMPLETE — Kind 1 as a substrate-free interface with GitHub as one binding. Found four of its own premises false
 │   │   │   ├── phase3_typed_exit_record.md          # Arrangement A, split abstention, fail-safe contract, one pair proven
 │   │   │   ├── phase4_fleet_migration.md            # Fleet-wide rollout; archive as by-product. Zero prompt content changes
 │   │   │   ├── phase5_convergence_stopping.md       # The payoff — and the justification with no incumbent to beat
