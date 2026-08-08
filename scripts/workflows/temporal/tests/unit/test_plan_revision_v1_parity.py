@@ -36,7 +36,13 @@ V1 = REPO_ROOT / "scripts" / "workflows" / "plan-revision.sh"
 # suite's job is to catch LOSS. The exact-equality check is `test_*_is_byte_
 # identical_to_v1` below; these two exist so a reader sees the magnitude.
 V1_STAGES_BYTES = 18_452
-V1_RULES_BYTES = 4_757
+# 4_749, lowered from 4_757 on 2026-08-07 — 8 bytes, and the reason is recorded
+# because this floor exists precisely so a shrink cannot pass unexplained.
+# `sprint/phase docs, loose_ends files, standards docs` became `sprint/phase
+# docs, roadmaps, standards docs` on BOTH sides, when the loose-ends store was
+# retired and every instruction naming it was removed. The equality check above
+# still binds V2 to V1; this floor only moves by hand, with a note.
+V1_RULES_BYTES = 4_749
 
 
 # --- Extraction from the bash source -----------------------------------------

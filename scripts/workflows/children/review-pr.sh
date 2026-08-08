@@ -2,7 +2,7 @@
 #
 # review-pr.sh — the DISPOSITION ENGINE
 # Mechanizes the PM disposition ritual on a returned PR: enumerate every
-# surfaced item (issue, loose end, deferral, existing condition, friction),
+# surfaced item (issue, deferral, existing condition, friction),
 # force each to a terminal disposition (FIXED / REJECTED / DEFERRED) by
 # verifying every claim against the artifact rather than the narrative, and end
 # in a VERDICT (MERGE | HOLD). Decide-only.
@@ -266,7 +266,7 @@ For EACH enumerated item, reach exactly one terminal disposition using genuine /
   (a) the work is **already scheduled** in a future sprint item that ALREADY EXISTS → pointer = that sprint item; OR
   (b) the work is **already in motion** in a live concurrent PR/dispatch → pointer = that PR/dispatch.
   (c) you FILE a GitHub Issue for it under the filing authority below → pointer = that issue URL, \`pointer_verified: true\`.
-  Cases (a) and (b) point at work that is ALREADY scheduled or ALREADY happening. Case (c) is the ONE thing you may create, and only under the three conjunctive criteria below — it is not a parking spot because a filed issue carries a standing disposition obligation at standup (it may not survive a standup in the same state), which a loose-end never did. Outside those three cases, if the work has no existing home it is NOT deferrable. **The reviewed PR (its body, thread, comments) is NEVER a valid pointer — merging it is the burial.** 'The architecture session' / 'the standards queue' are not pointers unless you name the committed file that queue reads from.
+  Cases (a) and (b) point at work that is ALREADY scheduled or ALREADY happening. Case (c) is the ONE thing you may create, and only under the three conjunctive criteria below — it is not a parking spot because a filed issue carries a standing disposition obligation at standup (it may not survive a standup in the same state), which a carried-work entry never did. Outside those three cases, if the work has no existing home it is NOT deferrable. **The reviewed PR (its body, thread, comments) is NEVER a valid pointer — merging it is the burial.** 'The architecture session' / 'the standards queue' are not pointers unless you name the committed file that queue reads from.
 
 **VERIFY every DEFERRED pointer like research-critic verifies a citation — open it and confirm the item is ACTUALLY THERE** (\`gh issue view\`, \`gh pr view\`, or Read the committed file). A pointer that does not resolve to the item is a disposition failure. **Then classify WHICH failure it is — these are two different problems with two different owners:**
 - **LAUNDERED** — a pointer EXISTS but resolves to a dead/invalid/wrong surface (including the reviewed PR itself). This is a **producing-run failure**: it tried to bury the item behind a plausible-looking pointer. Counts in \`laundered_deferrals\`.
@@ -293,13 +293,13 @@ Both still block MERGE. Only LAUNDERED counts against the producing run.
 
 **Repo placement for an upstream amendment:** file it on the UPSTREAM repo that owns the standard, not the consumer — that is where the work lives, and the general placement rule below already says so. The issue must state which vendored file, which section, the proposed rule, and the evidence that forced it, so the upstream maintainer can rule without reconstructing the cycle.
 
-**Repo placement:** file on the repository where the WORK lives — the code repo for code, the planning repo for planning/standards work. Never centralize: \`/standup\` already sweeps every repo with a GitHub remote, so nothing is lost by filing locally, and a central pile would recreate the loose-ends shape (one heap, far from the work).
+**Repo placement:** file on the repository where the WORK lives — the code repo for code, the planning repo for planning/standards work. Never centralize: \`/standup\` already sweeps every repo with a GitHub remote, so nothing is lost by filing locally, and a central pile would recreate the retired carried-work shape (one heap, far from the work).
 
 **Issue content contract** — the same discipline you apply to findings; an issue a human cannot act on from its title and proposed action is not an issue:
 - **Title states the CONSEQUENCE, not the discrepancy.** ✅ 'reconciler-worker's activity inventory is unreachable from the table pointing at it' — ❌ '§3.1 missing a subsection'.
 - **Body carries the EVIDENCE**: pinned SHA, file/line, what you verified — so a reader in three weeks does not re-derive it.
 - **A proposed next action**, so standup can RULE rather than investigate.
-- **ONE issue per item. Never bundle.** A six-item issue cannot be ruled item-by-item and rots as a unit — the same defect as a crammed loose-end.
+- **ONE issue per item. Never bundle.** A six-item issue cannot be ruled item-by-item and rots as a unit — the same defect as a crammed carried-work entry.
 - gh-monitor safety: no line in the issue body may START with \`@claude\`; put any dispatch illustration inside a code fence.
 
 **Effect on the verdict:** a filed issue is a TERMINAL resolution for that finding. Because criterion 1 requires it to be unrelated to the work in hand, filing it does NOT hold this PR — record the finding as \`disposition: deferred\` with the new issue URL as its verified pointer. (At the attempt cap, surviving items are filed the same way, which is what terminates the loop.)
@@ -449,7 +449,7 @@ These are load-bearing and evidence-backed. If a future edit shortens this promp
 1. **Absence is non-terminal.** An item that VANISHED between passes — dropped from Deferred Work with no pointer, no rejection, no mention — is NOT resolved. Silently disappearing an item is the subtlest burial available. Carry every prior-pass finding forward until it reaches an explicit disposition.
 2. **Cross-pass re-laundering detection.** If you rejected a pointer in a prior pass and the same dead target reappears, flag it explicitly as re-laundering. Only a stateful, id-stable reviewer catches this — that is you.
 3. **Verify fixes, don't just prescribe them.** On pass ≥2, check the fixes YOUR prior pass prescribed: did they land correctly, and did they introduce a regression? A regression caused by your own prior prescription is yours to catch, not the producing run's to inherit.
-4. **Never self-grant on human-in-the-loop surfaces.** sprints / loose-ends / standards stay HiL no matter how obvious the change looks — but still return \`reframe:\`, \`bp:\`, and \`recommendation:\` so the operator rules quickly.
+4. **Never self-grant on human-in-the-loop surfaces.** sprints / standards stay HiL no matter how obvious the change looks — but still return \`reframe:\`, \`bp:\`, and \`recommendation:\` so the operator rules quickly.
 5. **Pointer verification is by FETCH, never by plausibility.** Record \`pointer_verified: false\` with the reason (e.g. 'VERIFIED DEAD — PR merged, nothing filed').
 6. **One finding = one entry = one ruling.** A bundle is a defect. Each entry carries its OWN \`reframe:\`, \`bp:\`, \`recommendation:\`, and \`remedy:\` — never a shared lens block across several decisions. Every finding gets a recommendation, including rejected (the reasoning is the recommendation) and deferred (the pointer plus why-now-isn't-the-time) ones.
 7. **Consequence or it isn't a finding.** No entry enters the runway without stating what breaks. Discrepancies without consequences are reflection notes.

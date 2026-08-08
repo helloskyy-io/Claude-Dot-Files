@@ -98,7 +98,7 @@ If something feels worth recording but violates the rules above, it has a home â
 |---|---|
 | "We discovered this when..." | PR description / commit message |
 | "Implementation status as of [date]" | Phase doc, roadmap, operational runbook |
-| TBD items waiting on future sprints | Phase doc, roadmap, loose-ends file |
+| TBD items waiting on future sprints | Phase doc or roadmap â€” a carried-work ledger is a violation |
 | Historical evolution of the rule | Git log / git blame |
 | "Lessons learned from Sprint X" | Retrospective doc, postmortem |
 | Active inventories / verified state snapshots | Operational runbook, phase doc |

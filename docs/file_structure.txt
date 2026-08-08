@@ -8,7 +8,7 @@ claude-dot-files/
 │   │   ├── code-style.md                            # Readability, early returns, match-existing-style
 │   │   ├── communication.md                         # Don't add docstrings/comments to code you didn't change
 │   │   ├── dependencies.md                          # Check existing tools, prefer stdlib
-│   │   ├── engineering-quality.md                   # Senior-engineer quality bar, finding disposition, loose-ends discipline, best-practices checkpoint
+│   │   ├── engineering-quality.md                   # Senior-engineer quality bar, finding disposition, deferral placement, best-practices checkpoint
 │   │   ├── git.md                                   # Commit format, push/amend discipline
 │   │   ├── personal-tooling.md                      # Pointer to workflows guide + /get-started
 │   │   ├── proactive-doc-management.md              # PM-side triggers for invoking doc-manager
@@ -72,7 +72,6 @@ claude-dot-files/
 │   │
 │   ├── development/                                 # WHAT — active work tracking
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
-│   │   ├── loose_ends.md                            # Deferred architectural items with re-evaluation triggers
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
 │   │   ├── sprint.md                                # The sprint plan — what gets built and in what order. NEVER a history lesson
 │   │   ├── burn-test-intake-2026-08-02.md           # NOT a sprint — intake record feeding three of them; delete once absorbed

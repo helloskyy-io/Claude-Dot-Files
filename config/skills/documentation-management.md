@@ -101,7 +101,7 @@ Drafts new documentation content per established conventions. Substance always f
 - New standard is being created (drafts substance per standards-authoring discipline)
 - Initial CLAUDE.md creation for a new repo
 - New guide doc needed for a feature
-- Loose-ends entry needs to be created
+- Deferred work needs placing — phase checkbox, expansion, or issue
 
 #### Authoring patterns by doc type
 
@@ -140,7 +140,7 @@ Drafts new documentation content per established conventions. Substance always f
 - User-focused: what does the user need to do? in what order? what tools?
 - Output: draft guide for human review
 
-**Loose-ends entries** (`docs/development/common/loose_ends/<sprint>.md`)
+**Deferred work** (a phase checkbox, an expansion, or a GitHub issue)
 - Brief entry: what was found, what's the impact, what's the recommended action, when to revisit
 - Output: draft entry for human review
 
@@ -293,7 +293,6 @@ For phase docs and sprint.md files with checkboxes:
 - Completed phases (all checkboxes done, no archival flag) → "ready for archive"
 - Orphaned phase docs (no roadmap reference) → surface for review
 - Stale roadmap entries → surface as broken hierarchy
-- Stale loose-ends entries (work verifiably completed) → surface as "mark resolved"
 - Standards that appear retired/superseded → surface for retirement decision
 
 **Check 6: Standards-corpus health (delegated to standards-architect)**
@@ -339,7 +338,7 @@ For phase docs and sprint.md files with checkboxes:
 ### Lifecycle items surfaced
 - **Ready for archive:** [list of completed phase docs]
 - **Orphans:** [phase docs without roadmap entries]
-- **Stale loose-ends:** [verifiably-resolved entries]
+- **Stale deferrals:** [verifiably-resolved entries]
 - **Standards retirement candidates:** [if any]
 
 ### Recommendations for other agents
@@ -377,8 +376,8 @@ Mechanical edits within strict authority limits. Audits PLUS edits eligible item
 - Add `- docs/standards/<name>.md — <one-line purpose>` entries where the standard applies but isn't listed
 - Extract the one-line purpose from the standard's frontmatter description or first paragraph
 
-**Loose-end resolution markers**:
-- Mark loose-end entries as resolved when verifiable (referenced work conclusively completed)
+**Deferral resolution markers**:
+- Mark a deferral resolved when verifiable (referenced work conclusively completed)
 
 **file_structure.txt refresh**:
 - Invoke `update-file-structure` skill methodology to refresh
@@ -418,7 +417,7 @@ Mechanical edits within strict authority limits. Audits PLUS edits eligible item
 ### Lifecycle items surfaced
 - **Ready for archive:** [list]
 - **Orphans:** [list]
-- **Stale loose-ends:** [list]
+- **Stale deferrals:** [list]
 
 ### Summary
 [1-2 sentences: edits made + top item for human attention]
@@ -433,7 +432,6 @@ Mechanical edits within strict authority limits. Audits PLUS edits eligible item
 | `sprint.md` / `sprints.md` | YES — draft for review | Surface sprint→roadmap dependencies (never edit) | YES | NO — HiL only, surface candidates via PR/handoff (see standards-governance.md) |
 | `docs/development/<topic>/sprint.md` | YES — draft for review | Propagate roadmap→phase dependencies | YES | LIMITED — checkbox state, ref fixes |
 | `docs/development/<topic>/phase-N.md` | YES — draft for review | Propagate phase dependencies | YES | LIMITED — checkbox state, ref fixes |
-| `docs/development/common/loose_ends/*.md` | YES — draft for review | Surface resolution dependencies | YES | LIMITED — resolved markers when verifiable |
 | `docs/guide/*.md` | YES — draft for review | Surface user-impact dependencies | YES | NO — substance only via authoring drafts |
 | `CLAUDE.md` (root, parent, nested) | YES — draft for review | Propagate standards-references | YES | LIMITED — add missing standards-references |
 | `docs/file_structure.txt` | YES — draft (via update-file-structure) | Surface structural changes | YES | YES — refresh via update-file-structure |

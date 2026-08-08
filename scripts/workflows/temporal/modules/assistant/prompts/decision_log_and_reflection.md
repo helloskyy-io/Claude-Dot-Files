@@ -24,7 +24,7 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 **VERIFICATION IS BY FETCH, NEVER BY PLAUSIBILITY.** A pointer you did not open is a guess dressed as a citation, and it is the single most common way real work disappears. Before writing any 'Tracked at' value you MUST run the command that opens it and record the result in 'Verified by':
 
 - an issue -> `gh issue view <N> --json number,title,state,body` — confirm it is OPEN and its body actually covers THIS item
-- a file/doc/loose-ends entry -> Read or Grep the live file on the DEFAULT branch (not your worktree — your branch's copy may contain an edit that never merges) and quote the line you found
+- a file/doc/phase-doc entry -> Read or Grep the live file on the DEFAULT branch (not your worktree — your branch's copy may contain an edit that never merges) and quote the line you found
 - a follow-up PR -> `gh pr view <N>` — confirm it is open and in scope
 
 **Write what you observed, not that you checked.** 'Verified by: gh issue view 230 -> OPEN, body covers the Python-tier gate' is an attestation. 'Verified present' is a claim about yourself, and it is the exact shape that has shipped false twice.

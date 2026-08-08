@@ -29,5 +29,5 @@ Substance edits ALWAYS go through human review — doc-manager drafts, operator 
 - "Done, moving on" without doc review
 - Assuming operator will remember to ask
 - Treating checkbox updates as polish
-- Deferring doc updates to "later session" — loose-ends-as-LAST-option applies
+- Deferring doc updates to a "later session" — a deferral is PLACED at filing time, and a carried-work ledger is never one of the options
 - "It's obvious" instead of verifying standards conformance

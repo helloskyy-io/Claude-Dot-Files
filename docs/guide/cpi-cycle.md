@@ -131,10 +131,10 @@ The log lives at `claude-dot-files/docs/development/cpi-decisions.md`. Both `rev
 | Output | Findings about HOW we work | Findings about WHAT we built |
 | Scope | Workflow scripts, agents, skills, rules | Project source code, tests |
 | What lands in `cpi-decisions.md` | All findings — workflow tooling IS the subject | **ONLY meta-findings** about how the workflow performed — NOT the project-code findings |
-| Where project findings go | n/a (subject is tooling) | Project-side: loose-ends, phase docs, sprint review report |
+| Where project findings go | n/a (subject is tooling) | Project-side: phase docs, issues, sprint review report |
 | Both apply | Engineering-quality discipline | Engineering-quality discipline |
 
-They are different cycles asking different questions. CPI asks "is the workflow tooling getting better?" Sprint-review asks "is the project code getting better?" Both produce findings, but only ONE category lands in `cpi-decisions.md`: findings about claude-dot-files tooling (workflow scripts, agents, skills, rules). Project-code findings from review-sprint stay **project-side** — in the project's loose-ends tracking, phase docs, or review-sprint report. They follow the same ship/defer/reject discipline regardless of destination.
+They are different cycles asking different questions. CPI asks "is the workflow tooling getting better?" Sprint-review asks "is the project code getting better?" Both produce findings, but only ONE category lands in `cpi-decisions.md`: findings about claude-dot-files tooling (workflow scripts, agents, skills, rules). Project-code findings from review-sprint stay **project-side** — in the project's phase docs, issues, or review-sprint report. They follow the same ship/defer/reject discipline regardless of destination.
 
 Don't conflate the cadences either — running review-sprint weekly burns tokens; running CPI per-sprint misses the weekly signal.
 
@@ -151,8 +151,8 @@ The log is for **claude-dot-files-level decisions ONLY**.
 - Meta-findings from `review-sprint` or `review-runs` about how the workflow performed
 
 **Does NOT belong:**
-- Project-code tech debt (belongs in project's loose-ends)
-- Project deployment workarounds and tactical bandaids (belongs in project's phase docs or loose-ends)
+- Project-code tech debt (belongs in the project's phase docs or issues)
+- Project deployment workarounds and tactical bandaids (belongs in the project's phase docs or issues)
 - Project-specific standards amendments (belongs in project's `docs/standards/`)
 - Customer/service-specific decisions (belongs in project's tracking)
 - Sprint or epic narrative (belongs in project's planning docs)
