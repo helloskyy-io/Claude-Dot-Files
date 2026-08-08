@@ -12,8 +12,9 @@ The split is not hypothetical here. **This fleet already runs two bindings** (§
 
 So every section that could be answered two ways answers both:
 
-- **§1, §3.1, §5.1, §6.1 — the interface.** What any substrate must provide. A new substrate re-implements these.
+- **§1 (with §1.1–§1.2), §3.1, §5.1, §6.1 — the interface.** What any substrate must provide. A new substrate re-implements these.
 - **§2, §3.2, §4, §5.2, §6.2 — this fleet's binding.** How GitHub (and the file surface) provides them today. A new substrate inherits none of this and must supply its own.
+- **§7 — the seam between them**, and the only part that is neither: what a typed record would have to model to render this binding without losing what §1 property 3 requires.
 
 §9 states the split as a single inherit-versus-re-implement table.
 
@@ -23,7 +24,7 @@ So every section that could be answered two ways answers both:
 
 ## 1 · The interface — five properties, stated without a substrate
 
-A Kind 1 record is any record with all five. Nothing below names GitHub, git, a file, or a URL.
+A Kind 1 record is any record with all five. **No property below is stated in terms of GitHub, git, a file or a URL** — where those nouns appear it is as a contrast (what a substrate would otherwise need) or as a redirect to §7.3, never as part of what a property requires. That is the claim, and it is the one a grep can check.
 
 | # | Property | What it means | What breaks without it |
 |---|---|---|---|
@@ -176,8 +177,8 @@ Verified by grep across both fleets (`grep -rn "pr_review\|gh issue list\|gh pr 
 |---|---|---|
 | *block presence* | `review-pr.sh:141-142` (`PRIOR_PASS`) · `review_pr_activities.py:45-51` | counts prior passes → sets `THIS_PASS`. **Both over-match — see §6.4** |
 | *block presence* | `replay_pr_review_blocks.py:45` | Phase 1 E3 + E7 corpus extraction |
-| `verdict` | `/standup` Stage 1.1 | `HOLD` → render as a blocker; `MERGE` on an open PR → "ready to merge" |
-| `next_steps[]` | `/standup` Stage 1.1 | delivered **verbatim** to the operator — the disposition engine already reasoned; standup does not re-derive |
+| `verdict` | `/standup` `standup.md:48-51` | `HOLD` → render as a blocker; `MERGE` on an open PR → "ready to merge" |
+| `next_steps[]` | `/standup` `standup.md:48-51` | delivered **verbatim** to the operator — the disposition engine already reasoned; standup does not re-derive |
 | `pass` | *(human only)* | E7 measured it **non-dense** — #31 runs 1, 2, 4 — so "the previous pass" must come from block ordering, never from the integer |
 | `findings[].id` | `replay_pr_review_blocks.py` | Phase 5's identity input. Convention measured to hold **25 of 25** on the added direction |
 | `findings[].disposition` | `replay_pr_review_blocks.py` | partitions findings into open/closed. Present on **195 of 195** archived findings |
@@ -228,15 +229,15 @@ Independent of substrate, a Kind 1 record has exactly three change classes that 
 
 | If you change… | Check | Breaks how |
 |---|---|---|
-| the key `pr_review:` | `review-pr.sh:142`, `review_pr_activities.py:51`, `replay_pr_review_blocks.py:45`, `/standup` Stage 1.1, **every block already posted** | pass-counting silently resets to zero; standup reports every PR as "awaiting review" |
-| `verdict`'s value set | `/standup` Stage 1.1 | a value standup does not recognise renders as neither blocker nor ready — it vanishes from the brief |
-| `next_steps[]`'s shape | `/standup` Stage 1.1 | the runway stops reaching the operator; `review-pr` still writes it, nobody delivers it |
+| the key `pr_review:` | `review-pr.sh:142`, `review_pr_activities.py:51`, `replay_pr_review_blocks.py:45`, `/standup` `standup.md:48-51`, **every block already posted** | pass-counting silently resets to zero; standup reports every PR as "awaiting review" |
+| `verdict`'s value set | `/standup` `standup.md:48-51` | a value standup does not recognise renders as neither blocker nor ready — it vanishes from the brief |
+| `next_steps[]`'s shape | `/standup` `standup.md:48-51` | the runway stops reaching the operator; `review-pr` still writes it, nobody delivers it |
 | `findings[].id` stability | `replay_pr_review_blocks.py`, [Phase 5](../development/memory-management-framework/phase5_convergence_stopping.md) | the convergence predicate reads a false delta. **Silent** |
 | `findings[].disposition`'s enum | same | a value outside the **archive's measured vocabulary** — `{hold, fixed, deferred, rejected, noted, escalated}`, counted across all 195 archived findings ([Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E7) — is scored as *open* by the closed-set reading, so the open set can never empty. **Silent.** Note this is the set a replaying reader must handle, **not** the set the emitter declares: `review-pr.sh:361` declares four (`fixed \| rejected \| deferred \| hold`), and `noted` / `escalated` reach the archive from earlier passes. **Narrowing the emitter does not narrow the archive** |
 | the prose `VERDICT:` line | `build.sh:277`, `build-minor.sh:281`, `routing.py:72`, `run-claude.sh:201-204` | the parent's completion gate fails loud (child side) or synthesises `HOLD - needs-assistance` (parent side) |
 | anything in §4.2 | no code | nothing breaks; **a human loses information and nothing tells them** |
-| the tracker's section order or per-line fields | `/standup` Stage 0.3 | the readiness ordering (`BLOCKED`→`READY`→`IN FLIGHT`→`RESOLVED`) is how the operator triages; normalising it destroys the property |
-| `direction.md`'s `status` value set | `/standup` Stage 1 + Stage 3.3, rotation rule | a row with an unrecognised status renders forever or never |
+| the tracker's section order or per-line fields | `/standup` `standup.md:39` | the readiness ordering (`BLOCKED`→`READY`→`IN FLIGHT`→`RESOLVED`) is how the operator triages; normalising it destroys the property |
+| `direction.md`'s `status` value set | `/standup` `standup.md:43`, `:143`, `:105` (rotation) | a row with an unrecognised status renders forever or never |
 
 **The two silent rows are the ones that matter.** Both are in the convergence path, both fail by producing a wrong answer rather than no answer, and neither has a consumer that would notice. They are the reason [Phase 4](../development/memory-management-framework/phase4_fleet_migration.md) verifies fleet-wide against this list rather than against the emitting script.
 
@@ -265,7 +266,7 @@ Retrieval is *addressing*, not *location*. "It is posted on the PR" is a locatio
 |---|---|---|
 | Container id | the PR number | `--pr <N>` |
 | Block marker | a fenced ```` ```yaml ```` block whose **first line is `pr_review:`** | `review-pr.sh:342-344` (emitter); `replay_pr_review_blocks.py:45` (the only executable statement of it) |
-| Ordering rule | comment creation order on the thread; **last wins** | `/standup` Stage 1.1 — *"the LATEST comment containing a `pr_review:` yaml block"* |
+| Ordering rule | comment creation order on the thread; **last wins** | `/standup` `standup.md:48` — *"the LATEST comment containing a `pr_review:` yaml block"* |
 | Sequence number | the block's `pass:` key, written by the producer | `review-pr.sh:346`; counter at `:141-143` |
 
 For the other three surfaces the address is simpler and complete: **Issues** — `owner/repo#N`, one record per container, no ordering needed. **Tracker** — discovered *by title* (`standup-tracker in:title`), never by number, so it stays portable across repos; per-line `id` inside. **`direction.md`** — `D-NNN`, never reused, never renumbered, plus the source `C-NNN` linking it to `candidates.md`.
@@ -303,7 +304,7 @@ The consequence is not hypothetical; it is in the archive:
 - **PR #31** — comments carry blocks at `pass: 1`, `pass: 2`, then `pass: 4`. The comment between them is a `build-refine` reconciliation note with no block. It was counted. **There was never a pass 3.**
 - **PR #66** — one block, labelled `pass: 3`. The two comments before it are the build-draft and build-refine reflections. **It is pass 1.**
 
-**This changes something Phase 1 recorded as structural.** E7 §309.1 states *"pass numbers are not dense"* and instructs Phase 5 to derive consecutiveness from block ordering rather than the integer. That instruction is correct and should stand — but the *reason* given, that non-density is a property of the archive, is wrong: **it is this over-match, and it is fixable.** §6.1's rule that ordering outranks a written counter is the general form of the same lesson.
+**This changes something Phase 1 recorded as structural.** [Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E7 § *Two structural facts Phase 5 needs and the archive does not advertise*, item 1, states *"pass numbers are not dense"* and instructs Phase 5 to derive consecutiveness from block ordering rather than the integer. That instruction is correct and should stand — but the *reason* given, that non-density is a property of the archive, is wrong: **it is this over-match, and it is fixable.** §6.1's rule that ordering outranks a written counter is the general form of the same lesson.
 
 **The record written into Kind 1 is wrong in both cases** — `pass:` is a durable field of the durable record, and it is off by two on the most recently reviewed PR in the repo. Phase 2 documents the convention and names the defect; **it does not fix it** — this phase documents what exists, and the remedy is a code change in two files.
 
