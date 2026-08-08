@@ -41,6 +41,24 @@ set -euo pipefail
 FILE="$1"; OLD="$2"; NEW="$3"; TARGET="$4"
 
 [[ -f "$FILE" ]] || { echo "✗ no such file: $FILE" >&2; exit 2; }
+
+# OLD must be single-line. Both the presence check and the occurrence count
+# below are `grep -F`, which treats an embedded newline in its PATTERN
+# argument as separating independent alternate patterns (like -f patternfile)
+# rather than as a literal line break — so a multi-line OLD would be tested as
+# "does any of these fragments appear anywhere in the file", not "does this
+# exact block appear". That can both false-flag AMBIGUOUS (fragments recur
+# elsewhere) and false-pass a real multi-line ambiguity the per-fragment count
+# cannot see — the same false-negative shape the occurrence-count fix below
+# exists to close, one level further down. Reject up front rather than mis-
+# count silently; no caller needs a multi-line OLD today.
+[[ "$OLD" != *$'\n'* ]] || {
+    echo "✗ OLD must be single-line: grep -F treats an embedded newline as" >&2
+    echo "  separating alternate patterns, not as a literal line break, so" >&2
+    echo "  presence and ambiguity checks below cannot be trusted against it." >&2
+    exit 2
+}
+
 grep -qF -- "$OLD" "$FILE" || {
     echo "✗ the string to mutate is NOT PRESENT in $FILE:" >&2
     echo "    $OLD" >&2
@@ -49,6 +67,37 @@ grep -qF -- "$OLD" "$FILE" || {
     exit 2
 }
 
+# AMBIGUITY IS A HARD ERROR, because the mutation below replaces only the FIRST
+# occurrence. If the string appears more than once, "the first one" is whichever
+# the file happens to list earliest — routinely a mention inside a comment
+# header rather than the live code beneath it. Mutating a comment changes no
+# behaviour, every leg stays green, and the harness reports "✗ THE GUARD DID NOT
+# FIRE" over a guard that is in fact working. That is a FALSE NEGATIVE from a
+# tool whose entire job is telling you whether to trust a test, and it is not
+# hypothetical: on 2026-08-08 a review run hit exactly this against
+# `config/hooks/block-dangerous.sh`, where `git reset --hard` appears both in
+# the THREAT MODEL comment block and in the pattern array.
+#
+# The caller disambiguates — usually by including the surrounding syntax, e.g.
+# passing "'git reset --hard'" WITH the shell quotes so it matches the array
+# entry and not the prose.
+# Occurrences, not matching LINES: `grep -c` counts lines, so a string
+# appearing twice on one line would report 1 and sail through this guard while
+# `.replace(old, new, 1)` below mutates only the first of the two — the same
+# false-negative shape this guard exists to close, one level down.
+OCCURRENCES="$(grep -oF -- "$OLD" "$FILE" | wc -l || true)"
+if [[ "$OCCURRENCES" -gt 1 ]]; then
+    echo "✗ AMBIGUOUS: the string to mutate appears $OCCURRENCES times in $FILE:" >&2
+    echo "    $OLD" >&2
+    grep -nF -- "$OLD" "$FILE" | sed 's/^/      /' >&2
+    echo "  Only the FIRST occurrence would be replaced, and if that one sits in a" >&2
+    echo "  comment the mutation changes no behaviour — every leg stays green and" >&2
+    echo "  this harness reports a guard failure that did not happen." >&2
+    echo "  Narrow the string until it matches exactly one occurrence (including" >&2
+    echo "  the surrounding quotes or indentation is usually enough)." >&2
+    exit 2
+fi
+
 CACHE_ROOT="$(mktemp -d)"
 BACKUP="$(mktemp)"
 cp "$FILE" "$BACKUP"
@@ -56,41 +105,109 @@ cp "$FILE" "$BACKUP"
 # worse than no harness — the next run tests code nobody meant to ship.
 trap 'cp "$BACKUP" "$FILE"; rm -f "$BACKUP"; rm -rf "$CACHE_ROOT"' EXIT
 
+# Judged by pytest's EXIT CODE, not by grepping the tail line for the substring
+# "failed". A mutation that breaks collection (a syntax error, an unparseable
+# array entry) prints "1 error" and exits 2 — the guard fired, hard — but that
+# text does not contain "failed", so the old substring check reported "THE
+# GUARD DID NOT FIRE" over a guard that worked. Measured on 2026-08-08 against
+# this exact file's own coverage guard: a mutated crontab entry with a trailing
+# comment errored at collection, and the substring check called it a miss.
+#
+# Sets LEG_STATUS (pytest's raw exit code) and LEG_TAIL (the human-readable
+# summary line, kept because it is still the useful part of the output) as
+# globals rather than returning through command substitution — command
+# substitution can only capture stdout, and the exit code is the whole point.
+#
+# Assigned inside an `if`, not as a bare `var="$(cmd)"`: under `set -e` a bare
+# assignment whose command substitution fails aborts the script before $? can
+# be read at all. Any command tested by an `if` is exempt from that.
 run_leg() {  # $1 = leg name, used to make the cache prefix unique
-    PYTHONPYCACHEPREFIX="${CACHE_ROOT}/$1" python3 -m pytest "$TARGET" -q 2>&1 | tail -1
+    local name="$1" output
+    if output="$(PYTHONPYCACHEPREFIX="${CACHE_ROOT}/${name}" python3 -m pytest "$TARGET" -q 2>&1)"; then
+        LEG_STATUS=0
+    else
+        LEG_STATUS=$?
+    fi
+    LEG_TAIL="$(tail -n1 <<<"$output")"
+}
+
+# Classifies a pytest exit code per pytest's documented meaning:
+#   0            -> GREEN  (all tests passed)
+#   1, 2, 3      -> RED    (tests failed / run interrupted / internal error —
+#                           a collection error is 2 and MUST count as the
+#                           guard firing)
+#   4, 5, other  -> HARNESS_ERROR, not a leg result. In particular 5 ("no
+#                   tests collected") must never read as "the guard fired" —
+#                   it means TARGET was wrong, not that anything was tested.
+classify_leg() {
+    case "$1" in
+        0) echo GREEN ;;
+        1|2|3) echo RED ;;
+        *) echo HARNESS_ERROR ;;
+    esac
+}
+
+# Prints the leg's tail line plus its exit code, and aborts the whole run on
+# HARNESS_ERROR — a leg result is meaningless if pytest itself never ran the
+# suite. Sets LEG_VERDICT to GREEN or RED for the caller — NOT returned
+# through command substitution: the tail line below is printed for the human
+# reading the terminal, and wrapping this call in "$(...)" to capture a return
+# value would swallow that print into the captured string instead.
+report_leg() {  # $1 = leg label for the abort message
+    echo "   $LEG_TAIL  [exit $LEG_STATUS]"
+    LEG_VERDICT="$(classify_leg "$LEG_STATUS")"
+    if [[ "$LEG_VERDICT" == HARNESS_ERROR ]]; then
+        echo "✗ HARNESS ERROR on $1: pytest exited $LEG_STATUS, which is not a leg" >&2
+        echo "  result. Exit 5 means no tests were collected — TARGET is probably" >&2
+        echo "  wrong. Exit 4 is a pytest usage error. Fix the invocation, not the" >&2
+        echo "  mutation." >&2
+        exit 1
+    fi
 }
 
 echo "── leg 1: BASELINE — the guard must be green before it is meaningful"
-BEFORE="$(run_leg baseline || true)"
-echo "   $BEFORE"
-grep -q "failed" <<<"$BEFORE" && {
+run_leg baseline
+report_leg "leg 1 (baseline)"
+BEFORE_VERDICT="$LEG_VERDICT"
+if [[ "$BEFORE_VERDICT" == RED ]]; then
     echo "✗ the target is ALREADY RED. Fix that first — a mutation against a" >&2
     echo "  failing suite tells you nothing about the mutation." >&2
     exit 1
-}
+fi
 
 echo "── leg 2: MUTATED — the guard must now fail"
 python3 - "$FILE" "$OLD" "$NEW" <<'PY'
 import pathlib, sys
 p = pathlib.Path(sys.argv[1]); p.write_text(p.read_text().replace(sys.argv[2], sys.argv[3], 1))
 PY
-MUTATED="$(run_leg mutated || true)"
-echo "   $MUTATED"
+run_leg mutated
+MUTATED_STATUS="$LEG_STATUS"
+report_leg "leg 2 (mutated)"
+MUTATED_VERDICT="$LEG_VERDICT"
 
 echo "── leg 3: RESTORED — and green again, proving the harness cleaned up"
 cp "$BACKUP" "$FILE"
-AFTER="$(run_leg restored || true)"
-echo "   $AFTER"
+run_leg restored
+report_leg "leg 3 (restored)"
+AFTER_VERDICT="$LEG_VERDICT"
 
 echo
-if grep -q "failed" <<<"$MUTATED" && ! grep -q "failed" <<<"$AFTER"; then
-    echo "✓ MUTATION DEMONSTRATED — the guard fails when the property is violated"
+if [[ "$MUTATED_VERDICT" == RED && "$AFTER_VERDICT" == GREEN ]]; then
+    echo "✓ MUTATION DEMONSTRATED — the guard fails when the property is violated (leg 2 exit $MUTATED_STATUS)"
     exit 0
 fi
-if ! grep -q "failed" <<<"$MUTATED"; then
-    echo "✗ THE GUARD DID NOT FIRE. The mutation broke the property and every test" >&2
-    echo "  still passed. Either nothing asserts this property, or the assertion" >&2
-    echo "  cannot distinguish the mutated value from the original." >&2
+if [[ "$MUTATED_VERDICT" == GREEN ]]; then
+    echo "✗ THE GUARD DID NOT FIRE — and this result is AMBIGUOUS. Three causes," >&2
+    echo "  and you must tell them apart before acting:" >&2
+    echo "    1. nothing asserts this property (a missing guard — the usual case)" >&2
+    echo "    2. the assertion cannot distinguish the mutated value from the original" >&2
+    echo "    3. THE MUTATION ITSELF DID NOT CHANGE BEHAVIOUR — it applied to the" >&2
+    echo "       file but altered nothing the code actually depends on. The guard" >&2
+    echo "       is fine and the mutation missed." >&2
+    echo "  Refusing an absent OLD rules out the crudest form of 3, not all of it." >&2
+    echo "  Confirm the mutated line is on a path the target exercises before you" >&2
+    echo "  conclude a guard is missing: deleting a working guard on a wrong" >&2
+    echo "  mutation is the expensive direction of this error." >&2
     exit 1
 fi
 echo "✗ THE TREE DID NOT RESTORE CLEANLY — red after restore. Investigate before" >&2

@@ -47,8 +47,19 @@ jobs:
       # The executability sweep. A name used but never imported passes every
       # unit test and crashes at runtime — it once killed the last leg of a
       # 40-minute pipeline. Cheap, and it catches a class the suite cannot.
+      # Unscoped on purpose: a hand-maintained path list silently excludes the
+      # next Python tree from F821 coverage, which is exactly what the Testing
+      # Standard's "a control that no gate runs is not a control" clause names
+      # as breaking ("a permanent allowlist entry excluding a file from the
+      # check written for it"). An unscoped sweep does NOT walk
+      # .claude/worktrees/ despite appearances: ruff honours .gitignore, which
+      # excludes that directory, and in CI the directory never exists at all
+      # (it is gitignored and never checked out). Measured against the main
+      # clone: `ruff check --select F821 . --show-files` lists 68 files, zero
+      # of them under .claude/worktrees/, though hundreds of .py files sit
+      # there.
       - name: Executability sweep
-        run: ruff check --select F821 scripts/workflows/temporal
+        run: ruff check --select F821 .
 
       # The runner writes per-suite logs. On a red run they are the first
       # thing a human wants and the one thing a CI page does not show.

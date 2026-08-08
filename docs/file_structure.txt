@@ -138,7 +138,8 @@ claude-dot-files/
 │       │   ├── stateful_patterns.md                 # Persistence boundaries, idempotent writes, cleanup on failure
 │       │   ├── temporal_standard.md                 # Three-layer architecture, ACTIVITY_MAP, directory structure
 │       │   └── worker_deployment_standard.md        # Worker segmentation, queue naming, immutable images
-│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/. No README yet — see issue #35
+│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/
+│       │   ├── README.md                            # Applicability: which half of the vendored standard binds HERE, and how this repo diverges
 │       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
 │       ├── agents.md                                # Standards for writing custom agents
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
@@ -213,15 +214,28 @@ claude-dot-files/
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
 │                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
-│                   └── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
+│                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
+│                   └── test_testpaths_matches_discovery.py # pytest.ini's testpaths lists every tests/ dir python.sh discovers — a bare
+│                                                        #   `pytest` must never silently cover less than run-all.sh while both report green
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
+│   ├── README.md                                    # How to run the suite and how to add a test
 │   ├── run-all.sh                                   # Master runner — the single "run everything" entry point.
 │   │                                                #   ./testing/run-all.sh [unit|integration|e2e] [component]
 │   ├── suites/
 │   │   └── python.sh                                # pytest suite runner. pytest is the ONLY adopted framework here, so it is the
 │   │                                                #   only runner — a bash/bats runner gets added with the first .bats file, not before.
 │   │                                                #   Refuses to run at all while a test_*.py sits outside tests/{unit,integration,e2e}/
+│   ├── scripts/
+│   │   └── mutate.sh                                # Mutation harness — falsify a guard, show red, restore, show green. Gives every leg
+│   │                                                #   its own PYTHONPYCACHEPREFIX; a length-preserving edit would otherwise run stale .pyc
+│   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
+│   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
+│   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
+│   │   └── tests/unit/
+│   │       └── test_block_dangerous.py              # Characterization suite for the PreToolUse safety hook (issue #52). Attack corpus +
+│   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
+│   │                                                #   A pattern added to the hook without a deny case FAILS the coverage guard here
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .gitignore                                       # Git ignore rules
