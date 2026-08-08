@@ -149,12 +149,61 @@ with a matching `{"type":"system","subtype":"permission_denied","tool_name":"Bas
 
 *(Source: `dual_channel_outcome_records.md` T5.)* *Because:* the case for replacing the prose channel is currently a robustness argument, not a demonstrated-defect argument, and a doc claiming the incumbent is broken would be overclaiming. **This experiment is the only thing that can convert that argument, in either direction — so its method has to be stated, or a zero is unreadable.**
 
-- [ ] Replay every archived `.claude/logs/*.jsonl` through the exact predicate the parents use today (`grep -oE '^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$'`, last match wins)
-- [ ] **State the adjudication procedure before counting.** "A real verdict is present" is established by a deliberately looser unanchored search over the final assistant message, producing a candidate set; the difference between the loose and strict match sets is adjudicated by hand. Report the raw strict count, the raw loose count, and the adjudicated miss count separately
-- [ ] Count the runs where the strict predicate found nothing but adjudication says a verdict was present — this is the headline number
-- [ ] Separately count runs where the predicate matched a verdict quoted from a *previous* pass rather than the run's own. The anchored, last-match-wins design is meant to prevent this, and the count tests that it does
-- [ ] State the sample size alongside every count. A zero over 60 logs is a different claim from a zero over 600
-- [ ] **Ruling:** if the adjudicated miss count is zero, the transport upgrade buys nothing *measurable at this scale*, the roadmap's "lead with the measurement argument" decision becomes load-bearing rather than stylistic, and Phase 3's justification is rewritten accordingly. If it is non-zero, record each miss's cause
+- [x] Replay every archived `.claude/logs/*.jsonl` through the exact predicate the parents use today (`grep -oE '^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$'`, last match wins)
+- [x] **State the adjudication procedure before counting.** "A real verdict is present" is established by a deliberately looser unanchored search over the final assistant message, producing a candidate set; the difference between the loose and strict match sets is adjudicated by hand. Report the raw strict count, the raw loose count, and the adjudicated miss count separately
+- [x] Count the runs where the strict predicate found nothing but adjudication says a verdict was present — this is the headline number
+- [x] Separately count runs where the predicate matched a verdict quoted from a *previous* pass rather than the run's own. The anchored, last-match-wins design is meant to prevent this, and the count tests that it does
+- [x] State the sample size alongside every count. A zero over 60 logs is a different claim from a zero over 600
+- [x] **Ruling:** if the adjudicated miss count is zero, the transport upgrade buys nothing *measurable at this scale*, the roadmap's "lead with the measurement argument" decision becomes load-bearing rather than stylistic, and Phase 3's justification is rewritten accordingly. If it is non-zero, record each miss's cause
+
+#### E5 — Observed
+
+**Corpus: 73 archived JSONL**, not the 60 this doc recorded on 2026-08-07 — the fleet ran 13 more times on 2026-08-08 alone. Replay tool kept at [`scripts/helpers/measure/replay_completion_predicate.py`](../../../scripts/helpers/measure/replay_completion_predicate.py); its module docstring states why it is kept rather than deleted as a one-shot (the denominator grows, and `D-007` re-reads this number).
+
+**Adjudication procedure, stated before the counts, exactly as required.**
+- **Strict** = the predicate verbatim from `review-pr.sh:186` / `routing.py:43` (`^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$`, multiline, last match wins), and verbatim from the six PR-URL declarations, applied to `.result` as `run-claude.sh:201-204` applies it.
+- **Loose** = deliberately weaker: unanchored, case-insensitive, tolerant of markdown emphasis and leading whitespace (`VERDICT:?\s*\**\s*(MERGE|HOLD)`). This is the candidate set.
+- A log is a **miss** only where strict found nothing *and* hand adjudication of the envelope says a real terminal outcome was present. Every strict/loose difference and every strict-negative was opened by hand; the adjudications are recorded below individually.
+
+**Scoping correction — 22 of the 73 are anachronistic and are excluded, with the exclusion stated rather than hidden in a denominator.** Applying today's predicate to a log from a workflow that did not declare one measures a rule that was not in force. `revision` (6) and `revision-major` (13) are **retired** — no such script exists in `scripts/workflows/` today. `review-runs` (3) exists but declares no `COMPLETION_PATTERN` at all. All 22 are from 2026-04. **In-scope corpus: 51 logs** across the 10 workflows that declare a pattern today.
+
+| | denominator | strict matched | strict found nothing | loose matched | strict ≠ loose |
+|---|---|---|---|---|---|
+| **`VERDICT` predicate** (`review-pr`) | **14** | **14** | **0** | 14 | **0** |
+| **PR-URL predicate** (9 workflows) | **37** | **34** | **3** | 34 | **0** |
+| in-scope total | **51** | 48 | 3 | 48 | **0** |
+| *(excluded: retired / no pattern)* | *22* | *17* | *5* | *17* | *0* |
+
+**The three in-scope strict-negatives, adjudicated individually — all three are CORRECT REJECTIONS, none is a miss:**
+
+| Log | Envelope | Adjudication |
+|---|---|---|
+| `build-draft-minor-20260806-173722` | `subtype: error_max_turns`, `num_turns: 101/100`, **`result` key absent**, `errors: ["Reached maximum number of turns (100)"]` | No PR URL anywhere in the file. The run genuinely produced nothing. Correct rejection. |
+| `build-draft-minor-20260808-122206` | `subtype: error_max_turns`, `num_turns: 101/100`, **`result` key absent** | **A `github.com/…/pull/N` URL IS present in the file** — the run opened a PR and then died at its cap. The predicate correctly reports no completion (nothing was in `.result` because there was no `.result`), and `run-claude.sh:167` fires first regardless. Correct rejection — but see the ruling. |
+| `build-draft-20260808-145403` | **no `result` event at all** — the JSONL ends without one | Truncated log. `jq -r '… .result // ""'` yields `""` and the check fails loud. Correct rejection. |
+
+**Adjudicated miss count: 0 of 51.** Zero of 14 for the `VERDICT` predicate specifically.
+
+**Quoted-prior-pass matches: 0 of 14.** No `review-pr` log contained more than one strict `^VERDICT:` match anywhere in its assistant-text stream, so the anchored last-match-wins design was never even put under load. One log had two strict matches (`revision-major-20260410-115958`, two PR URLs) — out of scope, retired workflow, and PR-URL not `VERDICT`.
+
+**A surface difference between the two parsers, found while reconstructing the predicate and worth recording because it is not what the design assumes.** `run-claude.sh:204` applies the pattern to `jq -r '.result'` — the final result only. `build.sh:277` and `build-minor.sh:281` apply it to `"$log"`, the **tee'd console output of the whole child process**, which carries every streamed assistant message. The parent's surface is strictly wider than the child's. Replayed over the reconstructed assistant-text stream, the two surfaces agreed on **51 of 51** logs — but that is agreement by luck of the corpus, not by construction: a model that writes a well-formed `VERDICT:` line mid-run and then a different one at the end would route the parent one way and pass the child's gate another.
+
+**Turn-cap rate, cross-checked against this doc's own cited figure.** `run-claude.sh:159` records **0.9% (4/443 runs, 3 of them from April)**. The archived corpus shows **2 `error_max_turns` in 73 logs (2.7%)**, or **2 in 51 in-scope (3.9%)** — and *both are from August* (2026-08-06, 2026-08-08), where the cited figure had only one non-April occurrence. The two denominators are not the same population (443 runs vs 73 archived logs), so this is **not** a claim that the rate rose. It is a flag: the cited comment's own reopen condition is "if the rate climbs", and the only sample that can be checked today runs 3–4× the recorded figure. Surfaced for the operator; not fixed here.
+
+#### E5 — Ruling
+
+**NO-OP for the defect argument, and it CHANGES what Phase 3's justification is allowed to say.**
+
+The adjudicated miss count is **zero over 51 in-scope logs, zero over the 14 that carry the `VERDICT` predicate**. The strict and loose match sets are identical — there is not a single log where a real verdict was present in a shape the anchored predicate could not see. The prose grep has never, in the archived history, produced a wrong route or a missed one.
+
+**Consequences, named:**
+
+1. **Phase 3's justification is rewritten to lead with the measurement, and the measurement is this zero.** The roadmap's "lead with the measurement argument" decision becomes **load-bearing rather than stylistic**: a Phase 3 doc that opens by calling the incumbent broken would be contradicted by its own phase's evidence.
+2. **The transport upgrade's case does not rest here — it rests on E1(d).** E5 found no defect in the predicate *given a `.result` to read*. E1 found that on every error subtype **there is no `.result` to read at all**, and this replay reproduced that in the wild: 2 of 51 archived runs (3.9%) had the `result` key absent, one of them after having already opened a PR. **The prose channel's failure mode is not misparsing; it is non-existence.** Phase 3 argues from the channel's absence under failure, not from the grep's accuracy. That is a stronger and a *measured* argument, and it is the one E5 was supposed to be able to supply in either direction.
+3. **The `zero` is small and must be reported as small.** 14 logs for the `VERDICT` predicate is a thin base. This ruling states a zero over 14, not a zero over the fleet's history.
+
+**What this feeds — `D-007`, and this is written to be usable as that row's evidence directly.** Open direction row `D-007` (`docs/standards/architecture/research/direction.md:67`) asks whether the VERDICT-token-on-stdout completion contract *stands unchanged*, *gains a write-time gate*, or *is replaced*. Its stated tension is that every located comparable system pairs machine-parsing-a-human-artifact with authoring-time enforcement while ours has none, against no evidence the incumbent ever mis-routed. **This experiment supplies the missing half of that: the miss count is 0/14 for the token specifically and 0/51 across both patterns, with the loose set identical to the strict set.** Two further inputs `D-007` did not have: (a) a write-time gate **already exists** on the child side — `run-claude.sh:201-204` fails the run loud when the pattern is absent from `.result`, which is authoring-time enforcement by any reasonable reading, so the "ours has none" premise is *false as stated*; and (b) the parent's parse surface (`build.sh:277`, the whole console) is wider than the gate's (`.result`), so the gate does not cover everything the parent reads. **`D-007` is the operator's to rule and this phase does not rule it** — but the ruling it needs to make is now the narrower one of whether that surface mismatch is worth closing, not whether the token has been missing routes.
+
 
 ### E7 — Does the convergence delta ever fire?
 
