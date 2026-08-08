@@ -981,7 +981,7 @@ Real, and **not a prompt fix.** A parent hands a child a PR number; the child re
 
 **Watch-criteria: ship as part of the Memory Management phase doc, or immediately if a correction pass MISREADS a runway** — as opposed to merely finding it awkward to read. A pass that acts on the wrong prior finding is a different severity from one that pages through 37KB and gets it right.
 
-> **→ SHIPPED 2026-08-08, as [`docs/guide/memory-model.md`](../guide/memory-model.md) § 6**, by Memory Management Framework [Phase 2](memory-management-framework/phase2_kind1_framework.md). The first watch-criterion fired as written. What shipped is the **addressing convention** — container id, block marker, ordering rule, sequence number — stated at both the interface layer (§6.1) and this fleet's binding (§6.2), which is the part that was missing; the *mechanism* that makes retrieval cheap is [Phase 3](memory-management-framework/phase3_typed_exit_record.md)'s.
+> **→ SHIPPED 2026-08-08 at commit `ff0b188` (refined at `6ff9b4e`), as [`docs/guide/memory-model.md`](../guide/memory-model.md) § 6**, by Memory Management Framework [Phase 2](memory-management-framework/phase2_kind1_framework.md), PR #67. The first watch-criterion fired as written. What shipped is the **addressing convention** — container id, block marker, ordering rule, sequence number — stated at both the interface layer (§6.1) and this fleet's binding (§6.2), which is the part that was missing; the *mechanism* that makes retrieval cheap is [Phase 3](memory-management-framework/phase3_typed_exit_record.md)'s.
 >
 > **Two things the phase measured that this entry should carry forward:**
 >
