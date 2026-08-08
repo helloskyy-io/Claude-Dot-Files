@@ -90,9 +90,11 @@ claude-dot-files/
 │   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
 │   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
 │   │   ├── github-actions-integration/              # HISTORICAL (Apr 2026) — record of what was planned
+│   │   ├── fleet-reliability/                       # RESEARCH ONLY — no plan yet; pool backs the liveness predicate and stall axis
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
+│   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
-│   │   ├── memory-management-framework/             # PLANNED — the only component on the §0 full structure (roadmap + 5 phase docs)
+│   │   ├── memory-management-framework/             # PLANNED — the first component on the roadmap+phases shape sprint.md mandates
 │   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
 │   │   │   ├── phase1_measure_the_channel.md        # Five experiments; two can shrink Phase 3. Measure before designing
 │   │   │   ├── phase2_kind1_framework.md            # Kind 1 written down as an interface, not prose describing behaviour
@@ -102,6 +104,7 @@ claude-dot-files/
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
+│   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
 │   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md

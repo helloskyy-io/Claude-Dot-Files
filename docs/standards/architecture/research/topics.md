@@ -83,7 +83,7 @@ Cycle 3 asked *is the trajectory right, and what are we missing for the end goal
 - **The novelty question.** Closed by cycle 2, accepted by the problem statement.
 - **Temporal Cloud pricing, billable Actions, serverless worker patterns.** Ruled out by `system-overview.md` § *Deployment target*. Cycle 3 spent effort here against a decision made 2026-07-12; that is not repeated.
 - **The two stubs in `problem-statement.md`** — the SkyyNet/SkyyCommand frame and the building-and-industrial-automation edge. Both are marked deliberately incomplete and await their own exercise. This cycle fills gaps *around* them and does not fact-check them as claims.
-- **Inter-process handoff contracts — the wire format.** Redirected to `docs/development/phases/memory-management-framework/research/` by an earlier cycle; that redirect stands.
+- **Inter-process handoff contracts — the wire format.** Redirected to `docs/development/memory-management-framework/research/` by an earlier cycle; that redirect stands.
 
 ## Retirements
 
