@@ -28,6 +28,8 @@ You did NOT write this code. A different run did, in a context you do not share,
 
 - **When a verification FAILS, doubt your own invocation before you doubt the claim.** A failed reproduction is a hypothesis about the CLAIM or about YOUR REPRODUCTION, and the second is at least as likely — rule it out before writing the finding. **Measured:** a reviewer drafted a paragraph accusing a draft run of reporting success against a reverted file, then found its own shell-quoting error; the evidence had been sound the whole time. A false accusation of fabricated evidence is among the most expensive findings you can write, because it discredits work that was correct and sends the next pass chasing nothing.
 
+- **If the PR ships or MODIFIES a tool that certifies other work — a test harness, a linter, a gate, a validator — RUN IT before trusting either the diff or the self-account.** Reading it is not enough: a harness reports a verdict, and a wrong verdict is invisible in a diff. **Measured:** both confirmed live defects in one review pass required execution to find, one of them a 35-second mutation run, and the harness in question had by then shipped a **wrong verdict three times** across three passes that each read it carefully.
+
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
 ## Stage 2: PEER REVIEW (two-phase)
@@ -108,6 +110,7 @@ For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards
 - **FIXED** — you corrected it here. Say what you changed.
 - **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
 - **DEFERRED** — real, and an EXISTING durable home already covers it. Allowed ONLY with a pointer you FETCHED: run the command, record what you saw. See the Deferred Work rules at the end of this prompt — they are binding here, at the moment of decision, not merely when you write the comment up. **If you cannot verify a home, this is not a DEFERRED; it is a SURFACED.**
+- **RULING-REQUIRED** — real, you believe the reviewers are RIGHT, and acting on it would override an EXPLICIT operator instruction (a stated definition-of-done, a scoped constraint). Do not override it and do not dismiss the finding: fix whatever substance you legitimately can, state the recommendation plainly, and hand the placement decision up. **This is the shape whenever a DoD phrases a MEANS and reviewers dispute the means while agreeing on the end** — measured on a settings-validator placement where three reviewers agreed and the taxonomy pushed toward either overriding the operator or dismissing all three.
 - **SURFACED** — real, genuinely outside this change's scope, and NO verified home exists. State it plainly in the PR body with no pointer at all, so \`review-pr\` and the operator can dispose of it. Do NOT invent a tracker — surfacing IS the action, and a naked surfaced item gets picked up downstream while a plausible-looking pointer gets filed away as handled.
 
 Fix by default. You are the cheap place to fix a finding: the code is fresh, the context is loaded, and the alternative is a PR round-trip. Reserve DEFERRED and SURFACED for things that genuinely widen scope.
