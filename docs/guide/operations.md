@@ -24,7 +24,7 @@ morning  →  /standup  →  rule on what it surfaces  →  dispatch  →  (asyn
                 └──────────────  review-pr.sh  ←──  PR returns  ←─────┘
 ```
 
-**1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, `direction.md`'s open rulings, and merges since the window. **It is a writer on three of the four surfaces** — it reconciles the tracker, closes an issue whose work it verified done with the evidence in the closing comment, and rotates ruled rows out of `direction.md`. Everything else is a read. The writes are what stop a finished item being re-reported every morning forever; the full write set is enumerated in [`memory-model.md` §2.3](memory-model.md).
+**1. Sign on and run `/standup`.** It reads the standup tracker first — that is where you left off, and it reframes everything after it — then sweeps open PRs and their `pr_review:` verdicts, open issues, `direction.md`'s open rulings, and merges since the window. **It is a writer on three of the four surfaces**, and everything else it does is a read. The writes are what stop a finished item being re-reported every morning forever; which three, and the line in `standup.md` that declares each, are enumerated in [`memory-model.md` §2.3](memory-model.md) and stated nowhere else.
 
 **2. Rule on what it surfaces.** This is the part that earns the command, and it is the part that rots if skipped:
 
@@ -190,7 +190,7 @@ Interactive-mode prompt templates. Type `/<name>` in a session.
 | Command | What it does | Example |
 |---|---|---|
 | `/get-started` | Session primer — sets working roles, the dual-workflow model, and the operating pattern. Run at the start of a session. | `/get-started` |
-| `/standup` | Reads the standup tracker, then sweeps PRs, issues, and merges into an attention brief. Writes in two places only: reconciling the tracker, and closing a verified-done issue. | `/standup --since 48h` |
+| `/standup` | Reads the standup tracker, then sweeps PRs, issues, `direction.md` and merges into an attention brief. Writer on three of the four surfaces — the write set is in [`memory-model.md` §2.3](memory-model.md). | `/standup --since 48h` |
 | `/review` | Runs `code-reviewer` on recent changes, reported by severity. | `/review` |
 | `/best-practices` | Primes the session with the industry-standard approach to a topic before you build. | `/best-practices retry backoff in distributed queues` |
 | `/decide` | Five-whys reframing cascade — reframes the question before answering, for low/mid-confidence calls. | `/decide should we pin model versions per workflow?` |
