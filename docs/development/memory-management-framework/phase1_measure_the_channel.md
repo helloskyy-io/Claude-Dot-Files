@@ -1,6 +1,6 @@
 # Phase 1 — Measure the channel before designing it
 
-**Component:** [Memory Management Framework](roadmap.md) · **Status: not started**
+**Component:** [Memory Management Framework](roadmap.md) · **Status: complete — measured 2026-08-08, all six experiments run, thirteen rulings recorded**
 
 Six experiments the research could not settle and the design depends on. Three of them can shrink or cancel work downstream. This phase produces **a measured record, not a design** — every experiment ends in a written ruling, and the rulings are the deliverable.
 
@@ -33,7 +33,7 @@ This phase is done when all six experiments below have run against the pinned CL
 
 Required because this phase orchestrates an external runtime — the `claude` CLI, a vendor binary whose documented surface is the thing being measured.
 
-**Date performed:** 2026-08-07 · **Host:** `puma-workstation-mint` · **Performed during:** the planning run that wrote this doc
+**Date performed: 2026-08-08** (re-run for the execution of this phase; the block below replaces the 2026-08-07 planning-run version) · **Host:** `puma-workstation-mint` · **Performed during:** the build-draft run that executed E1–E7
 
 ```
 $ claude --version
@@ -42,9 +42,16 @@ $ claude --version
 $ claude --help | grep -iE "json-schema|output-format"
   --json-schema <schema>                JSON Schema for structured output
   --output-format <format>              Output format (only works with --print):
+
+$ claude --help | grep -c -- "--max-turns"
+0
 ```
 
-**What this establishes.** `--json-schema` and `--output-format` are both present on the CLI actually installed here. The upstream paper documents `structured_output` as available from v2.1.205+; the installed version is **2.1.224**, so the transport this component's Key Decisions name as option (a) is not hypothetical. **What it does NOT establish** — and E1 is what settles it — is whether the flag delivers a validated `structured_output` under `--dangerously-skip-permissions`, inside a worktree, at a child's turn budget. Flag presence is not flag behaviour.
+**What this establishes.** `--json-schema` and `--output-format` are present on the CLI actually installed here; the version is unchanged from the planning run at **2.1.224**, so the E1–E7 measurements and the planning assumptions were taken against the same binary. The upstream paper documents `structured_output` as available from v2.1.205+, so the transport this component's Key Decisions name as option (a) is not hypothetical.
+
+**What the 2026-08-07 version of this block did NOT check, and should have.** `--max-turns` — the flag **every dispatch in the fleet passes** (`run-claude.sh:139`) — **does not appear in `claude --help` on 2.1.224 at all.** E1 measured it: it still parses and still works (`error_max_turns` fired correctly with the cap honoured). But a block that verifies two flags the design *might* use while omitting the one the fleet *already depends on* is verifying the wrong surface. **Any future re-run of this block includes `--max-turns` and `--dangerously-skip-permissions`.**
+
+**Flag presence is not flag behaviour, and E1 settled the behaviour.** Under `--dangerously-skip-permissions`, inside a worktree, at a child's turn budget: `--json-schema` delivers a `structured_output` object that validates — and **`--json-schema` takes an inline JSON string, not a file path** (a path fails with `--json-schema is not valid JSON: JSON Parse error: Unrecognized token '/'`). See E1 for the full tuple table.
 
 **The incumbent surfaces, verified by reading the shipped code** (not by citing a description of it):
 
@@ -55,15 +62,18 @@ $ claude --help | grep -iE "json-schema|output-format"
 | Two bash parents extract the PR URL by anchored regex | `build.sh:198`, `build-minor.sh:202` |
 | The runtime reads the envelope's `subtype` for turn-cap death | `scripts/workflows/activities/run-claude.sh:167` |
 | The runtime reads `.result` against the declared completion pattern | `scripts/workflows/activities/run-claude.sh:201-204` |
-| Measured turn-cap termination rate, already recorded by the fleet | `run-claude.sh:157-160` — **0.9% (4/443 runs)** |
+| Measured turn-cap termination rate, already recorded by the fleet | `run-claude.sh:157-160` — **0.9% (4/443 runs)**. Cite verified 2026-08-08 (the figure is at `:159`). **E5 cross-checked it and the only re-measurable sample runs 3–4× higher** — 2 `error_max_turns` in 73 archived logs (2.7%), both from August. Different populations, so not a claim the rate rose; see E5 |
 | The routing vocabulary is declared once in the Python tree | `scripts/workflows/temporal/modules/assistant/routing.py:24-56`, re-exported at `review_pr/review_pr_helper.py:67` |
 | Completion patterns are declared in **both** fleets | `grep -rnE "COMPLETION_PATTERN\s*=" scripts/` → **21** total: 11 bash, 10 Python |
 | `review-pr` already emits a convergence flag and stable finding ids | `children/review-pr.sh:323` (the rule), `:355` (`converged: true\|false`), `:221` and `:357` (stable ids reused verbatim across passes) |
-| Archived run logs available for replay | `.claude/logs/` at the repo root → 60 JSONL files as of 2026-08-07 |
+| Archived run logs available for replay | `.claude/logs/` at the repo root → ~~60 JSONL files as of 2026-08-07~~ → **73 as of 2026-08-08**. The fleet ran 13 more times in one day; every count taken over this corpus dates fast |
+| Archived PRs available for `pr_review:` replay | `gh pr list --state all` → **38** PRs as of 2026-08-08 (32 merged, 6 closed, **0 open**), of which **7** carry a `pr_review:` block and **5** carry more than one |
 
-**Two greps this phase must run with the right pattern.** `grep -rn "COMPLETION_PATTERN=" scripts/` finds only the 11 bash declarations — Python writes `COMPLETION_PATTERN = r"…"` with spaces and is invisible to it. Use `grep -rnE "COMPLETION_PATTERN\s*="`. The same applies to any enumeration this phase produces: **a bash-shaped grep measures one of the two fleets.**
+**Two greps this phase must run with the right pattern.** `grep -rn "COMPLETION_PATTERN=" scripts/` finds only the 11 bash declarations — Python writes `COMPLETION_PATTERN = r"…"` with spaces and is invisible to it. Use `grep -rnE "COMPLETION_PATTERN\s*="`. Both counts **re-verified 2026-08-08: 11 and 21, unchanged.** The same applies to any enumeration this phase produces: **a bash-shaped grep measures one of the two fleets** — and E6 records the site that would have been lost to one (`plan_revision_workflow.py:86-95`, the issue-URL completion path).
 
-**`is_error` and `permission_denials` appear nowhere in the fleet.** Verified 2026-08-07 — `grep -rn "is_error\|permission_denial" scripts/` returns nothing. Re-verify when the phase starts; a non-empty result changes E1's framing.
+**`is_error` and `permission_denials` appear nowhere in the fleet. Re-verified 2026-08-08** — `grep -rn "is_error\|permission_denial" scripts/` still returns nothing, so E1's framing stands as written. `grep -rn "structured_output\|rate_limit_event" scripts/` likewise returns nothing: **neither the transport this phase selects nor the rate-limit signal E1 discovered has any reader today.**
+
+**The one dated dependency, checked rather than assumed.** `claude_code_integration_surface.md` carries `Last validated: 2026-07-25` and `Revalidate: high — 4 weeks`, so it **comes due 2026-08-22**. Today is 2026-08-08; it is **current**, and this phase relies on it as such. Two facts about it are worth carrying forward anyway: its **version anchor is 2.1.220** while the installed CLI is **2.1.224**, and E1 found **ten result-envelope fields its §7 does not list**. When it is revalidated, that §7 list is the section that has drifted.
 
 ---
 
@@ -99,14 +109,14 @@ Experiments are ordered by decision value: E1, E5 and E7 come first because each
 | auth failure (unreachable `ANTHROPIC_BASE_URL`) | **124** (our `timeout`) | `error_during_execution` | `true` | `aborted_streaming` | `null` | 2 / 1 | `[]` (0) | 9× | **key absent** | `["[ede_diagnostic] …"]` |
 | rate-limit exhaustion | — | — | — | — | — | — | — | — | — | — |
 
-**Rate-limit exhaustion is UN-MEASURED, not inferred.** It cannot be forced on demand without deliberately burning the account's seven-day window, which is not a throwaway-prompt cost. Per this doc's own gotcha, no row is guessed for it. What *was* observed instead is a passive signal the research did not list: a top-level stream event
+**Rate-limit exhaustion is UN-MEASURED, not inferred.** It cannot be forced on demand without deliberately burning the account's seven-day window, which is not a throwaway-prompt cost. Per this doc's own gotcha, no row is guessed for it. What *was* observed instead is a passive signal: a top-level stream event
 
 ```json
 {"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1786251600,
   "rateLimitType":"seven_day","utilization":0.83,"isUsingOverage":false,"surpassedThreshold":0.75}}
 ```
 
-appeared unprompted in the `SIGTERM` run's stream. Exhaustion is therefore **predictable before it happens**, which is a stronger observable than the post-hoc exit code this experiment went looking for. `grep -rn "rate_limit_event" scripts/` → **0 hits**: nothing in either fleet reads it.
+appeared unprompted in the `SIGTERM` run's stream. **This is NOT a new discovery and this doc does not claim it as one** — `liveness_signal_measurement.md` Finding C already records `rate_limit_event` as a typed first-party message (`class RateLimitEvent` in the Python SDK's `types.py`), and the `claude_code_integration_surface.md` §7 list this phase cites is an *envelope* field list, which is a different surface. What is incremental here is the **variant**: that paper observed `rateLimitType: "five_hour"` with `status: "allowed"`; this run observed `"seven_day"` with **`status: "allowed_warning"`, `utilization: 0.83` and `surpassedThreshold: 0.75`.** Exhaustion is therefore **predictable before it happens**, which is a stronger observable than the post-hoc exit code this experiment went looking for. `grep -rn "rate_limit_event" scripts/` → **0 hits**: nothing in either fleet reads it, in either fleet's language.
 
 **`permission_denials[]` non-empty, observed once (1 of 9 runs, forced).** Full entry:
 
@@ -372,19 +382,120 @@ Four runs, all with `--json-schema` declared, real child shape (`-w`, `--dangero
 
 *(Source: `dual_channel_outcome_records.md` T6.)* *Because:* the proposed envelope is roughly five fields derived from one caller, and every field a parent branches on becomes API surface the moment it does. The union must be enumerated, not guessed.
 
-- [ ] Enumerate every branch point in the bash parents (`build.sh`, `build-minor.sh`, `build-phase.sh`) **and** the Python parents under `scripts/workflows/temporal/modules/assistant/`, recording the value each one reads. Use language-agnostic patterns; a bash-shaped grep sees half the fleet
-- [ ] Add the values [Phase 5](phase5_convergence_stopping.md)'s convergence comparison needs — that consumer is specified
-- [ ] **Add nothing on behalf of [Autonomous Operation](../autonomous-operation/autonomous-operation.md).** Its own doc says it is not designed and not to be built toward; a field invented for it would become permanent API surface on a guess. Unanticipated consumers are served by Phase 3's additive `schema_version` extension rule
-- [ ] Take the union, and for each field state which consumer requires it. **A field with no named consumer does not enter the envelope**
-- [ ] Verify the enumeration is complete by grepping for prose parsing across both fleets (`grep -rnE "grep -oE|re\.search|re\.compile" scripts/workflows/`) and checking every hit is either in the list or explicitly out of scope
-- [ ] **Ruling:** the concrete field list Phase 3 writes down as its contract, with each field's consumer named beside it
+- [x] Enumerate every branch point in the bash parents (`build.sh`, `build-minor.sh`, `build-phase.sh`) **and** the Python parents under `scripts/workflows/temporal/modules/assistant/`, recording the value each one reads. Use language-agnostic patterns; a bash-shaped grep sees half the fleet
+- [x] Add the values [Phase 5](phase5_convergence_stopping.md)'s convergence comparison needs — that consumer is specified
+- [x] **Add nothing on behalf of [Autonomous Operation](../autonomous-operation/autonomous-operation.md).** Its own doc says it is not designed and not to be built toward; a field invented for it would become permanent API surface on a guess. Unanticipated consumers are served by Phase 3's additive `schema_version` extension rule
+- [x] Take the union, and for each field state which consumer requires it. **A field with no named consumer does not enter the envelope**
+- [x] Verify the enumeration is complete by grepping for prose parsing across both fleets (`grep -rnE "grep -oE|re\.search|re\.compile" scripts/workflows/`) and checking every hit is either in the list or explicitly out of scope
+- [x] **Ruling:** the concrete field list Phase 3 writes down as its contract, with each field's consumer named beside it
+
+#### E6 — Observed
+
+**`build-phase.sh` is not a parent.** It was named in the checklist as one of three bash parents; it calls `run_claude` directly at `:502` and `:537` and invokes **no child**, so it has zero branch points on a child's output. Correcting that leaves **two** bash parents, not three.
+
+**Every branch point on a child's output, both fleets. 15 sites.**
+
+| # | Site | Value read | Read from |
+|---|---|---|---|
+| **B1** | `build.sh:198`, `build-minor.sh:202` | PR URL, **last match wins** | child's tee'd console |
+| **B2** | `build.sh:199-203`, `build-minor.sh:203-207` | PR URL **absent** → hard `exit 1` | same |
+| **B3** | `build.sh:205`, `build-minor.sh:209` | PR **number**, by `${PR_URL##*/}` string surgery | derived from B1 |
+| **B4** | `build.sh:277`, `build-minor.sh:281` | VERDICT token, **last match wins** | child's tee'd console |
+| **B5** | `build.sh:278-282`, `build-minor.sh:282-286` | VERDICT **absent** → synthesises `HOLD - needs-assistance` | same |
+| **B6** | `build.sh:329-343`, `build-minor.sh:333-347` | **3-way** on the *full string*: `MERGE` / `HOLD - needs-assistance` / (fallthrough =) `HOLD - redispatch` | `VERDICT_LINE` |
+| **B7** | `build.sh:359`, `build-minor.sh:363` | post-loop `== "VERDICT: MERGE"` | `VERDICT_LINE` |
+| **B8** | `build.sh:236,266,304,327` (`\|\| exit 1`, `if ! …`) | child **process exit status** | process |
+| **B9** | `run-claude.sh:167` | `.subtype == "error_max_turns"` | CLI result envelope |
+| **B10** | `run-claude.sh:201-204` | `.result` matches `COMPLETION_PATTERN` | CLI result envelope |
+| **P1** | `routing.py:72`, `review_pr_helper.py:84` | VERDICT token, last match wins | child stdout |
+| **P2** | `routing.py:74-76` | VERDICT absent → `(HOLD_NEEDS_ASSISTANCE, was_parseable=False)` — **returns a second bit the bash fleet has no equivalent for** | same |
+| **P3** | `routing.py:81`, used at `build_workflow.py:67`, `build_minor_workflow.py:57` | `verdict is HOLD_REDISPATCH and loops_used < MAX_LOOPS` | `Verdict` enum |
+| **P4** | `routing.py:94`, `build_helper.py:24` | PR **number**, by regex; **raises** on absence rather than returning a sentinel | child stdout |
+| **P5** | `build_workflow.py:74,77`, `build_minor_workflow.py:63,66` | 3-way on the `Verdict` enum | `Verdict` |
+| **P6** | `plan_revision_workflow.py:86-95` | **an ISSUE URL as an alternative completion token**, plus a positional `rfind` tie-break when both a PR and an issue URL appear | child stdout |
+
+**P6 is the site the bash-shaped grep would have missed, and it is the one that changes the envelope.** `plan-revision` may legitimately complete by opening a **STOP issue** instead of a PR. Because both rides are prose URLs in one text blob, the parent disambiguates by **which appears later in the output** (`output.rfind(pr) >= output.rfind(issue)`). That tie-break exists *only* because the channel is untyped; a typed field with a `kind` discriminator deletes it outright.
+
+**Out of scope, checked and named rather than dropped.** The completeness grep (`grep -rnE "grep -oE|grep -qE|re\.search|re\.compile|re\.match|\.findall|\.search\("` over `scripts/workflows/`) returned **34 hits**. Every one is accounted for:
+
+| Hits | Where | Why out of scope |
+|---|---|---|
+| 15 | the table above | in scope |
+| 9 | `research-refresh.sh:159,161`, `paper-currency.sh:43,45,46`, `research_activities.py:32,33,34,52,55` | parse **research paper front-matter** (`Last validated:`, `Revalidate:`) — a document, not a child's output |
+| 5 | `plan_activities.py:35,38,43,58,79`, `research_activities.py:91` | parse **planning tables** (`C-NNN`, `D-NNN` rows, sprint headings) — documents |
+| 3 | `assistant_activities.py:68,210`, `review_pr_helper.py:133`, `review_pr_activities.py:65` | parse the **bash scripts' own source** for the V1↔V2 parity harness — not a runtime channel |
+| 1 | `wait-for-ci.sh:61` | parses **`gh`'s** check states, not a child's |
+| 1 | `build_workflow.py:90`, `build_minor_workflow.py:77` (`ci_settled`) | an **activity return value** from `wait_for_ci`, already typed; not a child's exit record |
+
+**What Phase 5 needs, added because that consumer is specified.** Per E7's amendment: per-finding **`id`** (identity — measured to hold, 25/25 added and 0/25 renamed) and per-finding **severity/category** (the predicate E7's ruling redirects Phase 5 onto). **Not** `pass`, which E7 measured as non-dense, and **not** finding `title`, which E7 measured as unstable under a stable id.
+
+**Nothing added on behalf of Autonomous Operation.** Checked and honoured: no field below exists for it.
+
+**Three already-shipped `pr_review:` keys have ZERO programmatic readers**, verified by grep across both fleets excluding prompt strings and this phase's own measurement tools: **`converged`**, **`attempt`**, **`hold_kind`**. `hold_kind` is *aggregated by the model* into the VERDICT token (`routing.py:30` says so explicitly) and the token is what every parent reads. They are human-facing today.
+
+#### E6 — Ruling: the field list Phase 3 writes down as its contract
+
+**Nine fields. Each row names the consumer that requires it; a field with no named consumer is not here.**
+
+| Field | Type | Required by |
+|---|---|---|
+| `schema_version` | string | The parent's version-skew rule — a child in a worktree on an older revision writing to a parent on `main` (Phase 3 step 1) |
+| `outcome` | enum `merge` \| `hold` | **B6, B7, P3, P5** |
+| `hold_kind` | enum `redispatch` \| `needs_assistance`, present iff `outcome == hold` | **B6, P3, P5** — every parent branches on the *sub-kind*, so "HOLD" alone does not route. Promotes an existing key with no code reader into one with four |
+| `completion_ref.kind` | enum `pull` \| `issue` | **P6** — the sole reason `plan_revision_workflow.py`'s `rfind` tie-break exists. This field deletes that code |
+| `completion_ref.number` | integer | **B3, P4** — both fleets currently recover it by string surgery on a URL |
+| `completion_ref.url` | string | **B1, B2, P4**, and the human-facing banners at `build.sh:210,292` |
+| `permission_denials` | count + per-entry `{tool_name, matched_rule}`, **`tool_input` redacted** | **E1(f)** — an operator reviewing whether a dispatch tried something the hook stopped. Measured: the run exits **0** with `is_error: false` and `subtype: success`, so nothing else can answer it. Redaction per Phase 3 step 1 and `code_routed_control_flow.md` P13 |
+| `findings[].id` | string slug | **Phase 5** identity, and Phase 3 step 8's render↔record invariant |
+| `findings[].severity` | enum | **Phase 5**'s stopping predicate, as redirected by E7's ruling |
+
+**Explicitly NOT in the envelope, each with the reason — this half of the ruling is the one that keeps it small:**
+
+| Excluded | Why |
+|---|---|
+| `is_error` | E1(a): `== (exit != 0)` on 8 of 8 measured modes |
+| `num_turns` | E1(b): telemetry only; reported **2 against a cap of 1** |
+| `subtype`, `terminal_reason` | **Runtime-produced, not child-authored.** `subtype` routes at `run-claude.sh:167` and stays exactly where it is — the CLI's own envelope, which E1(c) confirmed is the right place. `terminal_reason` duplicates it 1:1 |
+| **`was_parseable` / any "the record is present" flag** | **A record cannot report its own absence.** P2 returns this bit today because prose parsing can half-succeed; under a typed transport it is the parent's residual arm (Phase 3 step 5), never a field |
+| `converged` | Zero code readers today, and E7 measured it disagreeing with the computed signal 1 of 1. Phase 5 rules on the key; Phase 3 does not ship it as routing surface |
+| `attempt` | Zero code readers. Human-facing continuity, and Kind 1's surface ([Phase 2](phase2_kind1_framework.md)) |
+| `findings[].title`, `pass` | E7: title is unstable under a stable id; `pass` is not dense (#31 runs 1, 2, 4) |
+| `ci_settled` | Already a typed activity return from `wait_for_ci`; not a child's exit record |
+| anything for Autonomous Operation | Its own doc says it is not designed. Served by the additive `schema_version` rule |
+
+**This CHANGES the design in one place worth naming.** The envelope the roadmap sized at *"roughly five fields derived from one caller"* is **nine**, and the four beyond the guess are `hold_kind` (four consumers, currently a human-facing key nothing reads), the `completion_ref` triple (which absorbs `plan-revision`'s issue-URL path — a second caller the five-field guess did not include), and `permission_denials`. **The union was enumerated, not guessed, and it was 80% larger than the guess.**
+
 
 ### Close-out
 
-- [ ] Every experiment above has its observed data recorded in this document — numbers and tuples, not summaries
-- [ ] Every experiment has one of the three ruling types, and each ruling names a downstream consequence in a specific phase. E1's observables get one ruling each, not one for the group
-- [ ] Any experiment that could not be run is recorded here with the reason and what it blocks; it is **not** dropped and it is **not** replaced with a guess
-- [ ] **The liveness question is closed by citation, not by measurement.** `../fleet-reliability/research/raw/liveness_signal_measurement.md` already measured the `stream-json` event vocabulary and identified the progress signals. This phase's only obligation is to confirm nothing E1 or E2 observed contradicts that paper's findings, and to say so in one line. Re-deriving it here would produce an ad-hoc phase-doc measurement competing for authority with a critic-gated paper
+- [x] Every experiment above has its observed data recorded in this document — numbers and tuples, not summaries
+- [x] Every experiment has one of the three ruling types, and each ruling names a downstream consequence in a specific phase. E1's observables get one ruling each, not one for the group
+- [x] Any experiment that could not be run is recorded here with the reason and what it blocks; it is **not** dropped and it is **not** replaced with a guess
+- [x] **The liveness question is closed by citation, not by measurement.** `../fleet-reliability/research/raw/liveness_signal_measurement.md` already measured the `stream-json` event vocabulary and identified the progress signals. This phase's only obligation is to confirm nothing E1 or E2 observed contradicts that paper's findings, and to say so in one line. Re-deriving it here would produce an ad-hoc phase-doc measurement competing for authority with a critic-gated paper
+
+**The one line, as required: nothing E1 or E2 observed contradicts `liveness_signal_measurement.md`.** Every stream event these thirteen runs produced — `system`/`init`, `system`/`thinking_tokens`, `rate_limit_event`, `assistant`, `user`, `result` — is in that paper's §2.3 observed vocabulary; its Finding C's `rate_limit_event` shape held (with the `seven_day`/`allowed_warning` variant noted in E1 rather than re-derived); and it is **current** (`Last validated: 2026-08-07`, `Revalidate: high — 3 weeks` → due 2026-08-28). Two `system` subtypes these runs produced are **not** in its §2.3 list — `api_retry` and `permission_denied` — which is an *addition* to that paper's enumeration, not a contradiction of it. Both are recorded in E1 with their full shapes; **surfacing them to that paper's next revalidation sweep is the right home, and this phase does not edit it.**
+
+---
+
+## Phase summary — the six rulings and what each one moved
+
+| Exp. | Ruling type | Downstream consequence |
+|---|---|---|
+| **E1(a)** `is_error` | **no-op** | Removed from Phase 3's envelope; Phase 4's "read the rest of the envelope" loses its `is_error` component |
+| **E1(b)** `num_turns` vs cap | **no-op** | Telemetry only in Phase 3, never a branch input |
+| **E1(c)** `subtype` | **confirms** | Phase 4's envelope read narrows to `subtype` alone, now on measured evidence |
+| **E1(d)** `.result` absent on error | **changes the design** | Phase 3 argues from the channel's *absence under failure*, not from grep accuracy |
+| **E1(e)** auth ≡ `SIGTERM` in the envelope | **changes the design** | Phase 4 cannot route auth failure from the envelope; a live unbounded-hang gap surfaced to the operator |
+| **E1(f)** `permission_denials[]` | **changes the design** | Required field in Phase 3's envelope, with a named consumer |
+| **E1(g)** transport | **confirms** | `structured_output`, plus a new constraint: the schema is an inline shell argument |
+| **E5** prose-grep miss rate | **no-op** for the defect argument | 0 misses / 51; Phase 3's justification rewritten; `D-007` given its missing evidence and one false premise corrected |
+| **E7** convergence delta | **changes the design** | **Phase 5's empty-delta predicate never fires (0/7) and is replaced with a severity-based one** |
+| **E2** partial records | **confirms** + **changes** | Completeness check and atomic write DROPPED from Phase 3; a silent `success`-path absence added to its fail-safe contract |
+| **E3(a)** disagreement policy | **no-op** | Two names, no composition engine — for a *structural* reason, not a small-N one |
+| **E3(b)** to-do bit | **changes the design** | `open` owns it (6/7 disagreements, 31/38 PRs have no typed verdict); Phase 3 states what the typed verdict is for instead |
+| **E6** envelope union | **changes the design** | Nine fields, not the roadmap's "roughly five"; `plan-revision`'s issue-URL path is a second caller the guess omitted |
+
+**Amendments made to downstream phase docs, per this phase's own mandate:** [Phase 3](phase3_typed_exit_record.md) step 1 (E1, E2), step 5 (E2 — one requirement dropped, one added), step 6 (E3, two rows); [Phase 5](phase5_convergence_stopping.md) step 2 (E7 — premise confirmed), step 3 (E7 — **predicate replaced**), step 4 (E7 — one mode answered). Phase 4 is **not** amended: E1(c) and E1(e) change what it reads, but its checklist is written at a level that already accommodates both, and amending it to restate a Phase 1 ruling would duplicate rather than direct.
 
 ---
 
