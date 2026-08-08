@@ -14,6 +14,10 @@ Follow these stages exactly:
 
    Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
 
+**VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.** A dispatch states facts in passing — a line number, a count, "this changes none of X", "both run clean, so gating them is a one-line addition". Those read as verified context and they are not. **Measured three times in one day:** a task asserted a change touched no prompt content when a stage was literally titled for the thing it touched; a task asserted two checks "cannot go red on arrival", true on a workstation and false on every runner, which made its own scope unbuildable as written; and a planning run propagated a wrong binding-standard citation into a phase's sizing. Each was one grep from being caught.
+
+   **The deferral rule's standard applies here too — verification is by fetch, never by plausibility.** Check every count, path, line citation and "changes none of X" claim the task makes THAT YOUR PLAN DEPENDS ON. When one is false, say so explicitly in your assessment and proceed on what is true: **a task premise is evidence, not instruction.** If its falsity changes the scope — an item that cannot be built as specified, a phase that is bigger than the task thought — say that too, rather than quietly building the smaller thing that still fits.
+
    TURN-BUDGET DISCIPLINE: you have 100 turns. Commit as soon as a coherent unit of work is verified — do NOT carry completed, tested work uncommitted while you continue. If you approach the cap with uncommitted work, STOP what you are doing, commit and push it immediately, and report what remains. Work that dies uncommitted in a worktree is lost silently; work that is committed and pushed is resumable by the next dispatch.
 
 2. IMPLEMENT: Before writing code, discover the applicable standards:
@@ -28,6 +32,8 @@ Follow these stages exactly:
    EXECUTION-CONTEXT CHECK: if your change moves code into a different execution context — a subshell, command substitution \$( ), a pipeline, a background job, a trap — enumerate EVERYTHING that context changes before you finish. Command substitution alone clears errexit AND captures stdout: one such move produced a failed \`kubectl apply\` reported as success, plus a swallowed error message, as two separate defects found in two separate passes.
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
+
+   CAN IT FAIL? If you write or modify a structural/contract/grep-style test, a CI workflow step, a lint gate, or test-harness code, DEMONSTRATE it fires: break the property in a scratch copy, confirm red, restore. (Measured: seven negative controls written for a CI gate, all seven fired, one reproducing a real historical outage.) A gate that cannot go red is the purest form of manufactured confidence, and the light tier has no review agents to catch it for you.
 
 4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build: <short description>"
 

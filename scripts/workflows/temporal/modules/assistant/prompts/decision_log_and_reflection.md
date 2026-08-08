@@ -31,6 +31,13 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
 **If you cannot verify it, you may not defer to it.** Fix the item, or SURFACE it plainly with no pointer at all. An honest 'no home for this' is worth more than a plausible pointer to nothing — and a naked surfaced item gets picked up downstream, while a laundered one gets filed away as handled.
 
+**BEFORE you pick a home, answer the two PLACEMENT questions** (`engineering-quality.md` § *A deferral is PLACED*), in this order and from the candidate's BODY rather than its title:
+
+1. **Does it have a done-state TODAY?** If its remedy waits on a named trigger — a second adopter, a service reaching a date, a framework arriving — it is a **checkbox on the phase that owns that trigger**, not an issue. An issue filed for trigger-gated work sits open and unactionable until someone re-reads it.
+2. **Is it an EXPANSION of something that already exists?** An open issue, a phase item, a CPI entry that covers the same ground gets **amended**, not duplicated. Two issues describing one thing is how a queue stops being read.
+
+**Only what fails BOTH becomes a new issue, and the default is against filing.** A new issue is the last option, not the first — measured: applying these questions to one run's candidates took its filings from six to zero without losing a single item.
+
 **INVALID deferral targets — these are not homes, they are disappearances:**
 - **THIS PR** (its body, its description, its comments, 'tracked in this PR') — it dies at merge. This is the most common laundering shape and it is never acceptable.
 - A tracker you are 'about to' create — create it FIRST, then cite the real number.

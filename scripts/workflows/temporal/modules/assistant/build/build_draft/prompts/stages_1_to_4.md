@@ -19,6 +19,11 @@ Then: analyze the existing implementation and the proposed changes. Read the rel
 
 Briefly describe your assessment before proceeding.
 
+**VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.** A dispatch states facts in passing — a line number, a count, "this changes none of X", "both run clean, so gating them is a one-line addition". Those read as verified context and they are not. **Measured three times in one day:** a task asserted a change touched no prompt content when a stage was literally titled for the thing it touched; a task asserted two checks "cannot go red on arrival", true on a workstation and false on every runner, which made its own scope unbuildable as written; and a planning run propagated a wrong binding-standard citation into a phase's sizing. Each was one grep from being caught.
+
+**The deferral rule's standard applies here too — verification is by fetch, never by plausibility.** Check every count, path, line citation and "changes none of X" claim the task makes THAT YOUR PLAN DEPENDS ON. When one is false, say so explicitly in your assessment and proceed on what is true: **a task premise is evidence, not instruction.** If its falsity changes the scope — an item that cannot be built as specified, a phase that is bigger than the task thought — say that too, rather than quietly building the smaller thing that still fits.
+
+
 ## Stage 2: PLAN
 Create a focused plan for the changes. Reference existing requirements or documentation if available in docs/. Identify what files need to change, what the dependencies are between changes, and what risks exist. Keep the plan specific and actionable.
 
@@ -51,7 +56,7 @@ Run tests relevant to the changes, following the project's testing standard.
 
 **CAN THIS TEST FAIL? (do this before declaring green — a green suite is not evidence.)** Twice measured: a fully passing suite while a live credential defect was in the code. Two checks:
 1. **Call-shape match:** does the test invoke the code the way the REAL callers do? A test calling a function directly while every caller uses command substitution \`\$( )\` exercises a different execution context — errexit is cleared in a subshell, so the test cannot observe the failure the callers will hit. Match the caller's shape.
-2. **Verified negative control** (required for structural/contract/grep-style tests): demonstrate the assertion actually FIRES when the property is violated. Temporarily break the property in a scratch copy, confirm the test goes red, restore. A contract test that cannot fail is worse than no test — it manufactures confidence. (Measured: a contract-grep asserted the return path and was structurally blind to the raise channel; three credential exits were live behind it.)
+2. **Verified negative control** (required for structural/contract/grep-style tests — and **CI workflow steps, lint gates and test-harness code are squarely in this class**): demonstrate the assertion actually FIRES when the property is violated. Temporarily break the property in a scratch copy, confirm the test goes red, restore. A contract test that cannot fail is worse than no test — it manufactures confidence. (Measured: a contract-grep asserted the return path and was structurally blind to the raise channel; three credential exits were live behind it.) (Measured again, on a CI gate: seven negative controls written, all seven fired, one reproducing a real historical outage and settling step ordering empirically rather than by argument. **A gate that cannot go red is the purest form of manufactured confidence.**)
 
 **Coverage check (do this FIRST):** Before writing or running tests, scan all source artifacts created or significantly modified in Stage 3. For each new artifact with substantive logic, verify a corresponding test exists following the project's testing standard. What counts as a "corresponding test" depends on the framework — consult the project's `docs/standards/testing.md` for the framework-specific mapping. Common patterns:
 - Python: `<name>.py` → `test_<name>.py` in `tests/unit/`

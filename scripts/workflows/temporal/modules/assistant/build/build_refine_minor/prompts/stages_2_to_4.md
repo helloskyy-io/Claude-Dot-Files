@@ -24,6 +24,8 @@ You did NOT write this code. A different run did, in a context you do not share,
 
 - **Search the issue tracker for prior art before you conclude anything is new.** Run `gh issue list --repo <owner/repo> --state all --limit 30 --search \"<2-4 terms from the task and from what you found>\"`. You are one actor in a pipeline that has been filing issues about this codebase — the gap you are about to 'surface' may already be filed, with a fuller specification than you would write. **Measured:** a run independently rediscovered a CI-enforcement gap and surfaced it, unaware that an issue filed hours earlier by the downstream disposition pass already covered it in more detail; had it decided to FILE rather than surface, the result would have been a duplicate. Cite the issue number when one exists and defer to it (with a fetched pointer, per Stage 3) instead of re-deriving it.
 
+- **Verify the artifact's own PROSE as rigorously as its code, wherever that prose is load-bearing** — step comments in a CI file, header comments that state a threat model, a doc row that tells the next reader what a gate covers. **Measured:** a draft's every *measured* claim reproduced exactly, and the single highest-severity defect in the PR was one unverified cross-file sentence in a step comment — "it is covered independently by <other file>" — one read from being caught. Measured claims were reliable; **cross-file coverage claims were not.** A false statement in a file readers are trained to trust is a higher-severity defect than the same statement elsewhere, because it actively stops the next person from checking.
+
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
 ## Stage 2: PEER REVIEW (ONE lens)
