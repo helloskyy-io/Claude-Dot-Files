@@ -209,12 +209,71 @@ The adjudicated miss count is **zero over 51 in-scope logs, zero over the 14 tha
 
 *Because:* [Phase 5](phase5_convergence_stopping.md) builds a computed convergence signal, and if the delta between consecutive passes is never empty over the fleet's real history, that signal is decorative and Phases 3 and 4 would have been built partly to serve it. **This measurement was originally scheduled inside Phase 5 itself, which is exactly the "gate the same run walks past" failure this phase exists to prevent.** Its corpus exists today: archived PRs carry `pr_review:` blocks with `pass:`, stable finding ids and `converged`.
 
-- [ ] Enumerate archived PRs carrying more than one `pr_review:` block and extract each block's `pass`, finding `id` set, and `converged` value
-- [ ] Compute the finding-id delta between consecutive passes and count how often it was empty
-- [ ] Count how often the shipped `converged: true` was asserted, and cross-tab it against the computed delta — the two disagreeing is the most informative cell, because it is the difference between the class-(iii) heuristic and the class-(ii) computation
-- [ ] Count how often the same finding recurred across passes under the same id, versus recurring under a new id — this measures whether the stable-id convention actually holds in practice, which [Phase 5](phase5_convergence_stopping.md) depends on outright
-- [ ] Report every count with its denominator
-- [ ] **Ruling:** if the delta is never empty, Phase 5's predicate never fires and the phase says so before it is built. If the stable-id convention does not hold, Phase 5's step 1 becomes the phase's hard part rather than its premise
+- [x] Enumerate archived PRs carrying more than one `pr_review:` block and extract each block's `pass`, finding `id` set, and `converged` value
+- [x] Compute the finding-id delta between consecutive passes and count how often it was empty
+- [x] Count how often the shipped `converged: true` was asserted, and cross-tab it against the computed delta — the two disagreeing is the most informative cell, because it is the difference between the class-(iii) heuristic and the class-(ii) computation
+- [x] Count how often the same finding recurred across passes under the same id, versus recurring under a new id — this measures whether the stable-id convention actually holds in practice, which [Phase 5](phase5_convergence_stopping.md) depends on outright
+- [x] Report every count with its denominator
+- [x] **Ruling:** if the delta is never empty, Phase 5's predicate never fires and the phase says so before it is built. If the stable-id convention does not hold, Phase 5's step 1 becomes the phase's hard part rather than its premise
+
+#### E7 — Observed
+
+**Corpus: all 38 PRs** in `helloskyy-io/Claude-Dot-Files` (6 closed, 32 merged, 0 open). Extraction tool kept at [`scripts/helpers/measure/replay_pr_review_blocks.py`](../../../scripts/helpers/measure/replay_pr_review_blocks.py).
+
+- PRs carrying **≥1** `pr_review:` block: **7 of 38** (18%)
+- PRs carrying **>1**: **5 of 38** (13%) — #31, #33, #42, #45, #58
+- `pr_review:` blocks total: **14**
+- Consecutive-block pairs available for a delta: **7**
+
+**The finding-id delta between consecutive passes, all 7 pairs:**
+
+| PR | passes | ids **added** | ids **dropped** | findings before → after |
+|---|---|---|---|---|
+| #31 | 1 → 2 | **2** | 0 | 18 → 20 |
+| #31 | 2 → 4 | **4** | 0 | 20 → 24 |
+| #33 | 1 → 2 | **5** | 0 | 11 → 16 |
+| #42 | 1 → 2 | **3** | 0 | 6 → 9 |
+| #45 | 1 → 2 | **5** | 0 | 15 → 20 |
+| #58 | 1 → 2 | **5** | 0 | 10 → 15 |
+| #58 | 2 → 3 | **1** | 0 | 15 → 16 |
+
+**Pairs with an empty delta: 0 of 7.** **Pairs where any id was dropped: 0 of 7.** The finding-id set is **strictly monotonically growing** in every observed pass sequence — no pass ever carried fewer ids than the one before it, and the smallest delta observed was 1.
+
+**`converged` cross-tab — 14 blocks, every one carrying the key:**
+
+| | computed delta empty | computed delta non-empty | no prior block |
+|---|---|---|---|
+| `converged: true` | **0** | **1** | 0 |
+| `converged: false` | **0** | 6 | 7 |
+
+**`converged: true` was asserted exactly once in 14 blocks** — PR #42 pass 2, the only `MERGE` verdict in the corpus. Its computed delta was **3 newly-added ids** (`escalation-locator-miscited`, `nmo-source-count-33`, `analyst-fetch-asymmetry-remedy-unlisted`). **The single cell where both the class-(iii) heuristic and the class-(ii) computation had a value is a cell where they DISAGREE: 1 of 1.** The heuristic (`review-pr.sh:323` — "this pass's only findings are preventive") said converged; the delta computation says three new findings appeared. Both are defensible on their own terms, and that is precisely the point: they are measuring different things and the archive contains no case where they agree.
+
+**Stable-id convention — it holds.** 25 ids were added across the 7 pairs. Each was adjudicated against the prior pass's id set by slug and title; the two closest candidates had their finding bodies read in full:
+
+- `quality-control-findings-have-no-slot-in-the-shipped-artifact` (#45 pass 2) vs `security-lens-findings-have-no-slot-in-the-shipped-pr-body-template` (#45 pass 1) — near-identical phrasing, but the bodies show a **different reviewer, different lines, different fix**; the pass-1 finding was already fixed by pass 2. **Distinct.**
+- `merge-drops-the-model-key-guard` (#31 pass 4) vs `merge-drops-executability-guard` (#31 pass 1) — same defect *shape*, two different guards. **Distinct.**
+
+**0 of 25 added ids are a restatement of an existing finding under a new slug. 0 of 25 prior ids were dropped or renamed.** The convention holds in both directions across the whole corpus.
+
+**Two structural facts Phase 5 needs and the archive does not advertise:**
+
+1. **Pass numbers are not dense.** PR #31's blocks are `pass: 1`, `pass: 2`, `pass: 4` — there is no pass 3 block. "Consecutive passes" therefore **cannot** be derived from the `pass` integer; it must come from the ordering of the blocks that exist.
+2. **An id is stable; its `title` is not.** #45's `security-lens-findings-have-no-slot-in-the-shipped-pr-body-template` appears in both passes under the same id with a *completely rewritten* title and consequence — pass 1 states the defect, pass 2 states the fix ("the security lens now reaches the durable artifact on both Stage 6 paths"). A convergence computation that compared titles, or hashed the finding body, would see change on every pass regardless.
+
+#### E7 — Ruling
+
+**CHANGES THE DESIGN — Phase 5's predicate, as specified, never fires. This is the ruling this phase exists to be able to produce, and it is not softened to keep Phase 5 intact.**
+
+Over the entire archived history — **7 consecutive-pass pairs across 5 PRs, the only 5 that have ever had more than one review pass** — the finding-id delta was empty **zero** times. Not rarely. Never. A stopping rule reading "stop when the delta between consecutive passes is empty" would not have fired once in the fleet's history, and the set is *strictly growing*, so there is no trend toward it either.
+
+**Consequences, named:**
+
+1. **[Phase 5](phase5_convergence_stopping.md) must say this before it is built, and its predicate must change.** An empty-delta predicate is decorative. What the data actually shows is that each pass **adds** findings while the *severity* falls — which is exactly the incumbent heuristic at `review-pr.sh:323` ("the first pass whose findings are ALL preventive IS convergence"), and that heuristic *did* fire, once, correctly, on the one PR that reached `MERGE`. **The computed signal Phase 5 should build is a severity/category-based one over the typed findings, not a set-difference one.** Phase 5's checklist is amended below to record this.
+2. **The one cross-tab cell that has data is a disagreement, so Phase 5 cannot treat the shipped `converged` flag as a label to reproduce.** 1 of 1. It is a different measurement, not a noisy version of the same one.
+3. **Phase 5's step 1 is NOT the phase's hard part.** The stable-id convention holds at 25/25 added and 0/25 dropped or renamed. Phase 5 may rely on ids; it may **not** rely on titles or on `pass` numbers being dense.
+4. **This does not cancel Phases 3 and 4.** The concern the phase doc raised — that 3 and 4 would have been built "partly to serve" a decorative signal — does not land: E1(d) and E1(f) give Phase 3 consumers independent of convergence, and Phase 4's `subtype` routing is independent of Phase 5 entirely. **What is cancelled is one predicate, not a phase.**
+5. **Denominator honesty, stated plainly.** 7 pairs, 5 PRs, 14 blocks, out of 38 PRs. This is a small corpus and a bigger one could contain an empty delta. It could not, however, contain a *shrinking* id set without contradicting 7 of 7 observations, and the predicate needs shrinkage-to-zero, not merely a smaller delta.
+
 
 ### E2 — Does a turn-cap death leave a partial typed record?
 
