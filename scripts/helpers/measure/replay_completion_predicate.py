@@ -79,6 +79,26 @@ PR_OR_ISSUE_URL = re.compile(r"https://github\.com/[^ )]+/(?:pull|issues)/[0-9]+
 VERDICT_WORKFLOWS = ("review-pr",)
 ISSUE_ALTERNATIVE_WORKFLOWS = ("plan-revision", "plan-new")
 
+# Workflows that declare NO `COMPLETION_PATTERN` at all. They have no completion
+# contract to replay, so scoring them against ANY pattern manufactures misses:
+# the tool would report a workflow as failing a gate it never claimed to have.
+#
+# This is the same defect the ISSUE_ALTERNATIVE carve-out above fixes, one step
+# further out — that one scored a lawful issue-URL completion against a
+# pull-only pattern; this one scored a workflow with no pattern against a
+# pull-only pattern. The sibling was left behind when the first was fixed.
+#
+# MEASURED: with `review-runs` bucketed as `pr_url`, a re-run reported 8 strict
+# negatives where the honest in-scope figure is 2 — five of the eight were
+# artifacts of this bucketing, in a tool whose entire purpose is to report that
+# number honestly.
+#
+# Derived by exhaustive check, not by guess: every `scripts/workflows/*.sh` and
+# `scripts/workflows/children/*.sh` was grepped for `COMPLETION_PATTERN` and
+# `review-runs.sh` is the only file with none. If a second appears, it belongs
+# here in the same change that creates it.
+PATTERNLESS_WORKFLOWS = ("review-runs",)
+
 
 def workflow_of(path: Path) -> str:
     """`review-pr-20260808-110753.jsonl` -> `review-pr`."""
@@ -149,6 +169,12 @@ def main(log_dir: Path) -> int:
         elif wf in ISSUE_ALTERNATIVE_WORKFLOWS:
             pattern_kind = "pr_or_issue_url"
             strict = loose = PR_OR_ISSUE_URL
+        elif wf in PATTERNLESS_WORKFLOWS:
+            # Recorded, never scored. `None` is distinct from "did not match" and
+            # the consumer must not collapse them — a workflow with no contract
+            # cannot miss one.
+            pattern_kind = "none"
+            strict = loose = None
         else:
             pattern_kind = "pr_url"
             strict = loose = PR_URL
@@ -167,12 +193,12 @@ def main(log_dir: Path) -> int:
                     else "present"
                 ),
                 "subtype": None if envelope is None else envelope.get("subtype"),
-                "strict_result": bool(strict.search(result)),
-                "loose_result": bool(loose.search(result)),
-                "strict_console": bool(strict.search(console)),
-                "loose_console": bool(loose.search(console)),
-                "strict_matches_console": sum(1 for _ in strict.finditer(console)),
-                "last_strict_result": last_whole_match(strict, result),
+                "strict_result": None if strict is None else bool(strict.search(result)),
+                "loose_result": None if loose is None else bool(loose.search(result)),
+                "strict_console": None if strict is None else bool(strict.search(console)),
+                "loose_console": None if loose is None else bool(loose.search(console)),
+                "strict_matches_console": None if strict is None else sum(1 for _ in strict.finditer(console)),
+                "last_strict_result": None if strict is None else last_whole_match(strict, result),
                 "unparseable_lines": unparseable,
             }
         )
@@ -189,6 +215,14 @@ def main(log_dir: Path) -> int:
         print(f"# no result envelope ({len(in_flight)}) — in-flight or truncated,")
         print("#   adjudicate each before counting it as a miss:")
         for name in in_flight:
+            print(f"#     {name}")
+    unscored = [r["log"] for r in rows if r["pattern"] == "none"]
+    if unscored:
+        # Named explicitly: a silently-excluded row is indistinguishable from a
+        # row that passed, which is the failure this whole tool exists to avoid.
+        print(f"# NOT SCORED ({len(unscored)}) — the workflow declares no")
+        print("#   COMPLETION_PATTERN, so it has no contract to miss:")
+        for name in unscored:
             print(f"#     {name}")
     total_unparseable = sum(r["unparseable_lines"] for r in rows)
     print(f"# unparseable JSONL lines across corpus: {total_unparseable}")

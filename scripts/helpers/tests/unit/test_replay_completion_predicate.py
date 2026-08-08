@@ -20,12 +20,16 @@ directory; `class Test` grouping appears nowhere else in the repo.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from measure.replay_completion_predicate import (
+    ISSUE_ALTERNATIVE_WORKFLOWS,
     LOOSE_VERDICT,
+    PATTERNLESS_WORKFLOWS,
     PR_OR_ISSUE_URL,
     PR_URL,
     STRICT_VERDICT,
+    VERDICT_WORKFLOWS,
     last_whole_match,
     read_log,
     workflow_of,
@@ -254,3 +258,59 @@ def test_read_log_non_text_assistant_blocks_are_ignored(tmp_path):
     )
     _, turns, _ = read_log(p)
     assert turns == ["kept"]
+
+
+# --- The BUCKET MAPPING. It had no coverage, and it shipped a wrong number:
+# --- `review-runs` declares no COMPLETION_PATTERN, fell through to the pr_url
+# --- bucket, and the tool reported 8 strict negatives where the honest in-scope
+# --- figure was 2. Five of eight were artifacts of the tool's own bucketing,
+# --- in the one tool whose entire purpose is reporting that number honestly.
+
+
+def test_every_patternless_workflow_really_declares_no_completion_pattern():
+    """The list is a claim about the tree, so check it against the tree.
+
+    A stale entry here silently un-scores a workflow that DOES have a contract,
+    which is the same defect as the one it was added to fix, pointing the other
+    way.
+    """
+    root = Path(__file__).resolve().parents[4]
+    for wf in PATTERNLESS_WORKFLOWS:
+        candidates = list(root.glob(f"scripts/workflows/**/{wf}.sh"))
+        assert candidates, f"{wf} is listed as patternless but no such script exists"
+        for c in candidates:
+            assert "COMPLETION_PATTERN" not in c.read_text(), (
+                f"{c} DOES declare a COMPLETION_PATTERN — it has a contract and must be "
+                "scored. Remove it from PATTERNLESS_WORKFLOWS."
+            )
+
+
+def test_no_workflow_lacking_a_pattern_is_missing_from_the_list():
+    """The inverse, and the one that actually failed.
+
+    A new patternless workflow that nobody adds here falls through to the pr_url
+    bucket and is scored against a contract it never claimed — manufacturing a
+    miss. This fails the moment that happens, naming the file.
+    """
+    root = Path(__file__).resolve().parents[4]
+    scripts = list(root.glob("scripts/workflows/*.sh")) + list(
+        root.glob("scripts/workflows/children/*.sh")
+    )
+    assert scripts, "found no workflow scripts — this guard would pass vacuously"
+    for s in scripts:
+        if "COMPLETION_PATTERN" in s.read_text():
+            continue
+        assert s.stem in PATTERNLESS_WORKFLOWS, (
+            f"{s.name} declares no COMPLETION_PATTERN and is not in "
+            "PATTERNLESS_WORKFLOWS, so it is being scored against a contract it "
+            "does not have."
+        )
+
+
+def test_the_three_buckets_are_disjoint():
+    """Order-dependent if/elif means an overlap would silently resolve by
+    position rather than by intent."""
+    sets = [set(VERDICT_WORKFLOWS), set(ISSUE_ALTERNATIVE_WORKFLOWS), set(PATTERNLESS_WORKFLOWS)]
+    for i, a in enumerate(sets):
+        for b in sets[i + 1:]:
+            assert not (a & b), f"a workflow is in two buckets: {a & b}"
