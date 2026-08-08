@@ -32,10 +32,18 @@ jobs:
     # GHA default — lint-prompts.sh executes constructed prompt blocks under
     # `env -i bash -c`, which is the one plausible hang here.
     timeout-minutes: 10
+    # SHA-PINNED, DELIBERATELY, on all three actions below. This file argues
+    # elsewhere that pins exist so behaviour cannot change without a commit —
+    # six of the repo's controls now ride this one job, and a mutable tag
+    # (`@v4`) is exactly the kind of reference that argument condemns. Blast
+    # radius is bounded (`contents: read` above, no secrets configured), so
+    # the realistic exposure is not a supply-chain compromise but a poisoned
+    # green check — the currency this job trades in either way. Bump by
+    # re-resolving the tag to its current commit, not by hand-editing the SHA.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.13'
 
@@ -147,97 +155,23 @@ jobs:
       # verified nothing, which is worse than the gap it hides. Tracked at #55.
 
       # CATCHES: a malformed settings.json, and a hook path that points at a
-      # file which is not there. Nothing anywhere parses this file as a check —
-      # install.sh only symlinks it. It configures the permission model and the
-      # hooks, so a broken one can mean the hooks never load at all, silently
-      # removing the only control that operates during an autonomous run. The
-      # hook-path assertion is worth more than the parse: install.sh symlinks
-      # ~/.claude/hooks -> config/hooks, so every "$HOME/.claude/hooks/x.sh"
-      # command must resolve to an executable config/hooks/x.sh here. The
-      # zero-references guard is the same principle as the master runner's
-      # "nothing ran at all" exit: a check that silently verified nothing after
-      # a restructure looks healthiest of all.
+      # file which is not there — see scripts/helpers/check_settings.py's own
+      # docstring for the full CATCHES / DOES NOT CATCH breakdown, why the
+      # hook-path check tokenises rather than substring-matches, and why
+      # `checked == total` rather than `checked > 0`.
       #
-      # WHY IT TOKENISES INSTEAD OF SUBSTRING-MATCHING: a hook `command` is a
-      # shell command line, not a path. Splitting on a literal "$HOME/..."
-      # prefix gets it wrong in BOTH directions — a quoted "$HOME/.../x.sh"
-      # carries the closing quote into the path and goes RED on a
-      # branch-protected job for a file that is fine, while a hook written
-      # `~/.claude/hooks/x.sh` or `${HOME}/...` matches no prefix at all and is
-      # silently skipped, which is the false green this whole page argues
-      # against. shlex + expandvars/expanduser handles every spelling, and
-      # EVERY token that looks like a hooks/*.sh path is checked, so a
-      # `a.sh && b.sh` command cannot hide its second half.
-      #
-      # WHY `checked == total` RATHER THAN `checked > 0`: a bare non-zero guard
-      # only catches the case where ALL hooks became unreadable. With two hooks
-      # and one rewritten to an unrecognised form, `checked` is 1, the step is
-      # green, and one hook went unverified. Requiring every hook command to
-      # resolve closes the partial case by construction — and it catches the
-      # half of hook-scripts.md's "Always reference via $HOME/.claude/hooks/
-      # (symlinked path), never the source repo path" that actually breaks the
-      # deployment model: a source-repo path now fails loudly instead of being
-      # quietly ignored. Stated precisely, because the other half is NOT
-      # enforced — `~/.claude/hooks/x.sh` expands to the same file and passes
-      # here, so this step does not police the spelling, only that every hook
-      # command reaches an executable file under config/hooks/.
-      #
-      # DOES NOT CATCH: whether the permission globs mean what their author
-      # intended, or whether a hook does the right thing when it does load.
+      # RELOCATED from an inline heredoc here (PR #56 build-refine pass) to
+      # scripts/helpers/check-settings.sh: this was the one control in the
+      # repo an engineer could not run before pushing, and whose ability to
+      # fail lived only in a PR body. The eleven negative-control cases that
+      # proved this parse logic correct are now a committed, re-runnable
+      # pytest at scripts/helpers/tests/unit/test_check_settings.py, gated by
+      # `./testing/run-all.sh` above — Testing Standard § Mutation evidence.
       - name: Validate settings.json
         if: '!cancelled()'
-        run: |
-          python3 - <<'PY'
-          import json, os, re, shlex, sys
+        run: ./scripts/helpers/check-settings.sh
 
-          PATH = "config/settings.json"
-          CANONICAL = "$HOME/.claude/hooks/"
-          # Any token ending in a hooks/<name>.sh path, however $HOME is spelled.
-          HOOKISH = re.compile(r"(?:^|/)\.claude/hooks/([^/\s]+\.sh)$")
-
-          with open(PATH) as fh:
-              cfg = json.load(fh)
-
-          total, checked, bad = 0, 0, []
-          for event, entries in cfg.get("hooks", {}).items():
-              if not isinstance(entries, list):
-                  sys.exit(f"{PATH}: {event}: expected a list of hook entries, got {type(entries).__name__}")
-              for entry in entries:
-                  for hook in entry.get("hooks", []):
-                      cmd = hook.get("command", "")
-                      total += 1
-                      # Expand every spelling of $HOME to one canonical form, then
-                      # tokenise so args, redirects and `&&` chains cannot corrupt
-                      # the path the way a substring split does.
-                      resolved = os.path.expanduser(os.path.expandvars(cmd.replace("${HOME}", "$HOME")))
-                      try:
-                          tokens = shlex.split(resolved)
-                      except ValueError as exc:
-                          bad.append(f"{event}: {cmd!r} is not a parseable command line ({exc})")
-                          continue
-                      hits = [m.group(1) for m in (HOOKISH.search(t) for t in tokens) if m]
-                      if not hits:
-                          bad.append(f"{event}: {cmd!r} references no .claude/hooks/*.sh path — "
-                                     f"hook-scripts.md requires {CANONICAL}<name>.sh")
-                          continue
-                      checked += 1
-                      for name in hits:
-                          local = os.path.join("config/hooks", name)
-                          if not os.path.isfile(local):
-                              bad.append(f"{event}: {cmd} -> {local} does not exist")
-                          elif not os.access(local, os.X_OK):
-                              bad.append(f"{event}: {cmd} -> {local} is not executable")
-
-          if not total:
-              sys.exit(f"{PATH}: no hook commands found at all — this check verified nothing")
-          if bad:
-              sys.exit(f"{PATH}: " + "; ".join(bad))
-          if checked != total:
-              sys.exit(f"{PATH}: only {checked} of {total} hook commands were resolvable — refusing to report clean")
-          print(f"{PATH}: valid JSON; all {checked} hook command(s) resolve to executable files in config/hooks/")
-          PY
-
-      # CATCHES: unparseable bash, anywhere in the tree. All 37 .sh files pass
+      # CATCHES: unparseable bash, anywhere in the tree. All 38 .sh files pass
       # today, so this is a ratchet that adds no noise on arrival.
       #
       # DOES NOT CATCH — and this is the whole point of the step above: a file
@@ -317,7 +251,7 @@ jobs:
       # thing a human wants and the one thing a CI page does not show.
       - name: Upload test logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-logs
           path: testing/logs/

@@ -154,7 +154,13 @@ claude-dot-files/
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
 │   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
 │   │   ├── lint-prompts.sh                          # Ship-gate (3 passes): backtick scan, sandbox-CONSTRUCTS every multi-line prompt fragment, verifies every MODEL_KEY resolves in config.yaml
-│   │   └── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   ├── check-settings.sh                        # Ship-gate: validates config/settings.json — malformed JSON, hook paths that don't resolve to an executable config/hooks/*.sh
+│   │   ├── check_settings.py                        # The importable validation logic check-settings.sh runs; also imported directly by its pytest suite
+│   │   ├── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
+│   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
+│   │       └── unit/
+│   │           └── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows

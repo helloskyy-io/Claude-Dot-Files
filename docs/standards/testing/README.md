@@ -11,7 +11,7 @@
 | **Three-tier layout** | **YES** | `testing/run-all.sh` → `testing/suites/python.sh` → per-unit `tests/{unit,integration,e2e}/`. Built and conformant |
 | **pytest, not script-style** | **YES** | The V2 tree is pytest throughout |
 | **Discovery completeness** | **YES** | A test outside runner discovery is a defect, enforced by `test_runner_discovery.py` |
-| **Tier Enforcement** | **YES** | `.github/workflows/tests.yml` runs the master runner on every PR |
+| **Tier Enforcement** | **YES** | `.github/workflows/tests.yml` runs six checks — the master runner and five other controls — on every PR, per § *A control that no gate runs is not a control* |
 | **Test Resource Safety** | **YES** | Repo-root `conftest.py` sets `RLIMIT_AS`, env-tunable via `PYTEST_MEM_CAP_GIB` |
 | **Mutation evidence** | **YES** | A guard ships with a demonstration that it fails when the property is violated |
 
@@ -54,7 +54,7 @@ The standard is written in `MDC-Master-Planning`, which has **no tests and no CI
 
 The prompt lint is the one that answers `workflow-scripts.md`'s *"Prompt edits MUST pass `lint-prompts.sh` AND `bash -n`"* — before this, that MUST was enforced by memory alone.
 
-**One control is still off the gate:** `scripts/helpers/vendor-standards.sh --check`, the drift detector for the vendored MIRROR sets. It compares against a clone on local disk and so exits 1 on any runner. Blocked on where CI gets the upstream — issue #55.
+**One control is still off the gate, and § *A control that no gate runs is not a control* requires naming the consequence, not just the blocker:** `scripts/helpers/vendor-standards.sh --check`, the drift detector for the vendored MIRROR sets, is advisory in fact — it compares against a clone on local disk and so exits 1 on any runner. Blocked on where CI gets the upstream — issue #55. **What that leaves uncovered: a local edit to a vendored MIRROR standard merges green today.**
 
 **It carries no `paths:` filter, deliberately.** The obvious filter — `scripts/workflows/temporal/**` and `testing/**` — is silently wrong: the suite reads `config.yaml` (every `MODEL_KEY` must resolve there) and the V1 bash scripts under `scripts/workflows/` (turn caps are derived from them, prompts byte-compared against them). Removing a model key, the exact bug that guard exists to catch, would not have triggered a filtered gate. The suite runs in ~4 seconds; a filter saves nothing and can only ever skip something it should have caught.
 
