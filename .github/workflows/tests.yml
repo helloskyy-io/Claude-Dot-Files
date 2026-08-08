@@ -28,7 +28,7 @@ jobs:
   suite:
     runs-on: ubuntu-latest
     # The whole job is ~20s. A cap well above that turns a hung step into a
-    # fast red instead of holding a branch-protected merge for the 360-minute
+    # fast red instead of holding a reviewer for the 360-minute
     # GHA default — lint-prompts.sh executes constructed prompt blocks under
     # `env -i bash -c`, which is the one plausible hang here.
     timeout-minutes: 10
@@ -147,8 +147,8 @@ jobs:
       # detector for the four vendored MIRROR standard sets CLAUDE.md forbids
       # editing locally. It belongs on this page and it is clean locally, but
       # it compares against a clone of MDC-Master-Planning on disk and exits 1
-      # when it finds none — which on a runner is every time, red on arrival on
-      # a branch-protected job. Making it green would mean deciding how the
+      # when it finds none — which on a runner is every time, so it would be red
+      # on arrival on the job every merge is read against. Making it green would mean deciding how the
       # upstream reaches CI (checkout of a private repo, a token, a pinned
       # ref), and that ruling is out of scope here. Skipping the step when the
       # clone is absent is NOT the fallback: it emits a green check that

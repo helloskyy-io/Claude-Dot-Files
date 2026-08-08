@@ -41,7 +41,13 @@ The standard is written in `MDC-Master-Planning`, which has **no tests and no CI
 
 ## The gate
 
-`.github/workflows/tests.yml` runs six checks on every PR and every push to `main`. `main` is branch-protected on its `suite` job, so each one blocks a merge.
+`.github/workflows/tests.yml` runs six checks on every PR and every push to `main`.
+
+**These checks are ADVISORY here, and that is a platform limit rather than a choice.** § *A control that no gate runs is not a control* requires an advisory control to be declared and to name what is consequently not covered, so: **nothing structurally prevents merging a red PR in this repo.** The checks always run and are always visible; they cannot block.
+
+**Why.** GitHub Free grants protected branches on **public** repositories only. Branch protection was enabled here on 2026-08-08 and **removed the same day**, because this repo is public and 21 of the organisation's 33 repositories are private — including `Skyy-Command` and `MDC-Master-Planning`, both of which return `403 Upgrade to GitHub Pro` on the protection API. A control that can exist on one repo and cannot be replicated on the two that matter most is an inconsistency, not a safety property. Making the gate uniformly advisory is the honest state; GitHub Team (~$4/user/month) is the only thing that would change it.
+
+**What this costs, stated plainly:** the clause's own words are *"a control that executes and reports but cannot fail the merge is advisory in fact, whatever its job name says."* That applies to every row below. They are worth having — a visible red check is how every merge today was actually verified — but the verification is a human reading them, not the platform enforcing them.
 
 | Check | Catches | Does NOT catch |
 |---|---|---|
