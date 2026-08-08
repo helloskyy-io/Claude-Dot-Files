@@ -75,13 +75,75 @@ Experiments are ordered by decision value: E1, E5 and E7 come first because each
 
 *(Source: `non_model_observables.md` T1.)* *Because:* there is no first-party exit-code table for `claude` — `claude_code_integration_surface.md` §5 records that codes for auth failure, rate-limit exhaustion and `--max-turns` exceeded are undocumented — and the whole "read the rest of the envelope" milestone assumes these values carry information the exit status does not.
 
-- [ ] Force each failure mode in turn — auth failure, rate-limit exhaustion, `--max-turns` exceeded, `--max-budget-usd` exceeded, a usage-policy refusal, `SIGTERM` — using a trivial throwaway prompt, not a real dispatch
-- [ ] For each, record the **full** tuple: process exit code, `result.subtype`, `result.is_error`, `result.num_turns` against the configured cap, `result.permission_denials[]` (length and contents), whether any `system/api_retry` `error` value appeared, and whether `result.result` is non-empty
-- [ ] Record the same tuple for a **successful** run, so the baseline is measured rather than assumed
-- [ ] Force at least one run that trips `block-dangerous.sh`, so `permission_denials[]` is observed non-empty at least once. **This is the fleet's only scheduled opportunity to see the sole in-run safety control leave a trace** — under `--dangerously-skip-permissions` a denial does not fail the run, and the array is all there is
-- [ ] Run each mode inside a worktree under `--dangerously-skip-permissions`, matching the real child-invocation shape — a measurement taken in a different invocation shape measures a different thing
-- [ ] Record, for one run, whether `--output-format json --json-schema <schema>` produces a `structured_output` field that validates against the schema
-- [ ] **Ruling, one per observable, not one for the experiment.** For `is_error` and `num_turns`-against-cap: does each carry information the propagated exit status does not? For the transport: which of the two options does the evidence support, judged on **isolation and Temporal replay cost as well as availability** — a file the child writes outside its worktree is a new write channel across the isolation boundary and a second I/O boundary under Temporal; `structured_output` is neither. `permission_denials[]` gets no redundancy ruling — it is recorded regardless
+- [x] Force each failure mode in turn — auth failure, rate-limit exhaustion, `--max-turns` exceeded, `--max-budget-usd` exceeded, a usage-policy refusal, `SIGTERM` — using a trivial throwaway prompt, not a real dispatch
+- [x] For each, record the **full** tuple: process exit code, `result.subtype`, `result.is_error`, `result.num_turns` against the configured cap, `result.permission_denials[]` (length and contents), whether any `system/api_retry` `error` value appeared, and whether `result.result` is non-empty
+- [x] Record the same tuple for a **successful** run, so the baseline is measured rather than assumed
+- [x] Force at least one run that trips `block-dangerous.sh`, so `permission_denials[]` is observed non-empty at least once. **This is the fleet's only scheduled opportunity to see the sole in-run safety control leave a trace** — under `--dangerously-skip-permissions` a denial does not fail the run, and the array is all there is
+- [x] Run each mode inside a worktree under `--dangerously-skip-permissions`, matching the real child-invocation shape — a measurement taken in a different invocation shape measures a different thing
+- [x] Record, for one run, whether `--output-format json --json-schema <schema>` produces a `structured_output` field that validates against the schema
+- [x] **Ruling, one per observable, not one for the experiment.** For `is_error` and `num_turns`-against-cap: does each carry information the propagated exit status does not? For the transport: which of the two options does the evidence support, judged on **isolation and Temporal replay cost as well as availability** — a file the child writes outside its worktree is a new write channel across the isolation boundary and a second I/O boundary under Temporal; `structured_output` is neither. `permission_denials[]` gets no redundancy ruling — it is recorded regardless
+
+#### E1 — Observed
+
+**Method.** Nine `claude -p` invocations on **2.1.224**, each `--model haiku --output-format stream-json --verbose --dangerously-skip-permissions -w <name>` — the real child shape from `run-claude.sh:134-142` minus the model, which was downgraded to haiku because the envelope is model-independent and the failure modes cost real calls. Denominator for every row below is **1 forced run per mode**; this is an existence measurement of the tuple, not a rate.
+
+| Mode | exit | `subtype` | `is_error` | `terminal_reason` | `stop_reason` | `num_turns` / cap | `permission_denials[]` | `system/api_retry` | `.result` | `errors[]` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| success | 0 | `success` | `false` | `completed` | `end_turn` | 1 / 3 | `[]` (0) | none | `"OK"` | **key absent** |
+| `--max-turns` exceeded | 1 | `error_max_turns` | `true` | `max_turns` | `tool_use` | **2 / 1** | `[]` (0) | none | **key absent** | `["Reached maximum number of turns (1)"]` |
+| `--max-budget-usd` exceeded | 1 | `error_max_budget_usd` | `true` | `budget_exhausted` | `tool_use` | 1 / 20 | `[]` (0) | none | **key absent** | `["Reached maximum budget ($0.005)"]` |
+| permission denial (`sudo ls`) | **0** | `success` | **`false`** | `completed` | `end_turn` | 2 / 4 | **1 entry** | none | denial prose, 136 ch | **key absent** |
+| model decline (copyright) | 0 | `success` | `false` | `completed` | `end_turn` | 1 / 2 | `[]` (0) | none | decline prose, 500 ch | **key absent** |
+| `SIGTERM` mid-run | 143 | `error_during_execution` | `true` | `aborted_streaming` | `null` | 2 / 10 | `[]` (0) | none | **key absent** | `["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null"]` |
+| auth failure (bad `ANTHROPIC_API_KEY`) | **124** (our `timeout`, not the CLI's) | `error_during_execution` | `true` | `aborted_streaming` | `null` | 2 / 1 | `[]` (0) | **9×**, `error_status:401`, `error:"authentication_failed"`, `max_retries:10` | **key absent** | `["[ede_diagnostic] …"]` |
+| auth failure (unreachable `ANTHROPIC_BASE_URL`) | **124** (our `timeout`) | `error_during_execution` | `true` | `aborted_streaming` | `null` | 2 / 1 | `[]` (0) | 9× | **key absent** | `["[ede_diagnostic] …"]` |
+| rate-limit exhaustion | — | — | — | — | — | — | — | — | — | — |
+
+**Rate-limit exhaustion is UN-MEASURED, not inferred.** It cannot be forced on demand without deliberately burning the account's seven-day window, which is not a throwaway-prompt cost. Per this doc's own gotcha, no row is guessed for it. What *was* observed instead is a passive signal the research did not list: a top-level stream event
+
+```json
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1786251600,
+  "rateLimitType":"seven_day","utilization":0.83,"isUsingOverage":false,"surpassedThreshold":0.75}}
+```
+
+appeared unprompted in the `SIGTERM` run's stream. Exhaustion is therefore **predictable before it happens**, which is a stronger observable than the post-hoc exit code this experiment went looking for. `grep -rn "rate_limit_event" scripts/` → **0 hits**: nothing in either fleet reads it.
+
+**`permission_denials[]` non-empty, observed once (1 of 9 runs, forced).** Full entry:
+
+```json
+{"tool_name":"Bash","tool_use_id":"toolu_01CsEb…","tool_input":{"command":"sudo ls /root .","description":"Run sudo ls /root ."}}
+```
+
+with a matching `{"type":"system","subtype":"permission_denied","tool_name":"Bash","decision_reason_type":"subcommandResults","message":"Permission to use Bash with command sudo ls /root . has been denied."}` stream event. The run **exited 0 with `is_error:false` and `subtype:"success"`.**
+
+**`structured_output` — works, and validates.** `--output-format json --json-schema '<inline JSON>'` produced, alongside a `.result` carrying the same object as a string:
+
+```json
+"structured_output": {"verdict":"MERGE","reason":"all clear","findings":0}
+```
+
+**Three of this doc's own premises were wrong or stale, corrected here:**
+
+1. **`--json-schema` takes an inline JSON string, not a file path.** Passing a path fails hard: `Error: --json-schema is not valid JSON: JSON Parse error: Unrecognized token '/'`. Both of this phase's first two attempts failed on it. Phase 3 must pass the schema inline (or via a `"$(cat …)"` expansion), and a shell-quoting-sensitive multi-KB argument is a real cost to weigh that the "availability" framing missed.
+2. **`--max-turns` is no longer in `claude --help` on 2.1.224.** It still parses and still works — `error_max_turns` fired correctly — but the flag every dispatch in the fleet passes (`run-claude.sh:139`) is now undocumented on the installed binary. The `§Runtime Verification` block above verified `--json-schema` and `--output-format`; it did not verify `--max-turns`, and that is the one that matters most.
+3. **The result envelope carries ten fields `claude_code_integration_surface.md` §7 does not list**: `stop_reason`, `terminal_reason`, `api_error_status`, `errors[]`, `fast_mode_state`, `fast_mode_disabled_reason`, `modelUsage`, `ttft_ms`, `ttft_stream_ms`, `uuid`. The paper is anchored at **2.1.220** and is current until 2026-08-22 (`Last validated: 2026-07-25`, `Revalidate: high — 4 weeks` — checked, not assumed); the installed CLI is **2.1.224**. Four patch versions produced ten new envelope fields. That drift rate is itself the finding.
+
+#### E1 — Rulings (one per observable)
+
+**(a) `is_error` — NO-OP.** Across all 8 measured rows, `is_error == (exit != 0)` with no exception. It carries **zero** information the shell's propagated exit status does not, and `build.sh:60`'s `set -euo pipefail` already propagates that. **Consequence:** `is_error` does **not** enter Phase 3's envelope as a routing field, and Phase 4's "read the rest of the envelope" milestone loses its `is_error` component. *(Denominator honesty: 8 rows, one per forced mode. This is an existence test — one disagreeing row would overturn it, and rate-limit exhaustion is un-measured.)*
+
+**(b) `num_turns` against the cap — NO-OP as a routing signal, and actively unsafe as one.** The turn-cap run reported **`num_turns: 2` against a cap of 1**. A parent testing `num_turns >= MAX_TURNS` would be correct here by accident; a parent testing `num_turns == MAX_TURNS` would be wrong. `subtype: "error_max_turns"` states the same fact exactly, and `run-claude.sh:167` already reads it. **Consequence:** `num_turns` enters Phase 3's envelope, if at all, as **telemetry only** (it is already consumed that way by the cost rollup at `run-claude.sh:115`), never as the input to a branch. Phase 3's schema marks it non-routing.
+
+**(c) `subtype` — CONFIRMS the design, and it is the only envelope field that earns its place.** `error_max_turns` and `error_max_budget_usd` **both exit 1**. The exit status cannot tell them apart; `subtype` can, and `terminal_reason` duplicates it 1:1 across all 8 rows (`success`/`completed`, `error_max_turns`/`max_turns`, `error_max_budget_usd`/`budget_exhausted`, `error_during_execution`/`aborted_streaming`). **Consequence:** the roadmap's "read the rest of the envelope" decision stands, but **narrowed to `subtype`** — this measurement replaces the derived claim as its evidence. Phase 4 reads `subtype`, not the envelope generally. `terminal_reason` is redundant with it and does not enter the envelope.
+
+**(d) `.result` is ABSENT — not empty — on every error subtype. CHANGES THE DESIGN.** On all four error rows the `result` **key does not exist**, replaced by `errors[]`. The fleet's completion check (`run-claude.sh:201-204`) reads `.result // ""` and so degrades correctly to a loud failure — that is luck of a well-chosen `//` default, not a contract. **Consequence for Phase 3:** any transport that rides inside `.result` (including today's prose `VERDICT:` line) is structurally incapable of carrying a record out of a turn-cap, budget, `SIGTERM` or auth death. This is the strongest single argument for the typed record so far, and it is a *measured* one rather than the robustness argument E5 was expected to have to carry alone.
+
+**(e) Auth failure and `SIGTERM` are INDISTINGUISHABLE in the envelope. CHANGES THE DESIGN (Phase 4).** Both produce `subtype: error_during_execution`, `terminal_reason: aborted_streaming`, `stop_reason: null`, and the same opaque `[ede_diagnostic]` string in `errors[]`. The **only** discriminator is the `system/api_retry` stream events (`error_status: 401`, `error: "authentication_failed"`), which live outside the result envelope entirely. **Worse: neither exited on its own.** Both auth runs returned **124 — our `timeout(1)` wrapper**, after 9 retries against `max_retries: 10`. Nothing in `run-claude.sh` wraps the CLI in a timeout. **Consequence:** Phase 4 cannot route auth failure from the result envelope; it must either read the `system/api_retry` stream events (which the fleet already captures — every dispatch writes `stream-json` to `$LOG_FILE`) or accept that auth failure is an unbounded hang. This is a live gap in the incumbent, not just in the design; surfaced to the operator in the PR body rather than fixed here, because this phase measures.
+
+**(f) `permission_denials[]` — CHANGES THE DESIGN (Phase 3). Recorded regardless of redundancy, per this experiment's terms, and the measurement says it is not redundant with anything.** The denial run exited **0**, with `is_error: false` and `subtype: "success"`. The sole in-run safety control fired, and **every signal the fleet currently reads said the run was clean.** `permission_denials[]` and the `system/permission_denied` stream event are the entire trace. **Consequence:** Phase 3's envelope carries `permission_denials` (count, and enough of each entry to name the tool and command) as a **required** field, and its consumer is named: an operator reviewing whether a dispatch tried something the hook stopped. Without it, the answer to "did any run this month get blocked?" is unanswerable from anything the fleet stores in a structured form.
+
+**(g) Transport — `structured_output`, CONFIRMS option (a), with one cost the framing missed.** On availability: it works on 2.1.224 and validates (measured above). On **isolation**: it rides in the CLI's own stdout, so no write crosses the worktree boundary — a file transport would require the child to write outside its own isolation unit, which is the boundary the worktree exists to draw. On **Temporal replay cost**: it is already inside the activity's return value, so it adds no second I/O boundary; a file transport adds one, and a file is not part of an activity result, so replay would need it re-read or side-channelled into the workflow's history. All three point the same way. **Consequence:** Phase 3 specifies `structured_output` as the transport, and adds one requirement the availability framing did not surface — **the schema is passed inline as a shell argument, so it must stay small enough to quote safely**. E2 measures whether it survives the error paths where `.result` does not; if it does not, this ruling is not overturned (the file transport has the same or worse partial-record class) but Phase 3's fail-safe contract carries the whole load.
+
 
 ### E5 — How often the current prose grep actually misses
 
