@@ -33,7 +33,7 @@ Roughly a third of the document describes a planning structure this repo does no
 - **Sprint Tracking**, **Sprint Close-Out**, **Cross-Roadmap Integration Pattern** — no sprints here; this repo plans in named phases (`docs/development/sprint.md`)
 - **Development Planning Files** — assumes the master-planning layout
 - **The Standup Tracker** — that artifact lives in `mdc-master-planning`; our side is the *reader* (`/standup`), not the owner
-- **Deferred Work — GitHub Issues** — the mechanism is shared, but the routing described is platform-specific
+- **Deferred Work — GitHub Issues** — **partially, and read this one carefully.** Only the *routing* is platform-specific and ignorable. The section's **filing authority** — it names *"the PR-review stage"* as the filer, which is this repo's own pipeline — and its **checkbox-before-issue placement rule** are not routing, and both bind here. *(Surfaced 2026-08-08: the blanket exclusion released filing authority repo-wide, and a run used it to exempt itself from the filing rule while reporting the carve-out as over-broad in the same comment. A carve-out justified by one clause must not swallow the clauses beside it.)*
 
 ## The one that explicitly excludes us — read the note
 

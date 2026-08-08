@@ -261,7 +261,7 @@ mkdir -p "$LOG_DIR"
 
 **Expected log access patterns:**
 1. **Claude self-diagnosis** (most common): `claude 'read <log-file> and tell me what happened'`
-2. **Human reading** (occasional): `cat <log-file> | scripts/workflows/lib/format-stream.sh`
+2. **Human reading** (occasional): `cat <log-file> | scripts/workflows/common/format-stream.sh`
 3. **Metric queries** (ongoing): `jq 'select(.type == "result")' <log-file>`
 
 **Important:** The log directory is always in the main repo's `.claude/logs`, not inside worktrees. This keeps all logs in one place for analysis.
@@ -270,11 +270,11 @@ mkdir -p "$LOG_DIR"
 
 Always invoke Claude with `--output-format stream-json`. This gives structured events that can be formatted for display AND saved for analysis.
 
-The shared formatter at `scripts/workflows/lib/format-stream.sh` reads JSONL from stdin and outputs formatted human-readable text. Use it for live display in verbose mode.
+The shared formatter at `scripts/workflows/common/format-stream.sh` reads JSONL from stdin and outputs formatted human-readable text. Use it for live display in verbose mode.
 
 ### 7. Standard run_claude Helper
 
-Every workflow script must source the shared `run_claude` helper from `scripts/workflows/lib/run-claude.sh`. This avoids duplicating the verbose/quiet invocation logic across every workflow script.
+Every workflow script must source the shared `run_claude` helper from `scripts/workflows/activities/run-claude.sh`. This avoids duplicating the verbose/quiet invocation logic across every workflow script.
 
 The shared library requires four environment variables to be set before sourcing:
 - `LOG_FILE` — path to the JSONL log file for this run
