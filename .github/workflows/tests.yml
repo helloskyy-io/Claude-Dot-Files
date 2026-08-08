@@ -19,13 +19,31 @@ on:
   push:
     branches: [main]
 
+# Least privilege: every step here reads the tree and writes nothing back. The
+# artifact upload uses the actions API, not contents:write.
+permissions:
+  contents: read
+
 jobs:
   suite:
     runs-on: ubuntu-latest
+    # The whole job is ~20s. A cap well above that turns a hung step into a
+    # fast red instead of holding a branch-protected merge for the 360-minute
+    # GHA default — lint-prompts.sh executes constructed prompt blocks under
+    # `env -i bash -c`, which is the one plausible hang here.
+    timeout-minutes: 10
+    # SHA-PINNED, DELIBERATELY, on all three actions below. This file argues
+    # elsewhere that pins exist so behaviour cannot change without a commit —
+    # six of the repo's controls now ride this one job, and a mutable tag
+    # (`@v4`) is exactly the kind of reference that argument condemns. Blast
+    # radius is bounded (`contents: read` above, no secrets configured), so
+    # the realistic exposure is not a supply-chain compromise but a poisoned
+    # green check — the currency this job trades in either way. Bump by
+    # re-resolving the tag to its current commit, not by hand-editing the SHA.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.13'
 
@@ -33,8 +51,17 @@ jobs:
       # refuses to start without it and the config reads need it. pytest is
       # the suite runner. Pinned to majors so a breaking release fails the
       # gate loudly rather than changing behaviour underneath it.
+      #
+      # shellcheck-py vendors the shellcheck binary, so the version is pinned
+      # in the same place and the same way as everything else here rather than
+      # floating with the runner image. Its pin is TIGHTER than the others
+      # (<0.11, not <1) for a linter-specific reason: shellcheck is 0.x, so its
+      # MINOR releases are the breaking ones — each adds new checks, which on a
+      # gate means new failures appearing without a commit to this repo. That
+      # is precisely the "changes behaviour underneath the gate" case the pins
+      # above exist to prevent. Bumping it is a deliberate, reviewable change.
       - name: Install dependencies
-        run: pip install "pytest>=7,<9" "pyyaml>=6,<7" "ruff>=0.6,<1"
+        run: pip install "pytest>=7,<9" "pyyaml>=6,<7" "ruff>=0.6,<1" "shellcheck-py>=0.10,<0.11"
 
       # Tier 1. Discovers component tests/ dirs, runs unit -> integration ->
       # e2e in order, and exits non-zero if ANY suite fails or if nothing ran
@@ -43,6 +70,15 @@ jobs:
       # healthiest of all.
       - name: Run the master runner
         run: ./testing/run-all.sh
+
+      # EVERY CHECK BELOW CARRIES `if: '!cancelled()'`, DELIBERATELY. Actions
+      # aborts a job at the first failing step, so without this a PR that trips
+      # the master runner never learns whether it also trips shellcheck, bash -n
+      # or the prompt lint — each defect costs its own push and its own CI
+      # round-trip. The checks share no data and no ordering dependency, so
+      # there is nothing to protect by serialising their failures. The job still
+      # fails if any of them fail; the author just gets all the findings at once.
+      # `!cancelled()` rather than `always()` so a cancelled run stops promptly.
 
       # The executability sweep. A name used but never imported passes every
       # unit test and crashes at runtime — it once killed the last leg of a
@@ -59,13 +95,166 @@ jobs:
       # of them under .claude/worktrees/, though hundreds of .py files sit
       # there.
       - name: Executability sweep
+        if: '!cancelled()'
         run: ruff check --select F821 .
+
+      # The bash-side equivalent of the sweep above, and the highest-value
+      # check on this page. CATCHES: "prompt strings are code" — a workflow's
+      # PROMPT is a double-quoted bash assignment, so a backtick, a $( ), or a
+      # stray double quote in prose EXECUTES at dispatch. Two fleet outages in
+      # one day came from this class (3975ed6), both exit 127 before Stage 1,
+      # one caught by another team on a live dispatch. `bash -n` PASSED BOTH:
+      # the backtick is valid syntax, and the stray quotes balanced, so the
+      # file was valid bash that simply meant something else. The lint catches
+      # them by CONSTRUCTING each prompt block under `env -i` with only `cat`
+      # on PATH and failing if bash does anything but assign a string — an
+      # execution check, not a pattern check, because a pattern list built for
+      # the first vector certified the file that carried the second.
+      #
+      # workflow-scripts.md already says prompt edits MUST pass this. It was a
+      # MUST enforced by memory: referenced in three docs, gated nowhere.
+      #
+      # WHY THE `yq` ASSERTION BELOW, AND WHY IT IS NOT PEDANTRY: the lint's
+      # Pass 3 (every MODEL_KEY resolves in config.yaml) is guarded by
+      # `command -v yq` and SELF-SKIPS when yq is absent — while still printing
+      # the clean "every MODEL_KEY resolves" line. And Pass 3 is the ONLY thing
+      # anywhere that checks the 12 bash-fleet MODEL_KEYs: the pytest that looks
+      # like a backstop, test_model_keys_resolve.py, sweeps `modules/assistant`
+      # for the Python spelling `MODEL_KEY = "..."` and says so in its own
+      # docstring — the two cover DISJOINT sets, not overlapping ones. So on a
+      # runner that ever stops shipping yq, coverage of the bash fleet silently
+      # drops to zero behind a green tick. ubuntu-latest ships yq today, which
+      # means Pass 3 does run here; asserting it makes that a fact the gate
+      # enforces rather than a property of the image. The class Pass 3 catches
+      # is a RENAME (revision.sh -> revision-minor.sh moved the config key while
+      # MODEL_KEY kept the old name, leaving the workflow unlaunchable and
+      # silent about it until someone tried to dispatch). Tracked at #57.
+      #
+      # DOES NOT CATCH: whether a prompt says something sensible — only that
+      # constructing it does not execute anything. Passes 1 and 2, the outage
+      # class above, need nothing beyond bash.
+      - name: Prompt-construction lint
+        if: '!cancelled()'
+        run: |
+          command -v yq >/dev/null || {
+            echo "yq is absent: lint-prompts.sh Pass 3 would self-skip and still report clean."
+            echo "That would leave the 12 bash-fleet MODEL_KEYs ungated. Failing loudly instead."
+            exit 1
+          }
+          ./scripts/helpers/lint-prompts.sh
+
+      # NOT GATED HERE: scripts/helpers/vendor-standards.sh --check, the drift
+      # detector for the four vendored MIRROR standard sets CLAUDE.md forbids
+      # editing locally. It belongs on this page and it is clean locally, but
+      # it compares against a clone of MDC-Master-Planning on disk and exits 1
+      # when it finds none — which on a runner is every time, red on arrival on
+      # a branch-protected job. Making it green would mean deciding how the
+      # upstream reaches CI (checkout of a private repo, a token, a pinned
+      # ref), and that ruling is out of scope here. Skipping the step when the
+      # clone is absent is NOT the fallback: it emits a green check that
+      # verified nothing, which is worse than the gap it hides. Tracked at #55.
+
+      # CATCHES: a malformed settings.json, and a hook path that points at a
+      # file which is not there — see scripts/helpers/check_settings.py's own
+      # docstring for the full CATCHES / DOES NOT CATCH breakdown, why the
+      # hook-path check tokenises rather than substring-matches, and why
+      # `checked == total` rather than `checked > 0`.
+      #
+      # RELOCATED from an inline heredoc here (PR #56 build-refine pass) to
+      # scripts/helpers/check-settings.sh: this was the one control in the
+      # repo an engineer could not run before pushing, and whose ability to
+      # fail lived only in a PR body. The eleven negative-control cases that
+      # proved this parse logic correct are now a committed, re-runnable
+      # pytest at scripts/helpers/tests/unit/test_check_settings.py, gated by
+      # `./testing/run-all.sh` above — Testing Standard § Mutation evidence.
+      - name: Validate settings.json
+        if: '!cancelled()'
+        run: ./scripts/helpers/check-settings.sh
+
+      # CATCHES: unparseable bash, anywhere in the tree. All 38 .sh files pass
+      # today, so this is a ratchet that adds no noise on arrival.
+      #
+      # DOES NOT CATCH — and this is the whole point of the step above: a file
+      # can be valid bash and still mean something catastrophically different.
+      # `bash -n` passed both outages in 3975ed6. Read this as a SYNTAX FLOOR,
+      # not as coverage of the prompt class; the lint is what covers that.
+      # Kept anyway because the two checks are complementary and documented as
+      # such — bash -n is the one that catches quote IMBALANCE, which the
+      # sandbox construction can miss when the file will not parse at all.
+      #
+      # WHY `./.claude/*` IS PRUNED: this repo's own worktrees live under
+      # .claude/worktrees/, each a full checkout carrying its own copy of every
+      # .sh file. On a runner they do not exist, but an engineer running this
+      # line from the main clone would sweep every sibling branch's work — and
+      # go red for a WIP file CI will never see. A local run that cannot
+      # reproduce the CI result is a local run people stop trusting.
+      # testing/suites/python.sh carries the same exclusion for the same reason.
+      #
+      # WHY THE ZERO-FILE GUARD: a sweep whose find expression stops matching
+      # prints "checked 0 files" and exits 0 — green, having verified nothing.
+      # That is the failure mode the master runner's "nothing ran at all" exit
+      # and the settings.json guard above both exist to prevent, and this step
+      # is not exempt from the principle just because it is a one-liner.
+      - name: Bash syntax floor
+        if: '!cancelled()'
+        run: |
+          fail=0 count=0
+          while IFS= read -r f; do
+            count=$((count + 1))
+            bash -n "$f" || { echo "SYNTAX ERROR: $f"; fail=1; }
+          done < <(find . -name '*.sh' -not -path './.git/*' -not -path './.claude/*')
+          [ "$count" -gt 0 ] || { echo "sweep matched no .sh files — this check verified nothing"; exit 1; }
+          echo "bash -n: checked $count files"
+          exit $fail
+
+      # CATCHES: the shellcheck ERROR class — constructs that are outright
+      # wrong rather than merely unidiomatic. Census on shellcheck 0.10.0,
+      # the version this pin resolves to, re-measured against the current
+      # tree (38 files) rather than trusted from adoption time, since a
+      # stale count is exactly the false-measurement-in-a-comment class this
+      # gate exists to close: error 0, warning 38, info 44, style 2. The
+      # version matters to those numbers and is recorded with them, because
+      # a pin bump — or the tree growing another file — is exactly when they
+      # stop being true. Gated at
+      # the strictest level that is clean, with NO baseline file, NO excluded
+      # codes and NO `|| true` — a gate everyone learns to ignore is worse than
+      # none, and `|| true` is that failure in its purest form. Ratchet to
+      # warning later by fixing the 38, not by suppressing them (32 are SC2034).
+      #
+      # WHY `-s bash`: two files — activities/run-claude.sh and
+      # common/shared-prompts.sh — are sourced libraries with no shebang, and
+      # shellcheck raises SC2148 (unknown shell) as an ERROR on both. That is
+      # the ONLY thing between this step and green. The conventional fix is a
+      # `# shellcheck shell=bash` directive in each, i.e. editing a script to
+      # satisfy a linter; declaring the dialect CI-side instead touches no
+      # file and changes nothing for the other 35, which all already declare
+      # bash via `#!/usr/bin/env bash`. SC2148 on those two is reported as a
+      # finding rather than silenced by pretending it was never raised.
+      #
+      # THE HONEST COST OF `-s bash`, since this page condemns overselling: the
+      # flag OVERRIDES a shebang, it does not merely supply a missing one. If a
+      # `#!/bin/sh` script is ever added, it is linted as bash and the POSIX
+      # dialect checks (SC3xxx) that would have flagged its bashisms go quiet.
+      # That costs nothing at --severity=error, where SC3xxx does not report
+      # anyway, and no such file exists today — but it is a real hole to close
+      # if this step is ever ratcheted to warning.
+      #
+      # DOES NOT CATCH: the prompt-construction class. shellcheck flags
+      # SC1078/SC2140 on research.sh and research-refresh.sh — the exact two
+      # files from the 3975ed6 outage — and both are FALSE POSITIVES on the
+      # already-escaped forms. It is not a substitute for the lint above.
+      #
+      # Empty input needs no guard here the way bash -n does: xargs runs
+      # shellcheck once with no arguments, which exits non-zero.
+      - name: Shellcheck
+        if: '!cancelled()'
+        run: find . -name '*.sh' -not -path './.git/*' -not -path './.claude/*' -print0 | xargs -0 shellcheck -s bash --severity=error
 
       # The runner writes per-suite logs. On a red run they are the first
       # thing a human wants and the one thing a CI page does not show.
       - name: Upload test logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-logs
           path: testing/logs/

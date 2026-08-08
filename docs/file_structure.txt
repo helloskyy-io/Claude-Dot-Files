@@ -138,8 +138,8 @@ claude-dot-files/
 │       │   ├── stateful_patterns.md                 # Persistence boundaries, idempotent writes, cleanup on failure
 │       │   ├── temporal_standard.md                 # Three-layer architecture, ACTIVITY_MAP, directory structure
 │       │   └── worker_deployment_standard.md        # Worker segmentation, queue naming, immutable images
-│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/
-│       │   ├── README.md                            # Applicability: which half of the vendored standard binds HERE, and how this repo diverges
+│       ├── testing/                                 # VENDORED (MIRROR) — do not edit; re-vendor via scripts/helpers/. The README is ours and IS editable
+│       │   ├── README.md                            # Applicability: which half binds HERE, how this repo diverges, and § The gate — the six checks tests.yml runs
 │       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
 │       ├── agents.md                                # Standards for writing custom agents
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
@@ -154,7 +154,13 @@ claude-dot-files/
 │   │                                                #   (helpers/ = standalone executables you RUN; workflows/lib/ = bash you SOURCE. Different things, hence two folders)
 │   │   ├── init-project.sh                          # Initialize new project (git + GitHub + scaffolding)
 │   │   ├── lint-prompts.sh                          # Ship-gate (3 passes): backtick scan, sandbox-CONSTRUCTS every multi-line prompt fragment, verifies every MODEL_KEY resolves in config.yaml
-│   │   └── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   ├── check-settings.sh                        # Ship-gate: validates config/settings.json — malformed JSON, hook paths that don't resolve to an executable config/hooks/*.sh
+│   │   ├── check_settings.py                        # The importable validation logic check-settings.sh runs; also imported directly by its pytest suite
+│   │   ├── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
+│   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
+│   │       └── unit/
+│   │           └── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
@@ -237,6 +243,14 @@ claude-dot-files/
 │   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
 │   │                                                #   A pattern added to the hook without a deny case FAILS the coverage guard here
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
+│
+├── .github/
+│   └── workflows/
+│       └── tests.yml                                # TIER ENFORCEMENT — the merge-path gate. `main` is branch-protected on its `suite` job.
+│                                                    #   Runs the master runner, then the checks that exist in this repo but would otherwise
+│                                                    #   be invoked by convention only: ruff F821, lint-prompts.sh, settings.json validity,
+│                                                    #   bash -n, shellcheck --severity=error. Deliberately UNFILTERED (no `paths:`).
+│                                                    #   vendor-standards.sh --check is the one control still off it — see issue #55.
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
