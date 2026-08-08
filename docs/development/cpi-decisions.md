@@ -1072,6 +1072,53 @@ Each carried an explicit trigger already, which is why this log is the correct h
 
 ---
 
+## 2026-08-08 — six prompt fixes mined from three PR self-evaluations
+
+Same standing correction as the 2026-08-07 entry: surfaced by runs reviewing their own work, fixed the same session rather than filed. Shipped BEFORE the two redispatches so those runs inherit them — a tooling fix landed after the run it was meant to help is a fix for next time, which is how the queue grows.
+
+### SHIPPED — a dispatch's asserted facts are now evidence, not instruction (`44706eb`)
+
+**Three independent runs hit this in one day and two of the false premises were the operator's.** The prompts carried strong verification discipline for deferral POINTERS — *"verification is by fetch, never by plausibility"* — and none whatsoever for the premises a dispatch asserts in its own context section.
+
+- A task asserted a change *"changes none of the 229,594 bytes of prompt content"*; `review-pr.sh:427` is a stage titled **PRINT THE VERDICT**. The planning run propagated it into a phase's sizing.
+- A task asserted two checks *"run clean, so gating them is a one-line addition that cannot go red on arrival"* — true on the workstation, false on every runner, because the script resolves its baseline from a clone on local disk. That made the task's own scope **unbuildable as written**: it simultaneously required the step, forbade a fetch, and required green-before-PR.
+- A planning run cited a vendored standard as binding when the repo's own applicability note excludes that section.
+
+Each was one grep from being caught. The remedy is the deferral rule's exact framing applied one step earlier, landed in build-draft, build-draft-minor's `--pr` path, and plan-revision.
+
+**Corroborating evidence worth keeping:** the *"demonstrated green locally"* constraint is what forced the discovery in case 2. Had the instruction been "add the step", it would have merged and blocked every merge in the repo. That constraint earns its cost.
+
+### SHIPPED — CI gate steps are negative-control material
+
+The requirement scoped itself to *"structural/contract/grep-style tests"* and never named gates, which are the purest instance of the class it exists for. **Seven negative controls written for a CI gate, all seven fired, one reproducing a real historical outage and settling step ordering empirically rather than by argument.** Also added compactly to the light tier's TEST stage, which has no review agents to catch it.
+
+### SHIPPED — deferrals get the placement questions at the point of decision
+
+Both questions live in `engineering-quality.md`; neither was referenced from the prompt section where the choice is actually made. Measured on one run: applying them took its filings from six to zero **without losing an item**.
+
+### SHIPPED — refine passes verify load-bearing PROSE, not just code
+
+The highest-severity defect in one PR was a single unverified cross-file sentence in a step comment. The pattern is sharp and worth preserving: **measured claims reproduced exactly; cross-file coverage claims did not.** A false statement in a file readers are trained to trust is worse than the same statement elsewhere, because it stops the next person checking.
+
+### SHIPPED — probe before you write, for characterization work
+
+A characterization suite for a regex hook shipped three entries mislabelled SAFE, written from an attentive *reading* of the patterns. The four real defects it found were all found by **running** it. Ground truth by execution now precedes assertion.
+
+### SHIPPED — on a failed verification, doubt your own invocation first
+
+A reviewer drafted a paragraph accusing a draft run of reporting success against a reverted file, then found its own shell-quoting error. **A false accusation of fabricated evidence is among the most expensive findings a reviewer can write** — it discredits correct work and sends the next pass chasing nothing.
+
+### The parity guard earned its keep, again
+
+Editing plan-revision's V2 prompt turned `test_plan_revision_v1_parity` red — *"shipped 20119 bytes, V1 assembles 18875"* — so the same 1236 bytes went into V1's heredoc rather than the copies being allowed to diverge silently.
+
+### NOTED — not fixed
+
+- `update_pr.md` carries 8 backslash-escaped backticks, vestigial V1 bash escaping that `load_prompt` does not strip, so the model reads them raw. Cosmetic; watch for it spreading as more prompts are ported.
+- **`mutate.sh` is pytest-only** (`run_leg` hardcodes `python3 -m pytest`). Because *ship-the-demonstration-with-the-guard* is binding, a test in any framework the harness cannot drive is un-demonstrable — **so the harness effectively decides the framework**, which is how issue #52's bats scope became unworkable. Documenting it is a redispatch item; **generalising the leg to accept a command is the real fix and is the operator's call.** Watch-criteria: ship on the first request for a non-pytest suite.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

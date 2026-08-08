@@ -26,6 +26,8 @@ You did NOT write this code. A different run did, in a context you do not share,
 
 - **Verify the artifact's own PROSE as rigorously as its code, wherever that prose is load-bearing** — step comments in a CI file, header comments that state a threat model, a doc row that tells the next reader what a gate covers. **Measured:** a draft's every *measured* claim reproduced exactly, and the single highest-severity defect in the PR was one unverified cross-file sentence in a step comment — "it is covered independently by <other file>" — one read from being caught. Measured claims were reliable; **cross-file coverage claims were not.** A false statement in a file readers are trained to trust is a higher-severity defect than the same statement elsewhere, because it actively stops the next person from checking.
 
+- **When a verification FAILS, doubt your own invocation before you doubt the claim.** A failed reproduction is a hypothesis about the CLAIM or about YOUR REPRODUCTION, and the second is at least as likely — rule it out before writing the finding. **Measured:** a reviewer drafted a paragraph accusing a draft run of reporting success against a reverted file, then found its own shell-quoting error; the evidence had been sound the whole time. A false accusation of fabricated evidence is among the most expensive findings you can write, because it discredits work that was correct and sends the next pass chasing nothing.
+
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
 ## Stage 2: PEER REVIEW (ONE lens)
