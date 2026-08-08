@@ -41,6 +41,24 @@ set -euo pipefail
 FILE="$1"; OLD="$2"; NEW="$3"; TARGET="$4"
 
 [[ -f "$FILE" ]] || { echo "✗ no such file: $FILE" >&2; exit 2; }
+
+# OLD must be single-line. Both the presence check and the occurrence count
+# below are `grep -F`, which treats an embedded newline in its PATTERN
+# argument as separating independent alternate patterns (like -f patternfile)
+# rather than as a literal line break — so a multi-line OLD would be tested as
+# "does any of these fragments appear anywhere in the file", not "does this
+# exact block appear". That can both false-flag AMBIGUOUS (fragments recur
+# elsewhere) and false-pass a real multi-line ambiguity the per-fragment count
+# cannot see — the same false-negative shape the occurrence-count fix below
+# exists to close, one level further down. Reject up front rather than mis-
+# count silently; no caller needs a multi-line OLD today.
+[[ "$OLD" != *$'\n'* ]] || {
+    echo "✗ OLD must be single-line: grep -F treats an embedded newline as" >&2
+    echo "  separating alternate patterns, not as a literal line break, so" >&2
+    echo "  presence and ambiguity checks below cannot be trusted against it." >&2
+    exit 2
+}
+
 grep -qF -- "$OLD" "$FILE" || {
     echo "✗ the string to mutate is NOT PRESENT in $FILE:" >&2
     echo "    $OLD" >&2
