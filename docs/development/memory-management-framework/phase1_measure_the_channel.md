@@ -319,11 +319,54 @@ Four runs, all with `--json-schema` declared, real child shape (`-w`, `--dangero
 
 *(Source: `non_model_observables.md` T3.)* *Because:* no surveyed system defines precedence between an asserted result and a computed one, since none has an asserting producer. There is no prior art to borrow, so the fleet must pick — and it should pick knowing which cells actually occur.
 
-- [ ] **Determine the data source first, and state it.** The result envelope carries `is_error` whether or not any script reads it, so the archived JSONL very likely already contain the tuple. Check. If they do, this experiment is retrospective over the archived corpus, N is the archived count, and no instrumentation ships
-- [ ] Only if the archived logs do not carry it: instrument, **without changing routing behaviour**, and state the expected elapsed time to reach N ≥ 30. Phase 3's disagreement-policy and to-do-bit requirements are the only two that block on this, and the doc must say so rather than letting the whole of Phase 3 inherit an unbounded wait
-- [ ] Record the cross-tab of (`is_error` clean / dirty) × (`VERDICT:` MERGE / HOLD); name empty cells explicitly as empty rather than omitting them
-- [ ] Count the disagreements between each PR's `pr_review:` verdict and that PR's open/closed state — the input to the **who owns the to-do bit** ruling that Phase 3 must make and that nothing upstream decides
-- [ ] **Ruling:** if the off-diagonal cells are empty, Phase 3 adopts the record-both-under-distinct-names shape anyway (it costs one field and preserves the option) but **builds no composition machinery** for a case that has never occurred — and the doc says that is why
+- [x] **Determine the data source first, and state it.** The result envelope carries `is_error` whether or not any script reads it, so the archived JSONL very likely already contain the tuple. Check. If they do, this experiment is retrospective over the archived corpus, N is the archived count, and no instrumentation ships
+- [x] Only if the archived logs do not carry it: instrument, **without changing routing behaviour**, and state the expected elapsed time to reach N ≥ 30. Phase 3's disagreement-policy and to-do-bit requirements are the only two that block on this, and the doc must say so rather than letting the whole of Phase 3 inherit an unbounded wait
+- [x] Record the cross-tab of (`is_error` clean / dirty) × (`VERDICT:` MERGE / HOLD); name empty cells explicitly as empty rather than omitting them
+- [x] Count the disagreements between each PR's `pr_review:` verdict and that PR's open/closed state — the input to the **who owns the to-do bit** ruling that Phase 3 must make and that nothing upstream decides
+- [x] **Ruling:** if the off-diagonal cells are empty, Phase 3 adopts the record-both-under-distinct-names shape anyway (it costs one field and preserves the option) but **builds no composition machinery** for a case that has never occurred — and the doc says that is why
+
+#### E3 — Observed
+
+**Data source, determined and stated first as required: the archived JSONL DO carry the tuple.** All **14 of 14** `review-pr` result envelopes carry `is_error`, and all 14 carry a `.result` from which the `VERDICT:` token parses. **This experiment is retrospective; N is the archived count; no instrumentation ships and none is needed.** The second checkbox's instrumentation branch is therefore closed unbuilt, which is the outcome it was written to make possible — Phase 3's disagreement-policy and to-do-bit requirements inherit no wait at all.
+
+**Cross-tab — (`is_error`) × (`VERDICT:`), N = 14 (every archived `review-pr` log):**
+
+| | `VERDICT: MERGE` | `VERDICT: HOLD` | no VERDICT parsed |
+|---|---|---|---|
+| **`is_error: false` (clean)** | **1** | **13** | **0 — empty** |
+| **`is_error: true` (dirty)** | **0 — empty** | **0 — empty** | **0 — empty** |
+
+**The entire `dirty` row is empty, and so is the clean/no-VERDICT cell. Named as empty, per the requirement.** Subtype was `success` on all 14; `is_error` was `false` on all 14.
+
+**The empty cells are empty BY CONSTRUCTION, not by small N — and that is the whole finding.** E1(d) measured that on every error subtype the `result` key is **absent from the envelope entirely**. A dirty run therefore has no `.result`, so there is no `VERDICT:` token to disagree with. E2 measured the same for `structured_output`, the transport Phase 3 will use. **The two rows cannot both be populated for the same run, at any N, under either transport.** Waiting for a bigger corpus would not fill a single off-diagonal cell.
+
+**To-do-bit disagreement — last typed `pr_review:` verdict × PR terminal state. Denominator: 7 PRs carrying ≥1 block, of 38 total:**
+
+| PR | terminal state | last block's `verdict` | last block's `converged` | blocks |
+|---|---|---|---|---|
+| #31 | MERGED | **HOLD** | false | 3 |
+| #33 | MERGED | **HOLD** | false | 2 |
+| #42 | MERGED | MERGE | true | 2 |
+| #45 | MERGED | **HOLD** | false | 2 |
+| #51 | MERGED | **HOLD** | false | 1 |
+| #56 | MERGED | **HOLD** | false | 1 |
+| #58 | MERGED | **HOLD** | false | 3 |
+
+**6 of 7 PRs merged while their last durable typed verdict said HOLD.** The one agreement (#42) is the only `MERGE` verdict in the archive.
+
+**Two honest caveats on that 6.** (i) A `HOLD` is a *runway*, not a rejection — a redispatch that cleared the runway need not have posted a further block, so "merged despite HOLD" does not by itself mean the operator overrode the reviewer. (ii) 0 of 38 PRs are open today, so the "open" state is unobserved in this corpus. **What the number does establish, and it is enough:** the last typed verdict in the durable record does **not** track the PR's disposition, in 6 of the 7 cases where both exist.
+
+**And the larger denominator matters more than the 6.** **31 of 38 PRs (82%) carry no `pr_review:` block at all** — 25 merged, 6 closed. For those, open/closed is not merely the primary to-do bit; it is **the only one that exists**.
+
+#### E3 — Ruling (two rulings — the checklist bundles two decisions and they resolve differently)
+
+**(a) Disagreement policy — NO-OP, and stronger than "the cells are empty".** Phase 3 adopts the record-both-under-distinct-names shape (it costs one field and preserves the option) and **builds no composition machinery**. **The reason stated in Phase 3 is not "0 of 14 observed" but "structurally unreachable":** the asserted verdict lives in the same envelope key that E1(d) measured as *absent* on every run where `is_error` is true. A composition rule for "the model said MERGE but the runtime says the run failed" would be code for a state the transport cannot represent. **Consequence:** Phase 3 step 6's first checkbox is settled — two names, no policy engine — and the justification cites this structural fact rather than a count that a future reader would reasonably want to re-take at a larger N.
+
+**(b) Who owns the to-do bit — CHANGES THE DESIGN (Phase 3). Kind 1 owns it; the typed verdict does not, and Phase 3 must say what the typed verdict is *for* instead.** The measurement is unambiguous: the typed verdict disagreed with the PR's disposition in **6 of 7** cases where both existed, and **did not exist at all in 31 of 38** PRs. A design that made the typed `verdict` the to-do bit would be making the rarer, less reliable signal authoritative over the one the fleet actually uses. **Consequences, named:**
+1. **`open` remains the to-do bit** — the [Phase 2](phase2_kind1_framework.md) framing (*"open IS the to-do bit"*) is confirmed by measurement, not merely asserted.
+2. **Phase 3 must state what the loser is for**, which its own checklist demands. The typed `verdict` is a **routing input for the immediate next dispatch decision, with a lifetime of one parent invocation** — it is not a durable record of whether work remains. That distinction is what makes 6 of 7 unsurprising rather than alarming: the two answer different questions over different lifetimes.
+3. **Phase 3 must NOT add machinery to reconcile them.** Reconciling a one-invocation routing token against a durable human to-do bit is the composition engine ruling (a) just declined to build, in a second guise.
+
 
 ### E6 — The smallest envelope that routes every parent
 
