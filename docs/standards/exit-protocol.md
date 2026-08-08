@@ -54,10 +54,10 @@ So the five properties above are the contract. GitHub is **one binding of it**. 
 
 | Requirement | Status |
 |---|---|
-| Field list | ⟨PHASE 3⟩, **derived from** ⟨PHASE 1 · E6⟩'s enumeration of every value every existing parent branches on — never from a guess |
+| Field list | ⟨PHASE 3⟩ writes the contract, **derived from Phase 1 E6's completed enumeration — nine fields, not the roadmap's estimated "roughly five"**, and `plan-revision`'s issue-URL completion is a second caller the estimate omitted. The enumeration is done; the per-field contract is not |
 | Per-field: named consumer, publish classification (publishable / internal) | ⟨PHASE 3⟩ |
 | Reference to the Kind 1 record (§1) | ⟨PHASE 3⟩ |
-| Transport | ⟨PHASE 1 · E1⟩ — judged on **isolation and replay cost, not just availability** |
+| Transport | **MEASURED — `--output-format json --json-schema`, the parent reading `structured_output`.** Phase 1 E1(g), 2026-08-08, on CLI 2.1.224 — *confirms* the roadmap's preference, judged on isolation and Temporal replay cost rather than availability alone. The file variant would ask a child under `--dangerously-skip-permissions` to write outside its worktree, which is the isolation boundary the fleet's safety argument rests on. **One constraint the measurement added and nobody predicted: the schema is an inline shell argument**, so its size and quoting are a build-time concern for every caller. See [`phase1_measure_the_channel.md`](../development/memory-management-framework/phase1_measure_the_channel.md) § E1 |
 | Size bound | ⟨PHASE 3⟩. The one corroborated figure in the evidence base is Tekton's 4096 bytes. **Do not cite the GitHub Actions 1 MB / 50 MB caps** — unverified in the fetched primary |
 
 **No field is added on behalf of a consumer that does not exist.** A known-future consumer is served by the extension rule in §5, not by a field reserved today. Every protocol that stayed composable did this; the ones that anticipated their consumers bloated and forked.
@@ -73,7 +73,7 @@ So the five properties above are the contract. GitHub is **one binding of it**. 
 
 One member doing both jobs measures neither. Members, names and their emitters: ⟨PHASE 3⟩.
 
-**When an asserted verdict and a computed observable disagree, record both under distinct names.** The GitHub Actions `outcome`/`conclusion` split is the shape: the raw observation is never overwritten; the policy-adjusted value is what routing sees by default. Precedence: ⟨PHASE 3⟩, informed by ⟨PHASE 1 · E3⟩ — and if the off-diagonal cells never occur, adopt the two-name shape and **build no composition machinery**.
+**When an asserted verdict and a computed observable disagree, record both under distinct names.** The GitHub Actions `outcome`/`conclusion` split is the shape: the raw observation is never overwritten; the policy-adjusted value is what routing sees by default. Precedence: ⟨PHASE 3⟩. **The conditional is now resolved — Phase 1 E3(a), 2026-08-08: the off-diagonal cells are empty *by construction*, not merely unobserved.** So the two-name shape is adopted and **no composition machinery is built** — and note the reason is structural rather than a small-N argument, which means it does not weaken as the corpus grows.
 
 ## 4 · The fail-safe contract
 
