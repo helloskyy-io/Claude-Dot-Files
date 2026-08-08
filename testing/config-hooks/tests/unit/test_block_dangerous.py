@@ -772,3 +772,55 @@ def test_every_fixed_pattern_has_a_deny_case(pattern: str) -> None:
     assert found.returncode == 0, (
         f"fixed pattern {pattern!r} is not exercised by any entry in DANGEROUS."
     )
+
+
+# `_extract_patterns` above only reads REGEX_PATTERNS and FIXED_PATTERNS, so
+# the two coverage-guard tests only prove every ARRAY entry has a deny case.
+# They say nothing about whether the arrays are the ONLY way the hook denies —
+# a one-off `grep -qEi 'foo'` added outside both loops would ship with no deny
+# case while the guard above stayed green, contradicting the guarantee this
+# suite claims to make. This closes that gap: it is purely additive and does
+# not weaken or replace the two tests above.
+_PATTERN_MATCH_LINE = re.compile(r"grep -q[EF]i")
+_LOOP_START = re.compile(r'for pattern in "\$\{(?:REGEX_PATTERNS|FIXED_PATTERNS)\[@\]\}"; do')
+
+
+def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> None:
+    """The hook must contain exactly two pattern-matching greps, both inside
+    a `REGEX_PATTERNS`/`FIXED_PATTERNS` loop.
+
+    A dumb line scanner, matching `_extract_patterns`'s own style: it tracks
+    whether the current line sits inside a loop opened by `for pattern in
+    "${REGEX_PATTERNS[@]}"; do` / `"${FIXED_PATTERNS[@]}"; do` and closed by a
+    bare `done`, and flags every `grep -qEi`/`grep -qFi` invocation found
+    outside one. If a third matching site is added — inside or outside a
+    loop — this fails and names the line, which is the point: extend the
+    coverage guard to see it before adding it, rather than discovering the
+    gap the way this test itself was discovered.
+    """
+    inside_loop = False
+    match_lines: list[tuple[int, bool]] = []  # (1-based lineno, was inside a loop)
+    for lineno, line in enumerate(HOOK.read_text().splitlines(), start=1):
+        if _LOOP_START.search(line):
+            inside_loop = True
+            continue
+        if inside_loop and line.strip() == "done":
+            inside_loop = False
+            continue
+        if _PATTERN_MATCH_LINE.search(line):
+            match_lines.append((lineno, inside_loop))
+
+    assert len(match_lines) == 2, (
+        f"expected exactly 2 pattern-matching grep invocations (one per "
+        f"array loop), found {len(match_lines)} at line(s) "
+        f"{[n for n, _ in match_lines]}. A pattern-matching grep outside the "
+        f"two array loops is invisible to the coverage guard — extend "
+        f"_extract_patterns to cover the new matching site before adding it."
+    )
+    outside = [n for n, inside in match_lines if not inside]
+    assert not outside, (
+        f"pattern-matching grep invocation(s) at line(s) {outside} sit "
+        f"OUTSIDE both array loops, so REGEX_PATTERNS/FIXED_PATTERNS' "
+        f"coverage guard never checks them for a deny case. Move the match "
+        f"inside an array loop, or extend the coverage guard to cover it."
+    )

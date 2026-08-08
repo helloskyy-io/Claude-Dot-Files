@@ -23,6 +23,14 @@ There is no `suites/bash.sh` and that is deliberate — the standard says to
 create a suite runner only for a framework actually in use, and there is not
 one `.bats` file here. It ships with the first bats test, not before it.
 
+**`testing/scripts/mutate.sh` drives pytest only** — `run_leg` hardcodes
+`python3 -m pytest "$TARGET"`. Mutation evidence is binding
+([`docs/standards/testing/README.md`](../docs/standards/testing/README.md)
+lists it as **YES**), so a test written in a framework this harness cannot
+drive cannot satisfy that rule today. Know this while planning a framework,
+not mid-implementation: it is the structural reason a bats suite for
+`config/hooks/` was not viable when it was first considered (issue #52).
+
 `config-hooks/` is the one component whose tests do NOT sit beside the code
 they cover, because `install.sh` symlinks `config/hooks` wholesale into
 `~/.claude/hooks` and a `tests/` directory there would land in the operator's
@@ -73,9 +81,17 @@ testing/scripts/mutate.sh <file> <old-string> <new-string> <pytest-target>
 ```
 
 It runs baseline → mutated → restored and reports whether the guard actually
-fired. It refuses a mutation string that is not present, because a mutation
-that changes nothing proves nothing — and it refuses one that matches more
-than one line, because only the first is replaced and "the first" is often a
+fired. Each leg is judged by **pytest's exit code**, not by grepping the
+output for the word "failed" — a mutation that breaks collection (a syntax
+error, an unparseable array entry) prints "1 error" and exits 2, which is the
+guard firing just as much as an assertion failure is, and a substring check
+would have called it a miss. Exit 4/5 abort the run outright as harness errors
+rather than being read as a result, because exit 5 ("no tests collected")
+means the target was wrong, not that the mutation had no effect.
+
+It refuses a mutation string that is not present, because a mutation that
+changes nothing proves nothing — and it refuses one that matches more than
+once, because only the first occurrence is replaced and "the first" is often a
 mention in a comment header rather than the live code. That case is the nasty
 one: the mutation changes no behaviour, every leg stays green, and the harness
 reports a guard failure that never happened. Narrow the string until it is
