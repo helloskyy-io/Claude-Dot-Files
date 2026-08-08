@@ -94,9 +94,9 @@ claude-dot-files/
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
-│   │   ├── memory-management-framework/             # PLANNED — the first component on the roadmap+phases shape sprint.md mandates
+│   │   ├── memory-management-framework/             # Phase 1 MEASURED (2026-08-08); Phases 2-5 planned, nothing built. First component on the roadmap+phases shape sprint.md mandates
 │   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
-│   │   │   ├── phase1_measure_the_channel.md        # Five experiments; two can shrink Phase 3. Measure before designing
+│   │   │   ├── phase1_measure_the_channel.md        # COMPLETE — six experiments, thirteen rulings. Cancelled nothing; re-scoped Phase 5's predicate
 │   │   │   ├── phase2_kind1_framework.md            # Kind 1 written down as an interface, not prose describing behaviour
 │   │   │   ├── phase3_typed_exit_record.md          # Arrangement A, split abstention, fail-safe contract, one pair proven
 │   │   │   ├── phase4_fleet_migration.md            # Fleet-wide rollout; archive as by-product. Zero prompt content changes
@@ -172,10 +172,17 @@ claude-dot-files/
 │   │   ├── check-settings.sh                        # Ship-gate: validates config/settings.json — malformed JSON, hook paths that don't resolve to an executable config/hooks/*.sh
 │   │   ├── check_settings.py                        # The importable validation logic check-settings.sh runs; also imported directly by its pytest suite
 │   │   ├── vendor-standards.sh                      # Re-copy vendored standards from MDC-Master-Planning with MIRROR provenance; --check fails on local drift
+│   │   ├── measure/                                 # Replay tools over the fleet's OWN archived artifacts. Read-only, off every merge path
+│   │   │   │                                        #   Kept (not one-shots) because each answers a rate over a denominator that GROWS — see its README
+│   │   │   ├── README.md                            # What each tool answers and which open decision reads it
+│   │   │   ├── replay_completion_predicate.py       # How often the completion grep misses a real terminal outcome → direction row D-007, MMF Phase 1 E5
+│   │   │   └── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
-│   │           └── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
+│   │           ├── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
+│   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
+│   │           └── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows

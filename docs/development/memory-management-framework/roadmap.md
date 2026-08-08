@@ -1,6 +1,6 @@
 # Memory Management Framework — Roadmap
 
-**Status: 📋 PLANNED — nothing in this component is built. Five phases, none started.**
+**Status: 🔬 MEASURED — [Phase 1](phase1_measure_the_channel.md) is complete (2026-08-08); nothing is *built* yet and Phases 2–5 have not started.** Phase 1 produced thirteen rulings, three of which changed a downstream phase's checklist — most consequentially, [Phase 5](phase5_convergence_stopping.md)'s empty-delta predicate was measured as never-firing (0 of 7 pass-pairs) and replaced.
 
 *Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in [`sprint.md`](../sprint.md).*
 
@@ -38,12 +38,12 @@ The test this plan applies: **a phase ends where something works end-to-end, and
 
 Establishes, by experiment against the pinned `claude` CLI and the archived run logs, the facts the design's open parameters turn on: whether `is_error` can disagree with the process exit status, what the exit codes actually are for turn-cap and auth failure (no first-party table exists), whether a turn-cap death can leave a partial typed record, how often the current prose grep has actually missed, whether the finding-set delta a convergence rule would read ever goes empty, and the union of values every existing and planned parent branches on. Produces a measured record inside the phase doc, not a design. Its readout is a gate: three of its experiments can shrink or cancel work downstream.
 
-- [ ] The exit-code ↔ `is_error` ↔ `subtype` ↔ `permission_denials[]` ↔ `num_turns` tuple is recorded for each forced failure mode, on the pinned CLI version, in this fleet's child-invocation shape
-- [ ] The archived `.claude/logs/` JSONL are replayed through the current `^VERDICT:` predicate, with a stated adjudication procedure, and the fall-through count is reported with its denominator
-- [ ] The `(is_error clean/dirty) × (VERDICT MERGE/HOLD)` four-cell table is populated from a named data source, and empty cells are named as empty
-- [ ] The finding-set delta between consecutive passes is replayed over archived `pr_review:` blocks, so the convergence signal's firing rate is known before anything is built on it
-- [ ] The union of values every branch point in the bash and Python parents reads is enumerated — the envelope's field list is derived from it, not from a guess
-- [ ] Each experiment ends in an explicit ruling recorded in the phase doc: *changes the design / confirms the design / no-op*
+- [x] The exit-code ↔ `is_error` ↔ `subtype` ↔ `permission_denials[]` ↔ `num_turns` tuple is recorded for each forced failure mode, on the pinned CLI version, in this fleet's child-invocation shape
+- [x] The archived `.claude/logs/` JSONL are replayed through the current `^VERDICT:` predicate, with a stated adjudication procedure, and the fall-through count is reported with its denominator
+- [x] The `(is_error clean/dirty) × (VERDICT MERGE/HOLD)` four-cell table is populated from a named data source, and empty cells are named as empty
+- [x] The finding-set delta between consecutive passes is replayed over archived `pr_review:` blocks, so the convergence signal's firing rate is known before anything is built on it
+- [x] The union of values every branch point in the bash and Python parents reads is enumerated — the envelope's field list is derived from it, not from a guess
+- [x] Each experiment ends in an explicit ruling recorded in the phase doc: *changes the design / confirms the design / no-op*
 
 ### [Phase 2 — Document Kind 1 as a framework](phase2_kind1_framework.md)
 
@@ -78,10 +78,10 @@ Rolls the proven record out across every child and retires prose parsing as a ro
 
 ### [Phase 5 — Convergence-based stopping](phase5_convergence_stopping.md)
 
-Replaces a model-asserted convergence flag with a computed one. `review-pr` already emits `converged: true|false` — a single-pass severity heuristic the model decides and **nothing routes on** — and already mandates stable finding ids reused verbatim across passes. This phase turns convergence into a class-(ii) computed delta over those ids: *"did this pass find anything not in the previous pass's result?"* is answerable against two typed payloads and is not answerable against two prose logs. Ships with the documented guards against a naive "nothing new" rule — an oscillating finding set, an adaptively biased reviewer, and a degraded pass that emits nothing are all indistinguishable from convergence unless the rule is written to tell them apart.
+Replaces a model-asserted convergence flag with a computed one. `review-pr` already emits `converged: true|false` — a single-pass severity heuristic the model decides and **nothing routes on** — and already mandates stable finding ids reused verbatim across passes. This phase turns convergence into a class-(ii) computed signal over those ids. **Amended by [Phase 1](phase1_measure_the_channel.md) E7 (2026-08-08), and the amendment is load-bearing:** the predicate reads the **OPEN subset** — findings whose `disposition` is not one of `fixed`/`deferred`/`rejected`/`noted` — and its stopping condition is **the open set being EMPTY, not merely unchanged.** Measured over the whole archive: the delta over *all* ids was empty **0 of 7** pairs, because the `pr_review:` block restates every prior id and the set therefore cannot shrink; over the open subset it was empty **2 of 7**, and the set reached zero on exactly the one PR that converged. *"Unchanged"* is the wrong condition and was measured wrong: at #58 pass 2→3 the open set held at 2 with nothing added and nothing closed, where a delta-based rule would have stopped and been **incorrect**. **`disposition` is the input, and Phase 5 must NOT build on a `severity` field** — `severity` appears on **0 of the 195** archived findings, while `disposition` appears on all 195. Ships with the documented guards against a naive "nothing new" rule — an oscillating finding set, an adaptively biased reviewer, and a degraded pass that emits nothing are all indistinguishable from convergence unless the rule is written to tell them apart.
 
 - [ ] The existing `converged` field and stable-id convention are treated as the incumbent — reused, extended or explicitly replaced, with a `§Capability Parity` audit recording which
-- [ ] The delta is computed over the stable ids the child already emits, not over a second identity scheme
+- [ ] The signal is computed over the stable ids the child already emits, not over a second identity scheme — **restricted to the OPEN subset by `disposition`**, with the stopping condition being *the open set is empty*, per E7
 - [ ] Each documented false-convergence mode is named with the specific check that separates it from real convergence, and each check has a test proven able to fail
 - [ ] The rule is measured against Phase 1's replay before it gates anything live, and the existing loop-back bound stays in force until that measurement supports replacing it
 
