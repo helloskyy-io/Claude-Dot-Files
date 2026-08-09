@@ -81,29 +81,26 @@ class ReviewResult:
         return self.verdict is Verdict.MERGE
 
 
-# Anchored and exhaustive: an unanchored match would find the token inside prose
-# discussing it. MULTILINE because the line sits in a stream of output.
-_VERDICT = routing._VERDICT   # ONE parser (§10.1); see routing.py and issue #34
-
 # The completion contract. `exit 0` means finished only if output matches this.
 COMPLETION_PATTERN = r"^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$"
 
 MODEL_KEY = "review-pr"
 
-
-def parse_verdict(output: str) -> tuple[Verdict, bool]:
-    """Return (verdict, was_parseable).
-
-    FAILS SAFE TO THE HUMAN BRANCH. An unparseable verdict becomes
-    HOLD_NEEDS_ASSISTANCE — never MERGE, never a redispatch. The routing
-    contract's rule: ambiguity routes to the branch requiring a person, because
-    wrongly merging costs an unbounded amount and wrongly asking costs one
-    message.
-    """
-    matches = _VERDICT.findall(output)
-    if not matches:
-        return Verdict.HOLD_NEEDS_ASSISTANCE, False
-    return Verdict(matches[-1]), True
+# THE ONE DECLARATION of the merge-deciding parser, re-exported rather than
+# re-typed — §6, and the same line `build/build_helper.py` ships. Its owner is
+# `routing.py`, which carries the fail-safe rationale and the LAST-match-wins
+# rule; a body typed here would be a second copy that stays green in its own
+# tests while diverging from the rule applied to its owner. Issue #34 named this
+# file and `build_helper.py` and was closed with only the other one fixed.
+#
+# THIS IS THE SHADOW CHANNEL'S OWN ROUTE. The comparator this module builds
+# exists to notice when two channels disagree; a private retype here would make
+# the comparator the divergence it was built to detect.
+#
+# `test_parse_verdict_is_declared_exactly_once_in_the_whole_tree` fails if a
+# THIRD declaration appears anywhere — the gate is on the class, not this
+# instance.
+parse_verdict = routing.parse_verdict
 
 
 def pass_numbers(prior_pass_count: int) -> tuple[int, int]:

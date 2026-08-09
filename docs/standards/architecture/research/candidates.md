@@ -150,9 +150,23 @@ Five open issues that were **proposals, not defects**, re-homed under [Architect
 
 ---
 
+### Added 2026-08-09 — placed by the producing run on PR #71, per [`finding-routing.md`](../../finding-routing.md) §4
+
+**All three were surfaced by PR #71's build passes, classified as proposals by its review pass, and had no permitted writer until `finding-routing.md` §4 landed.** §4's rule — *a producing run MAY place its own proposals, in its own PR* — is what makes these rows placeable, and the reasoning is that the disposal-chute argument reserving defect filing to the reviewer **does not reach a proposal**: capability that does not exist was never the run's scope, so it cannot be scope the run is offloading. `decision` is blank because triage has not happened; that is `plan-sprint`'s output alone.
+
+**Each was re-verified as a proposal rather than a defect at placement time, not merely inherited from the review.** The distinction that governs all three: *"we have no check for X" is not a defect in X* — none of the three names anything that behaves wrongly today.
+
+| ID | Candidate | Source | `decision` | `status` | Note |
+|---|---|---|---|---|---|
+| C-053 | A dependency manifest for the repo | PR #71 | | `open` | **Re-verified at placement:** no `requirements.txt`, `pyproject.toml`, `setup.py` or `Pipfile` exists anywhere in the tree, and `temporalio`, `pytest` and `jsonschema` all import on this workstation while being declared nowhere. **Proposal, not defect: nothing is currently broken** — `exit_record.py` is stdlib-only *because its author checked*, which is the point. The failure mode is the next module that does not check: it works here and strands a worktree on the VM. Related to C-052 only in that both are "a check that does not exist"; the mechanism is different (undeclared runtime dependency vs untested function) so they are **not** one entry |
+| C-054 | A version pin or startup probe for the CLI-shape facts the V2 path depends on | PR #71 | | `open` | Two facts are depended on and declared nowhere: **`result.permission_denials` exists**, and **`--json-schema` moves prose out of `.result`**. **Partially mitigated by PR #71 and explicitly not closed by it** — that PR split R1 so an absent-or-mistyped `permission_denials` reports `denials_unreadable` rather than `permission_denied`, which means a CLI shape change is now *visible in the per-reason rate* instead of masquerading as a fleet-wide safety trip. It is still detected only after the fact, once per run, by an operator reading reasons. A startup probe would catch it once, before the run. **Proposal: the probe is capability that does not exist**; the mis-binning it would have caused was the defect, and that half is fixed |
+| C-055 | A format check on `docs/file_structure.txt` | PR #71 | | `open` | The map is authoritative per `CLAUDE.md`, and its only structural signal is a column-1 tree gutter — nothing parses it and nothing validates it. **PR #71's draft pass broke it on five lines and nothing noticed**; its refine pass repaired them, and the map is clean as of this commit (re-verified at placement: every body line starts with a gutter character). **So the instance is closed and the check is the candidate** — proposal, not defect. Same mechanism as C-050 (*derive declared counts rather than restating them*): both are "an authoritative artifact with no gate," and if either is ever ruled `ship` the other should be re-read alongside it |
+
+---
+
 ## Where things stand
 
-**Nothing is untriaged.** All 45 rows carry a decision as of the 2026-08-06 `plan-sprint` pass: **25 `ship`**, **8 `requires review`**, **12 `reject`**.
+**Nothing is untriaged.** All 45 rows carry a decision as of the 2026-08-06 `plan-sprint` pass: **25 `ship`**, **8 `requires review`**, **12 `reject`**. **Since that pass, four rows have been added and are untriaged by construction** — C-052 (re-homed from issue #36) and C-053–C-055 (placed from PR #71). Their blank `decision` is the truth, not an omission.
 
 **The `requires review` rows are the live queue.** Seven are filed as `D-001`–`D-006` in [`direction.md`](direction.md); **C-017** is not, because issue #41 already tracks that ruling and one item does not get two homes. Nothing here moves until the operator rules.
 

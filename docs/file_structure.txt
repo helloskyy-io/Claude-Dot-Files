@@ -248,7 +248,9 @@ claude-dot-files/
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
 │                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
 │                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
-│                   │                                #   and the Kind 1 address — schema and address, both gated to one declaration
+│                   │                                #   and FOUR one-declaration gates: the schema, the Kind 1 shared parse (enumerated,
+│                   │                                #   with a completeness check), `parse_verdict` by AST scan of the whole tree, and
+│                   │                                #   exit-protocol §4's reason column compared against the shipped enum
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict

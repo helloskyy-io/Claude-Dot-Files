@@ -110,6 +110,16 @@ class UndeterminedReason(str, Enum):
     """
 
     PERMISSION_DENIED = "permission_denied"
+    # SEPARATE FROM PERMISSION_DENIED ON PURPOSE, and the separation is the
+    # instrument rather than a nicety. The computed arm's rate is `undetermined`
+    # GROUPED BY this field, so "the safety control asserted" and "the key was
+    # absent or was not a list" must not share a bin: if a CLI change renames or
+    # drops `permission_denials`, a shared bin reports 100% of runs as a
+    # fleet-wide safety trip and an operator reads a control firing where none
+    # did. Routing is identical — both arms are the human — so nothing about
+    # R1's primacy is weakened by naming the two conditions apart. Same defect
+    # class as `route(None)` reporting `permission_denied`, one rule below.
+    DENIALS_UNREADABLE = "denials_unreadable"
     RECORD_ABSENT = "record_absent"
     RECORD_UNPARSEABLE = "record_unparseable"
     SCHEMA_VERSION_UNKNOWN = "schema_version_unknown"
@@ -317,11 +327,14 @@ def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
     # safety control is an unbounded retry loop against the one control there is.
     #
     # An ABSENT key is not an empty list. "I could not check whether the safety
-    # control fired" and "it fired" get the same treatment; only the reason
-    # string distinguishes them, and it is for a human.
+    # control fired" and "it fired" get the SAME ROUTING and DIFFERENT REASONS:
+    # the arm is the human either way, and the reason is the payload the
+    # computed arm is grouped by. A shared reason would make a CLI that renamed
+    # or dropped the key indistinguishable from a fleet that tripped the control
+    # on every run — see `UndeterminedReason.DENIALS_UNREADABLE`.
     denials = envelope.get("permission_denials")
     if denials is None or not isinstance(denials, list):
-        return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.PERMISSION_DENIED)
+        return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.DENIALS_UNREADABLE)
     if denials:
         return ExitRecord(
             RoutedOutcome.UNDETERMINED, UndeterminedReason.PERMISSION_DENIED,

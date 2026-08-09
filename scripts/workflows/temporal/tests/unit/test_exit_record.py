@@ -254,13 +254,59 @@ def test_a_denial_is_ruled_before_an_absent_record() -> None:
 def test_an_absent_denials_key_is_not_read_as_an_empty_list() -> None:
     """The contract must be total over its OWN inputs, not just over the record.
 
-    "I could not check whether the safety control fired" and "it fired" get the
-    same treatment; only the reason string is for a human.
+    "I could not check whether the safety control fired" gets the same ROUTING
+    as "it fired" and a DIFFERENT REASON — see the sibling test below for why
+    the difference is the instrument rather than a nicety.
     """
     envelope = _envelope()
     del envelope["permission_denials"]
     routed = er.route(envelope, expected_run_id=RUN_ID)
-    assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
+    assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
+    assert routed.undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
+
+
+def test_a_denials_key_that_is_not_a_list_is_unreadable_rather_than_a_denial() -> None:
+    """Total one level up from the entries: the key's own TYPE can be wrong.
+
+    A CLI that changed `permission_denials` from a list to an object or a count
+    lands here. It is the unreadable case, not the fired case — the parent could
+    not check, and saying it fired would be an assertion about a control that
+    was never read.
+    """
+    routed = er.route(_envelope(denials={"count": 0}), expected_run_id=RUN_ID)
+    assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
+    assert routed.undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
+
+
+def test_R1s_two_branches_report_DIFFERENT_reasons() -> None:
+    """The reason is the payload, and this asserts the field they disagree ON.
+
+    THE PREVIOUS VERSION OF THIS GUARD ASSERTED ONLY THE ARM, so it was green
+    under both the correct and the conflated implementation — the identical
+    shape that let `route(None)` report `permission_denied` one rule below.
+
+    Consequence if these ever share a bin: the computed abstention arm's rate is
+    `undetermined` GROUPED BY reason, so a CLI that renames or drops
+    `permission_denials` bins 100% of runs as `permission_denied`. An operator
+    reads a fleet-wide safety-control trip where nothing fired, and Phase 4's
+    per-reason rate has no way to separate "the control asserted" from "the
+    parent could not check."
+    """
+    unreadable = _envelope()
+    del unreadable["permission_denials"]
+    fired = _envelope(denials=[{"tool_name": "Bash", "matched_rule": "sudo"}])
+
+    a = er.route(unreadable, expected_run_id=RUN_ID)
+    b = er.route(fired, expected_run_id=RUN_ID)
+
+    assert a.routed_outcome is b.routed_outcome is er.RoutedOutcome.UNDETERMINED, (
+        "the SPLIT MUST NOT MOVE THE ROUTING — safety still dominates, and both "
+        "arms are still the human"
+    )
+    assert a.undetermined_reason is not b.undetermined_reason, (
+        "the two R1 conditions share a bin again — the computed arm cannot "
+        "separate a safety trip from an unreadable key"
+    )
 
 
 def test_a_denial_entry_that_is_not_an_object_does_not_crash_the_contract() -> None:
@@ -793,23 +839,41 @@ def test_the_archive_shape_that_produced_the_wrong_pass_number() -> None:
     assert sum(1 for c in comments if "pr_review:" in c) == 3   # the defect, reproduced
 
 
-def test_the_kind_one_ADDRESS_is_one_declaration_across_both_python_readers() -> None:
-    """§6 covers the record's schema AND ITS ADDRESS, and the address is the
-    measured half — three incompatible declarations wrote a wrong durable
-    `pass:` onto 2 of 8 archived PRs (issue #68).
+# ---------------------------------------------------------------------------
+# §6 — ONE DECLARATION. Both gates below are on the CLASS, not on the instance
+# that was found: each one fails when a NEW second declaration appears, not only
+# when the known one comes back.
+# ---------------------------------------------------------------------------
 
-    This PR shipped a mechanical gate for the VOCABULARY half and none for the
-    address, leaving the exact defect §6 was widened for un-gated in the exact
-    place it was measured. Two Python declarations survive by design:
-    `review_pr_helper` (the workflow) and `replay_pr_review_blocks` (the
-    measurement tool that reads the fleet from outside it, so importing across
-    that boundary would invert the dependency). Coupling them by IMPORT is
-    wrong; leaving them free to drift silently is also wrong. This is the third
-    option — a gate, using the same technique the shipped-jq tests use.
+# The Kind 1 shared parse, ENUMERATED rather than asserted one name at a time.
+# A table because the failure this gates is *a pair that nobody added an
+# assertion for*: the first version of this gate named two pairs and the two the
+# same commit introduced went ungated and had already drifted (`\s` vs `[ \t]`),
+# with both suites green. Adding a shared regex is now a row here, and
+# `test_the_shared_parse_ENUMERATION_is_complete` fails until it is.
+SHARED_KIND_ONE_PATTERNS = (
+    ("PR_REVIEW_BLOCK", "FENCE"),
+    ("_FINDING_ID", "FINDING_ID"),
+    ("_FINDING_ITEM", "FINDING_ENTRY"),
+    ("_DISPOSITION", "DISPOSITION"),
+)
 
-    `children/review-pr.sh:142` and `/standup` are the other two and are NOT
-    gated here: the first is the frozen V1 fleet, the second is a prompt file,
-    and both are surfaced for Phase 4's fleet-wide sweep.
+# Regexes that exist on ONE side only, with the reason. These are not shared
+# parse — they read fields the other side has no consumer for — so pairing them
+# would be inventing a coupling rather than gating one. Listed explicitly so
+# that a genuinely shared regex cannot hide in the gap.
+REPLAY_ONLY_PATTERNS = frozenset({
+    "PASS", "ATTEMPT", "VERDICT", "CONVERGED",   # block-level measurement fields
+    "CATEGORY",                                   # finding-level, measurement only
+})
+
+
+def _load_replay_module():
+    """The measurement tool, loaded by path rather than imported.
+
+    It reads the fleet from OUTSIDE the workflow, so a real import would invert
+    the dependency — which is the reason these declarations are gated instead of
+    shared.
     """
     import importlib.util
 
@@ -819,12 +883,185 @@ def test_the_kind_one_ADDRESS_is_one_declaration_across_both_python_readers() ->
     spec = importlib.util.spec_from_file_location("_replay", replay)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    return module
 
-    assert helper.PR_REVIEW_BLOCK.pattern == module.FENCE.pattern, (
-        "the Kind 1 block marker is declared two ways again — the defect §6's "
-        "address half exists to prevent"
+
+@pytest.mark.parametrize("helper_name,replay_name", SHARED_KIND_ONE_PATTERNS)
+def test_the_kind_one_SHARED_PARSE_is_one_declaration_across_both_python_readers(
+    helper_name: str, replay_name: str,
+) -> None:
+    """§6 covers the record's schema AND ITS ADDRESS, and the address is the
+    measured half — three incompatible declarations wrote a wrong durable
+    `pass:` onto 2 of 8 archived PRs (issue #68).
+
+    THE GATE COVERS THE SHARED PARSE, NOT ONLY THE ADDRESS. The block marker
+    locates the record; `_FINDING_ITEM`/`_DISPOSITION` attribute a disposition
+    to a finding, and those feed two different consumers — Phase 5's stopping
+    predicate reads them through `replay_pr_review_blocks`, the render↔record
+    invariant reads them through `review_pr_helper`. If the two ever attribute a
+    disposition differently, the convergence rule and the write-time guard
+    disagree about whether work is closed, with both suites green. That is the
+    same failure the address half was widened for, one field down.
+
+    Two Python declarations survive by design: `review_pr_helper` (the workflow)
+    and `replay_pr_review_blocks` (the measurement tool that reads the fleet
+    from outside it, so importing across that boundary would invert the
+    dependency). Coupling them by IMPORT is wrong; leaving them free to drift
+    silently is also wrong. This is the third option — a gate.
+
+    `children/review-pr.sh:142` and `/standup` are the other two and are NOT
+    gated here: the first is the frozen V1 fleet, the second is a prompt file,
+    and both are surfaced for Phase 4's fleet-wide sweep.
+    """
+    module = _load_replay_module()
+    assert getattr(helper, helper_name).pattern == getattr(module, replay_name).pattern, (
+        f"the Kind 1 shared parse is declared two ways again: "
+        f"review_pr_helper.{helper_name} != replay_pr_review_blocks.{replay_name} "
+        f"— the defect §6 exists to prevent"
     )
-    assert helper._FINDING_ID.pattern == module.FINDING_ID.pattern
+
+
+def test_the_shared_parse_ENUMERATION_is_complete() -> None:
+    """A regex added to either reader is covered by the table or ruled out of it.
+
+    WITHOUT THIS THE TABLE ABOVE ONLY EVER GATES WHAT SOMEBODY REMEMBERED. The
+    measured failure was exactly that: two pairs gated, two pairs added in the
+    same commit ungated and already divergent. A gate whose scope is a hand-kept
+    list retires itself the moment it passes.
+    """
+    module = _load_replay_module()
+    helper_gated = {h for h, _ in SHARED_KIND_ONE_PATTERNS}
+    replay_gated = {r for _, r in SHARED_KIND_ONE_PATTERNS}
+
+    helper_patterns = {n for n, v in vars(helper).items() if isinstance(v, re.Pattern)}
+    replay_patterns = {n for n, v in vars(module).items() if isinstance(v, re.Pattern)}
+
+    assert helper_patterns == helper_gated, (
+        f"review_pr_helper's regexes are no longer exactly the gated set — "
+        f"ungated: {sorted(helper_patterns - helper_gated)}, "
+        f"stale rows: {sorted(helper_gated - helper_patterns)}. Add the pair to "
+        f"SHARED_KIND_ONE_PATTERNS, or state why it is one-sided."
+    )
+    assert replay_patterns == replay_gated | REPLAY_ONLY_PATTERNS, (
+        f"replay_pr_review_blocks' regexes are no longer exactly the gated set "
+        f"plus the declared one-sided ones — ungated: "
+        f"{sorted(replay_patterns - replay_gated - REPLAY_ONLY_PATTERNS)}, "
+        f"stale: {sorted((replay_gated | REPLAY_ONLY_PATTERNS) - replay_patterns)}"
+    )
+
+
+def test_protocol_SS4s_reason_column_is_exactly_the_shipped_vocabulary() -> None:
+    """§4's rule table is a SECOND DECLARATION of the abstention vocabulary.
+
+    §6's one-declaration rule is written about the schema and the address, and
+    the reason strings are neither — but the mechanism is identical and it has
+    now fired twice on this component, both times with every test green:
+
+    - `route(None)` reported `permission_denied` where §4's R2 row said
+      `record_absent` (caught by the refine pass);
+    - §4 asserted *"only the reason string distinguishes them"* for R1's two
+      conditions while the code returned one string for both (caught by the
+      review pass).
+
+    BOTH WERE THE DOCUMENT AND THE CODE DISAGREEING, NOT EITHER BEING WRONG
+    ALONE, and no check compared them. This is that check. It gates the
+    VOCABULARY, not the row-to-rule mapping — a row moving between rules is a
+    prose edit, but a reason string existing in one artifact and not the other
+    means an operator is reading §4 for a bin the code never writes, or binning
+    into one §4 does not document.
+    """
+    protocol = Path(__file__).resolve().parents[5] / "docs" / "standards" / \
+        "exit-protocol.md"
+    assert protocol.exists(), f"the protocol moved: {protocol}"
+
+    # §4's rows are the only ones whose first cell is `**R<n>**`. The reason is
+    # the 4th column, backticked, or an em-dash where the rule routes to a
+    # non-abstaining outcome and carries no reason.
+    rows = re.findall(
+        r"^\|\s*\*\*R[0-9a-z]+\*\*\s*\|[^|]*\|[^|]*\|\s*([^|]*?)\s*\|",
+        protocol.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    assert len(rows) >= 9, (
+        f"§4's rule table did not parse — {len(rows)} rows found. The gate is "
+        f"reporting on a table it did not read."
+    )
+    documented = {cell.strip("`") for cell in rows if cell != "—"}
+    shipped = {member.value for member in er.UndeterminedReason}
+
+    assert documented == shipped, (
+        f"the protocol and the enum disagree about the abstention vocabulary — "
+        f"documented but not shipped: {sorted(documented - shipped)}; shipped "
+        f"but not documented: {sorted(shipped - documented)}. The computed arm's "
+        f"rate is grouped by this field, so a reason the operator cannot look up "
+        f"is a bin nobody can read."
+    )
+
+
+def test_parse_verdict_is_declared_exactly_once_in_the_whole_tree() -> None:
+    """The merge-deciding parser has ONE body, and a third retype fails here.
+
+    §6's own words: *"that is how `parse_verdict` came to be typed twice, and
+    the copy that decided merges had zero tests."* Issue **#34** named both
+    copies — `build_helper` and `review_pr_helper` — and was **closed on a
+    half-fix**, with only `build_helper` re-exporting. The retype survived in
+    the module whose shadow comparator exists to notice when two channels
+    disagree, which made the comparator the divergence it was built to detect.
+
+    SO THIS GATE IS AN AST SCAN OF THE TREE RATHER THAN TWO IDENTITY CHECKS.
+    An identity check per known re-exporter closes the instances that were
+    found; it says nothing about the third copy, and a third copy is exactly
+    what #34's closure produced. Any `def parse_verdict` anywhere outside
+    `routing.py` fails this — including one in a module nobody has written yet.
+    """
+    import ast
+
+    repo_root = Path(__file__).resolve().parents[5]
+    owner = repo_root / "scripts" / "workflows" / "temporal" / "modules" / \
+        "assistant" / "routing.py"
+    assert owner.exists(), f"the owning declaration moved: {owner}"
+
+    # RELATIVE parts, not absolute: this repo's own worktrees live under
+    # `.claude/`, so an absolute-path match skips every file when the test runs
+    # from inside one — a scan that visits nothing and reports a clean tree.
+    skip = {".git", "node_modules", "__pycache__", ".claude", ".venv"}
+    definitions, scanned = [], 0
+    for path in repo_root.rglob("*.py"):
+        if skip & set(path.relative_to(repo_root).parts):
+            continue
+        scanned += 1
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        definitions.extend(
+            path for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "parse_verdict"
+        )
+
+    assert scanned > 50, (
+        f"the scan visited only {scanned} files from {repo_root} — the gate is "
+        f"reporting on a tree it did not read"
+    )
+    assert definitions == [owner], (
+        f"`parse_verdict` is declared {len(definitions)} times, in "
+        f"{sorted(str(p.relative_to(repo_root)) for p in definitions)}. It has "
+        f"exactly one owner ({owner.relative_to(repo_root)}) which carries the "
+        f"fail-safe rationale and the LAST-match-wins rule; every other consumer "
+        f"re-exports it. A second body stays green in its own tests while the "
+        f"rule applied to the owner never reaches it — issue #34, twice."
+    )
+
+
+def test_every_consumer_of_parse_verdict_holds_the_owning_object() -> None:
+    """Negative control's other half: re-export, not re-implementation.
+
+    The AST gate above cannot see a copy assembled at runtime — a `lambda`, a
+    `functools.partial`, a wrapper that re-derives the verdict. Identity is what
+    makes "one declaration" mean the object and not merely the name.
+    """
+    from modules.assistant.build import build_helper
+
+    assert helper.parse_verdict is routing.parse_verdict
+    assert build_helper.parse_verdict is routing.parse_verdict
 
 
 def test_the_shipped_prompt_asks_for_exactly_the_fields_the_parent_reads() -> None:
