@@ -145,7 +145,25 @@ One member doing both jobs measures neither. **Members, names and their emitters
 
 Shape borrowed from Kubernetes `podFailurePolicy`: **ordered rules, first match wins, documented default.** The residual arm is a **named state that gets recorded** — never a silent fall-through.
 
-Four conditions must each route explicitly, and each needs its own test: **absence · unparseability · staleness · unknown `schema_version`**. ⟨PHASE 3⟩ writes the ordering.
+Four conditions must each route explicitly, and each needs its own test: **absence · unparseability · staleness · unknown `schema_version`**. **The ordering, written — nine rules, first match wins, R9 is the documented default:**
+
+| # | Condition | `routed_outcome` | `undetermined_reason` | Why it sits here |
+|---|---|---|---|---|
+| **R1** | `permission_denials` non-empty | `undetermined` | `permission_denied` | **Safety dominates routing.** A child that tripped the only in-run control is never redispatched, whatever it said about its own work — see below |
+| **R2** | no `structured_output` key | `undetermined` | `record_absent` | The measured common case, and **reachable from `subtype: success`** — see below |
+| **R3** | present, but does not validate | `undetermined` | `record_unparseable` | Nothing downstream may read a field off an object that failed validation |
+| **R4** | `schema_version` outside the supported set | `undetermined` | `schema_version_unknown` | **Before identity, deliberately:** a record whose version is unknown has no guaranteed typing, so its `run_id` is not yet a string one may compare |
+| **R5** | `run_id` ≠ the nonce this invocation issued | `undetermined` | `record_stale` | The record is well-formed and belongs to a different invocation |
+| **R6** | `outcome == merge` | `merge` | — | From here the child's assertion decides and the parent adds nothing |
+| **R7** | `outcome == hold`, `hold_kind == redispatch` | `hold` | — | |
+| **R8** | `outcome == hold`, `hold_kind == needs_ruling` | `hold` | — | |
+| **R9** | **default — nothing above matched** | `undetermined` | `unmatched` | The residual arm. A **named state that is recorded**, never a silent fall-through |
+
+**R2 must not be read as "the run died", and the contract says so in its own words.** Phase 1 E2 measured a run that completed with exit **0**, `subtype: success`, `is_error: false`, a populated `.result` and **no `structured_output` key** — the model declined to call the `StructuredOutput` tool and asked a clarifying question instead. R2's documented population therefore includes *"the model declined to call the tool"* on an otherwise-clean run, and R2 fires on it exactly as it fires after a turn-cap death. **A parent that inferred failure from absence would be right three times out of four and wrong in the one case where every other signal already said clean.**
+
+**`permission_denials[]` is safety observability, not a routing option.** Recorded and surfaced every run regardless of any routing ruling, and a non-empty list routes to the human arm and **never** to automatic redispatch. Auto-retrying a child that just tripped the only in-run safety control is an unbounded loop against that control. R1 is that rule, placed first so that no later rule can reach past it.
+
+**R9 exists because every surveyed system has an answer for the unmatched case and none of them is "fall through".** It is not decoration: R6–R8 do not exhaust the product of `outcome` × `hold_kind`, because a record can validate against a schema and still carry a combination no rule anticipated — most obviously a future version's `hold_kind` reaching a parent whose supported set was widened without its rules being widened with it.
 
 **Why total rather than best-effort:** the producer's malformedness is a **stationary rate with a distribution**, not a defect with a fix. That is the real difference from a CI step — *not* that the producer is uniquely unreliable. CI producers emit well-formed wrong results too, and it is measured. **"Our producer is special" is a claim a CI-literate reviewer will break;** the reason to be total is that the bad case recurs.
 
