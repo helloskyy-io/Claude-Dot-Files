@@ -847,6 +847,59 @@ def test_latest_pr_review_block_takes_the_LAST_one(monkeypatch, tmp_path) -> Non
     assert helper.finding_ids_in_block(block) == frozenset({"new"})
 
 
+def test_latest_pr_review_block_takes_the_LAST_one_WITHIN_a_comment_too(
+    monkeypatch, tmp_path,
+) -> None:
+    """LAST WINS is a property of blocks, and the comment is not the unit.
+
+    The version that shipped used `PR_REVIEW_BLOCK.search` — the FIRST block per
+    comment — so "last wins" held only across comments. `replay_pr_review_blocks`
+    has always used `findall`, so two of the three readers of this address
+    disagreed about what "the latest block" means, and the test above could not
+    see it because each of its comments carries exactly one block.
+
+    THE SHAPE IS ONE THE PROMPT INVITES, not a contrived one. `disposition.md`
+    INVARIANT 1 requires each pass to carry every prior finding forward, so a
+    disposition that quotes the block it supersedes above its own is ordinary
+    model behaviour. Under `search` this returned the QUOTED, superseded block —
+    and the render↔record invariant then compared this pass's typed record
+    against the previous pass's findings and raised on a correct run, after the
+    comment had already been posted. The failure was loud, wrong, and unrecoverable.
+    """
+    act = _with_comments(monkeypatch, [
+        "```yaml\npr_review:\n  pass: 1\n  findings:\n    - id: old\n```",
+        "Superseding the previous disposition, quoted here for continuity:\n\n"
+        "```yaml\npr_review:\n  pass: 1\n  findings:\n    - id: old\n```\n\n"
+        "This pass:\n\n"
+        "```yaml\npr_review:\n  pass: 2\n  findings:\n    - id: new\n```",
+    ])
+    block = act.latest_pr_review_block("66", tmp_path)
+    assert helper.finding_ids_in_block(block) == frozenset({"new"})
+
+
+def test_count_prior_passes_counts_COMMENTS_even_when_one_quotes_another(
+    monkeypatch, tmp_path,
+) -> None:
+    """The asymmetry with `latest_pr_review_block`, asserted so it survives.
+
+    That function moved to `finditer` because it selects a BLOCK. This one must
+    NOT: it counts PASSES, one pass posts one comment however many blocks it
+    quotes, and `review_pr_workflow`'s `posted <= prior_pass` delta reads it. A
+    tidying edit that made the two symmetric would count the quoting comment
+    twice and break the delta in a new way — so the difference is a test, not a
+    comment.
+    """
+    act = _with_comments(monkeypatch, [
+        "```yaml\npr_review:\n  pass: 1\n```",
+        "Quoting the prior block:\n```yaml\npr_review:\n  pass: 1\n```\n"
+        "and mine:\n```yaml\npr_review:\n  pass: 2\n```",
+    ])
+    assert act.count_prior_passes("66", tmp_path) == 2, (
+        "two comments carry a block, so two passes have posted — the second "
+        "comment carrying two blocks does not make it two passes"
+    )
+
+
 def test_latest_pr_review_block_is_None_on_a_fresh_pr(monkeypatch, tmp_path) -> None:
     """Negative control: a thread of mentions is a thread with no record."""
     act = _with_comments(monkeypatch, ["no block here", "pr_review: mentioned only"])

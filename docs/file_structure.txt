@@ -161,6 +161,8 @@ claude-dot-files/
 │       ├── exit-protocol.md                         # DRAFT, NOT BINDING — the child→parent handoff contract. Phase 3 wrote its answers in:
 │       │                                            #   §2 the envelope's three strata, §3 the split abstention vocabulary, §4 the nine
 │       │                                            #   ordered rules, §5 versioning. Still carries ⟨PHASE 4⟩ in §6 and is UNRATIFIED
+│       ├── finding-routing.md                       # WHERE A FINDING GOES — defect vs proposal, the four gates, who may write which surface.
+│       │                                            #   §4 is why a producing run places its own proposals in candidates.md
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
 │       ├── rules.md                                 # Standards for writing global rules
 │       ├── services.md                              # Standards for long-running services/daemons

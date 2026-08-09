@@ -89,8 +89,10 @@ The model calls the `StructuredOutput` tool; these are its parameters. **Every o
 |---|---|---|---|
 | `permission_denials.count` | integer | **Phase 1 E1(f)** — an operator reviewing whether a dispatch tried something the hook stopped. The denial run exited **0** with `is_error: false` and `subtype: success`, so nothing else can answer it | publishable |
 | `permission_denials.entries[].tool_name` | string | Same consumer: *which* control fired | publishable |
-| `permission_denials.entries[].matched_rule` | string | Same consumer: *why* it fired | publishable |
+| `permission_denials.entries[].tool_use_id` | string | Same consumer: *which call* fired it — the key that locates the denied invocation in the run log | publishable |
 | `permission_denials.entries[].tool_input` | — | **NOT CARRIED.** Dropped at read time and never stored in either copy | **internal — never published, never routed** |
+
+> **`matched_rule` was declared here and is withdrawn, because it does not exist on the envelope.** This row read *"`matched_rule` | string | Same consumer: **why** it fired"* and the reader filled it with `.get("matched_rule", "")` — so the one question §2.2 says this stratum exists to answer was **empty on every real run**, silently, because the default hid the absence. The single observed denial entry (Phase 1, *"`permission_denials[]` non-empty, observed once (1 of 9 runs, forced)"*) is `{tool_name, tool_use_id, tool_input}`; the CLI emits no `matched_rule` at all. **The field list was written from the design table and the reader was written from the field list, so nothing in the chain ever compared either against the measurement.** `tool_use_id` replaces it because it is measured present and answers a question an operator actually has after a trip. Re-open this if the CLI ever publishes a rule identifier.
 
 ### 2.3 · Parent-computed — the fail-safe contract's own output
 

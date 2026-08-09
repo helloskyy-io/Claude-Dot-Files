@@ -168,9 +168,13 @@ Five open issues that were **proposals, not defects**, re-homed under [Architect
 
 ## Where things stand
 
-**Nothing is untriaged.** All 45 rows carry a decision as of the 2026-08-06 `plan-sprint` pass: **25 `ship`**, **8 `requires review`**, **12 `reject`**. **Since that pass, four rows have been added and are untriaged by construction** — C-052 (re-homed from issue #36) and C-053–C-055 (placed from PR #71). Their blank `decision` is the truth, not an omission.
+**Nine rows are untriaged, and they are the next `plan-sprint` pass's working set: C-047 through C-055.** Five (C-047–C-051) were re-homed out of the GitHub issue queue on 2026-08-09, C-052 came from issue #36, and C-053–C-055 were placed from PR #71. Their blank `decision` is the truth, not an omission — but blank is only honest while this paragraph says how many there are. **C-048 and C-049 must be ruled together**, per C-048's own Note.
 
-**The `requires review` rows are the live queue.** Seven are filed as `D-001`–`D-006` in [`direction.md`](direction.md); **C-017** is not, because issue #41 already tracks that ruling and one item does not get two homes. Nothing here moves until the operator rules.
+The 45 rows that predate them carry a decision from the 2026-08-06 `plan-sprint` pass: **27 `ship`**, **6 `requires review`**, **12 `reject`**.
+
+> **Every number in this section is a restatement of something nothing derives, and each one was wrong.** It read *"Nothing is untriaged… All 45 rows… 25 `ship`, 8 `requires review`"* while **nine** rows were blank and the split was **27/6**; the next paragraph said **seven** `requires review` rows were filed as `D-001`–`D-006` when **five** are, under non-contiguous ids. The consequence was not cosmetic: five proposals re-homed out of the GitHub issue queue on 2026-08-09 were sitting invisibly in this one, because the summary `plan-sprint` builds its working set from said four rows were untriaged. **This is exactly the mechanism C-050 names** — *derive declared counts rather than restating them* — occurring in the file that holds C-050, and this is its second recorded occurrence. A third correction is the wrong response; ruling C-050 is the right one.
+
+**The `requires review` rows are the live queue, and there are six: C-010, C-017, C-021, C-032, C-034, C-041.** Five are filed in [`direction.md`](direction.md) — C-010 as `D-001`, C-021 as `D-003`, C-032 as `D-004`, C-034 as `D-005`, C-041 as `D-006`. **C-017** is not, because issue #41 already tracks that ruling and one item does not get two homes. (`D-002` and `D-007` are sourced from rows and papers outside this queue, so they do not belong to this count.) Nothing here moves until the operator rules.
 
 **Six `ship` rows were already applied before triage** — C-020, C-024, C-025, C-026 and C-027 landed in `f2b80a6` and the sprint-plan comparator split, and C-007/C-008/C-009/C-013/C-015/C-018 in `b9710d5`. A candidate can be delivered before anyone gets round to ruling it; recording that is cheaper than re-deriving it.
 
