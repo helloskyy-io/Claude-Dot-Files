@@ -58,7 +58,7 @@ claude-dot-files/
 │   │   ├── decide.md                                # /decide — fire five-whys decision methodology (loads decision-methodology skill)
 │   │   ├── get-started.md                           # /get-started — session kickoff context
 │   │   ├── review.md                                # /review — invoke code-reviewer agent
-│   │   ├── standup.md                               # /standup — sweeps the four git memory surfaces → attention brief; WRITER on three of them (see docs/guide/memory-model.md §2.3)
+│   │   ├── standup.md                               # /standup — sweeps the five git memory surfaces → attention brief; WRITER on three of them (see docs/guide/memory-model.md §2.3)
 │   │   ├── troubleshoot.md                          # /troubleshoot — fire systematic debugging methodology (loads troubleshooting-methodology skill)
 │   │   ├── update-claude.md                         # /update-claude — sync CLAUDE.md standard references
 │   │   └── update-file-structure.md                 # /update-file-structure — update this file
@@ -122,7 +122,7 @@ claude-dot-files/
 │   ├── guide/                                       # USER-FACING — operating manuals
 │   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
 │   │   ├── operations.md                            # THE OPERATING MANUAL — memory model orientation, daily loop, and the single roster of every workflow/agent/command/skill/rule
-│   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — Kind 1 as a substrate-free interface, this fleet's four-surface binding, per-field consumer lists, the addressing convention
+│   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — Kind 1 as a substrate-free interface, this fleet's five-surface binding, per-field consumer lists, the addressing convention
 │   │   ├── workflows.md                             # Workflow architecture — the build split, model management, escalation ladder, MAX_TURNS table
 │   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
 │   │   ├── claude_code_agents.md                    # PLATFORM BACKGROUND — what agents are, frontmatter, tool guardrails, dispatch patterns
