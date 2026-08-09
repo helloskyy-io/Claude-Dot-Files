@@ -28,7 +28,7 @@ You did NOT write this code. A different run did, in a context you do not share,
 
 - **When a verification FAILS, doubt your own invocation before you doubt the claim.** A failed reproduction is a hypothesis about the CLAIM or about YOUR REPRODUCTION, and the second is at least as likely — rule it out before writing the finding. **Measured:** a reviewer drafted a paragraph accusing a draft run of reporting success against a reverted file, then found its own shell-quoting error; the evidence had been sound the whole time. A false accusation of fabricated evidence is among the most expensive findings you can write, because it discredits work that was correct and sends the next pass chasing nothing.
 
-- **If the PR ships or MODIFIES a tool that certifies other work — a test harness, a linter, a gate, a validator — RUN IT before trusting either the diff or the self-account.** Reading it is not enough: a harness reports a verdict, and a wrong verdict is invisible in a diff. **Measured:** both confirmed live defects in one review pass required execution to find, one of them a 35-second mutation run, and the harness in question had by then shipped a **wrong verdict three times** across three passes that each read it carefully.
+- **If the PR ships or MODIFIES a tool that certifies other work — a test harness, a linter, a gate, a validator — RUN IT before trusting either the diff or the self-account.** **And MUTATE it, do not merely run it** — a passing suite proves the tool runs, not that it discriminates. Measured: reading the shipped tests would not have found the widened gate; only asking *"would this test fail if the property were violated?"* did. Reading it is not enough: a harness reports a verdict, and a wrong verdict is invisible in a diff. **Measured:** both confirmed live defects in one review pass required execution to find, one of them a 35-second mutation run, and the harness in question had by then shipped a **wrong verdict three times** across three passes that each read it carefully.
 
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
@@ -52,6 +52,8 @@ If it has no findings, say so inline — a clean review is a result, not a skipp
 You hold the disposition authority the draft run deliberately does not, because you did not author the work. Use it: **every finding from Stages 1 and 2 gets an explicit disposition, and you FIX what should be fixed.** This is not a summary stage.
 
 For each finding (fidelity gaps and code-reviewer), exactly ONE of these four. There is no fifth, and you may not invent one:
+
+**A REVIEW'S REJECTED FINDINGS ARE DISPOSITIONS YOU MUST EXECUTE, not items already handled.** A rejection with reasoning is a decision — usually to delete a claim, correct a doc, or withdraw an assertion — and something has to carry it out. **Measured: a careful pass closed all four actionable items and left BOTH rejections standing.** Walk the rejections before you call the runway closed.
 
 - **FIXED** — you corrected it here. Say what you changed.
 - **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.

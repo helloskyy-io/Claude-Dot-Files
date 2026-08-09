@@ -1126,6 +1126,44 @@ Editing plan-revision's V2 prompt turned `test_plan_revision_v1_parity` red — 
 
 ---
 
+## 2026-08-09 (evening) — six prompt fixes, and two are RECURRENCES with a measured cost
+
+Mined from PR #71's four self-evaluations. Recorded with recurrence state, because the operator's standing question is *"is this happening again?"* and two of these are.
+
+### 🔁 RECURRENCE — `pass:` derived from the label, not the block count
+
+**Second time asked for, and the divergence is WIDENING: 3-vs-1, then 6-vs-2.** A prior pass on this same PR asked for one sentence and it was never added; the number was wrong again on the next pass, further out.
+
+**Why it is not cosmetic:** a wrong `pass:` in a durable record is permanent, and **Phase 5's stopping predicate reads it.** Issue #68 tracks the V1 code defect; this is the prompt half, which stops the wrong value being *written* while #68 waits.
+
+**Watch-criteria: if it is wrong a third time, the counter is the defect and #68 becomes Tier-1 regardless of what else is queued.**
+
+### 🔁 RECURRENCE — a control that goes red without discriminating
+
+Third framing of the same root cause this week. *"A guard ships with a demonstration that it fails when the property is violated"* was satisfied by **three controls in one run that were nearly worthless** — the mutation broke something the assertion caught by accident.
+
+Now: **derive the mutation from the claim the code makes about ITSELF** — its docstring, its named property — not from whatever is easy to break. And a guard that scans a tree, greps a corpus or walks a directory **can pass vacuously when its scoping is wrong**, so it must assert a non-zero count of things examined.
+
+**Related and already shipped this week:** the claim-shape grep rule (a check must match the claim, not the values already known wrong) and the run-the-apparatus rule. **Three instances of *the check is shaped wrong* in one week** — the pattern is that a check written from the defect rather than from the property only ever catches that defect.
+
+### SHIPPED — first occurrence
+
+**A review's REJECTED findings are dispositions a build pass must EXECUTE.** The stage instructions were detailed about `hold`/`fix-in-place` and silent on rejections. **Measured: a careful pass closed all four actionable items and left both rejections standing.** A rejection is usually *delete this claim* or *withdraw this assertion* — someone has to do it.
+
+**Cluster by SHARED ROOT CAUSE, not shared location.** The rule said file/function/subsystem/remedy. **Measured: eight defects across six files were one item**, because all eight were *prose verified at a lower bar than code*. Location under-clusters; ask what single wrong belief produced all of them.
+
+**MUTATE the tool that certifies other work, do not merely run it.** Reading the shipped tests would not have found the widened gate; only *"would this test fail if the property were violated?"* did.
+
+**Never `git checkout -- <file>` / `git restore` / `git stash` to undo an experiment.** Measured: a mutation loop reverted live uncommitted edits this way, **in the correct worktree** — so the existing CWD-discipline warning did not cover it.
+
+### NOTED — validated rather than changed
+
+`finding-routing.md` § 4, written today, closed its loop inside a single PR: **a reviewer correctly refused to file three proposals, correctly reported that no actor was permitted to place them, the standard changed, and the redispatched producing run placed them.** The run's own words: *"the cleanest demonstration the pipeline has produced that the standard works."*
+
+**Filing counts across the day: 10 → 0 → 0.** Two consecutive runs under the new taxonomy filed zero proposals as issues; the one issue filed (#72) was a genuine defect with no existing container.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

@@ -136,7 +136,7 @@ Both still block MERGE. Only LAUNDERED counts against the producing run.
 
 **You are NOT expected to work out where a proposal belongs in the plan** — sprint, phase, or nothing. Only that it is a proposal. That triage is a separate job with its own criteria, and doing it inline is what produced feature requests as Issues.
 
-**CLUSTER YOUR OWN FINDINGS BEFORE YOU SEARCH ANYTHING.** Searching the board cannot find what does not exist yet, and the sharpest measured instance was **four Issues against one file, filed by one pass, in one minute** — each individually correct. Findings sharing a **file**, a **function**, a **subsystem**, or **one dispatch's remedy** are **ONE entry**. Do this first, on your own output, before any `gh issue list`.
+**CLUSTER YOUR OWN FINDINGS BEFORE YOU SEARCH ANYTHING.** **And the axis that matters most is SHARED ROOT CAUSE, not shared location** — measured: eight defects across six files were one item, because all eight were *prose verified at a lower bar than code*. Location is the easy axis and it under-clusters; ask what single wrong belief produced all of them. Searching the board cannot find what does not exist yet, and the sharpest measured instance was **four Issues against one file, filed by one pass, in one minute** — each individually correct. Findings sharing a **file**, a **function**, a **subsystem**, or **one dispatch's remedy** are **ONE entry**. Do this first, on your own output, before any `gh issue list`.
 
 **THEN SEARCH BY MECHANISM, NOT ONLY BY KEYWORD.** Two issues can be the same defect and share no vocabulary — measured upstream: *"credential-interpolation defect"* and *"adoption coordinates self-authorised by value shape"* were one mechanism (a shape-matcher used as an authorisation) with zero overlapping search terms. Ask **"is this the same MECHANISM as something already filed, in different code?"**, not "do the words match?" Search **every repo** the work spans, not only this one — deferred work lives in the planning repo too.
 
@@ -233,6 +233,11 @@ Then write the comment body to a temp file (e.g. /tmp/claude-review-pr-${PR_NUMB
 pr_review:
   pr: ${PR_NUMBER}
   pass: ${THIS_PASS}
+  pass: <int>                        # DERIVED FROM THE FENCE-ANCHORED BLOCK COUNT YOU VERIFIED,
+                                     # never from the dispatch's label. STATE ANY DIVERGENCE explicitly.
+                                     # Wrong twice on one PR and WIDENING -- 3-vs-1, then 6-vs-2. A wrong
+                                     # pass number in a durable record is permanent, and Phase 5's stopping
+                                     # predicate reads it. Count the blocks; do not trust the label.
   attempt: <int>                     # BUILD attempts consumed so far (NOT review passes).
                                      # ON PASS 1 there is no prior block to carry from: seed it from the
                                      # count of ATTESTING reflection comments on the PR (a `wip:` checkpoint
