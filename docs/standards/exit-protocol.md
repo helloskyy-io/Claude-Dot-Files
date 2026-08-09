@@ -44,7 +44,7 @@ In this repo Kind 1 is currently implemented as PR threads, Issues, and the stan
 
 So the five properties above are the contract. GitHub is **one binding of it**. Any document describing Kind 1 must state which parts are substrate-specific and which are the interface. ⟨PHASE 2⟩ enumerates this.
 
-**Consequence for the envelope:** a Kind 2 record carries a **substrate-agnostic reference** to its Kind 1 record. Today that resolves to a PR URL; on another substrate it resolves to something else. The field is not optional and its form is ⟨PHASE 3⟩.
+**Consequence for the envelope:** a Kind 2 record carries a **substrate-agnostic reference** to its Kind 1 record. Today that resolves to a PR URL; on another substrate it resolves to something else. The field is not optional, and its form is `completion_ref` in §2 — **four parts, of which exactly one names the substrate and none is typed as a URL.** A component whose work product is not code in git has no PR to point at, and this fleet is going there.
 
 ---
 
@@ -54,13 +54,66 @@ So the five properties above are the contract. GitHub is **one binding of it**. 
 
 | Requirement | Status |
 |---|---|
-| Field list | ⟨PHASE 3⟩ writes the contract, **derived from Phase 1 E6's completed enumeration — nine fields, not the roadmap's estimated "roughly five"**, and `plan-revision`'s issue-URL completion is a second caller the estimate omitted. The enumeration is done; the per-field contract is not |
-| Per-field: named consumer, publish classification (publishable / internal) | ⟨PHASE 3⟩ |
-| Reference to the Kind 1 record (§1) | ⟨PHASE 3⟩ |
-| Transport | **MEASURED — `--output-format json --json-schema`, the parent reading `structured_output`.** Phase 1 E1(g), 2026-08-08, on CLI 2.1.224 — *confirms* the roadmap's preference, judged on isolation and Temporal replay cost rather than availability alone. The file variant would ask a child under `--dangerously-skip-permissions` to write outside its worktree, which is the isolation boundary the fleet's safety argument rests on. **One constraint the measurement added and nobody predicted: the schema is an inline shell argument**, so its size and quoting are a build-time concern for every caller. See [`phase1_measure_the_channel.md`](../development/memory-management-framework/phase1_measure_the_channel.md) § E1 |
-| Size bound | ⟨PHASE 3⟩. The one corroborated figure in the evidence base is Tekton's 4096 bytes. **Do not cite the GitHub Actions 1 MB / 50 MB caps** — unverified in the fetched primary |
+| Field list | **WRITTEN — §2.1 and §2.2 below**, derived from Phase 1 E6's enumeration. Phase 3 added two child-authored fields and re-typed a third; each addition names the requirement that forced it, in §2.3 |
+| Per-field: named consumer, publish classification (publishable / internal) | **WRITTEN — the two rightmost columns of §2.1 and §2.2** |
+| Reference to the Kind 1 record (§1) | **WRITTEN — `completion_ref`, §2.1.** Substrate-discriminated, never typed as a URL |
+| Transport | **MEASURED — `--output-format json --json-schema`, the parent reading `structured_output`.** Phase 1 E1(g), 2026-08-08, on CLI 2.1.224 — *confirms* the roadmap's preference, judged on isolation and Temporal replay cost rather than availability alone. The file variant would ask a child under `--dangerously-skip-permissions` to write outside its worktree, which is the isolation boundary the fleet's safety argument rests on. **One constraint the measurement added and nobody predicted: the schema is an inline shell argument**, so its size and quoting are a build-time concern for every caller. See [`phase1_measure_the_channel.md`](../development/memory-management-framework/phase1_measure_the_channel.md) § E1. **Phase 3 measured one thing more, and it changes what a caller must do — §2.4.** |
+| Size bound | **WRITTEN — §2.5.** The one corroborated figure in the evidence base is Tekton's 4096 bytes. **Do not cite the GitHub Actions 1 MB / 50 MB caps** — unverified in the fetched primary |
 
 **No field is added on behalf of a consumer that does not exist.** A known-future consumer is served by the extension rule in §5, not by a field reserved today. Every protocol that stayed composable did this; the ones that anticipated their consumers bloated and forked.
+
+**The record has three strata, and the split is a fact about who can physically produce each value — not a taxonomy.** The child authors what only the child knows; the runtime produces what the child cannot see; the parent computes what neither is entitled to decide. §2.1, §2.2 and §2.3 are those three, in that order, and step 2 of Phase 3 rules on why.
+
+### 2.1 · Child-authored — arrives in `structured_output`
+
+The model calls the `StructuredOutput` tool; these are its parameters. **Every one must be a field the child can ALWAYS fill** — Phase 1 E2(c) measured that a schema the model cannot satisfy produces *silence on a clean run*, not an error, so an over-constrained required field is a self-inflicted absence.
+
+| Field | Type | Required by | Publish |
+|---|---|---|---|
+| `schema_version` | string; `"1"` today | The parent's version-skew rule (§5) — a child in a worktree on an older revision writes to a parent on `main`, so skew is the normal case here | publishable |
+| `run_id` | string; opaque nonce the parent generated and put in the prompt | **The parent's run-identity check (§3 of Phase 3's channel requirements).** Binds *this* record to *this* invocation, independently of the path it arrived on | internal |
+| `outcome` | enum `merge` \| `hold` | **B6, B7, P3, P5** | publishable |
+| `hold_kind` | enum `redispatch` \| `needs_ruling`; required iff `outcome == hold` | **B6, P3, P5** — every parent branches on the sub-kind, so `hold` alone does not route | publishable |
+| `completion_ref.substrate` | enum; `github` today, extended additively per §5 | The resolver that turns the ref into an address. **This is the field that makes the reference substrate-agnostic**; without it a reader must infer the binding from the shape of a string | publishable |
+| `completion_ref.kind` | enum, **scoped to the substrate**; `pull` \| `issue` on `github` | **P6** — the sole reason `plan_revision_workflow.py`'s `rfind` tie-break exists. This field deletes that code | publishable |
+| `completion_ref.id` | string; opaque within the substrate | **B3, P4** — both fleets recover it today by string surgery on a URL | publishable |
+| `completion_ref.uri` | string; a **substrate-defined resolvable address**, not a URL by contract | **B1, B2, P4**, and the human-facing banners at `build.sh:210,292` | publishable |
+| `findings[].id` | string slug | **Phase 5** identity, and Phase 3 step 8's render↔record invariant | publishable |
+| `findings[].disposition` | enum `hold` \| `fixed` \| `deferred` \| `rejected` \| `noted` \| `escalated` | **Phase 5**'s stopping predicate — the field that partitions a block's findings into open and closed. Present on 195 of 195 archived findings | publishable |
+
+### 2.2 · Runtime-produced — the parent reads them off the CLI result envelope
+
+**The child cannot author these and must not be asked to.** They are facts about the process, observed by the thing that ran it.
+
+| Field | Type | Required by | Publish |
+|---|---|---|---|
+| `permission_denials.count` | integer | **Phase 1 E1(f)** — an operator reviewing whether a dispatch tried something the hook stopped. The denial run exited **0** with `is_error: false` and `subtype: success`, so nothing else can answer it | publishable |
+| `permission_denials.entries[].tool_name` | string | Same consumer: *which* control fired | publishable |
+| `permission_denials.entries[].matched_rule` | string | Same consumer: *why* it fired | publishable |
+| `permission_denials.entries[].tool_input` | — | **NOT CARRIED.** Dropped at read time and never stored in either copy | **internal — never published, never routed** |
+
+### 2.3 · Parent-computed — the fail-safe contract's own output
+
+Authored by neither the child nor the runtime. §4 produces these; nothing else may write them.
+
+| Field | Type | Required by | Publish |
+|---|---|---|---|
+| `routed_outcome` | enum `merge` \| `hold` \| `undetermined` | **The parent's branch.** The policy-adjusted value, in the `outcome`/`conclusion` shape of §3 — the child's `outcome` above is the raw observation and is never overwritten | publishable |
+| `undetermined_reason` | enum; required iff `routed_outcome == undetermined` | The residual arm's **named recorded state** (§4), and the operator reading why a run reached a human | publishable |
+
+### 2.4 · What Phase 3 measured that changes a caller's obligations
+
+Re-verified on **CLI 2.1.224, 2026-08-09, host `puma-workstation-mint`** — the same version Phase 1 pinned, so this is an addition to E1(g) rather than a re-take of it.
+
+- **`--json-schema` composes with `--output-format stream-json`.** Phase 1 measured it against `--output-format json`; the fleet runs `stream-json`, and the `result` event carries a validating `structured_output` under both.
+- **Declaring a schema REPLACES `.result` with the serialised structured output.** On a run that emitted prose *and* called the tool, `.result` was `{"outcome":"merge",…}` and the model's terminal `VERDICT:` line was **not in it**. `run-claude.sh:201-204` reads `.result` for the completion contract, so **a caller that adds `--json-schema` without moving that read silently deletes the fleet's only write-time gate.** The prose itself survives, in the stream's `assistant` text blocks — which is where a schema-declaring caller must read both the completion signal and any prose shadow.
+- **The result envelope carries `session_id` and `uuid`**, so a runtime-produced process identity exists alongside the child-authored `run_id`. `run_id` is the one that binds a record to *the invocation the parent dispatched*; `session_id` only identifies the CLI process that wrote it.
+
+### 2.5 · Size posture
+
+**Carry references, not payloads.** The envelope's fixed part — everything in §2.1 except `findings[]` — is bounded at **4096 bytes**, the one corroborated cap figure in this evidence base (Tekton). `findings[]` grows with the review and is exempt, because it carries two short fields per finding and no prose.
+
+**And the schema is subject to a second, separate bound that the payload is not.** It is passed to the CLI as an argument value, so its size is a *build-time* cost for every caller, not a runtime one. It is bounded at **4096 bytes compact** and is asserted at that bound by a test, because an over-large schema fails at the process boundary where the error names neither the schema nor the field that grew it.
 
 ## 3 · The outcome vocabulary
 
@@ -93,7 +146,11 @@ Four conditions must each route explicitly, and each needs its own test: **absen
 - **Extensions are additive.** A new consumer gets a new optional field; it does not get a reserved field today or a breaking change tomorrow.
 - A field is removed only after no consumer reads it, demonstrated rather than asserted.
 
-Exact mechanism and compatibility window: ⟨PHASE 3⟩.
+**Mechanism, ruled deliberately small.** `schema_version` is a **single integer as a string**, starting at `"1"`. A parent declares the set of versions it supports; a value outside that set routes to the human arm at rule R4 and is never guessed at. Adding an optional field does **not** bump it — that is what "additive" means, and a bump that fires on every additive change would route every skewed worktree to a human for no reason. It bumps only when an existing field changes type, changes meaning, or is removed.
+
+**Compatibility window: the parent supports exactly the versions it has code for, and nothing is deprecated on a clock.** Skew is the normal case here rather than the edge case — a parent on `main` reads records written by children in worktrees cut from older revisions — so the window is a *set*, not a range, and it widens by adding a version to the set.
+
+**Why this is the whole mechanism, and why a general framework would be worse.** Schema evolution across independently-versioned producers and consumers is a documented hard problem with a documented industry retreat, and the two live producers here are one prompt file and one Python module in the same repository. An additive-only rule plus a total fail-safe covers the failure this protocol actually has; a negotiation protocol or a compatibility matrix would be machinery for a fleet that does not exist yet, and §2's own rule against reserving fields for absent consumers applies to mechanisms too.
 
 ## 6 · Conformance
 
