@@ -147,7 +147,7 @@ Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-int
 
 Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
-**Kind 1 — durable memory in git, read by humans and AI.** Built and in use, undocumented as a framework: PR threads carry change-outcomes, Issues carry no-change outcomes, the standup tracker carries continuity. *Open* IS the to-do bit.
+**Kind 1 — durable memory in git, read by humans and AI.** Built and in use; **documented as a framework by Phase 2**. **Five** surfaces, measured: PR threads carry change-outcomes, Issues carry no-change outcomes, the standup tracker carries continuity, `direction.md` carries rulings only the operator can make, and `candidates.md` carries research candidates and their dispositions — the last of these being what makes `direction.md`'s 90-day rotation safe, since a ruled row may only be deleted once its reasoning is recorded in the candidate that never deletes. The record's own to-do bit is what marks work as current.
 
 **Kind 2 — machine handoff in a file, read by CODE.** Not built. A parent must decide *in code, with no AI in the loop*, which child to invoke next.
 
