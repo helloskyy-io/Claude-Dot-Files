@@ -124,9 +124,20 @@ Re-verified on **CLI 2.1.224, 2026-08-09, host `puma-workstation-mint`** — the
 - a **computed** *could-not-check* arm — the evaluation did not complete
 - an **asserted** *needs-a-ruling* arm — the evaluation completed and the answer is that a human must decide
 
-One member doing both jobs measures neither. Members, names and their emitters: ⟨PHASE 3⟩.
+One member doing both jobs measures neither. **Members, names and their emitters, written:**
 
-**When an asserted verdict and a computed observable disagree, record both under distinct names.** The GitHub Actions `outcome`/`conclusion` split is the shape: the raw observation is never overwritten; the policy-adjusted value is what routing sees by default. Precedence: ⟨PHASE 3⟩. **The conditional is now resolved — Phase 1 E3(a), 2026-08-08: the off-diagonal cells are empty *by construction*, not merely unobserved.** So the two-name shape is adopted and **no composition machinery is built** — and note the reason is structural rather than a small-N argument, which means it does not weaken as the corpus grows.
+| Member | Arm | Emitted by | Never emitted by | Means |
+|---|---|---|---|---|
+| `merge` | — | the child | the parent | the work is clean |
+| `hold` + `hold_kind: redispatch` | — | the child | the parent | the runway closes with a scoped fix |
+| `hold` + `hold_kind: needs_ruling` | **asserted** — *needs-a-ruling* | **the child, and only the child** | the parent | the evaluation completed and the answer is that a human must decide |
+| `undetermined` + `undetermined_reason` | **computed** — *could-not-check* | **the parent, and only the parent** | the child — it is **not in the child's schema at all** | the evaluation did not complete |
+
+**The split is enforced by the schema, not by convention.** `undetermined` is absent from the enum the child is given, so a child cannot assert it even by trying; and the parent never writes `outcome`, only `routed_outcome`. That is what makes each arm's rate measurable separately: a rise in `needs_ruling` is a statement about the work, a rise in `undetermined` is a statement about the machinery.
+
+**Reliability and remedy differ, and that is the point of splitting them.** The computed arm is reliable because its emitter has no incentive to guess — every one of its reasons is a fact about a byte sequence or a process. The asserted arm is the one the literature predicts will be **under-emitted**, and that prediction is unmeasured. A `could-not-check` is a **defect in the checker with a fix**; a `needs-a-ruling` is a **request for a person and has no fix**. Both route to the human arm; only one of them is a bug.
+
+**When an asserted verdict and a computed observable disagree, record both under distinct names.** The GitHub Actions `outcome`/`conclusion` split is the shape: the raw observation is never overwritten; the policy-adjusted value is what routing sees by default. **Precedence, written: the computed observable GATES and the asserted verdict DECIDES.** Rules R1–R5 of §4 read only computed values, and the child's `outcome` is not reachable until all five have passed; from R6 on, the child's assertion decides and the parent adds nothing. The child's `outcome` is copied into the record verbatim and is never overwritten, exactly as the shape requires — `routed_outcome` is a separate field. **The conditional is now resolved — Phase 1 E3(a), 2026-08-08: the off-diagonal cells are empty *by construction*, not merely unobserved.** So the two-name shape is adopted and **no composition machinery is built** — and note the reason is structural rather than a small-N argument, which means it does not weaken as the corpus grows.
 
 ## 4 · The fail-safe contract
 

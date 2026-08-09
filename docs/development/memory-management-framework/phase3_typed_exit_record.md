@@ -113,11 +113,22 @@ The checklist's last bullet says that under `structured_output` all three requir
 
 ### 4. Specify the split abstention vocabulary
 
-- [ ] Define the **computed** arm — *could-not-check*. Emitted by a deterministic process over the run's artifacts or the runtime's own state. Name what can emit it and what cannot
-- [ ] Define the **asserted** arm — *needs-a-ruling*. Emitted only by the model, and only about the work. This is what `HOLD - needs-assistance` means today, and it stays a model assertion by construction: a predicate that could detect "this needs a human" would be the ground truth it is asking for
-- [ ] State the different reliability of each: the computed arm is reliable because its emitter has no incentive to guess; the asserted arm is the one the literature predicts will be **under-emitted**, and that prediction is unmeasured
-- [ ] State the different remedy for each: a *could-not-check* is a defect in the checker with a fix; a *needs-a-ruling* is a request for a person and has no fix
-- [ ] Record how each arm will be measured separately once emitted, so the under-emission prediction becomes a number rather than a worry
+- [x] Define the **computed** arm — *could-not-check*. Written as `undetermined` + `undetermined_reason` in [`exit-protocol.md` §3](../../standards/exit-protocol.md). **What can emit it: the parent, from rules R1–R5, each of which reads a fact about a byte sequence or a process. What cannot: the child — the member is not in the schema it is given**, so the split is enforced by the schema rather than by convention
+- [x] Define the **asserted** arm — *needs-a-ruling*. Written as `hold` + `hold_kind: needs_ruling`. **Renamed from today's `needs-assistance` deliberately** — the incumbent token names *who is called*, and the new one names *what is missing*, which is the distinction the split exists to draw. The prose token is unchanged on the wire and the mapping is stated in step 7's shadow table
+- [x] State the different reliability of each — protocol §3, and the asserted arm's under-emission remains a **prediction, not a measurement**, which the doc says in those words rather than implying a number exists
+- [x] State the different remedy for each — protocol §3: a *could-not-check* is a defect in the checker with a fix; a *needs-a-ruling* is a request for a person and has no fix. **Both route to the human arm; only one of them is a bug**
+- [x] Record how each arm will be measured separately once emitted — below
+
+#### Step 4 — How the two arms get measured separately, so the prediction becomes a number
+
+The measurement is possible only because the two arms are **different fields**, not two values of one field. `routed_outcome == undetermined` is countable without reading `hold_kind`, and `hold_kind == needs_ruling` is countable without reading `routed_outcome`. Concretely, over the run logs the fleet already writes:
+
+| Arm | Predicate over a run's `result` event | What a rise means |
+|---|---|---|
+| computed — *could-not-check* | `routed_outcome == "undetermined"`, grouped by `undetermined_reason` | **the machinery is failing**, and the reason names which part |
+| asserted — *needs-a-ruling* | `structured_output.hold_kind == "needs_ruling"` | **the work is producing questions**, which is a statement about the work and not a defect |
+
+**The denominator is the run count, not the hold count**, because the interesting number is the *rate at which a pass declines to rule*, and a hold-only denominator hides every clean pass. **Nothing in this phase reports either number**: one pair over one run set is not a rate, and [Phase 4](phase4_fleet_migration.md) is where the denominator becomes large enough to state one. Recording the predicate now is what stops Phase 4 inventing a different one and comparing it to nothing.
 
 ### 5. Specify the fail-safe contract
 
