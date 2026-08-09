@@ -46,14 +46,23 @@ A Kind 1 record is any record with all five. **No property below is stated in te
 
 ### 1.1 · The selection rule, at the interface layer
 
-Which record a given outcome goes to is decided by **two questions, in this order** — neither of which mentions a substrate:
+**QUESTION 0, asked before the other two, because everything downstream is wrong without it: is this a DEFECT or a PROPOSAL?**
+
+- **A defect** — something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking. Continue to questions 1 and 2.
+- **A proposal** — capability that does not exist yet and would be *added*. **It goes to `candidates.md` and it is NEVER an Issue**, however clean its done-state looks. Stop here; questions 1 and 2 do not apply to it.
+
+**Why this is question 0 rather than a note.** Without it a proposal answers *"nothing changed"* and *"yes, it has a done-state"* — because *"add a link checker"* has a perfectly clean done-state — and the rule routes it to **Issue**. That is not a misreading of the rule; it is the rule working as written, and it is measured: across two repos in one cycle roughly a third of everything filed was a proposal wearing a defect's clothes, and clearing them cost two working days against zero days of development.
+
+**The asymmetry is deliberate.** Issues are the human-in-the-loop queue and are reserved for the hardest cases, so **question 0 is biased toward `candidates.md`**: when a finding could plausibly be read either way, it is a proposal. A proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an Issue costs an operator's day.
+
+Once question 0 says *defect*, which record it goes to is decided by **two further questions, in this order** — neither of which mentions a substrate:
 
 1. **Did something change?** A changed-artifact outcome and a no-change outcome are different records, because they are read by different actors at different times: the first is read *now*, by whoever accepts or rejects the change; the second is read *later*, by whoever plans work.
 2. **Does it have a single done-state?** An outcome that can be finished belongs to a record that closes. An outcome that is a *condition* — ongoing operating state, a multi-day migration, a live incident — has no done-state, so a closing record cannot hold it and it needs a record that persists and is pruned instead.
 
 Those two questions produce exactly three classes. **A fourth class exists and is a genuine one:** an outcome whose resolution is not work at all but a *ruling* — a preference, a priority, a commitment that no amount of further work would uncover. §2.4.
 
-**Four classes, five surfaces — and the extra surface is not a fifth class.** The selection rule answers *where does this outcome go*, so it only routes things that are already outcomes. A **proposal that has not been dispositioned yet** is not one, and this fleet holds those on a surface of their own (§2.5) which the rule never selects: entries are *created* there and acquire an outcome class later, at which point the rule applies to them normally. A rule that appeared to route to every surface would have to pretend an untriaged proposal is a decided thing, and §2.5 records what that costs: *a blank decision is not the same as `open`*, and collapsing the two is what put seven untriaged candidates on a surface whose own rules forbid them.
+**Four outcome classes, five surfaces — and the fifth surface holds PROPOSALS, which are not outcomes at all.** Questions 1 and 2 route things that already *are* outcomes. A proposal has not been dispositioned yet, so it has no outcome class to route by — which is exactly why it needs question 0 in front, and why the earlier version of this section, which said the rule *"never selects" `candidates.md`, produced the misfiling described above. **The rule does select it: question 0 does.** Entries are *created* there and acquire an outcome class later, at which point questions 1 and 2 apply to them normally. A rule that appeared to route to every surface would have to pretend an untriaged proposal is a decided thing, and §2.5 records what that costs: *a blank decision is not the same as `open`*, and collapsing the two is what put seven untriaged candidates on a surface whose own rules forbid them.
 
 ### 1.2 · The discipline that makes it work
 
@@ -80,8 +89,9 @@ Three GitHub surfaces plus two file surfaces. They are not interchangeable, and 
 
 ### 2.1 · The selection rule, bound
 
-Apply §1.1's two questions:
+Apply §1.1's questions, **starting with question 0**:
 
+- **A PROPOSAL — capability that does not exist yet** → **`candidates.md`**. Never an Issue, whatever its done-state looks like. Bias toward this when a finding reads either way: a proposal misfiled here costs a triage pass, a proposal misfiled as an Issue costs an operator's day.
 - **Something changed** → **PR thread**. The change and its ruling live together, and both die at merge because the change is then history.
 - **Nothing changed, and it has a done-state** → **Issue**. It can be finished, so it must be able to close.
 - **Nothing changed, and it has no done-state** → **standup tracker**. Operating state is a condition, not a task.
@@ -89,7 +99,11 @@ Apply §1.1's two questions:
 
 **That is the whole rule.** It is stated as a rule and not implied by examples on purpose: an example-driven table answers the cases someone thought of, and the failure mode here is always the case nobody thought of.
 
-**`candidates.md` is deliberately absent from the rule, per §1.1** — nothing is routed there. What the rule above does own is where a row goes *once triaged*: `requires review` → a `direction.md` row, with the candidate row staying behind as the pointer; `ship` → an existing phase doc or a new sprint section.
+**`candidates.md` is reached by question 0 and by nothing else** — questions 1 and 2 never select it, because a proposal has no outcome class for them to read. *(Corrected 2026-08-09: this paragraph previously said nothing was routed there at all, which left a proposal to fall through questions 1 and 2 into **Issue**. That is the measured misfiling this correction exists to stop.)*
+
+**A run is not expected to know where a proposal belongs in the plan** — only that it is a proposal. Deciding whether it becomes a sprint, a phase, or nothing is a separate triage job with its own criteria, and asking a dispatch to do it inline is what produced feature requests filed as Issues in the first place.
+
+The rule also owns where a row goes *once triaged*: `requires review` → a `direction.md` row, with the candidate row staying behind as the pointer; `ship` → an existing phase doc or a new sprint section.
 
 ### 2.2 · Why the tracker is a GitHub issue anyway
 

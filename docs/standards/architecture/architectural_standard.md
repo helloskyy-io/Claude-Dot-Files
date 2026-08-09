@@ -53,9 +53,22 @@ Deliberate boundaries. Each has a reason, and each was paid for:
 | Surface | Holds | Lifecycle |
 |---|---|---|
 | PR threads | change-outcomes, decision logs, disposition rulings | closes at merge |
-| GitHub Issues | no-change outcomes — deferred work, planning STOPs | filed → ruled → closed |
-| Standup tracker | continuity — operating state, next moves | never closes; pruned |
-| `candidates.md` | research candidates and their dispositions | appended, never rewritten |
+| GitHub Issues | **defects** — a no-change outcome on something already built or decided, and planning STOPs. **Never a proposal.** | filed → ruled → closed |
+| Standup tracker | continuity — operating state, next moves. **Operator and PM sessions only; no autonomous run writes here** | never closes; pruned |
+| `candidates.md` | **proposals** — research candidates and anything an actor wants ADDED | appended, never rewritten |
+| `direction.md` | rulings only the operator can make | appended → ruled → rotated at 90 days |
+
+### Defect or proposal — ask this BEFORE choosing a surface (binding)
+
+**An Issue holds a DEFECT: something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking.** Issues are the human-in-the-loop queue and are reserved for the hardest of those.
+
+**A PROPOSAL — capability that does not exist yet and would be added — goes to `candidates.md` and is NEVER an Issue**, however clean its done-state looks.
+
+**This question comes first because the surface test alone routes proposals wrongly.** A proposal answers *"nothing changed"* and *"it has a done-state"* — *"add a link checker"* has a perfectly clean one — so any rule keyed on those two properties files it as an Issue. Measured across two repos in one cycle: roughly a third of everything filed was a proposal, and clearing the queue cost two working days against zero days of development.
+
+**Bias toward `candidates.md` when a finding reads either way.** The costs are asymmetric: a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an Issue costs an operator's day. **No actor is expected to know where a proposal belongs in the plan** — only that it is one. Deciding whether it becomes a sprint, a phase or nothing is separate triage with its own criteria.
+
+**Breaking it looks like:** an Issue proposing capability that does not exist; a second Issue describing the same mechanism as an existing one in different words; several Issues from one pass against one file or one function; a proposal parked on the standup tracker, whose own rules forbid it.
 
 Every reviewing actor verifies claims **against the artifact rather than the account of it**, and verifies a pointer by fetching it.
 
