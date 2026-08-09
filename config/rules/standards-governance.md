@@ -22,6 +22,18 @@ Standards documents (`docs/standards/`, `docs/standards/architecture/`) are a cu
 
 **What counts as "human review before merge" — this sentence exists because two passes of one pipeline read it oppositely, one pass apart.** A dispatch **opening a PR** against the standards repo, and merging nothing, **SATISFIES this rule**: the PR-for-review gate IS the human-in-the-loop, and nothing reached a default branch unreviewed. What the rule forbids is a standards change that LANDS without a human — a direct commit to the default branch, or a self-merge. **So when a build brief explicitly names a standards file as an in-scope edit, the brief wins and the mechanism is a PR** — including a PR in a different repository. Declining the edit outright is the *wrong* reading and costs an operator ruling to unstick. *(Observed 2026-08-08: a draft pass declined a standards edit citing this rule; the refine pass made it as a PR in the upstream repo. The refine pass was right.)*
 
+### Completion checkboxes — a dispatch MAY flip them, and the reviewer MUST verify each (binding, ruled 2026-08-09)
+
+**A dispatch may flip `[ ]` → `[x]` in a phase doc or `roadmap.md` for work it completed in that PR**, and **`review-pr` must verify every flip against the artifact** — not against the run's account of it. An unverified flip is a finding; a flip for work not in the diff holds the PR.
+
+**Why the check and not the human.** The protection this needs is *do not claim work that is not done*, and **a verifying reviewer delivers that better than an operator flipping boxes they did not verify.** The mechanical act was never the safeguard; the check is. This is `author ≠ judge` satisfied where it belongs — the judge checks the claim, rather than the human performing the author's clerical work.
+
+**Measured on the ruling PR:** 51 flips, **all 51 substantively true**, the one requirement whose evidence did not exist left **unchecked on both the roadmap and the phase doc with prose saying why**, and no blanket-checking. The behaviour was already correct; only the authority was unstated.
+
+**Still human-only:** `sprint.md` (see below) and any flip a dispatch cannot show in its own diff.
+
+**This DIVERGES from the vendored [Documentation Standard § Completion checkboxes](../../docs/standards/documentation/documentation_standard.md), which forbids a dispatch commit from flipping any planning artifact.** The divergence is deliberate, ruled by the operator, and **going upstream as an amendment** — see `docs/standards/documentation/README.md`. Until it lands, this rule governs here and the divergence is recorded rather than silent.
+
 **Planning artifacts (phase docs, `roadmap.md`, sprint.md, epic breakdowns) are explicitly NOT covered by this rule** — they are dispatch-scope and engineers MAY edit them autonomously. When a phase doc and a standard contradict, the engineer SHOULD update the phase doc to remove the contradiction in the dispatch's PR (since the standard is binding) AND surface the standards-side amendment as a candidate for human review. This avoids the "next sprint reads the phase doc, doesn't notice the tension, flips a coin" failure mode.
 
 ### Sprint plans are the exception — human-in-the-loop only (binding)
