@@ -8,9 +8,9 @@ Everything here is bash, markdown and git. There is no server, no daemon and no 
 
 - **Parent/child workflows** — the flagship pattern. A workflow that both writes code and rules on the review findings about it will defend its own work; no amount of prompt engineering fixes that. So the run that authors is no longer the run that judges. [How it works](#the-flagship-parentchild-workflows)
 - **Verification over narrative** — every reviewing actor is bound to check claims against the artifact rather than the account of it. A PR body, a run's summary, a prior pass's prescription and an agent's finding are all *claims about* the code; none of them are the code
-- **Git-native memory** — no state files, no bookmarks: *open* IS the to-do bit. Three surfaces carry it — PR threads (change-outcomes), Issues (no-change outcomes), and a standup tracker (continuity) — and `/standup` reads all three into a morning brief. [The memory model](docs/guide/operations.md#the-memory-model)
+- **Git-native memory** — no state files, no bookmarks: the record's own to-do bit is what marks work as current. Five surfaces carry it — PR threads (change-outcomes), Issues (no-change outcomes), a standup tracker (continuity), and two committed markdown tables, `direction.md` (operator rulings) and `candidates.md` (research candidates). `/standup` reads all five into a morning brief and **writes on three of them**. [The memory model](docs/guide/memory-model.md)
 - **Continuous process improvement** — `review-runs.sh` analyzes Claude's own workflow logs across repos; every finding lands in an append-only decisions log as ship / defer / reject with explicit watch-criteria. Nothing is deferred without a condition that would bring it back
-- **14 agents · 17 skills · 10 workflows · 10 slash commands** — model-tiered per role, web-enabled only where ground truth lives outside the repo. [Full roster](docs/guide/operations.md)
+- **14 agents · 17 skills · 9 workflows · 10 slash commands** — model-tiered per role, web-enabled only where ground truth lives outside the repo. [Full roster](docs/guide/operations.md)
 
 ## The flagship: parent/child workflows
 

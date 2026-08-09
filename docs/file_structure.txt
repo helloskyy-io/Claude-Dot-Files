@@ -58,7 +58,7 @@ claude-dot-files/
 │   │   ├── decide.md                                # /decide — fire five-whys decision methodology (loads decision-methodology skill)
 │   │   ├── get-started.md                           # /get-started — session kickoff context
 │   │   ├── review.md                                # /review — invoke code-reviewer agent
-│   │   ├── standup.md                               # /standup — read-only sweep of git memory surfaces (open PRs/issues + recent merges) → attention brief
+│   │   ├── standup.md                               # /standup — sweeps the five git memory surfaces → attention brief; WRITER on three of them (see docs/guide/memory-model.md §2.3)
 │   │   ├── troubleshoot.md                          # /troubleshoot — fire systematic debugging methodology (loads troubleshooting-methodology skill)
 │   │   ├── update-claude.md                         # /update-claude — sync CLAUDE.md standard references
 │   │   └── update-file-structure.md                 # /update-file-structure — update this file
@@ -94,10 +94,10 @@ claude-dot-files/
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
-│   │   ├── memory-management-framework/             # Phase 1 MEASURED (2026-08-08); Phases 2-5 planned, nothing built. First component on the roadmap+phases shape sprint.md mandates
+│   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phases 3-5 planned, nothing built. First component on the roadmap+phases shape sprint.md mandates
 │   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
 │   │   │   ├── phase1_measure_the_channel.md        # COMPLETE — six experiments, thirteen rulings. Cancelled nothing; re-scoped Phase 5's predicate
-│   │   │   ├── phase2_kind1_framework.md            # Kind 1 written down as an interface, not prose describing behaviour
+│   │   │   ├── phase2_kind1_framework.md            # COMPLETE — Kind 1 as a substrate-free interface with GitHub as one binding. Found four of its own premises false
 │   │   │   ├── phase3_typed_exit_record.md          # Arrangement A, split abstention, fail-safe contract, one pair proven
 │   │   │   ├── phase4_fleet_migration.md            # Fleet-wide rollout; archive as by-product. Zero prompt content changes
 │   │   │   ├── phase5_convergence_stopping.md       # The payoff — and the justification with no incumbent to beat
@@ -121,7 +121,8 @@ claude-dot-files/
 │   │
 │   ├── guide/                                       # USER-FACING — operating manuals
 │   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
-│   │   ├── operations.md                            # THE OPERATING MANUAL — memory model, daily loop, and the single roster of every workflow/agent/command/skill/rule
+│   │   ├── operations.md                            # THE OPERATING MANUAL — memory model orientation, daily loop, and the single roster of every workflow/agent/command/skill/rule
+│   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — Kind 1 as a substrate-free interface, this fleet's five-surface binding, per-field consumer lists, the addressing convention
 │   │   ├── workflows.md                             # Workflow architecture — the build split, model management, escalation ladder, MAX_TURNS table
 │   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
 │   │   ├── claude_code_agents.md                    # PLATFORM BACKGROUND — what agents are, frontmatter, tool guardrails, dispatch patterns
