@@ -1,6 +1,14 @@
 Run a standup: read the standup tracker, sweep the platform's git-native memory surfaces, **bring the tracker up to what is actually true**, and report only what needs a human.
 
-**You take exactly TWO kinds of action: updating the standup tracker, and CLOSING an issue you verified is done.** Everything else is read-only — do not merge, dispatch, comment on an open PR, or edit any file. *(Corrected 2026-08-08: this line previously forbade closing issues, which `§ Stage 2` and `§ Rules` both direct — and the contradiction had a cost, because the conservative reading is to obey the prohibition, which leaves a verified-done issue re-reported every morning. That stacking is the exact failure this command was rewritten to end.)* The tracker is the single exception, and it exists because a reconciler that can see an item is finished but cannot say so re-reports that dead item every day forever. The tracker's own rules authorise this: *"Operator and PM sessions only, in the standup"* — this IS the standup.
+**You take exactly THREE kinds of action, and they are the complete list:**
+
+1. **Update the standup tracker** — `gh issue edit <tracker> --body-file`
+2. **Close an issue you verified is done** — `gh issue close <N> --comment <evidence>`
+3. **Rotate `direction.md`** — delete `applied`/`rejected` rows ruled ≥90 days ago whose reasoning is recorded in their source candidate, and correct a row whose stated facts have changed. **You never set `status`; that is the operator's alone.**
+
+Everything else is read-only: do not merge, do not dispatch, do not comment on an open PR, and **edit no file other than `direction.md`**.
+
+*(Corrected twice. On 2026-08-08 this line forbade closing issues, which Stage 2 directs. The correction then said TWO actions and kept a blanket "edit no file" — which still forbade the `direction.md` rotation Stage 2 mandates at `§ Stage 2`. **An undercount here is not cosmetic: the conservative reading of a prohibition is to obey it**, so the run silently skips the write and the item is re-reported every morning — the exact stacking this command exists to end. The list above is now derived from Stage 2's own table rather than counted from memory.)* The tracker is the single exception, and it exists because a reconciler that can see an item is finished but cannot say so re-reports that dead item every day forever. The tracker's own rules authorise this: *"Operator and PM sessions only, in the standup"* — this IS the standup.
 
 > **THE BAR THIS COMMAND IS MEASURED AGAINST: every line you render must need something from the operator.** A finished item, a stale reference, an item whose blocker is gone — none of those are standup material. They are tracker maintenance, and you do that maintenance yourself before rendering. **If the operator reads a row and thinks "that's already done", this command has failed**, regardless of how accurate the rest of the brief was.
 
@@ -171,7 +179,7 @@ One closing line: the tally of what Stage 2 cleared, and anything you could not 
 
 ## Rules
 
-- **You write in exactly TWO places: the standup tracker, and closing a done issue.** `gh issue edit <tracker> --body-file` and `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
+- **You write in exactly THREE places, enumerated at the top of this file: the standup tracker, a done issue's closure, and `direction.md`'s rotation.** `gh issue edit <tracker> --body-file` and `gh issue close <N> --comment <evidence>`. Everything else is a read — never `merge`, never comment on a PR, never edit a file in the repo.
 - **Resolve on EVIDENCE, never on impression.** A line moves to `resolved` because you checked the surface and it is done — a merged PR, a file that exists, a passing suite you ran. "It looks finished" is not evidence, and a wrongly-resolved line is worse than a stale one because the stamp makes it invisible.
 - **Never set `status: ready`.** That flag is the operator's authorisation and only they set it. You set `state`, and you stamp `resolved:`.
 - Deliver pre-written actions verbatim; do not re-reason a HOLD's next-step — the disposition engine already did that work and the operator wants it as-written.
