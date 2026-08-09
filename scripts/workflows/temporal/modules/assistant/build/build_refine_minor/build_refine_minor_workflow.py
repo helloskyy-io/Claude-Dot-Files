@@ -33,8 +33,24 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
         # Always substituted — empty when not applicable, so no literal ${...}
         # can reach the model and no branch is needed here.
         "CORRECTION_NOTE": (
-            "This is a CORRECTION PASS. A prior review returned HOLD with a scoped "
-            "runway; close it. This is the last automated pass." if correction_pass else ""
+            "This is a CORRECTION PASS, and what that means is the load-bearing part: "
+            "a prior pass looked at this work and believed it complete, and a reviewer "
+            "found this anyway. **Treat every runway item as an INSTANCE, not as the whole.**\n\n"
+            "For each item: name the CLASS it belongs to, search the tree for every other "
+            "member of that class, and fix them together. Then leave a check that matches "
+            "the CLASS — not the instances you happened to find — so the next member FAILS "
+            "rather than being discovered by a later pass.\n\n"
+            "**Why this and not simply \'fix what was listed\':** measured across three "
+            "independent controls upstream, each correction pass closed one spelling and the "
+            "next pass found a structurally ADJACENT one — five passes, five spellings; four "
+            "passes, four spellings; one pass closed a step-level bypass and the next found its "
+            "twin one indentation away. Enumerating instances does not converge. Changing what "
+            "the check keys on does. Measured locally the same week: a drift guard written as a "
+            "class-check caught its own authors twice within one afternoon, which no number of "
+            "further review passes would have done.\n\n"
+            "If an item genuinely has no class — a true one-off — say so explicitly and say how "
+            "you established it. **This is the last automated pass**, so anything you leave as an "
+            "instance leaves with it." if correction_pass else ""
         ),
         "CI_STATUS_NOTE": (
             "CI had NOT settled when this pass started — treat check results as "
