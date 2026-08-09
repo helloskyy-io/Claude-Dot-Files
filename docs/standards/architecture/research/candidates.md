@@ -124,6 +124,24 @@ Nine ideas that lived in the sprint plan under *Future Ideas (Not Yet Committed)
 
 ---
 
+## Re-homed from GitHub Issues — 2026-08-09
+
+Five open issues that were **proposals, not defects**, re-homed under [Architecture Standard § 4 Memory](../architectural_standard.md) — *"a PROPOSAL — capability that does not exist yet and would be added — goes to `candidates.md` and is NEVER an Issue, however clean its done-state looks."*
+
+**Why they were filed as issues:** the selection rule in force when they were filed routed on *"did something change?"* and *"does it have a done-state?"* — and a proposal answers **no** and **yes**. `candidates.md` was explicitly excluded as a destination, so a proposal had nowhere else to go. That paragraph was corrected the same day this section was written.
+
+**`decision` is deliberately blank on every row: these have been re-homed, not triaged.** Blank means triage has not happened, and `decision` is `plan-sprint`'s output alone. **Two of the five were filed by the operator's own session**, so this is not a dispatch-behaviour problem.
+
+| ID | Candidate | Source | `decision` | `status` | Note |
+|---|---|---|---|---|---|
+| C-047 | Gate `vendor-standards.sh --check` on the merge path so a local edit to a vendored MIRROR standard cannot merge green | issue #55 | | `open` | Nothing is broken — the check works and is correct; this ADDS a gate. Split ruled: the committed-checksum half (local-edit detection) needs no upstream and is shippable; the upstream-divergence half is blocked on a read-only credential for a private repo, and the Testing Standard's freshness clause forbids gating a check that cannot establish its own baseline |
+| C-048 | Per-file granularity in `install.sh`'s symlink targets, so a `tests/` dir beside a hook does not land in the live `~/.claude/hooks/` | issue #63 | | `open` | Nothing is broken — PR #58 placed the tests successfully elsewhere and documented the divergence. Changes the documented 7-target strategy on every machine, so it is an architecture decision. Constrained by C-049; rule them together |
+| C-049 | Point `~/.claude/*` at a worktree pinned to a ref instead of at the git working tree, making `git pull` the deploy step | issue #64 | | `open` | Today the working tree IS production: whatever branch is checked out is live, and an edit takes effect before commit. **The value is not mainly safety** — it is that when CDF grows to server + multiple edges, adding rings becomes a config change rather than a re-architecture. Costs instant prompt iteration. Same architecture surface as C-048 |
+| C-050 | Derive declared roster and inventory counts rather than restating them in prose | issue #70 | | `open` | **The live instance is already fixed** (`README.md` said 10 workflows, there are 9 — corrected 2026-08-09); what remains is the check, which is capability. `architectural_standard.md:46` already states the principle — *"a constant restated in two places diverges silently"* — and nothing enforces it |
+| C-051 | A marketing workflow — outward positioning, with inward feedback into the problem statement and roadmap | issue #28 | | `open` | Filed 2026-08-05 and parked ever since. Wholly unbuilt capability; it was never a defect on any reading |
+
+---
+
 ## Where things stand
 
 **Nothing is untriaged.** All 45 rows carry a decision as of the 2026-08-06 `plan-sprint` pass: **25 `ship`**, **8 `requires review`**, **12 `reject`**.
