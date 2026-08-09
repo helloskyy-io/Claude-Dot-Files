@@ -70,6 +70,25 @@ def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     )
 
 
+def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
+    """The LATEST `pr_review:` block on this PR, or None if there is none.
+
+    The address, applied: container id is the PR number, the block marker is the
+    fence-anchored regex, and the ordering rule is comment creation order with
+    LAST WINS (`memory-model.md` §6.2). Sequence is derived from that ordering
+    rather than from the block's own `pass:` counter — a counter written by the
+    producer can be wrong, and §6.4 measures that it was.
+    """
+    raw = _shared.gh(["pr", "view", pr_number, "--json", "comments"], repo_root)
+    blocks = [
+        m.group(1)
+        for c in json.loads(raw).get("comments", [])
+        for m in [helper.PR_REVIEW_BLOCK.search(c.get("body", "") or "")]
+        if m
+    ]
+    return blocks[-1] if blocks else None
+
+
 def load_shared_block(name: str, shared_sh: Path) -> str:
     """Extract one heredoc block from the legacy `common/shared-prompts.sh`.
 

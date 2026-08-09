@@ -228,7 +228,13 @@ Then write the comment body to a temp file (e.g. /tmp/claude-review-pr-${PR_NUMB
 **Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short "WHAT HAPPENS NEXT" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the `reframe:` and `bp:` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
 
-**Part 2 — machine-readable block** (fenced ```yaml). This IS the future Temporal activity-result contract — author it exactly:
+**Part 2 — machine-readable block** (fenced ```yaml). **This block and the typed exit record you emit in Stage 6a are ONE AUTHOR'S TWO COPIES, and your caller checks them against each other before it routes.**
+
+- **The typed record is authoritative.** Where the two carry the same fact, the block is its *rendering*: `verdict:` renders `outcome` (`merge`→`MERGE`, `hold`→`HOLD`), and every `findings[].id` and `findings[].disposition` must be **identical in both, same ids, same dispositions, no extras and none missing**. Your caller fails the run loud on a mismatch — a rendering that drops or invents a finding is not one.
+- **Everything else in this block is yours alone and has no field in the record**, deliberately: the disposition table's *Reasoning* column, the one-line verdict rationale, and the Post-Run Reflection. Those three are what make this a record of *the outcome and its reasoning* rather than the outcome alone. **Write them in full. Do not compress them because a typed record exists** — it carries none of them and cannot.
+- The block must sit in a **fenced ```yaml block whose first line is `pr_review:`**. That fence is the address a later pass uses to find you; a comment that merely mentions the key is not a record, and pass counting depends on the difference.
+
+Author it exactly:
 ```yaml
 pr_review:
   pr: ${PR_NUMBER}

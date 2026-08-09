@@ -226,7 +226,7 @@ Verified by grep across both fleets (`grep -rn "pr_review\|gh issue list\|gh pr 
 
 | Field | Read by | What the reader does with it |
 |---|---|---|
-| *block presence* | `review-pr.sh:141-142` (`PRIOR_PASS`) · `review_pr_activities.py:45-51` | counts prior passes → sets `THIS_PASS`. **Both over-match — see §6.4** |
+| *block presence* | `review-pr.sh:141-142` (`PRIOR_PASS`) · `review_pr_activities.py` `count_prior_passes` | counts prior passes → sets `THIS_PASS`. **`review-pr.sh` still over-matches — see §6.4. The V2 reader was fixed by [Phase 3](../development/memory-management-framework/phase3_typed_exit_record.md) step 8** and is now fence-anchored, declared once at `review_pr_helper.PR_REVIEW_BLOCK` |
 | *block presence* | `replay_pr_review_blocks.py:45` | Phase 1 E3 + E7 corpus extraction |
 | `verdict` | `/standup` `standup.md:48-51` | `HOLD` → render as a blocker; `MERGE` on an open PR → "ready to merge" |
 | `next_steps[]` | `/standup` `standup.md:48-51` | delivered **verbatim** to the operator — the disposition engine already reasoned; standup does not re-derive |
@@ -345,8 +345,10 @@ The block marker in §6.2 is stated by three readers, and they do not agree:
 | Reader | Predicate | Matches over the archive |
 |---|---|---|
 | `review-pr.sh:142` | `test("pr_review:")` — unanchored regex over the whole comment body | **18** |
-| `review_pr_activities.py:51` | `"pr_review:" in body` — plain substring | **18** |
+| ~~`review_pr_activities.py:51`~~ | ~~`"pr_review:" in body` — plain substring~~ — **FIXED by [Phase 3](../development/memory-management-framework/phase3_typed_exit_record.md) step 8**; now `review_pr_helper.PR_REVIEW_BLOCK`, fence-anchored and declared once | 18 → **15** |
 | `replay_pr_review_blocks.py:45` | fence-anchored regex requiring an actual ```` ```yaml ```` block | **15** |
+
+> **Two of the three are now one declaration, and the third is a deliberate carve-out.** Phase 3 fixed the V2 reader and added the Kind 1 *address* to the [Exit Protocol](../standards/exit-protocol.md) §6 one-declaration rule (roadmap candidate 6). `review-pr.sh:142` is the **frozen V1 bash fleet** (§7) and is not fixed, so issue **#68** stays open on that half. **A fourth declaration exists outside both trees:** `/standup` (`standup.md:56`) matches by *mention* in prose — it is a prompt file, and the fleet-wide sweep is [Phase 4](../development/memory-management-framework/phase4_fleet_migration.md)'s.
 
 **Measured at `bcdb519` over all 39 PRs: 3 false positives, on 2 of the 8 PRs that carry any block.** Both pass-counters match any comment that merely *mentions* the string — a Post-Run Reflection, a build-refine summary, a brief quoting the wire format.
 

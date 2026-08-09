@@ -303,10 +303,17 @@ class _FakeWorkflow:
     the log the record arrives in.
     """
 
-    def __init__(self, record: dict | None, prose: str, denials: list | None = None):
+    # The durable block the child is presumed to have posted. Default renders
+    # the same one finding `_record()` carries, so the invariant holds unless a
+    # test deliberately breaks it.
+    DEFAULT_BLOCK = "pr_review:\n  pr: 67\n  findings:\n    - id: a-stable-slug\n"
+
+    def __init__(self, record: dict | None, prose: str, denials: list | None = None,
+                 block: str | None = DEFAULT_BLOCK):
         self.record = record
         self.prose = prose
         self.denials = denials if denials is not None else []
+        self.block = block
         self.run_id: str | None = None
 
     def install(self, monkeypatch, tmp_path: Path):
@@ -332,6 +339,7 @@ class _FakeWorkflow:
             return ""
 
         monkeypatch.setattr(act, "run_disposition", _run)
+        monkeypatch.setattr(act, "latest_pr_review_block", lambda *a, **k: self.block)
         monkeypatch.setattr(wf._shared, "result_event",
                             lambda *a, **k: self._envelope())
         monkeypatch.setattr(wf._shared, "assistant_text", lambda *a, **k: self.prose)
@@ -356,9 +364,10 @@ def _nonce_in(prompt: str) -> str:
     return m.group(0)
 
 
-def _review(monkeypatch, tmp_path, record, prose, denials=None):
+def _review(monkeypatch, tmp_path, record, prose, denials=None,
+            block=_FakeWorkflow.DEFAULT_BLOCK):
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
-    fake = _FakeWorkflow(record, prose, denials)
+    fake = _FakeWorkflow(record, prose, denials, block)
     wf = fake.install(monkeypatch, tmp_path)
     return wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -412,6 +421,72 @@ def test_a_denial_is_surfaced_without_its_command_line(monkeypatch, tmp_path) ->
                 "VERDICT: MERGE\n", denials=[denial])
     assert "permission_denied" in str(excinfo.value)
     assert "/etc/shadow" not in str(excinfo.value)
+
+
+# ---------------------------------------------------------------------------
+# The render <-> record invariant. Co-authoring persists for the three prose
+# regions that have no field, so the two copies are CHECKED rather than trusted.
+# ---------------------------------------------------------------------------
+
+def test_a_finding_only_in_the_record_fails_loud(monkeypatch, tmp_path) -> None:
+    """A finding the operator never sees.
+
+    The typed record carries it, so Phase 5 counts it and the parent routes on
+    it — and the durable record, which is the only copy that outlives the run,
+    does not mention it.
+    """
+    with pytest.raises(RuntimeError, match="Only in the record"):
+        _review(monkeypatch, tmp_path, _record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
+                block="pr_review:\n  findings: []\n")
+
+
+def test_a_finding_only_in_the_block_fails_loud(monkeypatch, tmp_path) -> None:
+    """A finding Phase 5's stopping predicate will never count.
+
+    The other direction, and it is not symmetrical in consequence: this one
+    makes a convergence rule read a smaller finding set than the operator does,
+    so it stops early on work that is still open.
+    """
+    block = _FakeWorkflow.DEFAULT_BLOCK + "    - id: an-invented-finding\n"
+    with pytest.raises(RuntimeError, match="Only in the block"):
+        _review(monkeypatch, tmp_path, _record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
+                block=block)
+
+
+def test_a_missing_block_fails_loud(monkeypatch, tmp_path) -> None:
+    """The typed half landed and the durable half did not.
+
+    This is arrangement A's characteristic failure: the outcome survives and its
+    reasoning does not.
+    """
+    with pytest.raises(RuntimeError, match="no\n?\\s*`?pr_review:`? block"):
+        _review(monkeypatch, tmp_path, _record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
+                block=None)
+
+
+def test_the_invariant_is_not_run_when_there_was_no_record_to_compare(
+        monkeypatch, tmp_path) -> None:
+    """An UNDETERMINED route has no ids, so re-reporting it says nothing new.
+
+    Also the negative control for the three tests above: without this, an
+    invariant that raised unconditionally would satisfy all of them.
+    """
+    result = _review(monkeypatch, tmp_path, None, "VERDICT: HOLD - needs-assistance\n",
+                     block=None)
+    assert result.record.undetermined_reason is er.UndeterminedReason.RECORD_ABSENT
+    assert result.verdict is routing.Verdict.HOLD_NEEDS_ASSISTANCE
+
+
+def test_finding_ids_are_read_from_both_archive_indents() -> None:
+    """Two-space and four-space indents both occur in the archive.
+
+    A parser matching only one would report a spurious disagreement on half the
+    corpus — a check that fails on valid input is worse than no check, because
+    it trains its reader to ignore it.
+    """
+    block = ("pr_review:\n  findings:\n  - id: two-space\n"
+             "    disposition: fixed\n    - id: four-space\n")
+    assert helper.finding_ids_in_block(block) == frozenset({"two-space", "four-space"})
 
 
 # ---------------------------------------------------------------------------

@@ -151,7 +151,52 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
               "control is not retried against it."
         )
 
+    # --- THE RENDER <-> RECORD INVARIANT ---------------------------------
+    # Co-authoring persists for the three prose regions that have no field
+    # (`memory-model.md` §7.2 rows 3, 4 and 11), so the durable block and the
+    # typed record are written in one act by one author — the arrangement none
+    # of the surveyed instances permits WITHOUT a write-time gate. This is that
+    # gate: every finding id in the record appears in the posted block and vice
+    # versa. THE TYPED REGION WINS; the block is its rendering.
+    #
+    # Only when a record was actually read: an UNDETERMINED route has no ids to
+    # compare, and re-reporting the same failure twice tells the operator
+    # nothing new.
+    if record.routed_outcome is not exit_record.RoutedOutcome.UNDETERMINED:
+        _assert_block_matches_record(task.pr_number, worktree, record)
+
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
         parseable=parseable, notes=notes, record=record,
     )
+
+
+def _assert_block_matches_record(pr_number: str, repo_root: Path,
+                                 record: exit_record.ExitRecord) -> None:
+    """Fail loud when the durable render and the typed record disagree on findings.
+
+    ONE AUTHOR, TWO DERIVED COPIES — and the copies are checked rather than
+    trusted. A finding in the record but not in the block is a finding the
+    operator never sees; a finding in the block but not in the record is one
+    Phase 5's stopping predicate will never count. Both are silent today, which
+    is why this is enforced rather than documented.
+    """
+    block = act.latest_pr_review_block(pr_number, repo_root)
+    if block is None:
+        raise RuntimeError(
+            f"PR #{pr_number}: the run produced a typed exit record but no "
+            f"`pr_review:` block was found on the thread. The durable half of the "
+            f"record is missing, so the operator has the outcome with none of its "
+            f"reasoning — which is the one thing arrangement A must not lose."
+        )
+    rendered = helper.finding_ids_in_block(block)
+    typed = {f["id"] for f in record.findings}
+    if rendered != typed:
+        raise RuntimeError(
+            f"PR #{pr_number}: the posted `pr_review:` block and the typed exit "
+            f"record disagree on findings. Only in the block: "
+            f"{sorted(rendered - typed) or 'none'}. Only in the record: "
+            f"{sorted(typed - rendered) or 'none'}. The typed region is "
+            f"authoritative; the block is its rendering, and a rendering that "
+            f"drops or invents a finding is not one."
+        )

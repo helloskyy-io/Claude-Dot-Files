@@ -117,6 +117,25 @@ def pass_numbers(prior_pass_count: int) -> tuple[int, int]:
     return prior_pass_count + 1, prior_pass_count
 
 
+# `- id: <slug>` under `findings:`; two-space and four-space indents both occur
+# in the archive. Shape-identical to `replay_pr_review_blocks.FINDING_ID` for the
+# same reason `PR_REVIEW_BLOCK` is: that module measures the fleet from outside
+# it, and coupling a workflow helper to a measurement tool would invert the
+# dependency.
+_FINDING_ID = re.compile(r"^\s*-\s*id:\s*([^\s#]+)", re.MULTILINE)
+
+
+def finding_ids_in_block(block: str) -> frozenset[str]:
+    """The finding ids the DURABLE record claims, for the render-record invariant.
+
+    Regex rather than a YAML parser, deliberately: the archived blocks predate
+    any schema and some are hand-edited, so a strict parser would reject exactly
+    the malformed ones this check most wants to catch — and a check that throws
+    on the input it exists to examine is not a check.
+    """
+    return frozenset(_FINDING_ID.findall(block))
+
+
 def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:
     """The incumbent routing token this typed record produces.
 
