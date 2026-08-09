@@ -31,6 +31,13 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
 **If you cannot verify it, you may not defer to it.** Fix the item, or SURFACE it plainly with no pointer at all. An honest 'no home for this' is worth more than a plausible pointer to nothing — and a naked surfaced item gets picked up downstream, while a laundered one gets filed away as handled.
 
+**FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../docs/standards/architecture/architectural_standard.md) binds this; apply it rather than re-deriving it.
+
+- **DEFECT** — something already built or already decided behaves wrongly, or a decision the research and planning do not supply is now blocking. Continue below.
+- **PROPOSAL** — capability that does not exist and would be *added*. It belongs in **`candidates.md`**, never an Issue, whatever its done-state looks like. **You do not file it and you do not work out where it fits in the plan** — surface it as a proposal and say so plainly. Bias here when it reads either way.
+
+**And cluster YOUR OWN findings before considering any of them separately.** Findings sharing a file, a function, a subsystem, or one remedy are **ONE item**. Measured: four separate Issues against one file, from one pass, each individually correct.
+
 **BEFORE you pick a home, answer the two PLACEMENT questions** (`engineering-quality.md` § *A deferral is PLACED*), in this order and from the candidate's BODY rather than its title:
 
 1. **Does it have a done-state TODAY?** If its remedy waits on a named trigger — a second adopter, a service reaching a date, a framework arriving — it is a **checkbox on the phase that owns that trigger**, not an issue. An issue filed for trigger-gated work sits open and unactionable until someone re-reads it.

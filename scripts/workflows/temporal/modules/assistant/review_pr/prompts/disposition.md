@@ -127,6 +127,26 @@ Both still block MERGE. Only LAUNDERED counts against the producing run.
 
 **Self-check for a novel case — if I get this wrong, is the failure LOUD or QUIET?** A false no-change outcome is **loud**: no plan was produced and the operator sees it immediately. A buried deferral is **quiet**: the PR still reads clean and nobody notices. **The gate exists for the quiet one.** If getting it wrong would be loud, it is not the operation this constrains.
 
+**QUESTION 0 COMES BEFORE PLACEMENT — DEFECT OR PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../docs/standards/architecture/architectural_standard.md) is binding and states this; the full reasoning is [`memory-model.md` §1.1](../../../../../../docs/guide/memory-model.md). Do not restate it here — apply it.
+
+- **A DEFECT** — something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking. Continue to placement.
+- **A PROPOSAL** — capability that does not exist yet and would be *added*. **It goes to `candidates.md` and it is NEVER an Issue**, however clean its done-state looks. **Bias here when it reads either way:** a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an Issue costs an operator's day.
+
+**You are NOT expected to work out where a proposal belongs in the plan** — sprint, phase, or nothing. Only that it is a proposal. That triage is a separate job with its own criteria, and doing it inline is what produced feature requests as Issues.
+
+**CLUSTER YOUR OWN FINDINGS BEFORE YOU SEARCH ANYTHING.** Searching the board cannot find what does not exist yet, and the sharpest measured instance was **four Issues against one file, filed by one pass, in one minute** — each individually correct. Findings sharing a **file**, a **function**, a **subsystem**, or **one dispatch's remedy** are **ONE entry**. Do this first, on your own output, before any `gh issue list`.
+
+**THEN SEARCH BY MECHANISM, NOT ONLY BY KEYWORD.** Two issues can be the same defect and share no vocabulary — measured upstream: *"credential-interpolation defect"* and *"adoption coordinates self-authorised by value shape"* were one mechanism (a shape-matcher used as an authorisation) with zero overlapping search terms. Ask **"is this the same MECHANISM as something already filed, in different code?"**, not "do the words match?" Search **every repo** the work spans, not only this one — deferred work lives in the planning repo too.
+
+**FOUR DESTINATIONS BEFORE A NEW ISSUE, and a new Issue is the last of them:**
+
+1. **Same mechanism as an existing issue** → **expand it.**
+2. **Belongs to a standard's owner** → **route it** as a standards-amendment candidate; do not track it as work.
+3. **No planning home exists for this area** → the **missing home IS the finding**. Surface that, not the instance.
+4. **An existing deferral's PREMISE has been reversed** → **re-open it.** A pointer that resolves is not enough; the assumption under it must still hold.
+
+**THE LAST GATE — run `/decide` and `/best-practices` on any finding that survives all of the above.** If the reframe dissolves it, or best practice says the incumbent is fine, it was never an Issue. **State both verdicts in the disposition entry.** An Issue that has not been through both has not earned a human's attention, and a human's attention is what this queue spends.
+
 **PLACEMENT COMES FIRST — two questions, BEFORE the qualification test below.** Both default **against** a new issue. Documentation Standard § Deferred Work → *Placement* (vendored, binding).
 
 **1. Does it have a done-state TODAY?** An item whose remedy waits on a **named trigger**, or on a system **not yet built or still in progress**, cannot be closed — only carried. A carried issue reads as neglect at every standup while being structurally unable to move, and the anti-rot flag misfires on it. That item is a **checkbox on the phase that owns the trigger**, where its readiness and its parent's readiness are the same event.
