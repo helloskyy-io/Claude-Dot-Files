@@ -94,7 +94,8 @@ claude-dot-files/
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
-│   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phases 3-5 planned, nothing built. First component on the roadmap+phases shape sprint.md mandates
+│   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 BUILT-NOT-PROVEN (2026-08-09, 7 of 8 requirements — the run set is what closes it);
+│   │   │                                            #   Phases 4-5 planned. First component on the roadmap+phases shape sprint.md mandates
 │   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
 │   │   │   ├── phase1_measure_the_channel.md        # COMPLETE — six experiments, thirteen rulings. Cancelled nothing; re-scoped Phase 5's predicate
 │   │   │   ├── phase2_kind1_framework.md            # COMPLETE — Kind 1 as a substrate-free interface with GitHub as one binding. Found four of its own premises false
@@ -157,7 +158,9 @@ claude-dot-files/
 │       │   ├── README.md                            # Applicability: which half binds HERE, how this repo diverges, and § The gate — the six checks tests.yml runs
 │       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
 │       ├── agents.md                                # Standards for writing custom agents
-│       ├── exit-protocol.md                       # DRAFT, NOT BINDING — the child→parent handoff contract; values are owned by MMF phases
+│       ├── exit-protocol.md                       # DRAFT, NOT BINDING — the child→parent handoff contract. Phase 3 wrote its answers in:
+│       │                                            #   §2 the envelope's three strata, §3 the split abstention vocabulary, §4 the nine
+│       │                                            #   ordered rules, §5 versioning. Still carries ⟨PHASE 4⟩ in §6 and is UNRATIFIED
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
 │       ├── rules.md                                 # Standards for writing global rules
 │       ├── services.md                              # Standards for long-running services/daemons
@@ -226,9 +229,16 @@ claude-dot-files/
 │           │                                        #   plan/ holds plan_project (parent) and two children: plan_sprint (wired) and
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
+│           │                                        #   exit_record.py — the Kind 2 typed exit record: THE ONE DECLARATION of its
+│           │                                        #   schema and vocabulary, and the nine-rule fail-safe contract a parent routes on
+│           │                                        #   (docs/standards/exit-protocol.md). Dependency-free, like its sibling routing.py
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
+│               ├── fixtures/                        # MEASURED inputs, not written ones
+│               │   └── schema_declared_run.jsonl    # A real CLI 2.1.224 run with --json-schema declared. Carries the finding that
+│               │                                    #   declaring a schema REPLACES .result with the structured output — the reason
+│               │                                    #   run-claude.sh's completion gate reads assistant text blocks instead
 │               └── unit/                            # Each assertion encodes a production failure that happened. No mocks anywhere;
 │                   │                                #   the few tests that touch the OS do so because the property IS an OS property
 │                   ├── test_build_helper.py         # Verdict parsing + fail-safe routing, arg compilation, handoff validation
@@ -236,6 +246,11 @@ claude-dot-files/
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+                   ├── test_exit_record.py          # The fail-safe contract: one test per absence mode, the shadow comparison firing,
+                   │                                #   the render↔record invariant, and the Kind 1 address that must not over-match
+                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
+                   │                                #   fixture, one asserting the assistant filter finds the completion signal and one
+                   │                                #   asserting the .result filter does not. The second IS the finding, as a control
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
