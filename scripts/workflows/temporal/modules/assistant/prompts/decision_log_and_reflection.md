@@ -34,7 +34,13 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 **FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../docs/standards/architecture/architectural_standard.md) binds this; apply it rather than re-deriving it.
 
 - **DEFECT** — something already built or already decided behaves wrongly, or a decision the research and planning do not supply is now blocking. Continue below.
-- **PROPOSAL** — capability that does not exist and would be *added*. It belongs in **`candidates.md`**, never an Issue, whatever its done-state looks like. **You do not file it and you do not work out where it fits in the plan** — surface it as a proposal and say so plainly. Bias here when it reads either way.
+- **PROPOSAL** — capability that does not exist and would be *added*. It belongs in **`candidates.md`**, never an Issue, whatever its done-state looks like. Bias here when a finding reads either way.
+
+  **PLACE IT YOURSELF, IN THIS PR — do not merely surface it.** Append a row to `docs/standards/architecture/research/candidates.md` with the next free `C-NNN` id, the finding, its source, `status: open`, and a Note carrying your evidence. **Leave `decision` BLANK** — blank means untriaged, which is the truth, and `decision` is `plan-sprint`'s output alone.
+
+  **Why you and not the reviewer** ([`finding-routing.md`](../../../../../docs/standards/finding-routing.md) § 4): a file surface needs a commit and a push, and the reviewer is decide-only — it structurally cannot write there. **And the disposal-chute argument does not reach a proposal:** it forbids filing DEFECTS you could have fixed, because that offloads your own scope. A proposal is capability that does not exist, so it was never your scope and cannot be offloaded. **You still do not decide where it belongs in the plan** — sprint, phase or nothing is separate triage with its own criteria.
+
+  **A proposal you surface without placing dies at merge.** That is measured, not cautionary: three correctly-classified proposals were left in a PR body and `/standup` does not sweep merged PR bodies.
 
 **And cluster YOUR OWN findings before considering any of them separately.** Findings sharing a file, a function, a subsystem, or one remedy are **ONE item**. Measured: four separate Issues against one file, from one pass, each individually correct.
 
