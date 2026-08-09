@@ -42,7 +42,7 @@ They differ by **who reads them**, and a handoff carries a reference to both.
 
 In this repo Kind 1 is currently implemented as PR threads, Issues, and the standup tracker, with *open* as the to-do bit. **Every one of those is a GitHub fact, not a property of the interface**, and a component whose work product is not code in git — an edge device, a robot, a datacenter node — has no PR to comment on and no issue to close.
 
-So the five properties above are the contract. GitHub is **one binding of it**. Any document describing Kind 1 must state which parts are substrate-specific and which are the interface. ⟨PHASE 2⟩ enumerates this.
+So the five properties above are the contract. GitHub is **one binding of it**. Any document describing Kind 1 must state which parts are substrate-specific and which are the interface. **That enumeration exists: [`memory-model.md` §9](../guide/memory-model.md) states it as a single inherit-versus-re-implement table, and this protocol cites it rather than restating it** — per [Documentation Standard § Single-source codified fields](documentation/documentation_standard.md), a second copy of that table would drift from the one that gets maintained. *(Roadmap candidate 7, applied.)*
 
 **Consequence for the envelope:** a Kind 2 record carries a **substrate-agnostic reference** to its Kind 1 record. Today that resolves to a PR URL; on another substrate it resolves to something else. The field is not optional, and its form is `completion_ref` in §2 — **four parts, of which exactly one names the substrate and none is typed as a URL.** A component whose work product is not code in git has no PR to point at, and this fleet is going there.
 
@@ -183,7 +183,9 @@ Four conditions must each route explicitly, and each needs its own test: **absen
 
 ## 6 · Conformance
 
-- **One declaration.** The schema is declared once and loaded, never re-typed per consumer. A duplicated vocabulary passes every test in both copies while diverging — that is how `parse_verdict` came to be typed twice, and the copy that decided merges had zero tests.
+- **One declaration — of the record's SCHEMA *and* of its ADDRESS.** Both are declared once and loaded, never re-typed per consumer. A duplicated vocabulary passes every test in both copies while diverging — that is how `parse_verdict` came to be typed twice, and the copy that decided merges had zero tests.
+
+  > **The address half is not a generalisation; it is the measured instance.** [Phase 2](../development/memory-management-framework/phase2_kind1_framework.md) found the Kind 1 block marker declared **three incompatible ways** — two readers matching any comment that merely *mentions* `pr_review:`, one fence-anchored — producing **3 false positives on 2 of the 8 archived PRs that carry a block**, and a wrong durable `pass:` on the most recently reviewed PR in the repo. Every test in every copy was green. **A schema-only reading of this rule would have called that conformant**, which is why the rule names both. Tracked as issue **#68**. *(Roadmap candidate 6, applied.)*
 - Every child emits a conforming record; every parent routes only on the record. ⟨PHASE 4⟩.
 - A guard ships with a demonstration that it fails when the property is violated — **mutation evidence, per the Testing Standard.**
 - Prompt-borne emission is part of the conformance surface: the verdict and findings are model-authored, so the *instruction* to emit is in prompt text, and a check must verify the emit instruction still corresponds to the field the parent reads.
