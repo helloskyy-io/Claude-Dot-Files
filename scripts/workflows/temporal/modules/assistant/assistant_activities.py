@@ -11,6 +11,7 @@ that reflects that.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -239,9 +240,95 @@ def extract_pr_url(output: str) -> str | None:
     return matches[-1] if matches else None
 
 
+def claude_log_path(repo_root: Path, model_key: str) -> Path:
+    """Allocate a FRESH log path for one invocation, and refuse a reused one.
+
+    THE LOG IS THE CHANNEL, and that is not obvious from the transport ruling.
+    `structured_output` rides in the CLI's own stdout, so the CHILD writes
+    nothing outside its worktree — but `run-claude.sh` redirects that stdout
+    into $LOG_FILE, so a path exists and the PARENT owns it. "The transport has
+    no staleness class" is a claim about the transport; the fleet's channel is
+    transport plus plumbing (`phase3_typed_exit_record.md` step 3).
+
+    FRESHNESS IS ENFORCED, NOT ASSUMED. `build_workflow` invokes `review-pr`
+    twice in one run, either side of the loop-back. If one path were reused, a
+    second child that died before writing would leave pass 1's record in place
+    and the parent would route on a pass that produced nothing — making the
+    absent-record arm unreachable in exactly the scenario it exists for. The
+    stamp is second-granular and the model key repeats within a run, so
+    collision is reachable; this raises instead of truncating someone's log.
+    """
+    log_dir = repo_root / ".claude" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    path = log_dir / f"{model_key}-{stamp}.jsonl"
+    if path.exists():
+        raise FileExistsError(
+            f"refusing to reuse an existing run log: {path}. A second invocation "
+            f"landing on one path either truncates the first run's record or leaves "
+            f"a stale one for this run's parent to read."
+        )
+    return path
+
+
+def result_event(log_file: Path) -> dict | None:
+    """The CLI's `result` event from a run log, or None if the log has none.
+
+    None is a REAL answer, not an error: a run killed before it emitted one has
+    no result event, and the fail-safe contract's R2 fires on it exactly as it
+    fires when the key is merely absent. Malformed lines are skipped rather than
+    raising — the stream interleaves non-JSON on stderr paths.
+    """
+    if not log_file.exists():
+        return None
+    found = None
+    for line in log_file.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict) and event.get("type") == "result":
+            found = event          # last wins; there is one, but do not assume it
+    return found
+
+
+def assistant_text(log_file: Path) -> str:
+    """Every assistant text block in a run log, in order, newline-joined.
+
+    THIS IS WHERE THE MODEL'S PROSE LIVES WHEN A SCHEMA IS DECLARED. Measured on
+    CLI 2.1.224: `--json-schema` replaces `.result` with the serialised
+    structured output, so a prose shadow read from `.result` would find nothing
+    on every conforming run and report a disagreement that is an artifact of
+    where it looked. `run-claude.sh`'s completion gate reads the same surface,
+    for the same reason.
+    """
+    if not log_file.exists():
+        return ""
+    chunks: list[str] = []
+    for line in log_file.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict) or event.get("type") != "assistant":
+            continue
+        for block in (event.get("message") or {}).get("content") or []:
+            if isinstance(block, dict) and block.get("type") == "text":
+                chunks.append(block.get("text", ""))
+    return "\n".join(chunks)
+
+
 def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
                repo_root: Path, worktree: Path | None = None,
-               max_turns: int = 120, verbose: bool = False) -> str:
+               max_turns: int = 120, verbose: bool = False,
+               exit_record_schema: str | None = None,
+               log_file: Path | None = None) -> str:
     """Invoke the model via the existing bash activity.
 
     Delegates rather than reimplementing model invocation, logging and the
@@ -273,10 +360,10 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
             f"Logs written inside a worktree are deleted with it."
         )
     cwd = worktree or repo_root
-    log_dir = repo_root / ".claude" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_file = log_dir / f"{model_key}-{stamp}.jsonl"
+    # A caller that needs to READ the record allocates the path itself, so it
+    # knows where to read it from; callers that do not, get the same allocation
+    # they always got.
+    log_file = log_file or claude_log_path(repo_root, model_key)
 
     env = {
         **os.environ,
@@ -287,6 +374,8 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         "MODEL_KEY": model_key,
         "COMPLETION_PATTERN": completion_pattern,
     }
+    if exit_record_schema:
+        env["EXIT_RECORD_SCHEMA"] = exit_record_schema
     # STREAM AND CAPTURE. `capture_output=True` produced a 70-minute run with
     # zero visible output, so --verbose did nothing and an operator could not
     # distinguish a working run from a hung one — the reported symptom was

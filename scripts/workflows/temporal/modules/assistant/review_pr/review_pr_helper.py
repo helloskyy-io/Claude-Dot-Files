@@ -15,10 +15,24 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .. import routing
+from .. import exit_record, routing
 
 
 Verdict = routing.Verdict
+
+
+# THE KIND 1 ADDRESS, DECLARED ONCE for this tree. `exit-protocol.md` §6 covers
+# the record's schema AND its address, because the measured duplication was in
+# the address: three incompatible declarations of this marker, two of them
+# unanchored, writing a wrong durable `pass:` onto 2 of 8 archived PRs (issue
+# #68). Fence-anchored so a comment that merely MENTIONS the key — a reflection,
+# a summary, a brief quoting the wire format — is not counted as a record.
+#
+# Kept shape-identical to `scripts/helpers/measure/replay_pr_review_blocks.py`'s
+# FENCE, which is the one declaration that was already correct; that module is a
+# measurement tool outside the workflow tree and importing across that boundary
+# would couple a helper to the fleet it measures.
+PR_REVIEW_BLOCK = re.compile(r"```ya?ml\s*\n(pr_review:.*?)\n```", re.DOTALL)
 
 
 class ReviewType(str, Enum):
@@ -56,6 +70,11 @@ class ReviewResult:
     this_pass: int
     parseable: bool = True
     notes: list[str] = field(default_factory=list)
+    # The typed exit record this verdict was routed FROM. Optional because a
+    # caller may still run the prose-only path; None means the typed channel was
+    # not in play, never that it was in play and empty — that state is an
+    # ExitRecord with routed_outcome UNDETERMINED.
+    record: exit_record.ExitRecord | None = None
 
     @property
     def ready_to_merge(self) -> bool:
@@ -98,9 +117,23 @@ def pass_numbers(prior_pass_count: int) -> tuple[int, int]:
     return prior_pass_count + 1, prior_pass_count
 
 
+def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:
+    """The incumbent routing token this typed record produces.
+
+    THE TYPED REGION WINS. This is the only translation between the two
+    vocabularies, and it runs one way: the record decides, and the prose is
+    compared against it (never the reverse). Both computed and asserted
+    abstention collapse to `HOLD - needs-assistance` here because the prose
+    vocabulary HAS only one abstention member — which is the whole reason the
+    typed one splits it, and why this function is not a general mapping layer.
+    """
+    return Verdict(exit_record.as_prose_verdict(record).removeprefix("VERDICT: "))
+
+
 def render_prompt(template: str, *, pr_number: str, pr_branch: str,
-                  this_pass: int, prior_pass: int, headless_guard: str) -> str:
-    """Substitute the prompt's five placeholders.
+                  this_pass: int, prior_pass: int, headless_guard: str,
+                  run_id: str) -> str:
+    """Substitute the prompt's six placeholders.
 
     Deliberately NOT str.format() or an f-string: the prompt is 283 lines of
     markdown containing JSON examples, yaml blocks and shell snippets, all full
@@ -114,6 +147,11 @@ def render_prompt(template: str, *, pr_number: str, pr_branch: str,
         "THIS_PASS": str(this_pass),
         "PRIOR_PASS": str(prior_pass),
         "HEADLESS_EXECUTION_GUARD": headless_guard,
+        # The run-identity nonce. It goes IN so it can come back out in the
+        # typed record and be compared against what this invocation issued —
+        # rule R5. A record that echoes a different nonce is well-formed and
+        # belongs to a different invocation.
+        "RUN_ID": run_id,
     }
     rendered = template
     for name, value in values.items():

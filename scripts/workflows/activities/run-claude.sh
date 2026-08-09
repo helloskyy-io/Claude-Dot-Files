@@ -18,6 +18,13 @@
 #                        count as complete. Missing → run_claude fails LOUD and
 #                        returns nonzero (exit 0 must mean done). PR-producing
 #                        workflows set this to a PR-URL pattern. Unset = no check.
+#   EXIT_RECORD_SCHEMA — a JSON Schema, inline, declaring the Kind 2 typed exit
+#                        record the child emits at exit (docs/standards/exit-protocol.md).
+#                        Set → the CLI is invoked with --json-schema and the
+#                        result event carries `structured_output`. Unset → this
+#                        activity behaves exactly as it did before, byte for
+#                        byte, which is what keeps the FROZEN V1 bash fleet
+#                        (exit-protocol.md §7) out of the migration.
 #
 # Usage in a workflow script:
 #   MODEL_KEY="build-draft"
@@ -138,8 +145,17 @@ run_claude() {
         --verbose
         --max-turns "$MAX_TURNS"
         --dangerously-skip-permissions
-        "${extra_args[@]}"
     )
+
+    # The typed exit record rides in the CLI's own result envelope, so no write
+    # crosses the worktree boundary — the isolation boundary the fleet's safety
+    # argument rests on. Appended only when a caller declares a schema; V1
+    # callers declare none and their command line is unchanged.
+    if [[ -n "${EXIT_RECORD_SCHEMA:-}" ]]; then
+        claude_cmd+=(--json-schema "$EXIT_RECORD_SCHEMA")
+    fi
+
+    claude_cmd+=("${extra_args[@]}")
 
     if $VERBOSE; then
         "${claude_cmd[@]}" \
@@ -200,7 +216,25 @@ run_claude() {
     # -----------------------------------------------------------------------
     if [[ -n "${COMPLETION_PATTERN:-}" ]]; then
         local final_result
-        final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
+        if [[ -n "${EXIT_RECORD_SCHEMA:-}" ]]; then
+            # DECLARING A SCHEMA REPLACES `.result` WITH THE SERIALISED
+            # STRUCTURED OUTPUT. Measured on CLI 2.1.224, 2026-08-09, on a run
+            # that emitted prose AND called the tool: `.result` was
+            # {"outcome":"merge",...} and the model's terminal VERDICT line was
+            # not in it. Reading `.result` here would have made this gate fail
+            # on every conforming run — silently deleting the fleet's only
+            # write-time gate in the same change that added the typed record.
+            #
+            # The prose survives in the stream's assistant text blocks, which is
+            # a WIDER surface than `.result` (Phase 1 E5 / roadmap candidate 1
+            # note the gate's surface is narrower than the parent's parse
+            # surface; this narrows that difference rather than widening it).
+            final_result=$(jq -r 'select(.type == "assistant")
+                | .message.content[]? | select(.type == "text") | .text' \
+                "$LOG_FILE" 2>/dev/null)
+        else
+            final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
+        fi
         if ! grep -qE "$COMPLETION_PATTERN" <<<"$final_result"; then
             {
                 echo

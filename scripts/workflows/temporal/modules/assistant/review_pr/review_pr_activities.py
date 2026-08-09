@@ -23,6 +23,7 @@ import re
 from pathlib import Path
 
 from .. import assistant_activities as _shared
+from . import review_pr_helper as helper
 
 # Re-exported so callers use one name regardless of where it is implemented.
 load_prompt = _shared.load_prompt
@@ -42,13 +43,30 @@ def fetch_pr(pr_number: str, repo_root: Path) -> dict:
 def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     """How many disposition comments already exist on this PR.
 
-    Counts comments carrying a `pr_review:` yaml block — the machine-readable
+    Counts comments carrying a `pr_review:` yaml BLOCK — the machine-readable
     marker, not prose mentioning the phrase. That key is a WIRE FORMAT, not a
     filename; do not "fix" it to match the renamed script.
+
+    THE PREDICATE IS FENCE-ANCHORED, AND IT WAS NOT. A plain substring test
+    matched any comment that merely MENTIONS the key — a Post-Run Reflection, a
+    build-refine summary, a brief quoting the wire format. Measured by Phase 2
+    across all 39 PRs at `bcdb519`: 18 matches against the fence-anchored 15,
+    i.e. 3 false positives on 2 of the 8 PRs carrying a block. The consequence
+    is in the archive and it is DURABLE: PR #31's blocks run `pass: 1, 2, 4` —
+    there was never a pass 3 — and PR #66's single block is labelled `pass: 3`
+    and is pass 1. `pass:` is a field of the durable record, so an over-matching
+    reader writes a wrong number into Kind 1 permanently. Tracked as issue #68.
+
+    The declaration lives in `review_pr_helper.PR_REVIEW_BLOCK`, not here:
+    `exit-protocol.md` §6 requires the record's schema AND ITS ADDRESS to be
+    declared once, and this over-match is the measured instance that widened
+    that rule. `children/review-pr.sh:142` carries the same defect and is NOT
+    fixed here — it is the frozen V1 fleet (§7).
     """
     raw = _shared.gh(["pr", "view", pr_number, "--json", "comments"], repo_root)
     return sum(
-        1 for c in json.loads(raw).get("comments", []) if "pr_review:" in c.get("body", "")
+        1 for c in json.loads(raw).get("comments", [])
+        if helper.PR_REVIEW_BLOCK.search(c.get("body", "") or "")
     )
 
 
@@ -70,7 +88,8 @@ def load_shared_block(name: str, shared_sh: Path) -> str:
 
 def run_disposition(prompt: str, repo_root: Path, model_key: str,
                     completion_pattern: str, worktree: Path | None = None,
-                    verbose: bool = False) -> str:
+                    verbose: bool = False, exit_record_schema: str | None = None,
+                    log_file: Path | None = None) -> str:
     """Invoke the disposition pass on the PR's OWN tree.
 
     ISOLATION IS NOT OPTIONAL HERE EITHER, and for a reason beyond safety: a
@@ -85,4 +104,5 @@ def run_disposition(prompt: str, repo_root: Path, model_key: str,
         prompt, model_key=model_key, completion_pattern=completion_pattern,
         repo_root=repo_root, worktree=worktree or repo_root,
         max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
+        exit_record_schema=exit_record_schema, log_file=log_file,
     )

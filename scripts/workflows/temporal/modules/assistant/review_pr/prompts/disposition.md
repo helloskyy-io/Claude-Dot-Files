@@ -323,12 +323,32 @@ pr_review:
 
 **gh-monitor safety (binding):** the comment MUST NOT contain any line that STARTS with `@claude` — gh-monitor would parse it and auto-dispatch a workflow. If you must reference a dispatch command illustratively, put it inside a code fence (gh-monitor strips fences before matching). Your dispatch_context describes the task in prose/yaml; it never emits a live `@claude` trigger line.
 
-## Stage 6: PRINT THE VERDICT
+## Stage 6: EMIT THE TYPED EXIT RECORD, THEN PRINT THE VERDICT
+
+**Two channels, one author. Both are required, and they must agree** — a disagreement is a hard failure your caller raises on, not a preference it reconciles.
+
+### 6a — Call the `StructuredOutput` tool
+
+Before you print the verdict line, call the structured-output tool exactly once with the typed exit record. This is the Kind 2 record defined by `docs/standards/exit-protocol.md` §2.1 — **small, and it carries references rather than payloads.** It is NOT a second copy of your disposition comment: it holds only what a caller branches on plus the finding ids a later pass needs.
+
+| Field | What you put in it |
+|---|---|
+| `schema_version` | exactly `"1"` |
+| `run_id` | exactly `${RUN_ID}` — copy it verbatim, character for character. Your caller issued it and compares it back; a wrong value routes this run to a human |
+| `outcome` | `merge` or `hold` — the same decision as your VERDICT line |
+| `hold_kind` | required when `outcome` is `hold`: `redispatch` or `needs_ruling`. **`needs_ruling` is `needs-assistance` under its proper name** — the evaluation completed and the answer is that a human must decide. Aggregate it by the same rule as the VERDICT token below |
+| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"`, `uri:` the PR's URL. **`id` is a string**, quoted |
+| `findings` | one entry per finding in your yaml block, each with its stable `id` and its `disposition`. **Same ids, same dispositions, no extras and none missing** |
+
+**If you cannot state a field, you still call the tool.** A review you could not complete is `outcome: hold` with `hold_kind: needs_ruling` — that is what the member is for. **Declining to call the tool is the one outcome with no meaning**: it produces a run that looks completely clean and carries no record, and your caller has to route it to a human as a machinery failure.
+
+### 6b — Print the verdict line
+
 As the FINAL line of your output, print exactly one of:
     VERDICT: MERGE
     VERDICT: HOLD - redispatch
     VERDICT: HOLD - needs-assistance
-This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted.
+This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted. It must correspond to 6a: `merge`→`MERGE`, `hold`+`redispatch`→`HOLD - redispatch`, `hold`+`needs_ruling`→`HOLD - needs-assistance`.
 
 **The routing token on a HOLD is a decision, and it is YOURS to make — do not leave it to be re-derived.** `hold_kind` lives per-finding in your yaml, so a HOLD carrying five `redispatch` items and one `needs-assistance` item has no single answer written anywhere. A caller reading your yaml would have to aggregate, which means a caller with no stake in the review would be making a judgement about the review. Aggregate it yourself, by this rule:
 

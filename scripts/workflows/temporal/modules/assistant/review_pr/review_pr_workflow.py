@@ -14,9 +14,11 @@ Every decision below comes from the helper; every side effect is an activity.
 from __future__ import annotations
 
 import time
+import uuid
 from pathlib import Path
 
 from .. import assistant_activities as _shared
+from .. import exit_record
 from . import review_pr_activities as act
 from . import review_pr_helper as helper
 from .review_pr_helper import ReviewInput, ReviewResult, ReviewType
@@ -76,6 +78,13 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     assembled = assemble_prompt(task.review_type)
     notes.append(f"Reviewed as --type {task.review_type.value}.")
 
+    # RUN IDENTITY IS ISSUED BY THE PARENT, not derived from anything the child
+    # can see. It goes into the prompt and must come back in the typed record;
+    # rule R5 compares them. Freshness by path allocation (below) and identity
+    # in the payload are two independent checks, and the second is the one that
+    # catches a record arriving on a CORRECT path from a DIFFERENT invocation.
+    run_id = uuid.uuid4().hex
+
     prompt = helper.render_prompt(
         assembled,
         pr_number=task.pr_number,
@@ -83,6 +92,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         this_pass=this_pass,
         prior_pass=prior_pass,
         headless_guard=act.load_shared_block("HEADLESS_EXECUTION_GUARD", SHARED_PROMPTS),
+        run_id=run_id,
     )
 
     # The reviewer must read the PR's branch, not the repo's checkout.
@@ -90,19 +100,58 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         worktree, f"review-pr-{task.pr_number}-{int(time.time())}",
         f"origin/{pr['headRefName']}",
     )
-    output = act.run_disposition(
+    log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY)
+    act.run_disposition(
         prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
         worktree=pr_tree, verbose=task.verbose,
+        exit_record_schema=exit_record.schema_argument(), log_file=log_file,
     )
 
-    verdict, parseable = helper.parse_verdict(output)
-    if not parseable:
+    # --- THE TYPED CHANNEL DECIDES --------------------------------------
+    record = exit_record.route(_shared.result_event(log_file), expected_run_id=run_id)
+    verdict = helper.verdict_from_record(record)
+
+    # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------
+    # Still emitted, still parsed, and it decides nothing. Read from the
+    # assistant text blocks rather than from the console or `.result`: declaring
+    # a schema replaces `.result` with the serialised structured output, so a
+    # shadow read from there would report a disagreement that is an artifact of
+    # where it looked.
+    shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
+    if shadow is not verdict:
+        # A LOUD FAILURE, deliberately, for the duration of this phase. A
+        # comparison that cannot fail records a protection that does not exist,
+        # and the whole point of running both channels on one pair is to find
+        # out where they disagree before the fleet depends on one of them.
+        raise RuntimeError(
+            f"exit-record disagreement on PR #{task.pr_number}: the typed record routes "
+            f"{verdict.value!r} (routed_outcome={record.routed_outcome.value}"
+            + (f"/{record.undetermined_reason.value}" if record.undetermined_reason else "")
+            + f") while the prose channel parsed {shadow.value!r} "
+            f"(parseable={parseable}). Both channels are live during Phase 3 and "
+            f"disagreement is a failure, not a preference. Log: {log_file}"
+        )
+
+    notes.append(
+        f"Routed on the typed exit record: routed_outcome={record.routed_outcome.value}"
+        + (f", reason={record.undetermined_reason.value}" if record.undetermined_reason else "")
+        + f". Prose shadow agreed ({shadow.value})."
+    )
+    if record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED:
         notes.append(
-            f"review-pr produced no parseable VERDICT line on PR #{task.pr_number}. "
-            f"Routed to needs-assistance — inspect by hand."
+            f"The typed record could not be evaluated ({record.undetermined_reason.value}) "
+            f"on PR #{task.pr_number}. This is the COMPUTED abstention arm — a defect in "
+            f"the machinery, not a question about the work. Inspect by hand: {log_file}"
+        )
+    if record.permission_denials:
+        notes.append(
+            f"{len(record.permission_denials)} permission denial(s) recorded: "
+            + ", ".join(sorted({d['tool_name'] for d in record.permission_denials}))
+            + ". Never auto-redispatched — a child that tripped the only in-run safety "
+              "control is not retried against it."
         )
 
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
-        parseable=parseable, notes=notes,
+        parseable=parseable, notes=notes, record=record,
     )
