@@ -111,10 +111,38 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     record = exit_record.route(_shared.result_event(log_file), expected_run_id=run_id)
     verdict = helper.verdict_from_record(record)
 
-    # Persist the parent stratum BEFORE the shadow comparison, because a
+    # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------
+    # Still emitted, still parsed, and it decides nothing. Read from the
+    # assistant text blocks rather than from the console or `.result`: declaring
+    # a schema replaces `.result` with the serialised structured output, so a
+    # shadow read from there would report a disagreement that is an artifact of
+    # where it looked.
+    #
+    # PARSED BEFORE THE STRATUM IS WRITTEN so the stratum can carry it. The
+    # COMPARISON still happens after; only the parse moved.
+    shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
+
+    # Persist the parent stratum BEFORE the shadow COMPARISON, because a
     # disagreement raises and a machinery failure that leaves no trace is the
     # one Phase 4 most needs counted. Step 4's computed-arm predicate reads
-    # these two fields; nothing else writes them anywhere durable.
+    # `routed_outcome`/`undetermined_reason`; nothing else writes them durably.
+    #
+    # THE SHADOW'S OWN RESULT IS PART OF THE STRATUM, and leaving it out made
+    # requirement 6 unmeasurable. That requirement is *"both paths asserted to
+    # agree across a run set"* — a per-run PAIR. Recording only the typed half
+    # leaves a corpus of N events that ALL describe agreements, because the
+    # disagreements raise and never reach a log; the pair could then only be
+    # reconstructed by a second offline reader of the prose channel, which is
+    # the duplicated-parser defect this whole component exists to remove.
+    #
+    # `shadow_parseable` is recorded separately from `shadow_verdict` because
+    # `parse_verdict` fails safe: an unparseable channel and one that genuinely
+    # said `HOLD - needs-assistance` yield the same token, and
+    # `verdict_from_record` collapses all seven `UndeterminedReason` values onto
+    # that same token from the other side. Without the flag, those two defaults
+    # colliding is indistinguishable from a real agreement — and the E2(c) cell
+    # (record absent on an otherwise-clean run, prose saying needs-assistance)
+    # is the single case this phase most needs counted as a DISAGREEMENT.
     _shared.append_parent_route(log_file, {
         "run_id": run_id,
         "pr": task.pr_number,
@@ -123,15 +151,11 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             record.undetermined_reason.value if record.undetermined_reason else None
         ),
         "hold_kind": record.hold_kind.value if record.hold_kind else None,
+        "shadow_verdict": shadow.value,
+        "shadow_parseable": parseable,
+        "channels_agree": shadow is verdict,
     })
 
-    # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------
-    # Still emitted, still parsed, and it decides nothing. Read from the
-    # assistant text blocks rather than from the console or `.result`: declaring
-    # a schema replaces `.result` with the serialised structured output, so a
-    # shadow read from there would report a disagreement that is an artifact of
-    # where it looked.
-    shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
     if shadow is not verdict:
         # A LOUD FAILURE, deliberately, for the duration of this phase. A
         # comparison that cannot fail records a protection that does not exist,
@@ -146,10 +170,17 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             f"disagreement is a failure, not a preference. Log: {log_file}"
         )
 
+    # "Agreed" is claimed only when the shadow actually produced a verdict.
+    # `parse_verdict` fails safe to the same token the typed channel falls back
+    # to, so an unparseable prose channel reaching here is two defaults matching,
+    # not two channels agreeing — and an operator reading "agreed" would count it
+    # as evidence for the very property this phase exists to measure.
     notes.append(
         f"Routed on the typed exit record: routed_outcome={record.routed_outcome.value}"
         + (f", reason={record.undetermined_reason.value}" if record.undetermined_reason else "")
-        + f". Prose shadow agreed ({shadow.value})."
+        + (f". Prose shadow agreed ({shadow.value})." if parseable else
+           f". Prose shadow produced NO parseable verdict; its fail-safe default "
+           f"({shadow.value}) coincides with the typed route, which is not agreement.")
     )
     if record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED:
         notes.append(

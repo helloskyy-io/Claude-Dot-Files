@@ -240,10 +240,23 @@ run_claude() {
             #
             # `parent_tool_use_id == null` excludes Task sub-agent turns: a
             # nested agent's terminal line is not this run's completion signal.
-            final_result=$(jq -rs '[ .[]
+            #
+            # THE `fromjson? // empty` PREFILTER IS LOAD-BEARING, not defensive
+            # habit. `jq -s` must parse the WHOLE file before it emits anything,
+            # so a single non-JSON line aborts it and `final_result` comes back
+            # empty — and this gate then reports "RUN ENDED WITHOUT COMPLETING"
+            # for a run that completed perfectly. The stream demonstrably carries
+            # such lines: `assistant_activities._log_events` documents that it
+            # "must SKIP a malformed line" and a test asserts the Python reader
+            # survives a fixture containing raw stderr noise. Two readers of one
+            # file disagreeing about whether it may contain junk is how a gate
+            # deletes itself. The non-slurp `.result` branch below degrades
+            # gracefully by construction (values parsed before the bad line are
+            # still emitted), which is why only this branch needs it.
+            final_result=$(jq -R 'fromjson? // empty' "$LOG_FILE" 2>/dev/null | jq -rs '[ .[]
                 | select(.type == "assistant" and .parent_tool_use_id == null)
                 | .message.content[]? | select(.type == "text") | .text ]
-                | last // ""' "$LOG_FILE" 2>/dev/null)
+                | last // ""')
         else
             final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
         fi

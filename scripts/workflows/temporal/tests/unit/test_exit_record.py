@@ -231,7 +231,7 @@ def test_a_permission_denial_routes_to_the_human_arm_and_never_to_redispatch() -
     unbounded retry loop against the one control there is, and merging on its
     word is worse.
     """
-    denial = {"tool_name": "Bash", "matched_rule": "sudo",
+    denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo ls /root"}}
     routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
@@ -246,7 +246,7 @@ def test_a_denial_is_ruled_before_an_absent_record() -> None:
     is never redispatched, whatever else is true of its output.
     """
     envelope = _envelope(record=None, denials=[{"tool_name": "Bash",
-                                                "matched_rule": "sudo"}])
+                                                "tool_use_id": "toolu_01CsEb"}])
     routed = er.route(envelope, expected_run_id=RUN_ID)
     assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
 
@@ -294,7 +294,7 @@ def test_R1s_two_branches_report_DIFFERENT_reasons() -> None:
     """
     unreadable = _envelope()
     del unreadable["permission_denials"]
-    fired = _envelope(denials=[{"tool_name": "Bash", "matched_rule": "sudo"}])
+    fired = _envelope(denials=[{"tool_name": "Bash", "tool_use_id": "toolu_01CsEb"}])
 
     a = er.route(unreadable, expected_run_id=RUN_ID)
     b = er.route(fired, expected_run_id=RUN_ID)
@@ -369,12 +369,41 @@ def test_tool_input_is_dropped_at_read_time_and_has_no_copy_to_leak() -> None:
     Entries carry literal command lines and absolute worktree paths. A field
     that exists in the routing copy and is filtered on the way out is one edit
     away from being published by a renderer that does not know why.
+
+    THE INPUT IS THE MEASURED ENTRY, not the design table's. The version of this
+    test that shipped built its fixture with a `matched_rule` key, because it
+    was written from `exit-protocol.md` §2.2 rather than from
+    `phase1_measure_the_channel.md`'s one observed denial — which is
+    `{tool_name, tool_use_id, tool_input}` and carries no `matched_rule` at all.
+    A fixture invented from the field list cannot notice that a published field
+    is always empty on the real envelope, which is exactly what happened.
     """
-    denial = {"tool_name": "Bash", "matched_rule": "sudo",
+    denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo ls /root/.ssh"}}
     routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID)
-    assert routed.permission_denials == ({"tool_name": "Bash", "matched_rule": "sudo"},)
+    assert routed.permission_denials == (
+        {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb"},)
     assert "sudo ls /root/.ssh" not in json.dumps(routed.permission_denials)
+
+
+def test_a_denial_field_that_is_not_a_string_does_not_crash_the_CONSUMER() -> None:
+    """Total over the FIELDS, not only over the entries — the level below.
+
+    `test_a_denial_entry_that_is_not_an_object_...` guards the entry type and is
+    green whether or not the fields are guarded, so it could not catch this.
+    `review_pr_workflow` builds `sorted({d["tool_name"] for d in ...})` and joins
+    it, so an unhashable `tool_name` raises `TypeError` from inside the routing
+    contract and `run_review_pr.main` does not catch it — a traceback where a
+    routed record was promised. Asserting the redacted values are strings is the
+    property; asserting the consumer's own operations succeed is the proof.
+    """
+    routed = er.route(
+        _envelope(denials=[{"tool_name": {"nested": "dict"}, "tool_use_id": 7}]),
+        expected_run_id=RUN_ID,
+    )
+    assert all(isinstance(v, str) for d in routed.permission_denials for v in d.values())
+    # The two operations the consumer actually performs, run here rather than described.
+    assert ", ".join(sorted({d["tool_name"] for d in routed.permission_denials}))
 
 
 # ---------------------------------------------------------------------------
@@ -564,7 +593,7 @@ def test_a_stale_record_is_caught_even_though_it_is_well_formed(monkeypatch, tmp
 
 def test_a_denial_is_surfaced_without_its_command_line(monkeypatch, tmp_path) -> None:
     """R1 end to end, with the redaction holding across the whole path."""
-    denial = {"tool_name": "Bash", "matched_rule": "sudo",
+    denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo cat /etc/shadow"}}
     with pytest.raises(RuntimeError) as excinfo:
         _review(monkeypatch, tmp_path, _record(run_id="@ISSUED@"),
@@ -912,12 +941,27 @@ def test_the_kind_one_SHARED_PARSE_is_one_declaration_across_both_python_readers
     `children/review-pr.sh:142` and `/standup` are the other two and are NOT
     gated here: the first is the frozen V1 fleet, the second is a prompt file,
     and both are surfaced for Phase 4's fleet-wide sweep.
+
+    THE COMPARISON IS (pattern, flags), AND THE FLAGS HALF IS NOT DECORATION.
+    The first version of this gate compared `.pattern` alone, which reads only
+    the axis a reader is looking at while the semantics live on both. Every pair
+    in the table depends on its flags: `PR_REVIEW_BLOCK`/`FENCE` need `DOTALL`
+    so a block body may span lines, `_FINDING_ITEM`/`FINDING_ENTRY` need
+    `MULTILINE|DOTALL` for the `^` anchor and the lookahead. Drop `DOTALL` on
+    ONE side and the pattern strings still compare equal — while `(.*?)` stops
+    at the first newline, every finding body reads empty, and every
+    `disposition:` resolves to `""`. That is the gate's own stated failure —
+    two readers attributing dispositions differently with both suites green —
+    reachable through the one axis the gate did not read.
     """
     module = _load_replay_module()
-    assert getattr(helper, helper_name).pattern == getattr(module, replay_name).pattern, (
+    ours, theirs = getattr(helper, helper_name), getattr(module, replay_name)
+    assert (ours.pattern, ours.flags) == (theirs.pattern, theirs.flags), (
         f"the Kind 1 shared parse is declared two ways again: "
         f"review_pr_helper.{helper_name} != replay_pr_review_blocks.{replay_name} "
-        f"— the defect §6 exists to prevent"
+        f"— pattern differs: {ours.pattern != theirs.pattern}, "
+        f"flags differ: {ours.flags != theirs.flags} "
+        f"({ours.flags!r} vs {theirs.flags!r}) — the defect §6 exists to prevent"
     )
 
 

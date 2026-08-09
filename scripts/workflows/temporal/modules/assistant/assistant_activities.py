@@ -407,8 +407,20 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         "MODEL_KEY": model_key,
         "COMPLETION_PATTERN": completion_pattern,
     }
+    # SET **OR CLEARED**, never merely set. `env` starts from `os.environ`, so
+    # an ambient `EXIT_RECORD_SCHEMA` — exported by an operator, or inherited by
+    # a dispatch launched from inside a schema-declaring run — would reach the
+    # child even when this caller declared none. That hands `--json-schema` to
+    # the FROZEN V1 fleet (`exit-protocol.md` §7), whose whole guarantee is that
+    # its command line is byte-identical when the variable is unset, and flips
+    # its completion gate onto the assistant-text branch, where V1's
+    # `COMPLETION_PATTERN` (a PR URL) does not appear — turning successful V1
+    # runs into false early-stop failures. "Unset" has to be something this
+    # caller controls, not something the environment gets a vote on.
     if exit_record_schema:
         env["EXIT_RECORD_SCHEMA"] = exit_record_schema
+    else:
+        env.pop("EXIT_RECORD_SCHEMA", None)
     # STREAM AND CAPTURE. `capture_output=True` produced a 70-minute run with
     # zero visible output, so --verbose did nothing and an operator could not
     # distinguish a working run from a hung one — the reported symptom was

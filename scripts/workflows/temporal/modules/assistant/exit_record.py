@@ -423,17 +423,36 @@ def _redact(denials: list) -> tuple[dict, ...]:
     routing copy and is filtered on the way out is one edit away from being
     published by a renderer that does not know why it was filtered.
 
-    TOTAL OVER ITS OWN INPUT, like everything else here. R1 checks that
-    `permission_denials` is a list; it cannot check what is IN the list. An
-    entry that is not an object — a bare string from a CLI that changed shape —
-    would raise AttributeError from inside the routing contract, and the
-    caller's error handler does not catch it. The count stays honest because an
-    unreadable entry is still an entry.
+    TOTAL OVER ITS OWN INPUT, like everything else here — AND TOTAL OVER THE
+    FIELDS, not only over the entries. R1 checks that `permission_denials` is a
+    list; it cannot check what is IN the list. An entry that is not an object —
+    a bare string from a CLI that changed shape — would raise AttributeError
+    from inside the routing contract, and the caller's error handler does not
+    catch it. The count stays honest because an unreadable entry is still an
+    entry. The `str()` calls are that same argument one level down: guarding the
+    entry type and then handing an unguarded `d.get(...)` to the consumer stops
+    one level short of the claim this paragraph makes. `review_pr_workflow`
+    builds a `set` of `tool_name` and joins it, so a `tool_name` that is a dict
+    raises `TypeError: unhashable type` and one that is an int raises in
+    `join` — from inside the routing contract, uncaught, exactly the shape this
+    paragraph was written about.
+
+    THE PUBLISHED KEYS ARE THE MEASURED ONES. `matched_rule` was carried here
+    until Phase 3's correction pass and was **always empty**: the one observed
+    denial entry (`phase1_measure_the_channel.md`, "`permission_denials[]`
+    non-empty, observed once") is `{tool_name, tool_use_id, tool_input}` and the
+    CLI emits no `matched_rule` at all, so `.get("matched_rule", "")` made its
+    absence silent while the field's documented job — *why* it fired — stayed
+    unanswerable on every real envelope. `tool_use_id` replaces it: measured
+    present, and it is the key that locates the denied call in the run log,
+    which is the question an operator asks after a trip. `tool_input` stays
+    dropped; dropping it is what this function is for.
     """
     return tuple(
-        {"tool_name": d.get("tool_name", ""), "matched_rule": d.get("matched_rule", "")}
+        {"tool_name": str(d.get("tool_name", "")),
+         "tool_use_id": str(d.get("tool_use_id", ""))}
         if isinstance(d, dict) else
-        {"tool_name": "<unreadable denial entry>", "matched_rule": ""}
+        {"tool_name": "<unreadable denial entry>", "tool_use_id": ""}
         for d in denials
     )
 

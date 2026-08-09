@@ -32,6 +32,7 @@ expression under test is pulled out of the shipped file and executed.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -152,33 +153,75 @@ def test_a_fresh_path_is_returned_when_nothing_is_there(tmp_path: Path) -> None:
 # The bash half, extracted from the shipped script and executed.
 # ---------------------------------------------------------------------------
 
-_ASSISTANT_FILTER = re.compile(
-    r'''final_result=\$\(jq -rs '(\[ \.\[\].*?)'\s''', re.DOTALL)
-_RESULT_FILTER = re.compile(
-    r'''final_result=\$\(jq -r '(select\(\.type == "result"\).*?)'\s''', re.DOTALL)
+# THE WHOLE COMMAND SUBSTITUTION IS EXTRACTED AND EXECUTED, not the jq program
+# inside it. Extracting only the filter and re-running it under a hand-written
+# `jq -rs` meant the test supplied its OWN invocation, so everything about how
+# the shipped line reaches jq — the slurp, the prefilter, the redirections —
+# was outside the assertion. That is how a gate that aborts on one malformed
+# log line shipped green: the Python reader beside it has a test proving such
+# lines occur, and the bash reader was never run over one.
+# ANCHORED ON THE SURROUNDING BASH, NOT ON THE COMMAND'S SHAPE. Both gates are
+# matched by their position in the if/else, so any invocation shape extracts:
+# one jq, two piped, a prefilter added or removed. Pinning the shape instead
+# would make a behavioural regression surface as "run-claude.sh no longer
+# carries a gate", which is the wrong red — the reader would go looking for a
+# deleted line that is still there. The properties are held by the tests below;
+# this only has to hand them what actually ships.
+_ASSISTANT_GATE = re.compile(
+    r"""final_result=\$\((.*?)\)\n\s*else\b""", re.DOTALL)
+_RESULT_GATE = re.compile(
+    r"""final_result=\$\((jq -r 'select\(\.type == "result"\).*?)\)\n""", re.DOTALL)
 
 
-def _jq(program: str, log: Path, *, slurp: bool = False) -> str:
-    out = subprocess.run(["jq", "-rs" if slurp else "-r", program, str(log)],
-                         capture_output=True, text=True)
+def _run_shipped(gate: str, log: Path) -> str:
+    """Run one extracted command substitution with `$LOG_FILE` bound to `log`."""
+    out = subprocess.run(["bash", "-c", gate], capture_output=True, text=True,
+                         env={**os.environ, "LOG_FILE": str(log)})
     assert out.returncode == 0, out.stderr
     return out.stdout
 
 
-def _shipped_assistant_filter() -> str:
-    m = _ASSISTANT_FILTER.search(RUN_CLAUDE.read_text())
-    assert m, "run-claude.sh no longer carries an assistant-text completion filter"
+def _shipped_assistant_gate() -> str:
+    m = _ASSISTANT_GATE.search(RUN_CLAUDE.read_text())
+    assert m, "run-claude.sh no longer carries an assistant-text completion gate"
     return m.group(1)
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
-def test_the_shipped_assistant_filter_finds_the_completion_signal() -> None:
+def test_the_shipped_assistant_gate_finds_the_completion_signal() -> None:
     """The schema-declared branch of the completion gate, run as shipped."""
-    assert "VERDICT: MERGE" in _jq(_shipped_assistant_filter(), FIXTURE, slurp=True)
+    assert "VERDICT: MERGE" in _run_shipped(_shipped_assistant_gate(), FIXTURE)
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
-def test_the_shipped_result_filter_would_have_MISSED_it() -> None:
+def test_the_gate_survives_the_malformed_lines_the_stream_actually_carries(
+    tmp_path: Path,
+) -> None:
+    """THE CONTROL THAT WAS MISSING, and its absence deleted the gate silently.
+
+    `assistant_activities._log_events` states the stream interleaves non-JSON
+    and that a reader MUST skip it, and
+    `test_malformed_lines_are_skipped_rather_than_killing_the_read` above proves
+    the Python reader does. The bash reader of the SAME FILE used `jq -s`, which
+    must parse the entire input before emitting anything — so one stray stderr
+    line made `final_result` empty and the gate announced "RUN ENDED WITHOUT
+    COMPLETING" for a run that had completed. Every fixture the bash tests used
+    was clean, so nothing was red.
+
+    This log is that log: the conforming stream with exactly the two noise lines
+    the Python-side fixture already uses. A correct gate still finds the verdict.
+    """
+    log = tmp_path / "noisy.jsonl"
+    log.write_text(
+        "warning: something on stderr\n"
+        + FIXTURE.read_text()
+        + "{not json at all\n"
+    )
+    assert "VERDICT: MERGE" in _run_shipped(_shipped_assistant_gate(), log)
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_shipped_result_gate_would_have_MISSED_it() -> None:
     """The negative control, and it is the whole finding.
 
     This is the branch V1 still uses, run against a schema-declaring log. It
@@ -186,10 +229,9 @@ def test_the_shipped_result_filter_would_have_MISSED_it() -> None:
     one, the CLI changed its `.result` behaviour and the branch above is no
     longer needed. Either way this test is the thing that says so.
     """
-    source = RUN_CLAUDE.read_text()
-    m = _RESULT_FILTER.search(source)
-    assert m, "run-claude.sh no longer carries a .result completion filter"
-    assert "VERDICT: MERGE" not in _jq(m.group(1), FIXTURE)
+    m = _RESULT_GATE.search(RUN_CLAUDE.read_text())
+    assert m, "run-claude.sh no longer carries a .result completion gate"
+    assert "VERDICT: MERGE" not in _run_shipped(m.group(1), FIXTURE)
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
@@ -215,7 +257,7 @@ def test_the_gate_still_REJECTS_a_verdict_that_is_not_the_final_word(tmp_path: P
         '{"type":"assistant","parent_tool_use_id":null,"message":{"content":'
         '[{"type":"text","text":"Let me confirm the comment posted."}]}}\n'
     )
-    out = _jq(_shipped_assistant_filter(), log, slurp=True)
+    out = _run_shipped(_shipped_assistant_gate(), log)
     assert "VERDICT: MERGE" not in out
     assert "Let me confirm" in out, "the filter must still read the LAST block"
 
@@ -235,7 +277,7 @@ def test_the_gate_ignores_a_verdict_line_from_a_sub_agent(tmp_path: Path) -> Non
         '{"type":"assistant","parent_tool_use_id":"toolu_1","message":{"content":'
         '[{"type":"text","text":"VERDICT: MERGE"}]}}\n'
     )
-    assert "VERDICT: MERGE" not in _jq(_shipped_assistant_filter(), log, slurp=True)
+    assert "VERDICT: MERGE" not in _run_shipped(_shipped_assistant_gate(), log)
 
 
 def test_the_json_schema_flag_is_gated_on_the_caller_declaring_one() -> None:

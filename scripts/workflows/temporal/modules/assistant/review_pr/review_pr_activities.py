@@ -78,13 +78,30 @@ def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     LAST WINS (`memory-model.md` §6.2). Sequence is derived from that ordering
     rather than from the block's own `pass:` counter — a counter written by the
     producer can be wrong, and §6.4 measures that it was.
+
+    LAST WINS *WITHIN* A COMMENT TOO, which is why this is `finditer` and not
+    `search`. A comment may legitimately carry more than one block: INVARIANT 1
+    of `disposition.md` requires each pass to carry prior findings forward, so a
+    disposition that quotes the block it supersedes above its own is a shape the
+    prompt invites. `search` returns the FIRST match, so on such a comment this
+    returned the SUPERSEDED block — and the render↔record invariant then compared
+    this pass's typed record against the previous pass's findings and hard-failed
+    a correct run, *after* the comment was already posted. `replay_pr_review_blocks`
+    has always used `findall` here; this was the third reader disagreeing with the
+    other two about what "the latest block" means.
+
+    NOT the same change as `count_prior_passes` above, and that asymmetry is
+    deliberate: that function counts COMMENTS THAT CARRY A BLOCK, because the
+    delta it feeds (`posted <= prior_pass` in `review_pr_workflow`) is a count of
+    passes, and one pass posts one comment however many blocks it quotes.
+    Switching it to `finditer` would count a quoting comment as two passes and
+    break the delta in a new way.
     """
     raw = _shared.gh(["pr", "view", pr_number, "--json", "comments"], repo_root)
     blocks = [
         m.group(1)
         for c in json.loads(raw).get("comments", [])
-        for m in [helper.PR_REVIEW_BLOCK.search(c.get("body", "") or "")]
-        if m
+        for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
     ]
     return blocks[-1] if blocks else None
 
