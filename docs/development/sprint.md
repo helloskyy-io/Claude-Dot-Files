@@ -140,9 +140,10 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
-## Sprint: Memory Management Framework — 📋 QUEUED, NEEDS PLANNING
+## Sprint: Memory Management Framework — 🟡 IN PROGRESS
 
-**Phase doc:** not yet written — writing it is the planning step.
+**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 5 phase docs.
+**Phase 1 measured 2026-08-08** (13 rulings; 3 no-ops cancelled downstream work). Phase 2 in flight. Phases 3-5 remain.
 
 Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
