@@ -58,6 +58,8 @@ Deliberate boundaries. Each has a reason, and each was paid for:
 | `candidates.md` | **proposals** — research candidates and anything an actor wants ADDED | appended, never rewritten |
 | `direction.md` | rulings only the operator can make | appended → ruled → rotated at 90 days |
 
+**The full routing procedure lives in [`finding-routing.md`](../finding-routing.md), which owns it.** This section states the surface set and the one rule that decides between the two queues; the gates, the mechanism requirement and the disposition vocabulary are there, not restated here — this standard is *deliberately narrow in scope*, and a procedure that lives in two places diverges silently.
+
 ### Defect or proposal — ask this BEFORE choosing a surface (binding)
 
 **An Issue holds a DEFECT: something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking.** Issues are the human-in-the-loop queue and are reserved for the hardest of those.
