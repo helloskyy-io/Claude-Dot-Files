@@ -42,7 +42,7 @@ from enum import Enum
 __all__ = [
     "SCHEMA_VERSION", "SUPPORTED_SCHEMA_VERSIONS", "CHILD_SCHEMA", "SCHEMA_BYTE_BOUND",
     "Outcome", "HoldKind", "RoutedOutcome", "UndeterminedReason",
-    "ExitRecord", "schema_argument", "route", "as_prose_verdict",
+    "ExitRecord", "schema_argument", "route", "routes_to_redispatch",
 ]
 
 
@@ -378,17 +378,14 @@ def _redact(denials: list) -> tuple[dict, ...]:
     )
 
 
-def as_prose_verdict(record: ExitRecord) -> str:
-    """The incumbent prose token this record corresponds to.
+def routes_to_redispatch(record: ExitRecord) -> bool:
+    """The one predicate that distinguishes the two HOLD shapes.
 
-    EXISTS ONLY FOR THE SHADOW COMPARISON of Phase 3 step 7, and it is the one
-    place the two vocabularies are allowed to meet. Both abstention arms map to
-    the same prose token because the prose channel HAS only one — which is the
-    whole reason the typed channel splits it, and the reason this function is
-    not a general translation layer.
+    Deliberately NOT a function returning a prose token. The prose vocabulary is
+    declared in `routing.py` and re-typing its three strings here would be a
+    second declaration of it — the defect §6 exists to prevent, in the module
+    written to enforce §6. The translation lives at ONE call site,
+    `review_pr_helper.verdict_from_record`, and it reads this.
     """
-    if record.routed_outcome is RoutedOutcome.MERGE:
-        return "VERDICT: MERGE"
-    if record.routed_outcome is RoutedOutcome.HOLD and record.hold_kind is HoldKind.REDISPATCH:
-        return "VERDICT: HOLD - redispatch"
-    return "VERDICT: HOLD - needs-assistance"
+    return (record.routed_outcome is RoutedOutcome.HOLD
+            and record.hold_kind is HoldKind.REDISPATCH)

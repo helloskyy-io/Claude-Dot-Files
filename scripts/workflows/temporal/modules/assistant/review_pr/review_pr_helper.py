@@ -127,7 +127,11 @@ def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:
     vocabulary HAS only one abstention member — which is the whole reason the
     typed one splits it, and why this function is not a general mapping layer.
     """
-    return Verdict(exit_record.as_prose_verdict(record).removeprefix("VERDICT: "))
+    if record.routed_outcome is exit_record.RoutedOutcome.MERGE:
+        return Verdict.MERGE
+    if exit_record.routes_to_redispatch(record):
+        return Verdict.HOLD_REDISPATCH
+    return Verdict.HOLD_NEEDS_ASSISTANCE
 
 
 def render_prompt(template: str, *, pr_number: str, pr_branch: str,
