@@ -1,6 +1,8 @@
 # Phase 3 — The typed exit record: schema, fail-safe contract, one pair proven
 
-**Component:** [Memory Management Framework](roadmap.md) · **Status: not started**
+**Component:** [Memory Management Framework](roadmap.md) · **Status: 🔨 BUILT, NOT YET PROVEN (2026-08-09)**
+
+> **Seven of the eight requirements are met and verifiable from the artifacts. Requirement 6's second half is not, and it is the one that closes the phase.** The pair is built — one child emits the typed record, one parent routes on it, the prose channel is live and shadowed, and a disagreement raises. **What is missing is the run set**: the agreement count over real dispatches, with every disagreement and its cause. That needs live `review-pr` runs against real PRs on a merged build of this branch, at real budget, and a draft pass that manufactured one from its own staged run would be measuring an artifact it was inside of — the defect [Phase 1](phase1_measure_the_channel.md) recorded three times over. **The phase is not complete until that table exists in this doc.**
 
 The design phase, and the one that proves it works on exactly **one** parent/child pair with the incumbent prose channel still in place. Rolling it across the fleet is [Phase 4](phase4_fleet_migration.md) — deliberately separate, because a phase that both designs and migrates cannot tell you which of the two it got wrong.
 
@@ -38,9 +40,10 @@ Done when **all** of the following hold:
 
 Adopted practice, not a binding local rule — see the [roadmap's note on doc shape](roadmap.md). Required in substance because this phase writes to and reads from the `claude` CLI's output surface.
 
-- [ ] Re-run the verification block in [Phase 1](phase1_measure_the_channel.md#runtime-verification) and record the result here, with the date and host. **Do not cite Phase 1's block as though it were current** — the CLI updates frequently, and a version recorded weeks earlier is a description, not a verification
-- [ ] Record the CLI version this phase's design is built against, and state it as the pinned version in the envelope's `schema_version` rationale
-- [ ] Confirm the transport chosen by Phase 1 E1 still behaves as measured, in a worktree, under `--dangerously-skip-permissions`, at a real child's turn budget
+- [x] Re-run the verification block and record the result here, with the date and host. **Verified 2026-08-09 on `puma-workstation-mint`, CLI 2.1.224 — not cited from Phase 1.** Three probes in the real child shape (`--model haiku --output-format stream-json --verbose --dangerously-skip-permissions --json-schema '<inline>'`), and the version happens to be unchanged from Phase 1's pin, which is a fact this pass measured rather than assumed
+- [x] Record the CLI version this phase's design is built against — **2.1.224**. **And a correction to the checklist's own framing, because it asks for something the design does not have:** `schema_version` is **not** pinned to a CLI version and must not be. It versions the *record's shape*, which this repo owns; the CLI version governs the *transport*, which it does not. Tying them would bump the record's version on every CLI patch — and Phase 1 measured four patch versions adding ten envelope fields — routing every skewed worktree to a human for a change that touched no field of ours
+- [x] Confirm the transport chosen by Phase 1 E1 still behaves as measured, in a worktree, under `--dangerously-skip-permissions`, at a real child's turn budget. **It does, and the confirmation found the thing this phase should be remembered for.** `structured_output` is present and validates; `permission_denials` is on the envelope; `session_id` and `uuid` are too. **What was not previously measured is the combination with `stream-json`, which is what the fleet actually runs** — it works, *and declaring a schema replaces `.result` with the serialised structured output*, which would have deleted the fleet's only write-time gate. Full account in step 7's finding; the measurement is preserved as a test fixture rather than as a paragraph
+  > **Turn-budget honesty:** the probes ran at `--max-turns 2` and 3 on haiku, not at `review-pr`'s 120 on its configured model. The envelope's *shape* is model- and budget-independent — Phase 1 established that across nine forced modes — and what these probes tested is the shape. **What they do NOT establish is whether a 120-turn disposition pass reliably calls the tool**, which is a question about the model's behaviour under a long prompt and is answerable only by the run set that requirement 6 still owes
 
 ---
 
@@ -219,9 +222,15 @@ Kept in this phase rather than [Phase 4](phase4_fleet_migration.md) because it c
 
 ### Close-out
 
-- [ ] Every requirement above is met and its evidence is in this doc
-- [ ] The prose channel is still live and unchanged — retiring it is [Phase 4](phase4_fleet_migration.md)'s decision, made against this phase's agreement data
-- [ ] Any standards implication is surfaced in the [roadmap](roadmap.md#standards-amendment-candidates), not written. The `§ Composition` amendment in particular waits until this phase has *proven* the replacement — amending a standard on the strength of a plan is how a standard becomes wrong
+- [ ] **Every requirement above is met and its evidence is in this doc — SEVEN OF EIGHT.** Requirements 1–5, 7 and 8 are met and each names the artifact that proves it. **Requirement 6 is met on its first half** (one parent routes on the typed record end-to-end, prose still emitted, disagreement is a loud failure) **and open on its second** (both paths asserted to agree *across a run set*). This box stays unchecked until the run set lands
+- [x] The prose channel is still live and unchanged — `disposition.md` Stage 6b is byte-identical in its instruction, every parent still parses the same token, and `routing.py` is untouched. **Retiring it is [Phase 4](phase4_fleet_migration.md)'s decision**, and it now has a shadow to make that decision against rather than an argument
+- [x] Any standards implication is surfaced in the [roadmap](roadmap.md#standards-amendment-candidates), not written — **with one change of governance this phase operated under and the checklist predates.** The `§ Composition` amendment (candidate 1) is **untouched**: it waits on this phase *proving* the replacement, which requirement 6 has not yet done, and amending it now would be exactly the "standard amended on the strength of a plan" this bullet warns about. What *did* change is that [`standards-governance.md`](../../../config/rules/standards-governance.md) now states a dispatch **opening a PR** against a standards file satisfies human-in-the-loop, so candidates **6 and 7** — both edits to the *draft* Exit Protocol, both fully specified — were applied rather than left waiting on a ratification they had no real dependency on. **The protocol is NOT ratified**: the banner stands, and every `⟨PHASE N⟩` marker this phase did not answer is still there
+
+#### Close-out — which `⟨PHASE 3⟩` markers were resolved, and which were left
+
+Resolved: §1's Kind 1 reference form · §2's field list, per-field consumer and publish classification, and size bound · §3's abstention members, names and emitters, and the precedence rule · §4's rule ordering · §5's versioning mechanism and compatibility window. Plus §1's `⟨PHASE 2⟩` marker (candidate 7) and §6's one-declaration rule (candidate 6).
+
+**Left, deliberately:** §6's `⟨PHASE 4⟩` — *"every child emits a conforming record; every parent routes only on the record"* — which is fleet-wide and is not this phase's to answer on one pair. **The Transport row and §3's precedence conditional were resolved by [Phase 1](phase1_measure_the_channel.md) and were not re-derived here**; the Transport row gained §2.4, which is an addition to that measurement rather than a re-take of it.
 
 ---
 

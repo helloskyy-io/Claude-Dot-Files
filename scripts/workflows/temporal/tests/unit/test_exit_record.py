@@ -553,6 +553,50 @@ def test_a_fenced_block_is_a_record() -> None:
     assert helper.PR_REVIEW_BLOCK.search(body) is not None
 
 
+def _with_comments(monkeypatch, bodies: list[str]):
+    """Replace `gh` at its own boundary; everything above it is the code under test."""
+    from modules.assistant.review_pr import review_pr_activities as act
+    monkeypatch.setattr(
+        act._shared, "gh",
+        lambda *a, **k: json.dumps({"comments": [{"body": b} for b in bodies]}),
+    )
+    return act
+
+
+def test_count_prior_passes_no_longer_counts_a_mention(monkeypatch, tmp_path) -> None:
+    """The consumer-side half of issue #68, at its own call site.
+
+    `PR_REVIEW_BLOCK` being anchored is necessary and not sufficient — the
+    counter has to USE it. This ran as `"pr_review:" in body` until this phase.
+    """
+    act = _with_comments(monkeypatch, [
+        "## Post-Run Reflection\nThe `pr_review:` block spec was clear.",
+        "```yaml\npr_review:\n  pr: 66\n  pass: 1\n```",
+    ])
+    assert act.count_prior_passes("66", tmp_path) == 1
+
+
+def test_latest_pr_review_block_takes_the_LAST_one(monkeypatch, tmp_path) -> None:
+    """§6.2's ordering rule: comment creation order, last wins.
+
+    A correction pass reading the FIRST block would reconcile against a
+    superseded record and not know it did.
+    """
+    act = _with_comments(monkeypatch, [
+        "```yaml\npr_review:\n  pass: 1\n  findings:\n    - id: old\n```",
+        "unrelated chatter mentioning pr_review: in passing",
+        "```yaml\npr_review:\n  pass: 2\n  findings:\n    - id: new\n```",
+    ])
+    block = act.latest_pr_review_block("66", tmp_path)
+    assert helper.finding_ids_in_block(block) == frozenset({"new"})
+
+
+def test_latest_pr_review_block_is_None_on_a_fresh_pr(monkeypatch, tmp_path) -> None:
+    """Negative control: a thread of mentions is a thread with no record."""
+    act = _with_comments(monkeypatch, ["no block here", "pr_review: mentioned only"])
+    assert act.latest_pr_review_block("66", tmp_path) is None
+
+
 def test_the_archive_shape_that_produced_the_wrong_pass_number() -> None:
     """PR #66's actual shape: two reflections, then one block.
 
