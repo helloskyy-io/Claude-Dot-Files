@@ -244,8 +244,9 @@ Author it exactly:
 ```yaml
 pr_review:
   pr: ${PR_NUMBER}
-  pass: ${THIS_PASS}
   pass: <int>                        # DERIVED FROM THE FENCE-ANCHORED BLOCK COUNT YOU VERIFIED,
+                                     # NOT from ${THIS_PASS}, which is the dispatch's label and is
+                                     # supplied above only so you can state the divergence.
                                      # never from the dispatch's label. STATE ANY DIVERGENCE explicitly.
                                      # Wrong twice on one PR and WIDENING -- 3-vs-1, then 6-vs-2. A wrong
                                      # pass number in a durable record is permanent, and Phase 5's stopping

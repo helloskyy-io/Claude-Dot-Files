@@ -232,7 +232,7 @@ claude-dot-files/
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
 │           │                                        #   exit_record.py — the Kind 2 typed exit record: THE ONE DECLARATION of its
-│           │                                        #   schema and vocabulary, and the nine-rule fail-safe contract a parent routes on
+│           │                                        #   schema and vocabulary, and the ten-rule fail-safe contract a parent routes on
 │           │                                        #   (docs/standards/exit-protocol.md). Dependency-free, like its sibling routing.py
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)

@@ -857,8 +857,18 @@ def test_pass_two_that_does_post_is_accepted(monkeypatch, tmp_path) -> None:
 # persisted, so for one pass a 5xx or a rate limit on a READ-ONLY `gh` call
 # discarded a ~40-minute review at real budget and killed the parent's build
 # loop with it. The reads are retried; on exhaustion the run completes with the
-# check recorded as unperformed. Sleeps are pinned to zero throughout — the
+# check reported as unperformed. Sleeps are pinned to zero throughout — the
 # backoff durations are not what these tests are about.
+#
+# AND "TRANSIENT" IS A SHAPE, NOT A FEELING. The first version of the retry
+# caught `RuntimeError` because that is what a non-zero `gh` exit raises — while
+# the readers it wrapped parsed stdout themselves, so a zero-exit reply with a
+# truncated or non-JSON body raised `json.JSONDecodeError` instead. A `ValueError`
+# is caught by nothing on this path, so that shape skipped the retry at ZERO
+# attempts and crashed the parent build loop, which is the exact outcome the
+# retry was built to prevent, reached through the sibling exception type. The
+# normalisation now lives at `gh_json`, so the two tests below cover BOTH ends:
+# that the shape raises the retryable type, and that a run meeting it survives.
 # ---------------------------------------------------------------------------
 
 def _no_sleep(monkeypatch) -> list[float]:
@@ -880,6 +890,70 @@ def _flaky_reader(fails: int, real):
         return real(*a, **k)
 
     return _read
+
+
+@pytest.mark.parametrize("body", ["", "<html>502 Bad Gateway</html>", '{"comments": ['],
+                         ids=["empty", "error_page", "truncated"])
+def test_a_zero_exit_gh_reply_that_is_not_JSON_raises_the_RETRYABLE_type(
+        monkeypatch, tmp_path, body: str) -> None:
+    """The gap, closed at the boundary that knows it can happen.
+
+    `gh` validates the exit code and nothing about stdout, so each of these
+    bodies used to reach `json.loads` in the caller and come back out as a
+    `ValueError` — a family no guard on this path catches. `gh_json` is where a
+    caller stops needing to know that: one call, one exception family, and the
+    retry above keeps working without enumerating parse errors it cannot foresee.
+
+    The raw body must survive into the message. "Expecting value at line 1
+    column 1" is true of all three cases above and tells an operator which one
+    it was in none of them.
+    """
+    from modules.assistant import assistant_activities as shared
+    monkeypatch.setattr(shared, "gh", lambda *a, **k: body)
+    with pytest.raises(RuntimeError, match="did not return JSON") as caught:
+        shared.gh_json(["pr", "view", "67", "--json", "comments"], tmp_path)
+    assert repr(body[:200]) in str(caught.value), (
+        "the reply was swallowed — an operator cannot tell an error page from a "
+        "truncated body from an empty one"
+    )
+    assert not isinstance(caught.value, ValueError), (
+        "still a ValueError, so the retry and the parent build loop both miss it"
+    )
+
+
+def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
+        monkeypatch, tmp_path) -> None:
+    """The same case end-to-end, through the REAL reader rather than a fake one.
+
+    THIS IS THE ONE THAT WOULD HAVE CAUGHT IT. Every other test in this section
+    fakes `latest_pr_review_block` and raises `RuntimeError` from the fake — so
+    they assert the retry handles the error the fake chose to throw, and are
+    green against a reader that could throw a second family. Here the real
+    reader runs and only `gh` is faked, which is where the shape actually
+    enters.
+    """
+    from modules.assistant.review_pr import review_pr_activities as act
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    real_latest = act.latest_pr_review_block  # captured BEFORE the fake installs
+
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    slept = _no_sleep(monkeypatch)
+    monkeypatch.setattr(act, "latest_pr_review_block", real_latest)
+    monkeypatch.setattr(act._shared, "gh", lambda *a, **k: "<html>502 Bad Gateway</html>")
+
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    assert result.verdict is routing.Verdict.MERGE, (
+        "a malformed reply killed the run — it took the pre-fix path, where the "
+        "exception family is the only thing that differs from a rate limit"
+    )
+    assert len(slept) == len(wf._THREAD_READ_BACKOFF_SECONDS), (
+        "the malformed reply was not retried like every other transient shape"
+    )
+    unchecked = [n for n in result.notes if "NOT CHECKED" in n]
+    assert len(unchecked) == 1, f"the unperformed check was not reported: {result.notes}"
+    assert "did not return JSON" in unchecked[0], "the real cause was swallowed"
 
 
 def test_a_transient_thread_read_is_retried_and_the_review_survives(

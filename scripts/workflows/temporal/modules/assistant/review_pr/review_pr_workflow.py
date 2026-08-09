@@ -100,12 +100,10 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         worktree, f"review-pr-{task.pr_number}-{int(time.time())}",
         f"origin/{pr['headRefName']}",
     )
-    # THE NONCE BINDS THE LOG'S NAME, not just the record inside it. The log
-    # directory is shared across concurrent dispatches (`worktree` is the repo
-    # root here), and `MODEL_KEY` is a constant, so a name built from the model
-    # key and a second-granular stamp collides between two dispatches of this
-    # same workflow. Passing the nonce makes the name unique by construction and
-    # makes the filename greppable against the `run_id` in the record it carries.
+    # THE NONCE BINDS THE LOG'S NAME, not just the record inside it — this
+    # workflow is the concurrent-dispatch case `claude_log_path`'s docstring
+    # describes, so passing the run_id is what makes the name unique here and
+    # makes the filename greppable against the record it carries.
     log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY, run_id=run_id)
     act.run_disposition(
         prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
@@ -214,7 +212,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # compare, and re-reporting the same failure twice tells the operator
     # nothing new.
     if record.routed_outcome is not exit_record.RoutedOutcome.UNDETERMINED:
-        unchecked = _assert_block_matches_record(
+        unchecked = _verify_block_matches_record(
             task.pr_number, worktree, record, prior_pass
         )
         if unchecked is not None:
@@ -243,6 +241,16 @@ def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, st
     independently could pair a count read before this pass's comment with a
     block read after it, which is the exact skew the `posted > prior_pass` delta
     exists to detect. Re-reading both together keeps them one observation.
+
+    `RuntimeError` IS THE WHOLE FAILURE SURFACE, and that is a property of
+    `assistant_activities.gh_json` rather than an assumption made here. For one
+    pass it was an assumption and it was wrong: the readers below parsed `gh`
+    stdout themselves, so a zero-exit reply with a truncated or non-JSON body
+    raised `json.JSONDecodeError` — a `ValueError`, caught by nothing on this
+    path — and skipped this retry entirely, at zero attempts, to crash the parent
+    build loop. Catching `ValueError` here would have closed one caller and left
+    the next `gh` reader to re-acquire the gap, so the normalisation lives at the
+    call that knows what it can emit. Widen THAT if a third failure shape appears.
     """
     for pause in _THREAD_READ_BACKOFF_SECONDS:
         try:
@@ -257,7 +265,7 @@ def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, st
         act.latest_pr_review_block(pr_number, repo_root)
 
 
-def _assert_block_matches_record(pr_number: str, repo_root: Path,
+def _verify_block_matches_record(pr_number: str, repo_root: Path,
                                  record: exit_record.ExitRecord,
                                  prior_pass: int) -> str | None:
     """Fail loud when the durable render and the typed record disagree on findings.
@@ -265,6 +273,14 @@ def _assert_block_matches_record(pr_number: str, repo_root: Path,
     TWO CHANNELS, AND THEY ARE NOT THE SAME EVENT. A real disagreement RAISES —
     that half is unchanged. A failure to READ THE THREAD returns a note, because
     it is not a disagreement and it must not be treated as one.
+
+    IT IS `_verify_` AND NOT `_assert_` FOR THAT REASON. An `assert_` prefix
+    promises the caller that the only outcomes are "raised" and "nothing to do",
+    and this function now has a third — a note the caller MUST surface. A later
+    call site that trusted the prefix and called it as a bare statement would
+    drop that note on the floor, which is the same silent degradation the note
+    exists to prevent. Phase 4 adds the call sites, so the name has to be right
+    before they arrive rather than after.
 
     ONE AUTHOR, TWO DERIVED COPIES — and the copies are checked rather than
     trusted. A finding in the record but not in the block is a finding the
@@ -289,16 +305,28 @@ def _assert_block_matches_record(pr_number: str, repo_root: Path,
     a rate limit or a dropped connection on a READ discarded a ~40-minute review
     at real budget and killed the parent's build loop with it — for a reason
     with nothing to do with the review. The reads are retried (above); on
-    exhaustion the check is recorded as UNPERFORMED and the run completes,
+    exhaustion the check is REPORTED as unperformed and the run completes,
     because the route is already durable and the evidence survives either way.
 
-    Recording it is not optional and the note is deliberately loud: an invariant
-    that silently did not run is indistinguishable from one that held, and the
-    whole reason this is enforced rather than documented is that both copies
-    diverging is silent. THE ROUTING POLICY IS UNTOUCHED — the verdict on
-    success is what it always was, and a persistent failure still surfaces the
-    real `gh` error. Whether a could-not-check should DOWNGRADE the verdict is a
-    routing-policy question and is not answered here.
+    REPORTED, NOT RECORDED, AND THE DIFFERENCE IS DELIBERATE HERE. The note goes
+    into `ReviewResult.notes` — printed by `run_review_pr` and folded into the
+    parent's notes by `build_workflow` — which reaches an operator watching the
+    run and NOTHING ELSE. Every other computed-arm signal (`routed_outcome`,
+    `undetermined_reason`, `channels_agree`) is written to the run log by
+    `append_parent_route` and is therefore countable offline; this one is not, so
+    no replay can say how often the invariant degraded. That is a real gap and it
+    is named rather than papered over: making it durable means a new stratum in
+    `exit-protocol.md` §2, and WHAT a parent should do about a verification it
+    could not perform — annotate, record, or downgrade — is one unruled question,
+    carried as candidate **C-056**. Softening the word is not the fix for the
+    gap; it stops the docstring claiming a durability the code does not have
+    while the question is open.
+
+    The note is deliberately loud for the reader it does reach: an invariant that
+    silently did not run is indistinguishable from one that held, and the whole
+    reason this is enforced rather than documented is that both copies diverging
+    is silent. THE ROUTING POLICY IS UNTOUCHED — the verdict on success is what
+    it always was, and a persistent failure still surfaces the real `gh` error.
     """
     try:
         posted, block = _read_thread_for_invariant(pr_number, repo_root)

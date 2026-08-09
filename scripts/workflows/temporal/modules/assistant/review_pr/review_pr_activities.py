@@ -18,7 +18,6 @@ file issues. Under Temporal a retry is a NEW ATTEMPT, not a replay.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -34,10 +33,9 @@ V1_SCRIPT = "review-pr.sh"
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
     """PR metadata. Raises rather than returning a partial dict."""
-    raw = _shared.gh(
+    return _shared.gh_json(
         ["pr", "view", pr_number, "--json", "headRefName,state,title"], repo_root
     )
-    return json.loads(raw)
 
 
 def count_prior_passes(pr_number: str, repo_root: Path) -> int:
@@ -63,9 +61,9 @@ def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     that rule. `children/review-pr.sh:142` carries the same defect and is NOT
     fixed here — it is the frozen V1 fleet (§7).
     """
-    raw = _shared.gh(["pr", "view", pr_number, "--json", "comments"], repo_root)
+    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
     return sum(
-        1 for c in json.loads(raw).get("comments", [])
+        1 for c in raw.get("comments", [])
         if helper.PR_REVIEW_BLOCK.search(c.get("body", "") or "")
     )
 
@@ -97,10 +95,10 @@ def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     Switching it to `finditer` would count a quoting comment as two passes and
     break the delta in a new way.
     """
-    raw = _shared.gh(["pr", "view", pr_number, "--json", "comments"], repo_root)
+    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
     blocks = [
         m.group(1)
-        for c in json.loads(raw).get("comments", [])
+        for c in raw.get("comments", [])
         for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
     ]
     return blocks[-1] if blocks else None

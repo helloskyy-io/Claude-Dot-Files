@@ -510,6 +510,38 @@ def gh(args: list[str], repo_root: Path) -> str:
     return r.stdout
 
 
+def gh_json(args: list[str], repo_root: Path):
+    """`gh` plus its parse, so a `gh` FAILURE IS ONE EXCEPTION TYPE.
+
+    ONE FAILURE SURFACE, BECAUSE CALLERS GUARD AGAINST A TYPE AND NOT AN EVENT.
+    `gh` above raises `RuntimeError` on a non-zero exit and validates nothing
+    about stdout, so every caller that then ran `json.loads` had a SECOND way to
+    fail — `json.JSONDecodeError`, which is a `ValueError` and shares no base
+    class with the first. That is not a hypothetical distinction: the retry in
+    `review_pr_workflow._read_thread_for_invariant` exists precisely so a flaky
+    `gh` read cannot discard a completed review, it catches `RuntimeError`, and a
+    zero-exit reply with a truncated or non-JSON body therefore skipped the retry
+    entirely — zero attempts — and crashed the parent build loop, which catches
+    `(RuntimeError, FileNotFoundError)` and not `ValueError`. The fix belongs
+    HERE rather than in each caller's except-clause: a caller cannot be expected
+    to know which exception families this function's implementation can emit, and
+    the next `gh` reader would have re-acquired the same gap by writing the
+    obvious two lines.
+
+    The raw body is quoted (truncated) into the message, because "expecting value
+    at line 1 column 1" says nothing about whether the answer was an HTML error
+    page, an empty string or a half-written array.
+    """
+    raw = gh(args, repo_root)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"gh {' '.join(args)} in {repo_root} exited 0 but did not return JSON: "
+            f"{exc}. First 200 bytes of the reply: {raw[:200]!r}"
+        ) from exc
+
+
 def pr_branch(pr_number: str, repo_root: Path) -> str:
     return gh(["pr", "view", pr_number, "--json", "headRefName",
                "-q", ".headRefName"], repo_root).strip()
