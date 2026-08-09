@@ -151,10 +151,11 @@ Two distinct kinds of memory, currently conflated and only half-built. Both exis
 
 **Kind 2 — machine handoff in a file, read by CODE.** Not built. A parent must decide *in code, with no AI in the loop*, which child to invoke next.
 
-- [ ] **Read the rest of the result envelope** — `subtype` and `.result` are read today; `is_error`, `permission_denials[]` and `num_turns`-against-cap are not, and no published exit-code table backs the mapping
-- [ ] **Design it** — the child writes a typed record at exit to a channel the parent owns, on a closed vocabulary that splits *could-not-check* from *needs-a-ruling*, with a total fail-safe default
-- [ ] **Document Kind 1 as a framework** — it exists as prose in `operations.md` and behaviour spread across prompts
-- [ ] **Convergence-based stopping** — *"did this pass find anything not in the previous pass's result?"* is answerable against two typed payloads, not two prose logs. Depends on the above
+- [x] **Phase 1 · Measure the channel** — six experiments against the pinned CLI and the archived logs. 13 rulings; 3 no-ops cancelled downstream work. Merged 2026-08-08
+- [ ] **Phase 2 · Document Kind 1 as a framework** — the durable record as an *interface*, with this fleet's GitHub binding stated separately
+- [ ] **Phase 3 · The typed exit record** — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
+- [ ] **Phase 4 · Migrate the fleet** — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
+- [ ] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged
 
 Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
