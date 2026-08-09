@@ -100,7 +100,13 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         worktree, f"review-pr-{task.pr_number}-{int(time.time())}",
         f"origin/{pr['headRefName']}",
     )
-    log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY)
+    # THE NONCE BINDS THE LOG'S NAME, not just the record inside it. The log
+    # directory is shared across concurrent dispatches (`worktree` is the repo
+    # root here), and `MODEL_KEY` is a constant, so a name built from the model
+    # key and a second-granular stamp collides between two dispatches of this
+    # same workflow. Passing the nonce makes the name unique by construction and
+    # makes the filename greppable against the `run_id` in the record it carries.
+    log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY, run_id=run_id)
     act.run_disposition(
         prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
         worktree=pr_tree, verbose=task.verbose,
@@ -208,7 +214,11 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # compare, and re-reporting the same failure twice tells the operator
     # nothing new.
     if record.routed_outcome is not exit_record.RoutedOutcome.UNDETERMINED:
-        _assert_block_matches_record(task.pr_number, worktree, record, prior_pass)
+        unchecked = _assert_block_matches_record(
+            task.pr_number, worktree, record, prior_pass
+        )
+        if unchecked is not None:
+            notes.append(unchecked)
 
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
@@ -216,10 +226,45 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     )
 
 
+# A BOUNDED RETRY, not a poll and not a policy. Both reads below are `gh pr
+# view --json comments` — READ-ONLY and idempotent — so re-issuing one is not a
+# routing decision and changes neither the success path nor the terminal
+# behaviour on a persistent failure. Two attempts of backoff cover the shape
+# that actually occurs here (a 5xx, a secondary rate limit, a dropped
+# connection) without turning a genuinely-down API into a long stall.
+_THREAD_READ_BACKOFF_SECONDS = (2.0, 8.0)
+
+
+def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, str | None]:
+    """The two thread reads the invariant needs, retried on a transient failure.
+
+    ONE RETRY AROUND BOTH, not one each: they are two `gh` calls answering one
+    question — "what does the thread look like now" — and retrying them
+    independently could pair a count read before this pass's comment with a
+    block read after it, which is the exact skew the `posted > prior_pass` delta
+    exists to detect. Re-reading both together keeps them one observation.
+    """
+    for pause in _THREAD_READ_BACKOFF_SECONDS:
+        try:
+            return act.count_prior_passes(pr_number, repo_root), \
+                act.latest_pr_review_block(pr_number, repo_root)
+        except RuntimeError:
+            time.sleep(pause)
+    # The last attempt is deliberately OUTSIDE the loop and NOT caught, so a
+    # persistent failure raises the real `gh` error with its real message rather
+    # than a swallowed one.
+    return act.count_prior_passes(pr_number, repo_root), \
+        act.latest_pr_review_block(pr_number, repo_root)
+
+
 def _assert_block_matches_record(pr_number: str, repo_root: Path,
                                  record: exit_record.ExitRecord,
-                                 prior_pass: int) -> None:
+                                 prior_pass: int) -> str | None:
     """Fail loud when the durable render and the typed record disagree on findings.
+
+    TWO CHANNELS, AND THEY ARE NOT THE SAME EVENT. A real disagreement RAISES —
+    that half is unchanged. A failure to READ THE THREAD returns a note, because
+    it is not a disagreement and it must not be treated as one.
 
     ONE AUTHOR, TWO DERIVED COPIES — and the copies are checked rather than
     trusted. A finding in the record but not in the block is a finding the
@@ -237,20 +282,41 @@ def _assert_block_matches_record(pr_number: str, repo_root: Path,
     catch. The block count is re-read here (fence-anchored, one declaration) and
     must have risen by one. Sequence comes from that count, never from the
     block's own `pass:` counter, which `memory-model.md` §6.4 measured wrong.
+
+    A VERIFICATION THAT COULD NOT RUN MUST NOT DESTROY A DECISION THAT ALREADY
+    DID. This function is reached AFTER the child posted its disposition comment
+    and AFTER `append_parent_route` persisted the route, so for one pass a 5xx,
+    a rate limit or a dropped connection on a READ discarded a ~40-minute review
+    at real budget and killed the parent's build loop with it — for a reason
+    with nothing to do with the review. The reads are retried (above); on
+    exhaustion the check is recorded as UNPERFORMED and the run completes,
+    because the route is already durable and the evidence survives either way.
+
+    Recording it is not optional and the note is deliberately loud: an invariant
+    that silently did not run is indistinguishable from one that held, and the
+    whole reason this is enforced rather than documented is that both copies
+    diverging is silent. THE ROUTING POLICY IS UNTOUCHED — the verdict on
+    success is what it always was, and a persistent failure still surfaces the
+    real `gh` error. Whether a could-not-check should DOWNGRADE the verdict is a
+    routing-policy question and is not answered here.
     """
     try:
-        posted = act.count_prior_passes(pr_number, repo_root)
-        block = act.latest_pr_review_block(pr_number, repo_root)
+        posted, block = _read_thread_for_invariant(pr_number, repo_root)
     except RuntimeError as exc:
         # COULD-NOT-CHECK IS NOT DISAGREEMENT, and reporting it as one sends the
         # operator to the wrong place. `gh` failing here (rate limit, transient
         # 5xx, no network) says nothing about the two copies.
-        raise RuntimeError(
-            f"PR #{pr_number}: the render↔record invariant could not be CHECKED — "
-            f"reading the thread failed: {exc}. This is not a disagreement between "
-            f"the two copies; it is the check itself not running. The typed record "
-            f"routed {record.routed_outcome.value} and is intact in the run log."
-        ) from exc
+        return (
+            f"PR #{pr_number}: the render↔record invariant was NOT CHECKED — "
+            f"reading the thread failed after "
+            f"{len(_THREAD_READ_BACKOFF_SECONDS) + 1} attempts: {exc}. This is not "
+            f"a disagreement between the two copies; it is the check itself not "
+            f"running, and it says NOTHING about whether they agree. The typed "
+            f"record routed {record.routed_outcome.value}, is intact in the run "
+            f"log and was persisted before this check ran, so the verdict stands "
+            f"on the record rather than on this. VERIFY THE POSTED BLOCK BY HAND "
+            f"against the record's findings before acting on it."
+        )
 
     if posted <= prior_pass:
         raise RuntimeError(
@@ -283,3 +349,7 @@ def _assert_block_matches_record(pr_number: str, repo_root: Path,
             f"authoritative; the block is its rendering, and a rendering that "
             f"drops, invents or re-dispositions a finding is not one."
         )
+    # The check RAN and the two copies agree. Explicit, because `None` here is a
+    # result rather than a fall-through — it is what the caller distinguishes
+    # from the not-checked note above.
+    return None

@@ -111,42 +111,102 @@ def test_malformed_lines_are_skipped_rather_than_killing_the_read(tmp_path: Path
 # The channel's freshness property, which is BUILT rather than closed.
 # ---------------------------------------------------------------------------
 
-def test_a_reused_log_path_is_refused_rather_than_truncated(tmp_path: Path, monkeypatch) -> None:
-    """`build_workflow` invokes `review-pr` twice in one run.
-
-    The stamp is second-granular and the model key repeats, so a collision is
-    reachable. Truncating would destroy the first run's record; leaving it would
-    hand this run a stale one. Neither is acceptable, so it raises.
-    """
-    path = act.claude_log_path(tmp_path, "review-pr")
-    path.write_text("{}\n")
-    monkeypatch.setattr(act, "datetime", _FrozenClock(path.name))
-    with pytest.raises(FileExistsError, match="refusing to reuse"):
-        act.claude_log_path(tmp_path, "review-pr")
-
-
 class _FrozenClock:
-    """Pins the timestamp so the collision under test is deterministic.
+    """Pins the timestamp so a collision under test is deterministic.
 
-    Without this the test would depend on two calls landing in the same second,
-    which is exactly the flakiness the guard exists to make impossible.
+    Without this every case below would depend on two calls landing in the same
+    wall-clock second, which is exactly the flakiness the allocation exists to
+    make irrelevant. It is a CLOCK ONLY — it deliberately does not pin the
+    nonce, because the whole point of the current design is that a shared stamp
+    is no longer sufficient for a collision.
     """
 
-    def __init__(self, filename: str) -> None:
-        self._stamp = filename.removeprefix("review-pr-").removesuffix(".jsonl")
+    STAMP = "20260809-010203"
 
     def now(self):
         return self
 
     def strftime(self, _fmt: str) -> str:
-        return self._stamp
+        return self.STAMP
 
 
-def test_a_fresh_path_is_returned_when_nothing_is_there(tmp_path: Path) -> None:
+def test_two_dispatches_in_the_SAME_SECOND_get_different_paths(
+        tmp_path: Path, monkeypatch) -> None:
+    """The measured defect, at its real granularity.
+
+    `MODEL_KEY` is a constant shared by every PR the workflow reviews, and the
+    log directory is the repo root's — `run_review_pr` sets `worktree =
+    repo_root` and `build_workflow` passes `repo_root` — so it is SHARED ACROSS
+    CONCURRENT DISPATCHES rather than per-worktree. With a name of
+    `{model_key}-{second-granular stamp}` two dispatches entering in one second
+    produced ONE path, both saw no file, and one truncated the other's log. The
+    clock is frozen here to reproduce that second exactly.
+    """
+    monkeypatch.setattr(act, "datetime", _FrozenClock())
+    first = act.claude_log_path(tmp_path, "review-pr", run_id="a" * 32)
+    second = act.claude_log_path(tmp_path, "review-pr", run_id="b" * 32)
+
+    assert first != second, (
+        "two same-second dispatches of one model key landed on one path — the "
+        "name is not unique by construction and one run will truncate the other"
+    )
+    assert first.name.startswith("review-pr-20260809-010203-")
+
+
+def test_the_path_is_RESERVED_not_merely_checked(tmp_path: Path) -> None:
+    """Check-then-create reserved nothing, and that was the defect one level up.
+
+    The file is created later, by a DIFFERENT PROCESS, at `run-claude.sh`'s
+    `> "$LOG_FILE"` (`O_TRUNC`). A guard that returns a name it has not claimed
+    leaves the whole gap between allocation and that redirect open, whatever the
+    name looks like. This asserts the claim exists on disk when the call returns.
+    """
+    path = act.claude_log_path(tmp_path, "review-pr", run_id="c" * 32)
+    assert path.exists(), (
+        "the allocation returned a name it did not reserve — the TOCTOU window "
+        "between this call and run-claude.sh's O_TRUNC redirect is still open"
+    )
+    assert path.read_text() == "", "the reservation must not carry content"
+
+
+def test_a_reused_nonce_is_refused_rather_than_truncated(
+        tmp_path: Path, monkeypatch) -> None:
+    """The residual collision FAILS LOUD instead of silently truncating.
+
+    Unique-by-construction naming and atomic reservation are two independent
+    fixes and this is the second one: with the clock AND the nonce both pinned,
+    the only honest outcome is a refusal. `build_workflow` invoking `review-pr`
+    twice in one run is the in-process shape of this; a reused nonce is the
+    residual one.
+    """
+    monkeypatch.setattr(act, "datetime", _FrozenClock())
+    act.claude_log_path(tmp_path, "review-pr", run_id="d" * 32)
+    with pytest.raises(FileExistsError, match="refusing to reuse"):
+        act.claude_log_path(tmp_path, "review-pr", run_id="d" * 32)
+
+
+def test_a_fresh_path_is_allocated_when_nothing_is_there(tmp_path: Path) -> None:
     """Negative control: the guard must not refuse every allocation."""
-    path = act.claude_log_path(tmp_path, "review-pr")
-    assert not path.exists()
+    path = act.claude_log_path(tmp_path, "review-pr", run_id="e" * 32)
     assert path.parent == tmp_path / ".claude" / "logs"
+    assert path.suffix == ".jsonl"
+
+
+def test_an_empty_reservation_reads_as_an_ABSENT_record_not_a_crash(
+        tmp_path: Path) -> None:
+    """Reserving creates a file, and every reader here already handles an empty one.
+
+    This is the consequence check on fix 2, not a restatement of it: the
+    reservation makes `log_file.exists()` true from allocation onward, so a run
+    that dies before `run-claude.sh` writes anything now presents an EMPTY log
+    where it previously presented a MISSING one. Both must route `record_absent`
+    — if the empty case raised or yielded garbage, the fix would have moved the
+    failure rather than removed it.
+    """
+    path = act.claude_log_path(tmp_path, "review-pr", run_id="f" * 32)
+    assert list(act._log_events(path)) == []
+    assert act.result_event(path) is None
+    assert act.assistant_text(path) == ""
 
 
 # ---------------------------------------------------------------------------

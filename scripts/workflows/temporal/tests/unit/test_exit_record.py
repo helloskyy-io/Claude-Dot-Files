@@ -322,6 +322,126 @@ def test_a_denial_entry_that_is_not_an_object_does_not_crash_the_contract() -> N
     assert len(routed.permission_denials) == 1, "an unreadable entry is still an entry"
 
 
+# ---------------------------------------------------------------------------
+# THE TOTALITY CLAIM, MADE CHECKABLE RATHER THAN ASSERTED.
+#
+# Two functions in `exit_record` carry the sentence "TOTAL OVER ITS OWN
+# INPUT(S)" in their docstrings, and for one pass exactly one of them was. The
+# child (`_redact`) was fixed while the parent (`route`) — the function that IS
+# the contract — kept the claim and not the property, which is verbatim the
+# defect class this component was built to close: *"every gate here was written
+# at the depth of the instance its author was imagining, while its docstring
+# claimed the class."*
+#
+# So the claim is no longer prose that a reviewer has to re-derive. The gate
+# below DISCOVERS every claimant by reading docstrings, probes each with every
+# type it must survive, and — the half that makes it a class gate rather than
+# two more instances — FAILS WHEN A THIRD CLAIMANT APPEARS WITHOUT A PROBE.
+# Same shape as the shared-regex enumeration further down, and for the same
+# stated reason: a gate whose scope is a hand-kept list retires itself the
+# moment it passes.
+# ---------------------------------------------------------------------------
+
+TOTALITY_CLAIM = "TOTAL OVER ITS OWN INPUT"
+
+# Every type a value can arrive as instead of the one the annotation promises.
+# `bool` is listed separately from `int` deliberately: it is the one that slips
+# through an `isinstance(x, int)` written as a type guard.
+NON_CONFORMING = ([], "x", 5, True, 0.5, (), set(), object())
+
+# name -> a probe that feeds each non-conforming value in at that function's
+# own boundary. A probe returns nothing; it must simply not raise.
+TOTALITY_PROBES = {
+    # `route`'s own parameter. The annotation says `dict | None`; the values
+    # below are what actually arrives when a CLI changes the envelope's shape.
+    "route": lambda v: er.route(v, expected_run_id=RUN_ID),
+    # `_redact`'s parameter is a `list` (R1 guarantees that much), so its own
+    # inputs are the ENTRIES — which R1 cannot check. Probing it with a non-list
+    # would test a contract it does not make.
+    "_redact": lambda v: er._redact([v]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(TOTALITY_PROBES))
+@pytest.mark.parametrize("value", NON_CONFORMING, ids=lambda v: type(v).__name__)
+def test_every_function_claiming_totality_is_total(name: str, value) -> None:
+    """A function claiming totality does not raise from inside the contract.
+
+    RAISING IS THE FAILURE MODE, not returning something odd. An
+    `AttributeError` or `TypeError` out of here escapes into a caller whose
+    error handler does not catch it, so the operator gets a traceback where the
+    contract promised a routed record.
+    """
+    try:
+        TOTALITY_PROBES[name](value)
+    except Exception as exc:  # noqa: BLE001 — the assertion IS "no exception"
+        raise AssertionError(
+            f"exit_record.{name} claims {TOTALITY_CLAIM!r} in its docstring and "
+            f"raises {type(exc).__name__} on a {type(value).__name__}: {exc}. "
+            f"The claim is false at the boundary, and a caller's error handler "
+            f"does not catch this."
+        ) from exc
+
+
+def test_route_bins_an_UNREADABLE_ENVELOPE_apart_from_an_absent_record() -> None:
+    """Not raising is half of it; landing in an honest bin is the other half.
+
+    The gate above would be satisfied by folding every non-dict envelope into
+    `record_absent` — and that is the measurement failure this enum has now
+    ruled against three times. `record_absent` is the highest-frequency
+    machinery failure there is (a run killed mid-stream), so a CLI that stopped
+    emitting an object would report as a fleet dying mid-stream on 100% of runs.
+    """
+    routed = er.route([], expected_run_id=RUN_ID)
+    assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
+    assert routed.undetermined_reason is er.UndeterminedReason.ENVELOPE_UNREADABLE, (
+        "an unreadable envelope shares a bin with another condition again — the "
+        "computed arm's per-reason rate cannot separate them"
+    )
+    assert er.route(None, expected_run_id=RUN_ID).undetermined_reason \
+        is er.UndeterminedReason.RECORD_ABSENT, (
+        "negative control: a genuinely absent event must NOT have moved bins"
+    )
+
+
+def test_the_totality_ENUMERATION_is_complete() -> None:
+    """A third function carrying the claim fails here until it carries a probe.
+
+    WITHOUT THIS THE GATE ABOVE ONLY EVER COVERS WHAT SOMEBODY REMEMBERED, and
+    the measured failure was exactly that: two functions carried the sentence,
+    one was probed, and the unprobed one was the contract itself. The next
+    function to write this sentence cannot write it falsely.
+    """
+    claimants = {
+        name for name, value in vars(er).items()
+        if callable(value) and (value.__doc__ or "") and TOTALITY_CLAIM in value.__doc__
+    }
+    assert claimants == set(TOTALITY_PROBES), (
+        f"the totality claim and its probes have diverged — claimed but "
+        f"unprobed: {sorted(claimants - set(TOTALITY_PROBES))}; probed but no "
+        f"longer claiming: {sorted(set(TOTALITY_PROBES) - claimants)}. Add a "
+        f"probe at that function's own boundary, or drop the claim from its "
+        f"docstring — an unprobed claim is the defect this gate exists for."
+    )
+
+
+def test_the_totality_DISCOVERY_actually_discriminates() -> None:
+    """Positive control for the discovery predicate above.
+
+    The predicate reads docstring text, so a reworded sentence would silently
+    empty the claimant set and turn the completeness assertion into a permanent
+    pass against a permanently-empty table — the hollow-green this whole module
+    is written against. This proves it still separates claimants from
+    non-claimants, and that it is not merely matching every function.
+    """
+    assert TOTALITY_CLAIM in (er.route.__doc__ or "")
+    assert TOTALITY_CLAIM in (er._redact.__doc__ or "")
+    assert TOTALITY_CLAIM not in (er.routes_to_redispatch.__doc__ or ""), (
+        "the discovery predicate is matching a function that makes no totality "
+        "claim — it has stopped discriminating"
+    )
+
+
 def test_no_result_event_at_all_is_an_ABSENT_record_not_a_denial() -> None:
     """A log with no `result` event. No event implies no key, so R2 fires.
 
@@ -561,6 +681,36 @@ def test_both_channels_agreeing_routes_and_records_the_agreement(monkeypatch, tm
     assert any("Prose shadow agreed" in n for n in result.notes)
 
 
+def test_the_log_is_NAMED_with_the_nonce_the_parent_issued(monkeypatch, tmp_path) -> None:
+    """The allocation is bound to run identity, not to a shared constant.
+
+    `MODEL_KEY` is one string for every PR this workflow reviews and the log
+    directory is the repo root's, so a name built from the model key and a
+    stamp collides between concurrent dispatches. Passing the nonce is what
+    makes the name unique BY CONSTRUCTION — and it is the same nonce that
+    reaches the child in the prompt and comes back in the record, so the log's
+    filename greps against the record inside it.
+    """
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+
+    seen: dict = {}
+
+    def _alloc(repo_root, model_key, *, run_id):
+        seen.update(repo_root=repo_root, model_key=model_key, run_id=run_id)
+        return tmp_path / "run.jsonl"
+
+    monkeypatch.setattr(wf._shared, "claude_log_path", _alloc)
+    wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    assert seen.get("run_id"), "the allocation got no run identity — the name is shared again"
+    assert seen["run_id"] == fake.run_id, (
+        "the log's nonce and the nonce in the prompt differ, so the filename no "
+        "longer locates the record it carries"
+    )
+
+
 def test_the_shadow_comparison_actually_fires(monkeypatch, tmp_path) -> None:
     """Mutate the typed record so the two channels disagree; assert the failure.
 
@@ -700,23 +850,148 @@ def test_pass_two_that_does_post_is_accepted(monkeypatch, tmp_path) -> None:
     assert result.verdict is routing.Verdict.MERGE
 
 
-def test_a_thread_read_failure_is_reported_as_could_not_check(monkeypatch, tmp_path) -> None:
-    """A flaky `gh` is not a disagreement between the two copies.
+# ---------------------------------------------------------------------------
+# A VERIFICATION THAT COULD NOT RUN MUST NOT DESTROY A DECISION THAT ALREADY DID.
+#
+# This check runs AFTER the child posted its comment and AFTER the route was
+# persisted, so for one pass a 5xx or a rate limit on a READ-ONLY `gh` call
+# discarded a ~40-minute review at real budget and killed the parent's build
+# loop with it. The reads are retried; on exhaustion the run completes with the
+# check recorded as unperformed. Sleeps are pinned to zero throughout — the
+# backoff durations are not what these tests are about.
+# ---------------------------------------------------------------------------
 
-    Reporting it as one sends the operator to compare two documents that are
-    fine. The distinction the module draws everywhere else — could-not-check
-    versus a real finding — has to hold in the check's own error path too.
+def _no_sleep(monkeypatch) -> list[float]:
+    """Replace the backoff with a recorder, so the retries are observable."""
+    from modules.assistant.review_pr import review_pr_workflow as wf
+    slept: list[float] = []
+    monkeypatch.setattr(wf.time, "sleep", slept.append)
+    return slept
+
+
+def _flaky_reader(fails: int, real):
+    """A reader that raises a transient `gh` error `fails` times, then works."""
+    calls = {"n": 0}
+
+    def _read(*a, **k):
+        calls["n"] += 1
+        if calls["n"] <= fails:
+            raise RuntimeError("gh pr view failed: API rate limit exceeded")
+        return real(*a, **k)
+
+    return _read
+
+
+def test_a_transient_thread_read_is_retried_and_the_review_survives(
+        monkeypatch, tmp_path) -> None:
+    """THE HEADLINE CASE: a blip must not discard a completed, already-routed review.
+
+    The first read fails the way a rate limit or a 5xx fails; the retry
+    succeeds; the invariant then runs for real and agrees. The run must reach
+    its verdict with no could-not-check note at all — a retry that "worked" but
+    still degraded the result would be the fix in name only.
     """
     from modules.assistant.review_pr import review_pr_activities as act
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
+    slept = _no_sleep(monkeypatch)
+
+    monkeypatch.setattr(act, "latest_pr_review_block",
+                        _flaky_reader(1, lambda *a, **k: fake.block))
+
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    assert result.verdict is routing.Verdict.MERGE
+    assert slept, "the read was not retried — it failed on the first attempt"
+    assert not any("NOT CHECKED" in n for n in result.notes), (
+        "the retry succeeded but the run still reported the check as unperformed"
+    )
+
+
+def test_a_PERSISTENT_thread_read_failure_completes_the_run_and_says_so(
+        monkeypatch, tmp_path) -> None:
+    """Exhausted retries record the check as UNPERFORMED. They do not raise.
+
+    The route was persisted before this check ran, so the evidence survives
+    either way — and a run that dies here throws away work that already
+    succeeded, for a reason with nothing to do with the review.
+
+    The note must be LOUD: an invariant that silently did not run is
+    indistinguishable from one that held, which is the very thing this check
+    exists to make non-silent.
+    """
+    from modules.assistant.review_pr import review_pr_activities as act
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    slept = _no_sleep(monkeypatch)
 
     def _boom(*a, **k):
         raise RuntimeError("gh pr view failed: API rate limit exceeded")
 
     monkeypatch.setattr(act, "latest_pr_review_block", _boom)
+
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    assert result.verdict is routing.Verdict.MERGE, (
+        "a failed READ changed the routing — the policy question was supposed "
+        "to be untouched"
+    )
+    unchecked = [n for n in result.notes if "NOT CHECKED" in n]
+    assert len(unchecked) == 1, f"the unperformed check was not recorded: {result.notes}"
+    assert "not a disagreement" in unchecked[0]
+    assert "rate limit" in unchecked[0], "the real `gh` error was swallowed"
+    assert len(slept) == len(wf._THREAD_READ_BACKOFF_SECONDS), (
+        "the retry budget is not the declared one"
+    )
+
+
+def test_the_route_is_PERSISTED_even_when_the_check_never_runs(
+        monkeypatch, tmp_path) -> None:
+    """The claim the fix rests on, asserted rather than reasoned about.
+
+    "Let the run complete, the evidence survives either way" is only true if the
+    parent stratum is already on disk when the check fails. If the ordering ever
+    inverted, this degrades from "the check did not run" to "the run produced no
+    countable record", which is the thing Phase 4 most needs counted.
+    """
+    from modules.assistant.review_pr import review_pr_activities as act
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
-    with pytest.raises(RuntimeError, match="could not be CHECKED"):
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    _no_sleep(monkeypatch)
+    monkeypatch.setattr(act, "latest_pr_review_block", _flaky_reader(99, lambda *a, **k: None))
+
+    wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    events = [json.loads(line) for line in
+              (tmp_path / "run.jsonl").read_text().splitlines() if line.strip()]
+    routes = [e for e in events if e.get("type") == "parent_route"]
+    assert len(routes) == 1, "the parent stratum was not persisted"
+    assert routes[0]["routed_outcome"] == "merge"
+
+
+def test_a_REAL_disagreement_still_raises_after_a_transient_read(
+        monkeypatch, tmp_path) -> None:
+    """Negative control for the whole retry section.
+
+    Softening the could-not-check path must not soften the path it sits beside.
+    A retry that succeeded and then found the two copies genuinely disagreeing
+    still fails loud — otherwise the section above would have converted a real
+    finding into a note.
+    """
+    from modules.assistant.review_pr import review_pr_activities as act
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    _no_sleep(monkeypatch)
+
+    wrong = "pr_review:\n  findings:\n    - id: a-different-slug\n      disposition: fixed\n"
+    monkeypatch.setattr(act, "latest_pr_review_block",
+                        _flaky_reader(1, lambda *a, **k: wrong))
+
+    with pytest.raises(RuntimeError, match="disagree on findings"):
         wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
 

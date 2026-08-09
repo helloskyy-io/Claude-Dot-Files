@@ -120,6 +120,16 @@ class UndeterminedReason(str, Enum):
     # R1's primacy is weakened by naming the two conditions apart. Same defect
     # class as `route(None)` reporting `permission_denied`, one rule below.
     DENIALS_UNREADABLE = "denials_unreadable"
+    # THE SAME ARGUMENT ONE LEVEL UP, and it is the third instance of it in this
+    # enum. `denials_unreadable` separates "could not check the key" from "the
+    # key said yes"; this separates "could not read the ENVELOPE AT ALL" from
+    # either. A `result` event that is not an object is a CLI shape change, and
+    # folding it into `record_absent` would report it as the highest-frequency
+    # machinery failure there is — a run killed mid-stream — on 100% of runs.
+    # An operator would read a fleet dying mid-stream while the actual cause is
+    # that the envelope stopped being a dict. Routing is unchanged (the human
+    # arm), so this buys nothing in routing and everything in diagnosis.
+    ENVELOPE_UNREADABLE = "envelope_unreadable"
     RECORD_ABSENT = "record_absent"
     RECORD_UNPARSEABLE = "record_unparseable"
     SCHEMA_VERSION_UNKNOWN = "schema_version_unknown"
@@ -304,6 +314,20 @@ def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
     TOTAL OVER ITS OWN INPUTS, not just over the record. Three rules read values
     that can themselves be missing, and each resolves toward the human arm.
 
+    AND THE PARAMETER'S OWN TYPE IS ONE OF THOSE INPUTS. The annotation says
+    `dict | None` and an annotation is not a check: for one pass this function
+    guarded `None` and then called `.get` on whatever else arrived, so a list, a
+    str, an int or a bool raised `AttributeError` FROM INSIDE THE ROUTING
+    CONTRACT, where the caller's error handler does not catch it. It was latent
+    only because `result_event()` filters `isinstance(event, dict)` in a
+    DIFFERENT FILE — a guarantee asserted nowhere at this boundary, and Phase 4's
+    entire content is adding call sites that each bring their own reader. The
+    identical docstring phrase sits on `_redact` below, whose identical gap was
+    closed one pass earlier; the child was fixed and the parent left. `route` is
+    the function that IS the contract, so it validates at its own boundary rather
+    than by delegation to whoever happens to call it today. The claim is now
+    machine-checked — see `test_every_function_claiming_totality_is_total`.
+
     `result_event` is the CLI's `result` event as a dict, or None when the log
     carried none at all.
     """
@@ -319,6 +343,14 @@ def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
     # primacy over any ROUTING decision is weakened by naming this correctly.
     if result_event is None:
         return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.RECORD_ABSENT)
+
+    # R0, AND IT IS BEFORE R1 RATHER THAN AFTER IT. Every rule below reads a key
+    # off this object; an envelope that is not a mapping cannot answer the safety
+    # question either, so "could not check whether the control fired" is the
+    # honest state and it must be reached before the rule that assumes it can.
+    # Its own bin rather than `record_absent`: see `UndeterminedReason`.
+    if not isinstance(result_event, dict):
+        return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.ENVELOPE_UNREADABLE)
 
     envelope = result_event
 

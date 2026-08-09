@@ -151,8 +151,34 @@ def test_workflow_of_strips_the_run_timestamp(tmp_path):
     assert workflow_of(p) == "build-draft-minor"
 
 
+def test_workflow_of_strips_the_V2_run_nonce_too(tmp_path):
+    """The V2 tree appends the run nonce, because a stamp alone collides.
+
+    `assistant_activities.claude_log_path` names a log `{key}-{stamp}-{run_id}`
+    so two dispatches sharing one log directory cannot land on one path. This
+    tool replays the WHOLE archive, so it must read both shapes: without the
+    optional group a V2 log's workflow reads as `review-pr-20260808-110753`,
+    which is not a workflow, so it groups into a bin of one and disappears from
+    the roll-up without anything going red.
+    """
+    nonce = "0123456789abcdef0123456789abcdef"
+    assert workflow_of(tmp_path / f"review-pr-20260808-110753-{nonce}.jsonl") == "review-pr"
+
+
 def test_workflow_of_leaves_a_name_without_a_timestamp_alone(tmp_path):
     assert workflow_of(tmp_path / "custom.jsonl") == "custom"
+
+
+def test_workflow_of_does_not_strip_a_trailing_segment_that_is_not_a_nonce(tmp_path):
+    """Negative control: the optional group must not eat a real name component.
+
+    A 32-lowercase-hex suffix is the nonce; anything else after the stamp
+    belongs to whoever named the file, and swallowing it would silently merge
+    two workflows into one bin — the same roll-up corruption from the other
+    direction.
+    """
+    assert workflow_of(tmp_path / "review-pr-20260808-110753-retry.jsonl") \
+        == "review-pr-20260808-110753-retry"
 
 
 # --- read_log ---

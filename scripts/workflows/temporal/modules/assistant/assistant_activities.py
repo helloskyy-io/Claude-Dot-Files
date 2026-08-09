@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import os
+import uuid
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
@@ -241,8 +242,8 @@ def extract_pr_url(output: str) -> str | None:
     return matches[-1] if matches else None
 
 
-def claude_log_path(repo_root: Path, model_key: str) -> Path:
-    """Allocate a FRESH log path for one invocation, and refuse a reused one.
+def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
+    """RESERVE a fresh log path for one invocation. Unique by construction.
 
     THE LOG IS THE CHANNEL, and that is not obvious from the transport ruling.
     `structured_output` rides in the CLI's own stdout, so the CHILD writes
@@ -255,20 +256,55 @@ def claude_log_path(repo_root: Path, model_key: str) -> Path:
     twice in one run, either side of the loop-back. If one path were reused, a
     second child that died before writing would leave pass 1's record in place
     and the parent would route on a pass that produced nothing — making the
-    absent-record arm unreachable in exactly the scenario it exists for. The
-    stamp is second-granular and the model key repeats within a run, so
-    collision is reachable; this raises instead of truncating someone's log.
+    absent-record arm unreachable in exactly the scenario it exists for.
+
+    IT WAS ENFORCED ONE LEVEL ABOVE WHERE IT WAS CLAIMED, AND THAT IS THIS
+    FUNCTION'S OWN DEFECT CLASS. For one pass this checked `exists()` and
+    returned, RESERVING NOTHING: the file is created later, by a DIFFERENT
+    PROCESS, at `run-claude.sh`'s `> "$LOG_FILE"` — `O_TRUNC`. The name was
+    `{model_key}-{second-granular stamp}`, and `MODEL_KEY` is a constant shared
+    by every PR that workflow reviews, while `run_review_pr` sets
+    `worktree = repo_root` and `build_workflow` passes `repo_root` — so the log
+    directory is SHARED ACROSS CONCURRENT DISPATCHES, not per-worktree. Two
+    dispatches entering in the same wall-clock second both saw no file, both
+    proceeded, and one truncated the other's log. R5's identity check stops the
+    foreign record deciding a merge, so the observable outcome was a COMPLETED
+    run binned as `record_absent` — indistinguishable from a mid-stream death in
+    the very per-reason rate this phase exists to produce. Corrupted in the
+    direction that looks normal.
+
+    TWO INDEPENDENT FIXES, BOTH DELIBERATE:
+
+    1. **The name carries the run nonce, so it is unique BY CONSTRUCTION.** Not
+       a wider timestamp — a finer clock only shrinks the window that a
+       check-then-create leaves open. `run_id` is the identity the parent
+       already issues and the child already echoes into the record, so the log's
+       filename now greps against the record inside it; truncating the nonce
+       would break exactly that.
+    2. **The name is RESERVED atomically** (`O_CREAT|O_EXCL` via
+       `touch(exist_ok=False)`), because check-then-create across a process
+       boundary is TOCTOU by construction whatever the name looks like. This is
+       what makes the docstring's promise true rather than probable: on the
+       residual collision the allocation FAILS LOUD instead of silently
+       truncating. The reserved file is empty, which every reader here already
+       handles — `_log_events` yields nothing from it and R2 fires.
+
+    The `FileExistsError` is an `OSError`, which `run_review_pr` catches as an
+    operator-facing runtime state rather than a traceback.
     """
     log_dir = repo_root / ".claude" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    path = log_dir / f"{model_key}-{stamp}.jsonl"
-    if path.exists():
+    path = log_dir / f"{model_key}-{stamp}-{run_id}.jsonl"
+    try:
+        path.touch(exist_ok=False)
+    except FileExistsError as exc:
         raise FileExistsError(
             f"refusing to reuse an existing run log: {path}. A second invocation "
             f"landing on one path either truncates the first run's record or leaves "
-            f"a stale one for this run's parent to read."
-        )
+            f"a stale one for this run's parent to read. The name carries this "
+            f"run's nonce, so reaching this means the nonce was reused."
+        ) from exc
     return path
 
 
@@ -394,9 +430,11 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         )
     cwd = worktree or repo_root
     # A caller that needs to READ the record allocates the path itself, so it
-    # knows where to read it from; callers that do not, get the same allocation
-    # they always got.
-    log_file = log_file or claude_log_path(repo_root, model_key)
+    # knows where to read it from AND can bind the log's name to the nonce it
+    # issued. A caller that does not still gets a name unique by construction —
+    # the nonce is generated here rather than defaulted away, because a default
+    # is how the shared-name collision got written in the first place.
+    log_file = log_file or claude_log_path(repo_root, model_key, run_id=uuid.uuid4().hex)
 
     env = {
         **os.environ,

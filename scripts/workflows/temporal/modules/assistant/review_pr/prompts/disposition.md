@@ -49,6 +49,12 @@ Do not rely on git to surface it. A carried-forward guard only produces a merge 
 
 Enumerate by NAME and map each to a destination. "The tests were carried across" is not the check; "§1→A, §2→B, §3→C, §7→NOWHERE" is. A gap found this way is a **correctness** finding, not doc-drift.
 
+**COMPLETION-CHECKBOX SWEEP — mandatory whenever this PR flips `[ ]` → `[x]` in any planning artifact** (phase doc, `roadmap.md`, epic breakdown). `config/rules/standards-governance.md` § *Completion checkboxes* puts the flip in dispatch scope and puts the **verification on you**: you MUST check every flip against the artifact it claims, **not against the run's account of it**. Read the rule; it is binding and it is not restated here.
+
+The check is per-box, and it is the same shape as the deleted-artifact sweep: `git diff` the planning artifacts, list every flipped line, and for each one name the thing in **this PR's diff** that satisfies it. **An unverified flip is a finding. A flip for work not in this diff HOLDS the PR** — categorize it `correctness`, because the durable consequence is that the default branch acquires an `[x]` for work the default branch does not contain, and the next dispatch sequences off it. Blanket-checking a section is the shape to watch for: a run that flipped every box in a block rather than the ones its diff earns.
+
+Say what you checked and how many, so a later pass can tell verification from assumption — *"read all 51 flips against the diff; all 51 substantively true; requirement 6 correctly left unchecked on both artifacts"* is the standard. `sprint.md` is NOT in scope here — it is human-only under the same rule, and a dispatch editing it is its own finding.
+
 Give each item a stable kebab-slug id (reuse prior-pass ids per Stage 1) and a category from this fixed enum (extend if truly needed, NEVER rename — recurrence mining keys on these): correctness | security | standards-implication | scope | deferral | friction | test-gap | doc-drift. (There is deliberately NO 'existing-condition' category — it is abolished; a pre-existing issue is categorized by its actual type.)
 
 **THE CONSEQUENCE GATE — apply to every candidate item BEFORE it becomes a finding.** State what BREAKS, is RISKED, or gets DECIDED WRONGLY if this is not addressed. **If you cannot state that, it is NOT a finding** — demote it to a one-line note in your Post-Run Reflection. Notes do not enter the runway; the runway costs the operator a ruling per entry and must contain only things worth ruling on.

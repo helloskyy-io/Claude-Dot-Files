@@ -105,8 +105,19 @@ PATTERNLESS_WORKFLOWS = ("review-runs",)
 
 
 def workflow_of(path: Path) -> str:
-    """`review-pr-20260808-110753.jsonl` -> `review-pr`."""
-    return re.sub(r"-\d{8}-\d{6}$", "", path.stem)
+    """`review-pr-20260808-110753.jsonl` -> `review-pr`.
+
+    TWO NAME SHAPES, BOTH LIVE. The bash fleet writes `{key}-{stamp}`; the V2
+    tree appends the run nonce (`{key}-{stamp}-{run_id}`) because a stamp alone
+    collides between concurrent dispatches sharing one log directory — see
+    `assistant_activities.claude_log_path`. The nonce is OPTIONAL here rather
+    than required: this tool replays the whole archive, and every log written
+    before that change carries the old shape. Without the optional group a V2
+    log's workflow reads as `review-pr-20260808-110753`, which is not a
+    workflow, so it groups into a bin of one and vanishes from the roll-up
+    silently.
+    """
+    return re.sub(r"-\d{8}-\d{6}(?:-[0-9a-f]{32})?$", "", path.stem)
 
 
 def last_whole_match(pattern: re.Pattern, text: str) -> str | None:
