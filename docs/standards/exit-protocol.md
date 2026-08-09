@@ -54,7 +54,7 @@ So the five properties above are the contract. GitHub is **one binding of it**. 
 
 | Requirement | Status |
 |---|---|
-| Field list | **WRITTEN — §2.1 and §2.2 below**, derived from Phase 1 E6's enumeration. Phase 3 added two child-authored fields and re-typed a third; each addition names the requirement that forced it, in §2.3 |
+| Field list | **WRITTEN — §2.1 and §2.2 below**, derived from Phase 1 E6's enumeration. Phase 3 added two child-authored fields and re-typed a third; each addition names the requirement that forced it, in §2.1's *Required by* column |
 | Per-field: named consumer, publish classification (publishable / internal) | **WRITTEN — the two rightmost columns of §2.1 and §2.2** |
 | Reference to the Kind 1 record (§1) | **WRITTEN — `completion_ref`, §2.1.** Substrate-discriminated, never typed as a URL |
 | Transport | **MEASURED — `--output-format json --json-schema`, the parent reading `structured_output`.** Phase 1 E1(g), 2026-08-08, on CLI 2.1.224 — *confirms* the roadmap's preference, judged on isolation and Temporal replay cost rather than availability alone. The file variant would ask a child under `--dangerously-skip-permissions` to write outside its worktree, which is the isolation boundary the fleet's safety argument rests on. **One constraint the measurement added and nobody predicted: the schema is an inline shell argument**, so its size and quoting are a build-time concern for every caller. See [`phase1_measure_the_channel.md`](../development/memory-management-framework/phase1_measure_the_channel.md) § E1. **Phase 3 measured one thing more, and it changes what a caller must do — §2.4.** |
@@ -71,7 +71,7 @@ The model calls the `StructuredOutput` tool; these are its parameters. **Every o
 | Field | Type | Required by | Publish |
 |---|---|---|---|
 | `schema_version` | string; `"1"` today | The parent's version-skew rule (§5) — a child in a worktree on an older revision writes to a parent on `main`, so skew is the normal case here | publishable |
-| `run_id` | string; opaque nonce the parent generated and put in the prompt | **The parent's run-identity check (§3 of Phase 3's channel requirements).** Binds *this* record to *this* invocation, independently of the path it arrived on | internal |
+| `run_id` | string; opaque nonce the parent generated and put in the prompt | **The parent's run-identity check** — [Phase 3 § step 3](../development/memory-management-framework/phase3_typed_exit_record.md). Binds *this* record to *this* invocation, independently of the path it arrived on | internal |
 | `outcome` | enum `merge` \| `hold` | **B6, B7, P3, P5** | publishable |
 | `hold_kind` | enum `redispatch` \| `needs_ruling`; required iff `outcome == hold` | **B6, P3, P5** — every parent branches on the sub-kind, so `hold` alone does not route | publishable |
 | `completion_ref.substrate` | enum; `github` today, extended additively per §5 | The resolver that turns the ref into an address. **This is the field that makes the reference substrate-agnostic**; without it a reader must infer the binding from the shape of a string | publishable |
@@ -106,7 +106,7 @@ Authored by neither the child nor the runtime. §4 produces these; nothing else 
 Re-verified on **CLI 2.1.224, 2026-08-09, host `puma-workstation-mint`** — the same version Phase 1 pinned, so this is an addition to E1(g) rather than a re-take of it.
 
 - **`--json-schema` composes with `--output-format stream-json`.** Phase 1 measured it against `--output-format json`; the fleet runs `stream-json`, and the `result` event carries a validating `structured_output` under both.
-- **Declaring a schema REPLACES `.result` with the serialised structured output.** On a run that emitted prose *and* called the tool, `.result` was `{"outcome":"merge",…}` and the model's terminal `VERDICT:` line was **not in it**. `run-claude.sh:201-204` reads `.result` for the completion contract, so **a caller that adds `--json-schema` without moving that read silently deletes the fleet's only write-time gate.** The prose itself survives, in the stream's `assistant` text blocks — which is where a schema-declaring caller must read both the completion signal and any prose shadow.
+- **Declaring a schema REPLACES `.result` with the serialised structured output.** On a run that emitted prose *and* called the tool, `.result` was `{"outcome":"merge",…}` and the model's terminal `VERDICT:` line was **not in it**. `run-claude.sh`'s *Completion contract* block reads `.result`, so **a caller that adds `--json-schema` without moving that read silently deletes the fleet's only write-time gate.** The prose itself survives, in the stream's `assistant` text blocks — which is where a schema-declaring caller must read both the completion signal and any prose shadow. **Read the LAST such block, not their concatenation:** the gate exists to catch a run that *ended* early, and `.result` supplied that finality for free by being the final message; grepping every block would change the predicate to "the run ever mentioned the signal" and readmit the failure the gate is for. *(Cited by section rather than by line: this claim's referent has moved once already, and a line range in a standard goes stale on the next edit to the file it names.)*
 - **The result envelope carries `session_id` and `uuid`**, so a runtime-produced process identity exists alongside the child-authored `run_id`. `run_id` is the one that binds a record to *the invocation the parent dispatched*; `session_id` only identifies the CLI process that wrote it.
 
 ### 2.5 · Size posture
@@ -150,7 +150,7 @@ Four conditions must each route explicitly, and each needs its own test: **absen
 | # | Condition | `routed_outcome` | `undetermined_reason` | Why it sits here |
 |---|---|---|---|---|
 | **R1** | `permission_denials` non-empty | `undetermined` | `permission_denied` | **Safety dominates routing.** A child that tripped the only in-run control is never redispatched, whatever it said about its own work — see below |
-| **R2** | no `structured_output` key | `undetermined` | `record_absent` | The measured common case, and **reachable from `subtype: success`** — see below |
+| **R2** | no `structured_output` key, **including no `result` event at all** | `undetermined` | `record_absent` | The measured common case, and **reachable from `subtype: success`** — see below |
 | **R3** | present, but does not validate | `undetermined` | `record_unparseable` | Nothing downstream may read a field off an object that failed validation |
 | **R4** | `schema_version` outside the supported set | `undetermined` | `schema_version_unknown` | **Before identity, deliberately:** a record whose version is unknown has no guaranteed typing, so its `run_id` is not yet a string one may compare |
 | **R5** | `run_id` ≠ the nonce this invocation issued | `undetermined` | `record_stale` | The record is well-formed and belongs to a different invocation |
@@ -163,11 +163,20 @@ Four conditions must each route explicitly, and each needs its own test: **absen
 
 **`permission_denials[]` is safety observability, not a routing option.** Recorded and surfaced every run regardless of any routing ruling, and a non-empty list routes to the human arm and **never** to automatic redispatch. Auto-retrying a child that just tripped the only in-run safety control is an unbounded loop against that control. R1 is that rule, placed first so that no later rule can reach past it.
 
-**R9 exists because every surveyed system has an answer for the unmatched case and none of them is "fall through".** It is not decoration: R6–R8 do not exhaust the product of `outcome` × `hold_kind`, because a record can validate against a schema and still carry a combination no rule anticipated — most obviously a future version's `hold_kind` reaching a parent whose supported set was widened without its rules being widened with it.
+**The contract must be total over its OWN inputs, and the two absence cases are not the same absence.** R1 reads `permission_denials` off the result envelope: if the envelope exists and the key does not, the parent may not read that as an empty list — *"I could not check whether the safety control fired"* routes exactly as *"it fired"* does, and only the reason string distinguishes them. But if there is **no `result` event at all** the condition is R2's, not R1's: no event implies no key, so the record is *absent* rather than unchecked. **Both route to a human, so the distinction buys nothing in routing and everything in diagnosis** — a run killed mid-stream is the most frequent machinery failure there is, and binning it under `permission_denied` sends an operator hunting a denied tool call that never happened and corrupts the per-reason rate the computed arm is measured by.
+
+**R9 exists because every surveyed system has an answer for the unmatched case and none of them is "fall through".** It is not decoration: R6–R8 do not exhaust the product of `outcome` × `hold_kind`, because a record can validate against a schema and still carry a combination no rule anticipated. **Enumerate that product; do not reason about it.** Of the six cells, two reach R9 and both are reachable today:
+
+| | no `hold_kind` | `redispatch` | `needs_ruling` |
+|---|---|---|---|
+| **`merge`** | R6 → `merge` | **R9 → `unmatched`** | **R9 → `unmatched`** |
+| **`hold`** | **R9 → `unmatched`** | R7 → `hold` | R8 → `hold` |
+
+> **Why the enumeration is binding rather than illustrative.** §2.1 states `hold_kind` as *required iff `outcome == hold`* and the schema deliberately does **not** encode that — an `if/then` would be a required-field constraint the child can fail to satisfy, and Phase 1 E2(c) measured an unsatisfiable schema as *silence on a clean run* rather than an error. **A schema relaxed on purpose puts the whole conditional on the router**, and a `merge` carrying a `hold_kind` — a record whose own author said a human must decide — validates. A rule set that reads `outcome == merge` without the `hold_kind` guard routes it to `merge`, and the prose channel agrees because `merge` renders `MERGE`, so no shadow catches it. **This paragraph previously argued the product was not exhausted while naming only the `hold`-with-no-`hold_kind` cell; the argument was right and the enumeration was short by two.**
+
+A future version's `hold_kind` reaching a parent whose supported set was widened without its rules being widened lands here too.
 
 **Why total rather than best-effort:** the producer's malformedness is a **stationary rate with a distribution**, not a defect with a fix. That is the real difference from a CI step — *not* that the producer is uniquely unreliable. CI producers emit well-formed wrong results too, and it is measured. **"Our producer is special" is a claim a CI-literate reviewer will break;** the reason to be total is that the bad case recurs.
-
-**`permission_denials[]` is safety observability, not a routing option.** Recorded and surfaced every run regardless of any routing ruling, and a non-empty list routes to the human arm and **never** to automatic redispatch. Auto-retrying a child that just tripped the only in-run safety control is an unbounded loop against that control.
 
 ## 5 · Versioning and extension
 
@@ -216,4 +225,7 @@ Derived from `docs/development/memory-management-framework/roadmap.md` § Key De
 
 ## Ratification
 
-*Unratified. When all five phases are complete and the protocol has been exercised across the fleet, the operator records the ratification date and commit here, and this banner and every `⟨PHASE N⟩` marker is removed in the same change.*
+*Unratified. When all five phases are complete and the protocol has been exercised across the fleet, the operator records the ratification date and commit here, and the following are removed in the same change:*
+
+- *the DRAFT banner at the top, and every remaining `⟨PHASE N⟩` marker;*
+- ***§2's Status column***, and ***§2.4's phase-titled heading and its "this is an addition to E1(g)" framing.*** These record *where in the rollout* an answer arrived, which is how a draft tracks itself and is exactly what [Documentation Standard § *Standards state the rule, never completion-state*](documentation/documentation_standard.md) forbids a **ratified** standard from carrying. They are listed here so ratification removes them rather than inheriting them: §2's rows collapse to their rules, and §2.4 becomes *"Caller obligations under a declared schema"* with the measurement kept as a one-line backward-looking provenance note, which that section explicitly permits.*

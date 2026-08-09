@@ -158,7 +158,7 @@ claude-dot-files/
 │       │   ├── README.md                            # Applicability: which half binds HERE, how this repo diverges, and § The gate — the six checks tests.yml runs
 │       │   └── testing_standard.md                  # The three-tier hierarchy this repo's testing/ implements, positive controls, test resource safety
 │       ├── agents.md                                # Standards for writing custom agents
-│       ├── exit-protocol.md                       # DRAFT, NOT BINDING — the child→parent handoff contract. Phase 3 wrote its answers in:
+│       ├── exit-protocol.md                         # DRAFT, NOT BINDING — the child→parent handoff contract. Phase 3 wrote its answers in:
 │       │                                            #   §2 the envelope's three strata, §3 the split abstention vocabulary, §4 the nine
 │       │                                            #   ordered rules, §5 versioning. Still carries ⟨PHASE 4⟩ in §6 and is UNRATIFIED
 │       ├── hook-scripts.md                          # Standards for hook scripts (stdin JSON + jq, never env vars)
@@ -246,11 +246,12 @@ claude-dot-files/
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
-                   ├── test_exit_record.py          # The fail-safe contract: one test per absence mode, the shadow comparison firing,
-                   │                                #   the render↔record invariant, and the Kind 1 address that must not over-match
-                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
-                   │                                #   fixture, one asserting the assistant filter finds the completion signal and one
-                   │                                #   asserting the .result filter does not. The second IS the finding, as a control
+│                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
+│                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
+│                   │                                #   and the Kind 1 address — schema and address, both gated to one declaration
+│                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
+│                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
+│                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all

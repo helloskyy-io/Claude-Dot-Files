@@ -11,10 +11,17 @@ this phase's build:
     output, so the model's prose, and with it the completion signal, survives
     ONLY in the stream's assistant text blocks.
 
-`run-claude.sh:201-204` reads `.result` for the completion contract. A caller
-that added `--json-schema` without moving that read would have deleted the
-fleet's only write-time gate in the same change that added the typed record —
-silently, and on every conforming run. These tests are that finding, executable.
+`run-claude.sh`'s § Completion contract reads `.result`. A caller that added
+`--json-schema` without moving that read would have deleted the fleet's only
+write-time gate in the same change that added the typed record — silently, and
+on every conforming run. These tests are that finding, executable.
+
+AND MOVING THE READ IS NOT ENOUGH ON ITS OWN. The gate's job is catching a run
+that ENDED early, which `.result` supplied for free by being the final message.
+A filter over every assistant block finds the signal — and finds it in a run
+that printed it at turn 20 and then stopped mid-work. So the assistant-side
+tests come in a pair: one that the signal is found, one that a NON-FINAL signal
+is rejected. Only the second can tell a correct gate from a widened one.
 
 WHY THE BASH FILTER IS EXTRACTED AND RUN RATHER THAN RESTATED. A test carrying
 its own copy of the jq program would pass forever against a script whose

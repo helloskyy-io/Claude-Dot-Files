@@ -14,9 +14,13 @@ Measured for Memory Management Framework Phase 1, experiment E5.
 The fleet declares completion patterns in TWO places with DIFFERENT surfaces,
 and this script measures both because they can disagree:
 
-  1. CHILD-SIDE, over the result envelope. `run-claude.sh:201-204` extracts
-     `.result` from the JSONL and applies `grep -qE "$COMPLETION_PATTERN"`.
-     This is the write-time gate that already exists.
+  1. CHILD-SIDE, over the result envelope. `run-claude.sh`'s § Completion
+     contract extracts `.result` from the JSONL and applies
+     `grep -qE "$COMPLETION_PATTERN"`. This is the write-time gate that already
+     exists. NOTE: a caller that declares EXIT_RECORD_SCHEMA reads the last
+     assistant text block instead, because declaring a schema replaces
+     `.result` with the serialised structured output; this script measures the
+     `.result` surface, which is what the V1 fleet still runs.
   2. PARENT-SIDE, over the child's console output. `build.sh:277` and
      `build-minor.sh:281` apply `grep -oE '^VERDICT: …' | tail -1` to the
      tee'd stdout+stderr of the child process — a WIDER surface that includes
