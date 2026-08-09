@@ -145,7 +145,15 @@ Both still block MERGE. Only LAUNDERED counts against the producing run.
 3. **No planning home exists for this area** → the **missing home IS the finding**. Surface that, not the instance.
 4. **An existing deferral's PREMISE has been reversed** → **re-open it.** A pointer that resolves is not enough; the assumption under it must still hold.
 
-**THE LAST GATE — run `/decide` and `/best-practices` on any finding that survives all of the above.** If the reframe dissolves it, or best practice says the incumbent is fine, it was never an Issue. **State both verdicts in the disposition entry.** An Issue that has not been through both has not earned a human's attention, and a human's attention is what this queue spends.
+**THE LAST GATE — run `/decide` and `/best-practices` on any finding that survives all of the above.** An Issue that has not been through both has not earned a human's attention, and a human's attention is what this queue spends. **State both verdicts in the disposition entry.** Three outcomes, and only one of them files anything:
+
+- **DISSOLVED** — the reframe kills it, or best practice says the incumbent is fine and the "defect" was a preference. **File nothing.** Record the finding and the verdict that dissolved it, so a later pass does not re-derive it.
+- **RESOLVED INTO A KNOWN FIX** — the reframe turns *"a human must rule on this"* into *"the answer is X, apply it."* **RE-DISPOSITION IT: `kind: redispatch`, `remedy: fix-in-place`, and do NOT file an issue.** It joins the runway and the correction pass applies it. **This is the outcome to reach for** — `/decide` exists to convert human decisions into known answers, and a converted finding costs one automated pass instead of an operator's attention.
+- **SURVIVES BOTH** — file it. This is a real ruling.
+
+**The re-disposition changes the VERDICT by the aggregation rule below, and that is the point:** a `redispatch` entry produces `VERDICT: HOLD - redispatch`, which is what makes the loop-back fire and the fix land automatically. **A finding you convert is a finding the pipeline resolves without the operator.**
+
+**If the loop is already spent** — you are the correction pass — convert it anyway. The runway then reads *"apply this known fix"* rather than *"rule on this question"*, which is a materially cheaper ask and an honest description of what is left.
 
 **PLACEMENT COMES FIRST — two questions, BEFORE the qualification test below.** Both default **against** a new issue. Documentation Standard § Deferred Work → *Placement* (vendored, binding).
 
