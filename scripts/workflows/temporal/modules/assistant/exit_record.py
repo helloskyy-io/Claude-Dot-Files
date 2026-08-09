@@ -214,11 +214,27 @@ class ExitRecord:
     permission_denials: tuple[dict, ...] = ()
     schema_version: str | None = None
 
-    @property
-    def needs_human(self) -> bool:
-        """Both abstention arms route to a person. Only one of them is a bug."""
-        return (self.routed_outcome is RoutedOutcome.UNDETERMINED
-                or self.hold_kind is HoldKind.NEEDS_RULING)
+    def __post_init__(self) -> None:
+        """`undetermined_reason` is required IFF `routed_outcome` is UNDETERMINED.
+
+        The invariant was documented on `UndeterminedReason` and enforced
+        nowhere, which left `review_pr_workflow`'s reason-reporting one None
+        away from an AttributeError raised INSIDE the code that exists to
+        explain machinery failures. Enforced at construction, in the local
+        `ReviewInput.__post_init__` shape.
+        """
+        undetermined = self.routed_outcome is RoutedOutcome.UNDETERMINED
+        if undetermined and self.undetermined_reason is None:
+            raise ValueError(
+                "an undetermined route must name its reason: the residual arm is a "
+                "named state that is RECORDED, never a silent fall-through"
+            )
+        if not undetermined and self.undetermined_reason is not None:
+            raise ValueError(
+                f"routed_outcome={self.routed_outcome.value} carries "
+                f"undetermined_reason={self.undetermined_reason.value}; a reason "
+                f"belongs only to the computed abstention arm"
+            )
 
 
 def _validate(value, schema: dict, path: str) -> str | None:
@@ -281,7 +297,20 @@ def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
     `result_event` is the CLI's `result` event as a dict, or None when the log
     carried none at all.
     """
-    envelope = result_event or {}
+    # R2, REACHED BEFORE R1 IN EXACTLY ONE CASE: there is no `result` event at
+    # all. No event implies no key, so the condition is absence of the record,
+    # not inability to check the safety control — and the DIFFERENCE IS THE
+    # WHOLE POINT OF THE REASON STRING. A run killed mid-stream (turn cap,
+    # SIGTERM, crash) is the highest-frequency machinery failure there is;
+    # reporting it as `permission_denied` sends an operator hunting for a denied
+    # tool call that never happened, and mis-bins every one of them in the
+    # per-reason rate `phase3_typed_exit_record.md` step 4 defines. Routing is
+    # identical either way — both arms are the human — so nothing about R1's
+    # primacy over any ROUTING decision is weakened by naming this correctly.
+    if result_event is None:
+        return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.RECORD_ABSENT)
+
+    envelope = result_event
 
     # R1 — SAFETY DOMINATES ROUTING, so it is first and nothing can reach past
     # it. Auto-redispatching a child that just tripped the fleet's only in-run
@@ -345,8 +374,17 @@ def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
         permission_denials=published_denials,
     )
 
-    # R6
-    if outcome is Outcome.MERGE:
+    # R6 — and the `hold_kind is None` guard is load-bearing, not defensive.
+    # CHILD_SCHEMA deliberately does NOT bind `hold_kind` to `outcome` (an
+    # `if/then` would be a required-field constraint the child could fail to
+    # satisfy, and E2(c) measured that as SILENCE on a clean run). The schema is
+    # relaxed on purpose, SO THE ROUTER OWNS THE WHOLE CONDITIONAL. Without this
+    # guard `{"outcome": "merge", "hold_kind": "needs_ruling"}` — a record whose
+    # own author said a human must decide — validates, passes R1-R5 and routes
+    # MERGE, with the prose shadow agreeing because `merge` renders `MERGE`.
+    # That cell belongs to R9, which §4 says exists precisely because R6-R8 do
+    # not exhaust `outcome` x `hold_kind`.
+    if outcome is Outcome.MERGE and hold_kind is None:
         return ExitRecord(RoutedOutcome.MERGE, **common)
     # R7, R8 — one rule each in the protocol, one branch here because they
     # differ only in a field already carried.
@@ -371,9 +409,18 @@ def _redact(denials: list) -> tuple[dict, ...]:
     Dropped rather than marked internal deliberately: a field that exists in the
     routing copy and is filtered on the way out is one edit away from being
     published by a renderer that does not know why it was filtered.
+
+    TOTAL OVER ITS OWN INPUT, like everything else here. R1 checks that
+    `permission_denials` is a list; it cannot check what is IN the list. An
+    entry that is not an object — a bare string from a CLI that changed shape —
+    would raise AttributeError from inside the routing contract, and the
+    caller's error handler does not catch it. The count stays honest because an
+    unreadable entry is still an entry.
     """
     return tuple(
         {"tool_name": d.get("tool_name", ""), "matched_rule": d.get("matched_rule", "")}
+        if isinstance(d, dict) else
+        {"tool_name": "<unreadable denial entry>", "matched_rule": ""}
         for d in denials
     )
 

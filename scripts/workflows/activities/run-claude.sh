@@ -225,13 +225,25 @@ run_claude() {
             # on every conforming run — silently deleting the fleet's only
             # write-time gate in the same change that added the typed record.
             #
-            # The prose survives in the stream's assistant text blocks, which is
-            # a WIDER surface than `.result` (Phase 1 E5 / roadmap candidate 1
-            # note the gate's surface is narrower than the parent's parse
-            # surface; this narrows that difference rather than widening it).
-            final_result=$(jq -r 'select(.type == "assistant")
-                | .message.content[]? | select(.type == "text") | .text' \
-                "$LOG_FILE" 2>/dev/null)
+            # The prose survives in the stream's assistant text blocks, so the
+            # gate reads those instead.
+            #
+            # THE `last` IS THE WHOLE GATE, not tidiness. This check exists to
+            # catch a run that ENDED EARLY, and `.result` gave it that for free
+            # by being the final message. Grepping every assistant block would
+            # change the predicate from "the run finished with a verdict" to
+            # "the run ever mentioned a verdict" — a model that prints its
+            # verdict at turn 20 and then stops on "let me confirm the comment
+            # posted" would pass a gate built to fail exactly that. Taking the
+            # last text block reproduces `.result`'s finality on the surface the
+            # schema left the prose in.
+            #
+            # `parent_tool_use_id == null` excludes Task sub-agent turns: a
+            # nested agent's terminal line is not this run's completion signal.
+            final_result=$(jq -rs '[ .[]
+                | select(.type == "assistant" and .parent_tool_use_id == null)
+                | .message.content[]? | select(.type == "text") | .text ]
+                | last // ""' "$LOG_FILE" 2>/dev/null)
         else
             final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
         fi

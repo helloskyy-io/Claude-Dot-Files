@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -57,6 +58,14 @@ def _dry_run(task: ReviewInput, repo_root: Path) -> int:
 
     Everything the real path does up to the model call: fetch the PR, count
     prior passes, load both prompt sources, render, and check for leftovers.
+
+    EVERY ARGUMENT THE REAL PATH PASSES, THIS PATH PASSES TOO. `run_review`'s own
+    docstring records the dry-run and real paths diverging once before; adding
+    `run_id` to `render_prompt` recreated it, and because the divergence is a
+    TypeError rather than a wrong result, the only zero-spend way to check the
+    plumbing died with a traceback instead of a message. The nonce is real
+    (`uuid4`) rather than a placeholder so the rendered byte count is what a live
+    run would produce.
     """
     pr = act.fetch_pr(task.pr_number, repo_root)
     this_pass, prior_pass = helper.pass_numbers(
@@ -69,6 +78,7 @@ def _dry_run(task: ReviewInput, repo_root: Path) -> int:
         this_pass=this_pass,
         prior_pass=prior_pass,
         headless_guard=act.load_shared_block("HEADLESS_EXECUTION_GUARD", wf.SHARED_PROMPTS),
+        run_id=uuid.uuid4().hex,
     )
     print(f"{BANNER}\n  DRY RUN — nothing was invoked, nothing was posted\n{BANNER}")
     print(f"  PR       : #{task.pr_number} ({pr['headRefName']}) — {pr['state']}")
@@ -97,7 +107,11 @@ def main(argv: list[str] | None = None) -> int:
 
         worktree = repo_root
         result = wf.run_review(task, worktree)
-    except (RuntimeError, FileNotFoundError, ValueError) as exc:
+    # OSError covers the log-path freshness guard's FileExistsError, which is a
+    # runtime state with an operator-facing message, not a programming error.
+    # TypeError is deliberately NOT caught: a signature mismatch should traceback
+    # rather than be reported as a workflow failure.
+    except (RuntimeError, FileNotFoundError, ValueError, OSError) as exc:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
 

@@ -111,6 +111,20 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     record = exit_record.route(_shared.result_event(log_file), expected_run_id=run_id)
     verdict = helper.verdict_from_record(record)
 
+    # Persist the parent stratum BEFORE the shadow comparison, because a
+    # disagreement raises and a machinery failure that leaves no trace is the
+    # one Phase 4 most needs counted. Step 4's computed-arm predicate reads
+    # these two fields; nothing else writes them anywhere durable.
+    _shared.append_parent_route(log_file, {
+        "run_id": run_id,
+        "pr": task.pr_number,
+        "routed_outcome": record.routed_outcome.value,
+        "undetermined_reason": (
+            record.undetermined_reason.value if record.undetermined_reason else None
+        ),
+        "hold_kind": record.hold_kind.value if record.hold_kind else None,
+    })
+
     # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------
     # Still emitted, still parsed, and it decides nothing. Read from the
     # assistant text blocks rather than from the console or `.result`: declaring
@@ -163,7 +177,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # compare, and re-reporting the same failure twice tells the operator
     # nothing new.
     if record.routed_outcome is not exit_record.RoutedOutcome.UNDETERMINED:
-        _assert_block_matches_record(task.pr_number, worktree, record)
+        _assert_block_matches_record(task.pr_number, worktree, record, prior_pass)
 
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
@@ -172,7 +186,8 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
 
 
 def _assert_block_matches_record(pr_number: str, repo_root: Path,
-                                 record: exit_record.ExitRecord) -> None:
+                                 record: exit_record.ExitRecord,
+                                 prior_pass: int) -> None:
     """Fail loud when the durable render and the typed record disagree on findings.
 
     ONE AUTHOR, TWO DERIVED COPIES — and the copies are checked rather than
@@ -180,8 +195,41 @@ def _assert_block_matches_record(pr_number: str, repo_root: Path,
     operator never sees; a finding in the block but not in the record is one
     Phase 5's stopping predicate will never count. Both are silent today, which
     is why this is enforced rather than documented.
+
+    THE BLOCK MUST BE *THIS PASS'S*, AND THAT CHECK IS THE FIRST ONE. Reading
+    "the latest block on the thread" is not the same as reading the block this
+    run posted: `disposition.md`'s INVARIANT 1 requires a pass to carry every
+    prior finding forward, so identical id sets across passes is the NORM. A
+    pass ≥2 that produced a record and then failed to post its comment would
+    therefore be compared against pass 1's block, match, and report the
+    invariant satisfied — silently passing in exactly the case it exists to
+    catch. The block count is re-read here (fence-anchored, one declaration) and
+    must have risen by one. Sequence comes from that count, never from the
+    block's own `pass:` counter, which `memory-model.md` §6.4 measured wrong.
     """
-    block = act.latest_pr_review_block(pr_number, repo_root)
+    try:
+        posted = act.count_prior_passes(pr_number, repo_root)
+        block = act.latest_pr_review_block(pr_number, repo_root)
+    except RuntimeError as exc:
+        # COULD-NOT-CHECK IS NOT DISAGREEMENT, and reporting it as one sends the
+        # operator to the wrong place. `gh` failing here (rate limit, transient
+        # 5xx, no network) says nothing about the two copies.
+        raise RuntimeError(
+            f"PR #{pr_number}: the render↔record invariant could not be CHECKED — "
+            f"reading the thread failed: {exc}. This is not a disagreement between "
+            f"the two copies; it is the check itself not running. The typed record "
+            f"routed {record.routed_outcome.value} and is intact in the run log."
+        ) from exc
+
+    if posted <= prior_pass:
+        raise RuntimeError(
+            f"PR #{pr_number}: the run produced a typed exit record but posted no new "
+            f"`pr_review:` block — the thread still carries {posted} block(s), the "
+            f"same count as before this pass. The durable half of the record is "
+            f"missing, so the operator has the outcome with none of its reasoning — "
+            f"which is the one thing arrangement A must not lose. The latest block on "
+            f"the thread belongs to an earlier pass and is NOT this run's rendering."
+        )
     if block is None:
         raise RuntimeError(
             f"PR #{pr_number}: the run produced a typed exit record but no "
@@ -189,14 +237,18 @@ def _assert_block_matches_record(pr_number: str, repo_root: Path,
             f"record is missing, so the operator has the outcome with none of its "
             f"reasoning — which is the one thing arrangement A must not lose."
         )
-    rendered = helper.finding_ids_in_block(block)
-    typed = {f["id"] for f in record.findings}
+    # Ids AND dispositions, because that is what the prompt promises the child.
+    # `findings[].disposition` is what Phase 5's stopping predicate keys on, so
+    # an id-only comparison lets the two copies diverge in the one field a
+    # convergence rule reads.
+    rendered = helper.finding_dispositions_in_block(block)
+    typed = {(f["id"], f["disposition"]) for f in record.findings}
     if rendered != typed:
         raise RuntimeError(
             f"PR #{pr_number}: the posted `pr_review:` block and the typed exit "
-            f"record disagree on findings. Only in the block: "
+            f"record disagree on findings (id, disposition). Only in the block: "
             f"{sorted(rendered - typed) or 'none'}. Only in the record: "
             f"{sorted(typed - rendered) or 'none'}. The typed region is "
             f"authoritative; the block is its rendering, and a rendering that "
-            f"drops or invents a finding is not one."
+            f"drops, invents or re-dispositions a finding is not one."
         )

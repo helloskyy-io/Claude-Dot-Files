@@ -233,3 +233,30 @@ def test_a_fully_substituted_prompt_is_not_rejected(render_name: str, render_cal
     clean = 'review PR ${PR_NUMBER} — the JSON is {"a": 1} and the shell is ${\n'
     out = render_call(clean)
     assert "31" in out, f"{render_name} did not substitute a supplied placeholder"
+
+
+def test_the_review_pr_dry_run_renders_the_real_prompt(monkeypatch, tmp_path) -> None:
+    """THE ZERO-SPEND PRE-FLIGHT MUST ACTUALLY RUN, and a signature change broke it.
+
+    `--dry-run` is the only way to check review-pr's plumbing without a live
+    dispatch, which matters most while the phase's remaining work IS live
+    dispatches at real budget. Adding a required `run_id` to `render_prompt`
+    updated the workflow and both test call sites and not `_dry_run`'s — and
+    because the divergence is a TypeError rather than a wrong result, the CLI's
+    error handler did not catch it either: the operator got a traceback.
+
+    `run_review`'s own docstring already records this exact dry-run/real-path
+    drift happening once before. A placeholder-supplier check over the prompt
+    body cannot see it; only executing the path can, which is why this test
+    calls `_dry_run` rather than asserting on its source.
+    """
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    import run_review_pr as kickoff
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+
+    monkeypatch.setattr(kickoff.act, "fetch_pr", lambda *a, **k: {
+        "headRefName": "build/x", "state": "OPEN", "title": "t"})
+    monkeypatch.setattr(kickoff.act, "count_prior_passes", lambda *a, **k: 0)
+
+    assert kickoff._dry_run(ReviewInput(pr_number="31"), tmp_path) == 0

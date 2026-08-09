@@ -124,6 +124,29 @@ def pass_numbers(prior_pass_count: int) -> tuple[int, int]:
 # dependency.
 _FINDING_ID = re.compile(r"^\s*-\s*id:\s*([^\s#]+)", re.MULTILINE)
 
+# The `disposition:` belonging to a finding, matched from that finding's `- id:`
+# line up to the next one. `disposition.md`'s block puts four keys between them,
+# so an unbounded search would attribute the NEXT finding's value to this one.
+_FINDING_ITEM = re.compile(
+    r"^[ \t]*-[ \t]*id:[ \t]*([^\s#]+)(.*?)(?=^[ \t]*-[ \t]*id:|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+_DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
+
+
+def _unquote(token: str) -> str:
+    """Strip one matched pair of surrounding quotes, and nothing else.
+
+    `- id: "a-slug"` is valid yaml for `a-slug`, and the raw capture keeps the
+    quotes. Comparing that against the typed record's `a-slug` raises "the two
+    copies disagree" on input that is semantically identical — a guard failing
+    on correct input, which is the anti-pattern `finding_dispositions_in_block`
+    avoids a YAML parser to escape in the first place.
+    """
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
+        return token[1:-1]
+    return token
+
 
 def finding_ids_in_block(block: str) -> frozenset[str]:
     """The finding ids the DURABLE record claims, for the render-record invariant.
@@ -133,7 +156,26 @@ def finding_ids_in_block(block: str) -> frozenset[str]:
     the malformed ones this check most wants to catch — and a check that throws
     on the input it exists to examine is not a check.
     """
-    return frozenset(_FINDING_ID.findall(block))
+    return frozenset(_unquote(t) for t in _FINDING_ID.findall(block))
+
+
+def finding_dispositions_in_block(block: str) -> frozenset[tuple[str, str]]:
+    """`(id, disposition)` pairs the durable block claims.
+
+    THE PROMPT PROMISES BOTH HALVES AND THE INVARIANT MUST CHECK BOTH.
+    `disposition.md` tells the child that every `findings[].id` AND
+    `findings[].disposition` is identical in the block and the record, and that
+    its caller fails the run loud on a mismatch. Comparing ids alone let a block
+    saying `deferred` stand against a record saying `fixed` — and
+    `findings[].disposition` is the field Phase 5's stopping predicate keys on,
+    so the two copies would diverge in exactly the place a convergence rule
+    reads. A finding with no parseable `disposition:` pairs with the empty
+    string, which fails the comparison rather than silently dropping out.
+    """
+    return frozenset(
+        (_unquote(fid), _unquote(m.group(1)) if (m := _DISPOSITION.search(body)) else "")
+        for fid, body in _FINDING_ITEM.findall(block)
+    )
 
 
 def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:

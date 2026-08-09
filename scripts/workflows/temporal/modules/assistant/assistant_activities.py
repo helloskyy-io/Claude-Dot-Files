@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import os
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -271,17 +272,17 @@ def claude_log_path(repo_root: Path, model_key: str) -> Path:
     return path
 
 
-def result_event(log_file: Path) -> dict | None:
-    """The CLI's `result` event from a run log, or None if the log has none.
+def _log_events(log_file: Path) -> Iterator[dict]:
+    """Decoded JSONL events from a run log, in order. Missing log yields nothing.
 
-    None is a REAL answer, not an error: a run killed before it emitted one has
-    no result event, and the fail-safe contract's R2 fires on it exactly as it
-    fires when the key is merely absent. Malformed lines are skipped rather than
-    raising — the stream interleaves non-JSON on stderr paths.
+    ONE DECLARATION OF "how a run log is read", because the invariant is not
+    obvious and both readers below depend on it: the stream interleaves non-JSON
+    on stderr paths, so a routing read must SKIP a malformed line rather than
+    raise. Losing the record to a stray warning would route a clean run to a
+    human for a reason that has nothing to do with the run.
     """
     if not log_file.exists():
-        return None
-    found = None
+        return
     for line in log_file.read_text(errors="replace").splitlines():
         line = line.strip()
         if not line.startswith("{"):
@@ -290,13 +291,26 @@ def result_event(log_file: Path) -> dict | None:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(event, dict) and event.get("type") == "result":
+        if isinstance(event, dict):
+            yield event
+
+
+def result_event(log_file: Path) -> dict | None:
+    """The CLI's `result` event from a run log, or None if the log has none.
+
+    None is a REAL answer, not an error: a run killed before it emitted one has
+    no result event, and the fail-safe contract's R2 fires on it — `record_absent`,
+    because no event implies no key.
+    """
+    found = None
+    for event in _log_events(log_file):
+        if event.get("type") == "result":
             found = event          # last wins; there is one, but do not assume it
     return found
 
 
 def assistant_text(log_file: Path) -> str:
-    """Every assistant text block in a run log, in order, newline-joined.
+    """This run's own assistant text blocks, in order, newline-joined.
 
     THIS IS WHERE THE MODEL'S PROSE LIVES WHEN A SCHEMA IS DECLARED. Measured on
     CLI 2.1.224: `--json-schema` replaces `.result` with the serialised
@@ -304,24 +318,43 @@ def assistant_text(log_file: Path) -> str:
     on every conforming run and report a disagreement that is an artifact of
     where it looked. `run-claude.sh`'s completion gate reads the same surface,
     for the same reason.
+
+    SUB-AGENT TURNS ARE EXCLUDED. A `Task` sub-agent's assistant events carry a
+    `parent_tool_use_id`; the top-level model's carry null. A sub-agent quoting
+    or proposing a verdict line is not this run's verdict, and admitting one
+    would let a nested agent decide the parent's route.
     """
-    if not log_file.exists():
-        return ""
     chunks: list[str] = []
-    for line in log_file.read_text(errors="replace").splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
+    for event in _log_events(log_file):
+        if event.get("type") != "assistant":
             continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(event, dict) or event.get("type") != "assistant":
+        if event.get("parent_tool_use_id") is not None:
             continue
         for block in (event.get("message") or {}).get("content") or []:
             if isinstance(block, dict) and block.get("type") == "text":
                 chunks.append(block.get("text", ""))
     return "\n".join(chunks)
+
+
+def append_parent_route(log_file: Path, event: dict) -> None:
+    """Append the PARENT-COMPUTED stratum to the run log, as one JSONL event.
+
+    WITHOUT THIS THE COMPUTED ABSTENTION ARM HAS NO RATE.
+    `phase3_typed_exit_record.md` step 4 specifies both arms as predicates over
+    a run's events — the asserted arm reads `structured_output.hold_kind`, which
+    the child writes, and the computed arm reads `routed_outcome` grouped by
+    `undetermined_reason`, which NOTHING wrote. `exit-protocol.md` §2.3's two
+    parent-computed fields lived only in a return value that dies with the
+    process and in free-text operator notes, so the arm the protocol calls the
+    reliable one was the one Phase 4 could not count.
+
+    The log is the natural home: it already carries the child's stratum, so both
+    predicates evaluate over one artifact rather than two. `type` is namespaced
+    away from the CLI's own event types so a future CLI cannot collide with it,
+    and appending keeps the CLI's own stream byte-identical.
+    """
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"type": "parent_route", **event}) + "\n")
 
 
 def run_claude(prompt: str, *, model_key: str, completion_pattern: str,

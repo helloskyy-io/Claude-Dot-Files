@@ -146,25 +146,28 @@ def test_a_fresh_path_is_returned_when_nothing_is_there(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 _ASSISTANT_FILTER = re.compile(
-    r'''final_result=\$\(jq -r '(select\(\.type == "assistant"\).*?)'\s''', re.DOTALL)
+    r'''final_result=\$\(jq -rs '(\[ \.\[\].*?)'\s''', re.DOTALL)
 _RESULT_FILTER = re.compile(
     r'''final_result=\$\(jq -r '(select\(\.type == "result"\).*?)'\s''', re.DOTALL)
 
 
-def _jq(program: str, log: Path) -> str:
-    out = subprocess.run(["jq", "-r", program, str(log)],
+def _jq(program: str, log: Path, *, slurp: bool = False) -> str:
+    out = subprocess.run(["jq", "-rs" if slurp else "-r", program, str(log)],
                          capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
     return out.stdout
 
 
+def _shipped_assistant_filter() -> str:
+    m = _ASSISTANT_FILTER.search(RUN_CLAUDE.read_text())
+    assert m, "run-claude.sh no longer carries an assistant-text completion filter"
+    return m.group(1)
+
+
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
 def test_the_shipped_assistant_filter_finds_the_completion_signal() -> None:
     """The schema-declared branch of the completion gate, run as shipped."""
-    source = RUN_CLAUDE.read_text()
-    m = _ASSISTANT_FILTER.search(source)
-    assert m, "run-claude.sh no longer carries an assistant-text completion filter"
-    assert "VERDICT: MERGE" in _jq(m.group(1), FIXTURE)
+    assert "VERDICT: MERGE" in _jq(_shipped_assistant_filter(), FIXTURE, slurp=True)
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
@@ -180,6 +183,52 @@ def test_the_shipped_result_filter_would_have_MISSED_it() -> None:
     m = _RESULT_FILTER.search(source)
     assert m, "run-claude.sh no longer carries a .result completion filter"
     assert "VERDICT: MERGE" not in _jq(m.group(1), FIXTURE)
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_gate_still_REJECTS_a_verdict_that_is_not_the_final_word(tmp_path: Path) -> None:
+    """THE MUTATION EVIDENCE FOR THE GATE ITSELF, which is what it exists to be.
+
+    The gate's whole job is catching a headless early-stop: a run that ended a
+    turn with text while work was outstanding. `.result` gave that for free by
+    being the FINAL message. Moving the read to the assistant blocks had to keep
+    it, and a filter over every block would not — it changes the predicate from
+    "the run finished with a verdict" to "the run ever mentioned a verdict",
+    readmitting exactly the failure the gate was built for.
+
+    A test asserting only that the filter FINDS a verdict cannot tell the two
+    apart: it passes under both. This log is the discriminator — the verdict is
+    printed at turn 1 and the run then stops mid-work, so a correct gate comes
+    back without it.
+    """
+    log = tmp_path / "early-stop.jsonl"
+    log.write_text(
+        '{"type":"assistant","parent_tool_use_id":null,"message":{"content":'
+        '[{"type":"text","text":"Draft: VERDICT: MERGE"}]}}\n'
+        '{"type":"assistant","parent_tool_use_id":null,"message":{"content":'
+        '[{"type":"text","text":"Let me confirm the comment posted."}]}}\n'
+    )
+    out = _jq(_shipped_assistant_filter(), log, slurp=True)
+    assert "VERDICT: MERGE" not in out
+    assert "Let me confirm" in out, "the filter must still read the LAST block"
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_gate_ignores_a_verdict_line_from_a_sub_agent(tmp_path: Path) -> None:
+    """A nested Task agent's terminal line is not this run's completion signal.
+
+    Sub-agent assistant events carry a `parent_tool_use_id`; the top-level
+    model's carry null (verified on a live CLI 2.1.224 stream). Without the
+    filter a sub-agent could satisfy its parent's gate.
+    """
+    log = tmp_path / "subagent.jsonl"
+    log.write_text(
+        '{"type":"assistant","parent_tool_use_id":null,"message":{"content":'
+        '[{"type":"text","text":"Dispatching a reviewer."}]}}\n'
+        '{"type":"assistant","parent_tool_use_id":"toolu_1","message":{"content":'
+        '[{"type":"text","text":"VERDICT: MERGE"}]}}\n'
+    )
+    assert "VERDICT: MERGE" not in _jq(_shipped_assistant_filter(), log, slurp=True)
 
 
 def test_the_json_schema_flag_is_gated_on_the_caller_declaring_one() -> None:
