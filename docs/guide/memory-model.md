@@ -20,6 +20,8 @@ So every section that could be answered two ways answers both:
 
 §9 states the split as a single inherit-versus-re-implement table.
 
+**Where to start, because the second half is not orientation.** §1–§3 are the model: read them to understand how the platform remembers anything. §4–§7 are reference for whoever changes what a surface emits or parses — a per-field consumer map, a blast-radius table, the addressing convention and the Kind 2 seam. If you are orienting rather than changing a field, §1–§3 and §9 are the document.
+
 > **Kind 2 — the typed exit record** — is the machine-readable counterpart: emitted at exit on a channel the parent owns, read by code within seconds. It is **not built**; it is [Phase 3](../development/memory-management-framework/phase3_typed_exit_record.md) of the [Memory Management Framework](../development/memory-management-framework/roadmap.md). This document exists partly so Phase 3 knows exactly what Kind 1 carries — because under the arrangement Phase 3 adopts, anything the typed record does not model, the render loses. §7 enumerates what is at risk.
 
 ---
@@ -66,6 +68,8 @@ Two rules, and they are the reason the model does not rot:
 
 Three GitHub surfaces plus two file surfaces. They are not interchangeable, and collapsing any two of them is a recurring failure (§2.6).
 
+> **This set and the binding standard's do not yet agree, and the reconciliation is the operator's.** [`architectural_standard.md` § 4 Memory](../standards/architecture/architectural_standard.md) is marked *(binding)* and its table lists four surfaces — it carries `candidates.md` but **no `direction.md`**. This document measured both against §1 and both pass (§2.4, §2.5), so the set below is the measured one. Closing the other direction means amending a human-ratified standard, which no dispatch may do: it is filed as **candidate 8** in the [Memory Management Framework roadmap](../development/memory-management-framework/roadmap.md#standards-amendment-candidates) and lands by operator signature.
+
 | Surface | Holds | To-do bit | Lifecycle | Written by | Read by |
 |---|---|---|---|---|---|
 | **PR threads** | change-outcomes — what got built, the run's own decision log and reflection, and the `pr_review:` disposition ruling on it | PR `open` | closes at merge | every PR-producing workflow; `review-pr` posts the disposition comment | `/standup`, `review-pr.sh` (prior-pass detection), `review_pr_activities.py`, the operator |
@@ -85,7 +89,7 @@ Apply §1.1's two questions:
 
 **That is the whole rule.** It is stated as a rule and not implied by examples on purpose: an example-driven table answers the cases someone thought of, and the failure mode here is always the case nobody thought of.
 
-**`candidates.md` is deliberately absent from the rule, per §1.1.** Nothing is *routed* there: research **creates** rows there, and a row leaves by being triaged — at which point the rule above routes its outcome (`requires review` → a `direction.md` row, with the candidate row staying behind as the pointer; `ship` → an existing phase doc or a new sprint section). A row with a blank `decision` has no outcome to route yet, and treating one as though it had is what put seven untriaged candidates on the standup tracker.
+**`candidates.md` is deliberately absent from the rule, per §1.1** — nothing is routed there. What the rule above does own is where a row goes *once triaged*: `requires review` → a `direction.md` row, with the candidate row staying behind as the pointer; `ship` → an existing phase doc or a new sprint section.
 
 ### 2.2 · Why the tracker is a GitHub issue anyway
 
@@ -110,7 +114,7 @@ Everything else it does is a read. **It never sets `status:`** — the ruling st
 
 **Two corrections are stacked here, and the second is the instructive one.** The original claim in `operations.md` and in [Phase 2](../development/memory-management-framework/phase2_kind1_framework.md)'s own gotchas — *"strictly read-only, including the tracker"* — was true before commits `1e7d6ce` and `88c4e81` and stale after them. **The replacement claim, "writes in exactly two places", was also wrong**, and it was wrong for a subtler reason: it was taken from `standup.md`'s § Rules summary of itself (`:174`), which undercounts its own Stage 2 table (`:67`). *An account is not the artifact* (§1.2) — and a command's summary of itself is an account. The consumer/writer map is what [Phase 4](../development/memory-management-framework/phase4_fleet_migration.md) verifies fleet-wide against, and a map that omits a writer is worse than no map.
 
-**`standup.md` itself states its write set two contradictory ways** — `:3` forbids closing issues and editing files, `:66`/`:105`/`:174` direct exactly that. That is a live defect in a Kind 1 consumer; it is surfaced rather than fixed, because this phase documents what exists and does not edit prompts.
+**`standup.md` still states its write set two contradictory ways, and the half that was fixed is the reason to state the other half precisely.** The issue-closing contradiction is **closed**: `1506053` rewrote `:3` to authorise it outright (*"exactly TWO kinds of action: updating the standup tracker, and CLOSING an issue you verified is done"*), and this document's Phase 2 pass is what escalated it. What survives is the third write. `:3` still forbids `/standup` to *"edit any file"*, while `:67` and `:105` direct it to delete rotated rows from `direction.md` — a committed repo file, so those writes are exactly what `:3` prohibits. And `:174`'s § Rules summary still says *"exactly TWO places"*, which is the undercount the paragraph above is about. A live defect in a Kind 1 consumer, surfaced rather than fixed: this phase documents what exists and does not edit prompts.
 
 **Why the write exists, so it is not read as scope creep:** a reconciler that can see an item is finished but cannot say so re-reports that dead item every morning, forever. The write is what makes the read worth doing. **No autonomous *dispatch* writes to the tracker** — that remains true, and it is a different claim: `/standup` runs in an operator session, which is the human-in-the-loop.
 
@@ -132,12 +136,12 @@ Nothing about that record is a GitHub fact. It is the same interface on a differ
 | **2 · readable by humans *and* runs** | one fixed-column markdown table serving both. `plan-sprint` parses it to triage; the research tree reads it to find the highest live id before appending |
 | **3 · outcome *and* reasoning** | `decision` is the outcome; *"Planning sets `decision`; a later process sets `status`. **Both carry reasoning in the Note**"* — and a `reject` without it *"gets re-proposed on the next cycle by a run that cannot see why it was refused"* |
 | **4 · to-do bit** | `status:` — `open` / `closed`, binary, on the row. Kept distinct from the disposition by a section of the file titled *"Two flags, orthogonal — do not collapse them"* |
-| **5 · addressable** | `C-NNN`, *"never reused, and never renumbered"* — with the one incident where a carried-forward candidate briefly held a duplicate id recorded in the file so the rule is not merely asserted |
+| **5 · addressable** | `C-NNN` — the file's rule is that research *"adds new candidates with a **stable ID**, never reused, and never renumbers an existing one"*, with the one incident where a carried-forward candidate briefly held a duplicate id recorded alongside it so the rule is not merely asserted |
 | *(consequence of 1 + 5)* **survives context death** | its § *Why it exists*: a candidate surfaced only in `synthesis.md` vanished on the next research cycle and its disposition went with it |
 
-**Five for five, and the first four are why §2.4's surface is allowed to delete anything.** `direction.md`'s rotation rule is *"No durable record, no rotation"* — a ruled row may be deleted at 90 days **only** once its reasoning has been written into the source candidate's Note, *"which never deletes."* So the surface the framework omitted is the one the surface it included **depends on for correctness**: `direction.md` is a receipt with a bounded life, and `candidates.md` is the floor underneath it. Documenting the receipt without the floor describes a record that discards reasoning on a timer, which is property 3 failing at the deletion boundary — the exact thing §3.2 says the precondition exists to prevent.
+**Five for five — and property 1 is why §2.4's surface is allowed to delete anything.** §3.2 states the rotation precondition and cites its authoritative home; what belongs here is the consequence for the surface set. **The surface the framework omitted is the one the surface it included depends on for correctness**: `direction.md` is a receipt with a bounded life, and this is the floor underneath it. Documenting the receipt without the floor describes a record that discards reasoning on a timer — property 3 failing at the deletion boundary, which is the exact thing the precondition exists to prevent.
 
-**Its lifecycle shape is Task, not Continuous — which is why *nobody deletes a row* is not the ledger failure of §2.6.** §3.1's Continuous shape is the one that needs a pruning bound, because its per-item bit never clears. This surface's does: a row reaches a terminal `decision` and then `status: closed`. Its bound is triage, not deletion — *"a blank decision is not the same as `open`"*, and rows accumulating **untriaged** is its growth-failure signal (§3.2). That is the same distinction §2.6 draws between an issue and a carried-work file, applied to a substrate that happens to be a file: what makes a store a ledger is that nothing obliges its entries to reach a disposition, not that they stay legible afterwards.
+**Its lifecycle shape is Task, not Continuous — which is why *nobody deletes a row* is not the ledger failure of §2.6.** §3.1's Continuous shape is the one that needs a pruning bound, because its per-item bit never clears. This surface's does: a row reaches a terminal `decision` and then `status: closed`. **Its bound is on the other axis, and §3.2 states it** — which is the same distinction §2.6 draws between an issue and a carried-work file, applied to a substrate that happens to be a file: what makes a store a ledger is that nothing obliges its entries to reach a disposition, not that they stay legible afterwards.
 
 **So the fleet's second binding has two members and a distinguishing pair between them.** `candidates.md` is the machine's document and `direction.md` is the operator's; one never deletes and one rotates at 90 days. They share the five properties and not their lifecycles — which is §9's claim, instantiated twice rather than once.
 
@@ -416,7 +420,7 @@ The question this table answers: *a new component's work product is not code in 
 | | Inherited — substrate-independent | Re-implemented — this fleet's binding |
 |---|---|---|
 | **Contract** | §1's five properties | — |
-| **Selection** | §1.1's two questions; the three outcome classes plus the ruling class; that a surface may be *created into* rather than routed to | §2.1's mapping onto PR / Issue / tracker / `direction.md`, and `candidates.md` sitting outside the rule (§2.5) |
+| **Selection** | §1.1's two questions; the three outcome classes plus the ruling class; that a surface may be *created into* rather than routed to | §2.1's mapping onto PR / Issue / tracker / `direction.md`, and `candidates.md` sitting outside the rule (§2.1) |
 | **Lifecycles** | §3.1's three shapes; the rule that a continuous record needs a pruning bound | §3.2's specific retentions and thresholds (merge, close, 14 days, 90 days, never) |
 | **To-do bit** | that there is one, on the record, binary | that it is GitHub `open` — **and note this fleet already has two exceptions**: `direction.md`'s and `candidates.md`'s are both `status:` columns (§2.4, §2.5) |
 | **Change safety** | §5.1's three non-local change classes | §5.2's per-field consumer list |
