@@ -57,48 +57,79 @@ def run_child(script: Path, args: list[str], *, stream: bool = True) -> ChildRes
     return ChildResult(exit_code=proc.wait(), output="".join(captured))
 
 
-# The checks this repo OWNS and has ruled merge-blocking. Everything else that
-# runs on a PR is advisory, and §"what is consequently not covered" is stated
-# with it rather than left implicit.
+# WHICH CHECKS GATE MERGE IS A FACT ABOUT THE REPO, NOT ABOUT THIS PARENT.
+# The parent is generic across many repos; a constant enumerating each
+# consumer's job names is the parent knowing things about its consumers, and
+# the failure is silent-by-default — the next repo's checks match nothing, the
+# gate reports a skip, and the only signal is a line someone has to be reading.
 #
-# WHY A NAMED SET AND NOT "ALL". Four checks run here and only one is ours.
-# `suite` is our test runner. `CodeQL` and `Analyze (…)` are GitHub default
-# setup — we did not configure them, cannot fix them, and CodeQL produced a
-# 12-failure burst on 2026-08-06 with no cause on our side. Gating on them
-# would let the scanner breaking halt the fleet.
+# MEASURED IMMEDIATELY: this shipped as `BLOCKING_CHECKS = ("suite",)` and the
+# MDC side's gating job is named `master-test-tier`. Every one of their PRs
+# would have returned NO_CHECKS — the gate adopted, none of it received.
 #
-# AND THE DISTINCTION THAT DECIDES IT: `gh pr checks` reports JOB STATUS. A
-# CodeQL job failure means the scan did not COMPLETE — not that it FOUND
-# something. Gating on job status conflates infrastructure with findings.
-#
-# NOT COVERED, stated plainly: a PR whose CodeQL job failed merges UNSCANNED.
-# The push-to-`main` scan catches it after the fact, which is the mitigation
-# that makes this carve-out honest rather than convenient.
-BLOCKING_CHECKS = ("suite",)
+# So the repo declares, and the parent reads. Onboarding a repo becomes adding
+# one file TO THAT REPO, which is the correct ownership direction and the
+# reason this scales past the second consumer.
+POLICY_PATH = Path("testing") / "check-policy.yaml"
 
 
 class CiVerdict(str, Enum):
-    """Three states, and the third is the one that gets fudged."""
+    """Four states, and the last two are the ones that get fudged."""
 
     GREEN = "green"
     RED = "red"
     NO_CHECKS = "no_checks"
+    UNREADABLE_POLICY = "unreadable_policy"
 
 
-def ci_verdict(pr: str, *, repo: str | None = None) -> tuple[CiVerdict, list[str]]:
-    """Read the settled verdict for the checks this repo gates on.
+def read_check_policy(repo_root: Path) -> tuple[list[str], list[str], bool]:
+    """Read the repo's own declaration of which checks gate it.
 
-    Returns the verdict and the names of any BLOCKING checks that failed.
-
-    NO_CHECKS IS NOT GREEN, and saying so is the whole point of the third state.
-    A repo with no workflows — or a PR whose workflows were all path-filtered
-    out — returns no checks, and reading that as a pass is the filtered-gate
-    defect wearing different clothes. The caller reports it as an explicit skip.
-
-    A check that is PENDING at this point is treated as absent rather than as
-    failing: `wait_for_ci` has already blocked for it, so a still-pending check
-    means the wait timed out, which the caller already knows about separately.
+    Returns (blocking, advisory, readable). `readable` is False ONLY when the
+    file exists and cannot be parsed — which is a DIFFERENT FACT from the file
+    being absent, and collapsing the two is how the skip path becomes the new
+    exit. A repo may legitimately have no gate; a repo whose declaration is
+    broken has not said so.
     """
+    path = repo_root / POLICY_PATH
+    if not path.is_file():
+        return [], [], True
+    try:
+        import yaml  # a hard preflight dependency; see scripts/preflight.py
+        doc = yaml.safe_load(path.read_text()) or {}
+        if not isinstance(doc, dict):
+            return [], [], False
+        blocking = [str(x) for x in (doc.get("blocking") or [])]
+        advisory = [str(e.get("name")) if isinstance(e, dict) else str(e)
+                    for e in (doc.get("advisory") or [])]
+    except Exception:
+        return [], [], False
+    return blocking, advisory, True
+
+
+def ci_verdict(pr: str, *, repo: str | None = None,
+               repo_root: Path | None = None) -> tuple[CiVerdict, list[str]]:
+    """Read the settled verdict for the checks THE TARGET REPO gates on.
+
+    Returns the verdict and, for RED, the blocking checks that failed; for
+    UNREADABLE_POLICY, nothing; for NO_CHECKS, any checks that ran but are
+    declared nowhere.
+
+    NO_CHECKS IS NOT GREEN. A repo with no declaration, or a PR whose gating
+    workflows were all path-filtered out, reports nothing — and reading that as
+    a pass is the filtered-gate defect wearing different clothes.
+
+    A PENDING check is treated as absent rather than failing: `wait_for_ci` has
+    already blocked for it, so a still-pending check means that wait timed out,
+    which the caller knows about separately.
+    """
+    blocking: list[str] = []
+    advisory: list[str] = []
+    if repo_root is not None:
+        blocking, advisory, readable = read_check_policy(repo_root)
+        if not readable:
+            return CiVerdict.UNREADABLE_POLICY, []
+
     cmd = ["gh", "pr", "checks", pr, "--json", "name,state"]
     if repo:
         cmd += ["--repo", repo]
@@ -110,13 +141,20 @@ def ci_verdict(pr: str, *, repo: str | None = None) -> tuple[CiVerdict, list[str
         # Unreadable output is NOT green. Fail into the state that stops.
         return CiVerdict.NO_CHECKS, []
 
-    gating = [c for c in checks if c.get("name") in BLOCKING_CHECKS]
-    if not gating:
-        return CiVerdict.NO_CHECKS, []
+    names = {str(c.get("name")) for c in checks}
+    # A check that ran and appears in NEITHER list is the third state the
+    # Testing Standard says does not exist — "either on the merge path, or
+    # documented as advisory." Surfaced, never silently gated: a check the repo
+    # has not classified must not halt the fleet, but it must not hide either.
+    undeclared = sorted(names - set(blocking) - set(advisory)) if (blocking or advisory) else []
 
-    failed = [c["name"] for c in gating
+    gating = [c for c in checks if str(c.get("name")) in blocking]
+    if not gating:
+        return CiVerdict.NO_CHECKS, undeclared
+
+    failed = [str(c["name"]) for c in gating
               if str(c.get("state", "")).upper() not in {"SUCCESS", "SKIPPED", "NEUTRAL"}]
-    return (CiVerdict.RED, failed) if failed else (CiVerdict.GREEN, [])
+    return (CiVerdict.RED, failed) if failed else (CiVerdict.GREEN, undeclared)
 
 
 def wait_for_ci(pr: str, *, repo: str | None = None) -> bool:

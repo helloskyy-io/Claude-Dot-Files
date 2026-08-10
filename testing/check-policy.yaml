@@ -1,0 +1,36 @@
+# Which of this repo's CI checks gate a merge, and which are advisory.
+#
+# READ BY THE BUILD PARENT between refine and review-pr. A red BLOCKING check
+# means review-pr is never dispatched, so MERGE is unreachable on a red tree.
+#
+# THIS FILE EXISTS BECAUSE THE FACT BELONGS HERE. "Which of my checks gate
+# merge" is a fact about this repo — its tiers, its job names, its carve-outs.
+# The parent is generic across many repos; a list living there is the parent
+# knowing things about its consumers, and the next repo silently gets no gate.
+#
+# The Testing Standard's clause is binding on this file: an automated check
+# that can fail is EITHER on the merge path OR declared advisory, and there is
+# no third state. A check that runs and appears in neither list below is a
+# detectable violation, and the parent reports it by name.
+
+blocking:
+  # Our test runner. `tests.yml` job `suite` — the three tiers plus the
+  # executability sweep, the prompt lint, settings validation, bash -n and
+  # ratcheted shellcheck. This is the verdict that means the tree works.
+  - suite
+
+advisory:
+  - name: CodeQL
+    reason: >-
+      GitHub default setup; we did not configure it and cannot fix it. `gh pr
+      checks` reports JOB STATUS, so a failure means the scan did not COMPLETE,
+      not that it FOUND something — gating on it conflates infrastructure with
+      findings and lets the scanner breaking halt the fleet. It produced a
+      12-failure burst on 2026-08-06 with no cause on our side.
+      NOT COVERED: a PR whose CodeQL job failed merges UNSCANNED. The
+      push-to-main scan catches it after the fact, which is the mitigation that
+      makes this carve-out honest rather than convenient.
+  - name: Analyze (python)
+    reason: CodeQL default setup, same reasoning as above.
+  - name: Analyze (actions)
+    reason: CodeQL default setup, same reasoning as above.

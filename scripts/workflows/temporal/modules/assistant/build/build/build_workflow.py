@@ -30,7 +30,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import BLOCKING_CHECKS, CiVerdict, ci_verdict, wait_for_ci
+from ..build_activities import POLICY_PATH, CiVerdict, ci_verdict, wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ... import assistant_activities as act
 from ...review_pr import review_pr_workflow as review_pr
@@ -110,11 +110,34 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     # before by removing branch protection — `suite` runs on every PR here and
     # nothing consumed its verdict, so `gh pr merge` succeeded on red.
     wait_for_ci(pr, repo=task.repo_target)
-    verdict_state, failed = ci_verdict(pr, repo=task.repo_target)
+    verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
+
+    if verdict_state is CiVerdict.UNREADABLE_POLICY:
+        # A declaration that EXISTS and cannot be read is a different fact from
+        # no declaration, and collapsing them is how the skip path becomes the
+        # new exit. Same discipline the JSON parse already follows: unreadable
+        # input fails into the state that STOPS.
+        notes.append(
+            f"CI GATE: HOLD — {POLICY_PATH} exists and could not be parsed. "
+            "A broken declaration is not the same as no declaration; fix the file. "
+            "review-pr was NOT dispatched."
+        )
+        return Verdict.HOLD_NEEDS_ASSISTANCE
+
+    if extra and verdict_state is not CiVerdict.RED:
+        # A check that ran and is declared NEITHER blocking nor advisory is the
+        # third state the Testing Standard says does not exist. Reported by
+        # name, never silently gated — a check the repo has not classified must
+        # not halt the fleet, and must not hide either.
+        notes.append(
+            f"CI GATE: UNDECLARED CHECKS — {', '.join(extra)} ran and appear in neither "
+            f"the blocking nor the advisory list of {POLICY_PATH}. The Testing Standard "
+            "admits no third state; classify them."
+        )
 
     if verdict_state is CiVerdict.RED:
         notes.append(
-            f"CI GATE: HOLD — blocking checks failed: {', '.join(failed)}. "
+            f"CI GATE: HOLD — blocking checks failed: {', '.join(extra)}. "
             "review-pr was NOT dispatched; a red tree cannot produce a MERGE verdict. "
             "Fix the checks and redispatch; the diff is intact on the branch."
         )
@@ -127,7 +150,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         # get here. The run says so out loud; it does not stop on it, because
         # a repo may legitimately have none.
         notes.append(
-            f"CI GATE: SKIPPED — no blocking check ({', '.join(BLOCKING_CHECKS)}) "
+            f"CI GATE: SKIPPED — no check declared blocking in {POLICY_PATH} "
             f"reported on PR {pr}"
             + (f" in {task.repo_target}" if task.repo_target else "")
             + ". This is NOT a pass. Either the repo has no such gate, or its "
