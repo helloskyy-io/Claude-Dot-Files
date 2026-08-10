@@ -51,10 +51,13 @@
 # one spelling of a separator, and everything not enumerated passes. The
 # end-of-match half was fixed first; the sweep built for it appends to the end
 # of the command, so it structurally could not see the same defect sitting
-# between a keyword and its operand — and 58 of the 60 corpus commands were
-# passing with a tab in place of a space while that sweep was green. The
-# remedy for the mid-match half is the canonicalization step further down
-# rather than 57 boundary edits; see the comment there for why.
+# between a keyword and its operand — and nearly the whole corpus was passing
+# with a tab in place of a space while that sweep was green. The remedy for the
+# mid-match half is the canonicalization step further down rather than a
+# boundary edit per pattern; see the comment there for why. THE MEASURED
+# FIGURES ARE STATED ONCE, beside `_RESPELLINGS` in the suite, and are not
+# repeated here — this file had four copies of them and three stale prose
+# totals besides, which is the drift this whole block is about.
 #
 # WHAT THIS HOOK CATCHES (in-scope):
 #   - Literal destructive commands matching the regex patterns below
@@ -141,13 +144,18 @@
 #   over-match is narrowed rather than accepted — the same call already made
 #   for `git push --force-with-lease` and `curl … | shasum` under issue #62.
 #   The mechanism is the SCRATCH-DELETE ELISION step below, and its boundary is
-#   deliberately tight; the five shapes that read safe and are still denied are
-#   enumerated there and pinned as corpus entries.
+#   deliberately tight. The shapes that read safe and are still denied are
+#   enumerated there and pinned as corpus entries — NO COUNT IS QUOTED HERE, on
+#   purpose: a bare total in this block is prose nothing parses, and three such
+#   totals in this file had already drifted by the time anyone counted them.
+#   The four `BLOCKED ANYWAY:` lines below ARE parsed and are the executable
+#   part; the corpus is the exhaustive list.
 #     PASSES THROUGH: rm -rf /tmp/pr75-merge
 #     PASSES THROUGH: cd /tmp && rm -rf m6 && mkdir m6 && cd m6
 #     BLOCKED ANYWAY: rm -rf /tmp
 #     BLOCKED ANYWAY: rm -rf /tmp/build /
 #     BLOCKED ANYWAY: cd /home/puma && rm -rf Repos
+#     BLOCKED ANYWAY: rm -rf /tmp/evil && rm -rf /tmp/evil /
 #
 # FAILING CLOSED (issue #61, `hook-scripts.md § The headless safety
 # invariant` point 2):
@@ -264,7 +272,8 @@ fi
 
 # ---------------------------------------------------------------------------
 # WHITESPACE CANONICALIZATION — the class fix for a separator defect measured
-# at 58 of the 60 commands in the suite's dangerous corpus.
+# across nearly the whole of the suite's dangerous corpus. (Figures beside
+# `_RESPELLINGS` in the suite; stated once, on purpose.)
 # ---------------------------------------------------------------------------
 #
 # Every pattern below spells a token separator as a literal space (` `, ` +`).
@@ -634,8 +643,8 @@ REGEX_PATTERNS=(
   #
   # THE SPACE AFTER THE REDIRECT OPERATOR IS OPTIONAL IN SHELL, and every
   # pattern in this section and the next used to require it. `>/dev/sda` — no
-  # space — is not obfuscation, it is how most people write a redirect, and all
-  # fourteen entries carrying a `> ` or `>> ` prefix allowed it. Canonicalizing
+  # space — is not obfuscation, it is how most people write a redirect, and
+  # every entry carrying a `> ` or `>> ` prefix allowed it. Canonicalizing
   # whitespace above cannot reach this one: there is no whitespace to
   # canonicalize. `> *` (zero-or-more, matching the `\| *` in the RCE patterns
   # below) is the smallest correct form. It is a widening, so each entry gains
@@ -645,7 +654,7 @@ REGEX_PATTERNS=(
   # up from the space. `> *` names the SEPARATOR as the only thing that may sit
   # between operator and target, so it silently assumed the operator is spelled
   # `>`. Bash spells it two ways: `>|` overrides `noclobber` and is otherwise
-  # identical to `>`. It routed around all fourteen entries — `echo x >|
+  # identical to `>`. It routed around every single-`>` entry — `echo x >|
   # /etc/passwd`, `>| /etc/shadow` and `>| /dev/sda` were ALLOWED while `>`,
   # `>>`, `2>` and `&>` against those same targets denied. Those three survive
   # only incidentally: each contains a literal `>` followed by the space this
@@ -654,10 +663,15 @@ REGEX_PATTERNS=(
   # alternation in ERE.
   #
   # WIDENING WAS CHOSEN BY MEASUREMENT, not preference. The alternative was to
-  # declare `>|` a documented gap. Every one of the 81 `MUST ALLOW` claims in
-  # this file was run against the widened patterns first: none newly matched.
-  # The target anchor does all the discriminating, so admitting one more
-  # operator spelling costs no false-positive surface — measured, not assumed.
+  # declare `>|` a documented gap. EVERY `MUST ALLOW` claim in this file was run
+  # against the widened patterns first: none newly matched. The target anchor
+  # does all the discriminating, so admitting one more operator spelling costs
+  # no false-positive surface — measured, not assumed. The count that used to
+  # sit in this sentence is deliberately gone: it said 81 against a file that
+  # carried 94, because a total written into prose is the one claim in this
+  # file that nothing re-runs. `test_claimed_allow_is_allowed_end_to_end`
+  # re-runs the claims themselves on every commit, which is the guarantee the
+  # number was standing in for.
   # MUST BLOCK: cat image.img > /dev/sda
   # MUST BLOCK: cat image.img >/dev/sda
   # MUST BLOCK: cat image.img >| /dev/sda
@@ -819,15 +833,15 @@ REGEX_PATTERNS=(
 
   # SSH authorized_keys tampering
   # `> *` for the same reason as the redirect patterns above: `>>~/.ssh/…` with
-  # no space is ordinary shell and every one of these three allowed it.
+  # no space is ordinary shell and every one of these entries allowed it.
   #
   # THE `~/` CASE HAD BOTH OPERATORS AND THE `/root/` CASE HAD ONLY `>>`, so a
   # TRUNCATING write to root's authorized_keys — strictly more destructive than
   # the append it sat beside — passed. The asymmetry read as a ruling and was
   # an oversight: the header asserted this path was covered, which made the gap
   # invisible to a reader and kept it out of the accepted-under-match list, so
-  # nothing pinned it either. The three entries are now a matched set: append
-  # and truncate, for each of the two homes.
+  # nothing pinned it either. The four entries below are now a matched set:
+  # append and truncate, for each of the two homes.
   # MUST BLOCK: echo ssh-ed25519 AAAA >> ~/.ssh/authorized_keys
   # MUST BLOCK: echo ssh-ed25519 AAAA >>~/.ssh/authorized_keys
   # MUST ALLOW: cat ~/.ssh/authorized_keys

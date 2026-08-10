@@ -73,11 +73,16 @@ defect class, and it occurs at two positions: after the match (a `( |$)` right
 boundary) and inside it (a literal space between a keyword and its operand).
 The second check probes only the first position — it appends to the END of the
 command — so `systemctl stop nginx` + `;true` matches at `systemctl stop ` and
-goes green without the boundary ever being touched. While it was green,
-**58 of the 60 transformable corpus commands were ALLOWED with a tab in place
-of a space**, including `sudo`, `rm -rf`, `TRUNCATE` and every redirect
-pattern. A check aimed at a class must be keyed on the class, not on the
-position the instances happened to be found in.
+goes green without the boundary ever being touched. While it was green, most of
+the corpus was ALLOWED with a tab in place of a space — including `sudo`,
+`rm -rf`, `TRUNCATE` and every redirect pattern. A check aimed at a class must
+be keyed on the class, not on the position the instances happened to be found
+in. **THE MEASURED FIGURES LIVE IN ONE PLACE — the comment above
+`_RESPELLINGS`, beside the transform that took them** — and are deliberately
+not restated here. They were restated in four places across two files, which is
+the shape `candidates.md` C-050 names: a constant written twice diverges the
+first time one copy is corrected, and this file's own subject is a claim that
+stopped being true without anything noticing.
 
 WHY THIS SHELLS OUT RATHER THAN SOURCING THE SCRIPT. The contract under test is
 what Claude Code actually invokes. `config/settings.json` registers the hook as
@@ -996,6 +1001,17 @@ DISPATCH_COMMANDS: list[str] = [
     "wc -l docs/development/sprint.md",
     "./scripts/helpers/vendor-standards.sh --check",
     "bash -n config/hooks/block-dangerous.sh",
+    # Added from the refine pass's own shell history rather than imagined: the
+    # rebase this workflow opens with, the throwaway worktree it used to
+    # re-derive a baseline test count, and its removal. The removal is the
+    # interesting one — it is a `--force` delete of a /tmp path, which puts it
+    # a hair from the elision boundary this PR moved.
+    "git rebase origin/main",
+    "git fetch origin main",
+    "git worktree add --detach /tmp/pr77-baseline 8e80106",
+    "git worktree remove --force /tmp/pr77-baseline",
+    "python3 -m pytest --collect-only -q",
+    "gh pr view 77 --json comments",
 ]
 
 
@@ -1267,8 +1283,9 @@ def test_dangerous_command_survives_a_trailing_separator(command: str) -> None:
     match.** The separator is appended to the end of the command, so a pattern
     whose match ends earlier never has its boundary touched — the corpus entry
     `systemctl stop nginx` plus `;true` still matches at `systemctl stop `,
-    green, while `systemctl<TAB>stop nginx` was ALLOWED. Fifty-eight of the
-    sixty corpus commands were in that state while this sweep passed.
+    green, while `systemctl<TAB>stop nginx` was ALLOWED. Most of the corpus was
+    in that state while this sweep passed; the figures are stated once, beside
+    `_RESPELLINGS` below.
 
     The MID-MATCH half — a separator sitting between a keyword and its operand
     — is probed by `test_dangerous_command_survives_a_respelt_separator`
@@ -1300,13 +1317,24 @@ def test_dangerous_command_survives_a_trailing_separator(command: str) -> None:
 # all, and JOINS two characters across a backslash-newline that is no character
 # at all. A pattern naming one spelling admits one spelling.
 #
-# Measured on the hook as it stood when this was written: 58 of the 60
-# transformable corpus commands were ALLOWED with tabs in place of spaces, 29
-# with doubled spaces, and all 14 redirect commands with the space after `>`
-# removed — while the end-of-command sweep above was fully green. That gap is
-# not a missing test case, it is a position the existing transform cannot
-# reach, which is why this is a second transform and not four more entries in
-# SEPARATORS.
+# THIS IS THE ONE PLACE THE MEASURED FIGURES ARE STATED. They were written into
+# four places across two files, and every other site now cites this one instead:
+# a total restated is a total that diverges the first time one copy is
+# corrected, which is `candidates.md` C-050 and is also, exactly, the defect
+# class this file exists to catch. Measured on the hook as it stood when the
+# mid-match half was found, against a 60-command dangerous corpus:
+#
+#   * tab in place of a space          — 58 of 60 ALLOWED
+#   * doubled spaces                   — 29 of 60 ALLOWED
+#   * space after `>` removed          — 14 of 14 redirect commands ALLOWED
+#   * a word split over a continuation — ALLOWED
+#
+# — while the end-of-command sweep above was fully green. That gap is not a
+# missing test case, it is a position the existing transform cannot reach,
+# which is why this is a second transform and not four more entries in
+# SEPARATORS. The corpus has grown since, so these are a point-in-time
+# measurement and are labelled as one; what guards the property TODAY is the
+# sweep below, not the numbers.
 #
 # THE PROBE CORPUS IS DELIBERATELY WIDER THAN `DANGEROUS`. It also includes
 # every `MUST BLOCK:` claim lifted out of the hook, so a pattern added next year

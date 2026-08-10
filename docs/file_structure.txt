@@ -319,9 +319,12 @@ claude-dot-files/
 │   │                                                #   every dangerous command, and every internal separator respelt (tab, doubled space, the
 │   │                                                #   space after `>` removed, a word split over a `\`-newline). A pattern added without a deny
 │   │                                                #   case or without both claims FAILS here; so does one that enumerates a separator.
-│   │                                                #   Also pins the SCRATCH-DELETE ELISION boundary from both sides — the two commands measured
-│   │                                                #   halting completed runs must pass, and ten shapes that read like them must still deny — and
-│   │                                                #   asserts every MUST BLOCK claim end-to-end, not only against its own regex
+│   │                                                #   Also pins the SCRATCH-DELETE ELISION boundary from both sides — the commands measured
+│   │                                                #   halting completed runs must pass, and the shapes that read like them must still deny — plus
+│   │                                                #   a third sweep placing every dangerous command beside an elidable scratch delete, because
+│   │                                                #   the elision MUTATES the string the patterns see and a hand-picked corpus cannot bound that.
+│   │                                                #   Asserts every MUST BLOCK claim end-to-end, not only against its own regex. NO COUNTS ARE
+│   │                                                #   RESTATED HERE — they live in the test module's docstring, per its sibling README
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/
