@@ -709,8 +709,11 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     does not widen the hole; adding one that takes a bare `bool` does, and that
     is the edit to refuse.
     """
-    VOCABULARY = {"convergence", "ConvergenceState", "ConvergenceAssessment",
-                  "IndeterminateReason", "assess"}
+    # `_convergence` because `review_pr_helper` imports the module under that
+    # alias (its `ReviewResult` has a field named `convergence`). A vocabulary
+    # that misses the alias is a guard that stops seeing the module it guards.
+    VOCABULARY = {"convergence", "_convergence", "ConvergenceState",
+                  "ConvergenceAssessment", "IndeterminateReason", "assess"}
     # Functions whose conditionals read the signal to decide what to SAY or
     # RECORD. Neither can route: one returns a bool-or-None, the other returns
     # lines of text. `run_review` — the function that actually routes — is
@@ -1284,3 +1287,78 @@ def test_an_INDETERMINATE_assessment_agrees_with_NOTHING() -> None:
     assert helper.shadow_agreement(decided, False) is False
     # ... and an absent flag stays a third value, never folded into `false`.
     assert helper.shadow_agreement(decided, None) is None
+
+
+# --- the partition is stated in four artifacts; three of them are prose -------
+
+# Every document that RESTATES the open/closed partition, and how it spells it.
+# The code-side gate (`test_the_partition_is_EXACTLY_the_schemas_disposition_
+# vocabulary`) compares the module against `CHILD_SCHEMA` and reads no document,
+# so a seventh disposition forces a classification in code while all three prose
+# copies go silently wrong — and these are the copies a Phase 4 implementer and
+# an Autonomous Operation consumer actually read.
+#
+# The exemplar is `test_protocol_SS4s_reason_column_is_exactly_the_shipped_
+# vocabulary` one file over, whose docstring records the same mechanism firing
+# twice with every test green: *"BOTH WERE THE DOCUMENT AND THE CODE
+# DISAGREEING, NOT EITHER BEING WRONG ALONE, and no check compared them."*
+PARTITION_RESTATEMENTS = (
+    ("docs/standards/exit-protocol.md", "§2.1's field table — what a Phase 4 "
+     "implementer reads for the field's contract"),
+    ("docs/guide/memory-model.md", "§4.1's consumer map — what a run-log "
+     "consumer reads to join the two channels"),
+    ("docs/development/memory-management-framework/phase5_convergence_stopping.md",
+     "step 3's checkbox — the phase's own statement of its ruling"),
+)
+
+# `CLOSED: a · b · c` or `CLOSED is `a`/`b`/`c``, then the OPEN half. Loose on
+# the separators because the three copies punctuate differently and pinning the
+# punctuation would make this a formatting assertion — the defect class the
+# restraint guard was already caught by once.
+# `[^\n|]` and not `[^.]`: the first version let a group run past the end of a
+# markdown table ROW and swallow the next row's key, so `memory-model.md` failed
+# with `converged` in its OPEN half — a gate reporting a drift that was its own.
+_PARTITION = re.compile(
+    r"CLOSED(?:\s+is|:)\s*(?P<closed>[^\n|]*?`[a-z_]+`[^\n|]*?)[,.]\s*"
+    r"OPEN(?:\s+is|:)\s*(?P<open>[^\n|]*?`[a-z_]+`[^\n|]*?)(?:[,.]|\*\*|\||\n)",
+    re.IGNORECASE,
+)
+
+
+@pytest.mark.parametrize("relative_path,why_it_matters", PARTITION_RESTATEMENTS)
+def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
+    relative_path: str, why_it_matters: str,
+) -> None:
+    """A DOCUMENT AND THE CODE DISAGREEING IS THE DEFECT, NOT EITHER ALONE.
+
+    `disposition` is what the whole predicate keys on, and `escalated`'s side of
+    the partition is this phase's ONE unforced ruling — the one that moves a
+    headline figure. A copy that drifts on that member tells a reader the signal
+    means the opposite of what it computes, and `autonomous-operation.md`
+    explicitly tells a future consumer to rely on it.
+    """
+    path = Path(er.__file__).resolve().parents[5] / relative_path
+    assert path.exists(), f"{relative_path} moved — the gate reads nothing"
+
+    match = _PARTITION.search(path.read_text(encoding="utf-8"))
+    assert match is not None, (
+        f"{relative_path} no longer states the partition in a shape this gate can "
+        f"read ({why_it_matters}). Either it stopped restating it — in which case "
+        f"remove the row from PARTITION_RESTATEMENTS, since a stale row is a gate "
+        f"that checks nothing — or the spelling changed and the gate must follow."
+    )
+    documented_closed = set(re.findall(r"`([a-z_]+)`", match.group("closed")))
+    documented_open = set(re.findall(r"`([a-z_]+)`", match.group("open")))
+
+    assert documented_closed == set(cv.CLOSED_DISPOSITIONS), (
+        f"{relative_path} and `convergence.py` disagree on the CLOSED half — "
+        f"documented only: {sorted(documented_closed - cv.CLOSED_DISPOSITIONS)}, "
+        f"shipped only: {sorted(cv.CLOSED_DISPOSITIONS - documented_closed)}. "
+        f"{why_it_matters}."
+    )
+    assert documented_open == set(cv.OPEN_DISPOSITIONS), (
+        f"{relative_path} and `convergence.py` disagree on the OPEN half — "
+        f"documented only: {sorted(documented_open - cv.OPEN_DISPOSITIONS)}, "
+        f"shipped only: {sorted(cv.OPEN_DISPOSITIONS - documented_open)}. "
+        f"{why_it_matters}."
+    )

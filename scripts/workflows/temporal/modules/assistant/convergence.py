@@ -250,11 +250,17 @@ def _as_map(entries: Iterable[tuple[str, str]]) -> dict[str, str]:
     "LAST" IS THE ITERABLE'S ORDER, WHICH IS NOT DOCUMENT ORDER ON EVERY CALLER,
     and saying otherwise would be a rule that is not the rule that runs.
     `review_pr_helper.convergence_history` hands in a SORTED tuple, so a block
-    carrying `- id: a … hold` and later `- id: a … rejected` resolves
-    alphabetically rather than by position. There is no live consequence — the
-    render↔record invariant raises on a pair-count mismatch before this is
-    reached, and the replay preserves document order — but a caller that needs
-    document-order last-wins has to supply it, not assume it.
+    carrying `- id: a … rejected` and later `- id: a … hold` resolves to
+    `hold` — alphabetically last — and NOT to `hold`'s document position.
+    The example is written in that order deliberately: the obvious one
+    (`hold` then `rejected`) demonstrates nothing, because `rejected` is both
+    alphabetically last and document-last and the two rules agree on it.
+    There is no live consequence — the render↔record invariant compares the
+    two copies as SETS and raises when they differ, and the replay preserves
+    document order — but a caller that needs document-order last-wins has to
+    supply it, not assume it. (The invariant does not catch a duplicate id
+    carried IDENTICALLY in both copies; it catches every case where they
+    differ, which is what the guarantee above rests on.)
     """
     return {str(fid): str(disposition) for fid, disposition in entries}
 
@@ -355,6 +361,21 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
         fid for fid, d in current.items() if d == ESCALATED
     ))
 
+    # EVERY assessment from here down carries these four, and they were repeated
+    # at five construction sites. `exit_record.route` — the module this one
+    # borrowed its ordered-rule shape from — already solved it the same way, and
+    # the reason is not tidiness: `as_event()` derives the run-log payload from
+    # `dataclasses.fields`, so adding a field to `ConvergenceAssessment` is
+    # deliberately free on the recording side. A field threaded into four of five
+    # sites leaves the fifth carrying the field's DEFAULT, and `as_event` records
+    # that default faithfully — a metric that is WRONG rather than absent, which
+    # is worse than the "a plan, not an instrument" failure the dataclass's own
+    # docstring guards against.
+    common = dict(
+        passes=len(passes), open_ids=tuple(sorted(current_open)),
+        escalated_open=escalated, unknown_dispositions=unknown,
+    )
+
     # C2 — no comparable prior pass. Requirement 5 of the phase doc states this
     # as its own rule: absence of a prior pass routes to the residual arm and
     # NEVER to converged. A pass-1 review that closed everything it found has
@@ -363,12 +384,13 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
         return ConvergenceAssessment(
             ConvergenceState.INDETERMINATE,
             IndeterminateReason.NO_PRIOR_PASS,
-            passes=len(passes), open_ids=tuple(sorted(current_open)),
-            escalated_open=escalated, unknown_dispositions=unknown,
+            **common,
         )
 
     prior = passes[-2]
     added = tuple(sorted(set(current) - set(prior)))
+    # C2 cannot carry a delta — it has no prior pass to take one against.
+    with_delta = {**common, "added_ids": added}
 
     # C3 — CONVERGENCE BY FORGETTING. `disposition.md` INVARIANT 1 requires each
     # pass to carry every prior finding forward until it reaches an explicit
@@ -393,9 +415,7 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
         return ConvergenceAssessment(
             ConvergenceState.INDETERMINATE,
             IndeterminateReason.PRIOR_FINDINGS_DROPPED,
-            passes=len(passes), open_ids=tuple(sorted(current_open)),
-            escalated_open=escalated, unknown_dispositions=unknown,
-            added_ids=added,
+            **with_delta,
         )
 
     prior_open = open_ids(prior.items())
@@ -407,11 +427,9 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
     if current_open:
         return ConvergenceAssessment(
             ConvergenceState.NOT_CONVERGED,
-            passes=len(passes), open_ids=tuple(sorted(current_open)),
+            **with_delta,
             opened=tuple(sorted(current_open - prior_open)),
             closed=tuple(sorted(prior_open - current_open)),
-            escalated_open=escalated, unknown_dispositions=unknown,
-            added_ids=added,
         )
 
     # C5 — the open set is empty, but this PR has churned before. A finding
@@ -428,10 +446,8 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
         return ConvergenceAssessment(
             ConvergenceState.INDETERMINATE,
             IndeterminateReason.OSCILLATING_FINDINGS,
-            passes=len(passes), open_ids=(),
+            **with_delta,
             closed=tuple(sorted(prior_open)),
-            escalated_open=escalated, unknown_dispositions=unknown,
-            added_ids=added,
         )
 
     # C6 — the default, and the only path to CONVERGED. Nothing is open, the
@@ -439,8 +455,6 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
     # thread has ever been re-opened.
     return ConvergenceAssessment(
         ConvergenceState.CONVERGED,
-        passes=len(passes), open_ids=(),
+        **with_delta,
         closed=tuple(sorted(prior_open)),
-        escalated_open=escalated, unknown_dispositions=unknown,
-        added_ids=added,
     )

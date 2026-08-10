@@ -84,14 +84,26 @@ def thread_snapshot(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
     said so — so the window takes the LAST block of each comment carrying one.
     A quoted block is a restatement of a pass already in the window, not a pass:
     counting it would make `ConvergenceAssessment.passes` disagree with
-    `this_pass` on any conforming disposition comment (INVARIANT 1 of
-    `disposition.md` invites the quote), and a comment quoting a NON-adjacent
-    block would inject a phantom pass whose closed findings read as re-opened,
-    withholding convergence on that PR permanently.
+    `this_pass`, and a comment quoting a NON-adjacent block would inject a
+    phantom pass whose closed findings read as re-opened, withholding
+    convergence on that PR permanently.
 
-    LAST-WITHIN-THE-COMMENT is the same rule `latest_pr_review_block` documents
-    below and for the same measured reason: `search` returned the SUPERSEDED
-    block on a quoting comment and hard-failed a correct run.
+    LAST-WITHIN-THE-COMMENT IS NOW A RULE THE PROMPT STATES, WHICH IT WAS NOT.
+    An earlier version of this docstring cited `disposition.md`'s INVARIANT 1 as
+    the producer-side guarantee. A review pass read the prompt: INVARIANT 1 says
+    *carry every prior-pass FINDING forward until it reaches an explicit
+    disposition* — about restating ids INSIDE the block — and the prompt said
+    nothing anywhere about quoting a whole prior block or where to put it. So
+    last-wins was an unbacked heuristic with a live failure: a pass appending the
+    superseded block BELOW its own returns the PRIOR block here, which makes
+    `_assert_block_matches_record` compare this pass's record against the
+    previous pass's findings and hard-fail a correct, already-posted,
+    already-routed review — the exact loss the `search`-based bug caused, in the
+    mirror direction — while also putting the wrong block at the end of the
+    window, so `prior_pass_blocks` leaks this pass's own block into the history.
+    `disposition.md` Stage 5 now pins the order explicitly, and a false
+    cross-file citation is a worse defect than a missing one because it stops
+    the next reader checking.
 
     ORDERING IS COMMENT ORDER, NEVER THE BLOCK'S OWN `pass:` INTEGER. That
     counter is producer-written and `memory-model.md` §6.4 measured it wrong on

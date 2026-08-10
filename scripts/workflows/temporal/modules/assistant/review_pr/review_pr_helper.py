@@ -16,7 +16,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .. import convergence, exit_record, routing
+# `convergence` is aliased because `ReviewResult` has a FIELD of that name
+# (line below), and an annotated assignment binds the name in the class
+# namespace. Today the annotation is a string under `from __future__ import
+# annotations` so nothing breaks; a field added under it with an EAGERLY
+# evaluated default drawn from the module — `state: ... = convergence.
+# ConvergenceState.INDETERMINATE` — raises `AttributeError: 'NoneType'
+# object has no attribute ...` at import, naming neither the shadowing nor
+# the field. Same `_shared` aliasing idiom the sibling workflow uses.
+from .. import convergence as _convergence
+from .. import exit_record, routing
 
 
 Verdict = routing.Verdict
@@ -84,7 +93,7 @@ class ReviewResult:
     # INDETERMINATE — the predicate's spelling, deliberately NOT the exit
     # protocol's `undetermined`; `ConvergenceState` says why the two must not
     # collapse, and collapsing them here in prose is how that starts).
-    convergence: convergence.ConvergenceAssessment | None = None
+    convergence: _convergence.ConvergenceAssessment | None = None
 
     @property
     def ready_to_merge(self) -> bool:
@@ -352,7 +361,7 @@ def convergence_history(window: Sequence[str],
     )
 
 
-def shadow_agreement(assessment: convergence.ConvergenceAssessment,
+def shadow_agreement(assessment: _convergence.ConvergenceAssessment,
                      asserted: bool | None) -> bool | None:
     """Does the computation reproduce the incumbent flag? None when incomparable.
 
@@ -377,9 +386,9 @@ def shadow_agreement(assessment: convergence.ConvergenceAssessment,
     definitional difference at least as often as it is a defect in either
     channel, which is why nothing raises on one.
     """
-    if asserted is None or assessment.state is convergence.ConvergenceState.INDETERMINATE:
+    if asserted is None or assessment.state is _convergence.ConvergenceState.INDETERMINATE:
         return None
-    return asserted == (assessment.state is convergence.ConvergenceState.CONVERGED)
+    return asserted == (assessment.state is _convergence.ConvergenceState.CONVERGED)
 
 
 def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:

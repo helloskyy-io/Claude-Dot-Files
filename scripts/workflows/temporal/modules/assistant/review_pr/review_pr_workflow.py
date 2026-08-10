@@ -9,6 +9,15 @@ of its own to offload; everything else stays decide-only.
     gather → render → dispose → verdict
 
 Every decision below comes from the helper; every side effect is an activity.
+
+STATED DEVIATION, so the sentence above is not read as either aspirational
+or as a bug. FIVE pure `ExitRecord`/assessment-to-string functions remain in
+this layer: three from Phase 3 and `_convergence_notes` / `_convergence_event`
+from Phase 5. They were left here deliberately — with ONE parent the
+misplacement costs only that a few otherwise-pure tests run through a
+monkeypatch harness — and `phase4_fleet_migration.md` step 2 is the trigger
+that extracts them, on the moment a SECOND parent routes on a record. It names
+the count so that extracting three and leaving two is not available.
 """
 
 from __future__ import annotations
