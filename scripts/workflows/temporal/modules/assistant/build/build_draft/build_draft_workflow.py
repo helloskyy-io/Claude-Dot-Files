@@ -18,8 +18,7 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-draft"
-# Derived from V1, never re-declared — see assistant_activities.v1_constant.
-V1_SCRIPT = "build-draft.sh"
+MAX_TURNS_KEY = "build-draft"
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
@@ -63,7 +62,7 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
                    opaque=frozenset({"DESCRIPTION"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
-        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
+        max_turns=act.max_turns(MAX_TURNS_KEY),
         verbose=verbose,
     )
 

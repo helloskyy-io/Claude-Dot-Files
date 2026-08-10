@@ -23,13 +23,9 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research"
-# 300 — measured ~50 of the monolith's 89, and this child absorbs STRICTLY MORE
-# than the old stage 4: verify, fix, trace into the synthesis, and verify the
-# synthesis. No historical measurement exists for that combination because it
-# has never run. Cycle 3 alone ran 15 critic dispatches against 5 analyst ones.
-# MEASURED: cycle 4 used 68 on the first pass and 48 on the correction pass. The prior 300
-# was an estimate; this is 3x the observed peak, which is headroom rather than a budget.
-MAX_TURNS = 200
+# Its own key, not `research` — see research_write for why the cap is keyed by
+# workflow rather than by model. Measurement lives with the value in config.yaml.
+MAX_TURNS = act.max_turns("research-verify")
 
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 

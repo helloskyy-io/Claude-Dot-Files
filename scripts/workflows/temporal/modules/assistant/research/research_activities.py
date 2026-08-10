@@ -25,6 +25,7 @@ run_claude = shared.run_claude
 worktree_add = shared.worktree_add
 observe_outcome = shared.observe_outcome
 gh = shared.gh
+max_turns = shared.max_turns
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]
 
@@ -170,7 +171,3 @@ def submit_prompt(pr_number: str | None, label: str) -> str:
 def branch_of(pr_number: str, repo_root: Path) -> str:
     return shared.pr_branch(pr_number, repo_root)
 
-
-def v1_max_turns(script: str) -> int:
-    """Derived from V1 while the bash script still exists."""
-    return int(shared.v1_constant(script, "MAX_TURNS"))

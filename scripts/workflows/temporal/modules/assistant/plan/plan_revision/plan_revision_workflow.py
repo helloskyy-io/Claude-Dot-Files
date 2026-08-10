@@ -37,8 +37,7 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "plan-revision"
-# Derived from V1, never re-declared — see assistant_activities.v1_constant.
-V1_SCRIPT = "plan-revision.sh"
+MAX_TURNS_KEY = "plan-revision"
 
 # `(pull|issues)`, verbatim from V1, and the `issues` half is load-bearing rather
 # than defensive: Stage 1 can legitimately STOP (research required, or evidence
@@ -127,7 +126,7 @@ def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
                    opaque=frozenset({"CONTEXT_BLOCK", "DESCRIPTION"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
-        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
+        max_turns=act.max_turns(MAX_TURNS_KEY),
         verbose=verbose,
     )
 

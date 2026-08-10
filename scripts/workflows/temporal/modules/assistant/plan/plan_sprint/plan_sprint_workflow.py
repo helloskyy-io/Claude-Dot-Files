@@ -32,13 +32,9 @@ PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "plan-sprint"
 
-# 250. NOT derived — this workflow has no V1 to read a constant out of, so the
-# usual v1_constant() discipline does not apply and this is an estimate, stated
-# as one. Basis: `research_write` does a comparable amount of reading-then-
-# writing at 250 and peaks near 90 in practice. REVISE FROM MEASUREMENT after
-# the first real runs; a cap set below an observed successful run has already
-# cost a full budget once.
-MAX_TURNS = 250
+# An ESTIMATE, stated as one — this workflow has never been measured. The basis
+# and the revise-from-measurement note live with the value in config.yaml.
+MAX_TURNS = act.max_turns("plan-sprint")
 
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 

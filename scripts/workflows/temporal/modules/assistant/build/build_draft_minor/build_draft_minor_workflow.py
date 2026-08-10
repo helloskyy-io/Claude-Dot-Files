@@ -15,7 +15,7 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-draft-minor"
-V1_SCRIPT = "build-draft-minor.sh"          # constants DERIVED, never re-declared
+MAX_TURNS_KEY = "build-draft-minor"          # constants DERIVED, never re-declared
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
@@ -51,7 +51,7 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
                    opaque=frozenset({"DESCRIPTION"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
-        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
+        max_turns=act.max_turns(MAX_TURNS_KEY),
         verbose=verbose,
     )
     url = act.extract_pr_url(output)

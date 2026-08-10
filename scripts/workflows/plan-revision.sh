@@ -50,7 +50,7 @@ FORMATTER="${SCRIPT_DIR}/common/format-stream.sh"
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-MAX_TURNS=300
+MAX_TURNS="$("${SCRIPT_DIR}/common/config-value.sh" max_turns plan-revision)"
 
 # ---------------------------------------------------------------------------
 # Argument parsing

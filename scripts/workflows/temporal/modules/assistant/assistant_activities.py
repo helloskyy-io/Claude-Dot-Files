@@ -27,52 +27,41 @@ _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"
 PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
 
 
-def v1_constant(script: str, name: str) -> str:
-    """Read a constant from the V1 bash script rather than re-declaring it.
+def max_turns(key: str) -> int:
+    """This workflow's turn budget, from config.yaml's `max_turns:` map.
 
-    THIS FUNCTION EXISTS BECAUSE RE-DECLARATION CAUSED THREE PRODUCTION FAILURES.
-    The V2 port restated V1's constants and contracts instead of deriving from
-    them, so divergence was silent and only surfaced at runtime — most expensively
-    when a draft ran at MAX_TURNS=120 against V1's 250 and burned a full budget
-    producing nothing recoverable. V1's own logs already held the answer: the same
-    task class had completed in 130 turns.
+    THE VALUE MATTERS AND HAS COST REAL MONEY. A draft once ran at 120 against
+    the 250 its task class needed and burned a full budget producing nothing
+    recoverable — V1's own logs already held the answer, 130 turns for the same
+    work. That is why this is read rather than guessed, and why a missing key
+    raises instead of defaulting.
 
-    Deriving makes divergence impossible rather than merely detectable. Delete
-    this only when the V1 script it reads is deleted.
+    KEYED BY WORKFLOW, NOT BY MODEL. `research-write` and `research-verify`
+    share MODEL_KEY "research" and have separately-measured budgets of 150 and
+    200. Keying off the model would silently collapse them, which is the exact
+    class of silent divergence this read exists to prevent.
 
-    V1 SCRIPTS LIVE IN TWO PLACES and the name is searched in both. Children sit
-    in `children/`; top-level workflows sit at the workflows root. An earlier
-    version branched on whether the name contained a "/" and could resolve
-    NEITHER — `v1_constant("plan-revision.sh", ...)` looked only under
-    `children/`, and the `"../research.sh"` spelling one caller adopted to work
-    around that went to `scripts/research.sh`, which does not exist. That caller
-    never invoked it, so the break stayed latent; the next one to try would have
-    had to re-declare the constant, which is the failure this whole function
-    exists to prevent.
-
-    PASS A BARE FILENAME. Widening the search to two locations also made `../`
-    spellings start working, which is worse than the raise they replaced: the
-    first candidate `children/../research.sh` resolves through a real directory
-    to a real file, so a stale declaration nobody calls turns from a loud
-    FileNotFoundError into a quiet wrong answer. That is not hypothetical — it
-    is why `research_write_workflow.py` now carries an explicit comment saying
-    it has no `V1_SCRIPT` and why one must not be added back. Relative spellings
-    are not part of this contract; both locations are searched for you.
+    WHAT THIS REPLACED, so it does not come back: `v1_constant()` recovered
+    these integers by running a regex over the V1 bash scripts at runtime. It
+    was a real fix for a real problem — re-declaration had caused three
+    production failures, and deriving made divergence impossible rather than
+    merely detectable. But it made the Python fleet unable to START if the bash
+    fleet were deleted, pointing the dependency at precisely the fleet that is
+    meant to go away, and it parsed an executable as data. Config belongs in
+    the config file. Both fleets read it now; neither reads the other.
     """
-    for candidate in (_WORKFLOWS / "children" / script, _WORKFLOWS / script):
-        if candidate.exists():
-            path = candidate
-            break
-    else:
-        raise FileNotFoundError(
-            f"V1 script not found for constant derivation: {script} is in neither "
-            f"{_WORKFLOWS / 'children'} nor {_WORKFLOWS}"
+    import yaml  # a hard preflight dependency; see scripts/preflight.py
+    path = _WORKFLOWS.parents[1] / "config.yaml"
+    if not path.is_file():
+        raise FileNotFoundError(f"config.yaml not found at {path}")
+    doc = yaml.safe_load(path.read_text()) or {}
+    value = (doc.get("max_turns") or {}).get(key)
+    if value is None:
+        raise KeyError(
+            f"no '{key}' in the max_turns: map of {path} — add it there rather "
+            f"than hardcoding a cap at the call site"
         )
-    m = re.search(rf"^{name}=(\S+)", path.read_text(), re.M)
-    if not m:
-        raise ValueError(f"{name} not found in {path} — V1 changed shape; do not guess a value")
-    return m.group(1).strip("\"'")
-
+    return int(value)
 
 def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     """Create an isolated worktree, matching V1's behaviour exactly.

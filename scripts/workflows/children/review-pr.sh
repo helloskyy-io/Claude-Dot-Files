@@ -60,7 +60,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FORMATTER="${SCRIPT_DIR}/../common/format-stream.sh"
 
-MAX_TURNS=120
+MAX_TURNS="$("${SCRIPT_DIR}/../common/config-value.sh" max_turns review-pr)"
 
 show_usage() {
     cat <<EOF

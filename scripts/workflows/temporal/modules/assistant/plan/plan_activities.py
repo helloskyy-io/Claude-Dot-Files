@@ -29,7 +29,7 @@ worktree_add = shared.worktree_add
 pr_branch = shared.pr_branch
 extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
-v1_constant = shared.v1_constant
+max_turns = shared.max_turns
 
 # A candidate row: | C-001 | title | source | `decision` | `status` | note |
 _ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", re.M)

@@ -21,18 +21,13 @@ PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research"
 
-# NO `V1_SCRIPT` HERE, DELIBERATELY — do not re-add one. This module is the one
-# place where deriving the turn cap from V1 would be WRONG, so the declaration
-# every sibling carries is absent on purpose rather than by omission.
-# `research.sh` declares MAX_TURNS=250; the 150 below is a later, measured
-# decision that deliberately supersedes it. A dead `V1_SCRIPT = "../research.sh"`
-# sat here and resolved to nothing until the resolver learned to search the
-# workflows root too — at which point it silently started returning 250, one
-# rglob-for-V1_SCRIPT sweep away from "fixing" the mismatch by reverting the 150.
-#
-# MEASURED: cycle 4 used 43. The prior 250 came from the MONOLITH's 89-turn peak, before the split
-# existed — decomposition changes the shape, so a pre-split number does not transfer.
-MAX_TURNS = 150
+# ITS OWN KEY, NOT `research`. This workflow's MODEL_KEY is "research" and it
+# shares that model with `research_verify` — but the three have separately
+# measured turn budgets, so the cap is keyed by WORKFLOW. Keying it off the
+# model would silently revert this 150 to the parent's 250, which is a mistake
+# a previous version of this file made and carried a paragraph warning about.
+# Reasoning and measurement live with the value, in config.yaml.
+MAX_TURNS = act.max_turns("research-write")
 
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 

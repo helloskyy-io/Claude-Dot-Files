@@ -28,7 +28,7 @@ from . import review_pr_helper as helper
 load_prompt = _shared.load_prompt
 render = _shared.render
 
-V1_SCRIPT = "review-pr.sh"
+MAX_TURNS_KEY = "review-pr"
 
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
@@ -206,6 +206,6 @@ def run_disposition(prompt: str, repo_root: Path, model_key: str,
     return _shared.run_claude(
         prompt, model_key=model_key, completion_pattern=completion_pattern,
         repo_root=repo_root, worktree=worktree or repo_root,
-        max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
+        max_turns=_shared.max_turns(MAX_TURNS_KEY), verbose=verbose,
         exit_record_schema=exit_record_schema, log_file=log_file,
     )

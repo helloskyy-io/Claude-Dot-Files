@@ -23,7 +23,10 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research-refresh"
-MAX_TURNS = 250
+# ⚠ This value and research-refresh.sh's disagreed (250 vs 200) with no reason
+# recorded on either side. Converged upward in config.yaml on 2026-08-10 and
+# FLAGGED THERE for review — it is a safe default, not a measurement.
+MAX_TURNS = act.max_turns("research-refresh")
 COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
 
 
