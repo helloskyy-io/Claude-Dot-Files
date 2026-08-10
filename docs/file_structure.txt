@@ -317,8 +317,8 @@ claude-dot-files/
 │   │                                                #   Executes the MUST BLOCK / MUST ALLOW claims written beside each pattern IN THE HOOK, and
 │   │                                                #   sweeps the separator class at BOTH positions: a shell separator appended to the end of
 │   │                                                #   every dangerous command, and every internal separator respelt (tab, doubled space, the
-│   │                                                #   space after `>` removed). A pattern added without a deny case or without both claims FAILS
-│   │                                                #   here; so does one that enumerates a separator, at either position
+│   │                                                #   space after `>` removed, a word split over a `\`-newline). A pattern added without a deny
+│   │                                                #   case or without both claims FAILS here; so does one that enumerates a separator
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/
