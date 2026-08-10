@@ -35,6 +35,7 @@ which sandboxes `python.sh` the same way.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -134,9 +135,83 @@ def test_two_occurrences_on_ONE_line_are_refused(sandbox: Path) -> None:
 
 def test_a_multi_line_string_is_refused(sandbox: Path) -> None:
     """The guard added by commit 2594a8c, which until this suite had been
-    exercised by nobody at all."""
+    exercised by nobody at all — and which THIS TEST did not exercise either
+    for three further passes.
+
+    Asserting only `returncode == REFUSED` made this test unable to fail. Delete
+    the multi-line guard entirely and the run is still refused, by the AMBIGUITY
+    guard one check further down: `grep -F` treats the embedded newline as
+    separating alternate patterns (the mechanism the multi-line guard's own
+    comment documents), so `grep -oF` counts BOTH fragments, the occurrence
+    count is 2, and the ambiguity guard exits 2 — the same code, from a
+    different check, for a different reason. Measured: 2.
+
+    That is cause 3 in this module's header — "a guard shipped having been
+    executed by nobody" — reproducing inside the test written to close it. So
+    the refusal REASON is what must be asserted; the code alone is satisfied by
+    a guard this test is not about.
+    """
     r = run_mutate(sandbox, "THRESHOLD = 10\nLABEL", "THRESHOLD = 11\nLABEL")
     assert r.returncode == REFUSED, f"multi-line OLD was not refused\n{r.stdout}{r.stderr}"
+    assert "must be single-line" in r.stderr, (
+        "the run was refused, but by the AMBIGUITY guard rather than the multi-line "
+        "guard this test names — so the multi-line guard is still exercised by "
+        f"nobody and this assertion is the only thing that can tell\n{r.stdout}{r.stderr}"
+    )
+
+
+def test_an_empty_string_to_mutate_is_refused(sandbox: Path) -> None:
+    """An empty OLD passes BOTH checks that look like they would catch it, and
+    then certifies a guard against a mutation nobody asked for.
+
+    `grep -qF -- ""` matches any file, so the presence check passes. `grep -oF
+    -- ""` emits one empty match per LINE, so a single-line subject counts 1 and
+    the ambiguity guard passes too. What reaches the applier is
+    `.replace("", NEW, 1)`, which inserts NEW at offset 0 — measured end to end
+    before the fix: `mutate.sh subject.py "" "ZZZ" test_subject.py` printed
+    ✓ MUTATION DEMONSTRATED and exited 0, having broken the file's syntax at a
+    location the caller never named.
+
+    The realistic trigger is an unset variable in a caller's wrapper. `set -u`
+    protects this script's own variables; it does not protect the caller's argv,
+    and an empty positional argument is indistinguishable from a deliberate one.
+    """
+    (sandbox / "subject.py").write_text("THRESHOLD = 10\n")  # one line: count is 1
+    r = run_mutate(sandbox, "", "ZZZ")
+    assert r.returncode == REFUSED, (
+        "an empty OLD was accepted — it prepends NEW at offset 0, so the mutation "
+        f"measured is not the one requested\n{r.stdout}{r.stderr}"
+    )
+    assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
+def test_mutating_this_script_with_itself_is_refused(tmp_path: Path) -> None:
+    """bash reads a script lazily by byte offset, so a running `mutate.sh`
+    cannot be its own subject.
+
+    The applier rewrites `$FILE` in place (truncate + rewrite, same inode). A
+    length-changing self-mutation shifts every byte the running shell has not
+    yet read, and it goes on to execute fragments from the old offsets — an
+    unbounded confident-wrong-answer in the one tool that must not have one.
+
+    This is not housekeeping. `mutate.sh` now has its own unit suite, and the
+    Testing Standard's mutation-evidence rule makes it a natural target for
+    itself; the refusal is what keeps the obvious next command from being the
+    dangerous one.
+    """
+    local_copy = tmp_path / "m.sh"
+    local_copy.write_bytes(MUTATE.read_bytes())
+    local_copy.chmod(0o755)
+    (tmp_path / "test_t.py").write_text("def test_t():\n    assert 1\n")
+    r = subprocess.run(
+        [str(local_copy), "m.sh", "set -euo pipefail", "set -uo pipefail", "test_t.py"],
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=_MUTATE_TIMEOUT_S,
+    )
+    assert r.returncode == REFUSED, (
+        "the harness accepted ITSELF as the mutation subject — bash re-reads the "
+        f"running script by byte offset\n{r.stdout}{r.stderr}"
+    )
+    assert "this script itself" in r.stderr
 
 
 # --------------------------------------------------------------------------
@@ -268,6 +343,16 @@ def test_a_mutation_that_breaks_collection_via_a_DATA_file_still_counts_as_the_g
     assert r.returncode == DEMONSTRATED, (
         "a collection error caused by a malformed DATA file (not Python source) "
         f"was not counted as the guard firing\n{r.stdout}{r.stderr}"
+    )
+    # The verdict alone is symmetric under the defect this test defends against:
+    # the `abstain` fallback ALSO yields DEMONSTRATED, so if the `*.py` check
+    # that selects `not-python` were removed, this test would still pass while
+    # proving nothing about the branch it names. Its two sibling tests already
+    # pin their branch this way.
+    assert "does not import standalone" not in r.stderr, (
+        "the discriminator ABSTAINED on a data subject instead of taking the "
+        "not-python branch — the verdict is right by accident, via the pre-#72 "
+        f"fallback rather than via the rule this test defends\n{r.stdout}{r.stderr}"
     )
 
 
@@ -548,21 +633,330 @@ def test_an_already_red_target_is_refused_before_mutating(sandbox: Path) -> None
 
 
 # --------------------------------------------------------------------------
+# Termination paths that reach no verdict.
+#
+# The exit-code contract is only worth as much as the paths it covers. Four
+# passes classified the exits this script WRITES and none asked about the exits
+# bash takes on its behalf: under `set -euo pipefail` every bare command is a
+# termination path nobody wrote, and each used to exit with its own status —
+# in practice 1, the code reserved for "the suite ran and the answer is no".
+#
+# These cases drive the MECHANISM from structurally different directions rather
+# than enumerating the commands, because enumerating them is what failed: one
+# review named five members, a second found seven plus the trap body itself.
+# --------------------------------------------------------------------------
+
+def test_a_crash_before_any_verdict_is_a_HARNESS_ERROR_not_a_leg_result(
+    tmp_path: Path,
+) -> None:
+    """The mutation applier itself dies, after leg 1 has already passed.
+
+    A DATA subject holding one non-UTF-8 byte is a supported input class — a
+    data subject is the case the exit-2-is-RED rule exists to defend — and
+    `p.read_text()` in the applier raises `UnicodeDecodeError` on it. Measured
+    before the fix: leg 1 passed, the applier printed a bare traceback, leg 2
+    never ran, and the harness exited 1. None of exit 1's three enumerated
+    causes was true, and the "THE GUARD DID NOT FIRE" reading of that code is
+    the one this file's header says gets a working guard deleted.
+
+    Note what found this: running the tool on an input class the suite did not
+    cover, not reading the diff. Every other case here drives a `.py` subject or
+    a well-formed data subject — the suite tested what the harness DECIDES,
+    thoroughly, and never what happens when it cannot get far enough to decide.
+    """
+    (tmp_path / "data.yaml").write_bytes(b"name: caf\xe9\nTHRESHOLD: 10\n")
+    (tmp_path / "test_data.py").write_text(
+        'def test_threshold():\n'
+        '    assert b"THRESHOLD: 10" in open("data.yaml", "rb").read()\n'
+    )
+    r = subprocess.run(
+        [str(MUTATE), "data.yaml", "THRESHOLD: 10", "THRESHOLD: 11", "test_data.py"],
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=_MUTATE_TIMEOUT_S,
+    )
+    assert r.returncode == HARNESS_ERROR, (
+        "the harness aborted without measuring anything and returned a code that "
+        f"means it did measure\n{r.stdout}{r.stderr}"
+    )
+    assert "HARNESS ERROR" in r.stderr
+    assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
+def test_a_failed_restore_outranks_any_reading_of_the_mutated_leg(sandbox: Path) -> None:
+    """leg 2 GREEN + leg 3 RED must report the RESTORE failure, not the guard.
+
+    The final case analysis used to test `MUTATED_VERDICT == GREEN` before it
+    tested `AFTER_VERDICT`, so this exact combination printed "THE GUARD DID NOT
+    FIRE" and the "THE TREE DID NOT RESTORE CLEANLY" branch was unreachable in
+    the one combination that needed it. That is the expensive direction twice
+    over: the message sends an engineer to delete a test, and it does so while
+    leg 3 — the proof that the tree came back — has failed, which means no
+    reading of leg 2 is trustworthy at all.
+
+    Leg 3 is made red by a counter in `conftest.py` rather than by anything the
+    mutation does, which is the point: the failure is in the CONTROL leg, and
+    the harness must notice that before it interprets the measurement leg.
+    """
+    (sandbox / "conftest.py").write_text(
+        "import pathlib\n\n"
+        "_C = pathlib.Path(__file__).parent / 'runs.txt'\n\n\n"
+        "def pytest_sessionstart(session):\n"
+        "    n = int(_C.read_text()) if _C.exists() else 0\n"
+        "    _C.write_text(str(n + 1))\n"
+    )
+    (sandbox / "test_subject.py").write_text(
+        "import pathlib\n\n"
+        "import subject\n\n\n"
+        "def test_threshold():\n"
+        "    runs = int((pathlib.Path(__file__).parent / 'runs.txt').read_text())\n"
+        "    assert runs != 3, 'deliberately red on the restored leg'\n"
+        "    assert subject.THRESHOLD == 10\n"
+    )
+    # LABEL is asserted by nothing, so leg 2 stays GREEN.
+    r = run_mutate(sandbox, "LABEL = 'alpha'", "LABEL = 'omega'")
+    assert "THE TREE DID NOT RESTORE CLEANLY" in r.stderr, (
+        "leg 3 was red and the harness reported something else — the restore "
+        f"failure is being masked by a reading of leg 2\n{r.stdout}{r.stderr}"
+    )
+    assert "THE GUARD DID NOT FIRE" not in r.stderr, (
+        "a run whose control leg failed was reported as a missing guard, which is "
+        f"the verdict that gets a working test deleted\n{r.stdout}{r.stderr}"
+    )
+    assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
+def test_a_restore_that_cannot_be_performed_is_loud_and_never_a_verdict(
+    sandbox: Path,
+) -> None:
+    """The EXIT trap's own failure used to be discarded, twice over.
+
+    The trap ran under the inherited `set -e`, so a failing `cp` aborted it at
+    that command — skipping the rest of the cleanup AND its own classification,
+    leaving the MUTATED tree on disk, printing nothing, and handing back `cp`'s
+    status: 1. That is the defect this trap exists to close, wearing the fix.
+    Measured directly in bash before writing the guard.
+
+    `conftest.py` makes `subject.py` unwritable at the end of leg 2, so both the
+    leg-3 restore and the trap's retry fail. The harness must say so — a
+    mutated working tree is the harm its own contract calls worse than no
+    harness at all — and must not emit a verdict code over it.
+    """
+    (sandbox / "conftest.py").write_text(
+        "import pathlib\n\n"
+        "_C = pathlib.Path(__file__).parent / 'runs.txt'\n\n\n"
+        "def pytest_sessionfinish(session, exitstatus):\n"
+        "    n = (int(_C.read_text()) if _C.exists() else 0) + 1\n"
+        "    _C.write_text(str(n))\n"
+        "    if n == 2:\n"
+        "        (pathlib.Path(__file__).parent / 'subject.py').chmod(0o444)\n"
+    )
+    try:
+        r = run_mutate(sandbox, "THRESHOLD = 10", "THRESHOLD = 11")
+        assert r.returncode == HARNESS_ERROR, (
+            "a failed restore produced a verdict code — leg 3 proves the tree came "
+            f"back, and that proof did not happen\n{r.stdout}{r.stderr}"
+        )
+        assert "could not restore" in r.stderr, (
+            f"the restore failed SILENTLY, which is the worst form of it\n{r.stdout}{r.stderr}"
+        )
+        assert "STILL MUTATED" in r.stderr, (
+            "the operator was not told the working tree is still mutated, so the "
+            f"next run tests code nobody meant to ship\n{r.stdout}{r.stderr}"
+        )
+        assert "MUTATION DEMONSTRATED" not in r.stdout
+    finally:
+        # Leave the sandbox writable so tmp_path teardown can clean it up.
+        (sandbox / "subject.py").chmod(0o644)
+
+
+def test_an_inherited_PYTEST_ADDOPTS_cannot_reopen_issue_72(sandbox: Path) -> None:
+    """Issue #72's false certification, re-entering through an environment
+    variable that the exit-code table did not account for.
+
+    The table's load-bearing premise was "pytest interrupts to 2 on a collection
+    error unless --continue-on-collection-errors, WHICH THIS HARNESS NEVER
+    PASSES" — a statement about this script's argv, not about what pytest
+    receives. `PYTEST_ADDOPTS` supplies it from the environment. MEASURED with
+    that variable set: the SyntaxError mutation made pytest exit 1 instead of 2,
+    the differential discriminator was never consulted, and the harness printed
+    ✓ MUTATION DEMONSTRATED and exited 0 over a test that never ran.
+
+    The remaining channel is a target repo's own `addopts` in pytest.ini /
+    pyproject.toml, which no environment variable can clear; it is stated in the
+    exit-code table and its precheck is placed as proposal C-061.
+    """
+    env = dict(os.environ, PYTEST_ADDOPTS="--continue-on-collection-errors")
+    r = subprocess.run(
+        [str(MUTATE), "subject.py", "THRESHOLD = 10", "THRESHOLD = (10", "test_subject.py"],
+        cwd=str(sandbox), capture_output=True, text=True,
+        timeout=_MUTATE_TIMEOUT_S, env=env,
+    )
+    assert r.returncode == HARNESS_ERROR, (
+        "an environment variable changed pytest's exit code out from under the "
+        "classifier and the harness certified a guard that never ran — issue #72 "
+        f"through a channel the fix did not cover\n{r.stdout}{r.stderr}"
+    )
+    assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
+# --------------------------------------------------------------------------
+# CLASS CHECKS — these key on the mechanism, not on the instances.
+#
+# Every previous pass on this script closed the defect it was shown and the
+# next pass found a structurally adjacent one: exit 2's SyntaxError half, then
+# its ImportError half; the probe's absolute-vs-differential shape, then the
+# probe's own shared cache; the emitted 1-vs-3 conflation, then the emitted
+# codes that never reach the classifier. Enumerating instances demonstrably
+# does not converge here.
+#
+# So these three read the SOURCE and assert the invariants that make the next
+# member safe without anyone finding it: that no exit can bypass the record,
+# that the trap cannot die before it classifies, and that nothing runs in front
+# of the trap. Each fails on a class member that does not exist yet.
+# --------------------------------------------------------------------------
+
+def _function_body_lines(lines: list[str], header: str) -> set[int]:
+    """0-indexed line numbers spanned by a top-level `name() {` … `}` block.
+
+    Closing brace matched at column 0, which is what makes this reliable without
+    parsing bash: every nested brace in this file is indented.
+    """
+    start = next(i for i, line in enumerate(lines) if line.startswith(header))
+    end = next(i for i in range(start + 1, len(lines)) if lines[i] == "}")
+    return set(range(start, end + 1))
+
+
+def test_every_exit_is_a_declared_verdict() -> None:
+    """No `exit` may bypass the `verdict` funnel.
+
+    `on_exit` decides "did this path reach a verdict?" by comparing the actual
+    exit status against the code `verdict` recorded. An `exit` written anywhere
+    else leaves the record stale, and the trap then reports HARNESS ERROR over a
+    real verdict — a false negative injected into the one tool whose expensive
+    error is exactly that.
+
+    This is the check that keeps the fix from decaying into the five hand-placed
+    `if`-guards it replaced: it fails on the NEXT `exit` someone adds, wherever
+    they add it, rather than waiting for a review pass to notice.
+    """
+    lines = MUTATE.read_text().splitlines()
+    allowed = _function_body_lines(lines, "verdict() {") | _function_body_lines(lines, "on_exit() {")
+    offenders = [
+        (n + 1, line.strip())
+        for n, line in enumerate(lines)
+        # Strip comments, then match `exit` only where a command may start.
+        # `^\s*` and not `^`: every exit worth catching is INDENTED inside a
+        # function or an `if`, and an unanchored-to-column-0 pattern missed all
+        # of them. Caught by mutating `verdict 3` back to `exit 3` in report_leg
+        # and watching this test stay green — the check that guards the class
+        # was itself in the class.
+        if n not in allowed and re.search(r"(?:^\s*|[;&|]\s*|\{\s*)exit\b", line.split("#")[0])
+    ]
+    assert not offenders, (
+        "an `exit` bypasses the `verdict` funnel, so on_exit's record no longer "
+        "describes reality and a genuine verdict will be reported as a harness "
+        f"error: {offenders}"
+    )
+
+
+def test_the_exit_trap_cannot_abort_before_it_classifies() -> None:
+    """`on_exit` must capture `$?`/`$BASH_COMMAND` first and disable errexit second.
+
+    Both invariants are load-bearing and both were established by measurement,
+    not by reading the manual:
+
+      - `$?` and `$BASH_COMMAND` are destroyed by the trap's own first command,
+        so the capture must precede everything, including any `echo` or `[[`.
+      - the trap inherits `set -e`, so an unguarded failing command inside it
+        aborts the trap — skipping the rest of cleanup and its own
+        classification, and exiting with that command's status. That is how a
+        failed restore silently became exit 1 with a mutated tree on disk.
+
+    Asserted on the source rather than by execution because the failure is
+    invisible at runtime until the exact command that fails is the one nobody
+    guarded — which is the shape that has already shipped here twice.
+    """
+    lines = MUTATE.read_text().splitlines()
+    body = sorted(_function_body_lines(lines, "on_exit() {"))
+    # Trailing comments stripped: both statements below carry one explaining
+    # why they must be where they are, and the invariant is about the command.
+    statements = [
+        re.sub(r"\s+#.*$", "", lines[i]).strip() for i in body[1:]
+        if lines[i].strip() and not lines[i].strip().startswith("#")
+    ]
+    assert statements, "on_exit has no body"
+    assert statements[0].startswith("local status=$?"), (
+        "on_exit does not capture $? on its first statement, so the exit status it "
+        f"classifies is its own, not the script's: {statements[0]!r}"
+    )
+    assert "$BASH_COMMAND" in statements[0], (
+        "on_exit does not capture $BASH_COMMAND with $?, so the HARNESS ERROR "
+        f"cannot name the command that failed: {statements[0]!r}"
+    )
+    assert statements[1] == "set +e", (
+        "on_exit does not disable errexit as its second statement, so a failing "
+        "command inside the trap aborts it before it classifies anything — the "
+        f"exact defect it exists to close: {statements[1]!r}"
+    )
+
+
+def test_the_exit_trap_is_installed_before_anything_that_can_fail() -> None:
+    """Nothing may run in front of the classifier.
+
+    The previous trap was installed after `mktemp -d`, `mktemp` and the backup
+    `cp`, because its body dereferenced the variables those commands set. Those
+    three are exactly the commands that fail when `/tmp` fills, and a classifier
+    installed behind them ships with a hole in front of it — a blind spot in the
+    shape of the fix.
+
+    `trap on_exit EXIT` must therefore precede the first command in the file
+    that can fail. Everything it touches is pre-declared empty so `set -u`
+    cannot trip inside a handler that runs on every path.
+    """
+    lines = MUTATE.read_text().splitlines()
+    trap_at = next(i for i, l in enumerate(lines) if l.strip() == "trap on_exit EXIT")
+    first_fallible = next(
+        i for i, l in enumerate(lines)
+        if re.match(r"^[A-Z_]+=\"\$\((mktemp|grep|python3)", l.strip()) or l.strip().startswith("cp ")
+    )
+    assert trap_at < first_fallible, (
+        f"the EXIT trap is installed at line {trap_at + 1}, after a command that can "
+        f"fail at line {first_fallible + 1} — every abort in between is unclassified"
+    )
+
+
+# --------------------------------------------------------------------------
 # Cleanup. A harness that leaves a mutated tree behind is worse than no
 # harness: the next run tests code nobody meant to ship.
 # --------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
-    ("old", "new", "case"),
+    ("old", "new", "case", "expected"),
     [
-        ("THRESHOLD = 10", "THRESHOLD = 11", "success"),
-        ("LABEL = 'alpha'", "LABEL = 'omega'", "guard-did-not-fire"),
-        ("THRESHOLD = 10", "THRESHOLD = (10", "collection-error"),
+        ("THRESHOLD = 10", "THRESHOLD = 11", "success", DEMONSTRATED),
+        ("LABEL = 'alpha'", "LABEL = 'omega'", "guard-did-not-fire", NOT_DEMONSTRATED),
+        ("THRESHOLD = 10", "THRESHOLD = (10", "collection-error", HARNESS_ERROR),
+        ("THRESHOLD = 999", "THRESHOLD = 1", "refused-before-mutating", REFUSED),
     ],
 )
-def test_the_file_is_restored_on_every_exit_path(sandbox: Path, old: str, new: str, case: str) -> None:
+def test_the_file_is_restored_on_every_exit_path(
+    sandbox: Path, old: str, new: str, case: str, expected: int
+) -> None:
+    """The expected exit code is asserted alongside the content, because the
+    content check alone cannot fail for the right reason.
+
+    An unchanged file is trivially "restored", so any run that refused BEFORE
+    mutating satisfies the content assertion without exercising the trap at all.
+    Pinning the code is what makes each row prove that the path it names is the
+    path that actually ran — and the fourth row exists to state that the
+    refusal case is restored-by-never-mutating, deliberately, rather than
+    leaving it as an unlabelled way for the other three to pass vacuously.
+    """
     before = (sandbox / "subject.py").read_text()
-    run_mutate(sandbox, old, new)
+    r = run_mutate(sandbox, old, new)
+    assert r.returncode == expected, (
+        f"the {case} row did not take the path it names, so its restore check "
+        f"proves nothing\n{r.stdout}{r.stderr}"
+    )
     assert (sandbox / "subject.py").read_text() == before, (
         f"the tree was left mutated after the {case} path — the EXIT trap did not restore it"
     )

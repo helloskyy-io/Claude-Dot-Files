@@ -12,6 +12,8 @@ testing/
 ├── run-all.sh              TIER 1 · the single "run everything" entry point
 ├── suites/python.sh        TIER 2 · one runner per framework actually in use
 ├── scripts/mutate.sh       the mutation harness (see "Adding a test" below)
+├── scripts/tests/unit/     TIER 3 · the harness's own tests, and the repo-wide
+│                                    test-tree properties that exist because of it
 ├── config-hooks/tests/     TIER 3 · tests for config/hooks/ — see its README
 └── logs/                   per-suite output (gitignored)
 
@@ -93,28 +95,28 @@ all (the mutation left the Python file under test unimportable, issue #72). So
 the harness imports `<file>` before and after mutating, and blames the mutation
 only when that is what changed. When `<file>` does not import standalone even
 unmutated it says so on stderr and falls back to reading the leg as red; that
-note is your cue to confirm by hand that a test really ran. Exits 3, 4 and 5
-abort the run rather than being read as a result.
+note is your cue to confirm by hand that a test really ran. *pytest's* exits 3,
+4 and 5 abort the run rather than being read as a result.
 
-**`mutate.sh`'s exit-code table is the reference and it is not repeated here** —
-it sits above `classify_leg` and answers, for every code, whether it can mean
-both "the suite ran" and "it never ran". Read it before changing the
-classification. It also records the one ambiguity deliberately left open: an
-all-skipped leg exits 0 and is accepted as green, which is harmless on the
-mutated leg and not harmless on the baseline and restored legs.
+**`mutate.sh`'s exit-code tables are the reference and they are not repeated
+here** — both sit above `classify_leg`, one for the codes pytest hands in and
+one for the codes the script hands out, and each answers, for every code,
+whether it can mean both "the suite ran" and "it never ran". Read them before
+changing the classification, and before calling this from anything other than
+your own shell. *(This paragraph previously declared that policy and then
+restated the second table seven lines below it, which is the restated-figure
+class this repo has measured as non-convergent. One source now.)*
 
-**What `mutate.sh` itself exits with**, which is the contract if you ever call
-it from anything other than your own shell:
+The tables also record the ambiguities deliberately left open rather than
+claimed closed — an all-skipped leg exiting 0, the abstained discriminator, and
+the `addopts` channel — with the mechanism for each placed as a candidate. Do
+not read the absence of a caveat here as the absence of one.
 
-| Code | Meaning |
-|---|---|
-| `0` | mutation demonstrated — the guard fails when the property is violated |
-| `1` | the suite ran and the answer is no: already red, the guard did not fire, or the tree did not restore |
-| `2` | refused before running anything — an input it will not reason about |
-| `3` | harness error — the suite never ran, so there is no verdict |
-
-`1` and `3` are separate on purpose. `1` sends you to the guard; `3` says the
-guard was never judged. Conflating them is how a working guard gets deleted.
+The single fact worth carrying away without opening the file: **`1` and `3` are
+separate on purpose.** `1` sends you to the guard; `3` says the guard was never
+judged. Conflating them is how a working guard gets deleted — and the
+separation is enforced rather than documented, because every termination the
+script did not deliberately choose is classified as a `3` by its EXIT trap.
 
 It refuses a mutation string that is not present, because a mutation that
 changes nothing proves nothing — and it refuses one that matches more than
