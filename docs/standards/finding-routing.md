@@ -85,21 +85,37 @@ Filing authority for **defects** sits with the reviewer, not the discoverer, and
 
 ## 5 · `INTERFACE` — The gates, in order, before anything is filed
 
-**0 · IS THIS ABOUT WORK THAT WAS JUST DONE? Then it belongs to that work, not to a new container.**
+**0 · IS THIS ABOUT THE WORK IN HAND? Then THREE dispositions exist and the rest are UNREACHABLE.**
 
-**The test is OWNERSHIP, not size.** A finding is part of a dispatch — and is fixed there or added to its runway — when any of these hold:
+**This is not a criterion. It is a closed list.**
 
-- it is about **an artifact that dispatch created or edited**, including one it created *correctly but incompletely*
-- it is about **a commit made to unblock that dispatch**
-- it is about **output that dispatch produced** which does not conform to a rule binding it
+| Disposition | When |
+|---|---|
+| **`fixed`** | you corrected it |
+| **`rejected`** | it is not a real defect — state the reasoning that makes it not one |
+| **`hold`** | it is real and you are not fixing it here: `redispatch` (a correction pass fixes it) or `needs_ruling` (only a human can decide) |
 
-**A new container is for a defect in something that already existed and was NOT touched by this work.** *"I noticed X while doing Y"* is not enough — the question is whether X is part of Y.
+**`deferred`, `noted`, `escalated` and `surfaced` DO NOT EXIST for this class.** Not discouraged, not a last resort — absent. **A finding about the work in hand is never a new issue, never a candidate, and never someone else's queue item.** It is fixed, rejected with reasoning, or held.
 
-**Why this is gate 0.** It eliminates more than any other test, it is the cheapest to apply, and getting it wrong is expensive in a specific way: **the work that produced the gap merges, and the gap becomes a queue item nobody owns.** The dispatch had the context, the files open and the authority; a later actor has none of those and must rebuild all three.
+**What counts as "the work in hand":**
 
-**Measured, twice in one day, both against the session's own work.** A standard was corrected on one line to unblock a build, and the same document's three worked examples still taught the corrected-away behaviour — filed as a new issue while that build's PR was still open. And four candidate rows were placed by a dispatch without the lens verdicts the intake gate requires — filed as a new issue rather than added to the PR that placed them.
+- an artifact this dispatch **created or edited**, including one it created *correctly but incompletely*
+- a commit made **to unblock** this dispatch
+- **output this dispatch produced** that does not conform to a rule binding it
 
-**If the owning work has already merged, say so and route to whatever is next touching that artifact.** A merged dispatch cannot be given a runway; that is the one case where a container is legitimate, and it is legitimate *because* the owner is gone, not because the finding is new.
+*"I noticed X while doing Y"* is not enough — the question is whether **X is part of Y**.
+
+**WHY THE LIST IS CLOSED RATHER THAN GUIDED, and this is the part to understand rather than obey.** Six versions of this rule have been written as criteria and all six leaked, because **the incentives run the other way and criteria do not beat incentives.** A run works under a turn cap: filing a finding costs one line, fixing it costs the rest of the budget. Every time the vocabulary offers an exit, a run under pressure takes it — not from laziness, but because the exit was reachable and looked legitimate. **The only fix that has ever worked on this class is removing the outcome, not adding a condition on it.**
+
+**And the cost of the exit is specific: the work that produced the gap merges, and the gap becomes a queue item nobody owns.** The dispatch had the context, the files open, and the authority. A later actor has none of the three and must rebuild all of them — which is why *"file it and move on"* is not a transfer of work but a multiplication of it.
+
+**Every finding MUST name the artifact it is about**, so this is computable rather than judged: a finding whose artifact appears in this change's own diff has three dispositions available and no others. Stating the artifact is what turns this rule from the seventh attempt into an enforceable one.
+
+**THE ONE CARVE-OUT.** If the owning work has **already merged**, it cannot be given a runway. Route to whatever is next touching that artifact; a new container is legitimate **only** when there is genuinely no open work that owns it — and *"the owner merged"* is a fact you state, not a conclusion you reach because fixing looked expensive.
+
+---
+
+**Everything below applies ONLY to a finding that is NOT about the work in hand** — a defect in something that already existed and this change did not touch.
 
 **1 · CLUSTER YOUR OWN FINDINGS FIRST.** Before searching anything. Searching a queue cannot find what does not exist yet — the measured case was four issues against one file from one pass, each individually correct and none findable by the others. **Findings sharing a file, a function, a subsystem, or one remedy are ONE entry.**
 

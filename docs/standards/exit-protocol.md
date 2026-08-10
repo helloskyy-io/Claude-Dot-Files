@@ -119,6 +119,18 @@ Re-verified on **CLI 2.1.224, 2026-08-09, host `puma-workstation-mint`** — the
 
 ## 3 · The outcome vocabulary
 
+### `INTERFACE` — the vocabulary is CLOSED for a finding about the work in hand
+
+**Three members, and the rest are unreachable:** `fixed`, `rejected`, `hold`. A finding about an artifact the run created or edited, a commit made to unblock it, or output it produced that violates a rule binding it, **is never routed to another queue.** `deferred`, `noted` and `escalated` exist only for findings about work this change did not touch.
+
+**Every finding names the artifact it is about**, so ownership is computed from the change's own diff rather than judged. That field is the enforcement point: **a finding whose artifact is in this diff, carrying a disposition outside the three, is a malformed record.**
+
+**Why closed rather than guided:** six versions of this rule shipped as criteria and all six leaked. Under a turn cap, filing costs one line and fixing costs the budget — so every reachable exit gets taken, and the run holding the context, the files and the authority disappears before anyone picks it up. See [`finding-routing.md` § 5 gate 0](finding-routing.md).
+
+⟨PHASE 4⟩ adds `artifact` to the envelope as an additive field per §5, and the conformance check that reads it. **Not added to `CHILD_SCHEMA` today** — Phase 3 shipped hours ago and a required-field change mid-flight routes every conforming run to a human, which E2(c) measured as producing *silence* rather than an error.
+
+
+
 **Closed.** A value outside the vocabulary is a malformed record and routes per §4.
 
 **Abstention splits in two.** Every mature observable vocabulary surveyed has an abstention member — Kubernetes probes' `Unknown`, Argo's `Error` distinct from `Failed`, Monitoring Plugins' `Unknown`=3, pytest's exit 5 — and **all of them mean "the checker could not evaluate," never "the work is ambiguous."** Those are different conditions with different reliability and different remedies:

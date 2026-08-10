@@ -269,6 +269,12 @@ pr_review:
       category: <from the fixed enum — NO existing-condition>
       consequence: <REQUIRED — what happens if this is not addressed. If you cannot state it, this is a note, not a finding.>
       disposition: fixed | rejected | deferred | noted | escalated | hold
+                                     # FOR A FINDING ABOUT THE WORK IN HAND -- an artifact this PR
+                                     # created or edited, a commit made to unblock it, or output it
+                                     # produced that breaks a rule binding it -- ONLY `fixed`,
+                                     # `rejected` and `hold` are legal. `deferred`, `noted` and
+                                     # `escalated` are UNREACHABLE for that class, per
+                                     # finding-routing.md 5 gate 0. Name the artifact so it is checkable.
       remedy: fix-in-place | reject | defer-to-existing-work | extend-upstream-artifact | create-missing-surface | ratify-standard-change | operator-action | none
       escalation_location: <REQUIRED if escalated — file:line on the DEFAULT BRANCH, plus why this PR does not own it>
       no_live_defect_check: <REQUIRED if noted — the check you RAN that proves nothing is broken now. Not "it looks fine".>

@@ -55,6 +55,14 @@ For each finding (fidelity gaps and code-reviewer), exactly ONE of these four. T
 
 **A REVIEW'S REJECTED FINDINGS ARE DISPOSITIONS YOU MUST EXECUTE, not items already handled.** A rejection with reasoning is a decision — usually to delete a claim, correct a doc, or withdraw an assertion — and something has to carry it out. **Measured: a careful pass closed all four actionable items and left BOTH rejections standing.** Walk the rejections before you call the runway closed.
 
+**BEFORE choosing any disposition below, ask: IS THIS ABOUT THE WORK IN HAND?** An artifact this run created or edited — *including one it created correctly but incompletely* — a commit made to unblock this run, or output this run produced that violates a rule binding it.
+
+**If yes, exactly THREE dispositions exist and the rest are UNREACHABLE:** `FIXED`, `REJECTED`, or hand it back as a HOLD (a correction pass fixes it, or a human rules on it). **`DEFERRED`, `RULING-REQUIRED` and `SURFACED` do not exist for this class** — not as a last resort, not with a good pointer, not at all. See [`finding-routing.md` § 5 gate 0](../../../../../../docs/standards/finding-routing.md).
+
+**Understand why rather than obeying it.** Six versions of this rule were written as criteria and all six leaked, because **the incentives run the other way**: under a turn cap, filing costs one line and fixing costs the rest of the budget. The list is closed because every reachable exit gets taken. **And the exit is not a transfer of work — it is a multiplication of it**, since the run that had the context, the files and the authority is gone by the time anyone picks it up.
+
+**Name the artifact each finding is about**, so this is computable rather than argued.
+
 - **FIXED** — you corrected it here. Say what you changed.
 - **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
 - **DEFERRED** — real, and an EXISTING durable home already covers it. Allowed ONLY with a pointer you FETCHED: run the command, record what you saw. See the Deferred Work rules at the end of this prompt — they are binding here, at the moment of decision, not merely when you write the comment up. **If you cannot verify a home, this is not a DEFERRED; it is a SURFACED.**
