@@ -50,6 +50,7 @@ import subprocess
 import threading
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Sampling interval. `memory.peak` and `pids.peak` are monotonic so the cadence
@@ -73,6 +74,18 @@ SAMPLE_INTERVAL_S = 2.0
 class ResourceReport:
     """One run's resource facts. Every field is nullable when unmeasured."""
 
+    # IDENTITY AND TIME. Without these a record cannot be correlated to the run
+    # that produced it, or ordered against any other record — and this data's
+    # whole purpose is a RATE OVER A POPULATION, which is not computable from
+    # records that cannot be told apart or put in sequence. Shipped without
+    # them on 2026-08-10 and caught in review the same day; the omission would
+    # have made every aggregate reading of this field unsound while looking
+    # perfectly well-formed at the single-record level.
+    run_id: str | None = None
+    model_key: str | None = None
+    started_at: str | None = None      # ISO-8601 UTC
+    ended_at: str | None = None
+
     measured: bool = False
     unmeasured_reason: str | None = None
 
@@ -90,6 +103,12 @@ class ResourceReport:
 
     samples: int = 0
     limits: dict = field(default_factory=dict)
+
+
+def _now() -> str:
+    """ISO-8601 UTC. Timezone-aware deliberately — a naive stamp compared across
+    hosts or a DST boundary orders records wrongly, silently."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _read_int(path: Path) -> int | None:
@@ -165,6 +184,7 @@ class _Sampler(threading.Thread):
         self.oom: int | None = None
         self._total_sum = 0
         self.samples = 0
+        self.started_at = _now()
 
     def run(self) -> None:
         while not self.stop_flag.is_set():
@@ -270,9 +290,14 @@ def measure(proc: subprocess.Popen, *, unit: str) -> _Sampler | None:
 
 
 def finish(sampler: _Sampler | None, *, limits: dict,
-           unmeasured_reason: str | None = None) -> ResourceReport:
+           unmeasured_reason: str | None = None,
+           run_id: str | None = None, model_key: str | None = None) -> ResourceReport:
+    """Close out a measurement. Identity is stamped even when nothing was measured —
+    an unmeasured run has to be countable AND attributable, or the size of the
+    blind spot cannot be broken down by which workflow it happened in."""
     if sampler is None:
         return ResourceReport(
+            run_id=run_id, model_key=model_key, started_at=_now(), ended_at=_now(),
             measured=False,
             unmeasured_reason=unmeasured_reason or "cgroup could not be resolved for the child",
             limits=limits,
@@ -280,6 +305,8 @@ def finish(sampler: _Sampler | None, *, limits: dict,
     sampler.stop_flag.set()
     sampler.join(timeout=SAMPLE_INTERVAL_S * 2)
     return ResourceReport(
+        run_id=run_id, model_key=model_key,
+        started_at=sampler.started_at, ended_at=_now(),
         measured=sampler.samples > 0,
         unmeasured_reason=None if sampler.samples else "cgroup vanished before the first sample",
         peak_anon=sampler.peak_anon or None,

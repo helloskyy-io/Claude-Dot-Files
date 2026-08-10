@@ -138,6 +138,34 @@ def test_wrap_omits_flags_that_are_not_configured() -> None:
 
 
 
+# --- 3c. Records are identifiable and orderable -------------------------------
+
+def test_every_record_carries_identity_and_time() -> None:
+    """A rate over a population needs records that can be told apart and ordered.
+
+    Shipped without these and caught in review the same day. The omission is
+    invisible at the single-record level — one report looks complete — and
+    makes every AGGREGATE reading unsound, which is the only reading this data
+    exists for.
+    """
+    r = rt.finish(None, limits={}, unmeasured_reason="x", run_id="abc", model_key="review-pr")
+    assert r.run_id == "abc" and r.model_key == "review-pr"
+    assert r.started_at and r.ended_at, "a record with no time cannot be ordered"
+    from datetime import datetime
+    for stamp in (r.started_at, r.ended_at):
+        parsed = datetime.fromisoformat(stamp)
+        assert parsed.tzinfo is not None, (
+            f"{stamp} is timezone-naive — compared across hosts or a DST boundary "
+            "it orders records wrongly and silently"
+        )
+
+
+def test_an_unmeasured_record_is_still_attributable() -> None:
+    """The blind spot must be breakable down by workflow, not just countable."""
+    r = rt.finish(None, limits={}, unmeasured_reason="no session bus", model_key="research")
+    assert r.measured is False and r.model_key == "research" and r.started_at
+
+
 # --- 4. Log-derived fields survive the run that matters most ------------------
 
 def test_tool_result_bytes_and_subagents_are_counted(tmp_path: Path) -> None:

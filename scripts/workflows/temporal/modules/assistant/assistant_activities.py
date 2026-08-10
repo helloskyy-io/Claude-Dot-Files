@@ -587,7 +587,8 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # whose resource numbers are most worth having, and an early `raise` would
     # throw them away at exactly the moment they became evidence.
     report = resource_telemetry.finish(
-        sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason)
+        sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason,
+        run_id=log_file.stem, model_key=model_key)
     report.tool_result_bytes, report.subagents_spawned = resource_telemetry.from_log(log_file)
     append_run_resources(log_file, resource_telemetry.report_dict(report))
     print(f"→ {model_key}  {resource_telemetry.human(report)}", flush=True)
