@@ -41,7 +41,7 @@ Follow these stages exactly:
 
    SELF-DESCRIPTION (required on this path): update the PR body to describe what the PR NOW contains, and update docs/file_structure.txt if you added, removed, or renamed files. A fix that leaves the PR's own description stale mechanically manufactures a finding for the next review pass — measured: every fix round generated 1-2 new "body doesn't describe the new work / test count stale / new file missing from map" findings, and one review pass found ZERO code defects and only self-description drift. Updating it here breaks that loop.
 
-5. PUSH: Push the branch. This will update PR #${PR_NUMBER} automatically.
+5. PUSH: Push the branch. **CHECK YOU ARE ON A BRANCH FIRST — the worktree may hand you a DETACHED HEAD.** `git rev-parse --abbrev-ref HEAD`; if it returns `HEAD`, you are detached and `git push -u origin HEAD` fails with `refs/heads/HEAD`. Create the branch (`git checkout -b <name>`) or push explicitly to a ref (`git push origin HEAD:<branch>`). **Asked for on five separate reflections across four PRs** — runs keep losing turns rediscovering it, and every wording of the instruction below says "the branch" as though one exists. This will update PR #${PR_NUMBER} automatically.
 
 6. REPORT: As your FINAL line, print the PR URL — run \`gh pr view ${PR_NUMBER} --json url --jq .url\` and print the result. This is the run's completion signal. On this path you UPDATE an existing PR rather than creating one, so nothing else emits the URL; a run that ends without it is misread as an early-stop failure even though the work succeeded.
 
