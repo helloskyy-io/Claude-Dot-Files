@@ -21,6 +21,7 @@ comparison is trivially satisfied and the rule is never exercised.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 from pathlib import Path
@@ -1562,3 +1563,109 @@ def test_the_shipped_prompt_asks_for_exactly_the_fields_the_parent_reads() -> No
         f"{sorted(asked - declared)}. Only declared: {sorted(declared - asked)}"
     )
     assert set(er.CHILD_SCHEMA["required"]) <= asked
+
+
+# ---------------------------------------------------------------------------
+# §10.1 rule 3 — PARENT-LEVEL PLACEMENT. Also a gate on the CLASS: it fails when
+# a THIRD single-consumer module appears at the parent level, and equally when a
+# declared deviation acquires its second consumer and the entry goes stale.
+# ---------------------------------------------------------------------------
+
+# Modules at `modules/assistant/` that are consumed by exactly ONE workflow
+# folder, each a stated deviation from `temporal_standard.md` §10.1 rule 3 — *a
+# module is promoted to the parent level IF AND ONLY IF more than one workflow
+# uses it; the consumer count decides, never taste* — with the checkbox where the
+# deviation expires.
+#
+# WHY A SET AND NOT A COMMENT IN A PHASE DOC. `phase4_fleet_migration.md:76`
+# already carries the expiry ruling, and its own prose says why prose is not
+# enough: *"an honest deviation becomes an unmarked violation the moment nobody
+# is left who remembers it was one."* It named `exit_record.py` alone while a
+# second module qualified, and no test could tell. This is the check that makes
+# the omission loud.
+SINGLE_CONSUMER_PARENT_MODULES = {
+    # Phase 3. Dependency-free sibling of `routing.py`; the ONE declaration of
+    # the Kind 2 schema and the fail-safe contract.
+    "exit_record": "phase4_fleet_migration.md step 2, the placement-expiry checkbox",
+    # Phase 5, and the same shape for the same reason: dependency-free, and
+    # loaded BY PATH by `replay_convergence_predicate.py` — an out-of-tree
+    # consumer that rule 3's *workflow* count cannot see.
+    "convergence": "phase4_fleet_migration.md step 2, the placement-expiry checkbox",
+}
+
+
+def _workflow_folder_consumers(module_stem: str, assistant: Path) -> set[str]:
+    """Which workflow folders under `assistant/` import `module_stem`.
+
+    AST rather than a substring scan: `"import convergence" in text` matches a
+    docstring, a comment, or `import convergence_helper`, and a placement gate
+    that counts prose is a placement gate that reports whatever is written about
+    the module rather than what depends on it.
+    """
+    consumers: set[str] = set()
+    for folder in sorted(p for p in assistant.iterdir() if p.is_dir()):
+        if folder.name.startswith("__") or folder.name == "prompts":
+            continue
+        for path in folder.rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    names = {a.name for a in node.names}
+                    if node.module == module_stem or module_stem in names:
+                        consumers.add(folder.name)
+                elif isinstance(node, ast.Import):
+                    if any(a.name.split(".")[-1] == module_stem for a in node.names):
+                        consumers.add(folder.name)
+    return consumers
+
+
+def test_every_parent_level_module_is_shared_or_a_DECLARED_deviation() -> None:
+    """§10.1 rule 3's payoff is that parent level MEANS shared — checked, not assumed.
+
+    The standard's own reason for the rule: *"anything at a parent level is
+    shared by definition, so a reader never has to open a file to learn its
+    scope."* Two single-consumer modules already sit there. That is defensible as
+    a stated deviation and indefensible as an unmarked one, and the difference
+    between the two is entirely whether something says so.
+
+    THE GATE IS ON THE CLASS IN BOTH DIRECTIONS, which is what a checkbox in a
+    phase doc cannot be:
+
+    - a THIRD single-consumer module placed at the parent level fails here, even
+      though `phase4_fleet_migration.md`'s checkbox names neither of the two;
+    - a declared deviation that acquires a SECOND consumer also fails, because
+      the deviation has expired on its own and an entry that outlives its reason
+      is how a gate widens into a place to park an inconvenient module.
+
+    It does NOT rule on where the modules should live — that is Phase 4's ruling
+    and this test must not pre-empt it. It rules only that the count and the
+    record agree.
+    """
+    assistant = Path(er.__file__).resolve().parent
+    modules = sorted(p.stem for p in assistant.glob("*.py")
+                     if p.name != "__init__.py")
+    assert len(modules) >= 3, (
+        f"only {modules} found at {assistant} — the gate is reporting on a "
+        f"directory it did not read"
+    )
+
+    counts = {m: _workflow_folder_consumers(m, assistant) for m in modules}
+    single = {m for m, c in counts.items() if len(c) == 1}
+
+    assert single == set(SINGLE_CONSUMER_PARENT_MODULES), (
+        f"parent-level placement and its record have diverged. Single-consumer "
+        f"and undeclared: "
+        f"{ {m: sorted(counts[m]) for m in sorted(single - set(SINGLE_CONSUMER_PARENT_MODULES))} }"
+        f" — each is an unmarked §10.1 rule-3 violation unless the deviation is "
+        f"stated with where it expires. Declared but no longer single-consumer: "
+        f"{ {m: sorted(counts[m]) for m in sorted(set(SINGLE_CONSUMER_PARENT_MODULES) - single)} }"
+        f" — those deviations have expired on their own; remove the entry."
+    )
+    # And the modules that are NOT deviations really are shared, so the assertion
+    # above is not satisfied by a scan that found no consumers anywhere.
+    for module in modules:
+        if module not in SINGLE_CONSUMER_PARENT_MODULES:
+            assert len(counts[module]) > 1, (
+                f"{module} has {sorted(counts[module])} consumers — the import "
+                f"scan is not finding them"
+            )
