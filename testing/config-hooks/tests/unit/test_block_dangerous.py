@@ -1301,7 +1301,14 @@ def test_command_is_canonicalized_before_any_pattern_loop() -> None:
     A line scanner, matching the style of the other structural guard in this
     file. It does not prove the canonicalization is CORRECT — the respelling
     sweep above does that, by execution — only that it exists and runs first.
-    The two together are what stop the step from being quietly relocated.
+
+    STATED HONESTLY, because an overstated guarantee is this suite's own
+    recurring defect: **this test is SUBSUMED by the sweep above.** Every
+    mutation that kills it also kills 125-odd probes there; there is no
+    mutation that kills it alone. It is kept for FAILURE ATTRIBUTION, which is
+    the same reason `DANGEROUS` and the claim corpora are not merged: removing
+    the canonicalization step produces 125 opaque probe failures and one
+    sentence naming the cause. Do not read it as independent evidence.
     """
     lines = HOOK.read_text().splitlines()
     canon = [n for n, line in enumerate(lines, 1) if 'CMD="${CMD//' in line]

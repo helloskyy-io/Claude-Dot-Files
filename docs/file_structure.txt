@@ -314,9 +314,11 @@ claude-dot-files/
 │   │       └── test_block_dangerous.py              # SPECIFICATION suite for the PreToolUse safety hook (issues #52, #61 — was
 │   │                                                #   characterization until the operator ruled on the four defects it found). Attack corpus +
 │   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
-│   │                                                #   Executes the MUST BLOCK / MUST ALLOW claims written beside each pattern IN THE HOOK,
-│   │                                                #   and re-runs every dangerous command with a shell separator appended. A pattern added
-│   │                                                #   without a deny case, without both claims, or with an enumerated right boundary FAILS here
+│   │                                                #   Executes the MUST BLOCK / MUST ALLOW claims written beside each pattern IN THE HOOK, and
+│   │                                                #   sweeps the separator class at BOTH positions: a shell separator appended to the end of
+│   │                                                #   every dangerous command, and every internal separator respelt (tab, doubled space, the
+│   │                                                #   space after `>` removed). A pattern added without a deny case or without both claims FAILS
+│   │                                                #   here; so does one that enumerates a separator, at either position
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/

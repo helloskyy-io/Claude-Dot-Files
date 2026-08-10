@@ -72,3 +72,14 @@ re-runs **every** command in the dangerous corpus with a shell separator
 (`;true`, `&`, ` && echo ok`, `|cat`) appended and requires it to still be
 denied. That check depends on nobody anticipating anything, and it is what
 found the five right-boundary gaps the claims did not.
+
+**And that sweep was itself half a check — read this before trusting either.**
+It appends to the END of a command, so it probes a boundary only where the
+match reaches the end. The same enumeration sitting *between* a keyword and its
+operand — the literal space in `systemctl +(stop|disable|mask) ` — was never
+touched, and **58 of the 60 transformable corpus commands were ALLOWED with a
+tab in place of a space while the sweep was green**. A second sweep now respells
+every internal separator (tab, doubled space, and the space after a redirect
+operator removed) across both the corpus and every `MUST BLOCK` claim. The
+lesson generalises past this hook: a check aimed at a defect CLASS has to be
+keyed on the class, not on the position the first instances happened to sit in.
