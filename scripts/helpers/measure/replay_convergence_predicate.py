@@ -144,6 +144,16 @@ def _multi_block_comments(archive: list[dict]) -> list[tuple[int, str]]:
     The one shape under which a replayed denominator would over-count passes.
     Reported rather than silently corrected: a corrected number nobody was told
     about is the same defect as a wrong one.
+
+    THE TEST IS TIMESTAMP EQUALITY, WHICH IS NOT THE SAME AS "ONE COMMENT", AND
+    THE REPORT SAYS SO RATHER THAN IMPLYING OTHERWISE. GitHub's `createdAt` is
+    second-granular, so two DISTINCT comments posted within the same second read
+    as one comment carrying two blocks. That direction is a false ALARM and never
+    a false negative — blocks in one comment always share a timestamp — so the
+    conservative reading is the safe one, and the fix (have the shared extractor
+    emit the comment id) would move a tool whose figures are published. It stays
+    a report rather than a correction for the reason above, and the report names
+    the ambiguity so a reader does not act on it as certainty. Archive: 0.
     """
     seen: list[tuple[int, str]] = []
     for pr in archive:
@@ -217,8 +227,11 @@ def report(result: dict, convergence) -> None:
     print(f"Residual-arm reasons       : {dict(reasons)}")
     doubled = result.get("multi_block_comments") or []
     print(f"Comments carrying >1 block : {len(doubled)}"
-          + (f" — {doubled}; each over-counts a pass in the rows below, because "
-             f"this dump cannot say which block was the quote" if doubled else
+          + (f" — {doubled}; grouped by comment TIMESTAMP, which is second-granular, "
+             f"so each is EITHER one comment quoting a prior block (over-counts a "
+             f"pass below, since this dump cannot say which block was the quote) OR "
+             f"two distinct comments in the same second (counts correctly). Read the "
+             f"thread before adjusting a denominator" if doubled else
              " (so no pass in this replay is a quoted restatement)"))
     print()
 
