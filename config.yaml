@@ -185,6 +185,16 @@ resource_limits:
   MemoryMax: 8G                   # hard ceiling. A child that hits this DIES, named and
                                   #   logged, instead of wedging the host silently.
                                   #   Reference: a healthy full suite peaks near 445 MiB.
+  # SHORTCUT, MARKED AS ONE. The number is duplicated as literal text in both
+  # fleets' shared prompt and held together by a test. That is a binding, not a
+  # single source — the drift is still possible, the test just catches it after
+  # the fact.
+  #   REAL FIX: `${MAX_PARALLEL_AGENTS}` in the prompt, supplied at render time
+  #   by `act.render()`, which already exists and whose every variable is
+  #   checked for a supplier by `test_prompt_completeness.py`. Then the value
+  #   cannot be duplicated at all and the binding test becomes unnecessary.
+  #   Not done here because the bash fleet interpolates separately and the
+  #   incident needed a ceiling the same day.
   max_parallel_agents: 4          # HARD ceiling on concurrent sub-agents per message.
                                   #   Lowered from the UNBOUNDED default — there was never a
                                   #   ceiling at all; the five analysts that crashed the host
