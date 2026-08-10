@@ -235,6 +235,30 @@ DANGEROUS: list[tuple[str, str]] = [
     ("a relative target with no cd into scratch", "cd /home/puma && rm -rf Repos"),
     ("a later cd leaves the scratch directory", "cd /tmp && cd / && rm -rf etc"),
     ("a long flag is never elided", "rm --no-preserve-root -rf /tmp/x /"),
+    # THE FOUR BELOW WERE ALLOWED BY THE FIRST VERSION OF THE ELISION and are
+    # the reason the sweep further down exists. That version removed an elided
+    # segment from the command with `${CMD//"$_SEG"/}` — a GLOBAL,
+    # content-addressed delete — so a scratch delete stripped its own text out
+    # of a LATER segment carrying a second operand, which is precisely the
+    # shape `("a second operand hiding behind a safe first")` above exists to
+    # stop. That entry stayed green throughout, because its two segments do not
+    # share text. These do, and that is the whole difference.
+    (
+        "a shared prefix must not be deleted out of a two-operand neighbour",
+        "rm -rf /tmp/evil && rm -rf /tmp/evil /home/puma/important",
+    ),
+    (
+        "the same shape with / as the smuggled second operand",
+        "rm -rf /tmp/evil && rm -rf /tmp/evil /",
+    ),
+    (
+        "the shared prefix reaches across a ; as well as an &&",
+        "rm -rf /tmp/a; rm -rf /tmp/a /etc",
+    ),
+    (
+        "the relative branch is reachable the same way",
+        "cd /tmp && rm -rf out && rm -rf out /home/puma/data",
+    ),
     # Git destructive operations
     ("git push --force", "git push --force origin main"),
     ("git push -f", "git push -f origin main"),
@@ -1375,6 +1399,102 @@ def test_the_respelt_separator_sweep_is_not_vacuous() -> None:
     assert any("claim of" in label for label, _ in _RESPELT_PROBES), (
         "no probe is derived from a MUST BLOCK claim — the half of the corpus "
         "that makes this sweep automatic for newly-added patterns is gone"
+    )
+
+
+# ---------------------------------------------------------------------------
+# THE ELISION-NEIGHBOUR SWEEP — the class check for the one step in this hook
+# that MUTATES the string the patterns are matched against.
+#
+# WHY IT IS A THIRD SWEEP AND NOT MORE CORPUS ENTRIES. Every other check in this
+# file asks whether a REGEX matches a string, and for that question a corpus of
+# hand-picked boundary cases is the right technique — a pattern either covers a
+# literal command or it does not. The SCRATCH-DELETE ELISION is not a regex; it
+# is a stateful transform that deletes text, and a transform has structural
+# invariants a finite corpus can circle without ever landing on. It shipped with
+# 1680 tests green and a live fail-open: the first version deleted an elided
+# segment with `${CMD//"$_SEG"/}`, which removes EVERY occurrence of that text
+# anywhere in the command, so an allowed scratch delete disarmed a DIFFERENT
+# segment that the narrow regex had correctly refused. The corpus already had
+# the near-miss for that risk (`rm -rf /tmp/x && rm -rf /`); it passed, because
+# its two segments happen not to share text. Nobody wrote the sibling where they
+# do, and nobody would have.
+#
+# So the property is swept rather than enumerated: ELIDING A SEGMENT MUST NOT
+# CHANGE THE VERDICT ON ANY OTHER SEGMENT. Every dangerous command in the corpus
+# is placed beside an elidable scratch delete, in both orders, and must still be
+# denied.
+#
+# THE NEIGHBOUR IS ABSOLUTE (`/tmp/…`) ON PURPOSE. A `cd /tmp && rm -rf x`
+# neighbour would ALSO establish the scratch directory, and a relative-target
+# entry in the corpus (`rm -r olddir`) would then be legitimately elided — the
+# sweep would be asserting against the hook's designed behaviour rather than
+# against the defect. An absolute scratch delete leaves `_IN_SCRATCH_DIR` at 0.
+_ELIDABLE_NEIGHBOUR = "rm -rf /tmp/elision-probe"
+
+# The SHARED-TEXT half, generated from each corpus command rather than written
+# out: any `rm <short flags> /tmp/<name>` substring inside a dangerous command
+# is itself elidable, so pairing the command with that substring reproduces the
+# exact collision the first version fell to — mechanically, for entries added
+# later as well as the ones here now.
+_SCRATCH_SUBSTRING = re.compile(r"rm(?: +-[A-Za-z]+)+ +/(?:var/)?tmp/[A-Za-z0-9._-]+")
+
+
+def _elision_neighbour_probes() -> list[tuple[str, str]]:
+    probes: list[tuple[str, str]] = []
+    for label, command in DANGEROUS:
+        probes.append((f"{label} :: after an unrelated elision", f"{_ELIDABLE_NEIGHBOUR} && {command}"))
+        probes.append((f"{label} :: before an unrelated elision", f"{command} && {_ELIDABLE_NEIGHBOUR}"))
+        for shared in dict.fromkeys(_SCRATCH_SUBSTRING.findall(command)):
+            probes.append((f"{label} :: after an elision sharing its text", f"{shared} && {command}"))
+            probes.append((f"{label} :: before an elision sharing its text", f"{command} && {shared}"))
+    return probes
+
+
+_ELISION_NEIGHBOUR_PROBES = _elision_neighbour_probes()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [c for _, c in _ELISION_NEIGHBOUR_PROBES],
+    ids=[label for label, _ in _ELISION_NEIGHBOUR_PROBES],
+)
+def test_an_elided_segment_does_not_disarm_a_neighbour(command: str) -> None:
+    """A scratch delete beside a dangerous command does not make it safe.
+
+    A failure means the elision reached outside the span it matched. The fix is
+    in the elision step of `block-dangerous.sh`, never in a pattern: the pattern
+    is being handed a command with bytes missing, and no boundary edit repairs
+    that. Check that the walk is still positional — that it consumes `$CMD`
+    once, keeps the separators, and rebuilds by appending either a segment's
+    ORIGINAL text or nothing. A content-addressed `${CMD//…}` anywhere in that
+    loop reintroduces this whole class.
+    """
+    assert run_hook(command).denied, (
+        f"ELISION REACHED OUTSIDE ITS SEGMENT: {command!r} contains a dangerous "
+        f"command from the corpus next to an elidable scratch delete, and the "
+        f"hook allows it. Eliding one segment changed the verdict on another."
+    )
+
+
+def test_the_elision_neighbour_sweep_probes_the_shared_text_case() -> None:
+    """The sweep must include the collision half, not only the blanket half.
+
+    The blanket pairing (an unrelated `/tmp` scratch delete beside each corpus
+    command) would have stayed GREEN against the defect this sweep was built
+    for — the bug needs the two segments to share literal text. So the
+    generated half is asserted separately: a regex change that silently stops
+    matching leaves the blanket probes running and the real check gone, which
+    is a vacuous sweep wearing a full count.
+    """
+    shared = [label for label, _ in _ELISION_NEIGHBOUR_PROBES if "sharing its text" in label]
+    assert len(shared) >= 4, (
+        f"only {len(shared)} shared-text probes were generated; "
+        f"_SCRATCH_SUBSTRING no longer matches the corpus's scratch deletes"
+    )
+    assert len(_ELISION_NEIGHBOUR_PROBES) > 100, (
+        f"only {len(_ELISION_NEIGHBOUR_PROBES)} neighbour probes were generated "
+        f"— the dangerous corpus this sweep multiplies has been emptied"
     )
 
 

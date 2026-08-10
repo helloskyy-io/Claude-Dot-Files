@@ -316,6 +316,15 @@ CMD="${CMD//$'\r'/ }"
 CMD="${CMD//$'\v'/ }"
 CMD="${CMD//$'\f'/ }"
 CMD="${CMD//+( )/ }"
+# UNSET IMMEDIATELY. `+( )` above is the only construct in this file that needs
+# extglob, and leaving it on is a live footgun rather than a tidiness point: a
+# literal `+(` written inside a later `[[ =~ ]]` parses as the extglob operator
+# instead of a regex quantifier, bash raises `syntax error near '+('`, execution
+# CONTINUES, and the script reaches `exit 0` — a fail-open hole of exactly the
+# class issue #61 was filed about. That happened once while this file was being
+# written (see the elision block below). Narrowing the option's lifetime to the
+# one line that needs it removes the hazard from every line after it.
+shopt -u extglob
 
 # ---------------------------------------------------------------------------
 # SCRATCH-DELETE ELISION — the class fix for an over-match that was costing
@@ -350,6 +359,31 @@ CMD="${CMD//+( )/ }"
 # executable rather than asserted (see the SAFE/DANGEROUS corpora, which carry
 # the bypass shapes below as must-still-deny entries).
 #
+# THE ELISION IS POSITIONAL, AND THE FIRST VERSION OF IT WAS NOT — that was a
+# LIVE FAIL-OPEN in this control, found by review of this file and reproduced
+# before it was fixed. The first version split the command into a SNAPSHOT of
+# segments, then removed an elided segment from the live string with
+# `CMD="${CMD//"$_SEG"/}"`. `${var//…}` is a GLOBAL, content-addressed delete:
+# it removes every occurrence of that text anywhere in the command, including
+# out of a DIFFERENT segment that the narrow regex had correctly refused.
+# Measured ALLOWED under that version, control pair read first:
+#   rm -rf /tmp/evil && rm -rf /tmp/evil /home/puma/important
+#   rm -rf /tmp/evil && rm -rf /tmp/evil /
+#   cd /tmp && rm -rf out && rm -rf out /home/puma/data
+# The second segment carries TWO operands and is exactly the shape the
+# "exactly one operand" guard exists to stop; the first segment's identical
+# prefix was deleted out from under it and no `rm` token survived to match.
+# The paragraph above was true of the MATCH and said nothing about the DELETE,
+# and the delete was the unscoped half — a claim about code that no mechanism
+# checked, in a file whose whole argument is that claims must be checkable.
+#
+# So the string is now walked ONCE, splitting on separator characters while
+# KEEPING them, and rebuilt by emitting each segment or nothing in its place.
+# No byte outside an elided segment's own span can be touched, by construction
+# rather than by argument, and `test_an_elided_segment_does_not_disarm_a_
+# neighbour` sweeps the property over the whole dangerous corpus instead of
+# over the shapes someone thought to write down.
+#
 # WHAT IS DELIBERATELY STILL DENIED, each one a shape that reads safe and is
 # not:
 #   - `rm -rf /tmp` and `rm -rf /tmp/` — that is every other run's sandbox,
@@ -370,63 +404,86 @@ CMD="${CMD//+( )/ }"
 # every ambiguity resolves toward denying.
 #
 # THE TWO REGEXES ARE BOUND TO VARIABLES AND USED UNQUOTED, WHICH IS LOAD-
-# BEARING RATHER THAN STYLE. `shopt -s extglob` is set above for the
-# whitespace collapse, and with extglob on, a literal `+(` written inside
+# BEARING RATHER THAN STYLE. With extglob on, a literal `+(` written inside
 # `[[ =~ ]]` parses as the extglob operator instead of a regex quantifier.
 # Measured while writing this: bash raised `syntax error near '+('`, the
 # script kept going, and it reached `exit 0` — so `rm -rf /` was ALLOWED. A
 # fail-open hole of exactly the class issue #61 was filed about, opened by the
-# fix for its sibling. `test_hook_parses_under_bash_n` now pins it.
+# fix for its sibling. extglob is now unset the moment the whitespace collapse
+# is done, so this block no longer runs under it; the variables stay because
+# defence that costs nothing should not be removed on the strength of an
+# argument, and `test_hook_parses_under_bash_n` pins the class either way.
 _IN_SCRATCH_DIR=0
 _SCRATCH_CD_RE='^cd (/tmp|/var/tmp)(/[A-Za-z0-9._-]+)*/?$'
 _SCRATCH_RM_RE='^rm( +-[A-Za-z]+)+ +([A-Za-z0-9._/-]+)$'
-_SEGMENTED="${CMD//&&/$'\x01'}"
-_SEGMENTED="${_SEGMENTED//||/$'\x01'}"
-_SEGMENTED="${_SEGMENTED//;/$'\x01'}"
-_SEGMENTED="${_SEGMENTED//|/$'\x01'}"
-_SEGMENTED="${_SEGMENTED//&/$'\x01'}"
-_SEGMENTED="${_SEGMENTED//$'\n'/$'\x01'}"
 
+# THE WALK IS SINGLE-PASS AND THE SEPARATORS ARE KEPT. `_REST` is consumed from
+# the left, `_REBUILT` is the command the pattern loop will see, and every
+# iteration appends EITHER the segment's original text or nothing, followed by
+# the separator that ended it. Reassembly is byte-exact when nothing is elided,
+# and an elision can only ever blank the span it matched.
+#
+# Splitting on the single characters `;`, `|`, `&` and newline is deliberate
+# rather than a simplification of `&&`/`||`: a two-character operator is two
+# splits with an empty segment between them, which lands on the same segment
+# boundaries and needs no separate case. An empty segment is not a `cd`, so it
+# cannot clear the scratch flag.
+#
 # Pure parameter expansion — no `read` and no here-string, for the same reason
 # canonicalization uses no `sed`: nothing here may depend on a second binary.
-while [ -n "$_SEGMENTED" ]; do
-  _SEG="${_SEGMENTED%%$'\x01'*}"
-  if [ "$_SEG" = "$_SEGMENTED" ]; then
-    _SEGMENTED=""
+_REBUILT=""
+_REST="$CMD"
+while [ -n "$_REST" ]; do
+  _SEG="${_REST%%[;|&$'\n']*}"
+  if [ "$_SEG" = "$_REST" ]; then
+    _SEP=""
+    _REST=""
   else
-    _SEGMENTED="${_SEGMENTED#*$'\x01'}"
+    _SEP="${_REST:${#_SEG}:1}"
+    _REST="${_REST:$(( ${#_SEG} + 1 ))}"
   fi
-  _SEG="${_SEG#"${_SEG%%[! ]*}"}"
-  _SEG="${_SEG%"${_SEG##*[! ]}"}"
 
-  if [[ $_SEG == cd || $_SEG == "cd "* ]]; then
+  # The classification runs on the TRIMMED text; what gets re-emitted is the
+  # untrimmed original, so surrounding whitespace is never silently rewritten.
+  _TRIMMED="${_SEG#"${_SEG%%[! ]*}"}"
+  _TRIMMED="${_TRIMMED%"${_TRIMMED##*[! ]}"}"
+
+  if [[ $_TRIMMED == cd || $_TRIMMED == "cd "* ]]; then
     # A bare `cd` goes home, which is not scratch. Anything that is not
     # recognisably a cd INTO /tmp clears the flag.
-    if [[ $_SEG =~ $_SCRATCH_CD_RE && $_SEG != *".."* ]]; then
+    if [[ $_TRIMMED =~ $_SCRATCH_CD_RE && $_TRIMMED != *".."* ]]; then
       _IN_SCRATCH_DIR=1
     else
       _IN_SCRATCH_DIR=0
     fi
+    _REBUILT+="$_SEG$_SEP"
     continue
   fi
 
   # `rm`, at least one short flag bundle, and EXACTLY ONE operand. A `--long`
   # flag does not match `-[A-Za-z]`, so `--no-preserve-root` is never elided.
-  [[ $_SEG =~ $_SCRATCH_RM_RE ]] || continue
-  _TARGET="${BASH_REMATCH[2]}"
+  if [[ $_TRIMMED =~ $_SCRATCH_RM_RE ]]; then
+    _TARGET="${BASH_REMATCH[2]}"
 
-  # Slash-bracketing makes `.` and `..` testable as whole components rather
-  # than as substrings, so `.hidden` and `foo..bar` are not caught by accident.
-  case "/$_TARGET/" in
-    */../* | */./*) continue ;;
-  esac
+    # Slash-bracketing makes `.` and `..` testable as whole components rather
+    # than as substrings, so `.hidden` and `foo..bar` are not caught by
+    # accident. A traversal target falls through to the keep below.
+    case "/$_TARGET/" in
+      */../* | */./*) _REBUILT+="$_SEG$_SEP"; continue ;;
+    esac
 
-  if [[ $_TARGET == /tmp/[!/]* || $_TARGET == /var/tmp/[!/]* ]]; then
-    CMD="${CMD//"$_SEG"/}"
-  elif [ "$_IN_SCRATCH_DIR" -eq 1 ] && [[ $_TARGET != /* ]]; then
-    CMD="${CMD//"$_SEG"/}"
+    if [[ $_TARGET == /tmp/[!/]* || $_TARGET == /var/tmp/[!/]* ]]; then
+      _REBUILT+="$_SEP"
+      continue
+    elif [ "$_IN_SCRATCH_DIR" -eq 1 ] && [[ $_TARGET != /* ]]; then
+      _REBUILT+="$_SEP"
+      continue
+    fi
   fi
+
+  _REBUILT+="$_SEG$_SEP"
 done
+CMD="$_REBUILT"
 
 # Regex patterns (matched with grep -Ei)
 #
