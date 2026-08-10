@@ -11,10 +11,13 @@ that reflects that.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
 import os
+import uuid
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -239,9 +242,162 @@ def extract_pr_url(output: str) -> str | None:
     return matches[-1] if matches else None
 
 
+def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
+    """RESERVE a fresh log path for one invocation. Unique by construction.
+
+    THE LOG IS THE CHANNEL, and that is not obvious from the transport ruling.
+    `structured_output` rides in the CLI's own stdout, so the CHILD writes
+    nothing outside its worktree — but `run-claude.sh` redirects that stdout
+    into $LOG_FILE, so a path exists and the PARENT owns it. "The transport has
+    no staleness class" is a claim about the transport; the fleet's channel is
+    transport plus plumbing (`phase3_typed_exit_record.md` step 3).
+
+    FRESHNESS IS ENFORCED, NOT ASSUMED. `build_workflow` invokes `review-pr`
+    twice in one run, either side of the loop-back. If one path were reused, a
+    second child that died before writing would leave pass 1's record in place
+    and the parent would route on a pass that produced nothing — making the
+    absent-record arm unreachable in exactly the scenario it exists for.
+
+    IT WAS ENFORCED ONE LEVEL ABOVE WHERE IT WAS CLAIMED, AND THAT IS THIS
+    FUNCTION'S OWN DEFECT CLASS. For one pass this checked `exists()` and
+    returned, RESERVING NOTHING: the file is created later, by a DIFFERENT
+    PROCESS, at `run-claude.sh`'s `> "$LOG_FILE"` — `O_TRUNC`. The name was
+    `{model_key}-{second-granular stamp}`, and `MODEL_KEY` is a constant shared
+    by every PR that workflow reviews, while `run_review_pr` sets
+    `worktree = repo_root` and `build_workflow` passes `repo_root` — so the log
+    directory is SHARED ACROSS CONCURRENT DISPATCHES, not per-worktree. Two
+    dispatches entering in the same wall-clock second both saw no file, both
+    proceeded, and one truncated the other's log. R5's identity check stops the
+    foreign record deciding a merge, so the observable outcome was a COMPLETED
+    run binned as `record_absent` — indistinguishable from a mid-stream death in
+    the very per-reason rate this phase exists to produce. Corrupted in the
+    direction that looks normal.
+
+    TWO INDEPENDENT FIXES, BOTH DELIBERATE:
+
+    1. **The name carries the run nonce, so it is unique BY CONSTRUCTION.** Not
+       a wider timestamp — a finer clock only shrinks the window that a
+       check-then-create leaves open. `run_id` is the identity the parent
+       already issues and the child already echoes into the record, so the log's
+       filename now greps against the record inside it; truncating the nonce
+       would break exactly that.
+    2. **The name is RESERVED atomically** (`O_CREAT|O_EXCL` via
+       `touch(exist_ok=False)`), because check-then-create across a process
+       boundary is TOCTOU by construction whatever the name looks like. This is
+       what makes the docstring's promise true rather than probable: on the
+       residual collision the allocation FAILS LOUD instead of silently
+       truncating. The reserved file is empty, which every reader here already
+       handles — `_log_events` yields nothing from it and R2 fires.
+
+    The `FileExistsError` is an `OSError`, which `run_review_pr` catches as an
+    operator-facing runtime state rather than a traceback.
+    """
+    log_dir = repo_root / ".claude" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    path = log_dir / f"{model_key}-{stamp}-{run_id}.jsonl"
+    try:
+        path.touch(exist_ok=False)
+    except FileExistsError as exc:
+        raise FileExistsError(
+            f"refusing to reuse an existing run log: {path}. A second invocation "
+            f"landing on one path either truncates the first run's record or leaves "
+            f"a stale one for this run's parent to read. The name carries this "
+            f"run's nonce, so reaching this means the nonce was reused."
+        ) from exc
+    return path
+
+
+def _log_events(log_file: Path) -> Iterator[dict]:
+    """Decoded JSONL events from a run log, in order. Missing log yields nothing.
+
+    ONE DECLARATION OF "how a run log is read", because the invariant is not
+    obvious and both readers below depend on it: the stream interleaves non-JSON
+    on stderr paths, so a routing read must SKIP a malformed line rather than
+    raise. Losing the record to a stray warning would route a clean run to a
+    human for a reason that has nothing to do with the run.
+    """
+    if not log_file.exists():
+        return
+    for line in log_file.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict):
+            yield event
+
+
+def result_event(log_file: Path) -> dict | None:
+    """The CLI's `result` event from a run log, or None if the log has none.
+
+    None is a REAL answer, not an error: a run killed before it emitted one has
+    no result event, and the fail-safe contract's R2 fires on it — `record_absent`,
+    because no event implies no key.
+    """
+    found = None
+    for event in _log_events(log_file):
+        if event.get("type") == "result":
+            found = event          # last wins; there is one, but do not assume it
+    return found
+
+
+def assistant_text(log_file: Path) -> str:
+    """This run's own assistant text blocks, in order, newline-joined.
+
+    THIS IS WHERE THE MODEL'S PROSE LIVES WHEN A SCHEMA IS DECLARED. Measured on
+    CLI 2.1.224: `--json-schema` replaces `.result` with the serialised
+    structured output, so a prose shadow read from `.result` would find nothing
+    on every conforming run and report a disagreement that is an artifact of
+    where it looked. `run-claude.sh`'s completion gate reads the same surface,
+    for the same reason.
+
+    SUB-AGENT TURNS ARE EXCLUDED. A `Task` sub-agent's assistant events carry a
+    `parent_tool_use_id`; the top-level model's carry null. A sub-agent quoting
+    or proposing a verdict line is not this run's verdict, and admitting one
+    would let a nested agent decide the parent's route.
+    """
+    chunks: list[str] = []
+    for event in _log_events(log_file):
+        if event.get("type") != "assistant":
+            continue
+        if event.get("parent_tool_use_id") is not None:
+            continue
+        for block in (event.get("message") or {}).get("content") or []:
+            if isinstance(block, dict) and block.get("type") == "text":
+                chunks.append(block.get("text", ""))
+    return "\n".join(chunks)
+
+
+def append_parent_route(log_file: Path, event: dict) -> None:
+    """Append the PARENT-COMPUTED stratum to the run log, as one JSONL event.
+
+    WITHOUT THIS THE COMPUTED ABSTENTION ARM HAS NO RATE.
+    `phase3_typed_exit_record.md` step 4 specifies both arms as predicates over
+    a run's events — the asserted arm reads `structured_output.hold_kind`, which
+    the child writes, and the computed arm reads `routed_outcome` grouped by
+    `undetermined_reason`, which NOTHING wrote. `exit-protocol.md` §2.3's two
+    parent-computed fields lived only in a return value that dies with the
+    process and in free-text operator notes, so the arm the protocol calls the
+    reliable one was the one Phase 4 could not count.
+
+    The log is the natural home: it already carries the child's stratum, so both
+    predicates evaluate over one artifact rather than two. `type` is namespaced
+    away from the CLI's own event types so a future CLI cannot collide with it,
+    and appending keeps the CLI's own stream byte-identical.
+    """
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"type": "parent_route", **event}) + "\n")
+
+
 def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
                repo_root: Path, worktree: Path | None = None,
-               max_turns: int = 120, verbose: bool = False) -> str:
+               max_turns: int = 120, verbose: bool = False,
+               exit_record_schema: str | None = None,
+               log_file: Path | None = None) -> str:
     """Invoke the model via the existing bash activity.
 
     Delegates rather than reimplementing model invocation, logging and the
@@ -273,10 +429,12 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
             f"Logs written inside a worktree are deleted with it."
         )
     cwd = worktree or repo_root
-    log_dir = repo_root / ".claude" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_file = log_dir / f"{model_key}-{stamp}.jsonl"
+    # A caller that needs to READ the record allocates the path itself, so it
+    # knows where to read it from AND can bind the log's name to the nonce it
+    # issued. A caller that does not still gets a name unique by construction —
+    # the nonce is generated here rather than defaulted away, because a default
+    # is how the shared-name collision got written in the first place.
+    log_file = log_file or claude_log_path(repo_root, model_key, run_id=uuid.uuid4().hex)
 
     env = {
         **os.environ,
@@ -287,6 +445,20 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         "MODEL_KEY": model_key,
         "COMPLETION_PATTERN": completion_pattern,
     }
+    # SET **OR CLEARED**, never merely set. `env` starts from `os.environ`, so
+    # an ambient `EXIT_RECORD_SCHEMA` — exported by an operator, or inherited by
+    # a dispatch launched from inside a schema-declaring run — would reach the
+    # child even when this caller declared none. That hands `--json-schema` to
+    # the FROZEN V1 fleet (`exit-protocol.md` §7), whose whole guarantee is that
+    # its command line is byte-identical when the variable is unset, and flips
+    # its completion gate onto the assistant-text branch, where V1's
+    # `COMPLETION_PATTERN` (a PR URL) does not appear — turning successful V1
+    # runs into false early-stop failures. "Unset" has to be something this
+    # caller controls, not something the environment gets a vote on.
+    if exit_record_schema:
+        env["EXIT_RECORD_SCHEMA"] = exit_record_schema
+    else:
+        env.pop("EXIT_RECORD_SCHEMA", None)
     # STREAM AND CAPTURE. `capture_output=True` produced a 70-minute run with
     # zero visible output, so --verbose did nothing and an operator could not
     # distinguish a working run from a hung one — the reported symptom was
@@ -336,6 +508,38 @@ def gh(args: list[str], repo_root: Path) -> str:
     if r.returncode != 0:
         raise RuntimeError(f"gh {' '.join(args)} failed in {repo_root}: {r.stderr.strip()}")
     return r.stdout
+
+
+def gh_json(args: list[str], repo_root: Path):
+    """`gh` plus its parse, so a `gh` FAILURE IS ONE EXCEPTION TYPE.
+
+    ONE FAILURE SURFACE, BECAUSE CALLERS GUARD AGAINST A TYPE AND NOT AN EVENT.
+    `gh` above raises `RuntimeError` on a non-zero exit and validates nothing
+    about stdout, so every caller that then ran `json.loads` had a SECOND way to
+    fail — `json.JSONDecodeError`, which is a `ValueError` and shares no base
+    class with the first. That is not a hypothetical distinction: the retry in
+    `review_pr_workflow._read_thread_for_invariant` exists precisely so a flaky
+    `gh` read cannot discard a completed review, it catches `RuntimeError`, and a
+    zero-exit reply with a truncated or non-JSON body therefore skipped the retry
+    entirely — zero attempts — and crashed the parent build loop, which catches
+    `(RuntimeError, FileNotFoundError)` and not `ValueError`. The fix belongs
+    HERE rather than in each caller's except-clause: a caller cannot be expected
+    to know which exception families this function's implementation can emit, and
+    the next `gh` reader would have re-acquired the same gap by writing the
+    obvious two lines.
+
+    The raw body is quoted (truncated) into the message, because "expecting value
+    at line 1 column 1" says nothing about whether the answer was an HTML error
+    page, an empty string or a half-written array.
+    """
+    raw = gh(args, repo_root)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"gh {' '.join(args)} in {repo_root} exited 0 but did not return JSON: "
+            f"{exc}. First 200 bytes of the reply: {raw[:200]!r}"
+        ) from exc
 
 
 def pr_branch(pr_number: str, repo_root: Path) -> str:

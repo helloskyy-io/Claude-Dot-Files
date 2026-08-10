@@ -15,10 +15,24 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .. import routing
+from .. import exit_record, routing
 
 
 Verdict = routing.Verdict
+
+
+# THE KIND 1 ADDRESS, DECLARED ONCE for this tree. `exit-protocol.md` §6 covers
+# the record's schema AND its address, because the measured duplication was in
+# the address: three incompatible declarations of this marker, two of them
+# unanchored, writing a wrong durable `pass:` onto 2 of 8 archived PRs (issue
+# #68). Fence-anchored so a comment that merely MENTIONS the key — a reflection,
+# a summary, a brief quoting the wire format — is not counted as a record.
+#
+# Kept shape-identical to `scripts/helpers/measure/replay_pr_review_blocks.py`'s
+# FENCE, which is the one declaration that was already correct; that module is a
+# measurement tool outside the workflow tree and importing across that boundary
+# would couple a helper to the fleet it measures.
+PR_REVIEW_BLOCK = re.compile(r"```ya?ml\s*\n(pr_review:.*?)\n```", re.DOTALL)
 
 
 class ReviewType(str, Enum):
@@ -56,35 +70,37 @@ class ReviewResult:
     this_pass: int
     parseable: bool = True
     notes: list[str] = field(default_factory=list)
+    # The typed exit record this verdict was routed FROM. Optional because a
+    # caller may still run the prose-only path; None means the typed channel was
+    # not in play, never that it was in play and empty — that state is an
+    # ExitRecord with routed_outcome UNDETERMINED.
+    record: exit_record.ExitRecord | None = None
 
     @property
     def ready_to_merge(self) -> bool:
         return self.verdict is Verdict.MERGE
 
 
-# Anchored and exhaustive: an unanchored match would find the token inside prose
-# discussing it. MULTILINE because the line sits in a stream of output.
-_VERDICT = routing._VERDICT   # ONE parser (§10.1); see routing.py and issue #34
-
 # The completion contract. `exit 0` means finished only if output matches this.
 COMPLETION_PATTERN = r"^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$"
 
 MODEL_KEY = "review-pr"
 
-
-def parse_verdict(output: str) -> tuple[Verdict, bool]:
-    """Return (verdict, was_parseable).
-
-    FAILS SAFE TO THE HUMAN BRANCH. An unparseable verdict becomes
-    HOLD_NEEDS_ASSISTANCE — never MERGE, never a redispatch. The routing
-    contract's rule: ambiguity routes to the branch requiring a person, because
-    wrongly merging costs an unbounded amount and wrongly asking costs one
-    message.
-    """
-    matches = _VERDICT.findall(output)
-    if not matches:
-        return Verdict.HOLD_NEEDS_ASSISTANCE, False
-    return Verdict(matches[-1]), True
+# THE ONE DECLARATION of the merge-deciding parser, re-exported rather than
+# re-typed — §6, and the same line `build/build_helper.py` ships. Its owner is
+# `routing.py`, which carries the fail-safe rationale and the LAST-match-wins
+# rule; a body typed here would be a second copy that stays green in its own
+# tests while diverging from the rule applied to its owner. Issue #34 named this
+# file and `build_helper.py` and was closed with only the other one fixed.
+#
+# THIS IS THE SHADOW CHANNEL'S OWN ROUTE. The comparator this module builds
+# exists to notice when two channels disagree; a private retype here would make
+# the comparator the divergence it was built to detect.
+#
+# `test_parse_verdict_is_declared_exactly_once_in_the_whole_tree` fails if a
+# THIRD declaration appears anywhere — the gate is on the class, not this
+# instance.
+parse_verdict = routing.parse_verdict
 
 
 def pass_numbers(prior_pass_count: int) -> tuple[int, int]:
@@ -98,9 +114,88 @@ def pass_numbers(prior_pass_count: int) -> tuple[int, int]:
     return prior_pass_count + 1, prior_pass_count
 
 
+# `- id: <slug>` under `findings:`; two-space and four-space indents both occur
+# in the archive. Shape-identical to `replay_pr_review_blocks.FINDING_ID` for the
+# same reason `PR_REVIEW_BLOCK` is: that module measures the fleet from outside
+# it, and coupling a workflow helper to a measurement tool would invert the
+# dependency.
+_FINDING_ID = re.compile(r"^\s*-\s*id:\s*([^\s#]+)", re.MULTILINE)
+
+# The `disposition:` belonging to a finding, matched from that finding's `- id:`
+# line up to the next one. `disposition.md`'s block puts four keys between them,
+# so an unbounded search would attribute the NEXT finding's value to this one.
+_FINDING_ITEM = re.compile(
+    r"^[ \t]*-[ \t]*id:[ \t]*([^\s#]+)(.*?)(?=^[ \t]*-[ \t]*id:|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+_DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
+
+
+def _unquote(token: str) -> str:
+    """Strip one matched pair of surrounding quotes, and nothing else.
+
+    `- id: "a-slug"` is valid yaml for `a-slug`, and the raw capture keeps the
+    quotes. Comparing that against the typed record's `a-slug` raises "the two
+    copies disagree" on input that is semantically identical — a guard failing
+    on correct input, which is the anti-pattern `finding_dispositions_in_block`
+    avoids a YAML parser to escape in the first place.
+    """
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
+        return token[1:-1]
+    return token
+
+
+def finding_ids_in_block(block: str) -> frozenset[str]:
+    """The finding ids the DURABLE record claims, for the render-record invariant.
+
+    Regex rather than a YAML parser, deliberately: the archived blocks predate
+    any schema and some are hand-edited, so a strict parser would reject exactly
+    the malformed ones this check most wants to catch — and a check that throws
+    on the input it exists to examine is not a check.
+    """
+    return frozenset(_unquote(t) for t in _FINDING_ID.findall(block))
+
+
+def finding_dispositions_in_block(block: str) -> frozenset[tuple[str, str]]:
+    """`(id, disposition)` pairs the durable block claims.
+
+    THE PROMPT PROMISES BOTH HALVES AND THE INVARIANT MUST CHECK BOTH.
+    `disposition.md` tells the child that every `findings[].id` AND
+    `findings[].disposition` is identical in the block and the record, and that
+    its caller fails the run loud on a mismatch. Comparing ids alone let a block
+    saying `deferred` stand against a record saying `fixed` — and
+    `findings[].disposition` is the field Phase 5's stopping predicate keys on,
+    so the two copies would diverge in exactly the place a convergence rule
+    reads. A finding with no parseable `disposition:` pairs with the empty
+    string, which fails the comparison rather than silently dropping out.
+    """
+    return frozenset(
+        (_unquote(fid), _unquote(m.group(1)) if (m := _DISPOSITION.search(body)) else "")
+        for fid, body in _FINDING_ITEM.findall(block)
+    )
+
+
+def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:
+    """The incumbent routing token this typed record produces.
+
+    THE TYPED REGION WINS. This is the only translation between the two
+    vocabularies, and it runs one way: the record decides, and the prose is
+    compared against it (never the reverse). Both computed and asserted
+    abstention collapse to `HOLD - needs-assistance` here because the prose
+    vocabulary HAS only one abstention member — which is the whole reason the
+    typed one splits it, and why this function is not a general mapping layer.
+    """
+    if record.routed_outcome is exit_record.RoutedOutcome.MERGE:
+        return Verdict.MERGE
+    if exit_record.routes_to_redispatch(record):
+        return Verdict.HOLD_REDISPATCH
+    return Verdict.HOLD_NEEDS_ASSISTANCE
+
+
 def render_prompt(template: str, *, pr_number: str, pr_branch: str,
-                  this_pass: int, prior_pass: int, headless_guard: str) -> str:
-    """Substitute the prompt's five placeholders.
+                  this_pass: int, prior_pass: int, headless_guard: str,
+                  run_id: str) -> str:
+    """Substitute the prompt's six placeholders.
 
     Deliberately NOT str.format() or an f-string: the prompt is 283 lines of
     markdown containing JSON examples, yaml blocks and shell snippets, all full
@@ -114,6 +209,11 @@ def render_prompt(template: str, *, pr_number: str, pr_branch: str,
         "THIS_PASS": str(this_pass),
         "PRIOR_PASS": str(prior_pass),
         "HEADLESS_EXECUTION_GUARD": headless_guard,
+        # The run-identity nonce. It goes IN so it can come back out in the
+        # typed record and be compared against what this invocation issued —
+        # rule R5. A record that echoes a different nonce is well-formed and
+        # belongs to a different invocation.
+        "RUN_ID": run_id,
     }
     rendered = template
     for name, value in values.items():

@@ -18,6 +18,13 @@
 #                        count as complete. Missing → run_claude fails LOUD and
 #                        returns nonzero (exit 0 must mean done). PR-producing
 #                        workflows set this to a PR-URL pattern. Unset = no check.
+#   EXIT_RECORD_SCHEMA — a JSON Schema, inline, declaring the Kind 2 typed exit
+#                        record the child emits at exit (docs/standards/exit-protocol.md).
+#                        Set → the CLI is invoked with --json-schema and the
+#                        result event carries `structured_output`. Unset → this
+#                        activity behaves exactly as it did before, byte for
+#                        byte, which is what keeps the FROZEN V1 bash fleet
+#                        (exit-protocol.md §7) out of the migration.
 #
 # Usage in a workflow script:
 #   MODEL_KEY="build-draft"
@@ -138,8 +145,17 @@ run_claude() {
         --verbose
         --max-turns "$MAX_TURNS"
         --dangerously-skip-permissions
-        "${extra_args[@]}"
     )
+
+    # The typed exit record rides in the CLI's own result envelope, so no write
+    # crosses the worktree boundary — the isolation boundary the fleet's safety
+    # argument rests on. Appended only when a caller declares a schema; V1
+    # callers declare none and their command line is unchanged.
+    if [[ -n "${EXIT_RECORD_SCHEMA:-}" ]]; then
+        claude_cmd+=(--json-schema "$EXIT_RECORD_SCHEMA")
+    fi
+
+    claude_cmd+=("${extra_args[@]}")
 
     if $VERBOSE; then
         "${claude_cmd[@]}" \
@@ -200,7 +216,50 @@ run_claude() {
     # -----------------------------------------------------------------------
     if [[ -n "${COMPLETION_PATTERN:-}" ]]; then
         local final_result
-        final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
+        if [[ -n "${EXIT_RECORD_SCHEMA:-}" ]]; then
+            # DECLARING A SCHEMA REPLACES `.result` WITH THE SERIALISED
+            # STRUCTURED OUTPUT. Measured on CLI 2.1.224, 2026-08-09, on a run
+            # that emitted prose AND called the tool: `.result` was
+            # {"outcome":"merge",...} and the model's terminal VERDICT line was
+            # not in it. Reading `.result` here would have made this gate fail
+            # on every conforming run — silently deleting the fleet's only
+            # write-time gate in the same change that added the typed record.
+            #
+            # The prose survives in the stream's assistant text blocks, so the
+            # gate reads those instead.
+            #
+            # THE `last` IS THE WHOLE GATE, not tidiness. This check exists to
+            # catch a run that ENDED EARLY, and `.result` gave it that for free
+            # by being the final message. Grepping every assistant block would
+            # change the predicate from "the run finished with a verdict" to
+            # "the run ever mentioned a verdict" — a model that prints its
+            # verdict at turn 20 and then stops on "let me confirm the comment
+            # posted" would pass a gate built to fail exactly that. Taking the
+            # last text block reproduces `.result`'s finality on the surface the
+            # schema left the prose in.
+            #
+            # `parent_tool_use_id == null` excludes Task sub-agent turns: a
+            # nested agent's terminal line is not this run's completion signal.
+            #
+            # THE `fromjson? // empty` PREFILTER IS LOAD-BEARING, not defensive
+            # habit. `jq -s` must parse the WHOLE file before it emits anything,
+            # so a single non-JSON line aborts it and `final_result` comes back
+            # empty — and this gate then reports "RUN ENDED WITHOUT COMPLETING"
+            # for a run that completed perfectly. The stream demonstrably carries
+            # such lines: `assistant_activities._log_events` documents that it
+            # "must SKIP a malformed line" and a test asserts the Python reader
+            # survives a fixture containing raw stderr noise. Two readers of one
+            # file disagreeing about whether it may contain junk is how a gate
+            # deletes itself. The non-slurp `.result` branch below degrades
+            # gracefully by construction (values parsed before the bad line are
+            # still emitted), which is why only this branch needs it.
+            final_result=$(jq -R 'fromjson? // empty' "$LOG_FILE" 2>/dev/null | jq -rs '[ .[]
+                | select(.type == "assistant" and .parent_tool_use_id == null)
+                | .message.content[]? | select(.type == "text") | .text ]
+                | last // ""')
+        else
+            final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
+        fi
         if ! grep -qE "$COMPLETION_PATTERN" <<<"$final_result"; then
             {
                 echo

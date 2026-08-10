@@ -18,11 +18,11 @@ file issues. Under Temporal a retry is a NEW ATTEMPT, not a replay.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
 from .. import assistant_activities as _shared
+from . import review_pr_helper as helper
 
 # Re-exported so callers use one name regardless of where it is implemented.
 load_prompt = _shared.load_prompt
@@ -33,23 +33,75 @@ V1_SCRIPT = "review-pr.sh"
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
     """PR metadata. Raises rather than returning a partial dict."""
-    raw = _shared.gh(
+    return _shared.gh_json(
         ["pr", "view", pr_number, "--json", "headRefName,state,title"], repo_root
     )
-    return json.loads(raw)
 
 
 def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     """How many disposition comments already exist on this PR.
 
-    Counts comments carrying a `pr_review:` yaml block — the machine-readable
+    Counts comments carrying a `pr_review:` yaml BLOCK — the machine-readable
     marker, not prose mentioning the phrase. That key is a WIRE FORMAT, not a
     filename; do not "fix" it to match the renamed script.
+
+    THE PREDICATE IS FENCE-ANCHORED, AND IT WAS NOT. A plain substring test
+    matched any comment that merely MENTIONS the key — a Post-Run Reflection, a
+    build-refine summary, a brief quoting the wire format. Measured by Phase 2
+    across all 39 PRs at `bcdb519`: 18 matches against the fence-anchored 15,
+    i.e. 3 false positives on 2 of the 8 PRs carrying a block. The consequence
+    is in the archive and it is DURABLE: PR #31's blocks run `pass: 1, 2, 4` —
+    there was never a pass 3 — and PR #66's single block is labelled `pass: 3`
+    and is pass 1. `pass:` is a field of the durable record, so an over-matching
+    reader writes a wrong number into Kind 1 permanently. Tracked as issue #68.
+
+    The declaration lives in `review_pr_helper.PR_REVIEW_BLOCK`, not here:
+    `exit-protocol.md` §6 requires the record's schema AND ITS ADDRESS to be
+    declared once, and this over-match is the measured instance that widened
+    that rule. `children/review-pr.sh:142` carries the same defect and is NOT
+    fixed here — it is the frozen V1 fleet (§7).
     """
-    raw = _shared.gh(["pr", "view", pr_number, "--json", "comments"], repo_root)
+    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
     return sum(
-        1 for c in json.loads(raw).get("comments", []) if "pr_review:" in c.get("body", "")
+        1 for c in raw.get("comments", [])
+        if helper.PR_REVIEW_BLOCK.search(c.get("body", "") or "")
     )
+
+
+def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
+    """The LATEST `pr_review:` block on this PR, or None if there is none.
+
+    The address, applied: container id is the PR number, the block marker is the
+    fence-anchored regex, and the ordering rule is comment creation order with
+    LAST WINS (`memory-model.md` §6.2). Sequence is derived from that ordering
+    rather than from the block's own `pass:` counter — a counter written by the
+    producer can be wrong, and §6.4 measures that it was.
+
+    LAST WINS *WITHIN* A COMMENT TOO, which is why this is `finditer` and not
+    `search`. A comment may legitimately carry more than one block: INVARIANT 1
+    of `disposition.md` requires each pass to carry prior findings forward, so a
+    disposition that quotes the block it supersedes above its own is a shape the
+    prompt invites. `search` returns the FIRST match, so on such a comment this
+    returned the SUPERSEDED block — and the render↔record invariant then compared
+    this pass's typed record against the previous pass's findings and hard-failed
+    a correct run, *after* the comment was already posted. `replay_pr_review_blocks`
+    has always used `findall` here; this was the third reader disagreeing with the
+    other two about what "the latest block" means.
+
+    NOT the same change as `count_prior_passes` above, and that asymmetry is
+    deliberate: that function counts COMMENTS THAT CARRY A BLOCK, because the
+    delta it feeds (`posted <= prior_pass` in `review_pr_workflow`) is a count of
+    passes, and one pass posts one comment however many blocks it quotes.
+    Switching it to `finditer` would count a quoting comment as two passes and
+    break the delta in a new way.
+    """
+    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
+    blocks = [
+        m.group(1)
+        for c in raw.get("comments", [])
+        for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
+    ]
+    return blocks[-1] if blocks else None
 
 
 def load_shared_block(name: str, shared_sh: Path) -> str:
@@ -70,7 +122,8 @@ def load_shared_block(name: str, shared_sh: Path) -> str:
 
 def run_disposition(prompt: str, repo_root: Path, model_key: str,
                     completion_pattern: str, worktree: Path | None = None,
-                    verbose: bool = False) -> str:
+                    verbose: bool = False, exit_record_schema: str | None = None,
+                    log_file: Path | None = None) -> str:
     """Invoke the disposition pass on the PR's OWN tree.
 
     ISOLATION IS NOT OPTIONAL HERE EITHER, and for a reason beyond safety: a
@@ -85,4 +138,5 @@ def run_disposition(prompt: str, repo_root: Path, model_key: str,
         prompt, model_key=model_key, completion_pattern=completion_pattern,
         repo_root=repo_root, worktree=worktree or repo_root,
         max_turns=int(_shared.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
+        exit_record_schema=exit_record_schema, log_file=log_file,
     )

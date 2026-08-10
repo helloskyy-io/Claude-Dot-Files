@@ -14,9 +14,13 @@ Measured for Memory Management Framework Phase 1, experiment E5.
 The fleet declares completion patterns in TWO places with DIFFERENT surfaces,
 and this script measures both because they can disagree:
 
-  1. CHILD-SIDE, over the result envelope. `run-claude.sh:201-204` extracts
-     `.result` from the JSONL and applies `grep -qE "$COMPLETION_PATTERN"`.
-     This is the write-time gate that already exists.
+  1. CHILD-SIDE, over the result envelope. `run-claude.sh`'s § Completion
+     contract extracts `.result` from the JSONL and applies
+     `grep -qE "$COMPLETION_PATTERN"`. This is the write-time gate that already
+     exists. NOTE: a caller that declares EXIT_RECORD_SCHEMA reads the last
+     assistant text block instead, because declaring a schema replaces
+     `.result` with the serialised structured output; this script measures the
+     `.result` surface, which is what the V1 fleet still runs.
   2. PARENT-SIDE, over the child's console output. `build.sh:277` and
      `build-minor.sh:281` apply `grep -oE '^VERDICT: …' | tail -1` to the
      tee'd stdout+stderr of the child process — a WIDER surface that includes
@@ -101,8 +105,19 @@ PATTERNLESS_WORKFLOWS = ("review-runs",)
 
 
 def workflow_of(path: Path) -> str:
-    """`review-pr-20260808-110753.jsonl` -> `review-pr`."""
-    return re.sub(r"-\d{8}-\d{6}$", "", path.stem)
+    """`review-pr-20260808-110753.jsonl` -> `review-pr`.
+
+    TWO NAME SHAPES, BOTH LIVE. The bash fleet writes `{key}-{stamp}`; the V2
+    tree appends the run nonce (`{key}-{stamp}-{run_id}`) because a stamp alone
+    collides between concurrent dispatches sharing one log directory — see
+    `assistant_activities.claude_log_path`. The nonce is OPTIONAL here rather
+    than required: this tool replays the whole archive, and every log written
+    before that change carries the old shape. Without the optional group a V2
+    log's workflow reads as `review-pr-20260808-110753`, which is not a
+    workflow, so it groups into a bin of one and vanishes from the roll-up
+    silently.
+    """
+    return re.sub(r"-\d{8}-\d{6}(?:-[0-9a-f]{32})?$", "", path.stem)
 
 
 def last_whole_match(pattern: re.Pattern, text: str) -> str | None:

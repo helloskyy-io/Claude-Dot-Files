@@ -14,9 +14,11 @@ Every decision below comes from the helper; every side effect is an activity.
 from __future__ import annotations
 
 import time
+import uuid
 from pathlib import Path
 
 from .. import assistant_activities as _shared
+from .. import exit_record
 from . import review_pr_activities as act
 from . import review_pr_helper as helper
 from .review_pr_helper import ReviewInput, ReviewResult, ReviewType
@@ -76,6 +78,13 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     assembled = assemble_prompt(task.review_type)
     notes.append(f"Reviewed as --type {task.review_type.value}.")
 
+    # RUN IDENTITY IS ISSUED BY THE PARENT, not derived from anything the child
+    # can see. It goes into the prompt and must come back in the typed record;
+    # rule R5 compares them. Freshness by path allocation (below) and identity
+    # in the payload are two independent checks, and the second is the one that
+    # catches a record arriving on a CORRECT path from a DIFFERENT invocation.
+    run_id = uuid.uuid4().hex
+
     prompt = helper.render_prompt(
         assembled,
         pr_number=task.pr_number,
@@ -83,6 +92,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         this_pass=this_pass,
         prior_pass=prior_pass,
         headless_guard=act.load_shared_block("HEADLESS_EXECUTION_GUARD", SHARED_PROMPTS),
+        run_id=run_id,
     )
 
     # The reviewer must read the PR's branch, not the repo's checkout.
@@ -90,19 +100,284 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         worktree, f"review-pr-{task.pr_number}-{int(time.time())}",
         f"origin/{pr['headRefName']}",
     )
-    output = act.run_disposition(
+    # THE NONCE BINDS THE LOG'S NAME, not just the record inside it — this
+    # workflow is the concurrent-dispatch case `claude_log_path`'s docstring
+    # describes, so passing the run_id is what makes the name unique here and
+    # makes the filename greppable against the record it carries.
+    log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY, run_id=run_id)
+    act.run_disposition(
         prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
         worktree=pr_tree, verbose=task.verbose,
+        exit_record_schema=exit_record.schema_argument(), log_file=log_file,
     )
 
-    verdict, parseable = helper.parse_verdict(output)
-    if not parseable:
-        notes.append(
-            f"review-pr produced no parseable VERDICT line on PR #{task.pr_number}. "
-            f"Routed to needs-assistance — inspect by hand."
+    # --- THE TYPED CHANNEL DECIDES --------------------------------------
+    record = exit_record.route(_shared.result_event(log_file), expected_run_id=run_id)
+    verdict = helper.verdict_from_record(record)
+
+    # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------
+    # Still emitted, still parsed, and it decides nothing. Read from the
+    # assistant text blocks rather than from the console or `.result`: declaring
+    # a schema replaces `.result` with the serialised structured output, so a
+    # shadow read from there would report a disagreement that is an artifact of
+    # where it looked.
+    #
+    # PARSED BEFORE THE STRATUM IS WRITTEN so the stratum can carry it. The
+    # COMPARISON still happens after; only the parse moved.
+    shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
+
+    # Persist the parent stratum BEFORE the shadow COMPARISON, because a
+    # disagreement raises and a machinery failure that leaves no trace is the
+    # one Phase 4 most needs counted. Step 4's computed-arm predicate reads
+    # `routed_outcome`/`undetermined_reason`; nothing else writes them durably.
+    #
+    # THE SHADOW'S OWN RESULT IS PART OF THE STRATUM, and leaving it out made
+    # requirement 6 unmeasurable. That requirement is *"both paths asserted to
+    # agree across a run set"* — a per-run PAIR. Recording only the typed half
+    # leaves a corpus of N events that ALL describe agreements, because the
+    # disagreements raise and never reach a log; the pair could then only be
+    # reconstructed by a second offline reader of the prose channel, which is
+    # the duplicated-parser defect this whole component exists to remove.
+    #
+    # `shadow_parseable` is recorded separately from `shadow_verdict` because
+    # `parse_verdict` fails safe: an unparseable channel and one that genuinely
+    # said `HOLD - needs-assistance` yield the same token, and
+    # `verdict_from_record` collapses all seven `UndeterminedReason` values onto
+    # that same token from the other side. Without the flag, those two defaults
+    # colliding is indistinguishable from a real agreement — and the E2(c) cell
+    # (record absent on an otherwise-clean run, prose saying needs-assistance)
+    # is the single case this phase most needs counted as a DISAGREEMENT.
+    _shared.append_parent_route(log_file, {
+        "run_id": run_id,
+        "pr": task.pr_number,
+        "routed_outcome": record.routed_outcome.value,
+        "undetermined_reason": (
+            record.undetermined_reason.value if record.undetermined_reason else None
+        ),
+        "hold_kind": record.hold_kind.value if record.hold_kind else None,
+        "shadow_verdict": shadow.value,
+        "shadow_parseable": parseable,
+        "channels_agree": shadow is verdict,
+    })
+
+    if shadow is not verdict:
+        # A LOUD FAILURE, deliberately, for the duration of this phase. A
+        # comparison that cannot fail records a protection that does not exist,
+        # and the whole point of running both channels on one pair is to find
+        # out where they disagree before the fleet depends on one of them.
+        raise RuntimeError(
+            f"exit-record disagreement on PR #{task.pr_number}: the typed record routes "
+            f"{verdict.value!r} (routed_outcome={record.routed_outcome.value}"
+            + (f"/{record.undetermined_reason.value}" if record.undetermined_reason else "")
+            + f") while the prose channel parsed {shadow.value!r} "
+            f"(parseable={parseable}). Both channels are live during Phase 3 and "
+            f"disagreement is a failure, not a preference. Log: {log_file}"
         )
+
+    # "Agreed" is claimed only when the shadow actually produced a verdict.
+    # `parse_verdict` fails safe to the same token the typed channel falls back
+    # to, so an unparseable prose channel reaching here is two defaults matching,
+    # not two channels agreeing — and an operator reading "agreed" would count it
+    # as evidence for the very property this phase exists to measure.
+    notes.append(
+        f"Routed on the typed exit record: routed_outcome={record.routed_outcome.value}"
+        + (f", reason={record.undetermined_reason.value}" if record.undetermined_reason else "")
+        + (f". Prose shadow agreed ({shadow.value})." if parseable else
+           f". Prose shadow produced NO parseable verdict; its fail-safe default "
+           f"({shadow.value}) coincides with the typed route, which is not agreement.")
+    )
+    if record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED:
+        notes.append(
+            f"The typed record could not be evaluated ({record.undetermined_reason.value}) "
+            f"on PR #{task.pr_number}. This is the COMPUTED abstention arm — a defect in "
+            f"the machinery, not a question about the work. Inspect by hand: {log_file}"
+        )
+    if record.permission_denials:
+        notes.append(
+            f"{len(record.permission_denials)} permission denial(s) recorded: "
+            + ", ".join(sorted({d['tool_name'] for d in record.permission_denials}))
+            + ". Never auto-redispatched — a child that tripped the only in-run safety "
+              "control is not retried against it."
+        )
+
+    # --- THE RENDER <-> RECORD INVARIANT ---------------------------------
+    # Co-authoring persists for the three prose regions that have no field
+    # (`memory-model.md` §7.2 rows 3, 4 and 11), so the durable block and the
+    # typed record are written in one act by one author — the arrangement none
+    # of the surveyed instances permits WITHOUT a write-time gate. This is that
+    # gate: every finding id in the record appears in the posted block and vice
+    # versa. THE TYPED REGION WINS; the block is its rendering.
+    #
+    # Only when a record was actually read: an UNDETERMINED route has no ids to
+    # compare, and re-reporting the same failure twice tells the operator
+    # nothing new.
+    if record.routed_outcome is not exit_record.RoutedOutcome.UNDETERMINED:
+        unchecked = _verify_block_matches_record(
+            task.pr_number, worktree, record, prior_pass
+        )
+        if unchecked is not None:
+            notes.append(unchecked)
 
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
-        parseable=parseable, notes=notes,
+        parseable=parseable, notes=notes, record=record,
     )
+
+
+# A BOUNDED RETRY, not a poll and not a policy. Both reads below are `gh pr
+# view --json comments` — READ-ONLY and idempotent — so re-issuing one is not a
+# routing decision and changes neither the success path nor the terminal
+# behaviour on a persistent failure. Two attempts of backoff cover the shape
+# that actually occurs here (a 5xx, a secondary rate limit, a dropped
+# connection) without turning a genuinely-down API into a long stall.
+_THREAD_READ_BACKOFF_SECONDS = (2.0, 8.0)
+
+
+def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, str | None]:
+    """The two thread reads the invariant needs, retried on a transient failure.
+
+    ONE RETRY AROUND BOTH, not one each: they are two `gh` calls answering one
+    question — "what does the thread look like now" — and retrying them
+    independently could pair a count read before this pass's comment with a
+    block read after it, which is the exact skew the `posted > prior_pass` delta
+    exists to detect. Re-reading both together keeps them one observation.
+
+    `RuntimeError` IS THE WHOLE FAILURE SURFACE, and that is a property of
+    `assistant_activities.gh_json` rather than an assumption made here. For one
+    pass it was an assumption and it was wrong: the readers below parsed `gh`
+    stdout themselves, so a zero-exit reply with a truncated or non-JSON body
+    raised `json.JSONDecodeError` — a `ValueError`, caught by nothing on this
+    path — and skipped this retry entirely, at zero attempts, to crash the parent
+    build loop. Catching `ValueError` here would have closed one caller and left
+    the next `gh` reader to re-acquire the gap, so the normalisation lives at the
+    call that knows what it can emit. Widen THAT if a third failure shape appears.
+    """
+    for pause in _THREAD_READ_BACKOFF_SECONDS:
+        try:
+            return act.count_prior_passes(pr_number, repo_root), \
+                act.latest_pr_review_block(pr_number, repo_root)
+        except RuntimeError:
+            time.sleep(pause)
+    # The last attempt is deliberately OUTSIDE the loop and NOT caught, so a
+    # persistent failure raises the real `gh` error with its real message rather
+    # than a swallowed one.
+    return act.count_prior_passes(pr_number, repo_root), \
+        act.latest_pr_review_block(pr_number, repo_root)
+
+
+def _verify_block_matches_record(pr_number: str, repo_root: Path,
+                                 record: exit_record.ExitRecord,
+                                 prior_pass: int) -> str | None:
+    """Fail loud when the durable render and the typed record disagree on findings.
+
+    TWO CHANNELS, AND THEY ARE NOT THE SAME EVENT. A real disagreement RAISES —
+    that half is unchanged. A failure to READ THE THREAD returns a note, because
+    it is not a disagreement and it must not be treated as one.
+
+    IT IS `_verify_` AND NOT `_assert_` FOR THAT REASON. An `assert_` prefix
+    promises the caller that the only outcomes are "raised" and "nothing to do",
+    and this function now has a third — a note the caller MUST surface. A later
+    call site that trusted the prefix and called it as a bare statement would
+    drop that note on the floor, which is the same silent degradation the note
+    exists to prevent. Phase 4 adds the call sites, so the name has to be right
+    before they arrive rather than after.
+
+    ONE AUTHOR, TWO DERIVED COPIES — and the copies are checked rather than
+    trusted. A finding in the record but not in the block is a finding the
+    operator never sees; a finding in the block but not in the record is one
+    Phase 5's stopping predicate will never count. Both are silent today, which
+    is why this is enforced rather than documented.
+
+    THE BLOCK MUST BE *THIS PASS'S*, AND THAT CHECK IS THE FIRST ONE. Reading
+    "the latest block on the thread" is not the same as reading the block this
+    run posted: `disposition.md`'s INVARIANT 1 requires a pass to carry every
+    prior finding forward, so identical id sets across passes is the NORM. A
+    pass ≥2 that produced a record and then failed to post its comment would
+    therefore be compared against pass 1's block, match, and report the
+    invariant satisfied — silently passing in exactly the case it exists to
+    catch. The block count is re-read here (fence-anchored, one declaration) and
+    must have risen by one. Sequence comes from that count, never from the
+    block's own `pass:` counter, which `memory-model.md` §6.4 measured wrong.
+
+    A VERIFICATION THAT COULD NOT RUN MUST NOT DESTROY A DECISION THAT ALREADY
+    DID. This function is reached AFTER the child posted its disposition comment
+    and AFTER `append_parent_route` persisted the route, so for one pass a 5xx,
+    a rate limit or a dropped connection on a READ discarded a ~40-minute review
+    at real budget and killed the parent's build loop with it — for a reason
+    with nothing to do with the review. The reads are retried (above); on
+    exhaustion the check is REPORTED as unperformed and the run completes,
+    because the route is already durable and the evidence survives either way.
+
+    REPORTED, NOT RECORDED, AND THE DIFFERENCE IS DELIBERATE HERE. The note goes
+    into `ReviewResult.notes` — printed by `run_review_pr` and folded into the
+    parent's notes by `build_workflow` — which reaches an operator watching the
+    run and NOTHING ELSE. Every other computed-arm signal (`routed_outcome`,
+    `undetermined_reason`, `channels_agree`) is written to the run log by
+    `append_parent_route` and is therefore countable offline; this one is not, so
+    no replay can say how often the invariant degraded. That is a real gap and it
+    is named rather than papered over: making it durable means a new stratum in
+    `exit-protocol.md` §2, and WHAT a parent should do about a verification it
+    could not perform — annotate, record, or downgrade — is one unruled question,
+    carried as candidate **C-056**. Softening the word is not the fix for the
+    gap; it stops the docstring claiming a durability the code does not have
+    while the question is open.
+
+    The note is deliberately loud for the reader it does reach: an invariant that
+    silently did not run is indistinguishable from one that held, and the whole
+    reason this is enforced rather than documented is that both copies diverging
+    is silent. THE ROUTING POLICY IS UNTOUCHED — the verdict on success is what
+    it always was, and a persistent failure still surfaces the real `gh` error.
+    """
+    try:
+        posted, block = _read_thread_for_invariant(pr_number, repo_root)
+    except RuntimeError as exc:
+        # COULD-NOT-CHECK IS NOT DISAGREEMENT, and reporting it as one sends the
+        # operator to the wrong place. `gh` failing here (rate limit, transient
+        # 5xx, no network) says nothing about the two copies.
+        return (
+            f"PR #{pr_number}: the render↔record invariant was NOT CHECKED — "
+            f"reading the thread failed after "
+            f"{len(_THREAD_READ_BACKOFF_SECONDS) + 1} attempts: {exc}. This is not "
+            f"a disagreement between the two copies; it is the check itself not "
+            f"running, and it says NOTHING about whether they agree. The typed "
+            f"record routed {record.routed_outcome.value}, is intact in the run "
+            f"log and was persisted before this check ran, so the verdict stands "
+            f"on the record rather than on this. VERIFY THE POSTED BLOCK BY HAND "
+            f"against the record's findings before acting on it."
+        )
+
+    if posted <= prior_pass:
+        raise RuntimeError(
+            f"PR #{pr_number}: the run produced a typed exit record but posted no new "
+            f"`pr_review:` block — the thread still carries {posted} block(s), the "
+            f"same count as before this pass. The durable half of the record is "
+            f"missing, so the operator has the outcome with none of its reasoning — "
+            f"which is the one thing arrangement A must not lose. The latest block on "
+            f"the thread belongs to an earlier pass and is NOT this run's rendering."
+        )
+    if block is None:
+        raise RuntimeError(
+            f"PR #{pr_number}: the run produced a typed exit record but no "
+            f"`pr_review:` block was found on the thread. The durable half of the "
+            f"record is missing, so the operator has the outcome with none of its "
+            f"reasoning — which is the one thing arrangement A must not lose."
+        )
+    # Ids AND dispositions, because that is what the prompt promises the child.
+    # `findings[].disposition` is what Phase 5's stopping predicate keys on, so
+    # an id-only comparison lets the two copies diverge in the one field a
+    # convergence rule reads.
+    rendered = helper.finding_dispositions_in_block(block)
+    typed = {(f["id"], f["disposition"]) for f in record.findings}
+    if rendered != typed:
+        raise RuntimeError(
+            f"PR #{pr_number}: the posted `pr_review:` block and the typed exit "
+            f"record disagree on findings (id, disposition). Only in the block: "
+            f"{sorted(rendered - typed) or 'none'}. Only in the record: "
+            f"{sorted(typed - rendered) or 'none'}. The typed region is "
+            f"authoritative; the block is its rendering, and a rendering that "
+            f"drops, invents or re-dispositions a finding is not one."
+        )
+    # The check RAN and the two copies agree. Explicit, because `None` here is a
+    # result rather than a fall-through — it is what the caller distinguishes
+    # from the not-checked note above.
+    return None

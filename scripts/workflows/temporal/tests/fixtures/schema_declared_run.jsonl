@@ -1,0 +1,4 @@
+{"type":"assistant","message":{"content":[{"type":"thinking","name":null}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"This is a test of instruction-following for a merge verdict workflow.\n\nVERDICT: MERGE"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"StructuredOutput"}]}}
+{"type":"result","subtype":"success","is_error":false,"num_turns":2,"permission_denials":[],"structured_output":{"outcome":"merge","run_id":"xyz789"},"result":"{\"outcome\":\"merge\",\"run_id\":\"xyz789\"}"}

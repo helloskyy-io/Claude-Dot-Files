@@ -226,7 +226,7 @@ Verified by grep across both fleets (`grep -rn "pr_review\|gh issue list\|gh pr 
 
 | Field | Read by | What the reader does with it |
 |---|---|---|
-| *block presence* | `review-pr.sh:141-142` (`PRIOR_PASS`) · `review_pr_activities.py:45-51` | counts prior passes → sets `THIS_PASS`. **Both over-match — see §6.4** |
+| *block presence* | `review-pr.sh:141-142` (`PRIOR_PASS`) · `review_pr_activities.py` `count_prior_passes` | counts prior passes → sets `THIS_PASS`. **`review-pr.sh` still over-matches — see §6.4. The V2 reader was fixed by [Phase 3](../development/memory-management-framework/phase3_typed_exit_record.md) step 8** and is now fence-anchored, declared once at `review_pr_helper.PR_REVIEW_BLOCK` |
 | *block presence* | `replay_pr_review_blocks.py:45` | Phase 1 E3 + E7 corpus extraction |
 | `verdict` | `/standup` `standup.md:48-51` | `HOLD` → render as a blocker; `MERGE` on an open PR → "ready to merge" |
 | `next_steps[]` | `/standup` `standup.md:48-51` | delivered **verbatim** to the operator — the disposition engine already reasoned; standup does not re-derive |
@@ -285,7 +285,7 @@ Independent of substrate, a Kind 1 record has exactly three change classes that 
 | `next_steps[]`'s shape | `/standup` `standup.md:48-51` | the runway stops reaching the operator; `review-pr` still writes it, nobody delivers it |
 | `findings[].id` stability | `replay_pr_review_blocks.py`, [Phase 5](../development/memory-management-framework/phase5_convergence_stopping.md) | the convergence predicate reads a false delta. **Silent** |
 | `findings[].disposition`'s enum | same | a value outside the **archive's measured vocabulary** — `{hold, fixed, deferred, rejected, noted, escalated}`, counted across all 195 archived findings ([Phase 1](../development/memory-management-framework/phase1_measure_the_channel.md) E7) — is scored as *open* by the closed-set reading, so the open set can never empty. **Silent.** **There are TWO live emitters and they declare DIFFERENT enums.** `review-pr.sh:361` (V1 bash) declares four — `fixed \| rejected \| deferred \| hold`. `disposition.md:223` (the V2 prompt) declares six — the four plus `noted \| escalated`. So `noted` and `escalated` are **not** historical residue from earlier passes; they are written by a currently-wired producer, and any pass through the V2 path can emit them. A reader built to the V1 declaration is wrong about the fleet running today. **Narrowing the emitter does not narrow the archive** |
-| the prose `VERDICT:` line | `build.sh:277`, `build-minor.sh:281`, `routing.py:72`, `run-claude.sh:201-204` | the parent's completion gate fails loud (child side) or synthesises `HOLD - needs-assistance` (parent side) |
+| the prose `VERDICT:` line | `build.sh:277`, `build-minor.sh:281`, `routing.py:72`, `run-claude.sh` § *Completion contract* | the parent's completion gate fails loud (child side) or synthesises `HOLD - needs-assistance` (parent side). **The gate's surface now depends on the caller:** without a declared schema it reads `.result`; with one it reads the LAST assistant text block, because declaring a schema replaces `.result` with the serialised structured output ([Exit Protocol §2.4](../standards/exit-protocol.md)) |
 | anything in §4.2 | no code | nothing breaks; **a human loses information and nothing tells them** |
 | the tracker's section order or per-line fields | `/standup` `standup.md:39` | the readiness ordering (`BLOCKED`→`READY`→`IN FLIGHT`→`RESOLVED`) is how the operator triages; normalising it destroys the property |
 | `direction.md`'s `status` value set | `/standup` `standup.md:43`, `:143`, `:105` (rotation) | a row with an unrecognised status renders forever or never |
@@ -345,8 +345,12 @@ The block marker in §6.2 is stated by three readers, and they do not agree:
 | Reader | Predicate | Matches over the archive |
 |---|---|---|
 | `review-pr.sh:142` | `test("pr_review:")` — unanchored regex over the whole comment body | **18** |
-| `review_pr_activities.py:51` | `"pr_review:" in body` — plain substring | **18** |
+| ~~`review_pr_activities.py:51`~~ | ~~`"pr_review:" in body` — plain substring~~ — **FIXED by [Phase 3](../development/memory-management-framework/phase3_typed_exit_record.md) step 8**; now `review_pr_helper.PR_REVIEW_BLOCK`, fence-anchored and declared once | 18 → **15** |
 | `replay_pr_review_blocks.py:45` | fence-anchored regex requiring an actual ```` ```yaml ```` block | **15** |
+
+> **Two of the three are now one declaration, and the third is a deliberate carve-out.** Phase 3 fixed the V2 reader and added the Kind 1 *address* to the [Exit Protocol](../standards/exit-protocol.md) §6 one-declaration rule (roadmap candidate 6). `review-pr.sh:142` is the **frozen V1 bash fleet** (§7) and is not fixed, so issue **#68** stays open on that half.
+>
+> **There is no fourth declaration in `/standup`, and this note previously said there was.** Three passes carried *"`standup.md:56` matches by mention in prose"* before anyone read the line. It says *"find the LATEST comment containing a `pr_review:` **yaml block**"* — it names the block form, so the characterization was simply wrong. The distinction that matters is not that the two differ but *how*: the three code declarations are **executable matchers with a comparable `.pattern`**, which is what makes "declared once and loaded" checkable and gateable; a prompt has nothing to load and no pattern to compare, so §6's rule has no purchase on it. **Phase 4's fleet-wide sweep does not inherit this item.** If Phase 4 wants prompt files in scope, that is a scope decision it makes explicitly rather than a debt handed to it from here.
 
 **Measured at `bcdb519` over all 39 PRs: 3 false positives, on 2 of the 8 PRs that carry any block.** Both pass-counters match any comment that merely *mentions* the string — a Post-Run Reflection, a build-refine summary, a brief quoting the wire format.
 

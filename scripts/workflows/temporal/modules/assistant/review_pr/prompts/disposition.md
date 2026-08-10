@@ -49,6 +49,12 @@ Do not rely on git to surface it. A carried-forward guard only produces a merge 
 
 Enumerate by NAME and map each to a destination. "The tests were carried across" is not the check; "§1→A, §2→B, §3→C, §7→NOWHERE" is. A gap found this way is a **correctness** finding, not doc-drift.
 
+**COMPLETION-CHECKBOX SWEEP — mandatory whenever this PR flips `[ ]` → `[x]` in any planning artifact** (phase doc, `roadmap.md`, epic breakdown). The global rule `standards-governance.md` § *Completion checkboxes* (`~/.claude/rules/`, sourced from `config/rules/` in this repo) puts the flip in dispatch scope and puts the **verification on you**: you MUST check every flip against the artifact it claims, **not against the run's account of it**. Read the rule — it is binding, it records why the check and not the human is the safeguard, and it is deliberately not restated here.
+
+The check is per-box, and it is the same shape as the deleted-artifact sweep: `git diff` the planning artifacts, list every flipped line, and for each one name the thing in **this PR's diff** that satisfies it. **An unverified flip is a finding. A flip for work not in this diff HOLDS the PR** — categorize it `correctness`, because the durable consequence is that the default branch acquires an `[x]` for work the default branch does not contain, and the next dispatch sequences off it. Blanket-checking a section is the shape to watch for: a run that flipped every box in a block rather than the ones its diff earns.
+
+Say what you checked and how many, so a later pass can tell verification from assumption — *"read all 51 flips against the diff; all 51 substantively true; requirement 6 correctly left unchecked on both artifacts"* is the standard. `sprint.md` is NOT in scope here — it is human-only under the same rule, and a dispatch editing it is its own finding.
+
 Give each item a stable kebab-slug id (reuse prior-pass ids per Stage 1) and a category from this fixed enum (extend if truly needed, NEVER rename — recurrence mining keys on these): correctness | security | standards-implication | scope | deferral | friction | test-gap | doc-drift. (There is deliberately NO 'existing-condition' category — it is abolished; a pre-existing issue is categorized by its actual type.)
 
 **THE CONSEQUENCE GATE — apply to every candidate item BEFORE it becomes a finding.** State what BREAKS, is RISKED, or gets DECIDED WRONGLY if this is not addressed. **If you cannot state that, it is NOT a finding** — demote it to a one-line note in your Post-Run Reflection. Notes do not enter the runway; the runway costs the operator a ruling per entry and must contain only things worth ruling on.
@@ -228,12 +234,19 @@ Then write the comment body to a temp file (e.g. /tmp/claude-review-pr-${PR_NUMB
 **Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short "WHAT HAPPENS NEXT" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the `reframe:` and `bp:` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
 
-**Part 2 — machine-readable block** (fenced ```yaml). This IS the future Temporal activity-result contract — author it exactly:
+**Part 2 — machine-readable block** (fenced ```yaml). **This block and the typed exit record you emit in Stage 6a are ONE AUTHOR'S TWO COPIES, and your caller checks them against each other before it routes.**
+
+- **The typed record is authoritative.** Where the two carry the same fact, the block is its *rendering*: `verdict:` renders `outcome` (`merge`→`MERGE`, `hold`→`HOLD`), and every `findings[].id` and `findings[].disposition` must be **identical in both, same ids, same dispositions, no extras and none missing**. Your caller fails the run loud on a mismatch — a rendering that drops or invents a finding is not one.
+- **Everything else in this block is yours alone and has no field in the record**, deliberately: the disposition table's *Reasoning* column, the one-line verdict rationale, and the Post-Run Reflection. Those three are what make this a record of *the outcome and its reasoning* rather than the outcome alone. **Write them in full. Do not compress them because a typed record exists** — it carries none of them and cannot.
+- The block must sit in a **fenced ```yaml block whose first line is `pr_review:`**. That fence is the address a later pass uses to find you; a comment that merely mentions the key is not a record, and pass counting depends on the difference.
+
+Author it exactly:
 ```yaml
 pr_review:
   pr: ${PR_NUMBER}
-  pass: ${THIS_PASS}
   pass: <int>                        # DERIVED FROM THE FENCE-ANCHORED BLOCK COUNT YOU VERIFIED,
+                                     # NOT from ${THIS_PASS}, which is the dispatch's label and is
+                                     # supplied above only so you can state the divergence.
                                      # never from the dispatch's label. STATE ANY DIVERGENCE explicitly.
                                      # Wrong twice on one PR and WIDENING -- 3-vs-1, then 6-vs-2. A wrong
                                      # pass number in a durable record is permanent, and Phase 5's stopping
@@ -323,12 +336,32 @@ pr_review:
 
 **gh-monitor safety (binding):** the comment MUST NOT contain any line that STARTS with `@claude` — gh-monitor would parse it and auto-dispatch a workflow. If you must reference a dispatch command illustratively, put it inside a code fence (gh-monitor strips fences before matching). Your dispatch_context describes the task in prose/yaml; it never emits a live `@claude` trigger line.
 
-## Stage 6: PRINT THE VERDICT
+## Stage 6: EMIT THE TYPED EXIT RECORD, THEN PRINT THE VERDICT
+
+**Two channels, one author. Both are required, and they must agree** — a disagreement is a hard failure your caller raises on, not a preference it reconciles.
+
+### 6a — Call the `StructuredOutput` tool
+
+Before you print the verdict line, call the structured-output tool exactly once with the typed exit record. This is the Kind 2 record defined by `docs/standards/exit-protocol.md` §2.1 — **small, and it carries references rather than payloads.** It is NOT a second copy of your disposition comment: it holds only what a caller branches on plus the finding ids a later pass needs.
+
+| Field | What you put in it |
+|---|---|
+| `schema_version` | exactly `"1"` |
+| `run_id` | exactly `${RUN_ID}` — copy it verbatim, character for character. Your caller issued it and compares it back; a wrong value routes this run to a human |
+| `outcome` | `merge` or `hold` — the same decision as your VERDICT line |
+| `hold_kind` | required when `outcome` is `hold`: `redispatch` or `needs_ruling`. **`needs_ruling` is `needs-assistance` under its proper name** — the evaluation completed and the answer is that a human must decide. Aggregate it by the same rule as the VERDICT token below |
+| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"`, `uri:` the PR's URL. **`id` is a string**, quoted |
+| `findings` | one entry per finding in your yaml block, each with its stable `id` and its `disposition`. **Same ids, same dispositions, no extras and none missing** |
+
+**If you cannot state a field, you still call the tool.** A review you could not complete is `outcome: hold` with `hold_kind: needs_ruling` — that is what the member is for. **Declining to call the tool is the one outcome with no meaning**: it produces a run that looks completely clean and carries no record, and your caller has to route it to a human as a machinery failure.
+
+### 6b — Print the verdict line
+
 As the FINAL line of your output, print exactly one of:
     VERDICT: MERGE
     VERDICT: HOLD - redispatch
     VERDICT: HOLD - needs-assistance
-This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted.
+This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted. It must correspond to 6a: `merge`→`MERGE`, `hold`+`redispatch`→`HOLD - redispatch`, `hold`+`needs_ruling`→`HOLD - needs-assistance`.
 
 **The routing token on a HOLD is a decision, and it is YOURS to make — do not leave it to be re-derived.** `hold_kind` lives per-finding in your yaml, so a HOLD carrying five `redispatch` items and one `needs-assistance` item has no single answer written anywhere. A caller reading your yaml would have to aggregate, which means a caller with no stake in the review would be making a judgement about the review. Aggregate it yourself, by this rule:
 

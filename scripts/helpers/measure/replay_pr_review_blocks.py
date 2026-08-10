@@ -52,10 +52,18 @@ FINDING_ID = re.compile(r"^\s*-\s*id:\s*([^\s#]+)", re.MULTILINE)
 # One finding entry: its id, plus everything up to the next `- id:` (or EOF).
 # Per-finding fields are read from that span so a `disposition:` belonging to
 # finding N is never attributed to finding N-1.
+#
+# `[ \t]` rather than `\s`, matching `review_pr_helper._FINDING_ITEM` BYTE FOR
+# BYTE — the gate in `test_exit_record.py` compares the two patterns and this is
+# the spelling both sides settled on. `\s` also matches a newline, which lets
+# the anchor and the lookahead straddle a blank line; the two are equivalent on
+# every archived block (verified by re-running this module's own tests over the
+# archive) and only one of them is defensible.
 FINDING_ENTRY = re.compile(
-    r"^\s*-\s*id:\s*([^\s#]+)(.*?)(?=^\s*-\s*id:|\Z)", re.MULTILINE | re.DOTALL
+    r"^[ \t]*-[ \t]*id:[ \t]*([^\s#]+)(.*?)(?=^[ \t]*-[ \t]*id:|\Z)",
+    re.MULTILINE | re.DOTALL,
 )
-DISPOSITION = re.compile(r"^\s*disposition:\s*([^\s#]+)", re.MULTILINE)
+DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
 CATEGORY = re.compile(r"^\s*category:\s*([^\s#]+)", re.MULTILINE)
 # The dispositions that mean "this finding needs nothing further". Measured
 # vocabulary across the archive (all 195 archived findings carry one):
