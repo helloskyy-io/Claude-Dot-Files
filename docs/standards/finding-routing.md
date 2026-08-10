@@ -85,6 +85,22 @@ Filing authority for **defects** sits with the reviewer, not the discoverer, and
 
 ## 5 · `INTERFACE` — The gates, in order, before anything is filed
 
+**0 · IS THIS ABOUT WORK THAT WAS JUST DONE? Then it belongs to that work, not to a new container.**
+
+**The test is OWNERSHIP, not size.** A finding is part of a dispatch — and is fixed there or added to its runway — when any of these hold:
+
+- it is about **an artifact that dispatch created or edited**, including one it created *correctly but incompletely*
+- it is about **a commit made to unblock that dispatch**
+- it is about **output that dispatch produced** which does not conform to a rule binding it
+
+**A new container is for a defect in something that already existed and was NOT touched by this work.** *"I noticed X while doing Y"* is not enough — the question is whether X is part of Y.
+
+**Why this is gate 0.** It eliminates more than any other test, it is the cheapest to apply, and getting it wrong is expensive in a specific way: **the work that produced the gap merges, and the gap becomes a queue item nobody owns.** The dispatch had the context, the files open and the authority; a later actor has none of those and must rebuild all three.
+
+**Measured, twice in one day, both against the session's own work.** A standard was corrected on one line to unblock a build, and the same document's three worked examples still taught the corrected-away behaviour — filed as a new issue while that build's PR was still open. And four candidate rows were placed by a dispatch without the lens verdicts the intake gate requires — filed as a new issue rather than added to the PR that placed them.
+
+**If the owning work has already merged, say so and route to whatever is next touching that artifact.** A merged dispatch cannot be given a runway; that is the one case where a container is legitimate, and it is legitimate *because* the owner is gone, not because the finding is new.
+
 **1 · CLUSTER YOUR OWN FINDINGS FIRST.** Before searching anything. Searching a queue cannot find what does not exist yet — the measured case was four issues against one file from one pass, each individually correct and none findable by the others. **Findings sharing a file, a function, a subsystem, or one remedy are ONE entry.**
 
 **2 · SEARCH BY MECHANISM, NOT BY KEYWORD, ACROSS EVERY REPO THE WORK SPANS.** Two findings can be the same defect and share no vocabulary. Ask *"is this the same MECHANISM as something already filed, in different code?"* — not *"do the words match?"* Deferred work lives in more than one repo; a single-repo search that correctly finds nothing is not evidence of novelty.
