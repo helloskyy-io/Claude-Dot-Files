@@ -663,7 +663,8 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     phase's own completion requirement forbids.
 
     The check is on the CLASS, not on today's call sites: every conditional in
-    `modules/` whose test reads the convergence vocabulary is enumerated, and
+    the component — `modules/` AND the `scripts/` entrypoints — whose test reads
+    the convergence vocabulary is enumerated, and
     the enumeration must equal a list of functions that provably cannot route.
     A list of the FILES that are clean today would retire itself the moment it
     passed; a list of the reporting-only FUNCTIONS does not — it grows only by a
@@ -715,8 +716,8 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     # lines of text. `run_review` — the function that actually routes — is
     # deliberately absent, and that is the property this list protects.
     REPORTING_ONLY = {
-        ("review_pr/review_pr_helper.py", "shadow_agreement"),
-        ("review_pr/review_pr_workflow.py", "_convergence_notes"),
+        ("modules/assistant/review_pr/review_pr_helper.py", "shadow_agreement"),
+        ("modules/assistant/review_pr/review_pr_workflow.py", "_convergence_notes"),
         # Added by the review pass that introduced the function, which is the
         # gate behaving as designed rather than a widening: this test went red on
         # the new conditional and the entry is the deliberate edit it demands.
@@ -726,7 +727,7 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
         # route, and unlike the two above it takes the assessment under its own
         # annotation, so it is covered by the taint analysis rather than escaping
         # around it.
-        ("review_pr/review_pr_workflow.py", "_convergence_event"),
+        ("modules/assistant/review_pr/review_pr_workflow.py", "_convergence_event"),
     }
 
     def _mentions(node: ast.AST, tainted: set[str]) -> bool:
@@ -738,13 +739,32 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
                 return True
         return False
 
-    modules = Path(er.__file__).resolve().parent
+    # THE ROOT IS THE COMPONENT, NOT THE PACKAGE THE CODE HAPPENS TO SIT IN.
+    # A review pass mutated a routing branch on `ConvergenceState` into
+    # `scripts/run_review_pr.py` and this test stayed GREEN: it rooted at
+    # `modules/assistant/`, while its own docstring, its name and its failure
+    # message all claim the whole tree. That is the guard's own recorded lesson
+    # failing a second time in the same guard — the rewrite that replaced the
+    # text scan with an AST walk applied *a mutation derived from the CLAIM*
+    # to the guard's SHAPE and not to its SCOPE, which was still derived from
+    # where today's implementation lives.
+    #
+    # Both surfaces outside the old root are where the future consumer is
+    # expected: the CLI entrypoints under `scripts/`, which own the process exit
+    # code, and a SIBLING package under `modules/` — `autonomous-operation.md`
+    # describes the consumer as "a driver that runs many parent workflows in
+    # sequence", i.e. a different parent family entirely.
+    component = Path(er.__file__).resolve().parents[2]
+    roots = [component / "modules", component / "scripts"]
     found: set[tuple[str, str]] = set()
     sites: list[str] = []
-    for path in sorted(modules.rglob("*.py")):
+    outside_assistant = 0
+    for path in sorted(p for root in roots for p in root.rglob("*.py")):
         if path.name == "convergence.py" or "tests" in path.parts:
             continue
-        rel = str(path.relative_to(modules))
+        rel = str(path.relative_to(component))
+        if not rel.startswith("modules/assistant/"):
+            outside_assistant += 1
         tree = ast.parse(path.read_text())
         for fn in ast.walk(tree):
             if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -776,6 +796,12 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
                         found.add((rel, fn.name))
                         sites.append(f"{rel}:{node.lineno} in {fn.name}()")
 
+    assert outside_assistant > 0, (
+        f"the walk visited {outside_assistant} files outside "
+        f"`modules/assistant/` — the scope this gate was widened to cover is "
+        f"empty, so the widening has silently regressed to the root that let a "
+        f"routing branch in `scripts/run_review_pr.py` pass unseen"
+    )
     assert found <= REPORTING_ONLY, (
         "something now BRANCHES on the computed convergence signal outside the "
         "reporting-only functions: "
