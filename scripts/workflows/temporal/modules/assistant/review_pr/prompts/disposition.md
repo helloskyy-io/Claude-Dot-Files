@@ -340,6 +340,8 @@ pr_review:
   redispatched: false                # always false — this engine never dispatches
 ```
 
+**Block ordering within your comment (binding):** your comment carries **one** `pr_review:` block — **yours**, and it MUST be the LAST one in the comment. If you restate or quote a prior pass's block for context, place it **ABOVE** your own. The parent reads *the last block of each comment* as that pass's, and it uses that to bind the render↔record invariant and to build the convergence history. Putting a quoted block last makes the parent compare your typed record against the PREVIOUS pass's findings and hard-fail a review that is already posted and already routed. *(This rule is stated here because the parent's docstring used to cite INVARIANT 1 as its guarantee and INVARIANT 1 is about carrying FINDINGS forward, not about where a quoted block sits — so the code's rule had no producer-side backing at all. The durable fix is the run-nonce field in `phase4_fleet_migration.md`; until then, this sentence is it.)*
+
 **gh-monitor safety (binding):** the comment MUST NOT contain any line that STARTS with `@claude` — gh-monitor would parse it and auto-dispatch a workflow. If you must reference a dispatch command illustratively, put it inside a code fence (gh-monitor strips fences before matching). Your dispatch_context describes the task in prose/yaml; it never emits a live `@claude` trigger line.
 
 ## Stage 6: PRINT THE VERDICT, THEN EMIT THE TYPED EXIT RECORD

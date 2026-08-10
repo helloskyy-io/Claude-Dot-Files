@@ -388,9 +388,72 @@ def append_parent_route(log_file: Path, event: dict) -> None:
     predicates evaluate over one artifact rather than two. `type` is namespaced
     away from the CLI's own event types so a future CLI cannot collide with it,
     and appending keeps the CLI's own stream byte-identical.
+
+    WHAT THIS WRITES IS FROZEN WHILE PHASE 4 IS GATED ON IT.
+    `phase4_fleet_migration.md` reads the run set these events produce, so the
+    keys and the `parent_route` type string are not a refactoring surface. A
+    later phase adding its OWN observable adds its OWN event type beside this
+    one — see `append_convergence` — rather than widening this payload, and
+    `test_exit_record.py` asserts the line this function writes byte for byte.
     """
+    _append_run_event(log_file, "parent_route", event)
+
+
+def append_convergence(log_file: Path, event: dict) -> None:
+    """Append Phase 5's COMPUTED CONVERGENCE observable, as its own JSONL event.
+
+    A SEPARATE EVENT TYPE, NOT A WIDER `parent_route`. Phase 4 is gated on the
+    run set `append_parent_route` produces, so the cheapest way to guarantee
+    this addition disturbs nothing is for it to share no payload with that one.
+    The two join on `run_id`, which both carry.
+
+    WITHOUT THIS THE PREDICATE HAS NO DENOMINATOR. The convergence assessment
+    lives in a return value that dies with the process; the archive's
+    `pr_review:` blocks carry the model's ASSERTED flag but nothing carries the
+    computed one, so an agreement rate between the two could only ever be
+    reconstructed by a second offline reader — the duplicated-parser defect this
+    component exists to remove. That is the same gap
+    `phase3_typed_exit_record.md` step 4 closed for the computed abstention arm,
+    and it is closed here at the same time as the signal is first emitted rather
+    than a phase later.
+    """
+    _append_run_event(log_file, "convergence", event)
+
+
+def _append_run_event(log_file: Path, event_type: str, event: dict) -> None:
+    """One appender for every parent-written run-log event.
+
+    The two public callers above differ only in their `type`, and typing the
+    open-append-serialise sequence twice is how the second one acquires a
+    different encoding or a missing newline.
+
+    `type` IS RESERVED, AND IT IS ENFORCED RATHER THAN ASSERTED IN PROSE. This
+    docstring previously claimed *"`type` is written FIRST and from the
+    parameter, so a caller cannot shadow it through `event`"* — which is the
+    opposite of what a dict display does: `{"type": a, **event}` applies `event`
+    LAST, so `event["type"]` wins. The claimed protection was inverted, and
+    nothing compared the claim to the line under it.
+
+    It is not a hypothetical. `append_convergence`'s payload is built by
+    splatting `ConvergenceAssessment.as_event()`, which is DERIVED FROM
+    `dataclasses.fields` precisely so that adding a field is enough to make it
+    durable — so a future field named `type` reaches here with no human in the
+    loop, silently re-types the event, and every reader filtering
+    `type == "convergence"` stops seeing it. The denominator this component
+    exists to create would disappear with no test going red. Raising is
+    preferable to reordering: a caller that hands in a `type` has a bug either
+    way, and silently overriding its key is the same class of defect one layer
+    down.
+    """
+    if "type" in event:
+        raise ValueError(
+            f"a run-log event may not carry its own `type` key: {event['type']!r} "
+            f"was handed in for an event this appender types {event_type!r}. The "
+            f"event type is the run log's only index; a payload that can set it "
+            f"can make itself unreadable to every consumer that filters on it."
+        )
     with log_file.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"type": "parent_route", **event}) + "\n")
+        handle.write(json.dumps({"type": event_type, **event}) + "\n")
 
 
 def run_claude(prompt: str, *, model_key: str, completion_pattern: str,

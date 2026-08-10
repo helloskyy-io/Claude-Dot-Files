@@ -61,15 +61,84 @@ def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     that rule. `children/review-pr.sh:142` carries the same defect and is NOT
     fixed here — it is the frozen V1 fleet (§7).
     """
+    return thread_snapshot(pr_number, repo_root)[0]
+
+
+def thread_snapshot(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
+    """The pass count and the block window, from ONE `gh` read.
+
+    LITERALLY ONE OBSERVATION, WHICH THE TWO CALLERS ABOVE ONLY CLAIMED TO BE.
+    `count_prior_passes` and `pr_review_blocks` each issued their own
+    `gh pr view --json comments`, so the count and the window were two samples
+    of a thread that a concurrent comment can change between them. Retrying them
+    as a unit — which `_read_thread_for_invariant` does — covers a FAILURE and
+    does nothing about SKEW: a count read that misses the child's just-posted
+    comment paired with a window read that sees it makes
+    `_assert_block_matches_record` raise *"posted no new `pr_review:` block"* and
+    kill a completed, already-routed review. Deriving both from one reply is the
+    only thing that closes it, and it removes a `gh` round trip from the path
+    whose named failure mode is rate limiting.
+
+    ONE ENTRY PER PASS, NOT PER BLOCK, AND THAT IS THE OTHER HALF. A pass posts
+    one comment however many blocks it quotes — `count_prior_passes` has always
+    said so — so the window takes the LAST block of each comment carrying one.
+    A quoted block is a restatement of a pass already in the window, not a pass:
+    counting it would make `ConvergenceAssessment.passes` disagree with
+    `this_pass`, and a comment quoting a NON-adjacent block would inject a
+    phantom pass whose closed findings read as re-opened, withholding
+    convergence on that PR permanently.
+
+    LAST-WITHIN-THE-COMMENT IS NOW A RULE THE PROMPT STATES, WHICH IT WAS NOT.
+    An earlier version of this docstring cited `disposition.md`'s INVARIANT 1 as
+    the producer-side guarantee. A review pass read the prompt: INVARIANT 1 says
+    *carry every prior-pass FINDING forward until it reaches an explicit
+    disposition* — about restating ids INSIDE the block — and the prompt said
+    nothing anywhere about quoting a whole prior block or where to put it. So
+    last-wins was an unbacked heuristic with a live failure: a pass appending the
+    superseded block BELOW its own returns the PRIOR block here, which makes
+    `_assert_block_matches_record` compare this pass's record against the
+    previous pass's findings and hard-fail a correct, already-posted,
+    already-routed review — the exact loss the `search`-based bug caused, in the
+    mirror direction — while also putting the wrong block at the end of the
+    window, so `prior_pass_blocks` leaks this pass's own block into the history.
+    `disposition.md` Stage 5 now pins the order explicitly, and a false
+    cross-file citation is a worse defect than a missing one because it stops
+    the next reader checking.
+
+    ORDERING IS COMMENT ORDER, NEVER THE BLOCK'S OWN `pass:` INTEGER. That
+    counter is producer-written and `memory-model.md` §6.4 measured it wrong on
+    the most recently reviewed PR in the repo (issue #68); PR #31's blocks run
+    1, 2, 4. Consecutiveness is a property of the sequence, not of the label.
+    """
     raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
-    return sum(
-        1 for c in raw.get("comments", [])
-        if helper.PR_REVIEW_BLOCK.search(c.get("body", "") or "")
-    )
+    window = [
+        matches[-1].group(1)
+        for c in raw.get("comments", [])
+        if (matches := list(helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")))
+    ]
+    return len(window), window
+
+
+def pr_review_blocks(pr_number: str, repo_root: Path) -> list[str]:
+    """This PR's `pr_review:` blocks, one per pass, in comment-creation order.
+
+    A thin projection of `thread_snapshot`, kept because two callers want only
+    the window and naming the projection is cheaper than teaching each of them
+    to discard the count.
+    """
+    return thread_snapshot(pr_number, repo_root)[1]
 
 
 def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     """The LATEST `pr_review:` block on this PR, or None if there is none.
+
+    NO PRODUCTION CALLER TODAY, and that is worth knowing before reading the
+    rest. `run_review` takes the whole window from `thread_snapshot` and names
+    this pass's block with `helper.this_pass_block`, which is where the
+    positional inference now lives and which `phase4_fleet_migration.md`'s
+    run-nonce checkbox replaces. This stays as the one-line composition of those
+    two, because several docstrings point at it as the place the "latest block"
+    rule is written down and moving that prose would cost more than the line.
 
     The address, applied: container id is the PR number, the block marker is the
     fence-anchored regex, and the ordering rule is comment creation order with
@@ -88,20 +157,20 @@ def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     has always used `findall` here; this was the third reader disagreeing with the
     other two about what "the latest block" means.
 
-    NOT the same change as `count_prior_passes` above, and that asymmetry is
-    deliberate: that function counts COMMENTS THAT CARRY A BLOCK, because the
-    delta it feeds (`posted <= prior_pass` in `review_pr_workflow`) is a count of
-    passes, and one pass posts one comment however many blocks it quotes.
-    Switching it to `finditer` would count a quoting comment as two passes and
-    break the delta in a new way.
+    THE SAME RULE `count_prior_passes` APPLIES, AND THEY ARE NOW ONE FUNCTION.
+    That count is COMMENTS THAT CARRY A BLOCK, because the delta it feeds
+    (`posted <= prior_pass` in `review_pr_workflow`) is a count of passes and one
+    pass posts one comment however many blocks it quotes. `thread_snapshot`
+    derives both from one reply under that single rule, so the count and the
+    window can no longer disagree about what a pass is — they briefly did, and a
+    quoting comment made `ConvergenceAssessment.passes` exceed `this_pass`.
+
+    EXPRESSED ON `pr_review_blocks` RATHER THAN RE-EXTRACTING. The extraction
+    was typed twice for one commit when the window reader was added, which is
+    the duplicated-reader defect `exit-protocol.md` §6 covers — and the measured
+    instance of it (issue #68) is this exact marker.
     """
-    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
-    blocks = [
-        m.group(1)
-        for c in raw.get("comments", [])
-        for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
-    ]
-    return blocks[-1] if blocks else None
+    return helper.this_pass_block(pr_review_blocks(pr_number, repo_root))
 
 
 def load_shared_block(name: str, shared_sh: Path) -> str:

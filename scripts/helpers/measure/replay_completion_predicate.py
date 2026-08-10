@@ -54,11 +54,19 @@ from pathlib import Path
 # and visible to `.findall()`, so every extraction below goes through
 # `finditer()` + `group(0)` rather than `findall()`.
 #
-# DELIBERATELY COPIED, NOT IMPORTED. A replay tool pins the predicate it
-# replays: importing the live `routing._VERDICT` would make a re-run in a year
-# silently measure a CHANGED rule against the SAME archived logs and report the
-# result as the same number. The drift this copy risks is loud (a test asserts
-# parity with the shipped ERE); the drift an import risks is silent.
+# DELIBERATELY COPIED, NOT IMPORTED — AND THAT IS A RULE WITH AN EXCEPTION,
+# STATED HERE BECAUSE THIS IS THE OLDER FILE A NEXT AUTHOR COPIES FROM. A tool
+# measuring the historical miss rate of an INCUMBENT gate pins the predicate:
+# importing the live `routing._VERDICT` would make a re-run in a year silently
+# measure a CHANGED rule against the SAME archived logs and report the result as
+# the same number. The drift this copy risks is loud (a test asserts parity with
+# the shipped ERE); the drift an import risks is silent.
+#
+# A tool validating a CANDIDATE predicate does the opposite and IMPORTS the
+# shipped rule, because a pinned copy there certifies a rule nobody runs — see
+# `README.md` § and `replay_convergence_predicate.py`, which states the same
+# discriminator at the site that departs. Pin when the NUMBER must stay
+# reproducible; import when the RULE under test must be the one that ships.
 STRICT_VERDICT = re.compile(
     r"^VERDICT: (MERGE|HOLD - (redispatch|needs-assistance))$", re.MULTILINE
 )

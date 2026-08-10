@@ -65,6 +65,36 @@ FINDING_ENTRY = re.compile(
 )
 DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
 CATEGORY = re.compile(r"^\s*category:\s*([^\s#]+)", re.MULTILINE)
+# The `findings:` mapping value — from the key to the next key at the SAME
+# indent, or the end of the block. `- id:` IS NOT UNIQUE TO A FINDING, and the
+# shipped prompt is what makes it not unique: `disposition.md:292` gives the
+# child a `dispatch_context: |` block scalar whose documented content is "which
+# findings to fix", and `:295` a `precheck: |` beside it. Both are free text in
+# the same block, after `findings:`. A reviewer enumerating findings there —
+# which the prompt asks for — injects entries indistinguishable from real ones,
+# and they carry no `disposition:`, so `open_ids` counts every one of them OPEN
+# and the convergence rate this tool measures is silently wrong.
+#
+# BYTE-IDENTICAL to `review_pr_helper._FINDINGS_SECTION` and paired in
+# `SHARED_KIND_ONE_PATTERNS`, because both readers now anchor: the live path's
+# render↔record invariant and this tool's denominator would otherwise disagree
+# about what a finding is, which is the drift that gate exists to catch.
+#
+# NUMBER-NEUTRAL WHEN INTRODUCED, and that was measured rather than assumed:
+# 0 of the 27 archived blocks across 14 PRs carry a `- id:` outside `findings:`,
+# so no published figure moves. It bounds what a future re-run can conclude.
+FINDINGS_SECTION = re.compile(
+    r"^([ \t]*)findings:[ \t]*$(.*?)(?=^\1[A-Za-z_][A-Za-z0-9_]*:|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def findings_section(block: str) -> str:
+    """The block's `findings:` value, or `""` when it declares none."""
+    match = FINDINGS_SECTION.search(block)
+    return match.group(2) if match else ""
+
+
 # The dispositions that mean "this finding needs nothing further". Measured
 # vocabulary across the archive (all 195 archived findings carry one):
 #   hold 37 · fixed 74 · deferred 58 · rejected 21 · noted 3 · escalated 2
@@ -125,7 +155,8 @@ def main(repo: str) -> int:
                 cv = CONVERGED.search(body)
                 at = ATTEMPT.search(body)
                 findings = []
-                for m in FINDING_ENTRY.finditer(body):
+                section = findings_section(body)
+                for m in FINDING_ENTRY.finditer(section):
                     span = m.group(2)
                     d = DISPOSITION.search(span)
                     cat = CATEGORY.search(span)
@@ -148,7 +179,7 @@ def main(repo: str) -> int:
                         # because absence dates the block to before the flag
                         # shipped and that is what makes a denominator honest.
                         "converged": (cv.group(1) == "true") if cv else None,
-                        "finding_ids": FINDING_ID.findall(body),
+                        "finding_ids": FINDING_ID.findall(section),
                         "findings": findings,
                         # The delta that can actually go empty. The full
                         # `finding_ids` set cannot — see the module docstring.

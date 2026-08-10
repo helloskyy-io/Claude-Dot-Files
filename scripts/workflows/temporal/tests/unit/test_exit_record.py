@@ -21,6 +21,7 @@ comparison is trivially satisfied and the rule is never exercised.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 from pathlib import Path
@@ -31,24 +32,12 @@ from modules.assistant import exit_record as er
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
 
-
-RUN_ID = "aaaabbbbccccdddd"
-
-
-def _record(**overrides) -> dict:
-    """A record that routes cleanly. Every test below mutates ONE thing."""
-    base = {
-        "schema_version": er.SCHEMA_VERSION,
-        "run_id": RUN_ID,
-        "outcome": "merge",
-        "completion_ref": {
-            "substrate": "github", "kind": "pull", "id": "67",
-            "uri": "https://github.com/owner/repo/pull/67",
-        },
-        "findings": [{"id": "a-stable-slug", "disposition": "fixed"}],
-    }
-    base.update(overrides)
-    return base
+# The shared fakes, moved out of this file so `test_convergence.py` stops
+# importing another TEST module for them. Names unchanged, so no call site
+# below moved — see `review_run_fakes` for why the coupling was a defect.
+from review_run_fakes import (  # noqa: E402
+    RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record, _with_comments,
+)
 
 
 def _envelope(record: dict | None = ..., denials: list | None = None) -> dict:
@@ -581,87 +570,6 @@ def test_the_kind_one_reference_is_not_typed_as_a_url() -> None:
 # does not exist, so this mutates the record until the two channels disagree.
 # ---------------------------------------------------------------------------
 
-class _FakeWorkflow:
-    """The `run_review` collaborators, replaced at their real boundaries.
-
-    Nothing here fakes `route` or `parse_verdict` — those are the code under
-    test. What is faked is the I/O: `gh`, the worktree, the model invocation and
-    the log the record arrives in.
-    """
-
-    # The durable block the child is presumed to have posted. Default renders
-    # the same one finding `_record()` carries — id AND disposition, because the
-    # invariant compares pairs — so it holds unless a test deliberately breaks it.
-    DEFAULT_BLOCK = ("pr_review:\n  pr: 67\n  findings:\n"
-                     "    - id: a-stable-slug\n      disposition: fixed\n")
-
-    def __init__(self, record: dict | None, prose: str, denials: list | None = None,
-                 block: str | None = DEFAULT_BLOCK, prior_blocks: int = 0,
-                 posts_block: bool = True):
-        self.record = record
-        self.prose = prose
-        self.denials = denials if denials is not None else []
-        self.block = block
-        self.run_id: str | None = None
-        # THE THREAD IS STATEFUL, and modelling that is the point. The invariant
-        # asks whether THIS pass posted a block, so a fake returning one constant
-        # count could not express "pass 2 ran and posted nothing" — which is the
-        # case the invariant exists to catch and the case it used to pass.
-        self.prior_blocks = prior_blocks
-        self.posts_block = posts_block
-        self.ran = False
-
-    def install(self, monkeypatch, tmp_path: Path):
-        from modules.assistant.review_pr import review_pr_activities as act
-        from modules.assistant.review_pr import review_pr_workflow as wf
-
-        monkeypatch.setattr(act, "fetch_pr", lambda *a, **k: {"headRefName": "build/x"})
-        monkeypatch.setattr(act, "count_prior_passes", lambda *a, **k: self._blocks())
-        monkeypatch.setattr(act, "load_shared_block", lambda *a, **k: "guard")
-        monkeypatch.setattr(wf._shared, "worktree_add",
-                            lambda *a, **k: tmp_path / "pr-tree")
-        monkeypatch.setattr(wf._shared, "claude_log_path",
-                            lambda *a, **k: tmp_path / "run.jsonl")
-
-        def _run(prompt, *a, **k):
-            # The nonce is issued by the parent and reaches the child ONLY
-            # through the prompt, so capturing it here is the same path the
-            # real child reads it on. `prompt` is the REAL disposition.md
-            # rendered, so this also proves `${RUN_ID}` is in the shipped prompt
-            # and gets substituted — not just that the helper accepts a kwarg.
-            self.run_id = _nonce_in(prompt)
-            self.ran = True
-            return ""
-
-        monkeypatch.setattr(act, "run_disposition", _run)
-        monkeypatch.setattr(act, "latest_pr_review_block", lambda *a, **k: self.block)
-        monkeypatch.setattr(wf._shared, "result_event",
-                            lambda *a, **k: self._envelope())
-        monkeypatch.setattr(wf._shared, "assistant_text", lambda *a, **k: self.prose)
-        return wf
-
-    def _blocks(self) -> int:
-        """Blocks on the thread now: one more once this pass posted its own."""
-        return self.prior_blocks + (1 if self.ran and self.posts_block else 0)
-
-    def _envelope(self) -> dict:
-        event = {"type": "result", "subtype": "success",
-                 "permission_denials": self.denials}
-        if self.record is not None:
-            record = dict(self.record)
-            if record.get("run_id") == "@ISSUED@":
-                record["run_id"] = self.run_id
-            event["structured_output"] = record
-        return event
-
-
-def _nonce_in(prompt: str) -> str:
-    """The 32-hex nonce `render_prompt` substituted into the prompt."""
-    import re
-    m = re.search(r"\b[0-9a-f]{32}\b", prompt)
-    assert m, "the parent did not substitute a run_id into the prompt"
-    return m.group(0)
-
 
 def _review(monkeypatch, tmp_path, record, prose, denials=None,
             block=_FakeWorkflow.DEFAULT_BLOCK, prior_blocks=0, posts_block=True):
@@ -871,13 +779,6 @@ def test_pass_two_that_does_post_is_accepted(monkeypatch, tmp_path) -> None:
 # that the shape raises the retryable type, and that a run meeting it survives.
 # ---------------------------------------------------------------------------
 
-def _no_sleep(monkeypatch) -> list[float]:
-    """Replace the backoff with a recorder, so the retries are observable."""
-    from modules.assistant.review_pr import review_pr_workflow as wf
-    slept: list[float] = []
-    monkeypatch.setattr(wf.time, "sleep", slept.append)
-    return slept
-
 
 def _flaky_reader(fails: int, real):
     """A reader that raises a transient `gh` error `fails` times, then works."""
@@ -926,7 +827,7 @@ def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
     """The same case end-to-end, through the REAL reader rather than a fake one.
 
     THIS IS THE ONE THAT WOULD HAVE CAUGHT IT. Every other test in this section
-    fakes `latest_pr_review_block` and raises `RuntimeError` from the fake — so
+    fakes `thread_snapshot` and raises `RuntimeError` from the fake — so
     they assert the retry handles the error the fake chose to throw, and are
     green against a reader that could throw a second family. Here the real
     reader runs and only `gh` is faked, which is where the shape actually
@@ -934,12 +835,12 @@ def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
     """
     from modules.assistant.review_pr import review_pr_activities as act
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
-    real_latest = act.latest_pr_review_block  # captured BEFORE the fake installs
+    real_reader = act.thread_snapshot  # captured BEFORE the fake installs
 
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
     slept = _no_sleep(monkeypatch)
-    monkeypatch.setattr(act, "latest_pr_review_block", real_latest)
+    monkeypatch.setattr(act, "thread_snapshot", real_reader)
     monkeypatch.setattr(act._shared, "gh", lambda *a, **k: "<html>502 Bad Gateway</html>")
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
@@ -971,8 +872,8 @@ def test_a_transient_thread_read_is_retried_and_the_review_survives(
     wf = fake.install(monkeypatch, tmp_path)
     slept = _no_sleep(monkeypatch)
 
-    monkeypatch.setattr(act, "latest_pr_review_block",
-                        _flaky_reader(1, lambda *a, **k: fake.block))
+    monkeypatch.setattr(act, "thread_snapshot",
+                        _flaky_reader(1, lambda *a, **k: (1, [fake.block])))
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1004,7 +905,7 @@ def test_a_PERSISTENT_thread_read_failure_completes_the_run_and_says_so(
     def _boom(*a, **k):
         raise RuntimeError("gh pr view failed: API rate limit exceeded")
 
-    monkeypatch.setattr(act, "latest_pr_review_block", _boom)
+    monkeypatch.setattr(act, "thread_snapshot", _boom)
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1035,7 +936,7 @@ def test_the_route_is_PERSISTED_even_when_the_check_never_runs(
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
     _no_sleep(monkeypatch)
-    monkeypatch.setattr(act, "latest_pr_review_block", _flaky_reader(99, lambda *a, **k: None))
+    monkeypatch.setattr(act, "thread_snapshot", _flaky_reader(99, lambda *a, **k: (0, [])))
 
     wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1062,8 +963,8 @@ def test_a_REAL_disagreement_still_raises_after_a_transient_read(
     _no_sleep(monkeypatch)
 
     wrong = "pr_review:\n  findings:\n    - id: a-different-slug\n      disposition: fixed\n"
-    monkeypatch.setattr(act, "latest_pr_review_block",
-                        _flaky_reader(1, lambda *a, **k: wrong))
+    monkeypatch.setattr(act, "thread_snapshot",
+                        _flaky_reader(1, lambda *a, **k: (1, [wrong])))
 
     with pytest.raises(RuntimeError, match="disagree on findings"):
         wf.run_review(ReviewInput(pr_number="67"), tmp_path)
@@ -1156,16 +1057,6 @@ def test_a_fenced_block_is_a_record() -> None:
     """
     body = "Here is the block:\n\n```yaml\npr_review:\n  pr: 67\n  pass: 1\n```\n"
     assert helper.PR_REVIEW_BLOCK.search(body) is not None
-
-
-def _with_comments(monkeypatch, bodies: list[str]):
-    """Replace `gh` at its own boundary; everything above it is the code under test."""
-    from modules.assistant.review_pr import review_pr_activities as act
-    monkeypatch.setattr(
-        act._shared, "gh",
-        lambda *a, **k: json.dumps({"comments": [{"body": b} for b in bodies]}),
-    )
-    return act
 
 
 def test_count_prior_passes_no_longer_counts_a_mention(monkeypatch, tmp_path) -> None:
@@ -1287,6 +1178,23 @@ SHARED_KIND_ONE_PATTERNS = (
     ("_FINDING_ID", "FINDING_ID"),
     ("_FINDING_ITEM", "FINDING_ENTRY"),
     ("_DISPOSITION", "DISPOSITION"),
+    # Added when Phase 5 gave the workflow a consumer for the incumbent
+    # convergence flag. It was one-sided until then, and the enumeration gate
+    # below is what forced the pairing rather than a reviewer remembering: the
+    # workflow's shadow agreement count and the archive replay's now read the
+    # same field, so a divergence would make the two disagree about how often
+    # the model-asserted flag and the computed signal match, with both suites
+    # green.
+    ("CONVERGED_FLAG", "CONVERGED"),
+    # Added when a review pass measured that `- id:` is NOT unique to a finding:
+    # the shipped prompt gives the child `dispatch_context: |` and `precheck: |`
+    # block scalars whose documented content is *"which findings to fix"*, in the
+    # same block, after `findings:`. Both readers now anchor the finding scan to
+    # the `findings:` section, and they must anchor IDENTICALLY — otherwise the
+    # live path's render↔record invariant and this tool's convergence
+    # denominator disagree about what a finding is, which is the divergence the
+    # pairs above exist to catch, one region up.
+    ("_FINDINGS_SECTION", "FINDINGS_SECTION"),
 )
 
 # Regexes that exist on ONE side only, with the reason. These are not shared
@@ -1294,7 +1202,7 @@ SHARED_KIND_ONE_PATTERNS = (
 # would be inventing a coupling rather than gating one. Listed explicitly so
 # that a genuinely shared regex cannot hide in the gap.
 REPLAY_ONLY_PATTERNS = frozenset({
-    "PASS", "ATTEMPT", "VERDICT", "CONVERGED",   # block-level measurement fields
+    "PASS", "ATTEMPT", "VERDICT",                 # block-level measurement fields
     "CATEGORY",                                   # finding-level, measurement only
 })
 
@@ -1540,3 +1448,109 @@ def test_the_shipped_prompt_asks_for_exactly_the_fields_the_parent_reads() -> No
         f"{sorted(asked - declared)}. Only declared: {sorted(declared - asked)}"
     )
     assert set(er.CHILD_SCHEMA["required"]) <= asked
+
+
+# ---------------------------------------------------------------------------
+# §10.1 rule 3 — PARENT-LEVEL PLACEMENT. Also a gate on the CLASS: it fails when
+# a THIRD single-consumer module appears at the parent level, and equally when a
+# declared deviation acquires its second consumer and the entry goes stale.
+# ---------------------------------------------------------------------------
+
+# Modules at `modules/assistant/` that are consumed by exactly ONE workflow
+# folder, each a stated deviation from `temporal_standard.md` §10.1 rule 3 — *a
+# module is promoted to the parent level IF AND ONLY IF more than one workflow
+# uses it; the consumer count decides, never taste* — with the checkbox where the
+# deviation expires.
+#
+# WHY A SET AND NOT A COMMENT IN A PHASE DOC. `phase4_fleet_migration.md:76`
+# already carries the expiry ruling, and its own prose says why prose is not
+# enough: *"an honest deviation becomes an unmarked violation the moment nobody
+# is left who remembers it was one."* It named `exit_record.py` alone while a
+# second module qualified, and no test could tell. This is the check that makes
+# the omission loud.
+SINGLE_CONSUMER_PARENT_MODULES = {
+    # Phase 3. Dependency-free sibling of `routing.py`; the ONE declaration of
+    # the Kind 2 schema and the fail-safe contract.
+    "exit_record": "phase4_fleet_migration.md step 2, the placement-expiry checkbox",
+    # Phase 5, and the same shape for the same reason: dependency-free, and
+    # loaded BY PATH by `replay_convergence_predicate.py` — an out-of-tree
+    # consumer that rule 3's *workflow* count cannot see.
+    "convergence": "phase4_fleet_migration.md step 2, the placement-expiry checkbox",
+}
+
+
+def _workflow_folder_consumers(module_stem: str, assistant: Path) -> set[str]:
+    """Which workflow folders under `assistant/` import `module_stem`.
+
+    AST rather than a substring scan: `"import convergence" in text` matches a
+    docstring, a comment, or `import convergence_helper`, and a placement gate
+    that counts prose is a placement gate that reports whatever is written about
+    the module rather than what depends on it.
+    """
+    consumers: set[str] = set()
+    for folder in sorted(p for p in assistant.iterdir() if p.is_dir()):
+        if folder.name.startswith("__") or folder.name == "prompts":
+            continue
+        for path in folder.rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    names = {a.name for a in node.names}
+                    if node.module == module_stem or module_stem in names:
+                        consumers.add(folder.name)
+                elif isinstance(node, ast.Import):
+                    if any(a.name.split(".")[-1] == module_stem for a in node.names):
+                        consumers.add(folder.name)
+    return consumers
+
+
+def test_every_parent_level_module_is_shared_or_a_DECLARED_deviation() -> None:
+    """§10.1 rule 3's payoff is that parent level MEANS shared — checked, not assumed.
+
+    The standard's own reason for the rule: *"anything at a parent level is
+    shared by definition, so a reader never has to open a file to learn its
+    scope."* Two single-consumer modules already sit there. That is defensible as
+    a stated deviation and indefensible as an unmarked one, and the difference
+    between the two is entirely whether something says so.
+
+    THE GATE IS ON THE CLASS IN BOTH DIRECTIONS, which is what a checkbox in a
+    phase doc cannot be:
+
+    - a THIRD single-consumer module placed at the parent level fails here, even
+      though `phase4_fleet_migration.md`'s checkbox names neither of the two;
+    - a declared deviation that acquires a SECOND consumer also fails, because
+      the deviation has expired on its own and an entry that outlives its reason
+      is how a gate widens into a place to park an inconvenient module.
+
+    It does NOT rule on where the modules should live — that is Phase 4's ruling
+    and this test must not pre-empt it. It rules only that the count and the
+    record agree.
+    """
+    assistant = Path(er.__file__).resolve().parent
+    modules = sorted(p.stem for p in assistant.glob("*.py")
+                     if p.name != "__init__.py")
+    assert len(modules) >= 3, (
+        f"only {modules} found at {assistant} — the gate is reporting on a "
+        f"directory it did not read"
+    )
+
+    counts = {m: _workflow_folder_consumers(m, assistant) for m in modules}
+    single = {m for m, c in counts.items() if len(c) == 1}
+
+    assert single == set(SINGLE_CONSUMER_PARENT_MODULES), (
+        f"parent-level placement and its record have diverged. Single-consumer "
+        f"and undeclared: "
+        f"{ {m: sorted(counts[m]) for m in sorted(single - set(SINGLE_CONSUMER_PARENT_MODULES))} }"
+        f" — each is an unmarked §10.1 rule-3 violation unless the deviation is "
+        f"stated with where it expires. Declared but no longer single-consumer: "
+        f"{ {m: sorted(counts[m]) for m in sorted(set(SINGLE_CONSUMER_PARENT_MODULES) - single)} }"
+        f" — those deviations have expired on their own; remove the entry."
+    )
+    # And the modules that are NOT deviations really are shared, so the assertion
+    # above is not satisfied by a scan that found no consumers anywhere.
+    for module in modules:
+        if module not in SINGLE_CONSUMER_PARENT_MODULES:
+            assert len(counts[module]) > 1, (
+                f"{module} has {sorted(counts[module])} consumers — the import "
+                f"scan is not finding them"
+            )

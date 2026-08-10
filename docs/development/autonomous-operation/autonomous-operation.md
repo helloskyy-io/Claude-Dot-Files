@@ -11,6 +11,20 @@ Where a parent composes children into one task-complete unit of work, this compo
 - **A driver that runs many parent workflows in sequence**, choosing each next dispatch from persisted state rather than from a script written in advance. This is the payoff of the Memory Management Framework — the typed result a parent leaves behind is what the next decision reads.
 - **Exit criteria that are real and observable** — a `HOLD` on a PR needing human judgement, a convergence signal, a budget ceiling. None of this is designed. The one thing already known: it must be able to stop and hand back, and *stop* has to be a state something can **observe**, not a turn count.
 
+### The convergence signal, and what it is safe to consume — supplied by [Memory Management Framework Phase 5](../memory-management-framework/phase5_convergence_stopping.md), 2026-08-09
+
+Recorded here so this doc does not have to re-derive it when planning starts, and stated as a **constraint** rather than an offer.
+
+**What exists.** Every `review-pr` dispatch now writes a `{"type": "convergence", …}` event to its run log carrying a computed state — `converged` / `not_converged` / `indeterminate` — over the open subset of the PR's findings. It **routes nothing today** and `MAX_LOOPS` is still the only stopping authority.
+
+**Three things a consumer must not get wrong:**
+
+1. **`converged` is not a merge authority.** It answers *"is there anything left for another pass of this review loop to do?"* — never *"is this work finished?"*. The merge decision stays with the typed record's `routed_outcome`. A driver that read convergence as permission to merge would be reading a different question's answer.
+2. **`indeterminate` is a THIRD state, not a soft `not_converged`.** It means the predicate could not evaluate — the pass did not route, the thread was unreadable, there is no prior pass, the history is non-conforming, or the finding set has churned. Every instance names its reason. **A driver that folded it into either of the other two would be inventing a decision the predicate declined to make**, and this is the arm that carries every machinery failure.
+3. **`converged` can be true while work is outstanding elsewhere.** `escalated` findings count as closed for this loop — the reviewer cannot resolve them on any future pass — so a converged assessment may carry a non-empty `escalated_open` list. **Read that list.** It names work that moved to another authority, which for a driver with nobody in the loop is precisely the thing that needs handing back.
+
+**And the constraint that matters most: the signal's input is written by the loop it would stop.** Four of five documented false-convergence modes have a check; the fifth — a reviewer marking `fixed` what is not fixed — has none, because separating it is a second review. **The phase deliberately gates nothing on this basis, and a driver that gated on it would be taking a risk this component measured and declined.** What would change that is a denominator, not a design: [Phase 5 § What would let this gate](../memory-management-framework/phase5_convergence_stopping.md).
+
 ## Scheduled entry
 
 Scheduled dispatch belongs to the durable-execution layer rather than the edge machine, so it depends entirely on Temporal Integration landing first.
