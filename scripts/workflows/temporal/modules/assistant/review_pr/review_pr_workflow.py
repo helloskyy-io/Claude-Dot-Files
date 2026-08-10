@@ -532,7 +532,14 @@ def _assert_block_matches_record(pr_number: str,
     test — it would silently make yesterday's prose term disagree with what
     today's typed term was compared against.
     """
-    block = blocks[-1] if blocks else None
+    # THROUGH THE ACCESSOR, NOT AN INLINE SLICE. `phase4_fleet_migration.md`'s
+    # run-nonce checkbox names `helper.this_pass_block` as THE single site where
+    # "which block is this pass's" is inferred. This function re-derived it
+    # inline, so that checkbox would have hardened the shadow and the history and
+    # left the render↔record invariant — the check `convergence_history`'s hybrid
+    # design depends on — still selecting by position, silently disagreeing with
+    # its two siblings. Byte-identical behaviour today; the point is the site.
+    block = helper.this_pass_block(blocks)
     if posted <= prior_pass:
         raise RuntimeError(
             f"PR #{pr_number}: the run produced a typed exit record but posted no new "

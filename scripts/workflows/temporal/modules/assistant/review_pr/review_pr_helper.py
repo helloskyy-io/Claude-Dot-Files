@@ -269,15 +269,27 @@ def asserted_converged_in_block(block: str) -> bool | None:
     return (match.group(1) == "true") if match else None
 
 
-def this_pass_block(window: Sequence[str]) -> str | None:
-    """The block THIS pass posted, out of the thread's window. None if empty.
+def _this_pass_index(window: Sequence[str]) -> int | None:
+    """WHICH block in the thread's window is this pass's. THE ONE DECLARATION.
 
-    ONE DECLARATION OF AN INFERENCE MADE IN THREE PLACES. The render↔record
-    invariant, the incumbent-flag shadow and the convergence history each need
-    *"which of these is this pass's"*, and each was answering it with its own
-    `window[-1]` or `window[:-1]` slice. `phase4_fleet_migration.md`'s run-nonce
-    checkbox replaces this positional inference with an identity check; it needs
-    one site to replace, not three.
+    ONE DECLARATION OF AN INFERENCE THAT WAS MADE IN FIVE PLACES. The
+    render↔record invariant, the incumbent-flag shadow and the convergence
+    history each need *"which of these is this pass's"*, and each was answering
+    it with its own `window[-1]` or `window[:-1]` slice.
+    `phase4_fleet_migration.md`'s run-nonce checkbox replaces this positional
+    inference with an identity check, and it needs ONE site to replace.
+
+    IT IS AN INDEX, NOT A BLOCK, BECAUSE THE COMPLEMENT MUST FOLLOW FROM THE
+    SAME ANSWER. A first version of this collapse declared `this_pass_block`
+    alone and left `prior_pass_blocks` as its own `window[:-1]` — the complement
+    of the same inference, stated separately. That is not one declaration: when
+    the nonce lands, `this_pass_block` becomes identity-based and a positional
+    complement keeps selecting by position, so the two disagree about which
+    block is this pass's. The failure is not an exception — the same pass then
+    appears twice in the history, every id looks restated, and the result reads
+    as a perfectly conforming, perfectly stalled loop, which is exactly what
+    `convergence_history`'s own docstring warns about. Both public accessors
+    below are derived from this function so the disagreement is unwritable.
 
     IT IS POSITIONAL AND THAT IS THE KNOWN WEAKNESS, not a hidden one. The block
     carries no `run_id`, so "this pass's" is inferred from ordering plus the
@@ -285,12 +297,24 @@ def this_pass_block(window: Sequence[str]) -> str | None:
     — a third party posting a fenced `pr_review:` example between the child's
     comment and the parent's read — is what the nonce closes.
     """
-    return window[-1] if window else None
+    return len(window) - 1 if window else None
+
+
+def this_pass_block(window: Sequence[str]) -> str | None:
+    """The block THIS pass posted, out of the thread's window. None if empty."""
+    index = _this_pass_index(window)
+    return window[index] if index is not None else None
 
 
 def prior_pass_blocks(window: Sequence[str]) -> tuple[str, ...]:
-    """Every block in the window EXCEPT this pass's. The typed record replaces it."""
-    return tuple(window[:-1])
+    """Every block in the window EXCEPT this pass's. The typed record replaces it.
+
+    The complement of `this_pass_block`, derived from the SAME index rather than
+    from its own slice — see `_this_pass_index` for why that is the property and
+    not a tidiness preference.
+    """
+    index = _this_pass_index(window)
+    return tuple(window[:index]) if index is not None else ()
 
 
 def convergence_history(window: Sequence[str],

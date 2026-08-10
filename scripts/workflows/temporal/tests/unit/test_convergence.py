@@ -517,6 +517,115 @@ def test_the_free_text_key_ENUMERATION_covers_every_block_scalar_the_prompt_defi
     )
 
 
+# --- "which block is this pass's" is inferred in exactly one place -----------
+
+# Every function in `review_pr/` permitted to index or slice from the END of a
+# sequence, with what it is selecting. Anything else doing so is re-deriving a
+# positional inference that has an owner.
+#
+# ASSERTED AS AN EXACT SET, so it fails BOTH when a new site appears and when a
+# listed one stops being positional — a list that only grows is a gate that
+# widens itself.
+POSITIONAL_SELECTORS = {
+    # NOTE the owner — `review_pr_helper._this_pass_index` — is deliberately NOT
+    # in this set, and the exact-set assertion is what surfaced that. It returns
+    # `len(window) - 1`; both public accessors then index and slice with that
+    # value, so no negative subscript survives anywhere on the thread-window
+    # path. The gate reads that as "the shape is gone from this package", which
+    # is the stronger true statement.
+    #
+    # A DIFFERENT inference with its own rule and its own scope: the last
+    # `pr_review:` block WITHIN ONE COMMENT, because a conforming disposition
+    # comment quotes the block it supersedes. Declared once, at the boundary.
+    ("review_pr_activities.py", "thread_snapshot"),
+    # Not a window at all — one matched pair of quote characters off a token.
+    ("review_pr_helper.py", "_unquote"),
+}
+
+
+def test_selecting_from_the_END_of_a_sequence_happens_only_where_it_is_owned() -> None:
+    """PHASE 4 REPLACES THIS INFERENCE, AND IT MUST HAVE ONE SITE TO REPLACE.
+
+    `phase4_fleet_migration.md`'s run-nonce checkbox names
+    `helper.this_pass_block` as THE change site. When it landed, three other
+    expressions still answered the same question by position:
+    `_assert_block_matches_record`'s `blocks[-1]`, and `prior_pass_blocks`'
+    `window[:-1]` — the COMPLEMENT of the same inference, which is the one a
+    reader is least likely to count. Hardening one and leaving the others makes
+    the two consumers of *"which block is this pass's"* disagree, and the failure
+    is silent: the same pass lands in the history twice, every id looks restated,
+    and the result reads as a perfectly conforming, perfectly stalled loop.
+
+    THE GATE IS ON THE SHAPE, NOT ON THE THREE THAT WERE FOUND. A negative index
+    or a negative slice bound anywhere in `review_pr/` is the syntax of "select
+    relative to the end", whatever the variable is called — so a fourth site
+    written next year against a differently-named window fails here rather than
+    being discovered by a later pass. That is the difference between a check that
+    converges and an enumeration that does not: four correction passes on this
+    component each closed the instances they could see and the next pass found a
+    structurally adjacent one.
+    """
+    package = Path(helper.__file__).resolve().parent
+    found: set[tuple[str, str]] = set()
+    sites: list[str] = []
+    scanned = 0
+    for path in sorted(package.rglob("*.py")):
+        scanned += 1
+        tree = ast.parse(path.read_text())
+        owner: dict[int, str] = {}
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for node in ast.walk(fn):
+                    owner[id(node)] = fn.name
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Subscript):
+                continue
+            if "-" not in ast.unparse(node.slice):
+                continue
+            where = (path.name, owner.get(id(node), "<module>"))
+            found.add(where)
+            sites.append(f"{path.name}:{node.lineno} — {ast.unparse(node)}")
+
+    assert scanned >= 3, (
+        f"the scan visited only {scanned} files under {package} — it is "
+        f"reporting on a package it did not read"
+    )
+    assert found == POSITIONAL_SELECTORS, (
+        f"selecting from the end of a sequence moved. New sites: "
+        f"{sorted(found - POSITIONAL_SELECTORS)}; entries that no longer select "
+        f"positionally: {sorted(POSITIONAL_SELECTORS - found)}. All sites: "
+        f"{sites}. Route the selection through `helper.this_pass_block` / "
+        f"`helper.prior_pass_blocks`, or add the function here with what it "
+        f"selects and why it is not the thread window — that edit is the gate."
+    )
+
+
+def test_the_two_window_accessors_agree_on_which_block_is_this_passs() -> None:
+    """The complement is DERIVED, not written twice — asserted, not documented.
+
+    A separately-written `window[:-1]` is correct today and wrong the moment the
+    selection stops being positional. This asserts the partition property that
+    makes the two safe to change together: for every window, `this_pass_block`
+    and `prior_pass_blocks` reconstruct the window exactly, with no block in both
+    and none in neither.
+
+    AND THIS TEST CANNOT CATCH THE DECOUPLING ON ITS OWN — measured, not assumed.
+    Rewriting `prior_pass_blocks` back to its own `window[:-1]` leaves this test
+    GREEN, because the two are behaviourally identical until the selection stops
+    being positional. Only the structural gate above goes red. The pair is the
+    evidence: this one pins the property, that one pins the single site.
+    """
+    for window in ([], ["a"], ["a", "b"], ["a", "b", "c"], ["x", "x"]):
+        prior = helper.prior_pass_blocks(window)
+        this = helper.this_pass_block(window)
+        rebuilt = list(prior) + ([this] if this is not None else [])
+        assert rebuilt == list(window), (
+            f"the accessors disagree on window {window!r}: prior={prior!r}, "
+            f"this={this!r} — a block is counted twice or lost"
+        )
+        assert len(prior) == max(len(window) - 1, 0)
+
+
 # --- the module is what it claims to be --------------------------------------
 
 def test_the_predicate_is_dependency_free_so_the_replay_can_load_it_by_path() -> None:
