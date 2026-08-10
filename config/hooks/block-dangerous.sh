@@ -262,18 +262,31 @@ fi
 # patterns are written against a single-space canonical form; nothing was ever
 # putting the input INTO that form.
 #
-# PER LINE, deliberately. Collapsing newlines as well would let the `.*`
-# patterns span two unrelated commands: `git push origin main` on one line and
-# a `-f` mentioned on the next would match `git push.*-f`. `grep` is
-# line-oriented and so is this hook; that stays true. The residual — a keyword
-# and its operand split across a line continuation — is out of scope for the
-# same reason the other quoting gaps in the THREAT MODEL block are.
+# PER LINE, deliberately — with ONE exception, and the exception is the third
+# member of this class rather than a special case. Collapsing newlines in
+# general would let the `.*` patterns span two unrelated commands: `git push
+# origin main` on one line and a `-f` mentioned on the next would match
+# `git push.*-f`. `grep` is line-oriented and so is this hook; that stays true.
+#
+# But a BACKSLASH-NEWLINE is not a line break at all — the shell DELETES it
+# before parsing, so `rm -r\` + newline + `f /tmp/build` IS `rm -rf /tmp/build`
+# and there is exactly one command there, not two. Measured: it was ALLOWED,
+# for the same reason a tab was — the patterns model one spelling of "these two
+# tokens are joined" and the shell has three (a space run, a tab, and a
+# continuation that is no character at all). Deleting it here is not joining
+# lines; it is reading the line the shell will read.
+#
+# ALL FOUR REMAINING WHITESPACE FORMS ARE CONVERTED UNCONDITIONALLY, not just a
+# CR in the CRLF position. A bare CR with no LF then reads as a separator
+# rather than as a line break, which merges two would-be lines — the
+# over-blocking direction, on input no shell treats as two commands anyway.
 #
 # NO SUBPROCESS. A `sed` or `tr` here would add a second binary whose absence
 # empties `$CMD` and allows everything — reintroducing the exact fail-open
 # shape issue #61 was filed about, in the fix for its sibling. Bash's own
 # substitution cannot fail that way.
 shopt -s extglob
+CMD="${CMD//\\$'\n'/}"
 CMD="${CMD//$'\t'/ }"
 CMD="${CMD//$'\r'/ }"
 CMD="${CMD//$'\v'/ }"

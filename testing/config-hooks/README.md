@@ -73,13 +73,12 @@ re-runs **every** command in the dangerous corpus with a shell separator
 denied. That check depends on nobody anticipating anything, and it is what
 found the five right-boundary gaps the claims did not.
 
-**And that sweep was itself half a check — read this before trusting either.**
-It appends to the END of a command, so it probes a boundary only where the
-match reaches the end. The same enumeration sitting *between* a keyword and its
-operand — the literal space in `systemctl +(stop|disable|mask) ` — was never
-touched, and **58 of the 60 transformable corpus commands were ALLOWED with a
-tab in place of a space while the sweep was green**. A second sweep now respells
-every internal separator (tab, doubled space, and the space after a redirect
-operator removed) across both the corpus and every `MUST BLOCK` claim. The
-lesson generalises past this hook: a check aimed at a defect CLASS has to be
-keyed on the class, not on the position the first instances happened to sit in.
+**And that sweep was itself half a check.** It probes the boundary at the END
+of a match only; the same enumeration sitting *between* a keyword and its
+operand went untouched, and a second sweep
+(`test_dangerous_command_survives_a_respelt_separator`) now covers that
+position. **The measured history and the exact numbers live in the test
+module's docstring** — deliberately in one place, because this README restating
+them is how the two drift apart. The lesson that generalises past this hook: a
+check aimed at a defect CLASS has to be keyed on the class, not on the position
+the first instances happened to sit in.

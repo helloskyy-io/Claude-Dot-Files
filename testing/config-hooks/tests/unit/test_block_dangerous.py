@@ -64,8 +64,8 @@ chosen claims cannot:
     that the claims did not.
   - `test_dangerous_command_survives_a_respelt_separator` re-runs every
     dangerous command AND every `MUST BLOCK` claim with its INTERNAL separators
-    respelt — tabs, doubled spaces, and the space after a redirect operator
-    removed.
+    respelt — tabs, doubled spaces, the space after a redirect operator
+    removed, and a word split across a backslash-newline continuation.
 
 THE THIRD EXISTS BECAUSE THE SECOND WAS HALF A CHECK, and the way that was
 missed is the most useful thing in this file. A separator enumeration is one
@@ -190,6 +190,11 @@ DANGEROUS: list[tuple[str, str]] = [
     ("doas", "doas apt install nginx"),
     # File deletion
     ("rm -rf", "rm -rf /tmp/build"),
+    # A backslash-newline is DELETED by the shell, so this is byte-for-byte the
+    # same command as the entry above once bash has read it. It was ALLOWED
+    # until canonicalization started joining continuations — the third spelling
+    # of a token join, after the tab and the doubled space.
+    ("rm -rf split across a line continuation", "rm -r\\\nf /tmp/build"),
     ("rm -fr", "rm -fr node_modules"),
     ("rm -r", "rm -r olddir"),
     ("rm -f", "rm -f secrets.env"),
@@ -382,6 +387,11 @@ SAFE: list[tuple[str, str]] = [
     ("ufw status", "ufw status verbose"),
     # A normal shell function definition, next to the fork-bomb fixed string.
     ("ordinary function definition", "greet(){ echo hi; }"),
+    # The near-miss for joining line continuations: a wrapped-but-harmless
+    # command must not become dangerous by being read as one line. Deleting the
+    # continuation is what the shell does; it is not licence to join two
+    # genuinely separate lines, which the multi-line entries above pin.
+    ("a harmless command wrapped over a continuation", "git push \\\n origin main"),
 ]
 
 
@@ -1199,7 +1209,8 @@ def test_dangerous_command_survives_a_trailing_separator(command: str) -> None:
 # or ` +` between a keyword and its operand — and those are enumerations for
 # exactly the same reason a `( |$)` right boundary is: the shell separates two
 # words with a tab, a run of spaces, or (after a redirect operator) nothing at
-# all, and a pattern naming one spelling admits one spelling.
+# all, and JOINS two characters across a backslash-newline that is no character
+# at all. A pattern naming one spelling admits one spelling.
 #
 # Measured on the hook as it stood when this was written: 58 of the 60
 # transformable corpus commands were ALLOWED with tabs in place of spaces, 29
@@ -1223,13 +1234,25 @@ _RESPELLINGS: list[tuple[str, object]] = [
     # is the commoner spelling, not an evasion. Canonicalizing whitespace cannot
     # fix this one: there is no whitespace to canonicalize.
     ("no space after redirect", lambda c: re.sub(r"(>>?) +", r"\1", c)),
+    # A backslash-newline is deleted outright by the shell before parsing, so
+    # splitting a word across one leaves the command IDENTICAL. It is the third
+    # spelling of "these two characters are joined" — a space run, a tab, and
+    # no character at all — and the hook allowed `rm -r\<newline>f /tmp/build`
+    # until the continuation was joined in canonicalization. Inserted after the
+    # first character so the transform is total, deterministic, and needs no
+    # judgement about where a token boundary is.
+    ("split by a line continuation", lambda c: c[:1] + "\\\n" + c[1:]),
 ]
 
 _RESPELT_PROBES = [
     (f"{label} :: {name}", variant)
     for label, command in (
         [(lbl, cmd) for lbl, cmd in DANGEROUS]
-        + [(f"claim of {e.pattern}", c) for e, c in BLOCK_CLAIMS]
+        # The claim's own text is in the label, not just the pattern it belongs
+        # to: several patterns carry four `MUST BLOCK` claims, and an id that
+        # named only the pattern left pytest disambiguating four probes with a
+        # numeric suffix — enough to run, not enough to triage at a glance.
+        + [(f"claim of {e.pattern} :: {c}", c) for e, c in BLOCK_CLAIMS]
     )
     for name, respell in _RESPELLINGS
     # A command with nothing to respell is not a probe; including it would
@@ -1252,12 +1275,13 @@ def test_dangerous_command_survives_a_respelt_separator(command: str) -> None:
     separator as a literal (` `, ` +`, a bare `> `) and the hook is not putting
     its input into the form that literal assumes.
 
-    THE FIX IS ALMOST CERTAINLY NOT IN THE PATTERN. Whitespace respelling is
-    handled once, for all patterns, by the canonicalization step in
-    `block-dangerous.sh` — if a tab probe fails, that step has been removed,
-    narrowed, or bypassed by a new matching site that reads `$CMD` before it.
-    Repairing the individual pattern instead would leave the other fifty-six
-    broken and is how this class stayed live through two review passes.
+    THE FIX IS ALMOST CERTAINLY NOT IN THE PATTERN. Whitespace respelling and
+    line continuations are handled once, for all patterns, by the
+    canonicalization step in `block-dangerous.sh` — if a tab or continuation
+    probe fails, that step has been removed, narrowed, or bypassed by a new
+    matching site that reads `$CMD` before it. Repairing the individual pattern
+    instead would leave the other fifty-six broken and is how this class stayed
+    live through three review passes.
 
     The redirect case is the exception and is genuinely per-pattern: no amount
     of whitespace normalisation invents a space that was never typed, so an
