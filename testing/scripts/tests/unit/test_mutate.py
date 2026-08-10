@@ -184,6 +184,29 @@ def test_a_mutation_that_makes_the_module_under_test_unparseable_is_a_harness_er
     assert "MUTATION DEMONSTRATED" not in r.stdout
 
 
+def test_a_mutation_that_breaks_an_import_in_the_module_under_test_is_a_harness_error(
+    sandbox: Path,
+) -> None:
+    """A second way exit 2 means "nothing ran", not caught by a syntax-only
+    discriminator.
+
+    Mutating a working import into one that does not exist is syntactically
+    valid Python — `ast.parse` sees nothing wrong with it — but pytest still
+    cannot import the module, so it exits 2 with "1 error" and zero tests
+    collected: the identical shape to the SyntaxError case above. A
+    discriminator that only checks syntax closes exit 2's SyntaxError half and
+    leaves its ImportError half open — the same defect one step over.
+    """
+    (sandbox / "subject.py").write_text("import os\nTHRESHOLD = 10\n")
+    r = run_mutate(sandbox, "import os", "import os_nonexistent_xyz_mutation_probe")
+    assert r.returncode == FAILED_OR_HARNESS_ERROR, (
+        "an import broken by the mutation was not caught as a harness error — it "
+        f"is back to certifying a guard that never ran\n{r.stdout}{r.stderr}"
+    )
+    assert "HARNESS ERROR" in r.stderr
+    assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
 def test_a_mutation_that_breaks_collection_via_a_DATA_file_still_counts_as_the_guard_firing(
     tmp_path: Path,
 ) -> None:

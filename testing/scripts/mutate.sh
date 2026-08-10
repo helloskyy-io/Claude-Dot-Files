@@ -133,28 +133,46 @@ run_leg() {  # $1 = leg name, used to make the cache prefix unique
     LEG_TAIL="$(tail -n1 <<<"$output")"
 }
 
-# The discriminator for exit 2 (see classify_leg below): is $FILE — the exact
-# thing this script just mutated — still valid Python? A SyntaxError there is
-# SUFFICIENT on its own to cause "Interrupted: N error during collection", so
-# nothing else needs to have run for pytest to report exit 2, and nothing else
-# can be inferred to have run either. A non-Python data file (crontab, YAML)
-# can't fail THIS way, so an exit-2 there is left for the guard's own parsing
-# to explain, and that counts as firing.
+# The discriminator for exit 2 (see classify_leg below): can $FILE — the exact
+# thing this script just mutated — still be IMPORTED? A SyntaxError makes that
+# impossible on its own, and so does anything else the mutation could turn
+# $FILE into that isn't valid, importable Python: a broken import (`import os`
+# mutated to `import os_typo`), a NameError, any exception $FILE raises at
+# module level. Checking syntax alone (an earlier version of this function
+# used `ast.parse`) caught the SyntaxError shape but not the others — an
+# import that mutates cleanly into a reference to a nonexistent module is
+# syntactically valid and still means nothing ran. Any of these is SUFFICIENT
+# on its own to cause "Interrupted: N error during collection", so nothing
+# else needs to have run for pytest to report exit 2, and nothing else can be
+# inferred to have run either. A non-Python data file (crontab, YAML) can't
+# fail THIS way, so an exit-2 there is left for the guard's own parsing to
+# explain, and that counts as firing.
 #
 # Cheaper than comparing collected-test counts between legs, and more precise:
 # tried empirically against a module-level crontab-parsing guard (the shape
 # the exit-2-is-RED comment above defends) and its collection error ALSO
 # collects zero tests — "no tests collected, 1 error" — identical to the
 # broken-.py signature. Collected count cannot tell the two cases apart;
-# whether $FILE itself still parses can, because it names the actual cause
+# whether $FILE itself still imports can, because it names the actual cause
 # instead of inferring it from a symptom both cases share.
+#
+# Imports via importlib rather than running `python3 "$FILE"` directly, so a
+# `if __name__ == "__main__":` block in $FILE does not execute here — this
+# probe must mirror what a real import does (module body only), not what
+# running the file as a script would do, or it could raise on code a genuine
+# pytest import would never touch.
 #
 # Guarded like every other command here: under `set -e`, a bare failing
 # command aborts the script before its exit status can be inspected, so the
 # check is the condition of an `if`, not a bare invocation.
-mutation_broke_python_syntax() {
+mutation_broke_python_import() {
     [[ "$FILE" == *.py ]] || return 1
-    if python3 -c "import ast, sys; ast.parse(open(sys.argv[1]).read())" "$FILE" >/dev/null 2>&1; then
+    if python3 -c "
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('_mutate_probe', sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+" "$FILE" >/dev/null 2>&1; then
         return 1
     fi
     return 0
@@ -170,9 +188,10 @@ mutation_broke_python_syntax() {
 #           opposite reasons pytest does not distinguish in its exit code:
 #             - mutating a DATA subject (a workflow YAML, a crontab entry) so
 #               the guard's OWN parsing rejects it — the guard firing, hard.
-#             - mutating the PYTHON MODULE UNDER TEST into invalid syntax, so
-#               pytest can never import it and NO test runs at all.
-#           See mutation_broke_python_syntax() below for the discriminator.
+#             - mutating the PYTHON MODULE UNDER TEST so it can no longer be
+#               imported (invalid syntax, a broken import, a module-level
+#               exception), so pytest can never import it and NO test runs.
+#           See mutation_broke_python_import() below for the discriminator.
 #   3    -> HARNESS_ERROR. pytest's own docs: "internal error happened while
 #           executing tests" — a pytest/plugin failure, not a test result.
 #           Nothing here proves the guard ran; treat it like 4/5, not like 1.
@@ -184,7 +203,7 @@ classify_leg() {
         0) echo GREEN ;;
         1) echo RED ;;
         2)
-            if mutation_broke_python_syntax; then
+            if mutation_broke_python_import; then
                 echo HARNESS_ERROR
             else
                 echo RED
@@ -207,9 +226,10 @@ report_leg() {  # $1 = leg label for the abort message
         case "$LEG_STATUS" in
             2)
                 echo "✗ HARNESS ERROR on $1: pytest exited 2 (collection error), and" >&2
-                echo "  $FILE is no longer valid Python — the mutation made the target" >&2
-                echo "  unparseable, so no test in $TARGET ran. Check the mutation" >&2
-                echo "  string, not the guard." >&2
+                echo "  $FILE can no longer be imported — the mutation broke the" >&2
+                echo "  target (syntax, an import, or a module-level exception), so" >&2
+                echo "  no test in $TARGET ran. Check the mutation string, not the" >&2
+                echo "  guard." >&2
                 ;;
             3)
                 echo "✗ HARNESS ERROR on $1: pytest exited 3 (internal error) — pytest" >&2
