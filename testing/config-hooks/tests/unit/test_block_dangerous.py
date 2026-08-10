@@ -49,7 +49,7 @@ probe is a boundary nobody checks. That is not a hypothetical: the first
 fail for `curl … | (sh|bash|zsh)` used a right boundary of `([[:space:]]|$)`,
 every claim beside it was true, this whole suite was green, and
 `curl … | bash;true` — download-and-execute, the exact class the pattern
-exists for — went through. Two mechanical checks close the half that author-
+exists for — went through. Three mechanical checks close the half that author-
 chosen claims cannot:
 
   - `test_every_pattern_states_what_it_allows` makes the ALLOW claim MANDATORY.
@@ -62,6 +62,22 @@ chosen claims cannot:
     an author anticipating anything, and it is what caught the five
     right-boundary gaps (`reboot`, `halt`, `poweroff`, and both RCE patterns)
     that the claims did not.
+  - `test_dangerous_command_survives_a_respelt_separator` re-runs every
+    dangerous command AND every `MUST BLOCK` claim with its INTERNAL separators
+    respelt — tabs, doubled spaces, and the space after a redirect operator
+    removed.
+
+THE THIRD EXISTS BECAUSE THE SECOND WAS HALF A CHECK, and the way that was
+missed is the most useful thing in this file. A separator enumeration is one
+defect class, and it occurs at two positions: after the match (a `( |$)` right
+boundary) and inside it (a literal space between a keyword and its operand).
+The second check probes only the first position — it appends to the END of the
+command — so `systemctl stop nginx` + `;true` matches at `systemctl stop ` and
+goes green without the boundary ever being touched. While it was green,
+**58 of the 60 transformable corpus commands were ALLOWED with a tab in place
+of a space**, including `sudo`, `rm -rf`, `TRUNCATE` and every redirect
+pattern. A check aimed at a class must be keyed on the class, not on the
+position the instances happened to be found in.
 
 WHY THIS SHELLS OUT RATHER THAN SOURCING THE SCRIPT. The contract under test is
 what Claude Code actually invokes. `config/settings.json` registers the hook as
@@ -1141,14 +1157,27 @@ _SEPARATOR_PROBES = [
 def test_dangerous_command_survives_a_trailing_separator(command: str) -> None:
     """A dangerous command chained to a following one is still dangerous.
 
-    THE MECHANICAL HALF of the class fix. Nothing here depends on an author
+    ONE HALF of the mechanical class fix. Nothing here depends on an author
     anticipating a failure mode: the corpus is the same one the deny tests use,
-    and the transformation is applied to every entry unconditionally. Adding a
-    pattern with a hand-rolled right boundary that only admits whitespace fails
-    HERE even if every claim beside it is true.
+    and the transformation is applied to every entry unconditionally.
 
-    A failure means the pattern's right boundary is an ENUMERATION of what may
-    follow (`( |$)`, `([[:space:]]|$)`, a bare trailing space) rather than a
+    WHAT THIS PROBES, STATED PRECISELY, because the previous wording promised
+    more than it delivered and that overstatement is itself the defect class
+    this suite exists to catch. It said: "adding a pattern with a hand-rolled
+    right boundary that only admits whitespace fails HERE even if every claim
+    beside it is true." **That is true only for a boundary at the END of the
+    match.** The separator is appended to the end of the command, so a pattern
+    whose match ends earlier never has its boundary touched — the corpus entry
+    `systemctl stop nginx` plus `;true` still matches at `systemctl stop `,
+    green, while `systemctl<TAB>stop nginx` was ALLOWED. Fifty-eight of the
+    sixty corpus commands were in that state while this sweep passed.
+
+    The MID-MATCH half — a separator sitting between a keyword and its operand
+    — is probed by `test_dangerous_command_survives_a_respelt_separator`
+    below. Neither test covers the other's position; both are needed.
+
+    A failure HERE means the pattern's right boundary is an ENUMERATION of what
+    may follow (`( |$)`, `([[:space:]]|$)`, a bare trailing space) rather than a
     negation of what may not (`([^[:alnum:]_]|$)`). The enumeration form lets
     through everything nobody listed, which on a safety control is the wrong
     default. Fix the boundary; do not delete the probe.
@@ -1158,6 +1187,137 @@ def test_dangerous_command_survives_a_trailing_separator(command: str) -> None:
         f"corpus with an ordinary shell separator appended, and the hook "
         f"allows it. The pattern's right boundary enumerates what may follow "
         f"instead of negating what may not."
+    )
+
+
+# ---------------------------------------------------------------------------
+# The MID-MATCH half of the separator class.
+#
+# WHY IT IS A SEPARATE SWEEP. The sweep above appends a separator to the END of
+# a command, which probes a boundary only where the match reaches the end. Every
+# pattern in the hook also spells the separators INSIDE itself — a literal space
+# or ` +` between a keyword and its operand — and those are enumerations for
+# exactly the same reason a `( |$)` right boundary is: the shell separates two
+# words with a tab, a run of spaces, or (after a redirect operator) nothing at
+# all, and a pattern naming one spelling admits one spelling.
+#
+# Measured on the hook as it stood when this was written: 58 of the 60
+# transformable corpus commands were ALLOWED with tabs in place of spaces, 29
+# with doubled spaces, and all 14 redirect commands with the space after `>`
+# removed — while the end-of-command sweep above was fully green. That gap is
+# not a missing test case, it is a position the existing transform cannot
+# reach, which is why this is a second transform and not four more entries in
+# SEPARATORS.
+#
+# THE PROBE CORPUS IS DELIBERATELY WIDER THAN `DANGEROUS`. It also includes
+# every `MUST BLOCK:` claim lifted out of the hook, so a pattern added next year
+# is swept by virtue of the claim the suite already forces its author to write.
+# Nothing here has to be remembered.
+_RESPELLINGS: list[tuple[str, object]] = [
+    # A tab is a word separator everywhere a space is, and no shell, editor or
+    # model treats the two as different.
+    ("tab", lambda c: re.sub(r"[ ]+", "\t", c)),
+    # Doubled spaces occur constantly in generated and hand-aligned commands.
+    ("double space", lambda c: re.sub(r"[ ]+", "  ", c)),
+    # The space after a redirect operator is optional in shell — `>/etc/passwd`
+    # is the commoner spelling, not an evasion. Canonicalizing whitespace cannot
+    # fix this one: there is no whitespace to canonicalize.
+    ("no space after redirect", lambda c: re.sub(r"(>>?) +", r"\1", c)),
+]
+
+_RESPELT_PROBES = [
+    (f"{label} :: {name}", variant)
+    for label, command in (
+        [(lbl, cmd) for lbl, cmd in DANGEROUS]
+        + [(f"claim of {e.pattern}", c) for e, c in BLOCK_CLAIMS]
+    )
+    for name, respell in _RESPELLINGS
+    # A command with nothing to respell is not a probe; including it would
+    # inflate the count with cases that assert the same thing as the plain
+    # deny test.
+    for variant in [respell(command)]
+    if variant != command
+]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [c for _, c in _RESPELT_PROBES],
+    ids=[label for label, _ in _RESPELT_PROBES],
+)
+def test_dangerous_command_survives_a_respelt_separator(command: str) -> None:
+    """A dangerous command is still dangerous with its separators respelt.
+
+    THE OTHER MECHANICAL HALF. A failure means some pattern spells a token
+    separator as a literal (` `, ` +`, a bare `> `) and the hook is not putting
+    its input into the form that literal assumes.
+
+    THE FIX IS ALMOST CERTAINLY NOT IN THE PATTERN. Whitespace respelling is
+    handled once, for all patterns, by the canonicalization step in
+    `block-dangerous.sh` — if a tab probe fails, that step has been removed,
+    narrowed, or bypassed by a new matching site that reads `$CMD` before it.
+    Repairing the individual pattern instead would leave the other fifty-six
+    broken and is how this class stayed live through two review passes.
+
+    The redirect case is the exception and is genuinely per-pattern: no amount
+    of whitespace normalisation invents a space that was never typed, so an
+    entry matching a redirect target must spell the separator `> *`.
+    """
+    assert run_hook(command).denied, (
+        f"MID-MATCH SEPARATOR GAP: {command!r} is a dangerous command with its "
+        f"internal separators respelt in a way any shell accepts, and the hook "
+        f"allows it. Some pattern enumerates one spelling of a separator "
+        f"between a keyword and its operand. Check the canonicalization step in "
+        f"the hook before touching any pattern."
+    )
+
+
+def test_the_respelt_separator_sweep_is_not_vacuous() -> None:
+    """The mid-match sweep must actually be probing something.
+
+    Its corpus is built by a filter (`if variant != command`), and a filter that
+    silently empties is the failure mode a green suite cannot distinguish from
+    success. Both sources are asserted so that dropping either — the corpus or
+    the claim-derived half — is visible.
+    """
+    assert len(_RESPELT_PROBES) > 100, (
+        f"only {len(_RESPELT_PROBES)} respelling probes were generated; the "
+        f"transform list or its corpus has been emptied"
+    )
+    assert any("claim of" in label for label, _ in _RESPELT_PROBES), (
+        "no probe is derived from a MUST BLOCK claim — the half of the corpus "
+        "that makes this sweep automatic for newly-added patterns is gone"
+    )
+
+
+# The canonicalization step is what makes the sweep above pass for every
+# pattern at once, so it is load-bearing in a way no single pattern is. This
+# pins its POSITION, which is the part a refactor breaks silently: a matching
+# site that reads `$CMD` before canonicalization would be green on every
+# author-written claim and blind to every respelling.
+def test_command_is_canonicalized_before_any_pattern_loop() -> None:
+    """`$CMD` is normalised before the first pattern-matching loop runs.
+
+    A line scanner, matching the style of the other structural guard in this
+    file. It does not prove the canonicalization is CORRECT — the respelling
+    sweep above does that, by execution — only that it exists and runs first.
+    The two together are what stop the step from being quietly relocated.
+    """
+    lines = HOOK.read_text().splitlines()
+    canon = [n for n, line in enumerate(lines, 1) if 'CMD="${CMD//' in line]
+    loops = [n for n, line in enumerate(lines, 1) if _LOOP_START.search(line)]
+
+    assert canon, (
+        "no `CMD=\"${CMD//…}\"` canonicalization found in the hook. Every "
+        "pattern spells its separators as literal spaces and relies on this "
+        "step to put the input into that form; without it a tab defeats all "
+        "of them. See test_dangerous_command_survives_a_respelt_separator."
+    )
+    assert loops, "no pattern loop found in the hook — the scanner is stale"
+    assert max(canon) < min(loops), (
+        f"canonicalization at line(s) {canon} does not all precede the first "
+        f"pattern loop at line {min(loops)}. A pattern matched against "
+        f"un-canonicalized input is a pattern a tab defeats."
     )
 
 

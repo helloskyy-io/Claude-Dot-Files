@@ -32,16 +32,28 @@
 # thought to probe is a boundary nobody checks. That is not hypothetical: the
 # first version of the `curl … | (sh|bash|zsh)` right boundary below was
 # `([[:space:]]|$)`, every claim beside it was true, the whole suite was green,
-# and `curl … | bash;true` sailed through. The two things that make the
-# mechanism more than self-consistency are therefore mechanical rather than
-# authorial, and both are in the suite:
+# and `curl … | bash;true` sailed through. The things that make the mechanism
+# more than self-consistency are therefore mechanical rather than authorial,
+# and all of them are in the suite:
 #   - EVERY pattern must carry a `MUST ALLOW:` as well as a `MUST BLOCK:`,
 #     because all four defects found by review were in the ALLOW/boundary
 #     direction and an optional claim is not a check;
 #   - every dangerous command in the corpus is re-run with a shell separator
-#     (`;true`, `&`, `&& echo ok`, `|cat`) appended and must STILL be denied,
-#     which is the adversarial probe of the right boundary that no
-#     author-chosen near-miss supplied.
+#     (`;true`, `&`, `&& echo ok`, `|cat`) APPENDED and must STILL be denied,
+#     which probes the boundary at the END of the match;
+#   - every dangerous command is re-run with its INTERNAL separators respelled
+#     — tabs, doubled spaces, and the space after a redirect operator removed —
+#     and must STILL be denied, which probes the separators INSIDE the match.
+#
+# THE SECOND AND THIRD ARE ONE CLASS SEEN AT TWO POSITIONS, and reading them as
+# one thing is the point. A pattern that says "a space goes here" has ENUMERATED
+# one spelling of a separator, and everything not enumerated passes. The
+# end-of-match half was fixed first; the sweep built for it appends to the end
+# of the command, so it structurally could not see the same defect sitting
+# between a keyword and its operand — and 58 of the 60 corpus commands were
+# passing with a tab in place of a space while that sweep was green. The
+# remedy for the mid-match half is the canonicalization step further down
+# rather than 57 boundary edits; see the comment there for why.
 #
 # WHAT THIS HOOK CATCHES (in-scope):
 #   - Literal destructive commands matching the regex patterns below
@@ -63,8 +75,11 @@
 #     is caught; see "CAUGHT, THOUGH IT READS LIKE A GAP" below.
 #     PASSES THROUGH: safe
 #   - **Here-strings or unusual quoting** — quoting that splits a keyword
-#     defeats the patterns, which assume reasonable spacing. A LEADING
-#     BACKSLASH DOES NOT defeat them; see below.
+#     defeats the patterns. Note what this no longer says: the patterns used to
+#     assume ONE SPACE between a keyword and its operand, and that assumption
+#     was a defect rather than a gap — it is fixed by the canonicalization step
+#     below, so a TAB or a doubled space no longer defeats them. Quoting inside
+#     the KEYWORD ITSELF still does. A LEADING BACKSLASH DOES NOT; see below.
 #     PASSES THROUGH: r''m -rf /
 #   - **Subshell smuggling** — dangerous content inside `$(...)`, `<(...)`, or
 #     backticks that the regex doesn't unpack.
@@ -223,6 +238,48 @@ if [ -z "$CMD" ]; then
   exit 0
 fi
 
+# ---------------------------------------------------------------------------
+# WHITESPACE CANONICALIZATION — the class fix for a separator defect measured
+# at 58 of the 60 commands in the suite's dangerous corpus.
+# ---------------------------------------------------------------------------
+#
+# Every pattern below spells a token separator as a literal space (` `, ` +`).
+# That is an ENUMERATION of one spelling of "the shell separated these two
+# words", and the shell admits several: a TAB, a run of spaces, a CR before the
+# newline. `systemctl<TAB>stop nginx`, `TRUNCATE<TAB>TABLE users` and
+# `wipefs<TAB>-a /dev/sda` were all ALLOWED by this hook. It is the SAME defect
+# as the right-boundary enumeration described beside the `curl … | (sh|bash)`
+# entry — one position to the left. That one sits after the match; this one
+# sits between a keyword and its operand, which is why the suite's end-of-
+# command separator sweep could not see it.
+#
+# WHY HERE AND NOT IN THE PATTERNS, decided by execution rather than taste.
+# Appending the ratified `([^[:alnum:]_-]|$)` boundary to the eight
+# keyword+operand patterns turns `cat doas.conf`, `man wipefs` and
+# `echo needs sudo` into denials — the first two are MUST ALLOW claims this
+# hook already states. Canonicalizing the INPUT fixes every pattern at once,
+# changes no boundary, and so cannot introduce a boundary false positive. The
+# patterns are written against a single-space canonical form; nothing was ever
+# putting the input INTO that form.
+#
+# PER LINE, deliberately. Collapsing newlines as well would let the `.*`
+# patterns span two unrelated commands: `git push origin main` on one line and
+# a `-f` mentioned on the next would match `git push.*-f`. `grep` is
+# line-oriented and so is this hook; that stays true. The residual — a keyword
+# and its operand split across a line continuation — is out of scope for the
+# same reason the other quoting gaps in the THREAT MODEL block are.
+#
+# NO SUBPROCESS. A `sed` or `tr` here would add a second binary whose absence
+# empties `$CMD` and allows everything — reintroducing the exact fail-open
+# shape issue #61 was filed about, in the fix for its sibling. Bash's own
+# substitution cannot fail that way.
+shopt -s extglob
+CMD="${CMD//$'\t'/ }"
+CMD="${CMD//$'\r'/ }"
+CMD="${CMD//$'\v'/ }"
+CMD="${CMD//$'\f'/ }"
+CMD="${CMD//+( )/ }"
+
 # Regex patterns (matched with grep -Ei)
 #
 # EVERY ENTRY CARRIES AT LEAST ONE `MUST BLOCK:` CLAIM AND AT LEAST ONE
@@ -348,38 +405,67 @@ REGEX_PATTERNS=(
   'wipefs '
 
   # Direct device writes
+  #
+  # THE SPACE AFTER THE REDIRECT OPERATOR IS OPTIONAL IN SHELL, and every
+  # pattern in this section and the next used to require it. `>/dev/sda` — no
+  # space — is not obfuscation, it is how most people write a redirect, and all
+  # fourteen entries carrying a `> ` or `>> ` prefix allowed it. Canonicalizing
+  # whitespace above cannot reach this one: there is no whitespace to
+  # canonicalize. `> *` (zero-or-more, matching the `\| *` in the RCE patterns
+  # below) is the smallest correct form. It is a widening, so each entry gains
+  # a no-space MUST BLOCK and a no-space near-miss that must still pass.
   # MUST BLOCK: cat image.img > /dev/sda
+  # MUST BLOCK: cat image.img >/dev/sda
   # MUST ALLOW: dd if=/dev/sda of=./backup.img bs=1M count=1
-  '> /dev/sd'
+  # MUST ALLOW: ls -l /dev/sda >/tmp/devices.txt
+  '> */dev/sd'
   # MUST BLOCK: cat image.img > /dev/nvme0n1
+  # MUST BLOCK: cat image.img >/dev/nvme0n1
   # MUST ALLOW: dd if=/dev/nvme0n1 of=./backup.img bs=1M count=1
-  '> /dev/nvme'
+  # MUST ALLOW: ls -l /dev/nvme0n1 >/tmp/devices.txt
+  '> */dev/nvme'
   # MUST BLOCK: cat image.img > /dev/hda
+  # MUST BLOCK: cat image.img >/dev/hda
   # MUST ALLOW: dd if=/dev/hda of=./backup.img bs=1M count=1
-  '> /dev/hd'
+  # MUST ALLOW: ls -l /dev/hda >/tmp/devices.txt
+  '> */dev/hd'
 
   # System directory writes
   # MUST BLOCK: echo nameserver 1.1.1.1 > /etc/resolv.conf
+  # MUST BLOCK: echo nameserver 1.1.1.1 >/etc/resolv.conf
   # MUST ALLOW: cat /etc/resolv.conf
-  '> /etc/'
+  # MUST ALLOW: diff /etc/hosts /tmp/hosts >/tmp/hosts.diff
+  '> */etc/'
   # MUST BLOCK: echo x >> /etc/passwd
+  # MUST BLOCK: echo x >>/etc/passwd
   # MUST ALLOW: grep -c root /etc/passwd
-  '>> /etc/passwd'
+  # MUST ALLOW: getent passwd >>/tmp/users.txt
+  '>> */etc/passwd'
   # MUST BLOCK: echo x >> /etc/shadow
+  # MUST BLOCK: echo x >>/etc/shadow
   # MUST ALLOW: wc -l /etc/shadow
-  '>> /etc/shadow'
+  # MUST ALLOW: wc -l /etc/shadow >>/tmp/audit.log
+  '>> */etc/shadow'
   # MUST BLOCK: echo x >> /etc/sudoers
+  # MUST BLOCK: echo x >>/etc/sudoers
   # MUST ALLOW: cat /etc/sudoers
-  '>> /etc/sudoers'
+  # MUST ALLOW: grep -c NOPASSWD /etc/sudoers >>/tmp/audit.log
+  '>> */etc/sudoers'
   # MUST BLOCK: echo x > /boot/grub/grub.cfg
+  # MUST BLOCK: echo x >/boot/grub/grub.cfg
   # MUST ALLOW: cat /boot/config-6.8.0 | head
-  '> /boot/'
+  # MUST ALLOW: ls /boot >/tmp/boot.txt
+  '> */boot/'
   # MUST BLOCK: echo 1 > /sys/kernel/mm/transparent_hugepage/enabled
+  # MUST BLOCK: echo 1 >/sys/kernel/mm/transparent_hugepage/enabled
   # MUST ALLOW: cat /sys/class/net/eth0/address
-  '> /sys/'
+  # MUST ALLOW: cat /sys/class/net/eth0/address >/tmp/mac.txt
+  '> */sys/'
   # MUST BLOCK: echo 1 > /proc/sys/vm/drop_caches
+  # MUST BLOCK: echo 1 >/proc/sys/vm/drop_caches
   # MUST ALLOW: cat /proc/sys/vm/swappiness
-  '> /proc/sys'
+  # MUST ALLOW: cat /proc/sys/vm/swappiness >/tmp/swappiness.txt
+  '> */proc/sys'
 
   # System control
   #
@@ -474,15 +560,23 @@ REGEX_PATTERNS=(
   'curl .*-o .*\.sh.*&&.*sh '
 
   # SSH authorized_keys tampering
+  # `> *` for the same reason as the redirect patterns above: `>>~/.ssh/…` with
+  # no space is ordinary shell and every one of these three allowed it.
   # MUST BLOCK: echo ssh-ed25519 AAAA >> ~/.ssh/authorized_keys
+  # MUST BLOCK: echo ssh-ed25519 AAAA >>~/.ssh/authorized_keys
   # MUST ALLOW: cat ~/.ssh/authorized_keys
-  '>> ~/\.ssh/authorized_keys'
+  # MUST ALLOW: wc -l ~/.ssh/authorized_keys >>/tmp/audit.log
+  '>> *~/\.ssh/authorized_keys'
   # MUST BLOCK: echo ssh-ed25519 AAAA > ~/.ssh/authorized_keys
+  # MUST BLOCK: echo ssh-ed25519 AAAA >~/.ssh/authorized_keys
   # MUST ALLOW: wc -l ~/.ssh/authorized_keys
-  '> ~/\.ssh/authorized_keys'
+  # MUST ALLOW: ssh-keygen -lf ~/.ssh/authorized_keys >/tmp/fingerprints.txt
+  '> *~/\.ssh/authorized_keys'
   # MUST BLOCK: echo ssh-ed25519 AAAA >> /root/.ssh/authorized_keys
+  # MUST BLOCK: echo ssh-ed25519 AAAA >>/root/.ssh/authorized_keys
   # MUST ALLOW: stat /root/.ssh/authorized_keys
-  '>> /root/\.ssh/authorized_keys'
+  # MUST ALLOW: stat /root/.ssh/authorized_keys >>/tmp/audit.log
+  '>> */root/\.ssh/authorized_keys'
 
   # Package manager destructive
   # MUST BLOCK: apt purge nginx
@@ -504,8 +598,10 @@ REGEX_PATTERNS=(
   # MUST ALLOW: crontab -l
   'crontab +-r'
   # MUST BLOCK: echo "* * * * * root /x" > /etc/crontab
+  # MUST BLOCK: echo "* * * * * root /x" >/etc/crontab
   # MUST ALLOW: cat /etc/crontab
-  '> /etc/crontab'
+  # MUST ALLOW: cat /etc/crontab >/tmp/crontab.bak
+  '> */etc/crontab'
 
   # Network/firewall disasters
   # MUST BLOCK: iptables -F
