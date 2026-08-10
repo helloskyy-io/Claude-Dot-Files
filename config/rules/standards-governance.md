@@ -32,7 +32,7 @@ Standards documents (`docs/standards/`, `docs/standards/architecture/`) are a cu
 
 **Still human-only:** `sprint.md` (see below) and any flip a dispatch cannot show in its own diff.
 
-**This DIVERGES from the vendored [Documentation Standard § Completion checkboxes](../../docs/standards/documentation/documentation_standard.md), which forbids a dispatch commit from flipping any planning artifact.** The divergence is deliberate, ruled by the operator, and **going upstream as an amendment** — see `docs/standards/documentation/README.md`. Until it lands, this rule governs here and the divergence is recorded rather than silent.
+**RATIFIED UPSTREAM the same day** — [Documentation Standard § Completion checkboxes](../../docs/standards/documentation/documentation_standard.md) now carries this rule, promoted to its own top-level section so a Sprint-Tracking exclusion can no longer swallow it. **This rule and the vendored standard agree; there is no divergence.** Upstream added one clause worth reading here: **built is not proven** — a checkbox marks work *demonstrated*, not work *written*, and a requirement whose evidence does not yet exist stays unchecked with prose saying why.
 
 **Planning artifacts (phase docs, `roadmap.md`, sprint.md, epic breakdowns) are explicitly NOT covered by this rule** — they are dispatch-scope and engineers MAY edit them autonomously. When a phase doc and a standard contradict, the engineer SHOULD update the phase doc to remove the contradiction in the dispatch's PR (since the standard is binding) AND surface the standards-side amendment as a candidate for human review. This avoids the "next sprint reads the phase doc, doesn't notice the tension, flips a coin" failure mode.
 
