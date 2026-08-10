@@ -182,12 +182,15 @@ claude-dot-files/
 │   │   │   │                                        #   Kept (not one-shots) because each answers a rate over a denominator that GROWS — see its README
 │   │   │   ├── README.md                            # What each tool answers and which open decision reads it
 │   │   │   ├── replay_completion_predicate.py       # How often the completion grep misses a real terminal outcome → direction row D-007, MMF Phase 1 E5
+│   │   │   ├── replay_convergence_predicate.py     # Replays the SHIPPED convergence predicate over the archive → MMF Phase 5 step 6.
+│   │   │   │                                        #   IMPORTS the predicate (unlike its pinning sibling above) — a copy would validate a rule nobody runs
 │   │   │   └── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
 │   │           ├── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
 │   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
+│   │           ├── test_replay_convergence_predicate.py  # Guards the denominator, the early-fire count and absent-vs-false `converged` (4 mutation-proven)
 │   │           └── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │
 │   ├── services/                                    # Long-running background services
@@ -234,6 +237,9 @@ claude-dot-files/
 │           │                                        #   exit_record.py — the Kind 2 typed exit record: THE ONE DECLARATION of its
 │           │                                        #   schema and vocabulary, and the ten-rule fail-safe contract a parent routes on
 │           │                                        #   (docs/standards/exit-protocol.md). Dependency-free, like its sibling routing.py
+│           │                                        #   convergence.py — MMF Phase 5's computed stopping predicate: the open/closed
+│           │                                        #   partition over `disposition`, six ordered rules, a named recorded residual arm.
+│           │                                        #   RECORDED, ROUTED ON BY NOTHING — MAX_LOOPS is still the only stopping authority
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
@@ -248,6 +254,9 @@ claude-dot-files/
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+│                   ├── test_convergence.py          # Every false-convergence mode with its check AND a control on the same input;
+│                   │                                #   the partition gated against CHILD_SCHEMA's enum; a class-scoped assertion that
+│                   │                                #   NOTHING branches on the signal (13 mutation-proven)
 │                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
 │                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
 │                   │                                #   and FOUR one-declaration gates: the schema, the Kind 1 shared parse (enumerated,

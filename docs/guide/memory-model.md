@@ -232,11 +232,12 @@ Verified by grep across both fleets (`grep -rn "pr_review\|gh issue list\|gh pr 
 | `next_steps[]` | `/standup` `standup.md:48-51` | delivered **verbatim** to the operator — the disposition engine already reasoned; standup does not re-derive |
 | `pass` | *(human only)* | E7 measured it **non-dense** — #31 runs 1, 2, 4 — so "the previous pass" must come from block ordering, never from the integer |
 | `findings[].id` | `replay_pr_review_blocks.py` | Phase 5's identity input. Convention measured to hold **25 of 25** on the added direction |
-| `findings[].disposition` | `replay_pr_review_blocks.py` | partitions findings into open/closed. Present on **195 of 195** archived findings |
+| `findings[].disposition` | `replay_pr_review_blocks.py` · `review_pr_helper.finding_dispositions_in_block` · `modules/assistant/convergence.py` | partitions findings into open/closed. Present on **300 of 300** archived findings (re-counted 2026-08-09; it was 195 of 195 at 38 PRs). **Phase 5 rules the partition: CLOSED is `fixed`/`deferred`/`rejected`/`noted`/`escalated`, OPEN is `hold` plus anything unrecognised** |
+| `converged` | `review_pr_helper.CONVERGED_FLAG`, via `review_pr_workflow` | **NEW as of [Phase 5](../development/memory-management-framework/phase5_convergence_stopping.md) (2026-08-09) — this key's first programmatic reader.** The parent reads the model's assertion back and shadows it against its own computed signal; the pair is written to the run log. **Read, never routed on** |
 
 ### 4.2 · Emitted and read by nobody — named, because naming them is more useful than documenting them as though they matter
 
-Phase 1 E6 verified three keys have zero programmatic readers: **`converged`**, **`attempt`**, **`hold_kind`**. This pass extends that list from the emitting script; the rest of the block is human-facing today:
+Phase 1 E6 verified three keys have zero programmatic readers: `converged`, **`attempt`**, **`hold_kind`**. **`converged` LEFT this list on 2026-08-09** and now sits in §4.1 — [Phase 5](../development/memory-management-framework/phase5_convergence_stopping.md) gave it a reader that shadows it against a computed signal. *Recorded as a move rather than a silent edit, because "read by nobody" is the sentence §5.2 leans on when it says a schema change to these fields is a documentation problem rather than an outage — and that is no longer true of this one.* This pass extends the remaining list from the emitting script; the rest of the block is human-facing today:
 
 `pr`, `redispatched` (always `false` by contract), `laundered_deferrals.{caught,of_total}`, `homeless_items`, and per-finding `title`, `category`, `consequence`, `remedy`, `pointer`, `pointer_verified`, `reviewed_sha`, and per-next-step `item`, `kind`, `note`, `issue_url`, `issue_repo`, `qualified`, `dispatch_tool`, `dispatch_context`, `precheck`, `why_human`, `reframe`, `bp`, `recommendation`.
 
