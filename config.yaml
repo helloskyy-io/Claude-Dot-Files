@@ -161,64 +161,30 @@ max_turns:
   research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
                               #   3x observed peak: headroom rather than a budget.
 
-# Resource bounds for workflow children, and the telemetry that will size them.
+# Workflow children run inside a transient cgroup scope so the kernel accounts
+# for them. This is MEASUREMENT ONLY — no ceiling of any kind is applied.
 #
-# WHY THESE NUMBERS ARE PROVISIONAL AND SAID SO. On 2026-08-10 a 31 GiB VM
-# livelocked under two dispatches and three interactive sessions. No OOM report
-# was produced, so no one could establish which workload held the memory —
-# hours of analysis ended in "we cannot know." The per-child cap below exists to
-# make the NEXT occurrence diagnosable rather than to be correct today.
+# WHY THERE ARE NO LIMITS HERE, and it is deliberate. A cap shipped on
+# 2026-08-10 was justified by a host outage later attributed to a research
+# fan-out. That attribution was RETRACTED: a full five-subagent research run
+# measures 666 MiB peak RSS, and the operator observed ~0.5 GB live. Subagents
+# run IN-PROCESS, so the per-process arithmetic behind the original case was
+# counting processes that do not exist. 666 MiB does not become 24 GB.
 #
-# THE AGGREGATE CEILING IS DELIBERATELY ABSENT. Per-child caps do not compose:
-# three sessions each running a correctly-capped child still sum past the host,
-# which is precisely what happened. The fix is a cap on `slice` below — but its
-# value must come from measured runs, not from a guess, and the telemetry that
-# produces it ships with this block. Setting a number now would be inventing the
-# evidence this exists to collect.
+# The host outage was real and its cause is still UNIDENTIFIED. Guarding the one
+# component since proven innocent is a fence around the wrong field, and an 8 GiB
+# cap over a 0.5 GiB workload could never fire anyway. So: observe first, and set
+# a ceiling later from data rather than from a story.
 #
-# To cap the slice once the data supports one:
-#   systemctl --user set-property claude-workflows.slice MemoryMax=<value>
+# IF LIMITS ARE ADDED BACK, two things were learned the expensive way and both
+# are non-obvious:
+#   - `MemoryMax` ALONE IS DECORATIVE. cgroup v2 bounds RAM and spills the rest
+#     to swap, so a runaway thrashes instead of dying. 400 MB under a 24 MB
+#     MemoryMax returned exit 0. It needs `MemorySwapMax=0` beside it.
+#   - A WIDE `MemoryHigh` BAND IS ITSELF A LIVELOCK. High throttles rather than
+#     kills, so a runaway inside a wide band never reaches Max. Under a 24 MB
+#     Max: High=16M ground past a 25s timeout; High=22M died at once. Keep any
+#     High above ~80% of Max, or omit it.
 resource_limits:
-  slice: claude-workflows.slice   # all children share it, so a future cap binds the TOTAL
-  MemoryHigh: 7G                  # THROTTLES and records the event — the early warning
-                                  #   that did not exist on 2026-08-10. Not a kill.
-                                  #   DELIBERATELY CLOSE TO MemoryMax. A WIDE gap between High
-                                  #   and Max is a livelock zone: the kernel throttles a runaway
-                                  #   inside the band instead of letting it reach Max and die,
-                                  #   so it grinds forever. Measured 2026-08-10 — under a 24M
-                                  #   Max, High=16M ground past a 25s timeout (exit 124) while
-                                  #   High=22M and no-High both died promptly (exit 137). The
-                                  #   first version of this file shipped 4G under 8G, a band
-                                  #   WIDER than the one that ground, so the cap manufactured
-                                  #   the failure it was written to prevent.
-  MemorySwapMax: 0                # WITHOUT THIS THE CAP IS DECORATIVE. Verified by mutation
-                                  #   on 2026-08-10: a 400 MB allocation under a 24 MB MemoryMax
-                                  #   SUCCEEDED (exit 0) -- the cgroup bounds RAM and silently
-                                  #   spills the rest to swap, so the workload THRASHES instead
-                                  #   of failing. With this set it died correctly, exit 137.
-                                  #   A cap without swap bounding reproduces the livelock in
-                                  #   miniature, which is the exact thing being guarded against.
-                                  #   Credit: PM3 mutation-tested this and sent the correction.
-  MemoryMax: 8G                   # hard ceiling. A child that hits this DIES, named and
-                                  #   logged, instead of wedging the host silently.
-                                  #   Reference: a healthy full suite peaks near 445 MiB.
-  # SHORTCUT, MARKED AS ONE. The number is duplicated as literal text in both
-  # fleets' shared prompt and held together by a test. That is a binding, not a
-  # single source — the drift is still possible, the test just catches it after
-  # the fact.
-  #   REAL FIX: `${MAX_PARALLEL_AGENTS}` in the prompt, supplied at render time
-  #   by `act.render()`, which already exists and whose every variable is
-  #   checked for a supplier by `test_prompt_completeness.py`. Then the value
-  #   cannot be duplicated at all and the binding test becomes unnecessary.
-  #   Not done here because the bash fleet interpolates separately and the
-  #   incident needed a ceiling the same day.
-  max_parallel_agents: 4          # HARD ceiling on concurrent sub-agents per message.
-                                  #   Lowered from the UNBOUNDED default — there was never a
-                                  #   ceiling at all; the five analysts that crashed the host
-                                  #   were five TOPICS, not a configured limit. Set one below
-                                  #   the count that failed, deliberately conservative for the
-                                  #   first run under measurement. The prompts carry this
-                                  #   number literally (prompts are text, not code); a test
-                                  #   binds them to this value so they cannot drift.
-  TasksMax: 4096                  # the second axis. The crash regime allocated ~104
-                                  #   PIDs/sec; a healthy run peaked at 20 tasks.
+  slice: claude-workflows.slice   # groups children so a FUTURE aggregate cap has
+                                  #   somewhere to attach. Imposes nothing today.
