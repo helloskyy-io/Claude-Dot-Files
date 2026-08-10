@@ -86,25 +86,35 @@ output for the word "failed" — a mutation that breaks collection prints
 "1 error" and exits 2, which has no "failed" in it, so a substring check
 called a fired guard a miss.
 
-**Exit 2 is ambiguous and the harness resolves it, so read the message rather
-than the code.** The same "1 error during collection" means *the guard fired
-hard* when a mutated **data** subject (a crontab entry, a workflow YAML) makes
-the guard's own module-level parsing reject it — and means *nothing ran at
-all* when the mutation left the **Python file under test** unimportable, since
-pytest could never import it (issue #72). The discriminator is **differential**:
-the harness imports `<file>` before mutating and again after, and calls it a
-harness error only when the mutation is what broke the import. If `<file>`
-does not import standalone even unmutated — a module needing pytest's own
-`conftest.py` and `sys.path` setup, which many in this repo do — the probe
-cannot speak, so the leg falls back to RED and the run says so on stderr.
-Confirm by hand there that a test really ran.
+**A pytest exit 2 is ambiguous and the harness resolves it differentially** —
+the same "1 error during collection" means the guard fired hard (a mutated
+crontab or YAML that the guard's own parsing rejects) or that nothing ran at
+all (the mutation left the Python file under test unimportable, issue #72). So
+the harness imports `<file>` before and after mutating, and blames the mutation
+only when that is what changed. When `<file>` does not import standalone even
+unmutated it says so on stderr and falls back to reading the leg as red; that
+note is your cue to confirm by hand that a test really ran. Exits 3, 4 and 5
+abort the run rather than being read as a result.
 
-**Exit 3/4/5 abort the run outright** as harness errors rather than being read
-as a result: 5 ("no tests collected") means the target was wrong, not that the
-mutation had no effect; 4 is a pytest usage error; 3 is pytest's own internal
-error, which is never a test result. `mutate.sh` carries the full exit-code
-table with the ambiguity of each spelled out — including why exit 0 is
-ambiguous too and why that one needs no fix.
+**`mutate.sh`'s exit-code table is the reference and it is not repeated here** —
+it sits above `classify_leg` and answers, for every code, whether it can mean
+both "the suite ran" and "it never ran". Read it before changing the
+classification. It also records the one ambiguity deliberately left open: an
+all-skipped leg exits 0 and is accepted as green, which is harmless on the
+mutated leg and not harmless on the baseline and restored legs.
+
+**What `mutate.sh` itself exits with**, which is the contract if you ever call
+it from anything other than your own shell:
+
+| Code | Meaning |
+|---|---|
+| `0` | mutation demonstrated — the guard fails when the property is violated |
+| `1` | the suite ran and the answer is no: already red, the guard did not fire, or the tree did not restore |
+| `2` | refused before running anything — an input it will not reason about |
+| `3` | harness error — the suite never ran, so there is no verdict |
+
+`1` and `3` are separate on purpose. `1` sends you to the guard; `3` says the
+guard was never judged. Conflating them is how a working guard gets deleted.
 
 It refuses a mutation string that is not present, because a mutation that
 changes nothing proves nothing — and it refuses one that matches more than

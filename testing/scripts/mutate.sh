@@ -14,6 +14,17 @@
 #     'MAX_LOOPS = 1' 'MAX_LOOPS = 3' \
 #     scripts/workflows/temporal/tests/unit/test_plan_project_loop.py
 #
+# EXIT CODES — the contract with whoever calls this. No code means both "the
+# suite ran" and "the suite never ran"; that separation is the whole point of
+# the tool, so it holds for what this script emits and not only for what it
+# reads out of pytest. Reasoning in the table above classify_leg.
+#   0  MUTATION DEMONSTRATED — the guard fails when the property is violated.
+#   1  The suite ran and the answer is no: already red / the guard did not
+#      fire / the tree did not restore.
+#   2  REFUSED before running anything — an input this harness will not reason
+#      about. No verdict claimed.
+#   3  HARNESS ERROR — the suite never ran, so there is no verdict to give.
+#
 # WHY THIS EXISTS AS A TOOL AND NOT PER-RUN CODE. Four independent runs on a
 # sibling repo each hand-rolled this identical loop. It is a tool.
 #
@@ -194,17 +205,45 @@ run_leg() {  # $1 = leg name, used to make the cache prefix unique
 # Guarded like every other command here: under `set -e`, a bare failing
 # command aborts the script before its exit status can be inspected, so every
 # call below is the condition of an `if`, not a bare invocation.
+#
+# The Python body is a QUOTED heredoc (<<'PY'), matching the mutation applier
+# below, so bash performs no expansion inside it. The earlier form embedded the
+# same code in a double-quoted string, where a future `$` — an f-string, a
+# `${...}` literal — would have been silently substituted by the shell rather
+# than reaching Python. Silent is the operative word in a file whose whole
+# premise is that this class of bug ships without anyone noticing.
 file_imports_cleanly() {  # $1 = cache label, must be unique per invocation
-    PYTHONPYCACHEPREFIX="${CACHE_ROOT}/probe-$1" python3 -c "
+    PYTHONPYCACHEPREFIX="${CACHE_ROOT}/probe-$1" python3 - "$FILE" >/dev/null 2>&1 <<'PY'
 import importlib, pathlib, sys
+
 p = pathlib.Path(sys.argv[1]).resolve()
 root, parts = p.parent, [p.stem]
-while (root / '__init__.py').exists():   # pytest's prepend mode: find the package root
+# pytest's prepend mode: walk up to the package root.
+#
+# pytest's resolve_package_path ALSO breaks on a directory name that is not a
+# legal identifier; this deliberately does not, and the difference is measured
+# rather than assumed. importlib.import_module accepts a non-identifier
+# component (`import_module('data-pkg.mod')` imports fine — only the `import`
+# STATEMENT requires an identifier), so adding that break changes no outcome
+# here. It is not free either: it lowers the root past a package boundary, so a
+# module holding a relative import that resolves today would stop resolving and
+# the probe would abstain where it currently answers. A guard that cannot be
+# shown to fix anything and can be shown to cost something does not ship.
+while (root / '__init__.py').is_file():
     parts.insert(0, root.name)
     root = root.parent
+# pytest's compute_module_name drops a trailing `__init__`: the module name for
+# pkg/__init__.py is `pkg`, not `pkg.__init__`. Importing the latter executes
+# the package body TWICE in one process — once implicitly as `pkg`, once as the
+# submodule — so a module carrying a register-once guard at import time raises
+# here where a real pytest import would not, and the probe would abstain on the
+# very targets most likely to have such a guard. Guarded on len > 1 so a bare
+# `__init__.py` with no package above it cannot reduce to an empty name.
+if len(parts) > 1 and parts[-1] == '__init__':
+    parts.pop()
 sys.path.insert(0, str(root))
 importlib.import_module('.'.join(parts))
-" "$FILE" >/dev/null 2>&1
+PY
 }
 
 # EVERY exit code this harness classifies, and for each the only question that
@@ -212,13 +251,26 @@ importlib.import_module('.'.join(parts))
 # one ambiguous code and leaving a second is the same defect one step over, so
 # the table is exhaustive and each row answers the question explicitly.
 #
-#   0    -> GREEN. AMBIGUOUS, and deliberately left alone. pytest exits 0 both
-#           when tests ran and passed AND when every test was SKIPPED, which
-#           runs nothing (verified: one skipped test, exit 0). But the two
-#           resolve to the same safe place — a GREEN leg 2 prints "THE GUARD
-#           DID NOT FIRE" and refuses to certify — so this ambiguity cannot
-#           produce a false certification, only a conservative non-verdict.
-#           Nothing to close; the direction is already fail-closed.
+#   0    -> GREEN. AMBIGUOUS, and closed on ONE leg out of three. pytest exits
+#           0 both when tests ran and passed AND when every test was SKIPPED,
+#           which runs nothing (verified: one skipped test, exit 0).
+#           On LEG 2 the ambiguity is harmless: both readings land on "THE
+#           GUARD DID NOT FIRE", a refusal to certify, so it cannot launder a
+#           certification.
+#           On LEGS 1 AND 3 it is NOT harmless and is NOT closed. Leg 1 exists
+#           to establish "the guard is green before it is meaningful" and leg 3
+#           to prove "green again, so the tree restored"; an all-skipped leg
+#           establishes neither and is accepted as GREEN anyway. MEASURED, not
+#           reasoned: a subject whose tests skip while it is pristine and run
+#           once mutated yields leg 1 = nothing ran, leg 2 = RED, leg 3 =
+#           nothing ran — and this harness prints "✓ MUTATION DEMONSTRATED"
+#           over two legs that executed no test at all.
+#           Not closed here because closing it requires counting EXECUTED
+#           tests, and no pytest exit code carries that. It is a different
+#           channel, not a wider `case` arm — the same boundary exit 1 hits
+#           below. Stated rather than claimed closed; the mechanism is a
+#           proposal, C-060 in
+#           docs/standards/architecture/research/candidates.md.
 #   1    -> RED. UNAMBIGUOUS on this question: exit 1 requires collection to
 #           have fully succeeded (pytest interrupts to 2 on a collection error
 #           unless --continue-on-collection-errors, which this harness never
@@ -254,12 +306,39 @@ importlib.import_module('.'.join(parts))
 #           fired" is the exact laundering this tool exists to stop.
 #   other-> HARNESS_ERROR. Signals (128+N) and anything pytest does not
 #           document land here; unknown is not a leg result either.
-classify_leg() {
+#
+# THE SAME QUESTION, ASKED OF THE CODES THIS HARNESS ITSELF EMITS. The table
+# above covers every code pytest hands IN. Asking it only of the input side is
+# the same defect one step over — so the output side answers it too, and the
+# answer is what fixed it: exit 1 used to mean BOTH "the suite ran and the
+# answer is no" AND "the suite never ran", the exact conflation this tool
+# exists to refuse.
+#
+#   0 -> the suite ran, the guard fired, the tree restored. DEMONSTRATED.
+#   1 -> the suite RAN and the answer is no. Three causes, one meaning: the
+#        target was ALREADY RED, THE GUARD DID NOT FIRE, or the tree did not
+#        restore. All are measurements this harness stands behind.
+#   2 -> REFUSED before anything ran. Input this harness will not reason about
+#        (bad argument count, missing file, multi-line or absent or ambiguous
+#        OLD). No verdict is claimed, so nothing can be laundered.
+#   3 -> HARNESS ERROR: the suite NEVER RAN, so there is no answer. Chosen to
+#        echo pytest's own exit 3 ("the tool failed, not a test").
+#
+# Why this was worth splitting off 1 rather than documenting as overloaded, as
+# run-all.sh's exit 1 legitimately is: there BOTH readings mean "not green", so
+# conflating them cannot mislead. Here they point opposite ways. "THE GUARD DID
+# NOT FIRE" is an actionable verdict about the guard — it sends an engineer to
+# delete or rewrite a test — while HARNESS ERROR means the harness could not
+# measure and the guard is unjudged. Acting on the first when the truth is the
+# second is precisely the direction this file's header calls expensive: it gets
+# a working guard deleted. A caller could only tell them apart by grepping
+# stderr for "HARNESS ERROR", which is how wrong verdict #1 shipped.
+classify_leg() {  # $1 = pytest's exit code, $2 = leg name (the probe's cache label)
     case "$1" in
         0) echo GREEN ;;
         1) echo RED ;;
         2)
-            if [[ "$EXIT_2_DISCRIMINATOR" == live ]] && ! file_imports_cleanly "$LEG_NAME"; then
+            if [[ "$EXIT_2_DISCRIMINATOR" == live ]] && ! file_imports_cleanly "$2"; then
                 echo HARNESS_ERROR
             else
                 echo RED
@@ -277,7 +356,13 @@ classify_leg() {
 # value would swallow that print into the captured string instead.
 report_leg() {  # $1 = leg label for the abort message
     echo "   $LEG_TAIL  [exit $LEG_STATUS]"
-    LEG_VERDICT="$(classify_leg "$LEG_STATUS")"
+    # LEG_NAME passed explicitly rather than read as a global inside
+    # classify_leg: the probe's cache prefix is derived from it, and a stale
+    # name would point two probes at one cache directory — the shared-cache
+    # defect this file spends forty lines defeating everywhere else. Making it
+    # an argument means the pairing of status and leg cannot silently drift if
+    # a future edit puts anything between run_leg and report_leg.
+    LEG_VERDICT="$(classify_leg "$LEG_STATUS" "$LEG_NAME")"
     if [[ "$LEG_VERDICT" == HARNESS_ERROR ]]; then
         case "$LEG_STATUS" in
             2)
@@ -299,7 +384,10 @@ report_leg() {  # $1 = leg label for the abort message
                 echo "  invocation, not the mutation." >&2
                 ;;
         esac
-        exit 1
+        # Exit 3, NOT 1 — see the emitted-exit-code table above. Exit 1 is
+        # reserved for measurements this harness stands behind; nothing was
+        # measured here, so it must not share a code with a verdict.
+        exit 3
     fi
     # The discriminator was NEEDED here and could not speak. Saying so is the
     # point: falling back to RED silently would hand back the pre-#72 verdict

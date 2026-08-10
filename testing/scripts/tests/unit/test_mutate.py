@@ -45,9 +45,26 @@ MUTATE = REPO_ROOT / "testing" / "scripts" / "mutate.sh"
 
 # Exit codes are the harness's contract with its callers, so they are asserted
 # by name rather than by magic number at each site.
+#
+# `NOT_DEMONSTRATED` and `HARNESS_ERROR` used to be one constant, named
+# `FAILED_OR_HARNESS_ERROR` because both outcomes exited 1 and the code alone
+# could not tell them apart. That name was the defect confessing itself: it is
+# the harness reproducing, in its own contract with its callers, exactly the
+# "one code, two opposite meanings" conflation it exists to refuse in pytest's.
+# Every harness-error test below then had to grep stderr for "HARNESS ERROR" to
+# say what it meant — reading a verdict out of text, which is how this script's
+# first wrong verdict shipped (case 1 in the module docstring above).
 DEMONSTRATED = 0
-FAILED_OR_HARNESS_ERROR = 1
-REFUSED = 2
+NOT_DEMONSTRATED = 1  # the suite RAN and the answer is no
+REFUSED = 2  # refused before running anything; no verdict claimed
+HARNESS_ERROR = 3  # the suite NEVER RAN, so there is no verdict
+
+# The harness runs pytest three times per invocation, plus up to two import
+# probes, all as real subprocesses. The bound is a hang backstop, not a
+# performance target — a wedged leg must fail the suite rather than stall it.
+# Named once here rather than repeated at each call site, matching
+# `test_runner_discovery.py`'s `_RUNNER_TIMEOUT_S`.
+_MUTATE_TIMEOUT_S = 180
 
 
 def test_the_harness_under_test_actually_exists() -> None:
@@ -76,7 +93,7 @@ def run_mutate(sandbox: Path, old: str, new: str, target: str = "test_subject.py
     resolves there and `import subject` works without touching sys.path."""
     return subprocess.run(
         [str(MUTATE), "subject.py", old, new, target],
-        cwd=str(sandbox), capture_output=True, text=True, timeout=180,
+        cwd=str(sandbox), capture_output=True, text=True, timeout=_MUTATE_TIMEOUT_S,
     )
 
 
@@ -136,7 +153,7 @@ def test_a_mutation_nothing_asserts_reports_that_the_guard_did_not_fire(sandbox:
     """`LABEL` is asserted by no test, so mutating it must produce the
     guard-did-not-fire verdict rather than a pass."""
     r = run_mutate(sandbox, "LABEL = 'alpha'", "LABEL = 'omega'")
-    assert r.returncode == FAILED_OR_HARNESS_ERROR
+    assert r.returncode == NOT_DEMONSTRATED
     assert "THE GUARD DID NOT FIRE" in r.stderr
 
 
@@ -176,7 +193,7 @@ def test_a_mutation_that_makes_the_module_under_test_unparseable_is_a_harness_er
     DEMONSTRATED over a test that never ran.
     """
     r = run_mutate(sandbox, "THRESHOLD = 10", "THRESHOLD = (10")
-    assert r.returncode == FAILED_OR_HARNESS_ERROR, (
+    assert r.returncode == HARNESS_ERROR, (
         "a SyntaxError in the module under test was not caught as a harness "
         f"error — it is back to certifying a guard that never ran\n{r.stdout}{r.stderr}"
     )
@@ -199,7 +216,7 @@ def test_a_mutation_that_breaks_an_import_in_the_module_under_test_is_a_harness_
     """
     (sandbox / "subject.py").write_text("import os\nTHRESHOLD = 10\n")
     r = run_mutate(sandbox, "import os", "import os_nonexistent_xyz_mutation_probe")
-    assert r.returncode == FAILED_OR_HARNESS_ERROR, (
+    assert r.returncode == HARNESS_ERROR, (
         "an import broken by the mutation was not caught as a harness error — it "
         f"is back to certifying a guard that never ran\n{r.stdout}{r.stderr}"
     )
@@ -246,7 +263,7 @@ def test_a_mutation_that_breaks_collection_via_a_DATA_file_still_counts_as_the_g
             "0 5 * * * /usr/bin/backup.sh", "0 5 * * *",
             "test_crontab_guard.py",
         ],
-        cwd=str(tmp_path), capture_output=True, text=True, timeout=180,
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=_MUTATE_TIMEOUT_S,
     )
     assert r.returncode == DEMONSTRATED, (
         "a collection error caused by a malformed DATA file (not Python source) "
@@ -289,7 +306,7 @@ def test_a_package_relative_module_whose_guard_fires_is_not_blamed_on_the_mutati
     )
     r = subprocess.run(
         [str(MUTATE), "pkg/mod.py", "BASE * 10", "BASE * 11", "test_mod.py"],
-        cwd=str(tmp_path), capture_output=True, text=True, timeout=180,
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=_MUTATE_TIMEOUT_S,
     )
     assert r.returncode == DEMONSTRATED, (
         "a guard that fired at collection on a package-relative module was read as "
@@ -305,6 +322,52 @@ def test_a_package_relative_module_whose_guard_fires_is_not_blamed_on_the_mutati
     assert "does not import standalone" not in r.stderr, (
         "the probe ABSTAINED on a module it should be able to import — it is not "
         f"resolving the package root the way pytest's prepend mode does\n{r.stdout}{r.stderr}"
+    )
+
+
+def test_a_package_init_file_is_imported_as_the_package_not_as_a_submodule(
+    tmp_path: Path,
+) -> None:
+    """`pkg/__init__.py` is a legal mutate target and the probe must name it the
+    way pytest does.
+
+    pytest's `compute_module_name` drops a trailing `__init__`, so `pkg` is what
+    gets imported. Keeping it makes the probe import `pkg.__init__`, which
+    executes the package body TWICE in one interpreter — once implicitly as
+    `pkg`, once as the submodule. A package carrying a register-once guard at
+    import time then raises in the probe and nowhere else, and the probe
+    abstains on precisely the targets most likely to hold such a guard: the
+    prepend fix silently stops applying to them.
+
+    The double-execution detector hangs off `sys`, not a module global, because
+    the two executions produce two distinct module objects — a flag on either
+    one cannot see the other.
+    """
+    (tmp_path / "holder").mkdir()
+    (tmp_path / "holder" / "__init__.py").write_text(
+        "import sys\n\n"
+        'if getattr(sys, "_holder_executed", False):\n'
+        '    raise RuntimeError("package body executed twice in one interpreter")\n'
+        "sys._holder_executed = True\n\n"
+        "LIMIT = 10\n"
+    )
+    # Module-level guard, so it fires at collection and the leg exits 2 — the
+    # path the discriminator is consulted on.
+    (tmp_path / "test_holder.py").write_text(
+        "from holder import LIMIT\n\n"
+        "if LIMIT != 10:\n"
+        "    raise AssertionError(f'guard: LIMIT is {LIMIT}')\n\n\n"
+        "def test_limit():\n"
+        "    assert LIMIT == 10\n"
+    )
+    r = subprocess.run(
+        [str(MUTATE), "holder/__init__.py", "LIMIT = 10", "LIMIT = 11", "test_holder.py"],
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=_MUTATE_TIMEOUT_S,
+    )
+    assert r.returncode == DEMONSTRATED, f"{r.stdout}{r.stderr}"
+    assert "does not import standalone" not in r.stderr, (
+        "the probe ABSTAINED on a package it can import — it is importing "
+        f"`holder.__init__` rather than `holder`\n{r.stdout}{r.stderr}"
     )
 
 
@@ -334,7 +397,7 @@ def test_an_exit_2_the_discriminator_cannot_speak_to_falls_back_to_RED_and_says_
     )
     r = subprocess.run(
         [str(MUTATE), "subject.py", "import helper", "import helper_gone", "test_subject.py"],
-        cwd=str(tmp_path), capture_output=True, text=True, timeout=180,
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=_MUTATE_TIMEOUT_S,
     )
     assert r.returncode == DEMONSTRATED, (
         "an exit 2 the discriminator cannot speak to did not fall back to RED — the "
@@ -376,7 +439,7 @@ def test_a_stale_bytecode_cache_cannot_answer_the_import_probe(sandbox: Path) ->
         "a cached .pyc answered the import probe for a file pytest cannot import, and "
         f"the harness certified a guard that never ran — issue #72\n{r.stdout}{r.stderr}"
     )
-    assert r.returncode == FAILED_OR_HARNESS_ERROR
+    assert r.returncode == HARNESS_ERROR
     assert "HARNESS ERROR" in r.stderr
 
 
@@ -422,7 +485,7 @@ def test_a_pytest_internal_error_is_a_HARNESS_ERROR_not_a_leg_result(sandbox: Pa
         "    raise RuntimeError('a plugin hook blew up')\n"
     )
     r = run_mutate(sandbox, "THRESHOLD = 10", "THRESHOLD = 11")
-    assert r.returncode == FAILED_OR_HARNESS_ERROR, f"{r.stdout}{r.stderr}"
+    assert r.returncode == HARNESS_ERROR, f"{r.stdout}{r.stderr}"
     assert "HARNESS ERROR" in r.stderr
     assert "internal error" in r.stderr, (
         "exit 3 aborted without naming pytest's own failure as the cause, so the "
@@ -436,9 +499,42 @@ def test_a_target_that_collects_nothing_is_a_HARNESS_ERROR_not_a_verdict(sandbox
     Reading it as RED would certify a guard that never ran."""
     (sandbox / "empty_test.py").write_text("# no tests here\n")
     r = run_mutate(sandbox, "THRESHOLD = 10", "THRESHOLD = 11", target="empty_test.py")
-    assert r.returncode == FAILED_OR_HARNESS_ERROR
+    assert r.returncode == HARNESS_ERROR
     assert "HARNESS ERROR" in r.stderr
     assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
+def test_the_exit_code_alone_separates_a_verdict_from_a_non_measurement(sandbox: Path) -> None:
+    """The harness's OWN exit code must not repeat the conflation it exists to
+    refuse in pytest's.
+
+    Both outcomes below used to exit 1, so a caller reading `$?` could not tell
+    "the suite ran and your guard asserts nothing" — actionable, and the
+    direction that gets a working guard DELETED — from "the suite never ran, so
+    I have no opinion about your guard". The only way to separate them was to
+    grep stderr for "HARNESS ERROR", and reading a verdict out of text is how
+    this script's first wrong verdict shipped.
+
+    Asserted from ONE sandbox and driven only by the mutation string, so the
+    two paths differ in nothing but which outcome they reach. Deliberately
+    makes no reference to stderr: the point is that the code alone suffices.
+    """
+    (sandbox / "subject.py").write_text("import os\nTHRESHOLD = 10\nLABEL = 'alpha'\n")
+
+    # The suite ran; nothing asserts LABEL. A real measurement, answer "no".
+    did_not_fire = run_mutate(sandbox, "LABEL = 'alpha'", "LABEL = 'omega'")
+    # The mutation broke the import, so pytest never collected a test at all.
+    never_ran = run_mutate(sandbox, "import os", "import os_nonexistent_xyz_probe")
+
+    assert did_not_fire.returncode == NOT_DEMONSTRATED, (
+        f"{did_not_fire.stdout}{did_not_fire.stderr}"
+    )
+    assert never_ran.returncode == HARNESS_ERROR, f"{never_ran.stdout}{never_ran.stderr}"
+    assert did_not_fire.returncode != never_ran.returncode, (
+        "a verdict about the guard and a refusal to give one share an exit code, so "
+        "a caller reading $? cannot tell them apart — the harness is reproducing, in "
+        "its own contract, the one-code-two-meanings defect it exists to close"
+    )
 
 
 def test_an_already_red_target_is_refused_before_mutating(sandbox: Path) -> None:
@@ -447,7 +543,7 @@ def test_an_already_red_target_is_refused_before_mutating(sandbox: Path) -> None
         "import subject\n\n\ndef test_threshold():\n    assert subject.THRESHOLD == 99\n"
     )
     r = run_mutate(sandbox, "THRESHOLD = 10", "THRESHOLD = 11")
-    assert r.returncode == FAILED_OR_HARNESS_ERROR
+    assert r.returncode == NOT_DEMONSTRATED
     assert "ALREADY RED" in r.stderr
 
 

@@ -300,7 +300,9 @@ claude-dot-files/
 │   │   ├── mutate.sh                                # Mutation harness — falsify a guard, show red, restore, show green. Gives every leg
 │   │   │                                            #   AND every import probe its own PYTHONPYCACHEPREFIX; a length-preserving edit would
 │   │   │                                            #   otherwise run stale .pyc. Exit 2 is ambiguous and resolved DIFFERENTIALLY — the file
-│   │   │                                            #   is probed before and after, so only a mutation-caused import break is a harness error
+│   │   │                                            #   is probed before and after, so only a mutation-caused import break is a harness error.
+│   │   │                                            #   Its OWN codes keep the same separation: 0 demonstrated, 1 the suite ran and the answer
+│   │   │                                            #   is no, 2 refused before running, 3 harness error — the suite never ran, so no verdict
 │   │   └── tests/unit/                              # TIER 3 for the harness AND the repo-wide test-tree properties that only matter
 │   │                                                #   because of it — a collection failure exits 2 and reads as RED (issue #72)
 │   │       ├── test_mutate.py                       # The harness's own guards
