@@ -634,8 +634,15 @@ class _FakeWorkflow:
             return ""
 
         monkeypatch.setattr(act, "run_disposition", _run)
-        monkeypatch.setattr(act, "pr_review_blocks",
-                            lambda *a, **k: [self.block] if self.block is not None else [])
+        # `thread_snapshot` is the ONE `gh` read the workflow makes for the
+        # thread; the two projections above it are patched as well so a test
+        # calling either directly still sees this fake's thread. The count and
+        # the window stay independently settable — that is what lets the fake
+        # express "pass 2 ran and posted nothing", the case the invariant exists
+        # to catch.
+        monkeypatch.setattr(act, "pr_review_blocks", lambda *a, **k: self._window())
+        monkeypatch.setattr(act, "thread_snapshot",
+                            lambda *a, **k: (self._blocks(), self._window()))
         monkeypatch.setattr(wf._shared, "result_event",
                             lambda *a, **k: self._envelope())
         monkeypatch.setattr(wf._shared, "assistant_text", lambda *a, **k: self.prose)
@@ -644,6 +651,10 @@ class _FakeWorkflow:
     def _blocks(self) -> int:
         """Blocks on the thread now: one more once this pass posted its own."""
         return self.prior_blocks + (1 if self.ran and self.posts_block else 0)
+
+    def _window(self) -> list[str]:
+        """The thread's block window, one entry per pass."""
+        return [self.block] if self.block is not None else []
 
     def _envelope(self) -> dict:
         event = {"type": "result", "subtype": "success",
@@ -927,7 +938,7 @@ def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
     """The same case end-to-end, through the REAL reader rather than a fake one.
 
     THIS IS THE ONE THAT WOULD HAVE CAUGHT IT. Every other test in this section
-    fakes `pr_review_blocks` and raises `RuntimeError` from the fake — so
+    fakes `thread_snapshot` and raises `RuntimeError` from the fake — so
     they assert the retry handles the error the fake chose to throw, and are
     green against a reader that could throw a second family. Here the real
     reader runs and only `gh` is faked, which is where the shape actually
@@ -935,12 +946,12 @@ def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
     """
     from modules.assistant.review_pr import review_pr_activities as act
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
-    real_reader = act.pr_review_blocks  # captured BEFORE the fake installs
+    real_reader = act.thread_snapshot  # captured BEFORE the fake installs
 
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
     slept = _no_sleep(monkeypatch)
-    monkeypatch.setattr(act, "pr_review_blocks", real_reader)
+    monkeypatch.setattr(act, "thread_snapshot", real_reader)
     monkeypatch.setattr(act._shared, "gh", lambda *a, **k: "<html>502 Bad Gateway</html>")
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
@@ -972,8 +983,8 @@ def test_a_transient_thread_read_is_retried_and_the_review_survives(
     wf = fake.install(monkeypatch, tmp_path)
     slept = _no_sleep(monkeypatch)
 
-    monkeypatch.setattr(act, "pr_review_blocks",
-                        _flaky_reader(1, lambda *a, **k: [fake.block]))
+    monkeypatch.setattr(act, "thread_snapshot",
+                        _flaky_reader(1, lambda *a, **k: (1, [fake.block])))
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1005,7 +1016,7 @@ def test_a_PERSISTENT_thread_read_failure_completes_the_run_and_says_so(
     def _boom(*a, **k):
         raise RuntimeError("gh pr view failed: API rate limit exceeded")
 
-    monkeypatch.setattr(act, "pr_review_blocks", _boom)
+    monkeypatch.setattr(act, "thread_snapshot", _boom)
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1036,7 +1047,7 @@ def test_the_route_is_PERSISTED_even_when_the_check_never_runs(
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
     _no_sleep(monkeypatch)
-    monkeypatch.setattr(act, "pr_review_blocks", _flaky_reader(99, lambda *a, **k: []))
+    monkeypatch.setattr(act, "thread_snapshot", _flaky_reader(99, lambda *a, **k: (0, [])))
 
     wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1063,8 +1074,8 @@ def test_a_REAL_disagreement_still_raises_after_a_transient_read(
     _no_sleep(monkeypatch)
 
     wrong = "pr_review:\n  findings:\n    - id: a-different-slug\n      disposition: fixed\n"
-    monkeypatch.setattr(act, "pr_review_blocks",
-                        _flaky_reader(1, lambda *a, **k: [wrong]))
+    monkeypatch.setattr(act, "thread_snapshot",
+                        _flaky_reader(1, lambda *a, **k: (1, [wrong])))
 
     with pytest.raises(RuntimeError, match="disagree on findings"):
         wf.run_review(ReviewInput(pr_number="67"), tmp_path)

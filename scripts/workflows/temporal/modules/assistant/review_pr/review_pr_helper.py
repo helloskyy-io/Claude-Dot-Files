@@ -81,7 +81,9 @@ class ReviewResult:
     # authority. Optional for the same reason `record` is: None means the
     # predicate was not run at all, which is distinct from it running and
     # reaching the residual arm (a ConvergenceAssessment with state
-    # UNDETERMINED).
+    # INDETERMINATE — the predicate's spelling, deliberately NOT the exit
+    # protocol's `undetermined`; `ConvergenceState` says why the two must not
+    # collapse, and collapsing them here in prose is how that starts).
     convergence: convergence.ConvergenceAssessment | None = None
 
     @property
@@ -209,10 +211,42 @@ def asserted_converged_in_block(block: str) -> bool | None:
     return (match.group(1) == "true") if match else None
 
 
-def convergence_history(prior_blocks: Sequence[str],
+def this_pass_block(window: Sequence[str]) -> str | None:
+    """The block THIS pass posted, out of the thread's window. None if empty.
+
+    ONE DECLARATION OF AN INFERENCE MADE IN THREE PLACES. The render↔record
+    invariant, the incumbent-flag shadow and the convergence history each need
+    *"which of these is this pass's"*, and each was answering it with its own
+    `window[-1]` or `window[:-1]` slice. `phase4_fleet_migration.md`'s run-nonce
+    checkbox replaces this positional inference with an identity check; it needs
+    one site to replace, not three.
+
+    IT IS POSITIONAL AND THAT IS THE KNOWN WEAKNESS, not a hidden one. The block
+    carries no `run_id`, so "this pass's" is inferred from ordering plus the
+    posted-count delta `_assert_block_matches_record` checks. The remaining race
+    — a third party posting a fenced `pr_review:` example between the child's
+    comment and the parent's read — is what the nonce closes.
+    """
+    return window[-1] if window else None
+
+
+def prior_pass_blocks(window: Sequence[str]) -> tuple[str, ...]:
+    """Every block in the window EXCEPT this pass's. The typed record replaces it."""
+    return tuple(window[:-1])
+
+
+def convergence_history(window: Sequence[str],
                         record: exit_record.ExitRecord,
                         ) -> tuple[tuple[tuple[str, str], ...], ...]:
     """This PR's passes oldest-first, as `(id, disposition)` pairs per pass.
+
+    TAKES THE WHOLE WINDOW AND DROPS THIS PASS'S BLOCK ITSELF. It used to require
+    the caller to have removed it already, enforced by nothing but this
+    docstring — and Phase 4 adds the call sites. The failure mode of getting it
+    wrong is not an exception: the same pass appears twice, every id looks
+    restated, and the result reads as a perfectly conforming, perfectly stalled
+    loop. A precondition whose violation is silent and whose only enforcement is
+    prose is not a precondition.
 
     THE PREDICATE IS A HYBRID AND THIS FUNCTION IS WHERE THAT SHOWS. The pass
     under assessment comes from the TYPED record, which is authoritative; every
@@ -224,17 +258,46 @@ def convergence_history(prior_blocks: Sequence[str],
     §1 gives it.
 
     THE TWO SOURCES ARE NOT ASSUMED TO AGREE — they are made to. The
-    render↔record invariant (`review_pr_workflow._verify_block_matches_record`)
+    render↔record invariant (`review_pr_workflow._assert_block_matches_record`)
     raises unless this pass's posted block and this pass's record carry
     identical `(id, disposition)` pairs, so today's typed term becomes
-    tomorrow's prose term without drift. Callers must pass the blocks with this
-    pass's own block ALREADY REMOVED; passing it would put the same pass in the
-    history twice and make every id look restated.
+    tomorrow's prose term without drift.
     """
     return tuple(
-        [tuple(sorted(finding_dispositions_in_block(b))) for b in prior_blocks]
+        [tuple(sorted(finding_dispositions_in_block(b)))
+         for b in prior_pass_blocks(window)]
         + [tuple(sorted((f["id"], f["disposition"]) for f in record.findings))]
     )
+
+
+def shadow_agreement(assessment: convergence.ConvergenceAssessment,
+                     asserted: bool | None) -> bool | None:
+    """Does the computation reproduce the incumbent flag? None when incomparable.
+
+    ONE DECLARATION, because the rule was written twice in opposite polarity two
+    lines apart — once for the run-log event and once for the operator note. The
+    comparability rule is the thing most likely to move, and a durable record
+    saying `agrees: false` while the human-facing note stays silent is two
+    accounts of one shadow disagreeing, which is the defect class this component
+    exists to remove.
+
+    TWO WAYS TO BE INCOMPARABLE, both returning None. `asserted is None` means
+    the block predates the flag — distinct from `false`, or an agreement rate
+    scores every pre-flag block as a disagreement. An INDETERMINATE assessment
+    made no decision, so it agrees with nothing; folding it into `not converged`
+    would invent a verdict the predicate declined to reach, and that case is not
+    rare — it is pass 1, the archive's single most common block.
+
+    AND WHAT "AGREEMENT" DOES NOT MEAN, because the name overpromises: the two
+    rules answer different questions. The incumbent is a single-pass severity
+    heuristic (*are this pass's findings all preventive?*); this is a set
+    emptiness test across passes (*is anything still open?*). A `False` here is a
+    definitional difference at least as often as it is a defect in either
+    channel, which is why nothing raises on one.
+    """
+    if asserted is None or assessment.state is convergence.ConvergenceState.INDETERMINATE:
+        return None
+    return asserted == (assessment.state is convergence.ConvergenceState.CONVERGED)
 
 
 def verdict_from_record(record: exit_record.ExitRecord) -> Verdict:

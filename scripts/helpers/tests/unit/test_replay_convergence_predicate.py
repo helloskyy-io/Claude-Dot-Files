@@ -10,8 +10,12 @@ with an input that breaks it:
   * the denominator includes every block the predicate would have SEEN, not
     only the ones it could rule on, so "fired 2 of 12" cannot quietly become
     "2 of 2";
-  * a CONVERGED assessment against a HOLD verdict is counted as an EARLY fire,
-    which is the number that would cancel the phase if it were non-zero.
+  * an EARLY fire is counted, which is the number that would cancel the phase
+    if it were non-zero — and it is counted TWICE, because the self-reported
+    figure (fired against a non-MERGE verdict) is scored on a value the same
+    pass wrote and cannot move for the failure it is meant to alarm on, while
+    the observed figure (a later pass on the same PR still carries open work) is
+    model-independent. Both are asserted, and so is the difference.
 
 Flat comment-delimited functions, matching the sibling test modules in this
 directory.
@@ -137,7 +141,7 @@ def test_a_CONVERGED_assessment_against_a_HOLD_verdict_is_reported_as_EARLY(
     tool.report(tool.replay(archive, convergence), convergence)
     out = capsys.readouterr().out
     assert "Would have FIRED           : 1 of 1" in out
-    assert "Would have fired EARLY     : 1" in out
+    assert "Fired EARLY (self-reported): 1" in out
 
 
 def test_the_early_count_is_ZERO_when_the_reviewer_agreed(capsys) -> None:
@@ -156,7 +160,158 @@ def test_the_early_count_is_ZERO_when_the_reviewer_agreed(capsys) -> None:
     tool.report(tool.replay(archive, convergence), convergence)
     out = capsys.readouterr().out
     assert "Would have FIRED           : 1 of 1" in out
-    assert "Would have fired EARLY     : 0" in out
+    assert "Fired EARLY (self-reported): 0" in out
+
+
+def test_an_early_fire_is_OBSERVED_from_a_later_pass_not_from_the_same_pass(
+        capsys) -> None:
+    """The self-reported alarm is circular; this is the one that can move.
+
+    Phase 5 names one false-convergence mode as UNMITIGATED: a reviewer that
+    marks `fixed` what is not fixed. Such a reviewer writes `verdict: MERGE` in
+    the same block, so the self-reported counter stays at zero exactly when the
+    predicate is being fooled — and § What would let this gate expresses its
+    condition in that counter's units. The input below is that reviewer: pass 2
+    closes everything and says MERGE, and pass 3 reopens the work.
+    """
+    tool = _tool()
+    convergence = tool._load(tool._CONVERGENCE, "_c3b")
+    archive = [{"pr": 9, "blocks": [
+        _block(1, "HOLD", False, [("a", "hold")]),
+        _block(2, "MERGE", True, [("a", "fixed")]),
+        _block(3, "HOLD", False, [("a", "hold")]),
+    ]}]
+    tool.report(tool.replay(archive, convergence), convergence)
+    out = capsys.readouterr().out
+    assert "Fired EARLY (self-reported): 0" in out, (
+        "the circular counter moved — then this test is not exercising the case "
+        "the observed counter exists for"
+    )
+    assert "Fired EARLY (observed)     : 1 of 1" in out, (
+        "a fire followed by a pass that reopened the work was not counted early"
+    )
+
+
+def test_the_observed_early_control_a_fire_that_STAYS_closed_is_not_early(
+        capsys) -> None:
+    """Negative control: the later pass must be what makes it early, not its existence.
+
+    Identical to the test above except the third pass keeps the finding closed.
+    Without this, an observed counter that flagged every fire with any later
+    block would satisfy it.
+    """
+    tool = _tool()
+    convergence = tool._load(tool._CONVERGENCE, "_c3c")
+    archive = [{"pr": 9, "blocks": [
+        _block(1, "HOLD", False, [("a", "hold")]),
+        _block(2, "MERGE", True, [("a", "fixed")]),
+        _block(3, "MERGE", True, [("a", "fixed")]),
+    ]}]
+    tool.report(tool.replay(archive, convergence), convergence)
+    out = capsys.readouterr().out
+    assert "Fired EARLY (observed)     : 0 of 1" in out
+
+
+def test_a_fire_on_a_PRs_LAST_block_is_reported_UNFALSIFIABLE_not_as_a_pass(
+        capsys) -> None:
+    """A zero over an empty denominator is not evidence, and must not read as one.
+
+    Both of the archive's real fires land on their PR's last block, so there is
+    nothing after them to contradict. Reporting "0 early" without saying the
+    scorable denominator was also 0 is the shape this phase spent a section
+    refusing to produce.
+    """
+    tool = _tool()
+    convergence = tool._load(tool._CONVERGENCE, "_c3d")
+    archive = [{"pr": 9, "blocks": [
+        _block(1, "HOLD", False, [("a", "hold")]),
+        _block(2, "MERGE", True, [("a", "fixed")]),
+    ]}]
+    tool.report(tool.replay(archive, convergence), convergence)
+    out = capsys.readouterr().out
+    assert "Fired EARLY (observed)     : 0 of 0" in out
+    assert "unfalsifiable        : 1 fire(s)" in out
+
+
+def test_NEVER_FIRED_is_counted_over_MULTI_PASS_prs_not_over_every_pr(
+        capsys) -> None:
+    """The doc quotes this figure, and a single-pass PR was never assessable.
+
+    "Never fired on 5 of 7 multi-pass PRs" is a statement about PRs the
+    predicate could have ruled on. Counting single-pass PRs into it inflates the
+    numerator with PRs whose only block routes to `no_prior_pass` by rule, which
+    makes the predicate look worse than it is for a reason that is arithmetic.
+    """
+    tool = _tool()
+    convergence = tool._load(tool._CONVERGENCE, "_c3e")
+    archive = [
+        {"pr": 8, "blocks": [_block(1, "HOLD", False, [("a", "hold")])]},
+        {"pr": 9, "blocks": [
+            _block(1, "HOLD", False, [("a", "hold")]),
+            _block(2, "MERGE", True, [("a", "fixed")]),
+        ]},
+    ]
+    tool.report(tool.replay(archive, convergence), convergence)
+    out = capsys.readouterr().out
+    assert "Multi-pass PRs it NEVER fired on: []" in out, (
+        "a single-pass PR was counted as one the predicate never fired on"
+    )
+
+
+def test_the_history_is_ordered_by_COMMENT_TIME_and_never_by_the_pass_LABEL() -> None:
+    """The predicate's ordering contract, enforced at the consumer that has it.
+
+    The shared extractor sorts by `(pass, created)`, which serves its other
+    consumers; `convergence.assess` forbids it — sequence comes from the order
+    the passes are handed in, never from a producer-written integer that issue
+    #68 measured wrong on the most recently reviewed PR. Below, the labels are
+    in the OPPOSITE order to creation time, and reading them would hand the
+    predicate the cumulative later block first, making the earlier one look like
+    a pass that dropped a finding.
+    """
+    tool = _tool()
+    convergence = tool._load(tool._CONVERGENCE, "_c3f")
+    earlier = _block(9, "HOLD", False, [("a", "hold")]) | {"created": "2026-01-01"}
+    later = _block(2, "MERGE", True, [("a", "fixed"), ("b", "fixed")]) | \
+        {"created": "2026-01-02"}
+    result = tool.replay([{"pr": 9, "blocks": [later, earlier]}], convergence)
+    assert [r["labelled_pass"] for r in result["rows"]] == [9, 2], (
+        "the rows were ordered by the `pass:` label rather than by comment order"
+    )
+    assert result["rows"][1]["state"] == "converged", (
+        "read label-first, the cumulative block comes first and the one after it "
+        "reads as having dropped a finding"
+    )
+
+
+def test_a_comment_carrying_TWO_blocks_is_REPORTED_not_silently_counted(
+        capsys) -> None:
+    """The one shape that over-counts a pass, named rather than left implicit.
+
+    The live reader collapses a quoting comment to its last block, because a
+    quote is a restatement of a pass already in the window. This dump has lost
+    within-comment order to the extractor's sort, so the tool cannot do the same
+    — and a replay that quietly counted the quote as a pass would inflate the
+    assessable denominator the phase's ruling is quoted from. It says so
+    instead. The archive has never contained the shape, and the negative branch
+    of this message is what lets a reader know that.
+    """
+    tool = _tool()
+    convergence = tool._load(tool._CONVERGENCE, "_c3g")
+    a = _block(1, "HOLD", False, [("a", "hold")]) | {"created": "2026-01-01"}
+    quote = _block(1, "HOLD", False, [("a", "hold")]) | {"created": "2026-01-02"}
+    mine = _block(2, "MERGE", True, [("a", "fixed")]) | {"created": "2026-01-02"}
+    tool.report(tool.replay([{"pr": 9, "blocks": [a, quote, mine]}], convergence),
+                convergence)
+    out = capsys.readouterr().out
+    assert "Comments carrying >1 block : 1" in out
+    assert "over-counts a pass" in out
+
+    tool.report(tool.replay([{"pr": 9, "blocks": [a, mine]}], convergence),
+                convergence)
+    clean = capsys.readouterr().out
+    assert "Comments carrying >1 block : 0" in clean
+    assert "no pass in this replay is a quoted restatement" in clean
 
 
 def test_a_disagreement_with_the_incumbent_flag_is_counted(capsys) -> None:

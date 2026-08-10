@@ -96,6 +96,54 @@ def extract(repo: str) -> list[dict]:
     return json.loads(out)
 
 
+def _passes(blocks: list[dict]) -> list[dict]:
+    """The dump's blocks in COMMENT-CREATION ORDER, which is the predicate's contract.
+
+    THE EXTRACTOR IS SHARED AND ITS ORDERING IS NOT THIS PREDICATE'S.
+    `replay_pr_review_blocks.py` sorts by `(pass, created)`, which serves its own
+    consumers. `convergence.assess` forbids exactly that: sequence comes from the
+    order the passes are handed in and NEVER from the `pass:` integer, which is
+    producer-written and which issue #68 measured wrong on the most recently
+    reviewed PR in the repo. A dump whose labels disagree with creation time
+    would hand the predicate a mis-ordered history, making a cumulative later
+    block look like an earlier one that dropped findings.
+
+    RE-SORTED HERE RATHER THAN IN THE EXTRACTOR, deliberately. That dump is read
+    by two other tools, one of which reports a historical figure that must stay
+    reproducible; re-sorting it at the source would move a published number to
+    fix a consumer's contract. The consumer that HAS the contract enforces it.
+
+    It moves no number on today's archive — no PR's labels disagree with its
+    comment order — which is exactly why it has to be code rather than a
+    checked-once observation.
+
+    WHAT THIS DELIBERATELY DOES NOT DO, because the dump cannot support it. The
+    LIVE reader (`review_pr_activities.thread_snapshot`) returns one entry per
+    PASS, taking the last block within a comment, because a quoted block is a
+    restatement of a pass already in the window rather than a pass. This dump
+    has already lost within-comment body order to the `pass:` sort above, so the
+    same collapse here would have to guess which of two same-timestamp blocks is
+    the quote. `report()` warns instead, and the archive has never contained the
+    shape — see `_multi_block_comments`.
+    """
+    return sorted(blocks, key=lambda b: b.get("created") or "")
+
+
+def _multi_block_comments(archive: list[dict]) -> list[tuple[int, str]]:
+    """PRs whose dump carries two blocks under one comment timestamp.
+
+    The one shape under which a replayed denominator would over-count passes.
+    Reported rather than silently corrected: a corrected number nobody was told
+    about is the same defect as a wrong one.
+    """
+    seen: list[tuple[int, str]] = []
+    for pr in archive:
+        stamps = [b.get("created") for b in pr["blocks"] if b.get("created")]
+        seen += [(pr["pr"], s) for s in sorted(set(stamps))
+                 if stamps.count(s) > 1]
+    return seen
+
+
 def replay(archive: list[dict], convergence) -> dict:
     """Assess every consecutive-pass position in the archive.
 
@@ -107,7 +155,7 @@ def replay(archive: list[dict], convergence) -> dict:
     """
     rows: list[dict] = []
     for pr in archive:
-        blocks = pr["blocks"]
+        blocks = _passes(pr["blocks"])
         for i, block in enumerate(blocks):
             history = [
                 tuple((f["id"], f["disposition"] or "") for f in b["findings"])
@@ -137,7 +185,8 @@ def replay(archive: list[dict], convergence) -> dict:
                 "escalated_open": len(assessment.escalated_open),
                 "stalled": assessment.stalled,
             })
-    return {"rows": rows, "archive_prs": len(archive)}
+    return {"rows": rows, "archive_prs": len(archive),
+            "multi_block_comments": _multi_block_comments(archive)}
 
 
 def report(result: dict, convergence) -> None:
@@ -157,18 +206,53 @@ def report(result: dict, convergence) -> None:
     print(f"Blocks with a prior pass   : {len(multi)}")
     print(f"States                     : {dict(states)}")
     print(f"Residual-arm reasons       : {dict(reasons)}")
+    doubled = result.get("multi_block_comments") or []
+    print(f"Comments carrying >1 block : {len(doubled)}"
+          + (f" — {doubled}; each over-counts a pass in the rows below, because "
+             f"this dump cannot say which block was the quote" if doubled else
+             " (so no pass in this replay is a quoted restatement)"))
     print()
 
     # WOULD IT HAVE FIRED, AND WOULD IT HAVE FIRED EARLY? Step 6 asks for three
-    # numbers and this is where they come from. "Early" is defined against the
-    # block's own verdict: a CONVERGED assessment on a block whose verdict was
-    # HOLD is a stop the reviewer did not want.
+    # numbers and this is where they come from.
+    #
+    # EARLY IS REPORTED TWICE, AND ONLY THE SECOND ONE IS EVIDENCE.
+    #
+    # `early_self_reported` scores a fire against the block's OWN `verdict:` —
+    # and that verdict is written by the same actor, in the same block, on the
+    # same pass, as the dispositions the predicate reads. The mode this phase
+    # names as UNMITIGATED is a reviewer marking `fixed` what is not fixed; such
+    # a reviewer emits `MERGE` too, so this counter cannot move for the failure
+    # it is supposed to alarm on. A gate expressed in its units ("60 blocks with
+    # 0 early fires") would be measuring a quantity held at zero by construction.
+    #
+    # `early_observed` is model-independent: the predicate said CONVERGED at
+    # index i, and some LATER block on the same PR carries a non-empty open set.
+    # That is the loop demonstrably not being over, established by a subsequent
+    # pass rather than by the same pass's self-assessment. It can only be scored
+    # where a later block exists, so its denominator is stated separately —
+    # a fire on a PR's last block is unfalsifiable from this corpus and is
+    # counted as such rather than as a pass.
     fired = [r for r in multi if r["state"] == "converged"]
-    early = [r for r in fired if r["verdict"] != "MERGE"]
+    # `!= "MERGE"` deliberately includes an unparseable `verdict: None`: this
+    # figure over-counts on purpose, so a zero under it is the stronger claim.
+    early_self = [r for r in fired if r["verdict"] != "MERGE"]
+    by_pr: dict = {}
+    for r in rows:
+        by_pr.setdefault(r["pr"], []).append(r)
+    def _later_open(r: dict) -> list[dict]:
+        return [s for s in by_pr[r["pr"]] if s["index"] > r["index"] and s["open"]]
+    scorable = [r for r in fired if any(s["index"] > r["index"] for s in by_pr[r["pr"]])]
+    early_obs = [r for r in scorable if _later_open(r)]
     never = {r["pr"] for r in multi} - {r["pr"] for r in fired}
     print(f"Would have FIRED           : {len(fired)} of {len(multi)} assessable blocks")
     print(f"  ... on PRs               : {sorted({r['pr'] for r in fired})}")
-    print(f"Would have fired EARLY     : {len(early)} (CONVERGED against a HOLD verdict)")
+    print(f"Fired EARLY (observed)     : {len(early_obs)} of {len(scorable)} fires that "
+          f"HAVE a later block — a later pass reopened work")
+    print(f"  ... unfalsifiable        : {len(fired) - len(scorable)} fire(s) on a PR's "
+          f"last block; nothing after them to contradict")
+    print(f"Fired EARLY (self-reported): {len(early_self)} — CONVERGED against a "
+          f"non-MERGE verdict the SAME pass wrote. Circular; secondary only")
     print(f"Multi-pass PRs it NEVER fired on: {sorted(never)}")
     print()
 

@@ -252,41 +252,34 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # rate limit as a degraded review, and the computed arm's whole instrument
     # is the state GROUPED BY its reason — the same defect this component
     # recorded at R2 and again at R1a.
+    this_block = helper.this_pass_block(blocks) if blocks is not None else None
     assessment = convergence.assess(
-        helper.convergence_history(blocks[:-1], record) if blocks is not None else (),
+        helper.convergence_history(blocks, record) if blocks is not None else (),
         pass_evaluable=evaluable,
     )
-    asserted = (helper.asserted_converged_in_block(blocks[-1])
-                if blocks else None)
-    computed = assessment.state is convergence.ConvergenceState.CONVERGED
+    asserted = (helper.asserted_converged_in_block(this_block)
+                if this_block is not None else None)
+    agrees = helper.shadow_agreement(assessment, asserted)
     _shared.append_convergence(log_file, {
         "run_id": run_id,
         "pr": task.pr_number,
-        "state": assessment.state.value,
-        "reason": assessment.reason.value if assessment.reason else None,
-        "passes": assessment.passes,
-        "open_ids": list(assessment.open_ids),
-        "opened": list(assessment.opened),
-        "closed": list(assessment.closed),
-        "added_ids": list(assessment.added_ids),
-        "escalated_open": list(assessment.escalated_open),
-        "unknown_dispositions": list(assessment.unknown_dispositions),
-        "stalled": assessment.stalled,
+        # DERIVED from the assessment, never retyped here — a field added to
+        # `ConvergenceAssessment` for a later gating decision must not be able to
+        # land in the return value and in nothing durable.
+        **assessment.as_event(),
         # The INCUMBENT's claim, carried verbatim beside the computed one in the
         # `outcome`/`routed_outcome` shape — the raw observation is never
         # overwritten. `None` means the block carried no `converged:` key, which
         # is distinct from `false` and must stay distinct or an agreement rate
         # counts pre-flag blocks as disagreements.
         "asserted_converged": asserted,
-        # Only meaningful when BOTH have a value and the computation reached a
-        # decision; an indeterminate assessment agrees with nothing.
-        "agrees": (
-            None if asserted is None
-            or assessment.state is convergence.ConvergenceState.INDETERMINATE
-            else asserted == computed
-        ),
+        "agrees": agrees,
     })
-    notes.append(_convergence_note(assessment, asserted, computed))
+    # `extend`, not an `if`: the routing function must contain NO conditional
+    # that reads the convergence signal, and `test_nothing_in_the_tree_routes_on
+    # _the_convergence_signal` enforces exactly that on `run_review`. The
+    # rationing decision belongs to the note builder, which cannot route.
+    notes.extend(_convergence_notes(assessment, asserted, agrees))
 
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
@@ -294,14 +287,35 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     )
 
 
-def _convergence_note(assessment: convergence.ConvergenceAssessment,
-                      asserted: bool | None, computed: bool) -> str:
-    """The operator-facing line, which must not read as a routing decision.
+def _convergence_notes(assessment: convergence.ConvergenceAssessment,
+                       asserted: bool | None, agrees: bool | None) -> list[str]:
+    """The operator-facing line, or NO line when this assessment says nothing.
+
+    Returns a list rather than an optional string so the caller can `extend`
+    unconditionally — `run_review` routes, and the restraint guard holds it to
+    containing no conditional that reads this signal at all.
 
     An operator seeing `converged` in a run's notes will reasonably assume
     something acted on it. Nothing does, so the note says so in its own words
     rather than leaving the reader to infer it from the absence of an effect.
+
+    EMITTED ONLY WHEN THERE IS SOMETHING TO READ, and the RUN-LOG EVENT is
+    unconditional regardless — the denominator lives there, not here. Every
+    dispatch used to print this line, and the archive's most common shape by far
+    is pass 1 (12 of 25 blocks), whose line reads *"indeterminate
+    (no_prior_pass) over 1 pass(es); 0 open"* and carries no information. Burying
+    the four cases that DO carry information — a fire, a stall, a converged
+    assessment with escalations outstanding elsewhere, and a divergence from the
+    incumbent flag — in a line that prints every time is how the first real one
+    gets skimmed past. This phase's headline is *0 divergences*; the mechanism
+    that would report the first one has to be readable.
     """
+    informative = (assessment.state is convergence.ConvergenceState.CONVERGED
+                   or assessment.stalled or assessment.escalated_open
+                   or assessment.unknown_dispositions or agrees is False)
+    if not informative:
+        return []
+
     line = f"Computed convergence: {assessment.state.value}"
     if assessment.reason is not None:
         line += f" ({assessment.reason.value})"
@@ -312,18 +326,27 @@ def _convergence_note(assessment: convergence.ConvergenceAssessment,
         line += (f"; {len(assessment.escalated_open)} escalated finding(s) counted "
                  f"CLOSED for this loop and outstanding elsewhere: "
                  + ", ".join(assessment.escalated_open))
-    if asserted is not None and assessment.state is not \
-            convergence.ConvergenceState.INDETERMINATE and asserted != computed:
-        line += (f". DISAGREEMENT with the incumbent flag: the block asserts "
-                 f"converged={str(asserted).lower()}, the computation says "
-                 f"{str(computed).lower()}")
+    if assessment.unknown_dispositions:
+        line += ("; unrecognised disposition(s) counted OPEN: "
+                 + ", ".join(assessment.unknown_dispositions))
+    if agrees is False:
+        # NOT called a disagreement, because the two rules answer different
+        # questions and a difference is a definitional one at least as often as
+        # it is a defect. `helper.shadow_agreement` carries the argument; the
+        # word here has to match it or an operator goes looking for a bug.
+        line += (f". It DIFFERS from the incumbent flag: the block asserts "
+                 f"converged={str(asserted).lower()}. The two answer different "
+                 f"questions — the flag is a single-pass severity heuristic "
+                 f"(are this pass's findings all preventive?), the computation "
+                 f"is set emptiness across passes (is anything still open?) — so "
+                 f"record this, do not act on it")
     line += (". THIS SIGNAL ROUTES NOTHING — the loop-back bound "
              f"(MAX_LOOPS={routing.MAX_LOOPS}) is still the only stopping authority.")
-    return line
+    return [line]
 
 
-# A BOUNDED RETRY, not a poll and not a policy. Both reads below are `gh pr
-# view --json comments` — READ-ONLY and idempotent — so re-issuing one is not a
+# A BOUNDED RETRY, not a poll and not a policy. The read below is `gh pr view
+# --json comments` — READ-ONLY and idempotent — so re-issuing it is not a
 # routing decision and changes neither the success path nor the terminal
 # behaviour on a persistent failure. Two attempts of backoff cover the shape
 # that actually occurs here (a 5xx, a secondary rate limit, a dropped
@@ -332,21 +355,23 @@ _THREAD_READ_BACKOFF_SECONDS = (2.0, 8.0)
 
 
 def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
-    """The two thread reads the invariant needs, retried on a transient failure.
+    """The thread observation the invariant and the predicate share, retried once.
 
     IT RETURNS THE WHOLE BLOCK WINDOW, not just the latest one, because two
-    consumers now read this observation: the invariant compares the LAST block
+    consumers read this observation: the invariant compares the LAST block
     against the typed record, and Phase 5's convergence predicate needs every
     prior pass — a pairwise comparison cannot see an oscillating finding set by
-    construction. Serving both from one reply is what keeps them one
-    observation; a second `gh` call for the window would reintroduce exactly the
-    skew this function's single retry exists to prevent.
+    construction.
 
-    ONE RETRY AROUND BOTH, not one each: they are two `gh` calls answering one
-    question — "what does the thread look like now" — and retrying them
-    independently could pair a count read before this pass's comment with a
-    block read after it, which is the exact skew the `posted > prior_pass` delta
-    exists to detect. Re-reading both together keeps them one observation.
+    ONE `gh` READ, NOT A RETRY AROUND TWO. This used to call
+    `count_prior_passes` and `pr_review_blocks` in sequence, and retrying the
+    pair together covers a FAILURE while doing nothing about SKEW: a count read
+    taken before this pass's comment lands, paired with a window read taken
+    after it, is exactly the mismatch the `posted > prior_pass` delta exists to
+    detect, and it would kill a completed review that did nothing wrong.
+    `act.thread_snapshot` derives both from a single reply, which is the only
+    thing that closes it — and it drops a round trip from the path whose named
+    failure mode is rate limiting.
 
     `RuntimeError` IS THE WHOLE FAILURE SURFACE, and that is a property of
     `assistant_activities.gh_json` rather than an assumption made here. For one
@@ -360,15 +385,13 @@ def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, li
     """
     for pause in _THREAD_READ_BACKOFF_SECONDS:
         try:
-            return act.count_prior_passes(pr_number, repo_root), \
-                act.pr_review_blocks(pr_number, repo_root)
+            return act.thread_snapshot(pr_number, repo_root)
         except RuntimeError:
             time.sleep(pause)
     # The last attempt is deliberately OUTSIDE the loop and NOT caught, so a
     # persistent failure raises the real `gh` error with its real message rather
     # than a swallowed one.
-    return act.count_prior_passes(pr_number, repo_root), \
-        act.pr_review_blocks(pr_number, repo_root)
+    return act.thread_snapshot(pr_number, repo_root)
 
 
 def _thread_unreadable_note(pr_number: str, record: exit_record.ExitRecord,

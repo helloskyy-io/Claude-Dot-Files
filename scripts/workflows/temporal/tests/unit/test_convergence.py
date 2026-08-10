@@ -403,26 +403,114 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     would be legislating from a measurement that does not support it, which the
     phase's own completion requirement forbids.
 
-    The check is on the CLASS, not on today's call sites: any `if`/`while` in
-    `modules/` whose condition mentions a convergence state fails this. A list
-    of the files that are clean today would retire itself the moment it passed.
+    The check is on the CLASS, not on today's call sites: every conditional in
+    `modules/` whose test reads the convergence vocabulary is enumerated, and
+    the enumeration must equal a list of functions that provably cannot route.
+    A list of the FILES that are clean today would retire itself the moment it
+    passed; a list of the reporting-only FUNCTIONS does not — it grows only by a
+    deliberate edit, which is the human gate.
+
+    IT IS AN AST WALK BECAUSE THE LINE SCAN IT REPLACES WAS A FORMATTING
+    ASSERTION, and this PR's own code walked around it three ways. That scan
+    took lines whose STRIPPED TEXT began `if `/`while `/`elif ` and mentioned
+    `ConvergenceState`. It could not see:
+
+      1. a condition wrapped across lines — the mention lands on a continuation
+         line that starts with neither keyword. Ruff or black produces this
+         shape from any long condition, so the most likely future violation was
+         the one the guard was blind to;
+      2. a conditional EXPRESSION (`x if state is … else y`), which begins with
+         neither keyword on any line;
+      3. a hoisted local (`fired = state is CONVERGED` … `if fired:`), which
+         hides the mention behind a name forever.
+
+    All three existed in `review_pr_workflow` while the scan reported zero
+    branches, and the phase doc claimed the check covered *"any `if`/`while`/
+    `elif` whose condition mentions"* them. The mutation that "turned it red"
+    had been shaped to the check rather than to the property.
+
+    WHAT IT COVERS: `if`/`elif`/`while`/`assert`, conditional expressions and
+    comprehension filters, whose test subtree names the convergence module, its
+    types, or a local bound within the same function from an expression that
+    does. WHAT IT DOES NOT: a value carried across a function boundary as a
+    plain `bool`. `_convergence_notes`' `agrees` parameter is exactly that, and
+    it is named here rather than left for a reader to discover — inter-procedural
+    taint is a bigger instrument than this guard is worth, and the boundary is
+    only safe while the reporting-only list below stays short.
     """
+    VOCABULARY = {"convergence", "ConvergenceState", "ConvergenceAssessment",
+                  "IndeterminateReason", "assess"}
+    # Functions whose conditionals read the signal to decide what to SAY or
+    # RECORD. Neither can route: one returns a bool-or-None, the other returns
+    # lines of text. `run_review` — the function that actually routes — is
+    # deliberately absent, and that is the property this list protects.
+    REPORTING_ONLY = {
+        ("review_pr/review_pr_helper.py", "shadow_agreement"),
+        ("review_pr/review_pr_workflow.py", "_convergence_notes"),
+    }
+
+    def _mentions(node: ast.AST, tainted: set[str]) -> bool:
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Name) and (sub.id in VOCABULARY
+                                              or sub.id in tainted):
+                return True
+            if isinstance(sub, ast.Attribute) and sub.attr in VOCABULARY:
+                return True
+        return False
+
     modules = Path(er.__file__).resolve().parent
-    branches: list[str] = []
-    for path in modules.rglob("*.py"):
+    found: set[tuple[str, str]] = set()
+    sites: list[str] = []
+    for path in sorted(modules.rglob("*.py")):
         if path.name == "convergence.py" or "tests" in path.parts:
             continue
-        for n, line in enumerate(path.read_text().splitlines(), 1):
-            stripped = line.strip()
-            if not stripped.startswith(("if ", "while ", "elif ")):
+        rel = str(path.relative_to(modules))
+        tree = ast.parse(path.read_text())
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            if "ConvergenceState" in stripped or "convergence.assess" in stripped:
-                branches.append(f"{path.relative_to(modules)}:{n}: {stripped}")
-    assert not branches, (
-        "something now BRANCHES on the computed convergence signal: "
-        + "; ".join(branches)
+            tainted: set[str] = {
+                a.arg for a in fn.args.args + fn.args.kwonlyargs
+                if a.annotation is not None and _mentions(a.annotation, set())
+            }
+            # Two sweeps: an assignment can taint a name used by a conditional
+            # written above it in source order (a loop body, a nested def).
+            for _ in range(2):
+                for node in ast.walk(fn):
+                    if isinstance(node, (ast.Assign, ast.AnnAssign)) \
+                            and node.value is not None \
+                            and _mentions(node.value, tainted):
+                        targets = (node.targets if isinstance(node, ast.Assign)
+                                   else [node.target])
+                        tainted |= {t.id for t in targets if isinstance(t, ast.Name)}
+            for node in ast.walk(fn):
+                tests = []
+                if isinstance(node, (ast.If, ast.While, ast.IfExp)):
+                    tests = [node.test]
+                elif isinstance(node, ast.Assert):
+                    tests = [node.test]
+                elif isinstance(node, ast.comprehension):
+                    tests = list(node.ifs)
+                for test in tests:
+                    if _mentions(test, tainted):
+                        found.add((rel, fn.name))
+                        sites.append(f"{rel}:{node.lineno} in {fn.name}()")
+
+    assert found <= REPORTING_ONLY, (
+        "something now BRANCHES on the computed convergence signal outside the "
+        "reporting-only functions: "
+        + "; ".join(sorted(s for s in sites
+                           if (s.split(":")[0], s.split(" in ")[1][:-2])
+                           not in REPORTING_ONLY))
         + ". Phase 5 records it and gates nothing; the loop-back bound is still "
-          "the only stopping authority until the measurement supports replacing it."
+          "the only stopping authority until the measurement supports replacing "
+          "it. If this branch genuinely only decides what to REPORT, add its "
+          "function to REPORTING_ONLY with the reason — that edit is the gate."
+    )
+    assert found == REPORTING_ONLY, (
+        f"the reporting-only list names functions that no longer branch on the "
+        f"signal: {sorted(REPORTING_ONLY - found)}. A stale allowlist is a "
+        f"widened gate — shrink it to what is actually there."
     )
     assert routing.MAX_LOOPS == 1, (
         "the loop-back bound moved. It stays in force until the convergence "
@@ -435,6 +523,12 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
 def _log_events(tmp_path: Path) -> list[dict]:
     return [json.loads(line) for line in
             (tmp_path / "run.jsonl").read_text().splitlines() if line.strip()]
+
+
+def _window(monkeypatch, blocks: list[str]) -> None:
+    """Give the workflow a multi-pass thread: one `gh` read, count and window."""
+    from modules.assistant.review_pr import review_pr_activities as act
+    monkeypatch.setattr(act, "thread_snapshot", lambda *a, **k: (len(blocks), blocks))
 
 
 def test_the_convergence_event_is_written_and_carries_its_evidence(
@@ -531,7 +625,7 @@ def test_an_exhausted_thread_read_reports_history_unreadable_not_a_bad_pass(
     def _boom(*a, **k):
         raise RuntimeError("gh pr view failed: API rate limit exceeded")
 
-    monkeypatch.setattr(act, "pr_review_blocks", _boom)
+    monkeypatch.setattr(act, "thread_snapshot", _boom)
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
     events = [e for e in _log_events(tmp_path) if e.get("type") == "convergence"]
@@ -547,8 +641,15 @@ def test_the_incumbent_flag_is_shadowed_and_a_disagreement_is_reported(
     """E7's ruling: `converged` is a label the computation should reproduce.
 
     The block here asserts `converged: true` on a pass with an open finding, so
-    the computation must disagree — and must SAY so, in the event and in the
+    the computation must differ — and must SAY so, in the event and in the
     operator note. A shadow that only ever agreed would record nothing.
+
+    THE WORD IS "DIFFERS", NOT "DISAGREEMENT", and the test pins that rather
+    than treating it as phrasing. The two rules answer different questions — the
+    flag is a single-pass severity heuristic, the computation is set emptiness
+    across passes — so a difference is a definitional one at least as often as
+    it is a defect, and an operator told "DISAGREEMENT" goes looking for a bug
+    that may not exist.
     """
     from test_exit_record import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
@@ -563,11 +664,7 @@ def test_the_incumbent_flag_is_shadowed_and_a_disagreement_is_reported(
                          prior_blocks=1)
     wf = fake.install(monkeypatch, tmp_path)
     # The window: the prior pass's block plus this pass's, in comment order.
-    monkeypatch.setattr(
-        __import__("modules.assistant.review_pr.review_pr_activities",
-                   fromlist=["x"]),
-        "pr_review_blocks", lambda *a, **k: [prior, now],
-    )
+    _window(monkeypatch, [prior, now])
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -575,7 +672,12 @@ def test_the_incumbent_flag_is_shadowed_and_a_disagreement_is_reported(
     assert event["asserted_converged"] is True
     assert event["state"] == "not_converged"
     assert event["agrees"] is False
-    assert any("DISAGREEMENT with the incumbent flag" in n for n in result.notes)
+    differs = [n for n in result.notes if "DIFFERS from the incumbent flag" in n]
+    assert differs, f"the shadow difference was not surfaced: {result.notes}"
+    assert "answer different questions" in differs[0], (
+        "the note names a difference without saying the two rules ask different "
+        "things, which is what sends an operator hunting a defect"
+    )
 
 
 def test_the_operator_note_says_the_signal_routes_nothing(
@@ -589,14 +691,51 @@ def test_the_operator_note_says_the_signal_routes_nothing(
     from test_exit_record import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
-    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    prior = ("pr_review:\n  converged: false\n  findings:\n"
+             "    - id: a-stable-slug\n      disposition: hold\n")
+    now = ("pr_review:\n  converged: true\n  findings:\n"
+           "    - id: a-stable-slug\n      disposition: fixed\n")
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
+                         block=now, prior_blocks=1)
     wf = fake.install(monkeypatch, tmp_path)
+    _window(monkeypatch, [prior, now])
+
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
     notes = [n for n in result.notes if n.startswith("Computed convergence")]
     assert len(notes) == 1, f"the signal was not surfaced: {result.notes}"
+    assert "converged" in notes[0]
     assert "ROUTES NOTHING" in notes[0]
     assert f"MAX_LOOPS={routing.MAX_LOOPS}" in notes[0]
+
+
+def test_an_assessment_with_NOTHING_TO_REPORT_emits_no_note_but_still_an_event(
+        monkeypatch, tmp_path) -> None:
+    """The denominator lives in the log; the note is for a human, so it is rationed.
+
+    Pass 1 is the archive's most common block by a wide margin (12 of 25), and
+    its note reads "indeterminate (no_prior_pass) over 1 pass(es); 0 open" —
+    nothing an operator can act on, printed on every dispatch. Burying the four
+    informative cases in that is how the first real one gets skimmed past, and
+    this phase's headline is that the informative case has not happened yet.
+
+    The control is that the EVENT is still written: rationing the note must not
+    ration the measurement, or the rate this phase gates on stops accruing.
+    """
+    from test_exit_record import _FakeWorkflow, _record
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
+    wf = fake.install(monkeypatch, tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    assert not [n for n in result.notes if n.startswith("Computed convergence")], (
+        "a no_prior_pass assessment with nothing open printed an operator note"
+    )
+    events = [e for e in _log_events(tmp_path) if e.get("type") == "convergence"]
+    assert len(events) == 1 and events[0]["reason"] == "no_prior_pass", (
+        "the note was rationed and the measurement went with it"
+    )
 
 
 def test_the_history_puts_this_passs_TYPED_findings_last(monkeypatch) -> None:
@@ -608,13 +747,43 @@ def test_the_history_puts_this_passs_TYPED_findings_last(monkeypatch) -> None:
     perfectly conforming, perfectly stalled loop.
     """
     prior = ("pr_review:\n  findings:\n    - id: a\n      disposition: hold\n")
+    mine = ("pr_review:\n  findings:\n    - id: a\n      disposition: fixed\n")
     record = er.ExitRecord(
         er.RoutedOutcome.MERGE, outcome=er.Outcome.MERGE,
         findings=({"id": "a", "disposition": "fixed"},),
     )
-    history = helper.convergence_history([prior], record)
-    assert history == ((("a", "hold"),), (("a", "fixed"),))
+    history = helper.convergence_history([prior, mine], record)
+    assert history == ((("a", "hold"),), (("a", "fixed"),)), (
+        "the window's last entry is THIS pass's block and the typed record "
+        "replaces it; keeping both puts one pass in the history twice"
+    )
     assert cv.assess(history, pass_evaluable=True).state is State.CONVERGED
+
+
+def test_the_history_keeps_MULTIPLE_prior_passes_in_ORDER(monkeypatch) -> None:
+    """Order is the predicate's only source of consecutiveness, so it is asserted.
+
+    Every other test here hands in at most ONE prior block, and against a single
+    prior any ordering is the same ordering — reversing the priors survived the
+    whole suite. `pass:` cannot supply the sequence (issue #68 measured it wrong
+    on the most recently reviewed PR), so if this list is not oldest-first the
+    predicate compares against the wrong neighbour and `_ever_reopened` reads a
+    closure as a re-opening.
+    """
+    blocks = [
+        "pr_review:\n  findings:\n    - id: a\n      disposition: hold\n",
+        "pr_review:\n  findings:\n    - id: a\n      disposition: fixed\n",
+        "pr_review:\n  findings:\n    - id: a\n      disposition: hold\n",
+        "pr_review:\n  findings:\n    - id: a\n      disposition: fixed\n",
+    ]
+    record = er.ExitRecord(
+        er.RoutedOutcome.MERGE, outcome=er.Outcome.MERGE,
+        findings=({"id": "a", "disposition": "fixed"},),
+    )
+    history = helper.convergence_history(blocks, record)
+    assert history == ((("a", "hold"),), (("a", "fixed"),), (("a", "hold"),),
+                       (("a", "fixed"),)), "the prior passes are not oldest-first"
+    assert cv.assess(history, pass_evaluable=True).reason is Reason.OSCILLATING_FINDINGS
 
 
 # --- the window reader -------------------------------------------------------
@@ -636,12 +805,18 @@ def test_pr_review_blocks_returns_EVERY_block_in_comment_order(
         "Quoting the prior block:\n```yaml\npr_review:\n  findings:\n    - id: one\n```\n"
         "and mine:\n```yaml\npr_review:\n  findings:\n    - id: two\n```",
     ])
-    blocks = act.pr_review_blocks("66", tmp_path)
+    count, blocks = act.thread_snapshot("66", tmp_path)
     assert [sorted(helper.finding_ids_in_block(b)) for b in blocks] == \
-        [["one"], ["one"], ["two"]], (
-            "the window is not every block in comment order — a quoting comment "
-            "carries two blocks and both are part of the history"
+        [["one"], ["two"]], (
+            "the window is not one entry per PASS in comment order — a quoting "
+            "comment carries two blocks and only the last is that pass's; "
+            "counting the quote injects a phantom pass that duplicates an "
+            "earlier one"
         )
+    assert count == len(blocks) == 2, (
+        "the count and the window disagree about what a pass is, which is the "
+        "skew deriving both from one reply exists to make impossible"
+    )
 
 
 def test_latest_pr_review_block_is_the_LAST_of_the_window_not_a_second_read(
@@ -677,3 +852,55 @@ def test_an_absent_converged_key_reads_as_NONE_and_not_as_false() -> None:
         "pr_review:\n  converged: false\n") is False
     assert helper.asserted_converged_in_block(
         "pr_review:\n  converged: true\n") is True
+
+
+def test_the_event_payload_is_DERIVED_from_the_dataclass_not_retyped() -> None:
+    """A field added for a later gating decision must reach the durable record.
+
+    The payload was hand-copied field by field at the call site with no gate, so
+    a new field on `ConvergenceAssessment` would have landed in the return value
+    and in nothing durable — *a metric defined over a field nothing writes is a
+    plan, not an instrument*, which is the sentence the dataclass exists under.
+    Asserted as an exact key set in both directions: every field is present, and
+    nothing appears that is not a field or the one named derived value.
+    """
+    from dataclasses import fields as dc_fields
+
+    assessment = cv.assess(
+        [_pass(a="hold"), _pass(a="escalated", b="weird")], pass_evaluable=True,
+    )
+    event = assessment.as_event()
+    assert set(event) == {f.name for f in dc_fields(assessment)} | {"stalled"}, (
+        "the event and the dataclass disagree about what an assessment carries"
+    )
+    # JSON-serialisable, because it goes to a JSONL log: enums as their values,
+    # tuples as lists. A raw enum here serialises as a repr and breaks the join.
+    assert event["state"] == "not_converged" and event["reason"] is None
+    assert event["open_ids"] == ["b"] and isinstance(event["escalated_open"], list)
+    json.dumps(event)
+
+
+def test_an_INDETERMINATE_assessment_agrees_with_NOTHING() -> None:
+    """Pass 1 is the archive's most common block, and it made no decision.
+
+    The comparability rule had no test at all: dropping the indeterminate arm
+    from it left every suite green while recording `agrees: true` for any pass-1
+    block whose `converged:` happened to be `false` — which is most of them. A
+    rate built on that counts a declined decision as a correct one.
+    """
+    pass_one = cv.assess([_pass(a="fixed")], pass_evaluable=True)
+    assert pass_one.reason is Reason.NO_PRIOR_PASS
+    assert helper.shadow_agreement(pass_one, False) is None, (
+        "an assessment that declined to decide was scored as agreeing with the "
+        "incumbent flag"
+    )
+    assert helper.shadow_agreement(pass_one, True) is None
+
+    # Controls: it is the INDETERMINACY that makes it incomparable, not the
+    # inputs — the same shapes with a decided state do compare.
+    decided = cv.assess([_pass(a="hold"), _pass(a="fixed")], pass_evaluable=True)
+    assert decided.state is State.CONVERGED
+    assert helper.shadow_agreement(decided, True) is True
+    assert helper.shadow_agreement(decided, False) is False
+    # ... and an absent flag stays a third value, never folded into `false`.
+    assert helper.shadow_agreement(decided, None) is None

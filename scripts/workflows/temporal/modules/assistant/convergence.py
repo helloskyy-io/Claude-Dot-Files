@@ -50,7 +50,7 @@ from the order the passes are handed in, never from that integer.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
 
 __all__ = [
@@ -198,6 +198,32 @@ class ConvergenceAssessment:
                 f"state={self.state.value} carries reason={self.reason.value}; a "
                 f"reason belongs only to the computed could-not-check arm"
             )
+
+    def as_event(self) -> dict:
+        """This assessment as JSON-serialisable run-log fields.
+
+        DERIVED FROM THE DATACLASS, NOT RETYPED AT THE CALL SITE. The payload was
+        hand-copied field by field in `review_pr_workflow`, with no gate — so a
+        field added here for a future gating decision would have landed in the
+        return value and in nothing durable, and no test would have gone red.
+        That is precisely the failure this dataclass's own docstring names one
+        paragraph up: *a metric defined over a field nothing writes is a plan,
+        not an instrument*. Deriving it means adding a field is enough.
+
+        `stalled` is included explicitly because it is a property rather than a
+        field, and it is the one derived value an operator reads directly.
+
+        Stdlib only, no I/O — the module's dependency-free posture is what lets
+        the replay tool load it by path, and `dataclasses` is already imported.
+        """
+        payload = {
+            f.name: (value.value if isinstance(value, Enum) else
+                     list(value) if isinstance(value, tuple) else value)
+            for f in fields(self)
+            for value in (getattr(self, f.name),)
+        }
+        payload["stalled"] = self.stalled
+        return payload
 
     @property
     def stalled(self) -> bool:
