@@ -576,3 +576,65 @@ def test_the_history_puts_this_passs_TYPED_findings_last(monkeypatch) -> None:
     history = helper.convergence_history([prior], record)
     assert history == ((("a", "hold"),), (("a", "fixed"),))
     assert cv.assess(history, pass_evaluable=True).state is State.CONVERGED
+
+
+# --- the window reader -------------------------------------------------------
+
+def test_pr_review_blocks_returns_EVERY_block_in_comment_order(
+        monkeypatch, tmp_path) -> None:
+    """The window the oscillation check reads, asserted as a sequence.
+
+    A reader that returned a set, or the last two, or deduplicated, would leave
+    every ordered test above passing on synthetic input while the live predicate
+    saw a different history. Order is the only thing that makes "consecutive"
+    meaningful here — `pass:` cannot supply it (issue #68) — so it is asserted
+    positionally rather than by membership.
+    """
+    from test_exit_record import _with_comments
+
+    act = _with_comments(monkeypatch, [
+        "```yaml\npr_review:\n  findings:\n    - id: one\n```",
+        "Quoting the prior block:\n```yaml\npr_review:\n  findings:\n    - id: one\n```\n"
+        "and mine:\n```yaml\npr_review:\n  findings:\n    - id: two\n```",
+    ])
+    blocks = act.pr_review_blocks("66", tmp_path)
+    assert [sorted(helper.finding_ids_in_block(b)) for b in blocks] == \
+        [["one"], ["one"], ["two"]], (
+            "the window is not every block in comment order — a quoting comment "
+            "carries two blocks and both are part of the history"
+        )
+
+
+def test_latest_pr_review_block_is_the_LAST_of_the_window_not_a_second_read(
+        monkeypatch, tmp_path) -> None:
+    """One extraction, two consumers — asserted so a tidying edit cannot re-split it.
+
+    The address was typed twice for one commit when the window reader was added.
+    `exit-protocol.md` §6 covers the record's ADDRESS as well as its schema, and
+    the measured instance of that defect (issue #68) is this exact marker, so
+    the delegation is a property rather than an implementation choice.
+    """
+    from test_exit_record import _with_comments
+
+    act = _with_comments(monkeypatch, [
+        "```yaml\npr_review:\n  findings:\n    - id: one\n```",
+        "```yaml\npr_review:\n  findings:\n    - id: two\n```",
+    ])
+    assert act.latest_pr_review_block("66", tmp_path) == \
+        act.pr_review_blocks("66", tmp_path)[-1]
+
+
+def test_an_absent_converged_key_reads_as_NONE_and_not_as_false() -> None:
+    """`None` is a third value on the live path too, not only in the replay tool.
+
+    Absence dates a block to before the flag shipped. Folding it into `false`
+    would make the shadow score every pre-flag block as a DISAGREEMENT with
+    whatever the computation said — an agreement rate that is wrong in the
+    direction of alarm, on a signal whose whole purpose is to be trusted or not.
+    The archive still contains such blocks, so this is a live input shape.
+    """
+    assert helper.asserted_converged_in_block("pr_review:\n  pass: 1\n") is None
+    assert helper.asserted_converged_in_block(
+        "pr_review:\n  converged: false\n") is False
+    assert helper.asserted_converged_in_block(
+        "pr_review:\n  converged: true\n") is True
