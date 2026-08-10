@@ -180,8 +180,25 @@ max_turns:
 #   systemctl --user set-property claude-workflows.slice MemoryMax=<value>
 resource_limits:
   slice: claude-workflows.slice   # all children share it, so a future cap binds the TOTAL
-  MemoryHigh: 4G                  # THROTTLES and records the event — the early warning
+  MemoryHigh: 7G                  # THROTTLES and records the event — the early warning
                                   #   that did not exist on 2026-08-10. Not a kill.
+                                  #   DELIBERATELY CLOSE TO MemoryMax. A WIDE gap between High
+                                  #   and Max is a livelock zone: the kernel throttles a runaway
+                                  #   inside the band instead of letting it reach Max and die,
+                                  #   so it grinds forever. Measured 2026-08-10 — under a 24M
+                                  #   Max, High=16M ground past a 25s timeout (exit 124) while
+                                  #   High=22M and no-High both died promptly (exit 137). The
+                                  #   first version of this file shipped 4G under 8G, a band
+                                  #   WIDER than the one that ground, so the cap manufactured
+                                  #   the failure it was written to prevent.
+  MemorySwapMax: 0                # WITHOUT THIS THE CAP IS DECORATIVE. Verified by mutation
+                                  #   on 2026-08-10: a 400 MB allocation under a 24 MB MemoryMax
+                                  #   SUCCEEDED (exit 0) -- the cgroup bounds RAM and silently
+                                  #   spills the rest to swap, so the workload THRASHES instead
+                                  #   of failing. With this set it died correctly, exit 137.
+                                  #   A cap without swap bounding reproduces the livelock in
+                                  #   miniature, which is the exact thing being guarded against.
+                                  #   Credit: PM3 mutation-tested this and sent the correction.
   MemoryMax: 8G                   # hard ceiling. A child that hits this DIES, named and
                                   #   logged, instead of wedging the host silently.
                                   #   Reference: a healthy full suite peaks near 445 MiB.

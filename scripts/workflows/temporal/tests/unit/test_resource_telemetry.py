@@ -162,6 +162,48 @@ def test_wrap_omits_flags_that_are_not_configured() -> None:
     assert "--slice" not in argv
 
 
+# --- 3b. The cap KILLS. Presence of a flag is not enforcement -----------------
+
+@pytest.mark.skipif(not rt.scope_available()[0], reason="no user scope available here")
+def test_the_configured_cap_actually_kills_an_overrunning_child() -> None:
+    """MUTATION TEST, because a flag in argv is not a cap in force.
+
+    `MemoryMax` ALONE IS DECORATIVE: cgroup v2 bounds RAM and silently spills
+    the remainder to swap, so an overrunning child THRASHES instead of dying —
+    reproducing in miniature the exact livelock this whole mechanism exists to
+    prevent. Verified 2026-08-10: 400 MB under a 24 MB MemoryMax returned exit
+    0 and printed its success; adding MemorySwapMax=0 produced exit 137.
+
+    So this asserts the EFFECT, not the flag. Testing that the argv contains
+    `MemoryMax=8G` would have passed against a cap that stops nothing, which is
+    the same one-sided mistake that let the migration race ship.
+    """
+    limits = _limits()
+    assert limits.get("MemorySwapMax") == 0, (
+        "MemorySwapMax must be 0 or the cap only throttles into swap"
+    )
+    # The band is scaled to the SHIPPED ratio (7G/8G = 87.5%), not invented.
+    # A wide band does not kill — it throttles the runaway inside the band and
+    # it grinds forever, which is the livelock in miniature. Measured: under a
+    # 24M Max, High=16M (67%) ran past a 25s timeout; High=21M died at once.
+    assert int(str(limits["MemoryHigh"]).rstrip("G")) / int(str(limits["MemoryMax"]).rstrip("G")) >= 0.8, (
+        f'MemoryHigh {limits["MemoryHigh"]} is far below MemoryMax {limits["MemoryMax"]} — '
+        "that gap is a throttle band a runaway can grind in indefinitely instead of dying"
+    )
+    tight = {**limits, "MemoryMax": "24M", "MemoryHigh": "21M"}
+    argv = rt.wrap(
+        ["python3", "-c", "x = bytearray(400 * 1024 * 1024); "
+                          "x[::4096] = b'\\x01' * len(x[::4096]); print('ALLOCATED')"],
+        unit=f"claude-captest-{id(tight)}.scope", limits=tight)
+    result = subprocess.run(argv, capture_output=True, text=True, timeout=60)
+
+    assert result.returncode != 0, (
+        f"a 400 MB child survived a 24 MB cap (exit {result.returncode}) — the cap "
+        f"is decorative. stdout={result.stdout!r}"
+    )
+    assert "ALLOCATED" not in result.stdout, "the child completed its allocation despite the cap"
+
+
 # --- 4. Log-derived fields survive the run that matters most ------------------
 
 def test_tool_result_bytes_and_subagents_are_counted(tmp_path: Path) -> None:

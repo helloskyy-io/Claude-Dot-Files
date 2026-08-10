@@ -220,8 +220,14 @@ def wrap(argv: list[str], *, unit: str, limits: dict) -> list[str]:
     args = ["systemd-run", "--user", "--scope", "-q", "--unit", unit]
     if slice_name := limits.get("slice"):
         args += ["--slice", slice_name]
-    for key in ("MemoryHigh", "MemoryMax", "TasksMax"):
-        if (value := limits.get(key)) is not None:
+    # EVERY systemd property in the map, not a hardcoded list. A fixed tuple
+    # silently drops a limit somebody added to config and believes is in force
+    # -- and a cap believed-in but absent is worse than none, because nobody
+    # looks for it. `MemorySwapMax` was exactly that: added to config and
+    # dropped here, it would have left the cap decorative while reading as set.
+    # Keys are systemd property names (CamelCase); ours are lowercase.
+    for key, value in limits.items():
+        if key[:1].isupper() and value is not None:
             args += ["-p", f"{key}={value}"]
     return [*args, "--", *argv]
 
