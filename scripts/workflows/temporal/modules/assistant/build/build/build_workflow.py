@@ -30,7 +30,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import wait_for_ci
+from ..build_activities import BLOCKING_CHECKS, CiVerdict, ci_verdict, wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ... import assistant_activities as act
 from ...review_pr import review_pr_workflow as review_pr
@@ -96,7 +96,44 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         correction_pass=correction, ci_unsettled=not ci_settled, verbose=task.verbose,
     )
 
+    # --- THE GATE: the parent reads the verdict, so MERGE is unreachable on red
+    # A red suite must not reach `review-pr`, and the reason it lives HERE and
+    # not in that prompt is that a prompt is a convention an agent can reason
+    # past — "unrelated failure, proceeding" is exactly the shape being guarded
+    # against. In the parent, the agent never gets a verdict to give.
+    #
+    # HOLD, never `exit 1`: killing the run discards a diff two passes just
+    # built. HOLD keeps the work, hands the failure back in the format the
+    # pipeline already consumes, and lets the existing one-loop-back do its job.
+    #
+    # Proposed by the MDC side 2026-08-10 and it closes a hole WE opened the day
+    # before by removing branch protection — `suite` runs on every PR here and
+    # nothing consumed its verdict, so `gh pr merge` succeeded on red.
     wait_for_ci(pr, repo=task.repo_target)
+    verdict_state, failed = ci_verdict(pr, repo=task.repo_target)
+
+    if verdict_state is CiVerdict.RED:
+        notes.append(
+            f"CI GATE: HOLD — blocking checks failed: {', '.join(failed)}. "
+            "review-pr was NOT dispatched; a red tree cannot produce a MERGE verdict. "
+            "Fix the checks and redispatch; the diff is intact on the branch."
+        )
+        return Verdict.HOLD_REDISPATCH
+
+    if verdict_state is CiVerdict.NO_CHECKS:
+        # NOT green, and named rather than silent. A repo with no workflows, or
+        # a PR whose workflows were all path-filtered out, reports nothing —
+        # and "no checks reported" reading as pass is how a filtered gate would
+        # get here. The run says so out loud; it does not stop on it, because
+        # a repo may legitimately have none.
+        notes.append(
+            f"CI GATE: SKIPPED — no blocking check ({', '.join(BLOCKING_CHECKS)}) "
+            f"reported on PR {pr}"
+            + (f" in {task.repo_target}" if task.repo_target else "")
+            + ". This is NOT a pass. Either the repo has no such gate, or its "
+            "workflows were filtered out of this change."
+        )
+
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=task.repo_target, verbose=task.verbose),
         repo_root,

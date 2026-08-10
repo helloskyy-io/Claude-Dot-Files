@@ -13,9 +13,11 @@ policy silently re-run a child that already opened a PR.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import time
+from enum import Enum
 from pathlib import Path
 
 from .build_inputs import ChildResult
@@ -53,6 +55,68 @@ def run_child(script: Path, args: list[str], *, stream: bool = True) -> ChildRes
             sys.stdout.flush()
 
     return ChildResult(exit_code=proc.wait(), output="".join(captured))
+
+
+# The checks this repo OWNS and has ruled merge-blocking. Everything else that
+# runs on a PR is advisory, and §"what is consequently not covered" is stated
+# with it rather than left implicit.
+#
+# WHY A NAMED SET AND NOT "ALL". Four checks run here and only one is ours.
+# `suite` is our test runner. `CodeQL` and `Analyze (…)` are GitHub default
+# setup — we did not configure them, cannot fix them, and CodeQL produced a
+# 12-failure burst on 2026-08-06 with no cause on our side. Gating on them
+# would let the scanner breaking halt the fleet.
+#
+# AND THE DISTINCTION THAT DECIDES IT: `gh pr checks` reports JOB STATUS. A
+# CodeQL job failure means the scan did not COMPLETE — not that it FOUND
+# something. Gating on job status conflates infrastructure with findings.
+#
+# NOT COVERED, stated plainly: a PR whose CodeQL job failed merges UNSCANNED.
+# The push-to-`main` scan catches it after the fact, which is the mitigation
+# that makes this carve-out honest rather than convenient.
+BLOCKING_CHECKS = ("suite",)
+
+
+class CiVerdict(str, Enum):
+    """Three states, and the third is the one that gets fudged."""
+
+    GREEN = "green"
+    RED = "red"
+    NO_CHECKS = "no_checks"
+
+
+def ci_verdict(pr: str, *, repo: str | None = None) -> tuple[CiVerdict, list[str]]:
+    """Read the settled verdict for the checks this repo gates on.
+
+    Returns the verdict and the names of any BLOCKING checks that failed.
+
+    NO_CHECKS IS NOT GREEN, and saying so is the whole point of the third state.
+    A repo with no workflows — or a PR whose workflows were all path-filtered
+    out — returns no checks, and reading that as a pass is the filtered-gate
+    defect wearing different clothes. The caller reports it as an explicit skip.
+
+    A check that is PENDING at this point is treated as absent rather than as
+    failing: `wait_for_ci` has already blocked for it, so a still-pending check
+    means the wait timed out, which the caller already knows about separately.
+    """
+    cmd = ["gh", "pr", "checks", pr, "--json", "name,state"]
+    if repo:
+        cmd += ["--repo", repo]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    try:
+        checks = json.loads(result.stdout) if result.stdout.strip() else []
+    except json.JSONDecodeError:
+        # Unreadable output is NOT green. Fail into the state that stops.
+        return CiVerdict.NO_CHECKS, []
+
+    gating = [c for c in checks if c.get("name") in BLOCKING_CHECKS]
+    if not gating:
+        return CiVerdict.NO_CHECKS, []
+
+    failed = [c["name"] for c in gating
+              if str(c.get("state", "")).upper() not in {"SUCCESS", "SKIPPED", "NEUTRAL"}]
+    return (CiVerdict.RED, failed) if failed else (CiVerdict.GREEN, [])
 
 
 def wait_for_ci(pr: str, *, repo: str | None = None) -> bool:
