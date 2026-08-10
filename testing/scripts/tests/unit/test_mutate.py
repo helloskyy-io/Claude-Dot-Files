@@ -1,7 +1,7 @@
 """The mutation harness is the apparatus that decides whether every other guard
 in this repo is trustworthy, and until now nothing exercised it.
 
-WHY THIS EXISTS. `mutate.sh` has shipped a WRONG VERDICT three times, and every
+WHY THIS EXISTS. `mutate.sh` has shipped a WRONG VERDICT four times, and every
 one was invisible to careful reading and to CI:
 
   1. It judged each leg by grepping the tail line for the substring "failed".
@@ -11,6 +11,12 @@ one was invisible to careful reading and to CI:
   2. A replacement attempt lost `report_leg`'s diagnostic into a command
      substitution; caught only because someone re-ran the repro by hand.
   3. An 18-line multi-line-OLD guard shipped having been executed by nobody.
+  4. Fixing (1) by trusting exit 2 unconditionally went too far the other way
+     (issue #72): a mutation that makes the PYTHON MODULE UNDER TEST unparseable
+     also exits 2 with "1 error", but there NOTHING ran — pytest never imported
+     it. The harness printed MUTATION DEMONSTRATED over a guard that was never
+     exercised. It had already shipped a false certification once, caught only
+     by an engineer questioning the numbers (Skyy-Command PR #254).
 
 Its failure mode is silent by construction and both directions are expensive: a
 false "THE GUARD DID NOT FIRE" gets a working guard deleted, and a false
@@ -154,16 +160,74 @@ def test_the_did_not_fire_message_names_the_wrong_mutation_possibility(sandbox: 
     )
 
 
-def test_a_mutation_that_breaks_COLLECTION_still_counts_as_the_guard_firing(sandbox: Path) -> None:
-    """The original shipped defect, pinned.
+def test_a_mutation_that_makes_the_module_under_test_unparseable_is_a_harness_error(
+    sandbox: Path,
+) -> None:
+    """Issue #72 — the defect this fix closes.
 
-    A mutation producing a syntax error makes pytest exit 2 and print "1 error",
-    which contains no "failed". The harness must judge by EXIT CODE.
+    This exact scenario was ONCE pinned here as "still counts as the guard
+    firing": mutating `subject.py` into a syntax error makes `test_subject.py`
+    unable to import it, so pytest exits 2 with "1 error" and ZERO tests
+    collected — identical to the crontab/YAML collection error below, but here
+    nothing ran at all. Reading it as RED certifies a guard that was never
+    exercised — the exact laundering that already shipped once, in
+    Skyy-Command PR #254, where shell `::` splitting truncated a mutation
+    string into a Python SyntaxError and the harness printed MUTATION
+    DEMONSTRATED over a test that never ran.
     """
     r = run_mutate(sandbox, "THRESHOLD = 10", "THRESHOLD = (10")
+    assert r.returncode == FAILED_OR_HARNESS_ERROR, (
+        "a SyntaxError in the module under test was not caught as a harness "
+        f"error — it is back to certifying a guard that never ran\n{r.stdout}{r.stderr}"
+    )
+    assert "HARNESS ERROR" in r.stderr
+    assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
+def test_a_mutation_that_breaks_collection_via_a_DATA_file_still_counts_as_the_guard_firing(
+    tmp_path: Path,
+) -> None:
+    """The case the exit-2-is-RED rule exists to defend, preserved through the
+    fix for issue #72.
+
+    A mutated DATA file (a crontab entry, a workflow YAML) can make a guard's
+    OWN module-level parsing raise at collection time. pytest reports that
+    identically to the broken-Python-source case above — same exit code, same
+    "no tests collected" tail — but here $FILE itself (crontab.txt) is not
+    Python and never became unparseable; the guard's own logic is what
+    rejected the mutation. The fix's discriminator must still read this as the
+    guard firing, not a harness error, or the crontab/YAML regression this
+    file's history records (case 1 above) reopens.
+    """
+    (tmp_path / "crontab.txt").write_text("0 5 * * * /usr/bin/backup.sh\n")
+    (tmp_path / "test_crontab_guard.py").write_text(
+        "from pathlib import Path\n\n"
+        "CRONTAB = Path(__file__).parent / 'crontab.txt'\n\n"
+        "def _parse(text):\n"
+        "    entries = []\n"
+        "    for line in text.splitlines():\n"
+        "        fields = line.split()\n"
+        "        if len(fields) < 6:\n"
+        "            raise ValueError(f'malformed crontab line: {line!r}')\n"
+        "        entries.append(fields)\n"
+        "    return entries\n\n"
+        "# Parsed at COLLECTION time (module level), mirroring a guard whose own\n"
+        "# parsing is what 'fires' on bad data.\n"
+        "ENTRIES = _parse(CRONTAB.read_text())\n\n"
+        "def test_backup_entry_present():\n"
+        "    assert any('/usr/bin/backup.sh' in ' '.join(e) for e in ENTRIES)\n"
+    )
+    r = subprocess.run(
+        [
+            str(MUTATE), "crontab.txt",
+            "0 5 * * * /usr/bin/backup.sh", "0 5 * * *",
+            "test_crontab_guard.py",
+        ],
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=180,
+    )
     assert r.returncode == DEMONSTRATED, (
-        "a collection error was not counted as the guard firing — the harness is "
-        f"back to grepping for the substring 'failed'\n{r.stdout}{r.stderr}"
+        "a collection error caused by a malformed DATA file (not Python source) "
+        f"was not counted as the guard firing\n{r.stdout}{r.stderr}"
     )
 
 

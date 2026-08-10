@@ -107,11 +107,13 @@ trap 'cp "$BACKUP" "$FILE"; rm -f "$BACKUP"; rm -rf "$CACHE_ROOT"' EXIT
 
 # Judged by pytest's EXIT CODE, not by grepping the tail line for the substring
 # "failed". A mutation that breaks collection (a syntax error, an unparseable
-# array entry) prints "1 error" and exits 2 — the guard fired, hard — but that
-# text does not contain "failed", so the old substring check reported "THE
-# GUARD DID NOT FIRE" over a guard that worked. Measured on 2026-08-08 against
-# this exact file's own coverage guard: a mutated crontab entry with a trailing
-# comment errored at collection, and the substring check called it a miss.
+# array entry) prints "1 error" and *can* mean the guard fired, hard — but
+# that text does not contain "failed", so the old substring check reported
+# "THE GUARD DID NOT FIRE" over a guard that worked. Measured on 2026-08-08
+# against this exact file's own coverage guard: a mutated crontab entry with a
+# trailing comment errored at collection, and the substring check called it a
+# miss. (Exit 2 is not always a fired guard, though — see classify_leg below
+# for the case where it means the opposite.)
 #
 # Sets LEG_STATUS (pytest's raw exit code) and LEG_TAIL (the human-readable
 # summary line, kept because it is still the useful part of the output) as
@@ -131,18 +133,63 @@ run_leg() {  # $1 = leg name, used to make the cache prefix unique
     LEG_TAIL="$(tail -n1 <<<"$output")"
 }
 
-# Classifies a pytest exit code per pytest's documented meaning:
-#   0            -> GREEN  (all tests passed)
-#   1, 2, 3      -> RED    (tests failed / run interrupted / internal error —
-#                           a collection error is 2 and MUST count as the
-#                           guard firing)
-#   4, 5, other  -> HARNESS_ERROR, not a leg result. In particular 5 ("no
-#                   tests collected") must never read as "the guard fired" —
-#                   it means TARGET was wrong, not that anything was tested.
+# The discriminator for exit 2 (see classify_leg below): is $FILE — the exact
+# thing this script just mutated — still valid Python? A SyntaxError there is
+# SUFFICIENT on its own to cause "Interrupted: N error during collection", so
+# nothing else needs to have run for pytest to report exit 2, and nothing else
+# can be inferred to have run either. A non-Python data file (crontab, YAML)
+# can't fail THIS way, so an exit-2 there is left for the guard's own parsing
+# to explain, and that counts as firing.
+#
+# Cheaper than comparing collected-test counts between legs, and more precise:
+# tried empirically against a module-level crontab-parsing guard (the shape
+# the exit-2-is-RED comment above defends) and its collection error ALSO
+# collects zero tests — "no tests collected, 1 error" — identical to the
+# broken-.py signature. Collected count cannot tell the two cases apart;
+# whether $FILE itself still parses can, because it names the actual cause
+# instead of inferring it from a symptom both cases share.
+#
+# Guarded like every other command here: under `set -e`, a bare failing
+# command aborts the script before its exit status can be inspected, so the
+# check is the condition of an `if`, not a bare invocation.
+mutation_broke_python_syntax() {
+    [[ "$FILE" == *.py ]] || return 1
+    if python3 -c "import ast, sys; ast.parse(open(sys.argv[1]).read())" "$FILE" >/dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
+# Every exit code pytest can hand back, and whether it is ambiguous between
+# "the suite ran (and went red)" and "the suite never ran":
+#   0    -> GREEN, unambiguous: tests were collected AND passed.
+#   1    -> RED, unambiguous: tests were collected AND ran; something failed
+#           at run time. Collection already succeeded by the time exit 1 is
+#           possible, so the guard was exercised.
+#   2    -> AMBIGUOUS. "Interrupted: N error during collection" fires for two
+#           opposite reasons pytest does not distinguish in its exit code:
+#             - mutating a DATA subject (a workflow YAML, a crontab entry) so
+#               the guard's OWN parsing rejects it — the guard firing, hard.
+#             - mutating the PYTHON MODULE UNDER TEST into invalid syntax, so
+#               pytest can never import it and NO test runs at all.
+#           See mutation_broke_python_syntax() below for the discriminator.
+#   3    -> HARNESS_ERROR. pytest's own docs: "internal error happened while
+#           executing tests" — a pytest/plugin failure, not a test result.
+#           Nothing here proves the guard ran; treat it like 4/5, not like 1.
+#   4, 5, other -> HARNESS_ERROR, not a leg result. In particular 5 ("no
+#           tests collected") must never read as "the guard fired" — it means
+#           TARGET was wrong, not that anything was tested.
 classify_leg() {
     case "$1" in
         0) echo GREEN ;;
-        1|2|3) echo RED ;;
+        1) echo RED ;;
+        2)
+            if mutation_broke_python_syntax; then
+                echo HARNESS_ERROR
+            else
+                echo RED
+            fi
+            ;;
         *) echo HARNESS_ERROR ;;
     esac
 }
@@ -157,10 +204,25 @@ report_leg() {  # $1 = leg label for the abort message
     echo "   $LEG_TAIL  [exit $LEG_STATUS]"
     LEG_VERDICT="$(classify_leg "$LEG_STATUS")"
     if [[ "$LEG_VERDICT" == HARNESS_ERROR ]]; then
-        echo "✗ HARNESS ERROR on $1: pytest exited $LEG_STATUS, which is not a leg" >&2
-        echo "  result. Exit 5 means no tests were collected — TARGET is probably" >&2
-        echo "  wrong. Exit 4 is a pytest usage error. Fix the invocation, not the" >&2
-        echo "  mutation." >&2
+        case "$LEG_STATUS" in
+            2)
+                echo "✗ HARNESS ERROR on $1: pytest exited 2 (collection error), and" >&2
+                echo "  $FILE is no longer valid Python — the mutation made the target" >&2
+                echo "  unparseable, so no test in $TARGET ran. Check the mutation" >&2
+                echo "  string, not the guard." >&2
+                ;;
+            3)
+                echo "✗ HARNESS ERROR on $1: pytest exited 3 (internal error) — pytest" >&2
+                echo "  itself failed, not a test. That does not mean the guard ran;" >&2
+                echo "  investigate pytest's own failure, not the mutation." >&2
+                ;;
+            *)
+                echo "✗ HARNESS ERROR on $1: pytest exited $LEG_STATUS, which is not a" >&2
+                echo "  leg result. Exit 5 means no tests were collected — TARGET is" >&2
+                echo "  probably wrong. Exit 4 is a pytest usage error. Fix the" >&2
+                echo "  invocation, not the mutation." >&2
+                ;;
+        esac
         exit 1
     fi
 }
