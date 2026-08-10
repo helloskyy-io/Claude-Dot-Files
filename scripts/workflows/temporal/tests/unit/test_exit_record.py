@@ -32,24 +32,12 @@ from modules.assistant import exit_record as er
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
 
-
-RUN_ID = "aaaabbbbccccdddd"
-
-
-def _record(**overrides) -> dict:
-    """A record that routes cleanly. Every test below mutates ONE thing."""
-    base = {
-        "schema_version": er.SCHEMA_VERSION,
-        "run_id": RUN_ID,
-        "outcome": "merge",
-        "completion_ref": {
-            "substrate": "github", "kind": "pull", "id": "67",
-            "uri": "https://github.com/owner/repo/pull/67",
-        },
-        "findings": [{"id": "a-stable-slug", "disposition": "fixed"}],
-    }
-    base.update(overrides)
-    return base
+# The shared fakes, moved out of this file so `test_convergence.py` stops
+# importing another TEST module for them. Names unchanged, so no call site
+# below moved — see `review_run_fakes` for why the coupling was a defect.
+from review_run_fakes import (  # noqa: E402
+    RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record, _with_comments,
+)
 
 
 def _envelope(record: dict | None = ..., denials: list | None = None) -> dict:
@@ -582,99 +570,6 @@ def test_the_kind_one_reference_is_not_typed_as_a_url() -> None:
 # does not exist, so this mutates the record until the two channels disagree.
 # ---------------------------------------------------------------------------
 
-class _FakeWorkflow:
-    """The `run_review` collaborators, replaced at their real boundaries.
-
-    Nothing here fakes `route` or `parse_verdict` — those are the code under
-    test. What is faked is the I/O: `gh`, the worktree, the model invocation and
-    the log the record arrives in.
-    """
-
-    # The durable block the child is presumed to have posted. Default renders
-    # the same one finding `_record()` carries — id AND disposition, because the
-    # invariant compares pairs — so it holds unless a test deliberately breaks it.
-    DEFAULT_BLOCK = ("pr_review:\n  pr: 67\n  findings:\n"
-                     "    - id: a-stable-slug\n      disposition: fixed\n")
-
-    def __init__(self, record: dict | None, prose: str, denials: list | None = None,
-                 block: str | None = DEFAULT_BLOCK, prior_blocks: int = 0,
-                 posts_block: bool = True):
-        self.record = record
-        self.prose = prose
-        self.denials = denials if denials is not None else []
-        self.block = block
-        self.run_id: str | None = None
-        # THE THREAD IS STATEFUL, and modelling that is the point. The invariant
-        # asks whether THIS pass posted a block, so a fake returning one constant
-        # count could not express "pass 2 ran and posted nothing" — which is the
-        # case the invariant exists to catch and the case it used to pass.
-        self.prior_blocks = prior_blocks
-        self.posts_block = posts_block
-        self.ran = False
-
-    def install(self, monkeypatch, tmp_path: Path):
-        from modules.assistant.review_pr import review_pr_activities as act
-        from modules.assistant.review_pr import review_pr_workflow as wf
-
-        monkeypatch.setattr(act, "fetch_pr", lambda *a, **k: {"headRefName": "build/x"})
-        monkeypatch.setattr(act, "count_prior_passes", lambda *a, **k: self._blocks())
-        monkeypatch.setattr(act, "load_shared_block", lambda *a, **k: "guard")
-        monkeypatch.setattr(wf._shared, "worktree_add",
-                            lambda *a, **k: tmp_path / "pr-tree")
-        monkeypatch.setattr(wf._shared, "claude_log_path",
-                            lambda *a, **k: tmp_path / "run.jsonl")
-
-        def _run(prompt, *a, **k):
-            # The nonce is issued by the parent and reaches the child ONLY
-            # through the prompt, so capturing it here is the same path the
-            # real child reads it on. `prompt` is the REAL disposition.md
-            # rendered, so this also proves `${RUN_ID}` is in the shipped prompt
-            # and gets substituted — not just that the helper accepts a kwarg.
-            self.run_id = _nonce_in(prompt)
-            self.ran = True
-            return ""
-
-        monkeypatch.setattr(act, "run_disposition", _run)
-        # `thread_snapshot` is the ONE `gh` read the workflow makes for the
-        # thread; the two projections above it are patched as well so a test
-        # calling either directly still sees this fake's thread. The count and
-        # the window stay independently settable — that is what lets the fake
-        # express "pass 2 ran and posted nothing", the case the invariant exists
-        # to catch.
-        monkeypatch.setattr(act, "pr_review_blocks", lambda *a, **k: self._window())
-        monkeypatch.setattr(act, "thread_snapshot",
-                            lambda *a, **k: (self._blocks(), self._window()))
-        monkeypatch.setattr(wf._shared, "result_event",
-                            lambda *a, **k: self._envelope())
-        monkeypatch.setattr(wf._shared, "assistant_text", lambda *a, **k: self.prose)
-        return wf
-
-    def _blocks(self) -> int:
-        """Blocks on the thread now: one more once this pass posted its own."""
-        return self.prior_blocks + (1 if self.ran and self.posts_block else 0)
-
-    def _window(self) -> list[str]:
-        """The thread's block window, one entry per pass."""
-        return [self.block] if self.block is not None else []
-
-    def _envelope(self) -> dict:
-        event = {"type": "result", "subtype": "success",
-                 "permission_denials": self.denials}
-        if self.record is not None:
-            record = dict(self.record)
-            if record.get("run_id") == "@ISSUED@":
-                record["run_id"] = self.run_id
-            event["structured_output"] = record
-        return event
-
-
-def _nonce_in(prompt: str) -> str:
-    """The 32-hex nonce `render_prompt` substituted into the prompt."""
-    import re
-    m = re.search(r"\b[0-9a-f]{32}\b", prompt)
-    assert m, "the parent did not substitute a run_id into the prompt"
-    return m.group(0)
-
 
 def _review(monkeypatch, tmp_path, record, prose, denials=None,
             block=_FakeWorkflow.DEFAULT_BLOCK, prior_blocks=0, posts_block=True):
@@ -883,13 +778,6 @@ def test_pass_two_that_does_post_is_accepted(monkeypatch, tmp_path) -> None:
 # normalisation now lives at `gh_json`, so the two tests below cover BOTH ends:
 # that the shape raises the retryable type, and that a run meeting it survives.
 # ---------------------------------------------------------------------------
-
-def _no_sleep(monkeypatch) -> list[float]:
-    """Replace the backoff with a recorder, so the retries are observable."""
-    from modules.assistant.review_pr import review_pr_workflow as wf
-    slept: list[float] = []
-    monkeypatch.setattr(wf.time, "sleep", slept.append)
-    return slept
 
 
 def _flaky_reader(fails: int, real):
@@ -1169,16 +1057,6 @@ def test_a_fenced_block_is_a_record() -> None:
     """
     body = "Here is the block:\n\n```yaml\npr_review:\n  pr: 67\n  pass: 1\n```\n"
     assert helper.PR_REVIEW_BLOCK.search(body) is not None
-
-
-def _with_comments(monkeypatch, bodies: list[str]):
-    """Replace `gh` at its own boundary; everything above it is the code under test."""
-    from modules.assistant.review_pr import review_pr_activities as act
-    monkeypatch.setattr(
-        act._shared, "gh",
-        lambda *a, **k: json.dumps({"comments": [{"body": b} for b in bodies]}),
-    )
-    return act
 
 
 def test_count_prior_passes_no_longer_counts_a_mention(monkeypatch, tmp_path) -> None:

@@ -820,7 +820,7 @@ def test_the_convergence_event_is_written_and_carries_its_evidence(
     phase later — a metric defined over a field nothing writes is a plan, not an
     instrument.
     """
-    from test_exit_record import _FakeWorkflow, _record
+    from review_run_fakes import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
     # The id must match `_record()`'s default finding — the render↔record
@@ -857,7 +857,7 @@ def test_the_parent_route_event_is_UNCHANGED_by_the_addition(
     `test_a_payload_may_not_set_its_own_event_type`, so the claim is a check
     rather than a repetition of one.)
     """
-    from test_exit_record import _FakeWorkflow, _record
+    from review_run_fakes import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
@@ -944,7 +944,7 @@ def test_an_undetermined_route_still_produces_an_assessment(
     the easy implementation is to skip the predicate entirely and leave the run
     with no convergence event. That is a silent hole in the denominator.
     """
-    from test_exit_record import _FakeWorkflow
+    from review_run_fakes import _FakeWorkflow
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
     fake = _FakeWorkflow(None, "VERDICT: HOLD - needs-assistance\n", block=None)
@@ -964,7 +964,7 @@ def test_an_exhausted_thread_read_reports_history_unreadable_not_a_bad_pass(
     A `gh` rate limit must not be counted as a degraded review. The pass routed
     fine; the reader did not run.
     """
-    from test_exit_record import _FakeWorkflow, _record, _no_sleep
+    from review_run_fakes import _FakeWorkflow, _record, _no_sleep
     from modules.assistant.review_pr import review_pr_activities as act
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
@@ -1001,7 +1001,7 @@ def test_the_incumbent_flag_is_shadowed_and_a_disagreement_is_reported(
     it is a defect, and an operator told "DISAGREEMENT" goes looking for a bug
     that may not exist.
     """
-    from test_exit_record import _FakeWorkflow, _record
+    from review_run_fakes import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
     prior = ("pr_review:\n  converged: false\n  findings:\n"
@@ -1038,7 +1038,7 @@ def test_the_operator_note_says_the_signal_routes_nothing(
     the reader to infer it from the absence of an effect — this phase's whole
     posture is that the signal is measured before it is trusted.
     """
-    from test_exit_record import _FakeWorkflow, _record
+    from review_run_fakes import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
     prior = ("pr_review:\n  converged: false\n  findings:\n"
@@ -1072,7 +1072,7 @@ def test_an_assessment_with_NOTHING_TO_REPORT_emits_no_note_but_still_an_event(
     The control is that the EVENT is still written: rationing the note must not
     ration the measurement, or the rate this phase gates on stops accruing.
     """
-    from test_exit_record import _FakeWorkflow, _record
+    from review_run_fakes import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
 
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
@@ -1152,7 +1152,7 @@ def test_pr_review_blocks_returns_EVERY_block_in_comment_order(
     meaningful here — `pass:` cannot supply it (issue #68) — so it is asserted
     positionally rather than by membership.
     """
-    from test_exit_record import _with_comments
+    from review_run_fakes import _with_comments
 
     act = _with_comments(monkeypatch, [
         "```yaml\npr_review:\n  findings:\n    - id: one\n```",
@@ -1182,7 +1182,7 @@ def test_latest_pr_review_block_is_the_LAST_of_the_window_not_a_second_read(
     the measured instance of that defect (issue #68) is this exact marker, so
     the delegation is a property rather than an implementation choice.
     """
-    from test_exit_record import _with_comments
+    from review_run_fakes import _with_comments
 
     act = _with_comments(monkeypatch, [
         "```yaml\npr_review:\n  findings:\n    - id: one\n```",

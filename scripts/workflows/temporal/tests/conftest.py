@@ -28,3 +28,18 @@ SCRIPTS_ROOT = COMPONENT_ROOT / "scripts"
 
 if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
+
+# `tests/unit/` holds `review_run_fakes.py`, the shared harness both review_pr
+# test modules import BY NAME. pytest's DEFAULT `prepend` import mode already
+# puts this directory on the path as a side effect of collecting the tests in
+# it — which is precisely why the coupling it replaced looked like it worked.
+# `pytest.ini` pins `testpaths` and NOT `importmode`, so relying on that side
+# effect makes the import mode load-bearing: `--import-mode=importlib` removes
+# it and every consumer fails with an ImportError AT COLLECTION, which is the
+# one failure `mutate.sh` reads as a caught mutation (issue #72). Declaring the
+# path here makes the import a property of this component rather than of how
+# pytest happened to be invoked.
+UNIT_TESTS = Path(__file__).resolve().parent / "unit"
+
+if str(UNIT_TESTS) not in sys.path:
+    sys.path.insert(0, str(UNIT_TESTS))
