@@ -37,10 +37,31 @@ Enumerating four fixes would have left the fifth instance to be found the same
 way. So the relationship itself is now checked: **every pattern in the hook
 carries `MUST BLOCK:` / `MUST ALLOW:` claims, and every threat-model example
 carries `PASSES THROUGH:` / `BLOCKED ANYWAY:`** — all parsed out of the hook and
-asserted against it here. A pattern cannot be added without saying what it
-covers, cannot stop matching what it names, and cannot start matching what it
-disclaims, without this suite going red. `test_every_pattern_states_what_it_blocks`
-is the forcing function; the rest are the checks.
+asserted against it here. `test_every_pattern_states_what_it_blocks` and
+`test_every_pattern_states_what_it_allows` are the forcing functions; the rest
+are the checks.
+
+WHAT THAT MECHANISM DOES NOT DO, stated here because the first version of this
+docstring claimed otherwise and the claim was measurably false. Executing a
+claim proves the pattern agrees with **what its author wrote down**. It cannot
+prove the author wrote down the right thing, so a boundary nobody thought to
+probe is a boundary nobody checks. That is not a hypothetical: the first
+fail for `curl … | (sh|bash|zsh)` used a right boundary of `([[:space:]]|$)`,
+every claim beside it was true, this whole suite was green, and
+`curl … | bash;true` — download-and-execute, the exact class the pattern
+exists for — went through. Two mechanical checks close the half that author-
+chosen claims cannot:
+
+  - `test_every_pattern_states_what_it_allows` makes the ALLOW claim MANDATORY.
+    It used to be optional, and every one of the four defects a review of this
+    mechanism found was in the ALLOW/boundary direction — an optional claim on
+    the failing half is not a check.
+  - `test_dangerous_command_survives_a_trailing_separator` re-runs every
+    command in `DANGEROUS` with `;true`, `&`, ` && echo ok` and `|cat`
+    appended and requires it to STILL be denied. Nothing about it depends on
+    an author anticipating anything, and it is what caught the five
+    right-boundary gaps (`reboot`, `halt`, `poweroff`, and both RCE patterns)
+    that the claims did not.
 
 WHY THIS SHELLS OUT RATHER THAN SOURCING THE SCRIPT. The contract under test is
 what Claude Code actually invokes. `config/settings.json` registers the hook as
@@ -159,6 +180,9 @@ DANGEROUS: list[tuple[str, str]] = [
     # Git destructive operations
     ("git push --force", "git push --force origin main"),
     ("git push -f", "git push -f origin main"),
+    # Bundled short flags: `-f` inside a bundle is followed by an alnum, so the
+    # `-f([^a-z0-9]|$)` entry cannot see it. Its own pattern covers this.
+    ("git push -fu (bundled)", "git push -fu origin main"),
     ("git reset --hard", "git reset --hard HEAD~3"),
     ("git clean -f", "git clean -fd"),
     ("git checkout -- .", "git checkout -- ."),
@@ -276,12 +300,19 @@ SAFE: list[tuple[str, str]] = [
     ("reset --soft", "git reset --soft HEAD~1"),
     ("git clean dry-run", "git clean -n"),
     ("checkout of a named path", "git checkout -- src/app.py"),
+    # The `git checkout -- \.` entry had no right boundary, so ANY path
+    # starting with `.` was denied. Both of these are single-file checkouts.
+    ("checkout of an explicitly-relative path", "git checkout -- ./src/app.py"),
+    ("checkout of a dotfile", "git checkout -- .gitignore"),
+    ("-u is not -f", "git push -u origin build-1786323661"),
     # Database — creating and narrowly-scoped deleting.
     ("CREATE TABLE", 'psql -c "CREATE TABLE users (id int)"'),
     ("CREATE SCHEMA", 'psql -c "CREATE SCHEMA analytics"'),
     ("underscore, not a space", "grep -r drop_table_log ."),
     ("'TRUNCATE' inside a word", "echo truncated output"),
     ("DELETE with a real predicate", 'psql -c "DELETE FROM users WHERE id = 42"'),
+    # `WHERE 1` with no right boundary also matched `WHERE 100`, `WHERE 1234`…
+    ("DELETE with a predicate that merely STARTS with 1", 'psql -c "DELETE FROM sessions WHERE 100 < retries"'),
     # Disk — reading and inspecting rather than writing.
     ("'mkfs' with no dot", "cat mkfs_notes.md"),
     ("dd to a regular file", "dd if=/dev/zero of=./test.img bs=1M count=1"),
@@ -300,6 +331,10 @@ SAFE: list[tuple[str, str]] = [
     # System control — the `(^|[^a-z])` and `( |$)` guards.
     ("'shutdown' followed by underscore", "grep -r shutdown_handler src/"),
     ("'reboot' followed by underscore", "grep reboot_required /var/log/sys.log"),
+    # `-` is excluded from the right boundary on the four system-control words
+    # for this: it is a real path that ordinary work reads on every Ubuntu box.
+    ("'reboot' followed by a hyphen", "test -f /var/run/reboot-required"),
+    ("'shutdown' followed by a hyphen", "grep -rn shutdown-hook src/"),
     ("'halt' inside 'asphalt'", "echo asphalt"),
     ("'poweroff' followed by underscore", "grep poweroff_state x"),
     ("systemctl status", "systemctl --user status gh-monitor.timer"),
@@ -1044,6 +1079,85 @@ def test_every_pattern_states_what_it_blocks(entry: PatternEntry) -> None:
         f"naming a command it exists to catch. Without it nothing can tell "
         f"whether the pattern matches what it was named for — which is exactly "
         f"how issue #59 stayed live from the day the pattern was written."
+    )
+
+
+@pytest.mark.parametrize("entry", ALL_ENTRIES, ids=[e.pattern for e in ALL_ENTRIES])
+def test_every_pattern_states_what_it_allows(entry: PatternEntry) -> None:
+    """Every pattern names at least one near-miss it must NOT catch.
+
+    THE SECOND FORCING FUNCTION, and the one that was missing. `MUST ALLOW`
+    was optional in the first version of this mechanism, on the reasoning that
+    only patterns "with a boundary guard worth pinning" needed one. A review of
+    that version found four more defects in this file and **every one of them
+    was in the ALLOW direction** — `git checkout -- ./src/app.py` denied,
+    `DELETE FROM … WHERE 100` denied, `chmod  +777` (two spaces) missed, and a
+    right boundary of `([[:space:]]|$)` that let `curl … | bash;true` through.
+    An optional claim on the half where the defects live is not a check.
+
+    A near-miss is cheap to write and it is the only artifact that records
+    where the author believed the boundary was. Where a pattern is a plain
+    substring with no boundary at all, the near-miss is the safe verb in the
+    same shape (`CREATE DATABASE` beside `DROP DATABASE`, reading a file beside
+    writing to it) — which is exactly the false positive a later widening would
+    introduce.
+    """
+    assert entry.must_allow, (
+        f"pattern {entry.pattern!r} carries no `# MUST ALLOW:` claim. Add one "
+        f"naming a plausible command it must NOT catch. This is mandatory, not "
+        f"advisory: every defect found by review of the first version of this "
+        f"mechanism was a boundary that no near-miss probed."
+    )
+
+
+# Shell separators that terminate a command word. Appended to every dangerous
+# command by the sweep below.
+#
+# WHY THIS EXISTS AND WHY IT IS NOT DERIVED FROM ANY CLAIM. Executing the
+# hook's own claims proves it agrees with what its author wrote down; it cannot
+# probe a boundary the author did not think of. Five right boundaries in this
+# hook were written as "followed by a space or end-of-line", which reads as a
+# word boundary and is not one — `reboot;true`, `halt&`, `poweroff|cat` and,
+# worst, `curl … | bash;true` all passed a fully green suite. Every one of them
+# is ordinary shell rather than obfuscation, so every one sits inside the
+# hook's stated in-scope threat model rather than its declared gaps.
+#
+# `&&` and `||` reduce to the `&` and `|` cases and are covered by the
+# `&& echo ok` entry, which also exercises the plain-whitespace path.
+SEPARATORS: list[str] = [";true", "&", " && echo ok", "|cat"]
+
+_SEPARATOR_PROBES = [
+    (f"{label} + {separator!r}", command + separator)
+    for label, command in DANGEROUS
+    for separator in SEPARATORS
+]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [c for _, c in _SEPARATOR_PROBES],
+    ids=[label for label, _ in _SEPARATOR_PROBES],
+)
+def test_dangerous_command_survives_a_trailing_separator(command: str) -> None:
+    """A dangerous command chained to a following one is still dangerous.
+
+    THE MECHANICAL HALF of the class fix. Nothing here depends on an author
+    anticipating a failure mode: the corpus is the same one the deny tests use,
+    and the transformation is applied to every entry unconditionally. Adding a
+    pattern with a hand-rolled right boundary that only admits whitespace fails
+    HERE even if every claim beside it is true.
+
+    A failure means the pattern's right boundary is an ENUMERATION of what may
+    follow (`( |$)`, `([[:space:]]|$)`, a bare trailing space) rather than a
+    negation of what may not (`([^[:alnum:]_]|$)`). The enumeration form lets
+    through everything nobody listed, which on a safety control is the wrong
+    default. Fix the boundary; do not delete the probe.
+    """
+    assert run_hook(command).denied, (
+        f"RIGHT-BOUNDARY GAP: {command!r} is a dangerous command from the "
+        f"corpus with an ordinary shell separator appended, and the hook "
+        f"allows it. The pattern's right boundary enumerates what may follow "
+        f"instead of negating what may not."
     )
 
 

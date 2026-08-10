@@ -311,9 +311,12 @@ claude-dot-files/
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
 │   │   └── tests/unit/
-│   │       └── test_block_dangerous.py              # Characterization suite for the PreToolUse safety hook (issue #52). Attack corpus +
+│   │       └── test_block_dangerous.py              # SPECIFICATION suite for the PreToolUse safety hook (issues #52, #61 — was
+│   │                                                #   characterization until the operator ruled on the four defects it found). Attack corpus +
 │   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
-│   │                                                #   A pattern added to the hook without a deny case FAILS the coverage guard here
+│   │                                                #   Executes the MUST BLOCK / MUST ALLOW claims written beside each pattern IN THE HOOK,
+│   │                                                #   and re-runs every dangerous command with a shell separator appended. A pattern added
+│   │                                                #   without a deny case, without both claims, or with an enumerated right boundary FAILS here
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/
