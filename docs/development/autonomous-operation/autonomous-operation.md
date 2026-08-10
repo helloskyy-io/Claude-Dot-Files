@@ -17,6 +17,8 @@ Recorded here so this doc does not have to re-derive it when planning starts, an
 
 **What exists.** Every `review-pr` dispatch now writes a `{"type": "convergence", …}` event to its run log carrying a computed state — `converged` / `not_converged` / `indeterminate` — over the open subset of the PR's findings. It **routes nothing today** and `MAX_LOOPS` is still the only stopping authority.
 
+> **And nothing reads those events, which is the constraint this section most needs to carry.** They accrue and no committed tool consumes them, so the live path has no denominator for the two facts the GitHub archive structurally cannot produce (the `pass_not_evaluable` and `history_unreadable` rates). [Memory Management Framework Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) owns building that reader and printing Phase 5's gate conditions with their denominators. **The ruling on whether the predicate ever gates anything is the operator's, and the case where it would actually decide something is THIS component's** — #67 and #71 reached passes 3 and 4 through *separate operator dispatches*, which no `MAX_LOOPS` governs. A driver planned before those numbers exist is planning against an unmeasured signal.
+
 **Three things a consumer must not get wrong:**
 
 1. **`converged` is not a merge authority.** It answers *"is there anything left for another pass of this review loop to do?"* — never *"is this work finished?"*. The merge decision stays with the typed record's `routed_outcome`. A driver that read convergence as permission to merge would be reading a different question's answer.
