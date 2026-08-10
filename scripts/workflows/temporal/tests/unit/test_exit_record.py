@@ -1525,8 +1525,15 @@ def test_the_shipped_prompt_asks_for_exactly_the_fields_the_parent_reads() -> No
     error naming the cause.
     """
     prompt = (Path(helper.__file__).resolve().parent / "prompts" / "disposition.md").read_text()
-    stage_6a = prompt.split("### 6a")[1].split("### 6b")[0]
-    asked = set(re.findall(r"^\| `([a-z_]+)` \|", stage_6a, re.MULTILINE))
+    # Scoped to Stage 6 as a whole, NOT to the 6a/6b heading that happened to
+    # carry the table when this was written. The two sub-stages were SWAPPED on
+    # 2026-08-09 — the verdict now prints first, because calling the tool is a
+    # terminal action and a run died having emitted the record without ever
+    # printing its verdict. This test failed on that swap while the property it
+    # guards was untouched, which is the tell that it was bound to a heading
+    # rather than to the field table.
+    stage_6 = prompt.split("## Stage 6:")[1].split("\n## ")[0]
+    asked = set(re.findall(r"^\| `([a-z_]+)` \|", stage_6, re.MULTILINE))
     declared = set(er.CHILD_SCHEMA["properties"])
     assert asked == declared, (
         f"the prompt and the schema disagree on the field list. Only asked for: "

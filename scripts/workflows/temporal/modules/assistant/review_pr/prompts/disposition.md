@@ -336,26 +336,11 @@ pr_review:
 
 **gh-monitor safety (binding):** the comment MUST NOT contain any line that STARTS with `@claude` — gh-monitor would parse it and auto-dispatch a workflow. If you must reference a dispatch command illustratively, put it inside a code fence (gh-monitor strips fences before matching). Your dispatch_context describes the task in prose/yaml; it never emits a live `@claude` trigger line.
 
-## Stage 6: EMIT THE TYPED EXIT RECORD, THEN PRINT THE VERDICT
+## Stage 6: PRINT THE VERDICT, THEN EMIT THE TYPED EXIT RECORD
 
 **Two channels, one author. Both are required, and they must agree** — a disagreement is a hard failure your caller raises on, not a preference it reconciles.
 
-### 6a — Call the `StructuredOutput` tool
-
-Before you print the verdict line, call the structured-output tool exactly once with the typed exit record. This is the Kind 2 record defined by `docs/standards/exit-protocol.md` §2.1 — **small, and it carries references rather than payloads.** It is NOT a second copy of your disposition comment: it holds only what a caller branches on plus the finding ids a later pass needs.
-
-| Field | What you put in it |
-|---|---|
-| `schema_version` | exactly `"1"` |
-| `run_id` | exactly `${RUN_ID}` — copy it verbatim, character for character. Your caller issued it and compares it back; a wrong value routes this run to a human |
-| `outcome` | `merge` or `hold` — the same decision as your VERDICT line |
-| `hold_kind` | required when `outcome` is `hold`: `redispatch` or `needs_ruling`. **`needs_ruling` is `needs-assistance` under its proper name** — the evaluation completed and the answer is that a human must decide. Aggregate it by the same rule as the VERDICT token below |
-| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"`, `uri:` the PR's URL. **`id` is a string**, quoted |
-| `findings` | one entry per finding in your yaml block, each with its stable `id` and its `disposition`. **Same ids, same dispositions, no extras and none missing** |
-
-**If you cannot state a field, you still call the tool.** A review you could not complete is `outcome: hold` with `hold_kind: needs_ruling` — that is what the member is for. **Declining to call the tool is the one outcome with no meaning**: it produces a run that looks completely clean and carries no record, and your caller has to route it to a human as a machinery failure.
-
-### 6b — Print the verdict line
+### 6a — Print the verdict line
 
 As the FINAL line of your output, print exactly one of:
     VERDICT: MERGE
@@ -370,6 +355,23 @@ This is the completion signal. Printing it is how the run is known to have compl
 - `kind: file-issue` is terminal and does NOT hold the PR — it never decides the token on its own. A HOLD whose only remaining entries are file-issue should not have been a HOLD.
 
 This token is the only thing an automated caller reads from you. It does not change your review, your invariants, or the comment you post — the disposition comment remains the full account for the human. It states plainly which of the two shapes the runway is, so that a caller can act without re-reading your reasoning and without re-litigating your judgement.
+
+### 6b — Call the `StructuredOutput` tool
+
+**AFTER you have printed the verdict line**, call the structured-output tool exactly once with the typed exit record.
+
+> **THE ORDER IS LOAD-BEARING AND IT WAS WRONG.** This stage originally said *call the tool, then print the verdict*. **Measured 2026-08-09: a run posted its comment, said "Emitting the typed exit record", called the tool — and STOPPED.** Zero of its twelve assistant text blocks contained a verdict; a complete review with five dispositioned findings failed its completion contract and the parent could not route it. **A tool call is a natural terminal action** — after emitting the record the work feels finished, so a trailing text line does not get written. Printing the verdict FIRST makes the completion signal unconditional, and the tool call after it emits no text so the gate still reads the verdict as the last text block. This is the Kind 2 record defined by `docs/standards/exit-protocol.md` §2.1 — **small, and it carries references rather than payloads.** It is NOT a second copy of your disposition comment: it holds only what a caller branches on plus the finding ids a later pass needs.
+
+| Field | What you put in it |
+|---|---|
+| `schema_version` | exactly `"1"` |
+| `run_id` | exactly `${RUN_ID}` — copy it verbatim, character for character. Your caller issued it and compares it back; a wrong value routes this run to a human |
+| `outcome` | `merge` or `hold` — the same decision as your VERDICT line |
+| `hold_kind` | required when `outcome` is `hold`: `redispatch` or `needs_ruling`. **`needs_ruling` is `needs-assistance` under its proper name** — the evaluation completed and the answer is that a human must decide. Aggregate it by the same rule as the VERDICT token below |
+| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"`, `uri:` the PR's URL. **`id` is a string**, quoted |
+| `findings` | one entry per finding in your yaml block, each with its stable `id` and its `disposition`. **Same ids, same dispositions, no extras and none missing** |
+
+**If you cannot state a field, you still call the tool.** A review you could not complete is `outcome: hold` with `hold_kind: needs_ruling` — that is what the member is for. **Declining to call the tool is the one outcome with no meaning**: it produces a run that looks completely clean and carries no record, and your caller has to route it to a human as a machinery failure.
 
 ## Post-Run Reflection
 Append a brief 'Post-Run Reflection' to your disposition comment — only friction encountered and tooling-level suggestions for the review-pr workflow itself (prompt gaps, criteria that were ambiguous). Omit if nothing to report. You are DECIDE-ONLY: do NOT push, do NOT create a PR, do NOT post a separate Decision Log — the disposition table IS the decision record.
