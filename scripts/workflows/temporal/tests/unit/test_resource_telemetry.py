@@ -90,18 +90,36 @@ def test_a_scoped_child_reports_memory_it_actually_allocated() -> None:
             "import time; x = bytearray(64 * 1024 * 1024); "
             "x[::4096] = b'\\x01' * len(x[::4096]); "
             f"time.sleep({rt.SAMPLE_INTERVAL_S * 2.5})"]
-    wrapped = rt.wrap(argv, unit=f"claude-test-{id(argv)}.scope", limits=_limits())
+    unit = f"claude-test-{id(argv)}.scope"
+    wrapped = rt.wrap(argv, unit=unit, limits=_limits())
     proc = subprocess.Popen(wrapped, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    sampler = rt.measure(proc)
+    sampler = rt.measure(proc, unit=unit)
     proc.wait()
     report = rt.finish(sampler, limits=_limits())
 
     assert report.measured, f"scope produced no samples: {report.unmeasured_reason}"
+    assert sampler is not None and sampler.cgroup.name == unit, (
+        f"sampled {sampler.cgroup if sampler else None}, which is not the scope we "
+        "created — this is the migration race, and it reads the PARENT session"
+    )
     assert report.peak_anon and report.peak_anon > 16 * 1024 * 1024, (
         f"peak_anon {report.peak_anon} is below the 16 MiB floor for a child that "
         "allocated 64 MiB — the sampler is not seeing real memory"
     )
-    assert report.pids_peak and report.pids_peak >= 1
+    # THE CEILING IS THE HALF THAT WAS MISSING, and its absence shipped a bug.
+    # A floor catches "measured nothing". Only a ceiling catches "measured
+    # EVERYTHING" — the first version read the caller's own session cgroup and
+    # sailed past a 16 MiB floor on numbers in the gigabytes, reporting three
+    # different children at an identical 21525 MiB. Plausible wrong numbers are
+    # worse than none, and one-sided assertions cannot see them.
+    assert report.peak_anon < 512 * 1024 * 1024, (
+        f"peak_anon {report.peak_anon} is far above what a 64 MiB child can use — "
+        "this is the session cgroup, not the child's scope"
+    )
+    assert report.pids_peak and 1 <= report.pids_peak < 50, (
+        f"pids_peak {report.pids_peak} is not a plausible task count for one "
+        "python child — a number in the hundreds means the whole session"
+    )
 
 
 def test_an_unmeasured_run_is_recorded_rather_than_dropped() -> None:

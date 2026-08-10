@@ -48,6 +48,7 @@ import re
 import shutil
 import subprocess
 import threading
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -225,14 +226,41 @@ def wrap(argv: list[str], *, unit: str, limits: dict) -> list[str]:
     return [*args, "--", *argv]
 
 
-def measure(proc: subprocess.Popen) -> _Sampler | None:
-    """Start sampling `proc`'s cgroup. Returns the sampler, or None if unresolved."""
-    cgroup = cgroup_of(proc.pid)
-    if cgroup is None:
-        return None
-    sampler = _Sampler(cgroup)
-    sampler.start()
-    return sampler
+# How long to wait for systemd to migrate the child into its scope.
+MIGRATION_TIMEOUT_S = 5.0
+
+
+def measure(proc: subprocess.Popen, *, unit: str) -> _Sampler | None:
+    """Start sampling `proc`'s scope once it is IN the scope. None if it never is.
+
+    THE MIGRATION RACE, AND IT SHIPPED WRONG ONCE. `systemd-run --user --scope`
+    returns before systemd has moved the process into the new cgroup — measured
+    here at roughly one second. Reading `/proc/PID/cgroup` immediately therefore
+    resolves the PARENT: the caller's own session scope.
+
+    That is not a small error, it is the worst possible one. It does not fail —
+    it returns large, plausible numbers for the whole session, identical across
+    every child, and they look like measurements. The first shipped run reported
+    three different children at exactly 21525 MiB and 1199 tasks, which was the
+    editor session, and the only reason it was caught is that three identical
+    totals are obviously impossible.
+
+    So this waits for the child to appear in the cgroup NAMED `unit`, and
+    returns None rather than measuring whatever it happens to find. An unmeasured
+    run is recorded with its reason; a run measured against the wrong cgroup
+    silently poisons every number derived from it afterwards.
+    """
+    deadline = time.monotonic() + MIGRATION_TIMEOUT_S
+    while time.monotonic() < deadline:
+        cgroup = cgroup_of(proc.pid)
+        if cgroup is not None and cgroup.name == unit:
+            sampler = _Sampler(cgroup)
+            sampler.start()
+            return sampler
+        if proc.poll() is not None:
+            return None            # exited before it was ever measurable
+        time.sleep(0.05)
+    return None
 
 
 def finish(sampler: _Sampler | None, *, limits: dict,
@@ -315,7 +343,15 @@ def human(report: ResourceReport) -> str:
     if not report.measured:
         return f"resources: NOT MEASURED ({report.unmeasured_reason})"
     def mib(n: int | None) -> str:
-        return f"{n / 1048576:.0f}MiB" if n else "?"
+        """Adaptive, because rounding 284 KiB to '0MiB' misreports the one field
+        whose entire job is comparing content volume across runs."""
+        if not n:
+            return "0" if n == 0 else "?"
+        for limit, unit, places in ((1024, "B", 0), (1048576, "KiB", 0),
+                                    (1073741824, "MiB", 1), (float("inf"), "GiB", 2)):
+            if n < limit:
+                return f"{n / (limit / 1024):.{places}f}{unit}"
+        return f"{n}B"
     warn = ""
     if report.high_events:
         warn = f"  ⚠ throttled {report.high_events}x at MemoryHigh"

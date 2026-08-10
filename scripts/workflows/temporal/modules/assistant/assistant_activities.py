@@ -563,8 +563,8 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     limits = _resource_limits()
     scoped, scope_reason = resource_telemetry.scope_available()
     if scoped:
-        argv = resource_telemetry.wrap(
-            argv, unit=f"claude-{model_key}-{uuid.uuid4().hex[:12]}.scope", limits=limits)
+        scope_unit = f"claude-{model_key}-{uuid.uuid4().hex[:12]}.scope"
+        argv = resource_telemetry.wrap(argv, unit=scope_unit, limits=limits)
     else:
         print(f"⚠ {model_key}: running UNBOUNDED — {scope_reason}", flush=True)
 
@@ -572,7 +572,7 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         argv, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, bufsize=1,
     )
-    sampler = resource_telemetry.measure(proc) if scoped else None
+    sampler = resource_telemetry.measure(proc, unit=scope_unit) if scoped else None
     captured: list[str] = []
     assert proc.stdout is not None
     for line in proc.stdout:
