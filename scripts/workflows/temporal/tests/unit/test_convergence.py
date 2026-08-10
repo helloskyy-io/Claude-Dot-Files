@@ -290,6 +290,46 @@ def test_a_pairwise_comparison_would_have_MISSED_the_reopen() -> None:
     assert cv.assess(full[-2:], pass_evaluable=True).state is State.CONVERGED
 
 
+def test_the_reopen_scan_reads_the_WHOLE_history_and_not_adjacent_pairs() -> None:
+    """A gap in the middle is what makes the window load-bearing rather than tidy.
+
+    An adjacent-pair scan finds every reopen a CONFORMING history contains, by
+    discreteness: closed at pass j and open at pass i>j implies a closed→open
+    step somewhere between them. The chain only breaks where an id is ABSENT
+    from an intermediate pass — and C3 does not catch that at a later pass,
+    because it compares the CURRENT pass against every prior one and `a` is back
+    by then. So this is the shape the whole-history window exists for, and
+    shrinking `_ever_reopened`'s inner loop to the adjacent pass survived every
+    other test in this module.
+    """
+    history = [
+        _pass(a="fixed", b="hold"),   # `a` closed
+        _pass(b="hold"),              # `a` absent — the gap that breaks the chain
+        _pass(a="hold", b="hold"),    # `a` open again: a reopen only the window sees
+        _pass(a="fixed", b="fixed"),  # everything closed; C5 is reachable
+    ]
+    assessment = cv.assess(history, pass_evaluable=True)
+    assert assessment.reason is Reason.OSCILLATING_FINDINGS, (
+        "a closure that did not hold, hidden behind a pass that omitted the id, "
+        "was read as a clean convergence"
+    )
+
+
+def test_the_reopen_control_the_same_gap_with_no_REOPEN_converges() -> None:
+    """Negative control: the gap alone must not withhold convergence.
+
+    Without this, a window that flagged any absent-then-present id would satisfy
+    the test above and refuse to converge on every history with a gap.
+    """
+    history = [
+        _pass(a="hold", b="hold"),
+        _pass(b="hold"),
+        _pass(a="hold", b="hold"),
+        _pass(a="fixed", b="fixed"),
+    ]
+    assert cv.assess(history, pass_evaluable=True).state is State.CONVERGED
+
+
 # --- the escalated ruling ----------------------------------------------------
 
 def test_escalated_is_CLOSED_so_the_predicate_can_fire_on_a_pr_that_escalated() -> None:
@@ -770,20 +810,24 @@ def test_the_history_keeps_MULTIPLE_prior_passes_in_ORDER(monkeypatch) -> None:
     predicate compares against the wrong neighbour and `_ever_reopened` reads a
     closure as a re-opening.
     """
-    blocks = [
-        "pr_review:\n  findings:\n    - id: a\n      disposition: hold\n",
-        "pr_review:\n  findings:\n    - id: a\n      disposition: fixed\n",
-        "pr_review:\n  findings:\n    - id: a\n      disposition: hold\n",
-        "pr_review:\n  findings:\n    - id: a\n      disposition: fixed\n",
-    ]
+    def block(disposition: str) -> str:
+        return f"pr_review:\n  findings:\n    - id: a\n      disposition: {disposition}\n"
+
+    # Deliberately NOT palindromic — the first fixture here was `hold, fixed,
+    # hold`, which survives reversal unchanged, so it proved nothing. A control
+    # whose input is symmetric under the defect is not a control.
+    window = [block("hold"), block("hold"), block("fixed"), block("fixed")]
     record = er.ExitRecord(
         er.RoutedOutcome.MERGE, outcome=er.Outcome.MERGE,
         findings=({"id": "a", "disposition": "fixed"},),
     )
-    history = helper.convergence_history(blocks, record)
-    assert history == ((("a", "hold"),), (("a", "fixed"),), (("a", "hold"),),
+    history = helper.convergence_history(window, record)
+    assert history == ((("a", "hold"),), (("a", "hold"),), (("a", "fixed"),),
                        (("a", "fixed"),)), "the prior passes are not oldest-first"
-    assert cv.assess(history, pass_evaluable=True).reason is Reason.OSCILLATING_FINDINGS
+    assert cv.assess(history, pass_evaluable=True).state is State.CONVERGED, (
+        "reversed, this same history reads as a finding closed and then re-opened "
+        "and the predicate withholds convergence for the rest of the PR"
+    )
 
 
 # --- the window reader -------------------------------------------------------

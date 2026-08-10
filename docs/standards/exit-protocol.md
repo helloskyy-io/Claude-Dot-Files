@@ -79,7 +79,7 @@ The model calls the `StructuredOutput` tool; these are its parameters. **Every o
 | `completion_ref.id` | string; opaque within the substrate | **B3, P4** — both fleets recover it today by string surgery on a URL | publishable |
 | `completion_ref.uri` | string; a **substrate-defined resolvable address**, not a URL by contract | **B1, B2, P4**, and the human-facing banners at `build.sh:210,292` | publishable |
 | `findings[].id` | string slug | **Phase 5** identity, and Phase 3 step 8's render↔record invariant | publishable |
-| `findings[].disposition` | enum `hold` \| `fixed` \| `deferred` \| `rejected` \| `noted` \| `escalated` | **Phase 5**'s stopping predicate — the field that partitions a block's findings into open and closed. Present on 195 of 195 archived findings | publishable |
+| `findings[].disposition` | enum `hold` \| `fixed` \| `deferred` \| `rejected` \| `noted` \| `escalated` | **Phase 5**'s stopping predicate — the field that partitions a block's findings into open and closed. Present on **300 of 300** archived findings (re-counted 2026-08-09 at 41 PRs; it was 195 of 195 at 38). Phase 5 rules the partition: CLOSED is `fixed`/`deferred`/`rejected`/`noted`/`escalated`, OPEN is `hold` plus anything unrecognised | publishable |
 
 ### 2.2 · Runtime-produced — the parent reads them off the CLI result envelope
 
