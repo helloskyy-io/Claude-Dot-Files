@@ -121,13 +121,23 @@ Filing authority for **defects** sits with the reviewer, not the discoverer, and
 
 **2 · SEARCH BY MECHANISM, NOT BY KEYWORD, ACROSS EVERY REPO THE WORK SPANS.** Two findings can be the same defect and share no vocabulary. Ask *"is this the same MECHANISM as something already filed, in different code?"* — not *"do the words match?"* Deferred work lives in more than one repo; a single-repo search that correctly finds nothing is not evidence of novelty.
 
-**3 · FOUR DESTINATIONS BEFORE A NEW CONTAINER, and a new container is the last:**
+**3 · FIX IT HERE, FIRST — this rung exists because a ladder whose every rung points outward IS an exit.**
+
+**Before any of the destinations below, ask whether you can simply do it now.** Not *"is it small enough"* — that gate already exists elsewhere and it is the wrong question. Ask: **you have the files open, the context loaded and the authority; what does routing this cost that doing it does not?**
+
+**The MDC side found this in their own ladder and the generalisation is theirs:** *"A vocabulary with no reachable exit is necessary and not sufficient. A routing ladder whose every rung points outward is itself an exit, regardless of what the vocabulary permits — the run does not need a word for* defer *if every question it is told to ask hands it a container."*
+
+Their ladder had seven rungs and **every one routed outward**; the nearest thing to a fix-it rung gated on **small** rather than on **ownership**, so a not-small finding about the work in hand fell into the machinery and landed in a container **correctly, by a ladder with no other answer.** Ours had the same shape: four destinations, all outward.
+
+**A finding you fix costs one edit. A finding you route costs a container, a triage, a re-read, and a context rebuild by someone who never had the files open.**
+
+**4 · FOUR DESTINATIONS, and a new container is the last:**
    - **same mechanism as an existing entry** → **expand it**
    - **belongs to a standard's owner** → **route it** as an amendment candidate; do not track it as work
    - **no planning home exists for this area** → **the missing home IS the finding**; surface that, not the instance
    - **an existing deferral's PREMISE has been reversed** → **re-open it**. A pointer that resolves is not enough if the assumption under it is dead
 
-**4 · THE LENSES.** Run `/decide` and `/best-practices` on whatever survives, and **state both verdicts in the entry.** Three outcomes:
+**5 · THE LENSES.** Run `/decide` and `/best-practices` on whatever survives, and **state both verdicts in the entry.** Three outcomes:
    - **DISSOLVED** — file nothing; record the verdict so a later pass does not re-derive it
    - **RESOLVED INTO A KNOWN FIX** — **re-disposition as fix-in-place and file nothing.** This is the outcome to reach for: the lenses exist to convert human decisions into known answers, and a converted finding costs one automated pass instead of an operator's attention
    - **SURVIVES BOTH** — file it. It has earned a human
