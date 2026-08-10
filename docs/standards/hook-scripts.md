@@ -187,7 +187,8 @@ Verify both directions:
 
 - **Hook scripts MUST NOT be interactive** — no prompts, no user input
 - **Hook scripts MUST be fast** — they run on every matching tool call
-- **Hook scripts MUST fail safe** — if something goes wrong, prefer allowing the action over blocking
+- **Hook scripts MUST fail CLOSED** — if a hook cannot parse its input or evaluate a rule, it **denies**. *(Corrected 2026-08-09. This line previously read "MUST fail safe — prefer allowing the action over blocking", which directly contradicted § The headless safety invariant point 2 in the same document. Both were binding, so an engineer fixing a fail-open defect had to pick. **Point 2 wins**, and the line above it says why: `block-dangerous.sh` is load-bearing rather than defence-in-depth, so failing open removes the sole live control from every autonomous run. "Fail safe" was generic hook advice written before this hook carried that weight.)*
+- **Distinguish "not my tool" from "I could not tell"** — a hook that legitimately does not apply to an event exits 0; a hook that could not determine what the event **is** denies. Collapsing the two is how a fail-open defect looks correct in review
 - **Hook scripts MUST NOT have side effects beyond their stated purpose** — no logging to random files, no modifying state
 - **Hook scripts MUST use `jq` for JSON output** — never raw string interpolation
 
