@@ -334,7 +334,6 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
         )
 
     prior = passes[-2]
-    dropped = set(prior) - set(current)
     added = tuple(sorted(set(current) - set(prior)))
 
     # C3 — CONVERGENCE BY FORGETTING. `disposition.md` INVARIANT 1 requires each
@@ -344,6 +343,18 @@ def assess(history: Sequence[Iterable[tuple[str, str]]], *,
     # to the prior one and its emptiness proves nothing. Measured never to have
     # happened — which is the point: this guards the failure that has no natural
     # alarm, not one already occurring.
+    #
+    # THE COMPARISON IS AGAINST EVERY PRIOR PASS, NOT THE ADJACENT ONE, and the
+    # difference is the whole guard. A pairwise check catches a drop for exactly
+    # ONE pass: `{a: hold, b: hold}` → `{a: fixed}` → `{a: fixed}` flags pass 2
+    # and then reports pass 3 CONVERGED with `b` never dispositioned — so the
+    # cheapest way to fake convergence, stop mentioning a finding and keep not
+    # mentioning it, walks straight through. That is the same reason
+    # `_ever_reopened` scans the whole history rather than a fixed window: any
+    # window shorter than the history is a number nobody measured. Number-neutral
+    # on the archive — an adjacent-superset chain implies an all-prior superset,
+    # and 0 of 12 pairs drop an id, so no replayed figure moves.
+    dropped = set().union(*(set(p) for p in passes[:-1])) - set(current)
     if dropped:
         return ConvergenceAssessment(
             ConvergenceState.INDETERMINATE,

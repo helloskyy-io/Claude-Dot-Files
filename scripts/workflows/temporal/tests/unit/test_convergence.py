@@ -200,6 +200,45 @@ def test_forgetting_control_restating_the_dropped_id_converges() -> None:
     assert assessment.state is State.CONVERGED
 
 
+def test_a_finding_forgotten_TWO_passes_ago_is_still_forgotten() -> None:
+    """The drop check reads EVERY prior pass, because a pairwise one expires.
+
+    Found by review, not by the mutation loop, and it is the shape the loop was
+    blind to: every mutation was a single edit judged over a TWO-pass history,
+    and this defect only appears at three. Against `passes[-2]` alone the run
+    below flags pass 2 correctly and then reports pass 3 **CONVERGED** with `b`
+    never dispositioned — so the cheapest way to fake convergence, stop
+    mentioning a finding and keep not mentioning it, costs the forger exactly
+    one extra pass. It is the same reasoning `_ever_reopened` already applies:
+    any window shorter than the history is a number nobody measured.
+    """
+    history = [_pass(a="hold", b="hold"), _pass(a="fixed"), _pass(a="fixed")]
+
+    two = cv.assess(history[:2], pass_evaluable=True)
+    assert two.reason is Reason.PRIOR_FINDINGS_DROPPED, "the pairwise case regressed"
+
+    three = cv.assess(history, pass_evaluable=True)
+    assert three.state is State.INDETERMINATE, (
+        "a finding dropped two passes ago is still undispositioned, and the pass "
+        "that inherits the drop inherits the incomparability with it"
+    )
+    assert three.reason is Reason.PRIOR_FINDINGS_DROPPED
+
+
+def test_the_whole_history_check_does_not_flag_a_CONFORMING_three_pass_run() -> None:
+    """Control for the rule above: widening the window must not widen the alarm.
+
+    The same three-pass shape with nothing forgotten. Without this, a drop check
+    that simply returned INDETERMINATE on every history longer than two passes
+    would satisfy the test above and destroy the predicate.
+    """
+    assessment = cv.assess(
+        [_pass(a="hold", b="hold"), _pass(a="fixed", b="hold"), _pass(a="fixed", b="fixed")],
+        pass_evaluable=True,
+    )
+    assert assessment.state is State.CONVERGED
+
+
 # --- oscillation: the window check ------------------------------------------
 
 def test_a_finding_closed_and_REOPENED_withholds_convergence_later() -> None:
