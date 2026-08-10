@@ -89,11 +89,20 @@ def extract(repo: str) -> list[dict]:
     extractor here would be a fourth declaration of the marker that already has
     an open issue (#68) for having had three.
     """
-    out = subprocess.run(
+    done = subprocess.run(
         [sys.executable, str(_EXTRACTOR), repo],
-        capture_output=True, text=True, check=True,
-    ).stdout
-    return json.loads(out)
+        capture_output=True, text=True,
+    )
+    if done.returncode != 0:
+        # `check=True` raises a CalledProcessError carrying only the exit status,
+        # and the likeliest failure here is a `gh` auth prompt or a rate limit —
+        # whose entire explanation is on stderr. An operator given "exit 1" for
+        # "gh: not logged in" goes looking in the wrong tool.
+        raise RuntimeError(
+            f"{_EXTRACTOR.name} failed (exit {done.returncode}): "
+            f"{done.stderr.strip() or '<no stderr>'}"
+        )
+    return json.loads(done.stdout)
 
 
 def _passes(blocks: list[dict]) -> list[dict]:

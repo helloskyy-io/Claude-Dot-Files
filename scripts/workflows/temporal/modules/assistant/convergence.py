@@ -242,11 +242,19 @@ class ConvergenceAssessment:
 
 
 def _as_map(entries: Iterable[tuple[str, str]]) -> dict[str, str]:
-    """One pass's `(id, disposition)` pairs as a mapping. Last spelling wins.
+    """One pass's `(id, disposition)` pairs as a mapping. Last pair wins.
 
     A duplicate id within one block is malformed, not a modelled state; taking
-    the last is the same last-wins rule `latest_pr_review_block` applies one
-    level up, and it keeps the function total on input the archive can produce.
+    the last keeps the function total on input the archive can produce.
+
+    "LAST" IS THE ITERABLE'S ORDER, WHICH IS NOT DOCUMENT ORDER ON EVERY CALLER,
+    and saying otherwise would be a rule that is not the rule that runs.
+    `review_pr_helper.convergence_history` hands in a SORTED tuple, so a block
+    carrying `- id: a … hold` and later `- id: a … rejected` resolves
+    alphabetically rather than by position. There is no live consequence — the
+    render↔record invariant raises on a pair-count mismatch before this is
+    reached, and the replay preserves document order — but a caller that needs
+    document-order last-wins has to supply it, not assume it.
     """
     return {str(fid): str(disposition) for fid, disposition in entries}
 

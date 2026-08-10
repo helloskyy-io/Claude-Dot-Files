@@ -151,6 +151,16 @@ _DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
 # is: the two readers attribute the same field, and a silent divergence would
 # make the workflow's agreement count disagree with the archive replay's while
 # both suites stayed green.
+#
+# DELIBERATELY NARROW: unquoted, lowercase, first match. Both emitters instruct
+# exactly `converged: true|false` (`review-pr.sh:355`, `disposition.md:265`) and
+# no archived block departs from it. Widening it to tolerate `True` or `"true"`
+# would mean widening `replay_pr_review_blocks.CONVERGED` in step with it to keep
+# the one-declaration gate green — moving a shared tool whose published figures
+# must stay reproducible, to accept a form nothing produces. The failure
+# direction if one ever appears is fail-safe: a non-matching form reads as
+# `None`, i.e. "this block predates the flag", which SHRINKS the agreement
+# denominator rather than adding a wrong entry to it.
 CONVERGED_FLAG = re.compile(r"^\s*converged:\s*(true|false)", re.MULTILINE)
 
 

@@ -120,6 +120,14 @@ def pr_review_blocks(pr_number: str, repo_root: Path) -> list[str]:
 def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     """The LATEST `pr_review:` block on this PR, or None if there is none.
 
+    NO PRODUCTION CALLER TODAY, and that is worth knowing before reading the
+    rest. `run_review` takes the whole window from `thread_snapshot` and names
+    this pass's block with `helper.this_pass_block`, which is where the
+    positional inference now lives and which `phase4_fleet_migration.md`'s
+    run-nonce checkbox replaces. This stays as the one-line composition of those
+    two, because several docstrings point at it as the place the "latest block"
+    rule is written down and moving that prose would cost more than the line.
+
     The address, applied: container id is the PR number, the block marker is the
     fence-anchored regex, and the ordering rule is comment creation order with
     LAST WINS (`memory-model.md` §6.2). Sequence is derived from that ordering
@@ -150,8 +158,7 @@ def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     the duplicated-reader defect `exit-protocol.md` §6 covers — and the measured
     instance of it (issue #68) is this exact marker.
     """
-    blocks = pr_review_blocks(pr_number, repo_root)
-    return blocks[-1] if blocks else None
+    return helper.this_pass_block(pr_review_blocks(pr_number, repo_root))
 
 
 def load_shared_block(name: str, shared_sh: Path) -> str:
