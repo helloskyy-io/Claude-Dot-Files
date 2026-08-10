@@ -82,12 +82,29 @@ testing/scripts/mutate.sh <file> <old-string> <new-string> <pytest-target>
 
 It runs baseline → mutated → restored and reports whether the guard actually
 fired. Each leg is judged by **pytest's exit code**, not by grepping the
-output for the word "failed" — a mutation that breaks collection (a syntax
-error, an unparseable array entry) prints "1 error" and exits 2, which is the
-guard firing just as much as an assertion failure is, and a substring check
-would have called it a miss. Exit 4/5 abort the run outright as harness errors
-rather than being read as a result, because exit 5 ("no tests collected")
-means the target was wrong, not that the mutation had no effect.
+output for the word "failed" — a mutation that breaks collection prints
+"1 error" and exits 2, which has no "failed" in it, so a substring check
+called a fired guard a miss.
+
+**Exit 2 is ambiguous and the harness resolves it, so read the message rather
+than the code.** The same "1 error during collection" means *the guard fired
+hard* when a mutated **data** subject (a crontab entry, a workflow YAML) makes
+the guard's own module-level parsing reject it — and means *nothing ran at
+all* when the mutation left the **Python file under test** unimportable, since
+pytest could never import it (issue #72). The discriminator is **differential**:
+the harness imports `<file>` before mutating and again after, and calls it a
+harness error only when the mutation is what broke the import. If `<file>`
+does not import standalone even unmutated — a module needing pytest's own
+`conftest.py` and `sys.path` setup, which many in this repo do — the probe
+cannot speak, so the leg falls back to RED and the run says so on stderr.
+Confirm by hand there that a test really ran.
+
+**Exit 3/4/5 abort the run outright** as harness errors rather than being read
+as a result: 5 ("no tests collected") means the target was wrong, not that the
+mutation had no effect; 4 is a pytest usage error; 3 is pytest's own internal
+error, which is never a test result. `mutate.sh` carries the full exit-code
+table with the ambiguity of each spelled out — including why exit 0 is
+ambiguous too and why that one needs no fix.
 
 It refuses a mutation string that is not present, because a mutation that
 changes nothing proves nothing — and it refuses one that matches more than
@@ -102,8 +119,10 @@ unambiguous — including the surrounding quotes is usually enough
 whole-second mtime *plus* source byte size, so a length-preserving edit applied
 within one second silently runs the STALE `.pyc` — the test passes having
 tested nothing. `PYTHONDONTWRITEBYTECODE=1` does **not** fix it: that suppresses
-*writing* a cache, not *reading* one. The harness gives every leg its own
-`PYTHONPYCACHEPREFIX`, which is the only reliable defeat. Two bugs were caught this way within a minute of the
+*writing* a cache, not *reading* one. The harness gives every leg **and every
+import probe** its own `PYTHONPYCACHEPREFIX`, which is the only reliable
+defeat — the probe ran without one once, and a cache entry answered it
+"imports fine" for a file pytest could not import at all. Two bugs were caught this way within a minute of the
 tests existing — both in the fix that shipped alongside them.
 
 ## The gate

@@ -254,6 +254,183 @@ def test_a_mutation_that_breaks_collection_via_a_DATA_file_still_counts_as_the_g
     )
 
 
+def test_a_package_relative_module_whose_guard_fires_is_not_blamed_on_the_mutation(
+    tmp_path: Path,
+) -> None:
+    """The exit-2 discriminator must be DIFFERENTIAL, not absolute.
+
+    The first fix for issue #72 asked "can this file be imported?" when the
+    question it had to answer was "did the mutation change whether it can be?".
+    Those are the same answer for any module that does not import standalone —
+    and a module holding a relative import (`from .constants import BASE`) is
+    exactly that shape: importing it by bare path raises "attempted relative
+    import with no known parent package" with no mutation in play at all. 22
+    modules in this repo are that shape, one of them a live mutate target with
+    its own unit suite.
+
+    So this is the Python analogue of the crontab case below: the guard fires
+    HARD at collection, pytest exits 2, and the harness must read it as the
+    guard firing. Reporting it as a harness error tells the engineer to fix a
+    mutation that broke nothing — and per this file's header, a false negative
+    is the direction that gets a WORKING GUARD DELETED.
+    """
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("")
+    (tmp_path / "pkg" / "constants.py").write_text("BASE = 1\n")
+    (tmp_path / "pkg" / "mod.py").write_text("from .constants import BASE\n\nLIMIT = BASE * 10\n")
+    # The guard is at MODULE level, so it fires during collection — the whole
+    # point. A guard inside a test function would exit 1 and prove nothing here.
+    (tmp_path / "test_mod.py").write_text(
+        "from pkg.mod import LIMIT\n\n"
+        "if LIMIT != 10:\n"
+        "    raise AssertionError(f'guard: LIMIT is {LIMIT}')\n\n\n"
+        "def test_limit():\n"
+        "    assert LIMIT == 10\n"
+    )
+    r = subprocess.run(
+        [str(MUTATE), "pkg/mod.py", "BASE * 10", "BASE * 11", "test_mod.py"],
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=180,
+    )
+    assert r.returncode == DEMONSTRATED, (
+        "a guard that fired at collection on a package-relative module was read as "
+        "a harness error — the discriminator is measuring whether the file imports "
+        f"standalone, not whether the mutation changed that\n{r.stdout}{r.stderr}"
+    )
+    assert "MUTATION DEMONSTRATED" in r.stdout
+    # The verdict alone is symmetric under the defect this test exists for: the
+    # abstain fallback also yields DEMONSTRATED, so a probe that could not
+    # import the package at all would pass on the line above while proving
+    # nothing about prepend mode. The right answer here is that the probe
+    # imported the module and found the mutation harmless.
+    assert "does not import standalone" not in r.stderr, (
+        "the probe ABSTAINED on a module it should be able to import — it is not "
+        f"resolving the package root the way pytest's prepend mode does\n{r.stdout}{r.stderr}"
+    )
+
+
+def test_an_exit_2_the_discriminator_cannot_speak_to_falls_back_to_RED_and_says_so(
+    tmp_path: Path,
+) -> None:
+    """When the baseline itself does not import, the probe must ABSTAIN.
+
+    A module importable only with pytest's own conftest and sys.path setup in
+    place gives the probe no usable baseline: "it does not import" is true
+    before and after the mutation, so nothing can be attributed to the
+    mutation. The harness must then fall back to exit-2-is-RED — the pre-#72
+    behaviour, which is at worst as good as what shipped before — and it must
+    SAY the discriminator abstained. A silent fallback hands back the old
+    verdict wearing the new verdict's confidence, which is the more expensive
+    of the two errors.
+    """
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "lib" / "helper.py").write_text("VALUE = 1\n")
+    (tmp_path / "conftest.py").write_text(
+        "import sys, pathlib\n"
+        "sys.path.insert(0, str(pathlib.Path(__file__).parent / 'lib'))\n"
+    )
+    (tmp_path / "subject.py").write_text("import helper\nTHRESHOLD = 10\n")
+    (tmp_path / "test_subject.py").write_text(
+        "import subject\n\n\ndef test_t():\n    assert subject.THRESHOLD == 10\n"
+    )
+    r = subprocess.run(
+        [str(MUTATE), "subject.py", "import helper", "import helper_gone", "test_subject.py"],
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=180,
+    )
+    assert r.returncode == DEMONSTRATED, (
+        "an exit 2 the discriminator cannot speak to did not fall back to RED — the "
+        f"abstain path is stricter than the behaviour it replaced\n{r.stdout}{r.stderr}"
+    )
+    assert "does not import standalone" in r.stderr, (
+        "the harness fell back to the pre-#72 verdict SILENTLY — the reader is given "
+        f"no way to know the discriminator never spoke\n{r.stdout}{r.stderr}"
+    )
+
+
+def test_a_stale_bytecode_cache_cannot_answer_the_import_probe(sandbox: Path) -> None:
+    """Issue #72 re-entering through its own fix.
+
+    The probe was the one Python invocation in the script without its own
+    `PYTHONPYCACHEPREFIX`, so it could be served bytecode compiled from
+    DIFFERENT source than the one pytest just choked on: it reports "imports
+    fine", the leg is classified RED, and the harness prints MUTATION
+    DEMONSTRATED over a guard that never ran.
+
+    The cache here is seeded in UNCHECKED_HASH mode rather than by racing the
+    whole-second mtime window this file's header describes. Same defect, same
+    read of the same shared cache — but deterministic, and a timing-dependent
+    regression test for a timing bug is a flaky test, which is worse than none.
+    """
+    (sandbox / "subject.py").write_text("import os\nTHRESHOLD = 10\n")
+    subprocess.run(
+        [
+            "python3", "-c",
+            "import py_compile; py_compile.compile('subject.py', "
+            "invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)",
+        ],
+        cwd=str(sandbox), check=True, capture_output=True, timeout=60,
+    )
+    assert list(sandbox.glob("__pycache__/subject.*.pyc")), "the cache seed did not take"
+
+    r = run_mutate(sandbox, "import os", "import oq")
+    assert "MUTATION DEMONSTRATED" not in r.stdout, (
+        "a cached .pyc answered the import probe for a file pytest cannot import, and "
+        f"the harness certified a guard that never ran — issue #72\n{r.stdout}{r.stderr}"
+    )
+    assert r.returncode == FAILED_OR_HARNESS_ERROR
+    assert "HARNESS ERROR" in r.stderr
+
+
+def test_the_import_probe_leaves_no_bytecode_in_the_working_tree(sandbox: Path) -> None:
+    """The EXIT trap's contract is restore-on-any-path, and it does not clean
+    `__pycache__`.
+
+    An un-prefixed probe compiles the MUTATED source and writes the result next
+    to `$FILE`. The trap restores the source and removes `$CACHE_ROOT`; that
+    `.pyc` survives both, so the harness leaves bytecode from code nobody meant
+    to ship in the tree — the exact harm the trap's own comment names.
+
+    Scoped to `__pycache__` deliberately. `.pytest_cache` is also left behind,
+    by every leg, on `main` as much as here — it holds no mutated source, so
+    the trap's stated harm does not reach it. That is a separate observation
+    about pytest's own cache, not this probe's.
+    """
+    (sandbox / "subject.py").write_text("import os\nTHRESHOLD = 10\n")
+    r = run_mutate(sandbox, "import os", "import oz_nope")
+    assert "HARNESS ERROR" in r.stderr, "the probe did not run, so this proves nothing"
+    strays = list(sandbox.rglob("__pycache__"))
+    assert not strays, (
+        "the harness left bytecode compiled from the MUTATED source in the working "
+        f"tree: {[str(p) for p in strays]}\n{r.stdout}{r.stderr}"
+    )
+
+
+def test_a_pytest_internal_error_is_a_HARNESS_ERROR_not_a_leg_result(sandbox: Path) -> None:
+    """Exit 3 is `INTERNAL_ERROR` — pytest itself failed, never a test result.
+
+    It cannot be read as a leg verdict: pytest's exit code carries no signal
+    distinguishing an internal error raised before any test ran from one raised
+    after, so the harness picks the fail-closed direction and aborts.
+
+    This test exists because the reclassification and its dedicated message
+    branch shipped having been executed by nobody — cause 3 in this file's own
+    header, verbatim. The build pass recorded exit 3 as having no realistic
+    repro; a `conftest.py` whose collection hook raises produces it in two
+    lines, well inside the sandbox pattern every test here already uses.
+    """
+    (sandbox / "conftest.py").write_text(
+        "def pytest_collection_modifyitems(items):\n"
+        "    raise RuntimeError('a plugin hook blew up')\n"
+    )
+    r = run_mutate(sandbox, "THRESHOLD = 10", "THRESHOLD = 11")
+    assert r.returncode == FAILED_OR_HARNESS_ERROR, f"{r.stdout}{r.stderr}"
+    assert "HARNESS ERROR" in r.stderr
+    assert "internal error" in r.stderr, (
+        "exit 3 aborted without naming pytest's own failure as the cause, so the "
+        f"reader is sent to check the mutation instead\n{r.stdout}{r.stderr}"
+    )
+    assert "MUTATION DEMONSTRATED" not in r.stdout
+
+
 def test_a_target_that_collects_nothing_is_a_HARNESS_ERROR_not_a_verdict(sandbox: Path) -> None:
     """pytest exit 5 means TARGET was wrong, not that anything was tested.
     Reading it as RED would certify a guard that never ran."""

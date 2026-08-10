@@ -34,7 +34,10 @@
 # edit and the run. Sub-second, it would have passed while testing nothing.
 #
 # So every leg below gets its own PYTHONPYCACHEPREFIX. A cache directory that
-# did not exist a moment ago cannot serve a stale entry.
+# did not exist a moment ago cannot serve a stale entry. EVERY Python
+# invocation this script makes against the tree is a leg for that purpose,
+# including the import probe — it ran without a prefix once, and a stale entry
+# answered it "imports fine" for a file pytest could not import at all.
 set -euo pipefail
 
 [[ $# -eq 4 ]] || { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -125,6 +128,7 @@ trap 'cp "$BACKUP" "$FILE"; rm -f "$BACKUP"; rm -rf "$CACHE_ROOT"' EXIT
 # be read at all. Any command tested by an `if` is exempt from that.
 run_leg() {  # $1 = leg name, used to make the cache prefix unique
     local name="$1" output
+    LEG_NAME="$name"
     if output="$(PYTHONPYCACHEPREFIX="${CACHE_ROOT}/${name}" python3 -m pytest "$TARGET" -q 2>&1)"; then
         LEG_STATUS=0
     else
@@ -133,20 +137,17 @@ run_leg() {  # $1 = leg name, used to make the cache prefix unique
     LEG_TAIL="$(tail -n1 <<<"$output")"
 }
 
-# The discriminator for exit 2 (see classify_leg below): can $FILE — the exact
-# thing this script just mutated — still be IMPORTED? A SyntaxError makes that
-# impossible on its own, and so does anything else the mutation could turn
-# $FILE into that isn't valid, importable Python: a broken import (`import os`
-# mutated to `import os_typo`), a NameError, any exception $FILE raises at
-# module level. Checking syntax alone (an earlier version of this function
-# used `ast.parse`) caught the SyntaxError shape but not the others — an
-# import that mutates cleanly into a reference to a nonexistent module is
-# syntactically valid and still means nothing ran. Any of these is SUFFICIENT
-# on its own to cause "Interrupted: N error during collection", so nothing
-# else needs to have run for pytest to report exit 2, and nothing else can be
-# inferred to have run either. A non-Python data file (crontab, YAML) can't
-# fail THIS way, so an exit-2 there is left for the guard's own parsing to
-# explain, and that counts as firing.
+# The measurement behind the exit-2 discriminator (see classify_leg below):
+# can $FILE be IMPORTED right now? A SyntaxError makes that impossible on its
+# own, and so does anything else a mutation could turn $FILE into that isn't
+# valid, importable Python: a broken import (`import os` mutated to
+# `import os_typo`), a NameError, any exception $FILE raises at module level.
+# Checking syntax alone (an earlier version of this function used `ast.parse`)
+# caught the SyntaxError shape but not the others — an import that mutates
+# cleanly into a reference to a nonexistent module is syntactically valid and
+# still means nothing ran. Any of these is SUFFICIENT on its own to cause
+# "Interrupted: N error during collection", so nothing else needs to have run
+# for pytest to report exit 2, and nothing else can be inferred to have run.
 #
 # Cheaper than comparing collected-test counts between legs, and more precise:
 # tried empirically against a module-level crontab-parsing guard (the shape
@@ -156,6 +157,34 @@ run_leg() {  # $1 = leg name, used to make the cache prefix unique
 # whether $FILE itself still imports can, because it names the actual cause
 # instead of inferring it from a symptom both cases share.
 #
+# THIS FUNCTION ANSWERS AN ABSOLUTE QUESTION AND THE DISCRIMINATOR NEEDS A
+# DIFFERENTIAL ONE. "This file does not import" and "the mutation broke this
+# file" are the same answer here, and they are not the same fact — so the
+# caller takes a PRISTINE baseline before leg 2 mutates anything and only
+# blames the mutation when the answer CHANGED. Shipping the absolute form
+# reported a genuinely-firing guard as a broken mutation; see
+# EXIT_2_DISCRIMINATOR below for the baseline and for what happens when the
+# probe cannot speak at all.
+#
+# IMPORTS THE WAY PYTEST DOES, not by bare path. pytest's default `prepend`
+# import mode resolves the package root FIRST: it walks up while __init__.py
+# exists, puts that root on sys.path, and imports the DOTTED name. Importing
+# the bare path with spec_from_file_location skips all of that, so any module
+# holding a relative import (`from .constants import BASE`) raises "attempted
+# relative import with no known parent package" with no mutation in play at
+# all. 22 modules in this repo are that shape — one of them a live mutate
+# target with its own unit suite — so a bare-path probe measures the probe,
+# not the mutation.
+#
+# GETS ITS OWN PYTHONPYCACHEPREFIX, PER INVOCATION, exactly as run_leg does.
+# The top-of-file doctrine applies to this Python invocation unchanged, and
+# with two calls against one path it applies WITHIN this function: a shared
+# cache directory lets the pristine call's bytecode answer the post-mutation
+# call, reporting "imports fine" for a file pytest cannot import — issue #72
+# re-entering through its own fix. A fresh prefix under $CACHE_ROOT also keeps
+# bytecode compiled from the MUTATED source out of the working tree, which the
+# EXIT trap does not clean and which the trap's own contract forbids leaving.
+#
 # Imports via importlib rather than running `python3 "$FILE"` directly, so a
 # `if __name__ == "__main__":` block in $FILE does not execute here — this
 # probe must mirror what a real import does (module body only), not what
@@ -163,47 +192,74 @@ run_leg() {  # $1 = leg name, used to make the cache prefix unique
 # pytest import would never touch.
 #
 # Guarded like every other command here: under `set -e`, a bare failing
-# command aborts the script before its exit status can be inspected, so the
-# check is the condition of an `if`, not a bare invocation.
-mutation_broke_python_import() {
-    [[ "$FILE" == *.py ]] || return 1
-    if python3 -c "
-import importlib.util, sys
-spec = importlib.util.spec_from_file_location('_mutate_probe', sys.argv[1])
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-" "$FILE" >/dev/null 2>&1; then
-        return 1
-    fi
-    return 0
+# command aborts the script before its exit status can be inspected, so every
+# call below is the condition of an `if`, not a bare invocation.
+file_imports_cleanly() {  # $1 = cache label, must be unique per invocation
+    PYTHONPYCACHEPREFIX="${CACHE_ROOT}/probe-$1" python3 -c "
+import importlib, pathlib, sys
+p = pathlib.Path(sys.argv[1]).resolve()
+root, parts = p.parent, [p.stem]
+while (root / '__init__.py').exists():   # pytest's prepend mode: find the package root
+    parts.insert(0, root.name)
+    root = root.parent
+sys.path.insert(0, str(root))
+importlib.import_module('.'.join(parts))
+" "$FILE" >/dev/null 2>&1
 }
 
-# Every exit code pytest can hand back, and whether it is ambiguous between
-# "the suite ran (and went red)" and "the suite never ran":
-#   0    -> GREEN, unambiguous: tests were collected AND passed.
-#   1    -> RED, unambiguous: tests were collected AND ran; something failed
-#           at run time. Collection already succeeded by the time exit 1 is
-#           possible, so the guard was exercised.
-#   2    -> AMBIGUOUS. "Interrupted: N error during collection" fires for two
-#           opposite reasons pytest does not distinguish in its exit code:
+# EVERY exit code this harness classifies, and for each the only question that
+# matters: can it mean BOTH "the suite ran" and "the suite never ran"? Fixing
+# one ambiguous code and leaving a second is the same defect one step over, so
+# the table is exhaustive and each row answers the question explicitly.
+#
+#   0    -> GREEN. AMBIGUOUS, and deliberately left alone. pytest exits 0 both
+#           when tests ran and passed AND when every test was SKIPPED, which
+#           runs nothing (verified: one skipped test, exit 0). But the two
+#           resolve to the same safe place — a GREEN leg 2 prints "THE GUARD
+#           DID NOT FIRE" and refuses to certify — so this ambiguity cannot
+#           produce a false certification, only a conservative non-verdict.
+#           Nothing to close; the direction is already fail-closed.
+#   1    -> RED. UNAMBIGUOUS on this question: exit 1 requires collection to
+#           have fully succeeded (pytest interrupts to 2 on a collection error
+#           unless --continue-on-collection-errors, which this harness never
+#           passes), so tests were collected and executed.
+#           KNOWN BOUNDARY, stated rather than papered over: exit 1 proves the
+#           SUITE ran, not that the guard's ASSERTION was evaluated. A test
+#           that imports $FILE inside its own body fails on the mutation's
+#           ImportError before reaching the assertion, and pytest's exit code
+#           carries no signal for that. It is a different channel, not a
+#           different exit code, and no classification of exit codes can reach
+#           it — reading pass/fail per test would be required.
+#   2    -> AMBIGUOUS, and this is the one that needed closing.
+#           "Interrupted: N error during collection" fires for two opposite
+#           reasons pytest does not distinguish in its exit code:
 #             - mutating a DATA subject (a workflow YAML, a crontab entry) so
 #               the guard's OWN parsing rejects it — the guard firing, hard.
 #             - mutating the PYTHON MODULE UNDER TEST so it can no longer be
 #               imported (invalid syntax, a broken import, a module-level
 #               exception), so pytest can never import it and NO test runs.
-#           See mutation_broke_python_import() below for the discriminator.
-#   3    -> HARNESS_ERROR. pytest's own docs: "internal error happened while
-#           executing tests" — a pytest/plugin failure, not a test result.
-#           Nothing here proves the guard ran; treat it like 4/5, not like 1.
-#   4, 5, other -> HARNESS_ERROR, not a leg result. In particular 5 ("no
-#           tests collected") must never read as "the guard fired" — it means
-#           TARGET was wrong, not that anything was tested.
+#           Resolved DIFFERENTIALLY, not absolutely: HARNESS_ERROR only when
+#           $FILE imported cleanly BEFORE the mutation and does not now. When
+#           the probe cannot establish that baseline it abstains to RED — the
+#           pre-#72 behaviour — and says so, rather than asserting a cause.
+#   3    -> HARNESS_ERROR. AMBIGUOUS in principle — pytest's "internal error
+#           happened while executing tests" can strike before or after tests
+#           ran — and its exit code carries nothing that tells the two apart.
+#           So the harness picks a direction, and for a tool whose expensive
+#           error is false certification the fail-closed one is right: a
+#           pytest/plugin failure is never a leg result. Treat it like 4/5.
+#   4    -> HARNESS_ERROR. UNAMBIGUOUS: a pytest usage error, nothing ran.
+#   5    -> HARNESS_ERROR. UNAMBIGUOUS: "no tests collected" means TARGET was
+#           wrong, not that anything was tested — reading it as "the guard
+#           fired" is the exact laundering this tool exists to stop.
+#   other-> HARNESS_ERROR. Signals (128+N) and anything pytest does not
+#           document land here; unknown is not a leg result either.
 classify_leg() {
     case "$1" in
         0) echo GREEN ;;
         1) echo RED ;;
         2)
-            if mutation_broke_python_import; then
+            if [[ "$EXIT_2_DISCRIMINATOR" == live ]] && ! file_imports_cleanly "$LEG_NAME"; then
                 echo HARNESS_ERROR
             else
                 echo RED
@@ -225,11 +281,11 @@ report_leg() {  # $1 = leg label for the abort message
     if [[ "$LEG_VERDICT" == HARNESS_ERROR ]]; then
         case "$LEG_STATUS" in
             2)
-                echo "✗ HARNESS ERROR on $1: pytest exited 2 (collection error), and" >&2
-                echo "  $FILE can no longer be imported — the mutation broke the" >&2
-                echo "  target (syntax, an import, or a module-level exception), so" >&2
-                echo "  no test in $TARGET ran. Check the mutation string, not the" >&2
-                echo "  guard." >&2
+                echo "✗ HARNESS ERROR on $1: pytest exited 2 (collection error)." >&2
+                echo "  $FILE imported cleanly BEFORE the mutation and cannot be" >&2
+                echo "  imported now, so the mutation broke the target (syntax, an" >&2
+                echo "  import, or a module-level exception) and no test in $TARGET" >&2
+                echo "  ran. Check the mutation string, not the guard." >&2
                 ;;
             3)
                 echo "✗ HARNESS ERROR on $1: pytest exited 3 (internal error) — pytest" >&2
@@ -245,7 +301,48 @@ report_leg() {  # $1 = leg label for the abort message
         esac
         exit 1
     fi
+    # The discriminator was NEEDED here and could not speak. Saying so is the
+    # point: falling back to RED silently would hand back the pre-#72 verdict
+    # with the confidence of the post-#72 one.
+    if [[ "$LEG_STATUS" -eq 2 && "$EXIT_2_DISCRIMINATOR" == abstain ]]; then
+        echo "   note: $FILE does not import standalone even UNMUTATED, so the" >&2
+        echo "   exit-2 discriminator cannot tell whether the mutation broke the" >&2
+        echo "   target or the guard's own parsing rejected it. Read as RED (the" >&2
+        echo "   pre-#72 behaviour) and confirm by hand that a test in $TARGET" >&2
+        echo "   actually ran before trusting this verdict." >&2
+    fi
 }
+
+# THE PRISTINE BASELINE — taken HERE, before leg 2 mutates anything, because
+# after that there is nothing pristine left to measure. This is what makes the
+# exit-2 discriminator differential instead of absolute:
+#
+#   live       $FILE is Python AND imports cleanly unmutated. "It does not
+#              import now" is therefore attributable to the mutation, and an
+#              exit 2 on the mutated leg is a HARNESS_ERROR.
+#   abstain    $FILE is Python and does NOT import unmutated. The probe cannot
+#              distinguish anything; exit 2 falls back to RED with the note in
+#              report_leg. NOT an error — 22 modules in this repo import only
+#              with pytest's own conftest and sys.path setup in place, and
+#              refusing to run against them would be worse than the pre-#72
+#              behaviour, not better.
+#   not-python $FILE is a crontab, a YAML, any data subject. It cannot become
+#              unimportable Python, so an exit 2 belongs to the guard's own
+#              parsing and reads as the guard firing — the case the exit-2-is-
+#              RED rule above exists to defend, preserved exactly.
+#
+# Costs one extra execution of $FILE's module body per run, in its own process
+# and its own bytecode cache. pytest imports it three times anyway, once per
+# leg; this is the price of the question being differential at all.
+LEG_NAME=""
+EXIT_2_DISCRIMINATOR=not-python
+if [[ "$FILE" == *.py ]]; then
+    if file_imports_cleanly pristine; then
+        EXIT_2_DISCRIMINATOR=live
+    else
+        EXIT_2_DISCRIMINATOR=abstain
+    fi
+fi
 
 echo "── leg 1: BASELINE — the guard must be green before it is meaningful"
 run_leg baseline
