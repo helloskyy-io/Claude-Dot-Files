@@ -95,13 +95,16 @@ claude-dot-files/
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
 │   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 BUILT-NOT-PROVEN (2026-08-09, 7 of 8 requirements — the run set is what closes it);
-│   │   │                                            #   Phases 4-5 planned. First component on the roadmap+phases shape sprint.md mandates
+│   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phase 4 planned.
+│   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
 │   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
 │   │   │   ├── phase1_measure_the_channel.md        # COMPLETE — six experiments, thirteen rulings. Cancelled nothing; re-scoped Phase 5's predicate
 │   │   │   ├── phase2_kind1_framework.md            # COMPLETE — Kind 1 as a substrate-free interface with GitHub as one binding. Found four of its own premises false
 │   │   │   ├── phase3_typed_exit_record.md          # Arrangement A, split abstention, fail-safe contract, one pair proven
 │   │   │   ├── phase4_fleet_migration.md            # Fleet-wide rollout; archive as by-product. Zero prompt content changes
-│   │   │   ├── phase5_convergence_stopping.md       # The payoff — and the justification with no incumbent to beat
+│   │   │   ├── phase5_convergence_stopping.md       # The payoff — and NOT greenfield: it replaces a shipped model-asserted `converged` flag
+│   │   │   │                                        #   with a computed one, and routes NOTHING. § Measurement is the single source of every
+│   │   │   │                                        #   figure in the phase; a gate fails any restatement of one outside it
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
@@ -183,8 +186,8 @@ claude-dot-files/
 │   │   │   ├── README.md                            # What each tool answers and which open decision reads it
 │   │   │   ├── replay_completion_predicate.py       # How often the completion grep misses a real terminal outcome → direction row D-007, MMF Phase 1 E5
 │   │   │   ├── replay_convergence_predicate.py     # Replays the SHIPPED convergence predicate over the archive → MMF Phase 5 step 6.
-│   │   │   │                                        #   IMPORTS the predicate (unlike its pinning sibling above) — a copy would validate a rule nobody runs.
-│   │   │   │                                        #   Re-sorts the shared dump by comment time: the predicate forbids the `pass:` label (issue #68)
+│   │   │   │                                       #   IMPORTS the predicate (unlike its pinning sibling above) — a copy would validate a rule nobody runs.
+│   │   │   │                                       #   Re-sorts the shared dump by comment time: the predicate forbids the `pass:` label (issue #68)
 │   │   │   └── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
@@ -257,9 +260,15 @@ claude-dot-files/
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+│                   ├── review_run_fakes.py          # The shared review_pr fakes, in a HELPER module rather than a test module — a test
+│                   │                                #   module is collected, not imported, and the coupling it replaced broke at COLLECTION,
+│                   │                                #   which mutate.sh reads as a caught mutation (issue #72)
 │                   ├── test_convergence.py          # Every false-convergence mode with its check AND a control on the same input;
-│                   │                                #   the partition gated against CHILD_SCHEMA's enum; a class-scoped assertion that
-│                   │                                #   NOTHING branches on the signal — an AST walk over every conditional, not a text scan
+│                   │                                #   the partition gated against CHILD_SCHEMA's enum; the finding scan anchored to
+│                   │                                #   `findings:` and parametrised over every free-text key the prompt defines; ONE site
+│                   │                                #   for the positional block inference, gated on the shape across review_pr/; and a
+│                   │                                #   class-scoped assertion that NOTHING branches on the signal — an AST walk over every
+│                   │                                #   conditional across modules/ AND scripts/, not a text scan of one package
 │                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
 │                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
 │                   │                                #   and FOUR one-declaration gates: the schema, the Kind 1 shared parse (enumerated,
@@ -288,8 +297,16 @@ claude-dot-files/
 │   │                                                #   only runner — a bash/bats runner gets added with the first .bats file, not before.
 │   │                                                #   Refuses to run at all while a test_*.py sits outside tests/{unit,integration,e2e}/
 │   ├── scripts/
-│   │   └── mutate.sh                                # Mutation harness — falsify a guard, show red, restore, show green. Gives every leg
-│   │                                                #   its own PYTHONPYCACHEPREFIX; a length-preserving edit would otherwise run stale .pyc
+│   │   ├── mutate.sh                                # Mutation harness — falsify a guard, show red, restore, show green. Gives every leg
+│   │   │                                            #   its own PYTHONPYCACHEPREFIX; a length-preserving edit would otherwise run stale .pyc
+│   │   └── tests/unit/                              # TIER 3 for the harness AND the repo-wide test-tree properties that only matter
+│   │                                                #   because of it — a collection failure exits 2 and reads as RED (issue #72)
+│   │       ├── test_mutate.py                       # The harness's own guards
+│   │       ├── test_test_tree_hygiene.py            # No test_*.py imports another test_*.py — anywhere in the repo, including a pair
+│   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read
+│   │       └── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
+│   │                                                #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
+│   │                                                #   non-convergent over four passes on one PR — see candidates.md C-050
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
