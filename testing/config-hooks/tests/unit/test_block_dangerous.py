@@ -110,6 +110,17 @@ HOOK = REPO_ROOT / "config" / "hooks" / "block-dangerous.sh"
 # part of what gates autonomous dispatch.
 HOOK_TIMEOUT_S = 30
 
+# A command used by the tests that need SOME denied command and do not care
+# which — the deny-payload shape, the exit code, the envelope-tolerance check.
+#
+# It is a NAMED CONSTANT because the previous literal was `rm -rf /tmp/build`,
+# and a scratch delete under /tmp is now deliberately ALLOWED (the hook's
+# SCRATCH-DELETE ELISION, added after that over-match was measured halting two
+# completed runs). Four tests were asserting "this is denied" about a command
+# whose denial had become incidental to what they were checking. Naming it
+# means the next behaviour change of this kind is one edit, not a hunt.
+A_DANGEROUS_COMMAND = "rm -rf /var/lib/postgresql"
+
 
 @dataclass(frozen=True)
 class HookResult:
@@ -189,15 +200,41 @@ DANGEROUS: list[tuple[str, str]] = [
     ("su -", "su - root"),
     ("doas", "doas apt install nginx"),
     # File deletion
-    ("rm -rf", "rm -rf /tmp/build"),
+    #
+    # THE TARGET HERE USED TO BE `/tmp/build` AND HAD TO CHANGE. A scratch
+    # delete under /tmp is now allowed on purpose — see the SAFE corpus and the
+    # hook's SCRATCH-DELETE ELISION. The entry is retargeted rather than
+    # deleted, because what it exercises (the `rm -rf` pattern, end to end) is
+    # still worth exercising.
+    ("rm -rf", "rm -rf /var/lib/postgresql"),
     # A backslash-newline is DELETED by the shell, so this is byte-for-byte the
     # same command as the entry above once bash has read it. It was ALLOWED
     # until canonicalization started joining continuations — the third spelling
     # of a token join, after the tab and the doubled space.
-    ("rm -rf split across a line continuation", "rm -r\\\nf /tmp/build"),
+    ("rm -rf split across a line continuation", "rm -r\\\nf /var/lib/postgresql"),
     ("rm -fr", "rm -fr node_modules"),
     ("rm -r", "rm -r olddir"),
     ("rm -f", "rm -f secrets.env"),
+    # The LONG-FLAG spellings. `rm -rf /` is refused by `rm` itself unless
+    # `--no-preserve-root` is passed, so the first of these is the spelling that
+    # actually wipes the root filesystem — and it was ALLOWED, verified against
+    # the pre-change hook, until the long-flag pattern went in.
+    ("rm --no-preserve-root", "rm --no-preserve-root -rf /"),
+    ("rm --recursive --force", "rm --recursive --force /"),
+    ("rm --force", "rm --force secrets.env"),
+    # The SCRATCH-DELETE ELISION boundary, from the denied side. Each of these
+    # reads like the allowed scratch shape and is not one; each is a distinct
+    # way the exemption could have been made into a bypass.
+    ("/tmp itself is not a scratch subdirectory", "rm -rf /tmp"),
+    ("/tmp/ with no named child", "rm -rf /tmp/"),
+    ("a second operand hiding behind a safe first", "rm -rf /tmp/build /"),
+    ("a safe segment does not exempt its neighbours", "rm -rf /tmp/x && rm -rf /"),
+    ("traversal out of the scratch root", "rm -rf /tmp/../etc"),
+    ("'.' as a component is /tmp itself", "rm -rf /tmp/."),
+    ("a glob is not a named directory", "rm -rf /tmp/*"),
+    ("a relative target with no cd into scratch", "cd /home/puma && rm -rf Repos"),
+    ("a later cd leaves the scratch directory", "cd /tmp && cd / && rm -rf etc"),
+    ("a long flag is never elided", "rm --no-preserve-root -rf /tmp/x /"),
     # Git destructive operations
     ("git push --force", "git push --force origin main"),
     ("git push -f", "git push -f origin main"),
@@ -302,11 +339,23 @@ SAFE: list[tuple[str, str]] = [
     ("letter before 'sudo ' (constructed)", "echo usesudo now"),
     ("letter before 'su -' (constructed)", "echo resu - now"),
     ("'doas' not followed by a space", "cat doas.conf"),
-    # File deletion — the pattern requires a dash-flag, so an unflagged rm and
-    # a long-flag rm both pass. Deleting one file is normal work.
+    # File deletion — the pattern requires a dash-flag, so an unflagged rm
+    # passes. Deleting one file is normal work.
     ("rm with no flags", "rm build/output.txt"),
-    ("rm with a long flag", "git rm --cached secrets.env"),
+    ("git rm --cached is not a recursive delete", "git rm --cached secrets.env"),
     ("ordinary npm invocation", "npm run build"),
+    # SCRATCH DELETES — the over-match narrowed on 2026-08-10, from the allowed
+    # side. THE FIRST TWO ARE THE COMMANDS THAT WERE ACTUALLY MEASURED HALTING
+    # COMPLETED RUNS, reproduced verbatim rather than paraphrased: a mutation
+    # sandbox being reset, and `review-pr` cleaning up the trial merge it had
+    # just used to reach `VERDICT: MERGE`. Both runs lost their result. A
+    # fail-closed control that denies valid events is its own outage, and this
+    # hook is the only control operating unattended.
+    ("the measured false positive: a mutation sandbox", "cd /tmp && rm -rf m6 && mkdir m6 && cd m6"),
+    ("the measured false positive: review-pr trial-merge cleanup", "rm -rf /tmp/pr75-merge"),
+    ("a named scratch directory under /tmp", "rm -rf /tmp/build"),
+    ("/var/tmp is a scratch root too", "rm -rf /var/tmp/scratch"),
+    ("a relative target under an established scratch cd", "cd /tmp/sandbox && rm -rf out"),
     # The three over-matches fixed under issue #62. Each blocked ordinary work
     # before the boundary guards went in; each is now the near-miss that pins
     # the guard. Removing `(^|[^a-z])`, `([^-]|$)` or `([[:space:]]|$)` turns
@@ -549,6 +598,13 @@ ALLOW_CLAIMS = [(e, c) for e in ALL_ENTRIES for c in e.must_allow]
 # failure id points at a predictable line.
 CLAIMED_ALLOW_COMMANDS = list(dict.fromkeys(c for _, c in ALLOW_CLAIMS))
 
+# The same flattening for the block direction. This one had no end-to-end pass
+# at all until the SCRATCH-DELETE ELISION was added, and the omission was only
+# harmless while nothing sat between the input and the pattern loop. Now
+# something does, and a `MUST BLOCK` claim can be true of its regex and false
+# of the hook. See `test_claimed_block_is_denied_end_to_end`.
+CLAIMED_BLOCK_COMMANDS = list(dict.fromkeys(c for _, c in BLOCK_CLAIMS))
+
 DOCUMENTED_GAPS = _extract_threat_claims("PASSES THROUGH")
 BLOCKED_ANYWAY = _extract_threat_claims("BLOCKED ANYWAY")
 
@@ -601,7 +657,7 @@ def test_deny_payload_matches_the_hook_standard() -> None:
     string interpolation. A malformed payload is indistinguishable from an
     allow at the far end.
     """
-    result = run_hook("rm -rf /tmp/build")
+    result = run_hook(A_DANGEROUS_COMMAND)
     payload = result.payload  # raises if the hook emitted non-JSON
     assert payload["decision"] == "deny"
     assert payload["reason"].strip(), "deny carries an empty reason"
@@ -615,7 +671,7 @@ def test_deny_still_exits_zero() -> None:
     well-meaning `exit 1` added to the deny branch would silently change the
     hook from blocking to erroring.
     """
-    result = run_hook("rm -rf /tmp/build")
+    result = run_hook(A_DANGEROUS_COMMAND)
     assert result.exit_code == 0
     assert result.denied
 
@@ -653,7 +709,7 @@ def test_multiline_command_is_still_inspected() -> None:
     carries `&&`-chained multi-line scripts. A change to `grep -z` or to how
     `$CMD` is quoted would break this without breaking any single-line case.
     """
-    result = run_hook("cd /tmp/build\nmake clean\nrm -rf /tmp/build")
+    result = run_hook(f"cd /tmp/build\nmake clean\n{A_DANGEROUS_COMMAND}")
     assert result.denied
 
 
@@ -902,6 +958,14 @@ DISPATCH_COMMANDS: list[str] = [
     "testing/scripts/mutate.sh config/hooks/block-dangerous.sh 'a' 'b' testing/config-hooks/tests/unit/",
     "mkdir -p /tmp/claude-work",
     "cp config/hooks/block-dangerous.sh /tmp/hook-backup.sh",
+    # The two commands MEASURED being denied overnight on 2026-08-10, each of
+    # which discarded a completed run. They sit in the smoke corpus and not
+    # only in SAFE because that is what they are: a dispatch's own traffic,
+    # through the full envelope. If a later narrowing re-blocks either one, the
+    # test that goes red says HALTED A DISPATCH, which is the accurate framing.
+    "rm -rf /tmp/pr75-merge",
+    "cd /tmp && rm -rf m6 && mkdir m6 && cd m6",
+    "rm -rf /tmp/claude-work",
     "sed -n '1,80p' docs/standards/hook-scripts.md",
     "jq '.hooks' config/settings.json",
     "chmod +x scripts/helpers/vendor-standards.sh",
@@ -942,7 +1006,7 @@ def test_extra_envelope_fields_do_not_change_the_verdict() -> None:
     without it, "the suite passes" and "the hook works on real events" could
     diverge on nothing more than an unexpected key.
     """
-    minimal = {"tool_name": "Bash", "tool_input": {"command": "rm -rf /tmp/build"}}
+    minimal = {"tool_name": "Bash", "tool_input": {"command": A_DANGEROUS_COMMAND}}
     full = dict(DISPATCH_ENVELOPE, **minimal)
     assert run_hook_raw(json.dumps(minimal)).denied
     assert run_hook_raw(json.dumps(full)).denied
@@ -1415,6 +1479,62 @@ def test_claimed_allow_is_allowed_end_to_end(command: str) -> None:
     )
 
 
+@pytest.mark.parametrize("command", CLAIMED_BLOCK_COMMANDS)
+def test_claimed_block_is_denied_end_to_end(command: str) -> None:
+    """A command a pattern claims to block is actually blocked BY THE HOOK.
+
+    The mirror of the test above, and it did not exist until the hook grew a
+    step BETWEEN the input and the pattern loop. While the only thing in that
+    gap was whitespace canonicalization, "the pattern matches" and "the hook
+    denies" could not come apart in this direction, so a per-pattern check was
+    enough.
+
+    The SCRATCH-DELETE ELISION breaks that equivalence deliberately: it removes
+    text before any pattern is tried, so a `MUST BLOCK:` claim can now be
+    perfectly TRUE of its regex while the hook lets the command through. That
+    is the "true and misleading" shape the allow-direction test names, arriving
+    from the other side — and the elision is exactly the kind of change that
+    would produce it silently. `MUST BLOCK: rm -rf /tmp/build` was such a claim
+    for the length of one commit; this test is what makes the next one fail
+    instead of shipping.
+
+    It also bounds the elision generally: whatever else a future exemption
+    swallows, it cannot swallow anything this file claims to block.
+    """
+    result = run_hook(command)
+    assert result.denied, (
+        f"{command!r} is claimed by a `MUST BLOCK:` marker and the hook does "
+        f"NOT deny it. The pattern may still match in isolation — check "
+        f"whether a step before the pattern loop (canonicalization, the "
+        f"scratch-delete elision) is removing it. A claim that is true of the "
+        f"regex and false of the hook is worse than a claim that is simply "
+        f"wrong, because reading the pattern confirms it."
+    )
+
+
+def test_hook_parses_under_bash_n() -> None:
+    """The hook is syntactically valid bash — which is a SAFETY property here.
+
+    Pinned because the failure mode is silent and fail-open, and it was hit
+    while writing the elision above. `shopt -s extglob` is set for the
+    whitespace collapse; with extglob on, a `+(` written inside `[[ =~ ]]`
+    parses as the extglob operator rather than a regex quantifier. Bash
+    reported `syntax error near '+('`, kept executing, and reached `exit 0` —
+    so `rm -rf /` was ALLOWED while the hook looked present and healthy.
+
+    That is the fail-open class issue #61 was filed about, reachable through a
+    plain editing mistake rather than anything exotic, and no pattern test can
+    see it: every pattern was still correct. Only parsing the file catches it.
+    """
+    proc = subprocess.run(
+        ["bash", "-n", str(HOOK)], capture_output=True, text=True, timeout=HOOK_TIMEOUT_S
+    )
+    assert proc.returncode == 0, (
+        f"the hook does not parse, so bash will skip the broken construct and "
+        f"fall through to `exit 0` — allowing everything. stderr={proc.stderr!r}"
+    )
+
+
 # `_extract_patterns` above only reads REGEX_PATTERNS and FIXED_PATTERNS, so
 # the two coverage-guard tests only prove every ARRAY entry has a deny case.
 # They say nothing about whether the arrays are the ONLY way the hook denies —
@@ -1433,26 +1553,47 @@ _PATTERN_MATCH_LINE = re.compile(
       grep (?:\s+-{1,2}[\w-]+)* \s+-\w*q            # any grep carrying -q, flags in any order
     | grep (?:\s+-{1,2}[\w-]+)+ .* >\s*/dev/null     # or a grep silenced by redirect
     | =~                                             # bash regex test
-    | \bcase\s+"\$                                   # case dispatch on a variable
+    | \bcase\s+"                                     # case dispatch on any quoted word
     """
 )
 _LOOP_START = re.compile(r'for pattern in "\$\{(?:REGEX_PATTERNS|FIXED_PATTERNS)\[@\]\}"; do')
 
+# The input-normalisation region: everything between `shopt -s extglob` and the
+# start of the pattern arrays. Whitespace canonicalization and the
+# scratch-delete elision both live here, and both match against `$CMD`.
+_NORMALISATION_START = re.compile(r"^shopt -s extglob\s*$")
+_NORMALISATION_END = re.compile(r"^REGEX_PATTERNS=\(")
+# Anything that could reach a verdict from inside that region.
+_VERDICT_LINE = re.compile(r"^\s*(deny\s|exit\s)")
+
 
 def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> None:
-    """The hook must contain exactly two pattern-matching greps, both inside
-    a `REGEX_PATTERNS`/`FIXED_PATTERNS` loop.
+    """Every matching site that can DENY is inside a guarded array loop.
 
     A dumb line scanner, matching `_extract_entries`'s own style: it tracks
     whether the current line sits inside a loop opened by `for pattern in
     "${REGEX_PATTERNS[@]}"; do` / `"${FIXED_PATTERNS[@]}"; do` and closed by a
     bare `done`, and flags matching sites found outside one.
 
+    THIS USED TO ASSERT A FLAT COUNT OF TWO, and that was too strong in one
+    direction and too weak in another. The property worth protecting is not
+    "the hook matches in exactly two places" — it is "nothing outside the two
+    arrays can produce a VERDICT". The scratch-delete elision matches `$CMD`
+    three times and can only ever DELETE TEXT; a count-of-two guard called that
+    a violation while a `grep -q … && deny` bolted on above the arrays would
+    have kept the count at two only by luck.
+
+    So the region is now named and bounded instead. Between `shopt -s extglob`
+    and `REGEX_PATTERNS=(` sits the input-normalisation region: whitespace
+    canonicalization and the elision. Matching there is allowed; reaching a
+    verdict there is not, and that is asserted rather than assumed.
+
     WHAT IT SEES, stated precisely, because an overstated guarantee is the
     defect this very suite exists to catch — and the first version of this
     docstring committed it. Covered: any `grep` carrying `-q` with flags in any
     order or split apart, a `grep` silenced by `>/dev/null`, a bash `=~` test,
-    and `case "$..."` dispatch.
+    and `case "…"` dispatch. (The `case` arm used to require `"$` immediately,
+    which the elision's own `case "/$_TARGET/"` slipped past — widened here.)
 
     WHAT IT DOES NOT SEE: a match delegated to an external helper, a Python or
     awk subprocess, or a mechanism nobody has thought of. This is a line
@@ -1461,9 +1602,23 @@ def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> 
     the guard is only as wide as the list, and its value is that the list is
     written down rather than implied.
     """
+    lines = HOOK.read_text().splitlines()
+
+    norm_start = norm_end = None
+    for lineno, line in enumerate(lines, start=1):
+        if norm_start is None and _NORMALISATION_START.match(line):
+            norm_start = lineno
+        elif norm_start is not None and norm_end is None and _NORMALISATION_END.match(line):
+            norm_end = lineno
+    assert norm_start is not None and norm_end is not None, (
+        "could not locate the input-normalisation region (`shopt -s extglob` "
+        "through `REGEX_PATTERNS=(`). The hook was restructured out from under "
+        "this scanner, so it is now checking nothing — fix the anchors."
+    )
+
     inside_loop = False
     match_lines: list[tuple[int, bool]] = []  # (1-based lineno, was inside a loop)
-    for lineno, line in enumerate(HOOK.read_text().splitlines(), start=1):
+    for lineno, line in enumerate(lines, start=1):
         if _LOOP_START.search(line):
             inside_loop = True
             continue
@@ -1473,17 +1628,34 @@ def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> 
         if _PATTERN_MATCH_LINE.search(line):
             match_lines.append((lineno, inside_loop))
 
-    assert len(match_lines) == 2, (
-        f"expected exactly 2 pattern-matching grep invocations (one per "
-        f"array loop), found {len(match_lines)} at line(s) "
-        f"{[n for n, _ in match_lines]}. A pattern-matching grep outside the "
-        f"two array loops is invisible to the coverage guard — extend "
-        f"_extract_entries to cover the new matching site before adding it."
+    in_loops = [n for n, inside in match_lines if inside]
+    assert len(in_loops) == 2, (
+        f"expected exactly 2 pattern-matching grep invocations inside the array "
+        f"loops (one per array), found {len(in_loops)} at line(s) {in_loops}."
     )
-    outside = [n for n, inside in match_lines if not inside]
-    assert not outside, (
-        f"pattern-matching grep invocation(s) at line(s) {outside} sit "
-        f"OUTSIDE both array loops, so REGEX_PATTERNS/FIXED_PATTERNS' "
-        f"coverage guard never checks them for a deny case. Move the match "
-        f"inside an array loop, or extend the coverage guard to cover it."
+
+    stray = [
+        n
+        for n, inside in match_lines
+        if not inside and not (norm_start <= n < norm_end)
+    ]
+    assert not stray, (
+        f"pattern-matching site(s) at line(s) {stray} sit OUTSIDE both array "
+        f"loops AND outside the input-normalisation region "
+        f"({norm_start}-{norm_end}), so REGEX_PATTERNS/FIXED_PATTERNS' coverage "
+        f"guard never checks them for a deny case. Move the match inside an "
+        f"array loop, or extend the coverage guard to cover it."
+    )
+
+    verdicts = [
+        lineno
+        for lineno, line in enumerate(lines, start=1)
+        if norm_start <= lineno < norm_end and _VERDICT_LINE.match(line)
+    ]
+    assert not verdicts, (
+        f"line(s) {verdicts} reach a verdict (`deny` or `exit`) from inside the "
+        f"input-normalisation region. That region is allowed to match against "
+        f"$CMD precisely BECAUSE it can only transform it — a deny or an exit "
+        f"there is a decision no coverage guard checks and no `MUST BLOCK` "
+        f"claim describes."
     )

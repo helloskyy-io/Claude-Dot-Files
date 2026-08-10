@@ -42,8 +42,9 @@
 #     (`;true`, `&`, `&& echo ok`, `|cat`) APPENDED and must STILL be denied,
 #     which probes the boundary at the END of the match;
 #   - every dangerous command is re-run with its INTERNAL separators respelled
-#     — tabs, doubled spaces, and the space after a redirect operator removed —
-#     and must STILL be denied, which probes the separators INSIDE the match.
+#     — tabs, doubled spaces, the space after a redirect operator removed, and
+#     a word split across a backslash-newline continuation — and must STILL be
+#     denied, which probes the separators INSIDE the match.
 #
 # THE SECOND AND THIRD ARE ONE CLASS SEEN AT TWO POSITIONS, and reading them as
 # one thing is the point. A pattern that says "a space goes here" has ENUMERATED
@@ -87,7 +88,11 @@
 #   - **Under-matches in the patterns themselves** — ACCEPTED, not overlooked
 #     (issue #60). The `/etc/` patterns cover shell redirects only, so a copy
 #     onto a system file passes. `authorized_keys` is covered for `~/` and
-#     `/root/` only, so an expanded absolute home path passes. Only `purge`
+#     `/root/` only — BOTH now carry the append AND the truncating operator,
+#     which is a correction and not a widening: `/root/` had only `>>`, so the
+#     more destructive of the two writes passed while this sentence said the
+#     path was covered. An expanded absolute home path still passes, and that
+#     half is the accepted gap. Only `purge`
 #     and `remove --purge` are covered, so a plain remove passes. Widening
 #     these was considered and declined: each trades a slice of false-positive
 #     risk on the SOLE live control of an autonomous run, and the risk profile
@@ -124,6 +129,25 @@
 #     rule stated above, not a count worth chasing to zero.
 #     BLOCKED ANYWAY: echo "never run rm -rf / on this box" >> NOTES.md
 #     BLOCKED ANYWAY: git commit -m "add DROP TABLE migration"
+#
+# OVER-MATCH NARROWED, MEASURED (2026-08-10) — a scratch delete under /tmp:
+#   The `rm` patterns match a recursive delete of ANY target, which made
+#   `rm -rf /tmp/<scratch>` a denial. That is the ordinary business of a
+#   dispatch, not a destructive act, and it was measured HALTING TWO COMPLETED
+#   RUNS overnight — a mutation sandbox being reset, and `review-pr` cleaning
+#   up the trial merge it had just used to reach `VERDICT: MERGE`. Both runs
+#   lost their result. A fail-closed control that denies valid events is its
+#   own outage, and this is the sole control operating unattended, so this
+#   over-match is narrowed rather than accepted — the same call already made
+#   for `git push --force-with-lease` and `curl … | shasum` under issue #62.
+#   The mechanism is the SCRATCH-DELETE ELISION step below, and its boundary is
+#   deliberately tight; the five shapes that read safe and are still denied are
+#   enumerated there and pinned as corpus entries.
+#     PASSES THROUGH: rm -rf /tmp/pr75-merge
+#     PASSES THROUGH: cd /tmp && rm -rf m6 && mkdir m6 && cd m6
+#     BLOCKED ANYWAY: rm -rf /tmp
+#     BLOCKED ANYWAY: rm -rf /tmp/build /
+#     BLOCKED ANYWAY: cd /home/puma && rm -rf Repos
 #
 # FAILING CLOSED (issue #61, `hook-scripts.md § The headless safety
 # invariant` point 2):
@@ -293,6 +317,117 @@ CMD="${CMD//$'\v'/ }"
 CMD="${CMD//$'\f'/ }"
 CMD="${CMD//+( )/ }"
 
+# ---------------------------------------------------------------------------
+# SCRATCH-DELETE ELISION — the class fix for an over-match that was costing
+# COMPLETED autonomous runs, measured twice overnight on 2026-08-10.
+# ---------------------------------------------------------------------------
+#
+# THE MEASUREMENT, because this narrows the sole live control and a narrowing
+# needs evidence rather than taste. Two dispatches were halted mid-run by this
+# hook, both on legitimate work, and both lost a finished result:
+#   - `cd /tmp && rm -rf m6 && mkdir m6 && …` — a mutation sandbox being reset
+#   - `rm -rf /tmp/pr75-merge` — `review-pr` cleaning up after the trial merge
+#     it had just used to compute a verdict; that run had already earned
+#     `VERDICT: MERGE` and the work was discarded
+#
+# A fail-closed control that denies VALID events is its own outage, and this
+# hook is the only thing operating during an unattended run. The header's
+# KNOWN OVER-MATCH block already records the governing precedent: over-matches
+# that block ORDINARY work get NARROWED, and only the ones that block PROSE
+# were accepted. Deleting a named scratch directory under /tmp is the ordinary
+# business of every dispatch on this machine, not a destructive act.
+#
+# WHY ELISION RATHER THAN AN EXEMPTION, and this is the whole safety argument.
+# A pre-loop `exit 0` on "looks like a scratch delete" would be a bypass:
+# `rm -rf /tmp/x && rm -rf /` reads as a scratch delete and is not one.
+# Instead a segment is REMOVED from the string and everything that remains
+# still faces every pattern. The elision fires only when a WHOLE segment is
+# exactly `rm <flags> <one target>` over a restricted character set, so there
+# is nowhere inside an elided region for anything else to ride along — that
+# exactness is what makes it closed-form rather than a prefix match.
+# `hook-scripts.md § The headless safety invariant` point 1 forbids a BROAD
+# exemption; this is deliberately the narrow kind, and its boundary is
+# executable rather than asserted (see the SAFE/DANGEROUS corpora, which carry
+# the bypass shapes below as must-still-deny entries).
+#
+# WHAT IS DELIBERATELY STILL DENIED, each one a shape that reads safe and is
+# not:
+#   - `rm -rf /tmp` and `rm -rf /tmp/` — that is every other run's sandbox,
+#     not this run's. A non-`/` character must follow `/tmp/`.
+#   - `rm -rf /tmp/x /` — two operands. The segment must carry exactly one, so
+#     a second target cannot hide behind a safe-looking first.
+#   - `rm -rf /tmp/../etc` — traversal. Rejected by component, so `..` cannot
+#     be spelled around; `.` as a component is rejected the same way, because
+#     `rm -rf /tmp/.` is `rm -rf /tmp`.
+#   - `rm -rf /tmp/*` — a glob is not a named directory, and the charset has
+#     no `*`. Same for `$VAR`, `~`, backticks and quotes.
+#   - `cd /home/puma && rm -rf Repos` — a relative target is exempt only while
+#     a `cd` in THIS command established /tmp, and any other `cd` clears it.
+#
+# The relative half exists because the measured false positive has that shape.
+# Tracking one boolean across `&&` segments is not a shell parser and does not
+# pretend to be: an unrecognised `cd` clears the flag rather than guessing, so
+# every ambiguity resolves toward denying.
+#
+# THE TWO REGEXES ARE BOUND TO VARIABLES AND USED UNQUOTED, WHICH IS LOAD-
+# BEARING RATHER THAN STYLE. `shopt -s extglob` is set above for the
+# whitespace collapse, and with extglob on, a literal `+(` written inside
+# `[[ =~ ]]` parses as the extglob operator instead of a regex quantifier.
+# Measured while writing this: bash raised `syntax error near '+('`, the
+# script kept going, and it reached `exit 0` — so `rm -rf /` was ALLOWED. A
+# fail-open hole of exactly the class issue #61 was filed about, opened by the
+# fix for its sibling. `test_hook_parses_under_bash_n` now pins it.
+_IN_SCRATCH_DIR=0
+_SCRATCH_CD_RE='^cd (/tmp|/var/tmp)(/[A-Za-z0-9._-]+)*/?$'
+_SCRATCH_RM_RE='^rm( +-[A-Za-z]+)+ +([A-Za-z0-9._/-]+)$'
+_SEGMENTED="${CMD//&&/$'\x01'}"
+_SEGMENTED="${_SEGMENTED//||/$'\x01'}"
+_SEGMENTED="${_SEGMENTED//;/$'\x01'}"
+_SEGMENTED="${_SEGMENTED//|/$'\x01'}"
+_SEGMENTED="${_SEGMENTED//&/$'\x01'}"
+_SEGMENTED="${_SEGMENTED//$'\n'/$'\x01'}"
+
+# Pure parameter expansion — no `read` and no here-string, for the same reason
+# canonicalization uses no `sed`: nothing here may depend on a second binary.
+while [ -n "$_SEGMENTED" ]; do
+  _SEG="${_SEGMENTED%%$'\x01'*}"
+  if [ "$_SEG" = "$_SEGMENTED" ]; then
+    _SEGMENTED=""
+  else
+    _SEGMENTED="${_SEGMENTED#*$'\x01'}"
+  fi
+  _SEG="${_SEG#"${_SEG%%[! ]*}"}"
+  _SEG="${_SEG%"${_SEG##*[! ]}"}"
+
+  if [[ $_SEG == cd || $_SEG == "cd "* ]]; then
+    # A bare `cd` goes home, which is not scratch. Anything that is not
+    # recognisably a cd INTO /tmp clears the flag.
+    if [[ $_SEG =~ $_SCRATCH_CD_RE && $_SEG != *".."* ]]; then
+      _IN_SCRATCH_DIR=1
+    else
+      _IN_SCRATCH_DIR=0
+    fi
+    continue
+  fi
+
+  # `rm`, at least one short flag bundle, and EXACTLY ONE operand. A `--long`
+  # flag does not match `-[A-Za-z]`, so `--no-preserve-root` is never elided.
+  [[ $_SEG =~ $_SCRATCH_RM_RE ]] || continue
+  _TARGET="${BASH_REMATCH[2]}"
+
+  # Slash-bracketing makes `.` and `..` testable as whole components rather
+  # than as substrings, so `.hidden` and `foo..bar` are not caught by accident.
+  case "/$_TARGET/" in
+    */../* | */./*) continue ;;
+  esac
+
+  if [[ $_TARGET == /tmp/[!/]* || $_TARGET == /var/tmp/[!/]* ]]; then
+    CMD="${CMD//"$_SEG"/}"
+  elif [ "$_IN_SCRATCH_DIR" -eq 1 ] && [[ $_TARGET != /* ]]; then
+    CMD="${CMD//"$_SEG"/}"
+  fi
+done
+
 # Regex patterns (matched with grep -Ei)
 #
 # EVERY ENTRY CARRIES AT LEAST ONE `MUST BLOCK:` CLAIM AND AT LEAST ONE
@@ -322,13 +457,34 @@ REGEX_PATTERNS=(
   # above rather than a whitespace class, and the difference is load-bearing:
   # `[[:space:]/]` would have stopped matching BOTH `\rm -rf /` and `;rm -rf /`
   # while looking like a tighter fix (issue #62 proposed exactly that).
-  # MUST BLOCK: rm -rf /tmp/build
+  # THE CLAIM HERE USED TO BE `rm -rf /tmp/build`, and it was changed rather
+  # than deleted. A scratch delete under /tmp is now elided before this pattern
+  # is reached, so that claim would still have been TRUE of the regex and false
+  # of the hook — the "true and misleading" shape this file's claim mechanism
+  # exists to prevent. `rm -rf /tmp` with no subpath is the deliberate
+  # near-miss on the elision boundary: it is every OTHER run's sandbox.
+  # MUST BLOCK: rm -rf /var/lib/postgresql
+  # MUST BLOCK: rm -rf /tmp
   # MUST BLOCK: rm -r olddir
   # MUST BLOCK: \rm -rf /
   # MUST BLOCK: ;rm -rf /
   # MUST ALLOW: ./confirm -f yes
   # MUST ALLOW: git rm --cached secrets.env
   '(^|[^a-z])rm +-r?f?r? '
+  # THE LONG-FLAG SPELLINGS, and this one is a fail-open hole rather than a
+  # gap. `rm`'s flags have `--long` forms and every entry above enumerates the
+  # SHORT ones — the same enumeration defect as the separator class, one axis
+  # over. It is not academic: `rm -rf /` is REFUSED BY `rm` ITSELF unless
+  # `--no-preserve-root` is given, so the one spelling that actually wipes the
+  # root filesystem is the one spelling this hook allowed. Found by probing the
+  # elision boundary, verified ALLOWED on the pre-change hook, so it predates
+  # this PR and is not a regression it introduced.
+  # MUST BLOCK: rm --no-preserve-root -rf /
+  # MUST BLOCK: rm --recursive --force /
+  # MUST BLOCK: rm --force secrets.env
+  # MUST ALLOW: git rm --cached secrets.env
+  # MUST ALLOW: grep -rn -- --no-preserve-root docs/
+  '(^|[^a-z])rm .*--(recursive|force|no-preserve-root)'
   # MUST BLOCK: rm -fr node_modules
   # MUST ALLOW: ./transform -fr input.json
   '(^|[^a-z])rm +-fr '
@@ -427,28 +583,54 @@ REGEX_PATTERNS=(
   # canonicalize. `> *` (zero-or-more, matching the `\| *` in the RCE patterns
   # below) is the smallest correct form. It is a widening, so each entry gains
   # a no-space MUST BLOCK and a no-space near-miss that must still pass.
+  #
+  # AND THE OPERATOR ITSELF WAS ENUMERATED, which is the same defect one level
+  # up from the space. `> *` names the SEPARATOR as the only thing that may sit
+  # between operator and target, so it silently assumed the operator is spelled
+  # `>`. Bash spells it two ways: `>|` overrides `noclobber` and is otherwise
+  # identical to `>`. It routed around all fourteen entries — `echo x >|
+  # /etc/passwd`, `>| /etc/shadow` and `>| /dev/sda` were ALLOWED while `>`,
+  # `>>`, `2>` and `&>` against those same targets denied. Those three survive
+  # only incidentally: each contains a literal `>` followed by the space this
+  # prefix expects. `>>|` is not a shell operator, so only the single-`>`
+  # entries need widening; `>[|]?` is bracketed because a bare `|` is
+  # alternation in ERE.
+  #
+  # WIDENING WAS CHOSEN BY MEASUREMENT, not preference. The alternative was to
+  # declare `>|` a documented gap. Every one of the 81 `MUST ALLOW` claims in
+  # this file was run against the widened patterns first: none newly matched.
+  # The target anchor does all the discriminating, so admitting one more
+  # operator spelling costs no false-positive surface — measured, not assumed.
   # MUST BLOCK: cat image.img > /dev/sda
   # MUST BLOCK: cat image.img >/dev/sda
+  # MUST BLOCK: cat image.img >| /dev/sda
   # MUST ALLOW: dd if=/dev/sda of=./backup.img bs=1M count=1
   # MUST ALLOW: ls -l /dev/sda >/tmp/devices.txt
-  '> */dev/sd'
+  # MUST ALLOW: ls -l /dev/sda >| /tmp/devices.txt
+  '>[|]? */dev/sd'
   # MUST BLOCK: cat image.img > /dev/nvme0n1
   # MUST BLOCK: cat image.img >/dev/nvme0n1
+  # MUST BLOCK: cat image.img >| /dev/nvme0n1
   # MUST ALLOW: dd if=/dev/nvme0n1 of=./backup.img bs=1M count=1
   # MUST ALLOW: ls -l /dev/nvme0n1 >/tmp/devices.txt
-  '> */dev/nvme'
+  # MUST ALLOW: ls -l /dev/nvme0n1 >| /tmp/devices.txt
+  '>[|]? */dev/nvme'
   # MUST BLOCK: cat image.img > /dev/hda
   # MUST BLOCK: cat image.img >/dev/hda
+  # MUST BLOCK: cat image.img >| /dev/hda
   # MUST ALLOW: dd if=/dev/hda of=./backup.img bs=1M count=1
   # MUST ALLOW: ls -l /dev/hda >/tmp/devices.txt
-  '> */dev/hd'
+  # MUST ALLOW: ls -l /dev/hda >| /tmp/devices.txt
+  '>[|]? */dev/hd'
 
   # System directory writes
   # MUST BLOCK: echo nameserver 1.1.1.1 > /etc/resolv.conf
   # MUST BLOCK: echo nameserver 1.1.1.1 >/etc/resolv.conf
+  # MUST BLOCK: echo nameserver 1.1.1.1 >| /etc/resolv.conf
   # MUST ALLOW: cat /etc/resolv.conf
   # MUST ALLOW: diff /etc/hosts /tmp/hosts >/tmp/hosts.diff
-  '> */etc/'
+  # MUST ALLOW: diff /etc/hosts /tmp/hosts >| /tmp/hosts.diff
+  '>[|]? */etc/'
   # MUST BLOCK: echo x >> /etc/passwd
   # MUST BLOCK: echo x >>/etc/passwd
   # MUST ALLOW: grep -c root /etc/passwd
@@ -466,19 +648,25 @@ REGEX_PATTERNS=(
   '>> */etc/sudoers'
   # MUST BLOCK: echo x > /boot/grub/grub.cfg
   # MUST BLOCK: echo x >/boot/grub/grub.cfg
+  # MUST BLOCK: echo x >| /boot/grub/grub.cfg
   # MUST ALLOW: cat /boot/config-6.8.0 | head
   # MUST ALLOW: ls /boot >/tmp/boot.txt
-  '> */boot/'
+  # MUST ALLOW: ls /boot >| /tmp/boot.txt
+  '>[|]? */boot/'
   # MUST BLOCK: echo 1 > /sys/kernel/mm/transparent_hugepage/enabled
   # MUST BLOCK: echo 1 >/sys/kernel/mm/transparent_hugepage/enabled
+  # MUST BLOCK: echo 1 >| /sys/kernel/mm/transparent_hugepage/enabled
   # MUST ALLOW: cat /sys/class/net/eth0/address
   # MUST ALLOW: cat /sys/class/net/eth0/address >/tmp/mac.txt
-  '> */sys/'
+  # MUST ALLOW: cat /sys/class/net/eth0/address >| /tmp/mac.txt
+  '>[|]? */sys/'
   # MUST BLOCK: echo 1 > /proc/sys/vm/drop_caches
   # MUST BLOCK: echo 1 >/proc/sys/vm/drop_caches
+  # MUST BLOCK: echo 1 >| /proc/sys/vm/drop_caches
   # MUST ALLOW: cat /proc/sys/vm/swappiness
   # MUST ALLOW: cat /proc/sys/vm/swappiness >/tmp/swappiness.txt
-  '> */proc/sys'
+  # MUST ALLOW: cat /proc/sys/vm/swappiness >| /tmp/swappiness.txt
+  '>[|]? */proc/sys'
 
   # System control
   #
@@ -575,6 +763,14 @@ REGEX_PATTERNS=(
   # SSH authorized_keys tampering
   # `> *` for the same reason as the redirect patterns above: `>>~/.ssh/…` with
   # no space is ordinary shell and every one of these three allowed it.
+  #
+  # THE `~/` CASE HAD BOTH OPERATORS AND THE `/root/` CASE HAD ONLY `>>`, so a
+  # TRUNCATING write to root's authorized_keys — strictly more destructive than
+  # the append it sat beside — passed. The asymmetry read as a ruling and was
+  # an oversight: the header asserted this path was covered, which made the gap
+  # invisible to a reader and kept it out of the accepted-under-match list, so
+  # nothing pinned it either. The three entries are now a matched set: append
+  # and truncate, for each of the two homes.
   # MUST BLOCK: echo ssh-ed25519 AAAA >> ~/.ssh/authorized_keys
   # MUST BLOCK: echo ssh-ed25519 AAAA >>~/.ssh/authorized_keys
   # MUST ALLOW: cat ~/.ssh/authorized_keys
@@ -582,9 +778,17 @@ REGEX_PATTERNS=(
   '>> *~/\.ssh/authorized_keys'
   # MUST BLOCK: echo ssh-ed25519 AAAA > ~/.ssh/authorized_keys
   # MUST BLOCK: echo ssh-ed25519 AAAA >~/.ssh/authorized_keys
+  # MUST BLOCK: echo ssh-ed25519 AAAA >| ~/.ssh/authorized_keys
   # MUST ALLOW: wc -l ~/.ssh/authorized_keys
   # MUST ALLOW: ssh-keygen -lf ~/.ssh/authorized_keys >/tmp/fingerprints.txt
-  '> *~/\.ssh/authorized_keys'
+  # MUST ALLOW: ssh-keygen -lf ~/.ssh/authorized_keys >| /tmp/fingerprints.txt
+  '>[|]? *~/\.ssh/authorized_keys'
+  # MUST BLOCK: echo ssh-ed25519 AAAA > /root/.ssh/authorized_keys
+  # MUST BLOCK: echo ssh-ed25519 AAAA >/root/.ssh/authorized_keys
+  # MUST BLOCK: echo ssh-ed25519 AAAA >| /root/.ssh/authorized_keys
+  # MUST ALLOW: stat /root/.ssh/authorized_keys
+  # MUST ALLOW: ssh-keygen -lf /root/.ssh/authorized_keys >/tmp/root-fp.txt
+  '>[|]? */root/\.ssh/authorized_keys'
   # MUST BLOCK: echo ssh-ed25519 AAAA >> /root/.ssh/authorized_keys
   # MUST BLOCK: echo ssh-ed25519 AAAA >>/root/.ssh/authorized_keys
   # MUST ALLOW: stat /root/.ssh/authorized_keys
@@ -612,9 +816,11 @@ REGEX_PATTERNS=(
   'crontab +-r'
   # MUST BLOCK: echo "* * * * * root /x" > /etc/crontab
   # MUST BLOCK: echo "* * * * * root /x" >/etc/crontab
+  # MUST BLOCK: echo "* * * * * root /x" >| /etc/crontab
   # MUST ALLOW: cat /etc/crontab
   # MUST ALLOW: cat /etc/crontab >/tmp/crontab.bak
-  '> */etc/crontab'
+  # MUST ALLOW: cat /etc/crontab >| /tmp/crontab.bak
+  '>[|]? */etc/crontab'
 
   # Network/firewall disasters
   # MUST BLOCK: iptables -F
