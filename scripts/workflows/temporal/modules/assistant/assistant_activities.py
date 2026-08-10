@@ -425,9 +425,33 @@ def _append_run_event(log_file: Path, event_type: str, event: dict) -> None:
 
     The two public callers above differ only in their `type`, and typing the
     open-append-serialise sequence twice is how the second one acquires a
-    different encoding or a missing newline. `type` is written FIRST and from
-    the parameter, so a caller cannot shadow it through `event`.
+    different encoding or a missing newline.
+
+    `type` IS RESERVED, AND IT IS ENFORCED RATHER THAN ASSERTED IN PROSE. This
+    docstring previously claimed *"`type` is written FIRST and from the
+    parameter, so a caller cannot shadow it through `event`"* — which is the
+    opposite of what a dict display does: `{"type": a, **event}` applies `event`
+    LAST, so `event["type"]` wins. The claimed protection was inverted, and
+    nothing compared the claim to the line under it.
+
+    It is not a hypothetical. `append_convergence`'s payload is built by
+    splatting `ConvergenceAssessment.as_event()`, which is DERIVED FROM
+    `dataclasses.fields` precisely so that adding a field is enough to make it
+    durable — so a future field named `type` reaches here with no human in the
+    loop, silently re-types the event, and every reader filtering
+    `type == "convergence"` stops seeing it. The denominator this component
+    exists to create would disappear with no test going red. Raising is
+    preferable to reordering: a caller that hands in a `type` has a bug either
+    way, and silently overriding its key is the same class of defect one layer
+    down.
     """
+    if "type" in event:
+        raise ValueError(
+            f"a run-log event may not carry its own `type` key: {event['type']!r} "
+            f"was handed in for an event this appender types {event_type!r}. The "
+            f"event type is the run log's only index; a payload that can set it "
+            f"can make itself unreadable to every consumer that filters on it."
+        )
     with log_file.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps({"type": event_type, **event}) + "\n")
 

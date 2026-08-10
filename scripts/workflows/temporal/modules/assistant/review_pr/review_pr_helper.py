@@ -178,6 +178,51 @@ def _unquote(token: str) -> str:
     return token
 
 
+# The `findings:` mapping value — from the key to the next key at the SAME
+# indent, or the end of the block. `[ \t]` and not `\s` in the indent capture,
+# because `\s` matches the newline and would let the group span into the body.
+_FINDINGS_SECTION = re.compile(
+    r"^([ \t]*)findings:[ \t]*$(.*?)(?=^\1[A-Za-z_][A-Za-z0-9_]*:|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def findings_section(block: str) -> str:
+    """The block's `findings:` value, or `""` when it declares none.
+
+    THE SCAN BELOW IS ANCHORED HERE BECAUSE `- id:` IS NOT UNIQUE TO A FINDING,
+    AND THE PROMPT IS WHAT MAKES IT NOT UNIQUE. `disposition.md:292` gives the
+    child a `dispatch_context: |` block scalar whose documented content is
+    *"which findings to fix, what to change, what NOT to touch"*, and `:295` a
+    `precheck: |` beside it. Both are free text inside the same `pr_review:`
+    block, after `findings:`. A reviewer enumerating findings there the way the
+    prompt asks — `- id: some-slug` — injects an entry the scan cannot tell from
+    a real one, and the injected entry carries no `disposition:`, so it pairs
+    with `""` and is OPEN by rule.
+
+    Both consequences are severe and neither is loud:
+
+    - `_assert_block_matches_record` raises AFTER the child's comment is posted
+      and AFTER `append_parent_route` persisted the route, so a **correct**
+      review is destroyed at the last step;
+    - `convergence_history` runs this same parse over PRIOR blocks, where no
+      invariant checks it at all. One phantom id in pass 1 is absent from every
+      later pass, so C3 reports `PRIOR_FINDINGS_DROPPED` and the PR is
+      INDETERMINATE for the rest of its life.
+
+    Measured over the archive at 27 blocks / 14 PRs: **0 blocks carry a `- id:`
+    outside `findings:`**, so anchoring moves no replayed figure. The regexes
+    themselves are UNCHANGED — they stay byte-identical to
+    `replay_pr_review_blocks`' pair, which `SHARED_KIND_ONE_PATTERNS` gates —
+    and the fix is a narrowing of the INPUT in the consumer that holds the
+    contract. That is the same ruling this phase made for the `pass:` ordering
+    defect: the shared extractor feeds a published figure, so a consumer's
+    contract is enforced in the consumer.
+    """
+    match = _FINDINGS_SECTION.search(block)
+    return match.group(2) if match else ""
+
+
 def finding_ids_in_block(block: str) -> frozenset[str]:
     """The finding ids the DURABLE record claims, for the render-record invariant.
 
@@ -186,7 +231,7 @@ def finding_ids_in_block(block: str) -> frozenset[str]:
     the malformed ones this check most wants to catch — and a check that throws
     on the input it exists to examine is not a check.
     """
-    return frozenset(_unquote(t) for t in _FINDING_ID.findall(block))
+    return frozenset(_unquote(t) for t in _FINDING_ID.findall(findings_section(block)))
 
 
 def finding_dispositions_in_block(block: str) -> frozenset[tuple[str, str]]:
@@ -201,10 +246,13 @@ def finding_dispositions_in_block(block: str) -> frozenset[tuple[str, str]]:
     so the two copies would diverge in exactly the place a convergence rule
     reads. A finding with no parseable `disposition:` pairs with the empty
     string, which fails the comparison rather than silently dropping out.
+
+    ANCHORED TO `findings:` — see `findings_section` for why `- id:` elsewhere in
+    the block is a shape the shipped prompt actively invites.
     """
     return frozenset(
         (_unquote(fid), _unquote(m.group(1)) if (m := _DISPOSITION.search(body)) else "")
-        for fid, body in _FINDING_ITEM.findall(block)
+        for fid, body in _FINDING_ITEM.findall(findings_section(block))
     )
 
 

@@ -260,21 +260,10 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     asserted = (helper.asserted_converged_in_block(this_block)
                 if this_block is not None else None)
     agrees = helper.shadow_agreement(assessment, asserted)
-    _shared.append_convergence(log_file, {
-        "run_id": run_id,
-        "pr": task.pr_number,
-        # DERIVED from the assessment, never retyped here — a field added to
-        # `ConvergenceAssessment` for a later gating decision must not be able to
-        # land in the return value and in nothing durable.
-        **assessment.as_event(),
-        # The INCUMBENT's claim, carried verbatim beside the computed one in the
-        # `outcome`/`routed_outcome` shape — the raw observation is never
-        # overwritten. `None` means the block carried no `converged:` key, which
-        # is distinct from `false` and must stay distinct or an agreement rate
-        # counts pre-flag blocks as disagreements.
-        "asserted_converged": asserted,
-        "agrees": agrees,
-    })
+    _shared.append_convergence(log_file, _convergence_event(
+        run_id=run_id, pr_number=task.pr_number, assessment=assessment,
+        asserted=asserted, agrees=agrees,
+    ))
     # `extend`, not an `if`: the routing function must contain NO conditional
     # that reads the convergence signal, and `test_nothing_in_the_tree_routes_on
     # _the_convergence_signal` enforces exactly that on `run_review`. The
@@ -285,6 +274,66 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
         parseable=parseable, notes=notes, record=record, convergence=assessment,
     )
+
+
+# The run-log convergence event's keys that are NOT derived from the assessment.
+# `run_id` and `pr` are the join keys `append_convergence`'s docstring names as
+# the reason this is a separate event type at all; the other two carry the
+# incumbent's claim and the shadow verdict.
+CONVERGENCE_ENVELOPE_KEYS = frozenset(
+    {"run_id", "pr", "asserted_converged", "agrees"}
+)
+
+
+def _convergence_event(*, run_id: str, pr_number: str,
+                       assessment: convergence.ConvergenceAssessment,
+                       asserted: bool | None, agrees: bool | None) -> dict:
+    """The `{"type": "convergence"}` payload — envelope keys plus the assessment.
+
+    THE MERGE IS GUARDED BECAUSE THE DERIVATION THAT MAKES IT SAFE IS ALSO WHAT
+    MAKES IT COLLIDE. `as_event()` is derived from `dataclasses.fields`
+    specifically so that adding a field to `ConvergenceAssessment` for a later
+    gating decision lands durably with no call-site edit — and that is exactly
+    what lets a future field named `run_id` or `pr` reach this splat with nobody
+    in the loop. The two failure directions are both silent and both destroy the
+    corpus this phase exists to accumulate:
+
+    - a field named `run_id` or `pr` OVERWRITES the join key, so the event can no
+      longer be joined to its `parent_route` row;
+    - a field named `asserted_converged` or `agrees` is silently DROPPED by the
+      two literal keys below it, so the shadow the phase is measured on records
+      the wrong value.
+
+    Neither is reachable while the assertion holds, and the assertion names the
+    collision rather than letting the dict resolve it. This is the same property
+    `_append_run_event` now enforces for `type`, one layer up: a payload that can
+    set an envelope key can make itself unreadable.
+    """
+    payload = assessment.as_event()
+    collisions = CONVERGENCE_ENVELOPE_KEYS & set(payload)
+    if collisions:
+        raise ValueError(
+            f"ConvergenceAssessment now carries {sorted(collisions)}, which the "
+            f"convergence run-log event already uses for its envelope. One of the "
+            f"two would be silently lost — the join key or the shadow. Rename the "
+            f"new field, or rule on which meaning the key carries and update "
+            f"CONVERGENCE_ENVELOPE_KEYS with the reason."
+        )
+    return {
+        "run_id": run_id,
+        "pr": pr_number,
+        # DERIVED from the assessment, never retyped here — a field added to
+        # `ConvergenceAssessment` for a later gating decision must not be able to
+        # land in the return value and in nothing durable.
+        **payload,
+        # The INCUMBENT's claim, carried verbatim beside the computed one in the
+        # `outcome`/`routed_outcome` shape — the raw observation is never
+        # overwritten. `None` means the block carried no `converged:` key, which
+        # is distinct from `false` and must stay distinct or an agreement rate
+        # counts pre-flag blocks as disagreements.
+        "asserted_converged": asserted,
+        "agrees": agrees,
+    }
 
 
 def _convergence_notes(assessment: convergence.ConvergenceAssessment,

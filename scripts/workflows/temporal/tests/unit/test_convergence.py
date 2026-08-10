@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -407,6 +408,115 @@ def test_the_partition_is_EXACTLY_the_schemas_disposition_vocabulary() -> None:
     )
 
 
+# --- the finding scan reads only what it documents itself as reading ---------
+
+# Every region of the `pr_review:` block that is FREE TEXT the child authors, and
+# therefore a region where `- id:` may legitimately appear without meaning "a
+# finding". Enumerated from `disposition.md`'s own block template rather than
+# from the two that were found, because a list of the shapes somebody noticed
+# retires itself the moment it passes — the completeness gate below is what
+# makes a NEW free-text key fail here instead of being discovered by a later run.
+FREE_TEXT_BLOCK_KEYS = ("dispatch_context", "precheck", "why_human",
+                        "recommendation")
+
+
+def _block_with_decoys_in(key: str) -> str:
+    """A conforming block whose `{key}` block scalar enumerates finding ids.
+
+    This is not a contrived input. `disposition.md:221` tells the child a
+    redispatch entry carries *"a scoped `dispatch_context` (which findings to
+    fix, what to change, what NOT to touch)"*, and :316 makes that enumeration
+    BINDING — *"the dispatch_context ENUMERATION governs"*. Writing it as a yaml
+    list of ids is the obvious rendering of that instruction.
+    """
+    return (
+        "pr_review:\n"
+        "  pr: 75\n"
+        "  findings:\n"
+        "    - id: real-one\n"
+        "      disposition: fixed\n"
+        "    - id: real-two\n"
+        "      disposition: hold\n"
+        "  next_steps:\n"
+        "    - item: real-two\n"
+        f"      {key}: |\n"
+        "        Correct exactly these:\n"
+        "        - id: decoy-alpha\n"
+        "        - id: decoy-beta\n"
+    )
+
+
+@pytest.mark.parametrize("key", FREE_TEXT_BLOCK_KEYS)
+def test_a_finding_id_written_in_a_FREE_TEXT_key_is_not_a_finding(key: str) -> None:
+    """THE SCAN IS ANCHORED TO `findings:`, AND THE FAILURE IT PREVENTS IS SILENT.
+
+    `- id:` is not unique to a finding, and the shipped prompt is what makes it
+    not unique. An unanchored scan picks the decoys up as real findings carrying
+    NO `disposition:`, which pairs them with `""` — outside `CLOSED_DISPOSITIONS`
+    — so they are OPEN by rule. Two consequences, neither of them loud:
+
+    - `_assert_block_matches_record` raises on a block that is CORRECT, and it
+      raises AFTER the child's comment is posted and AFTER `append_parent_route`
+      has persisted the route. A completed review is destroyed at the last step;
+    - `convergence_history` runs the same parse over PRIOR blocks, where no
+      invariant checks it at all. A decoy in pass 1 is absent from every later
+      pass, so C3 reports `PRIOR_FINDINGS_DROPPED` and the PR is INDETERMINATE
+      for the rest of its life — the predicate's own primary guard, fired by a
+      parse defect rather than by a reviewer.
+
+    PARAMETRISED OVER THE CLASS. The two keys that were found are
+    `dispatch_context` and `precheck`; `why_human` is in the same population and
+    was never inspected. A test naming only the instances found would pass while
+    the next free-text key shipped unanchored.
+    """
+    block = _block_with_decoys_in(key)
+    assert helper.finding_dispositions_in_block(block) == {
+        ("real-one", "fixed"), ("real-two", "hold"),
+    }, f"a `- id:` inside `{key}:` was read as a finding"
+    assert helper.finding_ids_in_block(block) == {"real-one", "real-two"}
+
+    # The control: the SAME decoy text placed inside `findings:` IS read, so the
+    # anchoring narrows the region and not the pattern. Without this the
+    # assertion above is satisfied by a scan that finds nothing at all.
+    inside = block.replace(
+        "    - id: real-two\n      disposition: hold\n",
+        "    - id: real-two\n      disposition: hold\n    - id: decoy-alpha\n",
+    )
+    assert ("decoy-alpha", "") in helper.finding_dispositions_in_block(inside)
+
+
+def test_the_free_text_key_ENUMERATION_covers_every_block_scalar_the_prompt_defines() -> None:
+    """A key added to the prompt's block template is covered here or it is a gap.
+
+    THE GATE ABOVE ONLY EVER TESTS WHAT SOMEBODY REMEMBERED, and this is the half
+    that makes it not so — the same shape as
+    `test_the_shared_parse_ENUMERATION_is_complete` one file over, and for the
+    same measured reason: the first version of that gate named two pairs and the
+    two added in the same commit went ungated and had already drifted.
+
+    A block scalar (`key: |`) is free text by definition, so every one of them is
+    a region where `- id:` may appear meaning something else.
+    """
+    prompt = (Path(helper.__file__).resolve().parent / "prompts" /
+              "disposition.md").read_text()
+    # The block template is the fenced `pr_review:` example; a `key: |` inside it
+    # is a block scalar the child fills with prose.
+    template = helper.PR_REVIEW_BLOCK.search(prompt)
+    assert template is not None, (
+        "the block template moved out of disposition.md — this gate is reporting "
+        "on a document it did not read"
+    )
+    scalars = set(re.findall(r"^\s*([a-z_]+):\s*\|\s*(?:#.*)?$",
+                             template.group(0), re.MULTILINE))
+    assert scalars, "no block scalars parsed — the gate read nothing"
+    assert scalars <= set(FREE_TEXT_BLOCK_KEYS), (
+        f"the prompt defines free-text block scalars the anchoring gate does not "
+        f"cover: {sorted(scalars - set(FREE_TEXT_BLOCK_KEYS))}. Each is a region "
+        f"where the child may legitimately write `- id:` meaning something other "
+        f"than a finding. Add it to FREE_TEXT_BLOCK_KEYS."
+    )
+
+
 # --- the module is what it claims to be --------------------------------------
 
 def test_the_predicate_is_dependency_free_so_the_replay_can_load_it_by_path() -> None:
@@ -475,8 +585,19 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     does. WHAT IT DOES NOT: a value carried across a function boundary as a
     plain `bool`. `_convergence_notes`' `agrees` parameter is exactly that, and
     it is named here rather than left for a reader to discover — inter-procedural
-    taint is a bigger instrument than this guard is worth, and the boundary is
-    only safe while the reporting-only list below stays short.
+    taint is a bigger instrument than this guard is worth.
+
+    THE DEPENDENCY THAT HOLE CREATES, STATED PRECISELY RATHER THAN AS A COUNT.
+    An earlier version of this docstring said the boundary is *"only safe while
+    the reporting-only list below stays at two entries"* — which is the wrong
+    variable. The hole is entered by a function that RECEIVES a
+    convergence-derived value as an UNANNOTATED PRIMITIVE, and it is the number
+    of those, not the length of the list, that bounds the risk. There is exactly
+    one today (`_convergence_notes`' `agrees`); `_convergence_event` takes the
+    assessment under its own annotation and returns a dict, so it is inside the
+    analysis rather than around it. Adding an entry that takes a typed parameter
+    does not widen the hole; adding one that takes a bare `bool` does, and that
+    is the edit to refuse.
     """
     VOCABULARY = {"convergence", "ConvergenceState", "ConvergenceAssessment",
                   "IndeterminateReason", "assess"}
@@ -487,6 +608,16 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     REPORTING_ONLY = {
         ("review_pr/review_pr_helper.py", "shadow_agreement"),
         ("review_pr/review_pr_workflow.py", "_convergence_notes"),
+        # Added by the review pass that introduced the function, which is the
+        # gate behaving as designed rather than a widening: this test went red on
+        # the new conditional and the entry is the deliberate edit it demands.
+        # `_convergence_event` builds the run-log payload; its one conditional
+        # reads the payload's KEY NAMES against a reserved set, never the
+        # convergence state, and it either returns a dict or raises. It cannot
+        # route, and unlike the two above it takes the assessment under its own
+        # annotation, so it is covered by the taint analysis rather than escaping
+        # around it.
+        ("review_pr/review_pr_workflow.py", "_convergence_event"),
     }
 
     def _mentions(node: ast.AST, tainted: set[str]) -> bool:
@@ -608,8 +739,14 @@ def test_the_parent_route_event_is_UNCHANGED_by_the_addition(
     """Phase 4 is gated on the `parent_route` run set — this addition must not touch it.
 
     Asserted as an exact key set rather than a spot check: a widened payload is
-    the shape that would quietly change what Phase 4 counts, and `type` is
-    written from the parameter so a caller cannot shadow it through the payload.
+    the shape that would quietly change what Phase 4 counts.
+
+    (This docstring used to add *"and `type` is written from the parameter so a
+    caller cannot shadow it through the payload"* — which was false, and was the
+    same false sentence `_append_run_event` carried. A dict display applies the
+    splat LAST. The property is now enforced there and covered by
+    `test_a_payload_may_not_set_its_own_event_type`, so the claim is a check
+    rather than a repetition of one.)
     """
     from test_exit_record import _FakeWorkflow, _record
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
@@ -624,6 +761,70 @@ def test_the_parent_route_event_is_UNCHANGED_by_the_addition(
         "type", "run_id", "pr", "routed_outcome", "undetermined_reason",
         "hold_kind", "shadow_verdict", "shadow_parseable", "channels_agree",
     }, "the parent stratum's payload changed while Phase 4 is gated on it"
+
+
+def test_a_payload_may_not_set_its_own_event_type(tmp_path) -> None:
+    """THE RUN LOG'S ONLY INDEX IS `type`, SO A PAYLOAD MAY NOT SET IT.
+
+    This is the class, not the instance. `as_event()` is derived from
+    `dataclasses.fields` so that adding a field is enough to make it durable —
+    which is the same mechanism that would carry a field named `type` into the
+    splat with nobody in the loop. Every reader filtering
+    `type == "convergence"` would then stop seeing the event, and the
+    denominator this phase exists to accumulate disappears with no test red.
+
+    The appender is shared by BOTH observables, so the guard covers
+    `parent_route` and any third event type added later, not only this one.
+    """
+    from modules.assistant import assistant_activities as act
+
+    log = tmp_path / "run.jsonl"
+    with pytest.raises(ValueError, match="may not carry its own `type` key"):
+        act._append_run_event(log, "convergence", {"run_id": "x", "type": "other"})
+
+    # Control on the same call: without the reserved key it writes, and the
+    # written type is the appender's. Without this the assertion above is
+    # satisfied by an appender that raises on everything.
+    act._append_run_event(log, "convergence", {"run_id": "x"})
+    assert [json.loads(line) for line in log.read_text().splitlines()] == [
+        {"type": "convergence", "run_id": "x"},
+    ]
+
+
+def test_a_new_assessment_field_cannot_silently_take_an_ENVELOPE_key(
+        monkeypatch) -> None:
+    """The derived payload and the hand-written envelope share one dict.
+
+    `as_event()` deriving from the dataclass is what makes a new field durable
+    for free; it is also what lets a new field named `run_id` overwrite the JOIN
+    KEY, or one named `agrees` be silently swallowed by the literal below the
+    splat. Both directions lose data with no exception and no red test, which is
+    why the merge asserts rather than resolving.
+
+    ASSERTED BY SIMULATING THE NEXT FIELD, not by re-listing today's ten. A test
+    comparing two hand-kept lists passes forever after the moment it is written.
+    """
+    from modules.assistant.review_pr import review_pr_workflow as wf
+
+    good = cv.ConvergenceAssessment(State.CONVERGED, passes=2)
+    event = wf._convergence_event(run_id="r", pr_number="75", assessment=good,
+                                  asserted=True, agrees=True)
+    assert event["run_id"] == "r" and event["agrees"] is True
+
+    class _NextField:
+        """An assessment that grew one more field, named as the envelope's."""
+
+        def __init__(self, stolen: str) -> None:
+            self._stolen = stolen
+
+        def as_event(self) -> dict:
+            return {"state": "converged", "passes": 2, self._stolen: "hijacked"}
+
+    for stolen in sorted(wf.CONVERGENCE_ENVELOPE_KEYS):
+        with pytest.raises(ValueError, match="convergence run-log event"):
+            wf._convergence_event(run_id="r", pr_number="75",
+                                  assessment=_NextField(stolen),
+                                  asserted=True, agrees=True)
 
 
 def test_an_undetermined_route_still_produces_an_assessment(

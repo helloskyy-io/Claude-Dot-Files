@@ -1307,6 +1307,15 @@ SHARED_KIND_ONE_PATTERNS = (
     # the model-asserted flag and the computed signal match, with both suites
     # green.
     ("CONVERGED_FLAG", "CONVERGED"),
+    # Added when a review pass measured that `- id:` is NOT unique to a finding:
+    # the shipped prompt gives the child `dispatch_context: |` and `precheck: |`
+    # block scalars whose documented content is *"which findings to fix"*, in the
+    # same block, after `findings:`. Both readers now anchor the finding scan to
+    # the `findings:` section, and they must anchor IDENTICALLY — otherwise the
+    # live path's render↔record invariant and this tool's convergence
+    # denominator disagree about what a finding is, which is the divergence the
+    # pairs above exist to catch, one region up.
+    ("_FINDINGS_SECTION", "FINDINGS_SECTION"),
 )
 
 # Regexes that exist on ONE side only, with the reason. These are not shared
