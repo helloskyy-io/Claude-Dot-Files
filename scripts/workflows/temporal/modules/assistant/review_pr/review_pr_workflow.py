@@ -18,7 +18,9 @@ import uuid
 from pathlib import Path
 
 from .. import assistant_activities as _shared
+from .. import convergence
 from .. import exit_record
+from .. import routing
 from . import review_pr_activities as act
 from . import review_pr_helper as helper
 from .review_pr_helper import ReviewInput, ReviewResult, ReviewType
@@ -200,28 +202,124 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
               "control is not retried against it."
         )
 
-    # --- THE RENDER <-> RECORD INVARIANT ---------------------------------
-    # Co-authoring persists for the three prose regions that have no field
-    # (`memory-model.md` §7.2 rows 3, 4 and 11), so the durable block and the
-    # typed record are written in one act by one author — the arrangement none
-    # of the surveyed instances permits WITHOUT a write-time gate. This is that
-    # gate: every finding id in the record appears in the posted block and vice
-    # versa. THE TYPED REGION WINS; the block is its rendering.
+    # --- ONE THREAD READ, TWO CONSUMERS ----------------------------------
+    # The render↔record invariant needs this pass's block and the block count;
+    # Phase 5's convergence predicate needs the whole window. Reading them
+    # together keeps them ONE OBSERVATION — the skew a split read invites is the
+    # same one `_read_thread_for_invariant` retries as a unit to avoid.
     #
-    # Only when a record was actually read: an UNDETERMINED route has no ids to
-    # compare, and re-reporting the same failure twice tells the operator
-    # nothing new.
-    if record.routed_outcome is not exit_record.RoutedOutcome.UNDETERMINED:
-        unchecked = _verify_block_matches_record(
-            task.pr_number, worktree, record, prior_pass
-        )
-        if unchecked is not None:
-            notes.append(unchecked)
+    # Both are skipped on an UNDETERMINED route, and for the same reason: there
+    # are no ids to compare and no pass to assess. Convergence still gets an
+    # assessment — the residual arm, named `pass_not_evaluable` — because the
+    # predicate is total and a pass that did not route is not evidence.
+    evaluable = record.routed_outcome is not exit_record.RoutedOutcome.UNDETERMINED
+    blocks: list[str] | None = None
+    if evaluable:
+        try:
+            posted, blocks = _read_thread_for_invariant(task.pr_number, worktree)
+        except RuntimeError as exc:
+            # COULD-NOT-CHECK IS NOT DISAGREEMENT, and reporting it as one sends
+            # the operator to the wrong place. `gh` failing here (rate limit,
+            # transient 5xx, no network) says nothing about the two copies.
+            notes.append(_thread_unreadable_note(task.pr_number, record, log_file, exc))
+        else:
+            # Co-authoring persists for the three prose regions that have no
+            # field (`memory-model.md` §7.2 rows 3, 4 and 11), so the durable
+            # block and the typed record are written in one act by one author —
+            # the arrangement none of the surveyed instances permits WITHOUT a
+            # write-time gate. This is that gate. THE TYPED REGION WINS; the
+            # block is its rendering.
+            _assert_block_matches_record(
+                task.pr_number, record, prior_pass, posted, blocks
+            )
+
+    # --- THE COMPUTED CONVERGENCE SIGNAL — RECORDED, NOT ROUTED ON --------
+    # `routing.MAX_LOOPS` remains the only stopping authority. This phase emits
+    # the signal, shadows it against the incumbent model-asserted `converged`
+    # flag, and gates nothing: the archive contains two confirming observations
+    # of the predicate firing, which falsifies "it never fires" and is nowhere
+    # near a rate. Replacing the bound is a measurement decision and the
+    # measurement does not support it yet.
+    #
+    # THE PASS'S OWN BLOCK IS DROPPED FROM THE HISTORY. It is this pass, already
+    # supplied by the typed record, and `_assert_block_matches_record` has just
+    # proven the two carry identical `(id, disposition)` pairs. Leaving it in
+    # would put one pass in twice and make every id look restated.
+    #
+    # THE TWO FAILURE REASONS ARE NOT FOLDED TOGETHER. A pass that did not route
+    # is `pass_not_evaluable`; a pass that routed while the thread read was
+    # exhausted is `history_unreadable`. Collapsing them would report a `gh`
+    # rate limit as a degraded review, and the computed arm's whole instrument
+    # is the state GROUPED BY its reason — the same defect this component
+    # recorded at R2 and again at R1a.
+    assessment = convergence.assess(
+        helper.convergence_history(blocks[:-1], record) if blocks is not None else (),
+        pass_evaluable=evaluable,
+    )
+    asserted = (helper.asserted_converged_in_block(blocks[-1])
+                if blocks else None)
+    computed = assessment.state is convergence.ConvergenceState.CONVERGED
+    _shared.append_convergence(log_file, {
+        "run_id": run_id,
+        "pr": task.pr_number,
+        "state": assessment.state.value,
+        "reason": assessment.reason.value if assessment.reason else None,
+        "passes": assessment.passes,
+        "open_ids": list(assessment.open_ids),
+        "opened": list(assessment.opened),
+        "closed": list(assessment.closed),
+        "added_ids": list(assessment.added_ids),
+        "escalated_open": list(assessment.escalated_open),
+        "unknown_dispositions": list(assessment.unknown_dispositions),
+        "stalled": assessment.stalled,
+        # The INCUMBENT's claim, carried verbatim beside the computed one in the
+        # `outcome`/`routed_outcome` shape — the raw observation is never
+        # overwritten. `None` means the block carried no `converged:` key, which
+        # is distinct from `false` and must stay distinct or an agreement rate
+        # counts pre-flag blocks as disagreements.
+        "asserted_converged": asserted,
+        # Only meaningful when BOTH have a value and the computation reached a
+        # decision; an indeterminate assessment agrees with nothing.
+        "agrees": (
+            None if asserted is None
+            or assessment.state is convergence.ConvergenceState.INDETERMINATE
+            else asserted == computed
+        ),
+    })
+    notes.append(_convergence_note(assessment, asserted, computed))
 
     return ReviewResult(
         pr_number=task.pr_number, verdict=verdict, this_pass=this_pass,
-        parseable=parseable, notes=notes, record=record,
+        parseable=parseable, notes=notes, record=record, convergence=assessment,
     )
+
+
+def _convergence_note(assessment: convergence.ConvergenceAssessment,
+                      asserted: bool | None, computed: bool) -> str:
+    """The operator-facing line, which must not read as a routing decision.
+
+    An operator seeing `converged` in a run's notes will reasonably assume
+    something acted on it. Nothing does, so the note says so in its own words
+    rather than leaving the reader to infer it from the absence of an effect.
+    """
+    line = f"Computed convergence: {assessment.state.value}"
+    if assessment.reason is not None:
+        line += f" ({assessment.reason.value})"
+    line += f" over {assessment.passes} pass(es); {len(assessment.open_ids)} open"
+    if assessment.stalled:
+        line += " — STALLED: nothing opened and nothing closed since the prior pass"
+    if assessment.escalated_open:
+        line += (f"; {len(assessment.escalated_open)} escalated finding(s) counted "
+                 f"CLOSED for this loop and outstanding elsewhere: "
+                 + ", ".join(assessment.escalated_open))
+    if asserted is not None and assessment.state is not \
+            convergence.ConvergenceState.INDETERMINATE and asserted != computed:
+        line += (f". DISAGREEMENT with the incumbent flag: the block asserts "
+                 f"converged={str(asserted).lower()}, the computation says "
+                 f"{str(computed).lower()}")
+    line += (". THIS SIGNAL ROUTES NOTHING — the loop-back bound "
+             f"(MAX_LOOPS={routing.MAX_LOOPS}) is still the only stopping authority.")
+    return line
 
 
 # A BOUNDED RETRY, not a poll and not a policy. Both reads below are `gh pr
@@ -233,8 +331,16 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
 _THREAD_READ_BACKOFF_SECONDS = (2.0, 8.0)
 
 
-def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, str | None]:
+def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
     """The two thread reads the invariant needs, retried on a transient failure.
+
+    IT RETURNS THE WHOLE BLOCK WINDOW, not just the latest one, because two
+    consumers now read this observation: the invariant compares the LAST block
+    against the typed record, and Phase 5's convergence predicate needs every
+    prior pass — a pairwise comparison cannot see an oscillating finding set by
+    construction. Serving both from one reply is what keeps them one
+    observation; a second `gh` call for the window would reintroduce exactly the
+    skew this function's single retry exists to prevent.
 
     ONE RETRY AROUND BOTH, not one each: they are two `gh` calls answering one
     question — "what does the thread look like now" — and retrying them
@@ -255,32 +361,78 @@ def _read_thread_for_invariant(pr_number: str, repo_root: Path) -> tuple[int, st
     for pause in _THREAD_READ_BACKOFF_SECONDS:
         try:
             return act.count_prior_passes(pr_number, repo_root), \
-                act.latest_pr_review_block(pr_number, repo_root)
+                act.pr_review_blocks(pr_number, repo_root)
         except RuntimeError:
             time.sleep(pause)
     # The last attempt is deliberately OUTSIDE the loop and NOT caught, so a
     # persistent failure raises the real `gh` error with its real message rather
     # than a swallowed one.
     return act.count_prior_passes(pr_number, repo_root), \
-        act.latest_pr_review_block(pr_number, repo_root)
+        act.pr_review_blocks(pr_number, repo_root)
 
 
-def _verify_block_matches_record(pr_number: str, repo_root: Path,
+def _thread_unreadable_note(pr_number: str, record: exit_record.ExitRecord,
+                            log_file: Path, exc: Exception) -> str:
+    """The could-not-check note, when the thread read is exhausted.
+
+    A VERIFICATION THAT COULD NOT RUN MUST NOT DESTROY A DECISION THAT ALREADY
+    DID. This point is reached AFTER the child posted its disposition comment
+    and AFTER `append_parent_route` persisted the route, so for one pass a 5xx,
+    a rate limit or a dropped connection on a READ discarded a ~40-minute review
+    at real budget and killed the parent's build loop with it — for a reason
+    with nothing to do with the review. The reads are retried; on exhaustion the
+    check is REPORTED as unperformed and the run completes, because the route is
+    already durable and the evidence survives either way.
+
+    REPORTED, NOT RECORDED, AND THE DIFFERENCE IS DELIBERATE HERE. The note goes
+    into `ReviewResult.notes` — printed by `run_review_pr` and folded into the
+    parent's notes by `build_workflow` — which reaches an operator watching the
+    run and NOTHING ELSE. Every other computed-arm signal (`routed_outcome`,
+    `undetermined_reason`, `channels_agree`) is written to the run log by
+    `append_parent_route` and is therefore countable offline; this one is not, so
+    no replay can say how often the invariant degraded. That is a real gap and it
+    is named rather than papered over: making it durable means a new stratum in
+    `exit-protocol.md` §2, and WHAT a parent should do about a verification it
+    could not perform — annotate, record, or downgrade — is one unruled question,
+    carried as candidate **C-056**.
+
+    IT IS A SEPARATE FUNCTION FROM THE INVARIANT ITSELF, and that split is what
+    let the invariant be renamed honestly. It used to be one `_verify_` function
+    with three outcomes — raise, note, nothing — where an `_assert_` prefix would
+    have promised only two and invited a later call site to drop the note. With
+    the read hoisted to the caller (Phase 5 needs the same observation), the
+    third outcome moved out with it and the invariant has exactly the two its
+    new name claims. Phase 4 adds the call sites; the name has to be right
+    before they arrive.
+
+    The note is deliberately loud for the reader it does reach: an invariant that
+    silently did not run is indistinguishable from one that held, and the whole
+    reason this is enforced rather than documented is that both copies diverging
+    is silent. THE ROUTING POLICY IS UNTOUCHED.
+    """
+    return (
+        f"PR #{pr_number}: the render↔record invariant was NOT CHECKED — "
+        f"reading the thread failed after "
+        f"{len(_THREAD_READ_BACKOFF_SECONDS) + 1} attempts: {exc}. This is not "
+        f"a disagreement between the two copies; it is the check itself not "
+        f"running, and it says NOTHING about whether they agree. The typed "
+        f"record routed {record.routed_outcome.value}, is intact in the run "
+        f"log and was persisted before this check ran, so the verdict stands "
+        f"on the record rather than on this. VERIFY THE POSTED BLOCK BY HAND "
+        f"against the record's findings before acting on it. Convergence is "
+        f"INDETERMINATE for the same reason — no history was read. Log: {log_file}"
+    )
+
+
+def _assert_block_matches_record(pr_number: str,
                                  record: exit_record.ExitRecord,
-                                 prior_pass: int) -> str | None:
+                                 prior_pass: int, posted: int,
+                                 blocks: list[str]) -> None:
     """Fail loud when the durable render and the typed record disagree on findings.
 
-    TWO CHANNELS, AND THEY ARE NOT THE SAME EVENT. A real disagreement RAISES —
-    that half is unchanged. A failure to READ THE THREAD returns a note, because
-    it is not a disagreement and it must not be treated as one.
-
-    IT IS `_verify_` AND NOT `_assert_` FOR THAT REASON. An `assert_` prefix
-    promises the caller that the only outcomes are "raised" and "nothing to do",
-    and this function now has a third — a note the caller MUST surface. A later
-    call site that trusted the prefix and called it as a bare statement would
-    drop that note on the floor, which is the same silent degradation the note
-    exists to prevent. Phase 4 adds the call sites, so the name has to be right
-    before they arrive rather than after.
+    RAISES OR RETURNS. The could-not-check third outcome lives in
+    `_thread_unreadable_note` above, at the caller, which is why this is
+    `_assert_` and its predecessor was `_verify_`.
 
     ONE AUTHOR, TWO DERIVED COPIES — and the copies are checked rather than
     trusted. A finding in the record but not in the block is a finding the
@@ -299,53 +451,16 @@ def _verify_block_matches_record(pr_number: str, repo_root: Path,
     must have risen by one. Sequence comes from that count, never from the
     block's own `pass:` counter, which `memory-model.md` §6.4 measured wrong.
 
-    A VERIFICATION THAT COULD NOT RUN MUST NOT DESTROY A DECISION THAT ALREADY
-    DID. This function is reached AFTER the child posted its disposition comment
-    and AFTER `append_parent_route` persisted the route, so for one pass a 5xx,
-    a rate limit or a dropped connection on a READ discarded a ~40-minute review
-    at real budget and killed the parent's build loop with it — for a reason
-    with nothing to do with the review. The reads are retried (above); on
-    exhaustion the check is REPORTED as unperformed and the run completes,
-    because the route is already durable and the evidence survives either way.
-
-    REPORTED, NOT RECORDED, AND THE DIFFERENCE IS DELIBERATE HERE. The note goes
-    into `ReviewResult.notes` — printed by `run_review_pr` and folded into the
-    parent's notes by `build_workflow` — which reaches an operator watching the
-    run and NOTHING ELSE. Every other computed-arm signal (`routed_outcome`,
-    `undetermined_reason`, `channels_agree`) is written to the run log by
-    `append_parent_route` and is therefore countable offline; this one is not, so
-    no replay can say how often the invariant degraded. That is a real gap and it
-    is named rather than papered over: making it durable means a new stratum in
-    `exit-protocol.md` §2, and WHAT a parent should do about a verification it
-    could not perform — annotate, record, or downgrade — is one unruled question,
-    carried as candidate **C-056**. Softening the word is not the fix for the
-    gap; it stops the docstring claiming a durability the code does not have
-    while the question is open.
-
-    The note is deliberately loud for the reader it does reach: an invariant that
-    silently did not run is indistinguishable from one that held, and the whole
-    reason this is enforced rather than documented is that both copies diverging
-    is silent. THE ROUTING POLICY IS UNTOUCHED — the verdict on success is what
-    it always was, and a persistent failure still surfaces the real `gh` error.
+    AND PHASE 5 NOW DEPENDS ON THAT GUARANTEE RATHER THAN MERELY BENEFITING
+    FROM IT. `helper.convergence_history` builds the convergence predicate's
+    most recent term from the TYPED record and every earlier term from the
+    durable blocks; the two sources are only interchangeable because this
+    invariant makes this pass's block and this pass's record carry identical
+    `(id, disposition)` pairs. A weakening here would not fail a convergence
+    test — it would silently make yesterday's prose term disagree with what
+    today's typed term was compared against.
     """
-    try:
-        posted, block = _read_thread_for_invariant(pr_number, repo_root)
-    except RuntimeError as exc:
-        # COULD-NOT-CHECK IS NOT DISAGREEMENT, and reporting it as one sends the
-        # operator to the wrong place. `gh` failing here (rate limit, transient
-        # 5xx, no network) says nothing about the two copies.
-        return (
-            f"PR #{pr_number}: the render↔record invariant was NOT CHECKED — "
-            f"reading the thread failed after "
-            f"{len(_THREAD_READ_BACKOFF_SECONDS) + 1} attempts: {exc}. This is not "
-            f"a disagreement between the two copies; it is the check itself not "
-            f"running, and it says NOTHING about whether they agree. The typed "
-            f"record routed {record.routed_outcome.value}, is intact in the run "
-            f"log and was persisted before this check ran, so the verdict stands "
-            f"on the record rather than on this. VERIFY THE POSTED BLOCK BY HAND "
-            f"against the record's findings before acting on it."
-        )
-
+    block = blocks[-1] if blocks else None
     if posted <= prior_pass:
         raise RuntimeError(
             f"PR #{pr_number}: the run produced a typed exit record but posted no new "
@@ -377,7 +492,3 @@ def _verify_block_matches_record(pr_number: str, repo_root: Path,
             f"authoritative; the block is its rendering, and a rendering that "
             f"drops, invents or re-dispositions a finding is not one."
         )
-    # The check RAN and the two copies agree. Explicit, because `None` here is a
-    # result rather than a fall-through — it is what the caller distinguishes
-    # from the not-checked note above.
-    return None

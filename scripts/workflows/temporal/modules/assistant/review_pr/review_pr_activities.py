@@ -68,6 +68,33 @@ def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     )
 
 
+def pr_review_blocks(pr_number: str, repo_root: Path) -> list[str]:
+    """EVERY `pr_review:` block on this PR, in comment-creation order.
+
+    ONE READ, TWO CONSUMERS. The render↔record invariant wants the last block;
+    Phase 5's convergence predicate wants the whole window, because a pairwise
+    comparison cannot see an oscillating finding set by construction. Extracting
+    both from one `gh` reply keeps them ONE OBSERVATION — the same reason
+    `_read_thread_for_invariant` retries its two reads together rather than
+    separately.
+
+    ORDERING IS COMMENT ORDER, NEVER THE BLOCK'S OWN `pass:` INTEGER. That
+    counter is producer-written and `memory-model.md` §6.4 measured it wrong on
+    the most recently reviewed PR in the repo (issue #68); PR #31's blocks run
+    1, 2, 4. Consecutiveness is a property of the sequence, not of the label.
+
+    `finditer` rather than `search`, per `latest_pr_review_block` below: one
+    comment may legitimately carry more than one block, because INVARIANT 1 of
+    `disposition.md` invites a pass to quote the block it supersedes.
+    """
+    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
+    return [
+        m.group(1)
+        for c in raw.get("comments", [])
+        for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
+    ]
+
+
 def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     """The LATEST `pr_review:` block on this PR, or None if there is none.
 
@@ -94,13 +121,13 @@ def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
     passes, and one pass posts one comment however many blocks it quotes.
     Switching it to `finditer` would count a quoting comment as two passes and
     break the delta in a new way.
+
+    EXPRESSED ON `pr_review_blocks` RATHER THAN RE-EXTRACTING. The extraction
+    was typed twice for one commit when the window reader was added, which is
+    the duplicated-reader defect `exit-protocol.md` §6 covers — and the measured
+    instance of it (issue #68) is this exact marker.
     """
-    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
-    blocks = [
-        m.group(1)
-        for c in raw.get("comments", [])
-        for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
-    ]
+    blocks = pr_review_blocks(pr_number, repo_root)
     return blocks[-1] if blocks else None
 
 

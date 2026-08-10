@@ -12,10 +12,11 @@ signal.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .. import exit_record, routing
+from .. import convergence, exit_record, routing
 
 
 Verdict = routing.Verdict
@@ -75,6 +76,13 @@ class ReviewResult:
     # not in play, never that it was in play and empty — that state is an
     # ExitRecord with routed_outcome UNDETERMINED.
     record: exit_record.ExitRecord | None = None
+    # Phase 5's computed convergence signal. RECORDED, NEVER ROUTED ON — no
+    # caller branches on it and `routing.MAX_LOOPS` remains the only stopping
+    # authority. Optional for the same reason `record` is: None means the
+    # predicate was not run at all, which is distinct from it running and
+    # reaching the residual arm (a ConvergenceAssessment with state
+    # UNDETERMINED).
+    convergence: convergence.ConvergenceAssessment | None = None
 
     @property
     def ready_to_merge(self) -> bool:
@@ -130,6 +138,19 @@ _FINDING_ITEM = re.compile(
 )
 _DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
 
+# The INCUMBENT convergence flag, model-asserted under the single-pass severity
+# heuristic at `disposition.md` Stage 4. Read here so the computed signal can be
+# SHADOWED against it — Phase 1 E7's ruling is that `converged` is a label the
+# computation should reproduce, not a competitor to replace silently, and a
+# shadow needs both values in one place to be countable.
+#
+# Shape-identical to `replay_pr_review_blocks.CONVERGED` and paired in
+# `SHARED_KIND_ONE_PATTERNS`, for the reason every other pattern in this file
+# is: the two readers attribute the same field, and a silent divergence would
+# make the workflow's agreement count disagree with the archive replay's while
+# both suites stayed green.
+CONVERGED_FLAG = re.compile(r"^\s*converged:\s*(true|false)", re.MULTILINE)
+
 
 def _unquote(token: str) -> str:
     """Strip one matched pair of surrounding quotes, and nothing else.
@@ -172,6 +193,47 @@ def finding_dispositions_in_block(block: str) -> frozenset[tuple[str, str]]:
     return frozenset(
         (_unquote(fid), _unquote(m.group(1)) if (m := _DISPOSITION.search(body)) else "")
         for fid, body in _FINDING_ITEM.findall(block)
+    )
+
+
+def asserted_converged_in_block(block: str) -> bool | None:
+    """The block's own `converged:` claim, or None when it carries no such key.
+
+    NONE IS A THIRD VALUE, NOT A DEFAULT. Absence dates a block to before the
+    flag shipped, and folding it into `false` would make an agreement rate over
+    the archive quietly count pre-flag blocks as disagreements with whatever the
+    computation said. `replay_pr_review_blocks` draws the same distinction for
+    the same reason.
+    """
+    match = CONVERGED_FLAG.search(block)
+    return (match.group(1) == "true") if match else None
+
+
+def convergence_history(prior_blocks: Sequence[str],
+                        record: exit_record.ExitRecord,
+                        ) -> tuple[tuple[tuple[str, str], ...], ...]:
+    """This PR's passes oldest-first, as `(id, disposition)` pairs per pass.
+
+    THE PREDICATE IS A HYBRID AND THIS FUNCTION IS WHERE THAT SHOWS. The pass
+    under assessment comes from the TYPED record, which is authoritative; every
+    prior pass comes from its durable `pr_review:` block, parsed as prose.
+    That is not an oversight and it is not a hole in the typed channel — a Kind
+    2 record's lifetime is one parent invocation (`exit-protocol.md` §1, and the
+    to-do-bit ruling in Phase 3 step 6), so a prior pass's typed record does not
+    exist to be read. Kind 1 is the only durable copy, which is exactly the job
+    §1 gives it.
+
+    THE TWO SOURCES ARE NOT ASSUMED TO AGREE — they are made to. The
+    render↔record invariant (`review_pr_workflow._verify_block_matches_record`)
+    raises unless this pass's posted block and this pass's record carry
+    identical `(id, disposition)` pairs, so today's typed term becomes
+    tomorrow's prose term without drift. Callers must pass the blocks with this
+    pass's own block ALREADY REMOVED; passing it would put the same pass in the
+    history twice and make every id look restated.
+    """
+    return tuple(
+        [tuple(sorted(finding_dispositions_in_block(b))) for b in prior_blocks]
+        + [tuple(sorted((f["id"], f["disposition"]) for f in record.findings))]
     )
 
 

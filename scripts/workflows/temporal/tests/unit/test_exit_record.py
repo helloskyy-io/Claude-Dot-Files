@@ -634,7 +634,8 @@ class _FakeWorkflow:
             return ""
 
         monkeypatch.setattr(act, "run_disposition", _run)
-        monkeypatch.setattr(act, "latest_pr_review_block", lambda *a, **k: self.block)
+        monkeypatch.setattr(act, "pr_review_blocks",
+                            lambda *a, **k: [self.block] if self.block is not None else [])
         monkeypatch.setattr(wf._shared, "result_event",
                             lambda *a, **k: self._envelope())
         monkeypatch.setattr(wf._shared, "assistant_text", lambda *a, **k: self.prose)
@@ -926,7 +927,7 @@ def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
     """The same case end-to-end, through the REAL reader rather than a fake one.
 
     THIS IS THE ONE THAT WOULD HAVE CAUGHT IT. Every other test in this section
-    fakes `latest_pr_review_block` and raises `RuntimeError` from the fake — so
+    fakes `pr_review_blocks` and raises `RuntimeError` from the fake — so
     they assert the retry handles the error the fake chose to throw, and are
     green against a reader that could throw a second family. Here the real
     reader runs and only `gh` is faked, which is where the shape actually
@@ -934,12 +935,12 @@ def test_a_MALFORMED_gh_REPLY_degrades_like_any_other_blip(
     """
     from modules.assistant.review_pr import review_pr_activities as act
     from modules.assistant.review_pr.review_pr_helper import ReviewInput
-    real_latest = act.latest_pr_review_block  # captured BEFORE the fake installs
+    real_reader = act.pr_review_blocks  # captured BEFORE the fake installs
 
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
     slept = _no_sleep(monkeypatch)
-    monkeypatch.setattr(act, "latest_pr_review_block", real_latest)
+    monkeypatch.setattr(act, "pr_review_blocks", real_reader)
     monkeypatch.setattr(act._shared, "gh", lambda *a, **k: "<html>502 Bad Gateway</html>")
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
@@ -971,8 +972,8 @@ def test_a_transient_thread_read_is_retried_and_the_review_survives(
     wf = fake.install(monkeypatch, tmp_path)
     slept = _no_sleep(monkeypatch)
 
-    monkeypatch.setattr(act, "latest_pr_review_block",
-                        _flaky_reader(1, lambda *a, **k: fake.block))
+    monkeypatch.setattr(act, "pr_review_blocks",
+                        _flaky_reader(1, lambda *a, **k: [fake.block]))
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1004,7 +1005,7 @@ def test_a_PERSISTENT_thread_read_failure_completes_the_run_and_says_so(
     def _boom(*a, **k):
         raise RuntimeError("gh pr view failed: API rate limit exceeded")
 
-    monkeypatch.setattr(act, "latest_pr_review_block", _boom)
+    monkeypatch.setattr(act, "pr_review_blocks", _boom)
 
     result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1035,7 +1036,7 @@ def test_the_route_is_PERSISTED_even_when_the_check_never_runs(
     fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n")
     wf = fake.install(monkeypatch, tmp_path)
     _no_sleep(monkeypatch)
-    monkeypatch.setattr(act, "latest_pr_review_block", _flaky_reader(99, lambda *a, **k: None))
+    monkeypatch.setattr(act, "pr_review_blocks", _flaky_reader(99, lambda *a, **k: []))
 
     wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
@@ -1062,8 +1063,8 @@ def test_a_REAL_disagreement_still_raises_after_a_transient_read(
     _no_sleep(monkeypatch)
 
     wrong = "pr_review:\n  findings:\n    - id: a-different-slug\n      disposition: fixed\n"
-    monkeypatch.setattr(act, "latest_pr_review_block",
-                        _flaky_reader(1, lambda *a, **k: wrong))
+    monkeypatch.setattr(act, "pr_review_blocks",
+                        _flaky_reader(1, lambda *a, **k: [wrong]))
 
     with pytest.raises(RuntimeError, match="disagree on findings"):
         wf.run_review(ReviewInput(pr_number="67"), tmp_path)
@@ -1287,6 +1288,14 @@ SHARED_KIND_ONE_PATTERNS = (
     ("_FINDING_ID", "FINDING_ID"),
     ("_FINDING_ITEM", "FINDING_ENTRY"),
     ("_DISPOSITION", "DISPOSITION"),
+    # Added when Phase 5 gave the workflow a consumer for the incumbent
+    # convergence flag. It was one-sided until then, and the enumeration gate
+    # below is what forced the pairing rather than a reviewer remembering: the
+    # workflow's shadow agreement count and the archive replay's now read the
+    # same field, so a divergence would make the two disagree about how often
+    # the model-asserted flag and the computed signal match, with both suites
+    # green.
+    ("CONVERGED_FLAG", "CONVERGED"),
 )
 
 # Regexes that exist on ONE side only, with the reason. These are not shared
@@ -1294,7 +1303,7 @@ SHARED_KIND_ONE_PATTERNS = (
 # would be inventing a coupling rather than gating one. Listed explicitly so
 # that a genuinely shared regex cannot hide in the gap.
 REPLAY_ONLY_PATTERNS = frozenset({
-    "PASS", "ATTEMPT", "VERDICT", "CONVERGED",   # block-level measurement fields
+    "PASS", "ATTEMPT", "VERDICT",                 # block-level measurement fields
     "CATEGORY",                                   # finding-level, measurement only
 })
 
