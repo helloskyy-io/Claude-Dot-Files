@@ -160,3 +160,38 @@ max_turns:
                               #   89-turn peak — a pre-split number does not transfer.
   research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
                               #   3x observed peak: headroom rather than a budget.
+
+# Resource bounds for workflow children, and the telemetry that will size them.
+#
+# WHY THESE NUMBERS ARE PROVISIONAL AND SAID SO. On 2026-08-10 a 31 GiB VM
+# livelocked under two dispatches and three interactive sessions. No OOM report
+# was produced, so no one could establish which workload held the memory —
+# hours of analysis ended in "we cannot know." The per-child cap below exists to
+# make the NEXT occurrence diagnosable rather than to be correct today.
+#
+# THE AGGREGATE CEILING IS DELIBERATELY ABSENT. Per-child caps do not compose:
+# three sessions each running a correctly-capped child still sum past the host,
+# which is precisely what happened. The fix is a cap on `slice` below — but its
+# value must come from measured runs, not from a guess, and the telemetry that
+# produces it ships with this block. Setting a number now would be inventing the
+# evidence this exists to collect.
+#
+# To cap the slice once the data supports one:
+#   systemctl --user set-property claude-workflows.slice MemoryMax=<value>
+resource_limits:
+  slice: claude-workflows.slice   # all children share it, so a future cap binds the TOTAL
+  MemoryHigh: 4G                  # THROTTLES and records the event — the early warning
+                                  #   that did not exist on 2026-08-10. Not a kill.
+  MemoryMax: 8G                   # hard ceiling. A child that hits this DIES, named and
+                                  #   logged, instead of wedging the host silently.
+                                  #   Reference: a healthy full suite peaks near 445 MiB.
+  max_parallel_agents: 4          # HARD ceiling on concurrent sub-agents per message.
+                                  #   Lowered from the UNBOUNDED default — there was never a
+                                  #   ceiling at all; the five analysts that crashed the host
+                                  #   were five TOPICS, not a configured limit. Set one below
+                                  #   the count that failed, deliberately conservative for the
+                                  #   first run under measurement. The prompts carry this
+                                  #   number literally (prompts are text, not code); a test
+                                  #   binds them to this value so they cannot drift.
+  TasksMax: 4096                  # the second axis. The crash regime allocated ~104
+                                  #   PIDs/sec; a healthy run peaked at 20 tasks.

@@ -21,10 +21,27 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+from . import resource_telemetry
+
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
 _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"
 
 PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
+
+
+
+def _resource_limits() -> dict:
+    """`resource_limits:` from config.yaml. Absent means unbounded, not defaulted.
+
+    No fallback dict. A silent default would be a ceiling nobody chose, which is
+    indistinguishable at read time from one somebody measured — and the entire
+    reason this module exists is that an unexamined ceiling took a host down.
+    """
+    import yaml  # a hard preflight dependency; see scripts/preflight.py
+    path = _WORKFLOWS.parents[1] / "config.yaml"
+    if not path.is_file():
+        return {}
+    return (yaml.safe_load(path.read_text()) or {}).get("resource_limits") or {}
 
 
 def max_turns(key: str) -> int:
@@ -388,6 +405,25 @@ def append_parent_route(log_file: Path, event: dict) -> None:
     _append_run_event(log_file, "parent_route", event)
 
 
+def append_run_resources(log_file: Path, event: dict) -> None:
+    """Append this run's MEASURED resource facts, as its own JSONL event.
+
+    ITS OWN TYPE, BESIDE THE OTHERS, PER `append_parent_route`'s OWN RULE.
+    That docstring states its payload is frozen while Phase 4 reads the run set
+    it produces, and that "a later phase adding its OWN observable adds its OWN
+    event type beside this one." This is that. Nothing here widens an existing
+    payload and no existing key changes meaning.
+
+    WHAT IT IS FOR. The open question is whether a run's footprint is governed by
+    the NUMBER of subagents or the VOLUME each pulls into context — opposite
+    fixes, and `peak_anon` alone cannot separate them. Recording both beside it
+    turns that from an argument into a regression over enough runs. An
+    `unmeasured` run is written too, with its reason: "no data" and "data showing
+    nothing" are different facts and collapsing them hides the gap.
+    """
+    _append_run_event(log_file, "run_resources", event)
+
+
 def append_convergence(log_file: Path, event: dict) -> None:
     """Append Phase 5's COMPUTED CONVERGENCE observable, as its own JSONL event.
 
@@ -518,11 +554,25 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # collected for the completion-contract check.
     print(f"→ {model_key}  log: {log_file}", flush=True)
     print(f"→ {model_key}  exec: {cwd}  (max_turns={max_turns})", flush=True)
+    # BOUNDED AND MEASURED, or explicitly neither. The scope is what makes the
+    # kernel account for this child; it is also what stops one child taking the
+    # host down with it. When a scope cannot be created the child still runs and
+    # the report records WHY it was not measured — a run nobody could measure
+    # has to remain countable, or the gap stops being visible.
+    argv = ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt]
+    limits = _resource_limits()
+    scoped, scope_reason = resource_telemetry.scope_available()
+    if scoped:
+        argv = resource_telemetry.wrap(
+            argv, unit=f"claude-{model_key}-{uuid.uuid4().hex[:12]}.scope", limits=limits)
+    else:
+        print(f"⚠ {model_key}: running UNBOUNDED — {scope_reason}", flush=True)
+
     proc = subprocess.Popen(
-        ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt],
-        cwd=str(cwd), env=env, stdout=subprocess.PIPE,
+        argv, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, bufsize=1,
     )
+    sampler = resource_telemetry.measure(proc) if scoped else None
     captured: list[str] = []
     assert proc.stdout is not None
     for line in proc.stdout:
@@ -532,6 +582,15 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
             sys.stdout.flush()
     code = proc.wait()
     output = "".join(captured)
+
+    # BEFORE the failure branch below, deliberately. A run that died is the one
+    # whose resource numbers are most worth having, and an early `raise` would
+    # throw them away at exactly the moment they became evidence.
+    report = resource_telemetry.finish(
+        sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason)
+    report.tool_result_bytes, report.subagents_spawned = resource_telemetry.from_log(log_file)
+    append_run_resources(log_file, resource_telemetry.report_dict(report))
+    print(f"→ {model_key}  {resource_telemetry.human(report)}", flush=True)
 
     if code != 0:
         # OBSERVE before reporting. A turn-cap exit may have committed and

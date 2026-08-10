@@ -1487,6 +1487,34 @@ def _workflow_folder_consumers(module_stem: str, assistant: Path) -> set[str]:
     that counts prose is a placement gate that reports whatever is written about
     the module rather than what depends on it.
     """
+    # FACADE-MEDIATED SHARING IS STILL SHARING, and the folder scan cannot see
+    # it. `assistant_activities` is imported by every workflow folder, so a
+    # module it depends on is reachable from all of them — `resource_telemetry`
+    # is used through `run_claude`, which is the single correct integration
+    # point for it and deliberately not duplicated per folder.
+    #
+    # THIS DOES NOT WIDEN THE GATE. A module imported by no folder AND not by
+    # the facade still counts zero and still fails; the positive control below
+    # proves that. What it stops is the opposite error — recording a genuinely
+    # shared module as a "deviation", which would put a false entry in a list
+    # whose whole value is that its entries are true.
+    facade = assistant / "assistant_activities.py"
+    if facade.is_file() and module_stem != facade.stem:
+        for node in ast.walk(ast.parse(facade.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom) and module_stem in {a.name for a in node.names}:
+                # The folders that reach it, named truthfully — every folder
+                # importing the facade can reach what the facade imports. A
+                # synthetic "<facade>" token would have counted ONE and made a
+                # universally-reachable module look single-consumer, which is
+                # the opposite of the fact.
+                return (_workflow_folder_consumers_direct(facade.stem, assistant)
+                        | _workflow_folder_consumers_direct(module_stem, assistant))
+
+    return _workflow_folder_consumers_direct(module_stem, assistant)
+
+
+def _workflow_folder_consumers_direct(module_stem: str, assistant: Path) -> set[str]:
+    """Workflow folders importing `module_stem` DIRECTLY."""
     consumers: set[str] = set()
     for folder in sorted(p for p in assistant.iterdir() if p.is_dir()):
         if folder.name.startswith("__") or folder.name == "prompts":
@@ -1502,6 +1530,26 @@ def _workflow_folder_consumers(module_stem: str, assistant: Path) -> set[str]:
                     if any(a.name.split(".")[-1] == module_stem for a in node.names):
                         consumers.add(folder.name)
     return consumers
+
+
+def test_the_placement_gate_still_fails_an_unshared_module(tmp_path: Path) -> None:
+    """Positive control for the facade allowance above.
+
+    Without this, widening the scan to follow the facade could quietly turn the
+    gate into a permanent pass and nothing would signal that it stopped looking
+    — which is the exact failure mode the deviation list exists to prevent.
+    """
+    (tmp_path / "assistant_activities.py").write_text("from . import something_else\n")
+    (tmp_path / "orphan.py").write_text("x = 1\n")
+    (tmp_path / "afolder").mkdir()
+    (tmp_path / "afolder" / "w.py").write_text("from .. import assistant_activities\n")
+
+    assert _workflow_folder_consumers("orphan", tmp_path) == set(), (
+        "a module imported by neither the facade nor any folder must still count zero"
+    )
+    assert _workflow_folder_consumers("something_else", tmp_path) == {"afolder"}, (
+        "a facade-imported module must report the folders that can REACH it"
+    )
 
 
 def test_every_parent_level_module_is_shared_or_a_DECLARED_deviation() -> None:
