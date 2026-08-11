@@ -26,17 +26,35 @@ from __future__ import annotations
 import ast
 import json
 import re
+import pathlib
 from pathlib import Path
 
 import pytest
 
 from modules.assistant import convergence as cv
-from modules.assistant import exit_record as er
+from modules.assistant.review_pr import exit_record as er
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
 
+# ANCHORED ON THIS FILE, NOT ON A MODULE. These were computed as
+# `Path(er.__file__).parents[N]`, which silently shifts by one the moment the
+# module moves — and `exit_record` moved into `review_pr/` on 2026-08-11,
+# offsetting five paths at once. A test file's own location is stable by
+# construction: `tests/unit/<file>.py` is where these live and where they stay.
+_TEMPORAL = pathlib.Path(__file__).resolve().parents[2]      # …/temporal
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]     # the repository
+_ASSISTANT = _TEMPORAL / "modules" / "assistant"
+_MODULES = _TEMPORAL / "modules"
+
+
 State = cv.ConvergenceState
 Reason = cv.IndeterminateReason
+
+# A run nonce in the shape the parent issues and `RUN_ID_IN_BLOCK` accepts:
+# 32 lowercase hex characters. Fixtures that do NOT stamp it exercise the
+# positional fallback, which is the archive's shape and therefore the shape the
+# next mid-thread PR hits at merge.
+NONCE = "0123456789abcdef0123456789abcdef"
 
 
 def _pass(**dispositions: str) -> tuple[tuple[str, str], ...]:
@@ -615,15 +633,35 @@ def test_the_two_window_accessors_agree_on_which_block_is_this_passs() -> None:
     being positional. Only the structural gate above goes red. The pair is the
     evidence: this one pins the property, that one pins the single site.
     """
-    for window in ([], ["a"], ["a", "b"], ["a", "b", "c"], ["x", "x"]):
-        prior = helper.prior_pass_blocks(window)
-        this = helper.this_pass_block(window)
-        rebuilt = list(prior) + ([this] if this is not None else [])
-        assert rebuilt == list(window), (
-            f"the accessors disagree on window {window!r}: prior={prior!r}, "
-            f"this={this!r} — a block is counted twice or lost"
+    # BOTH SELECTION MODES, because the partition must hold under each and the
+    # nonce path is the one that can break it: an identity match in the MIDDLE
+    # of a window makes `prior` a proper prefix and `this` not the last element,
+    # which a positional-only fixture cannot express.
+    stamped = "pr_review:\n  run_id: %s\n" % NONCE
+    cases = [
+        ([], NONCE), (["a"], NONCE), (["a", "b"], NONCE),
+        (["a", "b", "c"], NONCE), (["x", "x"], NONCE),
+        ([stamped], NONCE), (["a", stamped], NONCE),
+        # THE ASYMMETRIC ONE: this pass's block is not last on the thread.
+        ([stamped, "a later third-party comment"], NONCE),
+        (["a", stamped, "b"], NONCE),
+    ]
+    for window, run_id in cases:
+        prior = helper.prior_pass_blocks(window, run_id)
+        this = helper.this_pass_block(window, run_id)
+        # BY POSITION, NOT BY VALUE. `["x", "x"]` is in the case list precisely
+        # because a membership test (`this not in prior`) reads a duplicate
+        # block as a partition failure and a genuinely leaked block as fine
+        # whenever the two happen to differ — the wrong axis on both sides.
+        index = len(prior)
+        assert list(prior) == list(window)[:index], (
+            f"the accessors disagree on window {window!r}: prior={prior!r} is "
+            f"not a prefix — they are not derived from one index"
         )
-        assert len(prior) == max(len(window) - 1, 0)
+        assert this == (window[index] if index < len(window) else None), (
+            f"on window {window!r} the prior set ends at {index} and this pass's "
+            f"block is {this!r} — a block is counted twice or lost"
+        )
 
 
 # --- the module is what it claims to be --------------------------------------
@@ -757,7 +795,7 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     # code, and a SIBLING package under `modules/` — `autonomous-operation.md`
     # describes the consumer as "a driver that runs many parent workflows in
     # sequence", i.e. a different parent family entirely.
-    component = Path(er.__file__).resolve().parents[2]
+    component = _TEMPORAL
     roots = [component / "modules", component / "scripts"]
     found: set[tuple[str, str]] = set()
     sites: list[str] = []
@@ -1131,7 +1169,7 @@ def test_the_history_puts_this_passs_TYPED_findings_last(monkeypatch) -> None:
         er.RoutedOutcome.MERGE, outcome=er.Outcome.MERGE,
         findings=({"id": "a", "disposition": "fixed"},),
     )
-    history = helper.convergence_history([prior, mine], record)
+    history = helper.convergence_history([prior, mine], record, NONCE)
     assert history == ((("a", "hold"),), (("a", "fixed"),)), (
         "the window's last entry is THIS pass's block and the typed record "
         "replaces it; keeping both puts one pass in the history twice"
@@ -1160,7 +1198,7 @@ def test_the_history_keeps_MULTIPLE_prior_passes_in_ORDER(monkeypatch) -> None:
         er.RoutedOutcome.MERGE, outcome=er.Outcome.MERGE,
         findings=({"id": "a", "disposition": "fixed"},),
     )
-    history = helper.convergence_history(window, record)
+    history = helper.convergence_history(window, record, NONCE)
     assert history == ((("a", "hold"),), (("a", "hold"),), (("a", "fixed"),),
                        (("a", "fixed"),)), "the prior passes are not oldest-first"
     assert cv.assess(history, pass_evaluable=True).state is State.CONVERGED, (
@@ -1202,25 +1240,6 @@ def test_pr_review_blocks_returns_EVERY_block_in_comment_order(
     )
 
 
-def test_latest_pr_review_block_is_the_LAST_of_the_window_not_a_second_read(
-        monkeypatch, tmp_path) -> None:
-    """One extraction, two consumers — asserted so a tidying edit cannot re-split it.
-
-    The address was typed twice for one commit when the window reader was added.
-    `exit-protocol.md` §6 covers the record's ADDRESS as well as its schema, and
-    the measured instance of that defect (issue #68) is this exact marker, so
-    the delegation is a property rather than an implementation choice.
-    """
-    from review_run_fakes import _with_comments
-
-    act = _with_comments(monkeypatch, [
-        "```yaml\npr_review:\n  findings:\n    - id: one\n```",
-        "```yaml\npr_review:\n  findings:\n    - id: two\n```",
-    ])
-    assert act.latest_pr_review_block("66", tmp_path) == \
-        act.pr_review_blocks("66", tmp_path)[-1]
-
-
 def test_an_absent_converged_key_reads_as_NONE_and_not_as_false() -> None:
     """`None` is a third value on the live path too, not only in the replay tool.
 
@@ -1248,6 +1267,8 @@ def test_the_event_payload_is_DERIVED_from_the_dataclass_not_retyped() -> None:
     nothing appears that is not a field or the one named derived value.
     """
     from dataclasses import fields as dc_fields
+
+
 
     assessment = cv.assess(
         [_pass(a="hold"), _pass(a="escalated", b="weird")], pass_evaluable=True,
@@ -1337,7 +1358,7 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
     means the opposite of what it computes, and `autonomous-operation.md`
     explicitly tells a future consumer to rely on it.
     """
-    path = Path(er.__file__).resolve().parents[5] / relative_path
+    path = _REPO_ROOT / relative_path
     assert path.exists(), f"{relative_path} moved — the gate reads nothing"
 
     match = _PARTITION.search(path.read_text(encoding="utf-8"))

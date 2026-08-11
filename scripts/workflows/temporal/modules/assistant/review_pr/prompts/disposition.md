@@ -43,7 +43,9 @@ List EVERY surfaced item, from all sources above, exhaustively. Sources of items
 - Friction / reflection notes that imply an unresolved problem
 - Anything in the DIFF that looks wrong but went unmentioned (your fresh eyes — the producing run's blind spots are exactly what you exist to catch)
 
-**DELETED-ARTIFACT SWEEP — mandatory whenever this PR deletes, splits, moves or renames a file.** For EVERY deleted file, enumerate its assertions, exports, guards and contracts, and NAME where each one now lives. Loss is the characteristic defect of a restructure, and **loss is invisible in a diff that is mostly additions** — nothing renders as a red line when a guard simply fails to reappear.
+**RENDER ANY DIFF THAT TOUCHES A TABLE, and read the OUTPUT rather than the diff.** `gh api --method POST /markdown -f mode=gfm -f text="$(cat <file>)"` costs one call. A table break is INVISIBLE in `git diff`: every inserted line is valid markdown in isolation, and the damage lands on lines the diff never shows. **Measured: eight of ten rows of an authoritative field table stopped rendering as a table, and no line-based review could have seen it.** Reading the diff reads the change; rendering reads the artifact.
+
+**DELETED-ARTIFACT SWEEP — mandatory whenever this PR deletes, splits, moves or renames a file, A FUNCTION, AN EXPORTED SYMBOL, A GUARD, OR A DOCUMENTED CONTRACT.** *(Widened from file-only: a PR that deleted a function, two guards and a docstring's worth of contract declared this sweep N/A because it removed no files, and the finding surfaced from re-adjudicating a rejection instead — from the wrong instrument, by luck.)* For EVERY deleted file, enumerate its assertions, exports, guards and contracts, and NAME where each one now lives. Loss is the characteristic defect of a restructure, and **loss is invisible in a diff that is mostly additions** — nothing renders as a red line when a guard simply fails to reappear.
 
 Do not rely on git to surface it. A carried-forward guard only produces a merge CONFLICT when the same lines changed on both sides; a section nobody touched upstream deletes silently. Measured on one PR: two guard losses in one file, and the first was caught only because it happened to conflict. Its sibling two sections below produced no conflict and survived three review passes, a peer-review trio and quality-control — it was found by enumeration, and nothing else would have found it.
 
@@ -234,7 +236,7 @@ Then write the comment body to a temp file (e.g. /tmp/claude-review-pr-${PR_NUMB
 **Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short "WHAT HAPPENS NEXT" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the `reframe:` and `bp:` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
 
-**Part 2 — machine-readable block** (fenced ```yaml). **This block and the typed exit record you emit in Stage 6a are ONE AUTHOR'S TWO COPIES, and your caller checks them against each other before it routes.**
+**Part 2 — machine-readable block** (fenced ```yaml). **This block and the typed exit record you emit in Stage 6b are ONE AUTHOR'S TWO COPIES, and your caller checks them against each other before it routes.**
 
 - **The typed record is authoritative.** Where the two carry the same fact, the block is its *rendering*: `verdict:` renders `outcome` (`merge`→`MERGE`, `hold`→`HOLD`), and every `findings[].id` and `findings[].disposition` must be **identical in both, same ids, same dispositions, no extras and none missing**. Your caller fails the run loud on a mismatch — a rendering that drops or invents a finding is not one.
 - **Everything else in this block is yours alone and has no field in the record**, deliberately: the disposition table's *Reasoning* column, the one-line verdict rationale, and the Post-Run Reflection. Those three are what make this a record of *the outcome and its reasoning* rather than the outcome alone. **Write them in full. Do not compress them because a typed record exists** — it carries none of them and cannot.
@@ -244,6 +246,15 @@ Author it exactly:
 ```yaml
 pr_review:
   pr: ${PR_NUMBER}
+  run_id: ${RUN_ID}                  # EXACTLY the nonce above, 32 lowercase hex characters, copied
+                                     # verbatim and UNQUOTED. This is how your caller identifies WHICH
+                                     # block on the thread is yours. Until this field existed it was
+                                     # inferred from ordering, so a third party posting a fenced
+                                     # `pr_review:` example between your comment and your caller's read
+                                     # made your caller compare YOUR record against SOMEONE ELSE'S block
+                                     # and hard-fail a review that was already posted and already routed.
+                                     # A missing or mis-copied value is not fatal — your caller falls back
+                                     # to ordering and says so — but it gives that race back.
   pass: <int>                        # DERIVED FROM THE FENCE-ANCHORED BLOCK COUNT YOU VERIFIED,
                                      # NOT from ${THIS_PASS}, which is the dispatch's label and is
                                      # supplied above only so you can state the divergence.
@@ -268,7 +279,14 @@ pr_review:
       title: <the CONSEQUENCE in one line — what breaks/is risked/gets decided wrongly. NOT the mismatch.>
       category: <from the fixed enum — NO existing-condition>
       consequence: <REQUIRED — what happens if this is not addressed. If you cannot state it, this is a note, not a finding.>
-      disposition: fixed | rejected | deferred | noted | escalated | hold
+      disposition: fixed | rejected | dissolved | deferred | noted | escalated | hold
+                                     # `dissolved` — the run was RIGHT to raise it and the answer
+                                     # is cheap: a lens (`/decide`, `/best-practices`) collapsed the
+                                     # question rather than answering it. NOT the same as `rejected`,
+                                     # which reads as *the run should not have raised this*. Record
+                                     # the verdict so a later pass does not re-derive it. The LAST
+                                     # GATE section already names this outcome; the enum did not
+                                     # carry it, so runs were forced to mislabel a good instinct.
                                      # FOR A FINDING ABOUT THE WORK IN HAND -- an artifact this PR
                                      # created or edited, a commit made to unblock it, or output it
                                      # produced that breaks a rule binding it -- ONLY `fixed`,
@@ -319,7 +337,27 @@ pr_review:
              pass had to re-find it. Authoring defect, not execution.) If the real requirement IS
              set-equality, either enumerate the full set or write the predicate to reference the
              enumeration — never both scopes at once.
-         **PRECEDENCE (binding, state it in the block): the dispatch_context ENUMERATION governs.**
+          (5) WHEN THE ARTIFACT UNDER REPAIR IS ITSELF AN ENUMERATION OF SOMETHING
+             DERIVABLE, PRESCRIBE THE RECONCILIATION, NOT AN INSERTION. `docs/file_structure.txt`
+             is the live example: it enumerates every tracked file. A prescription to "add the
+             `docs/standards/` subtree" gets executed exactly and leaves the map wrong one node
+             over, costing a whole HOLD loop to find the residue. The remedy is a LOOP over the
+             derivable set (`git ls-files`) with set-equality as the predicate. **This does not
+             conflict with (4): when the artifact is an enumeration, the reconciliation IS the
+             enumeration** — "make the map set-equal to `git ls-files`" is a complete scope, not
+             a broader predicate bolted onto a narrow list. (Reported from the portfolio project;
+             the narrow prescription cost a loop-back that the reconciliation would not have.)
+         (6) A PRECHECK MUST TEST THE PROPERTY, NEVER A STRING THAT STANDS IN FOR IT.
+             `grep -c <path>` is not a check that a path is present — it is a check that a
+             substring appears, and the two diverge the moment the artifact renders that path
+             across lines. **Measured: a correctly-nested tree read 0 on finished work, and the
+             executor satisfied the gate by inserting the literal string into an annotation.**
+             A gate that can be passed by editing the artifact to match the gate is worse than no
+             gate: it induced a false edit in the thing it was protecting. This is NOT covered by
+             (2) — a substring check is a genuinely different check and still wrong. Write the
+             predicate: *does every tracked file appear in the map?*, reconciled by leaf filename.
+
+        **PRECEDENCE (binding, state it in the block): the dispatch_context ENUMERATION governs.**
              The precheck gates whether to act; it never silently widens or narrows what to act on.
              A general rule may not override a specific instruction — the same defect shape as a
              standard's general implication overriding a workflow's explicit boundary, one layer down
@@ -340,7 +378,7 @@ pr_review:
   redispatched: false                # always false — this engine never dispatches
 ```
 
-**Block ordering within your comment (binding):** your comment carries **one** `pr_review:` block — **yours**, and it MUST be the LAST one in the comment. If you restate or quote a prior pass's block for context, place it **ABOVE** your own. The parent reads *the last block of each comment* as that pass's, and it uses that to bind the render↔record invariant and to build the convergence history. Putting a quoted block last makes the parent compare your typed record against the PREVIOUS pass's findings and hard-fail a review that is already posted and already routed. *(This rule is stated here because the parent's docstring used to cite INVARIANT 1 as its guarantee and INVARIANT 1 is about carrying FINDINGS forward, not about where a quoted block sits — so the code's rule had no producer-side backing at all. The durable fix is the run-nonce field in `phase4_fleet_migration.md`; until then, this sentence is it.)*
+**Block ordering within your comment (binding):** your comment carries **one** `pr_review:` block — **yours**, and it MUST be the LAST one in the comment. If you restate or quote a prior pass's block for context, place it **ABOVE** your own. The parent reads *the last block of each comment* as that pass's, and it uses that to bind the render↔record invariant and to build the convergence history. Putting a quoted block last makes the parent compare your typed record against the PREVIOUS pass's findings and hard-fail a review that is already posted and already routed. *(This rule is stated here because the parent's docstring used to cite INVARIANT 1 as its guarantee and INVARIANT 1 is about carrying FINDINGS forward, not about where a quoted block sits — so the code's rule had no producer-side backing at all.)* **Since Phase 4 your block carries a `run_id:`, and that does NOT relax the rule above — read this before you assume it does.** Your caller reads *the last block of each comment* FIRST, and only then matches by nonce among what it read. So a quoted prior block placed BELOW your own displaces yours entirely: your block, nonce and all, never enters the window, the nonce match finds nothing, the caller falls back to ordering, selects the quoted block, and hard-fails on a finding-set mismatch that names the wrong cause. **The nonce cannot rescue an ordering violation, and the ordering rule is binding, not a backstop.** What the nonce does buy: a *third party's* comment posted between yours and your caller's read is no longer mistaken for yours, and two comments carrying the same nonce with DIFFERENT content are refused outright rather than resolved by position (byte-identical duplicates — a retried `gh pr comment` — are resolved silently and cost you nothing).
 
 **gh-monitor safety (binding):** the comment MUST NOT contain any line that STARTS with `@claude` — gh-monitor would parse it and auto-dispatch a workflow. If you must reference a dispatch command illustratively, put it inside a code fence (gh-monitor strips fences before matching). Your dispatch_context describes the task in prose/yaml; it never emits a live `@claude` trigger line.
 
@@ -354,7 +392,7 @@ As the FINAL line of your output, print exactly one of:
     VERDICT: MERGE
     VERDICT: HOLD - redispatch
     VERDICT: HOLD - needs-assistance
-This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted. It must correspond to 6a: `merge`→`MERGE`, `hold`+`redispatch`→`HOLD - redispatch`, `hold`+`needs_ruling`→`HOLD - needs-assistance`.
+This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted. It must correspond to the record you emit at 6b: `merge`→`MERGE`, `hold`+`redispatch`→`HOLD - redispatch`, `hold`+`needs_ruling`→`HOLD - needs-assistance`.
 
 **The routing token on a HOLD is a decision, and it is YOURS to make — do not leave it to be re-derived.** `hold_kind` lives per-finding in your yaml, so a HOLD carrying five `redispatch` items and one `needs-assistance` item has no single answer written anywhere. A caller reading your yaml would have to aggregate, which means a caller with no stake in the review would be making a judgement about the review. Aggregate it yourself, by this rule:
 
@@ -376,7 +414,7 @@ This token is the only thing an automated caller reads from you. It does not cha
 | `run_id` | exactly `${RUN_ID}` — copy it verbatim, character for character. Your caller issued it and compares it back; a wrong value routes this run to a human |
 | `outcome` | `merge` or `hold` — the same decision as your VERDICT line |
 | `hold_kind` | required when `outcome` is `hold`: `redispatch` or `needs_ruling`. **`needs_ruling` is `needs-assistance` under its proper name** — the evaluation completed and the answer is that a human must decide. Aggregate it by the same rule as the VERDICT token below |
-| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"`, `uri:` the PR's URL. **`id` is a string**, quoted |
+| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"` (**a string**, quoted), and `uri` the PR's own URL — the one whose number is `${PR_NUMBER}` **in the repository you are reviewing in**. **Your caller compares all four against the reference it dispatched against and routes a mismatch to a human.** It is not a formatting check: you are instructed to read prior PR comments, those routinely quote other PRs' URLs, and the number derived from this field flows into `gh pr comment` and into `--pr` on a downstream child that checks out and commits to that PR's branch. Copy it from the PR you are reviewing, never from a comment body |
 | `findings` | one entry per finding in your yaml block, each with its stable `id` and its `disposition`. **Same ids, same dispositions, no extras and none missing** |
 
 **If you cannot state a field, you still call the tool.** A review you could not complete is `outcome: hold` with `hold_kind: needs_ruling` — that is what the member is for. **Declining to call the tool is the one outcome with no meaning**: it produces a run that looks completely clean and carries no record, and your caller has to route it to a human as a machinery failure.

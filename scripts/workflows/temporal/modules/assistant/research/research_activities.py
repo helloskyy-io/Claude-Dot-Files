@@ -25,6 +25,7 @@ run_claude = shared.run_claude
 worktree_add = shared.worktree_add
 observe_outcome = shared.observe_outcome
 gh = shared.gh
+max_turns = shared.max_turns
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]
 
@@ -32,6 +33,31 @@ _WORKFLOWS = Path(__file__).resolve().parents[3]
 _LAST_VALIDATED = re.compile(r"^Last validated:\s*(\d{4}-\d{2}-\d{2})", re.M)
 _REVALIDATE = re.compile(r"^Revalidate:\s*.*?(\d+)\s*(week|month)", re.M | re.I)
 _RETIRED = re.compile(r"^Revalidate:\s*retired", re.M | re.I)
+
+
+def in_worktree(research_dir: Path, repo_root: Path, worktree: Path) -> Path:
+    """`research_dir` re-anchored to the worktree the run actually executes in.
+
+    THE ANCHOR MISMATCH THIS EXISTS TO REMOVE. `run_research.py` builds the pool
+    path as `repo_root / <arg>` — an absolute path into the MAIN CHECKOUT — and
+    hands it to workflows that separately receive `worktree`. Everything computed
+    from it (currency, altitude, upstream) therefore described the main checkout,
+    while the prompt told the model to read the same relative path inside the
+    worktree. One logical path, two filesystem locations, in one dispatch.
+
+    Identical whenever the worktree is cut from the same ref and the main
+    checkout is clean — which is why it survived, and why it is worth fixing:
+    the failure is silent and the divergence is invisible in the output. Reported
+    from the portfolio project after THREE consecutive passes flagged the same
+    confusion; the cost was never a wrong figure, it was that no pass could tell
+    which copy a figure came from.
+    """
+    if not research_dir.is_absolute():
+        return worktree / research_dir
+    try:
+        return worktree / research_dir.relative_to(repo_root)
+    except ValueError:
+        return research_dir      # already outside the repo; leave it alone
 
 
 def paper_currency(research_dir: Path, today: date | None = None) -> tuple[str, list[Path]]:
@@ -170,7 +196,3 @@ def submit_prompt(pr_number: str | None, label: str) -> str:
 def branch_of(pr_number: str, repo_root: Path) -> str:
     return shared.pr_branch(pr_number, repo_root)
 
-
-def v1_max_turns(script: str) -> int:
-    """Derived from V1 while the bash script still exists."""
-    return int(shared.v1_constant(script, "MAX_TURNS"))

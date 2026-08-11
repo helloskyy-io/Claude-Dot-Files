@@ -40,6 +40,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import plan_activities as act
+from ... import assistant_activities as _shared
 from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
@@ -66,6 +67,10 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     ref = f"origin/{act.pr_branch(pr_number, repo_root)}" if pr_number else "HEAD"
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
+    # Read BEFORE the triage child, so a `gh` failure costs a dispatch that has
+    # produced nothing rather than one that has already triaged a sprint.
+    slug = _shared.repo_slug(repo_root)
+
     # --- Step 1: TRIAGE ----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the
     # child raises if it produced none AND if it left any candidate untriaged,
@@ -75,7 +80,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         candidates_path=candidates_path, research_dir=research_dir,
         pr_number=pr_number, verbose=verbose,
     )
-    pr = routing.pr_number_from_url(pr_url)
+    pr = routing.pr_number_from_url(pr_url, expected_repo=slug)
 
     # --- Step 2: RESEARCH each NEW component -------------------------------
     # Read from the diff, never asked of the triage child: the parent must not

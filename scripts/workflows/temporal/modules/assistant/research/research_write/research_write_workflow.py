@@ -12,6 +12,8 @@ because the run that wrote an artifact defends it.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from .. import research_activities as act
@@ -21,36 +23,32 @@ PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research"
 
-# NO `V1_SCRIPT` HERE, DELIBERATELY — do not re-add one. This module is the one
-# place where deriving the turn cap from V1 would be WRONG, so the declaration
-# every sibling carries is absent on purpose rather than by omission.
-# `research.sh` declares MAX_TURNS=250; the 150 below is a later, measured
-# decision that deliberately supersedes it. A dead `V1_SCRIPT = "../research.sh"`
-# sat here and resolved to nothing until the resolver learned to search the
-# workflows root too — at which point it silently started returning 250, one
-# rglob-for-V1_SCRIPT sweep away from "fixing" the mismatch by reverting the 150.
-#
-# MEASURED: cycle 4 used 43. The prior 250 came from the MONOLITH's 89-turn peak, before the split
-# existed — decomposition changes the shape, so a pre-split number does not transfer.
-MAX_TURNS = 150
+# ITS OWN KEY, NOT `research`. This workflow's MODEL_KEY is "research" and it
+# shares that model with `research_verify` — but the three have separately
+# measured turn budgets, so the cap is keyed by WORKFLOW. Keying it off the
+# model would silently revert this 150 to the parent's 250, which is a mistake
+# a previous version of this file made and carried a paragraph warning about.
+# Reasoning and measurement live with the value, in config.yaml.
+MAX_TURNS = act.max_turns("research-write")
 
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
               context: str = "", pr_number: str | None = None,
               verbose: bool = False) -> str:
     """Discover, size, research, draft the synthesis, submit. Returns the PR URL."""
-    currency, _due = act.paper_currency(research_dir)
+    pool = act.in_worktree(research_dir, repo_root, worktree)
+    currency, _due = act.paper_currency(pool)
 
     # Altitude is DERIVED from the pool path (Research Standard §1 names two
     # locations, one each). It decides which stages exist at all: candidates.md
     # and direction.md are product-pool surfaces, and a component pool that
     # grows its own forks the operator's inbox.
-    level = act.altitude(research_dir, repo_root)
+    level = act.altitude(pool, worktree)
     fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
 
-    blocks = [b for b in (context, act.upstream_block(research_dir, repo_root), currency) if b]
+    blocks = [b for b in (context, act.upstream_block(pool, worktree), currency) if b]
 
     values = {
         "RESEARCH_DIR": str(research_dir),

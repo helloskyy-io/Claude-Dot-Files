@@ -70,7 +70,19 @@ def main(argv: list[str] | None = None) -> int:
 
     print()
     print(BANNER)
-    headline = f"PLAN COMPLETE — {url.rsplit('/', 1)[-1] and 'PR #' + url.rsplit('/', 1)[-1]}"
+    # THROUGH THE OWNER, not a string split. This is display-only, so the
+    # consequence of the old `url.rsplit('/', 1)[-1]` was a banner rather than a
+    # route — but it was the THIRD ad-hoc PR-number derivation in the tree, and
+    # a gate on the shape cannot make an exception for the one that only prints.
+    # It cannot raise here: `plan_project_workflow` already ran the same parse
+    # over this value before returning it, so an unparseable URL failed above.
+    #
+    # `expected_repo=None` IS A STATEMENT, NOT A SKIP. That same earlier parse
+    # ran WITH the dispatch's slug (`plan_project_workflow:83`), so identity is
+    # already established on this exact string; re-establishing it here would
+    # mean a second `gh repo view` for a banner. This is the one call site in
+    # the tree entitled to None and the reason is that another site checked.
+    headline = f"PLAN COMPLETE — PR #{routing.pr_number_from_url(url, expected_repo=None)}"
     if verdict is routing.Verdict.MERGE:
         headline += " dispositioned MERGE"
         if loops:

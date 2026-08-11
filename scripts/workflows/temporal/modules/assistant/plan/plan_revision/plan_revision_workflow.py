@@ -28,6 +28,8 @@ is a NEW ATTEMPT, not a replay.
 
 from __future__ import annotations
 
+from ... import routing
+
 import re
 from pathlib import Path
 
@@ -37,8 +39,7 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "plan-revision"
-# Derived from V1, never re-declared — see assistant_activities.v1_constant.
-V1_SCRIPT = "plan-revision.sh"
+MAX_TURNS_KEY = "plan-revision"
 
 # `(pull|issues)`, verbatim from V1, and the `issues` half is load-bearing rather
 # than defensive: Stage 1 can legitimately STOP (research required, or evidence
@@ -46,7 +47,7 @@ V1_SCRIPT = "plan-revision.sh"
 # deliverable. Narrowing this to `pull` would turn a correct, cheap stop into a
 # reported failure and invite someone to re-dispatch past the very gate that
 # fired.
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/(pull|issues)/[0-9]+"
+COMPLETION_PATTERN = routing.PR_OR_ISSUE_COMPLETION_ERE
 
 _STOP_ISSUE = re.compile(r"https://github\.com/[^\s)]+/issues/[0-9]+")
 
@@ -127,7 +128,7 @@ def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
                    opaque=frozenset({"CONTEXT_BLOCK", "DESCRIPTION"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
-        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
+        max_turns=act.max_turns(MAX_TURNS_KEY),
         verbose=verbose,
     )
 

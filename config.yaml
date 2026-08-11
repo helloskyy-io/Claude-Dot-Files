@@ -112,3 +112,79 @@ models:
   #   sonnet: quality-control, standards-architect, code-reviewer,
   #           refactoring-evaluator, standards-auditor, test-writer,
   #           doc-manager, workflow-analyst, research-critic (+web)
+
+# Per-workflow turn budget, passed to `claude -p --max-turns`.
+#
+# THE SINGLE AUTHORITY. Both fleets read this map; neither reads the other.
+# Keyed identically to `models:` above — same workflow name, same key space.
+#
+# It lives here rather than in the scripts because it is operational config,
+# and config declared inside an executable can only be shared by parsing that
+# executable. The Python fleet did exactly that: `v1_constant()` ran a regex
+# over `children/*.sh` at runtime to recover these integers, which made V2
+# unable to start if V1 were deleted — the dependency pointing at precisely
+# the fleet that is meant to go away. Removed 2026-08-10.
+#
+# A cap set below an observed successful run has already cost a full budget
+# once. Raise from measurement, not from taste.
+max_turns:
+  build-draft: 250            # writes the change, opens the unreviewed PR
+  build-refine: 250           # FRESH context: fidelity, review, corrections
+  build-draft-minor: 100      # minor tier, child 1
+  build-refine-minor: 100     # minor tier, child 2 — one review lens
+  build-phase: 300            # phase implementation — the default engineer
+  plan-new: 500               # 14-stage project planning
+  plan-revision: 300          # planning build
+  plan-sprint: 250            # NOT measured — an estimate, stated as one. Basis:
+                              #   research_write does comparable read-then-write work
+                              #   at 250 and peaks near 90 in practice. This workflow
+                              #   never had a V1 script, so it never had a derived
+                              #   value either. REVISE FROM MEASUREMENT.
+  research: 250               # pool creation — orchestration + synthesis authorship
+  research-refresh: 250       # ⚠ CONVERGED 2026-08-10, FLAGGED FOR REVIEW. The two
+                              #   fleets disagreed — research-refresh.sh said 200, the
+                              #   Python said 250 — and NEITHER recorded a reason. Took
+                              #   the higher: a cap below an observed successful run has
+                              #   already cost a full budget once, so converging upward
+                              #   is the non-destructive direction. Not a measurement.
+  review-pr: 120              # PR disposition engine
+  review-runs: 100            # CPI log analysis
+  review-sprint: 600          # holistic end-of-sprint judgment
+
+  # ── Python-fleet workflows. NOT a 1:1 mirror of `models:` above, and that is
+  #    the point: `research-write` and `research-verify` share MODEL_KEY
+  #    "research" but have DIFFERENT, separately-measured budgets. Keying a turn
+  #    cap off the model key would silently collapse them.
+  research-write: 150         # MEASURED: cycle 4 used 43. Deliberately supersedes
+                              #   research.sh's 250, which came from the MONOLITH's
+                              #   89-turn peak — a pre-split number does not transfer.
+  research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
+                              #   3x observed peak: headroom rather than a budget.
+
+# Workflow children run inside a transient cgroup scope so the kernel accounts
+# for them. This is MEASUREMENT ONLY — no ceiling of any kind is applied.
+#
+# WHY THERE ARE NO LIMITS HERE, and it is deliberate. A cap shipped on
+# 2026-08-10 was justified by a host outage later attributed to a research
+# fan-out. That attribution was RETRACTED: a full five-subagent research run
+# measures 666 MiB peak RSS, and the operator observed ~0.5 GB live. Subagents
+# run IN-PROCESS, so the per-process arithmetic behind the original case was
+# counting processes that do not exist. 666 MiB does not become 24 GB.
+#
+# The host outage was real and its cause is still UNIDENTIFIED. Guarding the one
+# component since proven innocent is a fence around the wrong field, and an 8 GiB
+# cap over a 0.5 GiB workload could never fire anyway. So: observe first, and set
+# a ceiling later from data rather than from a story.
+#
+# IF LIMITS ARE ADDED BACK, two things were learned the expensive way and both
+# are non-obvious:
+#   - `MemoryMax` ALONE IS DECORATIVE. cgroup v2 bounds RAM and spills the rest
+#     to swap, so a runaway thrashes instead of dying. 400 MB under a 24 MB
+#     MemoryMax returned exit 0. It needs `MemorySwapMax=0` beside it.
+#   - A WIDE `MemoryHigh` BAND IS ITSELF A LIVELOCK. High throttles rather than
+#     kills, so a runaway inside a wide band never reaches Max. Under a 24 MB
+#     Max: High=16M ground past a 25s timeout; High=22M died at once. Keep any
+#     High above ~80% of Max, or omit it.
+resource_limits:
+  slice: claude-workflows.slice   # groups children so a FUTURE aggregate cap has
+                                  #   somewhere to attach. Imposes nothing today.

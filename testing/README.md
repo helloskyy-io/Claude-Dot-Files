@@ -109,7 +109,7 @@ class this repo has measured as non-convergent. One source now.)*
 
 The tables also record the ambiguities deliberately left open rather than
 claimed closed — an all-skipped leg exiting 0, the abstained discriminator, and
-the `addopts` channel — with the mechanism for each placed as a candidate. Do
+the `addopts` channel — with the mechanism for each placed as a candidate — **C-060**, **C-066** and **C-061** respectively. *(The middle one was missing until 2026-08-11: its only record was prose inside this directory's 728-line script, which `plan-sprint` does not read, so the claim above was true of two of three.)* Do
 not read the absence of a caveat here as the absence of one.
 
 The single fact worth carrying away without opening the file: **`1` and `3` are

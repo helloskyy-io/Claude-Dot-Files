@@ -21,58 +21,69 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+from . import resource_telemetry
+from . import routing
+
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
 _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"
 
-PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
+# RE-EXPORTED, NOT RE-TYPED — `routing.py` owns the PR-URL address, the same way
+# it owns `parse_verdict`. This module carried a byte-identical anchored copy
+# while a THIRD declaration (`routing.pr_number_from_url`) had no host anchor at
+# all; see `routing.PR_URL` for why the weak one was the one that mattered.
+PR_URL = routing.PR_URL
 
 
-def v1_constant(script: str, name: str) -> str:
-    """Read a constant from the V1 bash script rather than re-declaring it.
 
-    THIS FUNCTION EXISTS BECAUSE RE-DECLARATION CAUSED THREE PRODUCTION FAILURES.
-    The V2 port restated V1's constants and contracts instead of deriving from
-    them, so divergence was silent and only surfaced at runtime — most expensively
-    when a draft ran at MAX_TURNS=120 against V1's 250 and burned a full budget
-    producing nothing recoverable. V1's own logs already held the answer: the same
-    task class had completed in 130 turns.
+def _resource_limits() -> dict:
+    """`resource_limits:` from config.yaml. Absent means unbounded, not defaulted.
 
-    Deriving makes divergence impossible rather than merely detectable. Delete
-    this only when the V1 script it reads is deleted.
-
-    V1 SCRIPTS LIVE IN TWO PLACES and the name is searched in both. Children sit
-    in `children/`; top-level workflows sit at the workflows root. An earlier
-    version branched on whether the name contained a "/" and could resolve
-    NEITHER — `v1_constant("plan-revision.sh", ...)` looked only under
-    `children/`, and the `"../research.sh"` spelling one caller adopted to work
-    around that went to `scripts/research.sh`, which does not exist. That caller
-    never invoked it, so the break stayed latent; the next one to try would have
-    had to re-declare the constant, which is the failure this whole function
-    exists to prevent.
-
-    PASS A BARE FILENAME. Widening the search to two locations also made `../`
-    spellings start working, which is worse than the raise they replaced: the
-    first candidate `children/../research.sh` resolves through a real directory
-    to a real file, so a stale declaration nobody calls turns from a loud
-    FileNotFoundError into a quiet wrong answer. That is not hypothetical — it
-    is why `research_write_workflow.py` now carries an explicit comment saying
-    it has no `V1_SCRIPT` and why one must not be added back. Relative spellings
-    are not part of this contract; both locations are searched for you.
+    No fallback dict. A silent default would be a ceiling nobody chose, which is
+    indistinguishable at read time from one somebody measured — and the entire
+    reason this module exists is that an unexamined ceiling took a host down.
     """
-    for candidate in (_WORKFLOWS / "children" / script, _WORKFLOWS / script):
-        if candidate.exists():
-            path = candidate
-            break
-    else:
-        raise FileNotFoundError(
-            f"V1 script not found for constant derivation: {script} is in neither "
-            f"{_WORKFLOWS / 'children'} nor {_WORKFLOWS}"
-        )
-    m = re.search(rf"^{name}=(\S+)", path.read_text(), re.M)
-    if not m:
-        raise ValueError(f"{name} not found in {path} — V1 changed shape; do not guess a value")
-    return m.group(1).strip("\"'")
+    import yaml  # a hard preflight dependency; see scripts/preflight.py
+    path = _WORKFLOWS.parents[1] / "config.yaml"
+    if not path.is_file():
+        return {}
+    return (yaml.safe_load(path.read_text()) or {}).get("resource_limits") or {}
 
+
+def max_turns(key: str) -> int:
+    """This workflow's turn budget, from config.yaml's `max_turns:` map.
+
+    THE VALUE MATTERS AND HAS COST REAL MONEY. A draft once ran at 120 against
+    the 250 its task class needed and burned a full budget producing nothing
+    recoverable — V1's own logs already held the answer, 130 turns for the same
+    work. That is why this is read rather than guessed, and why a missing key
+    raises instead of defaulting.
+
+    KEYED BY WORKFLOW, NOT BY MODEL. `research-write` and `research-verify`
+    share MODEL_KEY "research" and have separately-measured budgets of 150 and
+    200. Keying off the model would silently collapse them, which is the exact
+    class of silent divergence this read exists to prevent.
+
+    WHAT THIS REPLACED, so it does not come back: `v1_constant()` recovered
+    these integers by running a regex over the V1 bash scripts at runtime. It
+    was a real fix for a real problem — re-declaration had caused three
+    production failures, and deriving made divergence impossible rather than
+    merely detectable. But it made the Python fleet unable to START if the bash
+    fleet were deleted, pointing the dependency at precisely the fleet that is
+    meant to go away, and it parsed an executable as data. Config belongs in
+    the config file. Both fleets read it now; neither reads the other.
+    """
+    import yaml  # a hard preflight dependency; see scripts/preflight.py
+    path = _WORKFLOWS.parents[1] / "config.yaml"
+    if not path.is_file():
+        raise FileNotFoundError(f"config.yaml not found at {path}")
+    doc = yaml.safe_load(path.read_text()) or {}
+    value = (doc.get("max_turns") or {}).get(key)
+    if value is None:
+        raise KeyError(
+            f"no '{key}' in the max_turns: map of {path} — add it there rather "
+            f"than hardcoding a cap at the call site"
+        )
+    return int(value)
 
 def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     """Create an isolated worktree, matching V1's behaviour exactly.
@@ -233,13 +244,8 @@ def render(template: str, values: dict[str, str], *,
             out = out.replace("${" + k + "}", str(values[k]))
     return out
 
-def extract_pr_url(output: str) -> str | None:
-    """Last PR URL in a run's output — the completion contract's payload.
-
-    Last, not first: a run may mention an existing PR before opening its own.
-    """
-    matches = [m.group(0) for m in PR_URL.finditer(output)]
-    return matches[-1] if matches else None
+# Re-exported under the name this module already published, so no caller moved.
+extract_pr_url = routing.extract_pr_url
 
 
 def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
@@ -399,6 +405,25 @@ def append_parent_route(log_file: Path, event: dict) -> None:
     _append_run_event(log_file, "parent_route", event)
 
 
+def append_run_resources(log_file: Path, event: dict) -> None:
+    """Append this run's MEASURED resource facts, as its own JSONL event.
+
+    ITS OWN TYPE, BESIDE THE OTHERS, PER `append_parent_route`'s OWN RULE.
+    That docstring states its payload is frozen while Phase 4 reads the run set
+    it produces, and that "a later phase adding its OWN observable adds its OWN
+    event type beside this one." This is that. Nothing here widens an existing
+    payload and no existing key changes meaning.
+
+    WHAT IT IS FOR. The open question is whether a run's footprint is governed by
+    the NUMBER of subagents or the VOLUME each pulls into context — opposite
+    fixes, and `peak_anon` alone cannot separate them. Recording both beside it
+    turns that from an argument into a regression over enough runs. An
+    `unmeasured` run is written too, with its reason: "no data" and "data showing
+    nothing" are different facts and collapsing them hides the gap.
+    """
+    _append_run_event(log_file, "run_resources", event)
+
+
 def append_convergence(log_file: Path, event: dict) -> None:
     """Append Phase 5's COMPUTED CONVERGENCE observable, as its own JSONL event.
 
@@ -529,11 +554,25 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # collected for the completion-contract check.
     print(f"→ {model_key}  log: {log_file}", flush=True)
     print(f"→ {model_key}  exec: {cwd}  (max_turns={max_turns})", flush=True)
+    # BOUNDED AND MEASURED, or explicitly neither. The scope is what makes the
+    # kernel account for this child; it is also what stops one child taking the
+    # host down with it. When a scope cannot be created the child still runs and
+    # the report records WHY it was not measured — a run nobody could measure
+    # has to remain countable, or the gap stops being visible.
+    argv = ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt]
+    limits = _resource_limits()
+    scoped, scope_reason = resource_telemetry.scope_available()
+    if scoped:
+        scope_unit = f"claude-{model_key}-{uuid.uuid4().hex[:12]}.scope"
+        argv = resource_telemetry.wrap(argv, unit=scope_unit, limits=limits)
+    else:
+        print(f"⚠ {model_key}: running UNBOUNDED — {scope_reason}", flush=True)
+
     proc = subprocess.Popen(
-        ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt],
-        cwd=str(cwd), env=env, stdout=subprocess.PIPE,
+        argv, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, bufsize=1,
     )
+    sampler = resource_telemetry.measure(proc, unit=scope_unit) if scoped else None
     captured: list[str] = []
     assert proc.stdout is not None
     for line in proc.stdout:
@@ -543,6 +582,16 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
             sys.stdout.flush()
     code = proc.wait()
     output = "".join(captured)
+
+    # BEFORE the failure branch below, deliberately. A run that died is the one
+    # whose resource numbers are most worth having, and an early `raise` would
+    # throw them away at exactly the moment they became evidence.
+    report = resource_telemetry.finish(
+        sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason,
+        run_id=log_file.stem, model_key=model_key)
+    report.tool_result_bytes, report.subagents_spawned = resource_telemetry.from_log(log_file)
+    append_run_resources(log_file, resource_telemetry.report_dict(report))
+    print(f"→ {model_key}  {resource_telemetry.human(report)}", flush=True)
 
     if code != 0:
         # OBSERVE before reporting. A turn-cap exit may have committed and
@@ -603,6 +652,25 @@ def gh_json(args: list[str], repo_root: Path):
             f"gh {' '.join(args)} in {repo_root} exited 0 but did not return JSON: "
             f"{exc}. First 200 bytes of the reply: {raw[:200]!r}"
         ) from exc
+
+
+def repo_slug(repo_root: Path) -> str:
+    """This dispatch's target repository as `owner/name`.
+
+    THE IDENTITY HALF OF THE PR-URL CONTRACT. `--repo` in our CLIs is a
+    FILESYSTEM PATH and `gh` is run with `cwd` set to it, so the slug is never
+    stated anywhere a parent can compare against — which is why a `completion_ref`
+    naming a different repository was, until Phase 4, indistinguishable from a
+    correct one. `gh` resolves it from the checkout's own remote, so the answer
+    is the repository the dispatch is actually operating in rather than one
+    inferred from a task description.
+
+    Raises through `gh` on failure rather than returning None: a parent that
+    cannot name its own repository cannot check that a child stayed inside it,
+    and the fail-safe direction for an unanswerable identity question is loud.
+    """
+    return gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+              repo_root).strip()
 
 
 def pr_branch(pr_number: str, repo_root: Path) -> str:

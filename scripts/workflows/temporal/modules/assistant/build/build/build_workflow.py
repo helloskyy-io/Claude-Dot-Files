@@ -50,6 +50,12 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     ref = f"origin/{act.pr_branch(task.pr_number, repo_root)}" if task.pr_number else "HEAD"
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
+    # READ BEFORE THE CHILD RUNS, DELIBERATELY. `repo_slug` is a `gh` round trip
+    # and it gates a value the child produces — but taken here, a `gh` failure
+    # costs a dispatch that has produced nothing, while taken after the draft it
+    # would sit between a completed multi-hour child and the PR it opened.
+    slug = act.repo_slug(repo_root)
+
     # --- Step 1: DRAFT -----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the
     # child raises if it produced none, so `exit 0` cannot mean unfinished.
@@ -57,7 +63,7 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
         description=description, repo_root=repo_root, worktree=worktree,
         pr_number=task.pr_number, task_file=task.task_file, verbose=task.verbose,
     )
-    pr = helper.pr_number_from_url(pr_url)
+    pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
 
     # --- Steps 2 & 3: REFINE then DISPOSITION, with one bounded loop-back --
     loops = 0

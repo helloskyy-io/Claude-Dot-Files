@@ -704,14 +704,24 @@ if [[ "$MUTATED_VERDICT" == RED ]]; then
     verdict 0
 fi
 if [[ "$MUTATED_VERDICT" == GREEN ]]; then
-    echo "✗ THE GUARD DID NOT FIRE — and this result is AMBIGUOUS. Three causes," >&2
+    echo "✗ THE GUARD DID NOT FIRE — and this result is AMBIGUOUS. FOUR causes," >&2
     echo "  and you must tell them apart before acting:" >&2
     echo "    1. nothing asserts this property (a missing guard — the usual case)" >&2
     echo "    2. the assertion cannot distinguish the mutated value from the original" >&2
     echo "    3. THE MUTATION ITSELF DID NOT CHANGE BEHAVIOUR — it applied to the" >&2
     echo "       file but altered nothing the code actually depends on. The guard" >&2
     echo "       is fine and the mutation missed." >&2
+    echo "    4. THE MUTATED CODE IS REDUNDANT — the mutation DID change the file" >&2
+    echo "       and nothing noticed because something else already enforces the" >&2
+    echo "       property. Then the right response is DELETING THE REDUNDANT CODE," >&2
+    echo "       not adding a test for it. Distinct from 3: there the mutation was" >&2
+    echo "       ineffective; here it was effective and the code was dead weight." >&2
+    echo "       Reported from a sibling repo, where a jq type guard's removal was" >&2
+    echo "       byte-identical in outcome to the \`|| true\` beside it." >&2
     echo "  Refusing an absent OLD rules out the crudest form of 3, not all of it." >&2
+    echo "  Cause 4 is the one that pulls TOWARD adding a vacuous test to make the" >&2
+    echo "  tally look complete. Check whether anything else already enforces the" >&2
+    echo "  property before you write one." >&2
     echo "  Confirm the mutated line is on a path the target exercises before you" >&2
     echo "  conclude a guard is missing: deleting a working guard on a wrong" >&2
     echo "  mutation is the expensive direction of this error." >&2

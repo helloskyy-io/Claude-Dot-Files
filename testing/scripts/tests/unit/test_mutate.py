@@ -825,6 +825,61 @@ def _function_body_lines(lines: list[str], header: str) -> set[int]:
     return set(range(start, end + 1))
 
 
+
+def _strip_comment(line: str) -> str:
+    """Drop a trailing comment WITHOUT destroying `$#` or `${x#y}`.
+
+    `line.split("#")[0]` was the previous spelling and it truncated any line
+    containing a parameter expansion. `mutate.sh:147` is the arg-count guard —
+    `[[ $# -eq 4 ]] || { …; verdict 2; }` — and it collapsed to `[[ $`, so the
+    whole line, INCLUDING ITS VERDICT SITE, was invisible to every check built
+    on this. A comment opens at start-of-line or after whitespace; a `#`
+    preceded by `$` or a word character is part of an expansion.
+    """
+    import re as _re
+    return _re.sub(r"(?:(?<=\s)|^)#.*$", "", line)
+
+
+# A command may start at line start, after a separator, after `{`, or after a
+# compound keyword. `then`/`else`/`do` were missing, so `if …; then exit 1; fi`
+# — the single most natural way to write a guard — sailed past the funnel check.
+_EXIT_IN_COMMAND_POSITION = re.compile(
+    r"(?:^|[;&|{]|\bthen\b|\belse\b|\bdo\b)\s*exit\b"
+)
+
+
+def _bypasses_the_verdict_funnel(line: str) -> bool:
+    return bool(_EXIT_IN_COMMAND_POSITION.search(_strip_comment(line)))
+
+
+def test_the_funnel_detector_sees_both_shapes_it_was_blind_to() -> None:
+    """POSITIVE CONTROL, and it exists because this check has been found blind TWICE.
+
+    Once for anchoring at column 0, once for comment-stripping and `then`. A
+    guard that has failed twice at seeing its own class does not get a third
+    chance on trust — these probes fail the moment either blind spot returns.
+    """
+    must_flag = [
+        "    exit 1",                                    # plain, indented
+        "    foo || exit 1",                             # after a separator
+        "    { exit 1; }",                               # after a brace
+        "    if [[ -z $x ]]; then exit 1; fi",           # after `then` — BLIND SPOT 2
+        "    while :; do exit 1; done",                  # after `do`
+        "    [[ $# -eq 4 ]] || { helper; exit 2; }",     # holds `$#` — BLIND SPOT 1
+    ]
+    for probe in must_flag:
+        assert _bypasses_the_verdict_funnel(probe), f"detector is blind to: {probe!r}"
+
+    must_not_flag = [
+        "    # exit 1 in a comment",
+        "    verdict 2",
+        "    echo 'exit'",
+        "    [[ $# -eq 4 ]] || { helper; verdict 2; }",  # the real line 147
+    ]
+    for probe in must_not_flag:
+        assert not _bypasses_the_verdict_funnel(probe), f"false positive on: {probe!r}"
+
+
 def test_every_exit_is_a_declared_verdict() -> None:
     """No `exit` may bypass the `verdict` funnel.
 
@@ -849,12 +904,59 @@ def test_every_exit_is_a_declared_verdict() -> None:
         # of them. Caught by mutating `verdict 3` back to `exit 3` in report_leg
         # and watching this test stay green — the check that guards the class
         # was itself in the class.
-        if n not in allowed and re.search(r"(?:^\s*|[;&|]\s*|\{\s*)exit\b", line.split("#")[0])
+        if n not in allowed and _bypasses_the_verdict_funnel(line)
     ]
     assert not offenders, (
         "an `exit` bypasses the `verdict` funnel, so on_exit's record no longer "
         "describes reality and a genuine verdict will be reported as a harness "
         f"error: {offenders}"
+    )
+
+
+def test_no_function_called_in_a_subshell_reaches_verdict() -> None:
+    """`verdict`'s FOURTH invariant, which was the only one nothing checked.
+
+    Its doc block names four invariants and had three class checks. The fourth
+    — *never call `verdict` from a subshell* — had none, and the block names the
+    concrete site at risk: `classify_leg`, invoked inside `$(…)` by `report_leg`.
+
+    WHY IT MATTERS: `verdict` records the exit code that `on_exit` later compares
+    against `$?`. A `verdict` inside `$(…)` writes that record in a CHILD shell,
+    where it evaporates — so the parent's record stays stale and the trap reports
+    HARNESS ERROR over a real verdict. That is the exact false negative this
+    whole funnel exists to prevent, arriving through the one door nothing
+    watched.
+
+    DERIVED, NOT ENUMERATED: the subshell-invoked set is read from the script, so
+    a function that starts being called in `$(…)` is covered without editing this
+    test. Naming `classify_leg` in a literal list would guard today's instance
+    and miss tomorrow's.
+    """
+    lines = MUTATE.read_text().splitlines()
+    source = "\n".join(_strip_comment(line) for line in lines)
+
+    called_in_subshell = {
+        name for name in re.findall(r"\$\(\s*([a-z_][a-z0-9_]*)", source)
+        if re.search(rf"(?m)^{re.escape(name)}\(\) \{{", source)      # ours, not a binary
+    }
+    assert called_in_subshell, (
+        "no function was found invoked in `$(…)` — the derivation stopped "
+        "working and this check is now vacuous"
+    )
+
+    offenders = {}
+    for name in sorted(called_in_subshell):
+        body = _function_body_lines(lines, f"{name}() {{")
+        hits = [n + 1 for n in sorted(body)
+                if re.search(r"(?:^|[;&|{]|\bthen\b|\belse\b|\bdo\b)\s*verdict\b",
+                             _strip_comment(lines[n]))]
+        if hits:
+            offenders[name] = hits
+
+    assert not offenders, (
+        "these functions are invoked inside `$(…)` and call `verdict`, so the "
+        "exit-code record would be written in a subshell and lost, and on_exit "
+        f"would report HARNESS ERROR over a real verdict: {offenders}"
     )
 
 

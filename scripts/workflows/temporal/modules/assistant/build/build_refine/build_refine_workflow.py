@@ -11,6 +11,8 @@ what was asked* rather than merely *is this code good*.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from ... import assistant_activities as act
@@ -19,8 +21,8 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-refine"
-V1_SCRIPT = "build-refine.sh"
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+MAX_TURNS_KEY = "build-refine"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_refine(*, description: str, pr_number: str, repo_root: Path,
@@ -71,7 +73,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
                    opaque=frozenset({"DESCRIPTION"})),
         model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
-        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")), verbose=verbose,
+        max_turns=act.max_turns(MAX_TURNS_KEY), verbose=verbose,
     )
 
     url = act.extract_pr_url(output)

@@ -14,6 +14,8 @@ Two axes means a flag would fail the cap we hold elsewhere. Children 2 and 3
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from .. import research_activities as act
@@ -23,8 +25,11 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research-refresh"
-MAX_TURNS = 250
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+# ⚠ This value and research-refresh.sh's disagreed (250 vs 200) with no reason
+# recorded on either side. Converged upward in config.yaml on 2026-08-10 and
+# FLAGGED THERE for review — it is a safe default, not a measurement.
+MAX_TURNS = act.max_turns("research-refresh")
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def due_papers(research_dir: Path) -> list[Path]:
@@ -49,7 +54,9 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     # Same altitude split as research-write, and for the same reason: a
     # component pool that grows its own candidates.md and direction.md forks
     # the operator's inbox. Derived from the path, never declared.
-    level = act.altitude(research_dir, repo_root)
+    # Re-anchored to the worktree the run executes in — see `in_worktree`.
+    pool = act.in_worktree(research_dir, repo_root, worktree)
+    level = act.altitude(pool, worktree)
     fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
 
     values = {

@@ -15,6 +15,8 @@ cycle's dispatch prompts and mis-instructed two analysts.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from .. import research_activities as act
@@ -23,22 +25,19 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "research"
-# 300 — measured ~50 of the monolith's 89, and this child absorbs STRICTLY MORE
-# than the old stage 4: verify, fix, trace into the synthesis, and verify the
-# synthesis. No historical measurement exists for that combination because it
-# has never run. Cycle 3 alone ran 15 critic dispatches against 5 analyst ones.
-# MEASURED: cycle 4 used 68 on the first pass and 48 on the correction pass. The prior 300
-# was an estimate; this is 3x the observed peak, which is headroom rather than a budget.
-MAX_TURNS = 200
+# Its own key, not `research` — see research_write for why the cap is keyed by
+# workflow rather than by model. Measurement lives with the value in config.yaml.
+MAX_TURNS = act.max_turns("research-verify")
 
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
                worktree: Path, correction_pass: bool = False,
                verbose: bool = False) -> str:
     """Verify, correct, trace, and re-verify. Returns the PR URL."""
-    currency, _due = act.paper_currency(research_dir)
+    pool = act.in_worktree(research_dir, repo_root, worktree)
+    currency, _due = act.paper_currency(pool)
     values = {
         "RESEARCH_DIR": str(research_dir),
         "PR_NUMBER": pr_number,
