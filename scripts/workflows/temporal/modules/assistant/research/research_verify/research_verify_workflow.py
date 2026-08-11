@@ -34,8 +34,26 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
                worktree: Path, correction_pass: bool = False,
-               verbose: bool = False) -> str:
-    """Verify, correct, trace, and re-verify. Returns the PR URL."""
+               minor_cycle: bool = False, verbose: bool = False) -> str:
+    """Verify, correct, trace, and re-verify. Returns the PR URL.
+
+    `minor_cycle` STATES WHAT THE PARENT PRODUCED. It is not a switch over this
+    child's behaviour, and the difference is load-bearing rather than semantic.
+
+    The mechanics never needed a signal: this child discovers artifacts from
+    `RESEARCH_DIR` on the filesystem and NOTHING here reads `synthesis.md`, so a
+    directory without one already works. The PROMPT is what breaks — it opens by
+    asserting *"you did not write this synthesis"*, which presupposes one exists.
+    A run reading that against a directory with no synthesis will stall or invent
+    one, and inventing is the exact failure this child guards against.
+
+    So the parent renders a block of FACT — the cycle produced one paper and no
+    synthesis — exactly as it already renders `correction_pass`. What it must
+    NOT become is a flag that alters which artifacts this workflow emits: that
+    is a behavioural branch living inside a prompt, and prompt branches are
+    where drift lives. Every arm of the verification itself is unchanged, and
+    Stage 1 verifies the paper exactly as always.
+    """
     pool = act.in_worktree(research_dir, repo_root, worktree)
     currency, _due = act.paper_currency(pool)
     values = {
@@ -47,6 +65,13 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
             "This is a CORRECTION PASS. A prior disposition returned HOLD with a "
             "scoped runway; close it. This is the last automated pass."
             if correction_pass else ""
+        ),
+        "CYCLE_SHAPE_NOTE": (
+            "**MINOR CYCLE — one paper, no synthesis. The paper IS the deliverable.** "
+            "Stage 1 verifies it exactly as always. **Stages 2 and 3 emit "
+            "`SKIPPED — minor cycle, no synthesis exists`.** Do not create one, and "
+            "do not treat its absence as a defect."
+            if minor_cycle else ""
         ),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-verify: {research_dir}"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),

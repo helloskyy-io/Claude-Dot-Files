@@ -5,6 +5,7 @@ You are executing the RESEARCH-VERIFY workflow on PR #${PR_NUMBER} (branch: ${PR
 Research dir: ${RESEARCH_DIR}
 ${CURRENCY_BLOCK}
 ${CORRECTION_NOTE}
+${CYCLE_SHAPE_NOTE}
 
 ## Stage 1: VERIFY THE PAPERS
 For each paper written or updated in Stage 3, dispatch the research-critic agent (paper path + standard path in its prompt):

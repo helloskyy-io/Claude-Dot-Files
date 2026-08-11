@@ -1,0 +1,103 @@
+"""research-write-minor — ONE paper, no synthesis. Open the PR.
+
+Folder holds only this file (§10.1 rule 6): the family's shared capability is
+already promoted to `research_activities`, and this child reaches for exactly
+the same helpers `research_write` does.
+
+Completion contract: the PR URL on the final line — identical to its full-size
+sibling, so `research_minor` reads the handoff the same way `research` does.
+
+WHY A SEPARATE CHILD RATHER THAN A MODE ON `research_write`. A portfolio-
+direction question cost ~3.5 hours, five papers and a synthesis, and the
+operator called it "mass overkill for what we needed". The sizing rubric was
+NOT the cause and tuning it would not have helped: Research Standard §3 already
+puts Small at 1-2 topics, and even a correctly-sized Small run still produces
+`topics.md`, a fan-out, a synthesis and a verify pass over all of it. The
+missing shape is one with NO POOL IN IT AT ALL, and a pool-less pool-writer is
+a different workflow, not a flag on this one.
+
+WHAT IS DELIBERATELY ABSENT, and none of it is an oversight:
+
+  * `topics.md` — it records which TIER was judged and what was left for a later
+    cycle. A one-paper cycle judges nothing and defers nothing.
+  * the sizing assessment — the operator picked the question; there is no list
+    to size.
+  * the fan-out — one analyst, dispatched once.
+  * `synthesis.md` — §4 makes the synthesis the roll-up of a POOL. With one
+    paper the roll-up is the paper, and writing one anyway would produce a
+    second document that can disagree with its only input.
+
+WHAT IS DELIBERATELY PRESENT. Every §3 obligation that makes a paper
+trustworthy on its own: the currency header and its parseable revalidation
+interval, per-claim confidence marking, the source floor and the count rule,
+and the honest-boundary analysis. Those are per-PAPER rigor; they have nothing
+to do with how many papers there are. The paper this produces is a §3 paper or
+it is not shippable.
+"""
+
+from __future__ import annotations
+
+from ... import routing
+
+from pathlib import Path
+
+from .. import research_activities as act
+
+_HERE = Path(__file__).resolve().parent
+PROMPTS = _HERE / "prompts"
+
+# ITS OWN KEY, NOT `research`. The full cycle's `research` key is opus because
+# that run authors a synthesis over a pool it also orchestrated. This run
+# authors nothing: it dispatches ONE research-analyst — which pins opus in its
+# own frontmatter and is unaffected by this key — then commits and opens a PR.
+# That is the same pure-orchestration shape `build-draft-minor` already runs at
+# sonnet. Sharing `research` would tie the cheap shape's cost to the expensive
+# one, which is the entire thing this workflow exists to avoid.
+MODEL_KEY = "research-write-minor"
+
+# KEYED BY WORKFLOW, NOT BY MODEL — the same discipline `research_write`
+# documents at length. The value is an ESTIMATE and is labelled as one in
+# config.yaml; nothing has measured this workflow yet.
+MAX_TURNS = act.max_turns("research-write-minor")
+
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
+
+
+def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
+                    context: str = "", pr_number: str | None = None,
+                    verbose: bool = False) -> str:
+    """Research one question, write one paper, submit. Returns the PR URL."""
+    pool = act.in_worktree(research_dir, repo_root, worktree)
+    currency, _due = act.paper_currency(pool)
+
+    # `upstream_block` is kept and the ALTITUDE fragments are not, and the two
+    # decisions are not in tension. The fragments decide whether a run also
+    # MAINTAINS `candidates.md` and `direction.md` — the product pool's triage
+    # queues, which `plan-sprint` consumes. Wiring the scaled-down shape into
+    # the surface that steers the whole product is precisely the coupling this
+    # workflow should not have. `upstream_block` is the opposite: a read-only
+    # POINTER at what the product pool already settled, which stops this run
+    # re-deriving a settled answer. It returns "" at product altitude by itself.
+    blocks = [b for b in (context, act.upstream_block(pool, worktree), currency) if b]
+
+    values = {
+        "RESEARCH_DIR": str(research_dir),
+        "CONTEXT_BLOCK": "\n\n".join(blocks),
+        "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-minor: {research_dir}"),
+        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
+        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+    }
+    output = act.run_claude(
+        act.render(act.load_prompt(PROMPTS / "write_minor.md"), values,
+                   opaque=frozenset({"CONTEXT_BLOCK"})),
+        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
+    )
+    from ...assistant_activities import extract_pr_url
+    url = extract_pr_url(output)
+    if not url:
+        raise RuntimeError(
+            "research-write-minor produced no PR URL — cannot hand off to verify. "
+            "The run must open (or update) a PR and print its URL as its final line."
+        )
+    return url

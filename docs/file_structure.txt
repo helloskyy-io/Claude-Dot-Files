@@ -249,7 +249,14 @@ claude-dot-files/
 │           │                                        #   convergence.py — MMF Phase 5's computed stopping predicate: the open/closed
 │           │                                        #   partition over `disposition`, six ordered rules, a named recorded residual arm.
 │           │                                        #   RECORDED, ROUTED ON BY NOTHING — MAX_LOOPS is still the only stopping authority
+│           │                                        #   research/ holds TWO parents over a shared set of children: research (full pool —
+│           │                                        #   research_write, then verify, then review-pr) and research_minor (ONE paper —
+│           │                                        #   research_write_minor, then THE SAME verify and review-pr). The minor cycle drops
+│           │                                        #   topics.md, the sizing assessment, the fan-out and the synthesis; it drops NONE of
+│           │                                        #   Research Standard §3's per-paper rigor, and research-critic still gates it
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
+│           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
+│           │                                        #   different parents, different model keys, separately-budgeted turn caps
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
 │               ├── fixtures/                        # MEASURED inputs, not written ones
@@ -293,6 +300,11 @@ claude-dot-files/
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
 │                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
+│                   ├── test_research_minor.py       # The minor cycle is genuinely SMALLER, and a subtraction is what a green suite cannot
+│                   │                                #   notice: every "absent from write_minor.md" check is paired with the SAME predicate
+│                   │                                #   run against research_write's live prompt, which must still fire. Plus the reused
+│                   │                                #   verify child's cycle-shape block RENDERED (not grepped) and an AST walk proving its
+│                   │                                #   parameter reaches no `if` — a value, never a behavioural branch inside a prompt
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   └── test_testpaths_matches_discovery.py # pytest.ini's testpaths lists every tests/ dir python.sh discovers — a bare
 │                                                        #   `pytest` must never silently cover less than run-all.sh while both report green

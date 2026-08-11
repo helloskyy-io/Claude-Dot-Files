@@ -481,7 +481,7 @@ def _pr_only_completion_ere() -> str:
 
 
 def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider() -> None:
-    """Eight workflows REFERENCE one PR-URL contract; the ninth declares a wider one.
+    """Nine workflows REFERENCE one PR-URL contract; the tenth declares a wider one.
 
     COLLAPSED INTO A SHARED CONSTANT ON 2026-08-11, REVERSING THIS TEST'S OWN
     EARLIER DECISION, and the reversal is recorded rather than quietly made.
@@ -518,10 +518,14 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
         for path in _v2_python_files()
         if "COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE" in path.read_text(encoding="utf-8")
     )
-    assert len(referencing) == 8, (
-        f"expected 8 V2 workflows referencing the shared PR completion ERE, found "
-        f"{len(referencing)}: {referencing}. The ninth is plan-revision (wider, "
-        f"declared above); the tenth is review-pr, whose contract is `^VERDICT:`."
+    # 9 since research_write_minor landed (2026-08-11). This census is
+    # hand-maintained ON PURPOSE: a new workflow that opens a PR must reference
+    # the shared constant, and an edit here is how a human confirms it does
+    # rather than having re-declared the literal that once cost a finished run.
+    assert len(referencing) == 9, (
+        f"expected 9 V2 workflows referencing the shared PR completion ERE, found "
+        f"{len(referencing)}: {referencing}. The tenth is plan-revision (wider, "
+        f"declared above); the eleventh is review-pr, whose contract is `^VERDICT:`."
     )
 
 # THE ADVERSARIAL HALF. The list was `_REAL` plus two negatives, and every entry
