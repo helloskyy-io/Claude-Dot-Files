@@ -209,6 +209,25 @@ def test_human_line_says_so_when_unmeasured() -> None:
     assert "NOT MEASURED" in line and "no session bus" in line
 
 
+def test_human_line_renders_every_magnitude_including_gigabytes() -> None:
+    """A formatter that zeroes the largest values hides exactly the runs that matter.
+
+    The first version divided by a bound rather than a divisor, with `inf` as
+    the last bound — so every value >= 1 GiB printed "0.00GiB". It concealed a
+    12.89 GiB build-draft peak, the largest measurement in the fleet, at the
+    moment that number was the most interesting thing on the page.
+    """
+    cases = {512: "512B", 300_000: "293KiB", 628_500_000: "599.4MiB",
+             13_841_739_776: "12.89GiB"}
+    for value, expected in cases.items():
+        line = rt.human(rt.ResourceReport(measured=True, peak_anon=value))
+        assert expected in line, f"{value} rendered as {line!r}, expected {expected}"
+    # and the specific regression: no magnitude may render as zero
+    for value in (1073741824, 13_841_739_776, 99_000_000_000):
+        line = rt.human(rt.ResourceReport(measured=True, peak_anon=value))
+        assert "0.00GiB" not in line, f"{value} zeroed out: {line!r}"
+
+
 def test_human_line_surfaces_throttling_as_a_warning() -> None:
     report = rt.ResourceReport(measured=True, peak_anon=1048576, high_events=3)
     assert "⚠" in rt.human(report) and "throttled 3x" in rt.human(report)

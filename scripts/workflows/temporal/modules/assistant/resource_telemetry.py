@@ -380,10 +380,17 @@ def human(report: ResourceReport) -> str:
         whose entire job is comparing content volume across runs."""
         if not n:
             return "0" if n == 0 else "?"
-        for limit, unit, places in ((1024, "B", 0), (1048576, "KiB", 0),
-                                    (1073741824, "MiB", 1), (float("inf"), "GiB", 2)):
-            if n < limit:
-                return f"{n / (limit / 1024):.{places}f}{unit}"
+        # DIVISOR IS EXPLICIT, not derived from the bound. An earlier version
+        # computed it as `limit / 1024` with `float("inf")` as the last bound —
+        # so anything >= 1 GiB divided by infinity and printed "0.00GiB". It hid
+        # a 12.89 GiB measurement, the largest in the fleet, behind a zero.
+        for bound, divisor, unit, places in (
+                (1024, 1, "B", 0),
+                (1048576, 1024, "KiB", 0),
+                (1073741824, 1048576, "MiB", 1),
+                (float("inf"), 1073741824, "GiB", 2)):
+            if n < bound:
+                return f"{n / divisor:.{places}f}{unit}"
         return f"{n}B"
     warn = ""
     if report.high_events:
