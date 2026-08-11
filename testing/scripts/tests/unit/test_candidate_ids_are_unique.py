@@ -7,11 +7,18 @@ different proposals makes one of them unaddressable, and it does so silently.
 
 THE ID SPACE IS ALLOCATED BY READING THE CURRENT MAXIMUM, which is safe exactly
 as long as one run at a time is doing it. **It is not, and the collision has
-already happened**: on 2026-08-11 two dispatches ten minutes apart each appended
-a `C-066` for unrelated proposals — one a coarse resource series, one a research
-cycle-shape amendment — from two open PRs. Git raises a conflict on the summary
-paragraph both rewrite, but the natural resolution keeps both rows, and two
-`C-066`s survive it. Nothing in `testing/` or `scripts/` would have said so.
+already happened three ways.** On 2026-08-11, within about forty minutes: two
+open PRs each appended a `C-066` for unrelated proposals, and a THIRD — already
+merged to `main` by then — had taken `C-066`, `C-067` and `C-068` for a fourth
+set. The branch that wrote this check had to renumber its own row to `C-069`
+after the merge, having allocated correctly against a `main` that moved
+underneath it.
+
+Git raises a conflict on the summary paragraph the PRs rewrite, and that is the
+whole of the accidental protection — **the natural resolution of that conflict
+keeps both rows**, so duplicate ids survive it in exactly the case where a human
+is already busy reconciling prose. Nothing in `testing/` or `scripts/` would
+have said so.
 
 WHAT THIS FAILING LOOKS LIKE, stated up front so it is not mistaken for flakiness:
 if two branches each allocating the same id are both merged, this goes RED on the
@@ -38,7 +45,7 @@ _REPO = Path(__file__).resolve().parents[4]
 _CANDIDATES = _REPO / "docs" / "standards" / "architecture" / "research" / \
     "candidates.md"
 
-# A row: `| C-066 | <finding> | <source> | <decision> | `status` | <note> |`.
+# A row: `| C-069 | <finding> | <source> | <decision> | `status` | <note> |`.
 # Anchored at line start so a `C-NNN` merely CITED inside another row's prose —
 # which happens constantly, and is not an allocation — is not read as one.
 _ROW = re.compile(r"^\|\s*(C-\d+)\s*\|", re.M)
