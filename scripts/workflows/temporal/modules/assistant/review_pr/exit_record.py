@@ -214,7 +214,7 @@ CHILD_SCHEMA: dict = {
                     "disposition": {
                         "type": "string",
                         "enum": ["hold", "fixed", "deferred", "rejected",
-                                 "noted", "escalated"],
+                                 "noted", "escalated", "dissolved"],
                     },
                 },
             },

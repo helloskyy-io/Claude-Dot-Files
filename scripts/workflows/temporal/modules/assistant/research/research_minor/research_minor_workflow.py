@@ -109,11 +109,23 @@ def run_research_minor(*, research_dir: Path, repo_root: Path, worktree_name: st
 def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
                          worktree: Path, notes: list[str], verbose: bool,
                          *, correction: bool) -> Verdict:
-    # `minor_cycle=True` renders the cycle-shape block and does nothing else.
-    # It is the ONLY difference between this call and the full cycle's.
+    # DERIVED, NOT ASSERTED. This was a hard-coded `True`, which told the verifier
+    # "no synthesis exists" even when one did — and a minor cycle can perfectly
+    # well run against a pool a FULL cycle populated earlier. The verifier would
+    # then skip stages 2 and 3 over a real `synthesis.md`, leaving unverified the
+    # one artifact `research_verify` exists to check and the only one the standup
+    # consumes. Two component pools on this branch already hold one.
+    #
+    # The block states what is ON DISK, in the worktree the run reads, so the two
+    # cases stay distinguishable: a minor cycle with no synthesis skips those
+    # stages, and a minor cycle over an existing synthesis verifies it and says
+    # the new paper is not yet in it.
+    pool = act.in_worktree(research_dir, repo_root, worktree)
     verify.run_verify(
         research_dir=research_dir, pr_number=pr, repo_root=repo_root,
-        worktree=worktree, correction_pass=correction, minor_cycle=True,
+        worktree=worktree, correction_pass=correction,
+        minor_cycle=not (pool / "synthesis.md").is_file(),
+        synthesis_present=(pool / "synthesis.md").is_file(),
         verbose=verbose,
     )
     # --type research: candidates are CARGO, not findings. A clean research PR

@@ -511,11 +511,40 @@ def test_the_parent_calls_no_model() -> None:
     )
 
 
-def test_the_parent_asks_verify_for_the_minor_shape() -> None:
-    assert "minor_cycle=True" in inspect.getsource(parent), (
-        "research_minor no longer tells research_verify what it produced. verify "
-        "would then read 'you did not write this synthesis' against a directory "
-        "with none."
+def test_the_parent_asks_verify_for_the_minor_shape(tmp_path) -> None:
+    """The shape is DERIVED from disk, not asserted.
+
+    This asserted `minor_cycle=True` as a literal, which is what the parent
+    shipped — and a hard-coded `True` tells the verifier "no synthesis exists"
+    even when one does. A minor cycle can run against a pool an earlier FULL
+    cycle populated, and the verifier would then skip stages 2 and 3 over a real
+    `synthesis.md`: the one artifact it exists to check and the only one the
+    standup consumes.
+
+    So this asserts the PROPERTY — the source reads the filesystem — rather than
+    the literal, which is what let the bug through.
+    """
+    source = inspect.getsource(parent)
+    assert "minor_cycle=True" not in source, (
+        "the cycle shape is hard-coded again; it must be derived from whether "
+        "`synthesis.md` is present in the worktree the run reads"
+    )
+    assert 'synthesis.md' in source and 'is_file()' in source, (
+        "research_minor no longer derives the cycle shape from disk — verify "
+        "would be told what the parent assumed rather than what is there"
+    )
+
+
+def test_a_pool_with_a_synthesis_is_not_reported_as_having_none(tmp_path) -> None:
+    """The case the literal got wrong, as a behaviour rather than a grep."""
+    pool = tmp_path / "research"
+    (pool / "raw").mkdir(parents=True)
+    assert not (pool / "synthesis.md").is_file()      # fresh pool -> minor shape
+
+    (pool / "synthesis.md").write_text("# synthesis\n")
+    assert (pool / "synthesis.md").is_file(), (
+        "a populated pool must be detectable, or the parent cannot tell the two "
+        "cases apart and the earlier hard-coded True returns by another route"
     )
 
 

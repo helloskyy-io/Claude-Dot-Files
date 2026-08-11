@@ -34,7 +34,8 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
                worktree: Path, correction_pass: bool = False,
-               minor_cycle: bool = False, verbose: bool = False) -> str:
+               minor_cycle: bool = False,
+               synthesis_present: bool = False, verbose: bool = False) -> str:
     """Verify, correct, trace, and re-verify. Returns the PR URL.
 
     `minor_cycle` STATES WHAT THE PARENT PRODUCED. It is not a switch over this
@@ -89,7 +90,13 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
             "Stage 1 verifies it exactly as always. **Stages 2 and 3 emit "
             "`SKIPPED — minor cycle, no synthesis exists`.** Do not create one, and "
             "do not treat its absence as a defect."
-            if minor_cycle else ""
+            if minor_cycle else
+            "**MINOR CYCLE OVER AN EXISTING SYNTHESIS.** This cycle wrote ONE paper and "
+            "no synthesis, but `synthesis.md` is present from an earlier full cycle. "
+            "**Verify it exactly as always** — it is still the artifact the standup "
+            "consumes. It does NOT cover this cycle's new paper; say so in your report "
+            "rather than tracing a correction into a section that cannot exist."
+            if synthesis_present else ""
         ),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-verify: {research_dir}"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
