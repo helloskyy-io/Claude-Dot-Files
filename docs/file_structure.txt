@@ -279,7 +279,13 @@ claude-dot-files/
 │                   │                                #   exit-protocol §4's reason column compared against the shipped enum
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
-│                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict
+│                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.
+│                   │                                #   Plus the permission_denials surface both fleets share: it names every denied
+│                   │                                #   tool, never prints the command line, and ROUTES NOTHING (asserted structurally)
+│                   ├── test_pr_url_address.py       # The PR-URL address as ONE declaration, gated on the class not the sites: an AST
+│                   │                                #   scan for a second `def`/`re.compile`, an exact-set gate on string splitting
+│                   │                                #   (three ad-hoc parses used to live there), the completion ERE checked against the
+│                   │                                #   extractor, and BOTH parity bounds for the owner/repo narrowing
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
