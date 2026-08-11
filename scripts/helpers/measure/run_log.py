@@ -86,6 +86,67 @@ PUBLISHABLE_FIELDS = {
     }),
 }
 
+# FIELDS THAT MAY LEGITIMATELY BE ABSENT ON A WELL-FORMED RECORD, and the
+# reason this is a declaration rather than tribal knowledge: `sound` — a
+# population defined as "not a session-scope record" — was read as "carries
+# numbers" at FOUR sites in one reader, and each site produced a different
+# wrong answer (a crash, a halved median, a denominator claiming a row that was
+# never tabulated, and a `0.00Mi` that meant "not measured"). Before this,
+# answering "can this field be absent?" meant re-deriving it from
+# `resource_telemetry.ResourceReport`'s dataclass defaults two directories away.
+#
+# `run_resources` IS CHECKED AGAINST THAT DATACLASS BY `test_run_log.py`, in both
+# directions, so a new nullable field on the emitter fails here rather than in a
+# figure. The other two members are built inline from `.get()` calls with no
+# declaration to compare against, so their entries are stated and not derived —
+# and stating that difference is the point, because an undeclared-but-checked set
+# and an undeclared-and-unchecked one look identical in a table.
+NULLABLE_FIELDS = {
+    "parent_route": frozenset({
+        "undetermined_reason", "hold_kind", "shadow_verdict",
+        "shadow_parseable", "channels_agree",
+    }),
+    "run_resources": frozenset({
+        "run_id", "model_key", "workflow_key", "started_at", "ended_at",
+        "unmeasured_reason", "peak_anon", "peak_total", "mean_total",
+        "pids_peak", "high_events", "oom_kills", "tool_result_bytes",
+        "subagents_spawned",
+        # `samples` is NOT here, and the derived check is what said so: it
+        # defaults to `0` rather than to None, so an unmeasured record carries a
+        # real zero. Declaring it nullable would have been a guess that read as
+        # a fact.
+    }),
+    "convergence": frozenset({"reason", "agrees"}),
+}
+
+
+def carrying(rows: list[dict], field: str) -> tuple[list[dict], list[dict]]:
+    """Split `rows` on whether `field` actually carries a value: `(kept, dropped)`.
+
+    THE POINT IS THE SECOND RETURN VALUE. Every instance of this defect class in
+    this surface's history was a filter written as `if r[field]:` or
+    `r[field] or 0` — the record left, and nothing downstream could tell it had.
+    Returning the dropped rows beside the kept ones means the caller HAS the
+    thing it must name, instead of having to reconstruct it.
+
+    IT NUDGES; IT DOES NOT FORCE, and pretending otherwise is how a control gets
+    trusted past what it does. Python does not object to `kept, _ = carrying(…)`.
+    The enforcement is one level out and asserted on OUTPUT:
+    `test_run_log_readers.py`'s reconciliation check requires every figure's
+    printed sub-counts to sum back to its printed denominator, which fails on a
+    silent narrowing whatever syntax wrote it.
+
+    `0` COUNTS AS ABSENT, deliberately, and this surface can afford it: every
+    field in `NULLABLE_FIELDS` that a figure aggregates is a byte total or a peak
+    that the emitter already coerces to None when it is zero
+    (`resource_telemetry.finish`: `peak_anon=sampler.peak_anon or None`), so a
+    real zero never reaches a reader as `0`.
+    """
+    kept = [r for r in rows if r.get(field)]
+    dropped = [r for r in rows if not r.get(field)]
+    return kept, dropped
+
+
 # --- cutovers ----------------------------------------------------------------
 #
 # A DENOMINATOR THAT STARTS SOMEWHERE, STATED AS A COMMIT AND A CLOCK. Every
@@ -117,6 +178,16 @@ CUTOVERS = {
     "workflow_key": ("this phase", None),
     "subagent_counter_fixed": ("this phase", None),
 }
+
+# ONLY `child_scope_measured` IS SCORED. `before()` is called with that key and
+# no other, everywhere in the tree — the remaining four entries are prose labels
+# a report prints ("Zero before b8d7aa7, which added started_at/ended_at") and
+# nothing checks them against record content. That is sound for the three
+# ADDITIVE ones, where the claim is true by construction: a field that did not
+# exist cannot appear on an earlier record. It is stated here because a table of
+# cutovers reads as a table of checks, and a reader assuming `before()` covers
+# all five would be assuming a control that is not there.
+SCORED_CUTOVERS = frozenset({"child_scope_measured"})
 
 
 # --- reading -----------------------------------------------------------------

@@ -130,7 +130,9 @@ This is the model's own discriminator applied consistently rather than a new axi
 
 Adopted practice, not a binding local rule — see the [roadmap's note on doc shape](roadmap.md). Required in substance because this phase's whole deliverable is figures, and **every number below was produced by the command printed above it, run in the tree this document describes.** Nothing here is derived from a previous figure.
 
-**Taken 2026-08-11, host `puma-workstation-mint`, over `<main checkout>/.claude/logs` at 153 run logs and `helloskyy-io/Claude-Dot-Files` at 48 PRs.** Both denominators grow with every dispatch; **re-run before quoting, and do not carry a number forward** — Phase 1 E7's headline went stale in one day, and `scripts/helpers/measure/README.md` records it.
+**RE-TAKEN 2026-08-11 by the correction pass, host `puma-workstation-mint`, over `<main checkout>/.claude/logs` at 160 run logs and `helloskyy-io/Claude-Dot-Files` at 50 PRs.** Both denominators grow with every dispatch; **re-run before quoting, and do not carry a number forward** — Phase 1 E7's headline went stale in one day, and `scripts/helpers/measure/README.md` records it.
+
+> **WHY THIS SECTION WAS RE-TAKEN RATHER THAN LEFT AS A DATED READING, which the earlier pass decided the other way and reasonably so.** A dated figure that has since drifted is a correct record. But between the first taking (153 logs) and this one (160), **figure 4's CONCLUSION inverted**: it read *"no overlapping pair in the corpus … every windowed run ran alone,"* and this PR's own three dispatches then overlapped each other. The figure the phase calls *"the only one of the four that speaks to the failure that produced the instrument"* went from having no data to having six intervals and a three-concurrent peak. A number drifting is a dated reading; a conclusion inverting is a false statement, and the difference is what decides which way this goes.
 
 ### The corpus, by member event type
 
@@ -141,24 +143,24 @@ $ grep -rln 'parent_route\|run_resources\|"convergence"' scripts/helpers/measure
 
 Re-derived at the start of this phase: three writers, and the second command returned **nothing** — zero readers, unchanged since the finding was written. It now returns four files.
 
-| Member | logs carrying it | of 153 | reader |
+| Member | logs carrying it | of 160 | reader |
 |---|---|---|---|
-| `parent_route` | 23 | 153 | `replay_parent_route.py` |
-| `convergence` | 12 | 153 | `replay_convergence_events.py` (**C-059**) |
-| `run_resources` | 13 | 153 | `replay_run_resources.py` |
+| `parent_route` | 26 | 160 | `replay_parent_route.py` |
+| `convergence` | 14 | 160 | `replay_convergence_events.py` (**C-059**) |
+| `run_resources` | 20 | 160 | `replay_run_resources.py` |
 
 ### `python3 scripts/helpers/measure/replay_run_resources.py`
 
 | Figure | Result | Denominator, and where it starts |
 |---|---|---|
-| **exclusions** | 3 records measured the **caller's session scope** | of 13 — logs stamped before `a623c25`. Corroborated, not decided, by their signature: `pids_peak` 1199 and `peak_total` 21.021 GiB **identical across three different children**, which is what `a623c25`'s own message names |
-| **1 — `measured: false` rate** | **0 unmeasured**, no reasons | of **13** — every record, including the excluded three. An unmeasured run must be countable whatever else was wrong with it |
-| **2 — `peak_anon` by workflow** | 6 workflows; `review-pr` median 0.344 GiB over 5 records; `build-draft` 12.891 GiB over 1 | of **10 sound**, 0 excluded as `model_key`-ambiguous, **0 attributed by payload `workflow_key`** — that field starts at this PR, so today every attribution is inferred from an unambiguous `model_key` |
-| **3 — the knob question** | 3 of 10 sound runs spawned a sub-agent. Median `peak_anon` **with** sub-agents 0.458 GiB (n=3), **without** 0.350 GiB (n=7) | of **10 sound**. `subagents_spawned` **as emitted** reads 0 on 10 of 10 and undercounts on 3; the column is **recomputed** from each log's `tool_use` blocks |
-| **4 — overlapping-run aggregate** | **no overlapping pair in the corpus** | of **6 records carrying a window**, of 10 sound. Zero before `b8d7aa7`. That every windowed run ran alone is a fact about the corpus, **not a bound** |
-| **`high_events` / `oom_kills`** | *not applicable* on 10 and 10 of 13 respectively; of the records where a threshold DID exist, high fired on 0 | of **13**, decided per record from that record's own `limits`. The archive spans both states — a 2026-08-10 record carries `MemoryHigh: 4G` |
+| **exclusions** | 3 records measured the **caller's session scope** | of 20 — logs stamped before `a623c25`. Corroborated, not decided, by their signature: `pids_peak` 1199 and `peak_total` 21.021 GiB **identical across three different children**, which is what `a623c25`'s own message names |
+| **1 — `measured: false` rate** | **0 unmeasured**, no reasons | of **20** — every record, including the excluded three. An unmeasured run must be countable whatever else was wrong with it |
+| **2 — `peak_anon` by workflow** | 6 workflows; `review-pr` median 0.338 GiB over 8 records; `build-draft` max 12.891 GiB over 3 | of **17 fleet records**, all attributable — 0 `model_key`-ambiguous, 0 unattributable, **0 carrying no peak**, and **0 attributed by payload `workflow_key`**, since that field starts at this PR and every archived record predates it |
+| **3 — the knob question** | 5 of 17 fleet runs spawned a sub-agent. Median `peak_anon` **with** sub-agents 0.458 GiB (n=5), **without** 0.351 GiB (n=12) | of **17 fleet records**, 0 excluded from the medians as carrying no peak. `subagents_spawned` **as emitted** reads 0 on 17 of 17 and undercounts the structural recount on 5, overcounting on 0; the column is **recomputed** from each log's `tool_use` blocks |
+| **4 — overlapping-run aggregate** | **6 overlapping intervals; worst 3 concurrent at a summed 1.339 GiB** (UPPER BOUND — the peaks need not have coincided) | of **13 records carrying a window**, of 17 fleet. Zero before `b8d7aa7`. **This figure had NO data at the first taking and has data now**, because this PR's own three dispatches overlapped each other — see the re-take note above |
+| **`high_events` / `oom_kills`** | *not applicable* on 13 and 13 of 17 respectively; of the records where a threshold DID exist, high fired on 0 | of **17 fleet records**, decided per record from that record's own `limits`. **Scoped to the fleet population, not to every record** — a pre-cutover record measured the caller's editor session, so a throttling event in one is not a fact about any dispatched run. The archive spans both threshold states: a 2026-08-10 record carries `MemoryHigh: 4G` |
 
-**THE OUTLIER IS NAMED RATHER THAN SMOOTHED.** One `build-draft` run peaked at **12.891 GiB** against a **0.614 GiB** mean over 1761 samples, **27× the next-highest peak in the corpus**, with **0** sub-agents and **0.61 MiB** of tool results — so **neither knob explains it**, and the record cannot say *when* it happened because `_Sampler` discards the series. Carried as **C-066**, priced rather than designed around.
+**THE OUTLIER IS NAMED RATHER THAN SMOOTHED.** One `build-draft` run peaked at **12.891 GiB** against a **0.614 GiB** mean over 1761 samples, **23× the next-highest peak in the corpus** at this denominator, with **0** sub-agents and **0.61 MiB** of tool results — so **neither knob explains it**, and the record cannot say *when* it happened because `_Sampler` discards the series. Carried as **C-066**, priced rather than designed around.
 
 > **A task premise this phase was given was checked and is wrong, and it is recorded because a later reader would inherit it.** The dispatch stated *"12.89 GiB peak against a 629 MiB mean — a 21× ratio where every other workflow sits at 1.1–1.3×."* The 21× is right. The band is not: the other twelve `peak_total`/`mean_total` ratios are 1.23, 1.26, 1.32, 1.36, 1.37, 1.39, 1.39, 1.42, 1.46, 2.28, 2.28, 2.29. **The three at 2.28–2.29 are the session-scope records**, which is how they were found — and it is why this phase's readers exclude by a stated commit cutover rather than treating a wrong-looking number as an outlier.
 
@@ -166,12 +168,12 @@ Re-derived at the start of this phase: three writers, and the second command ret
 
 | Figure | Result | Denominator |
 |---|---|---|
-| predicate states, live path | `not_converged` 8 · `indeterminate` 3 · `converged` 1 | of **12** live events |
-| **`pass_not_evaluable`** | **0** | of **12** — a rate the GitHub archive structurally cannot produce, because it hands `pass_evaluable=True` to every block as a stated assumption |
-| **`history_unreadable`** | **0** | of **12**, same reason |
-| shadow vs the asserted flag, live | **0 disagreements** | of **9** comparable events, of 12 |
-| **condition 1 — scorable fires** | **0**, and **4 fires that are unfalsifiable** (each on its PR's last block) | of **0 scorable**, from 4 fires over 29 assessable blocks over 46 blocks over 48 PRs. Phase 5's bound is ~60 scorable fires |
-| **condition 2 — `oscillating_findings`** | **HAS FIRED on real data** — live 1, and present in the archive replay's residual-arm reasons | live: of **12**; archive: of **46 blocks** |
+| predicate states, live path | `not_converged` 9 · `indeterminate` 4 · `converged` 1 | of **14** live events |
+| **`pass_not_evaluable`** | **0** | of **14** — a rate the GitHub archive structurally cannot produce, because it hands `pass_evaluable=True` to every block as a stated assumption |
+| **`history_unreadable`** | **0** | of **14**, same reason |
+| shadow vs the asserted flag, live | **0 disagreements** | of **10** comparable events, of 14 |
+| **condition 1 — scorable fires** | **0**, and **4 fires that are unfalsifiable** (each on its PR's last block) | of **0 scorable**, from 4 fires over 30 assessable blocks over 49 blocks over 50 PRs. Phase 5's bound is ~60 scorable fires |
+| **condition 2 — `oscillating_findings`** | **HAS FIRED on real data** — live 1, and present in the archive replay's residual-arm reasons | live: of **14**; archive: of **49 blocks** |
 | **condition 2 — `prior_findings_dropped`** | **has NEVER fired on real data**, in either corpus | same denominators |
 
 **Condition 1 has not moved in shape and this phase does not claim it has.** Every fire still lands on its PR's last block, so the scorable denominator stays empty; what has to change is the **shape** of the corpus — PRs reviewed again *after* a pass closed everything — not its size.
@@ -180,18 +182,18 @@ Re-derived at the start of this phase: three writers, and the second command ret
 
 | Figure | Result | Denominator |
 |---|---|---|
-| computed abstention arm | **5 abstained**, all `permission_denied` | of **23** |
-| prose shadow agrees | **18 agreed** | of **23** comparable |
+| computed abstention arm | **5 abstained**, all `permission_denied` | of **26** |
+| prose shadow agrees | **21 agreed** | of **26** comparable |
 | **genuine channel disagreements** | **0** | of 5 disagreements — all 5 are the parent abstaining (R1), a safety rule the model could not see, not a channel disagreement |
-| prose channel unparseable | 0 | of 23 |
+| prose channel unparseable | 0 | of 26 |
 
 **The denominator's own limit is printed with it and no larger N removes it (C-060):** every row comes from a run that got past the completion gate, so `channels_agree` is conditioned on the prose channel having succeeded.
 
 ### The retraction re-check, bound to figure 3 as step 2 requires
 
-**Requirement 4's retraction rests on two legs, and leg 2 — an operator-reported *"666 MiB peak RSS"* with no recorded derivation — is now checkable against the live corpus.** Figure 3, from the table above: the two runs that spawned **4** and **5** sub-agents peaked at **0.482 GiB** and **0.458 GiB**, and the corpus's largest peak, **12.891 GiB**, came from a run that spawned **none**.
+**Requirement 4's retraction rests on two legs, and leg 2 — an operator-reported *"666 MiB peak RSS"* with no recorded derivation — is now checkable against the live corpus.** Figure 3, from the table above: the four runs that spawned **4** sub-agents peaked between **0.456** and **0.552 GiB** and the one that spawned **5** peaked at **0.458 GiB**, while the corpus's largest peak, **12.891 GiB**, came from a run that spawned **none**.
 
-**The retraction is CORROBORATED, not falsified, and this phase reintroduces no cap.** The measured five-sub-agent figure sits in the same neighbourhood as the reported one, and the largest run in the corpus points the opposite way from fan-out. **What this does not establish is a rate** — n=3 spawning runs — and it does not identify the 2026-08-10 cause, which remains unknown. Had figure 3 contradicted the retraction, that would have been a finding for the operator and still not a licence to cap.
+**The retraction is CORROBORATED, not falsified, and this phase reintroduces no cap.** The measured five-sub-agent figure sits in the same neighbourhood as the reported one, and the largest run in the corpus points the opposite way from fan-out. **What this does not establish is a rate** — n=5 spawning runs — and it does not identify the 2026-08-10 cause, which remains unknown. Had figure 3 contradicted the retraction, that would have been a finding for the operator and still not a licence to cap.
 
 ---
 
@@ -224,7 +226,9 @@ Done when all of the following hold:
 
 5. **✅ MET.** `replay_convergence_events.py --archive` prints conditions 1 and 2 with their denominators (§ Measurement), and prints condition 1 as **NOT TAKEN** rather than as a zero when the archive half was not read. **Condition 2 has half-fired since Phase 5 wrote it** — recorded in Phase 5 as an addition, not a rewrite. **Condition 3 is placed and NOT ruled: this phase enables nothing, proposes no pass count, and `routing.MAX_LOOPS` is byte-unchanged in its diff.** *Original text follows:* **[Phase 5](phase5_convergence_stopping.md)'s activation has an owner and a trigger for the INSTRUMENT half** — see below. Met when conditions 1 and 2 are *printed by a tool with their denominators*, not when the predicate is switched on. **Condition 3 is a ruling and is placed, not closed, by this phase.**
 
-6. **✅ MET, and enforced rather than asserted.** Every figure in § Measurement carries its denominator; the three excluded session-scope records are **named**, and so is the exclusion criterion (a commit cutover, never the numbers looking wrong). `test_run_log_readers.py` asserts the property on the readers' **output** — including that figure 1's denominator is every record and not the sound subset, and that a record with no measurement window is not counted as a run with no overlap. *Original text follows:* **Every figure this phase's tools emit carries its denominator, and every excluded artifact is named as excluded.** Inherited from `scripts/helpers/measure/README.md`, which already binds its siblings.
+6. **✅ MET, and enforced rather than asserted.** Every figure in § Measurement carries its denominator; the three excluded session-scope records are **named**, and so is the exclusion criterion (a commit cutover, never the numbers looking wrong). `test_run_log_readers.py` asserts the property on the readers' **output**, and it is keyed on the CLASS rather than on the figures that had the defect: every figure prints an `accounting: counted N + excluded K = total` line and a test parses **all** of them out of the output and requires each to close, so a figure that narrows its population silently — including one nobody has written yet — fails. Beside it, adding an unmeasured record to a corpus must not move any figure computed from measurements.
+
+**This citation used to name `test_figure_4_states_the_denominator_of_records_carrying_a_WINDOW`, and that was a true sentence giving a false impression.** That test covers a record with NO window; the defect that actually shipped was a record WITH a window and no `peak_anon`, which no test constructed — so a reviewer trusting this rationale was trusting a citation for a case that was never in question. Four such defects shipped in one file. The corpus fixture now used by the class checks is the reachable one: `resource_telemetry.finish()` returns exactly that shape whenever the cgroup vanishes before the first sample. *Original text follows:* **Every figure this phase's tools emit carries its denominator, and every excluded artifact is named as excluded.** Inherited from `scripts/helpers/measure/README.md`, which already binds its siblings.
 
 ---
 

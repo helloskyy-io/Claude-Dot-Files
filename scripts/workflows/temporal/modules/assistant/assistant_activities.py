@@ -522,8 +522,14 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     `run_log.model_key_of`) read that shape, and changing it to fix a payload gap
     would move a published figure to add a field.
 
-    `run_id` IS OPTIONAL, BUT NOT INDEPENDENTLY OF `log_file` — hand in both or
-    neither, and handing in a `log_file` alone raises. The run log's join key has
+    `run_id` IS OPTIONAL; A `log_file` WITHOUT ONE RAISES. The asymmetry is the
+    contract and it is stated this way round deliberately — this used to read
+    "hand in both or neither", which promised an enforcement of the mirror case
+    that does not exist and is not wanted: a caller supplying only `run_id` gets
+    a path built FROM that nonce, so the filename and the record agree by
+    construction and there is nothing to reject. The claim was corrected rather
+    than the code, because the code was right and the sentence was not.
+    The run log's join key has
     to carry the SAME VALUE in all three of its member events, and it did not:
     this function used to stamp the resource report with `log_file.stem`
     (`{model_key}-{stamp}-{nonce}`) while `parent_route` and `convergence` carry

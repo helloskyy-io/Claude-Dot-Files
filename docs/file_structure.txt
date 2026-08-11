@@ -141,8 +141,14 @@ claude-dot-files/
 │   └── standards/                                   # HOW — binding rules for how things are done
 │       ├── architecture/                            # WHY the system is shaped this way — high-level overviews, not numbered ADRs
 │       │   ├── research/                            # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
+│       │   │   │                                    #   A WORKING SURFACE, not curated product — an autonomous run MAY append here;
+│       │   │   │                                    #   only the `decision` and `status` RULINGS stay human-only (standards-governance.md)
+│       │   │   ├── README.md                        # What this altitude is for, and how it differs from a phase's own research/
 │       │   │   ├── topics.md                        # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
 │       │   │   ├── raw/<topic>.md                   # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
+│       │   │   ├── candidates.md                    # THE DURABLE HOME for action candidates (C-NNN). `synthesis.md` is rewritten every cycle;
+│       │   │   │                                    #   this is not. A producing run places its own proposal here with `decision` BLANK
+│       │   │   ├── direction.md                     # The operator's inbox — rulings only they can make. Binds nothing
 │       │   │   └── synthesis.md                     # What the pool means for the product's direction. NON-BINDING
 │       │   ├── README.md                            # What goes here vs the rest of standards/
 │       │   ├── problem-statement.md                 # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
@@ -232,10 +238,12 @@ claude-dot-files/
 │       │   │                                        #   single responsibility, idempotent. A parent may NOT inline any of this:
 │       │   │                                        #   a workflow that does network I/O cannot replay. Sourced, never dispatched.
 │       │   ├── require-environment.sh               # Tool presence, --repo validation, git-root resolution, formatter check (replaced ~36 duplicated lines × 10 workflows)
+│       │   ├── paper-currency.sh                    # Compute which research papers are past their revalidation window, and render it for a prompt
 │       │   ├── run-claude.sh                        # Invoke `claude -p` (model resolution, rate-limit probe, turn-cap + completion contract) + print_cycle_totals
 │       │   └── wait-for-ci.sh                       # Poll a PR's head SHA until checks settle; guards push→fetch replication lag
 │       │
 │       ├── common/                                  # Shared TYPES/CONTENT, not activities — no I/O, nothing executes
+│       │   ├── config-value.sh                      # Read ONE value out of a config.yaml map. INVOKED, not sourced — no caller setup to inherit
 │       │   ├── format-stream.sh                     # Stream-json → human-readable formatter (pure transformation)
 │       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
 │       │
@@ -279,6 +287,14 @@ claude-dot-files/
 │               └── unit/                            # Each assertion encodes a production failure that happened. No mocks anywhere;
 │                   │                                #   the few tests that touch the OS do so because the property IS an OS property
 │                   ├── test_build_helper.py         # Verdict parsing + fail-safe routing, arg compilation, handoff validation
+│                   ├── test_ci_gate.py               # The PARENT reads the CI verdict, so MERGE is unreachable on a red tree — a
+│                   │                                #   prompt-level instruction is a convention an agent can reason past
+│                   ├── test_preflight.py             # Preconditions fail BEFORE anything is created, so a dead run leaves no
+│                   │                                #   orphaned worktree behind it (#49)
+│                   ├── test_render_opaque_operator_text.py # An operator's literal `${...}` reaches the model UNSUBSTITUTED — two
+│                   │                                #   dispatches died on briefs that were merely DESCRIBING the placeholder mechanism
+│                   ├── test_resource_telemetry.py    # The numbers are real, THERE IS NO CEILING, and an unmeasured run stays countable.
+│                   │                                #   Guards the mechanism added after the 2026-08-10 livelock, whose cause is UNIDENTIFIED
 │                   ├── test_v1_parity.py            # Turn caps are DERIVED from V1, never re-declared; plus the ruff F821 executability sweep
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
@@ -324,6 +340,9 @@ claude-dot-files/
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── README.md                                    # How to run the suite and how to add a test
+│   ├── check-policy.yaml                            # Which CI checks GATE a merge and which are advisory. Read by the build parent
+│   │                                                #   between refine and review-pr — the fact lives here because it is a fact about
+│   │                                                #   THIS repo, and a generic parent holding it would silently give the next repo no gate
 │   ├── run-all.sh                                   # Master runner — the single "run everything" entry point.
 │   │                                                #   ./testing/run-all.sh [unit|integration|e2e] [component]
 │   ├── suites/
@@ -338,9 +357,15 @@ claude-dot-files/
 │   │       ├── test_mutate.py                       # The harness's own guards
 │   │       ├── test_test_tree_hygiene.py            # No test_*.py imports another test_*.py — anywhere in the repo, including a pair
 │   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read
-│   │       └── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
-│   │                                                #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
-│   │                                                #   non-convergent over four passes on one PR — see candidates.md C-050
+│   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
+│   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
+│   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-050
+│   │       ├── test_file_structure_map_covers_the_tree.py # THIS map, checked against `git ls-files`: where it enumerates a directory it
+│   │       │                                        #   enumerates it completely, and every tracked file is reachable through some
+│   │       │                                        #   entry. Paths are reconstructed from the indentation — leaf-name matching scored
+│   │       │                                        #   unrelated directories as enumerated and demanded the roll-ups be expanded
+│   │       └── test_candidate_ids_are_unique.py     # A `C-NNN` addresses ONE proposal. Two concurrent dispatches allocated the same
+│   │                                                #   id ten minutes apart on 2026-08-11 and nothing would have said so
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it

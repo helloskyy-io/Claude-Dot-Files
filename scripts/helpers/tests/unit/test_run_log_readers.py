@@ -19,6 +19,18 @@ breaks it:
     when the archive was not read, rather than as a zero;
   * every reader refuses to emit a model-authored finding slug.
 
+THE LAST SECTION IS KEYED ON A CLASS, NOT ON THE SITES THAT HAD IT. Four separate
+defects shipped in `replay_run_resources.py`, all one shape — a record left out of
+a figure's population without being named, or its absent value read as a zero —
+and all four survived a draft, a review pass and a correction pass that had
+written the correct diagnosis in a comment sitting BETWEEN two of them. Enumerating
+the four would have caught none of the fifth, so the guards there assert two
+properties over the whole output instead:
+
+  * every figure's printed `accounting:` line closes — counted + excluded = total;
+  * adding an UNMEASURED record to a corpus does not move any figure computed
+    from measurements, and the record is named where it was excluded.
+
 Built on FIXTURES rather than the live archive, deliberately and unlike
 `test_run_log.py`'s parser-parity check: these assert what the reader does with a
 corpus of a known shape, and the live archive's shape changes with every dispatch.
@@ -28,6 +40,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -89,7 +102,7 @@ def test_a_session_scope_record_is_EXCLUDED_BY_NAME_and_by_a_commit_cutover(
         "the excluded record is not NAMED in the output. A silently-dropped "
         "record is indistinguishable from one that was counted."
     )
-    assert "SOUND records, used by figures 2-4: 1" in out
+    assert "FLEET records (not a session-scope measurement), used by figures 2-4: 1" in out
     assert "Carrying a run_resources   : 2" in out
 
 
@@ -168,6 +181,34 @@ def test_high_and_oom_are_NOT_APPLICABLE_per_record_rather_than_zero(
     )
 
 
+def test_a_SESSION_SCOPE_record_cannot_contribute_a_throttling_event(
+        tmp_path: Path, capsys) -> None:
+    """The cutover applies to the applicability section too, and it used not to.
+
+    That section ran over EVERY record while figures 2-4 ran over the post-cutover
+    population — so a pre-`a623c25` record, which measured the caller's EDITOR
+    SESSION rather than any dispatched child, could contribute a `high_events`
+    crossing to a figure about the fleet. The editor being throttled is not a
+    fact about a run, and nothing in the section named the substitution.
+
+    The fixture is the reachable shape: caps DID exist on 2026-08-10, so a
+    pre-cutover record carrying `MemoryHigh` and a non-zero crossing is what the
+    archive actually holds.
+    """
+    _log(tmp_path, "review-pr-20260810-164130-aaa.jsonl",
+         _resources(limits={"slice": "s.slice", "MemoryHigh": "4G"}, high_events=7))
+    _log(tmp_path, "review-pr-20260810-225854-bbb.jsonl", _resources())
+    out = _run(tmp_path, capsys, "replay_run_resources")
+    assert "high fired on 0" in out, (
+        "the editor session's throttling was counted as a fleet run's"
+    )
+    assert "no MemoryHigh in that record's `limits`: 1 of 1" in out, (
+        "the applicability denominator must be the post-cutover population, "
+        "not every record in the archive"
+    )
+    assert "accounting: applicability — counted 1 + excluded 1 = 2" in out
+
+
 def test_the_overlap_sweep_bounds_from_BOTH_SIDES(tmp_path: Path, capsys) -> None:
     """A one-sided assertion cannot see a plausible wrong number.
 
@@ -185,7 +226,12 @@ def test_the_overlap_sweep_bounds_from_BOTH_SIDES(tmp_path: Path, capsys) -> Non
          _resources(started_at="2026-08-11T11:00:00+00:00",
                     ended_at="2026-08-11T11:10:00+00:00", peak_anon=1024 ** 3))
     out = _run(disjoint, capsys, "replay_run_resources")
-    assert "NO OVERLAPPING PAIR IN THE CORPUS" in out
+    assert "NO OVERLAPPING PAIR AMONG THE 2 RECORDS THAT ENTERED THE SWEEP" in out
+    # THE STRONGER CLAIM IS ONLY MADE WHEN IT IS EARNED. Nothing was excluded
+    # here, so the corpus-level sentence is licensed; the paired assertion in
+    # `test_the_no_overlap_claim_RETREATS_when_a_record_was_excluded` shows it
+    # withdrawn on a corpus where one was.
+    assert "Every windowed run in this corpus ran alone" in out
 
     both = tmp_path / "both"
     both.mkdir()
@@ -236,7 +282,7 @@ def test_figure_4_states_the_denominator_of_records_carrying_a_WINDOW(
          _resources(started_at="2026-08-11T10:00:00+00:00",
                     ended_at="2026-08-11T10:30:00+00:00"))
     out = _run(tmp_path, capsys, "replay_run_resources")
-    assert "1 of 2 sound records carry a window" in out
+    assert "1 of 2 fleet records carry a window" in out
 
 
 def test_an_AMBIGUOUS_model_key_is_excluded_from_the_per_workflow_figure(
@@ -245,14 +291,24 @@ def test_an_AMBIGUOUS_model_key_is_excluded_from_the_per_workflow_figure(
 
     Binning it under either name would attribute one workflow's footprint to
     another and nothing in the output would say so.
+
+    AMBIGUOUS AND UNATTRIBUTABLE ARE SEPARATED, and the third record is why:
+    a model key that no module declares is what a log from a RETIRED or RENAMED
+    workflow looks like, since the model→workflow map is derived from the tree as
+    it stands today. Both are excluded from the figure; only one of them is a
+    collision, and an archive that outlives its workflows accumulates the other.
     """
     _log(tmp_path, "research-20260811-100000-aaa.jsonl",
          _resources(model_key="research"))
     _log(tmp_path, "research-20260811-110000-bbb.jsonl",
          _resources(model_key="research", workflow_key="research-write"))
+    _log(tmp_path, "longretired-20260811-120000-ccc.jsonl",
+         _resources(model_key="longretired"))
     out = _run(tmp_path, capsys, "replay_run_resources")
-    assert "Excluded as model_key-AMBIGUOUS: 1" in out
+    assert "Excluded as model_key-AMBIGUOUS — several workflows claim it: 1" in out
+    assert "no workflow module declares that model_key: 1" in out
     assert "research-20260811-100000-aaa.jsonl" in out
+    assert "longretired-20260811-120000-ccc.jsonl" in out
     assert "research-write" in out
 
 
@@ -394,6 +450,212 @@ def test_the_agreement_figure_states_its_own_CONDITIONING(
     out = _run(tmp_path, capsys, "replay_parent_route")
     assert "C-060" in out
     assert "CONDITIONAL, NOT AS A RATE" in out
+
+
+# --- THE CLASS: a record left out of a figure without being named ------------
+#
+# `carrying no peak` is not an exotic corpus. `resource_telemetry.finish()`
+# returns exactly this shape — a real window, `measured: false`, `peak_anon:
+# None` — whenever the cgroup vanishes before the first sample, and returns a
+# no-numbers record with a degenerate window whenever a headless context has no
+# session bus to make a scope in. Both are documented expected states.
+
+def _agent_turn() -> dict:
+    """One `tool_use` block naming the sub-agent tool the CLI actually emits."""
+    return {"type": "assistant",
+            "message": {"content": [{"type": "tool_use", "name": "Agent"}]}}
+
+
+def _measured_corpus(dir_: Path) -> None:
+    """Two MEASURED records: one that spawned a sub-agent, one that did not."""
+    _log(dir_, "build-draft-20260811-120000-aaa.jsonl", _agent_turn(),
+         _resources(workflow_key="build-draft", peak_anon=512 * 1024 ** 2,
+                    started_at="2026-08-11T12:00:00+00:00",
+                    ended_at="2026-08-11T12:30:00+00:00"))
+    _log(dir_, "plan-sprint-20260811-140000-ccc.jsonl",
+         _resources(workflow_key="plan-sprint", peak_anon=256 * 1024 ** 2,
+                    started_at="2026-08-11T14:00:00+00:00",
+                    ended_at="2026-08-11T14:30:00+00:00"))
+
+
+def _unmeasured_record(dir_: Path) -> str:
+    """One UNMEASURED record whose window OVERLAPS the measured sub-agent run.
+
+    The overlap is the point. A record that overlapped nothing would be dropped
+    from the sweep with no visible consequence, so the fixture would pass over
+    the defect it exists to catch.
+    """
+    name = "review-pr-20260811-121500-bbb.jsonl"
+    _log(dir_, name, _agent_turn(),
+         _resources(workflow_key="review-pr", measured=False,
+                    unmeasured_reason="no session bus", peak_anon=None,
+                    peak_total=None, mean_total=None, pids_peak=None,
+                    tool_result_bytes=None, subagents_spawned=None, samples=None,
+                    started_at="2026-08-11T12:15:00+00:00",
+                    ended_at="2026-08-11T12:45:00+00:00"))
+    return name
+
+
+_ACCOUNTING = re.compile(r"accounting: (.+?) — counted (\d+) \+ excluded (\d+) = (\d+)")
+
+
+def test_every_figure_ACCOUNTS_for_every_record_in_its_base_population(
+        tmp_path: Path, capsys) -> None:
+    """counted + excluded = total, for every figure, parsed out of the output.
+
+    THE PROPERTY IS THE IDENTITY, NOT THE FIGURES THAT HAVE IT TODAY. Each of the
+    four shipped defects narrowed a population inside a figure while the printed
+    denominator went on claiming the records it had dropped; each would break one
+    of these sums. So would a fifth, in a figure nobody has written yet, which is
+    why this parses every `accounting:` line rather than naming the four.
+
+    Run over a corpus containing an unmeasured record, because on an all-measured
+    corpus every narrowing is a no-op and all four sums close vacuously.
+    """
+    _measured_corpus(tmp_path)
+    _unmeasured_record(tmp_path)
+    out = _run(tmp_path, capsys, "replay_run_resources")
+    lines = _ACCOUNTING.findall(out)
+    assert len(lines) >= 4, (
+        f"expected an `accounting:` line from every figure that narrows its "
+        f"population; found {len(lines)}. A figure that stopped printing one is "
+        f"a figure this check no longer covers, which is the silent-narrowing "
+        f"failure one level up."
+    )
+    for label, counted, excluded, total in lines:
+        assert int(counted) + int(excluded) == int(total), (
+            f"{label}: {counted} counted + {excluded} excluded != {total} total. "
+            f"A record is in the stated population and in neither arm, so the "
+            f"figure's denominator claims a record the figure never used."
+        )
+
+
+def test_an_UNMEASURED_record_does_not_move_a_MEASURED_figure(
+        tmp_path: Path, capsys) -> None:
+    """The other half of the class, and the half `accounting:` cannot see.
+
+    A silent narrowing breaks an accounting sum. A COERCION does not — the record
+    stays in the population and contributes a zero, so every count still closes
+    while the statistic itself is wrong. That was figure 3: `[r["peak_anon"] or 0
+    …]` printed `median … WITH subagents: 0.250G (n=2)` where the only measured
+    sub-agent run peaked at 0.500G, and both medians then read IDENTICALLY, which
+    is exactly the "the two knobs do not separate" conclusion the figure exists
+    to report.
+
+    So: run the same reader over a measured corpus and over that corpus PLUS one
+    unmeasured record, and require every line of the first output to survive into
+    the second — unless it is a line whose job is to count the corpus. Adding a
+    record that carries no numbers may change what the report SAYS ABOUT ITS
+    CORPUS; it may not change what the report says about the runs that WERE
+    measured.
+
+    `_CENSUS_MARKERS` is an allowlist of lines permitted to move, and it FAILS
+    CLOSED: a new census line that is not in it turns this red rather than
+    silently widening what may drift. That is the intended cost.
+    """
+    measured_only = tmp_path / "measured"
+    measured_only.mkdir()
+    _measured_corpus(measured_only)
+    before = _run(measured_only, capsys, "replay_run_resources")
+
+    both = tmp_path / "both"
+    both.mkdir()
+    _measured_corpus(both)
+    added = _unmeasured_record(both)
+    after = _run(both, capsys, "replay_run_resources")
+
+    after_lines = set(after.splitlines())
+    moved = [line for line in before.splitlines()
+             if line not in after_lines
+             and not any(marker in line for marker in _CENSUS_MARKERS)]
+    assert not moved, (
+        "adding an UNMEASURED record changed a figure about the MEASURED runs:\n  "
+        + "\n  ".join(moved)
+        + "\nEither the figure coerced an absent value to a number, or a census "
+          "line needs adding to _CENSUS_MARKERS with the reason it may move."
+    )
+    assert added in after, (
+        "the unmeasured record is not NAMED anywhere in the output. A record "
+        "that is silently absent from every figure reads exactly like one that "
+        "was counted and contributed nothing."
+    )
+
+
+# Lines whose job IS to count the corpus, and which therefore change when the
+# corpus does. Hand-kept and checked only in the fail-closed direction: a census
+# line missing from this list makes the test above RED, never quietly green.
+_CENSUS_MARKERS = (
+    # The two corpora are two directories, so the environment line differs for a
+    # reason that has nothing to do with any figure.
+    "Log directory",
+    "Logs in archive", "Carrying a run_resources", "FLEET records",
+    "unmeasured:", "reasons   :", "Denominator:", "Excluded as",
+    "accounting:", "runs that spawned", "NOT APPLICABLE",
+    "of the records where", "NAMED AS EXCLUDED", "NO OVERLAPPING PAIR AMONG",
+    "Excluded from the two medians", "Attributed by payload",
+    "AS EMITTED reads 0 on", "UNDERCOUNTS the structural recount",
+    # Figure 4's corpus-level claim, which is SUPPOSED to move: it retreats to
+    # the population that entered the sweep as soon as anything is excluded.
+    # `test_the_no_overlap_claim_RETREATS_when_a_record_was_excluded` asserts
+    # that retreat directly, so allowing it here does not leave it unchecked.
+    "Every windowed run in this corpus ran alone",
+    "the corpus and not a bound", "fleet costs.",
+)
+
+
+def test_the_no_overlap_claim_RETREATS_when_a_record_was_excluded(
+        tmp_path: Path, capsys) -> None:
+    """Naming the exclusion is necessary and is not sufficient.
+
+    A reader takes the SENTENCE, not the arithmetic four lines above it. The
+    sweep printed "every windowed run in it ran alone" over a corpus in which a
+    genuinely overlapping window had been dropped — so once an exclusion exists,
+    the corpus-level claim has to withdraw to the population that entered.
+    """
+    _measured_corpus(tmp_path)
+    _unmeasured_record(tmp_path)
+    out = _run(tmp_path, capsys, "replay_run_resources")
+    assert "THAT IS NOT A STATEMENT ABOUT THE CORPUS" in out
+    assert "Every windowed run in this corpus ran alone" not in out, (
+        "the corpus-level claim was made while a window was held back from the "
+        "sweep — and that window overlapped one that was counted"
+    )
+    assert "no peak_anon to sum — unmeasured" in out, (
+        "an excluded record must carry its REASON; 'excluded' without 'why' is "
+        "the same collapse one level down"
+    )
+
+
+def test_figure_3s_medians_are_taken_over_records_that_CARRY_a_peak(
+        tmp_path: Path, capsys) -> None:
+    """The instance, asserted on the VALUE — the class checks are above.
+
+    Asserted as an exact value rather than "not 0.250G": the defect produced a
+    plausible number, and a test that only rules out one plausible number admits
+    the next one.
+    """
+    _measured_corpus(tmp_path)
+    _unmeasured_record(tmp_path)
+    out = _run(tmp_path, capsys, "replay_run_resources")
+    assert "median peak_anon WITH subagents   : 0.500G (n=1)" in out
+    assert "median peak_anon WITHOUT subagents: 0.250G (n=1)" in out
+
+
+def test_an_ABSENT_byte_total_renders_as_unknown_and_never_as_zero(
+        tmp_path: Path, capsys) -> None:
+    """`0.00Mi` and `?` are different facts, in the same row as a `?` peak.
+
+    The per-run table rendered an absent `tool_result_bytes` as a measured zero
+    beside a `peak_anon` column that correctly printed `?` — so one record read
+    as "pulled no tool results into context" when the truth is that nothing about
+    it was measured at all. Figure 1's collapse, one column over.
+    """
+    _measured_corpus(tmp_path)
+    added = _unmeasured_record(tmp_path)
+    out = _run(tmp_path, capsys, "replay_run_resources")
+    row = next(line for line in out.splitlines() if line.startswith(f"   {added} "))
+    assert row.split()[-2] == "?", f"absent byte total rendered as a number: {row!r}"
+    assert row.split()[-1] == "?"
 
 
 # --- every reader states a denominator at all --------------------------------

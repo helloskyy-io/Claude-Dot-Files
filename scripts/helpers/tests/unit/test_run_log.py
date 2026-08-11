@@ -221,6 +221,83 @@ def test_no_ID_LIST_field_is_classified_publishable() -> None:
         )
 
 
+def test_every_member_type_declares_which_of_its_fields_may_be_ABSENT() -> None:
+    """The other half of the classification, and the one that cost four defects.
+
+    `PUBLISHABLE_FIELDS` says what a reader MAY emit. `NULLABLE_FIELDS` says what
+    a reader may not assume is THERE — and before it existed, answering that
+    meant re-deriving it from a dataclass two directories away, which is why one
+    population got read as "carries numbers" at four separate sites.
+    """
+    rl = _rl()
+    assert set(rl.NULLABLE_FIELDS) == set(rl.MEMBER_EVENT_TYPES)
+
+
+def test_the_run_resources_NULLABLE_SET_is_the_EMITTERS_own(monkeypatch) -> None:
+    """Declared here, DERIVED from the emitter, compared in both directions.
+
+    `ResourceReport`'s fields defaulting to `None` are exactly the fields a
+    record may arrive without. Deriving the set means a NEW nullable field on the
+    emitter fails HERE — in a declaration a reader author reads — instead of
+    failing in a figure months later as a plausible zero. `limits` is excluded:
+    it defaults to a dict, so it is never absent.
+
+    The other two member types have no dataclass to derive from — they are built
+    inline from `.get()` calls — so their entries are stated and unchecked, and
+    `run_log.py` says so rather than letting a table of four checked entries and
+    two unchecked ones look uniform.
+    """
+    import dataclasses
+    rl = _rl()
+    rt = _load(_TELEMETRY, "_resource_telemetry_for_nullables")
+    derived = {f.name for f in dataclasses.fields(rt.ResourceReport)
+               if f.default is None}
+    declared = set(rl.NULLABLE_FIELDS["run_resources"])
+    assert declared == derived, (
+        f"declared-but-not-nullable: {sorted(declared - derived)}; "
+        f"nullable-but-undeclared: {sorted(derived - declared)}. The second is "
+        f"the dangerous direction — a reader author checking this declaration "
+        f"would conclude the field is always present."
+    )
+
+
+def test_only_the_SCORED_cutover_is_ever_passed_to_before() -> None:
+    """A table of cutovers reads as a table of checks, and only one is checked.
+
+    Four of the five entries are prose labels a report prints ("Zero before
+    b8d7aa7, which added started_at/ended_at") and nothing compares them against
+    record content. That is sound for the additive ones — a field that did not
+    exist cannot appear on an earlier record — but a reader assuming `before()`
+    covers all five would be assuming a control that is not there.
+    """
+    rl = _rl()
+    def _scores_a_cutover(node: ast.AST) -> bool:
+        """`before(path, "key")` or `rl.before(path, "key")` — either spelling."""
+        if not isinstance(node, ast.Call):
+            return False
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else \
+            func.attr if isinstance(func, ast.Attribute) else None
+        return name == "before" and len(node.args) > 1 \
+            and isinstance(node.args[1], ast.Constant)
+
+    called_with: set[str] = set()
+    for source in [_TOOL, *sorted(_TOOL.parent.glob("replay_*.py"))]:
+        called_with |= {node.args[1].value
+                        for node in ast.walk(ast.parse(source.read_text()))
+                        if _scores_a_cutover(node)}
+    assert called_with <= set(rl.CUTOVERS), (
+        f"a reader scores a cutover that is not declared: "
+        f"{sorted(called_with - set(rl.CUTOVERS))}"
+    )
+    assert called_with == set(rl.SCORED_CUTOVERS), (
+        f"SCORED_CUTOVERS says {sorted(rl.SCORED_CUTOVERS)} is compared against "
+        f"record content; the tree actually compares {sorted(called_with)}. "
+        f"Either a cutover gained a check and the declaration did not, or one "
+        f"lost its check and the declaration still promises it."
+    )
+
+
 # --- the model-key map is derived, not remembered ----------------------------
 
 def test_the_workflow_map_is_derived_and_finds_the_AMBIGUOUS_pair() -> None:
