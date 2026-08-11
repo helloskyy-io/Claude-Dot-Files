@@ -26,6 +26,8 @@ Done when:
 4. **Every documented false-convergence mode is named with the specific check that separates it from real convergence**, and each check has a test proven able to fail.
 5. **The rule is validated against [Phase 1](phase1_measure_the_channel.md) E7's replay before it gates anything live**, and the existing loop-back bound stays in force until that measurement supports replacing it.
 
+> **Requirement 5's second half — *before it gates anything live* — had no owner until 2026-08-10, and it now has one. Nothing above is un-built or un-checked by this.** This phase validated the rule against E7's replay and left the bound in force; both halves it was asked for are done, and the predicate gating nothing is the finding rather than an unfinished edge. What was missing was never a deliverable of this phase: **no phase owned the act of ever switching the predicate on**, so the component could have completed with a predicate nobody enabled. [Phase 6](phase6_read_what_it_writes.md) § *Phase 5's un-owned activation* now owns making § What would let this gate's conditions **checkable by a tool** — it builds the `convergence`-event reader (**C-059**), which is the instrument condition 1's live-path denominator needs — and the **ruling to enable is the operator's**, on that phase's numbers, jointly with [Autonomous Operation](../autonomous-operation/autonomous-operation.md) where the cross-dispatch case lives (condition 3). *Recorded here as an addition rather than as a correction, because the record of what this phase built stays true.*
+
 ---
 
 ## §Measurement — the replay, with its denominators
@@ -148,6 +150,8 @@ Every behaviour of the shipped flag mapped to ported, kept, or consciously dropp
 ## §What would let this gate
 
 Written as conditions rather than as a plan, so a later run can check them instead of re-deriving them.
+
+> **WHO CHECKS THEM, added 2026-08-10 — because "a later run can check them" named no run.** [Phase 6](phase6_read_what_it_writes.md) owns turning conditions 1 and 2 into **tool output with their denominators**, and the operator owns the ruling to enable. The conditions themselves are unchanged and none of them is weakened: condition 1 still waits on scorable fires, of which there are still zero. What changes is that the check stops depending on a human remembering to run a script.
 
 1. **The scorable-fire bound stated in § Measurement, with no observed early fire against it** — that bound is in the OBSERVED counter's units rather than the circular one's, and it is derived there rather than restated here so that re-taking the measurement moves the condition with it. A scorable fire is a `CONVERGED` assessment with at least one later pass on the same PR; there are **0** today, so this condition is further away than block count suggests and the shape of the corpus is what has to change, not only its size. **Re-take it with `replay_convergence_predicate.py`, which prints both counters and the scorable denominator.** *(Note what this condition does NOT wait on: the run-log `convergence` events this phase emits. They feed a different, unread corpus — see § Measurement, and C-059.)
 2. **At least one archived instance of each guard firing on real data**, or an explicit statement that it has not. Today `prior_findings_dropped` and `oscillating_findings` have **zero** archived instances — they guard modes that are documented, not observed, and a guard that has never fired on real input is a guard with mutation evidence and no field evidence.
