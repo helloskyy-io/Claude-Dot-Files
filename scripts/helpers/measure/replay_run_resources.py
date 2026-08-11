@@ -84,11 +84,7 @@ def classify(path: Path, event: dict, by_model: dict) -> dict:
                 f"AMBIGUOUS — model_key {model!r} maps to {candidates or 'nothing'}"
             )
     limits = event.get("limits") or {}
-    return {
-        # The raw event, kept so `assert_publishable` can compare what this row
-        # emits against what arrived in a non-publishable field. Stripped before
-        # printing; it is never itself an output.
-        "_event": event,
+    row = {
         "log": path.name,
         "run_id": event.get("run_id"),
         "workflow": workflow,
@@ -118,9 +114,17 @@ def classify(path: Path, event: dict, by_model: dict) -> dict:
         "high_events": event.get("high_events"),
         "oom_kills": event.get("oom_kills"),
     }
+    # CHECKED WHERE THE ROW IS BUILT, which is where both sibling readers check
+    # it. An earlier version smuggled the raw event forward under a `_event` key
+    # for `report()` to pop — so the un-redacted payload rode inside the rows
+    # list, and a `--json` dump added later by copying `replay_convergence_
+    # predicate.py`'s shape would have serialised it verbatim. The row is the
+    # output; nothing else needs to travel with it.
+    rl.assert_publishable("run_resources", event, row)
+    return row
 
 
-def _overlaps(rows: list[dict]) -> list[dict]:
+def _overlaps(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     """Peak concurrent footprint over runs whose wall-clock windows intersect.
 
     THE FIGURE THE 2026-08-10 FAILURE ACTUALLY NEEDS, and the one no per-run
@@ -130,8 +134,14 @@ def _overlaps(rows: list[dict]) -> list[dict]:
 
     Computed as a sweep over window boundaries rather than pairwise, so three
     runs overlapping at one instant are summed once rather than three times.
+
+    Returns `(peaks, dropped)`. A window this sweep cannot place is DROPPED AND
+    COUNTED rather than skipped, because a record silently missing from a sweep
+    is indistinguishable from one that overlapped nothing — the same collapse
+    figure 1 exists to prevent, one figure over.
     """
     windows = []
+    dropped: list[dict] = []
     for r in rows:
         if not (r["started_at"] and r["ended_at"] and r["peak_anon"]):
             continue
@@ -139,6 +149,18 @@ def _overlaps(rows: list[dict]) -> list[dict]:
             start = datetime.fromisoformat(r["started_at"])
             end = datetime.fromisoformat(r["ended_at"])
         except ValueError:
+            dropped.append(r)
+            continue
+        # A DEGENERATE WINDOW BREAKS THE SWEEP, NOT JUST THE FIGURE. Boundaries
+        # sort with the close before the open at an equal instant — deliberately,
+        # so two runs meeting exactly at a boundary do not read as concurrent —
+        # and a run whose own end is not after its own start therefore has its
+        # close processed before its open, is never removed from `live`, and
+        # inflates every later sum for the rest of the sweep. Unreachable today
+        # (the sampler's cadence guarantees a real interval), which is why it is
+        # excluded by name rather than left to be found by a wrong number.
+        if end <= start:
+            dropped.append(r)
             continue
         windows.append((start, end, r))
     events: list[tuple[datetime, int, dict]] = []
@@ -165,15 +187,12 @@ def _overlaps(rows: list[dict]) -> list[dict]:
                 })
         else:
             live = [x for x in live if x is not r]
-    return peaks
+    return peaks, dropped
 
 
 # --- report ------------------------------------------------------------------
 
 def report(rows: list[dict], total_logs: int, log_dir: Path) -> None:
-    for r in rows:
-        rl.assert_publishable("run_resources", r.pop("_event"), r)
-
     print("# run_resources replay — the run log's measurement record")
     print()
     print(f"Log directory              : {log_dir}")
@@ -273,14 +292,23 @@ def report(rows: list[dict], total_logs: int, log_dir: Path) -> None:
     # and because neither knob explains it. Its cause is unlocatable from this
     # record: the sampler keeps a peak and a mean out of every sample and throws
     # the series away, so a spike has no timestamp.
-    if sound:
-        worst = max(sound, key=lambda r: r["peak_anon"] or 0)
-        others = [r["peak_anon"] or 0 for r in sound if r is not worst]
-        if others and (worst["peak_anon"] or 0) > 4 * max(others):
+    #
+    # COMPARED ONLY AGAINST RECORDS THAT CARRY A PEAK, and the guard is a real
+    # crash rather than a tidy-up. `sound` includes `measured: false` records,
+    # whose `peak_anon` is None and read as 0 here — so a corpus of one measured
+    # run beside any number of unmeasured ones gave `max(others) == 0`, passed
+    # the `> 4 * 0` test for any positive peak, and divided by zero on the very
+    # next line. The tool died mid-report, losing figure 4 and the applicability
+    # section, on precisely the corpus shape figure 1 exists to report on.
+    with_peak = [r for r in sound if r["peak_anon"]]
+    if with_peak:
+        worst = max(with_peak, key=lambda r: r["peak_anon"])
+        others = [r["peak_anon"] for r in with_peak if r is not worst]
+        if others and worst["peak_anon"] > 4 * max(others):
             print(f"   OUTLIER, NAMED: {worst['log']} peaked at {gib(worst['peak_anon'])} "
                   f"with {worst['subagents_recomputed']} subagents and "
                   f"{(worst['tool_result_bytes'] or 0) / MIB:.2f}MiB of tool results —")
-            print(f"   {(worst['peak_anon'] or 0) / max(others):.0f}x the next highest, and NEITHER")
+            print(f"   {worst['peak_anon'] / max(others):.0f}x the next highest, and NEITHER")
             print("   knob explains it. It is not locatable from this record: the sampler keeps")
             print("   a peak and a mean out of every sample and discards the series, so the")
             print("   spike has no timestamp. Carried as a candidate rather than designed")
@@ -289,11 +317,17 @@ def report(rows: list[dict], total_logs: int, log_dir: Path) -> None:
 
     # --- FIGURE 4 ------------------------------------------------------------
     windowed = [r for r in sound if r["started_at"] and r["ended_at"]]
-    peaks = _overlaps(windowed)
+    peaks, undrawable = _overlaps(windowed)
     print("## Figure 4 — the AGGREGATE: summed peak of runs whose windows overlap")
     print(f"   Denominator: {len(windowed)} of {len(sound)} sound records carry a window.")
     print(f"   Zero before {rl.CUTOVERS['identity_fields'][0]}, which added "
           f"`started_at`/`ended_at`; the change is additive and no earlier record has one.")
+    if undrawable:
+        print(f"   NAMED AS EXCLUDED FROM THE SWEEP — a window this sweep cannot place "
+              f"(unparseable, or ending at or before its own start): {len(undrawable)} of "
+              f"{len(windowed)}")
+        for r in undrawable:
+            print(f"     {r['log']}  {r['started_at']} -> {r['ended_at']}")
     if not peaks:
         print("   NO OVERLAPPING PAIR IN THE CORPUS. That is a fact about the corpus, not")
         print("   a bound: it means every windowed run in it ran alone, so this archive")

@@ -128,7 +128,7 @@ class ResourceReport:
 
     # Derived from the run's own stream log.
     tool_result_bytes: int | None = None   # content volume pulled into context
-    subagents_spawned: int | None = None   # Task invocations — NOT concurrency, see below
+    subagents_spawned: int | None = None   # Agent/Task spawns — NOT concurrency, see below
 
     samples: int = 0
     limits: dict = field(default_factory=dict)

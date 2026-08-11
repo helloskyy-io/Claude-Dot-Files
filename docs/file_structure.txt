@@ -209,13 +209,18 @@ claude-dot-files/
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
 │   │           │                                    #   denominator, and absent-vs-false `converged`
+│   │           ├── test_measure_readme_names_a_consumer.py  # This directory's own version of Phase 6's finding: every tool ON DISK has a README row
+│   │           │                                    #   (read off disk, since a table checked against itself cannot see the tool never added to it)
+│   │           │                                    #   and every row names a consumer in `Read by`. run_log.py excluded BY NAME, exclusion asserted
 │   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
-│   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name, the derived model→workflow
-│   │           │                                    #   map finding the one ambiguous pair, and the two subagent parsers agreeing over the live archive
+│   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name — including a slug JOINED into
+│   │           │                                    #   a sentence or TRUNCATED for a column — the derived model→workflow map finding the one
+│   │           │                                    #   ambiguous pair, and the two subagent parsers agreeing over the live archive
 │   │           └── test_run_log_readers.py          # The three readers' OUTPUT: exclusions named by commit cutover, figure 1's denominator being
 │   │                                                #   EVERY record, high/oom labelled not-applicable per record, the overlap sweep bounded from
-│   │                                                #   both sides, and condition 1 printing NOT TAKEN rather than a zero
+│   │                                                #   both sides and naming any window it cannot place, an unmeasured record not killing the
+│   │                                                #   report, and condition 1 printing NOT TAKEN rather than a zero
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows

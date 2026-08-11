@@ -129,13 +129,20 @@ def default_log_dir(start: Path | None = None) -> Path:
     badly. `replay_completion_predicate.py`'s docstring records the same trap.
     This walks UP out of `.claude/worktrees/<name>/` when it finds itself
     inside one, so the normal dispatch shape resolves the real archive.
+
+    BOTH BRANCHES RESOLVE FROM `start`, and that is the fix rather than a
+    tidy-up: the non-worktree branch used to re-derive from `__file__` and
+    ignore the argument, so a caller passing a hypothetical location got the
+    worktree answer honoured and the plain answer silently overridden. A
+    parameter that governs one branch of two is a parameter a test cannot
+    exercise.
     """
     here = (start or Path(__file__)).resolve()
     parts = here.parts
     if ".claude" in parts and "worktrees" in parts:
         root = Path(*parts[: parts.index(".claude")])
     else:
-        root = Path(__file__).resolve().parents[3]
+        root = here.parents[3]     # <root>/scripts/helpers/measure/run_log.py
     return root / ".claude" / "logs"
 
 
@@ -278,6 +285,17 @@ def assert_publishable(event_type: str, event: dict, emitted: dict) -> None:
     forward would move transcript-derived text out of a gitignored machine-local
     file into a public PR comment, which is the failure `exit_record._redact()`
     exists to prevent one surface over. Readers emit their LENGTHS.
+
+    MATCHED BY CONTAINMENT IN BOTH DIRECTIONS, NOT BY EQUALITY — because the
+    leak that gets written is not a whole slug in its own field. It is a slug
+    JOINED into a sentence (`", ".join(open_ids)`), or one TRUNCATED for a
+    column (`open_ids[0][:20]`); both carry recognisable transcript text and
+    both are byte-different from the value that arrived, so an equality check
+    passes them and the docstring's promise above would be false. Containment
+    needs a length floor to stay a control rather than a nuisance: below
+    `_LEAK_FLOOR` characters an overlap is plausibly a coincidence, and a check
+    that fires on coincidences gets deleted rather than fixed. Equality still
+    fires at any length `_strings` admits.
     """
     allowed = PUBLISHABLE_FIELDS[event_type]
     tainted: dict[str, object] = {}
@@ -288,16 +306,33 @@ def assert_publishable(event_type: str, event: dict, emitted: dict) -> None:
             tainted[text] = key
     for key, value in emitted.items():
         for text in _strings(value):
-            if text in tainted:
+            for bad, origin in tainted.items():
+                if not _leaks(text, bad):
+                    continue
                 raise ValueError(
                     f"a {event_type} reader is emitting {key}={text!r}, which "
-                    f"arrived in the non-publishable payload field "
-                    f"{tainted[text]!r}. The run log is CO-RESIDENT with the CLI "
+                    f"carries {bad!r} from the non-publishable payload field "
+                    f"{origin!r}. The run log is CO-RESIDENT with the CLI "
                     f"transcript; readers emit derived figures, run_ids and log "
                     f"file names, never event payload text. Emit a LENGTH, or "
                     f"add the field to PUBLISHABLE_FIELDS with the reason it is "
                     f"not model-authored."
                 )
+
+
+# Below this many characters, one string appearing inside another is as likely
+# to be a coincidence as a leak — `hold` inside `threshold`. Equality is not
+# subject to it; only the containment arms are.
+_LEAK_FLOOR = 8
+
+
+def _leaks(emitted: str, tainted: str) -> bool:
+    """Does `emitted` carry `tainted` — whole, embedded, or truncated?"""
+    if emitted == tainted:
+        return True
+    if len(tainted) >= _LEAK_FLOOR and tainted in emitted:
+        return True                       # joined or interpolated into a sentence
+    return len(emitted) >= _LEAK_FLOOR and emitted in tainted   # truncated
 
 
 def _strings(value: object) -> list[str]:

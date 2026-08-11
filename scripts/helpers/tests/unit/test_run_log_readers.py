@@ -111,6 +111,33 @@ def test_the_measured_false_rate_counts_EXCLUDED_records_too(
     assert "no session bus" in out
 
 
+def test_an_UNMEASURED_record_beside_a_real_peak_does_not_kill_the_report(
+        tmp_path: Path, capsys) -> None:
+    """The reader has to survive the corpus figure 1 exists to report on.
+
+    `sound` is "not a session-scope record" and says nothing about whether the
+    run was measured, so an unmeasured record sits in it carrying
+    `peak_anon: None`. The outlier block read those as zero, found
+    `max(others) == 0`, passed its own `> 4 * 0` test for any positive peak and
+    divided by zero on the next line — killing `report()` mid-print and taking
+    figure 4 and the applicability section with it. A tool that dies on an
+    unmeasured run is a tool that dies on exactly the evidence it was built to
+    keep countable.
+    """
+    _log(tmp_path, "build-draft-20260811-120000-aaa.jsonl",
+         _resources(peak_anon=1024 ** 3))
+    _log(tmp_path, "review-pr-20260811-130000-bbb.jsonl",
+         _resources(measured=False, unmeasured_reason="no session bus",
+                    peak_anon=None, peak_total=None, mean_total=None))
+    out = _run(tmp_path, capsys, "replay_run_resources")
+    assert "unmeasured: 1 of 2" in out
+    # THE SECTIONS AFTER THE CRASH POINT, asserted by name — the failure was a
+    # partial report, so "it did not raise" is not the property. Figure 4 and
+    # the applicability section both come after figure 3's outlier block.
+    assert "Figure 4 — the AGGREGATE" in out
+    assert "high_events NOT APPLICABLE" in out
+
+
 def test_high_and_oom_are_NOT_APPLICABLE_per_record_rather_than_zero(
         tmp_path: Path, capsys) -> None:
     """Applicability comes from that record's own `limits`, and the archive spans both.
@@ -175,6 +202,30 @@ def test_the_overlap_sweep_bounds_from_BOTH_SIDES(tmp_path: Path, capsys) -> Non
         "summing two peaks that need not have coincided is an upper bound and "
         "must be labelled as one, or a headroom decision reads it as measured"
     )
+
+
+def test_a_window_the_sweep_CANNOT_PLACE_is_named_rather_than_dropped(
+        tmp_path: Path, capsys) -> None:
+    """A record missing from a sweep reads exactly like one that overlapped nothing.
+
+    Window boundaries sort with the close before the open at an equal instant,
+    deliberately, so two runs meeting exactly at a boundary do not read as
+    concurrent. The cost is that a window ending at or before its own start has
+    its close processed first, is never removed from the live set, and inflates
+    every later sum for the rest of the sweep. It is excluded — and, because
+    this directory's rule is that an exclusion is NAMED, counted and printed
+    rather than skipped in silence.
+    """
+    _log(tmp_path, "a-20260811-100000-aaa.jsonl",
+         _resources(started_at="2026-08-11T10:00:00+00:00",
+                    ended_at="2026-08-11T10:00:00+00:00", peak_anon=1024 ** 3))
+    _log(tmp_path, "b-20260811-101000-bbb.jsonl",
+         _resources(started_at="2026-08-11T10:10:00+00:00",
+                    ended_at="2026-08-11T10:20:00+00:00", peak_anon=1024 ** 3))
+    out = _run(tmp_path, capsys, "replay_run_resources")
+    assert "NAMED AS EXCLUDED FROM THE SWEEP" in out
+    assert "1 of 2" in out
+    assert "a-20260811-100000-aaa.jsonl" in out
 
 
 def test_figure_4_states_the_denominator_of_records_carrying_a_WINDOW(
@@ -269,7 +320,12 @@ def test_no_MODEL_AUTHORED_finding_slug_reaches_the_output(
     _log(tmp_path, "review-pr-20260811-100000-aaa.jsonl", _convergence())
     out = _run(tmp_path, capsys, "replay_convergence_events")
     assert "a-model-authored-finding-slug" not in out
-    assert "open" in out          # the LENGTH is reported
+    # THE LENGTH, ASSERTED AS THE VALUE IT MUST HAVE. This read `"open" in out`,
+    # which is a substring of "no overlapping" and of the section headings, so
+    # it would have stayed green with the length reporting removed entirely —
+    # decorative where the point is that ONE open id was counted. The row is the
+    # last line of the per-event table and its `open` column is `1`.
+    assert out.strip().splitlines()[-1].split(" | ")[5] == "1"
 
 
 def test_the_reader_RAISES_if_a_slug_is_carried_forward(tmp_path: Path) -> None:

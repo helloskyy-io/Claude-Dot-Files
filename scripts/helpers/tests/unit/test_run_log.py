@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -147,6 +148,54 @@ def test_a_declared_publishable_field_passes_through() -> None:
                           {"run_id": "abc123", "state": "not_converged"})
 
 
+def test_a_slug_JOINED_INTO_A_SENTENCE_still_RAISES() -> None:
+    """The leak that actually gets written is not a bare field, and equality misses it.
+
+    A reader summarising `", ".join(open_ids)` into one cell, or interpolating a
+    slug into a sentence, carries recognisable transcript text into a PR comment
+    while emitting a string that is byte-different from the one that arrived. An
+    equality check passes it, and the docstring's promise — *no value that
+    arrived in a non-publishable field may appear in the output* — would be
+    false for the most likely shape of the failure.
+    """
+    rl = _rl()
+    event = {"type": "convergence", "run_id": "abc123",
+             "open_ids": ["lead-claim-still-carries-the-miscount"]}
+    with pytest.raises(ValueError, match="non-publishable payload field"):
+        rl.assert_publishable(
+            "convergence", event,
+            {"run_id": "abc123",
+             "summary": "1 open: lead-claim-still-carries-the-miscount"})
+
+
+def test_a_slug_TRUNCATED_FOR_A_COLUMN_still_RAISES() -> None:
+    """The other direction, and the one a fixed-width report invites.
+
+    `slug[:20]` is not the slug, so containment has to be checked both ways or a
+    column-width truncation launders the leak past the check.
+    """
+    rl = _rl()
+    event = {"type": "convergence", "run_id": "abc123",
+             "open_ids": ["lead-claim-still-carries-the-miscount"]}
+    with pytest.raises(ValueError, match="non-publishable payload field"):
+        rl.assert_publishable("convergence", event,
+                              {"run_id": "abc123", "worst": "lead-claim-still-c"})
+
+
+def test_a_SHORT_coincidental_overlap_does_NOT_raise() -> None:
+    """The control on the other side, because a check that fires on chance dies.
+
+    Containment carries a length floor: below it, one string appearing inside
+    another says nothing — `hold` inside `threshold`. Without this test the
+    remedy for the two above is "match any substring", which fires on ordinary
+    output and gets deleted rather than fixed.
+    """
+    rl = _rl()
+    event = {"type": "convergence", "run_id": "abc123", "open_ids": ["hold"]}
+    rl.assert_publishable("convergence", event,
+                          {"run_id": "abc123", "note": "below threshold"})
+
+
 def test_every_member_type_has_a_publish_classification() -> None:
     """A member with no entry would KeyError inside a reader at print time."""
     rl = _rl()
@@ -193,22 +242,37 @@ def test_the_workflow_map_is_derived_and_finds_the_AMBIGUOUS_pair() -> None:
     assert len(unambiguous) >= 7, found
 
 
-def test_every_workflow_module_declares_a_WORKFLOW_KEY() -> None:
-    """A module that declares MODEL_KEY and dispatches must declare this too.
+def test_every_module_that_DISPATCHES_declares_a_WORKFLOW_KEY() -> None:
+    """A module that calls `run_claude` must declare the key it bins its runs by.
 
     `run_claude` makes `workflow_key` a required keyword with no default, so a
     missing one is a TypeError at dispatch rather than a silent hole — this gate
     catches it at test time instead of at 3am.
+
+    SCOPED BY THE CALL, NOT BY THE FILENAME. It used to glob `*_workflow.py` and
+    look for the literal `act.run_claude(`, which made it blind to the one
+    dispatcher in the tree that is neither — `review_pr_activities.py` calls
+    `_shared.run_claude(` and is where `review-pr`'s WORKFLOW_KEY actually
+    lives. A gate that cannot see the exception in the tree today would not see
+    the next one either, and the call is what needs the argument.
     """
     root = _REPO / "scripts" / "workflows" / "temporal" / "modules" / "assistant"
-    missing = []
-    for path in sorted(root.rglob("*_workflow.py")):
+    call = re.compile(r"\w+\.run_claude\(")
+    missing, dispatchers = [], []
+    for path in sorted(root.rglob("*.py")):
         if "tests" in path.parts:
             continue
         text = path.read_text()
-        if "act.run_claude(" in text and "WORKFLOW_KEY" not in text:
+        if not call.search(text):
+            continue
+        dispatchers.append(str(path.relative_to(_REPO)))
+        if "WORKFLOW_KEY" not in text:
             missing.append(str(path.relative_to(_REPO)))
-    assert not missing, f"workflow modules dispatching without a WORKFLOW_KEY: {missing}"
+    assert len(dispatchers) >= 10, (
+        f"the scan found only {len(dispatchers)} dispatching modules, so it is "
+        f"not reading the workflow tree and would pass vacuously: {dispatchers}"
+    )
+    assert not missing, f"modules dispatching without a WORKFLOW_KEY: {missing}"
 
 
 # --- the two sub-agent parsers agree -----------------------------------------
@@ -300,3 +364,8 @@ def test_the_log_dir_resolves_OUT_of_a_worktree() -> None:
     rl = _rl()
     inside = Path("/repo/.claude/worktrees/build-123/scripts/helpers/measure/run_log.py")
     assert rl.default_log_dir(inside) == Path("/repo/.claude/logs")
+    # AND THE OTHER BRANCH, from the same argument. It used to re-derive from
+    # `__file__` and ignore `start` entirely, so half the function was
+    # unreachable from a test and the parameter governed one branch of two.
+    outside = Path("/elsewhere/scripts/helpers/measure/run_log.py")
+    assert rl.default_log_dir(outside) == Path("/elsewhere/.claude/logs")
