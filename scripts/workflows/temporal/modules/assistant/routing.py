@@ -121,6 +121,20 @@ def should_loop_back(verdict: Verdict, loops_used: int) -> bool:
 # strings that are not PR URLs.
 PR_URL = re.compile(r"https://github\.com/([^\s/)]+/[^\s/)]+)/pull/(\d+)")
 
+# The SAME grammar, spelled for `grep -E`, which has no `\s`. `run-claude.sh`
+# decides a run COMPLETED by grepping its final text for this; the parent then
+# extracts with `PR_URL` above. **They must accept exactly the same inputs** —
+# a gate that accepts what the parser cannot read reports a finished run as
+# lost, which is a destroyed dispatch rather than a cosmetic mismatch.
+#
+# IT LIVES BESIDE THE PARSER BECAUSE NINE COPIES DIVERGED FROM IT. Every V2
+# workflow declared its own `[^ )]+`, which spans `/` and therefore matched
+# `…/a/b/c/pull/1` — a shape `PR_URL` refuses. The agreement test existed and
+# could not fail, because its inputs were all two-segment. One declaration
+# removes the class; the test now carries structural probes that would catch a
+# tenth copy.
+PR_URL_COMPLETION_ERE = r"https://github\.com/[^ )/]+/[^ )/]+/pull/[0-9]+"
+
 
 def extract_pr_url(output: str) -> str | None:
     """Last PR URL in a run's output — the completion contract's payload.

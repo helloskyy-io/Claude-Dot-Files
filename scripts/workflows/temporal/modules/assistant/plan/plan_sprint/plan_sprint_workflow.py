@@ -23,6 +23,8 @@ model reading them can be bound by them.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from .. import plan_activities as act
@@ -36,7 +38,7 @@ MODEL_KEY = "plan-sprint"
 # and the revise-from-measurement note live with the value in config.yaml.
 MAX_TURNS = act.max_turns("plan-sprint")
 
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,

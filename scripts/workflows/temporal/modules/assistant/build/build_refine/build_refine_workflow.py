@@ -11,6 +11,8 @@ what was asked* rather than merely *is this code good*.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from ... import assistant_activities as act
@@ -20,7 +22,7 @@ PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-refine"
 MAX_TURNS_KEY = "build-refine"
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_refine(*, description: str, pr_number: str, repo_root: Path,

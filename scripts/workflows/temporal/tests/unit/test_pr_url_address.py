@@ -452,21 +452,44 @@ _WIDER_BY_DESIGN = {
 
 
 def _pr_only_completion_ere() -> str:
-    declared = _declared_completion_patterns()
-    values = {v for k, v in declared.items()
-              if "pull" in v and k not in _WIDER_BY_DESIGN}
-    assert len(values) == 1, f"more than one PR-only completion ERE: {values}"
-    return next(iter(values))
+    """The single PR-only completion ERE, RESOLVED rather than scraped.
+
+    It used to be scraped from source, which was correct while every workflow
+    spelled its own — and nine of them spelled it `[^ )]+`, which spans `/` and
+    accepted URLs `routing.PR_URL` refuses. There is now ONE declaration, beside
+    the parser it must agree with, so this reads the value and the check below
+    asserts no module has re-declared it. Scraping for a literal would silently
+    find nothing the moment the duplication was fixed — which is exactly what
+    it did.
+    """
+    literals = {k: v for k, v in _declared_completion_patterns().items()
+                if "pull" in v and k not in _WIDER_BY_DESIGN}
+    assert not literals, (
+        f"a workflow re-declared the PR completion ERE as a literal instead of "
+        f"referencing `routing.PR_URL_COMPLETION_ERE`: {literals}. Nine copies "
+        f"diverged from the parser once already."
+    )
+    return routing.PR_URL_COMPLETION_ERE
 
 
 def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider() -> None:
-    """Nine workflows declare a PR-URL contract; eight must declare the SAME one.
+    """Eight workflows REFERENCE one PR-URL contract; the ninth declares a wider one.
 
-    NOT COLLAPSED INTO A SHARED CONSTANT, deliberately — that is not this
-    phase's scope, and each workflow declaring its own completion contract is
-    the shape `run-claude.sh`'s env-var interface expects. What IS in scope is
-    that they cannot silently diverge: nine copies with no gate is the same
-    defect class the address had, one contract over.
+    COLLAPSED INTO A SHARED CONSTANT ON 2026-08-11, REVERSING THIS TEST'S OWN
+    EARLIER DECISION, and the reversal is recorded rather than quietly made.
+    The previous version said a shared constant was "not this phase's scope" and
+    that per-workflow declaration "is the shape `run-claude.sh`'s env-var
+    interface expects". **The second half does not hold** — the value is passed
+    as an env var either way, so referencing a constant changes nothing about
+    that interface. And the cost of nine copies was paid the same day: they
+    spelled `[^ )]+`, which spans `/`, so the completion gate accepted
+    `…/a/b/c/pull/1` and the parent then refused it — a finished run reported as
+    lost. The agreement guard that should have caught it was parametrized over
+    two-segment inputs only and could not fail.
+
+    So the copies are gone and `routing.PR_URL_COMPLETION_ERE` sits beside the
+    parser it must agree with. What this test now asserts is that nobody
+    re-declares it as a literal.
 
     THE NINTH IS DECLARED RATHER THAN EXCLUDED. `plan-revision` accepts an issue
     URL as well, because a STOP files an issue and that is its completion
@@ -474,28 +497,40 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
     either a false claim or a silent skip, and this is the shape that makes the
     exception cost an edit here.
     """
-    declared = _declared_completion_patterns()
-    pr_shaped = {k: v for k, v in declared.items() if "pull" in v}
-    assert len(pr_shaped) == 9, (
-        f"expected 9 PR-URL completion contracts in the V2 tree, found "
-        f"{len(pr_shaped)}: {sorted(pr_shaped)}. The tenth V2 workflow is "
-        f"review-pr, whose contract is `^VERDICT:`."
-    )
-    wider = {k: v for k, v in pr_shaped.items() if k in _WIDER_BY_DESIGN}
-    assert wider == _WIDER_BY_DESIGN, (
-        f"the declared-wider set moved: shipped {wider}, declared "
-        f"{_WIDER_BY_DESIGN}. A workflow that widened its completion contract "
-        f"needs a consumer that reads the wider outcome — `plan_revision`'s is "
-        f"`_completion_url`. Add both, or narrow the ERE back."
-    )
-    rest = {v for k, v in pr_shaped.items() if k not in _WIDER_BY_DESIGN}
-    assert len(rest) == 1, (
-        f"the PR-only completion contract is declared {len(rest)} different "
-        f"ways: {sorted(rest)}"
+    literals = {k: v for k, v in _declared_completion_patterns().items() if "pull" in v}
+
+    assert literals == _WIDER_BY_DESIGN, (
+        f"every PR-URL completion contract must reference "
+        f"`routing.PR_URL_COMPLETION_ERE`, except the one declared wider. "
+        f"Found these literals instead: {sorted(set(literals) - set(_WIDER_BY_DESIGN))}"
     )
 
+    referencing = sorted(
+        str(path.relative_to(_TEMPORAL))
+        for path in _v2_python_files()
+        if "COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE" in path.read_text(encoding="utf-8")
+    )
+    assert len(referencing) == 8, (
+        f"expected 8 V2 workflows referencing the shared PR completion ERE, found "
+        f"{len(referencing)}: {referencing}. The ninth is plan-revision (wider, "
+        f"declared above); the tenth is review-pr, whose contract is `^VERDICT:`."
+    )
 
-@pytest.mark.parametrize("text", _REAL + ["no url here", "/pull/12"])
+# THE ADVERSARIAL HALF. The list was `_REAL` plus two negatives, and every entry
+# was two-segment — so the test could not observe the one disagreement that
+# actually existed, and passed while the defect shipped. A guard whose inputs
+# cannot distinguish the behaviours is a guard that reports on nothing.
+_STRUCTURAL_PROBES = [
+    "https://github.com/a/b/c/pull/1",          # three path segments
+    "https://github.com/a/b/c/d/pull/1",        # four
+    "https://github.com/a/pull/1",              # one
+    "https://github.com/a/b/pulls/1",           # wrong verb
+    "https://github.com/a/b/pull/",             # no number
+    "https://github.com/a/b/pull/1x",           # trailing junk on the number
+]
+
+
+@pytest.mark.parametrize("text", _REAL + ["no url here", "/pull/12"] + _STRUCTURAL_PROBES)
 def test_the_completion_ERE_and_the_extractor_agree(text: str) -> None:
     """A gate that accepts what the parser cannot read is a gate that lies.
 

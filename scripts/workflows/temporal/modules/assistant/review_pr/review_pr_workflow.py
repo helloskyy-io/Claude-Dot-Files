@@ -211,23 +211,61 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     ref_note = helper.completion_ref_mismatch_note(record, expected_ref)
 
     if shadow is not verdict:
-        # A LOUD FAILURE, deliberately, for the duration of this phase. A
-        # comparison that cannot fail records a protection that does not exist,
-        # and the whole point of running both channels on one pair is to find
-        # out where they disagree before the fleet depends on one of them.
+        # A LOUD NOTE FOR A BENIGN DIVERGENCE; STILL A RAISE WHEN THERE IS NO
+        # SECOND OPINION AT ALL. Ruled by the operator 2026-08-11 and NARROWED
+        # here, deliberately, because the ruling's evidence does not reach the
+        # whole path.
         #
-        # RETENTION IS NOT FREE AND THE COST IS RECORDED WHERE IT IS PAID:
-        # `phase4_fleet_migration.md` § Requirement 1 carries the measured
-        # false-termination rate of this raise beside the agreement figures, so
-        # the removal decision is two-sided rather than one.
-        raise RuntimeError(
-            f"exit-record disagreement on PR #{task.pr_number}: the typed record routes "
-            f"{verdict.value!r} (routed_outcome={record.routed_outcome.value}"
+        # WHAT WAS MEASURED: 2 firings in 8 runs, BOTH `permission_denied`, and
+        # in both the two channels agreed about the review. Those destroyed a
+        # completed review that had already produced a correct verdict — a 25%
+        # false-termination rate on a check whose evidence (`channels_agree`) is
+        # durable in the log BEFORE it fires. Conflating *make it visible* with
+        # *stop everything* let a monitor destroy the thing it monitors. Prior
+        # art is GitHub's `Scientist`: run both, return the control's result,
+        # publish the mismatch, never throw.
+        #
+        # WHAT WAS NOT MEASURED, AND MUST STILL STOP: `record_absent`,
+        # `record_stale`, `record_unparseable`, `envelope_unreadable` and
+        # `schema_version_unknown` all route to UNDETERMINED too — and in those
+        # the typed channel produced NO OPINION. That is a MISSING CHANNEL, not
+        # a disagreement: there is nothing to diverge from, so continuing would
+        # accept a confident prose MERGE on a single unverified channel. A
+        # blanket demotion would have silently converted the dangerous shape
+        # into a warning, which is the opposite of what the ruling was for.
+        BENIGN_DIVERGENCE = {
+            exit_record.UndeterminedReason.PERMISSION_DENIED,
+            exit_record.UndeterminedReason.DENIALS_UNREADABLE,
+        }
+        no_second_opinion = (
+            record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED
+            and record.undetermined_reason not in BENIGN_DIVERGENCE
+        )
+        detail = (
+            f"the typed record routes {verdict.value!r} "
+            f"(routed_outcome={record.routed_outcome.value}"
             + (f"/{record.undetermined_reason.value}" if record.undetermined_reason else "")
-            + f") while the prose channel parsed {shadow.value!r} "
-            f"(parseable={parseable}). Both channels are live during Phase 3 and "
-            f"disagreement is a failure, not a preference. Log: {log_file}"
-            + (f"\n\n{ref_note}" if ref_note else "")
+            + f") while the prose channel parsed {shadow.value!r} (parseable={parseable})"
+        )
+
+        if no_second_opinion:
+            raise RuntimeError(
+                f"exit-record UNUSABLE on PR #{task.pr_number}: {detail}. "
+                f"The typed channel produced no opinion, so this is a MISSING "
+                f"CHANNEL rather than a divergence — continuing would accept the "
+                f"prose verdict with nothing to check it against. Log: {log_file}"
+                + (f"\n\n{ref_note}" if ref_note else "")
+            )
+
+        print(
+            f"\n{'!' * 72}\n"
+            f"!! CHANNEL DIVERGENCE on PR #{task.pr_number} — RECORDED, NOT FATAL\n"
+            f"!! {detail}\n"
+            f"!! The PROSE channel is authoritative for this phase; the run continues.\n"
+            f"!! channels_agree=false is in the run log. Log: {log_file}\n"
+            + (f"!! {ref_note}\n" if ref_note else "")
+            + f"{'!' * 72}\n",
+            flush=True,
         )
 
     # "Agreed" is claimed only when the shadow actually produced a verdict.

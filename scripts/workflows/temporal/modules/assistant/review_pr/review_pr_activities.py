@@ -122,9 +122,17 @@ def thread_snapshot(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
 def pr_review_blocks(pr_number: str, repo_root: Path) -> list[str]:
     """This PR's `pr_review:` blocks, one per pass, in comment-creation order.
 
-    A thin projection of `thread_snapshot`, kept because two callers want only
-    the window and naming the projection is cheaper than teaching each of them
-    to discard the count.
+    A thin projection of `thread_snapshot`.
+
+    NO PRODUCTION CALLERS TODAY — corrected 2026-08-11. This said it was "kept
+    because two callers want only the window"; verified three ways that no such
+    caller exists (grep for call sites, an AST scan of every `act.*` call in
+    `review_pr_workflow.py`, which calls `thread_snapshot` directly, and a
+    test-caller count of three). Retained for the tests that use it, and stated
+    as retained rather than as load-bearing — a docstring claiming callers that
+    do not exist makes the next editor preserve a projection nobody needs,
+    which is the exact class this PR spent fifteen tombstone lines deleting
+    `latest_pr_review_block` to fix.
     """
     return thread_snapshot(pr_number, repo_root)[1]
 

@@ -15,6 +15,8 @@ cycle's dispatch prompts and mis-instructed two analysts.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from .. import research_activities as act
@@ -27,7 +29,7 @@ MODEL_KEY = "research"
 # workflow rather than by model. Measurement lives with the value in config.yaml.
 MAX_TURNS = act.max_turns("research-verify")
 
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
