@@ -36,16 +36,17 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
               context: str = "", pr_number: str | None = None,
               verbose: bool = False) -> str:
     """Discover, size, research, draft the synthesis, submit. Returns the PR URL."""
-    currency, _due = act.paper_currency(research_dir)
+    pool = act.in_worktree(research_dir, repo_root, worktree)
+    currency, _due = act.paper_currency(pool)
 
     # Altitude is DERIVED from the pool path (Research Standard §1 names two
     # locations, one each). It decides which stages exist at all: candidates.md
     # and direction.md are product-pool surfaces, and a component pool that
     # grows its own forks the operator's inbox.
-    level = act.altitude(research_dir, repo_root)
+    level = act.altitude(pool, worktree)
     fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
 
-    blocks = [b for b in (context, act.upstream_block(research_dir, repo_root), currency) if b]
+    blocks = [b for b in (context, act.upstream_block(pool, worktree), currency) if b]
 
     values = {
         "RESEARCH_DIR": str(research_dir),

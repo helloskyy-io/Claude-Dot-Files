@@ -34,7 +34,8 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
                worktree: Path, correction_pass: bool = False,
                verbose: bool = False) -> str:
     """Verify, correct, trace, and re-verify. Returns the PR URL."""
-    currency, _due = act.paper_currency(research_dir)
+    pool = act.in_worktree(research_dir, repo_root, worktree)
+    currency, _due = act.paper_currency(pool)
     values = {
         "RESEARCH_DIR": str(research_dir),
         "PR_NUMBER": pr_number,

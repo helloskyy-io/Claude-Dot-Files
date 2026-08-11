@@ -328,7 +328,27 @@ pr_review:
              pass had to re-find it. Authoring defect, not execution.) If the real requirement IS
              set-equality, either enumerate the full set or write the predicate to reference the
              enumeration — never both scopes at once.
-         **PRECEDENCE (binding, state it in the block): the dispatch_context ENUMERATION governs.**
+          (5) WHEN THE ARTIFACT UNDER REPAIR IS ITSELF AN ENUMERATION OF SOMETHING
+             DERIVABLE, PRESCRIBE THE RECONCILIATION, NOT AN INSERTION. `docs/file_structure.txt`
+             is the live example: it enumerates every tracked file. A prescription to "add the
+             `docs/standards/` subtree" gets executed exactly and leaves the map wrong one node
+             over, costing a whole HOLD loop to find the residue. The remedy is a LOOP over the
+             derivable set (`git ls-files`) with set-equality as the predicate. **This does not
+             conflict with (4): when the artifact is an enumeration, the reconciliation IS the
+             enumeration** — "make the map set-equal to `git ls-files`" is a complete scope, not
+             a broader predicate bolted onto a narrow list. (Reported from the portfolio project;
+             the narrow prescription cost a loop-back that the reconciliation would not have.)
+         (6) A PRECHECK MUST TEST THE PROPERTY, NEVER A STRING THAT STANDS IN FOR IT.
+             `grep -c <path>` is not a check that a path is present — it is a check that a
+             substring appears, and the two diverge the moment the artifact renders that path
+             across lines. **Measured: a correctly-nested tree read 0 on finished work, and the
+             executor satisfied the gate by inserting the literal string into an annotation.**
+             A gate that can be passed by editing the artifact to match the gate is worse than no
+             gate: it induced a false edit in the thing it was protecting. This is NOT covered by
+             (2) — a substring check is a genuinely different check and still wrong. Write the
+             predicate: *does every tracked file appear in the map?*, reconciled by leaf filename.
+
+        **PRECEDENCE (binding, state it in the block): the dispatch_context ENUMERATION governs.**
              The precheck gates whether to act; it never silently widens or narrows what to act on.
              A general rule may not override a specific instruction — the same defect shape as a
              standard's general implication overriding a workflow's explicit boundary, one layer down

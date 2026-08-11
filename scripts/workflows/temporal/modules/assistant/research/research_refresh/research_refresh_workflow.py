@@ -52,7 +52,9 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     # Same altitude split as research-write, and for the same reason: a
     # component pool that grows its own candidates.md and direction.md forks
     # the operator's inbox. Derived from the path, never declared.
-    level = act.altitude(research_dir, repo_root)
+    # Re-anchored to the worktree the run executes in — see `in_worktree`.
+    pool = act.in_worktree(research_dir, repo_root, worktree)
+    level = act.altitude(pool, worktree)
     fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
 
     values = {
