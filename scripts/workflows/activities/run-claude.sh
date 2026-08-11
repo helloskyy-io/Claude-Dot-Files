@@ -198,15 +198,48 @@ run_claude() {
     # to leak, and this must not reintroduce one into a terminal scrollback or a
     # CI log. Count, tool name and tool_use_id only — the id is what locates the
     # denied call in $LOG_FILE, which is the question an operator asks next.
-    local denials
-    denials=$(jq -r 'select(.type == "result") | .permission_denials // [] | .[]
-        | "    · \(.tool_name // "?")  (tool_use_id: \(.tool_use_id // "?"))"' \
-        "$LOG_FILE" 2>/dev/null)
+    # THE `fromjson? // empty` PREFILTER IS LOAD-BEARING, and the first version
+    # of this block did not have it. The § Completion contract below argues the
+    # same point over the same file and its argument applies here verbatim: the
+    # stream demonstrably carries non-JSON lines (`assistant_activities.
+    # _log_events` documents that it "must SKIP a malformed line", with a test),
+    # `jq` STOPS at the first parse error, and the `result` event is the LAST
+    # event in the stream — so one junk line anywhere before it suppresses this
+    # banner entirely, on exactly the runs where the fleet's only in-run control
+    # fired. Three readers of one file disagreeing about whether it may contain
+    # junk is how a gate deletes itself.
+    #
+    # `|| true` IS THE SECOND HALF AND IS NOT DEFENSIVE HABIT. `local denials`
+    # is declared on its own line, so the assignment below is a simple command
+    # whose exit status IS the pipeline's; every V1 caller runs `set -euo pipefail` and
+    # calls `run_claude` unguarded, so without it a parse error would kill a V1
+    # workflow immediately after a successful model run, with `2>/dev/null`
+    # hiding the reason and BEFORE the turn-cap banner that exists to make a
+    # silent death loud. It is a new abort point that `review-runs.sh` — which
+    # declares no COMPLETION_PATTERN and so reaches no other jq — never had.
+    # It sits in the assignment, outside the block
+    # `test_the_denial_surface_ROUTES_NOTHING` scans, because it is about this
+    # read surviving, not about the surface deciding anything.
+    #
+    # AND `|| true` IS ALSO WHAT COVERS A MALFORMED `permission_denials`. `// []`
+    # substitutes for null and false ONLY, so a value that arrived as a string
+    # or an object reaches `.[]` and is a jq runtime error. A `select(type ==
+    # "array")` guard was written here and then removed: with `|| true` present
+    # its outcome is byte-identical (empty output, non-fatal), so it was a guard
+    # whose removal no test could notice — and an untestable guard beside a
+    # test that passes either way is worse than the shorter expression plus one
+    # test that actually discriminates.
+    local denials denial_count
+    denials=$(jq -R 'fromjson? // empty' "$LOG_FILE" 2>/dev/null \
+        | jq -r 'select(.type == "result") | .permission_denials // [] | .[]
+            | "    · \(.tool_name // "?")  (tool_use_id: \(.tool_use_id // "?"))"' \
+            2>/dev/null || true)
     if [[ -n "$denials" ]]; then
+        denial_count=$(printf '%s\n' "$denials" | wc -l)
         {
             echo
             echo "================================================================"
-            echo "  ⚠ PERMISSION DENIAL(S) RECORDED — the in-run safety control fired"
+            echo "  ⚠ ${denial_count} PERMISSION DENIAL(S) RECORDED — the in-run safety control fired"
             echo "================================================================"
             echo "$denials"
             echo

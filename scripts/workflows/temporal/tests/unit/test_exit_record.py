@@ -1772,6 +1772,97 @@ def test_the_mismatch_carries_the_ref_the_child_NAMED() -> None:
     ) is None, "the note must be silent when R5b did not fire"
 
 
+def test_the_R5b_payload_REACHES_AN_OPERATOR_on_the_case_R5b_is_FOR(
+        monkeypatch, tmp_path) -> None:
+    """THE ORDERING, as a property. Every other R5b test calls `route()` or the
+    note helper directly, and all of them were green while the note was
+    unreachable in the one scenario it was written for.
+
+    The scenario: a child attaches its review to a FOREIGN record and prints
+    `VERDICT: MERGE`. R5b routes `undetermined`, which collapses to
+    `HOLD - needs-assistance`, so the prose channel disagrees and `run_review`
+    RAISES — above the notes block where the note used to be built. The
+    operator got "could not be evaluated" and never the two references.
+    """
+    elsewhere = {"substrate": "github", "kind": "pull", "id": "67",
+                 "uri": "https://github.com/someone-else/other-repo/pull/67"}
+    with pytest.raises(RuntimeError) as exc:
+        _review(monkeypatch, tmp_path,
+                _record(run_id="@ISSUED@", completion_ref=elsewhere),
+                "VERDICT: MERGE\n")
+    message = str(exc.value)
+    assert "completion_ref_mismatch" in message, "the raise did not come from R5b"
+    assert "someone-else/other-repo" in message, (
+        "the operator was told the channels disagreed and NOT which record the "
+        "child attached itself to — the whole payload of R5b, lost to ordering"
+    )
+
+
+# The module-level functions `review_pr_workflow` carries, as an EXACT SET.
+# Its docstring records a STATED DEVIATION — pure `ExitRecord`/assessment-to-
+# string logic living in the orchestration layer, deferred on the trigger
+# `phase4_fleet_migration.md` step 2 names — and the docstring's own count is
+# what is supposed to make "extract three and leave two" unavailable.
+_WORKFLOW_MODULE_FUNCTIONS = {
+    "assemble_prompt",              # prompt assembly, not record-to-string
+    "run_review",                   # the orchestration itself
+    "_convergence_event",           # Phase 5, deferred
+    "_convergence_notes",           # Phase 5, deferred
+    "_read_thread_for_invariant",   # an activity call with a retry, not pure
+    "_thread_unreadable_note",      # Phase 3, deferred
+    "_assert_block_matches_record",  # Phase 3, deferred
+}
+
+
+def test_the_workflow_layers_DEFERRED_SET_is_a_test_and_not_a_docstring_count() -> None:
+    """A COUNT IN PROSE IS NOT A TRIGGER, which this repo has now measured twice.
+
+    `review_pr_workflow`'s docstring names FIVE deferred pure functions so that
+    the extraction, when its trigger fires, is atomic. Nothing enforced that: a
+    sixth site added inline would not appear in the count, and the extraction
+    would move five and leave one — which is the exact failure the count exists
+    to prevent, and it nearly happened in Phase 4 (the positional-fallback note
+    shipped inline before being moved into the helper).
+
+    The same shape as `SINGLE_CONSUMER_PARENT_MODULES`: an EXACT SET, failing in
+    both directions. A new function here must be a deliberate edit to this set,
+    at which point whoever adds it decides whether it belongs in the helper.
+    """
+    import ast as _ast
+
+    from modules.assistant.review_pr import review_pr_workflow as _wf
+    path = Path(_wf.__file__)
+    parsed = _ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    present = {n.name for n in parsed.body
+               if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))}
+    assert present == _WORKFLOW_MODULE_FUNCTIONS, (
+        f"the workflow layer's function set moved: "
+        f"added {sorted(present - _WORKFLOW_MODULE_FUNCTIONS)}, "
+        f"removed {sorted(_WORKFLOW_MODULE_FUNCTIONS - present)}. If this is a "
+        f"new pure record-to-string function, it belongs in `review_pr_helper` "
+        f"— see the docstring's stated deviation and step 2's trigger. If it is "
+        f"genuinely orchestration, add it here with a one-line reason."
+    )
+
+
+def test_the_parents_OWN_reference_is_validated_when_it_is_BUILT() -> None:
+    """An unparseable EXPECTED ref is a PARENT fault and must not wear the
+    child's label.
+
+    `expected_completion_ref` interpolates `repo_slug` unchecked, so an empty or
+    unexpected `gh repo view` reply yields `https://github.com//pull/67`, which
+    `routing.PR_URL` correctly refuses. Without this check that parent-side bug
+    reaches `_ref_matches`, fails to parse, returns False, and routes EVERY run
+    of the dispatch to the human arm as `completion_ref_mismatch` — reporting
+    the parent's own bug as the child naming a different record, which is the
+    shared-bin defect `UndeterminedReason` argues against three times.
+    """
+    with pytest.raises(ValueError, match="not a github PR URL"):
+        helper.expected_completion_ref("67", "")
+    # The ceiling: a real slug still builds, and builds what R5b compares against.
+    assert helper.expected_completion_ref("67", "owner/repo") == EXPECTED_REF
+
+
 def test_expected_ref_None_states_that_the_caller_CANNOT_check() -> None:
     """`None` is a caller with no reference, not a caller opting out quietly.
 
@@ -2072,13 +2163,42 @@ def test_the_positional_FALLBACK_says_so_in_the_operator_notes(monkeypatch, tmp_
     )
 
 
-def test_two_blocks_claiming_ONE_nonce_is_refused_rather_than_resolved() -> None:
-    """One run has one rendering, and choosing between two is not this code's job.
-
-    Resolving by position would be the positional inference wearing the nonce's
-    name — the identity check reporting a decision it did not make.
+def test_two_CONFLICTING_blocks_claiming_ONE_nonce_is_refused() -> None:
+    """One run has one rendering, and choosing between two DIFFERENT ones is not
+    this code's job. Resolving by position would be the positional inference
+    wearing the nonce's name — the identity check reporting a decision it did
+    not make.
     """
     nonce = "0123456789abcdef0123456789abcdef"
-    stamped = f"pr_review:\n  run_id: {nonce}\n"
-    with pytest.raises(RuntimeError, match="claim run_id"):
-        helper.this_pass_block([stamped, stamped], nonce)
+    one = f"pr_review:\n  run_id: {nonce}\n  verdict: MERGE\n"
+    other = f"pr_review:\n  run_id: {nonce}\n  verdict: HOLD\n"
+    with pytest.raises(RuntimeError, match="DIFFERING"):
+        helper.this_pass_block([one, other], nonce)
+
+
+def test_two_IDENTICAL_blocks_claiming_one_nonce_resolve_SILENTLY() -> None:
+    """A retried `gh pr comment` must not destroy the review it succeeded at.
+
+    THE CASE IS REACHABLE AND BENIGN: `gh pr comment` timing out at the network
+    layer *after* the server accepted it, and the child retrying, leaves two
+    byte-identical renderings of one run. The first version of this rule raised
+    on any duplicate nonce — which would have destroyed a correct,
+    already-posted, already-routed review over two copies of one answer, the
+    exact loss `_this_pass_index`'s no-nonce fallback exists to refuse. There is
+    no inference to get wrong when the candidates are identical.
+
+    THE INDEX IS THE FIRST MATCH, and the complement is what makes that matter:
+    `prior_pass_blocks` is `window[:index]`, so selecting the LATER duplicate
+    would put the earlier one into the convergence history as a phantom prior
+    pass — every id in it would read as restated, which is the perfectly
+    conforming, perfectly stalled loop `convergence_history` warns about.
+    """
+    nonce = "0123456789abcdef0123456789abcdef"
+    prior = "pr_review:\n  run_id: ffffffffffffffffffffffffffffffff\n"
+    stamped = f"pr_review:\n  run_id: {nonce}\n  verdict: MERGE\n"
+    window = [prior, stamped, stamped]
+    assert helper.this_pass_block(window, nonce) == stamped
+    assert helper.this_pass_selected_by_identity(window, nonce) is True
+    assert helper.prior_pass_blocks(window, nonce) == (prior,), (
+        "the later duplicate leaked into the prior-pass history as a phantom pass"
+    )

@@ -81,6 +81,19 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         act.count_prior_passes(task.pr_number, worktree)
     )
 
+    # R5b'S RIGHT-HAND SIDE IS BUILT HERE, BEFORE THE CHILD RUNS, AND THE
+    # ORDERING IS THE POINT. `repo_slug` is a `gh` round trip, on the path whose
+    # named failure mode is rate limiting (`thread_snapshot`'s docstring). Built
+    # here, a `gh` failure costs a dispatch that has produced nothing. Built
+    # after the child — where the first version of this put it — an unretried
+    # network call sits between a completed ~40-minute review and the
+    # `parent_route` event that records it, so a transient 5xx destroys the
+    # review, the durable event and the parent's loop. That is precisely the
+    # loss `_thread_unreadable_note` was written to prevent, and nothing in
+    # `expected_ref` depends on anything the child produces.
+    expected_ref = helper.expected_completion_ref(
+        task.pr_number, _shared.repo_slug(worktree))
+
     # CAP (binding): exactly two things vary by type — the scope boundary and
     # the blocking-defect checklist — and both live in the criteria file. Type
     # MUST NOT be consulted anywhere else in this workflow. Without that cap the
@@ -124,11 +137,10 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
 
     # --- THE TYPED CHANNEL DECIDES --------------------------------------
     # TWO IDENTITIES ARE CHECKED, NOT ONE. `run_id` says the record came from
-    # the invocation this parent issued (R5); `expected_ref` says it is ABOUT
-    # the PR this parent dispatched against (R5b). The second is the one the
-    # anchored URL pattern never provided — `[^\s)]+` IS the owner/repo segment,
-    # so a `uri` naming another repository passes the pattern and yields a
-    # number that then reaches `gh` against THIS repo.
+    # the invocation this parent issued (R5); `expected_ref` (built above,
+    # before the child ran) says the record is ABOUT the PR this parent
+    # dispatched against (R5b). `routing.PR_URL` owns the threat argument for
+    # the second; it is not restated here.
     #
     # THE BRANCH HALF IS CLOSED BY CONSTRUCTION HERE AND IS NOT RE-CHECKED. The
     # review worktree above is created from `origin/{pr['headRefName']}`, where
@@ -136,8 +148,6 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # the child reviews the head branch of the PR this parent named and has no
     # way to choose another. Re-asserting it after the fact would compare the
     # parent's own value against itself.
-    expected_ref = helper.expected_completion_ref(
-        task.pr_number, _shared.repo_slug(worktree))
     record = exit_record.route(
         _shared.result_event(log_file), expected_run_id=run_id,
         expected_ref=expected_ref,
@@ -189,11 +199,27 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         "channels_agree": shadow is verdict,
     })
 
+    # BUILT BEFORE THE RAISE, NOT AFTER IT, AND THAT ORDERING IS A FIX RATHER
+    # THAN A STYLE. R5b routes to `undetermined`, which collapses to
+    # `HOLD - needs-assistance`; the case R5b exists for is a child that
+    # attached its review to a foreign record AND printed `VERDICT: MERGE`, and
+    # on that case the shadow disagrees and this function raises. Building the
+    # note only in the notes block below made it unreachable in exactly the
+    # scenario it was written for — the operator got the generic
+    # "could not be evaluated" line and never the two references. So the note is
+    # built once here and consumed by BOTH arms.
+    ref_note = helper.completion_ref_mismatch_note(record, expected_ref)
+
     if shadow is not verdict:
         # A LOUD FAILURE, deliberately, for the duration of this phase. A
         # comparison that cannot fail records a protection that does not exist,
         # and the whole point of running both channels on one pair is to find
         # out where they disagree before the fleet depends on one of them.
+        #
+        # RETENTION IS NOT FREE AND THE COST IS RECORDED WHERE IT IS PAID:
+        # `phase4_fleet_migration.md` § Requirement 1 carries the measured
+        # false-termination rate of this raise beside the agreement figures, so
+        # the removal decision is two-sided rather than one.
         raise RuntimeError(
             f"exit-record disagreement on PR #{task.pr_number}: the typed record routes "
             f"{verdict.value!r} (routed_outcome={record.routed_outcome.value}"
@@ -201,6 +227,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             + f") while the prose channel parsed {shadow.value!r} "
             f"(parseable={parseable}). Both channels are live during Phase 3 and "
             f"disagreement is a failure, not a preference. Log: {log_file}"
+            + (f"\n\n{ref_note}" if ref_note else "")
         )
 
     # "Agreed" is claimed only when the shadow actually produced a verdict.
@@ -225,11 +252,10 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         # above — see `helper.completion_ref_mismatch_note`. `extend` on a list
         # that is empty when the rule did not fire, for the same reason
         # `_convergence_notes` returns one: no conditional in this function may
-        # read a routing signal it does not own.
-        notes.extend(
-            n for n in [helper.completion_ref_mismatch_note(record, expected_ref)]
-            if n is not None
-        )
+        # read a routing signal it does not own. Same `ref_note` object the
+        # raise above interpolates, so the two arms cannot describe the same
+        # rule differently.
+        notes.extend(n for n in [ref_note] if n is not None)
     if record.permission_denials:
         notes.append(
             f"{len(record.permission_denials)} permission denial(s) recorded: "
@@ -275,17 +301,15 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             # durable event type here would be a producer with no consumer —
             # the admission failure Phase 6 exists to stop. So this reaches the
             # operator and nothing else, and that limit is stated rather than
-            # discovered.
-            if not helper.this_pass_selected_by_identity(blocks, run_id):
-                notes.append(
-                    f"PR #{task.pr_number}: this pass's `pr_review:` block was "
-                    f"selected BY POSITION, not by the run nonce — no block on "
-                    f"the thread carries `run_id: {run_id}`. The render↔record "
-                    f"invariant and the convergence history still ran, on the "
-                    f"last block of the window. Expected on a thread whose "
-                    f"passes predate the field; on a fresh pass it means the "
-                    f"child did not echo the nonce into its durable block."
-                )
+            # discovered. Built in the helper and `extend`ed unconditionally,
+            # like its two siblings — this function does not branch on a signal
+            # it does not own, and an inline `if` here would be a sixth pure
+            # record-to-string site the docstring's count does not name.
+            notes.extend(
+                n for n in
+                [helper.positional_fallback_note(task.pr_number, blocks, run_id)]
+                if n is not None
+            )
 
     # --- THE COMPUTED CONVERGENCE SIGNAL — RECORDED, NOT ROUTED ON --------
     # `routing.MAX_LOOPS` remains the only stopping authority. This phase emits

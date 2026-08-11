@@ -147,13 +147,13 @@ class UndeterminedReason(str, Enum):
     # R5b. SEPARATE FROM RECORD_STALE, and the two are different questions about
     # identity: `record_stale` says the record belongs to a different
     # INVOCATION, this says a well-formed record of THIS invocation points at a
-    # different DURABLE RECORD. A child is instructed to read prior PR comments,
-    # which routinely carry other PRs' URLs, so this needs no adversarial child
-    # — and the derived number flows into `gh pr view`, `gh pr comment` and
-    # `--pr` on a downstream child that checks out and commits to that PR's
-    # branch. Sharing a bin with `record_stale` would report a cross-repo
-    # reference as a worktree-skew problem and send the operator to the wrong
-    # place, which is the same argument this enum already makes three times.
+    # different DURABLE RECORD. Sharing a bin with `record_stale` would report a
+    # cross-repo reference as a worktree-skew problem and send the operator to
+    # the wrong place, which is the same argument this enum already makes three
+    # times. The threat itself is argued once, at `routing.PR_URL`, and is not
+    # restated here — it was, in four production files, and three of the four
+    # copies said the derived number reaches `gh`, which is true of
+    # `routing.pr_number_from_url`'s call sites and not of this field.
     COMPLETION_REF_MISMATCH = "completion_ref_mismatch"
     UNMATCHED = "unmatched"
 
@@ -324,26 +324,43 @@ def _validate(value, schema: dict, path: str) -> str | None:
     raise AssertionError(f"CHILD_SCHEMA uses an unsupported type at {path}: {expected!r}")
 
 
+# THE FIELDS R5b COMPARES EXACTLY, DERIVED FROM THE SCHEMA RATHER THAN RETYPED.
+# A hand-written tuple here would be a second declaration of `completion_ref`'s
+# field set inside the module whose thesis is one declaration — and the failure
+# is silent in the dangerous direction: a fifth required field would pass R3
+# validation and simply not be compared, NARROWING a safety check with nothing
+# going red. This function has already been measured with a hole of exactly that
+# shape (removing the `id` comparison turned zero tests red, because every
+# fixture moved `id` and `uri` together). `uri` is excluded because it is the
+# one field compared by IDENTITY rather than byte-for-byte, below.
+_REF_EXACT_FIELDS = tuple(
+    k for k in CHILD_SCHEMA["properties"]["completion_ref"]["required"] if k != "uri")
+
+
 def _ref_matches(actual: dict, expected: dict) -> bool:
     """Is `actual` the SAME durable record as `expected`? Identity, not shape.
 
-    `substrate`, `kind` and `id` compare exactly. `uri` compares by the identity
-    it names rather than byte-for-byte, because a trailing slash, a `/files`
-    suffix or a query string are the same PR and failing a correct review on one
-    would be a guard failing on correct input. The parse is `routing.pr_identity`
-    — the one declaration of the address — and it returns `(owner/repo, number)`,
-    so a `uri` naming ANOTHER REPOSITORY fails here even when it carries the
-    right number. That is the whole threat: the anchored pattern's `[^\\s)]+`
-    IS the owner/repo segment, so it pins the host and guarantees digits and
-    never pinned identity.
+    Every required field of `completion_ref` except `uri` compares exactly, and
+    the list is `_REF_EXACT_FIELDS` — read off `CHILD_SCHEMA`, not retyped.
+    `uri` compares by the identity it names rather than byte-for-byte, because a
+    trailing slash, a `/files` suffix or a query string are the same PR and
+    failing a correct review on one would be a guard failing on correct input.
+    The parse is `routing.pr_identity` — the one declaration of the address —
+    and it returns `(owner/repo, number)`, so a `uri` naming ANOTHER REPOSITORY
+    fails here even when it carries the right number. `routing.PR_URL` carries
+    the argument for why that is the threat; it is not restated here.
 
-    FAIL-SAFE WHEN IT CANNOT PARSE. `CHILD_SCHEMA` constrains `substrate` to
-    `github`, so `pr_identity` is the right parser for every record that reaches
-    R3. If that enum is ever widened without widening this, a non-github `uri`
-    raises `ValueError` here and returns False — the human arm — rather than
-    comparing two things it does not understand.
+    FAIL-SAFE WHEN IT CANNOT PARSE, IN BOTH DIRECTIONS AND FOR DIFFERENT
+    REASONS. `CHILD_SCHEMA` constrains `substrate` to `github`, so `pr_identity`
+    is the right parser for every record that reaches R3; if that enum is ever
+    widened without widening this, a non-github `uri` raises `ValueError` here
+    and returns False — the human arm — rather than comparing two things it does
+    not understand. An unparseable EXPECTED `uri` is a parent-side fault and is
+    refused before this is reached: `review_pr_helper.expected_completion_ref`
+    validates what it built, so a bad `repo_slug` fails as a parent error rather
+    than arriving here and being reported as the child naming a wrong record.
     """
-    for key in ("substrate", "kind", "id"):
+    for key in _REF_EXACT_FIELDS:
         if actual.get(key) != expected.get(key):
             return False
     try:

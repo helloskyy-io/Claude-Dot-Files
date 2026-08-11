@@ -16,6 +16,7 @@ from ..research_verify import research_verify_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
 from ... import routing
+from ...assistant_activities import repo_slug
 
 MAX_LOOPS = 1
 
@@ -33,12 +34,15 @@ def run_research_refresh(*, research_dir: Path, repo_root: Path,
     notes = [f"{len(due)} paper(s) due: " + ", ".join(p.name for p in due)]
     worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
 
+    # Read BEFORE the child, for the reason its sibling parent states.
+    slug = repo_slug(repo_root)
+
     pr_url = refresh.run_refresh(research_dir=research_dir, repo_root=repo_root,
                                  worktree=worktree, due=due, verbose=verbose)
     # THROUGH THE OWNER, not a string split — see the sibling parent. This is
     # the same expression, and the phase doc that found it named only one of the
     # two, which is why the gate below it is on the SHAPE and not on the sites.
-    pr = routing.pr_number_from_url(pr_url)
+    pr = routing.pr_number_from_url(pr_url, expected_repo=slug)
 
     loops = 0
     verdict = _verify_then_dispose(research_dir, pr, repo_root, worktree, notes, verbose, False)

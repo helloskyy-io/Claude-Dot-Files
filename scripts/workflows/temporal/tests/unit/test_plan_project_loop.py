@@ -56,6 +56,10 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
 
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_triage)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
+    # The parent reads its own repo slug BEFORE the triage child, so the number
+    # it takes out of the child's URL can be checked against the repository the
+    # dispatch is operating in. It is a `gh` call; faked at its boundary.
+    monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.write, "run_write", fake_write)
     monkeypatch.setattr(pm.verify, "run_verify", lambda **kw: PR_URL)
     # No new sections by default: the research fan-out is opt-in per test, and a
@@ -176,6 +180,7 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
     monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.review_pr, "run_review",
                         lambda ri, rr: ReviewResult(pr_number="43",

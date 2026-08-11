@@ -27,6 +27,7 @@ yields `12` — a number then used against THIS dispatch's repo.
 from __future__ import annotations
 
 import ast
+import inspect
 import re
 from pathlib import Path
 
@@ -223,7 +224,8 @@ def test_the_narrowed_pattern_accepts_EVERY_url_the_incumbent_accepted(text: str
     """
     assert _INCUMBENT.search(text), "fixture error: the incumbent rejected this"
     assert routing.extract_pr_url(text) is not None, text
-    assert routing.pr_number_from_url(text) == _INCUMBENT.search(text).group(1)
+    assert routing.pr_number_from_url(text, expected_repo=None) \
+        == _INCUMBENT.search(text).group(1)
 
 
 def test_the_narrowing_rejects_only_strings_that_are_not_pr_urls() -> None:
@@ -266,7 +268,159 @@ def test_a_non_pr_url_raises_rather_than_yielding_a_number(text: str) -> None:
     """
     assert routing.extract_pr_url(text) is None
     with pytest.raises(ValueError):
-        routing.pr_number_from_url(text)
+        routing.pr_number_from_url(text, expected_repo=None)
+
+
+# ---------------------------------------------------------------------------
+# The repo half of the handoff — the derivation that actually reaches `gh`.
+#
+# R5b compares the TYPED record's `completion_ref`, which routes nothing else.
+# The value that reaches `wait_for_ci`, `run_review` and `--pr` on a refine
+# child is this one: a number taken out of a PRIOR CHILD'S STDOUT. Until Phase 4
+# it was taken with the owner/repo half discarded, so a URL the child merely
+# quoted from a comment yielded a number used against THIS repository — and R5b
+# is structurally blind to it, because R5b's right-hand side is built FROM that
+# number and would be compared against itself.
+# ---------------------------------------------------------------------------
+
+
+def test_a_url_naming_ANOTHER_REPOSITORY_is_refused_rather_than_yielding_a_number() -> None:
+    """The threat, at the site where the number is live rather than inert."""
+    other = "https://github.com/someone-else/other-repo/pull/12"
+    with pytest.raises(ValueError, match="someone-else/other-repo"):
+        routing.pr_number_from_url(other, expected_repo="helloskyy-io/Claude-Dot-Files")
+
+
+def test_the_repo_check_does_not_reject_the_dispatch_s_OWN_pr() -> None:
+    """THE CEILING. A guard that refuses everything satisfies the floor."""
+    mine = "https://github.com/helloskyy-io/Claude-Dot-Files/pull/81"
+    assert routing.pr_number_from_url(
+        mine, expected_repo="helloskyy-io/Claude-Dot-Files") == "81"
+    # And the shapes the parity audit measured still survive the extra check.
+    assert routing.pr_number_from_url(
+        "see https://github.com/o/r/pull/7/files for the diff",
+        expected_repo="o/r") == "7"
+
+
+def test_expected_repo_has_NO_default() -> None:
+    """A keyword defaulting to None is a check that skips itself.
+
+    Same discipline as `exit_record.route`'s `expected_ref`, and for the same
+    reason: this is the parameter most likely to acquire a convenience default
+    at the next call site.
+    """
+    param = inspect.signature(routing.pr_number_from_url).parameters["expected_repo"]
+    assert param.default is inspect.Parameter.empty
+    assert param.kind is inspect.Parameter.KEYWORD_ONLY
+    with pytest.raises(TypeError):
+        routing.pr_number_from_url("https://github.com/o/r/pull/1")
+
+
+def test_every_production_caller_of_pr_number_from_url_states_its_expected_repo() -> None:
+    """THE GATE IS ON THE TREE, so a SEVENTH call site fails here.
+
+    Six exist today and five pass a real slug read before their child ran. The
+    sixth (`scripts/run_plan_project.py`) passes None and is allowed to, because
+    `plan_project_workflow` already checked this exact string with the slug —
+    which is why the allowance is a NAMED exception here and not a predicate
+    anyone can satisfy by writing `None`.
+    """
+    tree_root = Path(routing.__file__).resolve().parents[2]     # …/temporal
+    allowed_none = {"run_plan_project.py"}
+    callers: list[str] = []
+    scanned = 0
+    for path in sorted(tree_root.rglob("*.py")):
+        if "tests" in path.parts:
+            continue
+        scanned += 1
+        parsed = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(parsed):
+            if not (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "pr_number_from_url"):
+                continue
+            kwargs = {k.arg: k.value for k in node.keywords}
+            assert "expected_repo" in kwargs, (
+                f"{path.name}:{node.lineno} calls pr_number_from_url() without "
+                f"stating an expected_repo — the number it returns reaches `gh` "
+                f"against THIS repository, and the URL it came from is a child's"
+            )
+            value = kwargs["expected_repo"]
+            if isinstance(value, ast.Constant) and value.value is None:
+                assert path.name in allowed_none, (
+                    f"{path.name}:{node.lineno} passes expected_repo=None. A "
+                    f"parent that dispatched a child into a repository knows "
+                    f"which one; passing None there is the pre-Phase-4 gap "
+                    f"under a new name."
+                )
+            callers.append(f"{path.name}:{node.lineno}")
+
+    assert scanned > 20, f"the scan visited only {scanned} files — it read nothing"
+    assert len(callers) >= 6, f"the scan found only {callers} — it is not reading the tree"
+
+
+# Where each parent reads its own repo slug, and the child call it must precede.
+# `(module, enclosing function, the child dispatch it must come BEFORE)`.
+_SLUG_BEFORE_CHILD = [
+    ("review_pr/review_pr_workflow.py", "run_review", "run_disposition"),
+    ("build/build/build_workflow.py", "run_build", "run_draft"),
+    ("build/build_minor/build_minor_workflow.py", "run_build_minor", "run_draft_minor"),
+    ("plan/plan_project/plan_project_workflow.py", "run_plan_project", "run_plan_sprint"),
+    ("research/research/research_workflow.py", "run_research", "run_write"),
+    ("research/research_refresh_parent/research_refresh_parent_workflow.py",
+     "run_research_refresh", "run_refresh"),
+]
+
+
+@pytest.mark.parametrize("module,function,child", _SLUG_BEFORE_CHILD)
+def test_the_repo_slug_is_read_BEFORE_the_child_runs(
+        module: str, function: str, child: str) -> None:
+    """THE ORDERING IS THE FIX AND WITHOUT THIS IT IS UNGATED.
+
+    `repo_slug` is a `gh` round trip on the path whose named failure mode is
+    rate limiting. Read before the child, a `gh` failure costs a dispatch that
+    has produced nothing. Read after, an unretried network call sits between a
+    completed multi-hour child and the durable record of what it decided — and a
+    transient 5xx destroys a review that already ran, already posted and already
+    routed. `review_pr_workflow` shipped exactly that in the first cut of this
+    phase, and it read as correct because the value is only USED afterwards.
+
+    A line-order assertion is crude and it is what the property is: nothing
+    about the value forces the ordering, so only its position can hold it.
+    """
+    path = _MODULES / "assistant" / module
+    parsed = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    func = next((n for n in ast.walk(parsed)
+                 if isinstance(n, ast.FunctionDef) and n.name == function), None)
+    assert func is not None, f"{module} no longer defines {function}()"
+
+    def _lineno_of(name: str) -> int | None:
+        # BOTH CALL SHAPES. Two of the six parents import `repo_slug` by name
+        # (`from ...assistant_activities import repo_slug`) rather than through
+        # a module alias, so an Attribute-only walk reported them as not reading
+        # the slug at all — a gate that reds on conforming code, which is how a
+        # gate gets deleted rather than fixed.
+        for node in ast.walk(func):
+            if not isinstance(node, ast.Call):
+                continue
+            called = node.func
+            if (isinstance(called, ast.Attribute) and called.attr == name) \
+                    or (isinstance(called, ast.Name) and called.id == name):
+                return node.lineno
+        return None
+
+    slug_at = _lineno_of("repo_slug")
+    child_at = _lineno_of(child)
+    assert slug_at is not None, (
+        f"{module}:{function} no longer reads its repo slug — the number it "
+        f"takes out of a child's URL is then unchecked against this repository"
+    )
+    assert child_at is not None, f"fixture stale: {function} no longer calls {child}"
+    assert slug_at < child_at, (
+        f"{module}:{function} reads the repo slug at line {slug_at}, AFTER "
+        f"dispatching {child} at line {child_at}. A `gh` failure there destroys "
+        f"a child that already finished."
+    )
 
 
 # ---------------------------------------------------------------------------

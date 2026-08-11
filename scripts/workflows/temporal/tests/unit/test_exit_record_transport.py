@@ -425,6 +425,55 @@ def test_the_shipped_denial_surface_names_every_denied_tool(tmp_path: Path) -> N
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_denial_surface_survives_the_malformed_lines_the_stream_CARRIES(
+        tmp_path: Path) -> None:
+    """The prefilter, as the property rather than as a line in the script.
+
+    THIS IS THE EXACT DEFECT THE ASSISTANT GATE ALREADY HAD AND SHIPPED GREEN,
+    committed a second time forty lines above it. `jq` stops at the first parse
+    error, and the `result` event is the LAST event in a run's stream — so one
+    non-JSON line ANYWHERE before it silently suppresses the whole banner, on
+    precisely the runs where the fleet's only in-run safety control fired.
+
+    The junk line is placed BEFORE the result event deliberately: after it, a
+    non-prefiltered `jq` would already have emitted and the test would pass
+    against the broken reader. Reverting the `fromjson? // empty` prefilter in
+    `run-claude.sh` turns this red.
+    """
+    log = tmp_path / "noisy.jsonl"
+    log.write_text(
+        '{"type":"system","subtype":"init"}\n'
+        "npm WARN cli npm does not support Node.js v18\n"
+        "\n"
+        + json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                      "permission_denials": [_DENIAL]}) + "\n"
+    )
+    out = _run_shipped(_shipped_denial_surface(), log)
+    assert "Bash" in out and "toolu_01CsEbAAAA" in out
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_a_malformed_denials_value_is_SILENT_AND_NON_FATAL(tmp_path: Path) -> None:
+    """`// []` substitutes for null and false ONLY, so `.[]` over a string is a
+    jq RUNTIME ERROR — exit 5, not empty output.
+
+    This surface runs unconditionally on every run of both fleets, and every V1
+    caller is `set -euo pipefail` calling `run_claude` unguarded, so an
+    un-neutralised jq failure here kills a workflow immediately after a
+    successful model run. `_run_shipped` asserts the substitution exits 0, so
+    removing `|| true` from the shipped line turns this red — which is the only
+    thing that makes the neutralisation a check rather than a habit.
+
+    The Python router is the actor that routes an unreadable denial list to a
+    human (`DENIALS_UNREADABLE`); this surface only has to not blow up.
+    """
+    log = tmp_path / "weird.jsonl"
+    log.write_text(json.dumps(
+        {"type": "result", "subtype": "success", "permission_denials": "none"}) + "\n")
+    assert _run_shipped(_shipped_denial_surface(), log).strip() == ""
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
 def test_the_denial_surface_never_prints_the_command_line(tmp_path: Path) -> None:
     """THE CONTROL THAT MATTERS, and it is derived from the field's own ruling.
 

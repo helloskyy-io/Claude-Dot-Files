@@ -94,8 +94,12 @@ def should_loop_back(verdict: Verdict, loops_used: int) -> bool:
 #   - `assistant_activities.PR_URL` and `build/build_helper._PR_URL` were
 #     byte-identical anchored copies (`https://github\.com/[^\s)]+/pull/(\d+)`);
 #   - `pr_number_from_url` was `re.search(r"/pull/(\d+)", url)` — NO HOST ANCHOR
-#     AT ALL — and its consumers are `build_workflow`, `build_minor_workflow` and
-#     `plan_project_workflow`.
+#     AT ALL. Its consumers were `build_workflow`, `build_minor_workflow` and
+#     `plan_project_workflow`; Phase 4 raised that to SIX by replacing three
+#     ad-hoc `rsplit` derivations (`research_workflow`,
+#     `research_refresh_parent_workflow`, `scripts/run_plan_project`) with it.
+#     The count matters because this comment is where an audit of the
+#     child-supplied-URL surface starts, and the first version of it named half.
 #
 # The host pin held only BY COMPOSITION: the anchored extractor ran first and
 # handed its output on. `phase4_fleet_migration.md` requirement 6 moves the URL
@@ -154,7 +158,7 @@ def pr_identity(url: str) -> tuple[str, str]:
     return match.group(1), match.group(2)
 
 
-def pr_number_from_url(url: str) -> str:
+def pr_number_from_url(url: str, *, expected_repo: str | None) -> str:
     """The PR number a child reported, as its caller's handoff key.
 
     Raises rather than returning a sentinel: a parent that cannot identify the
@@ -163,5 +167,34 @@ def pr_number_from_url(url: str) -> str:
 
     HOST-ANCHORED SINCE PHASE 4, via `pr_identity`. It used to be a bare
     `/pull/(\\d+)` search, which accepted `/pull/12` out of any string at all.
+
+    `expected_repo` IS `owner/name` AND HAS NO DEFAULT, for the same reason
+    `exit_record.route`'s `expected_ref` has none: this is the parameter most
+    likely to acquire a convenience default at the next call site, and a keyword
+    defaulting to None is a check that skips itself. Passing None is a caller
+    STATING it cannot check, which is a real answer and a visible one;
+    `test_every_production_caller_of_pr_number_from_url_states_its_expected_repo`
+    is what stops it becoming the quiet default.
+
+    WHY THE REPO HALF IS CHECKED HERE AND NOT LEFT TO THE TYPED RECORD. THIS is
+    the derivation that reaches `gh`. `url` is a CHILD'S stdout — children are
+    instructed to read prior PR comments and bodies, which routinely quote other
+    PRs' URLs, and `extract_pr_url` takes the LAST match. Until Phase 4 this
+    function discarded the owner/repo half outright, so
+    `https://github.com/someone-else/other-repo/pull/12` yielded `"12"`, which
+    then reached `wait_for_ci`, `run_review` and `--pr` on a refine child that
+    checks out and commits to that PR's branch — all with `cwd=repo_root`, i.e.
+    against THIS repository's unrelated PR #12. `exit_record`'s rule R5b cannot
+    see it: R5b's right-hand side is built FROM this number, so a wrong number
+    is compared against itself.
     """
-    return pr_identity(url)[1]
+    repo, number = pr_identity(url)
+    if expected_repo is not None and repo != expected_repo:
+        raise ValueError(
+            f"a child reported a PR URL in {repo!r} while this dispatch is "
+            f"operating in {expected_repo!r}: {url!r}. Refusing to hand "
+            f"#{number} on: the number would be used against THIS repository, "
+            f"so a PR the child merely quoted becomes a PR this dispatch "
+            f"reviews, comments on and commits to."
+        )
+    return number
