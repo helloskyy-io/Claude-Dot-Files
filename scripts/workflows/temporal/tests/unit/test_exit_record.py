@@ -24,11 +24,12 @@ from __future__ import annotations
 import ast
 import json
 import re
+import pathlib
 from pathlib import Path
 
 import pytest
 
-from modules.assistant import exit_record as er
+from modules.assistant.review_pr import exit_record as er
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
 
@@ -36,9 +37,20 @@ from modules.assistant.review_pr import review_pr_helper as helper
 # importing another TEST module for them. Names unchanged, so no call site
 # below moved — see `review_run_fakes` for why the coupling was a defect.
 from review_run_fakes import (  # noqa: E402
+
     EXPECTED_REF, REPO_SLUG, RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record,
     _with_comments,
 )
+
+# ANCHORED ON THIS FILE, NOT ON A MODULE. These were computed as
+# `Path(er.__file__).parents[N]`, which silently shifts by one the moment the
+# module moves — and `exit_record` moved into `review_pr/` on 2026-08-11,
+# offsetting five paths at once. A test file's own location is stable by
+# construction: `tests/unit/<file>.py` is where these live and where they stay.
+_TEMPORAL = pathlib.Path(__file__).resolve().parents[2]      # …/temporal
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]     # the repository
+_ASSISTANT = _TEMPORAL / "modules" / "assistant"
+_MODULES = _TEMPORAL / "modules"
 
 
 def _envelope(record: dict | None = ..., denials: list | None = None) -> dict:
@@ -1054,7 +1066,7 @@ def test_the_typed_vocabulary_is_declared_in_exactly_one_module() -> None:
     typed_only = {m for m in members if m not in {"merge", "hold", "redispatch"}}
     assert typed_only, "the vocabulary lost every member unique to the typed channel"
 
-    modules = Path(er.__file__).resolve().parent
+    modules = _ASSISTANT
     offenders: list[str] = []
     for path in modules.rglob("*.py"):
         if path.name == "exit_record.py" or "tests" in path.parts:
@@ -1514,14 +1526,19 @@ def test_the_shipped_prompt_asks_for_exactly_the_fields_the_parent_reads() -> No
 # second module qualified, and no test could tell. This is the check that makes
 # the omission loud.
 SINGLE_CONSUMER_PARENT_MODULES = {
-    # Phase 3. Dependency-free sibling of `routing.py`; the ONE declaration of
-    # the Kind 2 schema and the fail-safe contract.
-    "exit_record": "phase4_fleet_migration.md step 2, the placement-expiry checkbox",
-    # Phase 5, and the same shape for the same reason: dependency-free, and
-    # loaded BY PATH by `replay_convergence_predicate.py` — an out-of-tree
-    # consumer that rule 3's *workflow* count cannot see.
-    "convergence": "phase4_fleet_migration.md step 2, the placement-expiry checkbox",
+    # Phase 5, and the reason is an OUT-OF-TREE consumer this scan cannot see:
+    # `scripts/helpers/measure/replay_convergence_predicate.py` loads it via
+    # `importlib.util` from its path, because replaying the SHIPPED predicate is
+    # the entire point of that tool and a pinned copy would validate itself.
+    # Rule 3 counts workflow folders; a path-loader is invisible to it, so this
+    # entry records a consumer that exists rather than an exemption.
+    "convergence": "an out-of-tree path-loader; expires if that tool imports normally or is retired",
 }
+
+# `exit_record` WAS here and is gone: Phase 4 migrated no second consumer, its
+# placement-expiry condition fired, and it moved to `review_pr/` on 2026-08-11.
+# It had NO out-of-tree consumer -- checked, unlike the two greps before it that
+# matched docstring prose and nearly produced the opposite answer twice.
 
 
 def _workflow_folder_consumers(module_stem: str, assistant: Path) -> set[str]:
@@ -1619,7 +1636,7 @@ def test_every_parent_level_module_is_shared_or_a_DECLARED_deviation() -> None:
     and this test must not pre-empt it. It rules only that the count and the
     record agree.
     """
-    assistant = Path(er.__file__).resolve().parent
+    assistant = _ASSISTANT
     modules = sorted(p.stem for p in assistant.glob("*.py")
                      if p.name != "__init__.py")
     assert len(modules) >= 3, (
@@ -1936,7 +1953,7 @@ def test_every_production_caller_of_route_states_its_expected_ref() -> None:
     """
     import ast as _ast
 
-    tree_root = Path(er.__file__).resolve().parents[1]      # …/modules
+    tree_root = _MODULES
     callers: list[str] = []
     scanned = 0
     for path in sorted(tree_root.rglob("*.py")):
@@ -2174,6 +2191,8 @@ def test_the_SAME_fixture_fails_when_the_nonce_is_not_echoed(monkeypatch, tmp_pa
     wf = fake.install(monkeypatch, tmp_path)
     with pytest.raises(RuntimeError, match="disagree on findings"):
         wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+
 
 
 def test_the_positional_FALLBACK_says_so_in_the_operator_notes(monkeypatch, tmp_path) -> None:

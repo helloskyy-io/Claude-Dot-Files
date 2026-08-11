@@ -28,7 +28,7 @@ from pathlib import Path
 
 from .. import assistant_activities as _shared
 from .. import convergence
-from .. import exit_record
+from . import exit_record
 from .. import routing
 from . import review_pr_activities as act
 from . import review_pr_helper as helper

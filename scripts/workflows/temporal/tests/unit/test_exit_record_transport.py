@@ -41,7 +41,7 @@ from pathlib import Path
 import pytest
 
 from modules.assistant import assistant_activities as act
-from modules.assistant import exit_record as er
+from modules.assistant.review_pr import exit_record as er
 
 _TESTS = Path(__file__).resolve().parents[1]
 _WORKFLOWS = Path(__file__).resolve().parents[3]      # …/scripts/workflows

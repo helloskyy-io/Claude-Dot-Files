@@ -47,7 +47,7 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 
-from . import routing
+from .. import routing
 
 __all__ = [
     "SCHEMA_VERSION", "SUPPORTED_SCHEMA_VERSIONS", "CHILD_SCHEMA", "SCHEMA_BYTE_BOUND",

@@ -31,7 +31,7 @@ import json
 import re
 from pathlib import Path
 
-from modules.assistant import exit_record as er
+from modules.assistant.review_pr import exit_record as er
 
 
 RUN_ID = "aaaabbbbccccdddd"

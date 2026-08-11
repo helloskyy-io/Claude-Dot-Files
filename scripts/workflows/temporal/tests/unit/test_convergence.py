@@ -26,14 +26,26 @@ from __future__ import annotations
 import ast
 import json
 import re
+import pathlib
 from pathlib import Path
 
 import pytest
 
 from modules.assistant import convergence as cv
-from modules.assistant import exit_record as er
+from modules.assistant.review_pr import exit_record as er
 from modules.assistant import routing
 from modules.assistant.review_pr import review_pr_helper as helper
+
+# ANCHORED ON THIS FILE, NOT ON A MODULE. These were computed as
+# `Path(er.__file__).parents[N]`, which silently shifts by one the moment the
+# module moves — and `exit_record` moved into `review_pr/` on 2026-08-11,
+# offsetting five paths at once. A test file's own location is stable by
+# construction: `tests/unit/<file>.py` is where these live and where they stay.
+_TEMPORAL = pathlib.Path(__file__).resolve().parents[2]      # …/temporal
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[5]     # the repository
+_ASSISTANT = _TEMPORAL / "modules" / "assistant"
+_MODULES = _TEMPORAL / "modules"
+
 
 State = cv.ConvergenceState
 Reason = cv.IndeterminateReason
@@ -783,7 +795,7 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
     # code, and a SIBLING package under `modules/` — `autonomous-operation.md`
     # describes the consumer as "a driver that runs many parent workflows in
     # sequence", i.e. a different parent family entirely.
-    component = Path(er.__file__).resolve().parents[2]
+    component = _TEMPORAL
     roots = [component / "modules", component / "scripts"]
     found: set[tuple[str, str]] = set()
     sites: list[str] = []
@@ -1256,6 +1268,8 @@ def test_the_event_payload_is_DERIVED_from_the_dataclass_not_retyped() -> None:
     """
     from dataclasses import fields as dc_fields
 
+
+
     assessment = cv.assess(
         [_pass(a="hold"), _pass(a="escalated", b="weird")], pass_evaluable=True,
     )
@@ -1344,7 +1358,7 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
     means the opposite of what it computes, and `autonomous-operation.md`
     explicitly tells a future consumer to rely on it.
     """
-    path = Path(er.__file__).resolve().parents[5] / relative_path
+    path = _REPO_ROOT / relative_path
     assert path.exists(), f"{relative_path} moved — the gate reads nothing"
 
     match = _PARTITION.search(path.read_text(encoding="utf-8"))

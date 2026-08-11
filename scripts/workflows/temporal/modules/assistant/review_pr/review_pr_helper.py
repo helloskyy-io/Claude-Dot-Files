@@ -25,7 +25,8 @@ from enum import Enum
 # object has no attribute ...` at import, naming neither the shadowing nor
 # the field. Same `_shared` aliasing idiom the sibling workflow uses.
 from .. import convergence as _convergence
-from .. import exit_record, routing
+from . import exit_record
+from .. import routing
 
 
 Verdict = routing.Verdict
