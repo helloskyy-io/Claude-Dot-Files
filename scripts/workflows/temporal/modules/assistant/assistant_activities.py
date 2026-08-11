@@ -22,11 +22,16 @@ from datetime import datetime
 from pathlib import Path
 
 from . import resource_telemetry
+from . import routing
 
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
 _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"
 
-PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
+# RE-EXPORTED, NOT RE-TYPED — `routing.py` owns the PR-URL address, the same way
+# it owns `parse_verdict`. This module carried a byte-identical anchored copy
+# while a THIRD declaration (`routing.pr_number_from_url`) had no host anchor at
+# all; see `routing.PR_URL` for why the weak one was the one that mattered.
+PR_URL = routing.PR_URL
 
 
 
@@ -239,13 +244,8 @@ def render(template: str, values: dict[str, str], *,
             out = out.replace("${" + k + "}", str(values[k]))
     return out
 
-def extract_pr_url(output: str) -> str | None:
-    """Last PR URL in a run's output — the completion contract's payload.
-
-    Last, not first: a run may mention an existing PR before opening its own.
-    """
-    matches = [m.group(0) for m in PR_URL.finditer(output)]
-    return matches[-1] if matches else None
+# Re-exported under the name this module already published, so no caller moved.
+extract_pr_url = routing.extract_pr_url
 
 
 def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
@@ -652,6 +652,25 @@ def gh_json(args: list[str], repo_root: Path):
             f"gh {' '.join(args)} in {repo_root} exited 0 but did not return JSON: "
             f"{exc}. First 200 bytes of the reply: {raw[:200]!r}"
         ) from exc
+
+
+def repo_slug(repo_root: Path) -> str:
+    """This dispatch's target repository as `owner/name`.
+
+    THE IDENTITY HALF OF THE PR-URL CONTRACT. `--repo` in our CLIs is a
+    FILESYSTEM PATH and `gh` is run with `cwd` set to it, so the slug is never
+    stated anywhere a parent can compare against — which is why a `completion_ref`
+    naming a different repository was, until Phase 4, indistinguishable from a
+    correct one. `gh` resolves it from the checkout's own remote, so the answer
+    is the repository the dispatch is actually operating in rather than one
+    inferred from a task description.
+
+    Raises through `gh` on failure rather than returning None: a parent that
+    cannot name its own repository cannot check that a child stayed inside it,
+    and the fail-safe direction for an unanswerable identity question is loud.
+    """
+    return gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+              repo_root).strip()
 
 
 def pr_branch(pr_number: str, repo_root: Path) -> str:

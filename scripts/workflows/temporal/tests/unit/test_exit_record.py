@@ -36,7 +36,8 @@ from modules.assistant.review_pr import review_pr_helper as helper
 # importing another TEST module for them. Names unchanged, so no call site
 # below moved — see `review_run_fakes` for why the coupling was a defect.
 from review_run_fakes import (  # noqa: E402
-    RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record, _with_comments,
+    EXPECTED_REF, REPO_SLUG, RUN_ID, _FakeWorkflow, _nonce_in, _no_sleep, _record,
+    _with_comments,
 )
 
 
@@ -67,7 +68,7 @@ def test_a_valid_record_routes_as_the_record_says() -> None:
     Without this, a router that returned `undetermined` unconditionally would
     satisfy every other test in this file.
     """
-    routed = er.route(_envelope(), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.MERGE
     assert routed.undetermined_reason is None
     assert routed.outcome is er.Outcome.MERGE
@@ -79,7 +80,8 @@ def test_a_hold_routes_on_its_sub_kind_not_on_hold_alone() -> None:
     for kind, expected in (("redispatch", routing.Verdict.HOLD_REDISPATCH),
                            ("needs_ruling", routing.Verdict.HOLD_NEEDS_ASSISTANCE)):
         routed = er.route(
-            _envelope(_record(outcome="hold", hold_kind=kind)), expected_run_id=RUN_ID
+            _envelope(_record(outcome="hold", hold_kind=kind)),
+            expected_run_id=RUN_ID, expected_ref=EXPECTED_REF,
         )
         assert routed.routed_outcome is er.RoutedOutcome.HOLD
         assert routed.hold_kind is er.HoldKind(kind)
@@ -123,14 +125,14 @@ def test_every_outcome_by_hold_kind_cell_routes_deliberately(
         "the cell must be REACHABLE — a record the schema rejects would be "
         "caught at R3 and would prove nothing about R6-R9"
     )
-    routed = er.route(_envelope(record), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(record), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is expected_route
     assert routed.undetermined_reason is expected_reason
 
 
 def test_record_absent_routes_to_the_human_arm() -> None:
     """R2 — and the run it fires on did not necessarily die."""
-    routed = er.route(_envelope(record=None), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(record=None), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_ABSENT
 
@@ -146,7 +148,7 @@ def test_record_absent_fires_on_a_clean_success_run() -> None:
     clean = {"type": "result", "subtype": "success", "is_error": False,
              "result": "I can't call the tool with that value — could you clarify?",
              "permission_denials": []}
-    routed = er.route(clean, expected_run_id=RUN_ID)
+    routed = er.route(clean, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_ABSENT
 
 
@@ -163,7 +165,7 @@ def test_record_unparseable_routes_to_the_human_arm(mutation: dict) -> None:
     CHILD_SCHEMA and each keyword it implements is a separate branch: one
     passing case would leave three unexercised.
     """
-    routed = er.route(_envelope(_record(**mutation)), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(_record(**mutation)), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_UNPARSEABLE
 
@@ -171,7 +173,7 @@ def test_record_unparseable_routes_to_the_human_arm(mutation: dict) -> None:
 def test_a_missing_required_top_level_field_is_unparseable() -> None:
     record = _record()
     del record["run_id"]
-    routed = er.route(_envelope(record), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(record), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_UNPARSEABLE
 
 
@@ -184,14 +186,14 @@ def test_record_stale_routes_to_the_human_arm() -> None:
     nonce rather than reading one out of the record.
     """
     routed = er.route(_envelope(_record(run_id="a-previous-invocation")),
-                      expected_run_id=RUN_ID)
+                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_STALE
 
 
 def test_unknown_schema_version_routes_to_the_human_arm() -> None:
     """R4 — parses cleanly, means something else."""
-    routed = er.route(_envelope(_record(schema_version="99")), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(_record(schema_version="99")), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.SCHEMA_VERSION_UNKNOWN
 
@@ -204,7 +206,7 @@ def test_an_unknown_version_is_ruled_before_identity() -> None:
     value one may compare. Swap the two rules and this goes red.
     """
     routed = er.route(_envelope(_record(schema_version="99", run_id="other")),
-                      expected_run_id=RUN_ID)
+                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.SCHEMA_VERSION_UNKNOWN
 
 
@@ -222,7 +224,7 @@ def test_a_permission_denial_routes_to_the_human_arm_and_never_to_redispatch() -
     """
     denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo ls /root"}}
-    routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
 
@@ -236,7 +238,7 @@ def test_a_denial_is_ruled_before_an_absent_record() -> None:
     """
     envelope = _envelope(record=None, denials=[{"tool_name": "Bash",
                                                 "tool_use_id": "toolu_01CsEb"}])
-    routed = er.route(envelope, expected_run_id=RUN_ID)
+    routed = er.route(envelope, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
 
 
@@ -249,7 +251,7 @@ def test_an_absent_denials_key_is_not_read_as_an_empty_list() -> None:
     """
     envelope = _envelope()
     del envelope["permission_denials"]
-    routed = er.route(envelope, expected_run_id=RUN_ID)
+    routed = er.route(envelope, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
 
@@ -262,7 +264,7 @@ def test_a_denials_key_that_is_not_a_list_is_unreadable_rather_than_a_denial() -
     not check, and saying it fired would be an assertion about a control that
     was never read.
     """
-    routed = er.route(_envelope(denials={"count": 0}), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(denials={"count": 0}), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
 
@@ -285,8 +287,8 @@ def test_R1s_two_branches_report_DIFFERENT_reasons() -> None:
     del unreadable["permission_denials"]
     fired = _envelope(denials=[{"tool_name": "Bash", "tool_use_id": "toolu_01CsEb"}])
 
-    a = er.route(unreadable, expected_run_id=RUN_ID)
-    b = er.route(fired, expected_run_id=RUN_ID)
+    a = er.route(unreadable, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    b = er.route(fired, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
 
     assert a.routed_outcome is b.routed_outcome is er.RoutedOutcome.UNDETERMINED, (
         "the SPLIT MUST NOT MOVE THE ROUTING — safety still dominates, and both "
@@ -306,7 +308,7 @@ def test_a_denial_entry_that_is_not_an_object_does_not_crash_the_contract() -> N
     inside the routing contract — and the caller's handler does not catch it, so
     the operator would get a traceback instead of a routed record.
     """
-    routed = er.route(_envelope(denials=["Bash"]), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(denials=["Bash"]), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.undetermined_reason is er.UndeterminedReason.PERMISSION_DENIED
     assert len(routed.permission_denials) == 1, "an unreadable entry is still an entry"
 
@@ -343,7 +345,7 @@ NON_CONFORMING = ([], "x", 5, True, 0.5, (), set(), object())
 TOTALITY_PROBES = {
     # `route`'s own parameter. The annotation says `dict | None`; the values
     # below are what actually arrives when a CLI changes the envelope's shape.
-    "route": lambda v: er.route(v, expected_run_id=RUN_ID),
+    "route": lambda v: er.route(v, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF),
     # `_redact`'s parameter is a `list` (R1 guarantees that much), so its own
     # inputs are the ENTRIES — which R1 cannot check. Probing it with a non-list
     # would test a contract it does not make.
@@ -381,13 +383,13 @@ def test_route_bins_an_UNREADABLE_ENVELOPE_apart_from_an_absent_record() -> None
     machinery failure there is (a run killed mid-stream), so a CLI that stopped
     emitting an object would report as a fleet dying mid-stream on 100% of runs.
     """
-    routed = er.route([], expected_run_id=RUN_ID)
+    routed = er.route([], expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.ENVELOPE_UNREADABLE, (
         "an unreadable envelope shares a bin with another condition again — the "
         "computed arm's per-reason rate cannot separate them"
     )
-    assert er.route(None, expected_run_id=RUN_ID).undetermined_reason \
+    assert er.route(None, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF).undetermined_reason \
         is er.UndeterminedReason.RECORD_ABSENT, (
         "negative control: a genuinely absent event must NOT have moved bins"
     )
@@ -442,7 +444,7 @@ def test_no_result_event_at_all_is_an_ABSENT_record_not_a_denial() -> None:
     hunting a denied tool call that never happened and mis-bins every one of
     them in step 4's per-reason rate.
     """
-    routed = er.route(None, expected_run_id=RUN_ID)
+    routed = er.route(None, expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.RECORD_ABSENT
 
@@ -467,7 +469,7 @@ def test_the_residual_arm_is_reachable_and_named() -> None:
     conditionally required by prose, not by the schema, precisely so the child
     can always fill the schema) and matches none of R6-R8.
     """
-    routed = er.route(_envelope(_record(outcome="hold")), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(_record(outcome="hold")), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
     assert routed.undetermined_reason is er.UndeterminedReason.UNMATCHED
 
@@ -489,7 +491,7 @@ def test_tool_input_is_dropped_at_read_time_and_has_no_copy_to_leak() -> None:
     """
     denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo ls /root/.ssh"}}
-    routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID)
+    routed = er.route(_envelope(denials=[denial]), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
     assert routed.permission_denials == (
         {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb"},)
     assert "sudo ls /root/.ssh" not in json.dumps(routed.permission_denials)
@@ -508,7 +510,7 @@ def test_a_denial_field_that_is_not_a_string_does_not_crash_the_CONSUMER() -> No
     """
     routed = er.route(
         _envelope(denials=[{"tool_name": {"nested": "dict"}, "tool_use_id": 7}]),
-        expected_run_id=RUN_ID,
+        expected_run_id=RUN_ID, expected_ref=EXPECTED_REF,
     )
     assert all(isinstance(v, str) for d in routed.permission_denials for v in d.values())
     # The two operations the consumer actually performs, run here rather than described.
@@ -619,16 +621,29 @@ def test_the_log_is_NAMED_with_the_nonce_the_parent_issued(monkeypatch, tmp_path
     )
 
 
-def test_the_shadow_comparison_actually_fires(monkeypatch, tmp_path) -> None:
-    """Mutate the typed record so the two channels disagree; assert the failure.
+def test_the_shadow_comparison_actually_fires(monkeypatch, tmp_path, capsys) -> None:
+    """Mutate the typed record so the two channels disagree; assert it is SURFACED.
 
     This is the test the requirement names explicitly, and it is the one that
     proves the shadow is a protection rather than a decoration.
+
+    IT ASSERTS THE SIGNAL, NOT A RAISE — ruled 2026-08-11. The comparison used
+    to throw, and the throw destroyed completed reviews at a measured 2-in-8
+    rate with the channels agreeing about the review in BOTH firings. The
+    protection was never the exception; it is that the divergence is impossible
+    to miss and is durably recorded. So this asserts the run SURVIVES, the
+    banner is emitted, and `channels_agree` is false in the log — a test that
+    demanded the raise would re-introduce the defect the moment someone made it
+    pass.
     """
-    with pytest.raises(RuntimeError, match="exit-record disagreement"):
-        _review(monkeypatch, tmp_path,
-                _record(run_id="@ISSUED@", outcome="hold", hold_kind="redispatch"),
-                "VERDICT: MERGE\n")
+    result = _review(monkeypatch, tmp_path,
+                     _record(run_id="@ISSUED@", outcome="hold", hold_kind="redispatch"),
+                     "VERDICT: MERGE\n")
+
+    banner = capsys.readouterr().out
+    assert "CHANNEL DIVERGENCE" in banner, "a divergence must be impossible to miss"
+    assert "RECORDED, NOT FATAL" in banner
+    assert result is not None, "the review must survive a divergence, not be destroyed by it"
 
 
 def test_an_absent_record_against_a_confident_prose_merge_fails_loud(monkeypatch, tmp_path) -> None:
@@ -649,15 +664,31 @@ def test_a_stale_record_is_caught_even_though_it_is_well_formed(monkeypatch, tmp
                 _record(run_id="0" * 32), "VERDICT: MERGE\n")
 
 
-def test_a_denial_is_surfaced_without_its_command_line(monkeypatch, tmp_path) -> None:
-    """R1 end to end, with the redaction holding across the whole path."""
+def test_a_denial_is_surfaced_without_its_command_line(monkeypatch, tmp_path, capsys) -> None:
+    """R1 end to end, with the redaction holding across the whole path.
+
+    ASSERTS THE PROPERTY, NOT THE MECHANISM. This required a RuntimeError until
+    2026-08-11, when a `permission_denied` divergence was demoted from a raise
+    to a loud note — the raise was destroying completed reviews at a measured
+    2-in-8 rate. **Requirement 5 is unchanged and is what this guards**:
+    `permission_denials[]` is surfaced on EVERY run regardless of any routing
+    ruling, and the command line never travels with it. Both halves must hold
+    on whichever channel carries the news, so this reads the operator-facing
+    output rather than an exception type.
+    """
     denial = {"tool_name": "Bash", "tool_use_id": "toolu_01CsEb",
               "tool_input": {"command": "sudo cat /etc/shadow"}}
-    with pytest.raises(RuntimeError) as excinfo:
-        _review(monkeypatch, tmp_path, _record(run_id="@ISSUED@"),
-                "VERDICT: MERGE\n", denials=[denial])
-    assert "permission_denied" in str(excinfo.value)
-    assert "/etc/shadow" not in str(excinfo.value)
+
+    _review(monkeypatch, tmp_path, _record(run_id="@ISSUED@"),
+            "VERDICT: MERGE\n", denials=[denial])
+
+    surfaced = capsys.readouterr().out
+    assert "permission_denied" in surfaced, (
+        "requirement 5: a denial must reach the operator on every run"
+    )
+    assert "/etc/shadow" not in surfaced, (
+        "the denied command line must never travel with the denial"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1072,7 +1103,7 @@ def test_count_prior_passes_no_longer_counts_a_mention(monkeypatch, tmp_path) ->
     assert act.count_prior_passes("66", tmp_path) == 1
 
 
-def test_latest_pr_review_block_takes_the_LAST_one(monkeypatch, tmp_path) -> None:
+def test_the_window_reader_puts_the_LAST_block_LAST(monkeypatch, tmp_path) -> None:
     """§6.2's ordering rule: comment creation order, last wins.
 
     A correction pass reading the FIRST block would reconcile against a
@@ -1083,11 +1114,11 @@ def test_latest_pr_review_block_takes_the_LAST_one(monkeypatch, tmp_path) -> Non
         "unrelated chatter mentioning pr_review: in passing",
         "```yaml\npr_review:\n  pass: 2\n  findings:\n    - id: new\n```",
     ])
-    block = act.latest_pr_review_block("66", tmp_path)
+    block = act.pr_review_blocks("66", tmp_path)[-1]
     assert helper.finding_ids_in_block(block) == frozenset({"new"})
 
 
-def test_latest_pr_review_block_takes_the_LAST_one_WITHIN_a_comment_too(
+def test_the_window_reader_takes_the_LAST_block_WITHIN_a_comment_too(
     monkeypatch, tmp_path,
 ) -> None:
     """LAST WINS is a property of blocks, and the comment is not the unit.
@@ -1113,16 +1144,16 @@ def test_latest_pr_review_block_takes_the_LAST_one_WITHIN_a_comment_too(
         "This pass:\n\n"
         "```yaml\npr_review:\n  pass: 2\n  findings:\n    - id: new\n```",
     ])
-    block = act.latest_pr_review_block("66", tmp_path)
+    block = act.pr_review_blocks("66", tmp_path)[-1]
     assert helper.finding_ids_in_block(block) == frozenset({"new"})
 
 
 def test_count_prior_passes_counts_COMMENTS_even_when_one_quotes_another(
     monkeypatch, tmp_path,
 ) -> None:
-    """The asymmetry with `latest_pr_review_block`, asserted so it survives.
+    """The asymmetry with the WINDOW reader, asserted so it survives.
 
-    That function moved to `finditer` because it selects a BLOCK. This one must
+    That one moved to `finditer` because it selects BLOCKS. This one must
     NOT: it counts PASSES, one pass posts one comment however many blocks it
     quotes, and `review_pr_workflow`'s `posted <= prior_pass` delta reads it. A
     tidying edit that made the two symmetric would count the quoting comment
@@ -1140,10 +1171,10 @@ def test_count_prior_passes_counts_COMMENTS_even_when_one_quotes_another(
     )
 
 
-def test_latest_pr_review_block_is_None_on_a_fresh_pr(monkeypatch, tmp_path) -> None:
+def test_the_window_is_EMPTY_on_a_fresh_pr(monkeypatch, tmp_path) -> None:
     """Negative control: a thread of mentions is a thread with no record."""
     act = _with_comments(monkeypatch, ["no block here", "pr_review: mentioned only"])
-    assert act.latest_pr_review_block("66", tmp_path) is None
+    assert act.pr_review_blocks("66", tmp_path) == []
 
 
 def test_the_archive_shape_that_produced_the_wrong_pass_number() -> None:
@@ -1204,6 +1235,19 @@ SHARED_KIND_ONE_PATTERNS = (
 REPLAY_ONLY_PATTERNS = frozenset({
     "PASS", "ATTEMPT", "VERDICT",                 # block-level measurement fields
     "CATEGORY",                                   # finding-level, measurement only
+})
+
+# The mirror of the set above, and it exists for the same reason: a regex that
+# is genuinely one-sided must be DECLARED one-sided, or the enumeration gate
+# below cannot tell it from one somebody forgot to pair.
+HELPER_ONLY_PATTERNS = frozenset({
+    # Phase 4's run nonce in the durable block. One-sided because
+    # `replay_pr_review_blocks` has no consumer for it — it measures the archive,
+    # where no block carries the field, and it never has to answer "which of
+    # these is THIS pass's" because it is not inside a pass. The moment that
+    # tool acquires a reader, this belongs in the paired table above and this
+    # entry is what has to be deleted to put it there.
+    "RUN_ID_IN_BLOCK",
 })
 
 
@@ -1290,11 +1334,12 @@ def test_the_shared_parse_ENUMERATION_is_complete() -> None:
     helper_patterns = {n for n, v in vars(helper).items() if isinstance(v, re.Pattern)}
     replay_patterns = {n for n, v in vars(module).items() if isinstance(v, re.Pattern)}
 
-    assert helper_patterns == helper_gated, (
-        f"review_pr_helper's regexes are no longer exactly the gated set — "
-        f"ungated: {sorted(helper_patterns - helper_gated)}, "
-        f"stale rows: {sorted(helper_gated - helper_patterns)}. Add the pair to "
-        f"SHARED_KIND_ONE_PATTERNS, or state why it is one-sided."
+    assert helper_patterns == helper_gated | HELPER_ONLY_PATTERNS, (
+        f"review_pr_helper's regexes are no longer exactly the gated set plus "
+        f"the declared one-sided ones — ungated: "
+        f"{sorted(helper_patterns - helper_gated - HELPER_ONLY_PATTERNS)}, "
+        f"stale: {sorted((helper_gated | HELPER_ONLY_PATTERNS) - helper_patterns)}. "
+        f"Add the pair to SHARED_KIND_ONE_PATTERNS, or state why it is one-sided."
     )
     assert replay_patterns == replay_gated | REPLAY_ONLY_PATTERNS, (
         f"replay_pr_review_blocks' regexes are no longer exactly the gated set "
@@ -1602,3 +1647,587 @@ def test_every_parent_level_module_is_shared_or_a_DECLARED_deviation() -> None:
                 f"{module} has {sorted(counts[module])} consumers — the import "
                 f"scan is not finding them"
             )
+
+
+# ---------------------------------------------------------------------------
+# R5b — REFERENCE IDENTITY. `phase4_fleet_migration.md` requirement 6: the PR URL
+# survives the migration as a VALIDATED field, and the validation is an IDENTITY
+# check rather than a shape check.
+# ---------------------------------------------------------------------------
+
+def test_a_record_naming_another_REPOSITORY_routes_to_the_human_arm() -> None:
+    """The threat requirement 6 actually names, and the anchored pattern's blind spot.
+
+    `https://github\\.com/[^\\s)]+/pull/(\\d+)`'s `[^\\s)]+` IS the owner/repo
+    segment, so this URL passes it and yields `12`. That number then reaches
+    `gh pr view`, `gh pr comment` and `--pr` on a downstream child that checks
+    out and commits to that PR's branch — in a repository this dispatch was
+    never pointed at. No adversarial child is needed: children are instructed to
+    read prior PR comments, which routinely carry other PRs' URLs.
+    """
+    elsewhere = _record(completion_ref={
+        "substrate": "github", "kind": "pull", "id": "67",
+        "uri": "https://github.com/someone-else/other-repo/pull/67",
+    })
+    routed = er.route(_envelope(elsewhere), expected_run_id=RUN_ID,
+                      expected_ref=EXPECTED_REF)
+    assert routed.routed_outcome is er.RoutedOutcome.UNDETERMINED
+    assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH
+
+
+def test_a_record_naming_another_PR_IN_THIS_REPO_routes_to_the_human_arm() -> None:
+    """Same repo, wrong PR — the half a repo-only check would miss.
+
+    A comparison that only pinned the owner/repo would accept a review attached
+    to a different PR of ours, which is the more likely accident: the child is
+    reading THIS repo's comment threads.
+    """
+    other_pr = _record(completion_ref={
+        "substrate": "github", "kind": "pull", "id": "99",
+        "uri": "https://github.com/owner/repo/pull/99",
+    })
+    routed = er.route(_envelope(other_pr), expected_run_id=RUN_ID,
+                      expected_ref=EXPECTED_REF)
+    assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH
+
+
+@pytest.mark.parametrize("field,wrong", [
+    ("id", "99"),
+    ("kind", "issue"),
+    # `substrate` is NOT here, and that is a statement rather than an omission:
+    # `CHILD_SCHEMA` closes its enum at `github`, so a wrong substrate is caught
+    # by R3 as unparseable before R5b sees it. Listing it would assert the wrong
+    # reason and hide which rule is actually doing the work.
+])
+def test_EACH_reference_field_is_compared_on_its_own(field: str, wrong: str) -> None:
+    """MEASURED GAP, not a completeness ritual — the `id` comparison had no test.
+
+    Mutating `_ref_matches` to compare only `substrate` and `kind` was predicted
+    to turn two tests red and turned NONE red: every mismatch fixture moved the
+    `id` and the `uri` together, so the `uri` comparison caught all of them and
+    the `id` comparison was doing nothing observable.
+
+    That is not academic. `completion_ref.id` is what the parent would hand to
+    `gh` if a later consumer read the field directly instead of re-parsing the
+    uri, and a record whose `id` and `uri` disagree with EACH OTHER is precisely
+    the shape a model produces when it copies one of the two from a comment
+    body. Each field is now moved alone, so each comparison has a test that
+    fails when it is removed.
+    """
+    ref = dict(EXPECTED_REF)
+    ref[field] = wrong
+    routed = er.route(_envelope(_record(completion_ref=ref)),
+                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH, (
+        f"a record whose completion_ref.{field} is {wrong!r} while every other "
+        f"field matches routed as though it were the record this run is about"
+    )
+
+
+def test_a_matching_reference_routes_NORMALLY() -> None:
+    """The control. Without it a router that returned UNDETERMINED on every
+    record would pass both tests above."""
+    routed = er.route(_envelope(), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    assert routed.routed_outcome is er.RoutedOutcome.MERGE
+    assert routed.undetermined_reason is None
+
+
+@pytest.mark.parametrize("uri", [
+    "https://github.com/owner/repo/pull/67/",
+    "https://github.com/owner/repo/pull/67/files",
+    "see https://github.com/owner/repo/pull/67 — the PR under review",
+])
+def test_the_uri_compares_by_IDENTITY_and_not_byte_for_byte(uri: str) -> None:
+    """A guard that fails on correct input is not a guard.
+
+    A trailing slash, a `/files` suffix or a sentence around it are the SAME
+    PULL REQUEST. Byte equality would route a correct, already-posted review to
+    a human over formatting — and the cost of that is a ~40-minute review at
+    real budget plus an operator's attention, spent on nothing.
+    """
+    routed = er.route(_envelope(_record(completion_ref={
+        "substrate": "github", "kind": "pull", "id": "67", "uri": uri,
+    })), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    assert routed.routed_outcome is er.RoutedOutcome.MERGE, (
+        f"{uri!r} names the PR under review and was rejected on formatting"
+    )
+
+
+def test_a_uri_that_is_not_a_pr_url_at_all_routes_to_the_human_arm() -> None:
+    """FAIL-SAFE WHEN IT CANNOT PARSE, which is the direction the contract takes
+    everywhere else. An unparseable reference is not a matching one."""
+    routed = er.route(_envelope(_record(completion_ref={
+        "substrate": "github", "kind": "pull", "id": "67", "uri": "not a url",
+    })), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    assert routed.undetermined_reason is er.UndeterminedReason.COMPLETION_REF_MISMATCH
+
+
+def test_staleness_is_ruled_BEFORE_reference_identity() -> None:
+    """R5 before R5b, and the two reasons must not share a bin.
+
+    They answer different questions — *from which invocation* versus *about
+    which record* — and the computed arm's instrument is `undetermined` GROUPED
+    BY the reason. A record from a previous invocation of the SAME PR is a
+    worktree-skew problem; one from this invocation naming ANOTHER PR is a child
+    that attached its review to the wrong thing. Sending an operator to the
+    wrong one of those is the whole cost of a shared bin, which this enum
+    already argues three times.
+    """
+    both_wrong = _record(run_id="a-previous-invocation", completion_ref={
+        "substrate": "github", "kind": "pull", "id": "99",
+        "uri": "https://github.com/someone-else/other-repo/pull/99",
+    })
+    routed = er.route(_envelope(both_wrong), expected_run_id=RUN_ID,
+                      expected_ref=EXPECTED_REF)
+    assert routed.undetermined_reason is er.UndeterminedReason.RECORD_STALE, (
+        "a record whose identity is unknown has no reference worth comparing"
+    )
+
+
+def test_the_mismatch_carries_the_ref_the_child_NAMED() -> None:
+    """The payload an operator acts on. Knowing that R5b fired says the machinery
+    stopped something; knowing WHICH record the child attached itself to is what
+    tells them whether a wrong PR was nearly written to."""
+    elsewhere = {"substrate": "github", "kind": "pull", "id": "67",
+                 "uri": "https://github.com/someone-else/other-repo/pull/67"}
+    routed = er.route(_envelope(_record(completion_ref=elsewhere)),
+                      expected_run_id=RUN_ID, expected_ref=EXPECTED_REF)
+    assert routed.completion_ref == elsewhere
+    note = helper.completion_ref_mismatch_note(routed, EXPECTED_REF)
+    assert note is not None and "someone-else/other-repo" in note
+    assert helper.completion_ref_mismatch_note(
+        er.route(_envelope(), expected_run_id=RUN_ID, expected_ref=EXPECTED_REF),
+        EXPECTED_REF,
+    ) is None, "the note must be silent when R5b did not fire"
+
+
+def test_the_R5b_payload_REACHES_AN_OPERATOR_on_the_case_R5b_is_FOR(
+        monkeypatch, tmp_path) -> None:
+    """THE ORDERING, as a property. Every other R5b test calls `route()` or the
+    note helper directly, and all of them were green while the note was
+    unreachable in the one scenario it was written for.
+
+    The scenario: a child attaches its review to a FOREIGN record and prints
+    `VERDICT: MERGE`. R5b routes `undetermined`, which collapses to
+    `HOLD - needs-assistance`, so the prose channel disagrees and `run_review`
+    RAISES — above the notes block where the note used to be built. The
+    operator got "could not be evaluated" and never the two references.
+    """
+    elsewhere = {"substrate": "github", "kind": "pull", "id": "67",
+                 "uri": "https://github.com/someone-else/other-repo/pull/67"}
+    with pytest.raises(RuntimeError) as exc:
+        _review(monkeypatch, tmp_path,
+                _record(run_id="@ISSUED@", completion_ref=elsewhere),
+                "VERDICT: MERGE\n")
+    message = str(exc.value)
+    assert "completion_ref_mismatch" in message, "the raise did not come from R5b"
+    assert "someone-else/other-repo" in message, (
+        "the operator was told the channels disagreed and NOT which record the "
+        "child attached itself to — the whole payload of R5b, lost to ordering"
+    )
+
+
+# The module-level functions `review_pr_workflow` carries, as an EXACT SET.
+# Its docstring records a STATED DEVIATION — pure `ExitRecord`/assessment-to-
+# string logic living in the orchestration layer, deferred on the trigger
+# `phase4_fleet_migration.md` step 2 names — and the docstring's own count is
+# what is supposed to make "extract three and leave two" unavailable.
+_WORKFLOW_MODULE_FUNCTIONS = {
+    "assemble_prompt",              # prompt assembly, not record-to-string
+    "run_review",                   # the orchestration itself
+    "_convergence_event",           # Phase 5, deferred
+    "_convergence_notes",           # Phase 5, deferred
+    "_read_thread_for_invariant",   # an activity call with a retry, not pure
+    "_thread_unreadable_note",      # Phase 3, deferred
+    "_assert_block_matches_record",  # Phase 3, deferred
+}
+
+
+def test_the_workflow_layers_DEFERRED_SET_is_a_test_and_not_a_docstring_count() -> None:
+    """A COUNT IN PROSE IS NOT A TRIGGER, which this repo has now measured twice.
+
+    `review_pr_workflow`'s docstring names FIVE deferred pure functions so that
+    the extraction, when its trigger fires, is atomic. Nothing enforced that: a
+    sixth site added inline would not appear in the count, and the extraction
+    would move five and leave one — which is the exact failure the count exists
+    to prevent, and it nearly happened in Phase 4 (the positional-fallback note
+    shipped inline before being moved into the helper).
+
+    The same shape as `SINGLE_CONSUMER_PARENT_MODULES`: an EXACT SET, failing in
+    both directions. A new function here must be a deliberate edit to this set,
+    at which point whoever adds it decides whether it belongs in the helper.
+    """
+    import ast as _ast
+
+    from modules.assistant.review_pr import review_pr_workflow as _wf
+    path = Path(_wf.__file__)
+    parsed = _ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    present = {n.name for n in parsed.body
+               if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))}
+    assert present == _WORKFLOW_MODULE_FUNCTIONS, (
+        f"the workflow layer's function set moved: "
+        f"added {sorted(present - _WORKFLOW_MODULE_FUNCTIONS)}, "
+        f"removed {sorted(_WORKFLOW_MODULE_FUNCTIONS - present)}. If this is a "
+        f"new pure record-to-string function, it belongs in `review_pr_helper` "
+        f"— see the docstring's stated deviation and step 2's trigger. If it is "
+        f"genuinely orchestration, add it here with a one-line reason."
+    )
+
+
+def test_the_parents_OWN_reference_is_validated_when_it_is_BUILT() -> None:
+    """An unparseable EXPECTED ref is a PARENT fault and must not wear the
+    child's label.
+
+    `expected_completion_ref` interpolates `repo_slug` unchecked, so an empty or
+    unexpected `gh repo view` reply yields `https://github.com//pull/67`, which
+    `routing.PR_URL` correctly refuses. Without this check that parent-side bug
+    reaches `_ref_matches`, fails to parse, returns False, and routes EVERY run
+    of the dispatch to the human arm as `completion_ref_mismatch` — reporting
+    the parent's own bug as the child naming a different record, which is the
+    shared-bin defect `UndeterminedReason` argues against three times.
+    """
+    with pytest.raises(ValueError, match="not a github PR URL"):
+        helper.expected_completion_ref("67", "")
+    # The ceiling: a real slug still builds, and builds what R5b compares against.
+    assert helper.expected_completion_ref("67", "owner/repo") == EXPECTED_REF
+
+
+def test_expected_ref_None_states_that_the_caller_CANNOT_check() -> None:
+    """`None` is a caller with no reference, not a caller opting out quietly.
+
+    The parameter has no default precisely so this is written at the call site,
+    and the gate below is what keeps the production caller from becoming one of
+    these by accident.
+    """
+    elsewhere = _record(completion_ref={
+        "substrate": "github", "kind": "pull", "id": "99",
+        "uri": "https://github.com/someone-else/other-repo/pull/99",
+    })
+    routed = er.route(_envelope(elsewhere), expected_run_id=RUN_ID, expected_ref=None)
+    assert routed.routed_outcome is er.RoutedOutcome.MERGE
+
+
+def test_route_cannot_be_called_without_STATING_an_expected_ref() -> None:
+    """A keyword with a default of None is a check that skips itself.
+
+    Every rule in `exit_record` exists because a check that skips itself is
+    indistinguishable from one that passed, and this parameter is the one most
+    likely to acquire a convenience default at the second call site.
+    """
+    import inspect
+
+    param = inspect.signature(er.route).parameters["expected_ref"]
+    assert param.default is inspect.Parameter.empty, (
+        "`expected_ref` acquired a default — a caller that cannot check identity "
+        "must SAY SO at the call site, which is the only thing that makes the "
+        "gate below meaningful"
+    )
+    with pytest.raises(TypeError):
+        er.route(_envelope(), expected_run_id=RUN_ID)
+
+
+def test_every_production_caller_of_route_states_its_expected_ref() -> None:
+    """And the one that exists passes a real one, not None.
+
+    THE GATE IS ON THE TREE, so a second parent added by a later phase fails
+    here rather than silently inheriting the unchecked path. Phase 4's own
+    ruling defers the other nine children, which is exactly the condition under
+    which a rule with one caller rots unnoticed.
+    """
+    import ast as _ast
+
+    tree_root = Path(er.__file__).resolve().parents[1]      # …/modules
+    callers: list[str] = []
+    scanned = 0
+    for path in sorted(tree_root.rglob("*.py")):
+        scanned += 1
+        parsed = _ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in _ast.walk(parsed):
+            if not (isinstance(node, _ast.Call)
+                    and isinstance(node.func, _ast.Attribute)
+                    and node.func.attr == "route"):
+                continue
+            kwargs = {k.arg: k.value for k in node.keywords}
+            assert "expected_ref" in kwargs, (
+                f"{path.name}:{node.lineno} calls route() without stating an "
+                f"expected_ref — the parameter has no default, so this is a "
+                f"positional call that will break, or a different `route`"
+            )
+            value = kwargs["expected_ref"]
+            assert not (isinstance(value, _ast.Constant) and value.value is None), (
+                f"{path.name}:{node.lineno} passes expected_ref=None. A parent "
+                f"that dispatched against a PR knows which one; passing None "
+                f"there disables rule R5b for the only caller that has it."
+            )
+            callers.append(f"{path.name}:{node.lineno}")
+
+    assert scanned > 20, f"the scan visited only {scanned} files — it read nothing"
+    assert callers, "no production caller of route() was found — the scan is blind"
+
+
+# ---------------------------------------------------------------------------
+# The prompt is part of the conformance surface — requirement 3, the half that
+# is about the DURABLE block rather than the typed record.
+# ---------------------------------------------------------------------------
+
+def _disposition_prompt() -> str:
+    return (Path(helper.__file__).resolve().parent / "prompts" / "disposition.md").read_text()
+
+
+def test_the_prompt_asks_for_the_run_nonce_the_parent_matches_blocks_BY() -> None:
+    """A parser and a prompt are two artifacts, and this one binds them.
+
+    `RUN_ID_IN_BLOCK` is shape-pinned to 32 lowercase hex characters. The prompt
+    tells the child to copy `${RUN_ID}` verbatim and unquoted. If either moves —
+    the prompt starts asking for it quoted, or the parent starts issuing a
+    different nonce shape — nothing raises: the match simply never happens, the
+    selection falls back to position, and the property this phase added goes
+    quietly back to what it replaced.
+    """
+    prompt = _disposition_prompt()
+    assert re.search(r"^\s*run_id:\s*\$\{RUN_ID\}", prompt, re.MULTILINE), (
+        "the durable `pr_review:` block spec no longer asks for `run_id`; the "
+        "parent's block selection has nothing to match on"
+    )
+    # The rendered article, matched by the shipped parser — not a hand-written
+    # example of what it might look like.
+    rendered = helper.render_prompt(
+        prompt, pr_number="67", pr_branch="b", this_pass=1, prior_pass=0,
+        headless_guard="g", run_id="0123456789abcdef0123456789abcdef",
+    )
+    assert helper.run_id_in_block(rendered) == "0123456789abcdef0123456789abcdef", (
+        "the prompt's rendered `run_id:` line is not what RUN_ID_IN_BLOCK reads"
+    )
+
+
+def test_the_prompt_never_points_at_a_STAGE_THAT_DOES_NOT_EXIST() -> None:
+    """The 6a/6b defect class, as a check rather than as a memory.
+
+    `fb85c3e` swapped Stage 6's two halves — the verdict prints first, because a
+    tool call is terminal and a run died having emitted the record and never
+    printed its verdict. Two cross-references were not swapped with it: Stage 5
+    told the child the record is emitted "in Stage 6a" (it is 6b), and 6a's own
+    body said the verdict "must correspond to 6a" — pointing at itself. Both
+    were live in the shipped prompt for a day.
+
+    Neither is catchable by reading, and neither is loud: the child follows the
+    surrounding instruction and the stale pointer just quietly stops meaning
+    anything. This asserts every `Stage <n>` / `<n><letter>` reference resolves
+    to a heading the file actually has.
+    """
+    prompt = _disposition_prompt()
+    headings = set(re.findall(r"^#+\s*Stage (\d+[a-z]?)", prompt, re.MULTILINE))
+    headings |= set(re.findall(r"^#+\s*(\d+[a-z])\s+—", prompt, re.MULTILINE))
+    assert len(headings) >= 6, (
+        f"only {sorted(headings)} parsed as stage headings — the gate is "
+        f"reporting on a document it did not read"
+    )
+    referenced = set(re.findall(r"\bStage (\d+[a-z]?)\b", prompt))
+    dangling = referenced - headings
+    assert dangling == set(), (
+        f"the prompt points at stage(s) {sorted(dangling)} that it does not "
+        f"contain. Headings present: {sorted(headings)}."
+    )
+
+
+def test_the_stage_reference_check_can_FAIL() -> None:
+    """Verified negative control for the DANGLING half.
+
+    ITS FIXTURE IS ITS OWN, not the live prompt with one phrase swapped. The
+    first version mutated a sentence out of `disposition.md`; a mutation run
+    then edited that same sentence for a DIFFERENT control and turned this test
+    red as collateral — one extra failure that looked like a second guard firing
+    and was a fixture coupling. A control whose input can be changed by an
+    unrelated edit reports on the edit rather than on the property.
+    """
+    fixture = (
+        "## Stage 6: PRINT THEN EMIT\n"
+        "### 6a — Print the verdict line\n"
+        "correspond to the record you emit at Stage 6c\n"
+        "### 6b — Call the tool\n"
+    )
+    headings = set(re.findall(r"^#+\s*Stage (\d+[a-z]?)", fixture, re.MULTILINE))
+    headings |= set(re.findall(r"^#+\s*(\d+[a-z])\s+—", fixture, re.MULTILINE))
+    referenced = set(re.findall(r"\bStage (\d+[a-z]?)\b", fixture))
+    assert headings == {"6", "6a", "6b"}, headings
+    assert referenced - headings == {"6c"}, (
+        "the stage-reference check does not see a dangling reference"
+    )
+
+
+# Which sub-stage of Stage 6 owns which channel, identified by the thing it
+# instructs rather than by its number — which is the point, since the numbers
+# swapped. A reference to "the record you emit in Stage <n>" must name the stage
+# that instructs the tool call; a reference to the verdict must name the other.
+_STAGE_6_OWNERS = (
+    ("StructuredOutput", "the typed record"),
+    ("VERDICT: MERGE", "the verdict line"),
+)
+
+
+def _stage_6_sections() -> dict[str, str]:
+    """`{"6a": body, "6b": body}` from the shipped prompt."""
+    stage_6 = _disposition_prompt().split("## Stage 6:")[1].split("\n## ")[0]
+    parts = re.split(r"^### (\d+[a-z]) —", stage_6, flags=re.MULTILINE)
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
+def test_no_sub_stage_of_stage_6_POINTS_AT_ITSELF() -> None:
+    """The defect that actually shipped, and the dangling check cannot see it.
+
+    `fb85c3e` swapped 6a and 6b. Two cross-references did not move with it, and
+    NEITHER was dangling — both named a stage that exists:
+
+      * 6a's body said the verdict "must correspond to 6a", pointing at itself;
+      * Stage 5 said the record is emitted "in Stage 6a", which is now 6b.
+
+    A gate on unresolvable references is green on both. So this one is on the
+    RELATION: a sub-stage may not cite itself, because the only reason to cite a
+    stage from inside a stage is to point at the other channel.
+    """
+    offenders = [
+        f"{name} cites itself" for name, body in _stage_6_sections().items()
+        if re.search(rf"\b(?:Stage )?{name}\b", body)
+    ]
+    assert offenders == [], (
+        f"{offenders} — a sub-stage citing its own number is the shape that "
+        f"shipped when 6a and 6b were swapped: the sentence still reads as an "
+        f"instruction and points at nothing useful"
+    )
+
+
+@pytest.mark.parametrize("marker,what", _STAGE_6_OWNERS)
+def test_a_cross_channel_reference_names_the_stage_that_OWNS_that_channel(
+    marker: str, what: str,
+) -> None:
+    """Bound to what each stage INSTRUCTS, not to its number — the numbers moved.
+
+    This is the check that would have caught Stage 5's *"the typed exit record
+    you emit in Stage 6a"* on the day `fb85c3e` landed: 6a stopped being the
+    stage that instructs the tool call, and nothing said so.
+    """
+    sections = _stage_6_sections()
+    owners = [name for name, body in sections.items() if marker in body]
+    assert len(owners) == 1, (
+        f"{marker!r} appears in {owners or 'no'} sub-stage(s) of Stage 6 — the "
+        f"gate cannot say which one owns {what}"
+    )
+    owner = owners[0]
+    prompt = _disposition_prompt()
+    if what == "the typed record":
+        cited = set(re.findall(r"typed exit record you emit in Stage (\d+[a-z])", prompt))
+        assert cited <= {owner}, (
+            f"the prompt says the record is emitted in Stage {sorted(cited)} "
+            f"while Stage {owner} is the one that instructs the tool call"
+        )
+
+
+# ---------------------------------------------------------------------------
+# The run nonce, end to end — `phase4_fleet_migration.md` step 2's third
+# checkbox: select this pass's block by identity rather than by position.
+# ---------------------------------------------------------------------------
+
+def test_a_later_foreign_block_does_NOT_become_this_passs_block(monkeypatch, tmp_path) -> None:
+    """THE RACE THE NONCE CLOSES, and the reason it needed a schema field.
+
+    A third party posting a fenced `pr_review:` example between the child's
+    comment and the parent's read is not a pass. Under positional selection the
+    parent takes the LAST block, compares this pass's typed record against the
+    stranger's findings, and hard-fails a review that is already posted and
+    already routed — a ~40-minute run at real budget destroyed by someone else's
+    comment. Ordering could never see the difference; the nonce can.
+
+    The foreign block carries a DIFFERENT finding set on purpose. Were it
+    identical, the invariant would pass under both selections and the fixture
+    would be symmetric under the defect — proving nothing.
+    """
+    foreign = ("pr_review:\n  pr: 67\n  findings:\n"
+               "    - id: someone-elses-finding\n      disposition: hold\n")
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
+                         block_carries_nonce=True, after_blocks=(foreign,))
+    wf = fake.install(monkeypatch, tmp_path)
+    result = wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    assert result.verdict is routing.Verdict.MERGE
+    assert not any("selected BY POSITION" in n for n in result.notes), (
+        "the block carried the nonce and the parent still fell back to position"
+    )
+
+
+def test_the_SAME_fixture_fails_when_the_nonce_is_not_echoed(monkeypatch, tmp_path) -> None:
+    """The discriminator for the test above — one variable changed, nothing else.
+
+    Identical thread, identical record, identical prose. The only difference is
+    that this pass's durable block does not carry the nonce, so the selection
+    falls back to position and picks the stranger's block. The invariant then
+    raises on a finding set that was never this pass's.
+
+    Predicted before running: exactly this one test goes red if the fallback is
+    removed, and exactly the test above goes red if the nonce match is removed.
+    """
+    foreign = ("pr_review:\n  pr: 67\n  findings:\n"
+               "    - id: someone-elses-finding\n      disposition: hold\n")
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "VERDICT: MERGE\n",
+                         block_carries_nonce=False, after_blocks=(foreign,))
+    wf = fake.install(monkeypatch, tmp_path)
+    with pytest.raises(RuntimeError, match="disagree on findings"):
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+
+def test_the_positional_FALLBACK_says_so_in_the_operator_notes(monkeypatch, tmp_path) -> None:
+    """A check that quietly stopped checking is indistinguishable from one that held.
+
+    Every block in the archive predates the nonce, so the fallback is the shape
+    a mid-thread PR hits at merge and it must not be silent. This is the
+    ordinary pre-Phase-4 thread: one block, no nonce, correct findings — the
+    review completes, and the note names the degradation.
+    """
+    result = _review(monkeypatch, tmp_path, _record(run_id="@ISSUED@"),
+                     "VERDICT: MERGE\n")
+    assert result.verdict is routing.Verdict.MERGE
+    assert any("selected BY POSITION" in n for n in result.notes), (
+        "the selection fell back to position and told nobody"
+    )
+
+
+def test_two_CONFLICTING_blocks_claiming_ONE_nonce_is_refused() -> None:
+    """One run has one rendering, and choosing between two DIFFERENT ones is not
+    this code's job. Resolving by position would be the positional inference
+    wearing the nonce's name — the identity check reporting a decision it did
+    not make.
+    """
+    nonce = "0123456789abcdef0123456789abcdef"
+    one = f"pr_review:\n  run_id: {nonce}\n  verdict: MERGE\n"
+    other = f"pr_review:\n  run_id: {nonce}\n  verdict: HOLD\n"
+    with pytest.raises(RuntimeError, match="DIFFERING"):
+        helper.this_pass_block([one, other], nonce)
+
+
+def test_two_IDENTICAL_blocks_claiming_one_nonce_resolve_SILENTLY() -> None:
+    """A retried `gh pr comment` must not destroy the review it succeeded at.
+
+    THE CASE IS REACHABLE AND BENIGN: `gh pr comment` timing out at the network
+    layer *after* the server accepted it, and the child retrying, leaves two
+    byte-identical renderings of one run. The first version of this rule raised
+    on any duplicate nonce — which would have destroyed a correct,
+    already-posted, already-routed review over two copies of one answer, the
+    exact loss `_this_pass_index`'s no-nonce fallback exists to refuse. There is
+    no inference to get wrong when the candidates are identical.
+
+    THE INDEX IS THE FIRST MATCH, and the complement is what makes that matter:
+    `prior_pass_blocks` is `window[:index]`, so selecting the LATER duplicate
+    would put the earlier one into the convergence history as a phantom prior
+    pass — every id in it would read as restated, which is the perfectly
+    conforming, perfectly stalled loop `convergence_history` warns about.
+    """
+    nonce = "0123456789abcdef0123456789abcdef"
+    prior = "pr_review:\n  run_id: ffffffffffffffffffffffffffffffff\n"
+    stamped = f"pr_review:\n  run_id: {nonce}\n  verdict: MERGE\n"
+    window = [prior, stamped, stamped]
+    assert helper.this_pass_block(window, nonce) == stamped
+    assert helper.this_pass_selected_by_identity(window, nonce) is True
+    assert helper.prior_pass_blocks(window, nonce) == (prior,), (
+        "the later duplicate leaked into the prior-pass history as a phantom pass"
+    )

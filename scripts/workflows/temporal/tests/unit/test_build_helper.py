@@ -33,7 +33,8 @@ def test_extract_pr_url_returns_none_when_there_is_no_url() -> None:
 
 
 def test_pr_number_from_url_takes_the_trailing_number() -> None:
-    assert helper.pr_number_from_url("https://github.com/o/r/pull/42") == "42"
+    assert helper.pr_number_from_url(
+        "https://github.com/o/r/pull/42", expected_repo="o/r") == "42"
 
 
 # --- verdict parsing, and the fail-safe --------------------------------------

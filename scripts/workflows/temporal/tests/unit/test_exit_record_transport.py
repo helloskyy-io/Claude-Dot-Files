@@ -41,6 +41,7 @@ from pathlib import Path
 import pytest
 
 from modules.assistant import assistant_activities as act
+from modules.assistant import exit_record as er
 
 _TESTS = Path(__file__).resolve().parents[1]
 _WORKFLOWS = Path(__file__).resolve().parents[3]      # …/scripts/workflows
@@ -360,3 +361,206 @@ def test_the_json_schema_flag_is_gated_on_the_caller_declaring_one() -> None:
                   if "--json-schema" in ln and not ln.lstrip().startswith("#")]
     assert len(executable) == 1, executable
     assert 'EXIT_RECORD_SCHEMA' in executable[0]
+
+
+# ---------------------------------------------------------------------------
+# `permission_denials[]`, surfaced on EVERY run — phase4 requirement 5.
+#
+# THE BASH HALF IS WHERE THIS BELONGS AND THAT IS THE WHOLE POINT OF THE
+# REQUIREMENT. The Python router's R1 branches on a denial, and it runs for
+# exactly one child. `run-claude.sh` is executed by every child of BOTH fleets,
+# so one read here is the only placement that covers the fleet with no parent —
+# the one where `build.sh:277` loops back on `HOLD - redispatch` with nothing
+# reading the array at all.
+#
+# Extracted and executed as shipped, per the note above the completion gates:
+# a test that re-typed the jq program would pass forever against a script whose
+# invocation had changed.
+# ---------------------------------------------------------------------------
+
+_DENIAL_SURFACE = re.compile(
+    r"""denials=\$\((.*?)\)\n\s*if \[\[ -n "\$denials" \]\]""", re.DOTALL)
+
+
+def _shipped_denial_surface() -> str:
+    m = _DENIAL_SURFACE.search(RUN_CLAUDE.read_text())
+    assert m, "run-claude.sh no longer surfaces permission_denials"
+    return m.group(1)
+
+
+def _clean_run_that_tripped_the_hook(tmp_path: Path, *, denials: list | None) -> Path:
+    """E1(f)'s MEASURED shape: exit 0, `is_error: false`, `subtype: success`.
+
+    Written as the measurement recorded it rather than as an error envelope,
+    because the finding is that every signal the fleet reads says clean. A
+    fixture that made the run look failed would be testing a case this surface
+    is not for.
+    """
+    event = {"type": "result", "subtype": "success", "is_error": False,
+             "num_turns": 2}
+    if denials is not None:
+        event["permission_denials"] = denials
+    log = tmp_path / "denial.jsonl"
+    log.write_text(json.dumps(event) + "\n")
+    return log
+
+
+_DENIAL = {
+    "tool_name": "Bash",
+    "tool_use_id": "toolu_01CsEbAAAA",
+    # The field that must NOT reach an operator's scrollback or a CI log.
+    "tool_input": {"command": "sudo ls /root .",
+                   "description": "Run sudo ls /root ."},
+}
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_shipped_denial_surface_names_every_denied_tool(tmp_path: Path) -> None:
+    """Every entry is surfaced, not just the first — the count is the signal."""
+    second = {**_DENIAL, "tool_name": "Write", "tool_use_id": "toolu_02BBBB"}
+    log = _clean_run_that_tripped_the_hook(tmp_path, denials=[_DENIAL, second])
+    out = _run_shipped(_shipped_denial_surface(), log)
+    assert "Bash" in out and "toolu_01CsEbAAAA" in out
+    assert "Write" in out and "toolu_02BBBB" in out
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_denial_surface_survives_the_malformed_lines_the_stream_CARRIES(
+        tmp_path: Path) -> None:
+    """The prefilter, as the property rather than as a line in the script.
+
+    THIS IS THE EXACT DEFECT THE ASSISTANT GATE ALREADY HAD AND SHIPPED GREEN,
+    committed a second time forty lines above it. `jq` stops at the first parse
+    error, and the `result` event is the LAST event in a run's stream — so one
+    non-JSON line ANYWHERE before it silently suppresses the whole banner, on
+    precisely the runs where the fleet's only in-run safety control fired.
+
+    The junk line is placed BEFORE the result event deliberately: after it, a
+    non-prefiltered `jq` would already have emitted and the test would pass
+    against the broken reader. Reverting the `fromjson? // empty` prefilter in
+    `run-claude.sh` turns this red.
+    """
+    log = tmp_path / "noisy.jsonl"
+    log.write_text(
+        '{"type":"system","subtype":"init"}\n'
+        "npm WARN cli npm does not support Node.js v18\n"
+        "\n"
+        + json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                      "permission_denials": [_DENIAL]}) + "\n"
+    )
+    out = _run_shipped(_shipped_denial_surface(), log)
+    assert "Bash" in out and "toolu_01CsEbAAAA" in out
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_a_malformed_denials_value_is_SILENT_AND_NON_FATAL(tmp_path: Path) -> None:
+    """`// []` substitutes for null and false ONLY, so `.[]` over a string is a
+    jq RUNTIME ERROR — exit 5, not empty output.
+
+    This surface runs unconditionally on every run of both fleets, and every V1
+    caller is `set -euo pipefail` calling `run_claude` unguarded, so an
+    un-neutralised jq failure here kills a workflow immediately after a
+    successful model run. `_run_shipped` asserts the substitution exits 0, so
+    removing `|| true` from the shipped line turns this red — which is the only
+    thing that makes the neutralisation a check rather than a habit.
+
+    The Python router is the actor that routes an unreadable denial list to a
+    human (`DENIALS_UNREADABLE`); this surface only has to not blow up.
+    """
+    log = tmp_path / "weird.jsonl"
+    log.write_text(json.dumps(
+        {"type": "result", "subtype": "success", "permission_denials": "none"}) + "\n")
+    assert _run_shipped(_shipped_denial_surface(), log).strip() == ""
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_denial_surface_never_prints_the_command_line(tmp_path: Path) -> None:
+    """THE CONTROL THAT MATTERS, and it is derived from the field's own ruling.
+
+    `exit_record._redact` drops `tool_input` at READ TIME specifically so there
+    is no copy to leak — entries carry literal command lines and absolute
+    worktree paths, and `code_routed_control_flow.md` P13 records redaction as
+    the documented control. A bash surface that printed the raw entry would
+    reintroduce the copy in the one place the Python side cannot filter: a
+    terminal scrollback and a CI job log, both of which outlive the run.
+
+    The mutation this is derived from is not "break the jq" — it is "print the
+    whole entry", which is the obvious way to write this line and the one that
+    reads as more helpful.
+    """
+    log = _clean_run_that_tripped_the_hook(tmp_path, denials=[_DENIAL])
+    out = _run_shipped(_shipped_denial_surface(), log)
+    assert "sudo ls /root" not in out, (
+        "the denied command line reached the surface — tool_input is dropped at "
+        "read time on the Python side precisely so no copy exists to leak"
+    )
+    assert "tool_input" not in out
+    # Positive control: the surface is not empty, so the assertion above is not
+    # satisfied by a jq program that printed nothing at all.
+    assert "Bash" in out
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_the_denial_surface_is_SILENT_when_the_control_did_not_fire(tmp_path: Path) -> None:
+    """Negative control: an empty list is not a trip, and prints nothing.
+
+    Without this the surface could be a banner on every run, which is how a
+    signal stops being read.
+    """
+    log = _clean_run_that_tripped_the_hook(tmp_path, denials=[])
+    assert _run_shipped(_shipped_denial_surface(), log).strip() == ""
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is a hard dependency of the fleet")
+def test_an_ABSENT_denials_key_prints_nothing_HERE_and_routes_in_the_ROUTER(
+    tmp_path: Path,
+) -> None:
+    """The two halves answer different questions and the split is deliberate.
+
+    An absent key means the parent COULD NOT CHECK, and the Python router treats
+    that as `denials_unreadable` — the human arm — because it is a routing
+    decision with a consequence. This surface is observability with no verdict
+    to render: printing "the safety control may or may not have fired" on every
+    run of a CLI that renamed the key would be a fleet-wide banner reporting
+    nothing, which is exactly the shared-bin failure `UndeterminedReason`
+    already names one level up.
+    """
+    log = _clean_run_that_tripped_the_hook(tmp_path, denials=None)
+    assert _run_shipped(_shipped_denial_surface(), log).strip() == ""
+    envelope = json.loads(log.read_text())
+    assert er.route(envelope, expected_run_id="x", expected_ref=None) \
+        .undetermined_reason is er.UndeterminedReason.DENIALS_UNREADABLE
+
+
+def test_the_denial_surface_ROUTES_NOTHING() -> None:
+    """Requirement 5's *"and routing nothing"*, as a check rather than a promise.
+
+    The rule this protects is the roadmap's Key Decision: a non-empty denial list
+    routes to the human arm and NEVER to automatic redispatch. There is exactly
+    one decider — rule R1 in the V2 router — and a second one here would be in
+    the file BOTH fleets source, above a V1 parent that loops back on
+    `HOLD - redispatch`. So the surface may print and must not change control
+    flow: no `return`, no `exit`, no assignment to a variable a later branch
+    reads.
+
+    Bounded to the surface's own block rather than the function, or it would go
+    red on the turn-cap branch's legitimate `return 1` twenty lines below.
+    """
+    source = RUN_CLAUDE.read_text()
+    start = source.index('if [[ -n "$denials" ]]')
+    block = source[start:source.index("Turn-cap termination", start)]
+    # EXECUTABLE LINES ONLY. The banner's own prose says the exit status means
+    # nothing here, so a naive substring scan matches its explanation and reds
+    # on the sentence that documents the property. Same distinction the
+    # `--json-schema` gate test draws for comments, one echo further.
+    code = [ln.strip() for ln in block.splitlines()
+            if ln.strip() and not ln.strip().startswith(("#", "echo"))]
+    assert len(code) >= 4, f"the block scan read {code} — it is not reading the block"
+    for verb in ("return", "exit ", "&&", "||"):
+        offenders = [ln for ln in code if verb in ln]
+        assert not offenders, (
+            f"the denial surface acquired {verb!r} at {offenders} — it prints "
+            f"and decides nothing; the only actor that may branch on a denial "
+            f"is rule R1, and a second decider here sits above a V1 parent that "
+            f"loops back on `HOLD - redispatch`"
+        )

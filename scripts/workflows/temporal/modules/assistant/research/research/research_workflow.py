@@ -24,7 +24,8 @@ from ..research_write import research_write_workflow as write
 from ..research_verify import research_verify_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
-from ...assistant_activities import extract_pr_url
+from ...assistant_activities import extract_pr_url, repo_slug
+from ... import routing
 
 
 MAX_LOOPS = 1
@@ -40,11 +41,19 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
     ref = f"origin/{act.branch_of(pr_number, repo_root)}" if pr_number else "HEAD"
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
+    # Read BEFORE the child, so a `gh` failure costs a dispatch that has
+    # produced nothing rather than one that has already written a paper.
+    slug = repo_slug(repo_root)
+
     pr_url = write.run_write(
         research_dir=research_dir, repo_root=repo_root, worktree=worktree,
         context=context, pr_number=pr_number, verbose=verbose,
     )
-    pr = pr_url.rstrip("/").rsplit("/", 1)[-1]
+    # THROUGH THE OWNER, not a string split. `rstrip("/").rsplit("/", 1)[-1]`
+    # is the PR-URL parse with NO validation whatsoever — it returns the last
+    # path segment of whatever it is handed, so a child that printed a bare
+    # sentence yields a word and it reaches `gh` as a PR number.
+    pr = routing.pr_number_from_url(pr_url, expected_repo=slug)
 
     loops = 0
     verdict = _verify_then_dispose(research_dir, pr, repo_root, worktree,

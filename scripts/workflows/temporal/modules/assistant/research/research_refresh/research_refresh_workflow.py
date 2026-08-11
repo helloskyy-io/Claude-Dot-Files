@@ -14,6 +14,8 @@ Two axes means a flag would fail the cap we hold elsewhere. Children 2 and 3
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from .. import research_activities as act
@@ -27,7 +29,7 @@ MODEL_KEY = "research-refresh"
 # recorded on either side. Converged upward in config.yaml on 2026-08-10 and
 # FLAGGED THERE for review — it is a safe default, not a measurement.
 MAX_TURNS = act.max_turns("research-refresh")
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def due_papers(research_dir: Path) -> list[Path]:

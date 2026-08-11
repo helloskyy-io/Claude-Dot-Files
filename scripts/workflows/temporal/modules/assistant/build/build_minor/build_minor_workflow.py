@@ -40,12 +40,15 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
     ref = f"origin/{act.pr_branch(task.pr_number, repo_root)}" if task.pr_number else "HEAD"
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
+    # Read BEFORE the child, for the reason its sibling parent states.
+    slug = act.repo_slug(repo_root)
+
     pr_url = draft.run_draft_minor(
         description=description, repo_root=repo_root,
         worktree=worktree, pr_number=task.pr_number, plan_path=task.plan_path,
         verbose=task.verbose,
     )
-    pr = helper.pr_number_from_url(pr_url)
+    pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
 
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,

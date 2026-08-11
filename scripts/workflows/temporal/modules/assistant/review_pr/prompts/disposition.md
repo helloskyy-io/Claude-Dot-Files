@@ -236,7 +236,7 @@ Then write the comment body to a temp file (e.g. /tmp/claude-review-pr-${PR_NUMB
 **Part 1 — human-readable disposition table**, plus a one-line verdict rationale, plus (on HOLD) a short "WHAT HAPPENS NEXT" runway list a human can act on at a glance. For each needs-assistance next-step in that runway, show the `reframe:` and `bp:` lines above your recommendation so the operator audits the judgment at standup speed:
 | Item (id) | Category | Disposition | Reasoning / Pointer |
 
-**Part 2 — machine-readable block** (fenced ```yaml). **This block and the typed exit record you emit in Stage 6a are ONE AUTHOR'S TWO COPIES, and your caller checks them against each other before it routes.**
+**Part 2 — machine-readable block** (fenced ```yaml). **This block and the typed exit record you emit in Stage 6b are ONE AUTHOR'S TWO COPIES, and your caller checks them against each other before it routes.**
 
 - **The typed record is authoritative.** Where the two carry the same fact, the block is its *rendering*: `verdict:` renders `outcome` (`merge`→`MERGE`, `hold`→`HOLD`), and every `findings[].id` and `findings[].disposition` must be **identical in both, same ids, same dispositions, no extras and none missing**. Your caller fails the run loud on a mismatch — a rendering that drops or invents a finding is not one.
 - **Everything else in this block is yours alone and has no field in the record**, deliberately: the disposition table's *Reasoning* column, the one-line verdict rationale, and the Post-Run Reflection. Those three are what make this a record of *the outcome and its reasoning* rather than the outcome alone. **Write them in full. Do not compress them because a typed record exists** — it carries none of them and cannot.
@@ -246,6 +246,15 @@ Author it exactly:
 ```yaml
 pr_review:
   pr: ${PR_NUMBER}
+  run_id: ${RUN_ID}                  # EXACTLY the nonce above, 32 lowercase hex characters, copied
+                                     # verbatim and UNQUOTED. This is how your caller identifies WHICH
+                                     # block on the thread is yours. Until this field existed it was
+                                     # inferred from ordering, so a third party posting a fenced
+                                     # `pr_review:` example between your comment and your caller's read
+                                     # made your caller compare YOUR record against SOMEONE ELSE'S block
+                                     # and hard-fail a review that was already posted and already routed.
+                                     # A missing or mis-copied value is not fatal — your caller falls back
+                                     # to ordering and says so — but it gives that race back.
   pass: <int>                        # DERIVED FROM THE FENCE-ANCHORED BLOCK COUNT YOU VERIFIED,
                                      # NOT from ${THIS_PASS}, which is the dispatch's label and is
                                      # supplied above only so you can state the divergence.
@@ -369,7 +378,7 @@ pr_review:
   redispatched: false                # always false — this engine never dispatches
 ```
 
-**Block ordering within your comment (binding):** your comment carries **one** `pr_review:` block — **yours**, and it MUST be the LAST one in the comment. If you restate or quote a prior pass's block for context, place it **ABOVE** your own. The parent reads *the last block of each comment* as that pass's, and it uses that to bind the render↔record invariant and to build the convergence history. Putting a quoted block last makes the parent compare your typed record against the PREVIOUS pass's findings and hard-fail a review that is already posted and already routed. *(This rule is stated here because the parent's docstring used to cite INVARIANT 1 as its guarantee and INVARIANT 1 is about carrying FINDINGS forward, not about where a quoted block sits — so the code's rule had no producer-side backing at all. The durable fix is the run-nonce field in `phase4_fleet_migration.md`; until then, this sentence is it.)*
+**Block ordering within your comment (binding):** your comment carries **one** `pr_review:` block — **yours**, and it MUST be the LAST one in the comment. If you restate or quote a prior pass's block for context, place it **ABOVE** your own. The parent reads *the last block of each comment* as that pass's, and it uses that to bind the render↔record invariant and to build the convergence history. Putting a quoted block last makes the parent compare your typed record against the PREVIOUS pass's findings and hard-fail a review that is already posted and already routed. *(This rule is stated here because the parent's docstring used to cite INVARIANT 1 as its guarantee and INVARIANT 1 is about carrying FINDINGS forward, not about where a quoted block sits — so the code's rule had no producer-side backing at all.)* **Since Phase 4 your block carries a `run_id:`, and that does NOT relax the rule above — read this before you assume it does.** Your caller reads *the last block of each comment* FIRST, and only then matches by nonce among what it read. So a quoted prior block placed BELOW your own displaces yours entirely: your block, nonce and all, never enters the window, the nonce match finds nothing, the caller falls back to ordering, selects the quoted block, and hard-fails on a finding-set mismatch that names the wrong cause. **The nonce cannot rescue an ordering violation, and the ordering rule is binding, not a backstop.** What the nonce does buy: a *third party's* comment posted between yours and your caller's read is no longer mistaken for yours, and two comments carrying the same nonce with DIFFERENT content are refused outright rather than resolved by position (byte-identical duplicates — a retried `gh pr comment` — are resolved silently and cost you nothing).
 
 **gh-monitor safety (binding):** the comment MUST NOT contain any line that STARTS with `@claude` — gh-monitor would parse it and auto-dispatch a workflow. If you must reference a dispatch command illustratively, put it inside a code fence (gh-monitor strips fences before matching). Your dispatch_context describes the task in prose/yaml; it never emits a live `@claude` trigger line.
 
@@ -383,7 +392,7 @@ As the FINAL line of your output, print exactly one of:
     VERDICT: MERGE
     VERDICT: HOLD - redispatch
     VERDICT: HOLD - needs-assistance
-This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted. It must correspond to 6a: `merge`→`MERGE`, `hold`+`redispatch`→`HOLD - redispatch`, `hold`+`needs_ruling`→`HOLD - needs-assistance`.
+This is the completion signal. Printing it is how the run is known to have completed (a headless run that ends without it is treated as an early-stop). Do not print it until the comment is posted. It must correspond to the record you emit at 6b: `merge`→`MERGE`, `hold`+`redispatch`→`HOLD - redispatch`, `hold`+`needs_ruling`→`HOLD - needs-assistance`.
 
 **The routing token on a HOLD is a decision, and it is YOURS to make — do not leave it to be re-derived.** `hold_kind` lives per-finding in your yaml, so a HOLD carrying five `redispatch` items and one `needs-assistance` item has no single answer written anywhere. A caller reading your yaml would have to aggregate, which means a caller with no stake in the review would be making a judgement about the review. Aggregate it yourself, by this rule:
 
@@ -405,7 +414,7 @@ This token is the only thing an automated caller reads from you. It does not cha
 | `run_id` | exactly `${RUN_ID}` — copy it verbatim, character for character. Your caller issued it and compares it back; a wrong value routes this run to a human |
 | `outcome` | `merge` or `hold` — the same decision as your VERDICT line |
 | `hold_kind` | required when `outcome` is `hold`: `redispatch` or `needs_ruling`. **`needs_ruling` is `needs-assistance` under its proper name** — the evaluation completed and the answer is that a human must decide. Aggregate it by the same rule as the VERDICT token below |
-| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"`, `uri:` the PR's URL. **`id` is a string**, quoted |
+| `completion_ref` | the durable record this review is attached to: `substrate: "github"`, `kind: "pull"`, `id: "${PR_NUMBER}"` (**a string**, quoted), and `uri` the PR's own URL — the one whose number is `${PR_NUMBER}` **in the repository you are reviewing in**. **Your caller compares all four against the reference it dispatched against and routes a mismatch to a human.** It is not a formatting check: you are instructed to read prior PR comments, those routinely quote other PRs' URLs, and the number derived from this field flows into `gh pr comment` and into `--pr` on a downstream child that checks out and commits to that PR's branch. Copy it from the PR you are reviewing, never from a comment body |
 | `findings` | one entry per finding in your yaml block, each with its stable `id` and its `disposition`. **Same ids, same dispositions, no extras and none missing** |
 
 **If you cannot state a field, you still call the tool.** A review you could not complete is `outcome: hold` with `hold_kind: needs_ruling` — that is what the member is for. **Declining to call the tool is the one outcome with no meaning**: it produces a run that looks completely clean and carries no record, and your caller has to route it to a human as a machinery failure.

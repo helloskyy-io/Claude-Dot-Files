@@ -12,6 +12,8 @@ because the run that wrote an artifact defends it.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from .. import research_activities as act
@@ -29,7 +31,7 @@ MODEL_KEY = "research"
 # Reasoning and measurement live with the value, in config.yaml.
 MAX_TURNS = act.max_turns("research-write")
 
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,

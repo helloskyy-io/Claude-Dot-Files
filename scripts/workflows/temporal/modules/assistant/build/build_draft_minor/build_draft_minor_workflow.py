@@ -7,6 +7,8 @@ in neither RULES nor the headless guard, which is why they are larger.
 
 from __future__ import annotations
 
+from ... import routing
+
 from pathlib import Path
 
 from ... import assistant_activities as act
@@ -16,7 +18,7 @@ PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-draft-minor"
 MAX_TURNS_KEY = "build-draft-minor"          # constants DERIVED, never re-declared
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/pull/[0-9]+"
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,

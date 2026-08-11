@@ -16,8 +16,16 @@ is built: a gate between a tree that will change and a tree nobody will change
 can only ever go red because someone edited the frozen fleet, which is already
 forbidden. Re-open this if the freeze is lifted.
 
-DEPENDENCY-FREE ON PURPOSE, like its sibling `routing.py` — no I/O, no clock, no
-imports from siblings, and no third-party validator. `jsonschema` is importable
+DEPENDENCY-FREE ON PURPOSE, like its sibling `routing.py` — no I/O, no clock,
+and no third-party validator. **ONE sibling import, added by Phase 4 and stated
+rather than quietly taken:** `routing`, which owns the PR-URL address the same
+way it owns `parse_verdict`. R5b compares a `completion_ref` against the one the
+parent expects, and re-typing that parse here would be a second declaration of
+the address INSIDE the module written to forbid second declarations — the exact
+defect §6 exists to prevent, and the one this module already committed once at
+`as_prose_verdict`. `routing` is itself dependency-free, so nothing is pulled in
+behind it and the "any workflow may import this without a family" property that
+made both modules leaves is untouched. `jsonschema` is importable
 on this workstation but is declared in no manifest in this repo, and a routing
 contract that silently depends on whatever happens to be installed is a contract
 that fails on the first host that differs. `_validate` WALKS `CHILD_SCHEMA`
@@ -38,6 +46,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import Enum
+
+from . import routing
 
 __all__ = [
     "SCHEMA_VERSION", "SUPPORTED_SCHEMA_VERSIONS", "CHILD_SCHEMA", "SCHEMA_BYTE_BOUND",
@@ -134,6 +144,17 @@ class UndeterminedReason(str, Enum):
     RECORD_UNPARSEABLE = "record_unparseable"
     SCHEMA_VERSION_UNKNOWN = "schema_version_unknown"
     RECORD_STALE = "record_stale"
+    # R5b. SEPARATE FROM RECORD_STALE, and the two are different questions about
+    # identity: `record_stale` says the record belongs to a different
+    # INVOCATION, this says a well-formed record of THIS invocation points at a
+    # different DURABLE RECORD. Sharing a bin with `record_stale` would report a
+    # cross-repo reference as a worktree-skew problem and send the operator to
+    # the wrong place, which is the same argument this enum already makes three
+    # times. The threat itself is argued once, at `routing.PR_URL`, and is not
+    # restated here — it was, in four production files, and three of the four
+    # copies said the derived number reaches `gh`, which is true of
+    # `routing.pr_number_from_url`'s call sites and not of this field.
+    COMPLETION_REF_MISMATCH = "completion_ref_mismatch"
     UNMATCHED = "unmatched"
 
 
@@ -303,7 +324,54 @@ def _validate(value, schema: dict, path: str) -> str | None:
     raise AssertionError(f"CHILD_SCHEMA uses an unsupported type at {path}: {expected!r}")
 
 
-def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
+# THE FIELDS R5b COMPARES EXACTLY, DERIVED FROM THE SCHEMA RATHER THAN RETYPED.
+# A hand-written tuple here would be a second declaration of `completion_ref`'s
+# field set inside the module whose thesis is one declaration — and the failure
+# is silent in the dangerous direction: a fifth required field would pass R3
+# validation and simply not be compared, NARROWING a safety check with nothing
+# going red. This function has already been measured with a hole of exactly that
+# shape (removing the `id` comparison turned zero tests red, because every
+# fixture moved `id` and `uri` together). `uri` is excluded because it is the
+# one field compared by IDENTITY rather than byte-for-byte, below.
+_REF_EXACT_FIELDS = tuple(
+    k for k in CHILD_SCHEMA["properties"]["completion_ref"]["required"] if k != "uri")
+
+
+def _ref_matches(actual: dict, expected: dict) -> bool:
+    """Is `actual` the SAME durable record as `expected`? Identity, not shape.
+
+    Every required field of `completion_ref` except `uri` compares exactly, and
+    the list is `_REF_EXACT_FIELDS` — read off `CHILD_SCHEMA`, not retyped.
+    `uri` compares by the identity it names rather than byte-for-byte, because a
+    trailing slash, a `/files` suffix or a query string are the same PR and
+    failing a correct review on one would be a guard failing on correct input.
+    The parse is `routing.pr_identity` — the one declaration of the address —
+    and it returns `(owner/repo, number)`, so a `uri` naming ANOTHER REPOSITORY
+    fails here even when it carries the right number. `routing.PR_URL` carries
+    the argument for why that is the threat; it is not restated here.
+
+    FAIL-SAFE WHEN IT CANNOT PARSE, IN BOTH DIRECTIONS AND FOR DIFFERENT
+    REASONS. `CHILD_SCHEMA` constrains `substrate` to `github`, so `pr_identity`
+    is the right parser for every record that reaches R3; if that enum is ever
+    widened without widening this, a non-github `uri` raises `ValueError` here
+    and returns False — the human arm — rather than comparing two things it does
+    not understand. An unparseable EXPECTED `uri` is a parent-side fault and is
+    refused before this is reached: `review_pr_helper.expected_completion_ref`
+    validates what it built, so a bad `repo_slug` fails as a parent error rather
+    than arriving here and being reported as the child naming a wrong record.
+    """
+    for key in _REF_EXACT_FIELDS:
+        if actual.get(key) != expected.get(key):
+            return False
+    try:
+        return routing.pr_identity(actual.get("uri", "")) == \
+            routing.pr_identity(expected.get("uri", ""))
+    except ValueError:
+        return False
+
+
+def route(result_event: dict | None, *, expected_run_id: str,
+          expected_ref: dict | None) -> ExitRecord:
     """The fail-safe contract. Ordered rules, first match wins, R9 is the default.
 
     Shape borrowed from Kubernetes `podFailurePolicy` and cited rather than
@@ -330,6 +398,15 @@ def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
 
     `result_event` is the CLI's `result` event as a dict, or None when the log
     carried none at all.
+
+    `expected_ref` is the `completion_ref` this invocation is ABOUT — the Kind 1
+    record the parent dispatched against — or None when the caller genuinely has
+    none to compare. IT HAS NO DEFAULT ON PURPOSE. A keyword with a default of
+    None is a check that skips itself, and every rule in this module exists
+    because a check that skips itself is indistinguishable from one that passed.
+    Passing None is a caller stating it cannot check identity, which is a real
+    state and a visible one; `test_every_production_caller_of_route_states_its_
+    expected_ref` is what keeps it from becoming the quiet default.
     """
     # R2, REACHED BEFORE R1 IN EXACTLY ONE CASE: there is no `result` event at
     # all. No event implies no key, so the condition is absence of the record,
@@ -406,6 +483,27 @@ def route(result_event: dict | None, *, expected_run_id: str) -> ExitRecord:
     if record["run_id"] != expected_run_id:
         return ExitRecord(RoutedOutcome.UNDETERMINED, UndeterminedReason.RECORD_STALE,
                           schema_version=version, permission_denials=published_denials)
+
+    # R5b — REFERENCE IDENTITY, and it is the second half of R5 rather than a
+    # new kind of rule. R5 asks *is this record from the invocation I issued*;
+    # this asks *is it about the record I dispatched against*. Both are answered
+    # by comparison against a value the parent generated, because a record
+    # cannot vouch for its own identity — the same reason R5 is a comparison and
+    # not a presence test.
+    #
+    # WHY IT IS NOT SATISFIED BY THE ANCHORED PATTERN. The pattern pins the host
+    # and guarantees digits; `https://github.com/someone-else/other-repo/pull/12`
+    # passes it and yields `12`, which is then used against THIS dispatch's repo
+    # in `gh pr view`, `gh pr comment` and `--pr` on a downstream child that
+    # checks out and commits to that PR's branch. It needs no adversarial child:
+    # children are instructed to read prior PR comments, which routinely contain
+    # other PRs' URLs.
+    if expected_ref is not None and not _ref_matches(record["completion_ref"], expected_ref):
+        return ExitRecord(
+            RoutedOutcome.UNDETERMINED, UndeterminedReason.COMPLETION_REF_MISMATCH,
+            schema_version=version, completion_ref=record["completion_ref"],
+            findings=tuple(record["findings"]), permission_denials=published_denials,
+        )
 
     # From here the CHILD'S ASSERTION DECIDES and the parent adds nothing. That
     # is the precedence rule in one line: the computed observable GATES (R1-R5),

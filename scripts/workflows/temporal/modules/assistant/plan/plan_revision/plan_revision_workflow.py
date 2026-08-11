@@ -28,6 +28,8 @@ is a NEW ATTEMPT, not a replay.
 
 from __future__ import annotations
 
+from ... import routing
+
 import re
 from pathlib import Path
 
@@ -45,7 +47,7 @@ MAX_TURNS_KEY = "plan-revision"
 # deliverable. Narrowing this to `pull` would turn a correct, cheap stop into a
 # reported failure and invite someone to re-dispatch past the very gate that
 # fired.
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/(pull|issues)/[0-9]+"
+COMPLETION_PATTERN = routing.PR_OR_ISSUE_COMPLETION_ERE
 
 _STOP_ISSUE = re.compile(r"https://github\.com/[^\s)]+/issues/[0-9]+")
 

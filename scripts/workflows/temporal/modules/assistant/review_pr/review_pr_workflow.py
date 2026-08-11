@@ -81,6 +81,19 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         act.count_prior_passes(task.pr_number, worktree)
     )
 
+    # R5b'S RIGHT-HAND SIDE IS BUILT HERE, BEFORE THE CHILD RUNS, AND THE
+    # ORDERING IS THE POINT. `repo_slug` is a `gh` round trip, on the path whose
+    # named failure mode is rate limiting (`thread_snapshot`'s docstring). Built
+    # here, a `gh` failure costs a dispatch that has produced nothing. Built
+    # after the child — where the first version of this put it — an unretried
+    # network call sits between a completed ~40-minute review and the
+    # `parent_route` event that records it, so a transient 5xx destroys the
+    # review, the durable event and the parent's loop. That is precisely the
+    # loss `_thread_unreadable_note` was written to prevent, and nothing in
+    # `expected_ref` depends on anything the child produces.
+    expected_ref = helper.expected_completion_ref(
+        task.pr_number, _shared.repo_slug(worktree))
+
     # CAP (binding): exactly two things vary by type — the scope boundary and
     # the blocking-defect checklist — and both live in the criteria file. Type
     # MUST NOT be consulted anywhere else in this workflow. Without that cap the
@@ -123,7 +136,22 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     )
 
     # --- THE TYPED CHANNEL DECIDES --------------------------------------
-    record = exit_record.route(_shared.result_event(log_file), expected_run_id=run_id)
+    # TWO IDENTITIES ARE CHECKED, NOT ONE. `run_id` says the record came from
+    # the invocation this parent issued (R5); `expected_ref` (built above,
+    # before the child ran) says the record is ABOUT the PR this parent
+    # dispatched against (R5b). `routing.PR_URL` owns the threat argument for
+    # the second; it is not restated here.
+    #
+    # THE BRANCH HALF IS CLOSED BY CONSTRUCTION HERE AND IS NOT RE-CHECKED. The
+    # review worktree above is created from `origin/{pr['headRefName']}`, where
+    # `pr` came from `act.fetch_pr(task.pr_number, …)` BEFORE the child ran — so
+    # the child reviews the head branch of the PR this parent named and has no
+    # way to choose another. Re-asserting it after the fact would compare the
+    # parent's own value against itself.
+    record = exit_record.route(
+        _shared.result_event(log_file), expected_run_id=run_id,
+        expected_ref=expected_ref,
+    )
     verdict = helper.verdict_from_record(record)
 
     # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------
@@ -171,18 +199,74 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         "channels_agree": shadow is verdict,
     })
 
+    # BUILT BEFORE THE RAISE, NOT AFTER IT, AND THAT ORDERING IS A FIX RATHER
+    # THAN A STYLE. R5b routes to `undetermined`, which collapses to
+    # `HOLD - needs-assistance`; the case R5b exists for is a child that
+    # attached its review to a foreign record AND printed `VERDICT: MERGE`, and
+    # on that case the shadow disagrees and this function raises. Building the
+    # note only in the notes block below made it unreachable in exactly the
+    # scenario it was written for — the operator got the generic
+    # "could not be evaluated" line and never the two references. So the note is
+    # built once here and consumed by BOTH arms.
+    ref_note = helper.completion_ref_mismatch_note(record, expected_ref)
+
     if shadow is not verdict:
-        # A LOUD FAILURE, deliberately, for the duration of this phase. A
-        # comparison that cannot fail records a protection that does not exist,
-        # and the whole point of running both channels on one pair is to find
-        # out where they disagree before the fleet depends on one of them.
-        raise RuntimeError(
-            f"exit-record disagreement on PR #{task.pr_number}: the typed record routes "
-            f"{verdict.value!r} (routed_outcome={record.routed_outcome.value}"
+        # A LOUD NOTE FOR A BENIGN DIVERGENCE; STILL A RAISE WHEN THERE IS NO
+        # SECOND OPINION AT ALL. Ruled by the operator 2026-08-11 and NARROWED
+        # here, deliberately, because the ruling's evidence does not reach the
+        # whole path.
+        #
+        # WHAT WAS MEASURED: 2 firings in 8 runs, BOTH `permission_denied`, and
+        # in both the two channels agreed about the review. Those destroyed a
+        # completed review that had already produced a correct verdict — a 25%
+        # false-termination rate on a check whose evidence (`channels_agree`) is
+        # durable in the log BEFORE it fires. Conflating *make it visible* with
+        # *stop everything* let a monitor destroy the thing it monitors. Prior
+        # art is GitHub's `Scientist`: run both, return the control's result,
+        # publish the mismatch, never throw.
+        #
+        # WHAT WAS NOT MEASURED, AND MUST STILL STOP: `record_absent`,
+        # `record_stale`, `record_unparseable`, `envelope_unreadable` and
+        # `schema_version_unknown` all route to UNDETERMINED too — and in those
+        # the typed channel produced NO OPINION. That is a MISSING CHANNEL, not
+        # a disagreement: there is nothing to diverge from, so continuing would
+        # accept a confident prose MERGE on a single unverified channel. A
+        # blanket demotion would have silently converted the dangerous shape
+        # into a warning, which is the opposite of what the ruling was for.
+        BENIGN_DIVERGENCE = {
+            exit_record.UndeterminedReason.PERMISSION_DENIED,
+            exit_record.UndeterminedReason.DENIALS_UNREADABLE,
+        }
+        no_second_opinion = (
+            record.routed_outcome is exit_record.RoutedOutcome.UNDETERMINED
+            and record.undetermined_reason not in BENIGN_DIVERGENCE
+        )
+        detail = (
+            f"the typed record routes {verdict.value!r} "
+            f"(routed_outcome={record.routed_outcome.value}"
             + (f"/{record.undetermined_reason.value}" if record.undetermined_reason else "")
-            + f") while the prose channel parsed {shadow.value!r} "
-            f"(parseable={parseable}). Both channels are live during Phase 3 and "
-            f"disagreement is a failure, not a preference. Log: {log_file}"
+            + f") while the prose channel parsed {shadow.value!r} (parseable={parseable})"
+        )
+
+        if no_second_opinion:
+            raise RuntimeError(
+                f"exit-record UNUSABLE on PR #{task.pr_number}: {detail}. "
+                f"The typed channel produced no opinion, so this is a MISSING "
+                f"CHANNEL rather than a divergence — continuing would accept the "
+                f"prose verdict with nothing to check it against. Log: {log_file}"
+                + (f"\n\n{ref_note}" if ref_note else "")
+            )
+
+        print(
+            f"\n{'!' * 72}\n"
+            f"!! CHANNEL DIVERGENCE on PR #{task.pr_number} — RECORDED, NOT FATAL\n"
+            f"!! {detail}\n"
+            f"!! The TYPED record DECIDES and the run continues on it — `verdict_from_record`\n"
+            f"!! at :155 is what this function returns. The prose parse is the SHADOW.\n"
+            f"!! channels_agree=false is in the run log. Log: {log_file}\n"
+            + (f"!! {ref_note}\n" if ref_note else "")
+            + f"{'!' * 72}\n",
+            flush=True,
         )
 
     # "Agreed" is claimed only when the shadow actually produced a verdict.
@@ -203,6 +287,14 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             f"on PR #{task.pr_number}. This is the COMPUTED abstention arm — a defect in "
             f"the machinery, not a question about the work. Inspect by hand: {log_file}"
         )
+        # R5b's reason is the one an operator cannot act on from the generic line
+        # above — see `helper.completion_ref_mismatch_note`. `extend` on a list
+        # that is empty when the rule did not fire, for the same reason
+        # `_convergence_notes` returns one: no conditional in this function may
+        # read a routing signal it does not own. Same `ref_note` object the
+        # raise above interpolates, so the two arms cannot describe the same
+        # rule differently.
+        notes.extend(n for n in [ref_note] if n is not None)
     if record.permission_denials:
         notes.append(
             f"{len(record.permission_denials)} permission denial(s) recorded: "
@@ -239,7 +331,23 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             # write-time gate. This is that gate. THE TYPED REGION WINS; the
             # block is its rendering.
             _assert_block_matches_record(
-                task.pr_number, record, prior_pass, posted, blocks
+                task.pr_number, record, prior_pass, posted, blocks, run_id
+            )
+            # THE DEGRADATION IS REPORTED, because a selection that fell back to
+            # position looks exactly like one that matched on the nonce. The
+            # `parent_route` payload is FROZEN while this phase's run set is
+            # being read (`append_parent_route`'s own docstring), and a new
+            # durable event type here would be a producer with no consumer —
+            # the admission failure Phase 6 exists to stop. So this reaches the
+            # operator and nothing else, and that limit is stated rather than
+            # discovered. Built in the helper and `extend`ed unconditionally,
+            # like its two siblings — this function does not branch on a signal
+            # it does not own, and an inline `if` here would be a sixth pure
+            # record-to-string site the docstring's count does not name.
+            notes.extend(
+                n for n in
+                [helper.positional_fallback_note(task.pr_number, blocks, run_id)]
+                if n is not None
             )
 
     # --- THE COMPUTED CONVERGENCE SIGNAL — RECORDED, NOT ROUTED ON --------
@@ -261,9 +369,9 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # rate limit as a degraded review, and the computed arm's whole instrument
     # is the state GROUPED BY its reason — the same defect this component
     # recorded at R2 and again at R1a.
-    this_block = helper.this_pass_block(blocks) if blocks is not None else None
+    this_block = helper.this_pass_block(blocks, run_id) if blocks is not None else None
     assessment = convergence.assess(
-        helper.convergence_history(blocks, record) if blocks is not None else (),
+        helper.convergence_history(blocks, record, run_id) if blocks is not None else (),
         pass_evaluable=evaluable,
     )
     asserted = (helper.asserted_converged_in_block(this_block)
@@ -508,7 +616,7 @@ def _thread_unreadable_note(pr_number: str, record: exit_record.ExitRecord,
 def _assert_block_matches_record(pr_number: str,
                                  record: exit_record.ExitRecord,
                                  prior_pass: int, posted: int,
-                                 blocks: list[str]) -> None:
+                                 blocks: list[str], run_id: str) -> None:
     """Fail loud when the durable render and the typed record disagree on findings.
 
     RAISES OR RETURNS. The could-not-check third outcome lives in
@@ -547,8 +655,10 @@ def _assert_block_matches_record(pr_number: str,
     # inline, so that checkbox would have hardened the shadow and the history and
     # left the render↔record invariant — the check `convergence_history`'s hybrid
     # design depends on — still selecting by position, silently disagreeing with
-    # its two siblings. Byte-identical behaviour today; the point is the site.
-    block = helper.this_pass_block(blocks)
+    # its two siblings. Since Phase 4 that accessor matches on the RUN NONCE
+    # where the thread carries it, so this check and the convergence history are
+    # both addressed by identity or both by position — never one of each.
+    block = helper.this_pass_block(blocks, run_id)
     if posted <= prior_pass:
         raise RuntimeError(
             f"PR #{pr_number}: the run produced a typed exit record but posted no new "
