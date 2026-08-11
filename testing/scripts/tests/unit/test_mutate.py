@@ -935,11 +935,26 @@ def test_no_function_called_in_a_subshell_reaches_verdict() -> None:
     lines = MUTATE.read_text().splitlines()
     source = "\n".join(_strip_comment(line) for line in lines)
 
-    called_in_subshell = {
-        name for name in re.findall(r"\$\(\s*([a-z_][a-z0-9_]*)", source)
-        if re.search(rf"(?m)^{re.escape(name)}\(\) \{{", source)      # ours, not a binary
-    }
-    assert called_in_subshell, (
+    ours = set(re.findall(r"(?m)^([a-z_][a-z0-9_]*)\(\) \{", source))
+    direct = {n for n in re.findall(r"\$\(\s*([a-z_][a-z0-9_]*)", source) if n in ours}
+
+    # TRANSITIVE, not depth-1. The invariant is "no function REACHABLE inside a
+    # command substitution", and a depth-1 check passes the moment the risky
+    # call moves one frame down — `report_leg` calls `classify_leg` in `$(…)`,
+    # and a `verdict` added to anything `classify_leg` calls is just as lost.
+    # Closing over the call graph costs four lines and removes the whole class.
+    called_in_subshell = set(direct)
+    frontier = set(direct)
+    while frontier:
+        name = frontier.pop()
+        body = _function_body_lines(lines, f"{name}() {{")
+        for n in body:
+            for callee in re.findall(r"(?:^|[;&|{]|\bthen\b|\belse\b|\bdo\b)\s*([a-z_][a-z0-9_]*)",
+                                     _strip_comment(lines[n])):
+                if callee in ours and callee not in called_in_subshell:
+                    called_in_subshell.add(callee)
+                    frontier.add(callee)
+    assert direct, (
         "no function was found invoked in `$(…)` — the derivation stopped "
         "working and this check is now vacuous"
     )
