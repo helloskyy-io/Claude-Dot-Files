@@ -43,7 +43,9 @@ List EVERY surfaced item, from all sources above, exhaustively. Sources of items
 - Friction / reflection notes that imply an unresolved problem
 - Anything in the DIFF that looks wrong but went unmentioned (your fresh eyes — the producing run's blind spots are exactly what you exist to catch)
 
-**DELETED-ARTIFACT SWEEP — mandatory whenever this PR deletes, splits, moves or renames a file.** For EVERY deleted file, enumerate its assertions, exports, guards and contracts, and NAME where each one now lives. Loss is the characteristic defect of a restructure, and **loss is invisible in a diff that is mostly additions** — nothing renders as a red line when a guard simply fails to reappear.
+**RENDER ANY DIFF THAT TOUCHES A TABLE, and read the OUTPUT rather than the diff.** `gh api --method POST /markdown -f mode=gfm -f text="$(cat <file>)"` costs one call. A table break is INVISIBLE in `git diff`: every inserted line is valid markdown in isolation, and the damage lands on lines the diff never shows. **Measured: eight of ten rows of an authoritative field table stopped rendering as a table, and no line-based review could have seen it.** Reading the diff reads the change; rendering reads the artifact.
+
+**DELETED-ARTIFACT SWEEP — mandatory whenever this PR deletes, splits, moves or renames a file, A FUNCTION, AN EXPORTED SYMBOL, A GUARD, OR A DOCUMENTED CONTRACT.** *(Widened from file-only: a PR that deleted a function, two guards and a docstring's worth of contract declared this sweep N/A because it removed no files, and the finding surfaced from re-adjudicating a rejection instead — from the wrong instrument, by luck.)* For EVERY deleted file, enumerate its assertions, exports, guards and contracts, and NAME where each one now lives. Loss is the characteristic defect of a restructure, and **loss is invisible in a diff that is mostly additions** — nothing renders as a red line when a guard simply fails to reappear.
 
 Do not rely on git to surface it. A carried-forward guard only produces a merge CONFLICT when the same lines changed on both sides; a section nobody touched upstream deletes silently. Measured on one PR: two guard losses in one file, and the first was caught only because it happened to conflict. Its sibling two sections below produced no conflict and survived three review passes, a peer-review trio and quality-control — it was found by enumeration, and nothing else would have found it.
 
@@ -277,7 +279,14 @@ pr_review:
       title: <the CONSEQUENCE in one line — what breaks/is risked/gets decided wrongly. NOT the mismatch.>
       category: <from the fixed enum — NO existing-condition>
       consequence: <REQUIRED — what happens if this is not addressed. If you cannot state it, this is a note, not a finding.>
-      disposition: fixed | rejected | deferred | noted | escalated | hold
+      disposition: fixed | rejected | dissolved | deferred | noted | escalated | hold
+                                     # `dissolved` — the run was RIGHT to raise it and the answer
+                                     # is cheap: a lens (`/decide`, `/best-practices`) collapsed the
+                                     # question rather than answering it. NOT the same as `rejected`,
+                                     # which reads as *the run should not have raised this*. Record
+                                     # the verdict so a later pass does not re-derive it. The LAST
+                                     # GATE section already names this outcome; the enum did not
+                                     # carry it, so runs were forced to mislabel a good instinct.
                                      # FOR A FINDING ABOUT THE WORK IN HAND -- an artifact this PR
                                      # created or edited, a commit made to unblock it, or output it
                                      # produced that breaks a rule binding it -- ONLY `fixed`,
