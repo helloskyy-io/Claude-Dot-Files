@@ -123,7 +123,25 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     )
 
     # --- THE TYPED CHANNEL DECIDES --------------------------------------
-    record = exit_record.route(_shared.result_event(log_file), expected_run_id=run_id)
+    # TWO IDENTITIES ARE CHECKED, NOT ONE. `run_id` says the record came from
+    # the invocation this parent issued (R5); `expected_ref` says it is ABOUT
+    # the PR this parent dispatched against (R5b). The second is the one the
+    # anchored URL pattern never provided — `[^\s)]+` IS the owner/repo segment,
+    # so a `uri` naming another repository passes the pattern and yields a
+    # number that then reaches `gh` against THIS repo.
+    #
+    # THE BRANCH HALF IS CLOSED BY CONSTRUCTION HERE AND IS NOT RE-CHECKED. The
+    # review worktree above is created from `origin/{pr['headRefName']}`, where
+    # `pr` came from `act.fetch_pr(task.pr_number, …)` BEFORE the child ran — so
+    # the child reviews the head branch of the PR this parent named and has no
+    # way to choose another. Re-asserting it after the fact would compare the
+    # parent's own value against itself.
+    expected_ref = helper.expected_completion_ref(
+        task.pr_number, _shared.repo_slug(worktree))
+    record = exit_record.route(
+        _shared.result_event(log_file), expected_run_id=run_id,
+        expected_ref=expected_ref,
+    )
     verdict = helper.verdict_from_record(record)
 
     # --- THE PROSE CHANNEL IS A SHADOW ----------------------------------
@@ -203,6 +221,15 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             f"on PR #{task.pr_number}. This is the COMPUTED abstention arm — a defect in "
             f"the machinery, not a question about the work. Inspect by hand: {log_file}"
         )
+        # R5b's reason is the one an operator cannot act on from the generic line
+        # above — see `helper.completion_ref_mismatch_note`. `extend` on a list
+        # that is empty when the rule did not fire, for the same reason
+        # `_convergence_notes` returns one: no conditional in this function may
+        # read a routing signal it does not own.
+        notes.extend(
+            n for n in [helper.completion_ref_mismatch_note(record, expected_ref)]
+            if n is not None
+        )
     if record.permission_denials:
         notes.append(
             f"{len(record.permission_denials)} permission denial(s) recorded: "
@@ -239,8 +266,26 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             # write-time gate. This is that gate. THE TYPED REGION WINS; the
             # block is its rendering.
             _assert_block_matches_record(
-                task.pr_number, record, prior_pass, posted, blocks
+                task.pr_number, record, prior_pass, posted, blocks, run_id
             )
+            # THE DEGRADATION IS REPORTED, because a selection that fell back to
+            # position looks exactly like one that matched on the nonce. The
+            # `parent_route` payload is FROZEN while this phase's run set is
+            # being read (`append_parent_route`'s own docstring), and a new
+            # durable event type here would be a producer with no consumer —
+            # the admission failure Phase 6 exists to stop. So this reaches the
+            # operator and nothing else, and that limit is stated rather than
+            # discovered.
+            if not helper.this_pass_selected_by_identity(blocks, run_id):
+                notes.append(
+                    f"PR #{task.pr_number}: this pass's `pr_review:` block was "
+                    f"selected BY POSITION, not by the run nonce — no block on "
+                    f"the thread carries `run_id: {run_id}`. The render↔record "
+                    f"invariant and the convergence history still ran, on the "
+                    f"last block of the window. Expected on a thread whose "
+                    f"passes predate the field; on a fresh pass it means the "
+                    f"child did not echo the nonce into its durable block."
+                )
 
     # --- THE COMPUTED CONVERGENCE SIGNAL — RECORDED, NOT ROUTED ON --------
     # `routing.MAX_LOOPS` remains the only stopping authority. This phase emits
@@ -261,9 +306,9 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # rate limit as a degraded review, and the computed arm's whole instrument
     # is the state GROUPED BY its reason — the same defect this component
     # recorded at R2 and again at R1a.
-    this_block = helper.this_pass_block(blocks) if blocks is not None else None
+    this_block = helper.this_pass_block(blocks, run_id) if blocks is not None else None
     assessment = convergence.assess(
-        helper.convergence_history(blocks, record) if blocks is not None else (),
+        helper.convergence_history(blocks, record, run_id) if blocks is not None else (),
         pass_evaluable=evaluable,
     )
     asserted = (helper.asserted_converged_in_block(this_block)
@@ -508,7 +553,7 @@ def _thread_unreadable_note(pr_number: str, record: exit_record.ExitRecord,
 def _assert_block_matches_record(pr_number: str,
                                  record: exit_record.ExitRecord,
                                  prior_pass: int, posted: int,
-                                 blocks: list[str]) -> None:
+                                 blocks: list[str], run_id: str) -> None:
     """Fail loud when the durable render and the typed record disagree on findings.
 
     RAISES OR RETURNS. The could-not-check third outcome lives in
@@ -547,8 +592,10 @@ def _assert_block_matches_record(pr_number: str,
     # inline, so that checkbox would have hardened the shadow and the history and
     # left the render↔record invariant — the check `convergence_history`'s hybrid
     # design depends on — still selecting by position, silently disagreeing with
-    # its two siblings. Byte-identical behaviour today; the point is the site.
-    block = helper.this_pass_block(blocks)
+    # its two siblings. Since Phase 4 that accessor matches on the RUN NONCE
+    # where the thread carries it, so this check and the convergence history are
+    # both addressed by identity or both by position — never one of each.
+    block = helper.this_pass_block(blocks, run_id)
     if posted <= prior_pass:
         raise RuntimeError(
             f"PR #{pr_number}: the run produced a typed exit record but posted no new "

@@ -170,6 +170,55 @@ run_claude() {
     fi
 
     # -----------------------------------------------------------------------
+    # Safety observability — permission_denials[], surfaced on EVERY run.
+    #
+    # ROUTES NOTHING, DELIBERATELY. This prints and returns nothing; the only
+    # actor that BRANCHES on a denial is rule R1 in the V2 router
+    # (docs/standards/exit-protocol.md §4), and it routes to the human arm and
+    # never to automatic redispatch. Adding a second decider here would put an
+    # unbounded retry loop against the fleet's only in-run control in the one
+    # file both fleets share.
+    #
+    # WHY IT IS HERE AND NOT IN THE PYTHON PARENT. Every child of both fleets
+    # runs through this function, so one read covers 21 declared workflows
+    # rather than the one that reads the typed record. It matters most for the
+    # fleet that has no router at all: every V1 child runs under
+    # --dangerously-skip-permissions, block-dangerous.sh is by its own header
+    # the primary safety layer for headless mode, a tripped hook does NOT fail
+    # the run, and build.sh:277 will loop back on `HOLD - redispatch` — so
+    # before this line, a V1 child could trip the only control there is and be
+    # auto-redispatched with the array as its sole, unread trace.
+    #
+    # WHY IT CANNOT BE INFERRED FROM ANYTHING ELSE. Measured (Phase 1 E1(f), CLI
+    # 2.1.224): the forced-denial run exited 0 with `is_error: false` and
+    # `subtype: "success"`. Every signal the fleet reads said clean.
+    #
+    # `tool_input` IS NOT PRINTED. It carries literal command lines and absolute
+    # worktree paths; the Python side drops it at read time so there is no copy
+    # to leak, and this must not reintroduce one into a terminal scrollback or a
+    # CI log. Count, tool name and tool_use_id only — the id is what locates the
+    # denied call in $LOG_FILE, which is the question an operator asks next.
+    local denials
+    denials=$(jq -r 'select(.type == "result") | .permission_denials // [] | .[]
+        | "    · \(.tool_name // "?")  (tool_use_id: \(.tool_use_id // "?"))"' \
+        "$LOG_FILE" 2>/dev/null)
+    if [[ -n "$denials" ]]; then
+        {
+            echo
+            echo "================================================================"
+            echo "  ⚠ PERMISSION DENIAL(S) RECORDED — the in-run safety control fired"
+            echo "================================================================"
+            echo "$denials"
+            echo
+            echo "  The run's exit status says NOTHING about this: a denial does not"
+            echo "  fail the run. This is observability, not a verdict — nothing here"
+            echo "  changes what the workflow does next."
+            echo "  Inspect: ${LOG_FILE}"
+            echo "================================================================"
+        } >&2
+    fi
+
+    # -----------------------------------------------------------------------
     # Turn-cap termination — make a silent death LOUD. Deliberately visibility
     # only: no commit, no push, no state file, no resume. Measured rate is
     # 0.9% (4/443 runs, 3 of them from April), every occurrence so far with a

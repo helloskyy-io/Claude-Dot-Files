@@ -1,0 +1,433 @@
+"""The PR-URL address — one declaration, host-anchored, and an IDENTITY check.
+
+WHY THIS FILE EXISTS AS A CLASS GATE RATHER THAN AS THREE ASSERTIONS. Issue #34
+is the precedent and it is the warning: `parse_verdict` was typed twice, the
+issue NAMED BOTH COPIES, and it was closed with only one fixed — the survivor
+being in the module whose comparator exists to notice channel divergence. The
+PR-URL address arrived at Phase 4 in the same shape and one degree worse:
+
+  * `assistant_activities.PR_URL` and `build/build_helper._PR_URL` were
+    byte-identical ANCHORED copies;
+  * `routing.pr_number_from_url` was `re.search(r"/pull/(\\d+)", url)` with NO
+    host anchor at all, consumed by three parents;
+  * `research_workflow` and `research_refresh_parent_workflow` each derived the
+    number with `pr_url.rstrip("/").rsplit("/", 1)[-1]` — no validation of any
+    kind. `phase4_fleet_migration.md` named ONE of those two, which is the same
+    half-enumeration defect one layer up.
+
+The host pin held only BY COMPOSITION: the anchored extractor ran first. So every
+gate below is on the SHAPE across the tree, not on the five sites that were found.
+
+AND ANCHORING IS NOT IDENTITY, which is the second half of this file.
+`https://github\\.com/[^\\s)]+/pull/(\\d+)`'s `[^\\s)]+` IS the owner/repo
+segment, so `https://github.com/someone-else/other-repo/pull/12` passes it and
+yields `12` — a number then used against THIS dispatch's repo.
+"""
+
+from __future__ import annotations
+
+import ast
+import re
+from pathlib import Path
+
+import pytest
+
+from modules.assistant import assistant_activities as shared
+from modules.assistant import routing
+from modules.assistant.build import build_helper
+from modules.assistant.plan import plan_activities
+
+_MODULES = Path(routing.__file__).resolve().parents[1]      # …/modules
+_TEMPORAL = Path(routing.__file__).resolve().parents[3]     # …/workflows/temporal
+OWNER = Path(routing.__file__).resolve()
+
+
+# ---------------------------------------------------------------------------
+# One declaration, gated on the class.
+# ---------------------------------------------------------------------------
+
+# Names that PARSE a PR URL. A body for any of these outside `routing.py` is a
+# second declaration whatever it is called locally.
+_ADDRESS_FUNCTIONS = {"extract_pr_url", "pr_number_from_url", "pr_identity"}
+
+
+def _v2_python_files() -> list[Path]:
+    return sorted(p for p in _TEMPORAL.rglob("*.py")
+                  if "tests" not in p.relative_to(_TEMPORAL).parts)
+
+
+def test_the_pr_url_address_is_declared_exactly_once_in_the_whole_tree() -> None:
+    """A `def` that parses a PR URL lives in `routing.py` and nowhere else.
+
+    AST rather than a substring scan, for the reason the `parse_verdict` gate
+    gives: `"def extract_pr_url" in text` matches a docstring, a comment, or a
+    line of prose describing the defect — and three of the modules touched here
+    contain exactly such prose now.
+    """
+    definitions: list[tuple[str, str]] = []
+    scanned = 0
+    for path in _v2_python_files():
+        scanned += 1
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    and node.name in _ADDRESS_FUNCTIONS and path != OWNER:
+                definitions.append((str(path.relative_to(_TEMPORAL)), node.name))
+
+    assert scanned > 20, (
+        f"the scan visited only {scanned} files under {_TEMPORAL} — the gate is "
+        f"reporting on a tree it did not read"
+    )
+    assert definitions == [], (
+        f"the PR-URL address is declared more than once: {definitions}. Its owner "
+        f"is `routing.py`, which carries the host anchor and the owner/repo "
+        f"capture; every other consumer re-exports. Issue #34 is what a second "
+        f"body costs — it stays green in its own tests while the rule applied to "
+        f"the owner never reaches it."
+    )
+
+
+def test_no_second_regex_in_the_tree_matches_a_pull_URL() -> None:
+    """The pattern half of the same rule, and the one that actually drifted.
+
+    Two of the three declarations were regexes rather than functions, and the
+    third strength — no host anchor — was also a regex. This walks every
+    `re.compile(...)` literal in the V2 tree.
+
+    `COMPLETION_PATTERN` IS EXCLUDED BY NAME AND THAT IS NOT A LOOPHOLE. Those
+    nine are an ERE handed to `grep -qE` inside `run-claude.sh` — a different
+    contract on a different side of a process boundary, checked against this one
+    by `test_the_completion_ERE_and_the_extractor_agree` below rather than
+    merged into it.
+    """
+    offenders: list[str] = []
+    for path in _v2_python_files():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and node.args
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "compile"):
+                continue
+            arg = node.args[0]
+            if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                continue
+            if "/pull/" in arg.value and path != OWNER:
+                offenders.append(f"{path.relative_to(_TEMPORAL)}:{node.lineno} {arg.value!r}")
+    assert offenders == [], (
+        f"a second PR-URL regex is compiled outside routing.py: {offenders}. "
+        f"Re-export `routing.PR_URL`; a copy is one edit from having a different "
+        f"strength, which is exactly how the unanchored one survived."
+    )
+
+
+def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
+    """Re-export, not re-implementation — the half an AST scan cannot see.
+
+    A `lambda`, a `functools.partial` or a thin wrapper would satisfy the gates
+    above and still be a second body. Identity is what makes "one declaration"
+    mean the object rather than the name — FOR THE FUNCTIONS.
+
+    AND IT DOES NOT MEAN THAT FOR THE PATTERN, which a mutation measured rather
+    than a reading found. `re.compile` CACHES on `(pattern, flags)`, so replacing
+    `PR_URL = routing.PR_URL` with a byte-identical `re.compile(...)` returns
+    THE SAME OBJECT and this assertion stays green. Predicted two reds for that
+    mutation; got one. So the pattern's one-declaration property is held by
+    `test_no_second_regex_in_the_tree_matches_a_pull_URL` above and by nothing
+    here, and the line below is a same-object statement rather than a guard.
+    Recorded because an `is` assertion on a compiled pattern READS like the
+    strongest check in the file and is the weakest.
+    """
+    assert shared.PR_URL is routing.PR_URL
+    assert shared.extract_pr_url is routing.extract_pr_url
+    assert build_helper.extract_pr_url is routing.extract_pr_url
+    assert build_helper.pr_number_from_url is routing.pr_number_from_url
+    assert build_helper.pr_identity is routing.pr_identity
+    assert plan_activities.extract_pr_url is routing.extract_pr_url
+
+
+# Every place in the V2 tree that takes a path segment off a string by splitting,
+# with what it is splitting. THREE ad-hoc PR-URL parses used to be in this set —
+# `research_workflow`, `research_refresh_parent_workflow` and
+# `run_plan_project`'s completion banner — and `phase4_fleet_migration.md`
+# enumerated ONE of the three. That is the same half-enumeration defect the
+# address itself had, which is why the gate is an exact set over the SHAPE and
+# not a list of the sites somebody found.
+#
+# ASSERTED AS AN EXACT SET, so it fails both when a new split appears and when a
+# listed one goes away — a list that only grows is a gate that widens itself.
+DECLARED_SPLITS = {
+    ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
+    ("plan_activities.py", "new_sprint_sections"),   # a markdown heading's em-dash
+}
+
+
+def test_no_module_derives_a_path_segment_from_a_url_by_splitting() -> None:
+    """The shape, not the two sites — `rsplit` on a URL is a parse with no check.
+
+    `pr_url.rstrip("/").rsplit("/", 1)[-1]` returns the last segment of whatever
+    it is handed: a bare sentence yields a word, and the word reaches `gh` as a
+    PR number. It also cannot see the repository, so it is the weakest of the
+    five declarations that existed and it was in the two workflows nobody
+    enumerated.
+    """
+    found: set[tuple[str, str]] = set()
+    sites: list[str] = []
+    scanned = 0
+    for path in _v2_python_files():
+        scanned += 1
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        owner: dict[int, str] = {}
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for node in ast.walk(fn):
+                    owner[id(node)] = fn.name
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
+                    and node.func.attr in {"split", "rsplit"}:
+                where = (path.name, owner.get(id(node), "<module>"))
+                found.add(where)
+                sites.append(f"{path.relative_to(_TEMPORAL)}:{node.lineno}")
+
+    assert scanned > 20, f"the scan visited only {scanned} files — it read nothing"
+    assert found == DECLARED_SPLITS, (
+        f"string splitting moved. New sites: {sorted(found - DECLARED_SPLITS)}; "
+        f"declared sites that are gone: {sorted(DECLARED_SPLITS - found)}. All "
+        f"sites: {sites}. If it is a URL, use `routing.pr_identity`; if it is "
+        f"not, add it here with what it splits — that edit IS the gate."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Capability parity — BOTH bounds, because a floor alone certifies a regression.
+# ---------------------------------------------------------------------------
+
+# The pattern this replaced, verbatim off `git show HEAD:…assistant_activities.py`.
+_INCUMBENT = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
+
+# URLs the fleet actually handles. Every one must survive the narrowing.
+_REAL = [
+    "https://github.com/helloskyy-io/Claude-Dot-Files/pull/78",
+    "https://github.com/o/r/pull/1",
+    "see https://github.com/o/r/pull/12 for context",
+    "[the PR](https://github.com/o/r/pull/12)",
+    "https://github.com/o/r/pull/12/files",
+    "https://github.com/o-with-dash/r.with.dots/pull/9",
+]
+
+
+@pytest.mark.parametrize("text", _REAL)
+def test_the_narrowed_pattern_accepts_EVERY_url_the_incumbent_accepted(text: str) -> None:
+    """THE CEILING. A parity claim asserting only that the new path still fails
+    closed passes while measuring the wrong thing; the other bound is that it
+    does not fail closed on inputs the incumbent accepted.
+    """
+    assert _INCUMBENT.search(text), "fixture error: the incumbent rejected this"
+    assert routing.extract_pr_url(text) is not None, text
+    assert routing.pr_number_from_url(text) == _INCUMBENT.search(text).group(1)
+
+
+def test_the_narrowing_rejects_only_strings_that_are_not_pr_urls() -> None:
+    """THE FLOOR, stated as what it costs rather than as what it protects.
+
+    `[^\\s/)]+/[^\\s/)]+` is exactly two path segments, so a three-segment path is
+    no longer matched. That IS a behaviour change from the incumbent and it is a
+    declared parity line item: `github.com/a/b/c/pull/1` is not a PR URL, and
+    accepting it was what let the owner/repo segment be unreadable.
+    """
+    assert _INCUMBENT.search("https://github.com/a/b/c/pull/1"), (
+        "fixture error: this is the input the incumbent accepted"
+    )
+    assert routing.extract_pr_url("https://github.com/a/b/c/pull/1") is None
+
+
+def test_the_number_is_never_taken_without_the_repo_being_visible() -> None:
+    """The cross-repo shape parses, and parsing it exposes the repo it names.
+
+    This is the whole distinction requirement 6 draws: the pattern was never
+    wrong about the NUMBER. It was silent about WHOSE PR it was.
+    """
+    other = "https://github.com/someone-else/other-repo/pull/12"
+    assert _INCUMBENT.search(other).group(1) == "12", (
+        "fixture error: the incumbent yielded a usable number for this"
+    )
+    assert routing.pr_identity(other) == ("someone-else/other-repo", "12")
+
+
+@pytest.mark.parametrize("text", [
+    "", "no url here", "https://github.com/o/r/pull/", "/pull/12",
+    "https://gitlab.com/o/r/pull/12", "http://github.com/o/r/pull/12",
+])
+def test_a_non_pr_url_raises_rather_than_yielding_a_number(text: str) -> None:
+    """`/pull/12` is the one that matters: the unanchored parser accepted it.
+
+    It is what `pr_number_from_url` matched before Phase 4, out of ANY string,
+    with the host pin supplied only by whoever happened to call the anchored
+    extractor first.
+    """
+    assert routing.extract_pr_url(text) is None
+    with pytest.raises(ValueError):
+        routing.pr_number_from_url(text)
+
+
+# ---------------------------------------------------------------------------
+# The completion ERE and the extractor must agree, or the gate admits a URL the
+# parent cannot parse.
+# ---------------------------------------------------------------------------
+
+_COMPLETION_ASSIGN = re.compile(r"^COMPLETION_PATTERN\s*=\s*r?[\"'](.+?)[\"']\s*$", re.M)
+
+
+def _declared_completion_patterns() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for path in _v2_python_files():
+        for m in _COMPLETION_ASSIGN.finditer(path.read_text(encoding="utf-8")):
+            out[str(path.relative_to(_TEMPORAL))] = m.group(1)
+    return out
+
+
+# The one V2 workflow whose completion contract is DELIBERATELY wider, with the
+# reason. `plan-revision` has two terminal outcomes — a plan PR, or a STOP that
+# files an issue and prints its URL as the final line — and `stages_1_to_5.md`
+# makes the issue URL the STOP's completion signal in those words. Its workflow
+# already resolves the two by POSITION (`_completion_url`), so the wider ERE is
+# matched by a wider consumer rather than by a gate nobody widened.
+_WIDER_BY_DESIGN = {
+    "temporal/modules/assistant/plan/plan_revision/plan_revision_workflow.py":
+        r"https://github\.com/[^ )]+/(pull|issues)/[0-9]+",
+}
+
+
+def _pr_only_completion_ere() -> str:
+    declared = _declared_completion_patterns()
+    values = {v for k, v in declared.items()
+              if "pull" in v and k not in _WIDER_BY_DESIGN}
+    assert len(values) == 1, f"more than one PR-only completion ERE: {values}"
+    return next(iter(values))
+
+
+def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider() -> None:
+    """Nine workflows declare a PR-URL contract; eight must declare the SAME one.
+
+    NOT COLLAPSED INTO A SHARED CONSTANT, deliberately — that is not this
+    phase's scope, and each workflow declaring its own completion contract is
+    the shape `run-claude.sh`'s env-var interface expects. What IS in scope is
+    that they cannot silently diverge: nine copies with no gate is the same
+    defect class the address had, one contract over.
+
+    THE NINTH IS DECLARED RATHER THAN EXCLUDED. `plan-revision` accepts an issue
+    URL as well, because a STOP files an issue and that is its completion
+    signal. Writing the test as "they are all identical" would have forced
+    either a false claim or a silent skip, and this is the shape that makes the
+    exception cost an edit here.
+    """
+    declared = _declared_completion_patterns()
+    pr_shaped = {k: v for k, v in declared.items() if "pull" in v}
+    assert len(pr_shaped) == 9, (
+        f"expected 9 PR-URL completion contracts in the V2 tree, found "
+        f"{len(pr_shaped)}: {sorted(pr_shaped)}. The tenth V2 workflow is "
+        f"review-pr, whose contract is `^VERDICT:`."
+    )
+    wider = {k: v for k, v in pr_shaped.items() if k in _WIDER_BY_DESIGN}
+    assert wider == _WIDER_BY_DESIGN, (
+        f"the declared-wider set moved: shipped {wider}, declared "
+        f"{_WIDER_BY_DESIGN}. A workflow that widened its completion contract "
+        f"needs a consumer that reads the wider outcome — `plan_revision`'s is "
+        f"`_completion_url`. Add both, or narrow the ERE back."
+    )
+    rest = {v for k, v in pr_shaped.items() if k not in _WIDER_BY_DESIGN}
+    assert len(rest) == 1, (
+        f"the PR-only completion contract is declared {len(rest)} different "
+        f"ways: {sorted(rest)}"
+    )
+
+
+@pytest.mark.parametrize("text", _REAL + ["no url here", "/pull/12"])
+def test_the_completion_ERE_and_the_extractor_agree(text: str) -> None:
+    """A gate that accepts what the parser cannot read is a gate that lies.
+
+    `run-claude.sh` decides a run COMPLETED by grepping its final text for the
+    ERE; the parent then extracts the URL from the same output with
+    `routing.PR_URL`. If the two disagree, a run passes its completion contract
+    and the parent raises "produced no PR URL" — a completed run reported as
+    unfinished, or the reverse.
+
+    The two spellings are not identical and cannot be: the ERE goes to `grep -E`,
+    which has no `\\s`. What must hold is that they accept the same inputs.
+    """
+    ere = _pr_only_completion_ere()
+    assert bool(re.search(ere, text)) == bool(routing.extract_pr_url(text)), (
+        f"the completion ERE {ere!r} and `routing.PR_URL` disagree on {text!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Requirement 3: the prompt's EMIT INSTRUCTION corresponds to the field the
+# parent reads. For the nine deferred children that field is the PR URL on the
+# final line, and the parent reads it through the completion gate.
+# ---------------------------------------------------------------------------
+
+_FINAL_LINE_URL = re.compile(r"URL.*FINAL line|FINAL line.*URL", re.IGNORECASE)
+
+
+def _instruction_surface(workflow_file: Path) -> list[Path]:
+    """Everything that can carry this workflow's emit instruction.
+
+    SCOPED WIDER THAN `prompts/` ON PURPOSE, and the narrow version was wrong.
+    A first cut of this check looked only in each workflow's `prompts/` folder
+    and reported FOUR workflows — `plan-sprint`, `research-write`,
+    `research-verify`, `research-refresh` — as gating on a PR URL they never
+    ask for. They do ask: the instruction is CODE-BORNE, built by
+    `<family>_activities.submit_prompt()` and interpolated as `${SUBMIT_PROMPT}`.
+    A conformance check that cannot see half the prompt surface manufactures
+    findings, which is worse than missing them.
+    """
+    package = workflow_file.parent
+    family = package.parent
+    return (sorted(package.rglob("*.md")) + sorted(package.glob("*.py"))
+            + sorted(family.glob("*_activities.py")) + sorted(family.glob("*_helper.py")))
+
+
+def test_every_workflow_gating_on_a_pr_url_ASKS_ITS_CHILD_FOR_ONE() -> None:
+    """The gate and the instruction are two artifacts and nothing bound them.
+
+    `COMPLETION_PATTERN` decides whether `exit 0` means finished; the prompt is
+    what makes the child emit the thing it matches. Delete the instruction and
+    the gate fails EVERY run of that workflow — loudly, but with a message about
+    headless early-stop that names neither the prompt nor the missing line. Add
+    a workflow with a copied `COMPLETION_PATTERN` and no instruction and it
+    never completes at all.
+    """
+    missing: list[str] = []
+    for rel in _declared_completion_patterns():
+        if "pull" not in _declared_completion_patterns()[rel]:
+            continue
+        workflow_file = _TEMPORAL / rel
+        if not any(_FINAL_LINE_URL.search(p.read_text(encoding="utf-8"))
+                   for p in _instruction_surface(workflow_file)):
+            missing.append(rel)
+    assert missing == [], (
+        f"these workflows gate on a PR URL and nothing in their prompt surface "
+        f"asks the child to print one: {missing}"
+    )
+
+
+def test_the_instruction_check_can_actually_FAIL(tmp_path: Path) -> None:
+    """Verified negative control — the surface scan must discriminate.
+
+    A check that walks a tree can pass vacuously when its own scoping is wrong,
+    and this one nearly did in the other direction. Here the predicate is run
+    over a surface that carries no instruction, and it must come back negative.
+    """
+    (tmp_path / "family").mkdir()
+    (tmp_path / "family" / "wf").mkdir()
+    (tmp_path / "family" / "wf" / "wf_workflow.py").write_text("COMPLETION_PATTERN = 1\n")
+    (tmp_path / "family" / "wf" / "notes.md").write_text("no instruction here\n")
+    (tmp_path / "family" / "family_activities.py").write_text("x = 1\n")
+    surface = _instruction_surface(tmp_path / "family" / "wf" / "wf_workflow.py")
+    assert surface, "the scan found no files at all — it would pass vacuously"
+    assert not any(_FINAL_LINE_URL.search(p.read_text()) for p in surface)
+    # …and it goes positive the moment the instruction appears, in EITHER half.
+    (tmp_path / "family" / "family_activities.py").write_text(
+        'return "report its URL as your FINAL line"\n')
+    assert any(_FINAL_LINE_URL.search(p.read_text())
+               for p in _instruction_surface(tmp_path / "family" / "wf" / "wf_workflow.py"))

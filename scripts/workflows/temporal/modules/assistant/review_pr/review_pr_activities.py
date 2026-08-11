@@ -129,48 +129,23 @@ def pr_review_blocks(pr_number: str, repo_root: Path) -> list[str]:
     return thread_snapshot(pr_number, repo_root)[1]
 
 
-def latest_pr_review_block(pr_number: str, repo_root: Path) -> str | None:
-    """The LATEST `pr_review:` block on this PR, or None if there is none.
-
-    NO PRODUCTION CALLER TODAY, and that is worth knowing before reading the
-    rest. `run_review` takes the whole window from `thread_snapshot` and names
-    this pass's block with `helper.this_pass_block`, which is where the
-    positional inference now lives and which `phase4_fleet_migration.md`'s
-    run-nonce checkbox replaces. This stays as the one-line composition of those
-    two, because several docstrings point at it as the place the "latest block"
-    rule is written down and moving that prose would cost more than the line.
-
-    The address, applied: container id is the PR number, the block marker is the
-    fence-anchored regex, and the ordering rule is comment creation order with
-    LAST WINS (`memory-model.md` §6.2). Sequence is derived from that ordering
-    rather than from the block's own `pass:` counter — a counter written by the
-    producer can be wrong, and §6.4 measures that it was.
-
-    LAST WINS *WITHIN* A COMMENT TOO, which is why this is `finditer` and not
-    `search`. A comment may legitimately carry more than one block: INVARIANT 1
-    of `disposition.md` requires each pass to carry prior findings forward, so a
-    disposition that quotes the block it supersedes above its own is a shape the
-    prompt invites. `search` returns the FIRST match, so on such a comment this
-    returned the SUPERSEDED block — and the render↔record invariant then compared
-    this pass's typed record against the previous pass's findings and hard-failed
-    a correct run, *after* the comment was already posted. `replay_pr_review_blocks`
-    has always used `findall` here; this was the third reader disagreeing with the
-    other two about what "the latest block" means.
-
-    THE SAME RULE `count_prior_passes` APPLIES, AND THEY ARE NOW ONE FUNCTION.
-    That count is COMMENTS THAT CARRY A BLOCK, because the delta it feeds
-    (`posted <= prior_pass` in `review_pr_workflow`) is a count of passes and one
-    pass posts one comment however many blocks it quotes. `thread_snapshot`
-    derives both from one reply under that single rule, so the count and the
-    window can no longer disagree about what a pass is — they briefly did, and a
-    quoting comment made `ConvergenceAssessment.passes` exceed `this_pass`.
-
-    EXPRESSED ON `pr_review_blocks` RATHER THAN RE-EXTRACTING. The extraction
-    was typed twice for one commit when the window reader was added, which is
-    the duplicated-reader defect `exit-protocol.md` §6 covers — and the measured
-    instance of it (issue #68) is this exact marker.
-    """
-    return helper.this_pass_block(pr_review_blocks(pr_number, repo_root))
+# `latest_pr_review_block` WAS HERE AND IS DELETED, not moved.
+#
+# It was a one-line projection — `helper.this_pass_block(pr_review_blocks(...))`
+# — with no production caller, kept because several docstrings pointed at it as
+# the place the "latest block" rule was written down. Phase 4 made that
+# untenable rather than merely untidy: `this_pass_block` now takes the run nonce
+# and answers *which block is THIS PASS'S*, which on a thread carrying a later
+# third-party comment is not the same question as *which block is last*. A
+# no-caller helper whose name promises the second while delegating to the first
+# is a positional inference with no owner — the exact shape
+# `test_selecting_from_the_END_of_a_sequence_happens_only_where_it_is_owned`
+# exists to keep out of this package.
+#
+# The rule itself did not live here and still does not: last-wins ACROSS
+# comments and WITHIN one is `thread_snapshot`'s, and `memory-model.md` §6.2 is
+# its statement. Its three tests moved onto `pr_review_blocks`, which is what
+# actually implements it.
 
 
 def load_shared_block(name: str, shared_sh: Path) -> str:

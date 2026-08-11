@@ -15,6 +15,7 @@ from ..research_refresh import research_refresh_workflow as refresh
 from ..research_verify import research_verify_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
+from ... import routing
 
 MAX_LOOPS = 1
 
@@ -34,7 +35,10 @@ def run_research_refresh(*, research_dir: Path, repo_root: Path,
 
     pr_url = refresh.run_refresh(research_dir=research_dir, repo_root=repo_root,
                                  worktree=worktree, due=due, verbose=verbose)
-    pr = pr_url.rstrip("/").rsplit("/", 1)[-1]
+    # THROUGH THE OWNER, not a string split — see the sibling parent. This is
+    # the same expression, and the phase doc that found it named only one of the
+    # two, which is why the gate below it is on the SHAPE and not on the sites.
+    pr = routing.pr_number_from_url(pr_url)
 
     loops = 0
     verdict = _verify_then_dispose(research_dir, pr, repo_root, worktree, notes, verbose, False)
