@@ -19,6 +19,7 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 | `build.sh` | **parent** | `build-draft` → `build-refine` → `review-pr` → one bounded loop-back |
 | `build_minor.sh` | **parent** | same shape, lighter middle child |
 | `research.sh` | **parent** | `research-write` → `research-verify` → `review-pr`. **Altitude is DERIVED from the pool path** — `docs/standards/architecture/research/` is project-level, `docs/development/<component>/research/` is component-level. One workflow, two altitudes |
+| `research_minor.sh` | **parent** | `research-write-minor` → **the same** `research-verify` → `review-pr`. **ONE paper: no `topics.md`, no sizing assessment, no fan-out, no synthesis.** Per-paper rigor is untouched and `research-critic` still gates it — only the multi-paper machinery is absent. Reach for `research.sh` when the subject has several concerns or real alternatives to weigh; this one when the question is single-concern with one destination |
 | `plan_project.sh` | **parent** | `plan-sprint` → research children per NEW component → `review-pr`. Was `plan-master` |
 | `plan_sprint.sh` | child, independently dispatchable | triages `candidates.md`, maintains `sprint.md`, reconciles sections against newer research |
 | `plan_revision.sh` | child, independently dispatchable | roadmaps, phase docs, requirements, epics |

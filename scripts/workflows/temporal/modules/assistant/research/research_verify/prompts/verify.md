@@ -8,7 +8,7 @@ ${CORRECTION_NOTE}
 ${CYCLE_SHAPE_NOTE}
 
 ## Stage 1: VERIFY THE PAPERS
-For each paper written or updated in Stage 3, dispatch the research-critic agent (paper path + standard path in its prompt):
+For each paper this PR added or updated, dispatch the research-critic agent (paper path + standard path in its prompt):
 - FABRICATED and MISCITED findings are BLOCKING: fix them by **RE-DISPATCHING the research-analyst with the critic's exact findings**, then RE-VERIFY through the critic. No paper enters the synthesis with unresolved blocking findings.
 - **Resume contract (correction rounds):** resuming an existing analyst via `SendMessage` preserves its paper context and is STRICTLY BETTER than spawning a fresh one — but `SendMessage` backgrounds the agent with no foreground option. Bridge it with a BLOCKING `TaskOutput` on the returned id. The headless rule is unchanged: the turn must not end while an agent is still running.
 - **Completion is reported by the harness. Never infer it from file content.** A marker written into a file (the `Critic:` header, a section heading, a status line) appears PARTWAY THROUGH an agent's edit sequence, not at the end of it. Measured on a real cycle: the loop watched for the `Critic:` line, and round-2 critics began verifying files that were still being written — two detected the moving file, one noting that *a verdict pinned to a moving file is itself an integrity risk*. Block on agent completion, always.

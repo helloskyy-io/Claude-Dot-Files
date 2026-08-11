@@ -53,6 +53,24 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
     is a behavioural branch living inside a prompt, and prompt branches are
     where drift lives. Every arm of the verification itself is unchanged, and
     Stage 1 verifies the paper exactly as always.
+
+    WHAT IS ACTUALLY PROVEN, STATED NARROWLY, because the paragraph above is
+    easy to read as a stronger claim than the tests support.
+    `test_the_flag_reaches_no_if_statement` proves the MECHANICS are
+    unconditional: this parameter reaches no `if`, and nothing here reads
+    `synthesis.md`, so no Python path forks on it. It does NOT prove the
+    rendered prompt is behaviourally inert — the block plainly tells the model
+    to emit `SKIPPED` for stages 2 and 3, and those stages are work that
+    otherwise happens.
+
+    That residue is ACCEPTED, not overlooked, and the reason is narrow: stages 2
+    and 3 operate on a synthesis, the skip is asserted only when no synthesis
+    exists, and the alternative — a run inventing one so it has something to
+    verify — is the failure this child exists to prevent. The honest reading is
+    that the parameter states a fact and the model draws the only consequence
+    that fact has. What the design forbids is the NEXT block being added this
+    way with a consequence that does not follow from a fact about the
+    filesystem, and an AST walk over Python cannot tell those two apart.
     """
     pool = act.in_worktree(research_dir, repo_root, worktree)
     currency, _due = act.paper_currency(pool)

@@ -9,7 +9,7 @@ activity.
 
 WHY IT IS A SIBLING RATHER THAN A FLAG ON `research`. A portfolio-direction
 question cost ~3.5 hours, five papers and a synthesis — "mass overkill", in the
-operator's words. The sizing rubric was not the cause: Research Standard §3
+operator's words. The sizing rubric was not the cause: Research Standard §2
 already sizes Small at 1-2 topics, and a correctly-sized Small run STILL emits
 `topics.md`, a fan-out, a synthesis and a verify pass over all of it. What was
 missing is a shape with no pool in it at all, and that is a different

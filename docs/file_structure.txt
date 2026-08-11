@@ -304,7 +304,10 @@ claude-dot-files/
 │                   │                                #   notice: every "absent from write_minor.md" check is paired with the SAME predicate
 │                   │                                #   run against research_write's live prompt, which must still fire. Plus the reused
 │                   │                                #   verify child's cycle-shape block RENDERED (not grepped) and an AST walk proving its
-│                   │                                #   parameter reaches no `if` — a value, never a behavioural branch inside a prompt
+│                   │                                #   parameter reaches no `if` — a value, never a behavioural branch inside a prompt.
+│                   │                                #   BOTH children's prompts are rendered end-to-end: the prompt FILE is not the prompt,
+│                   │                                #   and ${CONTEXT_BLOCK} is assembled from pieces write_minor.md does not author — which
+│                   │                                #   is exactly where the one live defect this suite's file-only checks all missed lived
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   └── test_testpaths_matches_discovery.py # pytest.ini's testpaths lists every tests/ dir python.sh discovers — a bare
 │                                                        #   `pytest` must never silently cover less than run-all.sh while both report green

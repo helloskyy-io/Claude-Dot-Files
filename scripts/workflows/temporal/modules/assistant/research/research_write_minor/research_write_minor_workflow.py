@@ -10,7 +10,7 @@ sibling, so `research_minor` reads the handoff the same way `research` does.
 WHY A SEPARATE CHILD RATHER THAN A MODE ON `research_write`. A portfolio-
 direction question cost ~3.5 hours, five papers and a synthesis, and the
 operator called it "mass overkill for what we needed". The sizing rubric was
-NOT the cause and tuning it would not have helped: Research Standard §3 already
+NOT the cause and tuning it would not have helped: Research Standard §2 already
 puts Small at 1-2 topics, and even a correctly-sized Small run still produces
 `topics.md`, a fan-out, a synthesis and a verify pass over all of it. The
 missing shape is one with NO POOL IN IT AT ALL, and a pool-less pool-writer is
@@ -33,6 +33,15 @@ interval, per-claim confidence marking, the source floor and the count rule,
 and the honest-boundary analysis. Those are per-PAPER rigor; they have nothing
 to do with how many papers there are. The paper this produces is a §3 paper or
 it is not shippable.
+
+DEFERRED, AND NAMED RATHER THAN LEFT SILENT: `write_minor.md`'s RULES footer is
+the FOURTH near-copy of one block across the research family (`write.md`,
+`verify.md`, `refresh.md`). `temporal_standard.md` §10.1 rule 3 puts the
+promotion threshold at more than one consumer, so that threshold was already
+crossed before this file existed — but the remedy is a family-wide migration
+that rewrites three prompts this workflow does not own, and the four copies have
+already drifted, so unifying them changes what three live workflows receive.
+Placed as `candidates.md` C-067 rather than done here or dropped.
 """
 
 from __future__ import annotations
@@ -78,7 +87,26 @@ def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
     # workflow should not have. `upstream_block` is the opposite: a read-only
     # POINTER at what the product pool already settled, which stops this run
     # re-deriving a settled answer. It returns "" at product altitude by itself.
-    blocks = [b for b in (context, act.upstream_block(pool, worktree), currency) if b]
+    #
+    # ITS TWO DIRECTIVES ARE SUPPLIED, NOT DEFAULTED, because the defaults name
+    # `research_write`'s stages — "before you SIZE", "your sizing in Stage 2" —
+    # and this cycle HAS no sizing stage. Left defaulted, the injected pointer
+    # ordered a sizing assessment two paragraphs after this workflow's own prompt
+    # forbids writing one, and a contradiction inside one prompt is resolved by
+    # the model rather than by us. Reachable today: this repo's product pool has
+    # a synthesis, so any component-altitude minor run renders this block.
+    blocks = [b for b in (
+        context,
+        act.upstream_block(
+            pool, worktree,
+            read_directive="READ THIS IN STAGE 1, BEFORE YOU RESEARCH",
+            coverage_directive=(
+                "Your paper must state which part of its question upstream "
+                "already covers, and cite the upstream paper rather than "
+                "re-deriving it."),
+        ),
+        currency,
+    ) if b]
 
     values = {
         "RESEARCH_DIR": str(research_dir),

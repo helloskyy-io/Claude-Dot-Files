@@ -146,7 +146,11 @@ def altitude(research_dir: Path, repo_root: Path) -> str:
     return "PRODUCT" if rel == PRODUCT_POOL else "COMPONENT"
 
 
-def upstream_block(research_dir: Path, repo_root: Path) -> str:
+def upstream_block(research_dir: Path, repo_root: Path, *,
+                   read_directive: str = "READ THIS IN STAGE 1, BEFORE YOU SIZE",
+                   coverage_directive: str = (
+                       "Your sizing in Stage 2 must state which topics upstream "
+                       "already covers.")) -> str:
     """POINT a component run at the product pool. Deliberately not inlined.
 
     Without this a component run re-derives what the product pool already
@@ -158,6 +162,15 @@ def upstream_block(research_dir: Path, repo_root: Path) -> str:
     pointed at and read in Stage 1. Only COMPUTED values are inlined, because
     those are the ones a run cannot obtain by reading. The counts below are
     computed for exactly that reason: they make an unread pool visible.
+
+    THE TWO DIRECTIVES ARE CALLER-SUPPLIED BECAUSE THEY NAME THE CALLER'S OWN
+    STAGES, and this block is now injected into two prompts with different ones.
+    Both defaults are `research_write`'s original text verbatim, so the full
+    cycle's prompt is byte-unchanged. `research_write_minor` has no sizing stage
+    at all — it is a one-paper cycle — so hard-coding "your sizing in Stage 2"
+    here sent it an instruction its prompt explicitly forbids obeying. That is a
+    cross-file prose claim going stale the moment a second consumer appears,
+    which is the failure class `candidates.md` C-065 names.
     """
     if altitude(research_dir, repo_root) == "PRODUCT":
         return ""
@@ -172,14 +185,14 @@ def upstream_block(research_dir: Path, repo_root: Path) -> str:
         "--- upstream product research (READ-ONLY) ---",
         f"The product pool holds **{len(papers)} papers** and a synthesis of them:",
         "",
-        f"  {PRODUCT_POOL}/synthesis.md   <- READ THIS IN STAGE 1, BEFORE YOU SIZE",
+        f"  {PRODUCT_POOL}/synthesis.md   <- {read_directive}",
         f"  {PRODUCT_POOL}/raw/           <- the pool behind it; open a paper only when a topic needs it",
         "",
         "Counted in code and authoritative: " + ", ".join(f"`{p.name}`" for p in papers),
         "",
         "**Cite it, never re-derive it, and never write to it.** A topic settled upstream",
         "does not need a second paper in your component pool — cite the upstream paper and",
-        "move on. Your sizing in Stage 2 must state which topics upstream already covers.",
+        f"move on. {coverage_directive}",
         "--- end upstream product research ---",
     ])
 

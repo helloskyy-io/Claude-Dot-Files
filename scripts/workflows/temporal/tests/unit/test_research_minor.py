@@ -253,6 +253,79 @@ def test_the_minor_child_supplies_no_altitude_machinery() -> None:
     )
 
 
+def _render_write_minor(monkeypatch, tmp_path: Path) -> str:
+    """Drive the REAL run_write_minor and return the merged prompt it built.
+
+    THE PROMPT FILE IS NOT THE PROMPT. Every other check in this module reads
+    `write_minor.md` in isolation, and `${CONTEXT_BLOCK}` is assembled in Python
+    from three pieces this workflow does not author — so a contradiction between
+    the file and an injected block is invisible to all of them. That is not
+    hypothetical: `upstream_block`'s directives named `research_write`'s stages
+    ("before you SIZE", "your sizing in Stage 2"), and this cycle has no sizing
+    stage, so the merged prompt ordered a sizing assessment two paragraphs after
+    the file forbids writing one.
+
+    The fixture is COMPONENT altitude with an upstream synthesis present,
+    because that is the only arm that renders the pointer at all — and it is the
+    arm this repo itself is in.
+    """
+    research_dir = tmp_path / "docs" / "development" / "widget" / "research"
+    research_dir.mkdir(parents=True)
+    upstream = tmp_path / "docs" / "standards" / "architecture" / "research"
+    (upstream / "raw").mkdir(parents=True)
+    (upstream / "raw" / "a-paper.md").write_text("# upstream\n")
+    (upstream / "synthesis.md").write_text("# synthesis\n")
+
+    captured = _CapturedPrompt()
+    monkeypatch.setattr(act, "run_claude", captured)
+    child.run_write_minor(
+        research_dir=research_dir, repo_root=tmp_path, worktree=tmp_path,
+    )
+    assert captured.prompt is not None, "run_write_minor never reached run_claude"
+    return captured.prompt
+
+
+def test_the_rendered_minor_prompt_orders_no_sizing(monkeypatch, tmp_path) -> None:
+    """The merged prompt must not contradict itself about a stage it lacks.
+
+    A model handed one instruction saying "do not write a sizing assessment" and
+    another saying "your sizing in Stage 2 must state X" resolves the conflict
+    itself, unobserved — and the resolution it picks is the one that produces the
+    artifact this workflow exists to not produce.
+    """
+    prompt = _render_write_minor(monkeypatch, tmp_path)
+
+    assert "upstream product research" in prompt, (
+        "the upstream pointer did not reach the merged prompt, so the assertions "
+        "below would pass vacuously — the fixture no longer renders the block"
+    )
+    assert "BEFORE YOU SIZE" not in prompt.upper(), (
+        "the merged minor prompt tells the model to read the upstream synthesis "
+        "'before you size'. This cycle has no sizing stage; the directive is "
+        "research_write's and must be supplied by the caller, not defaulted."
+    )
+    assert "sizing in Stage 2" not in prompt, (
+        "the merged minor prompt orders a Stage 2 sizing assessment. Stage 2 of "
+        "this workflow is 'RESEARCH — ONE PAPER', and the prompt file explicitly "
+        "forbids writing a sizing assessment at all."
+    )
+
+
+def test_the_full_cycle_still_gets_the_sizing_directives() -> None:
+    """THE CONTROL, and it is the load-bearing half.
+
+    `upstream_block`'s directives became parameters. If the defaults were also
+    changed, the assertions above would pass because the sentences no longer
+    exist ANYWHERE — a vacuous green — and `research_write`'s prompt would have
+    been silently edited by a change that must not touch it.
+    """
+    default = inspect.signature(act.upstream_block).parameters
+    assert default["read_directive"].default == "READ THIS IN STAGE 1, BEFORE YOU SIZE"
+    assert default["coverage_directive"].default == (
+        "Your sizing in Stage 2 must state which topics upstream already covers."
+    )
+
+
 # --- 3. research_verify is REUSED: a rendered block, not a behavioural flag ----
 
 _MANDATED = "MINOR CYCLE — one paper, no synthesis. The paper IS the deliverable."
@@ -501,12 +574,29 @@ def test_the_estimate_is_labelled_as_one() -> None:
     `plan-sprint` sets the precedent — 'NOT measured — an estimate, stated as
     one' — and the reason is that the next reader of this map has no other way to
     tell which values may be revised freely and which encode a real observation.
+
+    SCOPED TO THE CAP'S OWN COMMENT BLOCK BY STRUCTURE, NOT BY A DELIMITER.
+    The first version narrowed with `split("\\n  research", 1)` — the next
+    `research*` key — and `research-write-minor` is the LAST key under
+    `max_turns:`, so that delimiter never matched and the search ran to EOF.
+    Caught by mutation: stripping the label from this cap while any later line
+    in the file said "NOT MEASURED" left all 40 tests green. A check that reads
+    a neighbour's evidence is not scoped, and the docstring claiming otherwise
+    is what makes it dangerous. Continuation lines are `#`-only, so the block
+    ends at the first line that is not one — a property of the file's shape
+    rather than of which key happens to come next.
     """
-    text = CONFIG.read_text()
-    block = text.split("research-write-minor: 80", 1)
-    assert len(block) == 2, "the research-write-minor cap is no longer declared as 80"
-    following = block[1].split("\n  research", 1)[0]
-    assert "NOT MEASURED" in following.upper(), (
+    lines = CONFIG.read_text().splitlines()
+    starts = [i for i, ln in enumerate(lines) if ln.strip().startswith("research-write-minor: 80")]
+    assert len(starts) == 1, "the research-write-minor cap is no longer declared exactly once as 80"
+
+    block = [lines[starts[0]]]
+    for ln in lines[starts[0] + 1:]:
+        if not ln.strip().startswith("#"):
+            break
+        block.append(ln)
+
+    assert "NOT MEASURED" in "\n".join(block).upper(), (
         "the research-write-minor cap no longer states that it is an estimate. "
         "Nothing has run this workflow; a bare integer here reads as measured."
     )
