@@ -28,7 +28,8 @@ from . import review_pr_helper as helper
 load_prompt = _shared.load_prompt
 render = _shared.render
 
-MAX_TURNS_KEY = "review-pr"
+WORKFLOW_KEY = "review-pr"   # the run log's per-workflow bin; see run_log.py
+MAX_TURNS_KEY = WORKFLOW_KEY
 
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
@@ -175,7 +176,7 @@ def load_shared_block(name: str, shared_sh: Path) -> str:
 def run_disposition(prompt: str, repo_root: Path, model_key: str,
                     completion_pattern: str, worktree: Path | None = None,
                     verbose: bool = False, exit_record_schema: str | None = None,
-                    log_file: Path | None = None) -> str:
+                    log_file: Path | None = None, run_id: str | None = None) -> str:
     """Invoke the disposition pass on the PR's OWN tree.
 
     ISOLATION IS NOT OPTIONAL HERE EITHER, and for a reason beyond safety: a
@@ -187,8 +188,9 @@ def run_disposition(prompt: str, repo_root: Path, model_key: str,
     claims against the wrong tree while reporting full confidence.
     """
     return _shared.run_claude(
-        prompt, model_key=model_key, completion_pattern=completion_pattern,
+        prompt, model_key=model_key, workflow_key=WORKFLOW_KEY,
+        completion_pattern=completion_pattern,
         repo_root=repo_root, worktree=worktree or repo_root,
         max_turns=_shared.max_turns(MAX_TURNS_KEY), verbose=verbose,
-        exit_record_schema=exit_record_schema, log_file=log_file,
+        exit_record_schema=exit_record_schema, log_file=log_file, run_id=run_id,
     )

@@ -191,7 +191,16 @@ claude-dot-files/
 │   │   │   ├── replay_convergence_predicate.py     # Replays the SHIPPED convergence predicate over the archive → MMF Phase 5 step 6.
 │   │   │   │                                       #   IMPORTS the predicate (unlike its pinning sibling above) — a copy would validate a rule nobody runs.
 │   │   │   │                                       #   Re-sorts the shared dump by comment time: the predicate forbids the `pass:` label (issue #68)
-│   │   │   └── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
+│   │   │   ├── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
+│   │   │   ├── run_log.py                           # NOT a replay tool — the ONE DECLARATION of the RUN LOG surface (MMF Phase 6): its member
+│   │   │   │                                        #   event types, join key, publish classification and per-figure cutovers. A test compares the
+│   │   │   │                                        #   declared set against `_append_run_event`'s call sites in BOTH directions
+│   │   │   ├── replay_run_resources.py              # Four figures over `run_resources`: the unmeasured rate, peak_anon by workflow, the
+│   │   │   │                                        #   subagent-vs-volume knob question, and the overlapping-run aggregate → MMF Phase 6 req 3
+│   │   │   ├── replay_convergence_events.py         # The LIVE convergence corpus (candidate C-059) + Phase 5's gate conditions 1 and 2 with their
+│   │   │   │                                        #   denominators. `--archive` adds condition 1; without it that half prints NOT TAKEN, never zero
+│   │   │   └── replay_parent_route.py               # The computed abstention arm grouped by reason, and the prose-shadow agreement rate with
+│   │   │                                            #   C-060's conditioning printed beside it → MMF Phase 3 step 4, Phase 4's shadow-removal box
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
@@ -200,7 +209,13 @@ claude-dot-files/
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
 │   │           │                                    #   denominator, and absent-vs-false `converged`
-│   │           └── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
+│   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
+│   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
+│   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name, the derived model→workflow
+│   │           │                                    #   map finding the one ambiguous pair, and the two subagent parsers agreeing over the live archive
+│   │           └── test_run_log_readers.py          # The three readers' OUTPUT: exclusions named by commit cutover, figure 1's denominator being
+│   │                                                #   EVERY record, high/oom labelled not-applicable per record, the overlap sweep bounded from
+│   │                                                #   both sides, and condition 1 printing NOT TAKEN rather than a zero
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
@@ -282,6 +297,11 @@ claude-dot-files/
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.
 │                   │                                #   Plus the permission_denials surface both fleets share: it names every denied
 │                   │                                #   tool, never prints the command line, and ROUTES NOTHING (asserted structurally)
+│                   ├── test_run_log_emission.py     # The EMISSION side of the run-log surface: all three member events agree on `run_id`,
+│                   │                                #   with a control on the DEFECT'S OWN SHAPE (a stem that ENDS with the nonce, so a
+│                   │                                #   suffix-match looks right and joins nothing); `workflow_key` required with no
+│                   │                                #   default; and an AST check that finish() gets the bare `run_id` — the only guard
+│                   │                                #   that can see the defect where it lived, since exercising run_claude needs the CLI
 │                   ├── test_pr_url_address.py       # The PR-URL address as ONE declaration, gated on the class not the sites: an AST
 │                   │                                #   scan for a second `def`/`re.compile`, an exact-set gate on string splitting
 │                   │                                #   (three ad-hoc parses used to live there), the completion ERE checked against the

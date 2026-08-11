@@ -1,14 +1,23 @@
-"""Resource accounting: the numbers are real, the ceiling is one number, gaps are countable.
+"""Resource accounting: the numbers are real, THERE IS NO CEILING, gaps are countable.
 
 Guards the mechanism added after 2026-08-10, when a 31 GiB host livelocked under
 two dispatches and three sessions. The outage was recoverable; the absence of
 evidence was not — no OOM report meant nobody could establish what held the
 memory, and three sessions argued for hours from inference.
 
-So the tests here are mostly about the OBSERVABILITY holding, not the cap: an
-unmeasured run must stay countable, a peak must not be silently zero, and the
-fan-out ceiling must exist in exactly one value even though prompts carry it as
-literal text.
+**THE ATTRIBUTION OF THAT OUTAGE TO A SUB-AGENT FAN-OUT IS RETRACTED, AND ITS
+CAUSE REMAINS UNIDENTIFIED.** Sub-agents run in-process, so the per-process
+arithmetic behind the original case was counting processes that do not exist.
+Every ceiling was reverted at `6725111`; `resource_limits` holds one lowercase
+key, so `wrap()` emits no systemd property at all. This docstring previously
+described a fan-out ceiling as a live mechanism, and a cap believed-in but absent
+is worse than none because nobody looks for it.
+
+So the tests here are about the OBSERVABILITY holding, and about the ABSENCE of a
+cap staying true: an unmeasured run must stay countable, a peak must not be
+silently zero, the sub-agent counter must count the tool the CLI actually emits,
+and `test_wrap_creates_a_scope_and_applies_no_ceiling` fails in both directions —
+if the scope or slice is dropped, and if a ceiling silently reappears.
 """
 
 from __future__ import annotations
@@ -32,9 +41,53 @@ def _limits() -> dict:
     return yaml.safe_load(CONFIG.read_text())["resource_limits"]
 
 
-# --- 1. The fan-out ceiling is ONE number, in three places that must agree ----
+# --- 1. The sub-agent counter counts the tool the CLI actually emits ----------
+#
+# THIS SECTION HEADER USED TO READ "the fan-out ceiling is ONE number, in three
+# places that must agree" AND HAD NO TESTS UNDER IT — the ceiling it named was
+# reverted at `6725111` and the section was left as an empty promise. What
+# belongs here is the property that replaced it: the counter this module's own
+# docstring calls half of its purpose has to be able to move.
+
+def test_the_subagent_counter_matches_the_tool_the_CLI_SPAWNS(tmp_path: Path) -> None:
+    """`Agent`, not `Task`, and the miss was total rather than partial.
+
+    Measured 2026-08-11 over the 153-log archive: 272 `"name":"Agent"`
+    invocations, ZERO `"name":"Task"`, and `subagents_spawned` sitting at 0 on 13
+    of 13 emitted records. That is not "no run spawned a sub-agent" — it is the
+    same defect as printing "0 throttling events" where no threshold exists, on
+    the field that answers whether footprint is driven by sub-agent COUNT or by
+    content VOLUME.
+
+    BOTH SPELLINGS ARE ASSERTED. The CLI renamed the tool; dropping the old name
+    would silently re-lose every archived run at the next rename.
+    """
+    log = tmp_path / "run.jsonl"
+    log.write_text(
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent"}]}}\n'
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Task"}]}}\n'
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash"}]}}\n'
+    )
+    _, spawned = rt.from_log(log)
+    assert spawned == 2, (
+        "the sub-agent counter missed a spawn. If it read 0, the pattern is "
+        "matching a tool name the CLI does not emit — which is what shipped."
+    )
 
 
+def test_a_run_with_no_subagents_reports_zero_rather_than_None(tmp_path: Path) -> None:
+    """The FLOOR half of the bound above.
+
+    A counter that can only ever return 0 passes the test above trivially if that
+    test is the only one; this is the other side — a genuine zero must still be a
+    zero, so the pair discriminates "counted none" from "could not count".
+    """
+    log = tmp_path / "run.jsonl"
+    log.write_text(
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash"}]}}\n'
+    )
+    _, spawned = rt.from_log(log)
+    assert spawned == 0
 
 
 # --- 2. Measurement produces REAL numbers, not plausible zeros ----------------

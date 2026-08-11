@@ -36,7 +36,8 @@ MODEL_KEY = "plan-sprint"
 
 # An ESTIMATE, stated as one — this workflow has never been measured. The basis
 # and the revise-from-measurement note live with the value in config.yaml.
-MAX_TURNS = act.max_turns("plan-sprint")
+WORKFLOW_KEY = "plan-sprint"   # NOT MODEL_KEY -- see run_claude's docstring
+MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
@@ -77,7 +78,8 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
 
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "plan_sprint.md"), values),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
         max_turns=MAX_TURNS, verbose=verbose,
     )

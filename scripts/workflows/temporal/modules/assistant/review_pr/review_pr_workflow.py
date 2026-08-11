@@ -133,6 +133,10 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
         prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
         worktree=pr_tree, verbose=task.verbose,
         exit_record_schema=exit_record.schema_argument(), log_file=log_file,
+        # The SAME nonce that named the log and that the child echoes into the
+        # record, so all three of the run log's member events agree on it.
+        # `run_claude` refuses a log_file with no run_id for that reason.
+        run_id=run_id,
     )
 
     # --- THE TYPED CHANNEL DECIDES --------------------------------------
