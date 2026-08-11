@@ -445,10 +445,18 @@ def _declared_completion_patterns() -> dict[str, str]:
 # makes the issue URL the STOP's completion signal in those words. Its workflow
 # already resolves the two by POSITION (`_completion_url`), so the wider ERE is
 # matched by a wider consumer rather than by a gate nobody widened.
-_WIDER_BY_DESIGN = {
-    "temporal/modules/assistant/plan/plan_revision/plan_revision_workflow.py":
-        r"https://github\.com/[^ )]+/(pull|issues)/[0-9]+",
-}
+# NO LITERALS REMAIN. Both completion EREs now live in `routing.py` beside the
+# parser they must agree with: `PR_URL_COMPLETION_ERE` for the eight PR-only
+# workflows and `PR_OR_ISSUE_COMPLETION_ERE` for `plan-revision`, whose STOP
+# files an issue and prints its URL as the completion signal.
+#
+# THE ALTERNATION IS WHAT IS WIDER — THE PATH SEGMENTS ARE NOT, and getting that
+# wrong is what this file exists to catch. `plan-revision` kept `[^ )]+` through
+# the first fix pass, so its gate still accepted `…/a/b/c/pull/1` while the
+# parent refused it; a completed run that opened its PR was reported as lost.
+# The guard could not see it because the old exclusion filtered this workflow
+# out of its own probes — an exemption that removed the one case left to check.
+_WIDER_BY_DESIGN: dict[str, str] = {}
 
 
 def _pr_only_completion_ere() -> str:
@@ -528,6 +536,30 @@ _STRUCTURAL_PROBES = [
     "https://github.com/a/b/pull/",             # no number
     "https://github.com/a/b/pull/1x",           # trailing junk on the number
 ]
+
+
+@pytest.mark.parametrize("text", _STRUCTURAL_PROBES)
+def test_the_WIDER_ere_is_wider_only_in_its_VERB(text: str) -> None:
+    """`plan-revision`'s ERE accepts an extra verb, NOT an extra path shape.
+
+    This is the case the previous guard exempted itself from checking, and the
+    exemption is why a completed run was reported as lost. Every structural
+    probe that the PR-only ERE refuses must also be refused here — the only
+    permitted difference is `issues` alongside `pull`.
+    """
+    wide = routing.PR_OR_ISSUE_COMPLETION_ERE
+    narrow = routing.PR_URL_COMPLETION_ERE
+    assert bool(re.search(wide, text)) == bool(re.search(narrow, text)), (
+        f"{text!r} is treated differently by the wider ERE, but the only "
+        f"intended difference is the verb"
+    )
+
+
+def test_the_WIDER_ere_accepts_an_issue_url_and_the_narrow_one_does_not() -> None:
+    """The one intended difference, asserted so the narrowing cannot eat it."""
+    issue = "https://github.com/o/r/issues/12"
+    assert re.search(routing.PR_OR_ISSUE_COMPLETION_ERE, issue)
+    assert not re.search(routing.PR_URL_COMPLETION_ERE, issue)
 
 
 @pytest.mark.parametrize("text", _REAL + ["no url here", "/pull/12"] + _STRUCTURAL_PROBES)

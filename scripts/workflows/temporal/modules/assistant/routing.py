@@ -135,6 +135,15 @@ PR_URL = re.compile(r"https://github\.com/([^\s/)]+/[^\s/)]+)/pull/(\d+)")
 # tenth copy.
 PR_URL_COMPLETION_ERE = r"https://github\.com/[^ )/]+/[^ )/]+/pull/[0-9]+"
 
+# `plan-revision` alone accepts an ISSUE url too: a STOP files an issue and prints
+# it as the completion signal. The ALTERNATION is what is wider — the path
+# segments are not, and spelling them `[^ )]+` there left the same defect the
+# narrowing above removed: a completed plan-revision run that opened its PR was
+# reported to the operator as lost, because the gate accepted a URL
+# `extract_pr_url` refuses. Fixed on the second review pass; the first closed
+# eight of nine and the guard then filtered this one out of its own probes.
+PR_OR_ISSUE_COMPLETION_ERE = r"https://github\.com/[^ )/]+/[^ )/]+/(pull|issues)/[0-9]+"
+
 
 def extract_pr_url(output: str) -> str | None:
     """Last PR URL in a run's output — the completion contract's payload.

@@ -261,7 +261,8 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
             f"\n{'!' * 72}\n"
             f"!! CHANNEL DIVERGENCE on PR #{task.pr_number} — RECORDED, NOT FATAL\n"
             f"!! {detail}\n"
-            f"!! The PROSE channel is authoritative for this phase; the run continues.\n"
+            f"!! The TYPED record DECIDES and the run continues on it — `verdict_from_record`\n"
+            f"!! at :155 is what this function returns. The prose parse is the SHADOW.\n"
             f"!! channels_agree=false is in the run log. Log: {log_file}\n"
             + (f"!! {ref_note}\n" if ref_note else "")
             + f"{'!' * 72}\n",
