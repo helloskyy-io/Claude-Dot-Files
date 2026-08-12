@@ -175,7 +175,13 @@ def _overlaps(rows: list[dict]) -> tuple[list[dict], list[dict], int]:
     windows = []
     dropped: list[dict] = []
     for r in rows:
-        if not r["peak_anon"]:
+        if r["peak_anon"] is None:
+            # `is None`, NOT `not x`. A record whose peak_anon is a MEASURED ZERO
+            # can be summed — it contributes zero, correctly — and dropping it
+            # here labelled it "unmeasured", which is a false statement about a
+            # run that was measured. Falsy spans both facts; this figure exists
+            # to keep them apart.
+            #
             # A run with no peak cannot be SUMMED, so it cannot enter a figure
             # whose whole output is a sum — but it did overlap, and the corpus
             # has to say so. Named here rather than silently skipped.
@@ -344,9 +350,19 @@ def report(rows: list[dict], total_logs: int, log_dir: Path) -> None:
              and r["subagents_emitted"] < r["subagents_recomputed"]]
     over = [r for r in fleet if r["subagents_emitted"] is not None
             and r["subagents_emitted"] > r["subagents_recomputed"]]
-    zeros = [r for r in fleet if not r["subagents_emitted"]]
+    # `is not None` FIRST, exactly like `under` and `over` two lines up. `not x`
+    # folds a NULL emission into an emitted zero, and `subagents_spawned` is
+    # nullable by this module's own `run_log.NULLABLE_FIELDS` and typed
+    # `int | None` at its source. This line committed, in the figure's own
+    # headline sentence, the defect the figure exists to report: an unmeasured
+    # record counted as evidence that the emitter is broken, on a run where the
+    # counter was simply never read.
+    zeros = [r for r in fleet if r["subagents_emitted"] == 0]
+    unmeasured = [r for r in fleet if r["subagents_emitted"] is None]
     print(f"   Denominator: {len(fleet)} fleet records.")
-    print(f"   `subagents_spawned` AS EMITTED reads 0 on {len(zeros)} of {len(fleet)},")
+    measured = len(fleet) - len(unmeasured)
+    print(f"   `subagents_spawned` AS EMITTED reads 0 on {len(zeros)} of {measured} MEASURED "
+          f"({len(unmeasured)} of {len(fleet)} records emitted no value and are excluded),")
     print(f"   UNDERCOUNTS the structural recount on {len(under)} and OVERCOUNTS it on "
           f"{len(over)}: the emitter matched the tool name `Task` while")
     print("   this CLI spawns `Agent`, so the counter could not move at all. The column")
