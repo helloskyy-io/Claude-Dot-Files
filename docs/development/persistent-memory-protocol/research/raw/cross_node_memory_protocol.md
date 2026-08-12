@@ -21,8 +21,9 @@ Confidence:     DEFINITIVE (first-party documented, exact bytes retrieved by `cu
                 policies, and Event-History/sticky-cache placement; git's object-name definition
                 and merge-conflict behaviour; Twelve-Factor Factor VI; Kubernetes node-unreachable
                 eviction timing and StatefulSet at-most-one semantics; Home Assistant's Recorder
-                defaults and its documented retained-message hazard; MQTT v5 [MQTT-3.3.1-5/-6];
-                Kafka log-compaction semantics.
+                defaults and its documented retained-message hazard; MQTT v5's RETAIN semantics
+                [MQTT-3.3.1-5/-6] — SUBSTANCE definitive, WORDING reduced, see the REDUCED block
+                below and §5.5; Kafka log-compaction semantics.
                 DEFINITIVE (peer-reviewed): Dynamo's syntactic/semantic reconciliation split and
                 vector-clock truncation cost; Shapiro et al.'s SEC definition; Imine et al.'s
                 finding that existing String transformation functions are incorrect or
@@ -40,13 +41,59 @@ Confidence:     DEFINITIVE (first-party documented, exact bytes retrieved by `cu
                 normalised, so presented as quotations of the retrieved bytes with that caveat)
                 and the SQLite Library-of-Congress statement.
                 DIRECTIONAL / UNVERIFIED: the 2026 agent-memory preprint cluster (§4.4.6) —
-                arXiv preprints, not peer-reviewed, and cited as evidence that the question is
-                being worked rather than as evidence of an answer.
-                GAPS (stated with search method, §7): no peer-reviewed treatment found of
-                reconciling conflicting REASONING (as opposed to conflicting values); Temporal's
-                redelivery behaviour to a sleeping/disconnected worker (inherited, unclosed);
-                no source found that decides the component-vs-phase question this paper feeds.
-Critic:         not-yet-verified — 2026-08-12
+                arXiv preprints with no retrieved proceedings artifact, cited as evidence that the
+                question is being worked rather than as evidence of an answer. (One of the two,
+                [S23], carries an author-supplied arXiv comment claiming workshop presentation;
+                that is recorded at the citation and does not raise it above DIRECTIONAL.)
+                GAPS — three, and they are three DIFFERENT kinds of gap (§7):
+                (1) SEARCHED AND ABSENT — no peer-reviewed treatment found of reconciling
+                conflicting REASONING (as opposed to conflicting values); three-part search method
+                stated at §7 item 3. (2) NOT SEARCHED — Temporal's redelivery behaviour to a
+                sleeping/disconnected worker, inherited as an open gap from [S25] and not closed
+                here; no search was performed, and §7 item 2 states the experiment that would
+                close it. (3) CATEGORICALLY OUT OF SCOPE, NOT SEARCHED-AND-ABSENT — the
+                component-vs-phase question this paper feeds is an operator ruling, not the kind
+                of question a spec or a distributed-systems paper answers, so no search would
+                close it and none is claimed (§5.1, §7 item 8).
+Critic:         PASS — 2026-08-12, after FIVE independent verification passes.
+                EVIDENCE LAYER CLEAN. All 28 sources verified present and correctly attributed —
+                14 files across 9 git-hosted repos by clone-and-`grep -F` at the branch or tag each
+                citation names, the rest by direct byte retrieval (OASIS HTML, static HTML, PDFs,
+                arXiv API, Crossref, a resolved DOI) or by reading the five local sources — six
+                file paths, since [S28] names two — at their stated file:line. No fabricated
+                source, no fabricated span, no miscitation, no inflated confidence mark; both
+                REDUCED marks ([S15], [S16]) are calibrated, and [S15]'s is conservative — the
+                closing pass reproduced its spans byte-exactly on its own tag-strip. The closing
+                pass re-derived the whole evidence layer from scratch a SECOND time rather than
+                carrying anything forward — nine repos re-cloned and grepped, six PDFs re-retrieved
+                and re-extracted, both HTML sources re-stripped, arXiv ×2 / Crossref / DOI
+                resolution, six local file paths at `origin/main` — and independently reproduced
+                every measurement this paper asserts: 90 evidentiary spans / 88 matched, the 2
+                backtick-wrap sites (both benign), the terminal-ellipsis split of 4 file-wide vs 1
+                evidentiary, the 15+4 decomposition of the 19 mid-sentence truncations, the ten PDF
+                apostrophe counts in §6 rule 3, and the [S20] HAL sha256. The two unmatched spans
+                are that declared-reduced [S15] span and one artifact of the sweep's extractor.
+                WHAT WAS FIXED. Evidence: the ruling-class pointer repointed from memory-model §7
+                to §1.1/§2.1; MQTT v5 qualified where it appears in the DEFINITIVE list (substance
+                definitive, wording reduced); the three GAPS split by kind, so the component-vs-
+                phase item reads as the categorical exclusion it is rather than a searched-and-
+                absent gap (§0 and §5.1 aligned); [S20] given a resolving DOI plus an author-
+                institution deposit, and a provenance note recording that the quoted artifact is an
+                unlabelled mirror, that two of its three spans are absent from the HAL rendition,
+                and — corrected in the closing rounds — that the HAL file is generated once at
+                first access and then served from cache, NOT rendered per request, so a future
+                sha256 mismatch is not pre-excused. That reading rests on BOTH halves of the
+                served ETag decoding to the claimed quantities: the size half to the exact byte
+                length, and the mtime half to `last-modified` to the second, which a per-request
+                renderer could not hold constant. [S23]'s v3 and EXTRAAMAS metadata recorded; [S27]'s
+                two line ranges corrected. Reasoning: §4.1.5's two-layer finding was contradicted
+                by its own table for one of five rows, and now reads four-of-five with W3C Trace
+                Context as the exception that shows what the second layer is for — verified sound,
+                its S3 premise first-party verbatim, its S2 premise disclosed at §5.3 as this
+                paper's own inference; corrected at every dependent site (§4.1.5's consequence
+                paragraph and §5.3), and no site in §0 depends on it. Method: §6's verbatim claim,
+                once a blanket assertion, is now a declared four-rule normalisation — each rule
+                scoped to what was measured, its exceptions named, its counts' population stated.
 ```
 
 > **Volatility note (per Research Standard §3, mixed-volatility rule).** The header takes the
@@ -98,8 +145,9 @@ Three findings, in order of how much they should change a later design.
    it. *(Derived from [S18][S19][S8][S11].)*
 
 **What this paper does NOT do:** it does not decide whether cross-node memory becomes its own
-component or a phase of the Memory Management Framework. No source found speaks to that question,
-and §5.1 says so at length rather than dressing a preference as a finding.
+component or a phase of the Memory Management Framework. That question is **categorically outside
+what any source here could settle** — not a gap a wider search would close — and §5.1 says so at
+length rather than dressing a preference as a finding.
 
 ---
 
@@ -128,7 +176,7 @@ So "which run produced this?" is answerable today because all three writers are 
 filesystem writing one directory. *(Definitive-local: read at HEAD, file:line given.)*
 
 **One local fact deserves emphasis because it is the cheapest available evidence that facet 1 is
-load-bearing.** `run_log.py`'s own comment at `:59-63` records that the join key's *value* was out
+load-bearing.** `run_log.py`'s own comment at `:60-63` records that the join key's *value* was out
 of conformance — `run_resources` wrote `log_file.stem` (`{model_key}-{stamp}-{nonce}`) while the
 other two wrote a bare `uuid4().hex`, so, in the file's own words, *"the surface's own join key
 joined nothing"* [S27]. **An identity-agreement failure has already happened here, on one machine,
@@ -219,12 +267,13 @@ satisfactory degree of certainty is to randomly (or pseudo-randomly) generate th
 
 For naming a *node* rather than a *trace*, OpenTelemetry's semantic conventions are the on-point
 artifact. `service.instance.id` (marked Stable) *"MUST be unique for each instance of the same
-`service.namespace,service.name` pair (in other words `service.namespace,service.name,
-service.instance.id` triplet MUST be globally unique)"*, with SDKs *"recommended to generate a
-random Version 1 or Version 4 … UUID"*, or a UUID Version 5 derived from an inherent unique ID
-*"if stability is desirable"* [S3]. The conventions also warn against inferring instance identity
-from ambient facts: a Collector should not set the field *"if it can't unambiguously determine the
-service instance that is generating that telemetry"* [S3]. *(Definitive.)*
+`service.namespace,service.name` pair (in other words
+`service.namespace,service.name,service.instance.id` triplet MUST be globally unique)"*, with SDKs
+*"recommended to generate a random Version 1 or Version 4 … UUID"*, or a UUID Version 5 derived
+from an inherent unique ID *"if stability is desirable"* [S3]. The conventions also warn against
+inferring instance identity from ambient facts: a Collector should not set the field *"if it can't
+unambiguously determine the service instance that is generating that telemetry"* [S3].
+*(Definitive.)*
 
 **Buys:** global uniqueness with zero coordination and zero central component — the only scheme
 here that works with the centre unreachable. The UUIDv5-from-a-stable-source option additionally
@@ -295,11 +344,25 @@ are reachable from the refs"* [S7].
 | **Temporal** [S4] | Namespace + Workflow Id | Run Id | a central service, enforced, bounded by retention | **No** — start requires the service | No |
 | **Git objects + refs** [S7] | ref (mutable) | object name (content hash) | mathematics | Yes | **Yes** |
 
-**Derived finding — all four schemes are two-layer, and the fleet has only one of the layers.**
+**Derived finding — FOUR of the five rows are two-layer, the fifth is the exception that explains
+what the second layer is for, and the fleet has only one of the layers.**
 *(Derived from [S1][S2][S3][S4][S7]; the enumeration is the four schemes named in the dispatch plus
-git, and the count is over that enumerated population of five rows, not over any claimed universe of
-identity schemes.)* Every scheme examined splits identity into **a stable scope-name plus a
-per-instance identifier**. They differ on two things only: who guarantees the stable half is unique,
+git, and every count here is over that enumerated population of five rows, not over any claimed
+universe of identity schemes. **Two groupings of the same five rows are in play and both are used
+in this paper:** §4.1's `Four schemes` counts the four SUBSECTIONS — W3C Trace Context and
+OpenTelemetry share §4.1.2, and git is one of the four — whereas `four … plus git` here counts the
+four the dispatch named, with git fifth. Either way the table has five rows, and every count below
+is over those rows.)* Four rows split identity into **a stable scope-name plus a
+per-instance identifier**. **W3C Trace Context is the one that does not** — the table above records
+its stable half as *(none — trace-id is flat)*, and that is not an oversight in the spec. A
+`trace-id` names a *transient trace* [S2]; nothing re-finds a trace later, so there is nothing for a
+scope half to scope. The moment the same lineage needs to name a **durable** thing — a service
+instance rather than a request — OpenTelemetry supplies exactly the missing half,
+`service.namespace` + `service.name` [S3], which is why §4.1.2 treats the two together.
+**So the pattern a design should be checked against is not "every scheme is two-layer" — that is
+false here — but the sharper conditional it resolves into: every scheme in this table that must name
+something re-findable later is two-layer, and the only flat one names something that is not.** The
+four that are two-layer differ on two things only: who guarantees the stable half is unique,
 and whether the instance half is *assigned* or *derived from content*. Only content-derivation
 converges — and it pays for that by being unable to name a mutable record, which is why git needs
 refs and why Temporal, arriving independently, landed on the same stable-name-plus-immutable-instance
@@ -309,8 +372,11 @@ shape.
 instance half (`uuid4().hex`) and no scope half [S27][S28]. That is sufficient on one filesystem —
 where the directory *is* the scope — and insufficient the moment a second writer exists, because a
 bare instance id can be compared for equality but cannot be attributed, ordered against another
-node's ids, or grouped. Nothing in this section says which scope half to adopt; it says a design
-that adopts none is the one option the prior art does not offer.
+node's ids, or grouped. Nothing in this section says which scope half to adopt. What it says, given
+the exception above, is sharper than "adopt one": **a design that adopts none puts a durable memory
+record into the one shape this table reserves for a transient trace.** W3C Trace Context can be flat
+because nothing re-finds a trace; a memory record is re-found by construction, which is
+`memory-model.md` property 5 [S24].
 
 ---
 
@@ -329,7 +395,7 @@ But immediately after:
 > *"The memory space or filesystem of the process can be used as a brief, single-transaction cache.
 > For example, downloading a large file, operating on it, and storing the results of the operation
 > in the database. The twelve-factor app never assumes that anything cached in memory or on disk
-> will be available on a future request or job."* [S9]
+> will be available on a future request or job …"* [S9]
 
 And the prohibition is specific rather than general: sticky sessions *"are a violation of
 twelve-factor and should never be used or relied upon"*, with the remedy being a datastore offering
@@ -526,7 +592,7 @@ discarded. It also depends on clock comparison across nodes, which is the classi
 
 #### 4.4.2 Vector clocks
 
-*"Dynamo uses vector clocks in order to capture causality between different versions of the same
+*"Dynamo uses vector clocks [12] in order to capture causality between different versions of the same
 object. A vector clock is effectively a list of (node, counter) pairs. One vector clock is
 associated with every version of every object."* Comparison yields ancestry or conflict: *"If the
 counters on the first object's clock are less-than-or-equal to all of the nodes in the second clock,
@@ -641,12 +707,14 @@ were verified to exist and read via the arXiv API rather than a search summary:
   *"narrow… not as a universal accuracy gain"* [S22].
 - **Rashomon Memory** (arXiv 2604.03588, published 2026-04-04) targets agents that *"must often
   maintain conflicting interpretations of the same events"*, resolving at query time via Dung's
-  argumentation semantics, where *"the resulting attack graph is itself an explanation: it records
+  argumentation semantics: *"The resulting attack graph is itself an explanation: it records
   which interpretation was selected, which alternatives were considered, and on what grounds they
   were rejected"* [S23].
 
-**Both are unreviewed preprints and neither is corroborated by a documented, versioned artifact, so
-both are DIRECTIONAL at most and neither is evidence that the approach works.** What they *do*
+**Neither is corroborated by a documented, versioned artifact this paper retrieved, so both are
+DIRECTIONAL at most and neither is evidence that the approach works.** ([S23]'s arXiv `comment`
+field claims *"Presented at EXTRAAMAS workshop at AAMAS 2026"* — author-supplied metadata, no
+proceedings artifact retrieved, so it does not lift the mark. Recorded at the citation.) What they *do*
 establish, and it is worth recording: two independent 2026 groups converged on **preserve the
 conflict and surface it rather than collapse it** — the same conclusion §4.4.6's derived table
 reaches from the classical literature. Agreement between an unreviewed preprint and a peer-reviewed
@@ -660,9 +728,11 @@ lineage raises confidence in the *direction*, not in either preprint.
 
 The operator has explicitly not decided whether cross-node memory persistence becomes its own
 component or a phase of the Memory Management Framework. **Nothing in §4 bears on that.** Every
-source here is about mechanism — how a name is assigned, where state sits, what merges. **No source
-found speaks to how a team should partition work into components**, and it is not the kind of
-question a spec or a distributed-systems paper answers.
+source here is about mechanism — how a name is assigned, where state sits, what merges. **How a team
+should partition work into components is not the kind of question a spec or a distributed-systems
+paper answers at all**, so this is a *categorical* exclusion, not a searched-and-absent gap: no
+search method is offered here because no search would close it. Stating it the other way — "no
+source found" — would imply a wider sweep might yet decide it, and that implication would be false.
 
 The temptation this paper must actively resist: §4 produces a long list of mechanisms, and a long
 list *feels* like an argument for a dedicated component. It is not. The same list is equally
@@ -670,8 +740,11 @@ consistent with a phase that adopts three of the mechanisms and defers the rest.
 volume of findings stand in for a scoping argument would be laundering its own page count into a
 recommendation.** The decision rests on facts this paper did not investigate — how much of the
 Memory Management Framework's remaining phase would be displaced, whether a second machine is
-actually coming and when, and the operator's own sequencing preference, which §7 of the local model
-would classify as a *ruling* rather than work [S24].
+actually coming and when, and the operator's own sequencing preference — which §1.1 of the local
+model classifies as a *ruling*, *"an outcome whose resolution is not work at all but a ruling — a
+preference, a priority, a commitment that no amount of further work would uncover"*, and which §2.1
+routes accordingly: *"Nothing changed, and the resolution is a ruling rather than work"* →
+`direction.md` [S24].
 
 ### 5.2 · Where the ephemeral-worker analogy breaks, specifically
 
@@ -712,9 +785,13 @@ seam rather than picking a side.
   centre and "derivable from the centre" is vacuous. Every source in §4.2 assumes a hub; the
   local-first literature [S18] is the one that does not, and it pays for it with the full CRDT
   apparatus.
-- **The identity comparison is over five enumerated schemes, not a survey of the field.** §4.1.5's
-  two-layer finding is a property of those five rows. It is offered as a pattern worth checking a
-  design against, not as a law.
+- **The identity comparison is over five enumerated schemes, not a survey of the field — and one of
+  the five is an exception to its own finding.** §4.1.5's two-layer property holds for **four of
+  those five rows, not five**: W3C Trace Context is flat. §4.1.5 argues the exception is mechanistic
+  rather than contrary — a trace is not re-found later, so it needs no scope half — but **that
+  argument is this paper's own inference and no cited source makes it**. A reader who rejects the
+  inference is left with four-of-five, which is a pattern worth checking a design against and is
+  certainly not a law.
 
 ### 5.4 · When this whole topic is NOT needed
 
@@ -749,9 +826,72 @@ run-log directory [S27]. That is an argument about *sequencing*, and it belongs 
 
 ## §6 Citations
 
-**Sourcing method.** Every raw source below was retrieved with `curl` and read from the retrieved
-file, so quoted spans are the exact characters returned (the two exceptions are marked). Default
-branches were confirmed via the GitHub repository API before any raw fetch — this mattered:
+**Sourcing method.** Every external source below was retrieved with `curl` and read from the
+retrieved file; the local sources (S24–S28) were read from this repo at `origin/main`. Quoted spans
+are the characters the source returned — under one **declared normalisation**, applied uniformly to
+**every span in this paper whatever its retrieval route**, which a verifier must apply before
+matching. The rules are stated as narrowly as the evidence supports: an over-broad convention
+generates false findings and is worse than none.
+
+1. **Inline markup inside a span is stripped to its text.** Markdown link syntax renders as its
+   label (S9's *"share-nothing"* is `[share-nothing](http://en.wikipedia.org/…)` in the source),
+   asciidoc cross-references render as their label (S7's *"SHA-1"* is `<<def_SHA1,SHA-1>>`), and
+   bold/italic/backtick markers are dropped (S4's *"30 days"* is `_30 days_`; S12's *"SQLite"* is
+   `[SQLite](https://www.sqlite.org/)`; **S24's §1.1 span reads `but a *ruling* — a preference` in
+   the source and its §2.1 span is wrapped in `**…**`**). Applies to S4, S7, S9, S12 and S24. S8's
+   spans, and three of this paper's five local spans, carry no inline markup and are governed only
+   by rules 2–3.
+2. **Whitespace is collapsed to single spaces.** Source line wrapping, and the sentence-boundary
+   double spaces used by S9 (`cache.  For example`), read as one space; equally, this paper's own
+   line wrapping inside a quoted span reads as one space. **Where the paper's own wrap falls inside
+   a backticked token, that matters, so it was measured rather than asserted.** A backtick-parity
+   sweep of the whole file finds **two** such wraps, and **both break at a genuine space inside the
+   token**, so collapsing the wrap restores the token exactly and neither quotation is altered:
+   header line 32 (`` `JOIN_KEY = "run_id"` ``) and rule 3 below (`` `“last write wins”` ``). The
+   case that would corrupt a quotation is the opposite one — a wrap where the source has **no**
+   space, so collapsing *inserts* a character the source does not contain. That occurred once, in
+   S3's `service.namespace,service.name,service.instance.id` triplet, and §4.1.2 is now laid out to
+   keep that token on one line. **This is a measurement of the file as it stands, not a guarantee
+   about future edits:** re-run the parity sweep after editing, and classify any new hit by whether
+   the source token has a space at the break.
+3. **Quotation marks and apostrophes are normalised to ASCII.** Two sub-cases. (i) A double
+   quotation mark **nested inside** a quoted span is rendered as a single quote — S17's `“last write
+   wins”` and `“add to cart”` appear here as *'last write wins'* and *'add to cart'*. (ii) **Text
+   extracted from a PDF carries typographic marks that appear here as their ASCII equivalents** —
+   U+2019 → `'` (S17's *"client's experience"*, *"first object's clock"*), U+201C/U+201D → `"`.
+   Sub-case (ii) is a property of the extraction, not of any one paper, and applies to **all five
+   peer-reviewed sources**: measured U+2019-vs-ASCII-apostrophe counts are S17 61/14, S18 99/0,
+   S19 10/9, S20 27/0, S21 5/0. It is also extractor-dependent — another `pdftotext` build may emit
+   ASCII directly — which is precisely why it is declared rather than left implicit.
+4. **Elisions INSIDE a span are marked with `…`. The END of a span is not marked, and is not an
+   elision claim.** Nothing internal is dropped silently, including bibliography reference markers,
+   which are retained verbatim where they fall inside a span (S17's `[12]` and `[22]`). But **a
+   quoted span ordinarily stops before its source sentence does, and that ordinary truncation
+   carries no `…`** — **19 spans end mid-sentence**, among them S11's *"…identity can
+   be disastrous"* (the source continues *"and may lead to data loss…"*), S7's *"…reachable from the
+   refs"* (continues *", possibly accompanied by meta data…"*) and S4's *"…at any point in time"*
+   (continues *", a constraint that helps…"*). A span's **terminal sentence period** is likewise
+   dropped unmarked where the span sits inside one of this paper's own sentences. **There is exactly
+   one deliberately marked terminal `…`, in §4.2.1's Twelve-Factor quote**, because there the elided
+   clause bears on the argument the surrounding paragraph makes.
+   > **The 19 decomposes as 15 + 4** — 15 spans whose source continues in running prose, 4 whose
+   > source continues past a colon (S24, S21 and two in S19). Two independent passes reached 19 by
+   > different routes and agreed on the decomposition, which is the check worth repeating.
+   >
+   > **Scope of both counts in this rule (19, and 1).** They range over the paper's **evidentiary**
+   > spans — §0–§5 plus the quotations inside the citation list — and **NOT** over the illustrative
+   > fragments inside this §6 convention block itself, which quote source markup and each other in
+   > order to state the rules. That population is 90 spans; a literal sweep of the whole file
+   > instead returns 102, and the extra 12 are this block's own fragments. Sweep the evidentiary
+   > population or these two numbers will not reproduce: over the whole file the terminal-`…` count
+   > is 4, not 1, because three of this rule's own examples carry one.
+
+Two sources deviate further and are **marked at the citation** rather than covered by the above:
+S15 (OASIS HTML, tag-stripped by this analyst — one span additionally required normalising a
+space-before-punctuation) and S16 (rendered page).
+
+**Retrieval method.** Default branches were confirmed via the GitHub repository API before any raw
+fetch — this mattered:
 `git/git` defaults to `master` and `apache/kafka-site` to `markdown`, so a guessed `main` would have
 produced a 404 indistinguishable from an absent document. GitHub tree listings were enumerated as
 JSON arrays and counted locally, never taken from a reported total. arXiv identifiers surfaced by
@@ -817,7 +957,61 @@ one facet on one vendor's documentation. Facet 4 in particular required the peer
 - **[S19]** Shapiro, Preguiça, Baquero, Zawirski. *Conflict-free Replicated Data Types.* SSS 2011.
   https://www.lip6.fr/Marc.Shapiro/papers/2011/CRDTs_SSS-2011.pdf
 - **[S20]** Imine, Molli, Oster, Rusinowitch. *Proving Correctness of Transformation Functions in
-  Real-Time Groupware.* ECSCW 2003. https://www.lri.fr/~mbl/ENS/CSCW/2013/papers/Imine-ECSCW03.pdf
+  Real-Time Groupware.* ECSCW 2003, pp. 277–293, Springer Netherlands.
+  DOI **10.1007/978-94-010-0068-0_15** (https://doi.org/10.1007/978-94-010-0068-0_15 — resolves to
+  the Springer chapter; title, four authors, container *ECSCW 2003* and page range confirmed via
+  the Crossref API). Author-institution deposit: https://inria.hal.science/inria-00107652v1.
+  **PROVENANCE NOTE, because the venue is asserted from metadata the quoted artifact does not
+  carry.** The three spans quoted in §4.4.4 were read from
+  https://www.lri.fr/~mbl/ENS/CSCW/2013/papers/Imine-ECSCW03.pdf — a course-reading-list mirror.
+  That file is an untitled 17-page TeX preprint (`pdfinfo`: empty Title and Author, `Creator: TeX`,
+  CreationDate 2003-05-06) and the string "ECSCW" appears nowhere in its text; the venue is NOT in
+  the retrieved bytes. It is corroborated instead by the two records above, and each of the three
+  spans is verbatim in the mirror artifact. **The HAL deposit is a DIFFERENT rendition (18 pages,
+  LORIA report A03-R-096), and two of the three quoted spans DO NOT APPEAR IN IT AT ALL** —
+  `grep -F` against the HAL text returns 0 for *"Even on a simple String object, all existing
+  transformation functions are incorrect or over-specified"* and 0 for *"On a simple String object,
+  each time a function definition changes, you have to explore 123 different cases carefully"*, and
+  1 for the third. **So a verifier must check these quotes against the mirror, not against HAL**;
+  that is the whole reason this note exists. HAL's nearest sentences are *"Just on a simple String
+  object, all existing transformation functions are incorrect or over-specified"* and *"there are
+  123 different cases to explore when trying to prove C2 on a string object"*. Note the second one
+  carefully: the mirror carries a near-twin of it in its *introduction* with a capital `String`
+  (`grep -F` counts — mirror: capital 1, lower-case 0; HAL: capital 0, lower-case 1), and it is a
+  different sentence in a different section from the §4.4.4 span quoted above.
+  **HAL retrieval — reproduced twice independently, and blocked once.** The rendition above was read
+  from `curl -sSL https://inria.hal.science/inria-00107652/file/A03-R-096.pdf`, which returns
+  `HTTP 200`, `content-type: application/pdf`, **238646 bytes, 18 pages,
+  sha256 `e7243019b9286a6a7b6645c0e2f17215cba25191461f5f69c84b5a921b2e08c5`** — re-fetched
+  **the same day, ~29 minutes later (11:47 and 12:16 local)**, byte-identical.
+  **This rendition is HAL-GENERATED, and that is what a future mismatch must be read against.** Its
+  `pdfinfo` reports `Creator: HAL`, `Producer: PDFLaTeX`, and
+  `CreationDate: Wed Aug 12 11:47:21 2026 EDT` — a 2026 creation stamp on a 2003 paper, with Title
+  and Author populated where the mirror's are empty. The stamp falls one second before this
+  analyst's first retrieval, so the file was **generated at first access and has been served
+  unchanged ever since.** `curl -sSLI` returns `last-modified: Wed, 12 Aug 2026 15:47:22 GMT` and
+  `etag: "3a436-658db80cc415f"`, both **still unmoved on a check ~105 minutes after the stamp**.
+  **Both halves of that ETag decode to the claimed quantities**, which is what makes the reading
+  unambiguous rather than suggestive: `0x3a436` = 238646, exactly the byte length, and
+  `0x658db80cc415f` = 1786549642215775 which, read as microseconds since the epoch, is
+  `2026-08-12 15:47:22.215775 UTC` — **`last-modified` to the second**. That is Apache's
+  `FileETag MTime Size` (the `server: nginx` header is a front proxy), i.e. **a static file on disk
+  with a fixed size and mtime**. **It is NOT rendered per request.** An earlier draft of this note
+  inferred that it was, from the `CreationDate` alone; per-request rendering could not hold a
+  microsecond-precision on-disk mtime constant, and no retrieval that reached the file has moved
+  it.
+  **The operative caution, stated so it cannot be used to wave a mismatch through:** a future
+  sha256 mismatch here is more likely a HAL regeneration than a substituted artifact — but that is
+  an inference from `Creator: HAL` plus the 2026 stamp, **not** from any observed instability.
+  Check the headers before concluding: **if `last-modified` or the ETag moved, the file was
+  regenerated; if neither moved and the bytes differ, something is wrong and the mismatch is the
+  finding.**
+  **Retrieval has been attempted six times independently** — twice by this analyst, and by four
+  reviewing passes whose reports are second-hand here. **Five reached the file and every one
+  reported the sha256 above; one returned a ~12 KB `text/html` proof-of-work interstitial**, from
+  this URL and every HAL mirror that pass tried. Recorded together because they fix what a failed
+  check means: **a verifier who receives HTML has hit an intermittent bot challenge, not a dead link
+  or a wrong URL — retry.** No claim in this paper depends on the venue.
 - **[S21]** Gilbert, Lynch. *Perspectives on the CAP Theorem.* 2012.
   https://groups.csail.mit.edu/tds/papers/Gilbert/Brewer2.pdf
 
@@ -827,8 +1021,15 @@ one facet on one vendor's documentation. Facet 4 in particular required the peer
   arXiv:2607.05844, published 2026-07-07. Existence, title and date verified via the arXiv API;
   abstract quoted from the API response. https://arxiv.org/abs/2607.05844
 - **[S23]** *Rashomon Memory: Towards Argumentation-Driven Retrieval for Multi-Perspective Agent
-  Memory.* arXiv:2604.03588, published 2026-04-04. Verified as above.
-  https://arxiv.org/abs/2604.03588
+  Memory.* arXiv:2604.03588, v1 published 2026-04-04; **current version is v3, updated 2026-05-30**
+  — the two spans quoted in §4.4.6 were verified against the abstract the arXiv API returns for the
+  current version. Verified as above. https://arxiv.org/abs/2604.03588
+  **The arXiv `comment` field carries** `Presented at EXTRAAMAS workshop at AAMAS 2026`, so this is
+  claimed as workshop-presented rather than as a bare preprint. It is still cited as DIRECTIONAL: the comment
+  field is author-supplied arXiv metadata, this paper retrieved no proceedings artifact for it, and
+  §3's authority/formality rule puts an uncorroborated first-party statement at *directional* at
+  most. Recorded so the record is exact — the paper's flat "unreviewed preprint" framing is
+  conservative here, not inflated.
 
 ### Local — this repo and its upstream pool (read at HEAD)
 
@@ -840,7 +1041,7 @@ one facet on one vendor's documentation. Facet 4 in particular required the peer
 - **[S26]** `docs/standards/architecture/research/raw/temporal.md` — upstream, read-only. Temporal
   as a vendor commitment; continue-as-new run-id/history mechanics.
 - **[S27]** `scripts/helpers/measure/run_log.py` — `JOIN_KEY = "run_id"` (`:64`); the member event
-  set (`:58`); the join-key non-conformance note (`:59-63`); local-filesystem log root (`:211-218`).
+  set (`:58`); the join-key non-conformance note (`:60-63`); local-filesystem log root (`:211-217`).
 - **[S28]** `scripts/workflows/temporal/scripts/run_review_pr.py:81` and
   `scripts/workflows/temporal/modules/assistant/review_pr/review_pr_workflow.py:110` —
   `run_id = uuid.uuid4().hex`.
@@ -897,5 +1098,6 @@ ruling, or a source that does not appear to exist. Ordered by how much they bloc
    device is reimaged. Settles §4.3.2's conditional, which research left open by construction.
 
 8. **Component or phase?** *(Explicitly NOT a research question — §5.1.)* Recorded here so the
-   handoff is complete: this is a ruling, and by the local model's own selection rule an outcome
-   whose resolution is a preference rather than work is the operator's [S24].
+   handoff is complete: this is a ruling, and by the local model's own selection rule (§1.1 at the
+   interface layer, §2.1 bound) an outcome whose resolution is a preference rather than work is the
+   operator's [S24].
