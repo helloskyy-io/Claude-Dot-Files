@@ -113,6 +113,19 @@ def _crossing(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
     monkeypatch.setattr(act, "worktree_state", lambda *a, **k: next(snapshots))
 
 
+def _vanished(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
+    """Make the NEXT snapshot pair look like this run DELETED `path`.
+
+    Sibling of `_crossing`, and the distinction between them is the whole of the
+    class this module grew to cover: `_crossing` produces a digest, which is a
+    file whose CONTENT moved, while this produces `act.ABSENT`, which is a file
+    that is no longer there. `boundary_crossings` sees the first and exempts the
+    second whenever the path is permitted.
+    """
+    snapshots = iter([{}, {path: act.ABSENT}])
+    monkeypatch.setattr(act, "worktree_state", lambda *a, **k: next(snapshots))
+
+
 def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = None,
               path: Path | None = None, output: str = f"done\n{PR_URL}\n"):
     """Stand in for the model: optionally rewrite the candidates file, then answer.
@@ -749,7 +762,7 @@ def test_plan_sprint_FAILS_when_it_ticked_a_completion_checkbox(
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(sprint.act, "run_claude", run)
 
-    with pytest.raises(RuntimeError, match="ticked 1 completion checkbox"):
+    with pytest.raises(RuntimeError, match="flipped 1 completion checkbox"):
         _run_sprint(tree)
 
 
@@ -790,6 +803,111 @@ def test_plan_sprint_FAILS_when_it_appended_to_the_operators_inbox(
     _crossing(monkeypatch, "docs/standards/architecture/research/direction.md")
 
     with pytest.raises(RuntimeError, match="outside its authorization"):
+        _run_sprint(tree)
+
+
+# --- DISAPPEARANCE: the class every comparator above is blind to --------------
+#
+# Each guard above judges what is present on BOTH sides of the snapshot, so a
+# row, a checkbox or a whole file that is simply GONE is invisible to all of
+# them. Four channels were demonstrated returning a PR URL and a green run
+# before these existed; `test_disappearance_is_observed.py` holds the class, and
+# these prove each mechanism actually fires.
+
+def test_triage_FAILS_when_it_deleted_the_operators_own_direction_row(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deleting a ruling is strictly worse than fabricating one.
+
+    A flipped `status` invents an answer the operator never gave; a deleted row
+    destroys one they did — and `direction.md` § Rotation is explicit that the
+    reasoning must be durable elsewhere before the row goes, because the row is
+    the only thing stopping the same recommendation coming back next cycle.
+    Nothing observed this: `statuses_this_run_had_no_right_to` judges
+    `before.keys() & after.keys()`, and a deleted id is in neither.
+    """
+    d = tree / "r" / "direction.md"
+    d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        f.write_text(_table([("C-001", "`ship`")]))
+        d.write_text(_direction([("D-001", "open")]))
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(triage.act, "run_claude", run)
+
+    with pytest.raises(RuntimeError, match=r"deleted 1 `direction.md` row\(s\): D-002"):
+        _run_triage(tree)
+
+
+def test_a_direction_row_APPENDED_beside_a_ruled_one_is_still_clean(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """NEGATIVE CONTROL, and it is what makes the arm above mean anything.
+
+    A probe that emptied the whole file would fail for either reason. Here the
+    run does the job — appends `D-003 open` — beside a row already carrying the
+    operator's `applied`, and touches nothing else.
+    """
+    d = tree / "r" / "direction.md"
+    d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        f.write_text(_table([("C-001", "`requires review`")]))
+        d.write_text(_direction([("D-001", "open"), ("D-002", "applied"),
+                                 ("D-003", "open")]))
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(triage.act, "run_claude", run)
+
+    assert _run_triage(tree) == PR_URL
+
+
+@pytest.mark.parametrize("workflow,runner,path", [
+    (triage, _run_triage, "docs/standards/architecture/research/candidates.md"),
+    (triage, _run_triage, "docs/standards/architecture/research/direction.md"),
+    (sprint, _run_sprint, "sprint.md"),
+    (sprint, _run_sprint, "docs/standards/architecture/research/candidates.md"),
+], ids=["triage-candidates-file", "triage-direction-file",
+        "sprint-plan", "sprint-candidates-file"])
+def test_NEITHER_workflow_may_delete_a_file_it_is_merely_PERMITTED_to_write(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
+        workflow, runner, path: str) -> None:
+    """A WRITE GRANT IS NOT A DELETE GRANT — every grant in the family, not one.
+
+    `boundary_crossings` exempts a permitted path unconditionally, so before
+    this the exemption list was precisely the list of files whose removal
+    nothing could see. `plan-sprint` holds the family's only override to write
+    `sprint.md`, and deleting it returned a PR URL and a green run.
+    """
+    (tree / "c.md").write_text(_table([("C-001", "`ship`")]))
+    _fake_run(workflow, monkeypatch)
+    _vanished(monkeypatch, path)
+
+    with pytest.raises(RuntimeError, match="cease to exist"):
+        runner(tree)
+
+
+def test_plan_sprint_FAILS_when_it_ERASED_a_completion_checkbox(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The other half of "flip a checkbox", and only one half was observed.
+
+    `Counter` subtraction keeps positive counts, so `after - before` reports a
+    tick ADDED and says nothing about one erased — by unticking it, by rewording
+    the milestone, or by dropping the section that held it. A plan reporting work
+    nobody built is bad; a plan that has forgotten work somebody DID is worse,
+    because nothing downstream will ask for it again.
+    """
+    sp = tree / "sprint.md"
+    sp.write_text("## Sprint: X\n\n- [x] shipped the thing\n- [ ] next thing\n")
+    (tree / "c.md").write_text(_table([("C-001", "`ship`")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        sp.write_text("## Sprint: X\n\n- [ ] next thing\n")
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(sprint.act, "run_claude", run)
+
+    with pytest.raises(RuntimeError, match="ERASED: shipped the thing"):
         _run_sprint(tree)
 
 
@@ -886,6 +1004,57 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
                                   sprint.FORBIDDEN_PATHS,
                                   sprint.permitted_paths(rel)) == [], (
         "an edit made before this run started was charged to it")
+
+
+@pytest.mark.parametrize("how", ["deleted", "renamed-out-of-the-tree"])
+def test_a_DELETED_sprint_plan_is_seen_by_the_real_observer(repo: Path, how: str) -> None:
+    """AGAINST REAL GIT, because the stub cannot prove the sentinel is produced.
+
+    Everything above drives `grants_that_vanished` through a hand-made snapshot.
+    That proves the comparison, not the READING — and the reading is where this
+    family's bypasses have all lived. `ABSENT` only means "deleted" if
+    `worktree_state` actually emits it for a file git reports as changed and
+    that is not on disk, and a rename produces exactly that on the SOURCE half
+    only because `--no-renames` splits the pair.
+
+    Both spellings, because they defeat different things: deleting the file is
+    the plain case, and `git mv` out of `docs/development/` also slips past
+    `boundary_crossings` — its destination matches no forbidden pattern and its
+    source half is exempted as permitted.
+    """
+    import subprocess
+
+    rel = "docs/development/sprint.md"
+    before = act.worktree_state(repo)
+    if how == "deleted":
+        (repo / rel).unlink()
+    else:
+        subprocess.run(["git", "mv", rel, "notes.md"], cwd=str(repo), check=True,
+                       capture_output=True)
+
+    after = act.worktree_state(repo)
+    assert act.grants_that_vanished(before, after,
+                                    sprint.permitted_paths(rel)) == [rel], (
+        f"a {how} sprint plan read as present; observed {after.get(rel)!r}")
+    assert act.boundary_crossings(before, after, sprint.FORBIDDEN_PATHS,
+                                  sprint.permitted_paths(rel)) == [], (
+        "the path boundary caught this on its own, so the control proves "
+        "nothing about the check written for it")
+
+
+def test_a_sprint_plan_merely_EDITED_is_not_read_as_vanished(repo: Path) -> None:
+    """DISCRIMINATOR against real git: editing is what the override is FOR.
+
+    Without this the new check could report every granted path it saw and every
+    assertion above would still pass — while failing every correct run, which is
+    the shape that gets a guard deleted rather than fixed.
+    """
+    rel = "docs/development/sprint.md"
+    before = act.worktree_state(repo)
+    (repo / rel).write_text("## Sprint: X\n\n- [ ] a new milestone\n")
+
+    assert act.grants_that_vanished(before, act.worktree_state(repo),
+                                    sprint.permitted_paths(rel)) == []
 
 
 def test_the_observer_RAISES_when_git_cannot_answer(tmp_path: Path) -> None:

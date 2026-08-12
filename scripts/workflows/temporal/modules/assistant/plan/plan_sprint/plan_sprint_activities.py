@@ -78,9 +78,17 @@ def checked_boxes(sprint_path: Path) -> Counter:
     A Counter rather than a set so that ticking the second of two identically
     worded milestones is still seen.
 
-    A missing file is an empty Counter on both sides. This workflow does not
-    create the sprint plan, so the case only arises in a tree that never had one,
-    and it is not this guard's business to complain about that.
+    A missing file is an empty Counter, and that reading is deliberate and must
+    not change: it is what lets a tree with no plan yet run at all. THIS IS
+    THEREFORE NOT AN EXISTENCE CHECK, and reading it as one is how the sprint
+    plan came to be deletable — an empty Counter after a deleted file compares
+    identically to an empty Counter after an untouched empty one.
+    `plan_activities.grants_that_vanished` is the existence check, and it runs
+    ahead of this one for exactly that reason.
+
+    The COMPARISON is symmetric even though this reader is not: the caller takes
+    the difference in both directions, because "flip a checkbox" is a
+    prohibition on erasing a tick as much as on adding one.
     """
     if not sprint_path.exists():
         return Counter()

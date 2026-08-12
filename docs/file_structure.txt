@@ -351,6 +351,15 @@ claude-dot-files/
 │                   │                                #   says JUDGEMENT with a reason. Keyed on the CORRESPONDENCE between the rendered table
 │                   │                                #   and a declared map, so a reworded or added row goes red — the split had a mechanism
 │                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced
+│                   ├── observer_registry.py         # ONE resolver for both observer registries — does this entry name code that EXISTS?
+│                   │                                #   A helper module, not a test module. Shared rather than copied for the reason
+│                   │                                #   normalise_cell exists: two copies drift, and the weaker one silently stops catching
+│                   ├── test_disappearance_is_observed.py # Every before/after snapshot names what watches it for ABSENCE. Keyed on the
+│                   │                                #   SNAPSHOTS, found by AST, because absence-blindness is a property of taking one:
+│                   │                                #   every comparator in the family judges `before.keys() & after.keys()`. Four channels
+│                   │                                #   returned a green run — a deleted operator ruling, a deleted sprint plan, one renamed
+│                   │                                #   out of the tree, an erased tick. Plus an AST gate binding every declared write grant
+│                   │                                #   to a deletion check, so a grant added later is covered without anyone remembering
 │                   ├── test_loop_cap_prose_is_counted.py # No workflow ASSERTS a loop cap; it reads one, or its own MAX_LOOPS really is 1.
 │                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
 │                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when

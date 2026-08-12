@@ -23,6 +23,7 @@ ${DIRECTION_CEILING}
 | | Write or edit any phase doc |
 | | Design *how* anything gets built |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
+| | **Delete anything** — a candidate row, a `direction.md` row, or either file |
 
 **`sprint.md` is not yours, and this is not a formality.** The sprint plan is the operator's cross-domain sequencing surface and the standing rule is that dispatches never write it. `plan-sprint` carries a specific, bounded override for it; **you do not.** If a candidate you ship looks like it needs a sprint section, say so in your report and stop — `plan-sprint` runs after you and that is its call to make.
 
@@ -30,7 +31,7 @@ ${DIRECTION_CEILING}
 
 - **Both `status` columns** — the one in the candidates file and the one on a `direction.md` row — are compared cell by cell on every row that already existed. A newly appended row is exempt, because you are *required* to write `status: open` on one.
 - **Every path outside your authorization** — the sprint plan, any phase doc, anything under `docs/standards/` other than the candidates file and `direction.md` — is compared by content. Renaming or deleting one counts as editing it.
-- **Deleting a candidate row** fails the run, and it is checked separately from the triage count: a row that vanishes drops the untriaged total exactly as ruling it would, so counting alone would report a complete pass over a candidate that no longer exists.
+- **Deleting anything** fails the run, at both altitudes and in both files. A candidate row and a `direction.md` row are each compared by ID against what was there before you started; the two files themselves are checked for still existing. This is separate from every check above it *because every check above it is blind to absence*: the triage count drops when a row vanishes exactly as it does when a row is ruled, and the two `status` comparisons judge only rows present on **both** sides, so a row that is simply gone is invisible to all three. A candidate ruled `reject` stays visibly rejected so the next research cycle does not re-propose it, and an `open` direction row is a question the operator has not answered yet.
 
 Any one of these **fails the whole run** — including the work you did correctly. Ruling a candidate is not doing it, and reporting that something needs a sprint section is the whole of your part in it.
 

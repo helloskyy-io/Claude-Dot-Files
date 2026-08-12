@@ -111,6 +111,36 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "designing from reporting is the prose itself.",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less PERMITTED_PATHS, same mechanism",
+    "**Delete anything** — a candidate row, a `direction.md` row, or either file":
+        "act.ids_deleted over both id snapshots, and act.grants_that_vanished "
+        "over PERMITTED_PATHS for the files themselves",
+}
+
+# --- EVERY BEFORE/AFTER SNAPSHOT, AND WHAT WATCHES IT FOR ABSENCE ------------
+#
+# THE SECOND CLASS, AND IT IS NOT THE ONE ABOVE. Every comparator this family
+# owns reports ADDITION and MUTATION; none of them reported DISAPPEARANCE.
+# `statuses_this_run_had_no_right_to` judges `before.keys() & after.keys()`, so a
+# deleted id is in neither intersection; `boundary_crossings` exempts a permitted
+# path unconditionally, so the file an override exists FOR is the one file whose
+# removal is invisible. Both were demonstrated by execution rather than argued: a
+# run deleted an operator-ruled `direction.md` row and returned a PR URL.
+#
+# Keyed by the SNAPSHOT rather than by the prohibition, because that is what the
+# blindness is a property of. `test_disappearance_is_observed.py` discovers every
+# `before*` local by AST, so a snapshot added later has no entry and fails the
+# suite until somebody answers "what watches this one for absence?"
+DISAPPEARANCE_OBSERVERS: dict[str, str] = {
+    "before_status":
+        "act.ids_deleted against the after-snapshot of the same column",
+    "before_direction":
+        "act.ids_deleted against the after-snapshot of the same column, checked "
+        "BEFORE the status comparison because a vanished row is in neither "
+        "intersection that comparison judges",
+    "before_tree":
+        "act.grants_that_vanished over PERMITTED_PATHS for the two files this "
+        "workflow writes; act.boundary_crossings for every other path, where a "
+        "deletion already reads as a content change via the ABSENT sentinel",
 }
 
 
@@ -167,6 +197,23 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             "candidates file must not be trusted as ruled."
         )
 
+    # A WRITE GRANT IS NOT A DELETE GRANT, and this is checked FIRST because
+    # every reader below assumes the file it parses is still there. Deleting
+    # `candidates.md` outright would otherwise surface as a FileNotFoundError
+    # from the counter — a true failure naming the wrong cause, which is the
+    # shape that gets a guard "fixed" by making the reader tolerant.
+    after_tree = act.worktree_state(worktree)
+    vanished = act.grants_that_vanished(before_tree, after_tree, PERMITTED_PATHS)
+    if vanished:
+        raise RuntimeError(
+            f"triage-candidates made {len(vanished)} file(s) it may WRITE cease "
+            f"to exist: {', '.join(vanished)}. The permission covers editing "
+            f"them and nothing further. `candidates.md` is the running list this "
+            f"workflow reads its working set from, and `direction.md` is the "
+            f"operator's inbox — every open question in it is one nobody has "
+            f"answered yet — see {url}"
+        )
+
     # OBSERVE, DO NOT ASSERT. The run reports its own triage counts; this reads
     # the file it actually wrote. A partial triage that reports as complete is
     # the failure mode worth catching — the PR looks ruled and is not, and the
@@ -209,7 +256,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # workflow exists to write. The prompt hands the model the exact trigger for
     # the first of those — "if a candidate you ship looks like it needs a sprint
     # section, say so" — one step short of writing the section instead.
-    crossed = act.boundary_crossings(before_tree, act.worktree_state(worktree),
+    crossed = act.boundary_crossings(before_tree, after_tree,
                                      FORBIDDEN_PATHS, PERMITTED_PATHS)
     if crossed:
         raise RuntimeError(
@@ -230,14 +277,35 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"completes the item — and it did not move in the split — see {url}"
         )
 
-    # THE SAME COMPARATOR, ON THE HIGHER-STAKES COLUMN. `applied` and `rejected`
-    # on a direction row are rulings only the operator can make, and once one is
-    # recorded `/standup` rotates the row out and the receipt is gone — so a
-    # wrongly-set flag is not merely wrong, it is unrecoverable. Only
-    # PRE-EXISTING rows are judged, because the prompt REQUIRES a newly appended
-    # row to carry `status: open`.
-    ruled = act.statuses_this_run_had_no_right_to(
-        before_direction, own.direction_statuses(worktree / rel_research))
+    # THE SAME PAIR OF COMPARATORS, ON THE HIGHER-STAKES COLUMN. Read ONCE into
+    # a local and used by both: a second inline call would re-parse the file for
+    # a value that cannot have changed between them, which is the triple-read
+    # this workflow's sibling already had removed.
+    after_direction = own.direction_statuses(worktree / rel_research)
+
+    # DELETION FIRST, for the reason the candidates-side check is ordered that
+    # way: `statuses_this_run_had_no_right_to` judges only ids present on BOTH
+    # sides, so it would report nothing whatever about a row that is gone. A
+    # missing `direction.md` on both sides is `{}` vs `{}` and stays legitimate.
+    lost = act.ids_deleted(before_direction, after_direction)
+    if lost:
+        raise RuntimeError(
+            f"triage-candidates deleted {len(lost)} `direction.md` row(s): "
+            f"{', '.join(lost)}. Nobody but `/standup` rotates a row out. An "
+            f"`open` row is a question this workflow filed FOR the operator and "
+            f"nobody has answered; a ruled one is the RECEIPT for an answer they "
+            f"gave, and `direction.md` § Rotation is explicit that the reasoning "
+            f"must be durable elsewhere before the row goes — otherwise the same "
+            f"recommendation comes back round next cycle with nothing recording "
+            f"that it was already settled — see {url}"
+        )
+
+    # `applied` and `rejected` on a direction row are rulings only the operator
+    # can make, and once one is recorded `/standup` rotates the row out and the
+    # receipt is gone — so a wrongly-set flag is not merely wrong, it is
+    # unrecoverable. Only PRE-EXISTING rows are judged, because the prompt
+    # REQUIRES a newly appended row to carry `status: open`.
+    ruled = act.statuses_this_run_had_no_right_to(before_direction, after_direction)
     if ruled:
         raise RuntimeError(
             f"triage-candidates changed the `status` column on {len(ruled)} "

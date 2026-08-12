@@ -31,6 +31,7 @@ The governing rule carries an override, and you are it:
 | | Set `status` in the candidates file |
 | | Append to or edit `direction.md` |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
+| | **Delete anything** — a candidate row, the candidates file, or the sprint plan |
 
 ### `decision` IS NOT YOURS, and this is checked in code
 
@@ -49,8 +50,8 @@ You will see rows whose `decision` is blank. **A blank cell is not an invitation
 So the enforcement claim above is not read as covering the whole table:
 
 - **Every path outside your authorization** — any phase doc, `direction.md`, anything else under `docs/standards/` — is snapshotted by content before you start and compared after. Your override opens `${SPRINT_PATH}` and the candidates file (for appending a proposal with a blank `decision`, which the shared instruction at the end of this prompt requires of you) and **nothing else**. Renaming or deleting a file counts as editing it.
-- **A ticked completion checkbox** in the sprint plan is counted before and after, by its text so a re-ordered section does not read as a tick. Adding an *unchecked* milestone is your job; adding a checked one fails the run.
-- **Deleting a candidate row** fails the run under the `decision` guard.
+- **Completion checkboxes** in the sprint plan are counted before and after, by their text so a re-ordered section does not read as a change. Adding an *unchecked* milestone is your job. Adding a checked one fails the run — and so does **erasing** one, whether by unticking it, by rewording a completed milestone, or by dropping the section that held it. A plan reporting work nobody built is bad; a plan that has forgotten work somebody *did* is worse, because nothing downstream will ask for it again.
+- **Deleting anything fails the run**, and the checks above cannot see it. A deleted candidate row is caught by the `decision` guard; the candidates file and `${SPRINT_PATH}` are checked for still existing, separately from the content comparison — your override lets you **edit** those two files, and nothing more than edit them. Renaming one out of the tree is deleting it.
 
 **Two rows are NOT mechanically checked**, and you are told which because the difference matters to how you work: *rewriting a milestone you merely disagree with* and *designing how anything gets built* both produce the same diff a legitimate edit would. What separates them is whether newer evidence exists — which is why Stage 3 requires you to cite the synthesis line behind every milestone you change. That citation is the check, and a reviewer reads it.
 

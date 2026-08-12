@@ -43,6 +43,17 @@ name any forbidden path whose content moved. `git_output`, `worktree_state` and
 likewise — a row vanishing from `candidates.md` is an offence under BOTH
 workflows, and it used to be caught under only one.
 
+DISAPPEARANCE IS ITS OWN CLASS, AND EVERY COMPARATOR HERE WAS BLIND TO IT.
+`statuses_this_run_had_no_right_to` judges `before.keys() & after.keys()`;
+`Counter` subtraction discards removals; `boundary_crossings` exempts a permitted
+path unconditionally. Each reports ADDITION and MUTATION and says nothing about a
+row, a checkbox or a whole file that is simply GONE — so four separate channels
+returned a green run and a PR URL over a deleted operator ruling, a deleted
+sprint plan, a sprint plan renamed out of the tree, and an erased completion tick.
+`ids_deleted` and `grants_that_vanished` are the two answers, one per altitude:
+rows and files. `test_disappearance_is_observed.py` holds the class by requiring
+every before/after snapshot in the family to name what watches it for absence.
+
 NOT IDEMPOTENT (§7.1): these push commits and open PRs. Under Temporal a retry
 is a NEW ATTEMPT, not a replay.
 """
@@ -260,6 +271,38 @@ def worktree_state(worktree: Path, base_ref: str = "origin/main") -> dict[str, s
 # which is why that test exercises real git rather than a stub.
 ABSENT = "<absent>"
 BASELINE = "<unchanged>"
+
+
+def grants_that_vanished(before: dict[str, str], after: dict[str, str],
+                         permitted: tuple[str, ...]) -> list[str]:
+    """Permitted paths this run made cease to exist. A WRITE GRANT IS NOT A DELETE GRANT.
+
+    THE HOLE THIS CLOSES, and it was the widest one in the family. `permitted`
+    wins over `forbidden` in `boundary_crossings` unconditionally, so the one
+    file each workflow's override exists FOR is the one file whose disappearance
+    nothing observed. Demonstrated end-to-end before it was fixed: `plan-sprint`
+    deleting `docs/development/sprint.md` returned a PR URL and a green run, and
+    so did `git mv docs/development/sprint.md notes.md` — the operator's
+    cross-domain sequencing surface, which `standards-governance.md` protects
+    with a human-in-the-loop rule, gone with every guard reporting clean.
+
+    DERIVED FROM `permitted`, NEVER FROM A LIST OF FILES, and that is what makes
+    this a class check rather than two patches. Each workflow already declares
+    the paths its override opens; a grant added later is covered the moment it is
+    declared, with nobody having to remember this function exists.
+
+    ABSENT ON THE AFTER SIDE ONLY. A path git does not report at all is
+    `BASELINE`, so a permitted file that never existed and still does not is not
+    a deletion — `triage-candidates` legitimately CREATES `direction.md`, and a
+    run that creates it must not be failed for having created it. Requiring the
+    before side to differ also exempts a file some EARLIER child on the branch
+    deleted: that is already `ABSENT` on both sides, and this run did not do it.
+    """
+    allow = [re.compile(p) for p in permitted]
+    return [rel for rel in sorted(before.keys() | after.keys())
+            if after.get(rel, BASELINE) == ABSENT
+            and before.get(rel, BASELINE) != ABSENT
+            and any(p.search(rel) for p in allow)]
 
 
 def boundary_crossings(before: dict[str, str], after: dict[str, str],

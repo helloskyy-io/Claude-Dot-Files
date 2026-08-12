@@ -108,7 +108,8 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "JUDGEMENT — a milestone states what done looks like and a design states "
         "how, and both are prose in the same file. No artifact separates them.",
     "Flip a completion checkbox":
-        "own.checked_boxes counted either side of the run",
+        "own.checked_boxes counted either side of the run and compared in BOTH "
+        "directions — a tick added and a tick erased are the same flip",
     "**Set `decision` on ANY candidate — see below**":
         "own.candidate_decisions snapshotted either side of the run, compared by "
         "_rulings_this_run_had_no_right_to",
@@ -120,6 +121,39 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "permitted_paths — the mechanism is the absence of an exception",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
+    "**Delete anything** — a candidate row, the candidates file, or the sprint plan":
+        "act.ids_deleted inside _rulings_this_run_had_no_right_to for rows, and "
+        "act.grants_that_vanished over permitted_paths for the files themselves",
+}
+
+# --- EVERY BEFORE/AFTER SNAPSHOT, AND WHAT WATCHES IT FOR ABSENCE ------------
+#
+# See `triage_candidates_workflow.DISAPPEARANCE_OBSERVERS` for why this map is
+# keyed by the snapshot rather than by the prohibition.
+#
+# THE COSTLIEST MEMBER OF THE CLASS WAS HERE. This workflow holds the family's
+# only override permitting a dispatch to write `sprint.md`, and `permitted` wins
+# over `forbidden` unconditionally — so the single file the override exists for
+# was the single file whose disappearance nothing observed. Deleting it returned
+# a PR URL and a green run; so did renaming it out of the tree; and erasing a
+# `[x]` line passed too, because `Counter` subtraction discards removals.
+DISAPPEARANCE_OBSERVERS: dict[str, str] = {
+    "before":
+        "act.ids_deleted, called inside _rulings_this_run_had_no_right_to",
+    "before_status":
+        "act.ids_deleted on the SAME id set, via _rulings_this_run_had_no_right_to "
+        "on `before` — act.candidate_statuses and own.candidate_decisions are both "
+        "built from act.candidate_rows, so a row cannot be absent from one map and "
+        "present in the other. Registered rather than left implicit because that "
+        "coupling is the whole reason a second call here would be dead code.",
+    "before_boxes":
+        "own.checked_boxes compared in both directions — `after - before` is a "
+        "tick added, `before - after` a tick erased, and Counter subtraction "
+        "reports only the first",
+    "before_tree":
+        "act.grants_that_vanished over permitted_paths for the sprint plan and "
+        "the candidates file; act.boundary_crossings for every other path, where "
+        "a deletion already reads as a content change via the ABSENT sentinel",
 }
 
 
@@ -180,6 +214,34 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
             "sprint plan must not be trusted as current."
         )
 
+    # A WRITE GRANT IS NOT A DELETE GRANT, and this workflow holds the family's
+    # only override — so it is the one place where an unbounded reading of that
+    # grant costs the operator their sequencing surface. Checked FIRST because
+    # every reader below assumes the file it parses is still there: a deleted
+    # `candidates.md` would otherwise surface as a FileNotFoundError, a true
+    # failure naming the wrong cause.
+    #
+    # A NARROW EXISTENCE RULE OVER THE DECLARED GRANTS, NOT A GENERAL "permitted
+    # paths may not disappear" WIDENING OF `boundary_crossings`: absence is a
+    # legitimate state for a permitted path elsewhere in this family —
+    # `triage-candidates` CREATES `direction.md` — so a general rule would have
+    # to carve that back out immediately. `grants_that_vanished` derives from
+    # each workflow's own `permitted` tuple, so a grant added later is covered
+    # the moment it is declared.
+    after_tree = act.worktree_state(worktree)
+    vanished = act.grants_that_vanished(before_tree, after_tree,
+                                        permitted_paths(rel_sprint))
+    if vanished:
+        raise RuntimeError(
+            f"plan-sprint made {len(vanished)} file(s) it may WRITE cease to "
+            f"exist: {', '.join(vanished)}. Maintaining {rel_sprint} is this "
+            f"workflow's whole job, and its override covers EDITING that file, "
+            f"not removing it. The sprint plan is the operator's cross-domain "
+            f"sequencing surface; a plan that has ceased to exist is "
+            f"unrecoverable from their side without reading the diff, and this "
+            f"run would otherwise have reported success — see {url}"
+        )
+
     # OBSERVE, DO NOT ASSERT. The prompt forbids writing `decision`; this reads
     # the file to check it did not. An authority transfer stated only in prose is
     # a convention a model can reason past — this is the mechanism.
@@ -216,20 +278,35 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # be built later; it has validated nothing, and the Documentation Standard's
     # rule is that built is not proven, let alone planned. Counted by text, so a
     # section legitimately re-ordered does not read as a box ticked.
-    ticked = sorted((own.checked_boxes(wt_sprint) - before_boxes).elements())
-    if ticked:
+    #
+    # BOTH DIRECTIONS, because the prohibition is "flip a checkbox" and only one
+    # direction was observed. `Counter` subtraction keeps positive counts, so a
+    # `[x]` line ERASED — by deleting a completed milestone, or by dropping the
+    # section holding it — came out as an empty difference and passed. That is
+    # the same disappearance-blindness the row guards had, one altitude down,
+    # and it destroys the record of work rather than fabricating one. Editing a
+    # completed milestone's TEXT already failed here as an added tick, so a
+    # reworded box was never legitimate and symmetry adds no new false positive.
+    after_boxes = own.checked_boxes(wt_sprint)
+    ticked = sorted((after_boxes - before_boxes).elements())
+    erased = sorted((before_boxes - after_boxes).elements())
+    if ticked or erased:
+        moved = ([f"TICKED: {t}" for t in ticked]
+                 + [f"ERASED: {e}" for e in erased])
         raise RuntimeError(
-            f"plan-sprint ticked {len(ticked)} completion checkbox(es) in "
-            f"{rel_sprint}: " + "; ".join(ticked)
+            f"plan-sprint flipped {len(moved)} completion checkbox(es) in "
+            f"{rel_sprint}: " + "; ".join(moved)
             + f". A checkbox means SHIPPED AND VALIDATED, and this run placed "
               f"work rather than doing it. A plan that reports work nobody has "
-              f"built is worse than one that is merely out of date — see {url}"
+              f"built is worse than one that is merely out of date; a plan that "
+              f"has forgotten work somebody DID is worse still, because nothing "
+              f"downstream will ever ask for it again — see {url}"
         )
 
     # THE REST OF THE DECLARED BOUNDARY. The override this workflow holds opens
     # exactly one file, and it sits in the same directory as the phase docs the
     # same table forbids — so the edge is observed rather than trusted.
-    crossed = act.boundary_crossings(before_tree, act.worktree_state(worktree),
+    crossed = act.boundary_crossings(before_tree, after_tree,
                                      FORBIDDEN_PATHS, permitted_paths(rel_sprint))
     if crossed:
         raise RuntimeError(

@@ -35,6 +35,8 @@ from pathlib import Path
 
 import pytest
 
+from observer_registry import names_code, unresolved
+
 from modules.assistant.plan import plan_activities as act
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as sprint
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as triage
@@ -43,10 +45,6 @@ WORKFLOWS = [
     pytest.param(triage, "triage_candidates.md", id="triage-candidates"),
     pytest.param(sprint, "plan_sprint.md", id="plan-sprint"),
 ]
-
-_NS_REF = re.compile(r"\b(act|own)\.([a-z_][a-z_0-9]*)\b")
-_OWN_SYMBOL = re.compile(r"\b(FORBIDDEN_PATHS|PERMITTED_PATHS|permitted_paths|"
-                         r"_rulings_this_run_had_no_right_to)\b")
 
 
 def may_not_rows(prompt_text: str) -> list[str]:
@@ -162,22 +160,16 @@ def test_every_named_mechanism_resolves(mod, prompt_name: str) -> None:
     writing `act.some_guard` next to a row costs one line and looks exactly like
     coverage. Every `act.` / `own.` reference is resolved against the module the
     workflow actually imports, and every module-level symbol against the
-    workflow module itself.
+    workflow module itself — through `observer_registry`, which is shared with
+    the disappearance registry so the two resolvers cannot drift apart.
     """
-    unresolved: list[str] = []
-    for row, mechanism in mod.MAY_NOT_OBSERVERS.items():
-        if mechanism.startswith("JUDGEMENT"):
-            continue
-        for ns, attr in _NS_REF.findall(mechanism):
-            target = getattr(mod, ns, None)
-            if target is None or not hasattr(target, attr):
-                unresolved.append(f"{row!r} -> {ns}.{attr}")
-        for symbol in set(_OWN_SYMBOL.findall(mechanism)):
-            if not hasattr(mod, symbol):
-                unresolved.append(f"{row!r} -> {symbol}")
-    assert not unresolved, (
+    missing = [f"{row!r} -> {sym}"
+               for row, mechanism in mod.MAY_NOT_OBSERVERS.items()
+               if not mechanism.startswith("JUDGEMENT")
+               for sym in unresolved(mod, mechanism)]
+    assert not missing, (
         f"{mod.__name__} names mechanisms that do not exist:\n  "
-        + "\n  ".join(unresolved))
+        + "\n  ".join(missing))
 
 
 @pytest.mark.parametrize("mod,prompt_name", WORKFLOWS)
@@ -192,7 +184,7 @@ def test_every_mechanism_is_named_or_the_judgement_is_reasoned(mod, prompt_name:
         if mechanism.startswith("JUDGEMENT"):
             if len(mechanism) < 80 or "—" not in mechanism:
                 thin.append(f"{row!r}: JUDGEMENT with no reason")
-        elif not (_NS_REF.search(mechanism) or _OWN_SYMBOL.search(mechanism)):
+        elif not names_code(mechanism):
             thin.append(f"{row!r}: names no code")
     assert not thin, (
         f"{mod.__name__} entries that assert coverage without carrying it:\n  "
