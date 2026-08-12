@@ -5,6 +5,7 @@
       "Read(//tmp/claude-*)",
       "Edit",
       "Write",
+      "Bash",
       "Glob",
       "Grep",
       "WebFetch",
