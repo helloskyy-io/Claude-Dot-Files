@@ -108,8 +108,10 @@ claude-dot-files/
 │   │   │   ├── phase6_read_what_it_writes.md        # Names the per-run JSONL log as a surface (Kind 3, proposed) and builds the readers three
 │   │   │   │                                        #   phases of emitters never had; owns Phase 5's un-owned activation trigger
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
-│   │   ├── persistent-memory-protocol/              # RESEARCH ONLY — no plan yet; pool backs state-passing between claude -p children on
-│   │   │                                            #   one machine (prior "cross-node" framing superseded, see raw/ header note)
+│   │   ├── persistent-memory-protocol/              # CONCEPTS AGREED, not yet planned. concepts.md records what we adopt, from
+│   │   │                                            #   where and why — operator+PM session, NOT critic-verified and NOT a design.
+│   │   │                                            #   Pool backs state-passing between claude -p children on ONE machine; the
+│   │   │                                            #   prior "cross-node" framing answered the wrong question and is superseded
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
@@ -339,6 +341,9 @@ claude-dot-files/
 │                   │                                #   extractor, and BOTH parity bounds for the owner/repo narrowing
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
+│                   ├── test_model_gets_the_worktree_path.py # The path RENDERED to the model is the worktree-anchored one, not the
+│                   │                                #   main-checkout path. Two runs (#84, #86) wrote their paper outside the
+│                   │                                #   worktree; asserts over the workflows found on disk, not a fixed list
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract

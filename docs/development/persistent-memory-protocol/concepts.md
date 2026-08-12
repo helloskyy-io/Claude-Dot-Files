@@ -1,0 +1,224 @@
+# Persistent Memory Protocol — concepts, with provenance
+
+> **WHAT THIS IS, AND WHAT IT IS NOT — read before citing anything here.**
+>
+> This is a **working concept record from a live operator+PM session on 2026-08-12**. It captures
+> what we are adopting, where each idea came from, and why we chose it.
+>
+> **It is NOT a research artifact.** It did not pass the `research-critic` gate, its external
+> sources were read once and not span-verified, and several were found by live search rather than
+> a sourced sweep. **Confidence in anything sourced to § Live-session sources is one reading, no
+> verification.** Do not cite this document as evidence; cite what it points at.
+>
+> **It is NOT a design.** No schema is specified here. This exists so a planning run has the
+> concepts and their provenance in one place, and so a later full research cycle knows what was
+> already concluded and by what reasoning.
+>
+> **Status:** open working document. Adding to it is expected; it is superseded by the phase docs
+> that consume it.
+
+---
+
+## Where the evidence came from
+
+**Verified — passed the critic gate, in this repo:**
+
+| Source | What it contributed |
+|---|---|
+| `state_passing_between_workflow_children.md` **(lands with PR #86 — not on `main` yet)** | Our own channel enumeration; the format axes; the by-value ceiling; the retention measurement; the Kind-1/Kind-2 mismatch |
+| [`bernstein_capability_mining.md`](../../standards/architecture/research/raw/bernstein_capability_mining.md) | The nearest comparable system's actual contracts. **The single highest-yield source in this document** |
+| [`cross_node_memory_protocol.md`](research/raw/cross_node_memory_protocol.md) | **Superseded** — answered a question we do not have. Two findings survive, both re-grounded elsewhere |
+| [`memory-model.md`](../../guide/memory-model.md) | The existing vocabulary: durable record as an interface, five properties, the to-do bit |
+| [`problem-statement.md`](../../standards/architecture/problem-statement.md) | Names `bernstein` and `OpenClaw` as the two nearest neighbours, by different axes |
+
+**Live-session sources — ONE READING, NOT VERIFIED:**
+
+| Source | What it contributed |
+|---|---|
+| [n8n data structure](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure) | The item envelope: `json` / `binary`, and `pairedItem` for lineage |
+| [OpenClaw memory](https://mem0.ai/blog/mem0-memory-for-openclaw) | Two-store split in a shipping product — markdown for facts, `memory.sqlite` + `sqlite-vec` for retrieval — and its documented failure mode |
+| [Inside the Scaffold (arXiv 2604.03515)](https://arxiv.org/pdf/2604.03515) | 13 coding-agent scaffolds at pinned commits × 12 dimensions. **States that state management and context compaction remain OPEN design questions** |
+| [Mind Your HEARTBEAT! (arXiv 2603.23064)](https://arxiv.org/pdf/2603.23064) | What does not work: shared-session background execution pollutes durable memory at rates up to 91% |
+
+---
+
+## The concepts
+
+### 1 · Stores stay plural. The RECORD is what gets consolidated.
+
+**Adopted.** Two different things were being merged in early discussion, and separating them is what
+makes the rest tractable:
+
+- **The journal** — append-only, immutable, never edited, joined by run id. One location.
+- **The working stores** — `candidates.md`, `direction.md`, phase docs, GitHub objects. Mutable,
+  curated, each with its own lifecycle.
+
+**Provenance.** `state_passing` §4.2 found all six surveyed systems run multiple channels
+deliberately, each with a selection rule attached — Temporal ships `memo` and then documents that it
+*"shouldn't store data that's critical to the execution of a Workflow."* Consolidation is not what
+mature systems do.
+
+**Why we chose it.** Our own two file surfaces have opposite requirements: `candidates.md` never
+deletes a row by design; `direction.md` rotates a ruled row at 90 days. **No single retention or
+merge policy can serve both**, so collapsing them destroys one of them.
+
+### 2 · Every write to any store also emits an event to the journal
+
+**Adopted — this is the core rule, and it is the operator's.**
+
+A run writes wherever it needs to, in whatever format that surface wants. **It must also record in
+the journal what it wrote, where, and how it was flagged.** The journal is then the single place
+that answers *"what happened in this run"*, with no surface unrepresented.
+
+**Provenance.** Temporal's event history and `bernstein`'s journal are both this shape.
+
+**Why we chose it.** It buys *"never any question what happened"* without collapsing surfaces that
+have to stay separate (§1). The stores hold state; the journal holds history.
+
+### 3 · One typed return per step, modality-neutral
+
+**Adopted, and we take the shape close to as-is.**
+
+`bernstein`'s typed activity boundary is *"the one contract a non-coding modality — research,
+browser/computer-use, data, ops — participates through as a replayable step"*, and *"every activity
+returns an artifact plus the hashes needed to replay it."* Every modality returns an `ActivityResult`
+carrying `kind`, `artifact`, `artifact_hash`, `evidence_set_hash`, `terminal_state`, `reason_code`.
+
+**Why we chose it.** Our children are the same shape — research / build / review / plan — and we
+**already have a subset of this**: the Phase 3 typed exit record. This is the extension of something
+shipped, not a new invention.
+
+**The lesson worth keeping separately:** take a mechanism *with its reason*, then check the reason
+still holds here. bernstein's reason is modality-neutrality across a shared scheduler. That is
+exactly our situation, which is why it transfers nearly whole.
+
+### 4 · Artifact by reference plus a hash. Never content by value.
+
+**Adopted.**
+
+**Provenance.** Converged from three places: `bernstein`'s artifact+hash; every ceiling in
+`state_passing` §4.1 (Temporal 2 MiB/event, Temporal Cloud 40 KB/memo, Argo 1 MB, Airflow "small
+amounts"); and our own `upstream_block` docstring, which records that inlining a synthesis cost 48k
+characters and tripled a prompt.
+
+**Why we chose it.** Our by-value channel is a single `execve` argument, capped by the kernel at
+**131,072 bytes**. The largest fixed template is already at **58%** of it and the substituted blocks
+are unbounded. Exceeding it is not degradation — it is a hard `E2BIG` naming neither the prompt nor
+the block that grew.
+
+### 5 · Lineage on every emitted item
+
+**Adopted.**
+
+**Provenance.** n8n's `pairedItem`, which records which output item came from which input item, by
+index.
+
+**Why we chose it — and this reversed a wrong call made in session.** The PM argued n8n's model did
+not transfer because our children run in sequence. **That is false.** Nothing prevents a parent
+launching children in parallel, and we already do: the 2026-08-12 verify round dispatched two
+critics **21 seconds apart**. Fan-out is real today, so *"which output came from which input"* is a
+question about our own runs that we currently cannot answer.
+
+### 6 · Content store, with offline hash re-verification
+
+**Adopted, and it is the cheapest item on this page.**
+
+`bernstein activity verify <run>` *"resolves every citation from the content store alone"*,
+*"re-hashes them to detect an altered source, and confirms the quoted span still occurs in them"*,
+and *"The check touches only the content store, so it holds with the network disabled."*
+
+**Why we chose it.** Three payoffs from one mechanism: it is the mechanical fix for our
+research-critic re-fetching citations by hand; it makes a shared multi-edge store *trustworthy*,
+since a record can be proven unaltered; and `evidence_set_hash` matching a prior stage's gives a
+**no-new-evidence stop condition computed from a hash rather than judged by a model.**
+
+> **⚠ `bernstein_capability_mining.md` §4.6 ranked this Tier 1, costed it S, named its roadmap home,
+> and called it *"the item with the shortest path from read about it to we are using it."* It was
+> never placed — not in `candidates.md`, not `direction.md`, not the roadmap, not an issue. The
+> fleet then spent 2026-08-12 bounding by hand the exact cost it solves.**
+
+### 7 · Two audiences, two formats, one journal
+
+**Adopted.**
+
+**Provenance.** OpenClaw ships markdown files for facts plus `memory.sqlite` with `sqlite-vec` for
+retrieval. Our own format axes (`state_passing` §4.3.1) cut on reader latency, write pattern and
+typing.
+
+**Why we chose it.** Humans read markdown; code queries a database. Our format table has exactly one
+empty row — *queries over accumulated history* — and that is the journal's reader.
+
+**OpenClaw's documented failure is the warning to carry:** its memory *"lives in files that must be
+explicitly loaded, which means continuity depends entirely on what gets re-read at startup"*, and
+summarised context is lossy. A journal nothing loads is our 262 MB.
+
+### 8 · The accumulated log is an ASSET. Retention is config, not architecture.
+
+**Adopted — operator's ruling, and it corrects the PM's framing.**
+
+175 files, 262 MB, 125 days, no pruning code. The PM presented this as a failure. **It is an
+opportunity:** once lessons-learned and git-derived history also land in the journal, **CPI reads one
+store instead of searching git.** Rotation is a scheduled Temporal workflow and a config variable at
+server setup — not a design problem.
+
+**What remains true from the original finding:** a store nobody reads is still the failure. The fix
+is the reader, not a smaller store.
+
+### 9 · Cue surfaces already exist. What is missing is the poller.
+
+**Adopted.**
+
+The operator's example — *a cron kicks off a candidate review* — needs no new surface.
+`candidates.md`'s `status: open` **is** the to-do bit, and `memory-model.md` §1 property 4 already
+makes a to-do bit a required property of a durable record. Temporal scheduled workflows are built for
+exactly this: query state, start children.
+
+**The discipline this must carry:** pair every producer with its consumer **in the same change**. A
+producer with no consumer is how 262 MB accumulated unread.
+
+### 10 · Git is the coding edge's binding, not the protocol's
+
+**Adopted — operator's ruling.**
+
+Git stays for the edge we are building now, because that edge's memory *is* versioned with code,
+reviewed in PRs, and travels with a clone. **The protocol stream carries the same data**, so a second
+edge of any type sources it from the protocol rather than from a repo.
+
+**Why not repo-per-edge.** `state_passing` established that identity compatibility is not
+integration — repos without a sync path are isolated memories that *look* joined, which is worse than
+obviously separate ones. And an edge like Home Assistant has no codebase to version. **It has runs.**
+
+### 11 · S3 as the aggregation point, with a local-first write
+
+**Adopted in principle; scoped as its own sprint.**
+
+Layout under `<machine_id>` + `<run_id>`. Object storage is the standard answer for write-once,
+high-volume, append-only, rarely-read-but-must-be-readable data.
+
+**Three constraints, and the third is the real one:**
+
+- **Write local first, ship asynchronously.** Local-first means the edge works when the bucket is
+  unreachable, so the local file is the source of truth at write time.
+- **Pairs with §6.** Hashing is what makes a shared store's records provably unaltered.
+- **⚠ BLOCKER — classification.** Our run log already carries a PUBLISHABLE / NOT-PUBLISHABLE rule
+  and deliberately excludes model-authored text. Shipping raw records to a store every edge reads
+  crosses that line, and the [heartbeat pollution paper](https://arxiv.org/pdf/2603.23064) is the
+  evidence for why a shared memory surface is an attack surface: **pollution reached durable memory
+  at rates up to 91%, and prompt injection was not required — ordinary misinformation sufficed.**
+
+---
+
+## What this does NOT settle
+
+- **The three questions the journal must answer.** Operator's, and they decide the format. Nothing
+  else does. *(Asked in session, not yet answered.)*
+- **Cross-edge learning versus operational visibility** — which the shared store is for first. They
+  want different things and would be built in a different order.
+- **Component or phase** — [`C-074`](../../standards/architecture/research/candidates.md), still open,
+  still the operator's.
+- **Journal format at this volume**, and redaction/classification for records crossing a trust
+  boundary. **Both are genuine research questions** and are the strongest candidates for the full
+  cycle this topic warranted.
+- **Whether the Kind-1 / Kind-2 cut should be re-drawn.** `state_passing` §4.3.4 established that the
+  two kinds cover three of eight channels and that *lifecycle* discriminates where *audience* does
+  not — but explicitly declined to rule.

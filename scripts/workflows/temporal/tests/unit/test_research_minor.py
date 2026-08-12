@@ -34,6 +34,8 @@ import re
 import textwrap
 from pathlib import Path
 
+_MODULES = Path(__file__).resolve().parents[2] / "modules"
+
 import pytest
 import yaml
 
@@ -308,6 +310,89 @@ def test_the_rendered_minor_prompt_orders_no_sizing(monkeypatch, tmp_path) -> No
         "the merged minor prompt orders a Stage 2 sizing assessment. Stage 2 of "
         "this workflow is 'RESEARCH — ONE PAPER', and the prompt file explicitly "
         "forbids writing a sizing assessment at all."
+    )
+
+
+def test_the_pool_pointer_runs_BOTH_directions_and_neither_arm_is_silent() -> None:
+    """A component run sees the product pool; a product run sees the feature pools.
+
+    Traffic was one-way: `upstream_block` returned "" at PRODUCT altitude, so a
+    full cycle could not see the 8 papers sitting in the feature pools and would
+    re-derive — or silently contradict — what a component investigation already
+    settled under the same critic gate.
+
+    THE CONTROL IS THE POINT. Each block must be EMPTY at the altitude it is not
+    for. A block that renders at both altitudes would send a component run
+    shopping in its own pool and a product run into a write boundary it does not
+    own, and both arms would still "pass" a mere non-empty check.
+    """
+    import sys
+    sys.path.insert(0, str(_MODULES))
+    from assistant.research import research_activities as act
+
+    repo = Path(__file__).resolve().parents[5]
+    assert (repo / "docs" / "standards").is_dir(), (
+        f"repo root resolved to {repo}, which has no docs/standards — the parent "
+        f"count is wrong and every assertion below would compare empty blocks"
+    )
+    product = repo / "docs/standards/architecture/research"
+    component = repo / "docs/development/persistent-memory-protocol/research"
+
+    up_c = act.upstream_block(component, repo)
+    up_p = act.upstream_block(product, repo)
+    dn_p = act.component_pools_block(product, repo)
+    dn_c = act.component_pools_block(component, repo)
+
+    assert up_c and "problem-statement.md" in up_c, "component run lost its view of the product pool"
+    assert dn_p and "component research pools" in dn_p, (
+        "a PRODUCT run renders no feature-pool pointer, so a full cycle cannot see "
+        "what the feature investigations already established"
+    )
+    assert up_p == "", "the upstream block leaked into a product run — it would point the pool at itself"
+    assert dn_c == "", (
+        "the component-pools block leaked into a COMPONENT run, pointing it at pools "
+        "it must not write to and at its own paper"
+    )
+    for directive in ("MINE THESE", "RESPECT:", "Never write to a component pool"):
+        assert directive in dn_p, f"the product-side pointer lost its {directive!r} directive"
+
+
+def test_the_upstream_pointer_sends_the_run_to_the_WHY_and_asks_it_to_REUSE(
+        monkeypatch, tmp_path) -> None:
+    """Pointing at the pool is not the same as being told to mine it.
+
+    THE MISS THIS PINS, 2026-08-12. The block already listed every product-pool
+    paper by name, and a component run still never opened the one on the nearest
+    comparable system — which specified a typed per-step return contract, a
+    content-addressed store and offline hash re-verification, ranked Tier 1 and
+    costed S. Nothing in its title resembled the run's question, and the only
+    directive attached to the pool asked which part of the question upstream
+    already COVERED. Coverage is a title search; reuse is not.
+
+    The problem statement is the second half: it was reachable only from
+    `altitude_product.md`, so no component run had ever been shown the thesis its
+    component exists to serve, and the minor cycle renders no altitude fragment
+    at all.
+    """
+    prompt = _render_write_minor(monkeypatch, tmp_path)
+
+    assert "upstream product research" in prompt, (
+        "the upstream pointer did not reach the merged prompt, so every assertion "
+        "below would pass vacuously"
+    )
+    assert "problem-statement.md" in prompt, (
+        "the merged prompt never names the problem statement. A component run is "
+        "building part of a project it has not been told the purpose of, and the "
+        "file is reachable from no other fragment this cycle renders."
+    )
+    assert "MINE THIS POOL FOR ANSWERS" in prompt, (
+        "the pool is pointed at but the run is not told to mine it for mechanisms. "
+        "Coverage-only framing opens papers whose title resembles the question and "
+        "leaves the comparable-system papers — the highest-yield ones — unopened."
+    )
+    assert "COMPARABLE SYSTEM" in prompt, (
+        "the directive no longer singles out comparable-system papers, which is the "
+        "specific class the measured miss belonged to"
     )
 
 
