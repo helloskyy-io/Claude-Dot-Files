@@ -106,6 +106,19 @@ def run_research_minor(*, research_dir: Path, repo_root: Path, worktree_name: st
             "loops_used": loops, "notes": notes}
 
 
+# THE MAP LINE IS THE PARENT'S, because the child's write boundary makes it
+# unreachable. `write_minor.md` confines the analyst to `raw/` -- correct in
+# spirit, the researcher researches -- but that makes `docs/file_structure.txt`,
+# which CLAUDE.md calls authoritative, structurally unwritable by the ONLY run
+# that knows a new component directory now exists. Every other folder in that
+# map arrived via a build or plan run. The parent already commits the paper; it
+# adds the map line the same way rather than widening the child.
+#
+# ⟨NOT IMPLEMENTED -- surfaced by PR #84 and recorded here so the next change to
+# this parent has it in view. Doing it needs the map's annotation convention,
+# which is a format decision, not a mechanical insert.⟩
+
+
 def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
                          worktree: Path, notes: list[str], verbose: bool,
                          *, correction: bool) -> Verdict:

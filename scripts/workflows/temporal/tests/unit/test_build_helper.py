@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pytest
 
+from modules.assistant import routing
 from modules.assistant.build import build_helper as helper
 from modules.assistant.build.build_inputs import BuildInput, ChildResult, Verdict
 
@@ -94,7 +95,12 @@ def test_last_verdict_wins_on_a_re_review() -> None:
     ("verdict", "loops_used", "expected"),
     [
         pytest.param(Verdict.HOLD_REDISPATCH, 0, True, id="redispatch-loops-once"),
-        pytest.param(Verdict.HOLD_REDISPATCH, 1, False, id="budget-spent"),
+        # AGAINST THE CONSTANT, not a literal. This said `1` and broke the moment
+        # the operator raised the bound from 1 to 3 -- the test encoded the VALUE
+        # where it meant "the budget is spent", so a deliberate ramp read as a
+        # regression.
+        pytest.param(Verdict.HOLD_REDISPATCH, routing.MAX_LOOPS, False, id="budget-spent"),
+        pytest.param(Verdict.HOLD_REDISPATCH, routing.MAX_LOOPS - 1, True, id="one-left"),
         pytest.param(Verdict.HOLD_NEEDS_ASSISTANCE, 0, False, id="needs-assistance-NEVER-loops"),
         pytest.param(Verdict.MERGE, 0, False, id="merge-never-loops"),
     ],

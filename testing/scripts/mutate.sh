@@ -11,7 +11,7 @@
 # Example — prove the loop bound is actually enforced:
 #   testing/scripts/mutate.sh \
 #     scripts/workflows/temporal/modules/assistant/routing.py \
-#     'MAX_LOOPS = 1' 'MAX_LOOPS = 3' \
+#     'MAX_LOOPS = 3' 'MAX_LOOPS = 9' \
 #     scripts/workflows/temporal/tests/unit/test_plan_project_loop.py
 #
 # EXIT CODES — the contract with whoever calls this. No code means both "the
@@ -58,7 +58,7 @@
 # looks like it addresses the problem and does not.
 #
 # We are not hypothetically exposed. On 2026-08-07 this repo mutated
-# `MAX_LOOPS = 1` to `MAX_LOOPS = 3` — same byte length, same file, Python —
+# `MAX_LOOPS = 3` to `MAX_LOOPS = 9` — same byte length, same file, Python —
 # and it only reported correctly because minutes happened to elapse between the
 # edit and the run. Sub-second, it would have passed while testing nothing.
 #

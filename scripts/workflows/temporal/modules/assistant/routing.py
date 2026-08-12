@@ -54,7 +54,23 @@ _VERDICT = re.compile(
 # review passes, and pass 8 reviewed the same tree as pass 7 with no commits
 # between them. Counting correction passes across the PIPELINE rather than
 # within any one child, one loop-back lands at four, inside the band.
-MAX_LOOPS = 1
+# STEP 3 OF THE OPERATOR'S EARNING RAMP, set 2026-08-12. The steps: (1) one
+# loop, prove the mechanism — done; (2) a turn cap so a runaway cannot spin —
+# done; (3) THREE loops, observe what it costs and what it finds — here;
+# (4) unbounded, watched. Autonomy is earned, not switched on.
+#
+# AND THIS IS WHAT MAKES PHASE 5'S CONDITION 1 MEASURABLE AT ALL. Convergence
+# is not in `should_loop_back` below, so raising this runs passes PAST the point
+# the predicate called converged — which is the one corpus shape the archive
+# could never produce. At 1, every fire landed on its PR's last block with
+# nothing after it: 4 fires, 0 scorable, unfalsifiable by construction. At 3, a
+# later pass either contradicts a fire or confirms it, and the denominator
+# stops being zero.
+#
+# The research family keeps its own `MAX_LOOPS = 1` deliberately: convergence is
+# measured over `review-pr` on build PRs, and a research loop is the most
+# expensive dispatch in the fleet.
+MAX_LOOPS = 3
 
 
 def parse_verdict(output: str) -> tuple[Verdict, bool]:

@@ -1,4 +1,4 @@
-"""plan-project routes on the verdict, and loops exactly once.
+"""plan-project routes on the verdict, and loops up to `routing.MAX_LOOPS` times.
 
 WHY THIS EXISTS. `plan-sprint` ran twice with no parent, so its output reached
 the operator UNJUDGED — on the only autonomous write to `sprint.md`. This parent
@@ -96,7 +96,7 @@ def test_merge_runs_one_triage_and_one_review(wired: _Calls, monkeypatch: pytest
     assert (wired.triage, wired.review) == (1, 1)
 
 
-def test_redispatch_loops_exactly_once_then_stops(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """A permanently-redispatching reviewer must NOT loop forever.
 
     This is the regression that matters: the verdict never becomes MERGE, so
@@ -104,9 +104,15 @@ def test_redispatch_loops_exactly_once_then_stops(wired: _Calls, monkeypatch: py
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _url, verdict, loops, notes = _run()
-    assert loops == 1
+    assert loops == routing.MAX_LOOPS, (
+        f"looped {loops} times against a bound of {routing.MAX_LOOPS}. Asserting a "
+        f"LITERAL here made the operator's 1->3 ramp look like a regression."
+    )
     assert verdict is routing.Verdict.HOLD_REDISPATCH
-    assert (wired.triage, wired.review) == (2, 2)
+    # One initial pass plus one per loop-back. Derived, so the operator's ramp
+    # does not read as a regression.
+    expected = 1 + routing.MAX_LOOPS
+    assert (wired.triage, wired.review) == (expected, expected)
     assert any("SPENT" in n for n in notes)
 
 
@@ -118,7 +124,8 @@ def test_the_loop_back_is_a_correction_pass_not_a_fresh_triage(wired: _Calls, mo
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _run()
-    assert wired.correction_passes == [False, True]
+    # The first pass is fresh; every loop-back after it is a correction.
+    assert wired.correction_passes == [False] + [True] * routing.MAX_LOOPS
 
 
 def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -126,6 +133,10 @@ def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: py
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH, routing.Verdict.MERGE)
     _url, verdict, loops, _notes = _run()
     assert (verdict, loops) == (routing.Verdict.MERGE, 1)
+    # One initial pass plus one per loop-back. Derived, so the operator's ramp
+    # does not read as a regression.
+    # TWO, not the bound: this run EARNS MERGE on its first loop-back and stops there, so the bound is never reached. My blanket edit applied the
+    # bound-relative count here too, which is the same over-broad replace that has bitten three times today.
     assert (wired.triage, wired.review) == (2, 2)
 
 
@@ -229,7 +240,10 @@ def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, mon
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _with_sections(monkeypatch, "Alpha")
     _run()
-    assert wired.triage_pools == [product_pool, product_pool], (
+    # One pool per triage — the initial pass plus one per loop-back. The COUNT
+    # is incidental to this regression; what matters is that EVERY entry is the
+    # product pool, so it is derived from the bound rather than pinned at two.
+    assert wired.triage_pools == [product_pool] * (1 + routing.MAX_LOOPS), (
         f"plan-sprint was handed {wired.triage_pools} — the loop-back must still "
         f"receive the PRODUCT pool, not a component's"
     )
