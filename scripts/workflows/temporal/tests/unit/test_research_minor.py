@@ -439,7 +439,7 @@ def _param_reaches_only_a_ternary(func, name: str) -> bool:
     return bool(reads)
 
 
-@pytest.mark.parametrize("param", ["minor_cycle", "correction_pass"])
+@pytest.mark.parametrize("param", ["minor_cycle", "correction_pass", "synthesis_present"])
 def test_the_flag_reaches_no_if_statement(param: str) -> None:
     """`correction_pass` is the model and is checked alongside deliberately.
 
@@ -535,18 +535,48 @@ def test_the_parent_asks_verify_for_the_minor_shape(tmp_path) -> None:
     )
 
 
-def test_a_pool_with_a_synthesis_is_not_reported_as_having_none(tmp_path) -> None:
-    """The case the literal got wrong, as a behaviour rather than a grep."""
-    pool = tmp_path / "research"
-    (pool / "raw").mkdir(parents=True)
-    assert not (pool / "synthesis.md").is_file()      # fresh pool -> minor shape
+def test_both_cycle_shape_blocks_render_from_the_shipped_source() -> None:
+    """The blocks a run actually receives, read out of the shipped module.
 
-    (pool / "synthesis.md").write_text("# synthesis\n")
-    assert (pool / "synthesis.md").is_file(), (
-        "a populated pool must be detectable, or the parent cannot tell the two "
-        "cases apart and the earlier hard-coded True returns by another route"
+    REPLACES A TEST THAT EXERCISED `pathlib`. The previous version created a
+    directory, wrote a file, and asserted `is_file()` — which proves the standard
+    library works and says nothing about this fleet. A correction shipped with
+    nothing holding it is how the hard-coded `True` reached a review in the first
+    place.
+
+    Both blocks are asserted because they are mutually exclusive and the DANGEROUS
+    one is the second: a minor cycle over an existing synthesis must NOT be told
+    the synthesis is absent, which is the defect this pair was built to remove.
+    """
+    source = inspect.getsource(verify)
+
+    assert "MINOR CYCLE — one paper, no synthesis" in source, (
+        "the no-synthesis block is gone; a minor run against a fresh pool would "
+        "read `you did not write this synthesis` against a directory with none"
+    )
+    assert "MINOR CYCLE OVER AN EXISTING SYNTHESIS" in source, (
+        "the second block is gone, so a minor cycle over a populated pool falls "
+        "back to being told no synthesis exists — the exact defect corrected here"
+    )
+    assert "Verify it exactly as always" in source, (
+        "the existing-synthesis block no longer tells the child to verify it, so "
+        "the only artifact the standup consumes goes unchecked"
+    )
+    # the two arms must be selected by DIFFERENT parameters, or one can never fire
+    assert "if minor_cycle else" in source and "if synthesis_present else" in source, (
+        "both blocks must be gated by their own parameter; sharing one makes the "
+        "second arm unreachable"
     )
 
+
+def test_the_parent_cannot_report_both_shapes_at_once() -> None:
+    """They are mutually exclusive by construction — asserted, not assumed."""
+    source = inspect.getsource(parent)
+    assert 'minor_cycle=not (pool / "synthesis.md").is_file()' in source, (
+        "minor_cycle is no longer the negation of the synthesis check, so both "
+        "arms could be true and the child would receive two contradictory facts"
+    )
+    assert 'synthesis_present=(pool / "synthesis.md").is_file()' in source
 
 def test_the_parent_reuses_the_shared_children() -> None:
     """The critic gate stays. It is the reason this is not a bare research call.

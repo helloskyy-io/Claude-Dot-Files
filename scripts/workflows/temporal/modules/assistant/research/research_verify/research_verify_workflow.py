@@ -38,8 +38,24 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
                synthesis_present: bool = False, verbose: bool = False) -> str:
     """Verify, correct, trace, and re-verify. Returns the PR URL.
 
-    `minor_cycle` STATES WHAT THE PARENT PRODUCED. It is not a switch over this
-    child's behaviour, and the difference is load-bearing rather than semantic.
+    `minor_cycle` AND `synthesis_present` STATE WHAT IS ON DISK, together. Neither
+    is a switch over this child's behaviour, and that difference is load-bearing
+    rather than semantic.
+
+    THEY WERE ONE PARAMETER AND IT SAID THE WRONG THING. `minor_cycle` alone was
+    documented as *stating what the parent produced*, and the parent hard-coded
+    it `True` — so a minor cycle running against a pool an earlier FULL cycle had
+    populated told this child "no synthesis exists" while one sat right there,
+    and stages 2 and 3 skipped the only artifact the standup consumes. The parent
+    now derives both from the worktree it reads:
+
+      * `minor_cycle`       -> one paper was written and NO synthesis is present
+      * `synthesis_present` -> a synthesis IS present, from an earlier cycle;
+                               verify it as always and report that this cycle's
+                               new paper is not yet in it
+
+    They are mutually exclusive by construction and both may be false, which is
+    the full cycle.
 
     The mechanics never needed a signal: this child discovers artifacts from
     `RESEARCH_DIR` on the filesystem and NOTHING here reads `synthesis.md`, so a
