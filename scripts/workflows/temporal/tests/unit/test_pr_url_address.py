@@ -158,10 +158,18 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 # listed one goes away — a list that only grows is a gate that widens itself.
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
-    ("plan_activities.py", "new_sprint_sections"),   # a markdown heading's em-dash
-    # `git status --porcelain`'s rename arrow: `R  old -> new`. A worktree path
-    # out of git's own output, not a URL — and the destination is the edited one.
-    ("triage_candidates_activities.py", "sprint_files_touched"),
+    # MOVED, not new: `plan_activities` -> `plan_project_activities` under §10.1
+    # rule 3. Still a markdown heading's em-dash, still not a URL.
+    ("plan_project_activities.py", "new_sprint_sections"),
+    # git's own NUL-separated output under `-z`. A worktree path, not a URL, and
+    # `-z` is what makes the split safe: it turns OFF the C-style quoting that
+    # would otherwise put backslash escapes inside a path.
+    #
+    # THIS ENTRY REPLACED `sprint_files_touched`, which split a porcelain rename
+    # line on `" -> "` and kept only the destination — so renaming `sprint.md`
+    # AWAY produced a path matching nothing and the guard passed over it. The
+    # rewrite uses `--no-renames`, so there is no arrow to parse at all.
+    ("plan_activities.py", "worktree_state"),
 }
 
 

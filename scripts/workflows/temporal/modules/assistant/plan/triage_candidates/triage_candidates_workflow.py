@@ -53,6 +53,66 @@ MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
+# --- THE PATH BOUNDARY, DECLARED WHERE THE PROMPT'S TABLE CAN BE READ AGAINST IT
+#
+# Every path-scoped `You MAY NOT` row in `prompts/triage_candidates.md`, as a
+# pattern. Not taking a `sprint_path` parameter constrains the SIGNATURE; the run
+# holds the whole worktree either way, so the boundary is observed rather than
+# assumed. Matched on the NAME for the sprint plan because this workflow is given
+# no sprint path and a guard that needed one would reintroduce the parameter the
+# boundary is defined by — the cost being that a repo calling its plan something
+# else is not covered, which is cheap to widen when a second consumer exists.
+FORBIDDEN_PATHS = (
+    r"(^|/)sprints?\.md$",      # "Touch `sprint.md` at all"
+    r"^docs/development/",      # "Write or edit any phase doc"
+    r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+)
+
+# The two files this workflow EXISTS to write. Both live under `docs/standards/`,
+# so without the exception the forbidden pattern above fails every correct run.
+# `direction.md` is the operator's inbox rather than a standard, which is why the
+# prompt names it as the one exception to the standards-directory rule.
+PERMITTED_PATHS = (
+    r"^docs/standards/architecture/research/candidates\.md$",
+    r"^docs/standards/architecture/research/direction\.md$",
+)
+
+# --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
+#
+# THE CLASS THIS CLOSES. The split built a real mechanism for one prohibition and
+# left the others on prose — including one the prompt asserted was enforced. A
+# prohibition a model is told is checked, and which nothing checks, is worse than
+# an unstated one: it buys compliance on the strength of a claim that is false.
+#
+# Keyed by the row's exact text so that REWORDING a row breaks this map. That is
+# the point rather than a cost: the question "what observes this?" has to be
+# answered again whenever the prohibition changes, and a new row has no answer at
+# all until someone writes one. `test_authorization_is_observed.py` compares
+# these keys against the rendered table.
+#
+# `JUDGEMENT` is a legitimate answer and must say WHY the property has no
+# artifact. It is not a waiver — it is the difference between "nothing checks
+# this" being a decision and being an oversight.
+MAY_NOT_OBSERVERS: dict[str, str] = {
+    "Set `status` in the candidates file — that is a later process's":
+        "act.candidate_statuses snapshotted either side of the run, compared by "
+        "act.statuses_this_run_had_no_right_to",
+    "Set `status` on a `direction.md` row — that is the operator's":
+        "own.direction_statuses snapshotted either side of the run, through the "
+        "same comparator",
+    "**Touch `sprint.md` at all** — you hold no authorization over it":
+        "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
+    "Write or edit any phase doc":
+        "FORBIDDEN_PATHS `^docs/development/`, same mechanism",
+    "Design *how* anything gets built":
+        "JUDGEMENT — design leaves no artifact distinct from the report this "
+        "workflow is required to write. Its report MUST say what it noticed "
+        "about a shipped candidate, so the observable that would separate "
+        "designing from reporting is the prose itself.",
+    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
+        "FORBIDDEN_PATHS `^docs/standards/` less PERMITTED_PATHS, same mechanism",
+}
+
 
 def run_triage_candidates(*, repo_root: Path, worktree: Path,
                           candidates_path: Path, research_dir: Path,
@@ -69,9 +129,17 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # Counted in code so the report cannot assert a total it invented.
     counts = act.candidate_counts(wt_candidates)
 
-    # THE COLUMN THIS RUN MUST NOT MOVE. `decision` is ours; `status` is a later
-    # process's and never becomes ours — deciding to do something does not do it.
+    # THE COLUMNS THIS RUN MUST NOT MOVE, and the paths it must not reach.
+    # `decision` is ours; `status` is a later process's on a candidate and the
+    # OPERATOR'S on a direction row, and neither becomes ours — deciding to do
+    # something does not do it.
+    #
+    # Snapshotted AROUND THE MODEL, never diffed against `origin/main`: this
+    # workflow can be re-dispatched onto a branch that already carries work, and
+    # a diff against the base would attribute somebody else's edit to this run.
     before_status = act.candidate_statuses(wt_candidates)
+    before_direction = own.direction_statuses(worktree / rel_research)
+    before_tree = act.worktree_state(worktree)
 
     values = {
         "CANDIDATES_PATH": str(rel_candidates),
@@ -115,30 +183,69 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"ship / requires review / reject — see {url}"
         )
 
-    # THE MIRROR OF plan-sprint's GUARD, and the split had left this side on prose
-    # alone. `sprint.md` is the operator's own sequencing surface, this workflow
-    # holds no override for it, and the prompt hands the model the exact trigger:
-    # "if a candidate you ship looks like it needs a sprint section, say so." Not
-    # taking a `sprint_path` parameter constrains the signature, never the run.
-    touched = own.sprint_files_touched(worktree)
-    if touched:
+    after_status = act.candidate_statuses(wt_candidates)
+
+    # A ROW THAT VANISHED PASSES THE POST-CONDITION ABOVE, which counts blank
+    # `decision` cells: deleting an untriaged row drops the count exactly as
+    # ruling it would, so a run could report a complete triage over a candidate
+    # that no longer exists. The file's promise is that a rejected candidate
+    # stays visibly rejected instead of being re-proposed by the next cycle, and
+    # that promise was carried by one prompt sentence. Checked BEFORE the columns
+    # below, because both status guards judge only ids present on both sides and
+    # would report nothing about a row that is gone.
+    gone = act.ids_deleted(before_status, after_status)
+    if gone:
         raise RuntimeError(
-            f"triage-candidates edited the sprint plan: {', '.join(touched)}. That "
-            f"file is the operator's cross-domain sequencing surface and this "
-            f"workflow holds NO authorization over it — `plan-sprint` carries the "
-            f"only override, and it runs after this. A shipped candidate that looks "
-            f"like it needs a sprint section is something to REPORT, never to "
-            f"write — see {url}"
+            f"triage-candidates deleted {len(gone)} candidate row(s): "
+            f"{', '.join(gone)}. No workflow deletes a row — a candidate ruled "
+            f"`reject` stays in the file precisely so the next research cycle "
+            f"does not re-propose it, and a row that merely disappears is "
+            f"indistinguishable from one that was never proposed — see {url}"
         )
 
-    flipped = act.statuses_this_run_had_no_right_to(before_status,
-                                                    act.candidate_statuses(wt_candidates))
+    # THE WHOLE DECLARED BOUNDARY, OBSERVED. `sprint.md` is the operator's own
+    # sequencing surface, phase docs belong to nothing this workflow runs, and
+    # `docs/standards/` is off-limits but for the two research files this
+    # workflow exists to write. The prompt hands the model the exact trigger for
+    # the first of those — "if a candidate you ship looks like it needs a sprint
+    # section, say so" — one step short of writing the section instead.
+    crossed = act.boundary_crossings(before_tree, act.worktree_state(worktree),
+                                     FORBIDDEN_PATHS, PERMITTED_PATHS)
+    if crossed:
+        raise RuntimeError(
+            f"triage-candidates edited {len(crossed)} file(s) outside its "
+            f"authorization: {', '.join(crossed)}. This workflow rules candidates "
+            f"and files direction rows; it writes no sprint plan, no phase doc and "
+            f"no standard. A shipped candidate that looks like it needs a sprint "
+            f"section is something to REPORT — `plan-sprint` runs after this and "
+            f"carries the only override — see {url}"
+        )
+
+    flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
     if flipped:
         raise RuntimeError(
             f"triage-candidates changed the `status` column on {len(flipped)} "
             f"candidate(s): {', '.join(flipped)}. Ruling a candidate is not doing it. "
             f"`status` belongs to a later process — `plan-feature`, or the build that "
             f"completes the item — and it did not move in the split — see {url}"
+        )
+
+    # THE SAME COMPARATOR, ON THE HIGHER-STAKES COLUMN. `applied` and `rejected`
+    # on a direction row are rulings only the operator can make, and once one is
+    # recorded `/standup` rotates the row out and the receipt is gone — so a
+    # wrongly-set flag is not merely wrong, it is unrecoverable. Only
+    # PRE-EXISTING rows are judged, because the prompt REQUIRES a newly appended
+    # row to carry `status: open`.
+    ruled = act.statuses_this_run_had_no_right_to(
+        before_direction, own.direction_statuses(worktree / rel_research))
+    if ruled:
+        raise RuntimeError(
+            f"triage-candidates changed the `status` column on {len(ruled)} "
+            f"`direction.md` row(s): {', '.join(ruled)}. That flag is the "
+            f"OPERATOR'S ALONE — `applied` and `rejected` are the rulings this "
+            f"workflow files a row to ask for, and it may not answer its own "
+            f"question. Appending a row with `status: open` is the whole of this "
+            f"workflow's part in it — see {url}"
         )
     return url
 

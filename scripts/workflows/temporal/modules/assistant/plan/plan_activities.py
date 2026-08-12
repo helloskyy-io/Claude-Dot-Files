@@ -21,13 +21,27 @@ its consumer count puts it:
     column neither of them owns. Two consumers, so it stays.
   * `candidate_decisions` — one consumer. MOVED to `plan_sprint_activities`.
   * `direction_ceiling` — one consumer. MOVED to `triage_candidates_activities`.
+  * `new_sprint_sections`, `component_dir` — one consumer each (`plan_project`,
+    and nothing else in the tree). MOVED to `plan_project_activities`. They were
+    missing from the audit above when it was first written, which made this
+    docstring's own rule-3 claim incomplete on the very file that states the
+    rule. Counted rather than eyeballed the second time.
 
-The last two were briefly argued to belong here anyway, as "the same concern as
-their neighbours". [`workflow-scripts.md` § Location](../../../../../docs/standards/workflow-scripts.md)
+`candidate_decisions` and `direction_ceiling` were briefly argued to belong here
+anyway, as "the same concern as their neighbours".
+[`workflow-scripts.md` § Location](../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and forecloses exactly that argument — *"consumer
 count decides, never taste"* — and rule 6 gives a workflow folder its place to
 grow a helper it has earned. The row-level primitives they need are exported
 below, so the parsing still has one definition.
+
+WHAT ELSE IS SHARED, AND WHY IT IS *HERE* RATHER THAN IN EITHER FOLDER. Both
+workflows must show they stayed inside their authorization, and both do it the
+same way: snapshot the worktree before the model runs, snapshot it after, and
+name any forbidden path whose content moved. `git_output`, `worktree_state` and
+`boundary_crossings` are that mechanism, with two consumers each. `ids_deleted`
+likewise — a row vanishing from `candidates.md` is an offence under BOTH
+workflows, and it used to be caught under only one.
 
 NOT IDEMPOTENT (§7.1): these push commits and open PRs. Under Temporal a retry
 is a NEW ATTEMPT, not a replay.
@@ -35,6 +49,7 @@ is a NEW ATTEMPT, not a replay.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 from pathlib import Path
@@ -55,9 +70,6 @@ max_turns = shared.max_turns
 _ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", re.M)
 
 _BLANK = ("", "—", "-")
-
-# Strips the leading marker so a section name is just its name.
-_SECTION_NAME = re.compile(r"^## Sprint:\s*")
 
 
 def normalise_cell(cell: str) -> str:
@@ -144,6 +156,133 @@ def statuses_this_run_had_no_right_to(before: dict[str, str],
                   if before[cid] != after[cid])
 
 
+def ids_deleted(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    """Ids that were in the file before this run and are not in it after.
+
+    ONE DEFINITION, because the claim that it had one was false. The comment on
+    `statuses_this_run_had_no_right_to` said *"row deletion is already an offence
+    under the `decision` guard, so it is not re-reported here"* — true of
+    `plan-sprint`, which does compare the id sets, and FALSE of
+    `triage-candidates`, which had no such comparison at all. Its completion
+    post-condition counts rows whose `decision` is blank, so DELETING an
+    untriaged row drops the count exactly as ruling it would: the run reports a
+    complete triage over a candidate that no longer exists. The file's whole
+    promise is that a rejected candidate stays visibly rejected instead of being
+    re-proposed, and a silently dropped row breaks it in the one direction nobody
+    would look for.
+
+    Both status guards are blind to this by construction — they judge
+    `before.keys() & after.keys()`, and a deleted id is in neither intersection.
+    """
+    return sorted(before.keys() - after.keys())
+
+
+def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
+    """Run a read-only git query in the worktree, or RAISE saying what is now unknown.
+
+    Every boundary observer in this family needs the same thing — git's answer,
+    or a loud failure — and each one that hand-rolled it wrote its own message
+    about what the silence would cost. Sharing the mechanism keeps the failure
+    behaviour identical while each caller still supplies its own `cannot_hint`,
+    which is the part that differs.
+
+    RAISES rather than returning empty, and the distinction is the whole point: a
+    guard that cannot observe must not be read as having observed nothing. An
+    empty return is indistinguishable from a clean run, so a git failure would
+    manufacture evidence of compliance.
+    """
+    out = subprocess.run(argv, cwd=str(worktree), capture_output=True, text=True)
+    if out.returncode != 0:
+        raise RuntimeError(
+            f"could not read the worktree state in {worktree} via "
+            f"`{' '.join(argv)}`: {out.stderr.strip()}. {cannot_hint}"
+        )
+    return out.stdout
+
+
+def worktree_state(worktree: Path, base_ref: str = "origin/main") -> dict[str, str]:
+    """Every path this worktree has touched, mapped to a digest of its content.
+
+    SNAPSHOT-AROUND-THE-RUN, NOT DIFF-AGAINST-MAIN, and that is a correctness
+    requirement rather than a preference. `plan-sprint` runs LAST on a branch
+    `triage-candidates` has already written to, so a diff against `origin/main`
+    attributes triage's legitimate `direction.md` edit to plan-sprint, which is
+    forbidden from touching it. Comparing two snapshots taken either side of one
+    model run names what THAT run did and nothing else.
+
+    Content is digested rather than merely listed because the earlier path-list
+    form could not tell "triage edited this file" from "triage edited it and
+    plan-sprint edited it again": both appear once in a name-only diff.
+
+    `--no-renames -z` is deliberate on both commands, and it retired a real
+    bypass. The previous guard split a porcelain rename line on `" -> "` and kept
+    the DESTINATION, so renaming `sprint.md` AWAY (`git mv sprint.md notes.md`)
+    produced `notes.md`, matched nothing, and the run reported success over an
+    edit to the operator's sequencing surface. Reproduced before fixing.
+    `--no-renames` reports the two halves as a separate delete and add, so there
+    is no arrow to parse; `-z` turns off git's C-style quoting, so there are no
+    backslash escapes to unescape either. Two parsing bug classes deleted rather
+    than handled.
+    """
+    hint = ("This run cannot show which files it left alone, and an unobservable "
+            "boundary is not a kept one.")
+    touched: set[str] = set()
+    for argv in (["git", "diff", "--name-only", "--no-renames", "-z", f"{base_ref}...HEAD"],
+                 ["git", "status", "--porcelain", "--no-renames", "-z"]):
+        is_status = argv[1] == "status"
+        for entry in git_output(worktree, argv, hint).split("\0"):
+            # porcelain prefixes a two-column state and a space; `git diff
+            # --name-only` does not. Both are NUL-terminated, so the split
+            # leaves a trailing empty field.
+            path = entry[3:] if is_status else entry
+            if path:
+                touched.add(path)
+
+    state: dict[str, str] = {}
+    for rel in touched:
+        f = worktree / rel
+        state[rel] = (hashlib.sha256(f.read_bytes()).hexdigest()
+                      if f.is_file() else ABSENT)
+    return state
+
+
+# TWO DISTINCT KINDS OF "no digest", and collapsing them re-opened the exact
+# bypass this observer was rewritten to close.
+#
+#   ABSENT   — git reported the path as changed and it is not on disk: DELETED.
+#   BASELINE — git did not report it at all: untouched, whatever the base holds.
+#
+# A rename-away produces ABSENT in the after-snapshot and NOTHING in the before
+# one, because a clean tree reports no changed paths. With a single sentinel as
+# the `.get` default those compare equal and `git mv sprint.md notes.md` reads as
+# untouched — the same defeat the old `" -> "` parsing had, arriving by a
+# different route. Caught by the regression test written for the original bypass,
+# which is why that test exercises real git rather than a stub.
+ABSENT = "<absent>"
+BASELINE = "<unchanged>"
+
+
+def boundary_crossings(before: dict[str, str], after: dict[str, str],
+                       forbidden: tuple[str, ...],
+                       permitted: tuple[str, ...] = ()) -> list[str]:
+    """Forbidden paths whose content moved between the two snapshots.
+
+    `permitted` wins over `forbidden`, and it is not an optional refinement:
+    every real declaration in this family needs it. `triage-candidates` may not
+    edit anything under `docs/standards/` — except `candidates.md` and
+    `direction.md`, which live there and which it EXISTS to write.
+    `plan-sprint` may not edit a phase doc under `docs/development/` — except the
+    sprint file, which lives there and which it alone is authorised to edit.
+    Without the exception list a correct run fails on its own output.
+    """
+    allow = [re.compile(p) for p in permitted]
+    deny = [re.compile(p) for p in forbidden]
+    return [rel for rel in sorted(before.keys() | after.keys())
+            if before.get(rel, BASELINE) != after.get(rel, BASELINE)
+            and not any(p.search(rel) for p in allow)
+            and any(p.search(rel) for p in deny)]
+
+
 def existing_work(repo_root: Path, research_dir: Path) -> str:
     """Enumerate what a candidate might ALREADY have a home in.
 
@@ -198,49 +337,6 @@ def existing_work(repo_root: Path, research_dir: Path) -> str:
                      "say in your report that this check did not run.")
 
     return "\n".join(lines)
-
-
-def new_sprint_sections(worktree: Path, sprint_rel: str, base_ref: str = "origin/main") -> list[str]:
-    """Sprint sections this branch ADDED — read from the diff, in code.
-
-    A NON-MODEL OBSERVABLE. The parent must know which components are new so it
-    can research and plan only those, and asking the triage child to report them
-    would make the parent trust an account rather than read the artifact. `git`
-    already knows, and a diff is not something a model can be wrong about.
-
-    Matched on the added-heading form specifically: a section merely EDITED
-    shows as a changed body with no added `## Sprint:` line, and researching an
-    existing component because its prose moved would spend a full cycle on
-    nothing.
-    """
-    out = subprocess.run(
-        ["git", "diff", f"{base_ref}...HEAD", "--", sprint_rel],
-        cwd=str(worktree), capture_output=True, text=True,
-    )
-    if out.returncode != 0:
-        raise RuntimeError(
-            f"could not diff {sprint_rel} against {base_ref} in {worktree}: "
-            f"{out.stderr.strip()}. The parent cannot tell which components are "
-            f"new, and guessing would research the wrong ones."
-        )
-    return [
-        _SECTION_NAME.sub("", line[1:]).split("—")[0].strip()
-        for line in out.stdout.splitlines()
-        if line.startswith("+## Sprint:")
-    ]
-
-
-def component_dir(repo_root: Path, section_name: str) -> Path:
-    """`Fleet Reliability` -> `docs/development/fleet-reliability`.
-
-    The convention the whole tree already follows, applied in code rather than
-    asked of a model — a component whose folder name does not match its sprint
-    section is invisible to every reconciliation that walks one against the other.
-    """
-    slug = re.sub(r"[^a-z0-9]+", "-", section_name.lower()).strip("-")
-    if not slug:
-        raise ValueError(f"sprint section {section_name!r} yields no folder name")
-    return repo_root / "docs" / "development" / slug
 
 
 def submit_prompt(pr_number: str | None, label: str) -> str:

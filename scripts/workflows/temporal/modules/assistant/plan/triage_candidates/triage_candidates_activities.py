@@ -7,9 +7,28 @@ restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, n
 taste"* — and rule 6 gives a one-file workflow folder its place to grow a helper
 it has earned.
 
-`sprint_files_touched` is new and is the answer to an asymmetry: the split built
-a real mechanism for one boundary and left the mirror-image one on prose. See its
-docstring.
+`direction_statuses` is the reader the operator's own column needed and did not
+have. `direction.md` is `triage-candidates`'s to APPEND to and nobody's to RULE
+on: `applied` and `rejected` are the operator's, and
+[`standards-governance.md`](../../../../../../config/rules/standards-governance.md)
+calls that flag *"the ruling this rule exists to protect"*. The split built a
+before/after comparison for `candidates.md`'s `status` and left the
+higher-stakes column next door on prose — while both prompts told the model it
+was enforced. Both read through `plan_activities.normalise_cell`, so markup is
+not meaning on either file.
+
+Both build on `direction_rows`, for the reason `candidate_rows` exists on the
+shared surface: two hand-written parses of one table drift, and this family has
+already paid for that once (see `normalise_cell`).
+
+THE SPRINT GUARD IS NOT HERE ANY MORE and that is a promotion, not a deletion.
+`sprint_files_touched` was a single-purpose observer of one forbidden path;
+`plan_activities.worktree_state` / `boundary_crossings` observe the whole
+declared boundary for both workflows, so the mechanism has two consumers and
+lives on the shared surface. Its argument survives unchanged in
+`triage_candidates_workflow.FORBIDDEN_PATHS`: not taking a `sprint_path`
+parameter constrains the SIGNATURE, and the run holds the whole worktree either
+way.
 
 NOT IDEMPOTENT (§7.1) is not in play here — this module only reads.
 """
@@ -17,17 +36,28 @@ NOT IDEMPOTENT (§7.1) is not in play here — this module only reads.
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 
-# A direction row: | D-001 | recommendation | why | source | `status` |
-_DIRECTION_ID = re.compile(r"^\|\s*`?D-(\d{3})`?\s*\|", re.M)
+from .. import plan_activities as act
 
-# Any path whose file IS a sprint plan, wherever a repo keeps it. Matched on the
-# NAME rather than a configured path deliberately: this workflow is not given a
-# sprint path (see `test_triage_is_given_no_sprint_authority`), and a guard that
-# needed one would reintroduce the parameter the boundary is defined by.
-_SPRINT_FILE = re.compile(r"(^|/)sprints?\.md$")
+# A direction row: | D-001 | recommendation | why | source | `status` |
+_ROW = re.compile(r"^\|\s*`?(D-\d{3})`?\s*\|.*?\|.*?\|.*?\|\s*(.*?)\s*\|", re.M)
+
+
+def direction_rows(research_dir: Path) -> list[tuple[str, str]]:
+    """Every `(D-NNN, status)` in `direction.md`, normalised. One parse, one place.
+
+    A MISSING FILE IS AN EMPTY LIST, NOT AN ERROR, and both callers need that
+    reading. `direction_ceiling` is asked what the next free id is on a repo that
+    has never filed a direction row, and the status guard must let a run CREATE
+    the file — a run that appends the first `D-001` must not fail for having
+    created the thing it was told to create. Empty on both sides of the snapshot
+    is the same answer as unchanged.
+    """
+    f = research_dir / "direction.md"
+    if not f.exists():
+        return []
+    return [(did, act.normalise_cell(st)) for did, st in _ROW.findall(f.read_text())]
 
 
 def direction_ceiling(research_dir: Path) -> str:
@@ -37,56 +67,35 @@ def direction_ceiling(research_dir: Path) -> str:
     guesses the next ID collides with an existing row or skips a block, and
     either way the file's promise that an ID is stable breaks silently.
     """
-    f = research_dir / "direction.md"
-    if not f.exists():
+    if not (research_dir / "direction.md").exists():
         return ("`direction.md` does NOT exist yet — create it with the header row "
                 "and start at `D-001`.")
-    ids = sorted(_DIRECTION_ID.findall(f.read_text()))
+    # Sliced, not split: `_ROW` already fixes the id at `D` plus three digits, so
+    # the offset is guaranteed by the pattern that produced the string. A split
+    # here would be a second, weaker parse of a shape already parsed once — and
+    # `test_no_module_derives_a_path_segment_from_a_url_by_splitting` is a census
+    # over exactly that habit.
+    ids = sorted(int(did[2:]) for did, _st in direction_rows(research_dir))
     if not ids:
         return "`direction.md` exists but holds no rows — start at `D-001`."
-    return (f"`direction.md` holds **{len(ids)} rows**, highest ID **D-{ids[-1]}**. "
-            f"A NEW recommendation starts at **D-{int(ids[-1]) + 1:03d}**. "
+    return (f"`direction.md` holds **{len(ids)} rows**, highest ID **D-{ids[-1]:03d}**. "
+            f"A NEW recommendation starts at **D-{ids[-1] + 1:03d}**. "
             f"Never renumber an existing row.")
 
 
-def sprint_files_touched(worktree: Path, base_ref: str = "origin/main") -> list[str]:
-    """Sprint files this run changed — the boundary observed, not merely stated.
+def direction_statuses(research_dir: Path) -> dict[str, str]:
+    """Every direction row's `status`, keyed by id — the operator's own column.
 
-    THE SPLIT BUILT A MECHANISM FOR ONE BOUNDARY AND LEFT ITS MIRROR ON PROSE.
-    `plan_sprint` re-reads the `decision` column after its run because *"an
-    authority transfer stated only in prose is a convention a model can reason
-    past"*. That argument does not stop at one column: `sprint.md` is the
-    operator's own cross-domain sequencing surface, this workflow holds no
-    override for it, and its prompt hands the model the exact trigger — *"if a
-    candidate you ship looks like it needs a sprint section, say so"* — one step
-    away from writing the section instead of saying so. Not taking a
-    `sprint_path` parameter constrains the SIGNATURE; the run has the whole
-    worktree either way.
+    Fed to `plan_activities.statuses_this_run_had_no_right_to` UNCHANGED rather
+    than compared here. That function already judges only PRE-EXISTING rows,
+    which is exactly the contract this column needs: the prompt REQUIRES a newly
+    appended `D-NNN` to carry `status: open`, so a new row's status is prescribed
+    by another rule and is not this guard's business. A second hand-written
+    before/after comparison would be the drift `normalise_cell` documents.
 
-    Both halves of the tree are read. A committed edit shows in the diff against
-    `base_ref`; an uncommitted one shows in the status. Either is an edit that
-    happened, and the run must not report success over it.
-
-    RAISES rather than returning empty when git cannot answer, mirroring
-    `new_sprint_sections`: a guard that cannot observe must not be read as
-    having observed nothing.
+    WHAT AN UNGUARDED FLIP COSTS, since it is not obvious from the column: a run
+    that writes `applied` on a row the operator never ruled leaves a green run
+    and a ruling indistinguishable from a genuine one, after which `/standup`
+    rotates the row out and the receipt is gone.
     """
-    seen: list[str] = []
-    for argv in (["git", "diff", "--name-only", f"{base_ref}...HEAD"],
-                 ["git", "status", "--porcelain"]):
-        out = subprocess.run(argv, cwd=str(worktree), capture_output=True, text=True)
-        if out.returncode != 0:
-            raise RuntimeError(
-                f"could not read the worktree state in {worktree} via "
-                f"`{' '.join(argv)}`: {out.stderr.strip()}. This run cannot show it "
-                f"left the sprint plan alone, and an unobservable boundary is not a "
-                f"kept one."
-            )
-        for line in out.stdout.splitlines():
-            # `git status --porcelain` prefixes a two-column state; a rename
-            # reads `R  old -> new`, and the destination is the edited path.
-            path = line[3:] if argv[1] == "status" else line
-            path = path.split(" -> ")[-1].strip().strip('"')
-            if path and _SPRINT_FILE.search(path) and path not in seen:
-                seen.append(path)
-    return seen
+    return dict(direction_rows(research_dir))

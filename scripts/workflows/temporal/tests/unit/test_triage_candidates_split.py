@@ -81,19 +81,36 @@ def stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     """Silence the helpers that shell out or walk the real tree.
 
     `existing_work` runs `gh` and iterates `docs/development/`; `direction_ceiling`
-    reads a file; `sprint_files_touched` runs `git` and the fixture tree is not a
+    reads a file; `worktree_state` runs `git` and the fixture tree is not a
     repository. None of them is what any assertion here is about, and
     `existing_work` making a live subprocess call would put a network dependency
     in a unit test.
 
-    `sprint_files_touched` is stubbed to the CLEAN answer, so the tests that care
-    about that guard are the ones that override it — a fixture that returned a
-    violation would make every other test in the module fail for the wrong reason.
+    `worktree_state` is stubbed to the CLEAN answer — an unchanged tree on both
+    sides — so the tests that care about the path boundary are the ones that
+    override it via `_crossing`. A fixture returning a violation would make every
+    other test in the module fail for the wrong reason.
+
+    THE REAL GIT PATH IS NOT LEFT UNTESTED BY THIS. `worktree_state` is exercised
+    against an actual repository further down, because the defect it was rewritten
+    to close — a renamed-away sprint file reading as untouched — lived in exactly
+    the parsing this stub skips.
     """
     monkeypatch.setattr(sprint.act, "existing_work", lambda *a, **k: "<work>")
     monkeypatch.setattr(triage.act, "existing_work", lambda *a, **k: "<work>")
     monkeypatch.setattr(triage.own, "direction_ceiling", lambda *a, **k: "<ceiling>")
-    monkeypatch.setattr(triage.own, "sprint_files_touched", lambda *a, **k: [])
+    monkeypatch.setattr(act, "worktree_state", lambda *a, **k: {})
+
+
+def _crossing(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
+    """Make the NEXT snapshot pair look like this run edited `path`.
+
+    Drives the guard through `worktree_state`'s real return SHAPE — a path
+    mapped to a content digest — rather than stubbing the comparison, so the
+    forbidden/permitted declarations under test are the ones that actually run.
+    """
+    snapshots = iter([{}, {path: "digest"}])
+    monkeypatch.setattr(act, "worktree_state", lambda *a, **k: next(snapshots))
 
 
 def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = None,
@@ -461,10 +478,9 @@ def test_triage_FAILS_when_it_edited_the_sprint_plan(
     f = tree / "c.md"
     f.write_text(_table([("C-001", "")]))
     _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
-    monkeypatch.setattr(triage.own, "sprint_files_touched",
-                        lambda *a, **k: ["docs/development/sprint.md"])
+    _crossing(monkeypatch, "docs/development/sprint.md")
 
-    with pytest.raises(RuntimeError, match="edited the sprint plan"):
+    with pytest.raises(RuntimeError, match="outside its authorization"):
         _run_triage(tree)
 
 
@@ -560,4 +576,324 @@ def test_the_dry_run_renders_the_SAME_correction_note_a_live_run_does() -> None:
         "rendering half of it is the bug this test exists for"
     )
     correction = sprint.correction_note(counts, correction_pass=True)
-    assert "CORRECTION PASS" in correction and "Counted in code" not in correction
+    assert "CORRECTION PASS" in correction
+    assert all(str(counts[k]) in correction for k in ("total", "triaged", "untriaged")), (
+        "the correction branch dropped the authoritative counts. Stage 4 requires "
+        "the report to state how many candidates still carry a blank `decision`, "
+        "so without them that figure is model-derived on the pass most likely to "
+        "be the last one anybody reads — the invented-count class "
+        "`candidate_counts` exists to prevent"
+    )
+
+
+# --- the rest of the authorization table, observed rather than asserted -------
+#
+# `test_authorization_is_observed.py` proves every `You MAY NOT` row NAMES a
+# mechanism and that the mechanism exists. These prove the mechanisms FIRE. The
+# split had a real guard for two rows and prose for the rest, and the prompt told
+# the model all of them were enforced.
+
+@pytest.mark.parametrize("path", [
+    "docs/development/temporal-integration/phase-1.md",   # "any phase doc"
+    "docs/standards/architecture/problem-statement.md",   # named explicitly
+    "docs/standards/workflow-scripts.md",                 # "anything else under"
+])
+def test_triage_FAILS_when_it_reached_outside_its_authorization(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
+        path: str) -> None:
+    """Three MAY NOT rows that had no mechanism at all until now.
+
+    Each was a prohibition the prompt asserted was enforced, sitting one row
+    below the two that genuinely were. A phase doc rewritten by a triage pass is
+    planning done by a workflow whose whole contract is that it decides and does
+    not plan.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+    _crossing(monkeypatch, path)
+
+    with pytest.raises(RuntimeError, match="outside its authorization"):
+        _run_triage(tree)
+
+
+@pytest.mark.parametrize("path", [
+    "docs/standards/architecture/research/candidates.md",
+    "docs/standards/architecture/research/direction.md",
+])
+def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
+        path: str) -> None:
+    """NEGATIVE CONTROL, and the one this guard would most easily get wrong.
+
+    Both files live UNDER `docs/standards/`, which the same table forbids
+    wholesale. A boundary without the exception fails every correct run — and it
+    would fail it after the PR was already open, which is the worst moment to
+    discover a guard is wrong.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+    _crossing(monkeypatch, path)
+
+    assert _run_triage(tree) == PR_URL
+
+
+def _direction(rows: list[tuple[str, str]]) -> str:
+    head = "| ID | Recommendation | Why it matters | Source | `status` |\n|---|---|---|---|---|\n"
+    return head + "".join(f"| `{d}` | r | w | `C-001` | `{st}` |\n" for d, st in rows)
+
+
+def test_triage_FAILS_when_it_ruled_the_operators_own_direction_row(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE HIGHER-STAKES COLUMN, and the one the split left on prose.
+
+    `standards-governance.md` calls this flag *"the ruling this rule exists to
+    protect"*. A run that writes `applied` on a row the operator never ruled
+    leaves a green run and a ruling indistinguishable from a genuine one — after
+    which `/standup` rotates the row out and the receipt is gone. The prompt
+    asserted this was compared before and after. Nothing compared it.
+    """
+    d = tree / "r" / "direction.md"
+    d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        f.write_text(_table([("C-001", "`ship`")]))
+        d.write_text(_direction([("D-001", "applied"), ("D-002", "open")]))
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(triage.act, "run_claude", run)
+
+    with pytest.raises(RuntimeError, match=r"`direction.md` row"):
+        _run_triage(tree)
+
+
+def test_a_direction_row_APPENDED_open_is_not_a_ruling_the_run_made(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """NEGATIVE CONTROL — filing a `requires review` row is the job, not an offence.
+
+    The same only-pre-existing-rows exemption the candidate `status` guard needed,
+    and for a stronger reason: the prompt REQUIRES a newly appended row to carry
+    `status: open`, so judging new rows would make an instruction this workflow is
+    under unfollowable.
+    """
+    d = tree / "r" / "direction.md"
+    d.write_text(_direction([("D-001", "open")]))
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        f.write_text(_table([("C-001", "`requires review`")]))
+        d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(triage.act, "run_claude", run)
+
+    assert _run_triage(tree) == PR_URL
+
+
+def test_a_run_that_CREATES_direction_md_is_not_failed_for_creating_it(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """NEGATIVE CONTROL — the file legitimately does not exist yet in a new repo.
+
+    `direction_ceiling` already treats a missing file as a state rather than a
+    fault and tells the run to create it. A guard that read absence as an error
+    would forbid the very action the prompt above it instructs.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        f.write_text(_table([("C-001", "`requires review`")]))
+        (tree / "r" / "direction.md").write_text(_direction([("D-001", "open")]))
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(triage.act, "run_claude", run)
+
+    assert _run_triage(tree) == PR_URL
+
+
+def test_triage_FAILS_when_a_candidate_row_simply_VANISHED(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """DELETING an untriaged row passed the completion post-condition.
+
+    That post-condition counts blank `decision` cells, so a deleted row drops the
+    count exactly as ruling it would: the run reports a complete triage over a
+    candidate that no longer exists. Both status guards are blind to it by
+    construction — they judge the ids present on BOTH sides. The file's whole
+    promise is that a rejected candidate stays visibly rejected instead of being
+    re-proposed by the next research cycle.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", ""), ("C-002", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+
+    with pytest.raises(RuntimeError, match="deleted 1 candidate row"):
+        _run_triage(tree)
+
+
+def test_plan_sprint_FAILS_when_it_ticked_a_completion_checkbox(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A checkbox means SHIPPED AND VALIDATED, and this workflow validates nothing.
+
+    It places work that will be built later. A plan reporting work nobody has
+    built is worse than one merely out of date, because the operator reads that
+    file to know what is done.
+    """
+    sp = tree / "sprint.md"
+    sp.write_text("## Sprint: X\n\n- [ ] build the thing\n- [ ] test the thing\n")
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        sp.write_text("## Sprint: X\n\n- [x] build the thing\n- [ ] test the thing\n")
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(sprint.act, "run_claude", run)
+
+    with pytest.raises(RuntimeError, match="ticked 1 completion checkbox"):
+        _run_sprint(tree)
+
+
+def test_plan_sprint_may_ADD_an_unchecked_milestone_and_REORDER_the_file(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """NEGATIVE CONTROL covering both things this workflow is FOR.
+
+    Adding a milestone and re-ordering sections to reflect dependency are both in
+    its MAY column. Counting boxes by TEXT rather than by line is what lets a
+    re-order through — a positional comparison would fire on a box that merely
+    moved, which is the shape that makes a guard get deleted rather than fixed.
+    """
+    sp = tree / "sprint.md"
+    sp.write_text("## Sprint: A\n\n- [x] done already\n\n## Sprint: B\n\n- [ ] b1\n")
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`")]))
+
+    def run(prompt: str, **kw: object) -> str:
+        sp.write_text("## Sprint: B\n\n- [ ] b1\n- [ ] b2 is new\n\n"
+                      "## Sprint: A\n\n- [x] done already\n")
+        return f"done\n{PR_URL}\n"
+    monkeypatch.setattr(sprint.act, "run_claude", run)
+
+    assert _run_sprint(tree) == PR_URL
+
+
+def test_plan_sprint_FAILS_when_it_appended_to_the_operators_inbox(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`direction.md` is `triage-candidates`'s to append to and this one's never.
+
+    Deliberately NOT in `permitted_paths`, and that absence IS the mechanism —
+    which is why it is asserted here rather than left to be inferred from a list
+    it does not appear on.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`")]))
+    _fake_run(sprint, monkeypatch)
+    _crossing(monkeypatch, "docs/standards/architecture/research/direction.md")
+
+    with pytest.raises(RuntimeError, match="outside its authorization"):
+        _run_sprint(tree)
+
+
+# --- the observer itself, against a REAL repository ---------------------------
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    """A git repo with an `origin/main` to diff against, and a sprint plan in it.
+
+    STUBBED EVERYWHERE ELSE IN THIS MODULE, AND THAT IS THE POINT OF THIS FIXTURE.
+    The defect these tests exist for lived in the git parsing itself, so a suite
+    that only ever monkeypatched the observer reported green over it.
+    """
+    import subprocess
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=str(tmp_path), check=True,
+                       capture_output=True)
+
+    (tmp_path / "docs" / "development").mkdir(parents=True)
+    (tmp_path / "docs" / "development" / "sprint.md").write_text("## Sprint: X\n")
+    git("init", "-q", "-b", "main")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
+    return tmp_path
+
+
+def test_renaming_the_sprint_file_AWAY_is_seen_as_editing_it(repo: Path) -> None:
+    """THE BYPASS THE PREVIOUS GUARD HAD, reproduced before it was closed.
+
+    It split a `git status --porcelain` rename line on `" -> "` and kept the
+    DESTINATION, so `git mv sprint.md notes.md` yielded `notes.md`, matched no
+    sprint pattern, and the run reported success over an edit to the operator's
+    sequencing surface. `--no-renames` reports the two halves separately, so
+    there is no arrow to parse and the source half is no longer discarded.
+    """
+    import subprocess
+
+    before = act.worktree_state(repo)
+    subprocess.run(["git", "mv", "docs/development/sprint.md",
+                    "docs/development/notes.md"], cwd=str(repo), check=True,
+                   capture_output=True)
+    crossed = act.boundary_crossings(before, act.worktree_state(repo),
+                                     triage.FORBIDDEN_PATHS, triage.PERMITTED_PATHS)
+    assert "docs/development/sprint.md" in crossed, (
+        f"a renamed-away sprint plan read as untouched; observed {crossed}")
+
+
+def test_an_uncommitted_edit_counts_and_so_does_a_committed_one(repo: Path) -> None:
+    """Both halves of the tree are read — status AND the diff against the base.
+
+    A run that commits its offence is not less offensive than one that leaves it
+    dirty, and `plan-sprint` commits before it reports.
+    """
+    import subprocess
+
+    before = act.worktree_state(repo)
+    (repo / "docs" / "development" / "sprint.md").write_text("## Sprint: X\n\nedited\n")
+    assert act.boundary_crossings(before, act.worktree_state(repo),
+                                  triage.FORBIDDEN_PATHS, triage.PERMITTED_PATHS)
+
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-aqm", "edit"], cwd=str(repo), check=True,
+                   capture_output=True)
+    assert act.boundary_crossings(before, act.worktree_state(repo),
+                                  triage.FORBIDDEN_PATHS, triage.PERMITTED_PATHS), (
+        "committing the edit made it invisible — the diff half of the observer "
+        "is not reading the base ref")
+
+
+def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) -> None:
+    """WHY THE SNAPSHOT IS TAKEN AROUND THE RUN AND NOT AGAINST `origin/main`.
+
+    `plan-sprint` runs LAST on a branch `triage-candidates` has already written
+    `direction.md` on. A diff against the base would report triage's legitimate
+    row as plan-sprint's forbidden edit, failing a correct run — and the obvious
+    "fix" for that is to weaken the guard.
+    """
+    import subprocess
+
+    d = repo / "docs" / "standards" / "architecture" / "research"
+    d.mkdir(parents=True)
+    (d / "direction.md").write_text("| `D-001` | r | w | `C-001` | `open` |\n")
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "add", "-A"], cwd=str(repo), check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-qm", "triage did this"], cwd=str(repo), check=True,
+                   capture_output=True)
+
+    before = act.worktree_state(repo)          # plan-sprint starts here
+    rel = "docs/development/sprint.md"
+    assert act.boundary_crossings(before, act.worktree_state(repo),
+                                  sprint.FORBIDDEN_PATHS,
+                                  sprint.permitted_paths(rel)) == [], (
+        "an edit made before this run started was charged to it")
+
+
+def test_the_observer_RAISES_when_git_cannot_answer(tmp_path: Path) -> None:
+    """A guard that cannot observe must not be read as having observed nothing.
+
+    An empty return is indistinguishable from a clean run, so a git failure would
+    manufacture evidence of compliance — which is worse than no guard, because
+    the run then reports success with a boundary nobody checked.
+    """
+    with pytest.raises(RuntimeError, match="could not read the worktree state"):
+        act.worktree_state(tmp_path)

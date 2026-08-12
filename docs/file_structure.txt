@@ -347,6 +347,14 @@ claude-dot-files/
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
+│                   ├── test_authorization_is_observed.py # Every `You MAY NOT` row in a planning prompt names the code that observes it, or
+│                   │                                #   says JUDGEMENT with a reason. Keyed on the CORRESPONDENCE between the rendered table
+│                   │                                #   and a declared map, so a reworded or added row goes red — the split had a mechanism
+│                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced
+│                   ├── test_loop_cap_prose_is_counted.py # No workflow ASSERTS a loop cap; it reads one, or its own MAX_LOOPS really is 1.
+│                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
+│                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when
+│                   │                                #   routing.MAX_LOOPS went 1 -> 3, two of them inside a prompt sent to a model
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and

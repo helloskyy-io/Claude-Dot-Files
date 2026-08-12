@@ -34,6 +34,8 @@ be bound by them.
 
 from __future__ import annotations
 
+import re
+
 from ... import routing
 
 from pathlib import Path
@@ -53,6 +55,73 @@ MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
+# --- THE PATH BOUNDARY, DECLARED WHERE THE PROMPT'S TABLE CAN BE READ AGAINST IT
+#
+# Every path-scoped `You MAY NOT` row in `prompts/plan_sprint.md`, as a pattern.
+# This workflow's authorization is UNUSUAL — it holds the one override permitting
+# a dispatch to write `sprint.md` — which is exactly why the edges of it are
+# observed rather than trusted: the file the override opens sits inside the same
+# directory as the phase docs it must not touch.
+FORBIDDEN_PATHS = (
+    r"^docs/development/",      # "Write or edit any phase doc"
+    r"^docs/standards/",        # "Append to or edit `direction.md`" and the rest
+)
+
+
+def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
+    """The two files this workflow legitimately writes, given where the plan lives.
+
+    Computed from the sprint path rather than hard-coded because the path is a
+    parameter — `--sprint` moves it, and a boundary that assumed
+    `docs/development/sprint.md` would fail a correct run in any repo that keeps
+    its plan elsewhere.
+
+    `candidates.md` is permitted for APPENDING ONLY, and the permission does not
+    weaken that: `decision` and `status` on it are guarded column-by-column
+    below. The shared instruction in `decision_log_and_reflection.md` tells every
+    producing run to place a proposal it surfaced there with `decision` blank, so
+    a path rule forbidding the file outright would make an instruction this
+    workflow is under unfollowable. `direction.md` is NOT permitted — appending
+    to it is `triage-candidates`'s alone.
+    """
+    return (rf"^{re.escape(sprint_rel)}$",
+            r"^docs/standards/architecture/research/candidates\.md$")
+
+
+# --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
+#
+# See `triage_candidates_workflow.MAY_NOT_OBSERVERS` for why this map exists and
+# why it is keyed by the row's exact text. `test_authorization_is_observed.py`
+# compares these keys against the rendered table, so a new prohibition fails the
+# suite until somebody answers "what observes this?" — including by answering
+# JUDGEMENT, with a reason.
+MAY_NOT_OBSERVERS: dict[str, str] = {
+    "Write or edit any phase doc":
+        "FORBIDDEN_PATHS `^docs/development/` less the sprint file, via "
+        "act.worktree_state / act.boundary_crossings",
+    "Rewrite a milestone you merely disagree with":
+        "JUDGEMENT — a legitimate RECONCILE and a forbidden rewrite produce the "
+        "same diff. What separates them is whether newer evidence exists, which "
+        "is why Stage 3 requires the run to cite the synthesis line for every "
+        "milestone it changes: the check is a reviewer reading that citation.",
+    "Design *how* anything gets built":
+        "JUDGEMENT — a milestone states what done looks like and a design states "
+        "how, and both are prose in the same file. No artifact separates them.",
+    "Flip a completion checkbox":
+        "own.checked_boxes counted either side of the run",
+    "**Set `decision` on ANY candidate — see below**":
+        "own.candidate_decisions snapshotted either side of the run, compared by "
+        "_rulings_this_run_had_no_right_to",
+    "Set `status` in the candidates file":
+        "act.candidate_statuses snapshotted either side of the run, compared by "
+        "act.statuses_this_run_had_no_right_to",
+    "Append to or edit `direction.md`":
+        "FORBIDDEN_PATHS `^docs/standards/`, and deliberately NOT in "
+        "permitted_paths — the mechanism is the absence of an exception",
+    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
+        "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
+}
+
 
 def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
                     candidates_path: Path, research_dir: Path,
@@ -64,19 +133,29 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # actually see, and later re-read what it actually wrote.
     rel_candidates = candidates_path.relative_to(repo_root)
     rel_research = research_dir.relative_to(repo_root)
+    rel_sprint = str(sprint_path.relative_to(repo_root))
     wt_candidates = worktree / rel_candidates
+    wt_sprint = worktree / rel_sprint
 
     # Counted in code so the report cannot assert a total it invented.
     counts = act.candidate_counts(wt_candidates)
 
-    # THE TWO COLUMNS THIS RUN MUST NOT MOVE, snapshotted before it can move them.
-    # `decision` is `triage-candidates`'s; `status` is a later process's. This
-    # workflow owns neither.
+    # WHAT THIS RUN MUST NOT MOVE, snapshotted before it can move it. `decision`
+    # is `triage-candidates`'s; `status` is a later process's; a ticked checkbox
+    # claims validation this workflow has performed none of; and the paths
+    # outside its authorization are not its to reach at all.
+    #
+    # Snapshotted AROUND THE MODEL, never diffed against `origin/main`: this
+    # workflow runs LAST on a branch `triage-candidates` has already written to,
+    # so a diff against the base would report triage's legitimate `direction.md`
+    # row as this run's forbidden edit.
     before = own.candidate_decisions(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
+    before_boxes = own.checked_boxes(wt_sprint)
+    before_tree = act.worktree_state(worktree)
 
     values = {
-        "SPRINT_PATH": str(sprint_path.relative_to(repo_root)),
+        "SPRINT_PATH": rel_sprint,
         "CANDIDATES_PATH": str(rel_candidates),
         "RESEARCH_DIR": str(rel_research),
         "CORRECTION_NOTE": correction_note(counts, correction_pass),
@@ -118,16 +197,47 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
 
     # The SAME argument, one column over. `status` is neither workflow's, and the
     # guard above would have watched a run close a candidate it merely placed.
-    flipped = act.statuses_this_run_had_no_right_to(before_status,
-                                                    act.candidate_statuses(wt_candidates))
+    # Read ONCE: the previous form called the reader three times — once for the
+    # comparison and once per offending id inside the message — re-parsing the
+    # file for a value that cannot have changed between calls.
+    after_status = act.candidate_statuses(wt_candidates)
+    flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
     if flipped:
         raise RuntimeError(
             f"plan-sprint changed the `status` column on {len(flipped)} candidate(s): "
-            + ", ".join(f"{cid} {before_status[cid]!r}->{act.candidate_statuses(wt_candidates)[cid]!r}"
+            + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
                         for cid in flipped)
             + ". `status` belongs to a later process — `plan-feature`, or the build "
               f"that completes the item. Placing work in the sprint plan is not "
               f"finishing it, and this run has validated nothing — see {url}"
+        )
+
+    # A CHECKBOX MEANS SHIPPED AND VALIDATED. This workflow places work that will
+    # be built later; it has validated nothing, and the Documentation Standard's
+    # rule is that built is not proven, let alone planned. Counted by text, so a
+    # section legitimately re-ordered does not read as a box ticked.
+    ticked = sorted((own.checked_boxes(wt_sprint) - before_boxes).elements())
+    if ticked:
+        raise RuntimeError(
+            f"plan-sprint ticked {len(ticked)} completion checkbox(es) in "
+            f"{rel_sprint}: " + "; ".join(ticked)
+            + f". A checkbox means SHIPPED AND VALIDATED, and this run placed "
+              f"work rather than doing it. A plan that reports work nobody has "
+              f"built is worse than one that is merely out of date — see {url}"
+        )
+
+    # THE REST OF THE DECLARED BOUNDARY. The override this workflow holds opens
+    # exactly one file, and it sits in the same directory as the phase docs the
+    # same table forbids — so the edge is observed rather than trusted.
+    crossed = act.boundary_crossings(before_tree, act.worktree_state(worktree),
+                                     FORBIDDEN_PATHS, permitted_paths(rel_sprint))
+    if crossed:
+        raise RuntimeError(
+            f"plan-sprint edited {len(crossed)} file(s) outside its authorization: "
+            f"{', '.join(crossed)}. Its override covers {rel_sprint} and nothing "
+            f"else — not a phase doc, not a standard, and not `direction.md`, "
+            f"which is `triage-candidates`'s to append to and the operator's to "
+            f"rule on — see {url}"
         )
     return url
 
@@ -143,13 +253,22 @@ def correction_note(counts: dict, correction_pass: bool) -> str:
     spending a live dispatch. `triage_candidates` never had this bug because
     `_working_set` already bundled both halves — this makes the two match.
     """
+    counted = (f"\n**Counted in code, authoritative — do not recount:** "
+               f"{counts['total']} candidates, {counts['triaged']} ruled, "
+               f"{counts['untriaged']} still untriaged.\n\n")
     if correction_pass:
-        return ("\nThis is a CORRECTION PASS. A prior review returned HOLD with a scoped "
-                "runway; close it.")
-    return (f"\n**Counted in code, authoritative — do not recount:** "
-            f"{counts['total']} candidates, {counts['triaged']} ruled, "
-            f"{counts['untriaged']} still untriaged.\n\n"
-            f"{_untriaged_note(counts)}")
+        # THE COUNTS BELONG ON BOTH BRANCHES, and the correction pass needs them
+        # MORE than the first pass does. Stage 4 requires the report to state how
+        # many candidates still carry a blank `decision`; dropping the counted
+        # line left that figure model-derived on exactly the pass most likely to
+        # be the last one anybody reads — the invented-count class
+        # `candidate_counts` exists to prevent. The `_untriaged_note` PROHIBITION
+        # is not repeated here: it is already static in the prompt's "`decision`
+        # IS NOT YOURS" section, so what a correction pass was missing is the
+        # COUNT, not the rule.
+        return (counted + "This is a CORRECTION PASS. A prior review returned HOLD "
+                "with a scoped runway; close it.")
+    return counted + _untriaged_note(counts)
 
 
 def _rulings_this_run_had_no_right_to(before: dict[str, str],
@@ -172,12 +291,15 @@ def _rulings_this_run_had_no_right_to(before: dict[str, str],
         post-condition. Blank is the absence of a ruling, so placing one is not
         ruling anything.
     """
-    offences: list[str] = []
-    for cid in before.keys() | after.keys():
-        was, now = before.get(cid), after.get(cid)
-        if cid not in after:
-            offences.append(cid)            # deleted
-        elif cid not in before:
+    # Deletion is `act.ids_deleted` rather than a branch here, because the claim
+    # that it had one definition was false: the comment on
+    # `statuses_this_run_had_no_right_to` said row deletion was "already an
+    # offence under the `decision` guard", which was true of this workflow and
+    # false of `triage-candidates`, whose count-based post-condition it defeated.
+    offences: list[str] = act.ids_deleted(before, after)
+    for cid in after.keys():
+        was, now = before.get(cid), after[cid]
+        if cid not in before:
             if now:                          # appended ALREADY ruled
                 offences.append(cid)
         elif was != now:

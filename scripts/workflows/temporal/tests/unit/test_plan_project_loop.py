@@ -87,8 +87,8 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     monkeypatch.setattr(pm.verify, "run_verify", lambda **kw: PR_URL)
     # No new sections by default: the research fan-out is opt-in per test, and a
     # real `git diff` against a fake worktree would fail for the wrong reason.
-    monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: [])
-    monkeypatch.setattr(pm.act, "component_dir",
+    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(pm.own, "component_dir",
                         lambda root, name: Path("/tmp/wt/docs/development/x"))
     return calls
 
@@ -208,10 +208,10 @@ def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: py
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH, routing.Verdict.MERGE)
     _url, verdict, loops, _notes = _run()
     assert (verdict, loops) == (routing.Verdict.MERGE, 1)
-    # One initial pass plus one per loop-back. Derived, so the operator's ramp
-    # does not read as a regression.
-    # TWO, not the bound: this run EARNS MERGE on its first loop-back and stops there, so the bound is never reached. My blanket edit applied the
-    # bound-relative count here too, which is the same over-broad replace that has bitten three times today.
+    # TWO, and deliberately NOT `1 + routing.MAX_LOOPS` as its siblings use: this
+    # run EARNS MERGE on its first loop-back and stops, so the bound is never
+    # reached and a bound-relative count here would be wrong in both directions —
+    # green today by coincidence, red the moment the ramp moves.
     assert (wired.sprint, wired.review) == (2, 2)
     # And triage is still spent exactly once, whatever the sprint child did.
     assert wired.triage == 1
@@ -267,7 +267,7 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     added: list[str] = []
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
-    monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
@@ -280,8 +280,8 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
 
 
 def _with_sections(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
-    monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: list(names))
-    monkeypatch.setattr(pm.act, "component_dir",
+    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: list(names))
+    monkeypatch.setattr(pm.own, "component_dir",
                         lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
 
 

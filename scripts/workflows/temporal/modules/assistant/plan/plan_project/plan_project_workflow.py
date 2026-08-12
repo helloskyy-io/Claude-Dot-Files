@@ -62,6 +62,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import plan_activities as act
+from . import plan_project_activities as own
 from ... import assistant_activities as _shared
 from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
@@ -126,7 +127,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     # call stays because the wiring is correct and only its INPUT is missing —
     # deleting it would mean rebuilding it, and inventing a different signal
     # would mean maintaining one past the interim it was for.
-    new_sections = act.new_sprint_sections(worktree, str(sprint_path.relative_to(repo_root)))
+    new_sections = own.new_sprint_sections(worktree, str(sprint_path.relative_to(repo_root)))
     if not new_sections:
         notes.append(
             "No component research ran. With plan-sprint sequenced AFTER this step, "
@@ -140,7 +141,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         # sprint children work from, and rebinding it here would hand the
         # loop-back below the wrong pool. A shadowed parameter is a silent
         # wrong-argument bug.
-        component_pool = act.component_dir(worktree, section) / "research"
+        component_pool = own.component_dir(worktree, section) / "research"
         component_pool.mkdir(parents=True, exist_ok=True)
 
         # The sprint section IS the brief. It states the milestones, and the
@@ -184,8 +185,11 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         # COUNTED, not asserted. This said "Looping back ONCE — this is the last
         # automated pass" while `routing.MAX_LOOPS` is 3, so it was false on two
         # passes out of three and told the operator the runway had closed when it
-        # had not. The same stale sentence survives in six other workflows that
-        # this change does not touch; it is surfaced rather than swept.
+        # had not. The whole class is now counted — the four build-family sites
+        # too, two of which were telling a MODEL it was the last pass — and
+        # `test_loop_cap_prose_is_counted.py` fails any new hard-coded claim. The
+        # research family keeps its own `MAX_LOOPS = 1`, so its identical wording
+        # is TRUE and is left alone.
         notes.append(f"HOLD (redispatch): the runway closes with a scoped fix. "
                      f"Loop-back {loops} of {routing.MAX_LOOPS}."
                      + (" This is the last automated pass."
@@ -210,8 +214,14 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         notes.append("review-pr found at least one item only a human can rule on. No "
                      "loop-back was attempted: more passes cannot produce a human decision.")
     elif verdict is routing.Verdict.HOLD_REDISPATCH:
-        notes.append("The automated loop is SPENT — one loop-back is the cap, because "
-                     "passes beyond it produce justification rather than correction.")
+        # COUNTED from the same source the loop reads. This said "one loop-back
+        # is the cap" twenty-two lines below the fix above it, so a spent runway
+        # emitted "Loop-back 3 of 3" and then "one loop-back is the cap" in one
+        # run's notes — and the false one understates the automated budget the
+        # operator is deciding against by 3x.
+        notes.append(f"The automated loop is SPENT — {routing.MAX_LOOPS} loop-back(s) "
+                     f"is the cap, because passes beyond it produce justification "
+                     f"rather than correction.")
 
     # A planning PR ALWAYS needs the operator, even at MERGE. `direction.md`
     # rows are by construction rulings no automated pass can make, and the

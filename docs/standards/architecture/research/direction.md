@@ -54,6 +54,10 @@
 | `applied` | Ruled, and the resulting change has landed | the operator |
 | `rejected` | Ruled against — the reasoning goes in the row | the operator |
 
+**That last column is enforced in code, not only stated here.** `triage-candidates` is the workflow that appends to this file, and its runner reads this column before the model starts and again after it finishes: a pre-existing row whose `status` moved **fails the whole run**. A newly appended row is exempt, because automation is *required* to write `status: open` on one.
+
+Enforced rather than asserted because the failure is silent and unrecoverable. A run that writes `applied` on a row nobody ruled leaves a green run and a receipt indistinguishable from a genuine ruling — and the rotation above then deletes that receipt on schedule.
+
 ---
 
 ## Open decisions

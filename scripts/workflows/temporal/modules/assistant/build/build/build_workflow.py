@@ -65,24 +65,32 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     )
     pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
 
-    # --- Steps 2 & 3: REFINE then DISPOSITION, with one bounded loop-back --
+    # --- Steps 2 & 3: REFINE then DISPOSITION, bounded by helper.MAX_LOOPS ---
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,
                                    worktree, notes, correction=False)
 
     while helper.should_loop_back(verdict, loops):
         loops += 1
-        notes.append("HOLD (redispatch): the runway closes with a scoped fix. "
-                     "Looping back ONCE — this is the last automated pass.")
-        verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                       worktree, notes, correction=True)
+        # COUNTED, not asserted. This said "Looping back ONCE — this is the last
+        # automated pass" while `helper.MAX_LOOPS` is `routing.MAX_LOOPS` = 3, so
+        # it was false on two passes of three and told the operator the runway had
+        # closed when it had not.
+        notes.append(f"HOLD (redispatch): the runway closes with a scoped fix. "
+                     f"Loop-back {loops} of {helper.MAX_LOOPS}."
+                     + (" This is the last automated pass."
+                        if loops == helper.MAX_LOOPS else ""))
+        verdict = _refine_then_dispose(task, description, pr, repo_root, worktree,
+                                       notes, correction=True,
+                                       loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         notes.append("review-pr found at least one item only a human can rule on. No "
                      "loop-back was attempted: more passes cannot produce a human decision.")
     elif verdict is Verdict.HOLD_REDISPATCH:
-        notes.append("The automated loop is SPENT — one loop-back is the cap, because "
-                     "passes beyond it produce justification rather than correction.")
+        notes.append(f"The automated loop is SPENT — {helper.MAX_LOOPS} loop-back(s) "
+                     f"is the cap, because passes beyond it produce justification "
+                     f"rather than correction.")
 
     return BuildResult(pr_number=pr, pr_url=pr_url, verdict=verdict,
                           loops_used=loops, notes=notes)
@@ -90,7 +98,8 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
 
 def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          repo_root: Path, worktree: Path,
-                         notes: list[str], *, correction: bool) -> Verdict:
+                         notes: list[str], *, correction: bool,
+                         loops_left: int = 0) -> Verdict:
     """One refine pass followed by one disposition pass."""
     ci_settled = wait_for_ci(pr, repo=task.repo_target)
     if not ci_settled:
@@ -99,7 +108,8 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     refine.run_refine(
         description=description, pr_number=pr, repo_root=repo_root,
         worktree=worktree, task_file=task.task_file,
-        correction_pass=correction, ci_unsettled=not ci_settled, verbose=task.verbose,
+        correction_pass=correction, loops_left=loops_left,
+        ci_unsettled=not ci_settled, verbose=task.verbose,
     )
 
     # --- THE GATE: the parent reads the verdict, so MERGE is unreachable on red

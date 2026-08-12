@@ -26,7 +26,15 @@ ${DIRECTION_CEILING}
 
 **`sprint.md` is not yours, and this is not a formality.** The sprint plan is the operator's cross-domain sequencing surface and the standing rule is that dispatches never write it. `plan-sprint` carries a specific, bounded override for it; **you do not.** If a candidate you ship looks like it needs a sprint section, say so in your report and stop — `plan-sprint` runs after you and that is its call to make.
 
-**Both of those are enforced, not requested.** When you finish, the worktree is read for any change to a sprint file, and the `status` column is compared against what it held before you started. Either one **fails the whole run** — including the work you did correctly. Ruling a candidate is not doing it, and reporting that something needs a sprint section is the whole of your part in it.
+**Every row in that MAY NOT column is enforced, not requested, and here is exactly how.** When you finish, the worktree is read and compared against a snapshot taken before you started:
+
+- **Both `status` columns** — the one in the candidates file and the one on a `direction.md` row — are compared cell by cell on every row that already existed. A newly appended row is exempt, because you are *required* to write `status: open` on one.
+- **Every path outside your authorization** — the sprint plan, any phase doc, anything under `docs/standards/` other than the candidates file and `direction.md` — is compared by content. Renaming or deleting one counts as editing it.
+- **Deleting a candidate row** fails the run, and it is checked separately from the triage count: a row that vanishes drops the untriaged total exactly as ruling it would, so counting alone would report a complete pass over a candidate that no longer exists.
+
+Any one of these **fails the whole run** — including the work you did correctly. Ruling a candidate is not doing it, and reporting that something needs a sprint section is the whole of your part in it.
+
+**One row in that column is NOT mechanically checked, and you are told which** so the list above is not read as covering everything: *designing how anything gets built* leaves no artifact distinct from the report you are required to write, since that report must say what you noticed about a shipped candidate. That one is held by your own discipline and by the reviewer reading your report.
 
 **`direction.md` is the one exception to the standards-directory rule.** It lives under `docs/standards/architecture/research/` but it is not a standard — it is the operator's inbox, and appending to it is how you hand something over.
 

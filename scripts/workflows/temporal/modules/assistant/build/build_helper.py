@@ -39,6 +39,32 @@ should_loop_back = routing.should_loop_back
 MAX_LOOPS = routing.MAX_LOOPS
 
 
+def finality_note(loops_left: int) -> str:
+    """What a correction pass is told about how much runway is behind it.
+
+    COUNTED, NOT ASSERTED, and this exists because the assertion was false. Both
+    refine prompts told the model *"This is the last automated pass"* on every
+    correction pass, while `MAX_LOOPS` has been 3 since `b89f7f5` — so on passes
+    1 and 2 of 3 the model disposed its findings believing no further pass would
+    run. That is a false statement changing MODEL behaviour, not merely operator
+    perception, and it is the reason this is a function rather than a constant
+    string: the number is read from the caller's own loop state.
+
+    The instruction does not soften when passes remain. A finding left for a
+    later pass costs a full review cycle to rediscover, and the run holding the
+    context is the cheap place to close it — which is true whether it is the last
+    pass or the first.
+    """
+    if loops_left <= 0:
+        return ("**This is the last automated pass**, so anything you leave as an "
+                "instance leaves with it.")
+    passes = "pass" if loops_left == 1 else "passes"
+    return (f"**{loops_left} further automated {passes} may run after this one, and "
+            f"you must not plan around {'it' if loops_left == 1 else 'them'}** — a "
+            f"correction cycle costs a full review pass to rediscover what you had "
+            f"loaded, so anything you leave as an instance is paid for twice.")
+
+
 def child_args(task: BuildInput) -> list[str]:
     """Flags every child receives. Flags first, positional last.
 

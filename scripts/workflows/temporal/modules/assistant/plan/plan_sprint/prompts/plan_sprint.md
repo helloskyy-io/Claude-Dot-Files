@@ -44,6 +44,16 @@ You will see rows whose `decision` is blank. **A blank cell is not an invitation
 
 `direction.md` is likewise `triage-candidates`'s — it files the open questions it cannot rule on. You neither append to it nor edit it.
 
+### The rest of the MAY NOT column, and exactly what checks each
+
+So the enforcement claim above is not read as covering the whole table:
+
+- **Every path outside your authorization** — any phase doc, `direction.md`, anything else under `docs/standards/` — is snapshotted by content before you start and compared after. Your override opens `${SPRINT_PATH}` and the candidates file (for appending a proposal with a blank `decision`, which the shared instruction at the end of this prompt requires of you) and **nothing else**. Renaming or deleting a file counts as editing it.
+- **A ticked completion checkbox** in the sprint plan is counted before and after, by its text so a re-ordered section does not read as a tick. Adding an *unchecked* milestone is your job; adding a checked one fails the run.
+- **Deleting a candidate row** fails the run under the `decision` guard.
+
+**Two rows are NOT mechanically checked**, and you are told which because the difference matters to how you work: *rewriting a milestone you merely disagree with* and *designing how anything gets built* both produce the same diff a legitimate edit would. What separates them is whether newer evidence exists — which is why Stage 3 requires you to cite the synthesis line behind every milestone you change. That citation is the check, and a reviewer reads it.
+
 **The decision was made — implement your portion only.** A decided candidate does not become finished work because you placed it. Something else builds it.
 
 **Never flip a checkbox.** A checkbox here means *shipped and validated*. You have validated nothing.
