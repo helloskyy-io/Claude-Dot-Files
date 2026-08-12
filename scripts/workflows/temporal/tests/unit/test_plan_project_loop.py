@@ -34,6 +34,7 @@ from modules.assistant.plan.plan_project import plan_project_workflow as pm
 from modules.assistant.review_pr.review_pr_helper import ReviewResult
 
 PR_URL = "https://github.com/o/r/pull/43"
+BASE_SHA = "0123456789abcdef0123456789abcdef01234567"
 
 
 class _Calls:
@@ -52,6 +53,12 @@ class _Calls:
         self.correction_passes: list[bool] = []
         self.research_pools: list[Path] = []
         self.sprint_pools: list[Path] = []
+        # (tree, argv, children dispatched SO FAR) for every git read the parent
+        # makes. The third element is what turns "it pinned a base" into "it
+        # pinned it before anything could move".
+        self.git_calls: list[tuple[Path, tuple[str, ...], tuple[str, ...]]] = []
+        # Every `base_ref` Step 2's sweep was actually given.
+        self.sweep_bases: list[object] = []
 
 
 @pytest.fixture
@@ -79,6 +86,16 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     monkeypatch.setattr(pm.triage, "run_triage_candidates", fake_triage)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_sprint)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
+    # The parent pins the commit its worktree started from, so Step 2 asks "what
+    # did THIS run add" rather than "what has this branch accumulated". Faked at
+    # its boundary — the worktree above is a path, not a repository — and
+    # recorded, because a base taken at the WRONG moment is the whole defect and
+    # is invisible unless the call is observed.
+    def fake_git_output(tree: Path, cmd: list[str], _why: str) -> str:
+        calls.git_calls.append((tree, tuple(cmd), tuple(calls.order)))
+        return f"{BASE_SHA}\n"
+
+    monkeypatch.setattr(pm.act, "git_output", fake_git_output)
     # The parent reads its own repo slug BEFORE the triage child, so the number
     # it takes out of the child's URL can be checked against the repository the
     # dispatch is operating in. It is a `gh` call; faked at its boundary.
@@ -87,9 +104,13 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     monkeypatch.setattr(pm.verify, "run_verify", lambda **kw: PR_URL)
     # No new sections by default: the research fan-out is opt-in per test, and a
     # real `git diff` against a fake worktree would fail for the wrong reason.
-    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
+    def no_sections(*a: object, **k: object) -> list[str]:
+        calls.sweep_bases.append(k.get("base_ref"))
+        return []
+
+    monkeypatch.setattr(pm.own, "new_sprint_sections", no_sections)
     monkeypatch.setattr(pm.own, "component_dir",
-                        lambda root, name: Path("/tmp/wt/docs/development/x"))
+                        lambda tree, name: Path("/tmp/wt/docs/development/x"))
     return calls
 
 
@@ -268,6 +289,7 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
@@ -326,3 +348,152 @@ def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, mon
         f"plan-sprint was handed {wired.sprint_pools} — the loop-back must still "
         f"receive the PRODUCT pool, not a component's"
     )
+
+
+def test_the_component_sweep_is_based_on_THIS_RUN_not_on_the_branch(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Step 2 asks what THIS DISPATCH added, and `origin/main` answers otherwise.
+
+    The sweep's `base_ref` defaulted to `origin/main`, which reports everything
+    the BRANCH has accumulated since it forked. On the `--pr` redispatch path
+    both entrypoints document, the worktree is cut from a branch that already
+    carries a `## Sprint:` heading an earlier pass added AND researched — so
+    that section reads as new a second time and buys a second full
+    research-write plus research-verify cycle for a component that already has
+    a pool. Nothing raises; the run simply costs twice.
+
+    Asserting on the VALUE rather than merely on "a base was passed": a base
+    that is present and wrong is exactly the state this replaced.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    # The redispatch path specifically: it is the one where the branch already
+    # carries an earlier pass's sections. `pr_branch` is a `gh` call, stubbed at
+    # its boundary like every other one in this module.
+    monkeypatch.setattr(pm.act, "pr_branch", lambda pr, repo_root: "some/branch")
+    _run(pr_number="43")
+    assert wired.sweep_bases == [BASE_SHA], (
+        f"the sweep was based on {wired.sweep_bases}; it must be the commit the "
+        f"worktree started from ({BASE_SHA}), never `origin/main` and never a "
+        f"symbolic ref that moves while the run is in flight")
+
+
+def test_the_base_is_pinned_BEFORE_any_child_can_move_it(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """WHEN, not merely whether. A base read after triage commits is the bug.
+
+    `HEAD` is a moving target inside a run: the triage child commits to this
+    same worktree. Pinning after Step 1 would silently exclude anything triage
+    itself wrote, and the resulting sweep would be empty for a reason nobody
+    could see. The recorded third element is the children dispatched so far,
+    which is the only way to assert ordering from outside.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _run()
+    pins = [c for c in wired.git_calls if c[1] == ("git", "rev-parse", "HEAD")]
+    assert len(pins) == 1, f"expected exactly one base pin, got {pins}"
+    assert pins[0][2] == (), (
+        f"the base was pinned after {pins[0][2]} had already run. It must be "
+        f"read before any child writes to the worktree, or it is not the "
+        f"commit this dispatch started from.")
+    assert pins[0][0] == Path("/tmp/wt"), (
+        f"the base was read from {pins[0][0]}; it must be read from the "
+        f"WORKTREE — the repo's HEAD is a different commit and is not what "
+        f"Step 2 diffs against")
+
+
+# --- the sweep's real logic, against a real repository -------------------------
+#
+# Every test above stubs `new_sprint_sections`, which is correct for routing —
+# but it left the function's own parsing exercised by nothing. It splits on an
+# em-dash, strips a marker, and reads a `git diff`, and all three are the kind of
+# thing that is right until a heading is written slightly differently.
+
+def _git(repo: Path, *args: str) -> str:
+    import subprocess
+    return subprocess.run(["git", *args], cwd=repo, check=True,
+                          capture_output=True, text=True).stdout
+
+
+def _sha(repo: Path) -> str:
+    """The literal commit, never the string "HEAD".
+
+    `HEAD` moves with the next commit, so a base captured as the symbol is the
+    same commit as the tip by the time the diff runs and the sweep reads empty.
+    That is precisely the defect these tests were added for, and writing it into
+    the test first is how it got noticed here rather than in production.
+    """
+    return _git(repo, "rev-parse", "HEAD").strip()
+
+
+@pytest.fixture
+def real_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "r"
+    (repo / "docs" / "development").mkdir(parents=True)
+    _git(repo.parent, "init", "-q", "r")
+    _git(repo, "config", "user.email", "t@t")
+    _git(repo, "config", "user.name", "t")
+    (repo / "docs" / "development" / "sprint.md").write_text("# Sprint\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "base")
+    return repo
+
+
+def test_the_sweep_reads_ADDED_headings_and_not_edited_ones(real_repo: Path) -> None:
+    """The real parse, against a real diff. Added is a new component; edited is not.
+
+    Researching a component because its prose moved spends a full research cycle
+    on nothing, and the difference between the two cases is a single leading
+    `+` in a diff — invisible in any test that stubs this function out.
+    """
+    from modules.assistant.plan.plan_project import plan_project_activities as own
+
+    base = _sha(real_repo)
+    sprint = real_repo / "docs" / "development" / "sprint.md"
+    sprint.write_text("# Sprint\n\n## Sprint: Fleet Reliability — 40h\n\nbody\n")
+    _git(real_repo, "commit", "-aqm", "add a section")
+
+    rel = "docs/development/sprint.md"
+    assert own.new_sprint_sections(real_repo, rel, base_ref=base) == \
+        ["Fleet Reliability"], "an ADDED heading is a new component"
+
+    after_add = _sha(real_repo)
+    sprint.write_text("# Sprint\n\n## Sprint: Fleet Reliability — 40h\n\nreworded\n")
+    _git(real_repo, "commit", "-aqm", "edit the body")
+    assert own.new_sprint_sections(real_repo, rel, base_ref=after_add) == [], (
+        "a section whose BODY changed carries no added `## Sprint:` line and "
+        "must not be researched again")
+
+
+def test_a_heading_with_no_name_FAILS_LOUDLY_rather_than_slugging_to_nothing(
+        real_repo: Path) -> None:
+    """`## Sprint: — 40h` yields no folder name, and silence would be worse.
+
+    The alternative — skipping it — would drop a real component from the sweep
+    with nothing said, which is the failure mode this whole family is built
+    against. The raise names the section, so the operator can see which heading
+    is malformed. The cost is a crash mid-pipeline after Step 1 has opened a PR;
+    that is the correct trade, and it is written down here so the next reader
+    does not "fix" it into a silent skip.
+    """
+    from modules.assistant.plan.plan_project import plan_project_activities as own
+
+    base = _sha(real_repo)
+    sprint = real_repo / "docs" / "development" / "sprint.md"
+    sprint.write_text("# Sprint\n\n## Sprint: — 40h\n")
+    _git(real_repo, "commit", "-aqm", "malformed heading")
+
+    names = own.new_sprint_sections(real_repo, "docs/development/sprint.md",
+                                    base_ref=base)
+    assert names == [""], f"the sweep read {names}"
+    with pytest.raises(ValueError, match="yields no folder name"):
+        own.component_dir(real_repo, names[0])
+
+
+def test_component_dir_slugs_the_way_the_tree_is_already_named(real_repo: Path) -> None:
+    """The convention applied in code: a mismatch is invisible to every walk."""
+    from modules.assistant.plan.plan_project import plan_project_activities as own
+
+    assert own.component_dir(real_repo, "Fleet Reliability") == \
+        real_repo / "docs" / "development" / "fleet-reliability"
+    assert own.component_dir(real_repo, "Memory Management Framework") == \
+        real_repo / "docs" / "development" / "memory-management-framework"

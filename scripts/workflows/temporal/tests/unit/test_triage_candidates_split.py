@@ -1106,3 +1106,185 @@ def test_the_observer_RAISES_when_git_cannot_answer(tmp_path: Path) -> None:
     """
     with pytest.raises(RuntimeError, match="could not read the worktree state"):
         act.worktree_state(tmp_path)
+
+
+# --- the repo-vs-worktree census ---------------------------------------------
+#
+# THE CLASS: a run reads and writes inside its WORKTREE, and every path it hands
+# a model must be anchored there. `repo_root` arrives because that is where the
+# paths are configured, and a call that keeps it reads the MAIN CHECKOUT — a
+# real tree, present, populated, and not the one the run is working in. Nothing
+# raises; the enumeration is simply of somebody else's files.
+#
+# Both workflows shipped exactly that, one line apart from their correct
+# neighbours: `existing_work(repo_root, research_dir)` sitting beside
+# `direction_ceiling(worktree / rel_research)`. `plan-sprint`'s instance was the
+# expensive one — it runs THIRD, after the parent has written a new component's
+# `synthesis.md` into the worktree, and its Stage 1 is told to read every
+# synthesis the enumeration lists.
+#
+# So the check is not "call `existing_work` correctly". It is: every use of
+# `repo_root` inside a `run_*` entrypoint is declared here with a reason, and a
+# new one fails until somebody writes down why the repo is the right tree.
+
+_REPO_ROOT_USES = {
+    # callee -> why the REPO, not the worktree, is correct here
+    "relative_to": "makes a configured path relative; the repo IS the anchor "
+                   "being removed, and the result is re-rooted at the worktree",
+    "run_claude": "the launcher needs both — the repo for git/gh identity and "
+                  "the worktree for the model's cwd — and takes them separately",
+}
+
+
+def _run_entrypoints():
+    """Every `run_*` function in a discovered workflow, with its module path."""
+    import ast
+
+    from observer_registry import workflows_declaring
+
+    out = []
+    for mod, _prompt, name in workflows_declaring("DISAPPEARANCE_OBSERVERS"):
+        path = Path(mod.__file__)
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    and node.name.startswith("run_"):
+                out.append((name, path, node))
+    return out
+
+
+def test_the_repo_root_census_finds_the_entrypoints_it_is_meant_to() -> None:
+    """POSITIVE CONTROL. A census over zero functions declares everything clean."""
+    found = {name for name, _p, _n in _run_entrypoints()}
+    assert found == {"triage-candidates", "plan-sprint"}, (
+        f"the census found run_* entrypoints in {sorted(found)}; if a workflow "
+        f"dropped out, its repo-rooted reads stopped being checked")
+
+
+def test_every_use_of_repo_root_in_a_run_ENTRYPOINT_is_declared() -> None:
+    """A repo-rooted read inside a worktree-scoped run, caught by class.
+
+    Undeclared does not mean wrong — it means nobody has said why the repo is
+    the right tree for it. Writing the reason into `_REPO_ROOT_USES` is the
+    whole remedy, and it is the moment the question gets asked at all.
+    """
+    import ast
+
+    undeclared: list[str] = []
+    for name, path, fn in _run_entrypoints():
+        if "repo_root" not in {a.arg for a in fn.args.args + fn.args.kwonlyargs}:
+            continue
+        for call in (c for c in ast.walk(fn) if isinstance(c, ast.Call)):
+            passes_repo_root = any(
+                isinstance(a, ast.Name) and a.id == "repo_root"
+                for a in call.args
+            ) or any(
+                isinstance(k.value, ast.Name) and k.value.id == "repo_root"
+                for k in call.keywords
+            )
+            if not passes_repo_root:
+                continue
+            callee = (call.func.attr if isinstance(call.func, ast.Attribute)
+                      else getattr(call.func, "id", "<expr>"))
+            if callee not in _REPO_ROOT_USES:
+                undeclared.append(f"{name}: {path.name}:{call.lineno} "
+                                  f"{callee}(… repo_root …)")
+
+    assert not undeclared, (
+        "these calls hand `repo_root` to something inside a worktree-scoped "
+        "run, and no reason is recorded:\n  " + "\n  ".join(undeclared) +
+        "\n\nA run reads and writes inside its WORKTREE. A read anchored at the "
+        "repo returns the main checkout — real, populated, and not the tree the "
+        "run is working in — so nothing raises and the model is handed somebody "
+        "else's files. If the repo genuinely is the right tree here, add the "
+        "callee to `_REPO_ROOT_USES` with the reason; that entry IS the "
+        "decision. Otherwise pass `worktree`, or `worktree / rel_<thing>`."
+    )
+
+
+# --- the entrypoints' zero-spend path, EXECUTED ------------------------------
+#
+# THE CLASS: each kickoff script rebuilds the prompt's values dict inline for
+# `--dry-run`, separately from the workflow that builds it for a live run. Two
+# constructions of one dict drift, and the drift is invisible to every static
+# check: a key added to the workflow and not the script renders a preview no
+# model would receive, and a signature change raises a TypeError the CLI's
+# `except (RuntimeError, FileNotFoundError, ValueError)` does not catch — the
+# operator gets a traceback out of the one command that exists to cost nothing.
+#
+# BOTH HALVES OF THIS PR'S FAMILY HAVE ALREADY PAID FOR IT. `correction_note`
+# exists as a function because `--dry-run` rendered half that slot; `review-pr`
+# shipped a broken dry-run for a whole phase behind green static checks, and
+# `test_the_review_pr_dry_run_renders_the_real_prompt` is the precedent these
+# two are modelled on. Executing the path is the only thing that sees it.
+
+def _fixture_repo(tmp_path: Path) -> Path:
+    """The minimum tree both entrypoints check for before rendering anything."""
+    research = tmp_path / "docs" / "standards" / "architecture" / "research"
+    research.mkdir(parents=True)
+    (research / "candidates.md").write_text(
+        _table([("C-001", "`ship`"), ("C-002", "")]))
+    (tmp_path / "docs" / "development").mkdir(parents=True)
+    (tmp_path / "docs" / "development" / "sprint.md").write_text("# Sprint\n")
+    return tmp_path
+
+
+@pytest.mark.parametrize("module_name", ["run_triage_candidates", "run_plan_sprint"])
+def test_the_dry_run_of_each_entrypoint_RUNS_and_renders(
+        module_name: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Executed, not read. A values dict that has drifted raises here and only here.
+
+    `act.render` fails loud on any unsubstituted `${NAME}`, so a key the
+    workflow supplies and the script does not is a `ValueError` the moment this
+    runs — and a key the script supplies with the wrong arity is a `TypeError`
+    before that. Neither is visible in the source of either file.
+
+    `existing_work` is stubbed at its boundary for the reason the module's other
+    stubs are: it shells out to `gh`, and a unit test that reached the network
+    would fail for a reason having nothing to do with the property here.
+    """
+    import importlib
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    kickoff = importlib.import_module(module_name)
+
+    repo = _fixture_repo(tmp_path)
+    monkeypatch.setattr(kickoff, "preflight", lambda target: repo)
+    monkeypatch.setattr(kickoff.act, "existing_work", lambda *a, **k: "<work>")
+
+    assert kickoff.main(["--repo", str(repo), "--dry-run"]) == 0
+
+
+@pytest.mark.parametrize("module_name", ["run_triage_candidates", "run_plan_sprint"])
+def test_the_dry_run_would_FAIL_on_a_values_dict_that_had_drifted(
+        module_name: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """POSITIVE CONTROL on the test above, which otherwise proves only that it ran.
+
+    A prompt gains a placeholder the script's inline dict does not supply — the
+    exact drift shape — and the run must come back NON-ZERO naming it, rather
+    than printing a preview with a literal `${…}` in it. Without this,
+    `main() == 0` above would keep passing if `render`'s leftover guard were
+    ever loosened, and would be attesting only that the function returned.
+
+    The exit code is asserted alongside the message because a dry run is a
+    scripted command: a caller reads `$?`, not stderr.
+    """
+    import importlib
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    kickoff = importlib.import_module(module_name)
+
+    repo = _fixture_repo(tmp_path)
+    monkeypatch.setattr(kickoff, "preflight", lambda target: repo)
+    monkeypatch.setattr(kickoff.act, "existing_work", lambda *a, **k: "<work>")
+    monkeypatch.setattr(kickoff.act, "load_prompt",
+                        lambda p: "${A_SLOT_THE_SCRIPT_DOES_NOT_SUPPLY}")
+
+    assert kickoff.main(["--repo", str(repo), "--dry-run"]) == 1, (
+        "a prompt slot the script does not supply rendered anyway — the dry "
+        "run reported success over a preview no model would ever receive")
+    assert "A_SLOT_THE_SCRIPT_DOES_NOT_SUPPLY" in capsys.readouterr().err, (
+        "the run failed without naming the missing slot, so the operator "
+        "cannot tell a drifted values dict from any other error")

@@ -24,16 +24,12 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
 
     try:
-
         repo_root = preflight(a.repo_target)
-
     except RuntimeError as exc:
-
         # Nothing has been created yet — that is the point of preflight.
-
         print(f"\n✗ {exc}", file=sys.stderr)
-
         return 1
+
     sprint, cands = repo_root / a.sprint, repo_root / a.candidates
     research = repo_root / a.research
     for label, path in (("sprint", sprint), ("candidates", cands), ("research", research)):

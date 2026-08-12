@@ -43,16 +43,21 @@ from pathlib import Path
 
 import pytest
 
-from observer_registry import names_code, unresolved
+from observer_registry import names_code, unresolved, workflows_declaring
 
 from modules.assistant.plan import plan_activities as act
+# Still imported BY NAME: the behavioural assertions at the bottom are claims
+# about these two workflows' own grant tuples, not about the class.
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as sprint
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as triage
 
-WORKFLOWS = [
-    pytest.param(triage, id="triage-candidates"),
-    pytest.param(sprint, id="plan-sprint"),
-]
+# DISCOVERED, NOT LISTED — the same argument `_functions_with_boundary_calls`
+# makes four hundred lines down, applied to the registry it sits beside. This
+# was a hardcoded `[triage, sprint]`, so a third workflow taking a before/after
+# snapshot would have been exempt from every assertion below while the suite
+# stayed green: a missing ROW failed loudly and a missing WORKFLOW did not.
+WORKFLOWS = [pytest.param(mod, id=name)
+             for mod, _prompt, name in workflows_declaring("DISAPPEARANCE_OBSERVERS")]
 
 # `modules/`, from a module inside it: plan_activities.py -> plan -> assistant.
 # One level further up is the component root, which would sweep `tests/` too and
@@ -108,6 +113,22 @@ def _source(mod) -> str:
 
 
 # --- the probe, against its own vacuity --------------------------------------
+
+def test_the_workflow_sweep_finds_the_registries_it_is_meant_to() -> None:
+    """POSITIVE CONTROL on the DISCOVERY that parametrises everything below.
+
+    A sweep returning nothing collects zero parametrised tests and reports
+    green, which is indistinguishable from full coverage. Naming today's two
+    turns a lost workflow into a failure. A THIRD is expected to fail here once,
+    on purpose — adding its id is the moment somebody confirms its snapshots are
+    actually covered rather than merely enumerated.
+    """
+    found = {p.id for p in WORKFLOWS}
+    assert found == {"triage-candidates", "plan-sprint"}, (
+        f"the DISAPPEARANCE_OBSERVERS sweep found {sorted(found)}. If a "
+        f"workflow vanished from it, every assertion below stopped running "
+        f"against that workflow without anything going red.")
+
 
 @pytest.mark.parametrize("mod", WORKFLOWS)
 def test_the_probe_finds_the_snapshots_at_all(mod) -> None:

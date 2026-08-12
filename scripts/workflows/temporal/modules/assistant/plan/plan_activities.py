@@ -326,8 +326,23 @@ def boundary_crossings(before: dict[str, str], after: dict[str, str],
             and any(p.search(rel) for p in deny)]
 
 
-def existing_work(repo_root: Path, research_dir: Path) -> str:
+def existing_work(tree: Path, research_dir: Path) -> str:
     """Enumerate what a candidate might ALREADY have a home in.
+
+    `tree` IS THE TREE THE RUN CAN SEE, NOT THE REPO. Both callers pass their
+    WORKTREE, and the parameter is named for that rather than `repo_root`
+    because it was `repo_root` and both callers duly passed one — which
+    enumerated the main checkout while the run read and wrote somewhere else.
+    The cost is not symmetric: `plan-sprint` runs THIRD, after the parent has
+    written a brand-new `docs/development/<slug>/research/synthesis.md` into the
+    worktree, and its Stage 1 is told to read *"EVERY component synthesis listed
+    in the enumeration below"*. An enumeration anchored at the repo cannot list
+    the one paper the pipeline exists to hand it, and the run reports having
+    read every synthesis there was.
+
+    A dry-run renders this against the repo itself, and that is still correct —
+    the parameter asks for whichever tree the caller's model will read, and for
+    a dry run there is no other.
 
     Deliberately NOT included: `cpi-decisions.md`. It is the tooling-improvement
     loop and the home for deferrals carrying watch-criteria — a different concern
@@ -342,12 +357,12 @@ def existing_work(repo_root: Path, research_dir: Path) -> str:
 
     lines: list[str] = []
 
-    comps = sorted(d for d in (repo_root / "docs" / "development").iterdir()
+    comps = sorted(d for d in (tree / "docs" / "development").iterdir()
                    if d.is_dir() and d.name != "reviews")
     lines.append("**Existing components** (a candidate may belong inside one rather than needing its own sprint section):")
     for c in comps:
         syn = c / "research" / "synthesis.md"
-        mark = " — **HAS COMPONENT RESEARCH**: `" + str(syn.relative_to(repo_root)) + "`" if syn.exists() else ""
+        mark = " — **HAS COMPONENT RESEARCH**: `" + str(syn.relative_to(tree)) + "`" if syn.exists() else ""
         lines.append(f"  - `docs/development/{c.name}/`{mark}")
 
     withres = [c for c in comps if (c / "research" / "synthesis.md").exists()]
@@ -367,7 +382,7 @@ def existing_work(repo_root: Path, research_dir: Path) -> str:
     lines += [f"  - `{n}`" for n in papers]
 
     r = subprocess.run(["gh", "issue", "list", "--state", "open", "--limit", "50",
-                        "--json", "number,title"], cwd=str(repo_root),
+                        "--json", "number,title"], cwd=str(tree),
                        capture_output=True, text=True)
     if r.returncode == 0:
         import json

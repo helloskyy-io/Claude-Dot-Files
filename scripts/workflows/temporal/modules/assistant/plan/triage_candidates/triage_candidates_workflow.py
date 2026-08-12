@@ -176,7 +176,10 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
         "RESEARCH_DIR": str(rel_research),
         "WORKING_SET": _working_set(counts),
         "DIRECTION_CEILING": own.direction_ceiling(worktree / rel_research),
-        "EXISTING_WORK": act.existing_work(repo_root, research_dir),
+        # THE WORKTREE, like the line above it. Every other read in this dict is
+        # already worktree-anchored; this one was the odd repo-rooted read out,
+        # sitting one line from its correct neighbour.
+        "EXISTING_WORK": act.existing_work(worktree, worktree / rel_research),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, "triage-candidates: rule the untriaged candidates"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),

@@ -91,6 +91,18 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     ref = f"origin/{act.pr_branch(pr_number, repo_root)}" if pr_number else "HEAD"
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
+    # THE COMMIT THIS DISPATCH STARTED FROM, pinned before any child can write.
+    # Step 2's sweep asks "which sections did THIS RUN add", and only a base
+    # taken here answers it: on a `--pr` redispatch the branch already carries
+    # sections an earlier pass added and researched, so a diff against
+    # `origin/main` would re-research every one of them. Same rule the snapshot
+    # comparators state — snapshot around the run, never diff against the base.
+    base_sha = act.git_output(
+        worktree, ["git", "rev-parse", "HEAD"],
+        "The parent cannot pin the commit this dispatch started from, so it "
+        "cannot tell the sections IT added from ones an earlier pass added.",
+    ).strip()
+
     # Read BEFORE the triage child, so a `gh` failure costs a dispatch that has
     # produced nothing rather than one that has already triaged a sprint.
     slug = _shared.repo_slug(repo_root)
@@ -127,7 +139,8 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     # call stays because the wiring is correct and only its INPUT is missing —
     # deleting it would mean rebuilding it, and inventing a different signal
     # would mean maintaining one past the interim it was for.
-    new_sections = own.new_sprint_sections(worktree, str(sprint_path.relative_to(repo_root)))
+    new_sections = own.new_sprint_sections(
+        worktree, str(sprint_path.relative_to(repo_root)), base_ref=base_sha)
     if not new_sections:
         notes.append(
             "No component research ran. With plan-sprint sequenced AFTER this step, "

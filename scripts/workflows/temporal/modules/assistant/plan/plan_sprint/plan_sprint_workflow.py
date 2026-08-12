@@ -196,7 +196,12 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
         "CANDIDATES_PATH": str(rel_candidates),
         "RESEARCH_DIR": str(rel_research),
         "CORRECTION_NOTE": correction_note(counts, correction_pass),
-        "EXISTING_WORK": act.existing_work(repo_root, research_dir),
+        # THE WORKTREE, not the repo. This workflow runs THIRD: the parent has
+        # already written any new component's `research/synthesis.md` into the
+        # worktree, and Stage 1 is told to read every synthesis this enumeration
+        # lists. Anchored at the repo it would list the main checkout, which
+        # never holds them, and the run would report reading all of nothing.
+        "EXISTING_WORK": act.existing_work(worktree, worktree / rel_research),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, "plan-sprint: place the ruled candidates and update the sprint plan"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),

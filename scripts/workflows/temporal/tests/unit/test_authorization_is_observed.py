@@ -35,16 +35,23 @@ from pathlib import Path
 
 import pytest
 
-from observer_registry import names_code, unresolved
+from observer_registry import names_code, unresolved, workflows_declaring
 
 from modules.assistant.plan import plan_activities as act
+# Still imported BY NAME below: the three boundary tests at the bottom assert
+# about these two workflows' specific grant tuples, which is a claim about them
+# rather than about the class, and naming them is the honest way to say so.
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as sprint
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as triage
 
-WORKFLOWS = [
-    pytest.param(triage, "triage_candidates.md", id="triage-candidates"),
-    pytest.param(sprint, "plan_sprint.md", id="plan-sprint"),
-]
+# DISCOVERED, NOT LISTED. This was a hardcoded `[triage, sprint]`, which put the
+# universe of checked workflows back on somebody remembering to widen it — the
+# same failure this module exists to close, one altitude up. A third workflow
+# growing a `You MAY NOT` table now inherits every assertion below without
+# anyone touching this file; `plan_activities.py`'s docstring already names the
+# next one coming.
+WORKFLOWS = [pytest.param(mod, prompt, id=name)
+             for mod, prompt, name in workflows_declaring("MAY_NOT_OBSERVERS")]
 
 
 def may_not_rows(prompt_text: str) -> list[str]:
@@ -81,6 +88,24 @@ def _prompt(mod, name: str) -> str:
 
 
 # --- the correspondence itself ----------------------------------------------
+
+def test_the_workflow_sweep_finds_the_tables_it_is_meant_to() -> None:
+    """POSITIVE CONTROL on the DISCOVERY, not on any one workflow's table.
+
+    Every parametrised assertion below runs once per discovered workflow, so a
+    sweep that found nothing would collect zero tests and report green — the
+    exact shape of a check that stopped checking. This names today's two, so
+    losing one is a failure rather than a smaller run. A THIRD workflow arriving
+    is expected to fail here once, deliberately: the fix is to add its id, which
+    is the moment somebody confirms its table is now covered.
+    """
+    found = {p.id for p in WORKFLOWS}
+    assert found == {"triage-candidates", "plan-sprint"}, (
+        f"the MAY_NOT_OBSERVERS sweep found {sorted(found)}. If a workflow "
+        f"vanished, this module is silently no longer checking its "
+        f"authorization table; if one appeared, add its id here to confirm it "
+        f"is genuinely covered rather than merely collected.")
+
 
 @pytest.mark.parametrize("mod,prompt_name", WORKFLOWS)
 def test_the_parser_finds_a_table_at_all(mod, prompt_name: str) -> None:
