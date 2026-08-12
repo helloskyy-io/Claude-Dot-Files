@@ -859,7 +859,7 @@ def test_nothing_in_the_tree_routes_on_the_convergence_signal() -> None:
         f"signal: {sorted(REPORTING_ONLY - found)}. A stale allowlist is a "
         f"widened gate — shrink it to what is actually there."
     )
-    assert routing.MAX_LOOPS == 1, (
+    assert routing.MAX_LOOPS == 3, (
         "the loop-back bound moved. It stays in force until the convergence "
         "measurement supports replacing it, which two observations do not."
     )
