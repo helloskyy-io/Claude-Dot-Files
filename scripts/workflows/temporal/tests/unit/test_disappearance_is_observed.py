@@ -63,20 +63,43 @@ MODULES_ROOT = Path(act.__file__).resolve().parents[2]
 _SNAPSHOT = re.compile(r"^before(_[a-z_0-9]+)?$")
 
 
+def _bound_names(target: ast.expr) -> list[str]:
+    """Every name this assignment target binds, unpacking tuples and lists."""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [n for element in target.elts for n in _bound_names(element)]
+    return []
+
+
 def snapshot_names(source: str) -> list[str]:
     """Every `before…` local bound from a CALL, anywhere in the source.
 
     Bound from a call specifically: `before = {}` or `before = x` is a rename or
     a default, not a reading of the world taken to be compared against a later
     one. It is the READ that creates the obligation.
+
+    EVERY BINDING FORM PYTHON HAS, and that breadth is the point rather than
+    completeness for its own sake. This module exists so that a snapshot added
+    later cannot slip through unwatched; a census that recognised only
+    `x = f()` would have left `x: T = f()`, `a, b = f()` and `(x := f())` as
+    three spellings of the same escape — the module reopening its own class one
+    AST node type away. Found by a reviewer attacking this probe's SCOPE rather
+    than its subject, which is the technique that found two of the four channels
+    this commit closes.
     """
-    found = {
-        target.id
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
-        for target in node.targets
-        if isinstance(target, ast.Name) and _SNAPSHOT.match(target.id)
-    }
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            targets: list[ast.expr] = list(node.targets)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Call):
+            targets = [node.target]
+        elif isinstance(node, ast.NamedExpr) and isinstance(node.value, ast.Call):
+            targets = [node.target]
+        else:
+            continue
+        found.update(n for t in targets for n in _bound_names(t)
+                     if _SNAPSHOT.match(n))
     return sorted(found)
 
 
@@ -114,6 +137,27 @@ def test_the_probe_would_see_a_newly_added_snapshot() -> None:
            "    before_alias = before_rows\n"
            "    after = reader(p)\n")
     assert snapshot_names(src) == ["before", "before_rows"]
+
+
+@pytest.mark.parametrize("binding,expected", [
+    ("    before_typed: dict[str, str] = reader(p)\n", ["before_typed"]),
+    ("    before_a, before_b = reader(p)\n", ["before_a", "before_b"]),
+    ("    before_left, (before_mid, other) = reader(p)\n",
+     ["before_left", "before_mid"]),
+    ("    if (before_walrus := reader(p)):\n        pass\n", ["before_walrus"]),
+], ids=["annotated", "tuple-unpack", "nested-unpack", "walrus"])
+def test_the_probe_sees_EVERY_binding_form_python_offers(
+        binding: str, expected: list[str]) -> None:
+    """SCOPE CONTROL, and the reason it exists is worth stating.
+
+    A census recognising only `x = f()` would treat the other three spellings as
+    exemptions nobody chose — this module reopening its own class one AST node
+    type away, and doing it invisibly, since a snapshot the probe cannot see
+    produces no failure to investigate. Found by attacking this probe's scope
+    rather than its subject, which is what found two of the four channels the
+    commit closes.
+    """
+    assert snapshot_names("def run():\n" + binding) == expected
 
 
 # --- the correspondence -------------------------------------------------------

@@ -145,7 +145,10 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "on `before` — act.candidate_statuses and own.candidate_decisions are both "
         "built from act.candidate_rows, so a row cannot be absent from one map and "
         "present in the other. Registered rather than left implicit because that "
-        "coupling is the whole reason a second call here would be dead code.",
+        "coupling is the whole reason a second call here would be dead code — and "
+        "the coupling itself is held by "
+        "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS, since this is "
+        "the one entry whose coverage is an argument rather than a call site.",
     "before_boxes":
         "own.checked_boxes compared in both directions — `after - before` is a "
         "tick added, `before - after` a tick erased, and Counter subtraction "

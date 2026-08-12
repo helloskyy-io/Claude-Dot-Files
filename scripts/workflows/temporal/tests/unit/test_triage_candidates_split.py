@@ -573,6 +573,37 @@ def test_the_two_readers_agree_on_what_BLANK_means(tree: Path) -> None:
         )
 
 
+@pytest.mark.parametrize("rows", [
+    pytest.param([("C-001", "`ship`"), ("C-002", ""), ("C-003", "—")], id="mixed"),
+    pytest.param([("C-001", "`ship`", ""), ("C-002", "", "`open`")], id="blank-status"),
+    pytest.param([], id="no-rows"),
+], ids=None)
+def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: list) -> None:
+    """THE INVARIANT `plan-sprint`'S DISAPPEARANCE REGISTRY RESTS ON, made executable.
+
+    `DISAPPEARANCE_OBSERVERS["before_status"]` is the one entry in either
+    workflow that does not name a guard applied to its OWN snapshot: it claims
+    coverage by `before`'s guard, on the grounds that `act.candidate_statuses`
+    and `own.candidate_decisions` are both built from `act.candidate_rows` and so
+    can never disagree about which ids exist. That claim is TRUE today and was
+    ASSERTED rather than checked — which is precisely the shape
+    `observer_registry` exists to distrust, since resolving the symbols an entry
+    names proves the functions exist and says nothing about the reasoning
+    between them.
+
+    So the reasoning is what this holds. Separate the two readers' key sets and
+    a deleted row becomes invisible to `plan-sprint` again — the whole channel,
+    silently, with the registry still reading as covered.
+    """
+    f = tree / "c.md"
+    f.write_text(_table(rows))
+    assert (act.candidate_statuses(f).keys()
+            == sprint_act.candidate_decisions(f).keys()), (
+        "the two candidate readers no longer key the same rows, so plan-sprint's "
+        "row-deletion coverage — which its DISAPPEARANCE_OBSERVERS entry claims "
+        "comes from the `decision` guard alone — has a hole in it")
+
+
 def test_the_dry_run_renders_the_SAME_correction_note_a_live_run_does() -> None:
     """`--dry-run` previewed text no model would ever receive.
 
@@ -1006,7 +1037,8 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
         "an edit made before this run started was charged to it")
 
 
-@pytest.mark.parametrize("how", ["deleted", "renamed-out-of-the-tree"])
+@pytest.mark.parametrize("how", ["deleted", "renamed-out-of-the-tree",
+                                 "renamed-within-the-tree"])
 def test_a_DELETED_sprint_plan_is_seen_by_the_real_observer(repo: Path, how: str) -> None:
     """AGAINST REAL GIT, because the stub cannot prove the sentinel is produced.
 
@@ -1017,29 +1049,37 @@ def test_a_DELETED_sprint_plan_is_seen_by_the_real_observer(repo: Path, how: str
     that is not on disk, and a rename produces exactly that on the SOURCE half
     only because `--no-renames` splits the pair.
 
-    Both spellings, because they defeat different things: deleting the file is
-    the plain case, and `git mv` out of `docs/development/` also slips past
-    `boundary_crossings` — its destination matches no forbidden pattern and its
-    source half is exempted as permitted.
+    Three spellings, because they defeat different things. Deleting the file is
+    the plain case. `git mv` OUT of `docs/development/` also slips past
+    `boundary_crossings` entirely — the destination matches no forbidden pattern
+    and the source half is exempted as permitted — so nothing at all fired for
+    it, and the assertion below pins that. `git mv` WITHIN the directory is the
+    one case the path boundary did catch, via the destination; it is here
+    because the guard order changed, and the run must still fail on the SOURCE
+    file vanishing rather than depending on where the destination happened to
+    land.
     """
     import subprocess
 
     rel = "docs/development/sprint.md"
+    destination = {"renamed-out-of-the-tree": "notes.md",
+                   "renamed-within-the-tree": "docs/development/notes.md"}
     before = act.worktree_state(repo)
     if how == "deleted":
         (repo / rel).unlink()
     else:
-        subprocess.run(["git", "mv", rel, "notes.md"], cwd=str(repo), check=True,
-                       capture_output=True)
+        subprocess.run(["git", "mv", rel, destination[how]], cwd=str(repo),
+                       check=True, capture_output=True)
 
     after = act.worktree_state(repo)
     assert act.grants_that_vanished(before, after,
                                     sprint.permitted_paths(rel)) == [rel], (
         f"a {how} sprint plan read as present; observed {after.get(rel)!r}")
-    assert act.boundary_crossings(before, after, sprint.FORBIDDEN_PATHS,
-                                  sprint.permitted_paths(rel)) == [], (
-        "the path boundary caught this on its own, so the control proves "
-        "nothing about the check written for it")
+    if how != "renamed-within-the-tree":
+        assert act.boundary_crossings(before, after, sprint.FORBIDDEN_PATHS,
+                                      sprint.permitted_paths(rel)) == [], (
+            "the path boundary caught this on its own, so the control proves "
+            "nothing about the check written for it")
 
 
 def test_a_sprint_plan_merely_EDITED_is_not_read_as_vanished(repo: Path) -> None:
