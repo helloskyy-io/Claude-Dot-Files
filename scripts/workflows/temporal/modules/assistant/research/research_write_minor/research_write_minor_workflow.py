@@ -110,6 +110,10 @@ def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
                 "already covers, and cite the upstream paper rather than "
                 "re-deriving it."),
         ),
+        # Returns "" at component altitude, which is where this cycle almost
+        # always runs — wired anyway so a PRODUCT-altitude minor run is not the
+        # one arm that silently loses the feature pools.
+        act.component_pools_block(pool, worktree),
         currency,
     ) if b]
 

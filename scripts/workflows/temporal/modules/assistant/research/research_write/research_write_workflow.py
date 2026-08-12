@@ -49,7 +49,8 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     level = act.altitude(pool, worktree)
     fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
 
-    blocks = [b for b in (context, act.upstream_block(pool, worktree), currency) if b]
+    blocks = [b for b in (context, act.upstream_block(pool, worktree),
+                          act.component_pools_block(pool, worktree), currency) if b]
 
     values = {
         # The path the MODEL is given must be the one it can actually write to.
