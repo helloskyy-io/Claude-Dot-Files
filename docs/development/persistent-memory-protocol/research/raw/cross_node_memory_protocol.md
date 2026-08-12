@@ -4,21 +4,36 @@
 > treat it as retired, not as an authority to cite. It was produced against a brief that restated
 > the operator's "short-lived processes" (meaning `claude -p` invocations sharing no in-process
 > memory) as "nodes that come and go", and built four multi-machine facets on that substitution.
-> The operator's own words: *"IT HAS NOTHING TO DO WITH EDGES AND PLACEMENT OR MOVING
-> CONTAINERS."* The corrected question — how a workflow passes state between `claude -p`
+> The operator's own words, as recorded by the run that wrote this note:
+> *"IT HAS NOTHING TO DO WITH EDGES AND PLACEMENT OR MOVING CONTAINERS."*
+> **Sourcing note on that quote, stated rather than left implicit:** it is *attributed* to an
+> operator utterance in a dispatch prompt — and a dispatch prompt is not a git-reachable
+> artifact, so that attribution is itself unverifiable from here. A search of
+> `git log --all -p -S` across this repo's whole history, of every markdown file in the tree, and
+> of the bodies and comments of PRs #84 and #86 returns **no instance of it outside this block**.
+> Treat it as an unretrievable operator quote — accurate as recorded, but **not independently
+> checkable**, and not to be re-cited by a third artifact as though it traced to a verifiable
+> source. The corrected question — how a workflow passes state between `claude -p`
 > children on ONE machine — is answered instead by
 > [`state_passing_between_workflow_children.md`](state_passing_between_workflow_children.md) in
 > this same directory.
 >
-> **Three findings here survive the scope correction** and are re-grounded in primary evidence in
+> **Two findings here survive the scope correction** and are re-grounded in primary evidence in
 > the superseding paper rather than inherited as-is: (1) a store that keeps one value per key is
 > contractually required to destroy the previous value, so it cannot hold a reasoning trail —
-> log compaction is last-write-wins applied to storage; (2) `candidates.md` never deletes a row
-> while `direction.md` rotates rows at 90 days — two surfaces inside one "file binding" with
-> opposite lifecycles; (3) this fleet has parent-written observables that went unread for weeks —
-> "a store nobody reads" is a documented local failure mode. Everything else below — the
-> multi-machine identity, placement and reconciliation material — is out of scope for this
-> fleet's actual question and should not be cited as if it were.
+> log compaction is last-write-wins applied to storage (**§4.3.1**, the MQTT-register and
+> Kafka-compaction passage); (2) `candidates.md` never deletes a row while `direction.md`
+> rotates rows at 90 days — two surfaces inside one "file binding" with opposite lifecycles
+> (**§4.4.6(b)**). Everything else below — the multi-machine identity, placement and
+> reconciliation material — is out of scope for this fleet's actual question and should not be
+> cited as if it were.
+>
+> An earlier draft of this block listed a third survivor — "parent-written observables that went
+> unread for weeks". **That finding is not in this paper and the claim is withdrawn.** A `grep`
+> of this paper's body for `unread`, `nobody reads`, `no reader` and `exhaust` returns nothing
+> outside this block; this paper reads `run_log.py` only for its join key (§1) and its
+> local-filesystem log root. The no-reader finding is native to the superseding paper, derived
+> there from `run_log.py`'s own docstring, and should be cited from there.
 
 ```
 Topic:          How do mature systems carry durable memory across nodes that come and go?
@@ -32,7 +47,11 @@ Feeds:          A NOT-YET-TAKEN planning decision on whether cross-node memory p
                 Extends docs/guide/memory-model.md (single-machine Kind 1) to the multi-node
                 layer. This paper is validating evidence for that decision; it does not take it.
 Last validated: 2026-08-12
-Revalidate:     high — 6 weeks   (mixed volatility; see the volatility note below)
+Revalidate:     retired — 6 months   (SUPERSEDED; excluded from refresh cycles per Research
+                Standard §3's retired-artifact rule. The interval is present only to keep this
+                header machine-parseable for the refresh gate, and is set at the TOP of the low
+                band because this paper is history that will not be refreshed at all — the
+                cheapest correct value is the one that fires least often.)
 Confidence:     DEFINITIVE (first-party documented, exact bytes retrieved by `curl` and quoted
                 from the retrieved file): the CloudEvents `source`+`id` uniqueness contract; W3C
                 Trace Context trace-id/parent-id format and uniqueness language; OpenTelemetry
@@ -115,6 +134,18 @@ Critic:         PASS — 2026-08-12, after FIVE independent verification passes.
                 once a blanket assertion, is now a declared four-rule normalisation — each rule
                 scoped to what was measured, its exceptions named, its counts' population stated.
 ```
+
+**Superseded by:** [`state_passing_between_workflow_children.md`](state_passing_between_workflow_children.md) — retired 2026-08-12; history, not authority, and not to be cited as current evidence.
+
+> *Two header facts a reader should not have to reconcile alone.* (a) `Last validated:
+> 2026-08-12` and the `Critic: PASS` above are **left exactly as they were** — they are the
+> factual record of when and how this paper's body was verified, and supersession does not
+> falsify that verification; what supersession changes is the paper's **standing**, not its
+> accuracy. (b) The **volatility note immediately below is retained as history and no longer
+> governs.** It argues for `high — 6 weeks`, which is what this header carried until
+> supersession — an interval under which the refresh gate computed a next-due date of
+> 2026-09-23 from `Last validated`, i.e. kept a superseded paper sitting in the live refresh
+> queue. The `retired — 6 months` above replaces it and takes precedence.
 
 > **Volatility note (per Research Standard §3, mixed-volatility rule).** The header takes the
 > highest tier present. Most of this paper is LOW-volatility material — CAP, CRDTs, OT, Dynamo,

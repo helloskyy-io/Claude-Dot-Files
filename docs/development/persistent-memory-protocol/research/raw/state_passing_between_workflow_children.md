@@ -27,14 +27,63 @@ Confidence:     DEFINITIVE (first-party, raw source, exact bytes returned by fet
                 by-value/by-reference rule (§4.1); "consolidate the ADDRESS, not the STORE"
                 (§4.2); the format-selection axes (§4.3); the two-tier retention read (§4.4);
                 the claim that the Kind-1/Kind-2 taxonomy is not a partition of the fleet's
-                channels (§4.3.3).
+                channels (§4.3.4).
                 UNVERIFIED / GAPS, with search method stated at each: the chaining semantics
                 and cost of `--resume` under `-p` (§6, G1); any documented prompt-size limit
                 in the Claude Code CLI (G2); vendor confirmation that `--json-schema` output
                 may be absent on a clean run (G3).
                 NOTHING in this paper is directional — no roadmap or stated-intent claim is
                 load-bearing anywhere in it.
-Critic:         not-yet-verified — 2026-08-12
+Critic:         PASS-WITH-FIXES — 2026-08-12, closed at round 3 of a 3-round ceiling. The
+                paper reached the ceiling and closed inside it; that the ceiling was reached
+                at all is itself recorded, because the round count is a diagnostic on how much
+                the first draft got wrong, not just on whether it ended up right.
+                ROUND 1 — full verification. All 18 external sources resolve, and every
+                quoted span was confirmed byte-exact by raw retrieval — `git clone --depth 1
+                --filter=blob:none --sparse` plus `grep -F` for the eight git-hosted source
+                repos, and `curl` plus `grep -F` for [S13], [S15] and [S17]. No WebFetch was
+                used to establish any quote. No fabricated source, no miscited quote and no
+                confidence inflation was found.
+                The correction pass re-derived each finding itself before editing rather than
+                accepting it: the raw/rendered split, by enumerating all 18 citation entries
+                (17 raw, 1 rendered); the line citations, by `grep` against the working tree;
+                the `${RUN_ID}` occurrence set, by `grep -rl` over all twelve `prompts/`
+                directories; and `.claude/logs/`, by re-running the enumeration itself.
+                FIXED AT ROUND 1: §8's raw-versus-rendered arithmetic, which claimed sixteen
+                raw and two rendered against a citation list of seventeen and one, and which
+                contradicted the same section's own counting note (blocking); three off-by-one
+                line citations (`assistant_activities.py`, `build_workflow.py`,
+                `research_write_workflow.py`); one incomplete `${RUN_ID}` occurrence claim in
+                §4.2; one internal-arithmetic slip in §4.3.4 Observation A; and one
+                misattributed provenance plus a dangling `C-EX` reference in the scope note.
+                ROUND 2 — SCOPED re-verification, deliberately narrower. The 18 external
+                sources and the superseded companion paper's body were NOT re-checked: round 1
+                had established the sources, and that body is byte-unchanged under its own
+                recorded PASS. What round 2 checked was the REPAIRED SPANS, on the rule that a
+                repaired span is a new claim carrying an original's full sourcing burden. It
+                independently re-derived nine of the ten round-1 repairs — its own `grep`/`sed`
+                against the working tree, not this paper's account of them — and found all nine
+                holding.
+                FIXED AT ROUND 3: four internal cross-references reading `§4.3.3` where the
+                content they point at is §4.3.4's Observations A and B (blocking — a reader
+                following the pointer to verify a load-bearing count landed on the format
+                table); and one undisclosed quote normalisation, `run_log.py`'s docstring
+                reflowed across its `:8-9` line wrap, now disclosed at that source's §8 entry
+                on the same rule already applied to [S16]. Each of the four pointers was
+                checked against what its own sentence claims before being changed.
+                STILL FLAGGED, DELIBERATELY, AND MORE STRONGLY THAN AT ROUND 1: §4.4's
+                `.claude/logs/` figures are **not reproducible from this repository** — the
+                directory is gitignored, machine-local, and grows one file per dispatch with no
+                pruning code. Five readings of the identical enumeration on 2026-08-12 returned
+                175/176/176/177/178 files and 262–265 MB, all with the same 125-day span; they
+                are tabulated in §4.4 rather than averaged away. The figures are corroborated,
+                never confirmed, and are marked as a timestamped lower bound at every site that
+                restates them — FOUR, enumerated rather than counted loosely: §4.4's table and
+                the note under it; §4.4 defect 1; §5.2's third bullet, whose hard "262 MB" was
+                softened to "hundreds of megabytes" AT ROUND 1 so that a figure known to move
+                could not go stale inside a counter-argument; and §8's `.claude/logs/`
+                local-artifact entry. The five-reading spread is not a defect in the measurement
+                — it is the measurement's finding.
 ```
 
 > **Scope, stated up front because a prior paper on this exact-sounding topic missed it.**
@@ -45,13 +94,20 @@ Critic:         not-yet-verified — 2026-08-12
 > reconciliation.** Where two machines share files they share them through git and GitHub,
 > and git surfaces conflicts to a human — solved, and not this paper's subject.
 >
-> The prior paper is cited here **for provenance only**. Its three findings that survive the
-> scope correction are each **re-grounded in primary evidence in this paper** rather than
+> The prior paper is cited here **for provenance only**. **Two** of its findings survive the
+> scope correction, and each is **re-grounded in primary evidence in this paper** rather than
 > inherited: the single-value-store property is re-derived from Temporal heartbeat details
-> (§4.1, C-EX); the `candidates.md`/`direction.md` opposite-lifecycle evidence is taken
+> (§4.1, P3); the `candidates.md`/`direction.md` opposite-lifecycle evidence is taken
 > directly from [`memory-model.md`](../../../../guide/memory-model.md) §2.4–§2.5 and the files
-> themselves (§4.3.3); the "three observables, no reader" finding is taken directly from
-> [`run_log.py`](../../../../../scripts/helpers/measure/run_log.py)'s own docstring (§4.4).
+> themselves (§4.3.4, Observation B).
+>
+> A third finding — **"three parent-written observables, and no committed reader"** (§4.4) — is
+> **native to this paper and is not carried forward from the prior one.** It is derived here
+> from [`run_log.py`](../../../../../scripts/helpers/measure/run_log.py)'s own docstring. It is
+> stated explicitly because an earlier draft of the prior paper's supersession note attributed
+> it there: a `grep` of that paper's ~1,100-line body for `unread`, `nobody reads`, `no reader`
+> and `exhaust` returns nothing outside its own supersession block. That paper does read
+> `run_log.py`, but for the join key and the log root — not for the reader question.
 
 ---
 
@@ -110,7 +166,7 @@ is where run knowledge actually accumulates and it crosses nothing.
 **Counted from the enumeration above: 9 rows, 8 boundary-crossing.** Rows 7 and 8 together are
 the five surfaces `memory-model.md` §2 documents; row 5 is the Kind 2 record. **Rows 1, 2, 3,
 4 and 6 — five of the eight — are covered by neither kind.** That count is used again in
-§4.3.3 and it is the enumeration, not an estimate.
+§4.3.4 (Observation A) and it is the enumeration, not an estimate.
 
 ### 2.2 · What actually crosses, traced through one real parent
 
@@ -127,7 +183,7 @@ else a later child needs, it re-derives by reading the worktree or by fetching t
 
 `build_workflow.py` has the same shape: `worktree` by reference (`:51`), `pr_url` → `pr`
 (`:62-66`), a `task_file` **path** handed to `refine` (`:101`), and one parent-computed boolean
-`ci_unsettled=not ci_settled` (`:101`). Two independent parents, one rule.
+`ci_unsettled=not ci_settled` (`:102`). Two independent parents, one rule.
 
 ### 2.3 · The by-value payload, sized
 
@@ -157,7 +213,7 @@ by-reference rule (§4.1) already in force, arrived at independently.
 Linux caps one argument at `#define MAX_ARG_STRLEN (PAGE_SIZE * 32)` [S17]; `getconf PAGESIZE`
 on this workstation returns `4096`, so the ceiling is **131,072 bytes**. The largest fixed
 template already sits at **58% of it**, and the substituted blocks — `CONTEXT_BLOCK` in
-`research_write_workflow.py:57`, assembled from operator context plus an upstream block plus a
+`research_write_workflow.py:56`, assembled from operator context plus an upstream block plus a
 currency table — are **unbounded by construction**. *(Derived: the kernel constant is
 definitive [S17], the page size and the byte counts are measured here, the combination is this
 paper's.)* Consequence for this fleet: a sufficiently large operator task file does not degrade
@@ -290,9 +346,9 @@ is uneven.** `grep`ing the tree for `run_id=`, `RUN_ID` and `exit_record_schema`
 
 | Channel | Carries `run_id`? | Where |
 |---|---|---|
-| 1 · prompt | **only on the `review-pr` path** | `review_pr_helper.render_prompt`'s `"RUN_ID": run_id`; the placeholder appears in `disposition.md:255` and nowhere else in the prompt corpus |
+| 1 · prompt | **only on the `review-pr` path** | `review_pr_helper.render_prompt`'s `"RUN_ID": run_id`; the placeholder appears at `disposition.md:255` (the wire format) and `:420` (its documentation table), and in no other file in the prompt corpus — `grep -rl RUN_ID` over all twelve `prompts/` directories returns that one file |
 | 5 · typed exit record | **only on the `review-pr` path** | `exit_record_schema=exit_record.schema_argument()` is passed from exactly one site, `review_pr_workflow.py:135` |
-| 6 · run log | **on every dispatch, partially** | every dispatch gets a `run_id` (`assistant_activities.py:589`, `uuid4().hex` when the caller supplies none) and the log file is named with it; `run_resources` carries it fleet-wide, while `parent_route` and `convergence` are written on the `review-pr` path |
+| 6 · run log | **on every dispatch, partially** | every dispatch gets a `run_id` (`assistant_activities.py:588`, `uuid4().hex` when the caller supplies none) and the log file is named with it; `run_resources` carries it fleet-wide, while `parent_route` and `convergence` are written on the `review-pr` path |
 | 7 · `pr_review:` block | **yes, where emitted** | [`memory-model.md`](../../../../guide/memory-model.md) §4.1 — the block's first addressing field, with an explicit ordering fallback for blocks that predate it |
 | 2, 3, 4, 8 | **no** | worktree path, worktree contents, completion-contract stdout, the four cross-run surfaces |
 
@@ -383,10 +439,10 @@ whatever document owns the surface; not worth changing the readers.
 **Two observations, both from enumeration, and they point the same way.**
 
 *Observation A — the taxonomy is not a partition of the channels.* §2.1 enumerated eight
-boundary-crossing channels. Kind 1 covers three of them (rows 7 and 8, i.e. the five
-documented surfaces); Kind 2 covers one (row 5). **Five of eight are covered by neither**: the
-prompt, the worktree path, the worktree contents, the completion-contract stdout line, and the
-run log. The run log is the sharpest case: it is durable, addressed by `run_id`, and read by
+boundary-crossing channels. Kind 1 covers **two** of those rows (rows 7 and 8, which together
+are the five documented surfaces); Kind 2 covers **one** (row 5) — three rows covered in total.
+**Five of the eight are covered by neither**: the prompt, the worktree path, the worktree
+contents, the completion-contract stdout line, and the run log. The run log is the sharpest case: it is durable, addressed by `run_id`, and read by
 tooling — but it has **no to-do bit**, so it fails
 [`memory-model.md`](../../../../guide/memory-model.md) §1 property 4 outright, and its
 PUBLISHABLE/NOT-PUBLISHABLE rule deliberately **excludes model-authored text**, so it also
@@ -412,18 +468,45 @@ where audience does not.** Both halves are counts and comparisons anyone can re-
 > **Operator's framing, verbatim:** *"the logs and memory persist even after its complete to
 > some extent for later review."*
 
-**To what extent — measured, not estimated.** Enumerated with
-`ls .claude/logs/*.jsonl | wc -l` over a list, and `du -sh`:
+**To what extent — measured, not estimated, and the measurement locus is part of the claim.**
+Enumerated by listing `.claude/logs/*.jsonl` and counting the list, plus `du -sh`, **against the
+main checkout `/home/puma/Repos/claude-dot-files` on 2026-08-12.** It was not run in this
+paper's own worktree and could not have been: `.claude/` is gitignored, so a git worktree of
+this repo — including the one this paper was written in — has no `.claude/logs/` directory at
+all.
 
 | | |
 |---|---|
-| Run-log files | **175** |
-| Total size | **262 MB** |
+| Run-log files | **175** (main checkout, 2026-08-12) |
+| Total size | **262 MB** (same enumeration) |
 | Oldest (from the filename stamp) | `20260409` |
 | Newest | `20260812` |
 | Span | **125 days** |
 | Pruning code found | **none** — `grep -n "unlink\|prune\|rotate"` over `run_log.py` and `assistant_activities.py` returns nothing |
 | In git? | **no** — `git check-ignore -v .claude/logs` returns `.gitignore:2:.claude/` |
+
+> **These figures are not reproducible from the repository, and they are not stable — both
+> facts are the finding, not a caveat on it.** The directory is gitignored and machine-local, so
+> no clone, CI runner or worktree can re-derive it; and it grows monotonically, one file per
+> dispatch, because there is no pruning code. **Five runs of the identical enumeration against
+> the same main checkout, all on 2026-08-12, are enumerated here rather than summarised** —
+> every one returning the same oldest and newest stamps and therefore the same 125-day span:
+>
+> | # | When | Files | `du -sm` | Re-measured by this paper? |
+> |---|---|---|---|---|
+> | 1 | at authoring | 175 | 262 MB | yes — it is this paper's own figure |
+> | 2 | verification pass, round 1 | 176 | 263 MB | no — recorded as reported |
+> | 3 | correction pass, round 1 | 176 | 264 MB | yes |
+> | 4 | verification pass, round 2 | 177 | 265 MB | no — recorded as reported |
+> | 5 | correction pass, round 3 | **178** | **265 MB** | yes |
+>
+> **Read the count and the byte total as a timestamped lower bound**, never as a fact: across
+> the four intervals between those five readings the file count rose on three (175 → 178) and
+> the byte total on three (262 → 265), inside a single day — which is exactly what "one file
+> per dispatch, no pruning code" looks like from the outside.
+> What is stable, and what every claim
+> below actually rests on, is the shape: **175+ files, 260+ MB, a 125-day span, zero pruning
+> code and zero bytes in git** — and no reading disagrees with any part of that.
 
 **The prior art says retention is a stated per-store policy, usually in two tiers.** Temporal:
 *"Retention Period is the duration for which the Temporal Service stores data associated with
@@ -445,7 +528,8 @@ generically [S7], invented locally and stated more precisely.
 **The run log has none of that, and it is the surface with the most machine-readable content.**
 Three defects stack, all first-party:
 
-1. **No retention rule.** 175 files, 262 MB, 125 days, no pruning code. It is the only memory
+1. **No retention rule.** 175 files and 262 MB at the enumeration above — 178 and 265 MB by the
+   fifth re-run the same day — across 125 days, with no pruning code. It is the only memory
    surface here that grows without a bound *and* without a stated reason for not having one.
 2. **No reader, for weeks.** `run_log.py`'s own opening: *"It had every property of a surface
    except a name, and no committed tool read any of it."* Against
@@ -490,7 +574,7 @@ What the evidence *does* supply for that decision, and nothing more:
 - The subject is **not** cross-node memory (the superseded paper's frame); it is single-host
   channel design. Anyone sizing the work should size it on §2.1's eight channels.
 - Five of those eight are outside the Memory Management Framework's current Kind-1/Kind-2
-  taxonomy (§4.3.3). That is a **scope fact**, relevant to the phase-versus-component question,
+  taxonomy (§4.3.4). That is a **scope fact**, relevant to the phase-versus-component question,
   and it is a count anyone can re-run — it is not an argument for either answer.
 
 ### 5.2 · The strongest case against this paper's own thesis
@@ -520,9 +604,9 @@ strength:
   extract 15 records**, worst case 177 KB on a single thread. Re-derivation is not free; it
   moves the cost from the by-value channel to the retrieval path. That is a trade, not a win.
 - **The counter-case does not touch facet 4 at all.** Even a fleet that passes nothing between
-  children still produces 262 MB of run log with no reader and no pruning rule (§4.4). The
-  retention finding survives the strongest attack on the rest of the paper — which is the main
-  reason it is stated as the sharpest one.
+  children still accumulates hundreds of megabytes of run log with no reader and no pruning
+  rule (§4.4). The retention finding survives the strongest attack on the rest of the paper —
+  which is the main reason it is stated as the sharpest one.
 
 ### 5.3 · The alternative this paper does not take, stated fairly
 
@@ -635,11 +719,13 @@ target. The binding ceiling for this dispatch was 20 and is not breached. **Loca
 artifacts are the object of study rather than sources about it**, so they are enumerated
 separately below (fourteen) and are not counted against the external total.
 
-Sixteen of the eighteen were fetched as **raw** sources (`raw.githubusercontent.com`, raw
-`.mdx`/`.rst`/`.md`/`.adoc`/`.go`/`.h`, or a documentation site's `.md` form). Two — [S15] and
-the SQLite page it sits with — exist only as rendered HTML and were fetched with `curl` and
-tag-stripped locally, so the character sequences quoted are exact but inline emphasis is not
-preserved; they are quoted conservatively and marked here.
+**Seventeen of the eighteen** were fetched as **raw** sources (`raw.githubusercontent.com`, raw
+`.mdx`/`.rst`/`.md`/`.adoc`/`.go`/`.h`, or a documentation site's `.md` form): [S1]–[S14] and
+[S16]–[S18]. **The eighteenth, [S15], exists only as rendered HTML**, and was fetched with
+`curl` from two URLs on the same first-party site and tag-stripped locally, so the character
+sequences quoted from it are exact but inline emphasis is not preserved; it is quoted
+conservatively and marked here. Seventeen raw plus one rendered is eighteen — [S15]'s two URLs
+are **one** source, per the counting note below, and are not two members of this list.
 
 ### External
 
@@ -704,6 +790,11 @@ seven-member substrate set is [S1]–[S7]; the remaining eleven are [S8]–[S18]
   superseded; cited for provenance only, per the scope note at the head of this paper.
 - `scripts/helpers/measure/run_log.py` — `MEMBER_EVENT_TYPES`, `JOIN_KEY`, `PUBLISHABLE_FIELDS`,
   `_decoded`'s skip-malformed discipline, and the "no committed tool read any of it" docstring.
+  **Quoting note, on the same disclosure rule applied to [S16] above:** the docstring wraps that
+  sentence across two physical lines (`:8-9`, breaking after *"It had"*); §4.4 defect 2 reflows
+  it to one line, rendering the wrap newline as a space. No word is added, removed or reordered.
+  It is disclosed because [S16] carries the same disclosure for the same normalisation, and an
+  unevenly applied disclosure norm makes a reader guess which unmarked quotes were reflowed.
 - `scripts/workflows/temporal/modules/assistant/review_pr/exit_record.py` — `SCHEMA_VERSION`,
   `SUPPORTED_SCHEMA_VERSIONS`, `CHILD_SCHEMA`, the three strata, `Outcome` / `HoldKind` /
   `RoutedOutcome` / `UndeterminedReason`.
@@ -723,7 +814,11 @@ seven-member substrate set is [S1]–[S7]; the remaining eleven are [S8]–[S18]
   `assemble_prompt`.
 - `scripts/workflows/temporal/modules/assistant/review_pr/review_pr_helper.py` —
   `render_prompt`'s six placeholders.
-- `.claude/logs/` — enumerated for §4.4 (175 files, 262 MB, span `20260409`–`20260812`).
+- `.claude/logs/` — enumerated for §4.4 (175 files, 262 MB, span `20260409`–`20260812`),
+  **in the main checkout `/home/puma/Repos/claude-dot-files`, not in this paper's worktree.**
+  Gitignored and machine-local, so **not reproducible from the repo**, and monotonically
+  growing — five same-day readings ran 175→178 files and 262→265 MB, tabulated in the note
+  under §4.4's table.
 - `docs/standards/architecture/research/raw/temporal.md` (last validated 2026-08-05, Critic:
   PASS-WITH-FIXES) and `docs/standards/architecture/research/raw/edge_identity_trust.md` (last
   validated 2026-08-06, Critic: PASS at round 2) — upstream product-altitude papers whose
