@@ -159,6 +159,9 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
     ("plan_activities.py", "new_sprint_sections"),   # a markdown heading's em-dash
+    # `git status --porcelain`'s rename arrow: `R  old -> new`. A worktree path
+    # out of git's own output, not a URL — and the destination is the edited one.
+    ("triage_candidates_activities.py", "sprint_files_touched"),
 }
 
 

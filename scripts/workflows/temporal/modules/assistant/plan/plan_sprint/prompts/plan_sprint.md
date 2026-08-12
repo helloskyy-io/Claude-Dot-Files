@@ -40,6 +40,8 @@ You will see rows whose `decision` is blank. **A blank cell is not an invitation
 
 **This is enforced, not requested:** the run's `decision` column is read before you start and again after you finish, and any row whose ruling changed **fails the whole run**. There is no reading of your task that requires writing it.
 
+**`status` is read the same way, and it is not yours either.** It belongs to a later process — whatever places the item in a phase doc, or the build that completes it. Placing work in the sprint plan is not finishing it, and you have validated nothing. A row whose `status` moved while you held the file **fails the run** exactly as a moved ruling does.
+
 `direction.md` is likewise `triage-candidates`'s — it files the open questions it cannot rule on. You neither append to it nor edit it.
 
 **The decision was made — implement your portion only.** A decided candidate does not become finished work because you placed it. Something else builds it.

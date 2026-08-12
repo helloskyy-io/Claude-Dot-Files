@@ -39,6 +39,7 @@ from ... import routing
 from pathlib import Path
 
 from .. import plan_activities as act
+from . import plan_sprint_activities as own
 
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
@@ -68,22 +69,17 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # Counted in code so the report cannot assert a total it invented.
     counts = act.candidate_counts(wt_candidates)
 
-    # THE COLUMN THIS RUN MUST NOT MOVE, snapshotted before it can move it.
-    before = act.candidate_decisions(wt_candidates)
+    # THE TWO COLUMNS THIS RUN MUST NOT MOVE, snapshotted before it can move them.
+    # `decision` is `triage-candidates`'s; `status` is a later process's. This
+    # workflow owns neither.
+    before = own.candidate_decisions(wt_candidates)
+    before_status = act.candidate_statuses(wt_candidates)
 
     values = {
         "SPRINT_PATH": str(sprint_path.relative_to(repo_root)),
         "CANDIDATES_PATH": str(rel_candidates),
         "RESEARCH_DIR": str(rel_research),
-        "CORRECTION_NOTE": (
-            "\nThis is a CORRECTION PASS. A prior review returned HOLD with a scoped "
-            "runway; close it. This is the last automated pass."
-            if correction_pass else
-            f"\n**Counted in code, authoritative — do not recount:** "
-            f"{counts['total']} candidates, {counts['triaged']} ruled, "
-            f"{counts['untriaged']} still untriaged.\n\n"
-            f"{_untriaged_note(counts)}"
-        ),
+        "CORRECTION_NOTE": correction_note(counts, correction_pass),
         "EXISTING_WORK": act.existing_work(repo_root, research_dir),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, "plan-sprint: place the ruled candidates and update the sprint plan"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
@@ -108,7 +104,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # OBSERVE, DO NOT ASSERT. The prompt forbids writing `decision`; this reads
     # the file to check it did not. An authority transfer stated only in prose is
     # a convention a model can reason past — this is the mechanism.
-    after = act.candidate_decisions(wt_candidates)
+    after = own.candidate_decisions(wt_candidates)
     moved = sorted(_rulings_this_run_had_no_right_to(before, after))
     if moved:
         raise RuntimeError(
@@ -119,7 +115,41 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
               f"here is one no triage pass agreed to and no reviewer was told to "
               f"look for — see {url}"
         )
+
+    # The SAME argument, one column over. `status` is neither workflow's, and the
+    # guard above would have watched a run close a candidate it merely placed.
+    flipped = act.statuses_this_run_had_no_right_to(before_status,
+                                                    act.candidate_statuses(wt_candidates))
+    if flipped:
+        raise RuntimeError(
+            f"plan-sprint changed the `status` column on {len(flipped)} candidate(s): "
+            + ", ".join(f"{cid} {before_status[cid]!r}->{act.candidate_statuses(wt_candidates)[cid]!r}"
+                        for cid in flipped)
+            + ". `status` belongs to a later process — `plan-feature`, or the build "
+              f"that completes the item. Placing work in the sprint plan is not "
+              f"finishing it, and this run has validated nothing — see {url}"
+        )
     return url
+
+
+def correction_note(counts: dict, correction_pass: bool) -> str:
+    """The whole `${CORRECTION_NOTE}` slot, built ONE way for every caller.
+
+    Public and whole because `--dry-run` renders this prompt too, and it was
+    rendering a DIFFERENT one: it passed `_untriaged_note(counts)` alone while
+    the real run prefixed the counted line. A dry run whose whole purpose is
+    "count and render, no model, no spend" was previewing text no model would
+    ever receive, so a regression in the counted line could not be seen without
+    spending a live dispatch. `triage_candidates` never had this bug because
+    `_working_set` already bundled both halves — this makes the two match.
+    """
+    if correction_pass:
+        return ("\nThis is a CORRECTION PASS. A prior review returned HOLD with a scoped "
+                "runway; close it.")
+    return (f"\n**Counted in code, authoritative — do not recount:** "
+            f"{counts['total']} candidates, {counts['triaged']} ruled, "
+            f"{counts['untriaged']} still untriaged.\n\n"
+            f"{_untriaged_note(counts)}")
 
 
 def _rulings_this_run_had_no_right_to(before: dict[str, str],

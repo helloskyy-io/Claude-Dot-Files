@@ -39,6 +39,7 @@ from pathlib import Path
 from ... import routing
 
 from .. import plan_activities as act
+from . import triage_candidates_activities as own
 
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
@@ -68,11 +69,15 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # Counted in code so the report cannot assert a total it invented.
     counts = act.candidate_counts(wt_candidates)
 
+    # THE COLUMN THIS RUN MUST NOT MOVE. `decision` is ours; `status` is a later
+    # process's and never becomes ours — deciding to do something does not do it.
+    before_status = act.candidate_statuses(wt_candidates)
+
     values = {
         "CANDIDATES_PATH": str(rel_candidates),
         "RESEARCH_DIR": str(rel_research),
         "WORKING_SET": _working_set(counts),
-        "DIRECTION_CEILING": act.direction_ceiling(worktree / rel_research),
+        "DIRECTION_CEILING": own.direction_ceiling(worktree / rel_research),
         "EXISTING_WORK": act.existing_work(repo_root, research_dir),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, "triage-candidates: rule the untriaged candidates"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
@@ -108,6 +113,32 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"triage-candidates left {after['untriaged']} of {counts['untriaged']} candidates "
             f"untriaged: {', '.join(after['untriaged_ids'])}. Every row must reach "
             f"ship / requires review / reject — see {url}"
+        )
+
+    # THE MIRROR OF plan-sprint's GUARD, and the split had left this side on prose
+    # alone. `sprint.md` is the operator's own sequencing surface, this workflow
+    # holds no override for it, and the prompt hands the model the exact trigger:
+    # "if a candidate you ship looks like it needs a sprint section, say so." Not
+    # taking a `sprint_path` parameter constrains the signature, never the run.
+    touched = own.sprint_files_touched(worktree)
+    if touched:
+        raise RuntimeError(
+            f"triage-candidates edited the sprint plan: {', '.join(touched)}. That "
+            f"file is the operator's cross-domain sequencing surface and this "
+            f"workflow holds NO authorization over it — `plan-sprint` carries the "
+            f"only override, and it runs after this. A shipped candidate that looks "
+            f"like it needs a sprint section is something to REPORT, never to "
+            f"write — see {url}"
+        )
+
+    flipped = act.statuses_this_run_had_no_right_to(before_status,
+                                                    act.candidate_statuses(wt_candidates))
+    if flipped:
+        raise RuntimeError(
+            f"triage-candidates changed the `status` column on {len(flipped)} "
+            f"candidate(s): {', '.join(flipped)}. Ruling a candidate is not doing it. "
+            f"`status` belongs to a later process — `plan-feature`, or the build that "
+            f"completes the item — and it did not move in the split — see {url}"
         )
     return url
 

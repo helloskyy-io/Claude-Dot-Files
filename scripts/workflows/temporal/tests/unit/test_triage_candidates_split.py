@@ -31,12 +31,15 @@ untriaged this week.
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 import pytest
 
 from modules.assistant.plan import plan_activities as act
+from modules.assistant.plan.plan_sprint import plan_sprint_activities as sprint_act
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as sprint
+from modules.assistant.plan.triage_candidates import triage_candidates_activities as triage_act
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as triage
 
 PR_URL = "https://github.com/o/r/pull/43"
@@ -47,10 +50,16 @@ _HEADER = (
 )
 
 
-def _table(rows: list[tuple[str, str]], note: str = "n") -> str:
-    """A candidates file holding exactly `rows` as (id, decision) pairs."""
-    body = "".join(f"| {cid} | a candidate | PR #1 | {dec} | `open` | {note} |\n"
-                   for cid, dec in rows)
+def _table(rows: list[tuple[str, ...]], note: str = "n") -> str:
+    """A candidates file holding exactly `rows` as (id, decision[, status]) tuples.
+
+    `status` defaults to `` `open` `` because that is what every row in the real
+    file carries while its work is outstanding; the tests that care about the
+    status guard pass the third element explicitly.
+    """
+    body = "".join(
+        f"| {row[0]} | a candidate | PR #1 | {row[1]} | {row[2] if len(row) > 2 else '`open`'} | {note} |\n"
+        for row in rows)
     return "# Action candidates\n\n" + _HEADER + body
 
 
@@ -69,15 +78,22 @@ def tree(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Silence the two helpers that shell out or walk the real tree.
+    """Silence the helpers that shell out or walk the real tree.
 
     `existing_work` runs `gh` and iterates `docs/development/`; `direction_ceiling`
-    reads a file. Neither is what any assertion here is about, and `existing_work`
-    making a live subprocess call would put a network dependency in a unit test.
+    reads a file; `sprint_files_touched` runs `git` and the fixture tree is not a
+    repository. None of them is what any assertion here is about, and
+    `existing_work` making a live subprocess call would put a network dependency
+    in a unit test.
+
+    `sprint_files_touched` is stubbed to the CLEAN answer, so the tests that care
+    about that guard are the ones that override it — a fixture that returned a
+    violation would make every other test in the module fail for the wrong reason.
     """
-    for module in (sprint, triage):
-        monkeypatch.setattr(module.act, "existing_work", lambda *a, **k: "<work>")
-        monkeypatch.setattr(module.act, "direction_ceiling", lambda *a, **k: "<ceiling>")
+    monkeypatch.setattr(sprint.act, "existing_work", lambda *a, **k: "<work>")
+    monkeypatch.setattr(triage.act, "existing_work", lambda *a, **k: "<work>")
+    monkeypatch.setattr(triage.own, "direction_ceiling", lambda *a, **k: "<ceiling>")
+    monkeypatch.setattr(triage.own, "sprint_files_touched", lambda *a, **k: [])
 
 
 def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = None,
@@ -100,7 +116,7 @@ def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = N
 def test_it_reads_a_ruling_per_row(tree: Path) -> None:
     f = tree / "c.md"
     f.write_text(_table([("C-001", "`ship`"), ("C-002", "reject"), ("C-003", "")]))
-    assert act.candidate_decisions(f) == {
+    assert sprint_act.candidate_decisions(f) == {
         "C-001": "ship", "C-002": "reject", "C-003": ""}
 
 
@@ -114,7 +130,7 @@ def test_every_spelling_of_UNRULED_reads_as_the_same_thing(tree: Path, spelling:
     """
     f = tree / "c.md"
     f.write_text(_table([("C-001", spelling)]))
-    assert act.candidate_decisions(f) == {"C-001": ""}
+    assert sprint_act.candidate_decisions(f) == {"C-001": ""}
 
 
 def test_MARKUP_is_not_MEANING(tree: Path) -> None:
@@ -127,17 +143,17 @@ def test_MARKUP_is_not_MEANING(tree: Path) -> None:
     """
     f = tree / "c.md"
     f.write_text(_table([("C-001", "`ship`")]))
-    typeset = act.candidate_decisions(f)
+    typeset = sprint_act.candidate_decisions(f)
     f.write_text(_table([("C-001", "ship")]))
-    assert act.candidate_decisions(f) == typeset
+    assert sprint_act.candidate_decisions(f) == typeset
     f.write_text(_table([("C-001", "reject")]))
-    assert act.candidate_decisions(f) != typeset
+    assert sprint_act.candidate_decisions(f) != typeset
 
 
 def test_a_missing_file_says_so_rather_than_reading_as_empty(tree: Path) -> None:
     """An empty dict from a missing file would make the guard pass vacuously."""
     with pytest.raises(FileNotFoundError, match="candidates file not found"):
-        act.candidate_decisions(tree / "nope.md")
+        sprint_act.candidate_decisions(tree / "nope.md")
 
 
 # --- the transferred authority, enforced --------------------------------------
@@ -414,11 +430,134 @@ def test_triage_is_given_no_sprint_authority() -> None:
     holds an override to write it. A split that handed the same authority to both
     halves would have doubled the number of autonomous writers to that file while
     reading as a refactor.
+
+    ASSERTED AGAINST THE SIGNATURE, NOT THE FILE'S TEXT. This was a substring
+    search over the whole module source, and it went red on a COMMENT that used
+    the words `sprint_path` to explain why there is no such parameter — a check
+    reading a region far wider than the property it names. `inspect.signature` is
+    the property itself: whatever the prose says, this is what the function takes.
     """
-    source = Path(triage.__file__).read_text()
-    text = (Path(triage.PROMPTS) / "triage_candidates.md").read_text()
-    assert "sprint_path" not in source, (
-        "triage_candidates takes a sprint path — it has no business knowing where "
-        "sprint.md is, and a parameter is how the authority creeps back."
+    params = inspect.signature(triage.run_triage_candidates).parameters
+    assert not [p for p in params if "sprint" in p], (
+        f"run_triage_candidates takes {sorted(params)} — a sprint parameter is how "
+        f"the authority creeps back. It has no business knowing where sprint.md is."
     )
+    text = (Path(triage.PROMPTS) / "triage_candidates.md").read_text()
     assert "Touch `sprint.md` at all" in text and "you do not.**" in text
+
+
+# --- the guards the split had left on prose alone -----------------------------
+
+def test_triage_FAILS_when_it_edited_the_sprint_plan(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE MIRROR OF plan-sprint's DECISION GUARD, and it was missing.
+
+    Taking no `sprint_path` parameter constrains the SIGNATURE. The run holds the
+    whole worktree either way, and its own prompt hands it the trigger — "if a
+    candidate you ship looks like it needs a sprint section, say so" — one step
+    from writing the section instead of saying so. The argument that built the
+    decision guard ("prose is not a mechanism") reaches this boundary unchanged.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+    monkeypatch.setattr(triage.own, "sprint_files_touched",
+                        lambda *a, **k: ["docs/development/sprint.md"])
+
+    with pytest.raises(RuntimeError, match="edited the sprint plan"):
+        _run_triage(tree)
+
+
+@pytest.mark.parametrize("workflow,runner", [(sprint, _run_sprint), (triage, _run_triage)],
+                         ids=["plan_sprint", "triage"])
+def test_NEITHER_workflow_may_move_the_status_column(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
+        workflow, runner) -> None:
+    """`decision` MOVED between the two; `status` moved nowhere, because it was
+    never either one's.
+
+    `candidates.md` gives it to "a later process" — `plan-feature`, or the build
+    that completes the item — and both prompts list it under MAY NOT. Ruling a
+    candidate is not doing it, and placing one is not finishing it. Without this,
+    the split enforced one of the two columns it names and trusted prose for the
+    other.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    _fake_run(workflow, monkeypatch,
+              writes=_table([("C-001", "`ship`", "`closed`")]), path=f)
+
+    with pytest.raises(RuntimeError, match="changed the `status` column"):
+        runner(tree)
+
+
+def test_a_row_APPENDED_with_a_status_is_not_a_status_the_run_moved(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """NEGATIVE CONTROL, and it is the same exemption the decision guard needed.
+
+    `decision_log_and_reflection.md` tells every producing run to place a proposal
+    it surfaced with `status: open`. Judging new rows would make that shared
+    instruction unfollowable — the run would obey one of its own rules and fail
+    another. Only a row that already existed can have had its status MOVED.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    _fake_run(sprint, monkeypatch, writes=_table(
+        [("C-001", "`ship`", "`open`"), ("C-002", "", "`open`")]), path=f)
+
+    assert _run_sprint(tree) == PR_URL
+
+
+def test_the_two_readers_agree_on_what_BLANK_means(tree: Path) -> None:
+    """REGRESSION. Two hand-written normalisations drifted, and the drift was silent.
+
+    `candidate_counts` stripped `.strip().strip("`")` and `candidate_decisions`
+    `.strip().strip("`").strip()`. A cell typed `` ` — ` `` — padding INSIDE the
+    backticks — came out `" — "` under the first and `""` under the second, so the
+    row read RULED to the counter and BLANK to the guard. `triage-candidates`'s
+    completion post-condition is built on the counter, so that row would drop out
+    of the working set unruled while the post-condition reported a complete pass.
+
+    Both now go through one `normalise_cell`, and this walks the spellings that
+    told them apart.
+
+    ASSERTED ON THE VALUE, NOT ON AGREEMENT — and a mutation is what forced that.
+    The first cut checked only that the two readers AGREE, which sharing one
+    helper makes structurally true: restoring the old two-strip normalisation
+    changed both identically and the test stayed green. An assertion that cannot
+    fail is not a regression test. Each reader is now held to the ANSWER, so the
+    old normalisation fails both.
+    """
+    f = tree / "c.md"
+    for spelling in ("` — `", "`  `", "` `", "—", "`—`", " - ", "``", "`  —  `"):
+        f.write_text(_table([("C-001", spelling)]))
+        assert act.candidate_counts(f)["untriaged_ids"] == ["C-001"], (
+            f"candidate_counts read {spelling!r} as RULED. `triage-candidates`'s "
+            f"working set and its completion post-condition are both built on this "
+            f"count, so the row would never be offered for triage and the run would "
+            f"still report a complete pass."
+        )
+        assert sprint_act.candidate_decisions(f)["C-001"] == "", (
+            f"candidate_decisions read {spelling!r} as a ruling. plan-sprint's guard "
+            f"compares this before and after, so a run that merely tidied the cell "
+            f"would be failed for overturning a ruling that was never there."
+        )
+
+
+def test_the_dry_run_renders_the_SAME_correction_note_a_live_run_does() -> None:
+    """`--dry-run` previewed text no model would ever receive.
+
+    It rendered `_untriaged_note(counts)` alone while the live run prefixed the
+    counted line, so the one flag whose entire purpose is "count and render, no
+    model, no spend" could not show a regression in the counted line. Both call
+    `correction_note` now, and this is what holds them together.
+    """
+    counts = {"total": 9, "untriaged": 2, "triaged": 7, "untriaged_ids": ["C-1", "C-2"]}
+    live = sprint.correction_note(counts, correction_pass=False)
+    assert "Counted in code" in live and "NOT YOURS" in live
+    assert sprint._untriaged_note(counts) in live, (
+        "the counted line and the untriaged note must both be in the one slot — "
+        "rendering half of it is the bug this test exists for"
+    )
+    correction = sprint.correction_note(counts, correction_pass=True)
+    assert "CORRECTION PASS" in correction and "Counted in code" not in correction

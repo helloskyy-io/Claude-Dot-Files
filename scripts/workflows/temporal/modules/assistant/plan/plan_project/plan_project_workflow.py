@@ -181,8 +181,15 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
 
     while routing.should_loop_back(verdict, loops):
         loops += 1
-        notes.append("HOLD (redispatch): the runway closes with a scoped fix. "
-                     "Looping back ONCE — this is the last automated pass.")
+        # COUNTED, not asserted. This said "Looping back ONCE — this is the last
+        # automated pass" while `routing.MAX_LOOPS` is 3, so it was false on two
+        # passes out of three and told the operator the runway had closed when it
+        # had not. The same stale sentence survives in six other workflows that
+        # this change does not touch; it is surfaced rather than swept.
+        notes.append(f"HOLD (redispatch): the runway closes with a scoped fix. "
+                     f"Loop-back {loops} of {routing.MAX_LOOPS}."
+                     + (" This is the last automated pass."
+                        if loops == routing.MAX_LOOPS else ""))
         # THE LOOP-BACK GOES TO plan-sprint, NOT TO TRIAGE, and it is a
         # correction pass. Every candidate already carries a decision, so
         # re-triaging would re-litigate rulings rather than close the runway the

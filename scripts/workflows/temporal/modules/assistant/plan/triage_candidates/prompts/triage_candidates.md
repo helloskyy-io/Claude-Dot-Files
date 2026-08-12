@@ -26,6 +26,8 @@ ${DIRECTION_CEILING}
 
 **`sprint.md` is not yours, and this is not a formality.** The sprint plan is the operator's cross-domain sequencing surface and the standing rule is that dispatches never write it. `plan-sprint` carries a specific, bounded override for it; **you do not.** If a candidate you ship looks like it needs a sprint section, say so in your report and stop — `plan-sprint` runs after you and that is its call to make.
 
+**Both of those are enforced, not requested.** When you finish, the worktree is read for any change to a sprint file, and the `status` column is compared against what it held before you started. Either one **fails the whole run** — including the work you did correctly. Ruling a candidate is not doing it, and reporting that something needs a sprint section is the whole of your part in it.
+
 **`direction.md` is the one exception to the standards-directory rule.** It lives under `docs/standards/architecture/research/` but it is not a standard — it is the operator's inbox, and appending to it is how you hand something over.
 
 **The decision was made — implement your portion only.** A decided candidate does not become finished work because you decided it. Something else places it, and something else again builds it.

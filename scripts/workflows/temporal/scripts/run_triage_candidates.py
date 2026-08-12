@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
+from modules.assistant.plan.triage_candidates import triage_candidates_activities as own  # noqa: E402
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as wf  # noqa: E402
 
 BANNER = "=" * 64
@@ -43,7 +44,7 @@ def main(argv=None) -> int:
             rendered = act.render(act.load_prompt(wf.PROMPTS / "triage_candidates.md"), {
                 "CANDIDATES_PATH": a.candidates, "RESEARCH_DIR": a.research,
                 "WORKING_SET": wf._working_set(counts),
-                "DIRECTION_CEILING": act.direction_ceiling(research),
+                "DIRECTION_CEILING": own.direction_ceiling(research),
                 "EXISTING_WORK": act.existing_work(repo_root, research),
                 "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
                 "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),

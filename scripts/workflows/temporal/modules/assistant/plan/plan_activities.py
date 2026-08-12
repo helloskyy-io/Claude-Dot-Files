@@ -5,28 +5,29 @@ Sits at module level because more than one workflow uses it: `plan_sprint`,
 The promotion rule was anticipatory when this file was written and is now
 satisfied outright.
 
-THE CANDIDATE HELPERS ARE NO LONGER SINGLE-CONSUMER, and the split is what
-settled it. This docstring used to record `candidate_counts`, `direction_ceiling`
-and `existing_work` as a stated §10.1 rule-3 deviation — here on the family's
-shared surface with only `plan_sprint` calling them. Splitting triage out gave
-two of the three a genuine second caller, so the deviation has expired on its own
-rather than being argued away:
+THE SPLIT SETTLED WHAT BELONGS HERE, AND RULE 3 DECIDED IT — NOT TASTE. This
+docstring used to record `candidate_counts`, `direction_ceiling` and
+`existing_work` as a stated rule-3 deviation: here on the family's shared surface
+with only `plan_sprint` calling them. Splitting triage out gave two of them a
+genuine second caller and left the other single-consumer, so each moved to where
+its consumer count puts it:
 
   * `candidate_counts` — `triage_candidates` (its working set) and `plan_sprint`
-    (the ruled set it places from). Two consumers.
+    (the ruled set it places from). Two consumers, so it stays.
   * `existing_work` — `triage_candidates` (does this candidate already have a
     home?) and `plan_sprint` (§4b coherence: a finding with no home in the sprint
-    plan, in a component, or in an open issue). Two consumers.
-  * `candidate_decisions` — one caller, `plan_sprint`, and deliberately so: it
-    exists to prove `plan_sprint` did NOT write a column it no longer owns, which
-    is a question only `plan_sprint` can be asked.
-  * `direction_ceiling` — one caller, `triage_candidates`, which is the only
-    workflow that files a `D-NNN` row.
+    plan, in a component, or in an open issue). Two consumers, so it stays.
+  * `candidate_statuses` — both workflows, each to prove it did not touch the one
+    column neither of them owns. Two consumers, so it stays.
+  * `candidate_decisions` — one consumer. MOVED to `plan_sprint_activities`.
+  * `direction_ceiling` — one consumer. MOVED to `triage_candidates_activities`.
 
-The two remaining single-consumer helpers stay here because they are the same
-concern as their neighbours and splitting one file into two by caller count would
-make the family harder to read, not easier. That is a deviation and this is it
-being stated, per rule 3.
+The last two were briefly argued to belong here anyway, as "the same concern as
+their neighbours". [`workflow-scripts.md` § Location](../../../../../docs/standards/workflow-scripts.md)
+restates §10.1 rule 3 as BINDING and forecloses exactly that argument — *"consumer
+count decides, never taste"* — and rule 6 gives a workflow folder its place to
+grow a helper it has earned. The row-level primitives they need are exported
+below, so the parsing still has one definition.
 
 NOT IDEMPOTENT (§7.1): these push commits and open PRs. Under Temporal a retry
 is a NEW ATTEMPT, not a replay.
@@ -53,13 +54,43 @@ max_turns = shared.max_turns
 # A candidate row: | C-001 | title | source | `decision` | `status` | note |
 _ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", re.M)
 
-# A direction row: | D-001 | recommendation | why | source | `status` |
-_DIRECTION_ID = re.compile(r"^\|\s*`?D-(\d{3})`?\s*\|", re.M)
-
 _BLANK = ("", "—", "-")
 
 # Strips the leading marker so a section name is just its name.
 _SECTION_NAME = re.compile(r"^## Sprint:\s*")
+
+
+def normalise_cell(cell: str) -> str:
+    """One definition of what a `decision` / `status` cell MEANS, markup removed.
+
+    ONE definition, because two of them drifted. `candidate_counts` normalised
+    with `.strip().strip("`")` and `candidate_decisions` — written later, for the
+    guard — with `.strip().strip("`").strip()`. The extra strip matters: a cell
+    typed `` ` — ` `` (padding INSIDE the backticks) came out as `" — "` under the
+    first and `""` under the second, so the row read as RULED to the counter and
+    BLANK to the guard. `triage_candidates`'s completion post-condition is built
+    on the counter, so such a row would drop out of the working set unruled while
+    the post-condition reported a complete pass — the exact failure that
+    post-condition exists to catch, defeated by a normalisation written twice.
+
+    Measured on the live file at the time of the fix: 69 rows, 24 untriaged, the
+    two readers agreeing on every row. The defect was latent, not firing — which
+    is why it is worth removing rather than watching.
+    """
+    value = cell.strip().strip("`").strip()
+    return "" if value in _BLANK else value
+
+
+def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[tuple[str, str, str]]:
+    """Every `(id, decision, status)` in the file, normalised. One parse, one place.
+
+    `missing_hint` lets each caller say what the absent file costs IT, without a
+    second copy of the regex travelling with the sentence.
+    """
+    if not candidates_path.exists():
+        raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
+    return [(cid, normalise_cell(dec), normalise_cell(st))
+            for cid, dec, st in _ROW.findall(candidates_path.read_text())]
 
 
 def candidate_counts(candidates_path: Path) -> dict[str, int]:
@@ -69,14 +100,10 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
     window when one was, every flag internally consistent against a date it had
     invented. The same rule applies to any count a prompt or a report asserts.
     """
-    if not candidates_path.exists():
-        raise FileNotFoundError(
-            f"candidates file not found: {candidates_path}. "
-            f"`triage-candidates` rules the rows in it and `plan-sprint` places what "
-            f"they ruled; without the file neither has anything to work from."
-        )
-    rows = _ROW.findall(candidates_path.read_text())
-    untriaged = [i for i, dec, _st in rows if dec.strip().strip("`") in _BLANK]
+    rows = candidate_rows(candidates_path, missing_hint=(
+        "`triage-candidates` rules the rows in it and `plan-sprint` places what "
+        "they ruled; without the file neither has anything to work from."))
+    untriaged = [cid for cid, dec, _st in rows if not dec]
     return {
         "total": len(rows),
         "untriaged": len(untriaged),
@@ -85,55 +112,36 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
     }
 
 
-def candidate_decisions(candidates_path: Path) -> dict[str, str]:
-    """Every row's `decision`, normalised, keyed by id — the transferred column.
+def candidate_statuses(candidates_path: Path) -> dict[str, str]:
+    """Every row's `status`, normalised, keyed by id — the column NEITHER owns.
 
-    THIS IS THE AUTHORITY TRANSFER, ENFORCED RATHER THAN ASSERTED. `decision` was
-    `plan-sprint`'s output until triage became its own workflow; it is now
-    `triage-candidates`'s alone. Prose in nine documents says so, and prose is
-    not a mechanism: `plan_sprint` still READS this file, still has write access
-    to it in its worktree, and a model that has just decided a candidate is too
-    small for a sprint section is one plausible step from recording that
-    conclusion in the column next to it.
+    `decision` moved from `plan-sprint` to `triage-candidates`; `status` moved
+    nowhere, because it was never either workflow's. `candidates.md` gives it to
+    "a later process" — `plan-feature`, or the build that completes the item —
+    and both prompts list it under MAY NOT.
 
-    So `plan_sprint` snapshots this before its run and compares after. Same
-    discipline as `candidate_counts`: OBSERVE what the run wrote, never ask it
-    what it wrote.
-
-    Normalised — backticks and the several spellings of empty all collapse — so a
-    row reformatted from `` `ship` `` to `ship` does not read as a ruling
-    changed. The comparison must fire on MEANING, not on markup.
+    It is here rather than in one workflow's folder because BOTH snapshot it, for
+    the same reason and against the same file. The argument that built the
+    `decision` guard reaches this column unchanged: `status` is the cell
+    immediately beside the one each run is legitimately reading, and *"we have
+    decided to do this"* is one plausible step from *"this is handled"*.
     """
-    if not candidates_path.exists():
-        raise FileNotFoundError(
-            f"candidates file not found: {candidates_path}. "
-            f"Without it there is no `decision` column to hold anything to."
-        )
-    rows = _ROW.findall(candidates_path.read_text())
-    out: dict[str, str] = {}
-    for cid, decision, _status in rows:
-        value = decision.strip().strip("`").strip()
-        out[cid] = "" if value in _BLANK else value
-    return out
+    return {cid: st for cid, _dec, st in candidate_rows(candidates_path, missing_hint=(
+        "Without it there is no `status` column to hold anything to."))}
 
 
-def direction_ceiling(research_dir: Path) -> str:
-    """The next free D-NNN, computed in code and handed over.
+def statuses_this_run_had_no_right_to(before: dict[str, str],
+                                      after: dict[str, str]) -> list[str]:
+    """Ids whose `status` changed on a row that already existed. Neither run may.
 
-    Same discipline as `candidate_ceiling` in the research family: a run that
-    guesses the next ID collides with an existing row or skips a block, and
-    either way the file's promise that an ID is stable breaks silently.
+    ONLY pre-existing rows are judged. A row this run APPENDED is a proposal
+    placed under the shared instruction in `decision_log_and_reflection.md`,
+    which tells it to write `status: open` — so a new row's `status` is
+    prescribed by another rule and is not this guard's business. Row deletion is
+    already an offence under the `decision` guard, so it is not re-reported here.
     """
-    f = research_dir / "direction.md"
-    if not f.exists():
-        return ("`direction.md` does NOT exist yet — create it with the header row "
-                "and start at `D-001`.")
-    ids = sorted(_DIRECTION_ID.findall(f.read_text()))
-    if not ids:
-        return "`direction.md` exists but holds no rows — start at `D-001`."
-    return (f"`direction.md` holds **{len(ids)} rows**, highest ID **D-{ids[-1]}**. "
-            f"A NEW recommendation starts at **D-{int(ids[-1]) + 1:03d}**. "
-            f"Never renumber an existing row.")
+    return sorted(cid for cid in before.keys() & after.keys()
+                  if before[cid] != after[cid])
 
 
 def existing_work(repo_root: Path, research_dir: Path) -> str:

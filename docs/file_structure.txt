@@ -274,6 +274,9 @@ claude-dot-files/
 │           │                                        #   places what they ruled; split apart so planning can sit between them) and
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
+│           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with
+│           │                                        #   one consumer lives in that workflow's own {name}_activities.py, per §10.1
+│           │                                        #   rule 3 — consumer count decides, never taste
 │           │                                        #   exit_record.py — the Kind 2 typed exit record: THE ONE DECLARATION of its
 │           │                                        #   schema and vocabulary, and the ten-rule fail-safe contract a parent routes on
 │           │                                        #   (docs/standards/exit-protocol.md). Dependency-free, like its sibling routing.py
