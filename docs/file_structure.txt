@@ -220,6 +220,7 @@ claude-dot-files/
 │   │           │                                    #   and every row names a consumer in `Read by`. run_log.py excluded BY NAME, exclusion asserted
 │   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
+│   │           ├── test_nullable_fields_are_not_truth_tested.py  # A NUMERIC nullable may never be truth-tested: `not x` folds an unmeasured record into a measured zero. Reads USAGE, not the declaration — the declaration gate could not see seven instances of it
 │   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name — including a slug JOINED into
 │   │           │                                    #   a sentence or TRUNCATED for a column — the derived model→workflow map finding the one
 │   │           │                                    #   ambiguous pair, and the two subagent parsers agreeing over the live archive
@@ -314,6 +315,7 @@ claude-dot-files/
 │                   │                                #   with a completeness check), `parse_verdict` by AST scan of the whole tree, and
 │                   │                                #   exit-protocol §4's reason column compared against the shipped enum
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
+│                   ├── test_shim_usage_names_itself.py   # Every shim's `#   ./x.sh` usage line must name the shim it is in. Four documented a different workflow; copy-pasting one ran the wrong one
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.
 │                   │                                #   Plus the permission_denials surface both fleets share: it names every denied
