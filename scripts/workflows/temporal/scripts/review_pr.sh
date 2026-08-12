@@ -6,9 +6,9 @@
 # (run_review_pr.py) rather than duplicated in bash.
 #
 # Usage:
-#   ./review-pr.sh --pr <N>
-#   ./review-pr.sh --pr <N> --type research --verbose
-#   ./review-pr.sh --pr <N> --dry-run        # render only: no model, no spend
+#   ./review_pr.sh --pr <N>
+#   ./review_pr.sh --pr <N> --type research --verbose
+#   ./review_pr.sh --pr <N> --dry-run        # render only: no model, no spend
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_review_pr.py" "$@"

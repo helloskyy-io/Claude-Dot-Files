@@ -139,4 +139,6 @@ If the project has no master runner or component test suite, fall back to runnin
 
 **Then check the DELIVERED CI gate — you are the only actor who can.** Run \`gh pr checks ${PR_NUMBER}\` (and \`gh run view <id> --log-failed\` on any failure). The draft run structurally could not do this: pushing is its terminal act, so CI had not finished when it exited. A gate that is RED on a clean runner but green on the author's machine is the signature failure this catches — tests coupled to host state (a group, a mount, an installed binary, an env var) only ever asserted something true of the machine that wrote them. **A local pass is not evidence the gate is green.** Treat a red or host-coupled check as a Stage 3 finding and fix it here.
 
+**COMPARE THE CHECK SET, NOT ONLY EACH CHECK'S RESULT.** A push can trigger some workflows and not others: one push produced `Analyze` and `CodeQL` runs and NO `tests` run, and `gh pr checks` reported three passing checks while simply omitting the merge gate — which reads identically to all-green. **Check the set against the previous head's**, and treat a missing gate as a failure. An absent gate and a passing gate are different facts, which is the same distinction this fleet's readers draw between *not measured* and *zero*.
+
 If anything fails, fix it. Do not proceed to Stage 5 with failing tests.

@@ -21,6 +21,8 @@ EXECUTION ORDER IS MANDATORY. If a stage has nothing to address, emit: ## Stage 
 ---
 
 ## Stage 1: VERIFY + GATHER
+
+**FIRST, BEFORE VERIFYING ANY CLAIM: is this body about THIS PR at all?** The rest of this stage treats the body as a source of claims to check against the code, and is thorough about it — but never asks the prior question. **Does the body name artifacts absent from both the diff and the tree?** A body describing a different PR makes every downstream verification meaningless, and it has happened: it surfaced only because the body's own Summary and refine sections disagreed about what was built. This is the same cross-PR mix-up the `completion_ref` check exists for, on the other channel.
 FIRST: verify this PR targets THIS repo. If the PR's changed files reference a different repository than your worktree, STOP — report "DISPATCH MISCONFIGURATION: PR targets <repo X>, worktree is <repo Y>; re-run with --repo <path>" and do no further work.
 
 Then gather the raw material (batch independent reads in one turn). **You are NOT re-reviewing the code** — the code was already beaten up by overlapping review agents during the build. YOUR PRIMARY HUNTING GROUND is the producing run's OWN WORDS, the place it told on itself:

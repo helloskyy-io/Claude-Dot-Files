@@ -87,7 +87,15 @@ __all__ = [
 # the number rather than rediscovering the trade.
 ESCALATED = "escalated"
 
-CLOSED_DISPOSITIONS = frozenset({"fixed", "deferred", "rejected", "noted", ESCALATED})
+# `dissolved` IS CLOSED, and it must be. Added to the prompt on 2026-08-11 and
+# to neither the schema nor this partition — a one-copy edit to a three-copy
+# contract. Two consequences, one already fired: the render/record invariant
+# stopped PR #83 because the word existed in prose and not in the typed record;
+# and UNKNOWN COUNTS AS OPEN below, so a dissolved finding would have counted
+# open forever and NO PR CONTAINING ONE COULD EVER CONVERGE. It is a ruled
+# outcome in the same family as `rejected` — a lens collapsed the question and
+# there is nothing left to do.
+CLOSED_DISPOSITIONS = frozenset({"fixed", "deferred", "rejected", "noted", "dissolved", ESCALATED})
 
 # `hold` is the only disposition that leaves work for THIS loop. Spelled as its
 # own frozenset rather than derived, so the completeness gate in
