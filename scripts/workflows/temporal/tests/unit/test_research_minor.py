@@ -311,6 +311,45 @@ def test_the_rendered_minor_prompt_orders_no_sizing(monkeypatch, tmp_path) -> No
     )
 
 
+def test_the_upstream_pointer_sends_the_run_to_the_WHY_and_asks_it_to_REUSE(
+        monkeypatch, tmp_path) -> None:
+    """Pointing at the pool is not the same as being told to mine it.
+
+    THE MISS THIS PINS, 2026-08-12. The block already listed every product-pool
+    paper by name, and a component run still never opened the one on the nearest
+    comparable system — which specified a typed per-step return contract, a
+    content-addressed store and offline hash re-verification, ranked Tier 1 and
+    costed S. Nothing in its title resembled the run's question, and the only
+    directive attached to the pool asked which part of the question upstream
+    already COVERED. Coverage is a title search; reuse is not.
+
+    The problem statement is the second half: it was reachable only from
+    `altitude_product.md`, so no component run had ever been shown the thesis its
+    component exists to serve, and the minor cycle renders no altitude fragment
+    at all.
+    """
+    prompt = _render_write_minor(monkeypatch, tmp_path)
+
+    assert "upstream product research" in prompt, (
+        "the upstream pointer did not reach the merged prompt, so every assertion "
+        "below would pass vacuously"
+    )
+    assert "problem-statement.md" in prompt, (
+        "the merged prompt never names the problem statement. A component run is "
+        "building part of a project it has not been told the purpose of, and the "
+        "file is reachable from no other fragment this cycle renders."
+    )
+    assert "MINE THIS POOL FOR ANSWERS" in prompt, (
+        "the pool is pointed at but the run is not told to mine it for mechanisms. "
+        "Coverage-only framing opens papers whose title resembles the question and "
+        "leaves the comparable-system papers — the highest-yield ones — unopened."
+    )
+    assert "COMPARABLE SYSTEM" in prompt, (
+        "the directive no longer singles out comparable-system papers, which is the "
+        "specific class the measured miss belonged to"
+    )
+
+
 def test_the_full_cycle_still_gets_the_sizing_directives() -> None:
     """THE CONTROL, and it is the load-bearing half.
 
