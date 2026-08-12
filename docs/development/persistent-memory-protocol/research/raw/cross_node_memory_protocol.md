@@ -1,5 +1,25 @@
 # Carrying durable memory across nodes that come and go
 
+> **SUPERSEDED 2026-08-12.** This paper is kept for provenance and is **not current evidence** —
+> treat it as retired, not as an authority to cite. It was produced against a brief that restated
+> the operator's "short-lived processes" (meaning `claude -p` invocations sharing no in-process
+> memory) as "nodes that come and go", and built four multi-machine facets on that substitution.
+> The operator's own words: *"IT HAS NOTHING TO DO WITH EDGES AND PLACEMENT OR MOVING
+> CONTAINERS."* The corrected question — how a workflow passes state between `claude -p`
+> children on ONE machine — is answered instead by
+> [`state_passing_between_workflow_children.md`](state_passing_between_workflow_children.md) in
+> this same directory.
+>
+> **Three findings here survive the scope correction** and are re-grounded in primary evidence in
+> the superseding paper rather than inherited as-is: (1) a store that keeps one value per key is
+> contractually required to destroy the previous value, so it cannot hold a reasoning trail —
+> log compaction is last-write-wins applied to storage; (2) `candidates.md` never deletes a row
+> while `direction.md` rotates rows at 90 days — two surfaces inside one "file binding" with
+> opposite lifecycles; (3) this fleet has parent-written observables that went unread for weeks —
+> "a store nobody reads" is a documented local failure mode. Everything else below — the
+> multi-machine identity, placement and reconciliation material — is out of scope for this
+> fleet's actual question and should not be cited as if it were.
+
 ```
 Topic:          How do mature systems carry durable memory across nodes that come and go?
                 Evaluated against the thesis: "Workers are ephemeral like containers; what
