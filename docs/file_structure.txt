@@ -338,6 +338,9 @@ claude-dot-files/
 │                   │                                #   extractor, and BOTH parity bounds for the owner/repo narrowing
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
+│                   ├── test_model_gets_the_worktree_path.py # The path RENDERED to the model is the worktree-anchored one, not the
+│                   │                                #   main-checkout path. Two runs (#84, #86) wrote their paper outside the
+│                   │                                #   worktree; asserts over the workflows found on disk, not a fixed list
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
