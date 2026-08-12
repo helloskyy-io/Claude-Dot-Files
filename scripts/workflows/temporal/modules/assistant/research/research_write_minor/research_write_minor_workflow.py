@@ -114,7 +114,11 @@ def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
     ) if b]
 
     values = {
-        "RESEARCH_DIR": str(research_dir),
+        # The path the MODEL is given must be the one it can actually write to.
+        # `pool` is `research_dir` re-anchored to this run's worktree; handing over
+        # the un-anchored `research_dir` pointed two consecutive runs (#84, #86) at
+        # the MAIN CHECKOUT, and both were caught only by a pre-commit `git status`.
+        "RESEARCH_DIR": str(pool),
         "CONTEXT_BLOCK": "\n\n".join(blocks),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-minor: {research_dir}"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),

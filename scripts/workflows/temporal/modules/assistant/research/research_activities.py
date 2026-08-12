@@ -99,6 +99,13 @@ def paper_currency(research_dir: Path, today: date | None = None) -> tuple[str, 
         "**Use these verdicts verbatim. Do NOT recompute them.** A paper marked `current` is",
         "current — do not caveat its claims for age. A prior synthesis is a CONSUMABLE, not an",
         "authority: where it disagrees with this table, the table wins.",
+        "",
+        "**CURRENCY AND CONFORMANCE ARE DIFFERENT AXES AND THIS TABLE SETTLES ONLY THE"
+        " FIRST.** `current` means *not yet stale*. It does NOT mean the paper conforms to"
+        " §3 — a header can carry a parseable `Revalidate:` and still be non-conformant in"
+        " every other respect, which is exactly how a run inherits a defect while quoting"
+        " this table as its authority. Check conformance separately; never read `current`"
+        " as clearance.",
         "--- end paper currency ---",
     ])
     return table, due

@@ -61,7 +61,11 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
 
     values = {
-        "RESEARCH_DIR": str(research_dir),
+        # The path the MODEL is given must be the one it can actually write to.
+        # `pool` is `research_dir` re-anchored to this run's worktree; handing over
+        # the un-anchored `research_dir` pointed two consecutive runs (#84, #86) at
+        # the MAIN CHECKOUT, and both were caught only by a pre-commit `git status`.
+        "RESEARCH_DIR": str(pool),
         "DUE_LIST": "\n".join(f"- {p}" for p in due),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-refresh: {research_dir}"),
         "ALTITUDE_BLOCK": act.load_prompt(PROMPTS / fragment),
