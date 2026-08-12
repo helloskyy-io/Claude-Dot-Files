@@ -108,7 +108,9 @@ claude-dot-files/
 │   │   │   ├── phase6_read_what_it_writes.md        # Names the per-run JSONL log as a surface (Kind 3, proposed) and builds the readers three
 │   │   │   │                                        #   phases of emitters never had; owns Phase 5's un-owned activation trigger
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
-│   │   ├── persistent-memory-protocol/              # RESEARCH ONLY — no plan yet; pool backs carrying memory across nodes that come and go
+│   │   ├── persistent-memory-protocol/              # CONCEPTS AGREED, not yet planned. concepts.md records what we adopt, from
+│   │   │                                        #   where, and why — operator+PM session, NOT critic-verified and NOT a design.
+│   │   │                                        #   Its pool's first paper answered the wrong question and is superseded
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
