@@ -20,7 +20,8 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "build-draft"
-MAX_TURNS_KEY = "build-draft"
+WORKFLOW_KEY = "build-draft"   # the run log's per-workflow bin; see run_log.py
+MAX_TURNS_KEY = WORKFLOW_KEY
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
@@ -62,7 +63,8 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(template, values,
                    opaque=frozenset({"DESCRIPTION"})),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
         max_turns=act.max_turns(MAX_TURNS_KEY),
         verbose=verbose,

@@ -176,15 +176,38 @@ max_turns:
 # cap over a 0.5 GiB workload could never fire anyway. So: observe first, and set
 # a ceiling later from data rather than from a story.
 #
+# THE UNCAPPED AGGREGATE IS AN ACCEPTED RISK, NOT AN OVERSIGHT (operator,
+# 2026-08-10). Recorded here because "we removed the caps" without the residual
+# exposure is not an informed acceptance. NO bound in this fleet can fire during a
+# livelock: `max_turns:` and `routing.MAX_LOOPS` are TURN and LOOP counters, and a
+# livelocked child consumes neither, while the parent waits on it with
+# `proc.wait()` and no timeout. So during precisely the failure that produced this
+# instrument there is no memory bound, no PID bound, no wall-clock bound and no
+# turn bound. The cause is still unidentified, so a recurrence is not excluded.
+# This names the exposure; it proposes no remedy, and re-opening the choice
+# without new data is the legislating-from-a-single-run failure that
+# `docs/standards/workflow-scripts.md` § Bounded composition names.
+#
+# WHAT THE MEASUREMENT SAYS SO FAR, taken 2026-08-11 with
+# `python3 scripts/helpers/measure/replay_run_resources.py` over 10 sound records:
+# the two runs that spawned 4 and 5 sub-agents peaked at 0.482 GiB and 0.458 GiB
+# of anonymous memory, and the largest peak in the corpus — 12.891 GiB — came from
+# a run that spawned NONE. That is consistent with the retraction and is not
+# evidence for a cap. Re-run it before quoting it; the denominator grows.
+#
 # IF LIMITS ARE ADDED BACK, two things were learned the expensive way and both
 # are non-obvious:
 #   - `MemoryMax` ALONE IS DECORATIVE. cgroup v2 bounds RAM and spills the rest
 #     to swap, so a runaway thrashes instead of dying. 400 MB under a 24 MB
 #     MemoryMax returned exit 0. It needs `MemorySwapMax=0` beside it.
 #   - A WIDE `MemoryHigh` BAND IS ITSELF A LIVELOCK. High throttles rather than
-#     kills, so a runaway inside a wide band never reaches Max. Under a 24 MB
-#     Max: High=16M ground past a 25s timeout; High=22M died at once. Keep any
-#     High above ~80% of Max, or omit it.
+#     kills, so a runaway inside a wide band never reaches Max. Measured under a
+#     24 MB Max: High=16M ground past a 25s timeout without dying; High=22M died
+#     at once; AND NO-`High` AT ALL ALSO DIED AT ONCE. That third arm is the
+#     CONTROL and it is the half that matters — it is what establishes the wide
+#     BAND as the cause rather than the 24 MB `Max` value, and without it the
+#     other two readings are consistent with "the cap was simply too small".
+#     Keep any High above ~80% of Max, or omit it.
 resource_limits:
   slice: claude-workflows.slice   # groups children so a FUTURE aggregate cap has
                                   #   somewhere to attach. Imposes nothing today.

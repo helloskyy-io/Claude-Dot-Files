@@ -29,7 +29,8 @@ MODEL_KEY = "research"
 # model would silently revert this 150 to the parent's 250, which is a mistake
 # a previous version of this file made and carried a paragraph warning about.
 # Reasoning and measurement live with the value, in config.yaml.
-MAX_TURNS = act.max_turns("research-write")
+WORKFLOW_KEY = "research-write"   # NOT MODEL_KEY -- see run_claude's docstring
+MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
@@ -67,7 +68,8 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "write.md"), values,
                    opaque=frozenset({"CONTEXT_BLOCK"})),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )
     from ...assistant_activities import extract_pr_url

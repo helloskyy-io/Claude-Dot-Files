@@ -13,9 +13,19 @@ memory, and the honest answer was that nobody could know. A run that dies inside
 a cgroup is diagnosable — the kernel names it and logs its RSS. A run that
 livelocks the host leaves nothing to read.
 
-SO THE CAP AND THE MEASUREMENT ARE ONE MECHANISM, deliberately. Putting a child
-in a scope to bound it is what makes the kernel account for it, and the same
-files answer both questions. Building either one gets the other free.
+THERE IS NO CAP. THIS IS MEASUREMENT ONLY, and the correction matters because
+this docstring used to say the opposite. It read "the cap and the measurement are
+ONE mechanism" — true for the seven hours a ceiling existed on 2026-08-10, and
+reverted at `6725111`. The attribution that justified the ceiling is RETRACTED:
+sub-agents run IN-PROCESS, so the per-process arithmetic behind it was counting
+processes that do not exist. **The outage was real and its cause is still
+UNIDENTIFIED**, which is why the measurement stayed when the cap went.
+
+What the scope still buys is the accounting boundary: putting a child in its own
+scope is what makes the kernel account for it separately from the session, and it
+is the attachment point a future aggregate cap would need. `wrap()` applies no
+ceiling today and `test_wrap_creates_a_scope_and_applies_no_ceiling` fails if one
+silently reappears.
 
 WHAT THIS IS FOR, and it is not primarily safety. The open question is which
 knob actually governs a run's footprint: the NUMBER of subagents, or the VOLUME
@@ -60,6 +70,17 @@ from pathlib import Path
 # that last tens of minutes.
 SAMPLE_INTERVAL_S = 2.0
 
+# LIMITATION, AND IT IS THE ONE THAT BIT: THE SERIES IS DISCARDED AS IT IS READ.
+# `_Sampler` keeps a running max, a running mean and nothing else, so a peak has
+# no TIMESTAMP and cannot be attributed to anything. Measured 2026-08-11 by
+# `scripts/helpers/measure/replay_run_resources.py`: one archived `build-draft`
+# run peaked at 12.891 GiB anon against a 0.614 GiB mean over 1761 samples, with
+# 0 sub-agents and 0.61 MiB of tool results — so NEITHER knob this module exists
+# to separate explains it, and nothing here can say which minute it happened in.
+# The next occurrence produces the same unattributable number. Carried as
+# candidate C-069, which prices a bounded ring buffer against the retention
+# question it opens; it is not designed around silently here.
+#
 # LIMITATION, stated because it is invisible otherwise: `peak_total` and
 # `pids_peak` are kernel-maintained high-water marks and are exact regardless of
 # cadence. `peak_anon` is NOT — the kernel keeps no anon high-water mark, so it
@@ -83,6 +104,14 @@ class ResourceReport:
     # perfectly well-formed at the single-record level.
     run_id: str | None = None
     model_key: str | None = None
+    # THE WORKFLOW KEY IS NOT THE MODEL KEY, and this field exists because the
+    # difference makes a per-workflow figure impossible without it. `config.yaml`
+    # states it above `research-write:`: `research-write` and `research-verify`
+    # share the model key `research` and have separately-measured budgets. A
+    # reader keying a distribution off `model_key` therefore merges two
+    # workflows into one bin and cannot say so, because nothing in the record
+    # marks the bin as ambiguous.
+    workflow_key: str | None = None
     started_at: str | None = None      # ISO-8601 UTC
     ended_at: str | None = None
 
@@ -99,7 +128,7 @@ class ResourceReport:
 
     # Derived from the run's own stream log.
     tool_result_bytes: int | None = None   # content volume pulled into context
-    subagents_spawned: int | None = None   # Task invocations — NOT concurrency, see below
+    subagents_spawned: int | None = None   # Agent/Task spawns — NOT concurrency, see below
 
     samples: int = 0
     limits: dict = field(default_factory=dict)
@@ -230,12 +259,28 @@ def scope_available() -> tuple[bool, str | None]:
 def wrap(argv: list[str], *, unit: str, limits: dict) -> list[str]:
     """`argv` wrapped in a transient user scope carrying `limits`.
 
-    The scope joins a SHARED SLICE. Per-dispatch caps do not compose: three
-    sessions each running a correctly-capped 8 GiB child still sum past a 31 GiB
-    box, which is exactly how the 2026-08-10 incident happened — two dispatches
-    and three interactive sessions, each individually reasonable. A slice cap
-    bounds the TOTAL regardless of how many sessions fire, so the ceiling is a
-    property of the host rather than of anyone's discipline.
+    IT APPLIES NO CEILING TODAY, AND THIS DOCSTRING USED TO ASSERT ONE. It said
+    three correctly-capped 8 GiB children summing past a 31 GiB box was "exactly
+    how the 2026-08-10 incident happened" — **that attribution is RETRACTED**
+    (see the module docstring), the caps it argued for were reverted at
+    `6725111`, and `resource_limits` now holds one lowercase key. `wrap()` emits
+    one `-p` per CamelCase key, so it currently emits none. **The outage was real
+    and its cause is still UNIDENTIFIED**; asserting a mechanism here is a fence
+    around the one component since proven innocent, in the docstring of the
+    function a reintroduced cap would attach to.
+
+    WHAT THE SCOPE AND THE SHARED SLICE ARE FOR, stated so the next author does
+    not read this as a cap that got lost. The scope makes the kernel account for
+    this child separately from the session — without it the 2026-08-10 livelock
+    is undiagnosable, which is the condition it actually happened under. The
+    slice groups children so that an aggregate cap, if one is ever justified by
+    data, has somewhere to attach. Neither bounds anything.
+
+    IF A CEILING IS EVER ADDED HERE, `config.yaml`'s `resource_limits:` block
+    carries the two things learned expensively — a `MemoryMax` without
+    `MemorySwapMax=0` is decorative, and a wide `MemoryHigh` band is itself a
+    livelock — and `test_wrap_creates_a_scope_and_applies_no_ceiling` is the
+    check that notices one reappearing.
     """
     args = ["systemd-run", "--user", "--scope", "-q", "--unit", unit]
     if slice_name := limits.get("slice"):
@@ -291,13 +336,15 @@ def measure(proc: subprocess.Popen, *, unit: str) -> _Sampler | None:
 
 def finish(sampler: _Sampler | None, *, limits: dict,
            unmeasured_reason: str | None = None,
-           run_id: str | None = None, model_key: str | None = None) -> ResourceReport:
+           run_id: str | None = None, model_key: str | None = None,
+           workflow_key: str | None = None) -> ResourceReport:
     """Close out a measurement. Identity is stamped even when nothing was measured —
     an unmeasured run has to be countable AND attributable, or the size of the
     blind spot cannot be broken down by which workflow it happened in."""
     if sampler is None:
         return ResourceReport(
-            run_id=run_id, model_key=model_key, started_at=_now(), ended_at=_now(),
+            run_id=run_id, model_key=model_key, workflow_key=workflow_key,
+            started_at=_now(), ended_at=_now(),
             measured=False,
             unmeasured_reason=unmeasured_reason or "cgroup could not be resolved for the child",
             limits=limits,
@@ -305,7 +352,7 @@ def finish(sampler: _Sampler | None, *, limits: dict,
     sampler.stop_flag.set()
     sampler.join(timeout=SAMPLE_INTERVAL_S * 2)
     return ResourceReport(
-        run_id=run_id, model_key=model_key,
+        run_id=run_id, model_key=model_key, workflow_key=workflow_key,
         started_at=sampler.started_at, ended_at=_now(),
         measured=sampler.samples > 0,
         unmeasured_reason=None if sampler.samples else "cgroup vanished before the first sample",
@@ -320,19 +367,44 @@ def finish(sampler: _Sampler | None, *, limits: dict,
     )
 
 
-# `Task` is the subagent-spawning tool. Counted from the log because the cgroup
-# cannot distinguish a subagent's processes from the parent's.
-_TASK_CALL = re.compile(r'"name"\s*:\s*"Task"')
+# The sub-agent-spawning tool. Counted from the log because the cgroup cannot
+# distinguish a sub-agent's processes from the parent's.
+#
+# IT IS NAMED `Agent`, AND THIS PATTERN MATCHED ONLY `Task` UNTIL 2026-08-11, SO
+# THE COUNTER COULD NOT MOVE. Measured over the 153-log archive at the time of
+# the fix: 272 `"name":"Agent"` invocations and ZERO `"name":"Task"`, with
+# `subagents_spawned` sitting at 0 on 13 of 13 emitted records. That is not "no
+# run spawned a sub-agent" — it is a field reporting an absence it is incapable
+# of distinguishing from a presence, which is the same defect as printing "0
+# throttling events" when no threshold exists to throttle against.
+#
+# It is the field this module's own docstring names as half of its purpose:
+# separating the NUMBER of sub-agents from the VOLUME each pulls into context.
+# The regression it promises was unreachable for as long as this line said
+# `Task`.
+#
+# BOTH SPELLINGS STAY. The CLI renamed the tool; a log written under either name
+# records the same fact, and dropping the old name would silently re-lose every
+# archived run the moment a name changes again.
+_SUBAGENT_CALL = re.compile(r'"name"\s*:\s*"(?:Agent|Task)"')
 
 
 def from_log(log_file: Path) -> tuple[int | None, int | None]:
     """(tool_result_bytes, subagents_spawned) parsed from the run's stream log.
 
     `subagents_spawned` IS NOT CONCURRENCY and must not be read as it. It counts
-    Task invocations over the whole run; five sequential subagents and five
+    spawn invocations over the whole run; five sequential subagents and five
     simultaneous ones produce the same number. `pids_peak` is the concurrency
     signal, and it comes from the kernel. Naming this `max_concurrent` would
     have asserted a measurement nothing here performs.
+
+    THIS IS A LINE SCAN AND IT COUNTS A QUOTATION AS A SPAWN. A run that greps
+    its own logs puts the literal tool name in a tool RESULT, and this cannot
+    tell the two apart. It stays a scan because it runs on every dispatch;
+    `run_log.subagents_in` recomputes the same number structurally over decoded
+    `tool_use` blocks for the replay path, and `test_run_log.py` asserts the two
+    agree over the live archive so a divergence surfaces as a red test rather
+    than as a drifting figure.
     """
     if not log_file.is_file():
         return None, None
@@ -340,7 +412,7 @@ def from_log(log_file: Path) -> tuple[int | None, int | None]:
     try:
         with log_file.open(errors="replace") as fh:
             for line in fh:
-                spawned += len(_TASK_CALL.findall(line))
+                spawned += len(_SUBAGENT_CALL.findall(line))
                 if '"tool_result"' not in line:
                     continue
                 try:
