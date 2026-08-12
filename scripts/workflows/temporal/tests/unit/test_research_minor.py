@@ -603,7 +603,7 @@ def test_research_critic_reaches_the_minor_cycle_unchanged() -> None:
     )
 
 
-# --- 5. The turn cap is declared, resolvable, and labelled an estimate ---------
+# --- 5. The turn cap is declared, resolvable, and records its measurement ------
 
 def test_the_turn_cap_resolves() -> None:
     assert act.max_turns("research-write-minor") == 80, (
@@ -627,12 +627,24 @@ def test_the_cap_is_below_its_full_size_sibling() -> None:
     )
 
 
-def test_the_estimate_is_labelled_as_one() -> None:
+def test_the_measurement_is_recorded() -> None:
     """An unlabelled number is indistinguishable from a measured one.
 
     `plan-sprint` sets the precedent — 'NOT measured — an estimate, stated as
     one' — and the reason is that the next reader of this map has no other way to
     tell which values may be revised freely and which encode a real observation.
+
+    THIS ASSERTION INVERTED ON 2026-08-12 and the reason is worth keeping. The
+    cap WAS unmeasured, and this test held that label in place. The first live
+    `research_minor` dispatch then ran — 31 turns, `stop_reason: end_turn` — so
+    the label became false, and a test asserting a false statement is worse than
+    no test: it holds the falsehood on `main` while reading as coverage. The
+    property this test defends is unchanged (the reader can tell an estimate
+    from an observation); only which side of it the file sits on has moved.
+
+    A measurement is asserted WITH its run identity, not as a bare word. A cap
+    comment can say "MEASURED" and cite nothing, which is the same failure the
+    original label existed to prevent, one level up.
 
     SCOPED TO THE CAP'S OWN COMMENT BLOCK BY STRUCTURE, NOT BY A DELIMITER.
     The first version narrowed with `split("\\n  research", 1)` — the next
@@ -655,9 +667,25 @@ def test_the_estimate_is_labelled_as_one() -> None:
             break
         block.append(ln)
 
-    assert "NOT MEASURED" in "\n".join(block).upper(), (
-        "the research-write-minor cap no longer states that it is an estimate. "
-        "Nothing has run this workflow; a bare integer here reads as measured."
+    text = "\n".join(block)
+
+    assert "MEASURED:" in text.upper(), (
+        "the research-write-minor cap no longer records that its value has been "
+        "measured. A real run produced 31 turns on 2026-08-12; a bare integer "
+        "here reads as a guess and invites someone to revise it freely."
+    )
+
+    assert "NOT MEASURED" not in text.upper(), (
+        "the research-write-minor cap still claims to be unmeasured. The first "
+        "live research_minor dispatch ran on 2026-08-12, so that label is now "
+        "false — and a false label on the default branch is what this test "
+        "was inverted to prevent."
+    )
+
+    assert "5bd8b513a50a49d186b054e3c6c11e77" in text, (
+        "the research-write-minor cap claims a measurement without naming the "
+        "run it came from. An uncitable measurement cannot be re-checked, which "
+        "makes it an assertion wearing a measurement's label."
     )
 
 

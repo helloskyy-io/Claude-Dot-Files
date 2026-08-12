@@ -89,7 +89,6 @@ claude-dot-files/
 │   │   ├── continuous-process-improvement/          # IN PROGRESS — two evidence sources; why the ruling is always a human's
 │   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
 │   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
-│   │   ├── github-actions-integration/              # HISTORICAL (Apr 2026) — record of what was planned
 │   │   ├── fleet-reliability/                       # RESEARCH ONLY — no plan yet; pool backs the liveness predicate and stall axis
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
@@ -109,6 +108,7 @@ claude-dot-files/
 │   │   │   ├── phase6_read_what_it_writes.md        # Names the per-run JSONL log as a surface (Kind 3, proposed) and builds the readers three
 │   │   │   │                                        #   phases of emitters never had; owns Phase 5's un-owned activation trigger
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
+│   │   ├── persistent-memory-protocol/              # RESEARCH ONLY — no plan yet; pool backs carrying memory across nodes that come and go
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
@@ -420,6 +420,10 @@ claude-dot-files/
 │   │       │                                        #   unrelated directories as enumerated and demanded the roll-ups be expanded
 │   │       ├── test_candidate_ids_are_unique.py     # A `C-NNN` addresses ONE proposal. Three dispatches collided on the id space
 │   │       │                                        #   within forty minutes on 2026-08-11 and nothing would have said so
+│   │       ├── test_candidates_prose_matches_the_table.py # § Where things stand declares totals, an id range, a gap list and a
+│   │       │                                        #   decision split ABOUT the table above it. Derived here, because the
+│   │       │                                        #   paragraph was hand-written three times and wrong twice — the third time
+│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
 │   │       └── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │                                                #   checks, because every existing check was aimed at code rather than prose
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
