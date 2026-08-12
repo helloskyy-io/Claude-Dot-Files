@@ -169,19 +169,30 @@ max_turns:
                               #   89-turn peak — a pre-split number does not transfer.
   research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
                               #   3x observed peak: headroom rather than a budget.
-  research-write-minor: 80    # NOT MEASURED — an estimate, stated as one. Nothing has
-                              #   run this workflow yet. Basis: a stage-by-stage walk of
-                              #   its prompt (read the standard ~5, read the pool and the
-                              #   destination doc ~5, ONE blocking analyst dispatch ~1,
-                              #   checkpoint commit ~2, submit + PR ~4, decision log and
-                              #   reflection ~3) lands near 20, and 80 is ~4x that.
-                              #   Rounded UP on purpose: the cost of a cap set too high is
-                              #   nothing at all — it is a ceiling, not an allocation —
-                              #   while a cap set below a real run has already burned a
-                              #   full budget once. It is strictly below research-write's
-                              #   150 because this cycle is a subset of that one: no
-                              #   topics.md, no fan-out, no synthesis. REVISE FROM
-                              #   MEASUREMENT on the first real run.
+  research-write-minor: 80    # MEASURED: 31 turns on the first live research_minor
+                              #   dispatch, 2026-08-12 — run_id
+                              #   5bd8b513a50a49d186b054e3c6c11e77, terminal_reason
+                              #   "completed", stop_reason "end_turn". The run ended
+                              #   naturally and never approached the cap.
+                              #   CAP HELD AT 80 — re-examined against the measurement,
+                              #   not left alone. 80 over a measured 31 is 2.6x headroom,
+                              #   inside the family's observed band (research-write
+                              #   150/43 = 3.5x, research-verify 200/68 = 2.9x), so the
+                              #   value the estimate picked survives contact with the
+                              #   real run and there is nothing to revise.
+                              #   The superseded estimate, kept as calibration history:
+                              #   a stage-by-stage walk of the prompt (standard ~5, pool
+                              #   and destination doc ~5, ONE blocking analyst dispatch
+                              #   ~1, checkpoint commit ~2, submit + PR ~4, decision log
+                              #   and reflection ~3) landed near 20 — low by ~11 turns
+                              #   against the 31 observed. That is the direction a
+                              #   ceiling absorbs for free: the cost of a cap set too
+                              #   high is nothing at all — it is a ceiling, not an
+                              #   allocation — while a cap set below a real run has
+                              #   already burned a full budget once. It is strictly
+                              #   below research-write's 150 because this cycle is a
+                              #   subset of that one: no topics.md, no fan-out, no
+                              #   synthesis.
 
 # Workflow children run inside a transient cgroup scope so the kernel accounts
 # for them. This is MEASUREMENT ONLY — no ceiling of any kind is applied.
