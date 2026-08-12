@@ -5,8 +5,16 @@ the operator UNJUDGED — on the only autonomous write to `sprint.md`. This pare
 is the judge, and the property that matters is not that it calls `review-pr`; it
 is that it calls it the RIGHT NUMBER OF TIMES for each verdict.
 
-Both children are stubbed. The parent calls no model by design, so a test that
-exercised the real children would be testing them, not the routing — and the
+AND SINCE THE SPLIT, IN THE RIGHT ORDER. `triage-candidates` rules the
+candidates and `plan-sprint` places what they ruled, and the ORDER between them
+is the whole reason the split happened: sprint maintenance running first meant
+hour totals landed ahead of the estimates they depend on, and nothing could be
+sequenced between the two jobs while they shared one dispatch. Order is not
+something a reader can check by looking — both calls are present either way — so
+it is pinned here.
+
+All three children are stubbed. The parent calls no model by design, so a test
+that exercised the real children would be testing them, not the routing — and the
 routing is the whole content of a parent.
 
 The loop bound is a MEASURED constant, not a preference: self-correction
@@ -29,32 +37,47 @@ PR_URL = "https://github.com/o/r/pull/43"
 
 
 class _Calls:
-    """Counts what the parent actually dispatched, per child."""
+    """Counts what the parent actually dispatched, per child.
+
+    `order` is the sequence of child names as the parent actually called them.
+    The per-child counters answer "how many times"; only this answers "in what
+    order", and after the split the order IS the property.
+    """
 
     def __init__(self) -> None:
         self.triage = 0
+        self.sprint = 0
         self.review = 0
+        self.order: list[str] = []
         self.correction_passes: list[bool] = []
         self.research_pools: list[Path] = []
-        self.triage_pools: list[Path] = []
+        self.sprint_pools: list[Path] = []
 
 
 @pytest.fixture
 def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
-    """Stub both children and isolation; the parent's own logic is untouched."""
+    """Stub all three children and isolation; the parent's own logic is untouched."""
     calls = _Calls()
 
     def fake_triage(**kw: object) -> str:
         calls.triage += 1
+        calls.order.append("triage")
+        return PR_URL
+
+    def fake_sprint(**kw: object) -> str:
+        calls.sprint += 1
+        calls.order.append("sprint")
         calls.correction_passes.append(bool(kw.get("correction_pass", False)))
-        calls.triage_pools.append(kw["research_dir"])
+        calls.sprint_pools.append(kw["research_dir"])
         return PR_URL
 
     def fake_write(**kw: object) -> str:
         calls.research_pools.append(kw["research_dir"])
+        calls.order.append("research")
         return PR_URL
 
-    monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_triage)
+    monkeypatch.setattr(pm.triage, "run_triage_candidates", fake_triage)
+    monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_sprint)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
     # The parent reads its own repo slug BEFORE the triage child, so the number
     # it takes out of the child's URL can be checked against the repository the
@@ -88,19 +111,54 @@ def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str]]:
     )
 
 
-def test_merge_runs_one_triage_and_one_review(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The happy path spends exactly two child dispatches, never three."""
+def test_merge_runs_one_of_each_child(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The happy path spends exactly three child dispatches, never four."""
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     url, verdict, loops, _notes = _run()
     assert (url, verdict, loops) == (PR_URL, routing.Verdict.MERGE, 0)
-    assert (wired.triage, wired.review) == (1, 1)
+    assert (wired.triage, wired.sprint, wired.review) == (1, 1, 1)
+
+
+def test_triage_runs_BEFORE_the_sprint_plan_is_touched(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE ORDERING IS THE SPLIT, and nothing else here would catch it reversed.
+
+    Both children are called either way, and both counters read 1 either way —
+    so a parent that placed before it ruled would pass every other assertion in
+    this file. The defect that ordering fixes is concrete: `plan-sprint` used to
+    run first, which put its hour totals in the plan ahead of anything that
+    estimates the work those totals are of, and left no position in which
+    feature planning could run at all.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _run()
+    assert wired.order == ["triage", "sprint"], (
+        f"the parent dispatched its children as {wired.order}. Triage rules the "
+        f"candidates and plan-sprint places what they ruled — reversed, the "
+        f"sprint plan is written from rulings that have not been made yet."
+    )
+
+
+def test_research_sits_BETWEEN_triage_and_the_sprint_plan(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The gap is the whole point of the split, so its position is pinned.
+
+    `plan-candidates` and `plan-feature` land in this same gap later. If the
+    research fan-out drifted to either end, the position they are meant to
+    occupy would quietly stop existing.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_sections(monkeypatch, "Alpha")
+    _run()
+    assert wired.order == ["triage", "research", "sprint"], (
+        f"the parent dispatched {wired.order} — component research must run "
+        f"after the rulings exist and before the plan is written from them"
+    )
 
 
 def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """A permanently-redispatching reviewer must NOT loop forever.
 
     This is the regression that matters: the verdict never becomes MERGE, so
-    only the loop bound stops it. Two triages and two reviews, then done.
+    only the loop bound stops it.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _url, verdict, loops, notes = _run()
@@ -112,19 +170,36 @@ def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: py
     # One initial pass plus one per loop-back. Derived, so the operator's ramp
     # does not read as a regression.
     expected = 1 + routing.MAX_LOOPS
-    assert (wired.triage, wired.review) == (expected, expected)
+    assert (wired.sprint, wired.review) == (expected, expected)
     assert any("SPENT" in n for n in notes)
 
 
-def test_the_loop_back_is_a_correction_pass_not_a_fresh_triage(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Re-triaging would re-litigate rulings the first pass already made.
+def test_the_loop_back_does_NOT_re_run_triage(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Triage is spent after one pass, however many times the reviewer holds.
 
-    Every candidate carries a decision after pass 1; the second pass exists to
-    close the reviewer's runway, not to reconsider the dispositions.
+    Every candidate carries a decision once triage has run, so a second triage
+    would re-litigate rulings rather than close the runway the reviewer wrote —
+    and it would spend a full opus dispatch per loop to do it. The loop-back
+    goes to plan-sprint alone, which is also the last producer and sees the
+    whole PR.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _run()
-    # The first pass is fresh; every loop-back after it is a correction.
+    assert wired.triage == 1, (
+        f"triage ran {wired.triage} times across {routing.MAX_LOOPS} loop-backs. "
+        f"Rulings are made once; re-running it re-opens settled dispositions and "
+        f"costs a full dispatch per pass to do so."
+    )
+
+
+def test_the_loop_back_is_a_correction_pass_not_a_fresh_placement(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The loop-back closes the reviewer's runway; it does not re-plan.
+
+    The first plan-sprint pass is fresh; every loop-back after it is a
+    correction.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
+    _run()
     assert wired.correction_passes == [False] + [True] * routing.MAX_LOOPS
 
 
@@ -137,7 +212,9 @@ def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: py
     # does not read as a regression.
     # TWO, not the bound: this run EARNS MERGE on its first loop-back and stops there, so the bound is never reached. My blanket edit applied the
     # bound-relative count here too, which is the same over-broad replace that has bitten three times today.
-    assert (wired.triage, wired.review) == (2, 2)
+    assert (wired.sprint, wired.review) == (2, 2)
+    # And triage is still spent exactly once, whatever the sprint child did.
+    assert wired.triage == 1
 
 
 def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -149,7 +226,7 @@ def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyP
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_NEEDS_ASSISTANCE)
     _url, verdict, loops, notes = _run()
     assert (verdict, loops) == (routing.Verdict.HOLD_NEEDS_ASSISTANCE, 0)
-    assert (wired.triage, wired.review) == (1, 1)
+    assert (wired.triage, wired.sprint, wired.review) == (1, 1, 1)
     assert any("only a human can rule" in n for n in notes)
 
 
@@ -192,6 +269,7 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
     monkeypatch.setattr(pm.act, "new_sprint_sections", lambda *a, **k: [])
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
+    monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.review_pr, "run_review",
                         lambda ri, rr: ReviewResult(pr_number="43",
@@ -231,19 +309,20 @@ def test_each_new_section_is_researched_into_its_OWN_pool(wired: _Calls, monkeyp
 
 def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """REGRESSION. The loop originally rebound `research_dir`, the parameter
-    naming the PRODUCT pool that plan-sprint triages — so after researching one
-    component, the loop-back would hand plan-sprint that component's pool
-    instead. A shadowed parameter is a silent wrong-argument bug: nothing
-    raises, and the triage simply reads the wrong evidence.
+    naming the PRODUCT pool the planning children work from — so after
+    researching one component, the loop-back would hand plan-sprint that
+    component's pool instead. A shadowed parameter is a silent wrong-argument
+    bug: nothing raises, and the child simply reads the wrong evidence.
     """
     product_pool = Path("/repo/r")
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _with_sections(monkeypatch, "Alpha")
     _run()
-    # One pool per triage — the initial pass plus one per loop-back. The COUNT
-    # is incidental to this regression; what matters is that EVERY entry is the
-    # product pool, so it is derived from the bound rather than pinned at two.
-    assert wired.triage_pools == [product_pool] * (1 + routing.MAX_LOOPS), (
-        f"plan-sprint was handed {wired.triage_pools} — the loop-back must still "
+    # One pool per plan-sprint dispatch — the initial pass plus one per
+    # loop-back. The COUNT is incidental to this regression; what matters is
+    # that EVERY entry is the product pool, so it is derived from the bound
+    # rather than pinned at two.
+    assert wired.sprint_pools == [product_pool] * (1 + routing.MAX_LOOPS), (
+        f"plan-sprint was handed {wired.sprint_pools} — the loop-back must still "
         f"receive the PRODUCT pool, not a component's"
     )

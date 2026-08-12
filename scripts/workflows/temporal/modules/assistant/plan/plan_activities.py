@@ -1,13 +1,32 @@
 """Shared I/O for the planning family — promoted per §10.1 rule 3.
 
-Sits at module level because more than one workflow uses it: `plan_sprint` and
-`plan_revision` today, `plan_tech_stack` when it lands. The promotion rule was
-anticipatory when this file was written and is now satisfied outright.
+Sits at module level because more than one workflow uses it: `plan_sprint`,
+`triage_candidates` and `plan_revision` today, `plan_tech_stack` when it lands.
+The promotion rule was anticipatory when this file was written and is now
+satisfied outright.
 
-The triage helpers below (`candidate_counts`, `direction_ceiling`,
-`existing_work`) remain single-consumer — `plan_sprint` only. They are here
-because this file is the family's shared surface, not because a second caller
-exists; if one never appears they belong back inside plan_sprint/.
+THE CANDIDATE HELPERS ARE NO LONGER SINGLE-CONSUMER, and the split is what
+settled it. This docstring used to record `candidate_counts`, `direction_ceiling`
+and `existing_work` as a stated §10.1 rule-3 deviation — here on the family's
+shared surface with only `plan_sprint` calling them. Splitting triage out gave
+two of the three a genuine second caller, so the deviation has expired on its own
+rather than being argued away:
+
+  * `candidate_counts` — `triage_candidates` (its working set) and `plan_sprint`
+    (the ruled set it places from). Two consumers.
+  * `existing_work` — `triage_candidates` (does this candidate already have a
+    home?) and `plan_sprint` (§4b coherence: a finding with no home in the sprint
+    plan, in a component, or in an open issue). Two consumers.
+  * `candidate_decisions` — one caller, `plan_sprint`, and deliberately so: it
+    exists to prove `plan_sprint` did NOT write a column it no longer owns, which
+    is a question only `plan_sprint` can be asked.
+  * `direction_ceiling` — one caller, `triage_candidates`, which is the only
+    workflow that files a `D-NNN` row.
+
+The two remaining single-consumer helpers stay here because they are the same
+concern as their neighbours and splitting one file into two by caller count would
+make the family harder to read, not easier. That is a deviation and this is it
+being stated, per rule 3.
 
 NOT IDEMPOTENT (§7.1): these push commits and open PRs. Under Temporal a retry
 is a NEW ATTEMPT, not a replay.
@@ -53,7 +72,8 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
     if not candidates_path.exists():
         raise FileNotFoundError(
             f"candidates file not found: {candidates_path}. "
-            f"plan-sprint triages candidates; without the file there is nothing to triage."
+            f"`triage-candidates` rules the rows in it and `plan-sprint` places what "
+            f"they ruled; without the file neither has anything to work from."
         )
     rows = _ROW.findall(candidates_path.read_text())
     untriaged = [i for i, dec, _st in rows if dec.strip().strip("`") in _BLANK]
@@ -63,6 +83,38 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
         "triaged": len(rows) - len(untriaged),
         "untriaged_ids": untriaged,
     }
+
+
+def candidate_decisions(candidates_path: Path) -> dict[str, str]:
+    """Every row's `decision`, normalised, keyed by id — the transferred column.
+
+    THIS IS THE AUTHORITY TRANSFER, ENFORCED RATHER THAN ASSERTED. `decision` was
+    `plan-sprint`'s output until triage became its own workflow; it is now
+    `triage-candidates`'s alone. Prose in nine documents says so, and prose is
+    not a mechanism: `plan_sprint` still READS this file, still has write access
+    to it in its worktree, and a model that has just decided a candidate is too
+    small for a sprint section is one plausible step from recording that
+    conclusion in the column next to it.
+
+    So `plan_sprint` snapshots this before its run and compares after. Same
+    discipline as `candidate_counts`: OBSERVE what the run wrote, never ask it
+    what it wrote.
+
+    Normalised — backticks and the several spellings of empty all collapse — so a
+    row reformatted from `` `ship` `` to `ship` does not read as a ruling
+    changed. The comparison must fire on MEANING, not on markup.
+    """
+    if not candidates_path.exists():
+        raise FileNotFoundError(
+            f"candidates file not found: {candidates_path}. "
+            f"Without it there is no `decision` column to hold anything to."
+        )
+    rows = _ROW.findall(candidates_path.read_text())
+    out: dict[str, str] = {}
+    for cid, decision, _status in rows:
+        value = decision.strip().strip("`").strip()
+        out[cid] = "" if value in _BLANK else value
+    return out
 
 
 def direction_ceiling(research_dir: Path) -> str:

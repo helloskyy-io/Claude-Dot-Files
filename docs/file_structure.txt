@@ -269,7 +269,9 @@ claude-dot-files/
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
 │           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
-│           │                                        #   plan/ holds plan_project (parent) and two children: plan_sprint (wired) and
+│           │                                        #   plan/ holds plan_project (parent) and three children: triage_candidates and
+│           │                                        #   plan_sprint (both wired, in that order — triage rules the candidates, sprint
+│           │                                        #   places what they ruled; split apart so planning can sit between them) and
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
 │           │                                        #   exit_record.py — the Kind 2 typed exit record: THE ONE DECLARATION of its
@@ -286,6 +288,9 @@ claude-dot-files/
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
 │           │                                        #   different parents, different model keys, separately-budgeted turn caps
+│           │                                        #   triage_candidates.sh / plan_sprint.sh are siblings for the same reason: two
+│           │                                        #   jobs, two model keys, two turn caps. Each runs standalone against the real
+│           │                                        #   queue AND is called in order by plan_project.sh
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
 │               ├── fixtures/                        # MEASURED inputs, not written ones
@@ -341,6 +346,11 @@ claude-dot-files/
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
+│                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
+│                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,
+│                   │                                #   two are entitled (markup reformat, a proposal placed unruled), and that second
+│                   │                                #   exemption is a defect the control found: diffing the id maps outright made the
+│                   │                                #   SHARED placement instruction unfollowable
 │                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
 │                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
 │                   ├── test_research_minor.py       # The minor cycle is genuinely SMALLER, and a subtraction is what a green suite cannot

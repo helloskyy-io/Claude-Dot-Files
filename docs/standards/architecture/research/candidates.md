@@ -21,8 +21,10 @@ A candidate surfaced in `synthesis.md` disappeared on the next research cycle, s
 
 | Flag | Values | Who sets it |
 |---|---|---|
-| **`decision`** | `ship` · `requires review` · `reject` · **blank = not yet triaged** | **`plan-sprint`, and only `plan-sprint`.** This is its triage output |
+| **`decision`** | `ship` · `requires review` · `reject` · **blank = not yet triaged** | **`triage-candidates`, and only `triage-candidates`.** This is its whole output |
 | **`status`** | `open` · `closed` | **A later process.** `plan-feature` when the item lands in a phase doc; the build that completes it |
+
+> **The writer changed on 2026-08-12 and the rule did not.** `decision` was `plan-sprint`'s while `plan-sprint` triaged; triage is now its own workflow and the column went with it. **`plan-sprint` may no longer write this column at all** — it reads the file to know which rows are `ship`, and its runner fails the run if any ruling changed while it held the file. One writer per surface, as before.
 
 ## The three dispositions
 
@@ -32,17 +34,17 @@ Every candidate ends at exactly one of these. There is no fourth, and **leaving 
 
 The work is **understood well enough to schedule.** Somebody could pick it up and know what "done" looks like without another decision being made first.
 
-**`ship` does NOT mean done.** A shipped candidate stays `open` until something actually implements it, and neither `plan-sprint` nor `plan-tech-stack` does detailed phase design, so neither can close one on its own.
+**`ship` does NOT mean done.** A shipped candidate stays `open` until something actually implements it, and none of `triage-candidates`, `plan-sprint` or `plan-tech-stack` does detailed phase design, so none can close one on its own.
 
 ### `requires review` — only the operator can rule on this
 
 The candidate is **not ready to be scheduled, and no amount of further automated work makes it ready.** An open question, an unresolved trade-off, a ruling that changes what the project believes. Shipping it would put a question mark in the plan; rejecting it would throw away a real finding.
 
-**Where it goes:** `plan-sprint` writes a `D-NNN` row into [`direction.md`](direction.md) — the operator's file — and sets `decision` here to `requires review`. The row stays in this file as the pointer, and **`status` stays `open`** because the decision is outstanding, just outstanding with a human.
+**Where it goes:** `triage-candidates` writes a `D-NNN` row into [`direction.md`](direction.md) — the operator's file — and sets `decision` here to `requires review`. The row stays in this file as the pointer, and **`status` stays `open`** because the decision is outstanding, just outstanding with a human.
 
 **It then leaves the automation's working set entirely.** A non-blank decision is not re-triaged, so it never comes back around. It surfaces at `/standup` as an open direction decision, the operator rules, and only then does the disposition change to `ship` or `reject`.
 
-> **This is the release valve.** Without it, `ship` and `reject` are the only doors out, and an open question that deserves neither gets forced through one of them. That is exactly what happened on the first `plan-sprint` run: eleven unresolved questions were shipped into the sprint plan as milestones, which produced two sprints that build nothing.
+> **This is the release valve.** Without it, `ship` and `reject` are the only doors out, and an open question that deserves neither gets forced through one of them. That is exactly what happened on the first triage run (then part of `plan-sprint`): eleven unresolved questions were shipped into the sprint plan as milestones, which produced two sprints that build nothing.
 
 ### `reject` — we are not doing this
 
@@ -50,7 +52,7 @@ State why in the Note. **The reasoning is the point** — a rejection without it
 
 ## Where a shipped decision lands depends on its size
 
-A candidate large enough to need its own sprint section gets one, added by `plan-sprint` — that is the **entire** extent of `plan-sprint`'s implementation. **Most shipped candidates are not that size.** They belong inside an *existing* sprint or phase doc, placed by `plan-feature`, and `plan-sprint` does nothing with them beyond setting `decision`.
+A candidate large enough to need its own sprint section gets one, added by `plan-sprint` — that is the **entire** extent of `plan-sprint`'s implementation. **Most shipped candidates are not that size.** They belong inside an *existing* sprint or phase doc, placed by `plan-feature`. `triage-candidates`, which set the `decision` in the first place, does nothing with any of them beyond that: it never places, and it never touches `sprint.md`.
 
 **A blank decision is not the same as `open`.** Blank means nobody has triaged it; `open` means the work is outstanding. Collapsing the two is what turns this file into a to-do list nobody agreed to — the failure that put seven untriaged candidates on the standup tracker.
 
@@ -132,7 +134,7 @@ Five open issues that were **proposals, not defects**, re-homed under [Architect
 
 **Why they were filed as issues:** the selection rule in force when they were filed routed on *"did something change?"* and *"does it have a done-state?"* — and a proposal answers **no** and **yes**. `candidates.md` was explicitly excluded as a destination, so a proposal had nowhere else to go. That paragraph was corrected the same day this section was written.
 
-**`decision` is deliberately blank on every row: these have been re-homed, not triaged.** Blank means triage has not happened, and `decision` is `plan-sprint`'s output alone. **Two of the five were filed by the operator's own session**, so this is not a dispatch-behaviour problem.
+**`decision` is deliberately blank on every row: these have been re-homed, not triaged.** Blank means triage has not happened, and `decision` is `triage-candidates`'s output alone. **Two of the five were filed by the operator's own session**, so this is not a dispatch-behaviour problem.
 
 | ID | Candidate | Source | `decision` | `status` | Note |
 |---|---|---|---|---|---|
@@ -155,7 +157,7 @@ Five open issues that were **proposals, not defects**, re-homed under [Architect
 
 ### Added 2026-08-09/10 — placed by producing runs on PR #71, PR #75 and PR #74, per [`finding-routing.md`](../../finding-routing.md) §4
 
-**All of them were surfaced by their PR's build passes, classified as proposals by its review pass, and had no permitted writer until `finding-routing.md` §4 landed.** §4's rule — *a producing run MAY place its own proposals, in its own PR* — is what makes these rows placeable, and the reasoning is that the disposal-chute argument reserving defect filing to the reviewer **does not reach a proposal**: capability that does not exist was never the run's scope, so it cannot be scope the run is offloading. `decision` is blank because triage has not happened; that is `plan-sprint`'s output alone.
+**All of them were surfaced by their PR's build passes, classified as proposals by its review pass, and had no permitted writer until `finding-routing.md` §4 landed.** §4's rule — *a producing run MAY place its own proposals, in its own PR* — is what makes these rows placeable, and the reasoning is that the disposal-chute argument reserving defect filing to the reviewer **does not reach a proposal**: capability that does not exist was never the run's scope, so it cannot be scope the run is offloading. `decision` is blank because triage has not happened; that is `triage-candidates`'s output alone.
 
 **Each was re-verified as a proposal rather than a defect at placement time, not merely inherited from the review.** *(This heading and the two paragraphs above it named PR #71 and "all three" while the section had grown to six rows from two PRs — a count restated in prose beside the rows that derive it, which is C-050's own mechanism occurring in the file that holds C-050. It was then rewritten to state ID RANGES instead, and **that correction failed the same way one row later**: the ranges said C-053–C-056 and C-057–C-059 while the table ran to C-060, so the newest row sat outside its own section's stated scope — invisible to exactly the reader who trusts the heading. A range is still a restated count. The ID lists and the row count are now gone from the heading entirely, which is the only version of this sentence that a new row cannot falsify.)* The distinction that governs them: *"we have no check for X" is not a defect in X* — none of them names anything that behaves wrongly today.
 
@@ -198,7 +200,7 @@ Five open issues that were **proposals, not defects**, re-homed under [Architect
 
 ## Where things stand
 
-**Twenty-four rows are untriaged, and they are the next `plan-sprint` pass's working set: C-047 through C-072.** Five (C-047–C-051) were re-homed out of the GitHub issue queue on 2026-08-09, C-052 came from issue #36, C-053–C-056 were placed from PR #71, C-057–C-059 from PR #75, C-060 from PR #79, C-061 from the operator, C-062 from PR #80, **C-064 and C-065 from PR #81 (Phase 4)**, the second placed by that PR's refine pass, **C-066, C-067 and C-068 from PR #74**, and **C-069 from PR #82 (Phase 6)** — the numbering skips C-063 because that id was used and withdrawn, and this file's own rule is that ids are never reused and never renumbered. *(A C-063 was placed and then WITHDRAWN in the same PR — `/decide` dissolved it: it proposed a cross-fleet ownership rule for `activities/run-claude.sh`, and the tension it describes is between a frozen fleet and a migrating one. The operator has ruled V1 is deleted when unused, so the condition expires on its own; a rule written for a transitional period costs more than the period. Recorded here so a later pass does not re-derive it.)* Their blank `decision` is the truth, not an omission — but blank is only honest while this paragraph says how many there are. **C-048 and C-049 must be ruled together**, per C-048's own Note.
+**Twenty-four rows are untriaged, and they are the next `triage-candidates` pass's working set: C-047 through C-072.** Five (C-047–C-051) were re-homed out of the GitHub issue queue on 2026-08-09, C-052 came from issue #36, C-053–C-056 were placed from PR #71, C-057–C-059 from PR #75, C-060 from PR #79, C-061 from the operator, C-062 from PR #80, **C-064 and C-065 from PR #81 (Phase 4)**, the second placed by that PR's refine pass, **C-066, C-067 and C-068 from PR #74**, and **C-069 from PR #82 (Phase 6)** — the numbering skips C-063 because that id was used and withdrawn, and this file's own rule is that ids are never reused and never renumbered. *(A C-063 was placed and then WITHDRAWN in the same PR — `/decide` dissolved it: it proposed a cross-fleet ownership rule for `activities/run-claude.sh`, and the tension it describes is between a frozen fleet and a migrating one. The operator has ruled V1 is deleted when unused, so the condition expires on its own; a rule written for a transitional period costs more than the period. Recorded here so a later pass does not re-derive it.)* Their blank `decision` is the truth, not an omission — but blank is only honest while this paragraph says how many there are. **C-048 and C-049 must be ruled together**, per C-048's own Note.
 
 The 45 rows that predate them carry a decision from the 2026-08-06 `plan-sprint` pass: **27 `ship`**, **6 `requires review`**, **12 `reject`**.
 

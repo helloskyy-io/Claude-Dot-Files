@@ -86,11 +86,19 @@ models:
   build-phase: opus             # phase implementation — the default engineer
   plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
   plan-revision: opus           # planning build (was fable — see 2026-07-27 economics retier)
-  plan-sprint: opus            # triages research candidates and sequences the sprint plan.
-                                #   Opus deliberately: this rules on what the project builds next,
-                                #   reading a thesis, an evidence synthesis and a sprint plan together.
-                                #   A cheaper tier here buys nothing and risks a bad ruling landing in
-                                #   sprint.md, which is the operator's own sequencing surface.
+  triage-candidates: opus       # rules every untriaged research candidate — ship / requires review /
+                                #   reject — and files the open questions to direction.md. Opus
+                                #   deliberately: this decides what the project builds next, reading a
+                                #   thesis, an evidence synthesis and an architectural standard
+                                #   together. The measured failure it exists to avoid is a cheap
+                                #   ruling — a first pass with no `requires review` door pushed eleven
+                                #   open questions through `ship` and made the sprint plan unusable.
+  plan-sprint: opus             # places the RULED candidates and sequences the sprint plan.
+                                #   It no longer triages — that is `triage-candidates` above, split
+                                #   out so feature planning can sit between the two. Opus stays:
+                                #   what remains is reconciling a sprint plan against newer evidence
+                                #   and judging the 160-hour bar, and a cheaper tier risks a bad
+                                #   placement landing in sprint.md, the operator's own surface.
   review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
@@ -149,6 +157,26 @@ max_turns:
                               #   at 250 and peaks near 90 in practice. This workflow
                               #   never had a V1 script, so it never had a derived
                               #   value either. REVISE FROM MEASUREMENT.
+                              #   HELD AT 250 THROUGH THE TRIAGE SPLIT, deliberately.
+                              #   It now does less, so 250 is looser than before — but
+                              #   lowering it would be an unmeasured cut in the
+                              #   direction that has already cost a full budget once,
+                              #   and a cap is a ceiling rather than a spend. The
+                              #   measurement that should move it does not exist yet.
+  triage-candidates: 200      # NOT MEASURED — an estimate, stated as one. Nothing has
+                              #   run this workflow: it was split out of plan-sprint,
+                              #   whose own 250 is itself an estimate, so there is no
+                              #   measured figure on either side of the split to derive
+                              #   from. Basis is a stage-by-stage walk of its prompt:
+                              #   read the candidates file, one synthesis and three
+                              #   architecture documents (~10), rule 24 rows with the
+                              #   evidence already in context (~1-2 each), append the
+                              #   direction.md rows, commit and open the PR (~10). That
+                              #   lands near 70; 200 is roughly 3x it as headroom, the
+                              #   same posture research-verify's measured cap uses.
+                              #   REVISE FROM THE FIRST REAL RUN — and note the working
+                              #   set is variable, so a cycle with 60 untriaged rows is
+                              #   a different measurement from one with 5.
   research: 250               # pool creation — orchestration + synthesis authorship
   research-refresh: 250       # ⚠ CONVERGED 2026-08-10, FLAGGED FOR REVIEW. The two
                               #   fleets disagreed — research-refresh.sh said 200, the
