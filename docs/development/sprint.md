@@ -143,7 +143,7 @@ Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-int
 ## Sprint: Memory Management Framework — 🟡 IN PROGRESS
 
 **Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs.
-**ALL SIX PHASES ARE BUILT AND MERGED (2026-08-12).** Phase 1 measured 2026-08-08 (13 rulings; 3 no-ops cancelled downstream work); Phase 2 delivered `docs/guide/memory-model.md`; Phase 3 proved the typed record on one pair; Phase 4 migrated the V2 fleet onto it, so **no parent parses prose**; Phase 5 built the convergence predicate; Phase 6 built the readers. **What remains is not construction.** Phase 5's predicate is total, guarded and replayed — and **routes nothing**. Turning it on needs Phase 6's conditions 1 and 2 (tooling, in flight) and **condition 3, which is an operator ruling**: convergence is not a merge authority, and the only thing it could replace is the loop-back bound.
+**Phases 1-4 and 6 complete; Phase 5 built and not gating.**
 
 Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
@@ -155,8 +155,8 @@ Two distinct kinds of memory, currently conflated and only half-built. Both exis
 - [x] **Phase 2 · Document Kind 1 as a framework** — delivered as [`docs/guide/memory-model.md`](../guide/memory-model.md). Five surfaces measured, not three. Merged 2026-08-09
 - [x] **Phase 3 · The typed exit record** — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
 - [x] **Phase 4 · Migrate the fleet** — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
-- [ ] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged. **UNCHECKED DELIBERATELY: built, measured and reviewed — and it gates nothing.** Built is not proven, and its own phase doc withholds the word *complete*.
-- [x] **Phase 6 · Read what it writes** — three readers for the three parent-written run-log observables that nothing consumed. **Merged 2026-08-12 as PR #82.** Two boxes stay open by design, both inherited from Phase 4 because that phase could not check them: removing the shadow prose parse (needs a run count with its denominator, tracked as **C-060**) and `artifact` on the envelope (a producer with no consumer until a reader exists).
+- [ ] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
+- [x] **Phase 6 · Read what it writes** — three readers for the run log's parent-written observables
 
 Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
