@@ -106,10 +106,18 @@ def _is_counted(node: ast.AST) -> bool:
     function: a function that happens to mention `MAX_LOOPS` somewhere else
     would otherwise launder a flat assertion sitting beside it. That is the
     scope-of-the-assertion failure this suite has been bitten by before.
+
+    ONLY `if` AND `x if c else y` COUNT, NEVER `while` — and this test had the
+    bug it exists to catch until a scope mutation found it. Every one of these
+    sentences is emitted from inside `while should_loop_back(verdict, loops)`,
+    whose test names `MAX_LOOPS` or a loop counter. Admitting a `While` test made
+    the enclosing LOOP the evidence for a string it does not select, so every
+    flat claim in this fleet read as counted and the census passed over all five
+    of them. A conditional SELECTS the sentence; a loop merely surrounds it.
     """
     cur = getattr(node, "parent", None)
     while cur is not None:
-        test = getattr(cur, "test", None)
+        test = getattr(cur, "test", None) if isinstance(cur, (ast.If, ast.IfExp)) else None
         if test is not None:
             names = {n.id for n in ast.walk(test) if isinstance(n, ast.Name)}
             names |= {n.attr for n in ast.walk(test) if isinstance(n, ast.Attribute)}
