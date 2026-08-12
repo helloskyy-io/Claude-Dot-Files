@@ -361,10 +361,15 @@ def assistant_text(log_file: Path) -> str:
     where it looked. `run-claude.sh`'s completion gate reads the same surface,
     for the same reason.
 
-    SUB-AGENT TURNS ARE EXCLUDED. A `Task` sub-agent's assistant events carry a
-    `parent_tool_use_id`; the top-level model's carry null. A sub-agent quoting
-    or proposing a verdict line is not this run's verdict, and admitting one
-    would let a nested agent decide the parent's route.
+    NESTED TURNS ARE EXCLUDED, AND THAT IS WIDER THAN "SUB-AGENT TURNS". Events
+    produced under any tool invocation carry a `parent_tool_use_id`; the
+    top-level model's carry null. This docstring used to say the field marks a
+    sub-agent, which is not what it marks — measured 2026-08-11 on an archived
+    build-draft log, every `parent_tool_use_id` resolved to a **`Bash`** tool_use
+    (backgrounded commands), not to a sub-agent spawn. The exclusion is
+    unaffected because it is conservative in the safe direction: a nested turn is
+    never this run's verdict, whoever produced it. The claim was fixed rather
+    than the code, because the code was right and the sentence was not.
     """
     chunks: list[str] = []
     for event in _log_events(log_file):
@@ -397,10 +402,19 @@ def append_parent_route(log_file: Path, event: dict) -> None:
 
     WHAT THIS WRITES IS FROZEN WHILE PHASE 4 IS GATED ON IT.
     `phase4_fleet_migration.md` reads the run set these events produce, so the
-    keys and the `parent_route` type string are not a refactoring surface. A
-    later phase adding its OWN observable adds its OWN event type beside this
-    one — see `append_convergence` — rather than widening this payload, and
+    keys and the `parent_route` type string are not a refactoring surface, and
     `test_exit_record.py` asserts the line this function writes byte for byte.
+    That clause is LOCAL — it is about Phase 4 reading this specific event.
+
+    THE RULE FOR ADDING A FOURTH OBSERVABLE IS NOT HERE ANY MORE, AND THAT IS THE
+    POINT. This docstring used to carry it — "a later phase adding its OWN
+    observable adds its OWN event type beside this one" — and `append_run_resources`
+    then cited it as "`append_parent_route`'s OWN RULE", which is a surface's
+    governing rule being quoted out of a neighbour's docstring. It now lives
+    where the surface is declared: `scripts/helpers/measure/run_log.py` for the
+    member set and the publish classification a check can read, and the
+    `memory-model.md` amendment drafted as candidate 10 of the Memory Management
+    Framework roadmap for the prose, which is the operator's to ratify.
     """
     _append_run_event(log_file, "parent_route", event)
 
@@ -408,11 +422,12 @@ def append_parent_route(log_file: Path, event: dict) -> None:
 def append_run_resources(log_file: Path, event: dict) -> None:
     """Append this run's MEASURED resource facts, as its own JSONL event.
 
-    ITS OWN TYPE, BESIDE THE OTHERS, PER `append_parent_route`'s OWN RULE.
-    That docstring states its payload is frozen while Phase 4 reads the run set
-    it produces, and that "a later phase adding its OWN observable adds its OWN
-    event type beside this one." This is that. Nothing here widens an existing
-    payload and no existing key changes meaning.
+    ITS OWN TYPE, BESIDE THE OTHERS, PER THE RUN LOG'S GROWTH RULE — declared in
+    `scripts/helpers/measure/run_log.py` and stated in prose by the
+    `memory-model.md` amendment drafted as candidate 10. Nothing here widens an
+    existing payload and no existing key changes meaning. *(That rule used to be
+    cited out of `append_parent_route`'s docstring, which is how a convention
+    becomes unfindable.)*
 
     WHAT IT IS FOR. The open question is whether a run's footprint is governed by
     the NUMBER of subagents or the VOLUME each pulls into context — opposite
@@ -430,7 +445,8 @@ def append_convergence(log_file: Path, event: dict) -> None:
     A SEPARATE EVENT TYPE, NOT A WIDER `parent_route`. Phase 4 is gated on the
     run set `append_parent_route` produces, so the cheapest way to guarantee
     this addition disturbs nothing is for it to share no payload with that one.
-    The two join on `run_id`, which both carry.
+    The two join on `run_id`, which both carry — and which is the run log's
+    declared join key (`scripts/helpers/measure/run_log.JOIN_KEY`).
 
     WITHOUT THIS THE PREDICATE HAS NO DENOMINATOR. The convergence assessment
     lives in a return value that dies with the process; the archive's
@@ -481,16 +497,48 @@ def _append_run_event(log_file: Path, event_type: str, event: dict) -> None:
         handle.write(json.dumps({"type": event_type, **event}) + "\n")
 
 
-def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
+def run_claude(prompt: str, *, model_key: str, workflow_key: str,
+               completion_pattern: str,
                repo_root: Path, worktree: Path | None = None,
                max_turns: int = 120, verbose: bool = False,
                exit_record_schema: str | None = None,
-               log_file: Path | None = None) -> str:
+               log_file: Path | None = None, run_id: str | None = None) -> str:
     """Invoke the model via the existing bash activity.
 
     Delegates rather than reimplementing model invocation, logging and the
     completion-contract check — one implementation of the contract, not two
     that can disagree mid-migration.
+
+    `workflow_key` IS REQUIRED AND HAS NO DEFAULT, which is deliberate and is the
+    shape `convergence.assess`'s `pass_evaluable` already uses: a new call site
+    cannot acquire the hole by forgetting the argument. It is NOT `model_key` —
+    `config.yaml` states above `research-write:` that the two are not 1:1, since
+    `research-write` and `research-verify` share the model key `research`. Only
+    this value lets a per-workflow figure name its own bins; a reader keying off
+    `model_key` merges those two and cannot say which records it merged.
+
+    THE LOG'S NAME STILL CARRIES THE MODEL KEY, not this one. Every archived log
+    and both filename parsers (`replay_completion_predicate.workflow_of`,
+    `run_log.model_key_of`) read that shape, and changing it to fix a payload gap
+    would move a published figure to add a field.
+
+    `run_id` IS OPTIONAL; A `log_file` WITHOUT ONE RAISES. The asymmetry is the
+    contract and it is stated this way round deliberately — this used to read
+    "hand in both or neither", which promised an enforcement of the mirror case
+    that does not exist and is not wanted: a caller supplying only `run_id` gets
+    a path built FROM that nonce, so the filename and the record agree by
+    construction and there is nothing to reject. The claim was corrected rather
+    than the code, because the code was right and the sentence was not.
+    The run log's join key has
+    to carry the SAME VALUE in all three of its member events, and it did not:
+    this function used to stamp the resource report with `log_file.stem`
+    (`{model_key}-{stamp}-{nonce}`) while `parent_route` and `convergence` carry
+    the bare `uuid4().hex` the caller issued. The nonce is a suffix of the stem,
+    so the three members joined only by suffix-matching a filename — the
+    addressing-by-inference `memory-model.md` §6.1 calls a LOCATION rather than
+    an ADDRESS, and a reader written against the field name alone got an empty
+    join that read as a corpus with no overlaps. Refusing the half-supplied case
+    is what makes the value correct by construction rather than by discipline.
 
     TWO LOCATIONS, TWO JOBS. `repo_root` is where LOGS live and MUST be the real
     repository — never a worktree, or the log is deleted with the worktree it sat
@@ -522,7 +570,23 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # issued. A caller that does not still gets a name unique by construction —
     # the nonce is generated here rather than defaulted away, because a default
     # is how the shared-name collision got written in the first place.
-    log_file = log_file or claude_log_path(repo_root, model_key, run_id=uuid.uuid4().hex)
+    #
+    # THE HALF-SUPPLIED CASE RAISES rather than falling back, because the
+    # fallback is what wrote the wrong join key. A caller that allocated the path
+    # KNOWS the nonce — it had to, to build the name — so being unable to supply
+    # it means the path came from somewhere else, and stamping the report with a
+    # nonce this function invented would attribute one run's resources to
+    # another's identity.
+    if log_file is not None and run_id is None:
+        raise ValueError(
+            f"run_claude was given a log_file ({log_file.name}) with no run_id. "
+            f"The run log's three member events must agree on `run_id`, and a "
+            f"caller that allocated the log path already holds the nonce that "
+            f"named it. Pass both, or neither."
+        )
+    if log_file is None:
+        run_id = run_id or uuid.uuid4().hex
+        log_file = claude_log_path(repo_root, model_key, run_id=run_id)
 
     env = {
         **os.environ,
@@ -554,11 +618,16 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # collected for the completion-contract check.
     print(f"→ {model_key}  log: {log_file}", flush=True)
     print(f"→ {model_key}  exec: {cwd}  (max_turns={max_turns})", flush=True)
-    # BOUNDED AND MEASURED, or explicitly neither. The scope is what makes the
-    # kernel account for this child; it is also what stops one child taking the
-    # host down with it. When a scope cannot be created the child still runs and
-    # the report records WHY it was not measured — a run nobody could measure
-    # has to remain countable, or the gap stops being visible.
+    # MEASURED, or explicitly not. The scope is what makes the kernel account
+    # for this child separately from the session; it BOUNDS NOTHING — every cap
+    # was reverted at `6725111` and `resource_limits` holds one lowercase key,
+    # so `wrap()` emits no `-p` at all. This comment used to say the scope
+    # "stops one child taking the host down with it", which asserted an
+    # enforcement that does not exist; the 2026-08-10 outage's cause is still
+    # UNIDENTIFIED and its attribution to a sub-agent fan-out is retracted.
+    # When a scope cannot be created the child still runs and the report records
+    # WHY it was not measured — a run nobody could measure has to remain
+    # countable, or the gap stops being visible.
     argv = ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt]
     limits = _resource_limits()
     scoped, scope_reason = resource_telemetry.scope_available()
@@ -566,7 +635,12 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
         scope_unit = f"claude-{model_key}-{uuid.uuid4().hex[:12]}.scope"
         argv = resource_telemetry.wrap(argv, unit=scope_unit, limits=limits)
     else:
-        print(f"⚠ {model_key}: running UNBOUNDED — {scope_reason}", flush=True)
+        # "UNMEASURED", not "UNBOUNDED". Every path is unbounded — the scoped
+        # one applies no ceiling either — so a warning naming a missing BOUND
+        # let an operator read the scoped path as bounded. What is actually lost
+        # here is the MEASUREMENT, which is the whole reason the scope exists.
+        print(f"⚠ {model_key}: running UNMEASURED (no kernel accounting for this "
+              f"child; nothing is capped on either path) — {scope_reason}", flush=True)
 
     proc = subprocess.Popen(
         argv, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
@@ -586,9 +660,12 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # BEFORE the failure branch below, deliberately. A run that died is the one
     # whose resource numbers are most worth having, and an early `raise` would
     # throw them away at exactly the moment they became evidence.
+    # `run_id=run_id`, NOT `log_file.stem` — the run log's join key carries one
+    # value across all three of its member events, and the stem is a filename
+    # that merely ends with it. See this function's docstring.
     report = resource_telemetry.finish(
         sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason,
-        run_id=log_file.stem, model_key=model_key)
+        run_id=run_id, model_key=model_key, workflow_key=workflow_key)
     report.tool_result_bytes, report.subagents_spawned = resource_telemetry.from_log(log_file)
     append_run_resources(log_file, resource_telemetry.report_dict(report))
     print(f"→ {model_key}  {resource_telemetry.human(report)}", flush=True)

@@ -24,8 +24,8 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 **VERIFICATION IS BY FETCH, NEVER BY PLAUSIBILITY.** A pointer you did not open is a guess dressed as a citation, and it is the single most common way real work disappears. Before writing any 'Tracked at' value you MUST run the command that opens it and record the result in 'Verified by':
 
 - an issue -> `gh issue view <N> --json number,title,state,body` — confirm it is OPEN and its body actually covers THIS item
-- a file/doc/phase-doc entry -> Read or Grep the live file on the DEFAULT branch (not your worktree — your branch's copy may contain an edit that never merges)
 - **a placement YOU made in THIS PR's diff** -> verify it on your BRANCH, and say so: `Verified by: <command> on this branch; lands at merge`. **This is the one legitimate exception to the default-branch rule and it exists because another rule mandates it** — `finding-routing.md` §4 requires a PRODUCING run to place its own proposal in its own PR, which by construction is not on the default branch yet. Read literally, the two rules point opposite ways and a run trying to obey both has to invent a resolution. **State the merge caveat plainly** — it is a durable file edit whose pointer only becomes true at merge, and hiding that is how a deferral evaporates when a PR is closed unmerged and quote the line you found
+- a file/doc/phase-doc entry -> Read or Grep the live file on the DEFAULT branch (not your worktree — your branch's copy may contain an edit that never merges)
 - a follow-up PR -> `gh pr view <N>` — confirm it is open and in scope
 
 **Write what you observed, not that you checked.** 'Verified by: gh issue view 230 -> OPEN, body covers the Python-tier gate' is an attestation. 'Verified present' is a claim about yourself, and it is the exact shape that has shipped false twice.

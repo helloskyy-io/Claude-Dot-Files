@@ -39,7 +39,8 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "plan-revision"
-MAX_TURNS_KEY = "plan-revision"
+WORKFLOW_KEY = "plan-revision"   # the run log's per-workflow bin; see run_log.py
+MAX_TURNS_KEY = WORKFLOW_KEY
 
 # `(pull|issues)`, verbatim from V1, and the `issues` half is load-bearing rather
 # than defensive: Stage 1 can legitimately STOP (research required, or evidence
@@ -126,7 +127,8 @@ def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / wrapper), values,
                    opaque=frozenset({"CONTEXT_BLOCK", "DESCRIPTION"})),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
         max_turns=act.max_turns(MAX_TURNS_KEY),
         verbose=verbose,

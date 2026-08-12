@@ -28,7 +28,8 @@ MODEL_KEY = "research-refresh"
 # ⚠ This value and research-refresh.sh's disagreed (250 vs 200) with no reason
 # recorded on either side. Converged upward in config.yaml on 2026-08-10 and
 # FLAGGED THERE for review — it is a safe default, not a measurement.
-MAX_TURNS = act.max_turns("research-refresh")
+WORKFLOW_KEY = "research-refresh"   # NOT MODEL_KEY -- see run_claude's docstring
+MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
@@ -71,7 +72,8 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
         values["CANDIDATE_CEILING"] = act.candidate_ceiling(research_dir)
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refresh.md"), values),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )
     url = extract_pr_url(output)

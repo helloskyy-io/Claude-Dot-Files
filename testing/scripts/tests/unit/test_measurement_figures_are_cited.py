@@ -54,12 +54,34 @@ FIGURE = re.compile(
 SOURCE_HEADING = "## §Measurement"
 
 
-def _phase5_outside_measurement() -> list[tuple[int, str]]:
-    lines = PHASE5.read_text(encoding="utf-8").splitlines()
+def _docs_declaring_a_measurement_section() -> list[Path]:
+    """Every phase doc that OPTS IN by declaring `## §Measurement`.
+
+    WIDENED FROM PHASE 5 TO THE CONVENTION (PR #82, 2026-08-11), and the opt-in
+    shape is what makes the widening available. This half used to name one file
+    because generalising it looked like it needed a convention nobody had ruled
+    on: the docs do not agree on where a figure lives, and Phase 3 uses a step
+    heading rather than this one. That ruling is still C-050's and is NOT taken
+    here — what changed is the observation that a doc which HAS declared the
+    heading has already answered the question for itself, so covering those
+    costs nothing and pre-empts nothing.
+
+    THE EVIDENCE IS THE PHASE THAT PROMPTED IT. Phase 6 landed with a
+    `## §Measurement` section, a dozen figures, a header stating that section is
+    the only place a figure lives — and one line 180 rows down still quoting a
+    superseded `6 of 8`. Two reviewers found it by reading. This gate reads it.
+    """
+    return [doc for doc in sorted(MMF.glob("phase*.md"))
+            if any(line.startswith(SOURCE_HEADING)
+                   for line in doc.read_text(encoding="utf-8").splitlines())]
+
+
+def _outside_measurement(doc: Path) -> list[tuple[int, str]]:
+    lines = doc.read_text(encoding="utf-8").splitlines()
     start = next(i for i, line in enumerate(lines)
                  if line.startswith(SOURCE_HEADING))
-    end = next(i for i in range(start + 1, len(lines))
-               if lines[i].startswith("## "))
+    end = next((i for i in range(start + 1, len(lines))
+                if lines[i].startswith("## ")), len(lines))
     return [(i + 1, line) for i, line in enumerate(lines)
             if not start <= i < end]
 
@@ -99,7 +121,7 @@ def _roadmap_phase_lines() -> list[tuple[int, str]]:
             if any(label in line for label in labels)]
 
 
-def test_phase5_states_its_figures_in_exactly_one_section() -> None:
+def test_a_phase_doc_states_its_figures_in_exactly_one_section() -> None:
     """§Measurement is the source; the rest of the document points at it.
 
     THE FAILURE THIS PREVENTS IS NOT UNTIDINESS. `phase5:92` withdrew an
@@ -109,11 +131,21 @@ def test_phase5_states_its_figures_in_exactly_one_section() -> None:
     withdrawn interval and the withdrawn denominator. A resuming engineer reads
     the implementation checklist, not the measurement section, so the document's
     stated defence against re-derivation was defeated by the document.
+
+    RUNS OVER EVERY DOC THAT DECLARES THE HEADING — see
+    `_docs_declaring_a_measurement_section` for why that widening was available
+    without taking C-050's ruling.
     """
     assert PHASE5.exists(), f"the phase doc moved: {PHASE5}"
+    docs = _docs_declaring_a_measurement_section()
+    assert PHASE5 in docs, (
+        f"{PHASE5.name} declares no {SOURCE_HEADING!r} section, so the doc that "
+        f"this gate was written for is no longer covered by it"
+    )
     offenders = [
-        f"{PHASE5.name}:{number} — {sorted(set(FIGURE.findall(line)))}"
-        for number, line in _phase5_outside_measurement()
+        f"{doc.name}:{number} — {sorted(set(FIGURE.findall(line)))}"
+        for doc in docs
+        for number, line in _outside_measurement(doc)
         if FIGURE.search(line)
     ]
     assert not offenders, (
@@ -166,13 +198,15 @@ def test_the_roadmap_sweep_covers_every_phase_doc_on_disk() -> None:
     pass on an empty sweep — the same shape as the hand-kept scope it replaced,
     but harder to notice. This pins the enumeration to the directory.
 
-    IT ALSO STATES THE GATE'S LIMIT, so a reader does not assume more than is
-    true: only the ROADMAP half is scoped by the real population. The per-phase
-    half (`test_phase5_states_its_figures_in_exactly_one_section`) still names
-    one document, because generalising it needs a convention that does not exist
-    — each phase doc would have to DECLARE its canonical measurement section, and
-    they do not agree today (Phase 5 uses `## §Measurement`, Phase 3 uses a step
-    heading). That ruling is `candidates.md` C-050's, not this file's.
+    IT ALSO STATES THE GATE'S REMAINING LIMIT, so a reader does not assume more
+    than is true. The ROADMAP half sweeps every phase on disk. The per-phase half
+    now sweeps every doc that DECLARES `## §Measurement` — which is Phase 5 and
+    Phase 6 — and **a doc that declares no such section is still uncovered**:
+    Phase 3 states its figures under a step heading and Phases 1, 2 and 4 have no
+    canonical section at all. Ruling that every phase doc must declare one is
+    `candidates.md` C-050's and is not taken here; what changed is that a doc
+    which has already answered the question for itself is no longer skipped
+    because the OTHERS have not.
     """
     labels = _phase_labels()
     docs = sorted(p.name for p in MMF.glob("phase*.md"))

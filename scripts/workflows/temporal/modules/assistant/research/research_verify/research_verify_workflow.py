@@ -27,7 +27,8 @@ PROMPTS = _HERE / "prompts"
 MODEL_KEY = "research"
 # Its own key, not `research` — see research_write for why the cap is keyed by
 # workflow rather than by model. Measurement lives with the value in config.yaml.
-MAX_TURNS = act.max_turns("research-verify")
+WORKFLOW_KEY = "research-verify"   # NOT MODEL_KEY -- see run_claude's docstring
+MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
@@ -119,7 +120,8 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
     }
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "verify.md"), values),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )
     from ...assistant_activities import extract_pr_url

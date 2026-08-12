@@ -21,6 +21,8 @@ EXECUTION ORDER IS MANDATORY. If a stage has nothing to address, emit: ## Stage 
 ---
 
 ## Stage 1: VERIFY + GATHER
+
+**FIRST, BEFORE VERIFYING ANY CLAIM: is this body about THIS PR at all?** The rest of this stage treats the body as a source of claims to check against the code, and is thorough about it — but never asks the prior question. **Does the body name artifacts absent from both the diff and the tree?** A body describing a different PR makes every downstream verification meaningless, and it has happened: it surfaced only because the body's own Summary and refine sections disagreed about what was built. This is the same cross-PR mix-up the `completion_ref` check exists for, on the other channel.
 FIRST: verify this PR targets THIS repo. If the PR's changed files reference a different repository than your worktree, STOP — report "DISPATCH MISCONFIGURATION: PR targets <repo X>, worktree is <repo Y>; re-run with --repo <path>" and do no further work.
 
 Then gather the raw material (batch independent reads in one turn). **You are NOT re-reviewing the code** — the code was already beaten up by overlapping review agents during the build. YOUR PRIMARY HUNTING GROUND is the producing run's OWN WORDS, the place it told on itself:
@@ -43,7 +45,11 @@ List EVERY surfaced item, from all sources above, exhaustively. Sources of items
 - Friction / reflection notes that imply an unresolved problem
 - Anything in the DIFF that looks wrong but went unmentioned (your fresh eyes — the producing run's blind spots are exactly what you exist to catch)
 
+**RENDER THE WHOLE FILE, NOT A SLICE, and compare the rendered row count against the count the file's own prose declares.** A slice can show a perfectly clean `<table>` for a file whose table is broken ABOVE the cut — measured twice: one check sliced from the last heading and reported clean while an orphaned row sat past the slice's end, and another found the break only because the slice happened to include the table's last intact row. Where a file states its own count in prose, that number is what makes the mismatch checkable.
+
 **RENDER ANY DIFF THAT TOUCHES A TABLE, and read the OUTPUT rather than the diff.** `gh api --method POST /markdown -f mode=gfm -f text="$(cat <file>)"` costs one call. A table break is INVISIBLE in `git diff`: every inserted line is valid markdown in isolation, and the damage lands on lines the diff never shows. **Measured: eight of ten rows of an authoritative field table stopped rendering as a table, and no line-based review could have seen it.** Reading the diff reads the change; rendering reads the artifact.
+
+**WHEN A COMMIT IN THIS PR IS A MERGE, ENUMERATE WHAT THE RESOLUTION DISCARDED — `git show <merge> --cc` or diff each parent against the result.** A conflict resolution is a DELETION CHANNEL WITH NO RED LINES: the content it drops was never in `git diff origin/main...HEAD`, so it is invisible to every enumeration below. **Measured: a resolution described as "dropping the duplicate C-065" dropped a row carrying an amendment a previous review pass had verified**, and the deferral pointing at it died silently. Nothing in this sweep could see it; it surfaced only because a reader re-checked a pointer.
 
 **DELETED-ARTIFACT SWEEP — mandatory whenever this PR deletes, splits, moves or renames a file, A FUNCTION, AN EXPORTED SYMBOL, A GUARD, OR A DOCUMENTED CONTRACT.** *(Widened from file-only: a PR that deleted a function, two guards and a docstring's worth of contract declared this sweep N/A because it removed no files, and the finding surfaced from re-adjudicating a rejection instead — from the wrong instrument, by luck.)* For EVERY deleted file, enumerate its assertions, exports, guards and contracts, and NAME where each one now lives. Loss is the characteristic defect of a restructure, and **loss is invisible in a diff that is mostly additions** — nothing renders as a red line when a guard simply fails to reappear.
 

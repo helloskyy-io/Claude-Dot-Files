@@ -63,11 +63,16 @@ PROMPTS = _HERE / "prompts"
 # sonnet. Sharing `research` would tie the cheap shape's cost to the expensive
 # one, which is the entire thing this workflow exists to avoid.
 MODEL_KEY = "research-write-minor"
+WORKFLOW_KEY = "research-write-minor"   # NOT MODEL_KEY — see run_claude's docstring.
+                                       # Added on the merge with Phase 6, which made
+                                       # `workflow_key` a required keyword: this child was
+                                       # written before that gate existed, so the two landed
+                                       # correct in isolation and broken together.
 
 # KEYED BY WORKFLOW, NOT BY MODEL — the same discipline `research_write`
 # documents at length. The value is an ESTIMATE and is labelled as one in
 # config.yaml; nothing has measured this workflow yet.
-MAX_TURNS = act.max_turns("research-write-minor")
+MAX_TURNS = act.max_turns(WORKFLOW_KEY)
 
 COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
@@ -118,7 +123,7 @@ def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "write_minor.md"), values,
                    opaque=frozenset({"CONTEXT_BLOCK"})),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY, completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree, max_turns=MAX_TURNS, verbose=verbose,
     )
     from ...assistant_activities import extract_pr_url
