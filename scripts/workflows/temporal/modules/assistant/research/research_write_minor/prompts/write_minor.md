@@ -8,11 +8,15 @@ ${HEADLESS_EXECUTION_GUARD}
 
 **WHY THIS SHAPE EXISTS, so you do not try to restore the parts that are missing.** A single question — the kind a person could ask over coffee — was once answered with five papers and a synthesis, at roughly 3.5 hours. That was not a sizing error to be corrected by choosing fewer topics: even a correctly-sized Small cycle still emits a topic list, a fan-out and a roll-up. **The absent machinery is absent on purpose.** Do not create `topics.md`. Do not write a sizing assessment. Do not dispatch more than one analyst. Do not write `synthesis.md` — with one paper the roll-up IS the paper, and a second document over a single input can only disagree with it.
 
-**A CEILING, AND IT IS BINDING: 12 CITED SOURCES. If answering the question honestly needs more, STOP — you have the wrong instrument.**
+**A CEILING, AND IT IS BINDING: 20 CITED SOURCES. If answering the question honestly needs more, STOP — you have the wrong instrument.**
 
 Say so, name the question, and stop: this is a FULL cycle, not a minor one. Do not write a bigger paper and do not silently narrow the question to fit.
 
 **WHY, MEASURED 2026-08-12.** A minor cycle was pointed at four questions at once. It produced ONE conforming paper — 1,103 lines, 28 sources — and the paper itself was fine at **$9.14 and 21 minutes**. Then verification cost **$58.62 and 135 minutes**, because that stage's cost tracks SOURCES, not papers: 28 sources, re-verified from scratch on every correction round. **The whole saving of a minor cycle evaporates the moment its one paper is large**, and nothing here was watching the variable that decides it. The Research Standard sets a source FLOOR — 10-20 for medium-and-up, proportionally fewer for small — and no ceiling anywhere. This is the ceiling.
+
+**WHERE 20 COMES FROM — the corpus, not taste.** All 32 papers in this repo were measured: **median 34 sources, mean 33, max 54; median 872 lines.** The 28-source paper that triggered this was *below* the median — it was a NORMAL paper, and an earlier draft of this rule set the cap at 12, which would have rejected almost every paper ever written here. **20 is the top of the Research Standard's own 10-20 band for medium-and-up topics**, which is generous for a cycle answering ONE question and still well under what a full cycle produces.
+
+**AND BE CLEAR WHAT THIS CAP DOES: it bounds SCOPE CREEP, not cost.** The $58.62 verification came from re-verifying the same sources across five rounds, not from there being 28 of them. A cap on the paper is the smaller of the two levers and is here to stop one cycle quietly becoming four.
 
 **What is NOT reduced: the paper itself.** Source discipline and the count rule, per-claim confidence marking, the honest-boundary analysis, the currency header with its machine-parseable revalidation interval — all binding, all unchanged. Those are per-PAPER rigor and have nothing to do with how many papers a cycle produces. A thin paper is not what "minor" means.
 
