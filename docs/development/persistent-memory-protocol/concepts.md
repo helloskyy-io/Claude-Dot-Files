@@ -25,7 +25,7 @@
 
 | Source | What it contributed |
 |---|---|
-| `state_passing_between_workflow_children.md` **(lands with PR #86 — not on `main` yet)** | Our own channel enumeration; the format axes; the by-value ceiling; the retention measurement; the Kind-1/Kind-2 mismatch |
+| [`state_passing_between_workflow_children.md`](research/raw/state_passing_between_workflow_children.md) | Our own channel enumeration; the format axes; the by-value ceiling; the retention measurement; the Kind-1/Kind-2 mismatch |
 | [`bernstein_capability_mining.md`](../../standards/architecture/research/raw/bernstein_capability_mining.md) | The nearest comparable system's actual contracts. **The single highest-yield source in this document** |
 | [`cross_node_memory_protocol.md`](research/raw/cross_node_memory_protocol.md) | **Superseded** — answered a question we do not have. Two findings survive, both re-grounded elsewhere |
 | [`memory-model.md`](../../guide/memory-model.md) | The existing vocabulary: durable record as an interface, five properties, the to-do bit |
