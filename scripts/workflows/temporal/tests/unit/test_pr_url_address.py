@@ -164,6 +164,12 @@ DECLARED_SPLITS = {
     # exists to require: `docs/development/<slug>/roadmap.md` is accepted and a
     # `roadmap.md` nested any deeper is not. Still not a URL.
     ("plan_project_activities.py", "scaffolded_components"),
+    # Module scope, and it splits a CONSTANT this repo owns — `act.COMPONENT_ROOT`
+    # — to count how many segments deep a component's charter sits. Deriving the
+    # depth is the point: it was written as a literal `4`, which would have gone
+    # on matching nothing, silently and forever, the day the component root moved.
+    # No input reaches it and there is no URL anywhere near it.
+    ("plan_project_activities.py", "<module>"),
     # git's own NUL-separated output under `-z`. A worktree path, not a URL, and
     # `-z` is what makes the split safe: it turns OFF the C-style quoting that
     # would otherwise put backslash escapes inside a path.

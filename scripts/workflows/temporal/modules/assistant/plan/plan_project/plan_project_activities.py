@@ -26,10 +26,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import plan_activities as act
-from ..plan_candidates import plan_candidates_activities as candidates
 
 # A component's charter, as the diff spells it: `docs/development/<slug>/roadmap.md`.
 _CHARTER = "roadmap.md"
+
+# `<root>/<slug>/roadmap.md` — derived from the root rather than hardcoded, so
+# moving the component layer cannot leave this sweep silently matching nothing.
+_CHARTER_DEPTH = len(act.COMPONENT_ROOT.split("/")) + 2
 
 
 def scaffolded_components(worktree: Path, *, base_ref: str) -> list[str]:
@@ -60,19 +63,29 @@ def scaffolded_components(worktree: Path, *, base_ref: str) -> list[str]:
     """
     out = act.git_output(
         worktree,
-        ["git", "diff", "--name-only", "--diff-filter=A", f"{base_ref}...HEAD",
-         "--", candidates.COMPONENT_ROOT],
+        ["git", "diff", "--name-only", "-z", "--diff-filter=A", f"{base_ref}...HEAD",
+         "--", act.COMPONENT_ROOT],
         "The parent cannot tell which components are new, and guessing would "
         "research the wrong ones.",
     )
     slugs: list[str] = []
-    for line in out.splitlines():
+    # `-z` FOR THE SAME REASON `worktree_state` USES IT: without it git applies
+    # `core.quotePath` and any path with a non-ASCII byte, a quote or a backslash
+    # arrives wrapped in quotes with C-style escapes inside. `roadmap.md"` is not
+    # `roadmap.md`, so the component would be silently skipped, no research would
+    # run, and the parent would report that nothing was chartered.
+    for line in out.split("\0"):
         parts = line.strip().split("/")
         # `docs/development/<slug>/roadmap.md` and nothing deeper: a charter is
         # always exactly one level under the component root, so a `roadmap.md`
-        # nested further down belongs to something this parent does not manage.
-        if len(parts) == 4 and parts[3] == _CHARTER:
-            slugs.append(parts[2])
+        # nested further down — inside a `research/` pool, say — belongs to
+        # something this parent does not manage.
+        if len(parts) == _CHARTER_DEPTH and parts[-1] == _CHARTER:
+            slug = parts[-2]
+            # `reviews/` is not a domain of work, and the same exclusion the
+            # component readers use applies here or the two disagree.
+            if slug not in act.NOT_A_COMPONENT:
+                slugs.append(slug)
     return slugs
 
 
@@ -88,4 +101,4 @@ def component_pool(worktree: Path, slug: str) -> Path:
     also why this cannot be derived from the product pool: two components sharing
     one pool would give each the other's evidence.
     """
-    return worktree / candidates.COMPONENT_ROOT / slug / "research"
+    return worktree / act.COMPONENT_ROOT / slug / "research"

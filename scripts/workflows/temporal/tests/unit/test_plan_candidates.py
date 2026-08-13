@@ -26,6 +26,7 @@ evidence that the guard it names does anything.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -41,13 +42,30 @@ _HEADER = (
     "|---|---|---|---|---|---|\n"
 )
 
-_CHARTER = (
-    "# Alpha\n\n"
-    "**Status: CHARTERED — phases are not planned yet. `plan-feature` writes them.**\n\n"
-    "## What this is\n\nA domain.\n\n"
-    "## What this is NOT\n\nNot beta's job.\n\n"
-    "## Where it came from\n\nDerived from `C-001`.\n"
-)
+def _charter_template() -> str:
+    """The charter template AS THE PROMPT SHIPS IT, read out of the prompt file.
+
+    DERIVED, NEVER RESTATED, and this used to be a hand-copied constant that had
+    already drifted — the copy was missing the `## Dependencies` section and the
+    `Serves:` line. That matters more here than anywhere else in this module: the
+    one test certifying *a compliant run cannot fail its own guard* was checking
+    an approximation of what the model is actually handed, so a later prompt edit
+    that tripped `_PHASE_PLANNED` or `_HOURS_ESTIMATED` would have left the suite
+    green while every correct run raised. Same discipline as
+    `observer_registry.workflows_declaring`, which derives the prompt filename
+    for exactly this reason.
+    """
+    text = (scaffold.PROMPTS / "plan_candidates.md").read_text()
+    blocks = re.findall(r"^```markdown\n(.*?)^```", text, re.S | re.M)
+    assert len(blocks) == 1, (
+        f"expected exactly one ```markdown block in plan_candidates.md (the "
+        f"charter template); found {len(blocks)}. If the prompt legitimately "
+        f"grew a second, name which one this test wants — a silent [0] here is "
+        f"how this check starts reading the wrong block.")
+    return blocks[0]
+
+
+_CHARTER = _charter_template()
 
 
 def _table(rows: list[tuple[str, ...]], note: str = "n") -> str:
@@ -72,13 +90,25 @@ def tree(tmp_path: Path) -> Path:
 
 
 def _component(tree: Path, slug: str, *, roadmap: str | None = None,
-               research: bool = False) -> Path:
+               research: bool = False, papers: bool = False,
+               defining_doc: bool = False) -> Path:
+    """`research` makes the FOLDER; `papers` puts something in it.
+
+    The two are separate parameters because conflating them is the defect this
+    fixture used to encode: `research=True` created an empty directory and the
+    inventory called it evidence. Twelve components in this repo hold a
+    `research/` folder and three hold a paper.
+    """
     d = tree / "docs" / "development" / slug
     d.mkdir(parents=True, exist_ok=True)
     if roadmap is not None:
         (d / "roadmap.md").write_text(roadmap)
-    if research:
-        (d / "research").mkdir(exist_ok=True)
+    if defining_doc:
+        (d / f"{slug}.md").write_text(f"# {slug}\n\n**Status:** COMPLETE\n")
+    if research or papers:
+        (d / "research" / "raw").mkdir(parents=True, exist_ok=True)
+    if papers:
+        (d / "research" / "raw" / "topic.md").write_text("# a paper\n")
     return d
 
 
@@ -269,11 +299,56 @@ def test_the_full_charter_template_the_prompt_hands_the_model_passes(tree: Path)
     assert own.phase_planning_in(tree, ["docs/development/alpha/roadmap.md"]) == {}
 
 
+@pytest.mark.parametrize("line", [
+    "Derived from `C-011` — ship three cheap guards (~9 h).",
+    'Derived from `C-013` — close the "evaluate Paperclip after Phase 4" gate.',
+], ids=["hours-in-a-quoted-title", "phase-in-a-quoted-title"])
+def test_a_candidate_TITLE_carrying_a_phase_or_an_hour_still_trips_the_guard(
+        tree: Path, line: str) -> None:
+    """THE GUARD CANNOT TELL A QUOTE FROM A PLAN, and this pins that it cannot.
+
+    Both strings are real: `C-011`'s title ends `(~9 h)` and `C-013`'s contains
+    `Phase 4`, and both rows are ruled `ship` today, so both are in the live
+    working set. The charter template REQUIRES a *Where it came from* line saying
+    what those candidates asked for — so a run that quotes either title fails
+    AFTER the model has spent its budget and opened the PR, and the exception
+    takes the whole `plan-project` dispatch down with it.
+
+    THE FIX IS IN THE PROMPT, NOT HERE, and this test is why it can stay there:
+    loosening the pattern to admit a quoted phase number would also admit a
+    planned one, which is the boundary the entire child is defined by. So the
+    guard stays strict, the prompt tells the run to paraphrase and cite the
+    candidate by id, and this asserts the trap is still where the prompt says.
+    """
+    _component(tree, "alpha", roadmap=f"# Alpha\n\n{line}\n")
+    assert own.phase_planning_in(tree, ["docs/development/alpha/roadmap.md"]), (
+        f"{line!r} no longer trips the guard. If that was deliberate, the "
+        f"paraphrase instruction in prompts/plan_candidates.md is now telling "
+        f"the model to avoid something harmless — delete one or the other, but "
+        f"do not leave the prompt warning about a trap that is gone.")
+
+
+@pytest.mark.parametrize("line", [
+    "Derived from `C-011` — three cheap guards, sized as a small piece of work.",
+    "Derived from `C-013` — close the gate deferring the Paperclip evaluation.",
+    "Depends on the memory-management-framework's typed exit record.",
+], ids=["paraphrased-hours", "paraphrased-phase", "paraphrased-dependency"])
+def test_the_PARAPHRASE_the_prompt_asks_for_passes(tree: Path, line: str) -> None:
+    """DISCRIMINATOR on the pair above: the instruction must be followable.
+
+    A trap with no way around it is a guard that fails every correct run. These
+    are the exact rewrites the prompt gives as examples, so if one of them ever
+    trips the pattern the instruction has become impossible to obey.
+    """
+    _component(tree, "alpha", roadmap=f"# Alpha\n\n{line}\n")
+    assert own.phase_planning_in(tree, ["docs/development/alpha/roadmap.md"]) == {}
+
+
 def test_an_EXISTING_roadmap_full_of_phases_is_not_this_check_s_business(tree: Path) -> None:
     """Scoped to CREATED roadmaps, and the scope is load-bearing.
 
-    `memory-management-framework/roadmap.md` legitimately lists six phases with
-    estimates. A check over every roadmap in the tree would fail every run in this
+    `memory-management-framework/roadmap.md` legitimately lists six numbered
+    phases. A check over every roadmap in the tree would fail every run in this
     repo over a file nobody in the dispatch touched — and its edit is caught by
     `roadmaps_edited` instead, which is the correct guard for it.
     """
@@ -332,12 +407,48 @@ def test_an_EMPTY_ship_set_is_a_state_and_says_so() -> None:
 def test_the_inventory_names_a_SHELL_as_the_cheap_repair(tree: Path) -> None:
     """The one existing directory this workflow may write into, and it must be
     told which — adding a charter a component never had is CREATING one."""
-    _component(tree, "fleet-reliability", research=True)
+    _component(tree, "fleet-reliability", papers=True)
     _component(tree, "mmf", roadmap="# M\n")
     text = own.component_inventory(tree)
-    assert "RESEARCH BUT NO CHARTER" in text
+    assert "RESEARCH BUT NOTHING DEFINING IT" in text
     assert "fleet-reliability" in text and "HAS A CHARTER" in text
-    assert "1 of these carry a charter; 1 hold research with no charter" in text
+    assert "Chartered: 1 · already defined by their own `<slug>.md`: 0 · " \
+           "holding research with nothing above it: 1." in text
+
+
+def test_an_EMPTY_research_folder_is_not_evidence_and_not_a_shell(tree: Path) -> None:
+    """DISCRIMINATOR, and it is the one that decides how much this run creates.
+
+    Nine of this repo's twelve `research/` directories hold nothing but a
+    `.gitkeep`. Keyed on the folder EXISTING, the inventory told the model those
+    components "have evidence and nothing saying what the component IS" — while
+    the prompt calls repairing a shell the cheapest correct outcome available.
+    A compliant run would have chartered up to eleven pre-existing components and
+    the parent would have commissioned a research cycle into each, with every
+    guard reporting clean because each creation is legitimate by construction.
+    """
+    _component(tree, "empty-pool", research=True)
+    text = own.component_inventory(tree)
+    assert "an empty directory" in text
+    assert "RESEARCH BUT NOTHING DEFINING IT" not in text, (
+        "an empty `research/` folder read as evidence")
+    assert "holding research with nothing above it: 0." in text
+
+
+def test_a_component_DEFINED_BY_ITS_OWN_SLUG_DOC_is_marked_do_not_charter(
+        tree: Path) -> None:
+    """DISCRIMINATOR against inventing a second home for a defined component.
+
+    `sprint.md`'s convention is that a component fitting in one phase IS
+    `<slug>/<slug>.md`, and eleven of this repo's sixteen components are in
+    exactly that state — several marked COMPLETE. The inventory was blind to that
+    file, so it reported them to the model as components with nothing saying what
+    they are, which is the strongest available invitation to charter one.
+    """
+    _component(tree, "planning-and-agents", defining_doc=True, research=True)
+    text = own.component_inventory(tree)
+    assert "ALREADY DEFINED" in text and "Do not charter it" in text
+    assert "already defined by their own `<slug>.md`: 1" in text
 
 
 # --- the guards, fired through the real entrypoint ----------------------------
@@ -454,9 +565,13 @@ def test_a_run_that_produced_no_PR_URL_fails_rather_than_returning_nothing(
 @pytest.mark.parametrize("path", [
     "docs/development/sprint.md",
     "docs/development/mmf/phase1_first.md",
+    "docs/development/planning-and-agents/planning-and-agents.md",
+    "docs/development/cpi-decisions.md",
+    "docs/development/fleet-reliability/research/synthesis.md",
     "docs/standards/architecture/research/direction.md",
     "docs/standards/architecture/problem-statement.md",
-], ids=["sprint", "phase-doc", "direction", "thesis"])
+], ids=["sprint", "phase-doc", "component-doc", "cpi-log", "research-pool",
+        "direction", "thesis"])
 def test_reaching_outside_the_path_boundary_fails_the_run(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         path: str) -> None:
@@ -465,6 +580,27 @@ def test_reaching_outside_the_path_boundary_fails_the_run(
     _crossing(monkeypatch, path)
     with pytest.raises(RuntimeError, match="outside its authorization"):
         _run(tree)
+
+
+@pytest.mark.parametrize("path", [
+    "docs/development/alpha/roadmap.md",
+    "docs/standards/architecture/research/candidates.md",
+], ids=["the-charter-it-creates", "the-proposal-row-it-places"])
+def test_the_two_paths_it_MAY_write_are_not_crossings(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
+        path: str) -> None:
+    """DISCRIMINATOR, and every other guard in this module has one but this did not.
+
+    The forbidden list above is `^docs/development/` and `^docs/standards/` — both
+    whole directories — so without this pair the boundary could be maximally
+    strict and every assertion above would still pass, while the workflow failed
+    on its own output. That is not hypothetical for this workflow: writing a
+    charter under `docs/development/` IS the job.
+    """
+    (tree / "c.md").write_text(_table([("C-001", "`ship`")]))
+    _fake_run(monkeypatch, None)
+    _crossing(monkeypatch, path)
+    assert _run(tree) == PR_URL
 
 
 def test_deleting_the_candidates_file_fails_before_anything_tries_to_parse_it(

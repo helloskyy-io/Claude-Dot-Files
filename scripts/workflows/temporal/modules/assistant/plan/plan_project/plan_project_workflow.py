@@ -81,6 +81,12 @@ from ..plan_candidates import plan_candidates_workflow as scaffold
 from ..plan_sprint import plan_sprint_workflow as sprint
 from ..triage_candidates import triage_candidates_workflow as triage
 
+# How many newly chartered components this parent will research in one pass
+# before it stops and asks. Each one costs a research-write plus a
+# research-verify dispatch, and `plan-candidates` is designed so that chartering
+# is the rare outcome — see the ceiling's use below for the full argument.
+MAX_NEW_COMPONENTS = 3
+
 
 def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                     candidates_path: Path, research_dir: Path,
@@ -174,6 +180,32 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
             "extends something that already exists needs no new structure. Read its "
             "placement table in the PR to see where the ruled set landed."
         )
+
+    # A BOUND ON THE FAN-OUT, BECAUSE THIS STEP FIRES AGAIN AND EACH ITERATION IS
+    # TWO OPUS DISPATCHES. The loop was written when the sweep was empty by
+    # construction, so its cost was zero however wrong its input was; this commit
+    # made it live. `plan-candidates`'s own design says chartering is the RARE
+    # outcome — "a run that scaffolds one component and correctly reports that
+    # twenty-six other candidates extend things that already exist has done this
+    # job well" — so a pass that charters more than a few has made a placement
+    # error, and researching it multiplies that error by a full cycle each.
+    #
+    # It reports and stops rather than researching a prefix: a partial fan-out
+    # would leave some new components with evidence and some without, and the
+    # difference would look like a decision somebody made.
+    if len(new_components) > MAX_NEW_COMPONENTS:
+        notes.append(
+            f"NO COMPONENT RESEARCH RAN, and this is a HOLD rather than a skip. "
+            f"plan-candidates chartered {len(new_components)} components in one "
+            f"pass ({', '.join(new_components)}), over a ceiling of "
+            f"{MAX_NEW_COMPONENTS}. Chartering is meant to be the rare outcome, so "
+            f"this reads as a placement error rather than a large sprint — and "
+            f"researching it would spend a research-write plus research-verify "
+            f"cycle on each. Review the placement table in the PR first; if the "
+            f"components are right, dispatch research against each pool directly."
+        )
+        new_components = []
+
     for slug_name in new_components:
         notes.append(f"New component `{slug_name}` — researching before it is planned. "
                      f"`plan-feature` does not exist yet, so it will reach plan-sprint "

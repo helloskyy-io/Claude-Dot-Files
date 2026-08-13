@@ -1232,7 +1232,7 @@ def _fixture_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-@pytest.mark.parametrize("module_name", ["run_triage_candidates", "run_plan_sprint"])
+@pytest.mark.parametrize("module_name", ["run_triage_candidates", "run_plan_candidates", "run_plan_sprint"])
 def test_the_dry_run_of_each_entrypoint_RUNS_and_renders(
         module_name: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Executed, not read. A values dict that has drifted raises here and only here.
@@ -1259,7 +1259,7 @@ def test_the_dry_run_of_each_entrypoint_RUNS_and_renders(
     assert kickoff.main(["--repo", str(repo), "--dry-run"]) == 0
 
 
-@pytest.mark.parametrize("module_name", ["run_triage_candidates", "run_plan_sprint"])
+@pytest.mark.parametrize("module_name", ["run_triage_candidates", "run_plan_candidates", "run_plan_sprint"])
 def test_the_dry_run_would_FAIL_on_a_values_dict_that_had_drifted(
         module_name: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
         capsys: pytest.CaptureFixture[str]) -> None:

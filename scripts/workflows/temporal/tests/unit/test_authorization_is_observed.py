@@ -252,23 +252,39 @@ def test_plan_candidates_forbids_phase_docs_while_permitting_the_roadmap_beside_
 
     This is the ONLY workflow that legitimately creates a file under
     `docs/development/`, and the file it creates sits in the same directory as
-    the phase docs it must not write. So the pattern cannot be
-    `^docs/development/` — that would fail every correct run on its own output —
-    and it cannot be loose either, or `plan-feature`'s files are reachable.
+    the phase docs it must not write. The boundary is therefore drawn by
+    EXEMPTING that one file from a whole-directory rule, not by narrowing the
+    rule to the filenames somebody thought of.
 
-    `research/` under a component is asserted permitted deliberately: the parent
-    creates a component's research pool by `mkdir` and the research children
-    write papers into it, on the same branch and inside the same worktree. A
-    pattern that caught those would fail the pipeline one step after this one.
+    THE NARROW VERSION SHIPPED FIRST AND THIS TEST PASSED OVER IT. The pattern
+    was `^docs/development/[^/]+/phase[^/]*\\.md$`, which matches six files in
+    this repo; the eleven component docs named `<slug>/<slug>.md` — which ARE
+    this repo's phase docs under `sprint.md`'s convention — plus
+    `cpi-decisions.md`, every review artifact and every research pool were all
+    reachable, while the prompt told the model the row was enforced. The
+    `<slug>/<slug>.md` and `cpi-decisions.md` cases below are that gap, written
+    down so the narrow pattern cannot come back.
+
+    `research/` UNDER A COMPONENT IS FORBIDDEN, and the objection that the
+    pipeline needs it is a timing error worth recording. The parent does `mkdir`
+    a pool and the research children do write papers into it, on this branch and
+    in this worktree — but they run AFTER this child returns, and both snapshots
+    here are taken around THIS workflow's own model call. Nothing a later step
+    writes is inside the window, so permitting the pool bought nothing and left
+    this run free to rewrite evidence it did not gather.
     """
     forbidden = ("docs/development/sprint.md",
                  "docs/development/memory-management-framework/phase1_measure_the_channel.md",
                  "docs/development/temporal-integration/phase-1.md",
+                 "docs/development/planning-and-agents/planning-and-agents.md",
+                 "docs/development/cpi-decisions.md",
+                 "docs/development/reviews/review-2026-04-10.md",
+                 "docs/development/fleet-reliability/research/synthesis.md",
+                 "docs/development/fleet-reliability/research/raw/topic.md",
                  "docs/standards/architecture/problem-statement.md",
                  "docs/standards/architecture/research/direction.md",
                  "docs/standards/workflow-scripts.md")
     permitted = ("docs/development/fleet-reliability/roadmap.md",
-                 "docs/development/fleet-reliability/research/synthesis.md",
                  "docs/standards/architecture/research/candidates.md")
     for path in forbidden:
         assert act.boundary_crossings({}, {path: "h"}, scaffold.FORBIDDEN_PATHS,

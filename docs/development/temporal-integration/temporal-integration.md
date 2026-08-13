@@ -2,7 +2,7 @@
 
 The port of the workflow fleet onto durable execution.
 
-**Status: Stage A is substantially built.** The Python tree exists under `scripts/workflows/temporal/`, the parity suite runs against the bash fleet, and the planning family — `plan-sprint`, and `triage-candidates` split out of it in PR #85 — has no bash ancestor at all and was authored directly in the Python tree. Temporal itself is not stood up and nothing is orchestrated.
+**Status: Stage A is substantially built.** The Python tree exists under `scripts/workflows/temporal/`, the parity suite runs against the bash fleet, and the planning family — `plan-sprint`, `triage-candidates` split out of it in PR #85, and `plan-candidates` added in PR #88 — has no bash ancestor at all and was authored directly in the Python tree. Temporal itself is not stood up and nothing is orchestrated.
 
 ## Why Temporal, and what it is not for
 

@@ -27,12 +27,17 @@ import hashlib
 import re
 from pathlib import Path
 
-# The component layer, and the one file at the top of each component that this
-# workflow creates. `reviews/` is not a component — it is where review artifacts
-# land — and `plan_activities.existing_work` already excludes it for the same
-# reason.
-COMPONENT_ROOT = "docs/development"
-_NOT_A_COMPONENT = {"reviews"}
+from .. import plan_activities as act
+
+# THE COMPONENT LAYER, READ FROM THE SHARED SURFACE RATHER THAN REDECLARED.
+# `plan_activities` already held both names and `plan_project_activities` reads
+# this layer too, so §10.1 rule 3 puts them at the parent — a count, not taste.
+# This module briefly declared its own `COMPONENT_ROOT` as a `str` beside the
+# parent's as a `Path`, and the parent workflow's research sweep imported the
+# COPY: narrowing the root here would have silently broken the step this whole
+# child exists to un-inert.
+COMPONENT_ROOT = act.COMPONENT_ROOT
+_NOT_A_COMPONENT = act.NOT_A_COMPONENT
 
 # A phase the model planned into a roadmap it was only meant to charter. Matches
 # the SHAPE of the claim rather than any wording: a phase reference always
@@ -161,10 +166,12 @@ def shells_without_a_charter(before_dirs: set[str], after_dirs: set[str],
     reads as a component and holds nothing anyone can act on.
 
     Judged against directories this run ADDED, never against the tree as it
-    stands. Sixteen of this repo's seventeen components have no `roadmap.md`
-    today, so a tree-wide sweep would fail every run over work nobody in this
-    dispatch did — which is the shape of guard that gets deleted rather than
-    fixed.
+    stands. FIFTEEN of this repo's SIXTEEN components have no `roadmap.md` today
+    — `ls -d docs/development/*/ | wc -l` is 17, less `reviews/`, against one
+    `roadmap.md` — so a tree-wide sweep would fail every run over work nobody in
+    this dispatch did, which is the shape of guard that gets deleted rather than
+    fixed. (This sentence said "sixteen of seventeen" until it was counted: it
+    was using `reviews/` as a component in the same module that excludes it.)
     """
     return sorted(name for name in after_dirs - before_dirs
                   if f"{COMPONENT_ROOT}/{name}/roadmap.md" not in after_roadmaps)
@@ -179,13 +186,26 @@ def component_inventory(tree: Path) -> str:
     built to prevent — and unlike a duplicate row, a duplicate component folder
     is a durable structure that later research and planning both write into.
 
-    THE THREE STATES ARE NAMED SEPARATELY because they mean different things to
+    THE FOUR STATES ARE NAMED SEPARATELY because they mean different things to
     this workflow and collapsing them is how the wrong one gets picked. A
     component with a charter is a target `plan-feature` can already plan into. A
-    component with research but no charter is the shell described in
-    `component_dirs` — the ONE case where this workflow legitimately writes into
-    an existing directory, since adding the missing charter is not editing a
-    roadmap that does not exist. A bare directory is neither.
+    component whose own `<slug>.md` says what it is is DEFINED — the convention
+    `sprint.md` states for a component that fits in one phase — and needs nothing
+    from this run. A component with a real research pool and no document above it
+    is the shell described in `component_dirs`, the ONE case where this workflow
+    legitimately writes into an existing directory. A bare directory is none of
+    those.
+
+    "HAS EVIDENCE" IS COUNTED, NOT INFERRED FROM A DIRECTORY EXISTING, and the
+    difference is the whole safety of this block. Twelve components here hold a
+    `research/` folder and only THREE hold a paper — the other nine are an empty
+    `raw/` with a `.gitkeep`. Keying on `is_dir()` told the model that nine
+    components "have evidence and nothing saying what the component IS", while
+    the prompt calls repairing a shell *the cheapest correct outcome available to
+    you*. A compliant run would have chartered up to eleven pre-existing
+    components — several of them marked COMPLETE in their own `<slug>.md` — and
+    the parent would then have commissioned a research cycle into each. Every one
+    of those creations is legitimate by construction, so no guard fires.
     """
     root = tree / COMPONENT_ROOT
     if not root.is_dir():
@@ -195,27 +215,35 @@ def component_inventory(tree: Path) -> str:
     lines = [f"**Existing components under `{COMPONENT_ROOT}/`, counted in code "
              f"— a candidate whose work falls inside one of these needs NO "
              f"scaffolding:**", ""]
-    charted = shells = 0
+    charted = defined = shells = 0
     for name in sorted(component_dirs(tree)):
         d = root / name
-        has_roadmap = (d / "roadmap.md").is_file()
-        has_research = (d / "research").is_dir()
-        if has_roadmap:
+        pool = d / "research"
+        # A pool with no paper and no synthesis is a `mkdir`, not evidence.
+        has_evidence = (any(pool.glob("raw/*.md")) or (pool / "synthesis.md").is_file())
+        if (d / "roadmap.md").is_file():
             charted += 1
             mark = "**HAS A CHARTER** — `plan-feature` can plan into it as it stands"
-        elif has_research:
+        elif (d / f"{name}.md").is_file():
+            defined += 1
+            mark = (f"**ALREADY DEFINED** — `{name}.md` says what this component "
+                    f"is. **Do not charter it.** Work that falls inside it "
+                    f"extends it, and `plan-feature` writes the phase detail")
+        elif has_evidence:
             shells += 1
-            mark = ("**RESEARCH BUT NO CHARTER** — a shell. It has evidence and "
-                    "nothing saying what the component IS")
+            mark = ("**RESEARCH BUT NOTHING DEFINING IT** — a shell. It holds "
+                    "papers and no document saying what the component IS")
         else:
-            mark = "no roadmap, no research pool"
+            mark = "an empty directory — no defining doc, and no research in it"
         lines.append(f"  - `{COMPONENT_ROOT}/{name}/` — {mark}")
 
-    lines += ["", f"**{charted} of these carry a charter; {shells} hold research "
-                  f"with no charter above it.** A shell is the one existing "
-                  f"directory you may write into: adding the `roadmap.md` it "
-                  f"never had is CREATING a charter, not editing one, and it is "
-                  f"the cheapest correction available to this run."]
+    lines += ["", f"**Chartered: {charted} · already defined by their own "
+                  f"`<slug>.md`: {defined} · holding research with nothing above "
+                  f"it: {shells}.** A shell is the one existing directory you "
+                  f"may write into: adding the charter it never had is CREATING "
+                  f"one, not editing one. **The other three states need nothing "
+                  f"from you** — and an empty `research/` folder is not evidence, "
+                  f"which is why this list counts papers rather than folders."]
     return "\n".join(lines)
 
 

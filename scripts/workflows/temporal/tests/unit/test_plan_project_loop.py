@@ -363,6 +363,50 @@ def test_each_new_component_is_researched_into_its_OWN_pool(
     ]
 
 
+def test_a_runaway_scaffolding_pass_RESEARCHES_NOTHING_and_says_why(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The ceiling on the fan-out, and each iteration past it is two opus runs.
+
+    This loop was written while the sweep was empty by construction, so its cost
+    was zero however wrong its input was; `plan-candidates` made it live.
+    Chartering is designed to be the RARE outcome, so a pass that charters many
+    components has made a placement error — and researching it multiplies that
+    error by a full research-write plus research-verify cycle each.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    over = [f"c{n}" for n in range(pm.MAX_NEW_COMPONENTS + 1)]
+    _with_components(monkeypatch, tmp_path, *over)
+    _, _, _, notes = _run()
+    assert wired.research_pools == [], (
+        f"{len(over)} components were researched over a ceiling of "
+        f"{pm.MAX_NEW_COMPONENTS}; the cap is not bounding the fan-out")
+    assert any("over a ceiling" in n for n in notes), (
+        "the fan-out was capped SILENTLY. A step that stops without saying so "
+        "is indistinguishable from one that had nothing to do, which is the "
+        "exact confusion the note this replaces existed to prevent")
+
+
+def test_a_fanout_AT_the_ceiling_still_researches(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """DISCRIMINATOR: without it the cap could be zero and every assertion above
+    would still pass, while no component was ever researched again.
+
+    THE FLOOR IS ASSERTED SEPARATELY AND THAT IS NOT BELT-AND-BRACES. Sizing the
+    fixture from `MAX_NEW_COMPONENTS` makes the rest of this test VACUOUS at a
+    ceiling of zero — `range(0)` is empty, no component is researched, and
+    `0 == 0` passes while the step is dead. Found by mutating the constant to 0
+    after writing it, which is the only way that shape shows up.
+    """
+    assert pm.MAX_NEW_COMPONENTS >= 1, (
+        "the ceiling is below one, so plan-project can never research a "
+        "component it just chartered — the step is off, not bounded")
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    at = [f"c{n}" for n in range(pm.MAX_NEW_COMPONENTS)]
+    _with_components(monkeypatch, tmp_path, *at)
+    _run()
+    assert len(wired.research_pools) == pm.MAX_NEW_COMPONENTS
+
+
 def test_the_research_fanout_does_not_hijack_the_product_pool(
         wired: _Calls, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """REGRESSION. The loop originally rebound `research_dir`, the parameter

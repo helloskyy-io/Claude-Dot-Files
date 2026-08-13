@@ -1,7 +1,8 @@
 """Shared I/O for the planning family — promoted per §10.1 rule 3.
 
 Sits at module level because more than one workflow uses it: `plan_sprint`,
-`triage_candidates` and `plan_revision` today, `plan_tech_stack` when it lands.
+`triage_candidates`, `plan_candidates` and `plan_revision` today, `plan_tech_stack`
+when it lands.
 The promotion rule was anticipatory when this file was written and is now
 satisfied outright.
 
@@ -431,8 +432,8 @@ def existing_work(tree: Path, research_dir: Path) -> str:
 
     lines: list[str] = []
 
-    comps = sorted(d for d in (tree / "docs" / "development").iterdir()
-                   if d.is_dir() and d.name != "reviews")
+    comps = sorted(d for d in (tree / COMPONENT_ROOT).iterdir()
+                   if d.is_dir() and d.name not in NOT_A_COMPONENT)
     lines.append("**Existing components** (a candidate may belong inside one rather than needing its own sprint section):")
     for c in comps:
         syn = c / "research" / "synthesis.md"
@@ -473,7 +474,25 @@ def existing_work(tree: Path, research_dir: Path) -> str:
 
 PROBLEM_STATEMENT = Path("docs/standards/architecture/problem-statement.md")
 PRODUCT_POOL = Path("docs/standards/architecture/research")
-COMPONENT_ROOT = Path("docs/development")
+
+# THE ONE DEFINITION OF THE COMPONENT LAYER, and it is a `str` rather than a
+# `Path` because three of its four consumers build a repo-RELATIVE KEY out of it
+# (`f"{COMPONENT_ROOT}/{slug}/roadmap.md"`) and only one joins it onto a tree.
+# `Path / str` works; `f"{Path(...)}"` also works but silently makes the key
+# format platform-dependent, which is a subtlety a snapshot key cannot afford.
+#
+# It sits here because §10.1 rule 3 is a consumer count: `existing_work` below,
+# `plan_candidates_activities` and `plan_project_activities` all read this layer.
+# `plan_candidates` briefly declared its own copy as a `str` beside this one as a
+# `Path`, and `plan_project` imported the CHILD's — so narrowing the root in one
+# workflow folder would have silently broken the parent's research sweep, which
+# is the drift `normalise_cell` exists to record, one directory up.
+COMPONENT_ROOT = "docs/development"
+
+# `reviews/` holds review artifacts, not a domain of work. Shared for the same
+# reason as the root: two definitions of "what counts as a component" feeding one
+# prompt is the same drift, and both readers below render into the same prompt.
+NOT_A_COMPONENT = frozenset({"reviews"})
 
 
 def evidence_block(repo_root: Path) -> str:

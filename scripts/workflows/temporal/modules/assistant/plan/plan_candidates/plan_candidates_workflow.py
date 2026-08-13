@@ -26,6 +26,30 @@ that decides which candidates belong in this component and which do not.
 choose the scope — and research cannot, because research is commissioned per
 component pool and therefore needs the component to already mean something.
 
+THE FILENAME IS AN OPEN QUESTION AND THIS RUN DID NOT SETTLE IT — READ THIS
+BEFORE COPYING THE SHAPE. Two documents in this repo disagree about what the
+first file of a new component is called, and this workflow picked one without
+the disagreement being visible:
+
+  * `docs/guide/workflows.md` and the vendored [Documentation Standard § 0]
+    describe the component layer as `<slug>/roadmap.md` + `phase{N}_*.md`, which
+    is what this workflow writes;
+  * `docs/development/sprint.md` — the OPERATOR'S OWN file, which no dispatch may
+    edit — says *"A component is a folder, not a file. `<name>/<name>.md` is its
+    phase doc"* and *"A component that outgrows one phase gets its own
+    `roadmap.md`… One phase needs no roadmap; do not create one to be tidy."*
+
+Eleven of this repo's sixteen components follow `sprint.md`. A component being
+chartered has no phase count yet — that is `plan-feature`'s to determine — so
+`roadmap.md` quietly pre-decides *"this will outgrow one phase"*, and
+`shells_without_a_charter` below fails any run that writes the `sprint.md` shape
+instead. **This is flagged for an operator ruling rather than resolved here:**
+resolving it means either amending `sprint.md`, which is human-only, or changing
+this workflow's primary artifact against the two documents that specify it.
+`component_inventory` marks a component defined by its own `<slug>.md` as
+ALREADY DEFINED and tells the run not to charter it, so nothing is duplicated
+while the question is open.
+
 THAT GAP IS MEASURED, NOT ARGUED. `docs/development/fleet-reliability/` holds
 five verified research papers and a synthesis, and no planning document at all.
 The parent's research step created the directory with a `mkdir` because nothing
@@ -72,14 +96,24 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 #
 # Every path-scoped `You MAY NOT` row in `prompts/plan_candidates.md`, as a
 # pattern. This workflow's boundary is unusual in the family: it is the only one
-# that legitimately CREATES a file under `docs/development/`, which is exactly
-# why the phase-doc pattern is written narrowly rather than the directory being
-# forbidden wholesale. A `roadmap.md` is its output and a `phase{N}_*.md` is
-# `plan-feature`'s, and they sit in the same folder.
+# that legitimately CREATES a file under `docs/development/`. That is handled by
+# EXEMPTING the one file it writes, NOT by narrowing the directory rule — and the
+# difference is not cosmetic.
+#
+# IT WAS WRITTEN THE OTHER WAY FIRST, AND THE NARROW RULE WAS A FALSE
+# ENFORCEMENT CLAIM. The pattern was `^docs/development/[^/]+/phase[^/]*\.md$`,
+# which matches exactly SIX files in this repo (the `memory-management-framework`
+# phase docs) and leaves the rest of the layer open: `cpi-decisions.md`, the
+# ELEVEN component docs actually named `<slug>/<slug>.md` — which ARE this
+# repo's phase docs, per `sprint.md`'s stated convention — every review artifact,
+# and every component's research pool. The prompt told the model that row was
+# mechanically checked, and for most of the files it names nothing checked it.
+# `triage-candidates`, running one step earlier in the same worktree, forbids
+# `^docs/development/` outright; this is that rule, less this workflow's output.
 FORBIDDEN_PATHS = (
-    r"(^|/)sprints?\.md$",                       # "Touch `sprint.md` at all"
-    r"^docs/development/[^/]+/phase[^/]*\.md$",  # "Write or edit any phase doc"
-    r"^docs/standards/",                         # "...or anything else under `docs/standards/`"
+    r"(^|/)sprints?\.md$",   # "Touch `sprint.md` at all"
+    r"^docs/development/",   # "Write or edit any phase doc" — and anything else there
+    r"^docs/standards/",     # "...or anything else under `docs/standards/`"
 )
 
 # The ONE file under a forbidden root this workflow may write, and it is not one
@@ -91,8 +125,22 @@ FORBIDDEN_PATHS = (
 #
 # `direction.md` is deliberately absent: appending to it is `triage-candidates`'s
 # alone, and the mechanism for that prohibition is the absence of an exception.
+#
+# THE SECOND ENTRY IS THIS WORKFLOW'S ONLY OUTPUT, and it is narrow on purpose. A
+# component's `roadmap.md` sits one directory level under the component root and
+# nowhere else, so `plan-feature`'s phase docs beside it stay forbidden and a
+# `roadmap.md` nested deeper — inside a `research/` pool, say — is not exempt.
+#
+# A COMPONENT'S `research/` POOL IS DELIBERATELY *NOT* PERMITTED, and the reason
+# is a timing fact worth stating because the obvious objection is wrong: the
+# parent's research children do write into that pool on this same branch and in
+# this same worktree, but they run AFTER this child returns. Both snapshots here
+# are taken around THIS workflow's own model call, so a later step's writes are
+# outside the window entirely. Permitting the pool would buy nothing and would
+# leave this run free to rewrite evidence it did not gather.
 PERMITTED_PATHS = (
     r"^docs/standards/architecture/research/candidates\.md$",
+    r"^docs/development/[^/]+/roadmap\.md$",
 )
 
 # --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
@@ -112,7 +160,11 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "**Touch `sprint.md` at all** — you hold no authorization over it":
         "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
     "Write or edit any phase doc — `plan-feature` writes those":
-        "FORBIDDEN_PATHS `^docs/development/[^/]+/phase[^/]*\\.md$`, same mechanism",
+        "FORBIDDEN_PATHS `^docs/development/` less the one `roadmap.md` exception "
+        "in PERMITTED_PATHS, same mechanism. Stated as the whole directory "
+        "because a `phase`-prefixed pattern covered 6 files here and left the 11 "
+        "component docs named `<slug>/<slug>.md` — the phase docs this row is "
+        "actually about — unwatched",
     "**Edit a `roadmap.md` that already exists** — you create one, you never revise one":
         "own.component_roadmaps read from DISK either side of the run, compared "
         "by own.roadmaps_edited. A path rule cannot see this: `worktree_state` "
@@ -141,9 +193,12 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "would separate the two is the sprint plan, which this workflow cannot "
         "reach at all, so what is left is a reviewer reading the report.",
     "**Delete anything** — a candidate row, a roadmap, or any file":
-        "act.ids_deleted over both the candidate-row and the roadmap snapshots, "
-        "and act.grants_that_vanished over PERMITTED_PATHS for the files "
-        "themselves",
+        "act.ids_deleted over both the candidate-row and the roadmap snapshots; "
+        "act.grants_that_vanished over PERMITTED_PATHS for the two files this "
+        "workflow may write; and act.boundary_crossings for everything else "
+        "under a forbidden root, where a deletion reads as a content change via "
+        "the ABSENT sentinel. The third clause is what covers a research pool or "
+        "a component doc — the first two are blind to both",
 }
 
 # --- EVERY BEFORE/AFTER SNAPSHOT, AND WHAT WATCHES IT FOR ABSENCE ------------
@@ -166,11 +221,17 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "BEFORE own.roadmaps_edited because that comparison judges only keys "
         "present on both sides and a deleted roadmap is in neither",
     "before_dirs":
-        "own.shells_without_a_charter judges only directories that APPEARED, so "
-        "a component directory that vanished is covered instead by "
-        "act.ids_deleted over before_roadmaps — removing a component removes its "
-        "roadmap key, and a component with no roadmap to lose is one this "
-        "workflow could not have created",
+        "act.boundary_crossings over before_tree/after_tree, where FORBIDDEN_PATHS "
+        "covers `^docs/development/` and a deleted file reads as a content change "
+        "via the ABSENT sentinel. own.shells_without_a_charter judges only "
+        "directories that APPEARED and is blind to a removal by construction. "
+        "This entry previously delegated to act.ids_deleted over before_roadmaps "
+        "on the argument that `a component with no roadmap to lose is one this "
+        "workflow could not have created` — TRUE about creation and irrelevant to "
+        "deletion: 15 of this repo's 16 components have no roadmap, so razing any "
+        "of them moved no key in that map and nothing saw it. The argument also "
+        "could not have run — act.ids_deleted takes two dicts and before_dirs is "
+        "a set",
     "before_tree":
         "act.grants_that_vanished over PERMITTED_PATHS for the candidates file; "
         "act.boundary_crossings for every other path, where a deletion already "
