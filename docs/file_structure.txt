@@ -108,11 +108,25 @@ claude-dot-files/
 │   │   │   ├── phase6_read_what_it_writes.md        # Names the per-run JSONL log as a surface (Kind 3, proposed) and builds the readers three
 │   │   │   │                                        #   phases of emitters never had; owns Phase 5's un-owned activation trigger
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
-│   │   ├── persistent-memory-protocol/              # RESEARCH + SYNTHESIS, not yet planned. research/synthesis.md is the agreed
-│   │   │                                            #   concepts with provenance — written by an operator+PM session, not a cycle,
-│   │   │                                            #   and the surface the next round reads to resume from. Pool backs
-│   │   │                                            #   state-passing between claude -p children on ONE machine; the prior
-│   │   │                                            #   "cross-node" framing answered the wrong question and is superseded
+│   │   ├── persistent-memory-protocol/              # PLANNED, NOT STARTED (2026-08-13) — ruled its OWN COMPONENT rather than a 7th phase
+│   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-074's
+│   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
+│   │   │                                            #   on the roadmap+phases shape. Phase docs exist for the four UNBLOCKED phases only
+│   │   │   ├── roadmap.md                           # 7 phases; the component-vs-phase ruling; a 15-concept coverage map; and the
+│   │   │   │                                        #   operator calls the plan carries WITHOUT deciding — storage budget, snapshot
+│   │   │   │                                        #   cadence, and what an edge actually is
+│   │   │   ├── phase1_the_run_bag.md                # The container: configurable root, folder per run keyed by run_id (NEVER by path),
+│   │   │   │                                        #   subfolder per concurrent child, BagIt RFC 8493 manifest. No database — a
+│   │   │   │                                        #   decision with a revisit trigger, not an omission
+│   │   │   ├── phase2_content_store.md              # bernstein §4.6 — store the bytes, hash them, re-verify quoted spans OFFLINE.
+│   │   │   │                                        #   Tier 1, cost S, and it was ranked and then never placed once already
+│   │   │   ├── phase3_the_emit_rule.md              # If ANY store gets it, the journal gets it VERBATIM. Destination is a field, not
+│   │   │   │                                        #   a format. Stable edge_id — a rotating API key would orphan an edge's history
+│   │   │   ├── phase4_rebuild_is_a_test.md          # Replay into a scratch dir and diff. What makes Phase 3 enforceable rather than a
+│   │   │   │                                        #   promise; its own phase because a folded-in verification is a gate runs walk past
+│   │   │   └── research/                            # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
+│   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
+│   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
