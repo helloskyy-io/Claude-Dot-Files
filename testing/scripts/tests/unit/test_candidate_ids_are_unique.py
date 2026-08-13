@@ -1,7 +1,7 @@
 """A `C-NNN` addresses exactly one proposal, and nothing was checking that.
 
 `candidates.md` states its own rule — ids are never reused and never renumbered —
-and the id is the ADDRESS: `plan-sprint` triages by it, phase docs cite it, and a
+and the id is the ADDRESS: `triage-candidates` triages by it, phase docs cite it, and a
 finding's whole disposition can be the sentence "see C-060". An id that names two
 different proposals makes one of them unaddressable, and it does so silently.
 
@@ -77,7 +77,7 @@ def test_every_candidate_id_is_ALLOCATED_ONCE() -> None:
         f"these ids are allocated more than once: "
         f"{', '.join(f'{i} x{n}' for i, n in sorted(duplicated.items()))}. "
         f"Two proposals sharing an id means one of them cannot be addressed — "
-        f"`plan-sprint` triages by id and a disposition can be the words 'see "
+        f"`triage-candidates` triages by id and a disposition can be the words 'see "
         f"C-0NN'. Renumber the LATER allocation to the next free id, and move "
         f"its § Where things stand sentence with it. Ids are never reused and "
         f"never renumbered otherwise, which is this file's own rule."

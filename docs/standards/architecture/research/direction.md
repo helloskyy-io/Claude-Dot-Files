@@ -4,7 +4,7 @@
 
 ## Why it exists
 
-`plan-sprint` triages research candidates into `ship`, `requires review` and `reject`. `requires review` is the release valve: a finding that is real but not schedulable, because the answer is a preference, a priority or a commitment rather than a fact that more work would uncover. Shipping one puts a question mark in the sprint plan; rejecting one throws away a real finding. Both are wrong, so it comes here instead.
+`triage-candidates` triages research candidates into `ship`, `requires review` and `reject`. `requires review` is the release valve: a finding that is real but not schedulable, because the answer is a preference, a priority or a commitment rather than a fact that more work would uncover. Shipping one puts a question mark in the sprint plan; rejecting one throws away a real finding. Both are wrong, so it comes here instead.
 
 ## The rule
 
@@ -17,7 +17,7 @@
 
 ## Resolving a row — four steps, and step 3 is the one that matters
 
-**This file is the human's. `candidates.md` is the machine's.** A question goes up; an answer must come back down, in a form `plan-sprint` can act on. A ruling that lives only here is a decision the automation cannot see.
+**This file is the human's. `candidates.md` is the machine's.** A question goes up; an answer must come back down, in a form `triage-candidates` can act on. A ruling that lives only here is a decision the automation cannot see.
 
 **1 · Rule it.** Define the resolution properly, or reject it. A ruling that restates the question is not a ruling.
 
@@ -25,11 +25,13 @@
 
 **3 · If ACCEPTED** — set `status: applied`, and:
 
-- **Set the source candidate's `decision` back to BLANK**, with the ruling written into its Note. **Blank is deliberate and it is not a downgrade.** Blank means *needs triage*, which is now true — the question that blocked it has an answer. `plan-sprint` re-triages it on the next run, reads the ruling as its input, and places it in the same pass.
-- **Do NOT set it to `ship` by hand.** `plan-sprint` only places candidates it shipped in that same run — a hand-set `ship` is decided and never placed, and it will sit that way indefinitely.
+- **Set the source candidate's `decision` back to BLANK**, with the ruling written into its Note. **Blank is deliberate and it is not a downgrade.** Blank means *needs triage*, which is now true — the question that blocked it has an answer. `triage-candidates` re-triages it on the next run and reads the ruling as its input.
+- **Do NOT set it to `ship` by hand.** Blank is what puts it back in the triage working set; a hand-set `ship` skips the run that would have read your ruling and recorded why the answer changed. **The reasoning is the point of this file, and a hand-set `ship` throws it away.**
+
+  *(This warning used to carry a second reason — that `plan-sprint` placed only what it had shipped in that same run, so a hand-set `ship` would sit decided-and-unplaced forever. **The split fixed that**: `plan-sprint` now runs after triage and places from the `ship` rows in the file, whoever set them and whenever. The remaining reason is enough on its own.)*
 - **Amend the document the ruling governs** if it changes what the project believes. `D-002`'s ruling lives in `problem-statement.md`, not here.
 
-**4 · Next run picks it up.** `plan-sprint` triages, ships, and places — or reports it *for placement* if it is too small for the sprint file.
+**4 · Next run picks it up.** `triage-candidates` re-triages and ships it; `plan-sprint`, running after, places it — or reports it *for placement* if it is too small for the sprint file.
 
 ## Rotation — a ruled row is deleted once its reasoning lives somewhere permanent
 
@@ -51,6 +53,10 @@
 | `open` | Outstanding — awaiting the operator's ruling | automation, always |
 | `applied` | Ruled, and the resulting change has landed | the operator |
 | `rejected` | Ruled against — the reasoning goes in the row | the operator |
+
+**That last column is enforced in code, not only stated here.** `triage-candidates` is the workflow that appends to this file, and its runner reads this column before the model starts and again after it finishes: a pre-existing row whose `status` moved **fails the whole run**. A newly appended row is exempt, because automation is *required* to write `status: open` on one.
+
+Enforced rather than asserted because the failure is silent and unrecoverable. A run that writes `applied` on a row nobody ruled leaves a green run and a receipt indistinguishable from a genuine ruling — and the rotation above then deletes that receipt on schedule.
 
 ---
 

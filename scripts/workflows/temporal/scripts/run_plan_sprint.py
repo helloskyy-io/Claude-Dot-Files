@@ -12,7 +12,8 @@ BANNER = "=" * 64
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="plan-sprint",
-        description="Triage research candidates and keep the sprint plan current. Decides; does not design.")
+        description="Place the ruled candidates and keep the sprint plan current. "
+                    "Places; does not rule (that is triage_candidates.sh) and does not design.")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--sprint", default="docs/development/sprint.md")
     p.add_argument("--candidates", default="docs/standards/architecture/research/candidates.md")
@@ -23,16 +24,12 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
 
     try:
-
         repo_root = preflight(a.repo_target)
-
     except RuntimeError as exc:
-
         # Nothing has been created yet — that is the point of preflight.
-
         print(f"\n✗ {exc}", file=sys.stderr)
-
         return 1
+
     sprint, cands = repo_root / a.sprint, repo_root / a.candidates
     research = repo_root / a.research
     for label, path in (("sprint", sprint), ("candidates", cands), ("research", research)):
@@ -45,11 +42,14 @@ def main(argv=None) -> int:
         if a.dry_run:
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
             print(f"  Sprint     : {sprint.relative_to(repo_root)}")
-            print(f"  Candidates : {counts['total']} total · {counts['untriaged']} UNTRIAGED · {counts['triaged']} ruled")
+            print(f"  Candidates : {counts['total']} total · {counts['triaged']} ruled (your set) · {counts['untriaged']} untriaged (NOT yours)")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — no V1 to derive from)")
             rendered = act.render(act.load_prompt(wf.PROMPTS / "plan_sprint.md"), {
                 "SPRINT_PATH": a.sprint, "CANDIDATES_PATH": a.candidates, "RESEARCH_DIR": a.research,
-                "CORRECTION_NOTE": "", "EXISTING_WORK": act.existing_work(repo_root, research), "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
+                # The WHOLE slot, exactly as a live run builds it. Rendering only
+                # half of it made --dry-run preview text no model would receive.
+                "CORRECTION_NOTE": wf.correction_note(counts, correction_pass=False),
+                "EXISTING_WORK": act.existing_work(repo_root, research), "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
                 "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
                 "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard")})
             print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
