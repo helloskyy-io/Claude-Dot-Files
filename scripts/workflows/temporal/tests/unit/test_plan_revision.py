@@ -262,9 +262,20 @@ def test_the_plan_is_pointed_at_the_thesis_and_every_pool(tmp_path) -> None:
     block = act.evidence_block(tmp_path)
     assert "problem-statement.md" in block, "the plan is not shown the thesis it must serve"
     assert "docs/development/widget/research  (1 papers, synthesis.md)" in block
-    assert "docs/development/empty/research  (0 papers, no synthesis)" in block, (
+    assert "docs/development/empty/research  (0 papers, NO synthesis)" in block, (
         "an empty pool was dropped — a planner cannot tell 'no papers' from "
         "'not listed', and will assume the topic was covered"
+    )
+
+    # ORDER IS THE POINT: this workflow infers its target from free text, so a flat
+    # list makes it guess. The feature pools must precede the project pool.
+    assert block.index("FEATURE POOLS") < block.index("PROJECT POOL"), (
+        "the project pool is listed before the feature pools, which tells a generic "
+        "planning run to start with the least specific evidence available"
+    )
+    assert "docs/development/<feature>/" in block, (
+        "the block no longer teaches the pool convention — this is the one planning "
+        "child that is told no file structure and must not infer it"
     )
 
     # It must reach the model even when the operator supplied no context at all.
