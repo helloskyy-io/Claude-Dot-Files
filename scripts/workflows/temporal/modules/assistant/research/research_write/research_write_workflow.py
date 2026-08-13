@@ -49,10 +49,15 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     level = act.altitude(pool, worktree)
     fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
 
-    blocks = [b for b in (context, act.upstream_block(pool, worktree), currency) if b]
+    blocks = [b for b in (context, act.upstream_block(pool, worktree),
+                          act.component_pools_block(pool, worktree), currency) if b]
 
     values = {
-        "RESEARCH_DIR": str(research_dir),
+        # The path the MODEL is given must be the one it can actually write to.
+        # `pool` is `research_dir` re-anchored to this run's worktree; handing over
+        # the un-anchored `research_dir` pointed two consecutive runs (#84, #86) at
+        # the MAIN CHECKOUT, and both were caught only by a pre-commit `git status`.
+        "RESEARCH_DIR": str(pool),
         "CONTEXT_BLOCK": "\n\n".join(blocks),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research: {research_dir}"),
         "ALTITUDE_BLOCK": act.load_prompt(PROMPTS / fragment),

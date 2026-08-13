@@ -397,6 +397,93 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     return "\n".join(lines)
 
 
+PROBLEM_STATEMENT = Path("docs/standards/architecture/problem-statement.md")
+PRODUCT_POOL = Path("docs/standards/architecture/research")
+COMPONENT_ROOT = Path("docs/development")
+
+
+def evidence_block(repo_root: Path) -> str:
+    """POINT a planning run at the thesis and the pools, PRIMARY first.
+
+    THE GAP THIS CLOSES. `plan_revision` consumes research only when the
+    dispatch brief happens to hand it over — its prompt's research checks are
+    both conditional ("if your inputs include research artifacts"). So a plan
+    designed against evidence the fleet already paid for depended on whoever
+    wrote the brief remembering to name it. `plan_sprint` reads the problem
+    statement; `plan_revision` had no pointer to anything.
+
+    That is the same failure that cost a full research cycle on 2026-08-12, one
+    layer up: a brief named four files, the run read exactly those four, and the
+    paper that already answered the question sat unopened in the pool.
+
+    ORDERED, NOT DUMPED. `plan_revision` is the GENERIC planning child — unlike
+    its siblings it is told no file structure and infers its target from a
+    free-text description. A flat list of every pool makes the run guess which
+    one is its own, so the block teaches the convention instead: a feature's own
+    pool is the PRIMARY evidence, and the project pool is there for how it all
+    fits together. Product-first ordering had the emphasis exactly backwards.
+
+    A POINTER, never the content. Counts are computed because an unread pool is
+    otherwise invisible, and empty pools are listed WITH their zero — a pool with
+    no papers says the topic was scoped and never investigated, which a planner
+    needs to know before assuming coverage.
+    """
+    def _pool(pool: Path) -> tuple[Path, int, str]:
+        papers = sorted((pool / "raw").glob("*.md"))
+        syn = "synthesis.md" if (pool / "synthesis.md").is_file() else "NO synthesis"
+        return pool.relative_to(repo_root), len(papers), syn
+
+    features = [_pool(d) for d in sorted((repo_root / COMPONENT_ROOT).glob("*/research")) if d.is_dir()]
+    product = _pool(repo_root / PRODUCT_POOL) if (repo_root / PRODUCT_POOL).is_dir() else None
+    has_thesis = (repo_root / PROBLEM_STATEMENT).is_file()
+    if not (features or product or has_thesis):
+        return ""
+
+    lines = ["--- evidence available to this plan (READ-ONLY, you never write to any of it) ---", ""]
+    lines += [
+        "**THE CONVENTION, because this workflow is told no file structure and must not guess it:**",
+        "every feature under `docs/development/<feature>/` may hold its own `research/` pool —",
+        "`raw/` for the papers and `synthesis.md` rolled up. **The pool belonging to the feature you",
+        "are planning is your PRIMARY evidence**, and a synthesis is written to be consumed by",
+        "exactly this step.",
+        "",
+    ]
+    if features:
+        lines.append("**FEATURE POOLS — start here. Counted in code:**")
+        lines.append("")
+        lines += [f"  {rel}  ({n} papers, {syn})" for rel, n, syn in features]
+        lines += [
+            "",
+            "**A plan that re-derives what its own pool already settled has spent a research cycle",
+            "twice, and may reach a different answer the second time.** Cite the paper you relied on.",
+            "**Say plainly when the relevant pool is EMPTY rather than assuming the topic was",
+            "covered** — a zero above means the topic was scoped and never investigated.",
+            "",
+        ]
+    if product:
+        rel, n, syn = product
+        lines += [
+            "**PROJECT POOL — secondary, for how it all fits together:**",
+            "",
+            f"  {rel}  ({n} papers, {syn})",
+            "",
+            "Reach for it when your feature has to cohere with the whole — a cross-cutting decision,",
+            "a shared substrate, or a comparable system. **The pool whose name least resembles your",
+            "task is the one most likely to hold an already-solved mechanism**; that miss is",
+            "documented and it cost a full day.",
+            "",
+        ]
+    if has_thesis:
+        lines += [
+            f"  {PROBLEM_STATEMENT}   <- the thesis this plan must serve.",
+            "",
+            "**Read it for WHY this component exists.** A plan that does not serve the thesis is a",
+            "well-formed plan for something nobody needed. **READ-ONLY — never edited, and never",
+            "proposed for edit from inside a plan.**",
+        ]
+    return "\n".join([*lines, "--- end evidence available to this plan ---"])
+
+
 def submit_prompt(pr_number: str | None, label: str) -> str:
     if pr_number:
         return (f"- Stage and commit your changes with message `{label}`\n"

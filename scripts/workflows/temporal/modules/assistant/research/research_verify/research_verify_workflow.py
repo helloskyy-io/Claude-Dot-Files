@@ -93,7 +93,11 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
     pool = act.in_worktree(research_dir, repo_root, worktree)
     currency, _due = act.paper_currency(pool)
     values = {
-        "RESEARCH_DIR": str(research_dir),
+        # The path the MODEL is given must be the one it can actually write to.
+        # `pool` is `research_dir` re-anchored to this run's worktree; handing over
+        # the un-anchored `research_dir` pointed two consecutive runs (#84, #86) at
+        # the MAIN CHECKOUT, and both were caught only by a pre-commit `git status`.
+        "RESEARCH_DIR": str(pool),
         "PR_NUMBER": pr_number,
         "PR_BRANCH": act.branch_of(pr_number, repo_root),
         "CURRENCY_BLOCK": currency,
