@@ -47,6 +47,7 @@ class _Calls:
 
     def __init__(self) -> None:
         self.triage = 0
+        self.scaffold = 0
         self.sprint = 0
         self.review = 0
         self.order: list[str] = []
@@ -71,6 +72,11 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         calls.order.append("triage")
         return PR_URL
 
+    def fake_scaffold(**kw: object) -> str:
+        calls.scaffold += 1
+        calls.order.append("scaffold")
+        return PR_URL
+
     def fake_sprint(**kw: object) -> str:
         calls.sprint += 1
         calls.order.append("sprint")
@@ -84,6 +90,7 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         return PR_URL
 
     monkeypatch.setattr(pm.triage, "run_triage_candidates", fake_triage)
+    monkeypatch.setattr(pm.scaffold, "run_plan_candidates", fake_scaffold)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_sprint)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
     # The parent pins the commit its worktree started from, so Step 2 asks "what
@@ -102,15 +109,13 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.write, "run_write", fake_write)
     monkeypatch.setattr(pm.verify, "run_verify", lambda **kw: PR_URL)
-    # No new sections by default: the research fan-out is opt-in per test, and a
-    # real `git diff` against a fake worktree would fail for the wrong reason.
-    def no_sections(*a: object, **k: object) -> list[str]:
+    # No new components by default: the research fan-out is opt-in per test, and
+    # a real `git diff` against a fake worktree would fail for the wrong reason.
+    def no_components(*a: object, **k: object) -> list[str]:
         calls.sweep_bases.append(k.get("base_ref"))
         return []
 
-    monkeypatch.setattr(pm.own, "new_sprint_sections", no_sections)
-    monkeypatch.setattr(pm.own, "component_dir",
-                        lambda tree, name: Path("/tmp/wt/docs/development/x"))
+    monkeypatch.setattr(pm.own, "scaffolded_components", no_components)
     return calls
 
 
@@ -133,11 +138,11 @@ def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str]]:
 
 
 def test_merge_runs_one_of_each_child(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The happy path spends exactly three child dispatches, never four."""
+    """The happy path spends exactly four child dispatches, never five."""
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     url, verdict, loops, _notes = _run()
     assert (url, verdict, loops) == (PR_URL, routing.Verdict.MERGE, 0)
-    assert (wired.triage, wired.sprint, wired.review) == (1, 1, 1)
+    assert (wired.triage, wired.scaffold, wired.sprint, wired.review) == (1, 1, 1, 1)
 
 
 def test_triage_runs_BEFORE_the_sprint_plan_is_touched(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -152,26 +157,34 @@ def test_triage_runs_BEFORE_the_sprint_plan_is_touched(wired: _Calls, monkeypatc
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _run()
-    assert wired.order == ["triage", "sprint"], (
+    assert wired.order == ["triage", "scaffold", "sprint"], (
         f"the parent dispatched its children as {wired.order}. Triage rules the "
         f"candidates and plan-sprint places what they ruled — reversed, the "
         f"sprint plan is written from rulings that have not been made yet."
     )
 
 
-def test_research_sits_BETWEEN_triage_and_the_sprint_plan(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The gap is the whole point of the split, so its position is pinned.
+def test_scaffolding_sits_BETWEEN_triage_and_research(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The ordering the whole chain depends on, and it is not checkable by eye.
 
-    `plan-candidates` and `plan-feature` land in this same gap later. If the
-    research fan-out drifted to either end, the position they are meant to
-    occupy would quietly stop existing.
+    Research is commissioned INTO a component pool, so the component has to exist
+    and to mean something before the research child runs. This diagram was drawn
+    the other way round in `docs/guide/workflows.md` until 2026-08-13 —
+    `research(component)` ahead of `[plan-candidates]` — and that ordering is
+    precisely what made the research step inert: a step drawn before the thing
+    that produces its input has no input.
+
+    Every call is present in either order, so nothing else in this file would
+    catch it reversed.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_sections(monkeypatch, "Alpha")
+    _with_components(monkeypatch, tmp_path, "alpha")
     _run()
-    assert wired.order == ["triage", "research", "sprint"], (
-        f"the parent dispatched {wired.order} — component research must run "
-        f"after the rulings exist and before the plan is written from them"
+    assert wired.order == ["triage", "scaffold", "research", "sprint"], (
+        f"the parent dispatched {wired.order} — scaffolding must produce the "
+        f"component before research is commissioned into it, and both must run "
+        f"before the plan is written from them"
     )
 
 
@@ -195,21 +208,27 @@ def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: py
     assert any("SPENT" in n for n in notes)
 
 
-def test_the_loop_back_does_NOT_re_run_triage(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Triage is spent after one pass, however many times the reviewer holds.
+def test_the_loop_back_re_runs_NEITHER_child_ahead_of_plan_sprint(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both earlier children are spent after one pass, however often the reviewer holds.
 
     Every candidate carries a decision once triage has run, so a second triage
     would re-litigate rulings rather than close the runway the reviewer wrote —
-    and it would spend a full opus dispatch per loop to do it. The loop-back
-    goes to plan-sprint alone, which is also the last producer and sees the
-    whole PR.
+    and it would spend a full opus dispatch per loop to do it. The same argument
+    reaches plan-candidates and more strongly: a second scaffolding pass would
+    re-examine a structural decision the reviewer is holding the PR ON, and a
+    component directory is durable in a way a table row is not.
+
+    Both are asserted, not just triage. Adding a child to the front of a pipeline
+    whose loop-back deliberately skips the front is exactly where a second
+    dispatch per loop gets added without anyone noticing the bill.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _run()
-    assert wired.triage == 1, (
-        f"triage ran {wired.triage} times across {routing.MAX_LOOPS} loop-backs. "
-        f"Rulings are made once; re-running it re-opens settled dispositions and "
-        f"costs a full dispatch per pass to do so."
+    assert (wired.triage, wired.scaffold) == (1, 1), (
+        f"triage ran {wired.triage} times and plan-candidates {wired.scaffold} "
+        f"across {routing.MAX_LOOPS} loop-backs. Both are one-shot: re-running "
+        f"either re-opens a settled decision and costs a full dispatch per pass."
     )
 
 
@@ -234,8 +253,9 @@ def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: py
     # reached and a bound-relative count here would be wrong in both directions —
     # green today by coincidence, red the moment the ramp moves.
     assert (wired.sprint, wired.review) == (2, 2)
-    # And triage is still spent exactly once, whatever the sprint child did.
-    assert wired.triage == 1
+    # And both one-shot children are still spent exactly once, whatever the
+    # sprint child did.
+    assert (wired.triage, wired.scaffold) == (1, 1)
 
 
 def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -247,7 +267,7 @@ def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyP
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_NEEDS_ASSISTANCE)
     _url, verdict, loops, notes = _run()
     assert (verdict, loops) == (routing.Verdict.HOLD_NEEDS_ASSISTANCE, 0)
-    assert (wired.triage, wired.sprint, wired.review) == (1, 1, 1)
+    assert (wired.triage, wired.scaffold, wired.sprint, wired.review) == (1, 1, 1, 1)
     assert any("only a human can rule" in n for n in notes)
 
 
@@ -288,10 +308,11 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     added: list[str] = []
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
-    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(pm.own, "scaffolded_components", lambda *a, **k: [])
     monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
+    monkeypatch.setattr(pm.scaffold, "run_plan_candidates", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.review_pr, "run_review",
                         lambda ri, rr: ReviewResult(pr_number="43",
@@ -301,35 +322,49 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     assert added == ["wt"], f"expected exactly one worktree, got {added}"
 
 
-def _with_sections(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
-    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: list(names))
-    monkeypatch.setattr(pm.own, "component_dir",
-                        lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
+def _with_components(monkeypatch: pytest.MonkeyPatch, tmp: Path, *slugs: str) -> None:
+    """Pretend `plan-candidates` chartered these components.
+
+    `component_pool` is stubbed onto a REAL tmp directory rather than left live,
+    because the parent `mkdir`s what it returns: a stub pointing into `/tmp/wt`
+    would have the routing tests writing directories outside any fixture, which
+    is a side effect nothing in this module asked for.
+    """
+    monkeypatch.setattr(pm.own, "scaffolded_components", lambda *a, **k: list(slugs))
+    monkeypatch.setattr(pm.own, "component_pool",
+                        lambda tree, slug: tmp / "docs" / "development" / slug / "research")
 
 
-def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The common case. A triage that adds no section must spend nothing on research."""
+def test_no_new_components_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The common case, and it is the DESIGNED one.
+
+    `plan-candidates` chartering nothing is its most frequent correct outcome —
+    a ruled candidate that extends an existing component needs no new structure —
+    so the pipeline must spend nothing on research when that happens.
+    """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _run()
     assert wired.research_pools == []
 
 
-def test_each_new_section_is_researched_into_its_OWN_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_each_new_component_is_researched_into_its_OWN_pool(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Per-component pools, not one shared one.
 
     Research Standard §1 puts a component pool inside its component; two
     components sharing a pool would give each the other's evidence.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_sections(monkeypatch, "Alpha", "Beta")
+    _with_components(monkeypatch, tmp_path, "alpha", "beta")
     _run()
     assert wired.research_pools == [
-        Path("/tmp/wt/docs/development/alpha/research"),
-        Path("/tmp/wt/docs/development/beta/research"),
+        tmp_path / "docs" / "development" / "alpha" / "research",
+        tmp_path / "docs" / "development" / "beta" / "research",
     ]
 
 
-def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_research_fanout_does_not_hijack_the_product_pool(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """REGRESSION. The loop originally rebound `research_dir`, the parameter
     naming the PRODUCT pool the planning children work from — so after
     researching one component, the loop-back would hand plan-sprint that
@@ -338,7 +373,7 @@ def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, mon
     """
     product_pool = Path("/repo/r")
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
-    _with_sections(monkeypatch, "Alpha")
+    _with_components(monkeypatch, tmp_path, "alpha")
     _run()
     # One pool per plan-sprint dispatch — the initial pass plus one per
     # loop-back. The COUNT is incidental to this regression; what matters is
@@ -403,10 +438,10 @@ def test_the_base_is_pinned_BEFORE_any_child_can_move_it(
 
 # --- the sweep's real logic, against a real repository -------------------------
 #
-# Every test above stubs `new_sprint_sections`, which is correct for routing —
-# but it left the function's own parsing exercised by nothing. It splits on an
-# em-dash, strips a marker, and reads a `git diff`, and all three are the kind of
-# thing that is right until a heading is written slightly differently.
+# Every test above stubs `scaffolded_components`, which is correct for routing —
+# but it leaves the function's own parsing exercised by nothing. It splits a
+# path, counts its segments, and reads a `git diff` under a filter, and all three
+# are the kind of thing that is right until a file lands one directory deeper.
 
 def _git(repo: Path, *args: str) -> str:
     import subprocess
@@ -438,62 +473,79 @@ def real_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def test_the_sweep_reads_ADDED_headings_and_not_edited_ones(real_repo: Path) -> None:
+def _charter(repo: Path, slug: str, body: str = "# C\n") -> Path:
+    d = repo / "docs" / "development" / slug
+    d.mkdir(parents=True, exist_ok=True)
+    f = d / "roadmap.md"
+    f.write_text(body)
+    return f
+
+
+def test_the_sweep_reads_ADDED_charters_and_not_edited_ones(real_repo: Path) -> None:
     """The real parse, against a real diff. Added is a new component; edited is not.
 
-    Researching a component because its prose moved spends a full research cycle
-    on nothing, and the difference between the two cases is a single leading
-    `+` in a diff — invisible in any test that stubs this function out.
+    Researching a component because its charter's prose moved spends a full
+    research-write plus research-verify cycle on nothing, and the difference
+    between the two cases is `--diff-filter=A` — invisible in any test that stubs
+    this function out.
     """
     from modules.assistant.plan.plan_project import plan_project_activities as own
 
     base = _sha(real_repo)
-    sprint = real_repo / "docs" / "development" / "sprint.md"
-    sprint.write_text("# Sprint\n\n## Sprint: Fleet Reliability — 40h\n\nbody\n")
-    _git(real_repo, "commit", "-aqm", "add a section")
+    charter = _charter(real_repo, "fleet-reliability")
+    _git(real_repo, "add", "-A")
+    _git(real_repo, "commit", "-qm", "charter a component")
 
-    rel = "docs/development/sprint.md"
-    assert own.new_sprint_sections(real_repo, rel, base_ref=base) == \
-        ["Fleet Reliability"], "an ADDED heading is a new component"
+    assert own.scaffolded_components(real_repo, base_ref=base) == \
+        ["fleet-reliability"], "an ADDED roadmap.md is a new component"
 
     after_add = _sha(real_repo)
-    sprint.write_text("# Sprint\n\n## Sprint: Fleet Reliability — 40h\n\nreworded\n")
-    _git(real_repo, "commit", "-aqm", "edit the body")
-    assert own.new_sprint_sections(real_repo, rel, base_ref=after_add) == [], (
-        "a section whose BODY changed carries no added `## Sprint:` line and "
-        "must not be researched again")
+    charter.write_text("# C\n\nreworded\n")
+    _git(real_repo, "commit", "-aqm", "edit the charter")
+    assert own.scaffolded_components(real_repo, base_ref=after_add) == [], (
+        "a charter whose body changed is not a new component and must not be "
+        "researched again")
 
 
-def test_a_heading_with_no_name_FAILS_LOUDLY_rather_than_slugging_to_nothing(
+def test_the_sweep_ignores_EVERY_OTHER_FILE_the_pipeline_writes_under_a_component(
         real_repo: Path) -> None:
-    """`## Sprint: — 40h` yields no folder name, and silence would be worse.
+    """DISCRIMINATOR, and the failure it prevents is a runaway research loop.
 
-    The alternative — skipping it — would drop a real component from the sweep
-    with nothing said, which is the failure mode this whole family is built
-    against. The raise names the section, so the operator can see which heading
-    is malformed. The cost is a crash mid-pipeline after Step 1 has opened a PR;
-    that is the correct trade, and it is written down here so the next reader
-    does not "fix" it into a silent skip.
+    The research children write a whole pool into `<component>/research/` on this
+    same branch, and `plan-feature` will write phase docs beside the charter. A
+    sweep that matched any added file under `docs/development/` would read every
+    one of those as a NEW COMPONENT — including files the research step itself
+    just created, which is a fan-out that grows what it feeds on.
+
+    The nested `roadmap.md` is the sharp case: it is the right FILENAME at the
+    wrong DEPTH, so a check keyed on the name alone passes it and a check keyed
+    on the path shape does not.
     """
     from modules.assistant.plan.plan_project import plan_project_activities as own
 
     base = _sha(real_repo)
-    sprint = real_repo / "docs" / "development" / "sprint.md"
-    sprint.write_text("# Sprint\n\n## Sprint: — 40h\n")
-    _git(real_repo, "commit", "-aqm", "malformed heading")
+    comp = real_repo / "docs" / "development" / "alpha"
+    (comp / "research" / "raw").mkdir(parents=True)
+    (comp / "research" / "synthesis.md").write_text("# S\n")
+    (comp / "research" / "raw" / "topic.md").write_text("# T\n")
+    (comp / "research" / "roadmap.md").write_text("# not a charter\n")
+    (comp / "phase1_first.md").write_text("# P\n")
+    _git(real_repo, "add", "-A")
+    _git(real_repo, "commit", "-qm", "everything except a charter")
 
-    names = own.new_sprint_sections(real_repo, "docs/development/sprint.md",
-                                    base_ref=base)
-    assert names == [""], f"the sweep read {names}"
-    with pytest.raises(ValueError, match="yields no folder name"):
-        own.component_dir(real_repo, names[0])
+    assert own.scaffolded_components(real_repo, base_ref=base) == [], (
+        "the sweep matched something other than `<component>/roadmap.md`; a "
+        "research pool it reads as a new component is a fan-out that feeds itself")
 
 
-def test_component_dir_slugs_the_way_the_tree_is_already_named(real_repo: Path) -> None:
-    """The convention applied in code: a mismatch is invisible to every walk."""
+def test_the_pool_path_follows_the_convention_the_tree_is_already_named_by(
+        real_repo: Path) -> None:
+    """The convention applied in code: a mismatch is invisible to every walk.
+
+    Research Standard §1 puts a component's pool INSIDE the component, so this
+    is also what keeps two components from sharing evidence.
+    """
     from modules.assistant.plan.plan_project import plan_project_activities as own
 
-    assert own.component_dir(real_repo, "Fleet Reliability") == \
-        real_repo / "docs" / "development" / "fleet-reliability"
-    assert own.component_dir(real_repo, "Memory Management Framework") == \
-        real_repo / "docs" / "development" / "memory-management-framework"
+    assert own.component_pool(real_repo, "fleet-reliability") == \
+        real_repo / "docs" / "development" / "fleet-reliability" / "research"

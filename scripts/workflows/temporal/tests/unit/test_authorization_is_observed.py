@@ -38,9 +38,10 @@ import pytest
 from observer_registry import names_code, unresolved, workflows_declaring
 
 from modules.assistant.plan import plan_activities as act
-# Still imported BY NAME below: the three boundary tests at the bottom assert
-# about these two workflows' specific grant tuples, which is a claim about them
+# Still imported BY NAME below: the four boundary tests at the bottom assert
+# about these workflows' specific grant tuples, which is a claim about them
 # rather than about the class, and naming them is the honest way to say so.
+from modules.assistant.plan.plan_candidates import plan_candidates_workflow as scaffold
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as sprint
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as triage
 
@@ -94,13 +95,18 @@ def test_the_workflow_sweep_finds_the_tables_it_is_meant_to() -> None:
 
     Every parametrised assertion below runs once per discovered workflow, so a
     sweep that found nothing would collect zero tests and report green — the
-    exact shape of a check that stopped checking. This names today's two, so
-    losing one is a failure rather than a smaller run. A THIRD workflow arriving
+    exact shape of a check that stopped checking. This names today's three, so
+    losing one is a failure rather than a smaller run. A FOURTH workflow arriving
     is expected to fail here once, deliberately: the fix is to add its id, which
     is the moment somebody confirms its table is now covered.
+
+    IT WORKED AS DESIGNED, WHICH IS WORTH RECORDING SINCE THE MECHANISM IS
+    OTHERWISE ONLY ARGUED FOR. `plan-candidates` landed, this assertion went red
+    on a set of two, and its id was added only after every row of its table had
+    an answer in `MAY_NOT_OBSERVERS`.
     """
     found = {p.id for p in WORKFLOWS}
-    assert found == {"triage-candidates", "plan-sprint"}, (
+    assert found == {"triage-candidates", "plan-candidates", "plan-sprint"}, (
         f"the MAY_NOT_OBSERVERS sweep found {sorted(found)}. If a workflow "
         f"vanished, this module is silently no longer checking its "
         f"authorization table; if one appeared, add its id here to confirm it "
@@ -239,6 +245,39 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
                                       triage.PERMITTED_PATHS) == [], (
             f"triage-candidates cannot do its job: {path} is blocked")
+
+
+def test_plan_candidates_forbids_phase_docs_while_permitting_the_roadmap_beside_them() -> None:
+    """The narrowest boundary in the family, and the one an over-broad rule breaks.
+
+    This is the ONLY workflow that legitimately creates a file under
+    `docs/development/`, and the file it creates sits in the same directory as
+    the phase docs it must not write. So the pattern cannot be
+    `^docs/development/` — that would fail every correct run on its own output —
+    and it cannot be loose either, or `plan-feature`'s files are reachable.
+
+    `research/` under a component is asserted permitted deliberately: the parent
+    creates a component's research pool by `mkdir` and the research children
+    write papers into it, on the same branch and inside the same worktree. A
+    pattern that caught those would fail the pipeline one step after this one.
+    """
+    forbidden = ("docs/development/sprint.md",
+                 "docs/development/memory-management-framework/phase1_measure_the_channel.md",
+                 "docs/development/temporal-integration/phase-1.md",
+                 "docs/standards/architecture/problem-statement.md",
+                 "docs/standards/architecture/research/direction.md",
+                 "docs/standards/workflow-scripts.md")
+    permitted = ("docs/development/fleet-reliability/roadmap.md",
+                 "docs/development/fleet-reliability/research/synthesis.md",
+                 "docs/standards/architecture/research/candidates.md")
+    for path in forbidden:
+        assert act.boundary_crossings({}, {path: "h"}, scaffold.FORBIDDEN_PATHS,
+                                      scaffold.PERMITTED_PATHS) == [path], (
+            f"plan-candidates may edit {path} undetected")
+    for path in permitted:
+        assert act.boundary_crossings({}, {path: "h"}, scaffold.FORBIDDEN_PATHS,
+                                      scaffold.PERMITTED_PATHS) == [], (
+            f"plan-candidates cannot do its job: {path} is blocked")
 
 
 def test_plan_sprint_permits_only_its_override_and_the_proposal_file() -> None:

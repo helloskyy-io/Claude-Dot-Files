@@ -4,8 +4,8 @@ A parent calls no model. It decides IF, WHEN and WHAT to call, and holds no
 process code. Every branch is a pure decision from `routing`; every side effect
 is an activity or a child workflow.
 
-    triage-candidates  ->  research(per NEW component)  ->  plan-sprint  ->  review-pr
-                             write -> verify                                  [loop-back]
+    triage-candidates  ->  plan-candidates  ->  research(per NEW component)  ->  plan-sprint  ->  review-pr
+                                                  write -> verify                                  [loop-back]
 
 TRIAGE AT THE FRONT, SPRINT MAINTENANCE AT THE BACK. Until the split, one child
 did both and nothing could be sequenced between them. Feature planning and
@@ -17,17 +17,25 @@ sprint plan — hour totals included — was updated before anything estimated t
 work those totals are of. Running it last means it reads what the middle of the
 pipeline produced instead of predicting it.
 
-WHAT IS NOT HERE YET, AND WHAT THAT COSTS TODAY. `plan-candidates` and
-`plan-feature` are the two children that belong between triage and plan-sprint.
-Until they land, THE RESEARCH STEP IN THE MIDDLE CANNOT FIRE: its input is
-`new_sprint_sections`, read from the sprint diff, and no child ahead of it can
-add a sprint section any more — plan-sprint, the only workflow that adds one,
-now runs after it. That is stated rather than papered over. The alternative was
-to invent a different NEW-component signal for a gap two planned children are
-about to fill, and a signal invented for an interim outlives the interim. The
-parent emits a note saying so when the sweep comes back empty, so an operator
-reading the run's output is told rather than left to infer it from a step that
-silently did nothing.
+THE RESEARCH STEP'S INPUT IS REACHABLE AGAIN, AND `plan-candidates` IS WHY. The
+sweep used to read added `## Sprint:` headings out of the sprint diff, which the
+split made unreachable: `plan-sprint` is the only workflow that adds a heading
+and it now runs behind this step, so the signal was empty by construction and the
+parent emitted a note saying so. `plan-candidates` charters a component — a
+`docs/development/<slug>/roadmap.md` — and that file IS the signal, read from the
+diff by the same discipline: the parent reads the artifact rather than trusting a
+child's account of it. It is also a strictly better brief than the heading was.
+A sprint heading is a name; a charter states what the component is, what it is
+not, and which differentiator it serves, which is what a research pool needs to
+be scoped against.
+
+WHAT IS STILL NOT HERE. `plan-feature` belongs between the research pair and
+`plan-sprint`: it plans the roadmap's phases and estimates the hours per phase,
+which is why `plan-sprint` runs after it and reads those estimates rather than
+predicting them. Until it lands, a chartered component reaches `plan-sprint` with
+research and no phases. That is a smaller gap than the one this commit closed —
+nothing is inert, and every step's input exists — but it is stated rather than
+papered over, and the note below says so on any run that charters a component.
 
 WHY THIS EXISTS AT ALL. `plan-sprint` shipped and ran twice with no parent, so
 its output reached the operator UNJUDGED — and it is the only autonomous run
@@ -69,6 +77,7 @@ from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 from ...research.research_write import research_write_workflow as write
 from ...research.research_verify import research_verify_workflow as verify
+from ..plan_candidates import plan_candidates_workflow as scaffold
 from ..plan_sprint import plan_sprint_workflow as sprint
 from ..triage_candidates import triage_candidates_workflow as triage
 
@@ -119,53 +128,74 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     )
     pr = routing.pr_number_from_url(pr_url, expected_repo=slug)
 
-    # --- Step 2: RESEARCH each NEW component -------------------------------
-    # Read from the diff, never asked of the triage child: the parent must not
-    # trust an account when the artifact is right there. An edited section shows
-    # no added heading, so a component is researched only when it is genuinely
-    # new — researching one because its prose moved spends a full cycle on
-    # nothing.
+    # --- Step 2: SCAFFOLD what the rulings need ----------------------------
+    # BETWEEN THE RULING AND THE WORK. A `ship` row is a decision that something
+    # should be built, not a place to build it, and both children after this need
+    # a place before they can run: research is commissioned per component pool,
+    # and `plan-feature` plans phases INTO a component. This child charters the
+    # components that do not exist and — the outcome it is designed to reach most
+    # often — reports that the rest of the ruled set extends something that does.
+    #
+    # Its own guard fails the run if it planned phases or estimated hours: that
+    # is `plan-feature`'s job, and structure-versus-substance is the boundary the
+    # whole child is defined by.
+    #
+    # `pr_number=pr`: the PR is already open. Step 1 opened it, and every child
+    # lands its work on the one branch, in the one worktree, under the one review.
+    scaffold.run_plan_candidates(
+        repo_root=repo_root, worktree=worktree,
+        candidates_path=candidates_path, research_dir=research_dir,
+        pr_number=pr, verbose=verbose,
+    )
+
+    # --- Step 3: RESEARCH each NEW component -------------------------------
+    # Read from the diff, never asked of the scaffolding child: the parent must
+    # not trust an account when the artifact is right there. Only ADDED charters
+    # count, so a component is researched when it is genuinely new — researching
+    # one because a paragraph in its charter moved spends a full cycle on nothing.
+    #
+    # THE SIGNAL THAT MAKES THIS STEP FIRE AGAIN. It used to read added
+    # `## Sprint:` headings out of the sprint diff, which the triage split made
+    # unreachable — `plan-sprint` is the only workflow that adds one and it now
+    # runs behind this step. Step 2's charter is the artifact that replaced it,
+    # and it is a better brief besides: a heading is a name, a charter states the
+    # component's scope and its boundary.
     #
     # The research CHILDREN are called, not the research PARENT. That parent
     # would establish a second worktree and open a second PR, and its verify
     # loop would then gate a triage pass that was already fine. Same children,
     # two callers — which is the whole point of child-ness being a call-graph
     # property rather than a location.
-    #
-    # THIS SWEEP IS EMPTY BY CONSTRUCTION TODAY. See the module docstring: with
-    # plan-sprint moved behind this step, nothing ahead of it adds a sprint
-    # section, so there is no added `## Sprint:` heading in the diff to find.
-    # `plan-candidates` and `plan-feature` are what will fill this position. The
-    # call stays because the wiring is correct and only its INPUT is missing —
-    # deleting it would mean rebuilding it, and inventing a different signal
-    # would mean maintaining one past the interim it was for.
-    new_sections = own.new_sprint_sections(
-        worktree, str(sprint_path.relative_to(repo_root)), base_ref=base_sha)
-    if not new_sections:
+    new_components = own.scaffolded_components(worktree, base_ref=base_sha)
+    if not new_components:
         notes.append(
-            "No component research ran. With plan-sprint sequenced AFTER this step, "
-            "nothing ahead of it can add a sprint section, so this step's signal is "
-            "empty by construction until plan-candidates and plan-feature land. This "
-            "is the known interim state, not a silent skip."
+            "No component research ran: plan-candidates chartered no new component, "
+            "which is its most common correct outcome — a ruled candidate that "
+            "extends something that already exists needs no new structure. Read its "
+            "placement table in the PR to see where the ruled set landed."
         )
-    for section in new_sections:
-        notes.append(f"New component `{section}` — researching before it is planned.")
+    for slug_name in new_components:
+        notes.append(f"New component `{slug_name}` — researching before it is planned. "
+                     f"`plan-feature` does not exist yet, so it will reach plan-sprint "
+                     f"with research and no phases.")
         # NOT `research_dir` — that parameter is the PRODUCT pool the triage and
         # sprint children work from, and rebinding it here would hand the
         # loop-back below the wrong pool. A shadowed parameter is a silent
         # wrong-argument bug.
-        component_pool = own.component_dir(worktree, section) / "research"
+        component_pool = own.component_pool(worktree, slug_name)
         component_pool.mkdir(parents=True, exist_ok=True)
 
-        # The sprint section IS the brief. It states the milestones, and the
+        # THE CHARTER IS THE BRIEF, and it is written to be one: what the
+        # component is, what it is not, and which differentiator it serves. The
         # research child's Stage 1 already reads the destination's planning docs
-        # to drive its topics — so a hand-written task file would be restating
+        # to drive its topics, so a hand-written task file would be restating
         # what it is about to read.
         context = (
-            f"A new sprint section `{section}` was just added to "
-            f"{sprint_path.relative_to(repo_root)} and has no phase doc yet. "
-            f"Research it BEFORE it is planned. Read that section first — it is "
-            f"your brief, and its milestones are what this pool must inform."
+            f"A new component `{slug_name}` was just chartered at "
+            f"docs/development/{slug_name}/roadmap.md and has no "
+            f"phase doc yet. Research it BEFORE it is planned. Read that charter "
+            f"first — it is your brief. Its 'What this is NOT' section is the "
+            f"scope boundary this pool must stay inside."
         )
         write.run_write(research_dir=component_pool, repo_root=repo_root,
                         worktree=worktree, context=context, pr_number=pr,
@@ -173,23 +203,19 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         verify.run_verify(research_dir=component_pool, pr_number=pr,
                           repo_root=repo_root, worktree=worktree, verbose=verbose)
 
-    # --- Step 3: MAINTAIN THE SPRINT PLAN ----------------------------------
+    # --- Step 4: MAINTAIN THE SPRINT PLAN ----------------------------------
     # LAST of the producing children, which is the second thing the split
-    # bought. It reads what steps 1 and 2 put in the tree — the rulings and any
-    # component evidence — rather than being written before either existed. Its
-    # own guard fails the run if it wrote the `decision` column, which is now
-    # `triage-candidates`'s alone.
-    #
-    # `pr_number=pr`: the PR is already open. Step 1 opened it, and both children
-    # land their work on the one branch, in the one worktree, under the one
-    # review.
+    # bought. It reads what steps 1 to 3 put in the tree — the rulings, the
+    # charters and any component evidence — rather than being written before any
+    # of it existed. Its own guard fails the run if it wrote the `decision`
+    # column, which is now `triage-candidates`'s alone.
     sprint.run_plan_sprint(
         repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
         candidates_path=candidates_path, research_dir=research_dir,
         pr_number=pr, verbose=verbose,
     )
 
-    # --- Step 4: DISPOSITION, with one bounded loop-back -------------------
+    # --- Step 5: DISPOSITION, with one bounded loop-back -------------------
     loops = 0
     verdict = _dispose(pr, repo_root, repo_target, notes, verbose)
 
@@ -207,14 +233,17 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                      f"Loop-back {loops} of {routing.MAX_LOOPS}."
                      + (" This is the last automated pass."
                         if loops == routing.MAX_LOOPS else ""))
-        # THE LOOP-BACK GOES TO plan-sprint, NOT TO TRIAGE, and it is a
-        # correction pass. Every candidate already carries a decision, so
+        # THE LOOP-BACK GOES TO plan-sprint, NOT TO ANY EARLIER CHILD, and it is
+        # a correction pass. Every candidate already carries a decision, so
         # re-triaging would re-litigate rulings rather than close the runway the
         # reviewer wrote — the reason this was a correction pass before the
-        # split, and it did not change. plan-sprint is also the LAST producer and
-        # sees the whole PR, so a runway naming either child's work is
-        # addressable from here; sending each loop through both children would
-        # double the cost of every pass to reach a set of rulings that are, by
+        # split, and it did not change. The same argument reaches
+        # plan-candidates, and more strongly: re-running it would re-examine a
+        # scaffolding decision the reviewer is holding the PR ON, and a component
+        # directory is durable in a way a table row is not. plan-sprint is also
+        # the LAST producer and sees the whole PR, so a runway naming any child's
+        # work is addressable from here; sending each loop through every child
+        # would multiply the cost of every pass to reach decisions that are, by
         # construction, already made.
         sprint.run_plan_sprint(
             repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,

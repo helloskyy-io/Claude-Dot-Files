@@ -273,10 +273,17 @@ claude-dot-files/
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
 │           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
-│           │                                        #   plan/ holds plan_project (parent) and three children: triage_candidates and
-│           │                                        #   plan_sprint (both wired, in that order — triage rules the candidates, sprint
-│           │                                        #   places what they ruled; split apart so planning can sit between them) and
-│           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
+│           │                                        #   plan/ holds plan_project (parent) and four children: triage_candidates,
+│           │                                        #   plan_candidates and plan_sprint (all wired, in that order — triage rules the
+│           │                                        #   candidates, plan_candidates charters the components the ruled ones need, sprint
+│           │                                        #   places what they ruled) and plan_revision (ported, NOT yet wired — see its
+│           │                                        #   docstring). plan_candidates creates STRUCTURE and never SUBSTANCE: a component's
+│           │                                        #   charter (what it is, what it is not, which C-NNN it came from) and never a phase,
+│           │                                        #   an epic or an hour estimate, which are plan-feature's. Its runner OBSERVES that
+│           │                                        #   boundary — a roadmap it edited rather than created, or a phase planned inside one
+│           │                                        #   it created, fails the run. Its charter is also the research step's INPUT: that
+│           │                                        #   step read added `## Sprint:` headings until 2026-08-13 and was inert, because the
+│           │                                        #   only workflow that adds one now runs behind it;
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
 │           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with
 │           │                                        #   one consumer lives in that workflow's own {name}_activities.py, per §10.1
@@ -295,9 +302,9 @@ claude-dot-files/
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
 │           │                                        #   different parents, different model keys, separately-budgeted turn caps
-│           │                                        #   triage_candidates.sh / plan_sprint.sh are siblings for the same reason: two
-│           │                                        #   jobs, two model keys, two turn caps. Each runs standalone against the real
-│           │                                        #   queue AND is called in order by plan_project.sh
+│           │                                        #   triage_candidates.sh / plan_candidates.sh / plan_sprint.sh are siblings for the
+│           │                                        #   same reason: three jobs, three model keys, three turn caps. Each runs standalone
+│           │                                        #   against the real queue AND is called in order by plan_project.sh
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
 │               ├── fixtures/                        # MEASURED inputs, not written ones
@@ -371,6 +378,13 @@ claude-dot-files/
 │                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
 │                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when
 │                   │                                #   routing.MAX_LOOPS went 1 -> 3, two of them inside a prompt sent to a model
+│                   ├── test_plan_candidates.py      # STRUCTURE, never SUBSTANCE — the boundary against plan-feature, fired both ways.
+│                   │                                #   Two failure modes no sibling can commit: editing a roadmap that already existed
+│                   │                                #   (invisible to worktree_state, which reports a created and an edited roadmap
+│                   │                                #   identically) and planning phases INSIDE the roadmap it was allowed to create
+│                   │                                #   (invisible to any snapshot, since that file is the workflow's own output). Every
+│                   │                                #   guard is paired with the correct behaviour it sits one line from — a charter that
+│                   │                                #   SAYS phases are somebody else's must pass, or the guard fails only correct runs
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and

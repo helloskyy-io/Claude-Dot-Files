@@ -111,8 +111,8 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "own.checked_boxes counted either side of the run and compared in BOTH "
         "directions — a tick added and a tick erased are the same flip",
     "**Set `decision` on ANY candidate — see below**":
-        "own.candidate_decisions snapshotted either side of the run, compared by "
-        "_rulings_this_run_had_no_right_to",
+        "act.candidate_decisions snapshotted either side of the run, compared by "
+        "act.rulings_this_run_had_no_right_to",
     "Set `status` in the candidates file":
         "act.candidate_statuses snapshotted either side of the run, compared by "
         "act.statuses_this_run_had_no_right_to",
@@ -122,7 +122,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate row, the candidates file, or the sprint plan":
-        "act.ids_deleted inside _rulings_this_run_had_no_right_to for rows, and "
+        "act.ids_deleted inside act.rulings_this_run_had_no_right_to for rows, and "
         "act.grants_that_vanished over permitted_paths for the files themselves",
 }
 
@@ -139,10 +139,10 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
 # `[x]` line passed too, because `Counter` subtraction discards removals.
 DISAPPEARANCE_OBSERVERS: dict[str, str] = {
     "before":
-        "act.ids_deleted, called inside _rulings_this_run_had_no_right_to",
+        "act.ids_deleted, called inside act.rulings_this_run_had_no_right_to",
     "before_status":
-        "act.ids_deleted on the SAME id set, via _rulings_this_run_had_no_right_to "
-        "on `before` — act.candidate_statuses and own.candidate_decisions are both "
+        "act.ids_deleted on the SAME id set, via act.rulings_this_run_had_no_right_to "
+        "on `before` — act.candidate_statuses and act.candidate_decisions are both "
         "built from act.candidate_rows, so a row cannot be absent from one map and "
         "present in the other. Registered rather than left implicit because that "
         "coupling is the whole reason a second call here would be dead code — and "
@@ -186,7 +186,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # workflow runs LAST on a branch `triage-candidates` has already written to,
     # so a diff against the base would report triage's legitimate `direction.md`
     # row as this run's forbidden edit.
-    before = own.candidate_decisions(wt_candidates)
+    before = act.candidate_decisions(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
     before_boxes = own.checked_boxes(wt_sprint)
     before_tree = act.worktree_state(worktree)
@@ -253,8 +253,8 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # OBSERVE, DO NOT ASSERT. The prompt forbids writing `decision`; this reads
     # the file to check it did not. An authority transfer stated only in prose is
     # a convention a model can reason past — this is the mechanism.
-    after = own.candidate_decisions(wt_candidates)
-    moved = sorted(_rulings_this_run_had_no_right_to(before, after))
+    after = act.candidate_decisions(wt_candidates)
+    moved = sorted(act.rulings_this_run_had_no_right_to(before, after))
     if moved:
         raise RuntimeError(
             f"plan-sprint changed the `decision` column on {len(moved)} candidate(s): "
@@ -354,42 +354,6 @@ def correction_note(counts: dict, correction_pass: bool) -> str:
         return (counted + "This is a CORRECTION PASS. A prior review returned HOLD "
                 "with a scoped runway; close it.")
     return counted + _untriaged_note(counts)
-
-
-def _rulings_this_run_had_no_right_to(before: dict[str, str],
-                                      after: dict[str, str]) -> list[str]:
-    """Ids whose `decision` this run must not have touched, and did.
-
-    Three ways to offend and ONE way not to, and the exemption is why this is a
-    named function rather than a set comparison:
-
-      * a ruling CHANGED  — re-litigating a triage pass's output
-      * a row DISAPPEARED — the file's own rule is that nobody deletes a row
-      * a NEW row arrives already RULED — triage, by another route
-
-      * a NEW row arrives with a BLANK decision — **legitimate, and the naive
-        comparison forbade it.** `decision_log_and_reflection.md` instructs
-        EVERY producing run to place a proposal it surfaced into `candidates.md`
-        with `decision` blank, and this workflow is a producing run. Diffing the
-        two id sets outright made the shared placement instruction unfollowable:
-        the run would place a proposal exactly as told and then fail its own
-        post-condition. Blank is the absence of a ruling, so placing one is not
-        ruling anything.
-    """
-    # Deletion is `act.ids_deleted` rather than a branch here, because the claim
-    # that it had one definition was false: the comment on
-    # `statuses_this_run_had_no_right_to` said row deletion was "already an
-    # offence under the `decision` guard", which was true of this workflow and
-    # false of `triage-candidates`, whose count-based post-condition it defeated.
-    offences: list[str] = act.ids_deleted(before, after)
-    for cid in after.keys():
-        was, now = before.get(cid), after[cid]
-        if cid not in before:
-            if now:                          # appended ALREADY ruled
-                offences.append(cid)
-        elif was != now:
-            offences.append(cid)             # ruling rewritten
-    return offences
 
 
 def _untriaged_note(counts: dict) -> str:

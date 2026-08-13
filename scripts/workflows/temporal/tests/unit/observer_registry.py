@@ -12,6 +12,15 @@ normalisations of one cell drifted, and the row read as ruled to one reader and
 blank to the other. A second copy of this resolver would drift the same way, and
 the drift would be invisible: the weaker copy would simply stop catching things.
 
+IT SHRANK BY ONE WHEN §10.1 RULE 3 MOVED A HELPER BACK UP.
+`_rulings_this_run_had_no_right_to` was listed here because it was private to
+`plan_sprint_workflow` and so reachable only as a bare module symbol.
+`plan_candidates` gave it a second consumer, it moved to `plan_activities` as
+`rulings_this_run_had_no_right_to`, and `NS_REF` resolves it through `act.` —
+which is the STRONGER check of the two, because `unresolved` then confirms the
+attribute exists on the module the workflow actually imports rather than merely
+matching a name.
+
 `MODULE_SYMBOL` is a deliberate explicit list rather than a general pattern.
 Mechanism prose is written for a human and is full of capitalised words — BOTH,
 SAME, ABSENT, CREATES — so a generic "looks like a constant" matcher would flag
@@ -39,8 +48,7 @@ from pathlib import Path
 
 NS_REF = re.compile(r"\b(act|own)\.([a-z_][a-z_0-9]*)\b")
 
-MODULE_SYMBOL = re.compile(r"\b(FORBIDDEN_PATHS|PERMITTED_PATHS|permitted_paths|"
-                           r"_rulings_this_run_had_no_right_to)\b")
+MODULE_SYMBOL = re.compile(r"\b(FORBIDDEN_PATHS|PERMITTED_PATHS|permitted_paths)\b")
 
 
 def names_code(mechanism: str) -> bool:

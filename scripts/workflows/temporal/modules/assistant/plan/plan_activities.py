@@ -20,12 +20,24 @@ its consumer count puts it:
   * `candidate_statuses` — both workflows, each to prove it did not touch the one
     column neither of them owns. Two consumers, so it stays.
   * `candidate_decisions` — one consumer. MOVED to `plan_sprint_activities`.
+    **CAME BACK when `plan_candidates` landed**, see below.
   * `direction_ceiling` — one consumer. MOVED to `triage_candidates_activities`.
   * `new_sprint_sections`, `component_dir` — one consumer each (`plan_project`,
     and nothing else in the tree). MOVED to `plan_project_activities`. They were
     missing from the audit above when it was first written, which made this
     docstring's own rule-3 claim incomplete on the very file that states the
-    rule. Counted rather than eyeballed the second time.
+    rule. Counted rather than eyeballed the second time. **Both are GONE now**:
+    `plan_project`'s research step no longer keys off a sprint diff, so its only
+    consumer stopped existing and `scaffolded_components` replaced them.
+
+RULE 3 MOVES IN BOTH DIRECTIONS, AND `plan_candidates` DEMONSTRATED IT. That
+workflow may not set `decision` either, so `candidate_decisions` and the
+comparator built on it acquired a genuine second consumer and came back here as
+`candidate_decisions` / `rulings_this_run_had_no_right_to`. The rule is a
+consumer count, not a one-way ratchet: a helper that earned its way into a
+workflow folder earns its way back out the moment a second workflow needs it.
+Duplicating either would be the drift `normalise_cell` below exists to record —
+two hand-written readings of one cell, disagreeing about whether a row is ruled.
 
 `candidate_decisions` and `direction_ceiling` were briefly argued to belong here
 anyway, as "the same concern as their neighbours".
@@ -151,6 +163,68 @@ def candidate_statuses(candidates_path: Path) -> dict[str, str]:
     """
     return {cid: st for cid, _dec, st in candidate_rows(candidates_path, missing_hint=(
         "Without it there is no `status` column to hold anything to."))}
+
+
+def candidate_decisions(candidates_path: Path) -> dict[str, str]:
+    """Every row's `decision`, normalised, keyed by id — the triaged column.
+
+    THIS IS THE AUTHORITY TRANSFER, ENFORCED RATHER THAN ASSERTED. `decision` was
+    `plan-sprint`'s output until triage became its own workflow; it is now
+    `triage-candidates`'s alone. Prose in nine documents says so, and prose is
+    not a mechanism: every other planning workflow still READS this file and
+    still has write access to it in its worktree, and a model that has just
+    decided a candidate needs no component is one plausible step from recording
+    that conclusion in the column next to it.
+
+    So each of them snapshots this before its run and compares after. Same
+    discipline as `candidate_counts`: OBSERVE what the run wrote, never ask it
+    what it wrote.
+
+    Normalised via `normalise_cell` — backticks and the several spellings of
+    empty all collapse — so a row reformatted from `` `ship` `` to `ship` does
+    not read as a ruling changed. The comparison must fire on MEANING, not on
+    markup, and it must fire on the SAME meaning the counter sees: two
+    hand-written normalisations had already drifted apart once.
+    """
+    return {cid: dec for cid, dec, _st in candidate_rows(
+        candidates_path,
+        missing_hint="Without it there is no `decision` column to hold anything to.")}
+
+
+def rulings_this_run_had_no_right_to(before: dict[str, str],
+                                     after: dict[str, str]) -> list[str]:
+    """Ids whose `decision` this run must not have touched, and did.
+
+    Three ways to offend and ONE way not to, and the exemption is why this is a
+    named function rather than a set comparison:
+
+      * a ruling CHANGED  — re-litigating a triage pass's output
+      * a row DISAPPEARED — the file's own rule is that nobody deletes a row
+      * a NEW row arrives already RULED — triage, by another route
+
+      * a NEW row arrives with a BLANK decision — **legitimate, and the naive
+        comparison forbade it.** `decision_log_and_reflection.md` instructs
+        EVERY producing run to place a proposal it surfaced into `candidates.md`
+        with `decision` blank, and every workflow guarded by this is a producing
+        run. Diffing the two id sets outright made the shared placement
+        instruction unfollowable: the run would place a proposal exactly as told
+        and then fail its own post-condition. Blank is the absence of a ruling,
+        so placing one is not ruling anything.
+    """
+    # Deletion is `ids_deleted` rather than a branch here, because the claim
+    # that it had one definition was false: the comment on
+    # `statuses_this_run_had_no_right_to` said row deletion was "already an
+    # offence under the `decision` guard", which was true of `plan-sprint` and
+    # false of `triage-candidates`, whose count-based post-condition it defeated.
+    offences: list[str] = ids_deleted(before, after)
+    for cid in after.keys():
+        was, now = before.get(cid), after[cid]
+        if cid not in before:
+            if now:                          # appended ALREADY ruled
+                offences.append(cid)
+        elif was != now:
+            offences.append(cid)             # ruling rewritten
+    return offences
 
 
 def statuses_this_run_had_no_right_to(before: dict[str, str],

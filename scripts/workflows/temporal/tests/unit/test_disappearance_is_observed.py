@@ -47,7 +47,7 @@ from observer_registry import names_code, unresolved, workflows_declaring
 
 from modules.assistant.plan import plan_activities as act
 # Still imported BY NAME: the behavioural assertions at the bottom are claims
-# about these two workflows' own grant tuples, not about the class.
+# about these workflows' own grant tuples, not about the class.
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as sprint
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as triage
 
@@ -118,13 +118,18 @@ def test_the_workflow_sweep_finds_the_registries_it_is_meant_to() -> None:
     """POSITIVE CONTROL on the DISCOVERY that parametrises everything below.
 
     A sweep returning nothing collects zero parametrised tests and reports
-    green, which is indistinguishable from full coverage. Naming today's two
-    turns a lost workflow into a failure. A THIRD is expected to fail here once,
+    green, which is indistinguishable from full coverage. Naming today's three
+    turns a lost workflow into a failure. A FOURTH is expected to fail here once,
     on purpose — adding its id is the moment somebody confirms its snapshots are
     actually covered rather than merely enumerated.
+
+    `plan-candidates` took five snapshots and arrived here red, which is the
+    mechanism doing exactly what it was built for. Two of the five —
+    `before_roadmaps` and `before_dirs` — watch a layer neither sibling touches,
+    so nothing that existed before would have covered them.
     """
     found = {p.id for p in WORKFLOWS}
-    assert found == {"triage-candidates", "plan-sprint"}, (
+    assert found == {"triage-candidates", "plan-candidates", "plan-sprint"}, (
         f"the DISAPPEARANCE_OBSERVERS sweep found {sorted(found)}. If a "
         f"workflow vanished from it, every assertion below stopped running "
         f"against that workflow without anything going red.")
@@ -282,9 +287,10 @@ def _functions_with_boundary_calls() -> list[tuple[Path, ast.FunctionDef]]:
 
 
 def test_the_boundary_probe_finds_the_calls_it_is_meant_to() -> None:
-    """POSITIVE CONTROL: the two workflows that declare a grant are both seen."""
+    """POSITIVE CONTROL: every workflow that declares a grant is seen."""
     found = {p.name for p, _ in _functions_with_boundary_calls()}
-    assert found == {"triage_candidates_workflow.py", "plan_sprint_workflow.py"}, (
+    assert found == {"triage_candidates_workflow.py", "plan_candidates_workflow.py",
+                     "plan_sprint_workflow.py"}, (
         f"the boundary probe found {found}; if a workflow stopped being seen, "
         f"the assertion below is passing over it rather than checking it")
 

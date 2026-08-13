@@ -93,6 +93,19 @@ models:
                                 #   together. The measured failure it exists to avoid is a cheap
                                 #   ruling — a first pass with no `requires review` door pushed eleven
                                 #   open questions through `ship` and made the sprint plan unusable.
+  plan-candidates: opus         # charters the components the ruled candidates need, and
+                                #   establishes that most of them need none. Opus
+                                #   deliberately, and the reason is the SHAPE of the output
+                                #   rather than its length: a component directory is durable
+                                #   structure that research and planning both write into,
+                                #   and the judgement is where a domain boundary falls —
+                                #   read against the thesis, the architectural seams and 27
+                                #   ruled rows at once. The measured failure it exists to
+                                #   avoid is on disk: a research pool was commissioned into
+                                #   `docs/development/fleet-reliability/`, five verified
+                                #   papers, under a component no document defines. A cheaper
+                                #   tier's plausible-looking domain split costs a directory
+                                #   tree nobody can navigate and is expensive to unpick.
   plan-sprint: opus             # places the RULED candidates and sequences the sprint plan.
                                 #   It no longer triages — that is `triage-candidates` above, split
                                 #   out so feature planning can sit between the two. Opus stays:
@@ -163,6 +176,23 @@ max_turns:
                               #   direction that has already cost a full budget once,
                               #   and a cap is a ceiling rather than a spend. The
                               #   measurement that should move it does not exist yet.
+  plan-candidates: 150        # NOT MEASURED — an estimate, stated as one. Nothing has run
+                              #   this workflow, and it has no V1 script and no predecessor
+                              #   to derive from, so there is no measured figure anywhere on
+                              #   either side of it. Basis is a stage-by-stage walk of its
+                              #   prompt: read the candidates file, the problem statement,
+                              #   the architectural standard and one synthesis (~8); the
+                              #   component inventory and the existing-work enumeration are
+                              #   handed over pre-computed (~0); examine 27 `ship` rows
+                              #   against the components on disk, in clusters rather than one
+                              #   at a time (~15); write the charters, which the design
+                              #   expects to be few and short (~2 each, 0-4 of them, so ~8);
+                              #   commit, open the PR, post the comment (~10). That lands
+                              #   near 41; 150 is roughly 3.5x it as headroom, the same
+                              #   posture research-verify's MEASURED cap uses.
+                              #   REVISE FROM THE FIRST REAL RUN — and note the working set
+                              #   is variable, so a cycle with 5 `ship` rows is a different
+                              #   measurement from one with 27.
   triage-candidates: 200      # NOT MEASURED — an estimate, stated as one. Nothing has
                               #   run this workflow: it was split out of plan-sprint,
                               #   whose own 250 is itself an estimate, so there is no
