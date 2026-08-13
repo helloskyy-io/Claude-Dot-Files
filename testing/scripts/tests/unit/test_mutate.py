@@ -1077,3 +1077,60 @@ def test_the_file_is_restored_on_every_exit_path(
     assert (sandbox / "subject.py").read_text() == before, (
         f"the tree was left mutated after the {case} path — the EXIT trap did not restore it"
     )
+
+
+def test_show_failures_prints_the_names_and_changes_nothing_else(tmp_path):
+    """A predicted count is only evidence when the partition is checkable.
+
+    SIX independent reflections asked for this flag (tracked as C-060), and each
+    of those passes built its own pytest runner to get what it prints — because
+    "48 red" and "48 red, but a different 48" are the same number and different
+    results. The names were always in LEG_OUTPUT; nothing printed them.
+
+    The flag is PRINT-ONLY. This asserts both halves: the names appear, and the
+    verdict and exit code are byte-for-byte what the same mutation produces
+    without it. A flag that changed the experiment would be worse than no flag.
+    """
+    src = tmp_path / "m.py"
+    src.write_text("VALUE = 1\n")
+    test = tmp_path / "test_m.py"
+    test.write_text(
+        "import sys; sys.path.insert(0, r'%s')\n"
+        "import m\n"
+        "def test_value_is_one():\n"
+        "    assert m.VALUE == 1\n" % tmp_path
+    )
+
+    plain = subprocess.run(
+        ["bash", str(MUTATE), str(src), "VALUE = 1", "VALUE = 2", str(test)],
+        capture_output=True, text=True)
+    shown = subprocess.run(
+        ["bash", str(MUTATE), "--show-failures", str(src), "VALUE = 1", "VALUE = 2", str(test)],
+        capture_output=True, text=True)
+
+    assert plain.returncode == shown.returncode, (
+        f"--show-failures changed the exit code ({plain.returncode} -> "
+        f"{shown.returncode}). It must be print-only."
+    )
+    assert "test_value_is_one" not in plain.stdout, (
+        "the plain run already printed the failing test name, so this flag would "
+        "be asserting something that already happens and could never fail"
+    )
+    assert "test_value_is_one" in shown.stdout, (
+        "--show-failures did not print the failing test's name, which is the "
+        "entire point of the flag"
+    )
+
+
+def test_an_unknown_flag_is_rejected_rather_than_read_as_a_filename(tmp_path):
+    """`--typo file old new target` must not silently mutate a file named `--typo`.
+
+    Flag parsing sits ahead of the positional contract, so a misspelling that
+    fell through would shift every positional by one and the harness would report
+    on the wrong file.
+    """
+    r = subprocess.run(
+        ["bash", str(MUTATE), "--show-failure", "a", "b", "c", "d"],
+        capture_output=True, text=True)
+    assert r.returncode == 2, f"expected the usage verdict (2), got {r.returncode}"
+    assert "unknown flag" in r.stderr.lower()

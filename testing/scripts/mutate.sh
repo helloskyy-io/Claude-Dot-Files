@@ -6,7 +6,12 @@
 # This makes it executable: falsify -> show red -> restore -> show green.
 #
 # Usage:
-#   testing/scripts/mutate.sh <file> <old-string> <new-string> <pytest-target>
+#   testing/scripts/mutate.sh [--show-failures] <file> <old-string> <new-string> <pytest-target>
+#
+#   --show-failures  after each leg, list the FAILED test node ids.
+#                    A predicted count is only evidence when the partition is
+#                    checkable: 48 red that are the predicted 48 and 48 red that
+#                    are some other 48 are the same number and different results.
 #
 # Example — prove the loop bound is actually enforced:
 #   testing/scripts/mutate.sh \
@@ -144,7 +149,19 @@ on_exit() {
 BACKUP=""; CACHE_ROOT=""; BACKUP_READY=""
 trap on_exit EXIT
 
-[[ $# -eq 4 ]] || { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' >&2; verdict 2; }
+# Parsed BEFORE the positional contract so `$#` still means "the four
+# required arguments". The flag is print-only: it changes no exit code, no
+# leg classification and no mutation, so a run with it and a run without it
+# are the same experiment.
+SHOW_FAILURES=""
+while [[ "${1:-}" == --* ]]; do
+    case "$1" in
+        --show-failures) SHOW_FAILURES=1; shift ;;
+        *) echo "✗ unknown flag: $1" >&2; verdict 2 ;;
+    esac
+done
+
+[[ $# -eq 4 ]] || { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' >&2; verdict 2; }
 FILE="$1"; OLD="$2"; NEW="$3"; TARGET="$4"
 
 [[ -f "$FILE" ]] || { echo "✗ no such file: $FILE" >&2; verdict 2; }
@@ -562,6 +579,11 @@ classify_leg() {  # $1 = pytest's exit code, $2 = leg name (the probe's cache la
 # value would swallow that print into the captured string instead.
 report_leg() {  # $1 = leg label for the abort message
     echo "   $LEG_TAIL  [exit $LEG_STATUS]"
+    # The names were always in LEG_OUTPUT; six reflections asked for them and
+    # each pass built its own runner to get what these four lines print.
+    if [[ -n "$SHOW_FAILURES" ]]; then
+        grep -E '^(FAILED|ERROR) ' <<<"$LEG_OUTPUT" | sed 's/^/     /' || true
+    fi
     # LEG_NAME passed explicitly rather than read as a global inside
     # classify_leg: the probe's cache prefix is derived from it, and a stale
     # name would point two probes at one cache directory — the shared-cache
