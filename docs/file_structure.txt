@@ -89,23 +89,30 @@ claude-dot-files/
 │   │   ├── continuous-process-improvement/          # IN PROGRESS — two evidence sources; why the ruling is always a human's
 │   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
 │   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
-│   │   ├── github-actions-integration/              # HISTORICAL (Apr 2026) — record of what was planned
 │   │   ├── fleet-reliability/                       # RESEARCH ONLY — no plan yet; pool backs the liveness predicate and stall axis
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
-│   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 BUILT-NOT-PROVEN (2026-08-09, 7 of 8 requirements — the run set is what closes it);
-│   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phase 4 planned.
+│   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 COMPLETE (2026-08-10) — status lives in its phase doc, not restated here;
+│   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phases 4 and 6 planned.
 │   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
 │   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
 │   │   │   ├── phase1_measure_the_channel.md        # COMPLETE — six experiments, thirteen rulings. Cancelled nothing; re-scoped Phase 5's predicate
 │   │   │   ├── phase2_kind1_framework.md            # COMPLETE — Kind 1 as a substrate-free interface with GitHub as one binding. Found four of its own premises false
 │   │   │   ├── phase3_typed_exit_record.md          # Arrangement A, split abstention, fail-safe contract, one pair proven
-│   │   │   ├── phase4_fleet_migration.md            # Fleet-wide rollout; archive as by-product. Zero prompt content changes
+│   │   │   ├── phase4_fleet_migration.md            # V2-Python-tree rollout ONLY (re-cut 2026-08-10 by operator ruling — V1 is left in place, not
+│   │   │   │                                        #   migrated); includes prompt text; `activities/run-claude.sh` is in scope as V2 infrastructure
 │   │   │   ├── phase5_convergence_stopping.md       # The payoff — and NOT greenfield: it replaces a shipped model-asserted `converged` flag
 │   │   │   │                                        #   with a computed one, and routes NOTHING. § Measurement is the single source of every
 │   │   │   │                                        #   figure in the phase; a gate fails any restatement of one outside it
+│   │   │   ├── phase6_read_what_it_writes.md        # Names the per-run JSONL log as a surface (Kind 3, proposed) and builds the readers three
+│   │   │   │                                        #   phases of emitters never had; owns Phase 5's un-owned activation trigger
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
+│   │   ├── persistent-memory-protocol/              # RESEARCH + SYNTHESIS, not yet planned. research/synthesis.md is the agreed
+│   │   │                                            #   concepts with provenance — written by an operator+PM session, not a cycle,
+│   │   │                                            #   and the surface the next round reads to resume from. Pool backs
+│   │   │                                            #   state-passing between claude -p children on ONE machine; the prior
+│   │   │                                            #   "cross-node" framing answered the wrong question and is superseded
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
@@ -138,8 +145,14 @@ claude-dot-files/
 │   └── standards/                                   # HOW — binding rules for how things are done
 │       ├── architecture/                            # WHY the system is shaped this way — high-level overviews, not numbered ADRs
 │       │   ├── research/                            # PRODUCT-LEVEL research — findings that could change WHAT we build, not how
+│       │   │   │                                    #   A WORKING SURFACE, not curated product — an autonomous run MAY append here;
+│       │   │   │                                    #   only the `decision` and `status` RULINGS stay human-only (standards-governance.md)
+│       │   │   ├── README.md                        # What this altitude is for, and how it differs from a phase's own research/
 │       │   │   ├── topics.md                        # SIZE memory — tier, topic list with destinations, named gaps. Rewritten each run, never appended
 │       │   │   ├── raw/<topic>.md                   # The pool — 8 mini-papers carried over from the CSCI-6905.604 research project
+│       │   │   ├── candidates.md                    # THE DURABLE HOME for action candidates (C-NNN). `synthesis.md` is rewritten every cycle;
+│       │   │   │                                    #   this is not. A producing run places its own proposal here with `decision` BLANK
+│       │   │   ├── direction.md                     # The operator's inbox — rulings only they can make. Binds nothing
 │       │   │   └── synthesis.md                     # What the pool means for the product's direction. NON-BINDING
 │       │   ├── README.md                            # What goes here vs the rest of standards/
 │       │   ├── problem-statement.md                 # THE WHY — the trade-off being closed, and that this repo is iteration 1 with coding as the first edge
@@ -188,7 +201,16 @@ claude-dot-files/
 │   │   │   ├── replay_convergence_predicate.py     # Replays the SHIPPED convergence predicate over the archive → MMF Phase 5 step 6.
 │   │   │   │                                       #   IMPORTS the predicate (unlike its pinning sibling above) — a copy would validate a rule nobody runs.
 │   │   │   │                                       #   Re-sorts the shared dump by comment time: the predicate forbids the `pass:` label (issue #68)
-│   │   │   └── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
+│   │   │   ├── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
+│   │   │   ├── run_log.py                           # NOT a replay tool — the ONE DECLARATION of the RUN LOG surface (MMF Phase 6): its member
+│   │   │   │                                        #   event types, join key, publish classification and per-figure cutovers. A test compares the
+│   │   │   │                                        #   declared set against `_append_run_event`'s call sites in BOTH directions
+│   │   │   ├── replay_run_resources.py              # Four figures over `run_resources`: the unmeasured rate, peak_anon by workflow, the
+│   │   │   │                                        #   subagent-vs-volume knob question, and the overlapping-run aggregate → MMF Phase 6 req 3
+│   │   │   ├── replay_convergence_events.py         # The LIVE convergence corpus (candidate C-059) + Phase 5's gate conditions 1 and 2 with their
+│   │   │   │                                        #   denominators. `--archive` adds condition 1; without it that half prints NOT TAKEN, never zero
+│   │   │   └── replay_parent_route.py               # The computed abstention arm grouped by reason, and the prose-shadow agreement rate with
+│   │   │                                            #   C-060's conditioning printed beside it → MMF Phase 3 step 4, Phase 4's shadow-removal box
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
@@ -197,7 +219,19 @@ claude-dot-files/
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
 │   │           │                                    #   denominator, and absent-vs-false `converged`
-│   │           └── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
+│   │           ├── test_measure_readme_names_a_consumer.py  # This directory's own version of Phase 6's finding: every tool ON DISK has a README row
+│   │           │                                    #   (read off disk, since a table checked against itself cannot see the tool never added to it)
+│   │           │                                    #   and every row names a consumer in `Read by`. run_log.py excluded BY NAME, exclusion asserted
+│   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
+│   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
+│   │           ├── test_nullable_fields_are_not_truth_tested.py  # A NUMERIC nullable may never be truth-tested: `not x` folds an unmeasured record into a measured zero. Reads USAGE, not the declaration — the declaration gate could not see seven instances of it
+│   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name — including a slug JOINED into
+│   │           │                                    #   a sentence or TRUNCATED for a column — the derived model→workflow map finding the one
+│   │           │                                    #   ambiguous pair, and the two subagent parsers agreeing over the live archive
+│   │           └── test_run_log_readers.py          # The three readers' OUTPUT: exclusions named by commit cutover, figure 1's denominator being
+│   │                                                #   EVERY record, high/oom labelled not-applicable per record, the overlap sweep bounded from
+│   │                                                #   both sides and naming any window it cannot place, an unmeasured record not killing the
+│   │                                                #   report, and condition 1 printing NOT TAKEN rather than a zero
 │   │
 │   ├── services/                                    # Long-running background services
 │   │   ├── gh-monitor.sh                            # Polls GitHub for @claude PR comments, dispatches workflows
@@ -209,10 +243,12 @@ claude-dot-files/
 │       │   │                                        #   single responsibility, idempotent. A parent may NOT inline any of this:
 │       │   │                                        #   a workflow that does network I/O cannot replay. Sourced, never dispatched.
 │       │   ├── require-environment.sh               # Tool presence, --repo validation, git-root resolution, formatter check (replaced ~36 duplicated lines × 10 workflows)
+│       │   ├── paper-currency.sh                    # Compute which research papers are past their revalidation window, and render it for a prompt
 │       │   ├── run-claude.sh                        # Invoke `claude -p` (model resolution, rate-limit probe, turn-cap + completion contract) + print_cycle_totals
 │       │   └── wait-for-ci.sh                       # Poll a PR's head SHA until checks settle; guards push→fetch replication lag
 │       │
 │       ├── common/                                  # Shared TYPES/CONTENT, not activities — no I/O, nothing executes
+│       │   ├── config-value.sh                      # Read ONE value out of a config.yaml map. INVOKED, not sourced — no caller setup to inherit
 │       │   ├── format-stream.sh                     # Stream-json → human-readable formatter (pure transformation)
 │       │   └── shared-prompts.sh                    # DECISION_LOG_AND_REFLECTION (incl. fetch-verified deferral rules) + HEADLESS_EXECUTION_GUARD
 │       │
@@ -237,16 +273,31 @@ claude-dot-files/
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
 │           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
-│           │                                        #   plan/ holds plan_project (parent) and two children: plan_sprint (wired) and
+│           │                                        #   plan/ holds plan_project (parent) and three children: triage_candidates and
+│           │                                        #   plan_sprint (both wired, in that order — triage rules the candidates, sprint
+│           │                                        #   places what they ruled; split apart so planning can sit between them) and
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
+│           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with
+│           │                                        #   one consumer lives in that workflow's own {name}_activities.py, per §10.1
+│           │                                        #   rule 3 — consumer count decides, never taste
 │           │                                        #   exit_record.py — the Kind 2 typed exit record: THE ONE DECLARATION of its
 │           │                                        #   schema and vocabulary, and the ten-rule fail-safe contract a parent routes on
 │           │                                        #   (docs/standards/exit-protocol.md). Dependency-free, like its sibling routing.py
 │           │                                        #   convergence.py — MMF Phase 5's computed stopping predicate: the open/closed
 │           │                                        #   partition over `disposition`, six ordered rules, a named recorded residual arm.
 │           │                                        #   RECORDED, ROUTED ON BY NOTHING — MAX_LOOPS is still the only stopping authority
+│           │                                        #   research/ holds TWO parents over a shared set of children: research (full pool —
+│           │                                        #   research_write, then verify, then review-pr) and research_minor (ONE paper —
+│           │                                        #   research_write_minor, then THE SAME verify and review-pr). The minor cycle drops
+│           │                                        #   topics.md, the sizing assessment, the fan-out and the synthesis; it drops NONE of
+│           │                                        #   Research Standard §3's per-paper rigor, and research-critic still gates it
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
+│           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
+│           │                                        #   different parents, different model keys, separately-budgeted turn caps
+│           │                                        #   triage_candidates.sh / plan_sprint.sh are siblings for the same reason: two
+│           │                                        #   jobs, two model keys, two turn caps. Each runs standalone against the real
+│           │                                        #   queue AND is called in order by plan_project.sh
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
 │               ├── fixtures/                        # MEASURED inputs, not written ones
@@ -256,6 +307,14 @@ claude-dot-files/
 │               └── unit/                            # Each assertion encodes a production failure that happened. No mocks anywhere;
 │                   │                                #   the few tests that touch the OS do so because the property IS an OS property
 │                   ├── test_build_helper.py         # Verdict parsing + fail-safe routing, arg compilation, handoff validation
+│                   ├── test_ci_gate.py               # The PARENT reads the CI verdict, so MERGE is unreachable on a red tree — a
+│                   │                                #   prompt-level instruction is a convention an agent can reason past
+│                   ├── test_preflight.py             # Preconditions fail BEFORE anything is created, so a dead run leaves no
+│                   │                                #   orphaned worktree behind it (#49)
+│                   ├── test_render_opaque_operator_text.py # An operator's literal `${...}` reaches the model UNSUBSTITUTED — two
+│                   │                                #   dispatches died on briefs that were merely DESCRIBING the placeholder mechanism
+│                   ├── test_resource_telemetry.py    # The numbers are real, THERE IS NO CEILING, and an unmeasured run stays countable.
+│                   │                                #   Guards the mechanism added after the 2026-08-10 livelock, whose cause is UNIDENTIFIED
 │                   ├── test_v1_parity.py            # Turn caps are DERIVED from V1, never re-declared; plus the ruff F821 executability sweep
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
@@ -275,21 +334,69 @@ claude-dot-files/
 │                   │                                #   with a completeness check), `parse_verdict` by AST scan of the whole tree, and
 │                   │                                #   exit-protocol §4's reason column compared against the shipped enum
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
+│                   ├── test_shim_usage_names_itself.py   # Every shim's `#   ./x.sh` usage line must name the shim it is in. Four documented a different workflow; copy-pasting one ran the wrong one
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
-│                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict
+│                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.
+│                   │                                #   Plus the permission_denials surface both fleets share: it names every denied
+│                   │                                #   tool, never prints the command line, and ROUTES NOTHING (asserted structurally)
+│                   ├── test_run_log_emission.py     # The EMISSION side of the run-log surface: all three member events agree on `run_id`,
+│                   │                                #   with a control on the DEFECT'S OWN SHAPE (a stem that ENDS with the nonce, so a
+│                   │                                #   suffix-match looks right and joins nothing); `workflow_key` required with no
+│                   │                                #   default; and an AST check that finish() gets the bare `run_id` — the only guard
+│                   │                                #   that can see the defect where it lived, since exercising run_claude needs the CLI
+│                   ├── test_pr_url_address.py       # The PR-URL address as ONE declaration, gated on the class not the sites: an AST
+│                   │                                #   scan for a second `def`/`re.compile`, an exact-set gate on string splitting
+│                   │                                #   (three ad-hoc parses used to live there), the completion ERE checked against the
+│                   │                                #   extractor, and BOTH parity bounds for the owner/repo narrowing
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
+│                   ├── test_model_gets_the_worktree_path.py # The path RENDERED to the model is the worktree-anchored one, not the
+│                   │                                #   main-checkout path. Two runs (#84, #86) wrote their paper outside the
+│                   │                                #   worktree; asserts over the workflows found on disk, not a fixed list
 │                   ├── test_model_keys_resolve.py   # Every declared MODEL_KEY has a config.yaml entry — a missing one cannot launch at all
+│                   ├── test_authorization_is_observed.py # Every `You MAY NOT` row in a planning prompt names the code that observes it, or
+│                   │                                #   says JUDGEMENT with a reason. Keyed on the CORRESPONDENCE between the rendered table
+│                   │                                #   and a declared map, so a reworded or added row goes red — the split had a mechanism
+│                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced
+│                   ├── observer_registry.py         # ONE resolver for both observer registries — does this entry name code that EXISTS?
+│                   │                                #   A helper module, not a test module. Shared rather than copied for the reason
+│                   │                                #   normalise_cell exists: two copies drift, and the weaker one silently stops catching
+│                   ├── test_disappearance_is_observed.py # Every before/after snapshot names what watches it for ABSENCE. Keyed on the
+│                   │                                #   SNAPSHOTS, found by AST, because absence-blindness is a property of taking one:
+│                   │                                #   every comparator in the family judges `before.keys() & after.keys()`. Four channels
+│                   │                                #   returned a green run — a deleted operator ruling, a deleted sprint plan, one renamed
+│                   │                                #   out of the tree, an erased tick. Plus an AST gate binding every declared write grant
+│                   │                                #   to a deletion check, so a grant added later is covered without anyone remembering
+│                   ├── test_loop_cap_prose_is_counted.py # No workflow ASSERTS a loop cap; it reads one, or its own MAX_LOOPS really is 1.
+│                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
+│                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when
+│                   │                                #   routing.MAX_LOOPS went 1 -> 3, two of them inside a prompt sent to a model
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
+│                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
+│                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,
+│                   │                                #   two are entitled (markup reformat, a proposal placed unruled), and that second
+│                   │                                #   exemption is a defect the control found: diffing the id maps outright made the
+│                   │                                #   SHARED placement instruction unfollowable
 │                   ├── test_plan_revision_v1_parity.py # Prompt text is BYTE-IDENTICAL to plan-revision.sh — re-extracts the heredocs
 │                   │                                #   and both PROMPT= strings on every run. Catches the ~935-byte drop-the-stages failure
+│                   ├── test_research_minor.py       # The minor cycle is genuinely SMALLER, and a subtraction is what a green suite cannot
+│                   │                                #   notice: every "absent from write_minor.md" check is paired with the SAME predicate
+│                   │                                #   run against research_write's live prompt, which must still fire. Plus the reused
+│                   │                                #   verify child's cycle-shape block RENDERED (not grepped) and an AST walk proving its
+│                   │                                #   parameter reaches no `if` — a value, never a behavioural branch inside a prompt.
+│                   │                                #   BOTH children's prompts are rendered end-to-end: the prompt FILE is not the prompt,
+│                   │                                #   and ${CONTEXT_BLOCK} is assembled from pieces write_minor.md does not author — which
+│                   │                                #   is exactly where the one live defect this suite's file-only checks all missed lived
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
 │                   └── test_testpaths_matches_discovery.py # pytest.ini's testpaths lists every tests/ dir python.sh discovers — a bare
 │                                                        #   `pytest` must never silently cover less than run-all.sh while both report green
 │
 ├── testing/                                         # TIER 1 + TIER 2 of the Testing Standard's three-tier hierarchy
 │   ├── README.md                                    # How to run the suite and how to add a test
+│   ├── check-policy.yaml                            # Which CI checks GATE a merge and which are advisory. Read by the build parent
+│   │                                                #   between refine and review-pr — the fact lives here because it is a fact about
+│   │                                                #   THIS repo, and a generic parent holding it would silently give the next repo no gate
 │   ├── run-all.sh                                   # Master runner — the single "run everything" entry point.
 │   │                                                #   ./testing/run-all.sh [unit|integration|e2e] [component]
 │   ├── suites/
@@ -298,15 +405,34 @@ claude-dot-files/
 │   │                                                #   Refuses to run at all while a test_*.py sits outside tests/{unit,integration,e2e}/
 │   ├── scripts/
 │   │   ├── mutate.sh                                # Mutation harness — falsify a guard, show red, restore, show green. Gives every leg
-│   │   │                                            #   its own PYTHONPYCACHEPREFIX; a length-preserving edit would otherwise run stale .pyc
+│   │   │                                            #   AND every import probe its own PYTHONPYCACHEPREFIX; a length-preserving edit would
+│   │   │                                            #   otherwise run stale .pyc. Exit 2 is ambiguous and resolved DIFFERENTIALLY — the file
+│   │   │                                            #   is probed before and after, so only a mutation-caused import break is a harness error.
+│   │   │                                            #   Its OWN emitted codes keep the same separation, and ENFORCE it: every termination the
+│   │   │                                            #   script did not deliberately choose is classified as a harness error by its EXIT trap,
+│   │   │                                            #   so a bare command aborting under set -e cannot return a verdict code. The codes
+│   │   │                                            #   themselves are stated ONCE, in the file above classify_leg — not restated here
 │   │   └── tests/unit/                              # TIER 3 for the harness AND the repo-wide test-tree properties that only matter
-│   │                                                #   because of it — a collection failure exits 2 and reads as RED (issue #72)
+│   │                                                #   because of it — a collection failure exits 2, which pytest reports identically
+│   │                                                #   whether the guard fired or nothing ran at all (issue #72)
 │   │       ├── test_mutate.py                       # The harness's own guards
 │   │       ├── test_test_tree_hygiene.py            # No test_*.py imports another test_*.py — anywhere in the repo, including a pair
 │   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read
-│   │       └── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
-│   │                                                #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
-│   │                                                #   non-convergent over four passes on one PR — see candidates.md C-050
+│   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
+│   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
+│   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-050
+│   │       ├── test_file_structure_map_covers_the_tree.py # THIS map, checked against `git ls-files`: where it enumerates a directory it
+│   │       │                                        #   enumerates it completely, and every tracked file is reachable through some
+│   │       │                                        #   entry. Paths are reconstructed from the indentation — leaf-name matching scored
+│   │       │                                        #   unrelated directories as enumerated and demanded the roll-ups be expanded
+│   │       ├── test_candidate_ids_are_unique.py     # A `C-NNN` addresses ONE proposal. Three dispatches collided on the id space
+│   │       │                                        #   within forty minutes on 2026-08-11 and nothing would have said so
+│   │       ├── test_candidates_prose_matches_the_table.py # § Where things stand declares totals, an id range, a gap list and a
+│   │       │                                        #   decision split ABOUT the table above it. Derived here, because the
+│   │       │                                        #   paragraph was hand-written three times and wrong twice — the third time
+│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
+│   │       └── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
+│   │                                                #   checks, because every existing check was aimed at code rather than prose
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it

@@ -2,7 +2,7 @@
 
 The port of the workflow fleet onto durable execution.
 
-**Status: Stage A is substantially built.** The Python tree exists under `scripts/workflows/temporal/`, the parity suite runs against the bash fleet, and `plan-sprint` — a workflow with no bash ancestor — was authored directly in it. Temporal itself is not stood up and nothing is orchestrated.
+**Status: Stage A is substantially built.** The Python tree exists under `scripts/workflows/temporal/`, the parity suite runs against the bash fleet, and the planning family — `plan-sprint`, and `triage-candidates` split out of it in PR #85 — has no bash ancestor at all and was authored directly in the Python tree. Temporal itself is not stood up and nothing is orchestrated.
 
 ## Why Temporal, and what it is not for
 
@@ -60,5 +60,5 @@ The port does not need a big bang, and the standard's own architecture is what a
 Recorded here rather than in the sprint plan, because none of them is a thing that gets built until it is answered.
 
 - **Is an invocation indistinguishable from an operator running the command in a terminal?** A design constraint, not a permission question, and the one that decides whether the port is viable on a subscription model at all. Being tested separately.
-- **What happens to the bash fleet after Stage A** — retired, or kept as an edge fallback needing no runtime.
+- ~~**What happens to the bash fleet after Stage A** — retired, or kept as an edge fallback needing no runtime.~~ **ANSWERED by the operator, 2026-08-10: neither, exactly.** V1 is **left in place** and deleted when it stops being used — not converted one-for-one, because *"that works for some and fails miserably for others."* **The consequence that mattered was downstream:** [Memory Management Framework Phase 4](../memory-management-framework/phase4_fleet_migration.md) was blocked on this answer and is now re-cut to the V2 tree only. *Kept struck rather than deleted, because it was a stated blocker on another component and a reader who remembers it needs to find the answer where the question was.* **One clarification this answer needs, or it contradicts *"the bash does not die"* above:** what survives as *an executable an activity calls* is **`activities/run-claude.sh`** — verified, `assistant_activities.py:508` — and not `children/`, which this doc already says dissolves.
 - **Which workflow moves first**, and what runs in parallel during the cutover.

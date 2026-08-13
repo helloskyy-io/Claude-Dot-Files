@@ -21,58 +21,69 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+from . import resource_telemetry
+from . import routing
+
 _WORKFLOWS = Path(__file__).resolve().parents[3]          # scripts/workflows
 _SHARED_PROMPTS = Path(__file__).resolve().parent / "prompts"
 
-PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
+# RE-EXPORTED, NOT RE-TYPED — `routing.py` owns the PR-URL address, the same way
+# it owns `parse_verdict`. This module carried a byte-identical anchored copy
+# while a THIRD declaration (`routing.pr_number_from_url`) had no host anchor at
+# all; see `routing.PR_URL` for why the weak one was the one that mattered.
+PR_URL = routing.PR_URL
 
 
-def v1_constant(script: str, name: str) -> str:
-    """Read a constant from the V1 bash script rather than re-declaring it.
 
-    THIS FUNCTION EXISTS BECAUSE RE-DECLARATION CAUSED THREE PRODUCTION FAILURES.
-    The V2 port restated V1's constants and contracts instead of deriving from
-    them, so divergence was silent and only surfaced at runtime — most expensively
-    when a draft ran at MAX_TURNS=120 against V1's 250 and burned a full budget
-    producing nothing recoverable. V1's own logs already held the answer: the same
-    task class had completed in 130 turns.
+def _resource_limits() -> dict:
+    """`resource_limits:` from config.yaml. Absent means unbounded, not defaulted.
 
-    Deriving makes divergence impossible rather than merely detectable. Delete
-    this only when the V1 script it reads is deleted.
-
-    V1 SCRIPTS LIVE IN TWO PLACES and the name is searched in both. Children sit
-    in `children/`; top-level workflows sit at the workflows root. An earlier
-    version branched on whether the name contained a "/" and could resolve
-    NEITHER — `v1_constant("plan-revision.sh", ...)` looked only under
-    `children/`, and the `"../research.sh"` spelling one caller adopted to work
-    around that went to `scripts/research.sh`, which does not exist. That caller
-    never invoked it, so the break stayed latent; the next one to try would have
-    had to re-declare the constant, which is the failure this whole function
-    exists to prevent.
-
-    PASS A BARE FILENAME. Widening the search to two locations also made `../`
-    spellings start working, which is worse than the raise they replaced: the
-    first candidate `children/../research.sh` resolves through a real directory
-    to a real file, so a stale declaration nobody calls turns from a loud
-    FileNotFoundError into a quiet wrong answer. That is not hypothetical — it
-    is why `research_write_workflow.py` now carries an explicit comment saying
-    it has no `V1_SCRIPT` and why one must not be added back. Relative spellings
-    are not part of this contract; both locations are searched for you.
+    No fallback dict. A silent default would be a ceiling nobody chose, which is
+    indistinguishable at read time from one somebody measured — and the entire
+    reason this module exists is that an unexamined ceiling took a host down.
     """
-    for candidate in (_WORKFLOWS / "children" / script, _WORKFLOWS / script):
-        if candidate.exists():
-            path = candidate
-            break
-    else:
-        raise FileNotFoundError(
-            f"V1 script not found for constant derivation: {script} is in neither "
-            f"{_WORKFLOWS / 'children'} nor {_WORKFLOWS}"
-        )
-    m = re.search(rf"^{name}=(\S+)", path.read_text(), re.M)
-    if not m:
-        raise ValueError(f"{name} not found in {path} — V1 changed shape; do not guess a value")
-    return m.group(1).strip("\"'")
+    import yaml  # a hard preflight dependency; see scripts/preflight.py
+    path = _WORKFLOWS.parents[1] / "config.yaml"
+    if not path.is_file():
+        return {}
+    return (yaml.safe_load(path.read_text()) or {}).get("resource_limits") or {}
 
+
+def max_turns(key: str) -> int:
+    """This workflow's turn budget, from config.yaml's `max_turns:` map.
+
+    THE VALUE MATTERS AND HAS COST REAL MONEY. A draft once ran at 120 against
+    the 250 its task class needed and burned a full budget producing nothing
+    recoverable — V1's own logs already held the answer, 130 turns for the same
+    work. That is why this is read rather than guessed, and why a missing key
+    raises instead of defaulting.
+
+    KEYED BY WORKFLOW, NOT BY MODEL. `research-write` and `research-verify`
+    share MODEL_KEY "research" and have separately-measured budgets of 150 and
+    200. Keying off the model would silently collapse them, which is the exact
+    class of silent divergence this read exists to prevent.
+
+    WHAT THIS REPLACED, so it does not come back: `v1_constant()` recovered
+    these integers by running a regex over the V1 bash scripts at runtime. It
+    was a real fix for a real problem — re-declaration had caused three
+    production failures, and deriving made divergence impossible rather than
+    merely detectable. But it made the Python fleet unable to START if the bash
+    fleet were deleted, pointing the dependency at precisely the fleet that is
+    meant to go away, and it parsed an executable as data. Config belongs in
+    the config file. Both fleets read it now; neither reads the other.
+    """
+    import yaml  # a hard preflight dependency; see scripts/preflight.py
+    path = _WORKFLOWS.parents[1] / "config.yaml"
+    if not path.is_file():
+        raise FileNotFoundError(f"config.yaml not found at {path}")
+    doc = yaml.safe_load(path.read_text()) or {}
+    value = (doc.get("max_turns") or {}).get(key)
+    if value is None:
+        raise KeyError(
+            f"no '{key}' in the max_turns: map of {path} — add it there rather "
+            f"than hardcoding a cap at the call site"
+        )
+    return int(value)
 
 def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     """Create an isolated worktree, matching V1's behaviour exactly.
@@ -233,13 +244,8 @@ def render(template: str, values: dict[str, str], *,
             out = out.replace("${" + k + "}", str(values[k]))
     return out
 
-def extract_pr_url(output: str) -> str | None:
-    """Last PR URL in a run's output — the completion contract's payload.
-
-    Last, not first: a run may mention an existing PR before opening its own.
-    """
-    matches = [m.group(0) for m in PR_URL.finditer(output)]
-    return matches[-1] if matches else None
+# Re-exported under the name this module already published, so no caller moved.
+extract_pr_url = routing.extract_pr_url
 
 
 def claude_log_path(repo_root: Path, model_key: str, *, run_id: str) -> Path:
@@ -355,10 +361,15 @@ def assistant_text(log_file: Path) -> str:
     where it looked. `run-claude.sh`'s completion gate reads the same surface,
     for the same reason.
 
-    SUB-AGENT TURNS ARE EXCLUDED. A `Task` sub-agent's assistant events carry a
-    `parent_tool_use_id`; the top-level model's carry null. A sub-agent quoting
-    or proposing a verdict line is not this run's verdict, and admitting one
-    would let a nested agent decide the parent's route.
+    NESTED TURNS ARE EXCLUDED, AND THAT IS WIDER THAN "SUB-AGENT TURNS". Events
+    produced under any tool invocation carry a `parent_tool_use_id`; the
+    top-level model's carry null. This docstring used to say the field marks a
+    sub-agent, which is not what it marks — measured 2026-08-11 on an archived
+    build-draft log, every `parent_tool_use_id` resolved to a **`Bash`** tool_use
+    (backgrounded commands), not to a sub-agent spawn. The exclusion is
+    unaffected because it is conservative in the safe direction: a nested turn is
+    never this run's verdict, whoever produced it. The claim was fixed rather
+    than the code, because the code was right and the sentence was not.
     """
     chunks: list[str] = []
     for event in _log_events(log_file):
@@ -391,12 +402,41 @@ def append_parent_route(log_file: Path, event: dict) -> None:
 
     WHAT THIS WRITES IS FROZEN WHILE PHASE 4 IS GATED ON IT.
     `phase4_fleet_migration.md` reads the run set these events produce, so the
-    keys and the `parent_route` type string are not a refactoring surface. A
-    later phase adding its OWN observable adds its OWN event type beside this
-    one — see `append_convergence` — rather than widening this payload, and
+    keys and the `parent_route` type string are not a refactoring surface, and
     `test_exit_record.py` asserts the line this function writes byte for byte.
+    That clause is LOCAL — it is about Phase 4 reading this specific event.
+
+    THE RULE FOR ADDING A FOURTH OBSERVABLE IS NOT HERE ANY MORE, AND THAT IS THE
+    POINT. This docstring used to carry it — "a later phase adding its OWN
+    observable adds its OWN event type beside this one" — and `append_run_resources`
+    then cited it as "`append_parent_route`'s OWN RULE", which is a surface's
+    governing rule being quoted out of a neighbour's docstring. It now lives
+    where the surface is declared: `scripts/helpers/measure/run_log.py` for the
+    member set and the publish classification a check can read, and the
+    `memory-model.md` amendment drafted as candidate 10 of the Memory Management
+    Framework roadmap for the prose, which is the operator's to ratify.
     """
     _append_run_event(log_file, "parent_route", event)
+
+
+def append_run_resources(log_file: Path, event: dict) -> None:
+    """Append this run's MEASURED resource facts, as its own JSONL event.
+
+    ITS OWN TYPE, BESIDE THE OTHERS, PER THE RUN LOG'S GROWTH RULE — declared in
+    `scripts/helpers/measure/run_log.py` and stated in prose by the
+    `memory-model.md` amendment drafted as candidate 10. Nothing here widens an
+    existing payload and no existing key changes meaning. *(That rule used to be
+    cited out of `append_parent_route`'s docstring, which is how a convention
+    becomes unfindable.)*
+
+    WHAT IT IS FOR. The open question is whether a run's footprint is governed by
+    the NUMBER of subagents or the VOLUME each pulls into context — opposite
+    fixes, and `peak_anon` alone cannot separate them. Recording both beside it
+    turns that from an argument into a regression over enough runs. An
+    `unmeasured` run is written too, with its reason: "no data" and "data showing
+    nothing" are different facts and collapsing them hides the gap.
+    """
+    _append_run_event(log_file, "run_resources", event)
 
 
 def append_convergence(log_file: Path, event: dict) -> None:
@@ -405,7 +445,8 @@ def append_convergence(log_file: Path, event: dict) -> None:
     A SEPARATE EVENT TYPE, NOT A WIDER `parent_route`. Phase 4 is gated on the
     run set `append_parent_route` produces, so the cheapest way to guarantee
     this addition disturbs nothing is for it to share no payload with that one.
-    The two join on `run_id`, which both carry.
+    The two join on `run_id`, which both carry — and which is the run log's
+    declared join key (`scripts/helpers/measure/run_log.JOIN_KEY`).
 
     WITHOUT THIS THE PREDICATE HAS NO DENOMINATOR. The convergence assessment
     lives in a return value that dies with the process; the archive's
@@ -456,16 +497,48 @@ def _append_run_event(log_file: Path, event_type: str, event: dict) -> None:
         handle.write(json.dumps({"type": event_type, **event}) + "\n")
 
 
-def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
+def run_claude(prompt: str, *, model_key: str, workflow_key: str,
+               completion_pattern: str,
                repo_root: Path, worktree: Path | None = None,
                max_turns: int = 120, verbose: bool = False,
                exit_record_schema: str | None = None,
-               log_file: Path | None = None) -> str:
+               log_file: Path | None = None, run_id: str | None = None) -> str:
     """Invoke the model via the existing bash activity.
 
     Delegates rather than reimplementing model invocation, logging and the
     completion-contract check — one implementation of the contract, not two
     that can disagree mid-migration.
+
+    `workflow_key` IS REQUIRED AND HAS NO DEFAULT, which is deliberate and is the
+    shape `convergence.assess`'s `pass_evaluable` already uses: a new call site
+    cannot acquire the hole by forgetting the argument. It is NOT `model_key` —
+    `config.yaml` states above `research-write:` that the two are not 1:1, since
+    `research-write` and `research-verify` share the model key `research`. Only
+    this value lets a per-workflow figure name its own bins; a reader keying off
+    `model_key` merges those two and cannot say which records it merged.
+
+    THE LOG'S NAME STILL CARRIES THE MODEL KEY, not this one. Every archived log
+    and both filename parsers (`replay_completion_predicate.workflow_of`,
+    `run_log.model_key_of`) read that shape, and changing it to fix a payload gap
+    would move a published figure to add a field.
+
+    `run_id` IS OPTIONAL; A `log_file` WITHOUT ONE RAISES. The asymmetry is the
+    contract and it is stated this way round deliberately — this used to read
+    "hand in both or neither", which promised an enforcement of the mirror case
+    that does not exist and is not wanted: a caller supplying only `run_id` gets
+    a path built FROM that nonce, so the filename and the record agree by
+    construction and there is nothing to reject. The claim was corrected rather
+    than the code, because the code was right and the sentence was not.
+    The run log's join key has
+    to carry the SAME VALUE in all three of its member events, and it did not:
+    this function used to stamp the resource report with `log_file.stem`
+    (`{model_key}-{stamp}-{nonce}`) while `parent_route` and `convergence` carry
+    the bare `uuid4().hex` the caller issued. The nonce is a suffix of the stem,
+    so the three members joined only by suffix-matching a filename — the
+    addressing-by-inference `memory-model.md` §6.1 calls a LOCATION rather than
+    an ADDRESS, and a reader written against the field name alone got an empty
+    join that read as a corpus with no overlaps. Refusing the half-supplied case
+    is what makes the value correct by construction rather than by discipline.
 
     TWO LOCATIONS, TWO JOBS. `repo_root` is where LOGS live and MUST be the real
     repository — never a worktree, or the log is deleted with the worktree it sat
@@ -497,7 +570,23 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # issued. A caller that does not still gets a name unique by construction —
     # the nonce is generated here rather than defaulted away, because a default
     # is how the shared-name collision got written in the first place.
-    log_file = log_file or claude_log_path(repo_root, model_key, run_id=uuid.uuid4().hex)
+    #
+    # THE HALF-SUPPLIED CASE RAISES rather than falling back, because the
+    # fallback is what wrote the wrong join key. A caller that allocated the path
+    # KNOWS the nonce — it had to, to build the name — so being unable to supply
+    # it means the path came from somewhere else, and stamping the report with a
+    # nonce this function invented would attribute one run's resources to
+    # another's identity.
+    if log_file is not None and run_id is None:
+        raise ValueError(
+            f"run_claude was given a log_file ({log_file.name}) with no run_id. "
+            f"The run log's three member events must agree on `run_id`, and a "
+            f"caller that allocated the log path already holds the nonce that "
+            f"named it. Pass both, or neither."
+        )
+    if log_file is None:
+        run_id = run_id or uuid.uuid4().hex
+        log_file = claude_log_path(repo_root, model_key, run_id=run_id)
 
     env = {
         **os.environ,
@@ -529,11 +618,35 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
     # collected for the completion-contract check.
     print(f"→ {model_key}  log: {log_file}", flush=True)
     print(f"→ {model_key}  exec: {cwd}  (max_turns={max_turns})", flush=True)
+    # MEASURED, or explicitly not. The scope is what makes the kernel account
+    # for this child separately from the session; it BOUNDS NOTHING — every cap
+    # was reverted at `6725111` and `resource_limits` holds one lowercase key,
+    # so `wrap()` emits no `-p` at all. This comment used to say the scope
+    # "stops one child taking the host down with it", which asserted an
+    # enforcement that does not exist; the 2026-08-10 outage's cause is still
+    # UNIDENTIFIED and its attribution to a sub-agent fan-out is retracted.
+    # When a scope cannot be created the child still runs and the report records
+    # WHY it was not measured — a run nobody could measure has to remain
+    # countable, or the gap stops being visible.
+    argv = ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt]
+    limits = _resource_limits()
+    scoped, scope_reason = resource_telemetry.scope_available()
+    if scoped:
+        scope_unit = f"claude-{model_key}-{uuid.uuid4().hex[:12]}.scope"
+        argv = resource_telemetry.wrap(argv, unit=scope_unit, limits=limits)
+    else:
+        # "UNMEASURED", not "UNBOUNDED". Every path is unbounded — the scoped
+        # one applies no ceiling either — so a warning naming a missing BOUND
+        # let an operator read the scoped path as bounded. What is actually lost
+        # here is the MEASUREMENT, which is the whole reason the scope exists.
+        print(f"⚠ {model_key}: running UNMEASURED (no kernel accounting for this "
+              f"child; nothing is capped on either path) — {scope_reason}", flush=True)
+
     proc = subprocess.Popen(
-        ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt],
-        cwd=str(cwd), env=env, stdout=subprocess.PIPE,
+        argv, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, bufsize=1,
     )
+    sampler = resource_telemetry.measure(proc, unit=scope_unit) if scoped else None
     captured: list[str] = []
     assert proc.stdout is not None
     for line in proc.stdout:
@@ -543,6 +656,19 @@ def run_claude(prompt: str, *, model_key: str, completion_pattern: str,
             sys.stdout.flush()
     code = proc.wait()
     output = "".join(captured)
+
+    # BEFORE the failure branch below, deliberately. A run that died is the one
+    # whose resource numbers are most worth having, and an early `raise` would
+    # throw them away at exactly the moment they became evidence.
+    # `run_id=run_id`, NOT `log_file.stem` — the run log's join key carries one
+    # value across all three of its member events, and the stem is a filename
+    # that merely ends with it. See this function's docstring.
+    report = resource_telemetry.finish(
+        sampler, limits=limits, unmeasured_reason=None if scoped else scope_reason,
+        run_id=run_id, model_key=model_key, workflow_key=workflow_key)
+    report.tool_result_bytes, report.subagents_spawned = resource_telemetry.from_log(log_file)
+    append_run_resources(log_file, resource_telemetry.report_dict(report))
+    print(f"→ {model_key}  {resource_telemetry.human(report)}", flush=True)
 
     if code != 0:
         # OBSERVE before reporting. A turn-cap exit may have committed and
@@ -603,6 +729,25 @@ def gh_json(args: list[str], repo_root: Path):
             f"gh {' '.join(args)} in {repo_root} exited 0 but did not return JSON: "
             f"{exc}. First 200 bytes of the reply: {raw[:200]!r}"
         ) from exc
+
+
+def repo_slug(repo_root: Path) -> str:
+    """This dispatch's target repository as `owner/name`.
+
+    THE IDENTITY HALF OF THE PR-URL CONTRACT. `--repo` in our CLIs is a
+    FILESYSTEM PATH and `gh` is run with `cwd` set to it, so the slug is never
+    stated anywhere a parent can compare against — which is why a `completion_ref`
+    naming a different repository was, until Phase 4, indistinguishable from a
+    correct one. `gh` resolves it from the checkout's own remote, so the answer
+    is the repository the dispatch is actually operating in rather than one
+    inferred from a task description.
+
+    Raises through `gh` on failure rather than returning None: a parent that
+    cannot name its own repository cannot check that a child stayed inside it,
+    and the fail-safe direction for an unanswerable identity question is loud.
+    """
+    return gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+              repo_root).strip()
 
 
 def pr_branch(pr_number: str, repo_root: Path) -> str:

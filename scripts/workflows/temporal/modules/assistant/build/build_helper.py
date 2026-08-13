@@ -14,36 +14,55 @@ executable.
 
 from __future__ import annotations
 
-import re
-
 from .. import routing
 from .build_inputs import ChildResult, BuildInput, Verdict
 
 # The draft child's completion contract: it must open (or update) a PR and print
 # its URL. A run that produced no URL did not finish, whatever it exited with.
-_PR_URL = re.compile(r"https://github\.com/[^\s)]+/pull/(\d+)")
-
-# review-pr's terminal line. Anchored and exhaustive on purpose: an unanchored
-# match would find the token inside prose discussing it.
-
-
-def extract_pr_url(output: str) -> str | None:
-    """Last PR URL in the child's output, or None.
-
-    Last rather than first: a child may mention an existing PR before opening
-    the one it is responsible for.
-    """
-    matches = [m.group(0) for m in _PR_URL.finditer(output)]
-    return matches[-1] if matches else None
+#
+# RE-EXPORTED FROM `..routing`, NOT RE-TYPED. This file held a byte-identical
+# anchored copy of the pattern beside a re-export of the UNANCHORED
+# `pr_number_from_url` — two strengths of one address in one module. Issue #34
+# was the same shape for `parse_verdict` and was closed on a half-fix; the gate
+# for this one is on the class (`test_the_pr_url_address_is_declared_exactly_once
+# _in_the_whole_tree`), not on the two copies that were found.
 
 
 # Routing vocabulary lives in `..routing` — ONE definition, three consumers
 # (§10.1). Re-exported under the names this module already published so no
 # caller changes, and so there is exactly one place a verdict is parsed.
+extract_pr_url = routing.extract_pr_url
+pr_identity = routing.pr_identity
 pr_number_from_url = routing.pr_number_from_url
 parse_verdict = routing.parse_verdict
 should_loop_back = routing.should_loop_back
 MAX_LOOPS = routing.MAX_LOOPS
+
+
+def finality_note(loops_left: int) -> str:
+    """What a correction pass is told about how much runway is behind it.
+
+    COUNTED, NOT ASSERTED, and this exists because the assertion was false. Both
+    refine prompts told the model *"This is the last automated pass"* on every
+    correction pass, while `MAX_LOOPS` has been 3 since `b89f7f5` — so on passes
+    1 and 2 of 3 the model disposed its findings believing no further pass would
+    run. That is a false statement changing MODEL behaviour, not merely operator
+    perception, and it is the reason this is a function rather than a constant
+    string: the number is read from the caller's own loop state.
+
+    The instruction does not soften when passes remain. A finding left for a
+    later pass costs a full review cycle to rediscover, and the run holding the
+    context is the cheap place to close it — which is true whether it is the last
+    pass or the first.
+    """
+    if loops_left <= 0:
+        return ("**This is the last automated pass**, so anything you leave as an "
+                "instance leaves with it.")
+    passes = "pass" if loops_left == 1 else "passes"
+    return (f"**{loops_left} further automated {passes} may run after this one, and "
+            f"you must not plan around {'it' if loops_left == 1 else 'them'}** — a "
+            f"correction cycle costs a full review pass to rediscover what you had "
+            f"loaded, so anything you leave as an instance is paid for twice.")
 
 
 def child_args(task: BuildInput) -> list[str]:

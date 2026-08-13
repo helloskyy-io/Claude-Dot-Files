@@ -142,8 +142,8 @@ Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-int
 
 ## Sprint: Memory Management Framework — 🟡 IN PROGRESS
 
-**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 5 phase docs.
-**Phases 1 and 2 complete.** Phase 1 measured 2026-08-08 (13 rulings; 3 no-ops cancelled downstream work); Phase 2 delivered `docs/guide/memory-model.md`. **Nothing is built yet** — Phases 3-5 are the build.
+**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs.
+**All six phases complete.** Convergence is built and in shadow; enabling it is gated on the loop-bound ramp, not on further build.
 
 Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
@@ -153,9 +153,10 @@ Two distinct kinds of memory, currently conflated and only half-built. Both exis
 
 - [x] **Phase 1 · Measure the channel** — six experiments against the pinned CLI and the archived logs. 13 rulings; 3 no-ops cancelled downstream work. Merged 2026-08-08
 - [x] **Phase 2 · Document Kind 1 as a framework** — delivered as [`docs/guide/memory-model.md`](../guide/memory-model.md). Five surfaces measured, not three. Merged 2026-08-09
-- [ ] **Phase 3 · The typed exit record** — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
-- [ ] **Phase 4 · Migrate the fleet** — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
-- [ ] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged
+- [x] **Phase 3 · The typed exit record** — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
+- [x] **Phase 4 · Migrate the fleet** — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
+- [x] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
+- [x] **Phase 6 · Read what it writes** — three readers for the run log's parent-written observables
 
 Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 

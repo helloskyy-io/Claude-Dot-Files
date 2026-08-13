@@ -40,31 +40,39 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
     ref = f"origin/{act.pr_branch(task.pr_number, repo_root)}" if task.pr_number else "HEAD"
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
+    # Read BEFORE the child, for the reason its sibling parent states.
+    slug = act.repo_slug(repo_root)
+
     pr_url = draft.run_draft_minor(
         description=description, repo_root=repo_root,
         worktree=worktree, pr_number=task.pr_number, plan_path=task.plan_path,
         verbose=task.verbose,
     )
-    pr = helper.pr_number_from_url(pr_url)
+    pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
 
     loops = 0
     verdict = _refine_then_dispose(task, description, pr, repo_root,
                                    worktree, notes, correction=False)
 
-    # ONE loop-back, same bound as the major tier and for the same reason:
-    # self-correction plateaus at roughly 3-5 passes, and past it the model
-    # justifies rather than corrects.
+    # Same bound as the major tier and for the same reason: self-correction
+    # plateaus at roughly 3-5 passes, and past it the model justifies rather than
+    # corrects. COUNTED from `helper.MAX_LOOPS`, never asserted — this note said
+    # "looping back ONCE" while that bound has been 3 since `b89f7f5`.
     while helper.should_loop_back(verdict, loops):
         loops += 1
-        notes.append("HOLD (redispatch): looping back ONCE — the last automated pass.")
-        verdict = _refine_then_dispose(task, description, pr, repo_root,
-                                       worktree, notes, correction=True)
+        notes.append(f"HOLD (redispatch): loop-back {loops} of {helper.MAX_LOOPS}."
+                     + (" The last automated pass."
+                        if loops == helper.MAX_LOOPS else ""))
+        verdict = _refine_then_dispose(task, description, pr, repo_root, worktree,
+                                       notes, correction=True,
+                                       loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         notes.append("review-pr found an item only a human can rule on; no loop-back "
                      "was attempted, because more passes cannot produce a human decision.")
     elif verdict is Verdict.HOLD_REDISPATCH:
-        notes.append("The automated loop is SPENT — one loop-back is the cap.")
+        notes.append(f"The automated loop is SPENT — {helper.MAX_LOOPS} "
+                     f"loop-back(s) is the cap.")
 
     return BuildResult(pr_number=pr, pr_url=pr_url, verdict=verdict,
                        loops_used=loops, notes=notes)
@@ -72,14 +80,15 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
 
 def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          repo_root: Path, worktree: Path,
-                         notes: list[str], *, correction: bool) -> Verdict:
+                         notes: list[str], *, correction: bool,
+                         loops_left: int = 0) -> Verdict:
     ci_settled = wait_for_ci(pr, repo=task.repo_target)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
     refine.run_refine_minor(
         description=description, pr_number=pr, repo_root=repo_root,
-        worktree=worktree, correction_pass=correction,
+        worktree=worktree, correction_pass=correction, loops_left=loops_left,
         ci_unsettled=not ci_settled, verbose=task.verbose,
     )
 

@@ -86,14 +86,31 @@ models:
   build-phase: opus             # phase implementation — the default engineer
   plan-new: opus                # 14-stage project planning (was fable — see 2026-07-27 economics retier)
   plan-revision: opus           # planning build (was fable — see 2026-07-27 economics retier)
-  plan-sprint: opus            # triages research candidates and sequences the sprint plan.
-                                #   Opus deliberately: this rules on what the project builds next,
-                                #   reading a thesis, an evidence synthesis and a sprint plan together.
-                                #   A cheaper tier here buys nothing and risks a bad ruling landing in
-                                #   sprint.md, which is the operator's own sequencing surface.
+  triage-candidates: opus       # rules every untriaged research candidate — ship / requires review /
+                                #   reject — and files the open questions to direction.md. Opus
+                                #   deliberately: this decides what the project builds next, reading a
+                                #   thesis, an evidence synthesis and an architectural standard
+                                #   together. The measured failure it exists to avoid is a cheap
+                                #   ruling — a first pass with no `requires review` door pushed eleven
+                                #   open questions through `ship` and made the sprint plan unusable.
+  plan-sprint: opus             # places the RULED candidates and sequences the sprint plan.
+                                #   It no longer triages — that is `triage-candidates` above, split
+                                #   out so feature planning can sit between the two. Opus stays:
+                                #   what remains is reconciling a sprint plan against newer evidence
+                                #   and judging the 160-hour bar, and a cheaper tier risks a bad
+                                #   placement landing in sprint.md, the operator's own surface.
   review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
+  research-write-minor: sonnet  # research-minor's ONE-paper child. Sonnet deliberately, and it is
+                                #   not a downgrade of the research itself: the paper is authored by
+                                #   research-analyst, which pins opus in its own frontmatter and is
+                                #   untouched by this key. What runs here is pure orchestration —
+                                #   read the standard, dispatch one analyst, commit, open the PR —
+                                #   with no sizing judgment and no synthesis to author. That is the
+                                #   same shape build-draft-minor already runs at sonnet. Keying it to
+                                #   `research` (opus) would tie the cheap cycle's cost to the
+                                #   expensive one, which is the thing this workflow exists to avoid.
   research-refresh: opus        # research revalidation — orchestration + synthesis diff
   review-pr: opus               # PR disposition engine (was fable — 2026-07-27 economics retier; re-test candidate first when headroom returns)
 
@@ -112,3 +129,146 @@ models:
   #   sonnet: quality-control, standards-architect, code-reviewer,
   #           refactoring-evaluator, standards-auditor, test-writer,
   #           doc-manager, workflow-analyst, research-critic (+web)
+
+# Per-workflow turn budget, passed to `claude -p --max-turns`.
+#
+# THE SINGLE AUTHORITY. Both fleets read this map; neither reads the other.
+# Keyed identically to `models:` above — same workflow name, same key space.
+#
+# It lives here rather than in the scripts because it is operational config,
+# and config declared inside an executable can only be shared by parsing that
+# executable. The Python fleet did exactly that: `v1_constant()` ran a regex
+# over `children/*.sh` at runtime to recover these integers, which made V2
+# unable to start if V1 were deleted — the dependency pointing at precisely
+# the fleet that is meant to go away. Removed 2026-08-10.
+#
+# A cap set below an observed successful run has already cost a full budget
+# once. Raise from measurement, not from taste.
+max_turns:
+  build-draft: 250            # writes the change, opens the unreviewed PR
+  build-refine: 250           # FRESH context: fidelity, review, corrections
+  build-draft-minor: 100      # minor tier, child 1
+  build-refine-minor: 100     # minor tier, child 2 — one review lens
+  build-phase: 300            # phase implementation — the default engineer
+  plan-new: 500               # 14-stage project planning
+  plan-revision: 300          # planning build
+  plan-sprint: 250            # NOT measured — an estimate, stated as one. Basis:
+                              #   research_write does comparable read-then-write work
+                              #   at 250 and peaks near 90 in practice. This workflow
+                              #   never had a V1 script, so it never had a derived
+                              #   value either. REVISE FROM MEASUREMENT.
+                              #   HELD AT 250 THROUGH THE TRIAGE SPLIT, deliberately.
+                              #   It now does less, so 250 is looser than before — but
+                              #   lowering it would be an unmeasured cut in the
+                              #   direction that has already cost a full budget once,
+                              #   and a cap is a ceiling rather than a spend. The
+                              #   measurement that should move it does not exist yet.
+  triage-candidates: 200      # NOT MEASURED — an estimate, stated as one. Nothing has
+                              #   run this workflow: it was split out of plan-sprint,
+                              #   whose own 250 is itself an estimate, so there is no
+                              #   measured figure on either side of the split to derive
+                              #   from. Basis is a stage-by-stage walk of its prompt:
+                              #   read the candidates file, one synthesis and three
+                              #   architecture documents (~10), rule 24 rows with the
+                              #   evidence already in context (~1-2 each), append the
+                              #   direction.md rows, commit and open the PR (~10). That
+                              #   lands near 70; 200 is roughly 3x it as headroom, the
+                              #   same posture research-verify's measured cap uses.
+                              #   REVISE FROM THE FIRST REAL RUN — and note the working
+                              #   set is variable, so a cycle with 60 untriaged rows is
+                              #   a different measurement from one with 5.
+  research: 250               # pool creation — orchestration + synthesis authorship
+  research-refresh: 250       # ⚠ CONVERGED 2026-08-10, FLAGGED FOR REVIEW. The two
+                              #   fleets disagreed — research-refresh.sh said 200, the
+                              #   Python said 250 — and NEITHER recorded a reason. Took
+                              #   the higher: a cap below an observed successful run has
+                              #   already cost a full budget once, so converging upward
+                              #   is the non-destructive direction. Not a measurement.
+  review-pr: 120              # PR disposition engine
+  review-runs: 100            # CPI log analysis
+  review-sprint: 600          # holistic end-of-sprint judgment
+
+  # ── Python-fleet workflows. NOT a 1:1 mirror of `models:` above, and that is
+  #    the point: `research-write` and `research-verify` share MODEL_KEY
+  #    "research" but have DIFFERENT, separately-measured budgets. Keying a turn
+  #    cap off the model key would silently collapse them.
+  research-write: 150         # MEASURED: cycle 4 used 43. Deliberately supersedes
+                              #   research.sh's 250, which came from the MONOLITH's
+                              #   89-turn peak — a pre-split number does not transfer.
+  research-verify: 200        # MEASURED: cycle 4 used 68 first pass, 48 on correction.
+                              #   3x observed peak: headroom rather than a budget.
+  research-write-minor: 80    # MEASURED: 31 turns on the first live research_minor
+                              #   dispatch, 2026-08-12 — run_id
+                              #   5bd8b513a50a49d186b054e3c6c11e77, terminal_reason
+                              #   "completed", stop_reason "end_turn". The run ended
+                              #   naturally and never approached the cap.
+                              #   CAP HELD AT 80 — re-examined against the measurement,
+                              #   not left alone. 80 over a measured 31 is 2.6x headroom,
+                              #   inside the family's observed band (research-write
+                              #   150/43 = 3.5x, research-verify 200/68 = 2.9x), so the
+                              #   value the estimate picked survives contact with the
+                              #   real run and there is nothing to revise.
+                              #   The superseded estimate, kept as calibration history:
+                              #   a stage-by-stage walk of the prompt (standard ~5, pool
+                              #   and destination doc ~5, ONE blocking analyst dispatch
+                              #   ~1, checkpoint commit ~2, submit + PR ~4, decision log
+                              #   and reflection ~3) landed near 20 — low by ~11 turns
+                              #   against the 31 observed. That is the direction a
+                              #   ceiling absorbs for free: the cost of a cap set too
+                              #   high is nothing at all — it is a ceiling, not an
+                              #   allocation — while a cap set below a real run has
+                              #   already burned a full budget once. It is strictly
+                              #   below research-write's 150 because this cycle is a
+                              #   subset of that one: no topics.md, no fan-out, no
+                              #   synthesis.
+
+# Workflow children run inside a transient cgroup scope so the kernel accounts
+# for them. This is MEASUREMENT ONLY — no ceiling of any kind is applied.
+#
+# WHY THERE ARE NO LIMITS HERE, and it is deliberate. A cap shipped on
+# 2026-08-10 was justified by a host outage later attributed to a research
+# fan-out. That attribution was RETRACTED: a full five-subagent research run
+# measures 666 MiB peak RSS, and the operator observed ~0.5 GB live. Subagents
+# run IN-PROCESS, so the per-process arithmetic behind the original case was
+# counting processes that do not exist. 666 MiB does not become 24 GB.
+#
+# The host outage was real and its cause is still UNIDENTIFIED. Guarding the one
+# component since proven innocent is a fence around the wrong field, and an 8 GiB
+# cap over a 0.5 GiB workload could never fire anyway. So: observe first, and set
+# a ceiling later from data rather than from a story.
+#
+# THE UNCAPPED AGGREGATE IS AN ACCEPTED RISK, NOT AN OVERSIGHT (operator,
+# 2026-08-10). Recorded here because "we removed the caps" without the residual
+# exposure is not an informed acceptance. NO bound in this fleet can fire during a
+# livelock: `max_turns:` and `routing.MAX_LOOPS` are TURN and LOOP counters, and a
+# livelocked child consumes neither, while the parent waits on it with
+# `proc.wait()` and no timeout. So during precisely the failure that produced this
+# instrument there is no memory bound, no PID bound, no wall-clock bound and no
+# turn bound. The cause is still unidentified, so a recurrence is not excluded.
+# This names the exposure; it proposes no remedy, and re-opening the choice
+# without new data is the legislating-from-a-single-run failure that
+# `docs/standards/workflow-scripts.md` § Bounded composition names.
+#
+# WHAT THE MEASUREMENT SAYS SO FAR, taken 2026-08-11 with
+# `python3 scripts/helpers/measure/replay_run_resources.py` over 10 sound records:
+# the two runs that spawned 4 and 5 sub-agents peaked at 0.482 GiB and 0.458 GiB
+# of anonymous memory, and the largest peak in the corpus — 12.891 GiB — came from
+# a run that spawned NONE. That is consistent with the retraction and is not
+# evidence for a cap. Re-run it before quoting it; the denominator grows.
+#
+# IF LIMITS ARE ADDED BACK, two things were learned the expensive way and both
+# are non-obvious:
+#   - `MemoryMax` ALONE IS DECORATIVE. cgroup v2 bounds RAM and spills the rest
+#     to swap, so a runaway thrashes instead of dying. 400 MB under a 24 MB
+#     MemoryMax returned exit 0. It needs `MemorySwapMax=0` beside it.
+#   - A WIDE `MemoryHigh` BAND IS ITSELF A LIVELOCK. High throttles rather than
+#     kills, so a runaway inside a wide band never reaches Max. Measured under a
+#     24 MB Max: High=16M ground past a 25s timeout without dying; High=22M died
+#     at once; AND NO-`High` AT ALL ALSO DIED AT ONCE. That third arm is the
+#     CONTROL and it is the half that matters — it is what establishes the wide
+#     BAND as the cause rather than the 24 MB `Max` value, and without it the
+#     other two readings are consistent with "the cap was simply too small".
+#     Keep any High above ~80% of Max, or omit it.
+resource_limits:
+  slice: claude-workflows.slice   # groups children so a FUTURE aggregate cap has
+                                  #   somewhere to attach. Imposes nothing today.

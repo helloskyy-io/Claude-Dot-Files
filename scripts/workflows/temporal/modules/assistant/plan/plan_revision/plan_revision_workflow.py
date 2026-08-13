@@ -28,6 +28,8 @@ is a NEW ATTEMPT, not a replay.
 
 from __future__ import annotations
 
+from ... import routing
+
 import re
 from pathlib import Path
 
@@ -37,8 +39,8 @@ _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
 
 MODEL_KEY = "plan-revision"
-# Derived from V1, never re-declared — see assistant_activities.v1_constant.
-V1_SCRIPT = "plan-revision.sh"
+WORKFLOW_KEY = "plan-revision"   # the run log's per-workflow bin; see run_log.py
+MAX_TURNS_KEY = WORKFLOW_KEY
 
 # `(pull|issues)`, verbatim from V1, and the `issues` half is load-bearing rather
 # than defensive: Stage 1 can legitimately STOP (research required, or evidence
@@ -46,12 +48,12 @@ V1_SCRIPT = "plan-revision.sh"
 # deliverable. Narrowing this to `pull` would turn a correct, cheap stop into a
 # reported failure and invite someone to re-dispatch past the very gate that
 # fired.
-COMPLETION_PATTERN = r"https://github\.com/[^ )]+/(pull|issues)/[0-9]+"
+COMPLETION_PATTERN = routing.PR_OR_ISSUE_COMPLETION_ERE
 
 _STOP_ISSUE = re.compile(r"https://github\.com/[^\s)]+/issues/[0-9]+")
 
 
-def context_block(context: str) -> str:
+def context_block(context: str, evidence: str = "") -> str:
     """V1's CONTEXT_BLOCK: delimited when there is context, EMPTY when there is not.
 
     Empty means empty, not an empty pair of delimiters. An
@@ -59,9 +61,16 @@ def context_block(context: str) -> str:
     model as context that was meant to be there and went missing, which is worse
     than no header at all.
     """
-    if not context:
-        return ""
-    return f"\n--- additional context ---\n{context}\n--- end additional context ---\n"
+    blocks = []
+    if context:
+        blocks.append(f"--- additional context ---\n{context}\n--- end additional context ---")
+    # The evidence pointer rides here rather than in a new placeholder: the
+    # wrapper prompts are parity-locked, and "what this run may read" is what
+    # this block is for. Rendered even with no operator context — a planning run
+    # that was given no brief needs the pointer MORE, not less.
+    if evidence:
+        blocks.append(evidence)
+    return "\n" + "\n\n".join(blocks) + "\n" if blocks else ""
 
 
 def completion_url(output: str) -> str | None:
@@ -105,7 +114,7 @@ def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
 
     values = {
         "DESCRIPTION": description,
-        "CONTEXT_BLOCK": context_block(context),
+        "CONTEXT_BLOCK": context_block(context, act.evidence_block(repo_root)),
         # The two bodies V1 interpolates from heredocs. They are the ~23kB that a
         # prior port dropped; they are loaded here, and their arrival intact is
         # asserted by the parity suite rather than assumed.
@@ -125,9 +134,10 @@ def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / wrapper), values,
                    opaque=frozenset({"CONTEXT_BLOCK", "DESCRIPTION"})),
-        model_key=MODEL_KEY, completion_pattern=COMPLETION_PATTERN,
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
-        max_turns=int(act.v1_constant(V1_SCRIPT, "MAX_TURNS")),
+        max_turns=act.max_turns(MAX_TURNS_KEY),
         verbose=verbose,
     )
 
