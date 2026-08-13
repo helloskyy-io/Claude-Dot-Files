@@ -61,18 +61,35 @@ mature systems do.
 deletes a row by design; `direction.md` rotates a ruled row at 90 days. **No single retention or
 merge policy can serve both**, so collapsing them destroys one of them.
 
-### 2 · Every write to any store also emits an event to the journal
+### 2 · Every write to any store also emits to the journal — COMPLETELY, and the journal can rebuild the store
 
-**Adopted — this is the core rule, and it is the operator's.**
+**Adopted — this is the core rule, and it is the operator's.** Three parts, and the third is what
+keeps the first two honest.
 
-A run writes wherever it needs to, in whatever format that surface wants. **It must also record in
-the journal what it wrote, where, and how it was flagged.** The journal is then the single place
-that answers *"what happened in this run"*, with no surface unrepresented.
+**(a) Completeness is absolute.** A run writes wherever it needs to, in whatever format that surface
+wants. **If ANY store gets it, the journal gets it** — what was written, where, and how it was
+flagged. No surface is unrepresented and no write is journal-exempt.
 
-**Provenance.** Temporal's event history and `bernstein`'s journal are both this shape.
+**(b) The journal must be able to REBUILD anything any store holds**, in the same format. That
+inverts the authority: the stores stop being sources of truth and become **projections** of the
+journal. `candidates.md` becomes a materialized view; recovery becomes replay.
+
+**(c) Rebuildability is a TEST, not a claim.** Replay the journal into a scratch directory and diff
+the result against the live file. **This is the mechanism that makes (a) enforceable** — without it,
+completeness degrades silently the first time a write path is added and the emit is forgotten, which
+is a failure this repo has produced in several other forms.
+
+**Provenance.** This is **event sourcing**, and it is Temporal's own model applied one level up:
+event history is the truth, workflow state is a projection rebuilt by replay. `bernstein`'s journal
+is the same shape.
 
 **Why we chose it.** It buys *"never any question what happened"* without collapsing surfaces that
-have to stay separate (§1). The stores hold state; the journal holds history.
+cannot share a lifecycle (§1). The stores hold state; the journal holds history and can regenerate
+the state.
+
+**⚠ The known cost, decided on day one because it is brutal to retrofit: SCHEMA EVOLUTION.** A
+journal written under v1 must still replay under v3, forever. Every event-sourced system meets this.
+The settled answer: **version every event, never mutate a written one, upcast on read.**
 
 ### 3 · One typed return per step, modality-neutral
 
@@ -163,6 +180,11 @@ server setup — not a design problem.
 **What remains true from the original finding:** a store nobody reads is still the failure. The fix
 is the reader, not a smaller store.
 
+**And it does get pruned — that is planned work, not a permanent exemption.** Retention is a
+scheduled Temporal workflow plus a config variable; it is small, and it is not zero. Under §2 the
+journal is the authority that rebuilds the stores, so **a pruning rule is a decision about what the
+fleet can no longer reconstruct** — which is why it gets planned rather than defaulted.
+
 ### 9 · Cue surfaces already exist. What is missing is the poller.
 
 **Adopted.**
@@ -175,6 +197,15 @@ exactly this: query state, start children.
 **The discipline this must carry:** pair every producer with its consumer **in the same change**. A
 producer with no consumer is how 262 MB accumulated unread.
 
+**The other side of the handshake.** The upstream Django/Temporal pair has to know every edge and
+how to work with it, and the **API key already associated with an edge is the natural carrier** — it
+is how the edge authenticates today, so the identity exists and merely needs mirroring outward.
+
+**⚠ But a key is a CREDENTIAL, not an IDENTIFIER, and credentials rotate.** A journal keyed by API
+key orphans an edge's entire history the day the key is rotated. **The key authenticates; it maps to
+a stable edge id that never rotates.** One line of design now, an unrecoverable data-modelling mess
+later.
+
 ### 10 · Git is the coding edge's binding, not the protocol's
 
 **Adopted — operator's ruling.**
@@ -183,13 +214,18 @@ Git stays for the edge we are building now, because that edge's memory *is* vers
 reviewed in PRs, and travels with a clone. **The protocol stream carries the same data**, so a second
 edge of any type sources it from the protocol rather than from a repo.
 
+**Each edge reads and writes whatever surface that edge needs** — git, SQLite, a file, a broker.
+**The truth is always the centralized output.** A surface is a local convenience; the journal is the
+record.
+
 **Why not repo-per-edge.** `state_passing` established that identity compatibility is not
 integration — repos without a sync path are isolated memories that *look* joined, which is worse than
 obviously separate ones. And an edge like Home Assistant has no codebase to version. **It has runs.**
 
 ### 11 · S3 as the aggregation point, with a local-first write
 
-**Adopted in principle; scoped as its own sprint.**
+**Adopted in principle. Sized at a couple of phases or its own sprint** — an involved integration,
+not a feature.
 
 Layout under `<machine_id>` + `<run_id>`. Object storage is the standard answer for write-once,
 high-volume, append-only, rarely-read-but-must-be-readable data.
@@ -205,19 +241,72 @@ high-volume, append-only, rarely-read-but-must-be-readable data.
   evidence for why a shared memory surface is an attack surface: **pollution reached durable memory
   at rates up to 91%, and prompt injection was not required — ordinary misinformation sufficed.**
 
+### 12 · Temporal's own store is telemetry, not memory. Do not build on it.
+
+**Adopted.**
+
+Temporal generates its own database-driven history, and the question is whether CPI should read it.
+**No — and the reason is in our own prior research:** Temporal's identity scheme is *"bounded by
+retention"*, and continue-as-new starts a fresh history. **It is an execution log with a TTL, not a
+durable memory.** Building analysis on it means building on a store that deletes itself on a
+schedule configured months earlier.
+
+The two records hold genuinely different things, and the split is clean:
+
+| | Holds |
+|---|---|
+| **Temporal history** | orchestration — retries, per-activity timing, which worker ran what, signals, timers |
+| **The journal** | content — what changed, where, how it was flagged, and what links to what across runs |
+
+**The rule:** if CPI needs something Temporal knows, **the workflow emits it into the journal at
+completion.** One writer, one record, at the edge.
+
+**This also settles a boundary question: the edge store does NOT need to be reachable from the
+server side**, and keeping that answer *no* is what preserves local-first.
+
+### 13 · CPI stays on Edge1 until a second edge actually produces runs
+
+**Adopted, and it is a sequencing decision rather than a compromise.**
+
+Edge1 is the coding edge. It has git, it runs CPI today, and it is the only party that needs both
+sides of the boundary. It makes changes and pushes to git, which redeploys the server side.
+
+**Why not build cross-edge CPI now: there is no second edge producing runs.** This is the same
+speculative-generality trap `state_passing` §5.2 already caught once, where it found the fleet had
+designed away the problem it was about to build a framework for.
+
+**The sequence, each step built only when the previous one has a real second party:**
+
+1. **Now** — Edge1 runs CPI over its own journal. Nothing new required.
+2. **When edge 2 exists** — S3 aggregation (§11), local-write-first.
+3. **Then** — CPI reads the bucket instead of one local journal. **Same reader, different input** —
+   which is the property that makes step 3 cheap, and the reason step 1 should not be built to be
+   throwaway.
+
 ---
 
 ## What this does NOT settle
 
 - **The three questions the journal must answer.** Operator's, and they decide the format. Nothing
-  else does. *(Asked in session, not yet answered.)*
-- **Cross-edge learning versus operational visibility** — which the shared store is for first. They
-  want different things and would be built in a different order.
-- **Component or phase** — [`C-074`](../../../standards/architecture/research/candidates.md), still open,
-  still the operator's.
+  else does. *(Asked in session, not yet answered — and §2's rebuild test raises the stakes: the
+  journal now has to carry enough to regenerate a store, not merely to describe a run.)*
+- **The pruning rule** (§8). Under §2 it is a decision about what the fleet can no longer
+  reconstruct, so it is planned work with a real trade-off rather than a config default.
+- **Event schema versioning in detail** (§2). The approach is settled — version, never mutate,
+  upcast on read — but not the mechanism.
+- **Component or phase** — [`C-074`](../../../standards/architecture/research/candidates.md), still
+  open. Nothing here depends on it; it decides where the plan gets written, not what is in it.
 - **Journal format at this volume**, and redaction/classification for records crossing a trust
-  boundary. **Both are genuine research questions** and are the strongest candidates for the full
-  cycle this topic warranted.
-- **Whether the Kind-1 / Kind-2 cut should be re-drawn.** `state_passing` §4.3.4 established that the
-  two kinds cover three of eight channels and that *lifecycle* discriminates where *audience* does
-  not — but explicitly declined to rule.
+  boundary (§11's blocker). **Both are genuine research questions** and are the strongest candidates
+  for a full cycle on this topic.
+- **Whether the Kind-1 / Kind-2 cut should be re-drawn.**
+  [`state_passing`](raw/state_passing_between_workflow_children.md) §4.3.4 established that the two
+  kinds cover three of eight channels and that *lifecycle* discriminates where *audience* does not —
+  but explicitly declined to rule.
+
+## Out of scope for this component, captured so it is not lost
+
+- **CI/CD and automated deployment** of the fleet — the server side, the edges, and the redeploy
+  path §13 depends on. **This is delivery, not memory**, and it is sized as its own sprint. Placed
+  as a candidate rather than described here, because a proposal that lives only in a synthesis dies
+  when the synthesis is rewritten.
