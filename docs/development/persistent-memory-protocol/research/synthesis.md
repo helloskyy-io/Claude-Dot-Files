@@ -1,21 +1,20 @@
-# Persistent Memory Protocol — concepts, with provenance
+# Persistent Memory Protocol — synthesis
 
-> **WHAT THIS IS, AND WHAT IT IS NOT — read before citing anything here.**
+> **This synthesis was written by an operator+PM session on 2026-08-12, not by a research cycle.**
+> It is the pool's consumption surface all the same: it is what the next research round reads to
+> start from where we left off, and what planning reads to build a design against.
 >
-> This is a **working concept record from a live operator+PM session on 2026-08-12**. It captures
-> what we are adopting, where each idea came from, and why we chose it.
+> It captures what we are adopting, where each idea came from, and why we chose it.
 >
 > **It is NOT a research artifact.** It did not pass the `research-critic` gate, its external
 > sources were read once and not span-verified, and several were found by live search rather than
 > a sourced sweep. **Confidence in anything sourced to § Live-session sources is one reading, no
 > verification.** Do not cite this document as evidence; cite what it points at.
 >
-> **It is NOT a design.** No schema is specified here. This exists so a planning run has the
-> concepts and their provenance in one place, and so a later full research cycle knows what was
-> already concluded and by what reasoning.
+> **It is NOT a design.** No schema is specified here.
 >
-> **Status:** open working document. Adding to it is expected; it is superseded by the phase docs
-> that consume it.
+> **Status:** open. Adding to it is expected. A later full research cycle reads this, then rewrites
+> this file per the Research Standard — ingesting what is below rather than starting over.
 
 ---
 
@@ -25,11 +24,11 @@
 
 | Source | What it contributed |
 |---|---|
-| [`state_passing_between_workflow_children.md`](research/raw/state_passing_between_workflow_children.md) | Our own channel enumeration; the format axes; the by-value ceiling; the retention measurement; the Kind-1/Kind-2 mismatch |
-| [`bernstein_capability_mining.md`](../../standards/architecture/research/raw/bernstein_capability_mining.md) | The nearest comparable system's actual contracts. **The single highest-yield source in this document** |
-| [`cross_node_memory_protocol.md`](research/raw/cross_node_memory_protocol.md) | **Superseded** — answered a question we do not have. Two findings survive, both re-grounded elsewhere |
-| [`memory-model.md`](../../guide/memory-model.md) | The existing vocabulary: durable record as an interface, five properties, the to-do bit |
-| [`problem-statement.md`](../../standards/architecture/problem-statement.md) | Names `bernstein` and `OpenClaw` as the two nearest neighbours, by different axes |
+| [`state_passing_between_workflow_children.md`](raw/state_passing_between_workflow_children.md) | Our own channel enumeration; the format axes; the by-value ceiling; the retention measurement; the Kind-1/Kind-2 mismatch |
+| [`bernstein_capability_mining.md`](../../../standards/architecture/research/raw/bernstein_capability_mining.md) | The nearest comparable system's actual contracts. **The single highest-yield source in this document** |
+| [`cross_node_memory_protocol.md`](raw/cross_node_memory_protocol.md) | **Superseded** — answered a question we do not have. Two findings survive, both re-grounded elsewhere |
+| [`memory-model.md`](../../../guide/memory-model.md) | The existing vocabulary: durable record as an interface, five properties, the to-do bit |
+| [`problem-statement.md`](../../../standards/architecture/problem-statement.md) | Names `bernstein` and `OpenClaw` as the two nearest neighbours, by different axes |
 
 **Live-session sources — ONE READING, NOT VERIFIED:**
 
@@ -214,7 +213,7 @@ high-volume, append-only, rarely-read-but-must-be-readable data.
   else does. *(Asked in session, not yet answered.)*
 - **Cross-edge learning versus operational visibility** — which the shared store is for first. They
   want different things and would be built in a different order.
-- **Component or phase** — [`C-074`](../../standards/architecture/research/candidates.md), still open,
+- **Component or phase** — [`C-074`](../../../standards/architecture/research/candidates.md), still open,
   still the operator's.
 - **Journal format at this volume**, and redaction/classification for records crossing a trust
   boundary. **Both are genuine research questions** and are the strongest candidates for the full
