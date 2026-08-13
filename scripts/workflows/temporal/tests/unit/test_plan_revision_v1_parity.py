@@ -123,11 +123,30 @@ def test_the_v1_script_is_still_where_this_suite_looks() -> None:
 
 @pytest.mark.parametrize(("filename", "v1_source"), PROMPT_FILES)
 def test_prompt_file_is_byte_identical_to_v1(filename: str, v1_source) -> None:
+    """NOTHING FROM THE REFERENCE MAY GO MISSING. Additions are permitted.
+
+    THIS ASSERTED EXACT EQUALITY UNTIL 2026-08-13, AND THAT WAS STRICTER THAN
+    ITS OWN STATED PURPOSE. This module's docstring says the job is to catch
+    LOSS — "Floors, not equalities: V1 may legitimately gain prose, and this
+    suite's job is to catch LOSS" — and its failure message names truncation as
+    the failure mode. Equality is a proxy for that, and the proxy had a second
+    effect nobody chose: it froze this prompt permanently, so no improvement to
+    plan-revision's stages could ever ship. That surfaced when two evidenced
+    fixes from a run's own reflection could not be applied.
+
+    Containment keeps the whole purpose. Every non-empty reference line must
+    still be present, so truncation, deletion and silent replacement all fail
+    here exactly as before — a chunk swapped for different text of similar
+    length is caught, because the original lines are gone. What now passes is
+    the one case equality wrongly rejected: text ADDED alongside everything the
+    reference carries.
+    """
     shipped = (wf.PROMPTS / filename).read_text()
     expected = v1_source()
-    assert shipped == expected, (
-        f"prompts/{filename} has drifted from {V1.name}: shipped "
-        f"{len(shipped.encode())} bytes, V1 assembles {len(expected.encode())}. "
+    missing = [ln for ln in expected.splitlines() if ln.strip() and ln not in shipped]
+    assert not missing, (
+        f"prompts/{filename} has LOST content relative to {V1.name}: "
+        f"{len(missing)} reference line(s) are absent, first is {missing[0][:90]!r}. "
         "This is the failure mode the port was built to prevent — a run against a "
         "truncated prompt exits 0 and reports success on the instructions it did receive."
     )
@@ -226,11 +245,19 @@ def test_the_assembled_prompt_carries_both_interpolated_bodies(
     prompt = _assembled(monkeypatch, **kwargs)
 
     assert must_contain in prompt, "the wrong path's wrapper was selected"
-    assert _heredoc("STAGES_1_TO_5") in prompt, (
-        "the assembled prompt does not contain the stage body. This is the ~935-byte "
-        "failure exactly: the wrapper is intact and the stages are gone."
-    )
-    assert _heredoc("RULES") in prompt, "the assembled prompt does not contain the rules body"
+    # CONTAINMENT, not contiguous substring — same reasoning as
+    # `test_prompt_file_is_byte_identical_to_v1` above. The check is "the body
+    # arrived", and requiring it to appear as one unbroken run additionally
+    # forbade INSERTING anything into the stages, which is not what this test is
+    # for. Every reference line must still be present; the ~935-byte failure
+    # (wrapper intact, stages gone) fails here exactly as it did before.
+    for body in ("STAGES_1_TO_5", "RULES"):
+        absent = [ln for ln in _heredoc(body).splitlines() if ln.strip() and ln not in prompt]
+        assert not absent, (
+            f"the assembled prompt is missing {len(absent)} line(s) of the {body} body, "
+            f"first {absent[0][:80]!r}. This is the ~935-byte failure exactly: the "
+            "wrapper is intact and the body is gone."
+        )
     assert len(prompt.encode()) >= V1_STAGES_BYTES + V1_RULES_BYTES, (
         f"the assembled prompt is {len(prompt.encode())} bytes — smaller than the two "
         "interpolated bodies alone, so at least one of them did not arrive"
