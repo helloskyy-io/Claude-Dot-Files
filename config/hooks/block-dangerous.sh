@@ -211,12 +211,26 @@ INPUT=$(cat)
 # nothing — it is a constant, and the suite parses it as JSON so a typo in it
 # fails the tests rather than shipping an unparseable denial.
 if ! command -v jq >/dev/null 2>&1; then
-  printf '%s\n' '{"decision": "deny", "reason": "Blocked by safety hook: jq is not available, so this event could not be parsed"}'
+  printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Blocked by safety hook: jq is not available, so this event could not be parsed"}}'
   exit 0
 fi
 
+# THE OUTPUT CONTRACT IS `hookSpecificOutput`, NOT A TOP-LEVEL `decision`.
+# This hook emitted `{"decision":"deny"}` from the day it was written and
+# therefore never blocked anything: Claude Code reads
+# `hookSpecificOutput.permissionDecision` for PreToolUse, and the top-level
+# `decision` field is not valid for tool events. The shape below is the
+# documented one (code.claude.com/docs/en/hooks).
+#
+# WHERE THE BUG CAME FROM, so it is not reintroduced: the `Stop` event — also
+# configured in this repo's settings.json — DOES take a top-level `decision`.
+# One event's contract was copied to another, and every test asserted the copy.
+#
+# exit 0 is correct and deliberate: with exit 0 Claude Code reads the JSON and
+# lets it decide. Exit 2 would block unconditionally, ignoring the JSON, which
+# would make the allow path unexpressible.
 deny() {
-  jq -n --arg reason "$1" '{"decision": "deny", "reason": $reason}'
+  jq -n --arg reason "$1" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $reason}}'
   exit 0
 }
 

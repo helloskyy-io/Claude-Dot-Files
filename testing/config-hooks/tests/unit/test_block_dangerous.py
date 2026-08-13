@@ -139,7 +139,7 @@ class HookResult:
     def denied(self) -> bool:
         """True iff the hook emitted an actual deny DECISION.
 
-        Keyed on the payload's `decision` field, not merely on stdout being
+        Keyed on `hookSpecificOutput.permissionDecision`, not merely on stdout being
         non-empty. The two are equivalent against today's hook — its only
         non-empty-stdout branches are deny payloads — but that equivalence is
         incidental, and nearly every assertion in this file rests on this one
@@ -152,11 +152,23 @@ class HookResult:
         """
         if self.stdout.strip() == "":
             return False
-        return json.loads(self.stdout).get("decision") == "deny"
+        return (json.loads(self.stdout)
+                .get("hookSpecificOutput", {})
+                .get("permissionDecision") == "deny")
 
     @property
     def payload(self) -> dict:
         return json.loads(self.stdout)
+
+    @property
+    def reason(self) -> str:
+        """The denial's human-readable reason, from the nested contract.
+
+        Exists so call sites do not each spell out `hookSpecificOutput` — the
+        repetition is what let the top-level `reason` survive in two deny paths
+        after the main contract was corrected.
+        """
+        return self.payload["hookSpecificOutput"]["permissionDecisionReason"]
 
 
 def run_hook_raw(
@@ -681,15 +693,31 @@ def test_safe_lookalike_is_allowed(command: str) -> None:
 def test_deny_payload_matches_the_hook_standard() -> None:
     """The deny decision's shape is the contract Claude Code parses.
 
-    `docs/standards/hook-scripts.md § Output Handling`: deny is a JSON object
-    with `decision: "deny"` and a `reason`, built with `jq -n` rather than
-    string interpolation. A malformed payload is indistinguishable from an
-    allow at the far end.
+    THIS TEST PREVIOUSLY ASSERTED THE WRONG CONTRACT AND PASSED, WHICH IS WHY
+    THE HOOK NEVER BLOCKED ANYTHING. It required a top-level `decision: "deny"`,
+    which Claude Code does not read for PreToolUse — that field belongs to the
+    `Stop` event, also configured in this repo, and was copied across. The hook
+    matched, emitted, exited 0, and the decision was discarded at the far end.
+
+    Eight review passes verified the hook against this file. None verified this
+    file against the vendor's documentation. A test that states a false premise
+    as fact does not merely fail to catch the bug — it certifies it.
+
+    The real contract (code.claude.com/docs/en/hooks): a nested
+    `hookSpecificOutput` carrying `hookEventName: "PreToolUse"`,
+    `permissionDecision: "deny"` and `permissionDecisionReason`.
     """
     result = run_hook(A_DANGEROUS_COMMAND)
     payload = result.payload  # raises if the hook emitted non-JSON
-    assert payload["decision"] == "deny"
-    assert payload["reason"].strip(), "deny carries an empty reason"
+    assert "decision" not in payload, (
+        "the hook emitted a TOP-LEVEL `decision` field. Claude Code ignores it "
+        "for PreToolUse, so this hook would block nothing while every other "
+        "test in this file passed."
+    )
+    hso = payload["hookSpecificOutput"]
+    assert hso["hookEventName"] == "PreToolUse"
+    assert hso["permissionDecision"] == "deny"
+    assert hso["permissionDecisionReason"].strip(), "deny carries an empty reason"
 
 
 def test_deny_still_exits_zero() -> None:
@@ -892,7 +920,7 @@ def test_denies_when_jq_is_unavailable(tmp_path: Path) -> None:
         f"FAIL-OPEN: jq was unavailable and the hook allowed anyway. "
         f"stdout={result.stdout!r}"
     )
-    assert "jq" in result.payload["reason"], (
+    assert "jq" in result.reason, (
         "the denial must say WHY, or a truncated PATH looks identical to a "
         "matched pattern in the transcript"
     )
@@ -936,7 +964,7 @@ def test_denies_when_a_pattern_cannot_be_evaluated(tmp_path: Path) -> None:
         f"FAIL-OPEN: a pattern grep could not compile was treated as a "
         f"no-match. stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "could not evaluate" in result.payload["reason"]
+    assert "could not evaluate" in result.reason
 
 
 # ---------------------------------------------------------------------------

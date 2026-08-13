@@ -79,17 +79,35 @@ exit 0
 ```
 
 ### Deny
-Output a JSON object with `decision: "deny"` and a `reason`. Use `jq -n` to build valid JSON — never string interpolation.
 
-**Define it once as a helper.** Every example in this document calls it, and a
-hook with several deny paths should not restate the payload shape at each one:
+**THE SHAPE IS PER-EVENT, AND GETTING IT WRONG IS SILENT.** A hook that emits
+the wrong shape still runs, still matches, still exits 0 — and its decision is
+discarded at the far end. Nothing reports an error, so the hook appears
+healthy while blocking nothing.
+
+**For `PreToolUse`**, emit a nested `hookSpecificOutput`
+([contract](https://code.claude.com/docs/en/hooks)). **A top-level `decision`
+field is NOT valid for tool events:**
 
 ```bash
 deny() {
-  jq -n --arg reason "$1" '{"decision": "deny", "reason": $reason}'
+  jq -n --arg reason "$1" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $reason}}'
   exit 0
 }
 ```
+
+**For `Stop`**, a top-level `decision` IS the contract — and that difference is
+exactly how this document came to be wrong. **Measured 2026-08-13: this standard
+specified the `Stop` shape for a `PreToolUse` hook, `block-dangerous.sh` was
+written to it, its test suite asserted it as fact, and the hook never blocked a
+single command from the day it shipped.** Eight review passes checked the hook
+against the tests; none checked the tests against the vendor's documentation.
+
+**Always name the event when you write a deny helper**, and verify the shape
+against the linked contract rather than against another hook in this repo.
+
+**Define it once as a helper.** Every example in this document calls it, and a
+hook with several deny paths should not restate the payload shape at each one.
 
 **The decision travels in stdout, never in the exit code** — hence the `exit 0`
 inside the helper. A non-zero exit reads to Claude Code as a *broken hook*
@@ -98,7 +116,7 @@ converts blocking into erroring.
 
 **Never do this** (unsafe string interpolation):
 ```bash
-echo "{\"decision\": \"deny\", \"reason\": \"$REASON\"}"  # BAD
+echo "{\"hookSpecificOutput\": {\"permissionDecision\": \"deny\"}}"  # BAD
 ```
 
 ## Tool Filtering
