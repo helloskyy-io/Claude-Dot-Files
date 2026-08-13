@@ -176,7 +176,7 @@ since a record can be proven unaltered; and `evidence_set_hash` matching a prior
 > never placed — not in `candidates.md`, not `direction.md`, not the roadmap, not an issue. The
 > fleet then spent 2026-08-12 bounding by hand the exact cost it solves.**
 
-### 7 · Two audiences, two formats, one journal
+### 7 · Each artifact keeps its own format — and NO database, deliberately
 
 **Adopted.**
 
@@ -184,8 +184,20 @@ since a record can be proven unaltered; and `evidence_set_hash` matching a prior
 retrieval. Our own format axes (`state_passing` §4.3.1) cut on reader latency, write pattern and
 typing.
 
-**Why we chose it.** Humans read markdown; code queries a database. Our format table has exactly one
-empty row — *queries over accumulated history* — and that is the journal's reader.
+**Why we chose it.** Humans read markdown; code reads typed records. §14 generalises this: the
+journal is a container and each artifact keeps the format that suits it, so "two formats" was always
+too small a frame.
+
+**NO DATABASE, AND THAT IS A DECISION RATHER THAN AN OMISSION.** `state_passing`'s format table has
+one empty row — *queries over accumulated history* — and the obvious reflex is to fill it with
+SQLite. We are not, because a per-run folder tree with a checksum manifest (§14) answers the
+questions we actually have.
+
+**A database would be a PROJECTION**, and §2 already makes every projection rebuildable from the
+journal. So this is **a future build opportunity with no refactor cost**: if a query is ever wanted
+that the tree genuinely cannot serve, it is install-and-import, and nothing recorded in this
+synthesis has to change to allow it. Revisit on a real query, not on a feeling that a record ought
+to live in a database.
 
 **OpenClaw's documented failure is the warning to carry:** its memory *"lives in files that must be
 explicitly loaded, which means continuity depends entirely on what gets re-read at startup"*, and
@@ -365,10 +377,70 @@ independently arrived at.
 
 **⚠ THE MANIFEST IS WHAT MAKES "THE PROTOCOL DECIPHERS EACH ONE" REAL.** Without a per-run manifest
 declaring what is in the folder and how to read each part, deciphering degrades into guessing by file
-extension, and every new artifact kind silently breaks every existing reader. **The manifest is the
-protocol's contract with itself**, and it is the difference between a structure and a pile. It is
-also where §2's event versioning lives, since the manifest is what says which schema a run was
-written under.
+extension, and every new artifact kind silently breaks every existing reader.
+
+**AND THERE IS AN RFC FOR EXACTLY THIS — do not invent a manifest format.**
+**[BagIt, RFC 8493](https://www.rfc-editor.org/rfc/rfc8493.html)**: a `data/` payload directory, a
+`manifest-sha256.txt` listing every payload file with its checksum, and a `bagit.txt` declaring the
+version and encoding. The spec describes itself as *"a filesystem convention, not a serialization
+format"*, which is §14 in the standard's own words.
+
+It is better than the manifest sketched here, on three counts:
+
+- **The manifest IS checksums**, so validating a run folder is re-hashing its payload — **the same
+  mechanism as §6, for free.**
+- **`bagit.txt` declares the version**, which is where §2's schema versioning lives.
+- **Bags transfer as loose directory trees or serialized**, which is §11's S3 sync already solved.
+
+**⚠ KEY BY `run_id`, NEVER BY PATH — and this is the one place NOT to copy Claude Code.** Its layout
+was verified directly (`~/.claude/projects/`, 576 MB, 1,411 files) and it keys by mangled path, which
+produces separate directories for `-home-puma-Repos-claude-dot-files` and
+`-home-puma-Repos-claude-dot-files--claude-worktrees-build-1786019575`. **Every worktree becomes its
+own project.** This fleet runs everything in worktrees, so path-keying would scatter one logical run
+across several folders.
+
+*(Correction to an earlier draft: Claude Code has NO manifest — it relies purely on naming
+convention. It validates the folder structure and does not validate the manifest. BagIt does.)*
+
+**WHERE THE ROOT LIVES — configurable, with one sane default per deployment shape.**
+[`XDG_STATE_HOME`](https://specifications.freedesktop.org/basedir/latest/) (default
+`~/.local/state`) is defined for state that persists between restarts, explicitly including logs, and
+is specified as *"analogous to `/var/lib`"*. That is precisely this journal.
+
+| Deployment | Root |
+|---|---|
+| User-run, as today | `$XDG_STATE_HOME/<app>/` → `~/.local/state/<app>/` |
+| systemd worker (the VM plan) | `/var/lib/<app>/` |
+| Container edge (e.g. an HA add-on) | the add-on's mapped persistent volume |
+
+**`/opt` is for application binaries, not state; `/lib` is system libraries.** Neither is right.
+**And it does not belong in the repo** — it is state rather than source, and gitignoring it merely
+hides it somewhere that is cloned and deleted along with the repo.
+
+**⚠ OPEN, AND CLOSER THAN IT LOOKS: the edge is not defined yet.** Home-directory placement is fine
+for the edge we have because Claude Code itself requires a user context. An edge that is not a full
+Linux environment — HAOS is the live example — may have no user, and may need a sidecar to run at
+all. **The protocol must not DEPEND on a home directory; the root is one config value.** That keeps
+the question open without blocking the build, which matters because this build is not far off.
+
+### 15 · Concurrent children write to their own subfolder
+
+**Adopted — the operator's fix, and it is sufficient rather than simplistic.**
+
+The event-sourcing literature warns that *"without a correct sequence number and single-writer per
+aggregate, events get reordered."* This fleet fans out — the 2026-08-12 verify round ran two critics
+21 seconds apart — so concurrent writers are real.
+
+**Giving each child its own subfolder inside the run folder removes the contention entirely**, since
+no two writers share a file. Combined with §14's per-run keying, a run's record is a tree of
+independently-written parts.
+
+**⚠ THE BOUNDARY, stated so the simplification is checked rather than assumed:** subfolders solve
+concurrent writes to the JOURNAL. They do not establish a global order, and they do not help if two
+children mutate **the same external store**. Today that cannot happen — parallel children are
+read-only critics and a single analyst writes — **so the day a workflow gives two concurrent children
+write access to one store is the day this needs a sequence number.** Cheap now, unrecoverable in old
+data.
 
 ---
 
@@ -377,8 +449,13 @@ written under.
 - **The three questions the journal must answer.** Operator's, and they decide the format. Nothing
   else does. *(Asked in session, not yet answered — and §2's rebuild test raises the stakes: the
   journal now has to carry enough to regenerate a store, not merely to describe a run.)*
-- **The pruning rule** (§8). Under §2 it is a decision about what the fleet can no longer
-  reconstruct, so it is planned work with a real trade-off rather than a config default.
+- **The storage budget and the snapshot cadence** (§2, §8). The mechanism is settled — rotate whole
+  run folders oldest-first, never past the last snapshot. **The two numbers are not**: how much disk
+  the journal may hold, and how often state is materialized. They trade against each other and both
+  are operator calls.
+- **What an edge actually is** (§14). Home-directory placement suits the edge we have. An edge that
+  is not a full Linux environment may have no user and may need a sidecar. **Open, and nearer than
+  the other items** — the root stays a config value so this does not block the build.
 - **Event schema versioning in detail** (§2). The approach is settled — version, never mutate,
   upcast on read — but not the mechanism.
 - **Component or phase** — [`C-074`](../../../standards/architecture/research/candidates.md), still
