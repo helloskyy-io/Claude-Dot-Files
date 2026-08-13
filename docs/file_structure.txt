@@ -437,9 +437,20 @@ claude-dot-files/
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
 │   │   └── tests/unit/
-│   │       └── test_block_dangerous.py              # Characterization suite for the PreToolUse safety hook (issue #52). Attack corpus +
+│   │       └── test_block_dangerous.py              # SPECIFICATION suite for the PreToolUse safety hook (issues #52, #61 — was
+│   │                                                #   characterization until the operator ruled on the four defects it found). Attack corpus +
 │   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
-│   │                                                #   A pattern added to the hook without a deny case FAILS the coverage guard here
+│   │                                                #   Executes the MUST BLOCK / MUST ALLOW claims written beside each pattern IN THE HOOK, and
+│   │                                                #   sweeps the separator class at BOTH positions: a shell separator appended to the end of
+│   │                                                #   every dangerous command, and every internal separator respelt (tab, doubled space, the
+│   │                                                #   space after `>` removed, a word split over a `\`-newline). A pattern added without a deny
+│   │                                                #   case or without both claims FAILS here; so does one that enumerates a separator.
+│   │                                                #   Also pins the SCRATCH-DELETE ELISION boundary from both sides — the commands measured
+│   │                                                #   halting completed runs must pass, and the shapes that read like them must still deny — plus
+│   │                                                #   a third sweep placing every dangerous command beside an elidable scratch delete, because
+│   │                                                #   the elision MUTATES the string the patterns see and a hand-picked corpus cannot bound that.
+│   │                                                #   Asserts every MUST BLOCK claim end-to-end, not only against its own regex. NO COUNTS ARE
+│   │                                                #   RESTATED HERE — they live in the test module's docstring, per its sibling README
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/
