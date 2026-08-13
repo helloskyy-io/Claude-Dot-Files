@@ -183,6 +183,64 @@ def component_dir(repo_root: Path, section_name: str) -> Path:
     return repo_root / "docs" / "development" / slug
 
 
+PROBLEM_STATEMENT = Path("docs/standards/architecture/problem-statement.md")
+PRODUCT_POOL = Path("docs/standards/architecture/research")
+COMPONENT_ROOT = Path("docs/development")
+
+
+def evidence_block(repo_root: Path) -> str:
+    """POINT a planning run at the thesis and at every research pool that exists.
+
+    THE GAP THIS CLOSES. `plan_revision` consumes research only when the
+    dispatch brief happens to hand it over — its prompt's research checks are
+    both conditional ("if your inputs include research artifacts"). So a plan
+    designed against evidence the fleet already paid for depended on whoever
+    wrote the brief remembering to name it. `plan_sprint` reads the problem
+    statement; `plan_revision` had no pointer to anything.
+
+    That is the same failure that cost a full research cycle on 2026-08-12, one
+    layer up: a brief named four files, the run read exactly those four, and the
+    paper that already answered the question sat unopened in the pool.
+
+    A POINTER, never the content. Counts are computed because an unread pool is
+    otherwise invisible, and empty pools are listed WITH their zero — a pool with
+    no papers says the topic was scoped and never investigated, which a planner
+    needs to know before assuming coverage.
+    """
+    lines: list[str] = []
+    if (repo_root / PROBLEM_STATEMENT).is_file():
+        lines += [
+            f"  {PROBLEM_STATEMENT}   <- the thesis this plan must serve. READ-ONLY, never edited.",
+            "",
+        ]
+    pools: list[tuple[Path, int, str]] = []
+    for pool in [repo_root / PRODUCT_POOL, *sorted((repo_root / COMPONENT_ROOT).glob("*/research"))]:
+        if not pool.is_dir():
+            continue
+        papers = sorted((pool / "raw").glob("*.md"))
+        syn = "synthesis.md" if (pool / "synthesis.md").is_file() else "no synthesis"
+        pools.append((pool.relative_to(repo_root), len(papers), syn))
+    if pools:
+        lines.append(f"**{len(pools)} research pools exist. Counted in code:**")
+        lines.append("")
+        lines += [f"  {rel}  ({n} papers, {syn})" for rel, n, syn in pools]
+        lines += [
+            "",
+            "**READ THE ONE THAT BEARS ON THIS PLAN BEFORE DESIGNING ANYTHING.** A synthesis is",
+            "written to be consumed by exactly this step; a plan that re-derives what a pool already",
+            "settled has spent a research cycle twice and may reach a different answer the second",
+            "time. **The pool whose NAME least resembles your task is the one most likely to hold an",
+            "already-solved mechanism** — that miss is documented and it cost a full day.",
+            "",
+            "**Cite the paper you relied on, and say plainly when a pool is EMPTY rather than",
+            "assuming the topic was covered. You never write to a pool.**",
+        ]
+    if not lines:
+        return ""
+    return "\n".join(["--- evidence available to this plan (READ-ONLY) ---", *lines,
+                       "--- end evidence available to this plan ---"])
+
+
 def submit_prompt(pr_number: str | None, label: str) -> str:
     if pr_number:
         return (f"- Stage and commit your changes with message `{label}`\n"

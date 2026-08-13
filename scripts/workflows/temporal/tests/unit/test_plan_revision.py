@@ -229,3 +229,47 @@ def test_a_directory_outside_a_repo_is_refused_before_anything_is_created(
     monkeypatch.chdir(tmp_path)
 
     assert cli.main(["bump the roadmap"]) == 1
+
+
+def test_the_plan_is_pointed_at_the_thesis_and_every_pool(tmp_path) -> None:
+    """A planning run must not depend on the brief remembering to name the evidence.
+
+    THE GAP THIS PINS. `plan_revision`'s own research checks are both conditional
+    — "if your inputs include research artifacts" — so a plan designed against
+    evidence the fleet already paid for relied on whoever wrote the dispatch
+    brief. `plan_sprint` reads `problem-statement.md`; `plan_revision` pointed at
+    nothing. That is the 2026-08-12 miss one layer up: a brief named four files,
+    the run read exactly those four, and the paper holding the answer sat
+    unopened.
+
+    Empty pools must be LISTED, not dropped. A pool with no papers says the topic
+    was scoped and never investigated, and a planner that cannot see the zero
+    will assume coverage.
+    """
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "modules"))
+    from assistant.plan import plan_activities as act
+    from assistant.plan.plan_revision import plan_revision_workflow as wf
+
+    (tmp_path / "docs/standards/architecture").mkdir(parents=True)
+    (tmp_path / "docs/standards/architecture/problem-statement.md").write_text("# thesis")
+    (tmp_path / "docs/standards/architecture/research/raw").mkdir(parents=True)
+    (tmp_path / "docs/development/widget/research/raw").mkdir(parents=True)
+    (tmp_path / "docs/development/widget/research/raw/p.md").write_text("paper")
+    (tmp_path / "docs/development/widget/research/synthesis.md").write_text("syn")
+    (tmp_path / "docs/development/empty/research/raw").mkdir(parents=True)
+
+    block = act.evidence_block(tmp_path)
+    assert "problem-statement.md" in block, "the plan is not shown the thesis it must serve"
+    assert "docs/development/widget/research  (1 papers, synthesis.md)" in block
+    assert "docs/development/empty/research  (0 papers, no synthesis)" in block, (
+        "an empty pool was dropped — a planner cannot tell 'no papers' from "
+        "'not listed', and will assume the topic was covered"
+    )
+
+    # It must reach the model even when the operator supplied no context at all.
+    assert "evidence available to this plan" in wf.context_block("", block), (
+        "the pointer is lost when there is no operator context — which is exactly "
+        "the run that needs it most"
+    )
+    assert wf.context_block("", "") == "", "an empty block must stay empty, not render bare delimiters"
