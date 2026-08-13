@@ -66,13 +66,36 @@ merge policy can serve both**, so collapsing them destroys one of them.
 **Adopted — this is the core rule, and it is the operator's.** Three parts, and the third is what
 keeps the first two honest.
 
-**(a) Completeness is absolute.** A run writes wherever it needs to, in whatever format that surface
-wants. **If ANY store gets it, the journal gets it** — what was written, where, and how it was
-flagged. No surface is unrepresented and no write is journal-exempt.
+**(a) Completeness is absolute — PROSE IN, CODE OUT.** A run writes wherever it needs to, in
+whatever format that surface wants. **If ANY store gets it, the journal gets it, VERBATIM** — the PR
+body, every reflection and decision-log comment, the review verdict, the triage, the direction, the
+approval, the re-run count, the PR number and repo. Issues. Candidate rows. Anything on any surface.
+
+**The one exclusion is the code diff, and it is excluded for a stated reason rather than to save
+space: git is already a better store for it.** The journal carries the commit SHA and you go get the
+diff. That is §4's by-reference rule applied to the record itself.
+
+**The line is "does a better durable store already exist for this artifact type."** For code it does.
+For the prose a run writes into GitHub it emphatically does not — comments are editable, deletable,
+unversioned, and hosted by a service, and they are where the *reasoning* lives.
+
+**THE DESIGN TEST, in the operator's words:** *"If I have a question it always starts in the journal.
+I rarely have to go to another source, because I know if I do it is just duplicated info from the
+journal anyway."* Any proposal to leave something out is checked against that sentence.
+
+**MEASURED 2026-08-12, because the instinct is to fear the volume.** For one full `research_minor`
+cycle: **all authored text — PR body plus every comment — was 39,772 bytes.** At that rate the
+authored record for the entire 175-run history is roughly **7 MB**. **The completeness rule above
+costs almost nothing**; the volume in this system lives entirely in the CLI transcript, which is also
+in the journal and is governed separately (§12).
 
 **(b) The journal must be able to REBUILD anything any store holds**, in the same format. That
 inverts the authority: the stores stop being sources of truth and become **projections** of the
 journal. `candidates.md` becomes a materialized view; recovery becomes replay.
+
+**And the journal is IDENTICAL regardless of which external store the run wrote into.** git, SQLite,
+a GitHub object, an MQTT topic on an edge with no repo — the destination is a field, not a format.
+That is what makes the record portable across edges, and it is the property §10 depends on.
 
 **(c) Rebuildability is a TEST, not a claim.** Replay the journal into a scratch directory and diff
 the result against the live file. **This is the mechanism that makes (a) enforceable** — without it,
@@ -235,8 +258,12 @@ high-volume, append-only, rarely-read-but-must-be-readable data.
 - **Write local first, ship asynchronously.** Local-first means the edge works when the bucket is
   unreachable, so the local file is the source of truth at write time.
 - **Pairs with §6.** Hashing is what makes a shared store's records provably unaltered.
-- **⚠ BLOCKER — classification.** Our run log already carries a PUBLISHABLE / NOT-PUBLISHABLE rule
-  and deliberately excludes model-authored text. Shipping raw records to a store every edge reads
+- **⚠ BLOCKER — classification, and §2 CHANGED ITS SHAPE.** The existing rule excludes
+  model-authored text because the run log is co-resident with the CLI transcript, where that text
+  arrives incidentally. **The journal is different: every byte in it was deliberately written to a
+  durable surface**, most of it already public in a GitHub PR. So the question is no longer *"can we
+  share model-authored text"* — it is **per-field, and most fields answer themselves.** That is a
+  smaller problem than it looked, but it is still a decision and it still gates a shared store. Shipping raw records to a store every edge reads
   crosses that line, and the [heartbeat pollution paper](https://arxiv.org/pdf/2603.23064) is the
   evidence for why a shared memory surface is an attack surface: **pollution reached durable memory
   at rates up to 91%, and prompt injection was not required — ordinary misinformation sufficed.**
@@ -264,6 +291,34 @@ completion.** One writer, one record, at the edge.
 **This also settles a boundary question: the edge store does NOT need to be reachable from the
 server side**, and keeping that answer *no* is what preserves local-first.
 
+**What the journal contains, and what stays outside it:**
+
+| Surface | What it is | In the journal? |
+|---|---|---|
+| **Authored output** — PR body, comments, decisions, triage, candidate rows | what the run WROTE | **Yes, verbatim** |
+| **CLI transcript** — every tool call and result | **how the run GOT there** | **Yes.** This is how you see what worked and where a run went sideways. Basic logging, and it is not optional |
+| **Execution facts** — cost, timing, resources, re-runs | what it took | **Yes** |
+| **Code diffs** | already perfectly stored | **No** — commit SHA, fetch from git |
+| **Temporal history** | orchestration, with a retention TTL | **No** — the workflow emits what it needs at completion |
+
+**Only Temporal's store is excluded as a SOURCE**, and only because it expires. Everything the fleet
+itself produces goes in.
+
+**THE TWO HALVES HAVE WILDLY DIFFERENT VOLUMES, AND THAT IS THE USEFUL PART.** Measured on one
+`research_minor` cycle: **authored output 39,772 bytes; CLI transcript 4,823,628 bytes.** The
+authored record is **0.8%** of the total.
+
+**So they get different retention rules, and this is what §8's planned pruning is actually about:**
+
+- **The authored record never prunes.** At 40 KB a run, the entire 175-run history is roughly 7 MB.
+  There is no volume argument for ever deleting it, and it is the half that answers *"what happened
+  and why"*.
+- **The transcript prunes on a schedule.** It is 99.2% of the bytes and its value decays — it is
+  what you read to diagnose a run, and that need is concentrated in the weeks after it ran.
+
+That split is what lets *"every question starts in the journal"* stay true forever for the half that
+answers questions, without carrying a quarter-terabyte of transcript to do it.
+
 ### 13 · CPI stays on Edge1 until a second edge actually produces runs
 
 **Adopted, and it is a sequencing decision rather than a compromise.**
@@ -282,6 +337,38 @@ designed away the problem it was about to build a framework for.
 3. **Then** — CPI reads the bucket instead of one local journal. **Same reader, different input** —
    which is the property that makes step 3 cheap, and the reason step 1 should not be built to be
    throwaway.
+
+### 14 · One location, a folder per run, many formats — and a manifest so the protocol can read them
+
+**Adopted, and it dissolves the format argument rather than answering it.**
+
+The journal is **one root location per edge**, with subfolders and files as needed. **Each artifact
+keeps the format that suits it** — the transcript stays JSONL, authored markdown stays markdown,
+execution facts are typed JSON, code is a SHA. **The protocol is what knows how to read each kind
+and what its requirements are.**
+
+**Provenance — and the operator spotted it before any of this research.** It is what Claude Code
+itself does: one store under `~/.claude/`, broken out into per-project folders. Same shape,
+independently arrived at.
+
+**Why this is the right structure and not just a filing convention:**
+
+- **It generalises §7.** "Two audiences, two formats" was too small a frame. There are as many
+  formats as there are artifact kinds, and forcing them into one was never necessary — the container
+  is what has to be single, not the encoding.
+- **It makes §11 trivial.** Syncing a directory tree to S3 is a solved, boring operation. Syncing
+  "a database plus some files plus some GitHub state" is not.
+- **It makes §2's rebuild test tractable.** Replay operates on one run's folder, in order, rather
+  than on a query across a shared store.
+- **It gives §8's split retention a natural seam.** Prune `transcript/` inside a run folder and keep
+  the rest — no record is destroyed, only its most expensive part.
+
+**⚠ THE MANIFEST IS WHAT MAKES "THE PROTOCOL DECIPHERS EACH ONE" REAL.** Without a per-run manifest
+declaring what is in the folder and how to read each part, deciphering degrades into guessing by file
+extension, and every new artifact kind silently breaks every existing reader. **The manifest is the
+protocol's contract with itself**, and it is the difference between a structure and a pile. It is
+also where §2's event versioning lives, since the manifest is what says which schema a run was
+written under.
 
 ---
 
