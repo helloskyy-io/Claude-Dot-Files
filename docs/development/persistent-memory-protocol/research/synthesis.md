@@ -168,7 +168,7 @@ empty row — *queries over accumulated history* — and that is the journal's r
 explicitly loaded, which means continuity depends entirely on what gets re-read at startup"*, and
 summarised context is lossy. A journal nothing loads is our 262 MB.
 
-### 8 · The accumulated log is an ASSET. Retention is config, not architecture.
+### 8 · The accumulated log is an ASSET. Pruning is small, planned work — not a default.
 
 **Adopted — operator's ruling, and it corrects the PM's framing.**
 
