@@ -40,11 +40,45 @@ discovered by the unmodified runner, the placement is wrong — not the runner.
 
 `notify-done.sh` has no tests yet.
 
-## These are characterization tests
+## These were characterization tests, and are now a specification
 
-`test_block_dangerous.py` pins what the hook does **today**, including
-behaviour that is arguably wrong. It is not a specification of what the hook
-ought to do. A test going red means the hook's behaviour changed — decide
-whether that was intended before changing either side. The file's own module
-docstring carries the full rules, including why the threat-model gaps are
-encoded as passing-through cases rather than as failures.
+`test_block_dangerous.py` started by pinning what the hook did **today**,
+including behaviour that was arguably wrong, because widening or narrowing a
+security control is a human-ruled decision and not a side effect of writing its
+tests. That pass found four defects (issue #61). The operator ruled on all
+four, they are fixed, and the "characterized, not endorsed" assertions that
+carried them are gone.
+
+A test going red still means the hook's behaviour changed — decide whether that
+was intended before changing either side. The file's own module docstring
+carries the full rules.
+
+**The hook now states its own claims and this suite executes them.** Each
+pattern carries `# MUST BLOCK:` / `# MUST ALLOW:` comments (both mandatory) and
+each threat-model bullet carries `PASSES THROUGH:` / `BLOCKED ANYWAY:`; all of
+them are parsed out of `block-dangerous.sh` and asserted against it. Three of
+the four defects were the same shape — a pattern and what it claimed to cover
+had drifted apart — so the claims are the fix for the class rather than for the
+instances. Adding a pattern without saying what it blocks *and* what it must
+not fails the suite.
+
+**Executed claims are not enough on their own, and this is the part to read
+before adding a pattern.** A claim proves the pattern agrees with what its
+author wrote down; it cannot prove the author wrote down the right thing. The
+first version of this mechanism shipped a right boundary of `([[:space:]]|$)`
+on the `curl … | (sh|bash|zsh)` pattern with every claim beside it true and the
+whole suite green, and `curl … | bash;true` went through. So the suite also
+re-runs **every** command in the dangerous corpus with a shell separator
+(`;true`, `&`, ` && echo ok`, `|cat`) appended and requires it to still be
+denied. That check depends on nobody anticipating anything, and it is what
+found the five right-boundary gaps the claims did not.
+
+**And that sweep was itself half a check.** It probes the boundary at the END
+of a match only; the same enumeration sitting *between* a keyword and its
+operand went untouched, and a second sweep
+(`test_dangerous_command_survives_a_respelt_separator`) now covers that
+position. **The measured history and the exact numbers live in the test
+module's docstring** — deliberately in one place, because this README restating
+them is how the two drift apart. The lesson that generalises past this hook: a
+check aimed at a defect CLASS has to be keyed on the class, not on the position
+the first instances happened to sit in.

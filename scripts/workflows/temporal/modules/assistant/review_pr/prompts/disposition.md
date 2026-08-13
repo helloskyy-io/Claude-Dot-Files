@@ -23,6 +23,14 @@ EXECUTION ORDER IS MANDATORY. If a stage has nothing to address, emit: ## Stage 
 ## Stage 1: VERIFY + GATHER
 
 **FIRST, BEFORE VERIFYING ANY CLAIM: is this body about THIS PR at all?** The rest of this stage treats the body as a source of claims to check against the code, and is thorough about it — but never asks the prior question. **Does the body name artifacts absent from both the diff and the tree?** A body describing a different PR makes every downstream verification meaningless, and it has happened: it surfaced only because the body's own Summary and refine sections disagreed about what was built. This is the same cross-PR mix-up the `completion_ref` check exists for, on the other channel.
+**READ THE PR'S MERGEABILITY BEFORE ANYTHING ELSE — `gh pr view <N> --json mergeable,mergeStateStatus`. A `MERGE` verdict asserts "clean, safe to merge", and this workflow never checked it.** Asked for across three consecutive passes and unaddressed each time; the pass that finally ran it did so only because the previous pass's reflection said to.
+
+**`CONFLICTING`/`DIRTY` is not a cosmetic state — it SILENTLY DISABLES the merge gate.** `tests.yml` triggers on `pull_request`, which runs against the PR's **merge ref**, and GitHub cannot compute a merge ref for a conflicted PR — **so no run is created at all.** Not a failing run. No run. It reads as "no failures" and it is "no evidence". Measured 2026-08-12: PR #85 went 3,993 changed lines with zero merge-path coverage while a clean sibling PR's run fired between two of its silent drops.
+
+**The instrument that distinguishes "Actions is broken" from "this PR is conflicted" is `git ls-remote origin refs/pull/<N>/merge`** — a stale merge ref is the single observable, and the two causes have completely different remedies. **And compare the check SET against the previous head's, not just each check's colour:** `gh pr checks` cannot distinguish a check that was dropped from one that never ran.
+
+**A conflicted PR cannot return MERGE.** Say so and hold.
+
 FIRST: verify this PR targets THIS repo. If the PR's changed files reference a different repository than your worktree, STOP — report "DISPATCH MISCONFIGURATION: PR targets <repo X>, worktree is <repo Y>; re-run with --repo <path>" and do no further work.
 
 Then gather the raw material (batch independent reads in one turn). **You are NOT re-reviewing the code** — the code was already beaten up by overlapping review agents during the build. YOUR PRIMARY HUNTING GROUND is the producing run's OWN WORDS, the place it told on itself:

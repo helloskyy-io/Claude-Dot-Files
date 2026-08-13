@@ -16,6 +16,7 @@ from ... import routing
 from pathlib import Path
 
 from ... import assistant_activities as act
+from .. import build_helper as helper
 
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
@@ -28,8 +29,8 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 def run_refine(*, description: str, pr_number: str, repo_root: Path,
                worktree: Path, task_file: str | None = None,
-               correction_pass: bool = False, ci_unsettled: bool = False,
-               verbose: bool = False) -> str:
+               correction_pass: bool = False, loops_left: int = 0,
+               ci_unsettled: bool = False, verbose: bool = False) -> str:
     """Review and correct the draft's PR. Returns its PR URL."""
     values = {
         "DESCRIPTION": description,
@@ -56,8 +57,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
             "class-check caught its own authors twice within one afternoon, which no number of "
             "further review passes would have done.\n\n"
             "If an item genuinely has no class — a true one-off — say so explicitly and say how "
-            "you established it. **This is the last automated pass**, so anything you leave as an "
-            "instance leaves with it."
+            "you established it. " + helper.finality_note(loops_left)
             if correction_pass else ""
         ),
         "CI_STATUS_NOTE": (

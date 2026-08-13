@@ -162,10 +162,14 @@ These are **vendored MIRROR** copies. **They win where they overlap this documen
 | change record | PR thread | **API** | every PR-producing run; `review-pr` posts the disposition |
 | **DEFECT** | GitHub Issues | **API** | **`review-pr` only** |
 | **PROPOSAL** | [`candidates.md`](architecture/research/candidates.md) | **COMMIT** | the **producing run**, in its own PR (§4); research runs already do this |
-| **RULING** | [`direction.md`](architecture/research/direction.md) | **COMMIT** | `plan-sprint` appends; **only the operator sets `status`** |
+| **RULING** | [`direction.md`](architecture/research/direction.md) | **COMMIT** | `triage-candidates` appends; **only the operator sets `status`** |
 | **OPERATING STATE** | the standup tracker | **API** | **operator and PM sessions only** — no autonomous run |
 
-**`decision` on a candidate is `plan-sprint`'s output alone.** A run that places a proposal leaves it blank: blank means untriaged, which is the truth.
+**`decision` on a candidate is `triage-candidates`'s output alone.** A run that places a proposal leaves it blank: blank means untriaged, which is the truth.
+
+> **This authority was `plan-sprint`'s until 2026-08-12, and it MOVED — it did not widen.** `plan-sprint` did two jobs in one run, triaging candidates and maintaining the sprint plan, with nothing able to sequence between them; `triage-candidates` is the triage half split out. The `decision` column and the `direction.md` append went with the job, `plan-sprint` kept `sprint.md`, and **`plan-sprint` may no longer write `decision` at all** — its runner reads the column before and after and fails the run if any ruling changed. Exactly one workflow writes each surface, which is the property that mattered and the one thing the split had to preserve.
+>
+> **`status` did not move and did not loosen.** On a `direction.md` row it is the operator's alone, as before. On a candidate it is still a later process's — `plan-feature`, or the build that completes the item — and `triage-candidates` sets it never.
 
 ## 8 · Breaking it looks like
 

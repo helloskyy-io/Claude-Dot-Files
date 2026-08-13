@@ -158,7 +158,18 @@ def test_every_consumer_of_the_pr_url_address_holds_the_OWNING_object() -> None:
 # listed one goes away — a list that only grows is a gate that widens itself.
 DECLARED_SPLITS = {
     ("resource_telemetry.py", "_read_anon"),         # a /proc line, not a URL
-    ("plan_activities.py", "new_sprint_sections"),   # a markdown heading's em-dash
+    # MOVED, not new: `plan_activities` -> `plan_project_activities` under §10.1
+    # rule 3. Still a markdown heading's em-dash, still not a URL.
+    ("plan_project_activities.py", "new_sprint_sections"),
+    # git's own NUL-separated output under `-z`. A worktree path, not a URL, and
+    # `-z` is what makes the split safe: it turns OFF the C-style quoting that
+    # would otherwise put backslash escapes inside a path.
+    #
+    # THIS ENTRY REPLACED `sprint_files_touched`, which split a porcelain rename
+    # line on `" -> "` and kept only the destination — so renaming `sprint.md`
+    # AWAY produced a path matching nothing and the guard passed over it. The
+    # rewrite uses `--no-renames`, so there is no arrow to parse at all.
+    ("plan_activities.py", "worktree_state"),
 }
 
 
@@ -365,7 +376,11 @@ _SLUG_BEFORE_CHILD = [
     ("review_pr/review_pr_workflow.py", "run_review", "run_disposition"),
     ("build/build/build_workflow.py", "run_build", "run_draft"),
     ("build/build_minor/build_minor_workflow.py", "run_build_minor", "run_draft_minor"),
-    ("plan/plan_project/plan_project_workflow.py", "run_plan_project", "run_plan_sprint"),
+    # The FIRST child, not merely A child. Since the triage split this parent
+    # dispatches two producers, and `run_plan_sprint` is the second — naming it
+    # here would leave the slug read unchecked against everything before it,
+    # which is the entire window the ordering protects.
+    ("plan/plan_project/plan_project_workflow.py", "run_plan_project", "run_triage_candidates"),
     ("research/research/research_workflow.py", "run_research", "run_write"),
     ("research/research_refresh_parent/research_refresh_parent_workflow.py",
      "run_research_refresh", "run_refresh"),
@@ -518,14 +533,17 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
         for path in _v2_python_files()
         if "COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE" in path.read_text(encoding="utf-8")
     )
-    # 9 since research_write_minor landed (2026-08-11). This census is
-    # hand-maintained ON PURPOSE: a new workflow that opens a PR must reference
-    # the shared constant, and an edit here is how a human confirms it does
-    # rather than having re-declared the literal that once cost a finished run.
-    assert len(referencing) == 9, (
-        f"expected 9 V2 workflows referencing the shared PR completion ERE, found "
-        f"{len(referencing)}: {referencing}. The tenth is plan-revision (wider, "
-        f"declared above); the eleventh is review-pr, whose contract is `^VERDICT:`."
+    # 10 since triage_candidates landed (2026-08-12), split out of plan-sprint;
+    # 9 since research_write_minor (2026-08-11). This census is hand-maintained
+    # ON PURPOSE: a new workflow that opens a PR must reference the shared
+    # constant, and an edit here is how a human confirms it does rather than
+    # having re-declared the literal that once cost a finished run. It fired on
+    # exactly that event when triage_candidates was added, which is the census
+    # working and not a chore.
+    assert len(referencing) == 10, (
+        f"expected 10 V2 workflows referencing the shared PR completion ERE, found "
+        f"{len(referencing)}: {referencing}. The eleventh is plan-revision (wider, "
+        f"declared above); the twelfth is review-pr, whose contract is `^VERDICT:`."
     )
 
 # THE ADVERSARIAL HALF. The list was `_REAL` plus two negatives, and every entry

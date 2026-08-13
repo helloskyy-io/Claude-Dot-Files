@@ -4,8 +4,30 @@ A parent calls no model. It decides IF, WHEN and WHAT to call, and holds no
 process code. Every branch is a pure decision from `routing`; every side effect
 is an activity or a child workflow.
 
-    plan-sprint  ->  research(per NEW component)  ->  review-pr  ->  [one loop-back]
-                       write -> verify
+    triage-candidates  ->  research(per NEW component)  ->  plan-sprint  ->  review-pr
+                             write -> verify                                  [loop-back]
+
+TRIAGE AT THE FRONT, SPRINT MAINTENANCE AT THE BACK. Until the split, one child
+did both and nothing could be sequenced between them. Feature planning and
+scaffolding belong in that gap, and while the two jobs shared a dispatch that was
+structurally impossible rather than merely unbuilt.
+
+IT FIXED AN ORDERING DEFECT ON ITS OWN. `plan-sprint` used to run FIRST, so the
+sprint plan — hour totals included — was updated before anything estimated the
+work those totals are of. Running it last means it reads what the middle of the
+pipeline produced instead of predicting it.
+
+WHAT IS NOT HERE YET, AND WHAT THAT COSTS TODAY. `plan-candidates` and
+`plan-feature` are the two children that belong between triage and plan-sprint.
+Until they land, THE RESEARCH STEP IN THE MIDDLE CANNOT FIRE: its input is
+`new_sprint_sections`, read from the sprint diff, and no child ahead of it can
+add a sprint section any more — plan-sprint, the only workflow that adds one,
+now runs after it. That is stated rather than papered over. The alternative was
+to invent a different NEW-component signal for a gap two planned children are
+about to fill, and a signal invented for an interim outlives the interim. The
+parent emits a note saying so when the sweep comes back empty, so an operator
+reading the run's output is told rather than left to infer it from a step that
+silently did nothing.
 
 WHY THIS EXISTS AT ALL. `plan-sprint` shipped and ran twice with no parent, so
 its output reached the operator UNJUDGED — and it is the only autonomous run
@@ -14,9 +36,9 @@ Every other family has its judge: build is draft -> refine -> review-pr,
 research is write -> verify -> review-pr. This one had nothing, which made it
 the single place where `author != judge` was not being honoured.
 
-`plan-sprint` could not simply call `review-pr` itself: a parent calls no model
-and `plan-sprint` calls one. Bolting the judge onto the child would have made it
-a model-calling orchestrator, which is the exact shape decomposition removes.
+Neither child could simply call `review-pr` itself: a parent calls no model and
+both of them call one. Bolting the judge onto a child would have made it a
+model-calling orchestrator, which is the exact shape decomposition removes.
 
 WHY review-pr AND NOT A DEDICATED REVIEWER. `review-pr` is a SHARED child — it
 already takes `--type planning` with its own criteria, and it stays
@@ -30,9 +52,9 @@ sprint triage that was already fine. Calling `research_write` and
 `research_verify` directly keeps ONE worktree and ONE PR, and reuses the same
 children the research parent uses. Same children, two callers.
 
-WHAT IS NOT HERE YET. `plan-phase` — writing the phase doc for a new sprint
-section — is being ported from `plan-revision.sh`. It slots between research and
-review-pr and needs no change to the shape below.
+`plan-phase` — writing the phase doc for a new sprint section — is also still
+being ported from `plan-revision.sh`. It slots between plan-sprint and review-pr
+and needs no change to the shape below.
 """
 
 from __future__ import annotations
@@ -40,6 +62,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import plan_activities as act
+from . import plan_project_activities as own
 from ... import assistant_activities as _shared
 from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
@@ -47,13 +70,14 @@ from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 from ...research.research_write import research_write_workflow as write
 from ...research.research_verify import research_verify_workflow as verify
 from ..plan_sprint import plan_sprint_workflow as sprint
+from ..triage_candidates import triage_candidates_workflow as triage
 
 
 def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                     candidates_path: Path, research_dir: Path,
                     pr_number: str | None = None, repo_target: str | None = None,
                     verbose: bool = False) -> tuple[str, routing.Verdict, int, list[str]]:
-    """Triage, judge, and route on the verdict.
+    """Triage, plan, judge, and route on the verdict.
 
     Returns (pr_url, verdict, loops_used, notes). A HOLD is a RESULT, not a
     failure — the caller branches on the verdict, which is the entire point of
@@ -67,16 +91,29 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     ref = f"origin/{act.pr_branch(pr_number, repo_root)}" if pr_number else "HEAD"
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
+    # THE COMMIT THIS DISPATCH STARTED FROM, pinned before any child can write.
+    # Step 2's sweep asks "which sections did THIS RUN add", and only a base
+    # taken here answers it: on a `--pr` redispatch the branch already carries
+    # sections an earlier pass added and researched, so a diff against
+    # `origin/main` would re-research every one of them. Same rule the snapshot
+    # comparators state — snapshot around the run, never diff against the base.
+    base_sha = act.git_output(
+        worktree, ["git", "rev-parse", "HEAD"],
+        "The parent cannot pin the commit this dispatch started from, so it "
+        "cannot tell the sections IT added from ones an earlier pass added.",
+    ).strip()
+
     # Read BEFORE the triage child, so a `gh` failure costs a dispatch that has
     # produced nothing rather than one that has already triaged a sprint.
     slug = _shared.repo_slug(repo_root)
 
     # --- Step 1: TRIAGE ----------------------------------------------------
-    # The PR URL is both the handoff and the child's completion contract; the
-    # child raises if it produced none AND if it left any candidate untriaged,
-    # so `exit 0` cannot mean unfinished.
-    pr_url = sprint.run_plan_sprint(
-        repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
+    # FIRST, and this is the ordering the split bought. The PR URL is both the
+    # handoff and the child's completion contract; the child raises if it
+    # produced none AND if it left any candidate untriaged, so `exit 0` cannot
+    # mean unfinished.
+    pr_url = triage.run_triage_candidates(
+        repo_root=repo_root, worktree=worktree,
         candidates_path=candidates_path, research_dir=research_dir,
         pr_number=pr_number, verbose=verbose,
     )
@@ -91,15 +128,33 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     #
     # The research CHILDREN are called, not the research PARENT. That parent
     # would establish a second worktree and open a second PR, and its verify
-    # loop would then gate a sprint triage that was already fine. Same children,
+    # loop would then gate a triage pass that was already fine. Same children,
     # two callers — which is the whole point of child-ness being a call-graph
     # property rather than a location.
-    for section in act.new_sprint_sections(worktree, str(sprint_path.relative_to(repo_root))):
+    #
+    # THIS SWEEP IS EMPTY BY CONSTRUCTION TODAY. See the module docstring: with
+    # plan-sprint moved behind this step, nothing ahead of it adds a sprint
+    # section, so there is no added `## Sprint:` heading in the diff to find.
+    # `plan-candidates` and `plan-feature` are what will fill this position. The
+    # call stays because the wiring is correct and only its INPUT is missing —
+    # deleting it would mean rebuilding it, and inventing a different signal
+    # would mean maintaining one past the interim it was for.
+    new_sections = own.new_sprint_sections(
+        worktree, str(sprint_path.relative_to(repo_root)), base_ref=base_sha)
+    if not new_sections:
+        notes.append(
+            "No component research ran. With plan-sprint sequenced AFTER this step, "
+            "nothing ahead of it can add a sprint section, so this step's signal is "
+            "empty by construction until plan-candidates and plan-feature land. This "
+            "is the known interim state, not a silent skip."
+        )
+    for section in new_sections:
         notes.append(f"New component `{section}` — researching before it is planned.")
-        # NOT `research_dir` — that parameter is the PRODUCT pool plan-sprint
-        # triages, and rebinding it here would hand the loop-back below the
-        # wrong pool. A shadowed parameter is a silent wrong-argument bug.
-        component_pool = act.component_dir(worktree, section) / "research"
+        # NOT `research_dir` — that parameter is the PRODUCT pool the triage and
+        # sprint children work from, and rebinding it here would hand the
+        # loop-back below the wrong pool. A shadowed parameter is a silent
+        # wrong-argument bug.
+        component_pool = own.component_dir(worktree, section) / "research"
         component_pool.mkdir(parents=True, exist_ok=True)
 
         # The sprint section IS the brief. It states the milestones, and the
@@ -118,17 +173,49 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         verify.run_verify(research_dir=component_pool, pr_number=pr,
                           repo_root=repo_root, worktree=worktree, verbose=verbose)
 
-    # --- Step 3: DISPOSITION, with one bounded loop-back -------------------
+    # --- Step 3: MAINTAIN THE SPRINT PLAN ----------------------------------
+    # LAST of the producing children, which is the second thing the split
+    # bought. It reads what steps 1 and 2 put in the tree — the rulings and any
+    # component evidence — rather than being written before either existed. Its
+    # own guard fails the run if it wrote the `decision` column, which is now
+    # `triage-candidates`'s alone.
+    #
+    # `pr_number=pr`: the PR is already open. Step 1 opened it, and both children
+    # land their work on the one branch, in the one worktree, under the one
+    # review.
+    sprint.run_plan_sprint(
+        repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
+        candidates_path=candidates_path, research_dir=research_dir,
+        pr_number=pr, verbose=verbose,
+    )
+
+    # --- Step 4: DISPOSITION, with one bounded loop-back -------------------
     loops = 0
     verdict = _dispose(pr, repo_root, repo_target, notes, verbose)
 
     while routing.should_loop_back(verdict, loops):
         loops += 1
-        notes.append("HOLD (redispatch): the runway closes with a scoped fix. "
-                     "Looping back ONCE — this is the last automated pass.")
-        # A correction pass, not a fresh triage: every candidate already carries
-        # a decision, and re-triaging them would re-litigate rulings the first
-        # pass made rather than closing the runway the reviewer wrote.
+        # COUNTED, not asserted. This said "Looping back ONCE — this is the last
+        # automated pass" while `routing.MAX_LOOPS` is 3, so it was false on two
+        # passes out of three and told the operator the runway had closed when it
+        # had not. The whole class is now counted — the four build-family sites
+        # too, two of which were telling a MODEL it was the last pass — and
+        # `test_loop_cap_prose_is_counted.py` fails any new hard-coded claim. The
+        # research family keeps its own `MAX_LOOPS = 1`, so its identical wording
+        # is TRUE and is left alone.
+        notes.append(f"HOLD (redispatch): the runway closes with a scoped fix. "
+                     f"Loop-back {loops} of {routing.MAX_LOOPS}."
+                     + (" This is the last automated pass."
+                        if loops == routing.MAX_LOOPS else ""))
+        # THE LOOP-BACK GOES TO plan-sprint, NOT TO TRIAGE, and it is a
+        # correction pass. Every candidate already carries a decision, so
+        # re-triaging would re-litigate rulings rather than close the runway the
+        # reviewer wrote — the reason this was a correction pass before the
+        # split, and it did not change. plan-sprint is also the LAST producer and
+        # sees the whole PR, so a runway naming either child's work is
+        # addressable from here; sending each loop through both children would
+        # double the cost of every pass to reach a set of rulings that are, by
+        # construction, already made.
         sprint.run_plan_sprint(
             repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
             candidates_path=candidates_path, research_dir=research_dir,
@@ -140,8 +227,14 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         notes.append("review-pr found at least one item only a human can rule on. No "
                      "loop-back was attempted: more passes cannot produce a human decision.")
     elif verdict is routing.Verdict.HOLD_REDISPATCH:
-        notes.append("The automated loop is SPENT — one loop-back is the cap, because "
-                     "passes beyond it produce justification rather than correction.")
+        # COUNTED from the same source the loop reads. This said "one loop-back
+        # is the cap" twenty-two lines below the fix above it, so a spent runway
+        # emitted "Loop-back 3 of 3" and then "one loop-back is the cap" in one
+        # run's notes — and the false one understates the automated budget the
+        # operator is deciding against by 3x.
+        notes.append(f"The automated loop is SPENT — {routing.MAX_LOOPS} loop-back(s) "
+                     f"is the cap, because passes beyond it produce justification "
+                     f"rather than correction.")
 
     # A planning PR ALWAYS needs the operator, even at MERGE. `direction.md`
     # rows are by construction rulings no automated pass can make, and the

@@ -91,6 +91,8 @@ Stage 4 has TWO sub-phases. Phase 4a runs the narrow-lens reviewers in parallel;
 
 Dispatch all FOUR peer-review agents — architect, planner, security-auditor, and standards-architect — back-to-back BEFORE processing any results. They review the SAME Stage 3 artifact independently; there is no ordering dependency between them.
 
+**TELL THE REVIEWERS WHICH BRIEF PREMISES YOU FOUND FALSE, AND ON WHAT EVIDENCE.** A dispatch brief is written by someone who is not in your worktree, and its claims about the artifacts are the ones most likely to be wrong — **three separate premises were false on 2026-08-13 alone**, each caught by one `grep`. **A premise you rejected is a decision you made alone**, and it is the highest-value thing a reviewer can independently re-verify. Name each one, quote what you found instead, and say what you did about it. Do not leave it to whether you happened to think of mentioning it.
+
 **On evidence-reconciliation tasks (a corrected fact propagated across docs):** the reviewers MUST explicitly verify that EVERY corrected fact was propagated to ALL of its dependents — a fix applied in one doc but not its downstream references is a silent inconsistency that reads as authority. (Reviewer-side mirror of the Research Standard's synthesis-side propagation rule.)
 
 **The dispatch contract (headless-safe):** dispatch all four as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL four narrow-lens results are in hand.
@@ -148,6 +150,7 @@ The quality-control prompt MUST include:
 - The planning artifact being reviewed (file paths, summary of the build)
 - The structured findings from Stage 4a (architect + planner + security-auditor + standards-architect outputs, verbatim or paraphrased clearly)
 - Instruction to apply the holistic six-dimension lens to the PLAN itself AND look for meta-patterns across the quad's findings ("do these findings together suggest the plan is compromised, under-specified, or not enterprise-grade?")
+- **Instruction to CONSOLIDATE: which of the quad's findings are ONE finding wearing several faces, and what is the single decision underneath?** This is the move the narrow lenses structurally cannot make — each sees its own dimension and none sees that four symptoms share a cause. **Measured 2026-08-13: four findings from three agents were one undecided question, and remediating them separately would have produced four fixes that do not cohere.** Ask for it by name; *"look for meta-patterns"* is too weak to reliably produce it.
 
 quality-control applies the senior-engineer integration test to planning artifacts: would a peer reviewer at a top-tier engineering organization sign off on this plan? Planning-stage focus areas:
 - Is the planned approach industry-best-practice grounded?

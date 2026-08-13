@@ -7,7 +7,7 @@
 > **Research creates and appends. Planning dispositions.**
 
 **You set:** `ID` · `Candidate` · `Source`
-**You NEVER set or alter:** `decision` · `status` — those are `plan-sprint`'s and a later process's. Leave `decision` as `—` and `status` as `` `open` `` on every row you add.
+**You NEVER set or alter:** `decision` · `status` — those are `triage-candidates`'s and a later process's. Leave `decision` as `—` and `status` as `` `open` `` on every row you add.
 
 ${CANDIDATE_CEILING}
 
@@ -62,7 +62,7 @@ Same discipline as `candidates.md`: **read every row first**, reuse the original
 
 IDs are `D-001`, `D-002`, … and are independent of the `C-` series.
 
-**You are not the only writer.** `plan-sprint` also appends here — it is where a candidate it triages as `requires review` gets handed to the operator, carrying its `C-NNN` in the Source column. So **read every row and continue from the highest ID**; never assume the file holds only your own cycles' rows.
+**You are not the only writer.** `triage-candidates` also appends here — it is where a candidate it triages as `requires review` gets handed to the operator, carrying its `C-NNN` in the Source column. So **read every row and continue from the highest ID**; never assume the file holds only your own cycles' rows.
 
 ### In your PR body
 
