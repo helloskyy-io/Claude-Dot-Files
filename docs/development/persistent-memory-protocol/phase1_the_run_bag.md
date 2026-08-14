@@ -2,9 +2,13 @@
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today
 
-Stands up the container everything else writes into. Nothing emits yet; the outcome of this phase is **a folder on disk that a validator says is a well-formed run record**.
+## What this phase does
 
-It is first because the shape is the expensive thing to get wrong. Once three phases are emitting into a tree, changing how that tree is keyed or manifested means rewriting history that was supposed to be immutable — and under [§2 of the synthesis](research/synthesis.md) the journal is the only thing that can rebuild a store, so a migration of the journal is a migration of everything.
+This phase decides where a run's record goes on disk and what shape it takes, and builds a checker that says whether a given folder is a well-formed one. Nothing writes into it yet — that is the next phase. The outcome here is a folder that a checker says is valid.
+
+It is first because getting the shape wrong is the expensive mistake. Once three phases are writing into a tree, changing how that tree is organised means rewriting records that were supposed to be permanent — and by then the folders are the only thing that can regenerate everything else, so changing them means changing everything.
+
+**Terms used here.** The **journal** is the whole record: one folder tree per machine, one folder per run, never edited after the run ends. A **bag** is one run's folder — the name comes from BagIt, the file-layout standard the folder follows. *(It is a folder on disk. It is never a Docker container, and this document does not use that word for it.)* A **manifest** is a file inside the bag listing every other file in it with a checksum for each, so a reader knows what is there and whether the bytes have changed. To **emit** is to write one entry into the journal. To **rebuild** a store is to read the journal back and regenerate what that store holds. An **edge** is one machine running this fleet.
 
 ---
 
@@ -17,15 +21,15 @@ It is first because the shape is the expensive thing to get wrong. Once three ph
 5. **A validator re-hashes the payload and reports pass/fail**, and it is wired into the test suite.
 6. **`bag-info.txt` carries the event schema version**, and the versioning rule is written down beside it. **Not `bagit.txt`** — RFC 8493 requires that file to consist of exactly two lines (`BagIt-Version` and `Tag-File-Character-Encoding`), so putting anything else there makes the bag non-conforming and forfeits the entire reason BagIt was chosen. *(Corrected at review; the draft said `bagit.txt`.)*
 7. **The payload spec is stated as a table with a reason per row** — what goes in the journal, what stays out, and why for each exclusion — **and it states what happens to `.claude/logs/`** (§ *The surface this replaces* below).
-8. **The bag has a stated lifecycle: open, sealed, pruned** (§ *Bag lifecycle* below), and the validator reports each state distinctly.
-9. **The root's permissions and ownership are part of the resolution contract**, not left to umask (§ *Why the root is configurable*).
+8. **The bag has a stated lifecycle: open, sealed, pruned, incomplete** (§ *Bag lifecycle* below), and the validator reports each state distinctly. `incomplete` is [Phase 3](phase3_the_emit_rule.md)'s write-failure marking and it is independent of the other three.
+9. **The root's permissions and ownership are part of the resolution contract**, not left to umask (§ *Why the root is configurable*) — **and a root that cannot be resolved to a writable directory means the run does not start**, rather than starting and recording nothing.
 10. **No database is recorded as a decision with a revisit trigger**, not as an omission.
 
 ---
 
 ## Dependencies
 
-**None.** This phase depends on nothing built or unbuilt. It is deliberately the one phase in this component with no upstream gate, so the container exists before anything needs it.
+**None.** This phase depends on nothing built or unbuilt. It is deliberately the one phase in this component with no upstream gate, so the folder structure exists before anything needs it.
 
 It is depended on by every other phase in the component.
 
@@ -39,10 +43,10 @@ The journal is **one root location per edge**, with subfolders and files as need
 
 This is not a filing convention. It is what makes three later things cheap:
 
-- **It generalises "two formats."** [`state_passing`](research/raw/state_passing_between_workflow_children.md) §4.3.2 found no single format serves humans and machines equally well and that mature systems do not try. There are as many formats as artifact kinds; **the container is what has to be single, not the encoding.**
+- **It generalises "two formats."** [`state_passing`](research/raw/state_passing_between_workflow_children.md) §4.3.2 found no single format serves humans and machines equally well and that mature systems do not try. There are as many formats as artifact kinds; **what has to be single is the folder they all live in, not the encoding.**
 - **It makes Phase 7 trivial.** Syncing a directory tree to object storage is a solved, boring operation. Syncing "a database plus some files plus some GitHub state" is not.
 - **It makes [Phase 4](phase4_rebuild_is_a_test.md)'s rebuild test tractable.** Replay operates on one run's folder, in order, rather than on a query across a shared store.
-- **It gives [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server)'s split retention a natural seam.** Prune the transcript *inside* a run folder and keep the rest — no record is destroyed, only its most expensive part.
+- **It gives [Phase 5](phase5_snapshots_then_retention.md)'s split retention a natural seam.** Prune the transcript *inside* a run folder and keep the rest — no record is destroyed, only its most expensive part.
 
 **Provenance.** The operator identified the shape before any of this research: it is what Claude Code itself does — one store under `~/.claude/`, broken out into per-project folders. Same shape, independently arrived at.
 
@@ -64,27 +68,32 @@ BagIt describes itself as *"a filesystem convention, not a serialization format"
 | `bag-info.txt` is the defined home for arbitrary bag metadata | Requirement 6 — the schema-version field has a specified home |
 | Bags transfer as loose directory trees **or** serialized | Phase 7's object-storage sync |
 
-**⚠ What the manifest does NOT give, so the third row above is not over-read:** a `manifest-sha256.txt` is regenerable by anyone who can write the bag. It proves integrity against **accident and transport corruption**; it proves nothing against a party with write access — which is exactly the party [Phase 7](roadmap.md#phase-7--s3-aggregation-local-write-first-gated-a-second-edge-and-a-classification-ruling)'s shared store introduces. Authenticity is that phase's ingress ruling, not this one's.
+**⚠ What the manifest does NOT give, so the third row above is not over-read:** a `manifest-sha256.txt` is regenerable by anyone who can write the bag. It proves integrity against **accident and transport corruption**; it proves nothing against a party with write access — which is exactly the party [Phase 7](phase7_s3_aggregation.md)'s shared store introduces. Authenticity is that phase's ingress ruling, not this one's.
 
 **And the bag-level version is a summary, not the authority.** [Phase 3](phase3_the_emit_rule.md) puts `schema_version` on **every event**, and that is the value an upcaster reads. A bag can span a schema change, and an event aggregated to S3 travels away from its bag entirely — either case makes a per-bag version insufficient on its own.
 
 **Do not invent a manifest format.** If BagIt turns out to be insufficient for some artifact kind, the finding is *what BagIt cannot express*, recorded here — not a replacement.
 
-### Bag lifecycle — open, sealed, pruned
+### Bag lifecycle — open, sealed, pruned, and incomplete
 
-**A bag is not always complete, and pretending otherwise breaks two later phases.** RFC 8493 requires every file listed in a payload manifest to be present for a bag to be *complete*, so the naive reading of "a bag either validates or it does not" fails twice: a run in flight has no finalized manifest, and [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server) prunes the transcript *inside* a run folder, which would leave every rotated bag reporting missing-file — indistinguishable from data loss, and turning [Phase 2](phase2_content_store.md)'s integrity signal into noise after the first rotation.
+**A bag is not always complete, and pretending otherwise breaks three later phases.** RFC 8493 requires every file listed in a payload manifest to be present for a bag to be *complete*, so the naive reading of "a bag either validates or it does not" fails three times over: a run in flight has no finalized manifest; [Phase 5](phase5_snapshots_then_retention.md) removes the transcript from *inside* a run folder, which would leave every trimmed bag reporting missing files — indistinguishable from data loss, and turning [Phase 2](phase2_content_store.md)'s integrity signal into noise after the first retention pass; and a run whose journal write failed has a bag that is genuinely missing something, which is the one case that must never look like either of the others.
 
-Three states, and the validator distinguishes them:
+Four states, and the validator distinguishes them:
 
 | State | What it means | Manifest |
 |---|---|---|
 | **open** | the run is in flight, or died before sealing | not yet written; validation reports *open*, not *failed* |
 | **sealed** | the run finished and the manifest was written | complete — every payload file present and matching |
-| **pruned** | a retention pass removed part of the payload | manifest **regenerated** over what remains, with a `bag-info.txt` record naming what was removed and when |
+| **pruned** | a retention pass removed part of the payload, deliberately | **regenerated** over what remains, with a `bag-info.txt` record naming what was removed and when |
+| **incomplete** | a write into this bag **failed**, so something that should be here is not | regenerated if the bag was sealed, and the bag carries at least one gap event naming what was lost, when, and why |
 
-**Pruning is a manifest-regenerating operation that leaves a tombstone, and it emits its own journal event.** That is what keeps a rotated bag honestly valid rather than quietly broken, and it is why this rule lands here rather than in Phase 5 — Phase 5 inherits it instead of inventing it under time pressure.
+**`incomplete` is not a fourth value of one field — it is an independent fact.** A bag can be `sealed` and `incomplete`, or `pruned` and `incomplete`, and the validator reports both. Collapsing them is the failure mode worth naming: pruning and gapping both leave a bag with fewer files than its manifest once listed, and both regenerate the manifest, so a single field would make **a bag that lost data to a full disk indistinguishable from one that was deliberately trimmed.** The first is a defect to investigate; the second is the system working.
 
-*(A crashed run leaving an `open` bag is the case the design test most cares about, so `open` is a first-class state and not an error.)*
+**Pruning regenerates a manifest, leaves a tombstone, and emits its own journal event.** That is what keeps a trimmed bag honestly valid rather than quietly broken, and it is why this rule lands here rather than in [Phase 5](phase5_snapshots_then_retention.md) — Phase 5 inherits it instead of inventing it under time pressure.
+
+*(A crashed run leaving an `open` bag is the case the design test most cares about, so `open` is a first-class state and not an error. **`open` and `incomplete` are also different**: `open` means nobody has sealed this yet, which is normal; `incomplete` means a write was attempted and did not land, which never is.)*
+
+**The rule this state serves belongs to [Phase 3](phase3_the_emit_rule.md)** — *a gap may exist; a silent gap may not.* This phase supplies the place that fact is recorded, because a bag's states have to be enumerated before anything writes into it. Phase 3 § *When the journal cannot be written* is the authoritative statement of when the state is set.
 
 ### The surface this replaces — `.claude/logs/`, and it is already a declared surface
 
@@ -119,7 +128,7 @@ The event-sourcing literature warns that without a correct sequence number and a
 
 **Only Temporal's store is excluded as a *source*, and only because it expires.** Its identity scheme is bounded by retention and continue-as-new starts a fresh history — an execution log with a TTL, not a durable memory. Building analysis on it means building on a store that deletes itself on a schedule configured months earlier. Everything the fleet itself produces goes in.
 
-**The two halves have wildly different volumes, and that is the useful part.** Measured on one `research_minor` cycle: **authored output 39,772 bytes; CLI transcript 4,823,628 bytes** — the authored record is **0.8%** of the total. That split is what [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server) turns into two retention rules, and it is why *"every question starts in the journal"* can stay true forever for the half that answers questions.
+**The two halves have wildly different volumes, and that is the useful part.** Measured on one `research_minor` cycle: **authored output 39,772 bytes; CLI transcript 4,823,628 bytes** — the authored record is **0.8%** of the total. That split is what [Phase 5](phase5_snapshots_then_retention.md) turns into two retention rules, and it is why *"every question starts in the journal"* can stay true forever for the half that answers questions.
 
 ### Why the root is configurable, and where the defaults come from
 
@@ -129,9 +138,11 @@ The event-sourcing literature warns that without a correct sequence number and a
 |---|---|
 | User-run, as today | `$XDG_STATE_HOME/<app>/` → `~/.local/state/<app>/` |
 | systemd worker (the VM plan) | `/var/lib/<app>/` |
-| Container edge (e.g. a Home Assistant add-on) | the add-on's mapped persistent volume |
+| A machine where the fleet runs inside a Docker container (e.g. a Home Assistant add-on) | the container's mapped persistent volume |
 
 **⚠ Requirement 9: the mode is part of the contract, because two of those three shapes are multi-user.** The root will hold verbatim transcripts including every Bash command line the fleet ran. Under a default umask it is world-readable, so on the systemd-worker VM shape this plan explicitly targets, any local account reads every run. The contract: **the root is created `0700` and payload files `0600`, with the mode set at creation rather than chmod-after**; and resolution **fails** if the resolved root is group- or world-writable, or is a symlink whose target lies outside the configured path. This doc already refuses a silent home-directory fallback — this is the same discipline applied to the directory's properties rather than to its location.
+
+**And "fails" means the run does not start** (requirement 9). This is the earliest and cheapest of the three write-failure cases [Phase 3](phase3_the_emit_rule.md) rules on: the root is resolved once, before any work happens, so a machine with a missing path, a read-only mount or a wrong-mode directory finds out immediately and costs nothing. A run that starts anyway and discovers its journal is unwritable an hour in has already spent the hour, and the record of what it spent it on is the thing that cannot be written.
 
 `/opt` is for application binaries, not state; `/lib` is system libraries. Neither is right. **And it does not belong in the repo** — it is state rather than source, and gitignoring it merely hides it somewhere that is cloned and deleted along with the repo, which is the current failure: `.claude/logs/` is gitignored, so 262 MB of run history survives the run but not the machine and is invisible to every consumer that reads the repo.
 
@@ -141,7 +152,7 @@ The event-sourcing literature warns that without a correct sequence number and a
 
 `state_passing` §4.3.3's format table has one empty row: *queries over accumulated history*. The obvious reflex is to fill it with SQLite, and OpenClaw ships exactly that (`memory.sqlite` + `sqlite-vec`) beside its markdown facts.
 
-**We are not, and this is a decision rather than an omission.** A per-run folder tree with a checksum manifest answers the questions we actually have. **A database would be a projection**, and [Phase 4](phase4_rebuild_is_a_test.md) makes every projection rebuildable from the journal — so this is a **future build opportunity with no refactor cost**: if a query is ever wanted that the tree genuinely cannot serve, it is install-and-import, and nothing in this component has to change to allow it.
+**We are not, and this is a decision rather than an omission.** A per-run folder tree with a checksum manifest answers the questions we actually have. **A database would be one more thing the journal rebuilds**, and [Phase 4](phase4_rebuild_is_a_test.md) makes that cheap — so this is a **future build opportunity with no refactor cost**: if a query is ever wanted that the tree genuinely cannot serve, it is install-and-import, and nothing in this component has to change to allow it.
 
 **Revisit trigger: a real query that the tree cannot serve.** Not a feeling that a record ought to live in a database. **The first such query is already scheduled and it is worth naming here** — [Phase 6](phase6_cpi_reads_the_journal.md)'s CPI sweep is a cross-run query over accumulated history, which is precisely the empty row above. Its measured wall-clock against journal size is this decision's first real test, and Phase 6 carries that measurement as a requirement so the trigger fires on evidence rather than as a mid-build surprise.
 
@@ -155,7 +166,7 @@ A journal written under v1 must still replay under v3, forever. Every event-sour
 
 **⚠ "Never mutate" needs ONE stated exception, and it must be designed now rather than invented during an incident.**
 
-Three of this component's rules compose into a trap: the transcript goes in and *"it is not optional"*; authored content goes in **verbatim**; no written event is ever mutated; and the authored record **never prunes**. The fleet runs `claude -p` with permissions bypassed, so a transcript carries the literal input of every Bash call. **The first time a token, a tokenised remote URL, or an API error body carrying a bearer credential lands in a transcript, it is sealed into a manifest-covered payload file** — and deleting it invalidates the manifest and turns [Phase 4](phase4_rebuild_is_a_test.md)'s test red. The only remaining move is *rotate the credential and accept a permanent plaintext copy*, which [Phase 7](roadmap.md#phase-7--s3-aggregation-local-write-first-gated-a-second-edge-and-a-classification-ruling) then replicates to a bucket every edge reads.
+Three of this component's rules compose into a trap: the transcript goes in and *"it is not optional"*; authored content goes in **verbatim**; no written event is ever mutated; and the authored record **never prunes**. The fleet runs `claude -p` with permissions bypassed, so a transcript carries the literal input of every Bash call. **The first time a token, a tokenised remote URL, or an API error body carrying a bearer credential lands in a transcript, it is sealed into a manifest-covered payload file** — and deleting it invalidates the manifest and turns [Phase 4](phase4_rebuild_is_a_test.md)'s test red. The only remaining move is *rotate the credential and accept a permanent plaintext copy*, which [Phase 7](phase7_s3_aggregation.md) then replicates to a bucket every edge reads.
 
 **This is the one place the component is strictly weaker than what exists today.** `.claude/logs/*.jsonl` is equally unredacted — but it is machine-local and `rm`-able with no consequence. After Phase 4, the journal is not.
 
@@ -169,10 +180,11 @@ Three of this component's rules compose into a trap: the transcript goes in and 
 - [ ] Write the run-folder layout: `<root>/<run_id>/` as a BagIt bag, with one payload subfolder per child
 - [ ] Specify `bag-info.txt` contents including the schema-version field, and write the version/upcast rule and the redaction-event exception beside it
 - [ ] Specify `manifest-sha256.txt` generation over the payload, and manifest **regeneration** for the `pruned` state
+- [ ] Specify how `incomplete` is recorded on a bag, and confirm it is independent of the other three states rather than a fourth value of one field
 - [ ] Write the payload spec table into this doc's § *What goes in the journal* as the authoritative version, with the originating repo/project as a field, and confirm no other doc restates it
 - [ ] **Answer § *The surface this replaces*** — journal-absorbs-run-log or two-surfaces-with-a-seam — and record the reasoning; if it is absorption, surface the `memory-model.md` amendment as a candidate rather than writing it
-- [ ] Build the validator: re-hash the payload against the manifest, report pass/fail, distinguish *missing file* from *checksum mismatch*, and report `open` / `sealed` / `pruned` distinctly
-- [ ] Add the validator to [`testing/run-all.sh`](../../../testing/run-all.sh) with a `tests/` directory per the [Testing Standard](../../standards/testing/README.md) — `unit/` for layout, manifest generation and the three lifecycle states, `integration/` for a real bag produced by a real dispatch
+- [ ] Build the validator: re-hash the payload against the manifest, report pass/fail, distinguish *missing file* from *checksum mismatch*, and report `open` / `sealed` / `pruned` / `incomplete` distinctly — **with `incomplete` reportable alongside any of the other three rather than instead of them**
+- [ ] Add the validator to [`testing/run-all.sh`](../../../testing/run-all.sh) with a `tests/` directory per the [Testing Standard](../../standards/testing/README.md) — `unit/` for layout, manifest generation and the four lifecycle states (including a bag that is both `pruned` and `incomplete`), `integration/` for a real bag produced by a real dispatch
 - [ ] Demonstrate two concurrent writers producing one valid bag with no collision, as a **structural test over the layout API** — *(the real-fan-out demonstration moved to [Phase 3](phase3_the_emit_rule.md) at review: nothing emits until Phase 3, so this phase cannot produce it without growing the emitter its own scope disclaims)*
 - [ ] Record the measured size of one real run's bag, with its denominator, in § *Measurement* below
 
@@ -197,4 +209,4 @@ Three of this component's rules compose into a trap: the transcript goes in and 
 ## Notes and open items
 
 - **This phase writes no emitters.** If it finds itself specifying *what* a run writes rather than *where it lands and how it is read*, that is [Phase 3](phase3_the_emit_rule.md)'s scope and belongs there.
-- **The three questions the journal must answer are still unanswered** (roadmap § *Open inputs*, item 3). The payload spec above is written against Phase 4's rebuild test, which is the strictest available proxy — the journal must carry enough to *regenerate* a store, not merely to describe a run. If the three questions arrive and disagree with the spec, **the spec is what changes**, and this note is the breadcrumb saying so.
+- **The three questions the journal must answer are still unanswered** ([roadmap § *Open inputs*](roadmap.md#open-inputs--questions-this-plan-carries-forward-without-answering), item 5). The payload spec above is written against Phase 4's rebuild test, which is the strictest available proxy — the journal must carry enough to *regenerate* a store, not merely to describe a run. If the three questions arrive and disagree with the spec, **the spec is what changes**, and this note is the breadcrumb saying so.

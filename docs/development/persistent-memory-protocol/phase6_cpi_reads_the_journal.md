@@ -2,9 +2,15 @@
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** Phase 4, and *Port `review-runs`* in [Temporal Integration](../temporal-integration/temporal-integration.md)
 
-Moves CPI's evidence sweep onto the journal, so it reads one store instead of walking a per-repo pile of JSONL.
+## What this phase does
 
-**This is the consumer for everything Phases 1–4 produce, and that is the whole reason it exists as its own phase.** The synthesis states the discipline plainly: **pair every producer with its consumer.** A producer with no consumer is how 262 MB accumulated unread — and this fleet has the measured local record of what happens otherwise. [MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) exists because three separate phases each added a parent-written observable to the same run log and **no committed tool read any of the three**; two of those three shipped with no reader at all, and only one of the two even placed a candidate for one.
+Every phase before this one *writes* the record. This one is the first thing that reads it.
+
+The continuous-improvement sweep is the tool that looks across many past runs and asks what keeps going wrong. Today it does that by walking a pile of log files scattered per repository checkout, plus whatever a person points it at. After this phase it reads the journal instead: one place, everything a run wrote and everything it did, joined by run id.
+
+**This is the consumer for everything Phases 1–4 produce, and that is the whole reason it exists as its own phase.**
+
+**Terms used here.** The **journal** is the whole record: one folder per run, never edited after the run ends. A **bag** is one run's folder (the name comes from BagIt, the file-layout standard it follows — a folder on disk, never a Docker container). **CPI** is continuous process improvement — the cycle that reads past runs for recurring problems and turns them into tracked decisions; its **evidence sweep** is the read half of that. A **gap event** is [Phase 3](phase3_the_emit_rule.md)'s record of a write that failed. An **edge** is one machine running this fleet. The synthesis states the discipline plainly: **pair every producer with its consumer.** A producer with no consumer is how 262 MB accumulated unread — and this fleet has the measured local record of what happens otherwise. [MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) exists because three separate phases each added a parent-written observable to the same run log and **no committed tool read any of the three**; two of those three shipped with no reader at all, and only one of the two even placed a candidate for one.
 
 ---
 
@@ -12,7 +18,7 @@ Moves CPI's evidence sweep onto the journal, so it reads one store instead of wa
 
 **At draft this was one phase with the poller, gated on the Temporal server.** That would have put this component's *only consumer* behind a server nobody has stood up, for four phases of producers — the failure above, committed by the plan that cites it as its own cautionary precedent, with a longer fuse and a larger store.
 
-Only the **poller** needs a scheduler. **Reading the journal needs a journal.** So the two split: this phase, and [Phase 8](roadmap.md#phase-8--the-poller-gated-temporal-schedules).
+Only the **poller** needs a scheduler. **Reading the journal needs a journal.** So the two split: this phase, and [Phase 8](phase8_the_poller.md).
 
 **It still has a gate, and it is a real one.** The CPI evidence sweep exists today only as `scripts/workflows/review-runs.sh`, which is in the **frozen bash fleet** and may not be modified. Its Python port is an open item in [Temporal Integration](../temporal-integration/temporal-integration.md) (*Port `review-runs`*). This phase builds on the port; it does not perform it, and it does not touch the bash script.
 
@@ -24,7 +30,8 @@ Only the **poller** needs a scheduler. **Reading the journal needs a journal.** 
 2. **The two agree on one overlapping window.** The journal-sourced sweep and the incumbent sweep produce the same findings over the same period, and any disagreement is explained rather than averaged away.
 3. **Every producer shipped by Phases 1–4 has a named, committed consumer** — enumerated in this doc as a table, not asserted in prose.
 4. **The cross-run sweep's wall-clock is measured against journal size**, and reported as the first real test of [Phase 1](phase1_the_run_bag.md)'s no-database decision.
-5. **Cross-edge CPI is not built here.** CPI stays on Edge1 until a second edge produces runs.
+5. **Cross-machine CPI is not built here.** CPI stays on one machine until a second one produces runs.
+6. **Any gap in the journal appears in the sweep's own output.** § *A report over an incomplete record says so* below.
 
 ---
 
@@ -32,7 +39,7 @@ Only the **poller** needs a scheduler. **Reading the journal needs a journal.** 
 
 - **[Phase 4](phase4_rebuild_is_a_test.md)** — hard. Reading a journal whose completeness is unproven means reporting findings from a record that may be missing the runs that mattered.
 - **[Temporal Integration](../temporal-integration/temporal-integration.md) → *Port `review-runs`*** — hard, and it is outside this component. **This is the only gate; the Temporal server is not one.** A sweep is a batch read, not a schedule.
-- **Not** [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server). Retention makes the journal bounded; it does not make it readable. If the sweep is uncomfortable at this phase's journal size, requirement 4's measurement is the evidence that pulls Phase 5 forward — which is a finding, not a reason to wait.
+- **Not** [Phase 5](phase5_snapshots_then_retention.md). Retention makes the journal bounded; it does not make it readable. If the sweep is uncomfortable at this phase's journal size, requirement 4's measurement is the evidence that pulls Phase 5 forward — which is a finding, not a reason to wait.
 
 ---
 
@@ -60,10 +67,21 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 
 **So requirement 4 is not telemetry, it is the trigger's evidence.** If a cross-run sweep over a directory tree is comfortable at this journal's size, the decision holds and the measurement says by how much. If it is not, the trigger has fired on a number rather than on a feeling, which is what Phase 1 asked for — and per that section, adopting a database is then install-and-import, with nothing in this component needing to change.
 
+### A report over an incomplete record says so — requirement 6
+
+**A sweep that reads a record with holes in it and reports as though the record were whole is worse than no sweep**, because its silence reads as evidence. "Nothing recurring in the last thirty runs" is a very different statement depending on whether the record actually holds thirty runs.
+
+Two sources of incompleteness reach this phase, and both already have their own machinery:
+
+- **Gap events.** [Phase 3](phase3_the_emit_rule.md) rules that a failed journal write appends a typed gap event and marks the bag `incomplete`. [Phase 4](phase4_rebuild_is_a_test.md) requirement 7 reports gapped bags against bags replayed. **This phase carries that number into its own output**, so a reader of a CPI report learns it from the report.
+- **Stores the journal could not rebuild.** [Phase 4](phase4_rebuild_is_a_test.md) § *Stores not covered* names each and says why. Those exclusions are inherited here, and they belong in the same place.
+
+**The place is the sweep's own output, not this document.** Someone reading a CPI report should not have to find a phase doc in a component they may never have heard of in order to learn what the record does not contain. That is the same reasoning [Phase 4](phase4_rebuild_is_a_test.md) requirement 6 applies to the two markdown tables, applied one layer up.
+
 ### What this phase deliberately does not build
 
-- **The poller.** [Phase 8](roadmap.md#phase-8--the-poller-gated-temporal-schedules).
-- **Cross-edge CPI.** [Phase 7](roadmap.md#phase-7--s3-aggregation-local-write-first-gated-a-second-edge-and-a-classification-ruling), and only once a second edge produces runs. The sequencing is the synthesis's and it is a sequencing decision rather than a compromise: **the same reader, different input** is what makes the cross-edge step cheap later, and it is the reason this phase must not be built as throwaway.
+- **The poller.** [Phase 8](phase8_the_poller.md).
+- **Cross-machine CPI.** [Phase 7](phase7_s3_aggregation.md), and only once a second machine produces runs. The sequencing is the synthesis's and it is a sequencing decision rather than a compromise: **the same reader, different input** is what makes the cross-edge step cheap later, and it is the reason this phase must not be built as throwaway.
 - **Any modification to `scripts/workflows/review-runs.sh`.** Frozen.
 
 ---
@@ -76,6 +94,7 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 - [ ] Build the producer/consumer table above from Phases 1–4's shipped artifacts, and resolve every blank cell
 - [ ] Measure sweep wall-clock against journal size, with the denominator, in § *Measurement*
 - [ ] Tests per the [Testing Standard](../../standards/testing/README.md) — `unit/` for the journal-sourced evidence assembly, `integration/` for a real sweep over a real journal
+- [ ] Carry [Phase 4](phase4_rebuild_is_a_test.md)'s gapped-bag count and its § *Stores not covered* exclusions into the sweep's own output, so a report over an incomplete record says so
 - [ ] Confirm the incumbent's retirement is a separate decision with its own evidence, not a side effect of this phase
 
 ---
@@ -84,11 +103,11 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 
 *(Populated when the phase runs. Figures come from commands run in the tree and are pasted with the command.)*
 
-Two figures with denominators: **findings agreed / findings total** across the overlapping window (requirement 2), and **sweep wall-clock against journal size** (requirement 4). The second is the one Phase 1's no-database revisit trigger reads.
+Three figures with denominators: **findings agreed against findings total** across the overlapping window (requirement 2); **sweep wall-clock against journal size** (requirement 4), which is the figure Phase 1's no-database revisit trigger reads; and **runs the sweep could read against runs in the window** (requirement 6), which is what makes a null finding interpretable.
 
 ---
 
 ## Notes and open items
 
 - **This phase does not retire the incumbent sweep.** Requirement 2 produces the evidence that would justify retiring it; acting on that evidence is a separate change, so a disagreement discovered here cannot be resolved by deleting the thing that disagreed.
-- **If Phase 4's completeness arm has known exclusions** (stores it could not rebuild), this phase's findings inherit them. Say so in the sweep's own output rather than in this doc — a reader of a CPI report should not have to come here to learn what the record does not contain.
+- **If Phase 4's completeness arm has known exclusions** (stores it could not rebuild), this phase's findings inherit them. Requirement 6 is where that lands, and it puts them in the sweep's own output rather than in this doc.

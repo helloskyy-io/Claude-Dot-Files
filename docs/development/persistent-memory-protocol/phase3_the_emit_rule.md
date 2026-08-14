@@ -2,7 +2,15 @@
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** Phase 1
 
-This is the core rule of the component, and it is the operator's. A run writes wherever it needs to, in whatever format that surface wants. **If any store gets it, the journal gets it, verbatim.**
+## What this phase does
+
+This is the phase that actually starts writing the record, and the rule it enforces is one sentence: **whenever a run writes anything to any store, it also writes a copy into the journal.** The pull-request body, every comment, the review verdict, the triage, the approval, issues, table rows — all of it, word for word.
+
+The one exception is a code change, and it is excluded for a stated reason rather than to save room: git already stores code better than anything this component could build, so the journal records which commit it was and you go get it from there.
+
+**And this phase answers what happens when that write fails** — when the disk is full, the mount went read-only, or the path is gone. That question decides whether the next phase's guarantee means anything, so it is answered here rather than discovered during an incident.
+
+**Terms used here.** The **journal** is the whole record: one folder tree per machine, one folder per run, never edited after the run ends. A **bag** is one run's folder (the name comes from BagIt, the file-layout standard it follows — a folder on disk, never a Docker container). To **emit** is to write one entry into the journal. An **event** is one such entry; events are appended and never changed. A **store** is any place other than the journal that a run writes to. To **rebuild** a store is to read the journal back and regenerate what it holds. An **edge** is one machine running this fleet.
 
 **The design test, in the operator's words, and every proposal to leave something out is checked against this sentence:**
 
@@ -13,25 +21,26 @@ This is the core rule of the component, and it is the operator's. A run writes w
 ## Requirements for completion
 
 1. **Every write path in the inventory emits a journal event** carrying the authored content **verbatim**, with the destination store as a field. **The bar is: the inventory is complete, and every inventoried path emits.** *(Stated this precisely at review, because "every write path to every store" carries two readings an order of magnitude apart — the envelope proven on one path, versus every path in the fleet — and the sibling component has already paid for that ambiguity once, at a measured factor of ten.)*
-2. **The journal is identical regardless of destination.** git, SQLite, a GitHub object, an MQTT topic on an edge with no repo — the destination is a field, not a format.
-3. **The event envelope is modality-neutral** and extends [MMF Phase 3](../memory-management-framework/phase3_typed_exit_record.md)'s typed exit record rather than inventing a second contract.
-4. **Every emitted item records which input item produced it**, so a fan-out round can be traced output-to-input.
-5. **Every event carries a stable `edge_id` that never rotates**, persisted at the edge and independent of any credential. **This is closable on its own** and carries the constraint that no event ever contains a key or a value derived from one.
-6. **The event admission contract is specified** — identity, authority, epoch and provenance. § *What makes an event admissible* below; it is one decision with four fields, not four decisions.
-7. **Every event carries a schema version** and no written event is ever mutated, with the redaction event class ([Phase 1](phase1_the_run_bag.md)) as the single stated exception.
-8. **The write-path inventory is complete and enumerated in this doc**, split into **fleet-code writes** and **model-issued writes**, each with its named emit mechanism.
-9. **The capture path filters secrets before a payload is sealed.** § *Capture-time filtering* below.
+2. **The journal is identical regardless of destination.** git, SQLite, a GitHub object, a message topic on a machine with no repo — the destination is a field, not a format.
+3. **The event contract reuses the [typed exit record](../memory-management-framework/phase3_typed_exit_record.md)'s vocabulary, with one declaration per shared concept, and is a separate contract from it.** Not an extension of it. § *One vocabulary, two contracts* below states why the extension the draft promised is not possible.
+4. **A failed journal write is never silent.** § *When the journal cannot be written* below — three cases, each with a stated behaviour, and none of them is "continue and hope".
+5. **Every emitted item records which input item produced it**, so a fan-out round can be traced output-to-input.
+6. **Every event carries a stable `edge_id` that never rotates**, persisted at the machine and independent of any credential. **This is closable on its own** and carries the constraint that no event ever contains a key or a value derived from one.
+7. **The event admission contract is specified** — identity, authority, epoch and provenance. § *What makes an event admissible* below; it is one decision with four fields, not four decisions.
+8. **Every event carries a schema version** and no written event is ever changed, with the redaction event class ([Phase 1](phase1_the_run_bag.md)) as the single stated exception.
+9. **The write-path inventory is complete and enumerated in this doc**, split into **fleet-code writes** and **model-issued writes**, each with its named emit mechanism.
+10. **The capture path filters secrets before a payload is sealed.** § *Capture-time filtering* below.
 
-**Requirement 8 is the honest half of requirement 1.** "Every write path" is unverifiable as stated; a named list is verifiable, and [Phase 4](phase4_rebuild_is_a_test.md) is what keeps the list true after this phase closes.
+**Requirement 9 is the honest half of requirement 1.** "Every write path" is unverifiable as stated; a named list is verifiable, and [Phase 4](phase4_rebuild_is_a_test.md) is what keeps the list true after this phase closes.
 
-**Deferred on a named trigger, per the sibling component's precedent:** requirement 1 closes when the inventory's paths emit. **A write path added after this phase is that change's responsibility, not a re-opening of this one** — which is exactly what requirement 8 plus Phase 4's failing test are for.
+**Deferred on a named trigger, per the sibling component's precedent:** requirement 1 closes when the inventory's paths emit. **A write path added after this phase is that change's responsibility, not a re-opening of this one** — which is exactly what requirement 9 plus Phase 4's failing test are for.
 
 ---
 
 ## Dependencies
 
 - **[Phase 1](phase1_the_run_bag.md)** — the bag is where events land. Hard dependency.
-- **[MMF Phase 3](../memory-management-framework/phase3_typed_exit_record.md)** — supplies the typed exit record this envelope extends. **Complete**, so it does not block.
+- **[MMF Phase 3](../memory-management-framework/phase3_typed_exit_record.md)** — supplies two things, and they are different. (i) The **vocabulary** this phase's events reuse (requirement 3). (ii) The **channel** requirement 4 reports an unwritable journal on, which is the one place a journal failure can be announced without needing the journal. **Complete**, so neither blocks.
 - **[Phase 2](phase2_content_store.md)** — not a dependency. Events reference artifacts by hash where a content store exists and by SHA/URL where it does not; the emit rule does not wait on the store.
 
 ---
@@ -46,13 +55,13 @@ This is the core rule of the component, and it is the operator's. A run writes w
 
 **The line is one question: does a better durable store already exist for this artifact type?** For code it does. For the prose a run writes into GitHub it emphatically does not — comments are editable, deletable, unversioned, hosted by a service, **and they are where the reasoning lives.**
 
-**The volume objection is measured, and it does not survive.** The instinct is to fear the byte count. For one full `research_minor` cycle, **all authored text — PR body plus every comment — was 39,772 bytes.** At that rate the authored record for the entire 175-run history is roughly **7 MB**. **The completeness rule costs almost nothing.** The volume in this system lives entirely in the CLI transcript, which is also in the journal and is governed separately by [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server)'s split retention.
+**The volume objection is measured, and it does not survive.** The instinct is to fear the byte count. For one full `research_minor` cycle, **all authored text — PR body plus every comment — was 39,772 bytes.** At that rate the authored record for the entire 175-run history is roughly **7 MB**. **The completeness rule costs almost nothing.** The volume in this system lives entirely in the CLI transcript, which is also in the journal and is governed separately by [Phase 5](phase5_snapshots_then_retention.md)'s split retention.
 
 ### The destination is a field, not a format
 
 **The journal is identical whether the run wrote into git, a GitHub object, a SQLite file, or an MQTT topic on an edge with no repo.**
 
-That property is not stylistic. It is what makes the record portable across edges, and it is what [Phase 7](roadmap.md#phase-7--s3-aggregation-local-write-first-gated-a-second-edge-and-a-classification-ruling) depends on: a second edge of any type sources the same data from the protocol rather than from a repo. **Git stays for the edge we are building now**, because that edge's memory *is* versioned with code, reviewed in PRs, and travels with a clone — but git is that edge's binding, not the protocol's. Each edge reads and writes whatever surface it needs; **the truth is always the centralized output.** A surface is a local convenience; the journal is the record.
+That property is not stylistic. It is what makes the record portable across edges, and it is what [Phase 7](phase7_s3_aggregation.md) depends on: a second edge of any type sources the same data from the protocol rather than from a repo. **Git stays for the edge we are building now**, because that edge's memory *is* versioned with code, reviewed in PRs, and travels with a clone — but git is that edge's binding, not the protocol's. Each edge reads and writes whatever surface it needs; **the truth is always the centralized output.** A surface is a local convenience; the journal is the record.
 
 **Why not repo-per-edge.** [`state_passing`](research/raw/state_passing_between_workflow_children.md) established that identity compatibility is not integration — repos without a sync path are isolated memories that *look* joined, which is worse than obviously separate ones. And an edge like Home Assistant has no codebase to version. **It has runs.**
 
@@ -73,7 +82,67 @@ And our own two file surfaces have opposite requirements: `candidates.md` never 
 
 **We take the shape close to as-is, and the reason it transfers is checkable rather than assumed.** The lesson worth keeping separately: *take a mechanism with its reason, then check the reason still holds here.* bernstein's reason is modality-neutrality across a shared scheduler. That is exactly our situation — our children are the same shape (research / build / review / plan) — which is why it transfers nearly whole.
 
-**And we already have a subset of it.** MMF Phase 3's typed exit record is the shipped starting point. **This is the extension of something shipped, not a new invention**, and requirement 3 forbids a second parallel contract precisely because two envelopes is how the field sets drift.
+**And we already have a subset of it.** MMF Phase 3's typed exit record is the shipped starting point — for the *vocabulary*, not for the envelope. The next section is why that distinction is load-bearing rather than pedantic.
+
+### One vocabulary, two contracts — requirement 3, corrected
+
+**The draft of this doc said the journal envelope "extends MMF Phase 3's typed exit record rather than inventing a second contract." That is not possible, and the standard it names is what forbids it.**
+
+[`exit-protocol.md`](../../standards/exit-protocol.md) §2 states two rules about that record:
+
+- *"No field is added on behalf of a consumer that does not exist."*
+- §2.5: the envelope's fixed part is bounded at **4096 bytes**, *"the one corroborated cap figure in this evidence base (Tekton)."*
+
+**Both rules reject what this phase needs, and not marginally.** Requirement 7 adds event identity, credential epoch and provenance class; requirements 5, 6 and 1 add lineage, `edge_id` and destination. **No parent branches on any of the six**, so the first rule rejects every one of them. And a journal event carries authored content verbatim — one `research_minor` cycle's authored output measured **39,772 bytes** (synthesis §2) against a 4096-byte bound, roughly tenfold over on size alone.
+
+**So the two are separate contracts that share one vocabulary**, and requirement 3 is the discipline that keeps that from becoming drift:
+
+| | Typed exit record | Journal event |
+|---|---|---|
+| Read by | the parent, in code, within seconds | a later run, a person, a rebuild — indefinitely |
+| Lifetime | one invocation | forever |
+| Admission rule | a consumer must already exist | completeness: if a store got it, this gets it |
+| Size posture | bounded at 4096 bytes | carries content verbatim |
+
+**What "one vocabulary" binds:** every concept both contracts name — an outcome, a terminal state, a reason code — is **declared once, in one module, and spelled the same way in both.** Two spellings of one concept is the drift requirement 3 exists to prevent, and it is a real risk precisely because the contracts are separate.
+
+**The MMF-side change this implies is proposed, not written.** `exit-protocol.md` §2's no-speculative-fields rule and §2.5's size bound are correct **for a routing channel** and should say so; as written they read as governing any typed record this fleet emits, which is how a durable record came to be promised as an extension of a 4 KB routing envelope. That file is human-in-the-loop under [`standards-governance.md`](../../../config/rules/standards-governance.md), so the change is carried in this plan's [roadmap § *Questioning the Memory Management Framework*](roadmap.md#questioning-the-memory-management-framework) and in its pull-request body. **Nothing in this phase waits on it** — the correction above is a change to what *this* component builds.
+
+### When the journal cannot be written — requirement 4
+
+**The question this section answers:** the disk is full, the mount went read-only, the path is gone, the file handle failed. Does the run stop, or does it continue with a hole in the record?
+
+**Neither, as stated — and the reason the question needs a real answer rather than a default is [Phase 4](phase4_rebuild_is_a_test.md).** That phase requires the journal to be able to rebuild the stores. **A journal with holes nothing knows about cannot rebuild anything**, and it cannot even report that it failed to: a rebuild that silently produces a store missing three rows looks exactly like a rebuild that worked. So a rule saying "every write also emits" is worth nothing if a failed emit is invisible.
+
+**The rule: a gap may exist; a silent gap may not.**
+
+That splits into three cases by what is available to withhold, and they are ordered because the first one prevents most of the others.
+
+**(a) The root cannot be resolved, at the start of the run → the run does not start.**
+
+[Phase 1](phase1_the_run_bag.md) requirement 9 owns this: the root is resolved once, before any work happens, and a missing path, a read-only mount or a wrong-mode directory fails there. It is the cheapest possible failure — nothing has been spent — and it converts most of the interesting disk-level failures into a refusal at second zero rather than a hole at minute ninety.
+
+**(b) A write that has a paired store write → the emit goes FIRST, and a failed emit means the store write does not happen.**
+
+This is the ordering that makes requirement 1's invariant self-enforcing. The rule is *if any store gets it, the journal gets it*. Order the emit before the store write and a journal failure means **neither** happened — the invariant holds, because both sides are absent. Order it after and a journal failure means the store has something the record does not, which is exactly the state the component exists to prevent.
+
+The run then stops at that boundary with a named terminal state rather than continuing. **It does not retry indefinitely and it does not carry on to the next step**, because every subsequent step's record would be conditioned on a write nobody can see.
+
+*(This is a write-ahead log, which is what an append-only record that other stores are regenerated from is. Naming it is worth a sentence: the ordering constraint is not an invention of this plan, and anyone implementing it has decades of prior art to read.)*
+
+**(c) A write with no pairable store write → a typed gap event, and the bag is marked `incomplete`.**
+
+Some of what goes into the journal has no corresponding store write to withhold: the CLI transcript, the execution facts, and the post-exit harvest of model-issued writes. Write-ahead ordering has nothing to offer here — the content already exists and the only question is whether it lands.
+
+So the failure is **recorded rather than prevented**. A gap event names what was lost, when, why, and how much — bounded and typed, so it costs a few hundred bytes even when the thing that failed was megabytes — and the bag is marked **`incomplete`** ([Phase 1](phase1_the_run_bag.md) § *Bag lifecycle*). Everything downstream then treats that bag as a known-gap input rather than a clean one: [Phase 4](phase4_rebuild_is_a_test.md) reports gapped bags with a count and its denominator rather than diffing them as complete, [Phase 6](phase6_cpi_reads_the_journal.md) says so in its own report, and [Phase 7](phase7_s3_aggregation.md) ships the marking with the bag.
+
+**(d) The bootstrap case — the journal is unwritable, so the gap event cannot go in the journal either.**
+
+This is the case that makes (c) circular if it is not answered. If the write failed because the whole root is gone, the record of that failure cannot be written to the root.
+
+**It surfaces on the one channel that is not the journal:** the typed exit record ([MMF Phase 3](../memory-management-framework/phase3_typed_exit_record.md)), which is a channel the parent owns and which is fresh per invocation, plus a non-zero process exit status. **This is the one place MMF's shipped work is genuinely load-bearing for this component**, and it is why requirement 4 lists the exit record as a dependency rather than merely citing it.
+
+**What is deliberately not built here:** any attempt to buffer, queue or retry into a second location. A fallback store is a second record with its own failure modes, and a record whose location depends on which failure occurred is worse than one that reliably refuses. **Failing loudly at a known boundary beats succeeding into somewhere nobody looks.**
 
 ### Lineage on every emitted item — and this reverses a wrong call
 
@@ -89,13 +158,13 @@ And our own two file surfaces have opposite requirements: `candidates.md` never 
 
 **(a) Identity, against an at-least-once execution model.** The [Temporal Standard](../../standards/temporal/temporal_standard.md) §7.1 requires every activity to be idempotent, because activities execute **at least once** — a retried activity re-runs its side effects. An append-only journal fed by retried activities accumulates **duplicate events**, and [Phase 4](phase4_rebuild_is_a_test.md)'s replay then rebuilds a store with duplicated rows — or worse, passes under a normalisation that hides them. **Every event carries a deterministic identity** (`run_id` + write-path + logical sequence, or a content hash), and **replay is defined as dedupe-on-identity.**
 
-**(b) Authority — who says which `edge_id` an event carries.** Requirement 5 makes the id stable; it does not say who asserts it. Events are naturally built at the edge, so the default implementation is a **self-reported field** — and then any holder of any valid credential can author events attributed to a different edge. In an append-only store that is unfalsifiable after the fact, and under Phase 4 the stores are **projections**, so spoofed attribution replays straight into `candidates.md` and `direction.md`. **The rule: `edge_id` is assigned by the authenticating authority and bound at ingest. An edge-supplied `edge_id` in an event envelope is rejected, not trusted.**
+**(b) Authority — who says which `edge_id` an event carries.** Requirement 6 makes the id stable; it does not say who asserts it. Events are naturally built at the edge, so the default implementation is a **self-reported field** — and then any holder of any valid credential can author events attributed to a different edge. In an append-only store that is unfalsifiable after the fact, and after Phase 4 the stores are rebuilt from the journal, so a spoofed attribution replays straight into `candidates.md` and `direction.md`. **The rule: `edge_id` is assigned by the authenticating authority and bound at ingest. An edge-supplied `edge_id` in an event envelope is rejected, not trusted.**
 
 **(c) A credential epoch, so compromise has a boundary.** *"An id that never rotates"* is right, and it leaves no way to say *"events from edge E between T1 and T2 were authored under a credential that leaked."* Revoking a leaked key then revokes nothing about the record: the injected events replay faithfully. **Every event carries a non-secret `key_id` / credential epoch** — an opaque server-assigned identifier or monotonic counter, **explicitly not derived from the key**, per the ruling below — **and a replay may be scoped to exclude an epoch.**
 
-**(d) Provenance — what kind of thing this content is by origin.** Fleet-authored prose, operator-authored input, and **bytes fetched from the internet** all enter the journal (the last via tool results in the transcript and wholesale via [Phase 2](phase2_content_store.md)'s content store). Without a trust-class field every downstream reader sees one undifferentiated stream. **This is the field [Phase 7](roadmap.md#phase-7--s3-aggregation-local-write-first-gated-a-second-edge-and-a-classification-ruling)'s ingress ruling has to range over** — omitting it here forecloses that ruling before it is made.
+**(d) Provenance — what kind of thing this content is by origin.** Fleet-authored prose, operator-authored input, and **bytes fetched from the internet** all enter the journal (the last via tool results in the transcript and wholesale via [Phase 2](phase2_content_store.md)'s content store). Without a trust-class field every downstream reader sees one undifferentiated stream. **This is the field [Phase 7](phase7_s3_aggregation.md)'s ingress ruling has to range over** — omitting it here forecloses that ruling before it is made.
 
-### Capture-time filtering — requirement 9
+### Capture-time filtering — requirement 10
 
 The journal is immutable and the authored record never prunes, so **capture is the only point in the lifecycle where a secret can be cheaply kept out.** After [Phase 4](phase4_rebuild_is_a_test.md) wires the rebuild test to a gate, removing a payload file is a gate change; after Phase 7 it is a bucket-wide purge.
 
@@ -105,19 +174,19 @@ The transcript carries the literal input of every Bash call, and this repo alrea
 
 The upstream Django/Temporal pair has to know every edge and how to work with it, and **the API key already associated with an edge is the natural carrier** — it is how the edge authenticates today, so the identity exists and merely needs mirroring outward.
 
-**⚠ But a key is a CREDENTIAL, and credentials rotate.** A journal keyed by API key **orphans an edge's entire history the day the key is rotated**. The key authenticates; **it maps to a stable edge id that never rotates**. One line of design now, an unrecoverable data-modelling mess later — which is why requirement 5 lands in this phase rather than in Phase 7 where the second edge appears.
+**⚠ But a key is a CREDENTIAL, and credentials rotate.** A journal keyed by API key **orphans an edge's entire history the day the key is rotated**. The key authenticates; **it maps to a stable edge id that never rotates**. One line of design now, an unrecoverable data-modelling mess later — which is why requirement 6 lands in this phase rather than in Phase 7 where the second edge appears.
 
 **Security consequence, stated because it constrains the implementation:** the `edge_id` is an identifier and appears in every event; the key is a secret and appears in none. An event carrying a key — or a value derived from a key in a way that survives rotation — is a defect, not a convenience. *(That clause also rules out `hash(api_key)` as an edge id, which is both the rotation bug and a security one: a stored hash of a live credential is an offline confirmation oracle.)*
 
-**⚠ Requirement 5 was split from the mapping at review, because the two have different evidence bars.** A **stable, persisted `edge_id` independent of any credential** is buildable in this repo today and closes on its own. The **key→id mapping** lives in the upstream Django/Temporal pair — a system outside this repo, with no edge API key in this fleet's configuration to point at — so it can only be closed by assertion here. It is deferred on the named trigger *"the upstream pair authenticates an edge."* The no-key-in-events constraint rides on the buildable half, deliberately.
+**⚠ Requirement 6 was split from the mapping at review, because the two have different evidence bars.** A **stable, persisted `edge_id` independent of any credential** is buildable in this repo today and closes on its own. The **key→id mapping** lives in the upstream Django/Temporal pair — a system outside this repo, with no edge API key in this fleet's configuration to point at — so it can only be closed by assertion here. It is deferred on the named trigger *"the upstream pair authenticates an edge."* The no-key-in-events constraint rides on the buildable half, deliberately.
 
 ### Schema evolution — decided on day one because it is brutal to retrofit
 
 A journal written under v1 must still replay under v3, forever. Every event-sourced system meets this. **The settled answer: version every event, never mutate a written one, upcast on read.**
 
-The version field's home is Phase 1's `bagit.txt`; requirement 6 is this phase honouring it on every event. **The detailed mechanism is open** (roadmap § *Open inputs*, item 4) and this phase does not close it — but an unversioned v1 event is unrecoverable, so the rule ships now and the mechanism follows.
+The version field's home is Phase 1's `bag-info.txt` — **not `bagit.txt`**, which RFC 8493 requires to be exactly two lines ([Phase 1](phase1_the_run_bag.md) requirement 6 carries the correction and its reason). Requirement 8 is this phase honouring the version on every event. **The detailed mechanism is open** ([roadmap § *Open inputs*](roadmap.md#open-inputs--questions-this-plan-carries-forward-without-answering), item 6) and this phase does not close it — but an unversioned v1 event is unrecoverable, so the rule ships now and the mechanism follows.
 
-**Provenance.** This is **event sourcing**, and it is Temporal's own model applied one level up: event history is the truth, workflow state is a projection rebuilt by replay. `bernstein`'s journal is the same shape.
+**Provenance.** This is **event sourcing**, and it is Temporal's own model applied one level up: event history is the truth, and workflow state is regenerated from it by replay. `bernstein`'s journal is the same shape.
 
 ---
 
@@ -140,7 +209,7 @@ Every row is a surface the fleet writes to, and every row needs an emit. **A sur
 
 The five Kind 1 surfaces documented in [`memory-model.md`](../../guide/memory-model.md) §2 are the known floor, not the expected total, and any surface found that `memory-model.md` does not list is itself a finding worth reporting back to that doc.
 
-**⚠ And a third category exists that neither half covers: writes made by no run at all.** The operator sets `direction.md`'s `status`; `/standup` deletes rotated rows; `candidates.md` rows have been hand-corrected. **No tree search finds a human**, and under Phase 4 those edits are writes that must also emit or replay reverts them — which would revert exactly the operator rulings that are the highest-value content in either file. **For the file binding the natural emit is the git commit itself**, which is consistent with synthesis §10 (each surface's own binding is a local convenience; the journal is the record). Specifying that is part of requirement 8; if it is not specified, [Phase 4](phase4_rebuild_is_a_test.md) scopes its rebuild targets to run-authored content and records the exclusion, rather than shipping a test that is green and wrong.
+**⚠ And a third category exists that neither half covers: writes made by no run at all.** The operator sets `direction.md`'s `status`; `/standup` deletes rotated rows; `candidates.md` rows have been hand-corrected. **No tree search finds a human**, and under Phase 4 those edits are writes that must also emit or replay reverts them — which would revert exactly the operator rulings that are the highest-value content in either file. **For the file binding the natural emit is the git commit itself**, which is consistent with synthesis §10 (each surface's own binding is a local convenience; the journal is the record). Specifying that is part of requirement 9; if it is not specified, [Phase 4](phase4_rebuild_is_a_test.md) scopes its rebuild targets to run-authored content and records the exclusion, rather than shipping a test that is green and wrong.
 
 ---
 
@@ -148,8 +217,12 @@ The five Kind 1 surfaces documented in [`memory-model.md`](../../guide/memory-mo
 
 - [ ] Enumerate every write path and populate the inventory above with the command used — **split fleet-code from model-issued, and name the mechanism for the second**
 - [ ] Specify the third category (out-of-run writes) or hand its exclusion to Phase 4 explicitly
-- [ ] Specify the event envelope as an extension of MMF Phase 3's record — every added field with its named consumer
-- [ ] Add `edge_id`, `schema_version`, `destination`, the lineage reference, **the event identity, the credential epoch and the provenance class** to the envelope — one change, per requirement 6
+- [ ] Specify the journal event contract as its own contract, and enumerate every concept it shares with MMF Phase 3's record — each declared once, in one module, spelled the same in both
+- [ ] **Build the write-ahead ordering**: the emit precedes its paired store write, and a failed emit means the store write does not happen
+- [ ] **Build the gap event** for writes with no pairable store write — bounded and typed, naming what was lost, when, why and how much — and mark the bag `incomplete`
+- [ ] **Report an unwritable journal on the typed exit record and a non-zero exit status**, so the bootstrap case is not silent
+- [ ] Demonstrate all three write-failure cases against a real journal: an unresolvable root refusing to start, a failed paired emit leaving neither side written, and a failed unpairable write producing a gap event on an `incomplete` bag
+- [ ] Add `edge_id`, `schema_version`, `destination`, the lineage reference, **the event identity, the credential epoch and the provenance class** to the event contract — one change, per requirement 7
 - [ ] State that `edge_id` is bound at ingest by the authenticating authority and that an edge-supplied one is rejected, **with no key or key-derived value surviving into any event**
 - [ ] Define replay's dedupe-on-identity rule so a retried activity cannot double-append
 - [ ] Build capture-time filtering, emitting a placeholder event where it fires
@@ -157,7 +230,7 @@ The five Kind 1 surfaces documented in [`memory-model.md`](../../guide/memory-mo
 - [ ] Demonstrate a full `research_minor` cycle whose authored output — **including the PR body and every comment** — appears in the journal verbatim
 - [ ] Demonstrate a parallel fan-out round whose outputs each trace back to their input, in real bags (this is [Phase 1](phase1_the_run_bag.md) requirement 3's live evidence, which Phase 1 cannot produce)
 - [ ] Demonstrate that a deliberately retried emit appends once
-- [ ] Tests per the [Testing Standard](../../standards/testing/README.md): `unit/` for envelope construction and edge-id mapping, `integration/` for one real dispatch's emits
+- [ ] Tests per the [Testing Standard](../../standards/testing/README.md): `unit/` for event construction, edge-id mapping and each of the three write-failure cases; `integration/` for one real dispatch's emits
 - [ ] Record the measured authored-byte total against the 39,772-byte baseline, with its denominator, in § *Measurement*
 
 ---
@@ -172,5 +245,5 @@ The number that matters is **authored bytes emitted per run against authored byt
 
 ## Notes and open items
 
-- **Completeness cannot be proven by this phase.** Requirement 7's inventory is a snapshot, and a snapshot goes stale the first time a write path is added. **[Phase 4](phase4_rebuild_is_a_test.md) is what makes it stay true**, and this phase is not done in any meaningful sense until Phase 4 runs. They are separate phases because they have separate verifiable outcomes — not because the gap between them is safe.
+- **Completeness cannot be proven by this phase.** Requirement 9's inventory is a snapshot, and a snapshot goes stale the first time a write path is added. **[Phase 4](phase4_rebuild_is_a_test.md) is what makes it stay true**, and this phase is not done in any meaningful sense until Phase 4 runs. They are separate phases because they have separate verifiable outcomes — not because the gap between them is safe.
 - **This phase writes no reader.** Under the pair-every-producer-with-its-consumer discipline that is a debt, and [Phase 6](phase6_cpi_reads_the_journal.md) is where it is paid. It is called out here rather than left implicit because [MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) measured what happens when it is not: three phases shipped an emitter and none shipped a reader.
