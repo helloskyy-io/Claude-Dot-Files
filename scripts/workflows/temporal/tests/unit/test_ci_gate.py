@@ -192,3 +192,85 @@ def test_a_check_declared_NEITHER_way_is_reported_by_name(monkeypatch, repo):
     v, undeclared = act.ci_verdict("1", repo_root=repo)
     assert v is CiVerdict.GREEN
     assert undeclared == ["brand-new-scanner"]
+
+
+# ---------------------------------------------------------------------------
+# THE RACE. Settled is not the same as present, and conflating them cost a
+# build its entire loop budget on 2026-08-14.
+# ---------------------------------------------------------------------------
+
+
+def _gh_sequence(monkeypatch, payloads):
+    """`gh pr checks` returning a different payload on each successive call."""
+    calls = {"n": 0}
+
+    class R:
+        def __init__(self, body): self.stdout = body
+
+    def run(*a, **k):
+        i = min(calls["n"], len(payloads) - 1)
+        calls["n"] += 1
+        return R(json.dumps(payloads[i]))
+
+    monkeypatch.setattr(act.subprocess, "run", run)
+    monkeypatch.setattr(act.time, "sleep", lambda *_: None)
+    return calls
+
+
+def test_wait_for_ci_keeps_waiting_while_the_DECLARED_gate_is_ABSENT(monkeypatch, repo):
+    """An empty check list seconds after a push is NOT settled.
+
+    THE BUG THIS PINS. `wait_for_ci` returned True the instant no PENDING
+    appeared, and an empty payload contains no PENDING. GitHub had simply not
+    created the run yet. That was harmless while an absent gate merely warned
+    and proceeded; once an absent gate became a HOLD, the same race became:
+    push, see nothing, hold, loop back, push, see nothing — three times, then
+    the loop budget was spent, with the PR green and clean by the time a human
+    looked.
+    """
+    calls = _gh_sequence(monkeypatch, [
+        [],                                          # run not created yet
+        [{"name": "CodeQL", "state": "SUCCESS"}],    # advisory arrives first
+        [{"name": "CodeQL", "state": "SUCCESS"},
+         {"name": "suite", "state": "SUCCESS"}],     # the gate finally reports
+    ])
+    assert act.wait_for_ci("1", repo_root=repo) is True
+    assert calls["n"] >= 3, (
+        f"returned after {calls['n']} poll(s) — it stopped before the declared "
+        f"gate appeared, which is the race this test exists for"
+    )
+
+
+def test_wait_for_ci_returns_immediately_when_the_gate_HAS_reported(monkeypatch, repo):
+    """THE CONTROL. Waiting for presence must not become waiting always."""
+    calls = _gh_sequence(monkeypatch, [[{"name": "suite", "state": "SUCCESS"}]])
+    assert act.wait_for_ci("1", repo_root=repo) is True
+    assert calls["n"] == 1, f"polled {calls['n']} times for an already-reported gate"
+
+
+def test_wait_for_ci_without_a_policy_still_settles_on_absence(monkeypatch):
+    """A repo that declares no gate has nothing to wait for and must not hang."""
+    calls = _gh_sequence(monkeypatch, [[]])
+    assert act.wait_for_ci("1") is True
+    assert calls["n"] == 1
+
+
+def test_GATE_DID_NOT_RUN_does_not_also_report_its_gate_as_UNDECLARED(monkeypatch, repo):
+    """The two messages contradicted each other on one run.
+
+    `ci_verdict` returns the ABSENT gate's names as its second value so the
+    runway can name them. The UNDECLARED-CHECKS branch reads that same value as
+    "checks that ran and are unclassified" — so a single run reported `suite`
+    as unclassified and as declared-blocking in consecutive lines.
+    """
+    _gh(monkeypatch, [])
+    verdict, names = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.GATE_DID_NOT_RUN
+    assert names == ["suite"], "the absent gate must be named for the runway"
+    # The guard lives in the workflow; assert it is present rather than re-deriving it.
+    wf = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
+          / "build" / "build_workflow.py").read_text()
+    assert "CiVerdict.GATE_DID_NOT_RUN)" in wf and "if extra and verdict_state not in" in wf, (
+        "the UNDECLARED-CHECKS branch no longer excludes GATE_DID_NOT_RUN, so an "
+        "absent gate will again be reported as an unclassified check that ran"
+    )

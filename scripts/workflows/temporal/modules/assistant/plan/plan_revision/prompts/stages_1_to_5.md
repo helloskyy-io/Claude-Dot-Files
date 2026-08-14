@@ -93,6 +93,27 @@ Dispatch all FOUR peer-review agents — architect, planner, security-auditor, a
 
 **TELL THE REVIEWERS WHICH BRIEF PREMISES YOU FOUND FALSE, AND ON WHAT EVIDENCE.** A dispatch brief is written by someone who is not in your worktree, and its claims about the artifacts are the ones most likely to be wrong — **three separate premises were false on 2026-08-13 alone**, each caught by one `grep`. **A premise you rejected is a decision you made alone**, and it is the highest-value thing a reviewer can independently re-verify. Name each one, quote what you found instead, and say what you did about it. Do not leave it to whether you happened to think of mentioning it.
 
+**TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.** Verified
+against their definitions: `architect`, `planner`, `security-auditor`,
+`standards-architect` and `quality-control` hold **Read, Grep and Glob only** —
+none of them has Bash. They cannot run a command, a test, a mutation or a `git`
+invocation. Put this in the dispatch, in these two parts:
+
+- **"You have Read/Grep/Glob and no shell. That is expected — do not explain it,
+  and do not spend a finding on being unable to run something."** Measured across
+  four consecutive passes: all four agents opened with a paragraph about the
+  missing shell, and one spent its only Info finding on *"I could not run `git
+  diff` myself"*, flagged at Medium confidence, on a question the orchestrator
+  answered in two seconds.
+- **"If you want a command run, hand it back and I will run it and return the
+  output."** Two of four agents invented this themselves and it was genuinely
+  useful both times. Asking for it explicitly turns a lucky habit into a
+  channel.
+
+**Any instruction in this stage that says MUTATE, RUN or VERIFY is addressed to
+YOU, not to them.** The agents read; the orchestrator executes. An instruction
+they cannot obey is one they will spend words apologising for.
+
 **On evidence-reconciliation tasks (a corrected fact propagated across docs):** the reviewers MUST explicitly verify that EVERY corrected fact was propagated to ALL of its dependents — a fix applied in one doc but not its downstream references is a silent inconsistency that reads as authority. (Reviewer-side mirror of the Research Standard's synthesis-side propagation rule.)
 
 **The dispatch contract (headless-safe):** dispatch all four as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL four narrow-lens results are in hand.

@@ -3,7 +3,7 @@
 Every function here serves the PARENT's decisions: which components are new,
 where their research pool belongs, and — since `plan-candidates` — creating that
 pool for a candidate triage has agreed to. Nothing else in the family calls any
-of them, and [`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
+of them, and [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides,
 never taste"*. Rule 6 gives a one-file workflow folder its place to grow the
 helper it has earned.

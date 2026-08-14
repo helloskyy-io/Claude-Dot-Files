@@ -32,7 +32,7 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
 **If you cannot verify it, you may not defer to it.** Fix the item, or SURFACE it plainly with no pointer at all. An honest 'no home for this' is worth more than a plausible pointer to nothing — and a naked surfaced item gets picked up downstream, while a laundered one gets filed away as handled.
 
-**FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../docs/standards/architecture/architectural_standard.md) binds this; apply it rather than re-deriving it.
+**FIRST, BEFORE PLACEMENT — is this a DEFECT or a PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../docs/standards/architecture/architectural_standard.md) binds this; apply it rather than re-deriving it.
 
 - **DEFECT** — something already built or already decided behaves wrongly, or a decision the research and planning do not supply is now blocking. Continue below.
 - **PROPOSAL** — capability that does not exist and would be *added*. It belongs in **`candidates.md`**, never an Issue, whatever its done-state looks like. Bias here when a finding reads either way.
@@ -41,7 +41,7 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
   **Name the `component` this candidate belongs to — on the row YOU are appending, and on no other.** An existing `docs/development/<name>/` if it extends one, a new name if it does not. **A blank means nothing is scaffolded for it.** You are the one who knows: you have just written the proposal, and anything downstream would be guessing from a one-line summary. A blank is an unanswered question rather than an error, so leave it blank rather than inventing a name you are not sure of. **Do not fill in the cell on a row somebody else filed** — that is guessing from a summary, it is checked cell-by-cell on every pre-existing row, and it does not stay a guess: `plan-candidates` turns a component name into a committed `docs/development/<name>/`.
 
-  **Why you and not the reviewer** ([`finding-routing.md`](../../../../../docs/standards/finding-routing.md) § 4): a file surface needs a commit and a push, and the reviewer is decide-only — it structurally cannot write there. **And the disposal-chute argument does not reach a proposal:** it forbids filing DEFECTS you could have fixed, because that offloads your own scope. A proposal is capability that does not exist, so it was never your scope and cannot be offloaded. **You still do not decide where it belongs in the plan** — sprint, phase or nothing is separate triage with its own criteria.
+  **Why you and not the reviewer** ([`finding-routing.md`](../../../../../../docs/standards/finding-routing.md) § 4): a file surface needs a commit and a push, and the reviewer is decide-only — it structurally cannot write there. **And the disposal-chute argument does not reach a proposal:** it forbids filing DEFECTS you could have fixed, because that offloads your own scope. A proposal is capability that does not exist, so it was never your scope and cannot be offloaded. **You still do not decide where it belongs in the plan** — sprint, phase or nothing is separate triage with its own criteria.
 
   **A proposal you surface without placing dies at merge.** That is measured, not cautionary: three correctly-classified proposals were left in a PR body and `/standup` does not sweep merged PR bodies.
 

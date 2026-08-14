@@ -1,7 +1,7 @@
 # Phase: Planning & Agents
 
 **Status:** ✅ COMPLETE — one item deliberately abandoned, see below
-**Roadmap entry:** [`../sprint.md`](../../sprint.md)
+**Roadmap entry:** [`../sprint.md`](../sprint.md)
 **Depends on:** [`cross-device-sync.md`](../cross-device-sync/cross-device-sync.md) — agents are only useful if they are on every machine
 
 ## Goal
@@ -40,19 +40,19 @@ Build the specialists a workflow can dispatch. Autonomous runs need to plan, rev
 
 **Porting Cursor workflows to slash commands never happened, and should not.** It was a migration task written while still thinking in the old tool's terms — a list of saved prompts to carry across.
 
-What actually replaced them is better and arrived from a different direction: **methodology became skills**, loaded on demand when context matches, with commands as thin invokers for when you want to force the lens. A saved prompt is a snippet that rots; a skill is methodology with one home and two entry points. The rule that fell out — *write it as a skill once it has been explained twice, and never speculatively* — is now in [`../../standards/skills.md`](../../../standards/skills.md).
+What actually replaced them is better and arrived from a different direction: **methodology became skills**, loaded on demand when context matches, with commands as thin invokers for when you want to force the lens. A saved prompt is a snippet that rots; a skill is methodology with one home and two entry points. The rule that fell out — *write it as a skill once it has been explained twice, and never speculatively* — is now in [`../../standards/skills.md`](../../standards/skills.md).
 
 Leaving the box unchecked would imply pending work. It is not pending; it was answered by a better design.
 
 ## What this phase set up that was not obvious at the time
 
-The **distinct-lens** principle is what later made a review *panel* work. Four agents against one tree only produce four useful results if each is answering a different question — otherwise you get the same finding four times and a false sense of coverage. That principle is now binding in [`../../standards/agents.md`](../../../standards/agents.md), along with two things this phase did not yet know:
+The **distinct-lens** principle is what later made a review *panel* work. Four agents against one tree only produce four useful results if each is answering a different question — otherwise you get the same finding four times and a false sense of coverage. That principle is now binding in [`../../standards/agents.md`](../../standards/agents.md), along with two things this phase did not yet know:
 
 - **Model tier is an evidence question**, not a default. Mechanical verification runs as well on a cheaper tier; authoring a synthesis does not.
 - **Web access is a capability decision with a reason to withhold it.** A conformance checker with web access grades your code against someone else's conventions, and will not tell you it did.
 
 ## Where this landed
 
-- [`../../standards/agents.md`](../../../standards/agents.md) — the standard
-- [`../../guide/operations.md`](../../../guide/operations.md) — the current roster, now 14 agents
+- [`../../standards/agents.md`](../../standards/agents.md) — the standard
+- [`../../guide/operations.md`](../../guide/operations.md) — the current roster, now 14 agents
 - `config/agents/` — the implementations

@@ -469,6 +469,11 @@ claude-dot-files/
 │   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read. Also
 │   │       │                                        #   that every row RENDERS its flags the way § Two flags declares them, the
 │   │       │                                        #   vocabulary read off that section rather than hard-coded here
+│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
+│   │       ├── test_relative_links_resolve.py       # Every relative markdown link in a file this repo OWNS points at a
+│   │       │                                        #   file that exists. 29 were broken and none had been caught; every
+│   │       │                                        #   one was a `../` count off by one or two. Vendored standards,
+│   │       │                                        #   research citations and skills' examples are excluded by name
 │   │       └── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │                                                #   checks, because every existing check was aimed at code rather than prose
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,

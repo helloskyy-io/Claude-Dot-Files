@@ -1,7 +1,7 @@
 """plan-sprint's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
 `candidate_decisions` sat on the planning family's shared surface while it had a
-single caller. [`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
+single caller. [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and states the test mechanically: a helper moves
 out of a workflow folder *"if and only if more than one workflow uses it.
 Consumer count decides, never taste."* One consumer, so it lives with its

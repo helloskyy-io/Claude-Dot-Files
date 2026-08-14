@@ -25,11 +25,9 @@ The through-line: *the run that authors work should not be the run that judges i
 
 Research sits *inside* the component it belongs to, so the plan and the evidence for it are never more than one directory apart and there is no central corpus to hunt through. Research is **non-binding** — a phase doc may cite a pool, never treat one as a decision already made.
 
-**Every component gets a `roadmap.md` plus numbered `phaseN_<name>.md` files**, in the same folder — including one that only ever has a single phase. This matches `MDC-Master-Planning`'s `development/service/<component>/` shape, so a workflow can find the same artifacts by name in either repo.
+**Every component gets a `roadmap.md` plus phase docs**, in the same folder — including one that only ever has a single phase. This matches `MDC-Master-Planning`'s `development/service/<component>/` shape, so a workflow can find the same artifacts by name in either repo. *(One-phase exception removed 2026-08-13.)*
 
-**This replaced a one-phase exception on 2026-08-13, and uniformity is the whole reason.** The rule used to be *"one phase needs no roadmap; do not create one to be tidy"*, which meant every consumer had to handle two shapes and ask which kind it was looking at before it could ask anything else. A workflow scaffolding a new component, a guard checking one is complete, and a run deciding where to write all became conditional on a distinction that bought nothing. One shape, one question.
-
-**The rule lives HERE deliberately.** Documentation Standard §0 says the same thing, but it sits inside the *Development Planning Files* section that `docs/standards/documentation/README.md` excludes wholesale — so a run that reads the exclusion correctly concludes §0 does not bind and falls back to this file. That has now happened three times (`C-078`). Stating it here removes the fallback, whatever upstream does.
+**A component with no plan yet is UNPLANNED, not non-conformant.** The structure above applies when a component is planned; a folder holding only `research/` is waiting its turn in the plan family, not violating anything.
 
 **Phase docs are written when a sprint is picked up, not in advance.** A detailed plan for work that has not started yet is a guess that ages badly — the same reason skills are written after a methodology has been explained twice.
 
