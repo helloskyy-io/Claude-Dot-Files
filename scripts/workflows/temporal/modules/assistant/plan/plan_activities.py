@@ -63,7 +63,9 @@ from __future__ import annotations
 import hashlib
 import re
 import subprocess
+from collections import Counter
 from pathlib import Path
+from typing import NamedTuple
 
 from .. import assistant_activities as shared
 
@@ -77,10 +79,65 @@ extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
 max_turns = shared.max_turns
 
-# A candidate row: | C-001 | title | source | `decision` | `status` | note |
-_ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", re.M)
+# A candidate row:
+#   | C-001 | title | component | source | `decision` | `status` | note |
+#
+# CELLS ARE MATCHED AS `[^|\n]*`, NOT `.*?`, AND THAT IS LOAD-BEARING. Note text
+# in this file carries UNESCAPED PIPES, so anything that splits a whole row on
+# `|` reads a different number of cells per row. Every cell this regex captures
+# stops at the next pipe, and the Note it never reaches is the only place a stray
+# pipe has ever appeared.
+#
+# THE PROPERTY IS STATED WITHOUT A TALLY, DELIBERATELY. This comment carried
+# "four rows of 76 do" and was falsified by the very commit that added the
+# `component` column, because that commit also appended a row — a restated figure
+# drifting one commit after it was measured is the class C-050's own Note names.
+# The load-bearing claim is that NO row's first five cells contain a pipe; a tally
+# of the Note's pipes is decoration and any new row can falsify it.
+_ROW = re.compile(
+    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|", re.M)
+
+# The seven-column header, as every candidate table in the file renders it.
+# Kept for the MESSAGE it can give — "your table is the old shape" is a better
+# sentence than "row C-082's decision is unreadable" when the whole table moved.
+# It is NOT the guard; see `_check_shape`.
+_HEADER = "| ID | Candidate | `component` | Source | `decision` | `status` | Note |"
+
+# Anything that PRESENTS as a candidate row, whatever its id happens to look
+# like. `_ROW` insists on `C-\d{3}`; this insists only on the shape a reader
+# would call a row, so the two can be compared and a row that fell out of the
+# parse can be named instead of vanishing.
+_ROW_LINE = re.compile(r"^\|\s*(C-\S+?)\s*\|", re.M)
+
+# THE CLOSED VOCABULARIES, AND THEY ARE THE FILE'S OWN. `candidates.md` § The
+# three dispositions: *"Every candidate ends at exactly one of these. There is no
+# fourth"* — `ship` / `requires review` / `reject`, plus blank for not-yet-triaged.
+# § Two flags gives `status` its two values.
+_DECISIONS = ("", "ship", "requires review", "reject")
+_STATUSES = ("", "open", "closed")
 
 _BLANK = ("", "—", "-")
+
+
+class CandidateRow(NamedTuple):
+    """One parsed row, NAMED — because the tuple grew and callers index it.
+
+    It was a bare `(id, decision, status)` triple until `component` was added
+    between `Candidate` and `Source`. Widening a positional tuple silently
+    re-points every unpacking site by one, and three of the sites here are
+    AUTHORIZATION GUARDS — `candidate_decisions`, `candidate_statuses` and
+    `candidate_components` each prove a run did not write a column it does not
+    own. A guard that compares the wrong field still returns a clean dict and
+    still reports a clean run, so the failure would be invisible in exactly the
+    place invisibility costs most. Named access makes the same mistake a crash
+    instead.
+    """
+
+    id: str
+    title: str
+    component: str
+    decision: str
+    status: str
 
 
 def normalise_cell(cell: str) -> str:
@@ -104,16 +161,214 @@ def normalise_cell(cell: str) -> str:
     return "" if value in _BLANK else value
 
 
-def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[tuple[str, str, str]]:
-    """Every `(id, decision, status)` in the file, normalised. One parse, one place.
+def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[CandidateRow]:
+    """Every row in the file, normalised. One parse, one place.
 
     `missing_hint` lets each caller say what the absent file costs IT, without a
     second copy of the regex travelling with the sentence.
+
+    `title` and `component` are normalised the same way as the two flags. For
+    `component` that matters: a filer typing `` ` — ` `` means "I did not name
+    one", and a scaffolder that read it literally would try to create a
+    directory out of an em dash.
+
+    THE SHAPE IS CHECKED BEFORE ANY ROW IS RETURNED, and it raises rather than
+    returning what it can. See `_check_shape`: every way this file's real shape
+    can depart from the assumed one lands in the same place — a row that reads
+    as TRIAGED without anybody having ruled it, or a row that is simply not
+    there. An empty-ish result here is not a safe degradation; it is a
+    clean-looking answer over a working set that has quietly lost rows.
     """
     if not candidates_path.exists():
         raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
-    return [(cid, normalise_cell(dec), normalise_cell(st))
-            for cid, dec, st in _ROW.findall(candidates_path.read_text())]
+    text = candidates_path.read_text()
+    rows = [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
+                         normalise_cell(dec), normalise_cell(st))
+            for cid, title, comp, dec, st in _ROW.findall(text)]
+    _check_shape(candidates_path, text, rows, missing_hint)
+    return rows
+
+
+def _check_shape(path: Path, text: str, rows: list[CandidateRow],
+                 missing_hint: str) -> None:
+    """Raise unless the file's real shape is the one `_ROW` assumes.
+
+    KEYED ON THE CLASS, NOT ON A SPELLING OF IT, and that distinction is the
+    whole reason this is a function rather than the one-line header test it
+    replaces. Every way the shape has departed or can depart produces the SAME
+    failure — a row that leaves the untriaged working set without anybody ruling
+    it, while `triage-candidates` reports a complete pass — so the check asks
+    about the failure rather than about the departures.
+
+    THE HEADER TEST CAUGHT ONE OF THEM, AND ONLY BY LUCK. It asked whether a
+    seven-column header appeared ANYWHERE in the file; this file holds many
+    candidate tables, so the correct ones satisfied it while another was
+    malformed. Measured on the real file: one table reverted to the old shape and
+    the guard stayed silent while the untriaged count fell from 33 to 25.
+
+    So the check no longer asks about the table's shape at all. It asks the
+    questions whose answers a departure necessarily corrupts, one per helper
+    below, and each helper's docstring is the only place its case is described:
+
+      * `_raise_on_unparsed_rows`  — is the population the readers see the
+        population the file holds?
+      * `_raise_on_duplicate_ids`  — the same question one altitude down, and it
+        needs its own helper because a SET answers neither on its own.
+      * `_raise_on_foreign_cell`   — does every parsed row's `decision` and
+        `status` fall in the closed vocabulary `candidates.md` defines?
+
+    ONE CASE PER HELPER, RATHER THAN ONE LIST IN ONE DOCSTRING, and that is the
+    fix for a defect this docstring itself carried: it opened *"Three ways the
+    shape has departed"* over FOUR bulleted cases, because the fourth was added
+    without the tally being re-counted. That is the same class as every hand-kept
+    figure this repo has already gated — a count of mutable state, restated where
+    nothing derives it — arriving inside the function whose whole argument is
+    *count things, do not eyeball them*. A list that lives in one docstring per
+    case cannot go out of step with itself, and the next case added here inherits
+    that by construction rather than by anybody remembering.
+    """
+    _raise_on_unparsed_rows(path, text, rows, missing_hint)
+    _raise_on_duplicate_ids(path, rows, missing_hint)
+    _raise_on_foreign_cell(path, text, rows, missing_hint)
+
+
+def _raise_on_unparsed_rows(path: Path, text: str, rows: list[CandidateRow],
+                            missing_hint: str) -> None:
+    """Every line that PRESENTS as a candidate row must actually have parsed.
+
+    An id that is not `C-` plus exactly three digits is the reachable way to fail
+    this: `_ROW` does not match it at all, so the row is absent from every reader
+    and every guard here is green over it.
+    """
+    unparsed = sorted(set(_ROW_LINE.findall(text)) - {row.id for row in rows})
+    if unparsed:
+        raise ValueError(
+            f"{path} holds {len(unparsed)} line(s) that present as candidate rows "
+            f"but that the row parser does not match: {', '.join(unparsed)}. An "
+            f"id must be `C-` plus exactly three digits. A row the parser cannot "
+            f"see is absent from the untriaged working set, from every "
+            f"authorization snapshot, and from the deletion check — every guard "
+            f"reads green over it. {missing_hint}")
+
+
+def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
+                            missing_hint: str) -> None:
+    """No id may name two rows — the door that has actually opened.
+
+    Every reader here is a dict keyed by id, so the second row's `decision`,
+    `status` and `component` silently overwrite the first's and one of the two
+    candidates stops existing for every consumer.
+    `test_candidate_ids_are_unique` records it three times by 2026-08-11 and
+    twice more on 2026-08-13, always the same way — two branches each allocate
+    the next free id against the same base and both merge. That test is a merge
+    gate on ONE file on the default branch; this runs at the moment a pipeline
+    reads whatever file it was handed, which is the branch mid-collision, and the
+    two comparators that would notice a lost row (`ids_deleted`,
+    `components_this_run_had_no_right_to`) are keyed by the same colliding id and
+    see nothing.
+
+    IT CANNOT BE FOLDED INTO THE CHECK ABOVE, and that is why it is its own
+    helper rather than two lines there: that one compares SETS, and a duplicated
+    id collapses into a set — so it reads clean over exactly the row this exists
+    to catch.
+    """
+    repeated = sorted(cid for cid, n in Counter(row.id for row in rows).items() if n > 1)
+    if repeated:
+        raise ValueError(
+            f"{path} allocates {len(repeated)} id(s) to more than one row: "
+            f"{', '.join(repeated)}. Every reader here is a dict keyed by id, so "
+            f"the later row's `decision`, `status` and `component` overwrite the "
+            f"earlier one's and one of the two candidates stops existing for the "
+            f"untriaged working set, for both authorization snapshots and for the "
+            f"deletion check — all of which are keyed by the same colliding id and "
+            f"see nothing. This happens when two branches each allocate the next "
+            f"free id against the same base and both merge; take the next free id "
+            f"by re-reading the file at HEAD. {missing_hint}")
+
+
+def _raise_on_foreign_cell(path: Path, text: str, rows: list[CandidateRow],
+                           missing_hint: str) -> None:
+    """`decision` and `status` must hold values `candidates.md` admits.
+
+    THIS IS THE ARM THAT COVERS SHAPES NOBODY HAS THOUGHT OF YET, which is why it
+    does not name any of them. A column shift moves foreign text into the two
+    flag cells — `open` into `decision` for a table left in the old six-column
+    shape, a Source string for a row carrying a pipe in one of its first five
+    cells (markdown's own escape for a literal pipe is `\\|`, and `[^|\\n]*`
+    treats that pipe as a cell boundary, so a CORRECTLY escaped title shifts the
+    row). Neither shape is enumerated in the condition: the condition asks
+    whether the cell reads as something the file admits, so any future departure
+    that moves text sideways fails here rather than being discovered by a later
+    pass.
+
+    It is not exhaustive and does not claim to be — a shift lands silently only
+    if the displaced text happens to read as one of the seven admitted strings.
+    The message names both known shapes because a reader who has just been told
+    "row C-082's decision is unreadable" needs to know where to look.
+    """
+    for row in rows:
+        if row.decision in _DECISIONS and row.status in _STATUSES:
+            continue
+        shape = ("" if _HEADER in text else
+                 f"\nNo table in this file carries the expected header:\n  {_HEADER}\n"
+                 f"so the whole table is probably still in the old six-column shape.")
+        raise ValueError(
+            f"{path} row {row.id} parses to decision={row.decision!r} "
+            f"status={row.status!r}, and `candidates.md` admits no such value — "
+            f"`decision` is one of {_DECISIONS} and `status` one of {_STATUSES}. "
+            f"A cell holding anything else means the columns have SHIFTED: the "
+            f"row then reads as triaged, drops out of the untriaged working set, "
+            f"and `triage-candidates` reports a complete pass over a candidate "
+            f"nobody ruled. Either a table is in the old six-column shape, or "
+            f"this row carries a pipe in one of its first five cells — only the "
+            f"Note may contain one.{shape} {missing_hint}")
+
+
+def candidate_components(candidates_path: Path) -> dict[str, str]:
+    """Every row's `component`, normalised, keyed by id — the column NO workflow owns.
+
+    THE THIRD COLUMN, AND THE ONLY ONE WHOSE WRITER IS NOT A PROCESS.
+    `candidates.md` gives `decision` to `triage-candidates` and `status` to a
+    later process; it gives `component` to *whoever FILES the candidate, at the
+    moment they file it*, on the stated grounds that anything downstream would be
+    guessing at it from a one-line summary.
+
+    It needs a guard for a reason the other two do not have: a guessed value here
+    does not stay a bad cell. `plan-candidates` turns it into
+    `docs/development/<slug>/research/` in the very next step of the same parent,
+    on the same branch, in the same PR — so a run that invents a component name
+    ships a committed directory and two research dispatches for it.
+
+    AND IT IS NO LONGER ALONE IN THAT, WHICH IS WORTH SAYING RATHER THAN LETTING
+    A READER INFER THE OPPOSITE. `_seed` writes `title` verbatim into the new
+    component's synthesis and the parent tells the research child that file is its
+    brief — so an edited SUMMARY changes what a research cycle is commissioned to
+    investigate. A fourth snapshot was considered and NOT taken: a wrong title
+    produces a wrong brief, which `research-verify` reads and can hold on, whereas
+    a wrong `component` produces a directory nothing downstream inspects. Different
+    exposure, so the guard goes where the exposure is unobserved.
+
+    An APPENDED row is exempt by construction, because the comparator judges only
+    ids present on both sides: a run filing a proposal is *required* to name its
+    component, and that is the one write of this column any workflow may make.
+    """
+    return {row.id: row.component for row in candidate_rows(candidates_path, missing_hint=(
+        "Without it there is no `component` column to hold anything to."))}
+
+
+def components_this_run_had_no_right_to(before: dict[str, str],
+                                        after: dict[str, str]) -> list[str]:
+    """Ids whose `component` changed on a row that already existed. No workflow may.
+
+    The same shape as `statuses_this_run_had_no_right_to` and for the same
+    reason — only pre-existing rows are judged, so a row this run APPENDED is
+    outside it. Written out rather than routed through a shared helper because
+    the two columns are prohibited for DIFFERENT reasons and each docstring is
+    the place that reason is recorded; sharing the body would leave one of them
+    with nowhere to say it.
+    """
+    return sorted(cid for cid in before.keys() & after.keys()
+                  if before[cid] != after[cid])
 
 
 def candidate_counts(candidates_path: Path) -> dict[str, int]:
@@ -126,7 +381,7 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
     rows = candidate_rows(candidates_path, missing_hint=(
         "`triage-candidates` rules the rows in it and `plan-sprint` places what "
         "they ruled; without the file neither has anything to work from."))
-    untriaged = [cid for cid, dec, _st in rows if not dec]
+    untriaged = [row.id for row in rows if not row.decision]
     return {
         "total": len(rows),
         "untriaged": len(untriaged),
@@ -149,7 +404,7 @@ def candidate_statuses(candidates_path: Path) -> dict[str, str]:
     immediately beside the one each run is legitimately reading, and *"we have
     decided to do this"* is one plausible step from *"this is handled"*.
     """
-    return {cid: st for cid, _dec, st in candidate_rows(candidates_path, missing_hint=(
+    return {row.id: row.status for row in candidate_rows(candidates_path, missing_hint=(
         "Without it there is no `status` column to hold anything to."))}
 
 

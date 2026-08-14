@@ -20,7 +20,7 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 | `build_minor.sh` | **parent** | same shape, lighter middle child |
 | `research.sh` | **parent** | `research-write` → `research-verify` → `review-pr`. **Altitude is DERIVED from the pool path** — `docs/standards/architecture/research/` is project-level, `docs/development/<component>/research/` is component-level. One workflow, two altitudes |
 | `research_minor.sh` | **parent** | `research-write-minor` → **the same** `research-verify` → `review-pr`. **ONE paper: no `topics.md`, no sizing assessment, no fan-out, no synthesis.** Per-paper rigor is untouched and `research-critic` still gates it — only the multi-paper machinery is absent. Reach for `research.sh` when the subject has several concerns or real alternatives to weigh; this one when the question is single-concern with one destination |
-| `plan_project.sh` | **parent** | `triage-candidates` → research children per NEW component → `plan-sprint` → `review-pr`. Was `plan-master` |
+| `plan_project.sh` | **parent** | `triage-candidates` → **`plan-candidates`** (an ACTIVITY — plain code in the parent, no dispatch) → `research-write` → `research-verify` per NEW component → `plan-sprint` → `review-pr`. Was `plan-master` |
 | `triage_candidates.sh` | child, independently dispatchable | rules every untriaged row in `candidates.md` — `ship` / `requires review` / `reject` — and files the open questions as `D-NNN` rows in `direction.md`. **Sets `decision`, and nothing else touches that column.** Its runner then OBSERVES the boundary rather than trusting it: a sprint file, phase doc or standard it touched, a deleted candidate row, or either `status` column moved on a pre-existing row all **fail the run** |
 | `plan_sprint.sh` | child, independently dispatchable | places the RULED candidates, maintains `sprint.md`, reconciles sections against newer research. **Does not triage** — it reads `decision` and its runner fails the run if it wrote one. Same observation on the rest of its table: a ticked checkbox, a phase doc, `direction.md` or any other standard **fails the run** |
 | `plan_revision.sh` | child, independently dispatchable | roadmaps, phase docs, requirements, epics |
@@ -32,18 +32,24 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 
 ### Where the planning fleet is going
 
-The chain below is the target shape; `plan-roadmap`, `plan-phase`, `plan-candidates` and the sprint-hours calculation do not exist yet, and `plan-feature` has no parent.
+The chain below is the target shape; `plan-roadmap`, `plan-phase` and the sprint-hours calculation do not exist yet, and `plan-feature` has no parent. **`plan-candidates` is built and wired** — and it is an ACTIVITY, not a child: plain code in the parent, no prompt and no model call, which is why it carries no brackets and no dispatch cost.
 
 ```
 research(project)  →  HiL
-plan-project       →  triage-candidates  →  research(component)  →  [plan-candidates]  →  [plan-feature]  →  plan-sprint  →  plan-roadmap  →  plan-phase  →  review-pr
+plan-project       →  triage-candidates  →  plan-candidates  →  research-write  →  research-verify  →  [plan-feature]  →  plan-sprint  →  plan-roadmap  →  plan-phase  →  review-pr
 research(feature)  →  HiL
 plan-feature       →  plan-roadmap →  plan-phase  →  review-pr
 ```
 
+**`plan-candidates` comes BEFORE the research step, not after it** — it is what creates the component the research step then researches, so the reverse order describes a step researching something that does not exist yet. The research step is also two children, `research-write` then `research-verify`, run conditionally per new component; drawing it as one hides the verify gate.
+
 **Triage moved to the FRONT and sprint maintenance to the BACK on 2026-08-12**, when `plan-sprint` was split into `triage-candidates` (rules the candidates) and a narrowed `plan-sprint` (maintains the plan). The two jobs shared one dispatch and nothing could be sequenced between them, which is where feature planning and scaffolding belong. It also fixed an ordering defect on its own: the sprint plan used to be updated *before* anything estimated the work, so its hour totals landed ahead of the estimates they depend on.
 
-**The bracketed children do not exist yet, and their absence has a cost worth knowing:** the `research(component)` step's input is *"a sprint section this branch added"*, and with `plan-sprint` now behind it nothing ahead of it adds one. That step is therefore inert until `plan-candidates` and `plan-feature` land. `plan_project` says so in a run note rather than skipping silently.
+**The research step was inert, and `plan-candidates` is what fixed it.** Its only input was *"a sprint section this branch added"*, and with `plan-sprint` sequenced behind it nothing ahead of it added one — so the sweep could not return anything. `plan-candidates` supplies the real signal: it scaffolds a research pool for each shipped candidate that has no home yet, and those components are what the research step now researches. The sprint-section signal is kept and unioned with it — it is still the correct answer to its own question, and it starts returning rows again the moment anything ahead of the step writes one.
+
+**Which candidates it acts on, and what it does for each, is stated once in [`candidates.md` § `component`](../standards/architecture/research/candidates.md)** — that section is the single source and this guide points at it rather than repeating the conditions, so a change to them cannot leave a stale copy here. What belongs here is the consequence for a reader of the chain: `plan-candidates` writes no `roadmap.md` and no phase docs — `plan-feature` writes those — so a component reaching the research step has a folder, a seeded synthesis, and nothing else.
+
+**Wiring live is not the same as input flowing.** Today every row that names a `component` names one whose directory already exists, so the next `plan-project` run scaffolds nothing and reports an empty working set. That is the design working: the step becomes productive as filers name components on rows they file, and the pre-existing rows with a blank cell wait for the operator. *(The counts are deliberately not restated here — `candidate_counts` derives them from the file, and the two sentences that did restate them were falsified by the very commit that wrote them.)*
 
 Three document layers, one owner each: **`sprint.md`** (clean, one entry per component) → **`<component>/roadmap.md`** (architecture, decisions, success criteria) → **`<component>/phaseN_*.md`** (build detail). `plan-roadmap` is blocked on that middle layer being defined, and the whole chain is gated on the Memory Management Framework — at seven children the prose handoff channel stops being survivable.
 

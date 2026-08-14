@@ -59,6 +59,8 @@ class _Calls:
         self.git_calls: list[tuple[Path, tuple[str, ...], tuple[str, ...]]] = []
         # Every `base_ref` Step 2's sweep was actually given.
         self.sweep_bases: list[object] = []
+        # Every positional argument pair Step 1b's scaffolder was called with.
+        self.scaffold_args: list[tuple[object, ...]] = []
 
 
 @pytest.fixture
@@ -109,8 +111,21 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         return []
 
     monkeypatch.setattr(pm.own, "new_sprint_sections", no_sections)
-    monkeypatch.setattr(pm.own, "component_dir",
-                        lambda tree, name: Path("/tmp/wt/docs/development/x"))
+    # `component_dir` IS NOT STUBBED. It was, to a constant `.../development/x`,
+    # which meant every fan-out test asserted against a path the code under test
+    # had not computed — and it hid the slug-versus-heading mismatch that made the
+    # two research signals fail to de-duplicate. It is pure path arithmetic and
+    # there is nothing in it to isolate.
+    #
+    # Step 1b scaffolds nothing by default, for the same reason the sweep above
+    # returns nothing: it reads and WRITES a real tree, and the worktree here is
+    # a bare path. Faked at its boundary and recorded — which component list the
+    # parent hands the research step is exactly what the fan-out tests assert on.
+    def no_scaffold(*a: object, **k: object) -> pm.own.Scaffolded:
+        calls.scaffold_args.append(a)
+        return pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+
+    monkeypatch.setattr(pm.own, "scaffold_candidate_components", no_scaffold)
     return calls
 
 
@@ -289,6 +304,9 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(
+        pm.own, "scaffold_candidate_components",
+        lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[]))
     monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
@@ -301,10 +319,25 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     assert added == ["wt"], f"expected exactly one worktree, got {added}"
 
 
+# THE REAL `component_dir` AND THE REAL `component_slug` ARE USED, DELIBERATELY.
+# These helpers used to monkeypatch `component_dir` to `name.lower()`, and that
+# single line is what made the both-signals dedup test below assert nothing: the
+# two signals differ precisely in that one returns a SLUG and the other a raw
+# heading, and a stub that lower-cases erases the difference the test exists to
+# find. Both functions are pure path arithmetic with no I/O, so there was never
+# anything to stub.
+
+
 def _with_sections(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: list(names))
-    monkeypatch.setattr(pm.own, "component_dir",
-                        lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
+
+
+def _with_scaffolded(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
+    """`names` are what the activity CREATED — always slugs, as it returns directory names."""
+    monkeypatch.setattr(
+        pm.own, "scaffold_candidate_components",
+        lambda *a, **k: pm.own.Scaffolded(created=list(names), resumed=[],
+                                          extends=[], unnamed=[]))
 
 
 def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -312,6 +345,184 @@ def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.Mo
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _run()
     assert wired.research_pools == []
+
+
+# --- Step 1b: plan-candidates, and the input it restored ---------------------
+
+def test_plan_candidates_runs_AFTER_triage_and_BEFORE_research(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both halves of the ordering are load-bearing and they fail differently.
+
+    Before triage there are no `ship` rulings to act on, so it would scaffold
+    nothing. After research it would be scaffolding a component the research step
+    has already been asked to research — which is the ordering `workflows.md`
+    drew, and it describes a step researching something that does not exist yet.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "Alpha")
+    _run()
+    assert wired.order[:3] == ["triage", "research", "sprint"], (
+        f"expected triage then the scaffolded component's research, got {wired.order}")
+
+
+def test_the_scaffolded_components_ARE_the_research_step_input(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE POINT OF THE WHOLE CHANGE, and it is why this assertion is not about a note.
+
+    The research step's only signal was "a sprint section this run added", and
+    with plan-sprint sequenced behind it nothing ahead of it added one — the step
+    was inert by construction and `plan_project`'s own docstring said so. A
+    scaffolded component is now a real signal reaching it.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "Alpha", "Beta")
+    _run()
+    assert wired.research_pools == [
+        Path("/tmp/wt/docs/development/alpha/research"),
+        Path("/tmp/wt/docs/development/beta/research"),
+    ], "a scaffolded component did not reach the research step"
+
+
+def test_a_component_reached_by_BOTH_signals_is_researched_ONCE(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The two signals are unioned, and a duplicate costs a full research cycle.
+
+    Not hypothetical once `plan-feature` lands: a component can be scaffolded
+    here AND gain a sprint section in the same dispatch, and each entry in this
+    list is a `research-write` plus a `research-verify` dispatch.
+
+    **THE SPELLINGS ARE DIFFERENT ON PURPOSE, AND THAT IS THE WHOLE TEST.** The
+    scaffolder returns the directory name it made — a SLUG — while
+    `new_sprint_sections` returns the heading as the operator typed it. An
+    earlier version of this test passed the identical string down both paths and
+    stubbed `component_dir` to lower-case it, so it proved only that
+    `dict.fromkeys` de-duplicates equal strings, and stayed green while the real
+    pair (`fleet-reliability` / `Fleet Reliability`) both survived the union.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "fleet-reliability")
+    _with_sections(monkeypatch, "Fleet Reliability")
+    _run()
+    assert wired.research_pools == [
+        Path("/tmp/wt/docs/development/fleet-reliability/research")], (
+        f"researched twice under two spellings of one component: {wired.research_pools}")
+
+
+def test_the_SCAFFOLDED_brief_wins_when_a_component_arrives_down_both_signals(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dedup decides HOW MANY; this decides WHICH BRIEF, and only one of them is true.
+
+    A scaffolded component's brief points at the seeded synthesis; the sprint
+    brief tells the child to read a sprint section. If the sprint signal won,
+    the child would be sent to read a section that `plan-candidates` never wrote
+    and `sprint.md` never gained — the false premise the branch exists to avoid.
+    """
+    contexts: list[str] = []
+    monkeypatch.setattr(pm.write, "run_write",
+                        lambda **kw: contexts.append(str(kw["context"])) or PR_URL)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "fleet-reliability")
+    _with_sections(monkeypatch, "Fleet Reliability")
+    _run()
+
+    assert len(contexts) == 1
+    assert "scaffolded from a shipped research candidate" in contexts[0]
+    assert "sprint section" not in contexts[0].replace("NO sprint section", "")
+
+
+def test_the_scaffolder_is_given_the_WORKTREE_copy_of_the_candidates_file(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """It WRITES, so a repo-root path would put the scaffolding outside the PR.
+
+    `candidates_path` arrives repo-root-absolute — the convention every sibling
+    follows — and the triage child re-anchors it the same way. A scaffolder
+    handed `/repo/c.md` would read the pre-triage rulings from the main checkout
+    and create directories that no branch carries and no review ever sees.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _run()
+    assert wired.scaffold_args == [(Path("/tmp/wt"), Path("/tmp/wt/c.md"))], (
+        f"scaffolder was given {wired.scaffold_args}")
+
+
+def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The claim `Scaffolded` was widened FOR, asserted over the whole type.
+
+    Its docstring says a bare list of created slugs "is what made three separate
+    failures silent" — an extending candidate, an abandoned pool and a filer typo
+    all read as "created nothing", and that note reads as health. The parent
+    answers with one note per entry. **Nothing asserted any of it**: every test
+    here checked dispatch counts and brief text, so the three quiet outcomes —
+    the whole reason the return type has four lists — were untested.
+
+    KEYED ON THE TYPE'S FIELDS RATHER THAN ON FOUR EXAMPLES. A fifth bucket added
+    later fails here until the parent gives it a note, which is the property
+    worth holding: the failure mode is a list nobody prints, and a test naming
+    today's four lists cannot see it.
+
+    IT COUNTS THE NOTES RATHER THAN LOOKING FOR ONE, AND THE FIRST VERSION DID
+    NOT — which a mutation caught and a reading would not have. `created` and
+    `resumed` feed the research fan-out, so their slugs ALSO appear in "New
+    component `x` — researching before it is planned". A presence test therefore
+    stayed green with the whole `resumed` note loop deleted: the slug was still
+    in the notes, under a sentence that says something else entirely. The
+    expected count is derived from `to_research` rather than hard-coded per
+    field, so a bucket that starts or stops feeding research adjusts with it.
+    """
+    scaffolded = pm.own.Scaffolded(
+        created=["alpha"], resumed=["beta"],
+        extends=[("C-001", "gamma")], unnamed=[("C-002", "···")])
+    monkeypatch.setattr(pm.own, "scaffold_candidate_components",
+                        lambda *a, **k: scaffolded)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _url, _verdict, _loops, notes = _run()
+
+    feeds_research = set(scaffolded.to_research)
+    for field in pm.own.Scaffolded._fields:
+        entries = getattr(scaffolded, field)
+        assert entries, f"the fixture left {field} empty, so its assertion is vacuous"
+        for entry in entries:
+            # A row-keyed list carries `(id, name)`; a component-keyed one a bare
+            # slug. Both have to be findable in the notes by what identifies them.
+            for token in (entry if isinstance(entry, tuple) else (entry,)):
+                # One note for the disposition, plus one for the research
+                # dispatch if this bucket feeds it.
+                want = 2 if token in feeds_research else 1
+                got = sum(1 for n in notes if token in n)
+                assert got >= want, (
+                    f"`Scaffolded.{field}` carried {token!r} and {got} note(s) "
+                    f"mention it, not {want} — that outcome is invisible to the "
+                    f"operator, or is visible only under another step's sentence, "
+                    f"which is exactly what this type was widened to prevent. "
+                    f"Notes: {notes}")
+
+    assert not any("empty working set" in n for n in notes), (
+        "the parent reported an empty working set while four rows were disposed of")
+
+
+def test_the_research_brief_for_a_SCAFFOLDED_component_claims_no_sprint_section(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A FALSE PREMISE handed to a model is worse than a thin one.
+
+    The brief for a sprint-section component tells the child to read that section
+    first. A scaffolded component has none — `sprint.md` is the operator's file
+    and nothing in this pipeline writes it — so reusing that wording would send
+    the child looking for something that does not exist and cannot be created.
+    It gets pointed at the seeded synthesis instead.
+    """
+    contexts: list[str] = []
+    monkeypatch.setattr(pm.write, "run_write",
+                        lambda **kw: contexts.append(str(kw["context"])) or PR_URL)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "Alpha")
+    _run()
+
+    assert len(contexts) == 1
+    assert "synthesis.md" in contexts[0], "the child was not pointed at its actual brief"
+    assert "NO sprint section" in contexts[0]
+    assert "was just added to" not in contexts[0], (
+        "the scaffolded component was told a sprint section was added for it")
 
 
 def test_each_new_section_is_researched_into_its_OWN_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -485,15 +696,16 @@ def test_a_heading_with_no_name_FAILS_LOUDLY_rather_than_slugging_to_nothing(
     names = own.new_sprint_sections(real_repo, "docs/development/sprint.md",
                                     base_ref=base)
     assert names == [""], f"the sweep read {names}"
-    with pytest.raises(ValueError, match="yields no folder name"):
-        own.component_dir(real_repo, names[0])
+    with pytest.raises(ValueError, match="sprint section .* yields no folder name"):
+        own.component_dir(real_repo, names[0], source="sprint section")
 
 
 def test_component_dir_slugs_the_way_the_tree_is_already_named(real_repo: Path) -> None:
     """The convention applied in code: a mismatch is invisible to every walk."""
     from modules.assistant.plan.plan_project import plan_project_activities as own
 
-    assert own.component_dir(real_repo, "Fleet Reliability") == \
+    assert own.component_dir(real_repo, "Fleet Reliability", source="sprint section") == \
         real_repo / "docs" / "development" / "fleet-reliability"
-    assert own.component_dir(real_repo, "Memory Management Framework") == \
+    assert own.component_dir(real_repo, "Memory Management Framework",
+                             source="sprint section") == \
         real_repo / "docs" / "development" / "memory-management-framework"

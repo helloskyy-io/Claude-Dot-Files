@@ -6,8 +6,10 @@
 
 > **Research creates and appends. Planning dispositions.**
 
-**You set:** `ID` · `Candidate` · `Source`
+**You set:** `ID` · `Candidate` · `component` · `Source`
 **You NEVER set or alter:** `decision` · `status` — those are `triage-candidates`'s and a later process's. Leave `decision` as `—` and `status` as `` `open` `` on every row you add.
+
+**Name the `component` this candidate belongs to when you file it** — an existing `docs/development/<name>/` if it extends one, a new name if it does not. **A blank means nothing is scaffolded for it.** You are the one who knows: you have just written the proposal, and anything downstream would be guessing from a one-line summary. A blank is an unanswered question rather than an error, so leave it blank rather than inventing a name you are not sure of.
 
 ${CANDIDATE_CEILING}
 

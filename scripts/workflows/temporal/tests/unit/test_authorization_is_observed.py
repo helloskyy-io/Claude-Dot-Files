@@ -30,6 +30,7 @@ mechanism and that the mechanism EXISTS; that one proves it fires.
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -273,3 +274,106 @@ def test_a_sprint_file_kept_somewhere_else_is_still_the_permitted_one() -> None:
     rel = "planning/current-sprint.md"
     assert act.boundary_crossings({}, {rel: "h"}, sprint.FORBIDDEN_PATHS,
                                   sprint.permitted_paths(rel)) == []
+
+
+# --- what a guard SAYS when it fires ----------------------------------------
+#
+# THE SECOND HALF OF "the prohibition is observed": the guard has to hand back
+# the value that moved, not merely the row it moved on. Four of the five
+# value-comparator guards in this family rendered `id 'before'->'after'`; two did
+# not, and the sibling comment on one of them said out loud that it was rendered
+# *"`before->after` the way plan-sprint's twin does"* — written by the pass that
+# left its own twin, one call above it, naming ids alone. That is the shape this
+# correction cycle keeps meeting: a fix applied to one branch of a symmetric
+# pair. Enumerating the branches does not converge; asking the question of every
+# guard the AST can find does.
+
+_COMPARATOR = "this_run_had_no_right_to"
+
+
+def _value_guards(mod) -> list[tuple[str, str, str, str]]:
+    """Every `offender = <comparator>(before, after)` / `if offender: raise` pair.
+
+    DISCOVERED FROM THE SOURCE, not listed, for the same reason `WORKFLOWS` is:
+    a guard added later must inherit the assertion without anybody editing this
+    file. The comparator is matched by NAME SUFFIX rather than by an import list
+    — `act.statuses_this_run_had_no_right_to`, `own.` anything, and
+    `plan_sprint`'s module-private `_rulings_this_run_had_no_right_to` are all
+    the same shape and all three are found.
+
+    DELETION COMPARATORS ARE DELIBERATELY OUT OF SCOPE. `ids_deleted` and
+    `grants_that_vanished` answer *what is GONE*, and there is no after-value to
+    render — naming the id alone is the whole of what can be said, so requiring
+    an arrow there would demand a lie.
+    """
+    src = Path(mod.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+
+    pending: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        for call in ast.walk(node.value):
+            if not isinstance(call, ast.Call):
+                continue
+            fn = call.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+            if name.endswith(_COMPARATOR) and len(call.args) == 2:
+                pending[ast.unparse(node.targets[0])] = tuple(
+                    ast.unparse(a) for a in call.args)
+
+    guards: list[tuple[str, str, str, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        offender = ast.unparse(node.test)
+        if offender not in pending:
+            continue
+        before, after = pending[offender]
+        for raised in ast.walk(node):
+            if isinstance(raised, ast.Raise):
+                guards.append((offender, before, after,
+                               ast.get_source_segment(src, raised) or ""))
+    return guards
+
+
+def test_the_value_guard_sweep_finds_guards_at_all() -> None:
+    """POSITIVE CONTROL on the discovery, against its own vacuity.
+
+    The assertion below iterates whatever this finds. An AST walk that matched
+    nothing — a renamed comparator, a guard moved inside a helper — would iterate
+    an empty list and report green over a family with no diagnostics at all,
+    which reads identically to every diagnostic being right.
+    """
+    found = [g for mod, _, _ in workflows_declaring("MAY_NOT_OBSERVERS")
+             for g in _value_guards(mod)]
+    assert len(found) >= 4, (
+        f"the value-guard sweep found {len(found)} guard(s). The comparators are "
+        f"matched by the `{_COMPARATOR}` name suffix; if one was renamed, this "
+        f"check is no longer reading the guards it is named for.")
+
+
+def test_EVERY_value_guard_NAMES_THE_VALUE_THAT_MOVED() -> None:
+    """A guard that names only the row hands the operator half the answer.
+
+    KEYED ON THE COMPARATOR, NOT ON THE FIVE GUARDS THAT EXIST TODAY. Each of
+    these fires on a column whose wrong value is the thing to undo — an invented
+    `component` becomes a committed directory, an invented `direction.md` status
+    is a ruling only the operator may make and one `/standup` then rotates the
+    receipt away for. "Row C-042 changed" sends them back to `git diff` to learn
+    what it changed to; `C-042 ''->'fleet-reliability'` tells them whether they
+    are looking at an invention or a correction, which is the ruling they have to
+    make.
+    """
+    offenders: list[str] = []
+    for mod, _, name in workflows_declaring("MAY_NOT_OBSERVERS"):
+        for var, before, after, raised in _value_guards(mod):
+            if "->" in raised and before in raised and after in raised:
+                continue
+            offenders.append(f"{name}:{var} (comparing {before} to {after})")
+    assert not offenders, (
+        f"these guards raise without rendering the value that moved: {offenders}. "
+        f"Every other guard built on a `{_COMPARATOR}` comparator renders "
+        f"`id 'before'->'after'`; one that names ids alone tells the operator "
+        f"WHICH row was written and not WHAT was written into it, which is the "
+        f"half they need to tell an invention from a correction.")

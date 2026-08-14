@@ -56,7 +56,7 @@ def candidate_decisions(candidates_path: Path) -> dict[str, str]:
     MEANING, not on markup, and it must fire on the SAME meaning the counter
     sees: two hand-written normalisations had already drifted apart once.
     """
-    return {cid: dec for cid, dec, _st in act.candidate_rows(
+    return {row.id: row.decision for row in act.candidate_rows(
         candidates_path,
         missing_hint="Without it there is no `decision` column to hold anything to.")}
 

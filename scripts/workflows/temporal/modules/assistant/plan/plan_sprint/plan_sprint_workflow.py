@@ -116,6 +116,10 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "Set `status` in the candidates file":
         "act.candidate_statuses snapshotted either side of the run, compared by "
         "act.statuses_this_run_had_no_right_to",
+    "Set or change `component` on a candidate row that already existed — that is the FILER's":
+        "act.candidate_components snapshotted either side of the run, compared by "
+        "act.components_this_run_had_no_right_to — pre-existing rows only, so the "
+        "proposal this run is instructed to FILE may name its own component",
     "Append to or edit `direction.md`":
         "FORBIDDEN_PATHS `^docs/standards/`, and deliberately NOT in "
         "permitted_paths — the mechanism is the absence of an exception",
@@ -149,6 +153,12 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "the coupling itself is held by "
         "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS, since this is "
         "the one entry whose coverage is an argument rather than a call site.",
+    "before_component":
+        "act.ids_deleted on the SAME id set, already run via "
+        "_rulings_this_run_had_no_right_to on `before` — act.candidate_components "
+        "and own.candidate_decisions are both built from act.candidate_rows, so "
+        "the coupling registered for before_status covers this snapshot too, and "
+        "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS is what holds it",
     "before_boxes":
         "own.checked_boxes compared in both directions — `after - before` is a "
         "tick added, `before - after` a tick erased, and Counter subtraction "
@@ -188,6 +198,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # row as this run's forbidden edit.
     before = own.candidate_decisions(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
+    before_component = act.candidate_components(wt_candidates)
     before_boxes = own.checked_boxes(wt_sprint)
     before_tree = act.worktree_state(worktree)
 
@@ -280,6 +291,32 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
             + ". `status` belongs to a later process — `plan-feature`, or the build "
               f"that completes the item. Placing work in the sprint plan is not "
               f"finishing it, and this run has validated nothing — see {url}"
+        )
+
+    # THE SAME ARGUMENT, ONE COLUMN FURTHER LEFT, and this one is not merely a
+    # bad cell. `component` belongs to whoever FILED the row; `plan-candidates`
+    # reads it in the NEXT parent run and turns a name into a committed
+    # `docs/development/<name>/`. Placing an item in the sprint plan is not the
+    # same as deciding which component owns it. The prohibition this run is given
+    # is the MAY NOT row at plan_sprint.md:32 and nothing else — this comment
+    # attributed "you never decide where a shipped candidate goes" to "the prompt",
+    # and that sentence appears only in triage_candidates.md, about the workflow
+    # that does NOT place. A maintainer auditing this surface would have believed
+    # a prose backstop existed here. It does not; the row is the whole of it.
+    # A proposal this run files may
+    # still name its own component, which the pre-existing-rows-only comparison
+    # permits without a second rule.
+    after_component = act.candidate_components(wt_candidates)
+    named = act.components_this_run_had_no_right_to(before_component, after_component)
+    if named:
+        raise RuntimeError(
+            f"plan-sprint set or changed the `component` column on {len(named)} "
+            f"pre-existing candidate(s): "
+            + ", ".join(f"{cid} {before_component[cid]!r}->{after_component[cid]!r}"
+                        for cid in named)
+            + ". That column is the FILER's, because only they know where the "
+              f"proposal goes. It is also the one column whose guess gets built: "
+              f"`plan-candidates` scaffolds a directory from it — see {url}"
         )
 
     # A CHECKBOX MEANS SHIPPED AND VALIDATED. This workflow places work that will
