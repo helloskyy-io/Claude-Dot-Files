@@ -45,20 +45,27 @@ from modules.assistant.plan.triage_candidates import triage_candidates_workflow 
 PR_URL = "https://github.com/o/r/pull/43"
 
 _HEADER = (
-    "| ID | Candidate | Source | `decision` | `status` | Note |\n"
-    "|---|---|---|---|---|---|\n"
+    "| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
+    "|---|---|---|---|---|---|---|\n"
 )
 
 
-def _table(rows: list[tuple[str, ...]], note: str = "n") -> str:
+def _table(rows: list[tuple[str, ...]], note: str = "n", component: str = "") -> str:
     """A candidates file holding exactly `rows` as (id, decision[, status]) tuples.
 
     `status` defaults to `` `open` `` because that is what every row in the real
     file carries while its work is outstanding; the tests that care about the
     status guard pass the third element explicitly.
+
+    `component` defaults to BLANK, and deliberately. Every assertion in this
+    module is about the columns and the guards built on them; a component name
+    would be inert fixture noise except in the two tests that assert on the
+    `component` guard, which pass one explicitly. The rows that exercise
+    SCAFFOLDING live in `test_plan_candidates.py`, where that is the subject.
     """
     body = "".join(
-        f"| {row[0]} | a candidate | PR #1 | {row[1]} | {row[2] if len(row) > 2 else '`open`'} | {note} |\n"
+        f"| {row[0]} | a candidate | {component} | PR #1 | {row[1]} | "
+        f"{row[2] if len(row) > 2 else '`open`'} | {note} |\n"
         for row in rows)
     return "# Action candidates\n\n" + _HEADER + body
 
@@ -520,6 +527,53 @@ def test_NEITHER_workflow_may_move_the_status_column(
         runner(tree)
 
 
+@pytest.mark.parametrize("workflow,runner", [(sprint, _run_sprint), (triage, _run_triage)],
+                         ids=["plan_sprint", "triage"])
+def test_NEITHER_workflow_may_name_the_component_on_somebody_elses_row(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
+        workflow, runner) -> None:
+    """`component` is the FILER's, and it is the one column whose guess gets BUILT.
+
+    `decision` and `status` each got a comparator and a MAY NOT row when the
+    column split happened; `component` arrived with neither, and it is the higher
+    stake of the three: `plan-candidates` runs in the parent immediately after
+    these two and turns whatever the cell says into a committed
+    `docs/development/<name>/` on the same branch. A guessed name is not a bad
+    cell, it is a directory and two research dispatches.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    _fake_run(workflow, monkeypatch, writes=_table(
+        [("C-001", "`ship`", "`open`")], component="guessed-from-a-summary"), path=f)
+
+    with pytest.raises(RuntimeError, match="`component` column"):
+        runner(tree)
+
+
+def test_a_component_named_on_a_row_the_run_APPENDED_is_permitted(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """NEGATIVE CONTROL, and without it the guard forbids what another rule REQUIRES.
+
+    `decision_log_and_reflection.md` instructs every producing run to file a
+    proposal it surfaced AND to name that proposal's component. Judging new rows
+    would make the two instructions mutually unfollowable. Only a row that
+    already existed can have had its component set by somebody who did not file it.
+
+    `plan_sprint` ONLY, exactly as the sibling `status` control is — and for the
+    same reason rather than a copied shape. A row appended with a blank
+    `decision` fails triage's own completion post-condition before any column
+    guard is reached, so parametrizing this over triage would assert about that
+    post-condition instead of about this guard.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    body = (_table([("C-001", "`ship`", "`open`")])
+            + "| C-002 | a candidate | filed-by-this-run | PR #1 |  | `open` | n |\n")
+    _fake_run(sprint, monkeypatch, writes=body, path=f)
+
+    assert _run_sprint(tree) == PR_URL
+
+
 def test_a_row_APPENDED_with_a_status_is_not_a_status_the_run_moved(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """NEGATIVE CONTROL, and it is the same exemption the decision guard needed.
@@ -573,6 +627,51 @@ def test_the_two_readers_agree_on_what_BLANK_means(tree: Path) -> None:
         )
 
 
+def _id_keyed_readers() -> set[str]:
+    """Every `candidate_*` reader in the family that returns a row-keyed map.
+
+    DISCOVERED FROM THE ANNOTATIONS, NOT LISTED, and that is the whole point of
+    it being a function. The roster below is hand-written — it has to be, since
+    each entry names the alias its registry entry uses — and a hand-written
+    roster goes stale in exactly the way this test already caught once: it
+    asserted over two readers while three existed, so `before_component`'s entry
+    read as covered and the column it covers was never compared. Comparing the
+    roster against a DERIVED set means the fourth reader fails here the moment it
+    is written, rather than the next time somebody re-reads this test.
+
+    `dict[str, str]` is the shape that makes a reader id-keyed; `candidate_counts`
+    returns `dict[str, int]` and is a tally rather than a map, so it is correctly
+    absent. Annotations are strings because both modules carry
+    `from __future__ import annotations`, which is why this compares text.
+    """
+    found = set()
+    for module, alias in ((act, "act"), (sprint_act, "own")):
+        for name, fn in vars(module).items():
+            if not name.startswith("candidate_") or not callable(fn):
+                continue
+            if getattr(fn, "__annotations__", {}).get("return") == "dict[str, str]":
+                found.add(f"{alias}.{name}")
+    return found
+
+
+_ID_KEYED_READERS = _id_keyed_readers()
+
+
+def test_the_reader_sweep_finds_readers_at_all() -> None:
+    """POSITIVE CONTROL: an empty derived set makes the roster check vacuous.
+
+    `set(roster) == set()` fails loudly, but a sweep that found only SOME would
+    not — and a sweep that found none would turn the comparison below into a
+    claim nobody can read. This is the floor that makes the comparison mean
+    something.
+    """
+    assert len(_ID_KEYED_READERS) >= 3, (
+        f"the id-keyed reader sweep found {sorted(_ID_KEYED_READERS)}. It matches "
+        f"`candidate_*` functions annotated `-> dict[str, str]`; if that "
+        f"annotation or naming changed, the roster below is being compared "
+        f"against nothing.")
+
+
 @pytest.mark.parametrize("rows", [
     pytest.param([("C-001", "`ship`"), ("C-002", ""), ("C-003", "—")], id="mixed"),
     pytest.param([("C-001", "`ship`", ""), ("C-002", "", "`open`")], id="blank-status"),
@@ -597,11 +696,28 @@ def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: li
     """
     f = tree / "c.md"
     f.write_text(_table(rows))
-    assert (act.candidate_statuses(f).keys()
-            == sprint_act.candidate_decisions(f).keys()), (
-        "the two candidate readers no longer key the same rows, so plan-sprint's "
-        "row-deletion coverage — which its DISAPPEARANCE_OBSERVERS entry claims "
-        "comes from the `decision` guard alone — has a hole in it")
+    keyed = {
+        "act.candidate_statuses": act.candidate_statuses(f).keys(),
+        "own.candidate_decisions": sprint_act.candidate_decisions(f).keys(),
+        # THE THIRD READER, ADDED WHEN `component` GOT ITS GUARD AND NOT BEFORE.
+        # Both workflows' `before_component` registry entries discharge their
+        # deletion obligation by naming exactly this coupling — and this test
+        # asserted over two readers while three exist, so the entry read as
+        # covered and the column it covers was never in the assertion.
+        "act.candidate_components": act.candidate_components(f).keys(),
+    }
+    assert set(keyed) == _ID_KEYED_READERS, (
+        f"the roster above is {sorted(keyed)} and the id-keyed readers in the "
+        f"family are {sorted(_ID_KEYED_READERS)}. A reader missing from the "
+        f"roster is one whose key set nothing compares, which is how the "
+        f"`before_component` entry read as covered while the column it covers "
+        f"was never in the assertion.")
+    disagreeing = [name for name, ks in keyed.items()
+                   if ks != keyed["act.candidate_statuses"]]
+    assert not disagreeing, (
+        f"{disagreeing} no longer key the same rows as the others, so the "
+        f"row-deletion coverage both workflows' DISAPPEARANCE_OBSERVERS entries "
+        f"claim comes from a sibling column's guard has a hole in it")
 
 
 def test_the_dry_run_renders_the_SAME_correction_note_a_live_run_does() -> None:

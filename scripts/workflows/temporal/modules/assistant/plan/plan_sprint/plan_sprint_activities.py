@@ -1,7 +1,7 @@
 """plan-sprint's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
 `candidate_decisions` sat on the planning family's shared surface while it had a
-single caller. [`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
+single caller. [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and states the test mechanically: a helper moves
 out of a workflow folder *"if and only if more than one workflow uses it.
 Consumer count decides, never taste."* One consumer, so it lives with its
@@ -56,7 +56,7 @@ def candidate_decisions(candidates_path: Path) -> dict[str, str]:
     MEANING, not on markup, and it must fire on the SAME meaning the counter
     sees: two hand-written normalisations had already drifted apart once.
     """
-    return {cid: dec for cid, dec, _st in act.candidate_rows(
+    return {row.id: row.decision for row in act.candidate_rows(
         candidates_path,
         missing_hint="Without it there is no `decision` column to hold anything to.")}
 

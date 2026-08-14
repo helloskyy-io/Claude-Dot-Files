@@ -100,6 +100,11 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "Set `status` on a `direction.md` row — that is the operator's":
         "own.direction_statuses snapshotted either side of the run, through the "
         "same comparator",
+    "Set or change `component` on a candidate row that already existed — that is the FILER's":
+        "act.candidate_components snapshotted either side of the run, compared by "
+        "act.components_this_run_had_no_right_to — which judges only ids present "
+        "on both sides, so the appended-row grant in the MAY column is the same "
+        "exemption rather than a second rule",
     "**Touch `sprint.md` at all** — you hold no authorization over it":
         "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
     "Write or edit any phase doc":
@@ -133,6 +138,16 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
 DISAPPEARANCE_OBSERVERS: dict[str, str] = {
     "before_status":
         "act.ids_deleted against the after-snapshot of the same column",
+    "before_component":
+        "act.ids_deleted on the SAME id set, already run against before_status — "
+        "act.candidate_statuses and act.candidate_components are both built from "
+        "act.candidate_rows, so a row cannot be absent from one map and present "
+        "in the other. Registered rather than left implicit because that coupling "
+        "is the whole reason a second deletion check here would be dead code, and "
+        "the coupling itself is held by "
+        "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS — which this "
+        "entry named nowhere until a review pointed out it was stating the "
+        "argument and stopping, which is precisely what the registry distrusts.",
     "before_direction":
         "act.ids_deleted against the after-snapshot of the same column, checked "
         "BEFORE the status comparison because a vanished row is in neither "
@@ -168,6 +183,11 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # workflow can be re-dispatched onto a branch that already carries work, and
     # a diff against the base would attribute somebody else's edit to this run.
     before_status = act.candidate_statuses(wt_candidates)
+    # `component` is nobody's here either — it belongs to whoever FILED the row.
+    # It is the one column whose guess does not stay a guess: `plan-candidates`
+    # runs in the parent immediately after this child and turns a component name
+    # into a committed `docs/development/<name>/` on this same branch.
+    before_component = act.candidate_components(wt_candidates)
     before_direction = own.direction_statuses(worktree / rel_research)
     before_tree = act.worktree_state(worktree)
 
@@ -271,13 +291,48 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"carries the only override — see {url}"
         )
 
+    # RENDERED `before->after`, LIKE EVERY OTHER COLUMN GUARD IN BOTH WORKFLOWS.
+    # This one named ids alone while its three siblings — plan-sprint's `status`
+    # and `component` guards and the `component` guard nine lines below — all
+    # showed the value that moved. That asymmetry is the class this correction
+    # cycle keeps meeting: a fix applied to one branch of a symmetric pair, here
+    # written down IN the sibling's own comment ("rendered `before->after` the way
+    # plan-sprint's twin does") by the pass that left this branch alone, one call
+    # above it. `test_authorization_is_observed` now asks the question of every
+    # guard the registries declare rather than of the ones anybody remembers.
     flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
     if flipped:
         raise RuntimeError(
             f"triage-candidates changed the `status` column on {len(flipped)} "
-            f"candidate(s): {', '.join(flipped)}. Ruling a candidate is not doing it. "
+            f"candidate(s): "
+            + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
+                        for cid in flipped)
+            + f". Ruling a candidate is not doing it. "
             f"`status` belongs to a later process — `plan-feature`, or the build that "
             f"completes the item — and it did not move in the split — see {url}"
+        )
+
+    # READ ONCE INTO A LOCAL, the pattern this file states two guards above, and
+    # rendered `before->after` the way plan-sprint's twin does. Naming ids alone
+    # told the operator WHICH row and not what had been written into it — on the
+    # one column whose wrong value becomes a committed directory, that is the half
+    # they need to tell an invented component from a corrected one.
+    after_component = act.candidate_components(wt_candidates)
+    named = act.components_this_run_had_no_right_to(before_component, after_component)
+    if named:
+        raise RuntimeError(
+            f"triage-candidates set or changed the `component` column on "
+            f"{len(named)} pre-existing candidate(s): "
+            + ", ".join(f"{cid} {before_component[cid]!r}->{after_component[cid]!r}"
+                        for cid in named)
+            + f". That "
+            f"column belongs to whoever FILED the row, because only they know "
+            f"where the proposal goes — from a one-line summary anything "
+            f"downstream is guessing. And the guess does not stay a cell: "
+            f"`plan-candidates` runs immediately after this child and turns a "
+            f"component name into a committed `docs/development/<name>/` on this "
+            f"branch. Naming the component on a row YOU appended is permitted and "
+            f"required; naming it on somebody else's is not — see {url}"
         )
 
     # THE SAME PAIR OF COMPARATORS, ON THE HIGHER-STAKES COLUMN. Read ONCE into
@@ -308,11 +363,19 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # receipt is gone — so a wrongly-set flag is not merely wrong, it is
     # unrecoverable. Only PRE-EXISTING rows are judged, because the prompt
     # REQUIRES a newly appended row to carry `status: open`.
+    #
+    # `before->after` here for a sharper reason than on the candidates side: the
+    # three values are `open`, `applied` and `rejected`, and WHICH ruling the run
+    # invented is the whole of what the operator has to undo. Naming the row and
+    # not the flag hands them the id and keeps the answer.
     ruled = act.statuses_this_run_had_no_right_to(before_direction, after_direction)
     if ruled:
         raise RuntimeError(
             f"triage-candidates changed the `status` column on {len(ruled)} "
-            f"`direction.md` row(s): {', '.join(ruled)}. That flag is the "
+            f"`direction.md` row(s): "
+            + ", ".join(f"{did} {before_direction[did]!r}->{after_direction[did]!r}"
+                        for did in ruled)
+            + f". That flag is the "
             f"OPERATOR'S ALONE — `applied` and `rejected` are the rulings this "
             f"workflow files a row to ask for, and it may not answer its own "
             f"question. Appending a row with `status: open` is the whole of this "

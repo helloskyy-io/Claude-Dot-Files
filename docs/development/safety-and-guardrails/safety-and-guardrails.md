@@ -1,7 +1,7 @@
 # Phase: Safety & Guardrails
 
 **Status:** ✅ COMPLETE
-**Roadmap entry:** [`../sprint.md`](../../sprint.md)
+**Roadmap entry:** [`../sprint.md`](../sprint.md)
 **Depends on:** [`cross-device-sync.md`](../cross-device-sync/cross-device-sync.md) — hooks are only a guarantee if they are on every machine automatically
 
 ## Goal
@@ -26,7 +26,7 @@ Make it safe to say yes quickly in interactive mode, and safe to walk away in au
 
 **Two layers, and they cover different failure modes.** Permissions catch *unlisted* commands and ask. The hook catches *known-dangerous* commands regardless of what the allow list says. A broad allow rule that accidentally matches `rm -rf` is caught by the second layer, which is the entire reason both exist.
 
-**Hooks read JSON on stdin, never environment variables.** Codified in [`../../standards/hook-scripts.md`](../../../standards/hook-scripts.md). The contract is explicit and testable; env-var passing is neither.
+**Hooks read JSON on stdin, never environment variables.** Codified in [`../../standards/hook-scripts.md`](../../standards/hook-scripts.md). The contract is explicit and testable; env-var passing is neither.
 
 **No `PostToolUse` auto-format.** Deliberately rejected — an automatic edit after every tool call fights the model's own file state and produces "file has been modified since read" errors, trading a formatting nicety for a class of run failure.
 
@@ -36,13 +36,13 @@ At the time this was defence-in-depth. It is not.
 
 **Autonomous workflows pass `--dangerously-skip-permissions`**, which disables the entire permissions layer. Of the three things usually cited as making that safe — worktree isolation, the hook, PR review — isolation only bounds blast radius and PR review happens after the fact. **`block-dangerous.sh` is the only control that can stop a command before it runs**, on every autonomous run, on every machine.
 
-Two consequences now binding, recorded in [`../../standards/hook-scripts.md`](../../../standards/hook-scripts.md):
+Two consequences now binding, recorded in [`../../standards/hook-scripts.md`](../../standards/hook-scripts.md):
 
 - **A hook must fail CLOSED.** One that errors into "allow" is worse than no hook, because the safety story still claims it is there.
 - **Any change to which setting sources load must prove the hook survives first.** Hook configuration lives in user-level `settings.json`; narrowing setting sources on a dispatch would drop it. That turned a two-line convenience into a two-line safety regression, and it is why the Managed Configuration phase carries a blocker rather than a task.
 
 ## Where this landed
 
-- [`../../standards/hook-scripts.md`](../../../standards/hook-scripts.md) — the standard, including the headless safety invariant
-- [`../../architecture/architectural_standard.md`](../../../standards/architecture/architectural_standard.md) — hook architecture and the stdin JSON contract
+- [`../../standards/hook-scripts.md`](../../standards/hook-scripts.md) — the standard, including the headless safety invariant
+- [`../../architecture/architectural_standard.md`](../../standards/architecture/architectural_standard.md) — hook architecture and the stdin JSON contract
 - `config/hooks/` — the implementations

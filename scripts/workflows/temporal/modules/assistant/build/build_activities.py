@@ -170,6 +170,12 @@ def ci_verdict(pr: str, *, repo: str | None = None,
         # of it reporting means the gate did not run, which is the opposite of
         # "this repo has no gate" and must not share its outcome.
         if blocking:
+            # The absent gate's names travel here so the runway can name them.
+            # The CALLER must not read this as "checks that ran" — the
+            # UNDECLARED-CHECKS branch does exactly that on the same value and
+            # reported `suite` as unclassified while this branch reported it as
+            # declared. Both messages fired on one run. See the guard in
+            # build_workflow.
             return CiVerdict.GATE_DID_NOT_RUN, sorted(blocking)
         return CiVerdict.NO_CHECKS, undeclared
 
@@ -178,16 +184,35 @@ def ci_verdict(pr: str, *, repo: str | None = None,
     return (CiVerdict.RED, failed) if failed else (CiVerdict.GREEN, undeclared)
 
 
-def wait_for_ci(pr: str, *, repo: str | None = None) -> bool:
-    """Block until the PR's checks settle. Returns False if they did not.
+def wait_for_ci(pr: str, *, repo: str | None = None,
+                repo_root: Path | None = None) -> bool:
+    """Block until the PR's declared gate has REPORTED and settled.
 
     A False return is NOT a failure to propagate — it means the review runs
     against unsettled CI and must be told so, which is what --ci-unsettled
     carries. Treating a slow pipeline as a workflow error would strand PRs that
     are merely waiting.
+
+    SETTLED IS NOT THE SAME AS PRESENT, AND CONFLATING THEM COST A BUILD ITS
+    WHOLE LOOP BUDGET ON 2026-08-14. This returned True the instant no PENDING
+    appeared — including when ZERO checks existed, because GitHub had not yet
+    created the run for a push seconds earlier. That was harmless while an
+    absent gate merely printed a warning and proceeded. Once an absent gate
+    became a HOLD, the same race turned into: push, see nothing, hold, loop
+    back, push, see nothing... three times, then spent, with the PR green and
+    clean by the time a human looked.
+
+    So when the repo declares blocking checks, their ABSENCE is now an unsettled
+    state and this keeps waiting. Only a gate that never appears within the
+    deadline reaches the caller as absent — which is the real signal, and the
+    usual cause is a conflicted PR whose merge ref cannot be computed.
     """
+    blocking: list[str] = []
+    if repo_root is not None:
+        blocking, _advisory, _readable = read_check_policy(repo_root)
+
     deadline = time.monotonic() + CI_MAX_WAIT_SECONDS
-    cmd = ["gh", "pr", "checks", pr, "--json", "state"]
+    cmd = ["gh", "pr", "checks", pr, "--json", "name,state"]
     if repo:
         cmd += ["--repo", repo]
 
@@ -196,8 +221,18 @@ def wait_for_ci(pr: str, *, repo: str | None = None) -> bool:
         # `gh pr checks` exits non-zero when checks are failing OR pending, so the
         # exit code alone cannot distinguish "settled and red" from "still running".
         # Absence of PENDING in the payload is the settled signal.
-        if "PENDING" not in result.stdout.upper():
-            return True
+        settled = "PENDING" not in result.stdout.upper()
+        if settled:
+            if not blocking:
+                return True
+            try:
+                names = {str(c.get("name")) for c in json.loads(result.stdout or "[]")}
+            except json.JSONDecodeError:
+                names = set()
+            # Every declared gate has reported: genuinely settled.
+            if names & set(blocking):
+                return True
+            # Settled-looking but the gate is absent — keep waiting for it to appear.
         time.sleep(CI_POLL_SECONDS)
 
     return False

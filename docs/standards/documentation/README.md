@@ -28,14 +28,42 @@ These are the rules that make a doc corpus maintainable rather than merely large
 
 ## What does NOT bind here
 
-Roughly a third of the document describes a planning structure this repo does not have. Ignore, do not adapt:
+**The whole document binds here.** There is no ignore-list.
 
-- **Sprint Tracking**, **Sprint Close-Out**, **Cross-Roadmap Integration Pattern** — no sprints here; this repo plans in named phases (`docs/development/sprint.md`)
-  - *(§ Completion checkboxes used to be nested here and was structurally swallowed by this exclusion — a producing run read it that way on 2026-08-09 and was not being careless. **Upstream promoted it to its own top-level section the same day**, so the hazard is retired for every consumer and it plainly binds.)*
-  - **Our rule and the standard now AGREE:** a dispatch may flip a checkbox for work in its own diff, and the review stage must verify every flip against the artifact. See `config/rules/standards-governance.md` § Completion checkboxes. The divergence recorded here on 2026-08-09 lasted hours and is closed.
-- **Development Planning Files** — assumes the master-planning layout
-- **The Standup Tracker** — that artifact lives in `mdc-master-planning`; our side is the *reader* (`/standup`), not the owner
-- **Deferred Work — GitHub Issues** — **partially, and read this one carefully.** Only the *routing* is platform-specific and ignorable. The section's **filing authority** — it names *"the PR-review stage"* as the filer, which is this repo's own pipeline — and its **checkbox-before-issue placement rule** are not routing, and both bind here. *(Surfaced 2026-08-08: the blanket exclusion released filing authority repo-wide, and a run used it to exempt itself from the filing rule while reporting the carve-out as over-broad in the same comment. A carve-out justified by one clause must not swallow the clauses beside it.)*
+This section used to carry one — roughly a third of the standard was marked *"ignore, do not adapt"* on the grounds that it described a planning structure this repo does not have. That was wrong in a way that cost real work: **`Sprint Tracking` was excluded because "no sprints here", and this repo has `docs/development/sprint.md`.** The exclusion made three binding gates unreachable, including the **Capability-Parity Gate for Rewrites & Ports**, which names `bash→Temporal` explicitly while this repo is mid-port.
+
+## Where we diverge, it is a QUESTION, not a carve-out
+
+A permanent exclusion is a divergence nobody revisits. **A handoff gets answered once and improves both repos** — and the needs are shared, so a section that does not fit here usually does not fit upstream either.
+
+**Four were raised on 2026-08-14 and four came back resolved** (`1ffbc27` … `dc025a6`). Three were upstream defects rather than local misfits:
+
+| Raised | Outcome |
+|---|---|
+| **Sprint Foundations Pattern** mandates `§N-1` clusters, which § Sprint Structure forbids for named sprints | **Upstream defect, fixed.** A named sprint's cluster is `### Foundations`, no ordinal. The sub-letter machinery is now stated as *protection against renumbering* — so a scheme with no numbers has nothing to protect and must not invent ordinals to imitate one |
+| **Sprint Close-Out** depended on MDC's `R`-item file | **Minimized, and made portable.** Close-out is a **verification gate, not a work phase** — it confirms nothing was left unplaced rather than resolving anything. The standard now requires that a recurring-check list EXIST, not which one. **Supply our own; do not build a parallel R-file** |
+| **§ 0 Component vs phase** was swallowed by a layout-specific exclusion | **Promoted to its own top-level section.** The DECISION binds everywhere; the ARTIFACT SHAPES do not — and a repo with a different layout **does not get to skip the decision because its filenames differ** |
+| **Standup Tracker** ownership | Reader-versus-owner asymmetry, deliberate. No action unless ownership moves |
+
+**Two practices were codified after we reported they were habit rather than rule:** item stamps (`closed YYYY-MM-DD · ~Nh` on every delivered item) and *close-out is reopenable; delivered work is not*. Both were visible only in MDC's sprint file, and **convention does not vendor.**
+
+**And one clause of ours was taken upstream** — *a component with no plan yet is UNPLANNED, not non-conformant* — because a conformance report that flags 11 of 13 folders trains its readers to ignore conformance reports.
+
+## Phase numbers are IDENTITY. Do not rename them.
+
+Recorded here because this repo came within one dispatch of renaming 16 phase files across 43 references, on the reasoning that ordinals impede reordering.
+
+**They do not.** The standard separates three layers, and only the first is fixed:
+
+| Layer | Mutable | Conveys |
+|---|---|---|
+| **Phase number** | **no** | **identity, like a ticket number** |
+| Roadmap position | yes | logical order within the component |
+| Sprint position | yes | execution order across components |
+
+**The free reordering is already there** — move the line in `roadmap.md`; the filename never moves. Numbers only impede reordering if they are read *as* the order.
+
+**Sprints are the opposite and the asymmetry is the point:** *component sprints are named, never numbered*, because there an ordinal encodes a judgement the plan exists to revise. **Phases are identities; sprints are sequences.**
 
 ## The one that explicitly excludes us — read the note
 

@@ -29,6 +29,7 @@ The governing rule carries an override, and you are it:
 | Re-order sections to reflect dependency | Flip a completion checkbox |
 | | **Set `decision` on ANY candidate — see below** |
 | | Set `status` in the candidates file |
+| | Set or change `component` on a candidate row that already existed — that is the FILER's |
 | | Append to or edit `direction.md` |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
 | | **Delete anything** — a candidate row, the candidates file, or the sprint plan |

@@ -312,7 +312,10 @@ claude-dot-files/
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
 │           │                                        #   plan/ holds plan_project (parent) and three children: triage_candidates and
 │           │                                        #   plan_sprint (both wired, in that order — triage rules the candidates, sprint
-│           │                                        #   places what they ruled; split apart so planning can sit between them) and
+│           │                                        #   places what they ruled; split apart so planning can sit between them). What
+│           │                                        #   sits between them is plan-candidates — an ACTIVITY, not a child: no prompt,
+│           │                                        #   no model, it scaffolds a research pool per shipped candidate and is what
+│           │                                        #   gave the research step a reachable input again. Also
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
 │           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with
@@ -394,7 +397,9 @@ claude-dot-files/
 │                   ├── test_authorization_is_observed.py # Every `You MAY NOT` row in a planning prompt names the code that observes it, or
 │                   │                                #   says JUDGEMENT with a reason. Keyed on the CORRESPONDENCE between the rendered table
 │                   │                                #   and a declared map, so a reworded or added row goes red — the split had a mechanism
-│                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced
+│                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced.
+│                   │                                #   Also the second half: every guard built on a `*_this_run_had_no_right_to`
+│                   │                                #   comparator must render `id 'before'->'after'`, found by AST rather than listed
 │                   ├── observer_registry.py         # ONE resolver for both observer registries — does this entry name code that EXISTS?
 │                   │                                #   A helper module, not a test module. Shared rather than copied for the reason
 │                   │                                #   normalise_cell exists: two copies drift, and the weaker one silently stops catching
@@ -408,7 +413,19 @@ claude-dot-files/
 │                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
 │                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when
 │                   │                                #   routing.MAX_LOOPS went 1 -> 3, two of them inside a prompt sent to a model
-│                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
+│                   ├── test_plan_candidates.py      # plan-candidates, the one step in the planning chain that is an ACTIVITY and not a
+│                   │                                #   child: no prompt, no model, so it is testable in-process at no dispatch cost.
+│                   │                                #   The four skips (not `ship`, not `open`, blank component, directory already
+│                   │                                #   exists), the resume path for a pool this pipeline seeded and abandoned, and
+│                   │                                #   what the seeded synthesis has to carry. The shape check is parametrized over
+│                   │                                #   the CLASS — every way a row is read wrongly or lost — against a nine-table
+│                   │                                #   fixture, because a one-table fixture cannot see a whole-file check's scope
+│                   │                                #   error, and one case reads the REAL candidates.md. The doors are NOT listed
+│                   │                                #   here, and no longer in one docstring either — each lives in the helper that
+│                   │                                #   raises for it, since the one list said "three ways" over four cases
+│                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing, plus the
+│                   │                                #   Step 1b wiring that gave the research step a reachable input again, and that
+│                   │                                #   every field of `Scaffolded` reaches the operator as its own note
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
 │                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,
@@ -467,7 +484,14 @@ claude-dot-files/
 │   │       ├── test_candidates_prose_matches_the_table.py # § Where things stand declares totals, an id range, a gap list and a
 │   │       │                                        #   decision split ABOUT the table above it. Derived here, because the
 │   │       │                                        #   paragraph was hand-written three times and wrong twice — the third time
+│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read. Also
+│   │       │                                        #   that every row RENDERS its flags the way § Two flags declares them, the
+│   │       │                                        #   vocabulary read off that section rather than hard-coded here
 │   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
+│   │       ├── test_relative_links_resolve.py       # Every relative markdown link in a file this repo OWNS points at a
+│   │       │                                        #   file that exists. 29 were broken and none had been caught; every
+│   │       │                                        #   one was a `../` count off by one or two. Vendored standards,
+│   │       │                                        #   research citations and skills' examples are excluded by name
 │   │       └── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │                                                #   checks, because every existing check was aimed at code rather than prose
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,

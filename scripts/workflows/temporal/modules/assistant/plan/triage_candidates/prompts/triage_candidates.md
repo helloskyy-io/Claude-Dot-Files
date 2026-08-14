@@ -19,7 +19,8 @@ ${DIRECTION_CEILING}
 |---|---|
 | Set `decision` in the candidates file | Set `status` in the candidates file — that is a later process's |
 | Append a `D-NNN` row to `direction.md` | Set `status` on a `direction.md` row — that is the operator's |
-| Write reasoning into a candidate's Note | **Touch `sprint.md` at all** — you hold no authorization over it |
+| Write reasoning into a candidate's Note | Set or change `component` on a candidate row that already existed — that is the FILER's |
+| Name the `component` on a row YOU append | **Touch `sprint.md` at all** — you hold no authorization over it |
 | | Write or edit any phase doc |
 | | Design *how* anything gets built |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
@@ -30,6 +31,7 @@ ${DIRECTION_CEILING}
 **Every row in that MAY NOT column is enforced, not requested, and here is exactly how.** When you finish, the worktree is read and compared against a snapshot taken before you started:
 
 - **Both `status` columns** — the one in the candidates file and the one on a `direction.md` row — are compared cell by cell on every row that already existed. A newly appended row is exempt, because you are *required* to write `status: open` on one.
+- **The `component` column**, the same way and for the same reason: cell by cell on every row that already existed, with a row you append exempt because filing one requires you to name where it goes. **The asymmetry is the whole point.** A component you name on your OWN proposal is the filer naming it, which is who owns the column; a component you write onto somebody else's row is a guess from a one-line summary — and it does not stay a guess, because `plan-candidates` runs immediately after you and turns it into a committed `docs/development/<name>/` on this branch.
 - **Every path outside your authorization** — the sprint plan, any phase doc, anything under `docs/standards/` other than the candidates file and `direction.md` — is compared by content. Renaming or deleting one counts as editing it.
 - **Deleting anything** fails the run, at both altitudes and in both files. A candidate row and a `direction.md` row are each compared by ID against what was there before you started; the two files themselves are checked for still existing. This is separate from every check above it *because every check above it is blind to absence*: the triage count drops when a row vanishes exactly as it does when a row is ruled, and the two `status` comparisons judge only rows present on **both** sides, so a row that is simply gone is invisible to all three. A candidate ruled `reject` stays visibly rejected so the next research cycle does not re-propose it, and an `open` direction row is a question the operator has not answered yet.
 

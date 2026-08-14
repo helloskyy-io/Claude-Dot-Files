@@ -63,6 +63,7 @@ List EVERY surfaced item, from all sources above, exhaustively. Sources of items
 
 Do not rely on git to surface it. A carried-forward guard only produces a merge CONFLICT when the same lines changed on both sides; a section nobody touched upstream deletes silently. Measured on one PR: two guard losses in one file, and the first was caught only because it happened to conflict. Its sibling two sections below produced no conflict and survived three review passes, a peer-review trio and quality-control — it was found by enumeration, and nothing else would have found it.
 
+
 Enumerate by NAME and map each to a destination. "The tests were carried across" is not the check; "§1→A, §2→B, §3→C, §7→NOWHERE" is. A gap found this way is a **correctness** finding, not doc-drift.
 
 **COMPLETION-CHECKBOX SWEEP — mandatory whenever this PR flips `[ ]` → `[x]` in any planning artifact** (phase doc, `roadmap.md`, epic breakdown). The global rule `standards-governance.md` § *Completion checkboxes* (`~/.claude/rules/`, sourced from `config/rules/` in this repo) puts the flip in dispatch scope and puts the **verification on you**: you MUST check every flip against the artifact it claims, **not against the run's account of it**. Read the rule — it is binding, it records why the check and not the human is the safeguard, and it is deliberately not restated here.
@@ -153,12 +154,14 @@ All three still block MERGE. Only LAUNDERED counts against the producing run.
 
 **Self-check for a novel case — if I get this wrong, is the failure LOUD or QUIET?** A false no-change outcome is **loud**: no plan was produced and the operator sees it immediately. A buried deferral is **quiet**: the PR still reads clean and nobody notices. **The gate exists for the quiet one.** If getting it wrong would be loud, it is not the operation this constrains.
 
-**QUESTION 0 COMES BEFORE PLACEMENT — DEFECT OR PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../docs/standards/architecture/architectural_standard.md) is binding and states this; the full reasoning is [`memory-model.md` §1.1](../../../../../../docs/guide/memory-model.md). Do not restate it here — apply it.
+**QUESTION 0 COMES BEFORE PLACEMENT — DEFECT OR PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../../docs/standards/architecture/architectural_standard.md) is binding and states this; the full reasoning is [`memory-model.md` §1.1](../../../../../../../docs/guide/memory-model.md). Do not restate it here — apply it.
 
 - **A DEFECT** — something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking. Continue to placement.
 - **A PROPOSAL** — capability that does not exist yet and would be *added*. **It goes to `candidates.md` and it is NEVER an Issue**, however clean its done-state looks. **Bias here when it reads either way:** a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an Issue costs an operator's day.
 
   **You do not place it — you VERIFY it was placed.** `candidates.md` is a file surface and you are decide-only, so you cannot write it; the producing run can and is now instructed to. **Check the diff for the candidate row.** A proposal the run surfaced but did not place is a `hold: redispatch`, `remedy: fix-in-place` finding — *place it* — because a surfaced-not-placed proposal dies at merge. **You keep the ruling that matters:** if the run classified a DEFECT as a proposal to avoid fixing it, say so and hold the PR.
+
+  **Check the `component` cell on any row the run added, and treat a blank as a QUESTION rather than a defect.** The filer names the `docs/development/<name>/` a candidate belongs to, and `plan-candidates` scaffolds nothing for a blank — so a blank row is one nobody will act on until a human names it. **That is not automatically a hold:** a run that genuinely cannot tell where a proposal belongs is right to leave it blank, and backfilling it is a triage judgement, not the producing run's. Hold only when the run plainly knew — the proposal names its component in its own Note or its evidence sits inside one — and left the cell empty anyway.
 
 **You are NOT expected to work out where a proposal belongs in the plan** — sprint, phase, or nothing. Only that it is a proposal. That triage is a separate job with its own criteria, and doing it inline is what produced feature requests as Issues.
 

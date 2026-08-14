@@ -38,6 +38,27 @@ Record fidelity gaps as findings and carry them into Stage 3 alongside the revie
 
 Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens reviewers in parallel; phase 2b runs the holistic quality-control reviewer sequentially with access to 2a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
 
+**TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.** Verified
+against their definitions: `architect`, `planner`, `security-auditor`,
+`standards-architect` and `quality-control` hold **Read, Grep and Glob only** —
+none of them has Bash. They cannot run a command, a test, a mutation or a `git`
+invocation. Put this in the dispatch, in these two parts:
+
+- **"You have Read/Grep/Glob and no shell. That is expected — do not explain it,
+  and do not spend a finding on being unable to run something."** Measured across
+  four consecutive passes: all four agents opened with a paragraph about the
+  missing shell, and one spent its only Info finding on *"I could not run `git
+  diff` myself"*, flagged at Medium confidence, on a question the orchestrator
+  answered in two seconds.
+- **"If you want a command run, hand it back and I will run it and return the
+  output."** Two of four agents invented this themselves and it was genuinely
+  useful both times. Asking for it explicitly turns a lucky habit into a
+  channel.
+
+**Any instruction in this stage that says MUTATE, RUN or VERIFY is addressed to
+YOU, not to them.** The agents read; the orchestrator executes. An instruction
+they cannot obey is one they will spend words apologising for.
+
 ### Stage 2a: NARROW PEER REVIEW (parallel)
 
 Dispatch all THREE peer-review agents — code-reviewer, refactoring-evaluator, and standards-auditor — back-to-back BEFORE processing any results. They review the SAME artifact — the draft run's diff on this PR branch, as read in Stage 1 — independently; there is no ordering dependency between them.
@@ -113,7 +134,7 @@ For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards
 
 **BEFORE choosing any disposition below, ask: IS THIS ABOUT THE WORK IN HAND?** An artifact this run created or edited — *including one it created correctly but incompletely* — a commit made to unblock this run, or output this run produced that violates a rule binding it.
 
-**If yes, exactly THREE dispositions exist and the rest are UNREACHABLE:** `FIXED`, `REJECTED`, or hand it back as a HOLD (a correction pass fixes it, or a human rules on it). **`DEFERRED`, `RULING-REQUIRED` and `SURFACED` do not exist for this class** — not as a last resort, not with a good pointer, not at all. See [`finding-routing.md` § 5 gate 0](../../../../../../docs/standards/finding-routing.md).
+**If yes, exactly THREE dispositions exist and the rest are UNREACHABLE:** `FIXED`, `REJECTED`, or hand it back as a HOLD (a correction pass fixes it, or a human rules on it). **`DEFERRED`, `RULING-REQUIRED` and `SURFACED` do not exist for this class** — not as a last resort, not with a good pointer, not at all. See [`finding-routing.md` § 5 gate 0](../../../../../../../../docs/standards/finding-routing.md).
 
 **Understand why rather than obeying it.** Six versions of this rule were written as criteria and all six leaked, because **the incentives run the other way**: under a turn cap, filing costs one line and fixing costs the rest of the budget. The list is closed because every reachable exit gets taken. **And the exit is not a transfer of work — it is a multiplication of it**, since the run that had the context, the files and the authority is gone by the time anyone picks it up.
 

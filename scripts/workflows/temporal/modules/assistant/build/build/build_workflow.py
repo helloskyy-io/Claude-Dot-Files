@@ -101,7 +101,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
     """One refine pass followed by one disposition pass."""
-    ci_settled = wait_for_ci(pr, repo=task.repo_target)
+    ci_settled = wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
@@ -125,7 +125,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     # Proposed by the MDC side 2026-08-10 and it closes a hole WE opened the day
     # before by removing branch protection — `suite` runs on every PR here and
     # nothing consumed its verdict, so `gh pr merge` succeeded on red.
-    wait_for_ci(pr, repo=task.repo_target)
+    wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
     verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
 
     if verdict_state is CiVerdict.UNREADABLE_POLICY:
@@ -140,7 +140,12 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         )
         return Verdict.HOLD_NEEDS_ASSISTANCE
 
-    if extra and verdict_state is not CiVerdict.RED:
+    # GATE_DID_NOT_RUN is excluded because its `extra` carries the names of the
+    # gate that is ABSENT, not of checks that ran. Reading it here reported
+    # `suite` as unclassified in the same breath as the branch below reported
+    # it as declared blocking — two contradictory lines from one run, on
+    # 2026-08-14.
+    if extra and verdict_state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN):
         # A check that ran and is declared NEITHER blocking nor advisory is the
         # third state the Testing Standard says does not exist. Reported by
         # name, never silently gated — a check the repo has not classified must

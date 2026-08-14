@@ -47,5 +47,5 @@ This is infrastructure for the phases after it. Its real success criterion is no
 
 ## Where this landed
 
-- [`../../guide/deployment.md`](../../../guide/deployment.md) — the operator-facing instructions
+- [`../../guide/deployment.md`](../../guide/deployment.md) — the operator-facing instructions
 - `install.sh` — the implementation
