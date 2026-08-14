@@ -31,7 +31,9 @@ THE FOUR ARE NOT EQUALLY OBVIOUS, and the two easy ones are the traps:
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -66,17 +68,21 @@ def test_a_conformant_plan_passes_EVERY_guard(tree: Path) -> None:
     """THE FLOOR. If this does not pass, every assertion below is vacuous — a
     guard that rejects correct work is indistinguishable from one that works."""
     c = _component(tree)
-    before = own.phase_docs(c)
+    before, before_plan = own.phase_docs(c), own.plan_docs(c)
     _write(c, "roadmap.md", "# Alpha\n\n- [ ] a criterion\n")
     _write(c, "phase1_the_first_thing.md", "# Phase 1\n\n- [ ] a step\n")
     _write(c, "phase2b_a_sub_letter.md", "# Phase 2b\n")
-    after = own.phase_docs(c)
+    after, after_plan = own.phase_docs(c), own.plan_docs(c)
 
-    assert own.malformed_phase_docs(before, after) == []
+    assert own.malformed_phase_docs(before_plan, after_plan) == [], (
+        "`roadmap.md` is the one legitimate non-phase name and must not be "
+        "flagged by the guard that judges every other new plan file")
     assert own.reused_phase_numbers(before, after) == []
     assert own.hour_estimates(c, tree) == []
     assert act.ids_deleted(before, after) == []
+    assert own.plan_boxes(c) == Counter(), "no box is ticked in a fresh plan"
     assert len(after) == 2, "the phase-doc reader found nothing to judge"
+    assert len(after_plan) == 3, "the plan reader must also see the roadmap"
 
 
 # --- the phase number is IDENTITY ------------------------------------------
@@ -88,6 +94,8 @@ def test_a_conformant_plan_passes_EVERY_guard(tree: Path) -> None:
     "phase3_the_thing(old).md",      # parenthetical disambiguation
     "phase3.md",                     # no descriptor
     "phaseA_the_thing.md",           # letter where the number goes
+    "the_run_bag.md",                # DROPPED THE PREFIX ENTIRELY — see below
+    "README.md",                     # a third kind of file; there are only two
 ])
 def test_a_NEW_phase_doc_outside_the_grammar_is_caught(tree: Path, name: str) -> None:
     """The Documentation Standard's own recommended CI lint, at authoring time.
@@ -95,6 +103,15 @@ def test_a_NEW_phase_doc_outside_the_grammar_is_caught(tree: Path, name: str) ->
     Every one of these is a form the standard names as a real failure mode: it
     lists dropping the number, retroactive sub-letters and parenthetical
     disambiguation by name, having watched engineers reach for all three.
+
+    `the_run_bag.md` IS THE CASE THAT WAS MISSING, AND IT IS THE PLAINEST ONE.
+    Every other entry here begins with `phase`, so a guard sourced from a
+    `^phase` sweep catches them all by construction and this parametrize list
+    read as thorough while being blind to a name that drops the convention
+    outright — which is the standard's first-named failure mode and what a model
+    writes when it forgets the convention rather than mistyping it. Closing it is
+    what moved this guard onto `plan_docs` (the write grant's own set) from
+    `phase_docs`.
 
     A `_v2` SUFFIX IS DELIBERATELY ABSENT FROM THIS LIST, AND THE SPEC IS WHY.
     The standard's prose forbids "version suffixes" while its own binding regex —
@@ -107,9 +124,24 @@ def test_a_NEW_phase_doc_outside_the_grammar_is_caught(tree: Path, name: str) ->
     and this workflow may not rename its way out of one.
     """
     c = _component(tree)
-    before = own.phase_docs(c)
+    before = own.plan_docs(c)
     _write(c, name)
-    assert own.malformed_phase_docs(before, own.phase_docs(c)) == [name]
+    assert own.malformed_phase_docs(before, own.plan_docs(c)) == [name]
+
+
+def test_the_ROADMAP_is_the_one_new_name_that_is_not_a_phase_doc(tree: Path) -> None:
+    """The guard judges every NEW plan file, so the exemption must be explicit.
+
+    Widening the sweep to the write grant made `roadmap.md` a candidate for its
+    own naming guard — it is a new top-level markdown file that is not a
+    conformant phase name. Excluding it by name is the whole of the difference
+    between "this run writes two kinds of file" and "this run cannot write its
+    own deliverable".
+    """
+    c = _component(tree)
+    before = own.plan_docs(c)
+    _write(c, "roadmap.md")
+    assert own.malformed_phase_docs(before, own.plan_docs(c)) == []
 
 
 def test_a_PRE_EXISTING_malformed_name_is_left_alone(tree: Path) -> None:
@@ -123,9 +155,10 @@ def test_a_PRE_EXISTING_malformed_name_is_left_alone(tree: Path) -> None:
     """
     c = _component(tree)
     _write(c, "phase_legacy.md")
-    before = own.phase_docs(c)
+    _write(c, "an_old_note.md")
+    before = own.plan_docs(c)
     _write(c, "phase1_new_work.md")
-    assert own.malformed_phase_docs(before, own.phase_docs(c)) == []
+    assert own.malformed_phase_docs(before, own.plan_docs(c)) == []
 
 
 def test_a_new_phase_reusing_a_LIVE_number_is_caught(tree: Path) -> None:
@@ -193,10 +226,12 @@ def test_a_RENUMBER_is_caught_as_a_deletion_not_as_a_new_name(tree: Path) -> Non
     _write(c, "phase2_the_thing.md")
     before = own.phase_docs(c)
 
+    before_plan = own.plan_docs(c)
     (c / "phase2_the_thing.md").rename(c / "phase3_the_thing.md")
     after = own.phase_docs(c)
 
-    assert own.malformed_phase_docs(before, after) == [], "the new name is valid"
+    assert own.malformed_phase_docs(before_plan, own.plan_docs(c)) == [], (
+        "the new name is valid")
     assert own.reused_phase_numbers(before, after) == [], "3 was never taken"
     assert act.ids_deleted(before, after) == ["phase2_the_thing.md"], (
         "the deletion comparator is the ONLY one that sees a renumber; if this "
@@ -236,6 +271,17 @@ _PROSE_ABOUT_TIME = [
     "ment's figures true for a few hours and then wrong again",
     'nt"*; that was true for a few hours on 2026-08-10 and w',
     "has a shelf life measured in hours, and the reading-in",
+    # THE THREE THE SHIPPED PATTERN FAILED ON, and the reason this list is no
+    # longer only lines lifted from the tree. The pattern's own comment cited the
+    # first of these as the false positive `[^.\n]` prevents — and a `\.?` added
+    # after the whole label group to catch `Est.` handed the property straight
+    # back, because it also consumed a genuine sentence-ending full stop. All
+    # three matched the shipped guard; none is an estimate. The marker word here
+    # ENDS a sentence and the figure belongs to the next one, which is the shape
+    # no line copied out of the tree happened to have.
+    "Based on the estimate. It took 3 hours to migrate by hand.",
+    "That is the whole effort. Then 5 hours later the poller fired.",
+    "We settled the sizing. We waited 2 hours for the first run.",
 ]
 
 
@@ -288,6 +334,39 @@ def test_the_hour_guard_does_NOT_read_the_research_pool(tree: Path) -> None:
     c = _component(tree)
     (c / "research" / "synthesis.md").write_text("The sweep took ~3 hours.\n")
     assert own.hour_estimates(c, tree) == []
+
+
+def test_the_hour_and_checkbox_GUARDS_COVER_THE_WHOLE_WRITE_GRANT(tree: Path) -> None:
+    """A guard narrower than the grant leaves a file the run may write unread.
+
+    The grant is every markdown file directly in the component, and both content
+    guards were scoped to `roadmap.md`-or-`phase*` instead. So a top-level
+    `notes.md` — permitted by the grant, therefore exempt from
+    `boundary_crossings` by construction — could carry an hour estimate and a
+    pre-ticked criterion past every check in the workflow. Nothing else in the
+    module would have noticed: the boundary tests assert the grant is WIDE and
+    the content tests assert the guards FIRE, and neither compares the two sets.
+    """
+    c = _component(tree)
+    _write(c, "notes.md", "# Notes\n\nSizing: ~8h\n\n- [x] already done\n")
+    assert own.hour_estimates(c, tree) == [
+        "docs/development/alpha/notes.md:3: Sizing: ~8h"]
+    assert own.plan_boxes(c) == Counter({"already done": 1})
+
+
+def test_plan_boxes_reads_the_ROADMAP_and_the_phase_docs_together(tree: Path) -> None:
+    """One Counter over the whole plan, because the prohibition is about the plan.
+
+    Counted by TEXT so that re-ordering sections is invisible, and a Counter
+    rather than a set so that ticking the second of two identically worded
+    criteria is still seen.
+    """
+    c = _component(tree)
+    _write(c, "roadmap.md", "# Alpha\n\n- [x] a criterion\n- [ ] an unchecked one\n")
+    _write(c, "phase1_a.md", "# Phase 1\n\n- [x] a criterion\n* [X] a step\n")
+    assert own.plan_boxes(c) == Counter({"a criterion": 2, "a step": 1})
+    assert own.plan_boxes(_component(tree, "beta")) == Counter(), (
+        "a component with no plan yet must count zero rather than raise")
 
 
 # --- the write boundary: two components, never one -------------------------
@@ -363,6 +442,31 @@ def test_a_component_whose_name_PREFIXES_another_is_not_granted_it(tree: Path) -
     assert act.boundary_crossings(
         before, after, wf.FORBIDDEN_PATHS, permitted) == [
         "docs/development/alpha-two/roadmap.md"]
+
+
+def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -> None:
+    """A directory name is DATA, and interpolating it raw makes it a pattern.
+
+    The standalone dispatch takes an operator-supplied directory and nothing
+    slugs it — only the `plan-project` path runs it through `component_slug`. So
+    a real name carrying a regex metacharacter, `v2.1-migration` being the
+    likeliest, becomes a grant whose `.` matches any character and therefore
+    reaches `v2x1-migration/` as well. The boundary silently widening to a
+    SIBLING is the one failure the whole module exists to prevent, and every
+    other boundary test here uses `alpha`, which has no metacharacter to escape.
+    """
+    permitted = wf.permitted_paths(Path("docs/development/v2.1-migration"))
+    before = _state({"docs/development/v2x1-migration/roadmap.md": "a"})
+    after = {k: "CHANGED" for k in before}
+    assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [
+        "docs/development/v2x1-migration/roadmap.md"], (
+        "the grant matched a sibling whose name differs by one character — the "
+        "component segment reached the regex unescaped")
+
+    own_file = {"docs/development/v2.1-migration/roadmap.md": "a"}
+    assert act.boundary_crossings(
+        own_file, {k: "CHANGED" for k in own_file},
+        wf.FORBIDDEN_PATHS, permitted) == [], "and its own component is still granted"
 
 
 def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
@@ -455,16 +559,104 @@ def test_the_shim_invokes_its_OWN_runner() -> None:
         "the usage block must invoke this shim by its own name")
 
 
-def test_the_runner_REFUSES_a_component_outside_the_repo(tmp_path: Path) -> None:
+def test_the_runner_REFUSES_a_component_outside_the_repo(tmp_path: Path, capsys) -> None:
     """Two independent operator inputs, and `../` between them escapes the tree.
 
     `--repo` and the component path are parsed separately, so nothing else stops
     `../../elsewhere` from planning a directory the run is not reviewing — and a
     plan written outside the worktree is invisible to the PR.
+
+    THE REPO IS A REAL GIT REPO, AND THAT IS THE ASSERTION RATHER THAN SETUP.
+    This test shipped against a bare `mkdir`, so `preflight` refused it with *not
+    inside a git repository* and the run returned 1 without the escape check ever
+    executing: the exit code was right, the reason was a different guard, and
+    deleting the `is_relative_to` check outright would not have failed it. The
+    message is asserted for the same reason — an exit code alone cannot tell two
+    refusals apart, which is exactly how this passed vacuously.
     """
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
     import run_plan_feature as runner
 
-    (tmp_path / "repo" / "docs" / "development").mkdir(parents=True)
+    repo = tmp_path / "repo"
+    (repo / "docs" / "development").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     (tmp_path / "outside").mkdir()
-    assert runner.main(["../outside", "--repo", str(tmp_path / "repo")]) == 1
+
+    assert runner.main(["../outside", "--repo", str(repo)]) == 1
+    assert "resolves outside the repo" in capsys.readouterr().err, (
+        "the run was refused by some OTHER guard — this test is not exercising "
+        "the escape check it names")
+
+
+# --- the guard SEQUENCE, driven end to end ---------------------------------
+
+def _drive(monkeypatch: pytest.MonkeyPatch, tree: Path, writes) -> str:
+    """Run `run_plan_feature` against a fake model that mutates the tree.
+
+    THE ONLY TEST HERE THAT GOES THROUGH THE ORCHESTRATOR, and the gap it closes
+    is a real one: every other assertion in this module drives a comparator in
+    isolation, so all of them stayed green while the workflow raised the WRONG
+    guard's message for its own primary case. A renumbered phase doc is both a
+    vanished grant and a lost identity, and with the generic check first the
+    identity message — the only place the rule is explained — was unreachable.
+
+    The fake offends the way a real run does, by writing to the worktree, rather
+    than by patching a guard's inputs.
+
+    `worktree_state` IS STUBBED BUT NOT SILENCED, and the difference decides
+    whether the ordering assertion means anything. The fixture tree is not a git
+    repository, so the real reader cannot run — but a stub returning `{}` makes
+    `grants_that_vanished` empty on every input, which is precisely the guard the
+    ordering test claims to be ordered AGAINST. This one mimics git instead: a
+    path once reported stays reported, and a file that is gone reads as
+    `act.ABSENT`. Written flat first, and it passed while asserting nothing.
+    """
+    cands = tree / "docs" / "standards" / "architecture" / "research" / "candidates.md"
+    cands.parent.mkdir(parents=True, exist_ok=True)
+    cands.write_text(
+        "| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
+        "|---|---|---|---|---|---|---|\n"
+        "| C-001 | a candidate |  | PR #1 |  | `open` | n |\n")
+
+    comp, seen = _component(tree), set()
+
+    def snapshot(*_a: object, **_k: object) -> dict[str, str]:
+        seen.update(p.name for p in comp.iterdir()
+                    if p.is_file() and p.suffix == ".md")
+        return {f"docs/development/alpha/{n}":
+                ("digest" if (comp / n).is_file() else act.ABSENT) for n in seen}
+
+    monkeypatch.setattr(act, "worktree_state", snapshot)
+    monkeypatch.setattr(act, "evidence_block", lambda *a, **k: "<evidence>")
+    monkeypatch.setattr(act, "run_claude",
+                        lambda prompt, **kw: (writes(), "https://github.com/o/r/pull/9")[1])
+
+    with pytest.raises(RuntimeError) as exc:
+        wf.run_plan_feature(repo_root=tree, worktree=tree,
+                            component=_component(tree), candidates_path=cands)
+    return str(exc.value)
+
+
+def test_a_RENUMBER_raises_the_IDENTITY_message_not_the_generic_one(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The specific diagnostic must be the one an operator actually sees."""
+    c = _component(tree)
+    _write(c, "roadmap.md")
+    _write(c, "phase2_the_thing.md")
+
+    message = _drive(monkeypatch, tree,
+                     lambda: (c / "phase2_the_thing.md").rename(c / "phase3_the_thing.md"))
+    assert "NAMES the phase for life" in message, (
+        f"the renumber raised a different guard's message: {message}")
+    assert "cease to exist" not in message
+
+
+def test_an_UNNUMBERED_plan_doc_fails_the_run(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`the_run_bag.md` reaches the naming guard through the orchestrator too."""
+    c = _component(tree)
+    _write(c, "roadmap.md")
+    _write(c, "phase1_a.md")
+
+    message = _drive(monkeypatch, tree, lambda: _write(c, "the_run_bag.md"))
+    assert "the_run_bag.md" in message and "exactly two kinds" in message

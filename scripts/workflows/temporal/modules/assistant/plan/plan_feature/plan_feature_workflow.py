@@ -67,7 +67,7 @@ a NEW ATTEMPT, not a replay.
 
 from __future__ import annotations
 
-from collections import Counter
+import re
 from pathlib import Path
 
 from ... import routing
@@ -112,6 +112,16 @@ def permitted_paths(component_rel: Path) -> tuple[str, ...]:
     would either grant every component at once — deleting the boundary — or hard-
     code one, which is worse.
 
+    `re.escape` ON THE COMPONENT SEGMENT, the same way `plan_sprint` escapes its
+    sprint path, and it is a correctness requirement rather than hygiene: the
+    segment is an operator-supplied directory name on the standalone path, where
+    nothing slugs it. A component named `v2.1-migration` interpolated raw makes
+    `.` match any character, so the grant reaches `v2x1-migration/` too — the
+    boundary silently widening to a sibling is the one failure this whole module
+    exists to prevent. Inside `plan-project` the name has been through
+    `component_slug` and cannot carry a metacharacter; the standalone dispatch is
+    a documented, supported mode and has no such filter.
+
     `[^/]+\\.md$` IS THE LOAD-BEARING HALF OF THE FIRST GRANT. It permits files
     sitting DIRECTLY in the component directory — `roadmap.md` and the phase docs,
     which is the entire output — and by construction it permits nothing in a
@@ -129,24 +139,62 @@ def permitted_paths(component_rel: Path) -> tuple[str, ...]:
     `plan-sprint` carries for the same grant.
     """
     return (
-        rf"^{component_rel.as_posix()}/[^/]+\.md$",
+        rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",
         r"^docs/standards/architecture/research/candidates\.md$",
     )
 
 
+def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
+                  pr_number: str | None) -> dict[str, str]:
+    """Every placeholder the prompt takes, assembled ONCE for both callers.
+
+    THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
+    they cannot drift. The runner's `--dry-run` branch hand-assembled its own
+    copy of this dict, which is the exact shape of a bug this family has already
+    shipped and fixed once: `plan_sprint`'s `correction_note` docstring records a
+    dry run previewing a DIFFERENT prompt from the one dispatched, because the
+    values were built twice. A preview that is not the artifact is worse than no
+    preview — it is an operator checking the wrong thing and concluding.
+
+    `tree` IS THE TREE THE COUNTS ARE TAKEN FROM: the worktree on the live path,
+    the repo on the dry-run path, where no worktree exists yet. Same reason
+    `evidence_block`'s parameter carries that name.
+    """
+    component = tree / rel_component
+    return {
+        "COMPONENT_PATH": rel_component.as_posix(),
+        "COMPONENT_NAME": rel_component.name,
+        "CANDIDATES_PATH": rel_candidates.as_posix(),
+        "PLANNING_STATE": own.planning_state(component, tree),
+        "RESEARCH_INVENTORY": own.research_inventory(component, tree),
+        # The tree-wide pointer, alongside the component-scoped one above. It
+        # teaches the pool convention and names the thesis; `RESEARCH_INVENTORY`
+        # says which pool is THIS run's, which the shared block cannot know.
+        "EVIDENCE_BLOCK": act.evidence_block(tree),
+        "SUBMIT_PROMPT": act.submit_prompt(
+            pr_number, f"plan-feature: plan {rel_component.name}"),
+        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
+        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+    }
+
+
 # --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
 #
-# THE CLASS THIS SITS INSIDE. A prohibition a model is told is checked, and which
-# nothing checks, is worse than an unstated one: it buys compliance on the
-# strength of a claim that is false. Keyed by the row's exact text so that
-# REWORDING a row breaks this map — the question "what observes this?" has to be
-# answered again whenever the prohibition changes, and a new row has no answer at
-# all until somebody writes one. `test_authorization_is_observed.py` compares
-# these keys against the rendered table, over a DISCOVERED set of workflows.
+# See `triage_candidates_workflow.MAY_NOT_OBSERVERS` for why this map exists and
+# why it is keyed by the row's exact text — CITED rather than restated, which is
+# the convention `plan_sprint_workflow` already follows, so a correction to the
+# argument lands in one place instead of drifting across three copies.
+# `test_authorization_is_observed.py` compares these keys against the rendered
+# table, over a DISCOVERED set of workflows, and `JUDGEMENT` is a legitimate
+# answer that must say why the property has no artifact.
 #
-# `JUDGEMENT` is a legitimate answer and must say WHY the property has no
-# artifact. It is not a waiver — it is the difference between "nothing checks
-# this" being a decision and being an oversight.
+# WHAT IS NEW HERE RATHER THAN INHERITED: three of this workflow's prohibitions
+# are properties of FILENAMES and one is a property of PROSE, so several entries
+# below name a reader in `plan_feature_activities` rather than a comparator the
+# family shares. Every one of those readers is scoped by `own.plan_docs` — the
+# write grant's own set — because a guard narrower than the grant leaves a file
+# the run may write and nothing inspects, which is this map's failure mode
+# arriving one layer down.
 MAY_NOT_OBSERVERS: dict[str, str] = {
     "**Estimate hours, or size the work in any unit of time** — that is `plan-verify`'s":
         "own.hour_estimates over the roadmap and every phase doc after the run, "
@@ -158,9 +206,12 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "act.ids_deleted — a rename and a renumber are both a filename that "
         "vanished, which is what makes one comparator answer both",
     "Give a NEW phase doc a name outside `phaseN_<name>.md`":
-        "own.malformed_phase_docs over both snapshots, judging only names this "
-        "run added — the Documentation Standard's own recommended CI lint, "
-        "applied at authoring time",
+        "own.malformed_phase_docs over both own.plan_docs snapshots, judging "
+        "only names this run added — the Documentation Standard's own "
+        "recommended CI lint, applied at authoring time, and scoped to the WRITE "
+        "GRANT rather than to names beginning `phase`, so that dropping the "
+        "number entirely (`the_run_bag.md`) is caught and not only the tidy "
+        "near-misses",
     "Give a NEW phase a number already used in this component":
         "own.reused_phase_numbers over both snapshots — a gap is not a free "
         "number, because references to a retired phase survive elsewhere",
@@ -170,8 +221,9 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, whose first "
         "grant is `<component>/[^/]+\\.md$` and so reaches no subdirectory",
     "**Tick a completion checkbox** — you have built nothing":
-        "act.checked_boxes counted over the roadmap and every phase doc either "
-        "side of the run and compared in BOTH directions",
+        "own.plan_boxes — act.checked_boxes over every top-level doc the grant "
+        "permits — counted either side of the run and compared in BOTH "
+        "directions",
     "Set `decision`, `status`, or another filer's `component` in the candidates file":
         "act.candidate_decisions, act.candidate_statuses and "
         "act.candidate_components snapshotted either side of the run, compared by "
@@ -193,17 +245,11 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
 
 # --- EVERY BEFORE/AFTER SNAPSHOT, AND WHAT WATCHES IT FOR ABSENCE ------------
 #
-# THE SECOND CLASS, AND IT IS NOT THE ONE ABOVE. Every comparator this family
-# owns reports ADDITION and MUTATION; none of them reports DISAPPEARANCE.
-# `statuses_this_run_had_no_right_to` judges `before.keys() & after.keys()`, so a
-# deleted id is in neither intersection; `boundary_crossings` exempts a permitted
-# path unconditionally, so the files an override exists FOR are the ones whose
-# removal is invisible; `Counter` subtraction discards removals outright.
-#
-# Keyed by the SNAPSHOT rather than by the prohibition, because that is what the
-# blindness is a property of. `test_disappearance_is_observed.py` discovers every
-# `before*` local by AST, so a snapshot added later has no entry and fails the
-# suite until somebody answers "what watches this one for absence?"
+# See `triage_candidates_workflow.DISAPPEARANCE_OBSERVERS` for the class and why
+# it is keyed by the SNAPSHOT rather than by the prohibition — cited, not
+# restated, matching `plan_sprint_workflow`. `test_disappearance_is_observed.py`
+# discovers every `before*` local by AST, so a snapshot added later has no entry
+# and fails the suite until somebody answers "what watches this one for absence?"
 DISAPPEARANCE_OBSERVERS: dict[str, str] = {
     "before_phase": (
         "act.ids_deleted against the after-snapshot of the same map — and here "
@@ -226,12 +272,19 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
     "before_component": (
         "act.ids_deleted on the SAME id set, by the same coupling registered "
         "against before_status — one parse, one id set, three columns"),
+    "before_plan": (
+        "act.grants_that_vanished over permitted_paths, which covers this "
+        "snapshot EXACTLY rather than approximately: own.plan_docs enumerates "
+        "every top-level markdown file in the component and the first grant is "
+        "`<component>/[^/]+\\.md$`, so the two sets are equal by construction. "
+        "That equality is the point of the reader — a guard scoped more narrowly "
+        "than the grant leaves a file the run may write and nothing watches."),
     "before_boxes": (
-        "act.checked_boxes, via _plan_boxes, counted either side of the run and "
-        "compared in BOTH directions — so an ERASED tick is an offence exactly as "
-        "an added one is. A plan reporting work nobody built is bad; a plan that "
-        "has forgotten work somebody did is worse, because nothing downstream "
-        "will ask for it again."),
+        "own.plan_boxes, over the same own.plan_docs set, counted either side of "
+        "the run and compared in BOTH directions — so an ERASED tick is an "
+        "offence exactly as an added one is. A plan reporting work nobody built "
+        "is bad; a plan that has forgotten work somebody did is worse, because "
+        "nothing downstream will ask for it again."),
     "before_tree": (
         "act.grants_that_vanished over permitted_paths for the files this run may "
         "write; act.boundary_crossings for every other path, where a deletion "
@@ -256,27 +309,14 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     # workflow can be re-dispatched onto a branch that already carries work, and
     # a diff against the base would attribute somebody else's edit to this run.
     before_phase = own.phase_docs(wt_component)
+    before_plan = own.plan_docs(wt_component)
     before_decision = act.candidate_decisions(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
     before_component = act.candidate_components(wt_candidates)
-    before_boxes = _plan_boxes(wt_component)
+    before_boxes = own.plan_boxes(wt_component)
     before_tree = act.worktree_state(worktree)
 
-    values = {
-        "COMPONENT_PATH": str(rel_component),
-        "COMPONENT_NAME": rel_component.name,
-        "CANDIDATES_PATH": str(rel_candidates),
-        "PLANNING_STATE": own.planning_state(wt_component, worktree),
-        "RESEARCH_INVENTORY": own.research_inventory(wt_component, worktree),
-        # The tree-wide pointer, alongside the component-scoped one above. It
-        # teaches the pool convention and names the thesis; `RESEARCH_INVENTORY`
-        # says which pool is THIS run's, which the shared block cannot know.
-        "EVIDENCE_BLOCK": act.evidence_block(worktree),
-        "SUBMIT_PROMPT": act.submit_prompt(
-            pr_number, f"plan-feature: plan {rel_component.name}"),
-        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
-        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
-    }
+    values = prompt_values(rel_component, rel_candidates, worktree, pr_number)
 
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "plan_feature.md"), values),
@@ -295,12 +335,43 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
             f"before re-dispatching; the work may be there."
         )
 
-    # A WRITE GRANT IS NOT A DELETE GRANT, and this is checked FIRST because every
-    # reader below assumes the files it parses are still there. Deleting
-    # `candidates.md` outright would otherwise surface as a parse error from the
-    # column readers — a true failure naming the wrong cause, which is the shape
-    # that gets a guard "fixed" by making the reader tolerant.
     after_tree = act.worktree_state(worktree)
+    after_phase = own.phase_docs(wt_component)
+    after_plan = own.plan_docs(wt_component)
+
+    # THE NUMBER IS IDENTITY, so a phase doc that is GONE is the offence, and
+    # renaming, renumbering and deleting are all the same observation. Checked
+    # before the two name guards below because those judge only names this run
+    # ADDED: a renumber is an add and a delete together, and reporting only the
+    # added half would say `phase3_x.md` is malformed while staying silent about
+    # `phase2_x.md` having ceased to exist.
+    #
+    # AND CHECKED BEFORE `grants_that_vanished`, WHICH IS A REORDERING AND NOT AN
+    # ACCIDENT. The write grant is `<component>/[^/]+\.md$`, so every phase doc is
+    # also a granted path: a renumber therefore satisfies BOTH guards, and with
+    # the generic one first this specific message — the one that exists for
+    # exactly this case and is the only place the identity rule is explained —
+    # was unreachable in practice. The operator got "a file you may write ceased
+    # to exist" for the one failure the workflow was built to name. Nothing is
+    # weakened by the swap: this guard parses no file, so the reason
+    # `grants_that_vanished` runs early still holds against every READER below.
+    lost = act.ids_deleted(before_phase, after_phase)
+    if lost:
+        raise RuntimeError(
+            f"plan-feature removed {len(lost)} existing phase doc(s): "
+            f"{', '.join(lost)}. A phase number NAMES the phase for life, the way "
+            f"a ticket number does — it is not the order. If a phase's position in "
+            f"the rollout changed, the line moves in `roadmap.md` and the file does "
+            f"not move. Renaming to express order costs a cross-reference sweep "
+            f"across the corpus to buy a freedom the roadmap already had — "
+            f"see {url}"
+        )
+
+    # A WRITE GRANT IS NOT A DELETE GRANT, and this is checked before every
+    # READER below, because each of those assumes the file it parses is still
+    # there. Deleting `candidates.md` outright would otherwise surface as a parse
+    # error from the column readers — a true failure naming the wrong cause,
+    # which is the shape that gets a guard "fixed" by making the reader tolerant.
     vanished = act.grants_that_vanished(before_tree, after_tree, permitted)
     if vanished:
         raise RuntimeError(
@@ -315,8 +386,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     # wrote; this reads the tree. A run that plans nothing and reports a plan is
     # the failure worth catching, because the PR looks like a planned component
     # and the next step in the chain proceeds on it.
-    after_phase = own.phase_docs(wt_component)
-    if not (wt_component / "roadmap.md").is_file():
+    if not (wt_component / own.ROADMAP).is_file():
         raise RuntimeError(
             f"plan-feature produced no `{rel_component}/roadmap.md`. That file IS "
             f"the deliverable — it is what a PM or a new reader opens first, and "
@@ -330,30 +400,20 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
             f"see {url}"
         )
 
-    # THE NUMBER IS IDENTITY, so a phase doc that is GONE is the offence, and
-    # renaming, renumbering and deleting are all the same observation. Checked
-    # before the two name guards below because those judge only names this run
-    # ADDED: a renumber is an add and a delete together, and reporting only the
-    # added half would say `phase3_x.md` is malformed while staying silent about
-    # `phase2_x.md` having ceased to exist.
-    lost = act.ids_deleted(before_phase, after_phase)
-    if lost:
-        raise RuntimeError(
-            f"plan-feature removed {len(lost)} existing phase doc(s): "
-            f"{', '.join(lost)}. A phase number NAMES the phase for life, the way "
-            f"a ticket number does — it is not the order. If a phase's position in "
-            f"the rollout changed, the line moves in `roadmap.md` and the file does "
-            f"not move. Renaming to express order costs a cross-reference sweep "
-            f"across the corpus to buy a freedom the roadmap already had — "
-            f"see {url}"
-        )
-
-    malformed = own.malformed_phase_docs(before_phase, after_phase)
+    # OVER THE `plan_docs` SNAPSHOTS, i.e. over the write grant's own set, and
+    # not over the phase-shaped one. This run writes exactly two kinds of file, so
+    # any NEW top-level markdown that is neither `roadmap.md` nor a conformant
+    # phase doc is the offence — including `the_run_bag.md`, which drops the
+    # number altogether and is the standard's first-named failure mode. Judged on
+    # `phase_docs` this guard could only see names that already began with
+    # `phase`, so it caught the tidy near-misses and missed the plain one.
+    malformed = own.malformed_phase_docs(before_plan, after_plan)
     if malformed:
         raise RuntimeError(
-            f"plan-feature wrote {len(malformed)} phase doc(s) whose names are not "
-            f"valid: {', '.join(malformed)}. The binding form is "
-            f"`phaseN_<snake_case>.md` — no unnumbered `phase_<name>.md`, no "
+            f"plan-feature wrote {len(malformed)} plan file(s) whose names are not "
+            f"valid: {', '.join(malformed)}. This workflow writes exactly two kinds "
+            f"of file: one `roadmap.md`, and one `phaseN_<snake_case>.md` per phase "
+            f"— no unnumbered `phase_<name>.md`, no bare `<name>.md`, no "
             f"parenthetical disambiguation, no version suffix. An unnumbered phase "
             f"doc has no identity, so nothing can cite it stably — see {url}"
         )
@@ -387,7 +447,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     # BOTH directions: erasing a tick is the same prohibition, and it is the
     # worse half, because nothing downstream asks again for work the plan has
     # forgotten somebody did.
-    after_boxes = _plan_boxes(wt_component)
+    after_boxes = own.plan_boxes(wt_component)
     ticked = after_boxes - before_boxes
     erased = before_boxes - after_boxes
     if ticked or erased:
@@ -478,26 +538,3 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
             f"see {url}"
         )
     return url
-
-
-def _plan_boxes(component: Path) -> Counter:
-    """Every completion checkbox in the component's PLAN, as one Counter.
-
-    THE ROADMAP AND THE PHASE DOCS TOGETHER, because the prohibition is about the
-    plan and not about a file. `act.checked_boxes` reads one path; this workflow's
-    output is one roadmap plus N phase docs, and a guard scoped to `roadmap.md`
-    alone would be blind to a phase doc shipping with its steps pre-ticked —
-    which is the likelier mistake, since a phase doc is where the implementation
-    checklist lives.
-
-    `research/` is deliberately outside the sweep, for the same reason it is
-    outside the write grant: a synthesis' own checkboxes are not this plan's.
-    """
-    boxes: Counter = Counter()
-    if not component.is_dir():
-        return boxes
-    for path in sorted(component.iterdir()):
-        if path.is_file() and (path.name == "roadmap.md"
-                               or path.name.lower().startswith("phase")):
-            boxes += act.checked_boxes(path)
-    return boxes

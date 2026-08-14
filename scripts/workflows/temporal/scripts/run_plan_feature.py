@@ -68,15 +68,14 @@ def main(argv=None) -> int:
                   f"roadmap.md {'present' if (component / 'roadmap.md').is_file() else 'ABSENT'}")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
             print(f"  Grants     : {', '.join(wf.permitted_paths(rel))}")
-            rendered = act.render(act.load_prompt(wf.PROMPTS / "plan_feature.md"), {
-                "COMPONENT_PATH": str(rel), "COMPONENT_NAME": rel.name,
-                "CANDIDATES_PATH": a.candidates,
-                "PLANNING_STATE": own.planning_state(component, repo_root),
-                "RESEARCH_INVENTORY": own.research_inventory(component, repo_root),
-                "EVIDENCE_BLOCK": act.evidence_block(repo_root),
-                "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
-                "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
-                "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard")})
+            # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied. A
+            # dry run that builds its own values dict previews a prompt that is
+            # not the one dispatched — the family has shipped that bug once
+            # already (see `plan_sprint`'s `correction_note`), and an operator
+            # checking the wrong artifact is worse than checking none.
+            rendered = act.render(
+                act.load_prompt(wf.PROMPTS / "plan_feature.md"),
+                wf.prompt_values(rel, Path(a.candidates), repo_root, None))
             print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
             return 0
 

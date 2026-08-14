@@ -46,7 +46,10 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections import Counter
 from pathlib import Path
+
+from .. import plan_activities as act
 
 # The binding filename grammar, verbatim from the Documentation Standard's
 # "Filename pattern (binding)" block: `phase{N}_{descriptor}.md` canonical, with
@@ -55,10 +58,14 @@ from pathlib import Path
 _PHASE_FILE = re.compile(r"^phase(\d+)([a-z]?)_[a-z0-9_-]+\.md$")
 
 # What a phase doc might be NAMED, which is deliberately wider than what one may
-# be named. `phase_notes.md`, `Phase3.md` and `phase03b(old)_x.md` all have to
-# reach `malformed_phase_docs` to be reported, so the sweep matches loosely and
-# the grammar above judges. A glob of `phase*.md` alone would miss `Phase3.md`.
+# be named — used where the question is *which files are phase docs*, as opposed
+# to *which files may this run write*. A glob of `phase*.md` would miss
+# `Phase3.md`, and the grammar above is what judges.
 _LOOKS_LIKE_A_PHASE = re.compile(r"^phase", re.I)
+
+# The other half of the output, and the only top-level name that is not a phase
+# doc. Named rather than spelled inline because three readers below test for it.
+ROADMAP = "roadmap.md"
 
 # An hour ESTIMATE, in the three spellings a plan can carry one. The Documentation
 # Standard's own worked example is `### 1-2. DAS Phase 1 + Version-of-Record
@@ -68,19 +75,28 @@ _LOOKS_LIKE_A_PHASE = re.compile(r"^phase", re.I)
 # MARKER. That second requirement is the whole discriminator: without it the
 # pattern reads "measured in hours" as a finding.
 #
-# THE `\.?` AFTER THE LABEL IS A FIX, NOT DECORATION. `[^.\n]` keeps the label
-# and the figure inside one sentence — without it, *"the estimate. It took 3
-# hours"* reads as a finding — and it also meant the pattern could not cross the
-# period in the abbreviation `Est.`, so `Est. 2.5 hours` went undetected. Allowing
-# exactly one period immediately after the label, and none after, keeps the
-# sentence bound and closes the abbreviation. Found by the control below
-# predicting a catch that did not happen.
+# THE PERIOD IS ALLOWED AFTER THE ABBREVIATION `est` AND NOWHERE ELSE, and the
+# narrowness is the fix rather than a nicety. `[^.\n]` is what keeps the label
+# and the figure inside ONE SENTENCE, so *"the estimate. It took 3 hours"* is
+# prose and not a finding. A blanket `\.?` after the whole label group — which
+# this pattern shipped with — handed that property straight back: the optional
+# period consumed a genuine sentence-ending full stop, and `"the estimate. It
+# took 3 hours"`, `"effort. Then 5 hours later"` and `"sizing. We waited 2
+# hours"` all matched. Reproduced by execution against the shipped pattern; the
+# comment here previously asserted the opposite.
+#
+# `\best\.?\s` covers the abbreviation and only the abbreviation: `Est. 2.5
+# hours` and `Est 2 hours` match, `estimate.` cannot, because the spelled-out
+# alternative carries no `\.?` at all. The residual limit is stated rather than
+# hidden — an estimate whose label sits more than 24 non-period characters from
+# its figure is not caught, and neither is one written in a fourth spelling.
 _HOURS = re.compile(
     r"""
       ~\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b            # ~30 hrs, ~8h
     | \(\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\s*\)        # (30 hrs)
-    | \b(?:est|estimate[sd]?|sizing|effort)\b\.?
-      [^.\n]{0,24}?\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b   # Estimate: 8 hours, Est. 2.5 hours
+    | (?: \best\.?\s                                     # Est. 2.5 hours, Est 8h
+        | \b(?:estimate[sd]?|sizing|effort)\b )          # Estimate: 8 hours
+      [^.\n]{0,24}?\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b
     """,
     re.I | re.X,
 )
@@ -111,6 +127,65 @@ def phase_docs(component: Path) -> dict[str, str]:
             if p.is_file() and _LOOKS_LIKE_A_PHASE.match(p.name)}
 
 
+def plan_docs(component: Path) -> dict[str, str]:
+    """EVERY top-level markdown file in the component — the write grant's own scope.
+
+    THE SCOPE OF THE GUARDS MUST BE THE SCOPE OF THE GRANT, and this reader is
+    what makes those two the same set. The grant is `<component>/[^/]+\\.md$` —
+    any markdown file sitting directly in the component — while `phase_docs`
+    above answers a narrower question (*which files are phase docs*) by matching
+    `^phase`. Three guards were built on the narrow reader and inherited its
+    scope, which left the grant wider than anything that inspected it:
+
+      * a NEW `the_run_bag.md` — a phase doc with the number dropped, which is
+        the FIRST failure mode the standard names and the likeliest one — does
+        not start with `phase`, so it was invisible to `malformed_phase_docs`
+        while the row it violates claims that function observes it;
+      * an hour estimate or a pre-ticked checkbox written into any top-level file
+        other than `roadmap.md` or a `phase*` one was scanned by nothing.
+
+    Both are closed by asking the grant's question instead of the phase reader's.
+    `roadmap.md` is the one legitimate non-phase name and the callers below say
+    so explicitly rather than this reader excluding it — the deletion and
+    checkbox guards want it in, and only the naming guard wants it out.
+
+    A MISSING COMPONENT DIRECTORY IS AN EMPTY MAP, for the same reason
+    `phase_docs` gives: `plan-candidates` creates the folder and the seed and
+    nothing else, so a first-time plan legitimately starts from nothing.
+    """
+    if not component.is_dir():
+        return {}
+    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(component.iterdir())
+            if p.is_file() and p.suffix == ".md"}
+
+
+def plan_boxes(component: Path) -> Counter:
+    """Every completion checkbox in the component's PLAN, as one Counter.
+
+    THE ROADMAP AND EVERY OTHER TOP-LEVEL DOC TOGETHER, because the prohibition
+    is about the plan and not about a file. `act.checked_boxes` reads one path;
+    this workflow's output is one roadmap plus N phase docs, and a guard scoped
+    to `roadmap.md` alone would be blind to a phase doc shipping with its steps
+    pre-ticked — which is the likelier mistake, since a phase doc is where the
+    implementation checklist lives.
+
+    SCOPED BY `plan_docs`, i.e. by the write grant, so it cannot be narrower than
+    what the run may write. It sat in the workflow module keyed on a hand-written
+    `name == "roadmap.md" or name.lower().startswith("phase")`, which was a
+    second spelling of `_LOOKS_LIKE_A_PHASE` in a second file with nothing
+    forcing the two to move together — and it carried the same scope gap
+    `plan_docs` exists to close.
+
+    `research/` is deliberately outside the sweep, for the same reason it is
+    outside the write grant: a synthesis' own checkboxes are not this plan's.
+    """
+    boxes: Counter = Counter()
+    for name in plan_docs(component):
+        boxes += act.checked_boxes(component / name)
+    return boxes
+
+
 def phase_number(name: str) -> int | None:
     """`phase12b_x.md` -> 12. None when the name is not a conformant phase doc.
 
@@ -123,7 +198,15 @@ def phase_number(name: str) -> int | None:
 
 
 def malformed_phase_docs(before: dict[str, str], after: dict[str, str]) -> list[str]:
-    """New phase-doc-shaped files whose names break the binding grammar.
+    """New top-level plan files that are neither `roadmap.md` nor a valid phase doc.
+
+    TAKES `plan_docs` MAPS, NOT `phase_docs` MAPS, and that is the whole of the
+    fix rather than a refinement. Built on the phase reader it could only ever
+    judge names that already began with `phase`, so it caught `Phase3.md` and
+    `phase3-x.md` — the tidy near-misses — and was blind to `the_run_bag.md`,
+    which is the standard's own first-named failure mode and the one a model
+    reaches for when it forgets the convention entirely. The prompt states this
+    run writes exactly TWO kinds of file; this is what makes that observed.
 
     JUDGES ONLY WHAT THIS RUN ADDED. A pre-existing non-conformant name is
     somebody else's legacy and renaming it is explicitly out of scope — the
@@ -132,7 +215,9 @@ def malformed_phase_docs(before: dict[str, str], after: dict[str, str]) -> list[
     would make a conformant component unplannable.
     """
     return sorted(name for name in after
-                  if name not in before and not _PHASE_FILE.match(name))
+                  if name not in before
+                  and name != ROADMAP
+                  and not _PHASE_FILE.match(name))
 
 
 def reused_phase_numbers(before: dict[str, str],
@@ -173,21 +258,20 @@ def hour_estimates(component: Path, tree: Path) -> list[str]:
     a fresh reader sizing it is a second opinion. It is the same `author != judge`
     rule the research and build families split on, applied to a number.
 
-    SCOPED TO THE FILES THIS WORKFLOW WRITES — `roadmap.md` and the phase docs at
-    the component's top level. Naming the scope matters: `research/` is outside
-    it, and a synthesis legitimately reporting a measured wall-clock in hours is
-    evidence, not an estimate, and is not this guard's business.
+    SCOPED BY `plan_docs`, i.e. by the write grant — every markdown file sitting
+    directly in the component. Naming the scope matters twice over: `research/`
+    is outside it, because a synthesis legitimately reporting a measured
+    wall-clock in hours is evidence rather than an estimate and is not this
+    guard's business; and NOTHING inside it is outside, because a scope narrower
+    than the grant leaves the run a file it may write and nothing reads.
 
     Returns citations rather than a boolean because the operator's next question
     is always *where*, and a guard that answers "somewhere in the plan" sends
     them to grep for it.
     """
-    if not component.is_dir():
-        return []
-    targets = [p for p in sorted(component.iterdir())
-               if p.is_file() and (p.name == "roadmap.md" or _LOOKS_LIKE_A_PHASE.match(p.name))]
     found: list[str] = []
-    for path in targets:
+    for name in plan_docs(component):
+        path = component / name
         rel = path.relative_to(tree)
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
             for m in _HOURS.finditer(line):
