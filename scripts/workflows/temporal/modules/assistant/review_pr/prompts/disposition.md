@@ -63,6 +63,7 @@ List EVERY surfaced item, from all sources above, exhaustively. Sources of items
 
 Do not rely on git to surface it. A carried-forward guard only produces a merge CONFLICT when the same lines changed on both sides; a section nobody touched upstream deletes silently. Measured on one PR: two guard losses in one file, and the first was caught only because it happened to conflict. Its sibling two sections below produced no conflict and survived three review passes, a peer-review trio and quality-control — it was found by enumeration, and nothing else would have found it.
 
+
 Enumerate by NAME and map each to a destination. "The tests were carried across" is not the check; "§1→A, §2→B, §3→C, §7→NOWHERE" is. A gap found this way is a **correctness** finding, not doc-drift.
 
 **COMPLETION-CHECKBOX SWEEP — mandatory whenever this PR flips `[ ]` → `[x]` in any planning artifact** (phase doc, `roadmap.md`, epic breakdown). The global rule `standards-governance.md` § *Completion checkboxes* (`~/.claude/rules/`, sourced from `config/rules/` in this repo) puts the flip in dispatch scope and puts the **verification on you**: you MUST check every flip against the artifact it claims, **not against the run's account of it**. Read the rule — it is binding, it records why the check and not the human is the safeguard, and it is deliberately not restated here.
