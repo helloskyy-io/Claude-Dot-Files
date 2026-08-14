@@ -35,8 +35,12 @@ There is a second reason, specific to this one. Phase 3's completeness requireme
 5. **A store the journal cannot rebuild is named as such in this doc, with the reason**, rather than quietly excluded from the test set — and out-of-run writes are ruled on explicitly (§ *Which stores are in the test set*).
 6. **The change in authority is documented where readers of those stores will find it** — `candidates.md` and `direction.md` are now rebuilt from the journal, and the doc that describes them says so. § *Where this has to be written, and why this phase cannot write it* below.
 7. **A journal containing gap events is reported as gapped, with the count and its denominator** — never diffed as though it were complete. § *Replaying a record with known holes* below.
+8. **Restoring a store from the journal is a built, contained operation** — not an implied consequence of the test. § *Restore is the thing the component is sold on, and it is not the test* below.
+9. **A rebuilt store carries the journal's provenance forward, and every consumer of one is a consumer of the journal.** § *What the flip does to everyone downstream* below.
 
-**Requirement 4's containment contract is part of it, not a build detail.** Replay applies journal events to a filesystem, and events carry a `destination` field plus verbatim content. **Every path an event resolves to is validated *after* full normalisation to be inside the scratch root** — absolute paths rejected, `..` rejected, symlinks resolved and re-checked, a symlinked scratch root refused. **Replay is a pure event→tree function**: no shell, no template rendering, no execution. It runs with no network and no credentials, and the scratch root is never under `testing/logs/` (which CI uploads as a downloadable artifact). Stated here because at [Phase 7](phase7_s3_aggregation.md) the events replayed may originate from another edge, which makes a path-join bug reachable by anything that can write to the shared bucket.
+**Requirement 4's containment contract is part of it, not a build detail — and it binds every replay target, not a directory name.** Replay applies journal events to a filesystem, and events carry a `destination` field plus verbatim content. **Every path an event resolves to is validated *after* full normalisation to be inside the replay root** — absolute paths rejected, `..` rejected, symlinks resolved and re-checked, a symlinked root refused. **Replay is a pure event→tree function**: no shell, no template rendering, no execution. It runs with no network and no credentials, and a scratch root is never under `testing/logs/` (which CI uploads as a downloadable artifact).
+
+**Stated as *the replay root* rather than *the scratch root* deliberately.** Requirement 8's restore writes into the working tree, where a `destination` of `config/hooks/` or `.github/workflows/` is a file that gets executed — so a contract scoped to the test's scratch directory would leave the one dangerous replay uncovered. **And requirement 8 adds a second control the test does not need:** a restore resolves `destination` through an explicit allowlist of store paths, taken from requirement 5's enumeration. **The path is never taken from the event.** At [Phase 7](phase7_s3_aggregation.md) the events replayed may originate from another machine, which makes a path-join bug reachable by anything that can write to the shared bucket.
 
 ---
 
@@ -57,7 +61,31 @@ Under Phase 3's rule the journal must be able to rebuild anything any store hold
 
 **The consequence that must not be lost:** once this holds, a rule about deleting old journal data ([Phase 5](phase5_snapshots_then_retention.md)) is **a decision about what the fleet can no longer reconstruct**, not a decision about disk. That reframing is why Phase 5 cannot ship deletion without snapshots, and it originates here.
 
-**Requirement 5 exists because the flip is invisible from the store's own side.** Someone editing `candidates.md` by hand needs to know their edit is now a write that must also emit — otherwise the next replay silently reverts it, and they will conclude the tool is broken.
+**Requirement 6 exists because the flip is invisible from the store's own side.** Someone editing `candidates.md` by hand needs to know their edit is now a write that must also emit — otherwise the next replay silently reverts it, and they will conclude the tool is broken.
+
+### What the flip does to everyone downstream — requirement 9
+
+**The flip is not confined to these two files, and every consumer of a rebuilt store inherits something without being told.** After this phase, reading `candidates.md` is reading the journal through one layer of regeneration. So:
+
+**Every rule that governs reading the journal governs reading a rebuilt store.** That is the whole requirement, and it is stated here because this is where the flip happens rather than in each of the places that inherits it.
+
+Three consequences follow immediately, and each would otherwise have to be re-derived by whoever hits it:
+
+- **Provenance survives the rebuild.** [Phase 3](phase3_the_emit_rule.md) requirement 7 puts a trust class on every event; a rebuild that drops it hands downstream a store where fleet-authored rows and rows that arrived from somewhere else are indistinguishable. **[Phase 8](phase8_the_poller.md) is the consumer that makes this sharp** — it reads a store's to-do bit and *starts work* — so the field it would need to bound what it acts on has to survive the regeneration that produced the row.
+- **The gap reporting survives it too.** A store rebuilt from a gapped journal is a gapped store, and requirement 7's count is what says so.
+- **A write to a rebuilt store is a write to the journal.** Anything that edits one of these files — including a later phase's own failure record — emits, or the next rebuild reverts it. Requirement 5 says this for a hand-editor; requirement 9 says it for every automated consumer.
+
+**And after [Phase 7](phase7_s3_aggregation.md), the journal is a shared bucket** — so this rule is what carries that phase's ingress ruling to consumers that never read a bucket directly. Read the other way round, [Phase 8](phase8_the_poller.md)'s *"the store is safe to read precisely because of Phase 4"* is only true to the degree the journal behind it is, which is what its own gate list now says.
+
+### Restore is the thing the component is sold on, and it is not the test — requirement 8
+
+**The [roadmap](roadmap.md) sells this component with a sentence this phase did not build:** *"If a table gets corrupted, you regenerate it."* Everything above replays into a scratch directory and **diffs**. Nothing writes the result back.
+
+**That gap is worse than a missing feature, because the missing feature is three lines.** Whoever needs it first will write those three lines, and they will write them against a containment contract that — before this revision — said *"inside the scratch root"*, into a working tree where a `destination` of `config/hooks/` is executable.
+
+**So the restore is built here, with the test, and it is contained here too.** It shares the replay function with the test; what it adds is requirement 4's second control — `destination` resolved through an allowlist from requirement 5's store enumeration, never taken from the event — plus a dry-run that shows what would change before anything does.
+
+**What it is not:** an automatic recovery. Nothing detects corruption and nothing restores on its own. A human decides a store is wrong and runs it. Making that automatic is a different capability with a different failure mode, and this phase does not build it.
 
 ### Where this has to be written, and why this phase cannot write it — requirement 6
 
@@ -111,7 +139,7 @@ Requirement 4 forces the honest answer rather than a convenient one. The two nam
 
 **Requirement 5 forces the ruling before the phase closes**, and there are exactly two acceptable answers: Phase 3 specifies the out-of-run ingest (**the git commit is the natural emit for the file binding**), or requirement 1 is scoped to run-authored content and the exclusion is recorded below with its reason. **Silently normalising the difference away is not one of them.**
 
-**GitHub-hosted surfaces are the expected hard case**, and the honest position is that they may land in requirement 4 rather than requirement 1: a PR thread's rendered state depends on GitHub's own ordering and on edits made outside any run. If a surface cannot be rebuilt, **naming it and saying why is the deliverable** — a silent exclusion turns the test green while the guarantee is false, which is worse than having no test.
+**GitHub-hosted surfaces are the expected hard case**, and the honest position is that they may land in requirement 5 rather than requirement 1: a PR thread's rendered state depends on GitHub's own ordering and on edits made outside any run. If a surface cannot be rebuilt, **naming it and saying why is the deliverable** — a silent exclusion turns the test green while the guarantee is false, which is worse than having no test.
 
 ### Normalisation is allowed, and it is where this test goes wrong
 
@@ -126,6 +154,8 @@ Requirement 1 permits a normalisation. It is necessary — trailing whitespace, 
 - [ ] Build the starting snapshot: record each in-test store's contents into the journal once, as the point replay starts from
 - [ ] Build the replay: read one edge's journal in order, dedupe on event identity, apply each event to a scratch directory — **with requirement 4's path-containment contract, as a pure event→tree function**
 - [ ] Build the diff against the live store, with the normalisation set stated in this doc
+- [ ] Build the **restore** (requirement 8): the same replay, writing into the working tree, with `destination` resolved through an allowlist from requirement 5's enumeration and a dry-run that shows what would change first
+- [ ] Carry provenance and gap state through the rebuild (requirement 9), and confirm a rebuilt row is distinguishable by origin
 - [ ] Rule on out-of-run writes: either Phase 3 specifies the ingest, or requirement 1 is scoped and the exclusion is recorded below
 - [ ] Run it against `candidates.md` and `direction.md` and record the result with its command
 - [ ] **Negative test**: remove one emit, confirm the test goes red, restore it

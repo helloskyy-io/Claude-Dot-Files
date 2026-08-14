@@ -131,7 +131,9 @@ claude-dot-files/
 │   │   │   │                                        #   because exit-protocol.md §2/§2.5 forbid the extension the draft promised
 │   │   │   ├── phase4_rebuild_is_a_test.md          # Replay into a scratch dir and diff. What makes Phase 3 enforceable rather than a
 │   │   │   │                                        #   promise; its own phase because a folded-in verification is a gate runs walk past.
-│   │   │   │                                        #   Two arms — synthetic fixture on the merge path, live journal host-only; NO skip arm
+│   │   │   │                                        #   Two arms — synthetic fixture on the merge path, live journal host-only; NO skip arm.
+│   │   │   │                                        #   Also owns the RESTORE (the capability the roadmap sells) and the rule that a rebuilt
+│   │   │   │                                        #   store carries the journal's provenance forward to every consumer
 │   │   │   ├── phase5_snapshots_then_retention.md   # Snapshot FIRST, then delete — never past the last snapshot, because after Phase 4
 │   │   │   │                                        #   a deletion rule is a decision about what can no longer be reconstructed. Split
 │   │   │   │                                        #   retention: authored record never deleted, transcript on a schedule. GATED on the
