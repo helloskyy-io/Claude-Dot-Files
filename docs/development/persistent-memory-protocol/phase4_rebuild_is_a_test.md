@@ -2,9 +2,15 @@
 
 **Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** Phase 3
 
-Replays the journal into a scratch directory and diffs the result against the live store.
+## What this phase does
 
-**This is the phase that makes [Phase 3](phase3_the_emit_rule.md)'s completeness rule enforceable.** Without it, completeness degrades silently the first time a write path is added and the emit is forgotten — a failure this repo has produced in several other forms, and one that a prose rule has never once prevented.
+The previous phase makes a promise: everything a run writes anywhere also goes into the record. This phase turns that promise into something a machine checks.
+
+The check is simple to describe. Read the record back from the start, write out what it says the tables should contain, and compare that to the tables as they actually are. If they match, nothing is missing. If they do not, something a run wrote never made it into the record — and now a test says so, in red, instead of nobody finding out for six weeks.
+
+**Without this, the promise decays quietly.** Someone adds a new place the fleet writes to, forgets to also write it into the record, and everything keeps working — right up until somebody needs the record and it is short. This repo has produced that failure in several other forms, and a rule written in prose has never once prevented it.
+
+**Terms used here.** The **journal** is the whole record: one folder per run, never edited after the run ends. A **bag** is one run's folder (the name comes from BagIt, the file-layout standard it follows — a folder on disk, never a Docker container). A **store** is any place other than the journal that a run writes to — here, chiefly two committed markdown tables. To **replay** is to read the journal in order and apply each entry. To **rebuild** a store is to replay into an empty directory and produce what that store should hold. A **snapshot** records what a store held at one moment, so a replay can start there rather than at the beginning of history. A **gap event** is [Phase 3](phase3_the_emit_rule.md)'s record of a write that failed.
 
 ---
 
@@ -22,14 +28,19 @@ There is a second reason, specific to this one. Phase 3's completeness requireme
 
 ## Requirements for completion
 
-1. **Replay of the journal reproduces `candidates.md` and `direction.md`** — either byte-identical, or under a normalisation that is **stated and justified in this doc** — **from a genesis snapshot forward** (requirement 2).
-2. **A genesis snapshot exists.** A one-off materialization of each in-test store into the journal at journal start. § *Why replay needs a floor* below; it needs no scheduler and no server, so it belongs here rather than behind [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server)'s gate.
+1. **Replay of the journal reproduces `candidates.md` and `direction.md`** — either byte-identical, or under a normalisation that is **stated and justified in this doc** — **from a starting snapshot forward** (requirement 2).
+2. **A starting snapshot exists.** A one-off record of each in-test store's contents, written into the journal at journal start. § *Why replay needs a starting point* below; it needs no scheduler and no server, so it belongs here rather than behind [Phase 5](phase5_snapshots_then_retention.md)'s gate.
 3. **Deleting one emit from a write path makes the test fail**, demonstrated. A test that passes when the thing it guards is removed is not a test.
 4. **The test runs on the merge path against a committed synthetic fixture, and against the live journal only on a host.** § *Where this test can actually run* below. **The skip-when-absent arm is forbidden.**
 5. **A store the journal cannot rebuild is named as such in this doc, with the reason**, rather than quietly excluded from the test set — and out-of-run writes are ruled on explicitly (§ *Which stores are in the test set*).
-6. **The authority inversion is documented where readers of those stores will find it** — `candidates.md` and `direction.md` become projections, and the doc that describes them says so.
+6. **The change in authority is documented where readers of those stores will find it** — `candidates.md` and `direction.md` are now rebuilt from the journal, and the doc that describes them says so. § *Where this has to be written, and why this phase cannot write it* below.
+7. **A journal containing gap events is reported as gapped, with the count and its denominator** — never diffed as though it were complete. § *Replaying a record with known holes* below.
+8. **Restoring a store from the journal is a built, contained operation** — not an implied consequence of the test. § *Restore is the thing the component is sold on, and it is not the test* below.
+9. **A rebuilt store carries the journal's provenance forward, and every consumer of one is a consumer of the journal.** § *What the flip does to everyone downstream* below.
 
-**Requirement 4's containment contract is part of it, not a build detail.** Replay applies journal events to a filesystem, and events carry a `destination` field plus verbatim content. **Every path an event resolves to is validated *after* full normalisation to be inside the scratch root** — absolute paths rejected, `..` rejected, symlinks resolved and re-checked, a symlinked scratch root refused. **Replay is a pure event→tree function**: no shell, no template rendering, no execution. It runs with no network and no credentials, and the scratch root is never under `testing/logs/` (which CI uploads as a downloadable artifact). Stated here because at [Phase 7](roadmap.md#phase-7--s3-aggregation-local-write-first-gated-a-second-edge-and-a-classification-ruling) the events replayed may originate from another edge, which makes a path-join bug reachable by anything that can write to the shared bucket.
+**Requirement 4's containment contract is part of it, not a build detail — and it binds every replay target, not a directory name.** Replay applies journal events to a filesystem, and events carry a `destination` field plus verbatim content. **Every path an event resolves to is validated *after* full normalisation to be inside the replay root** — absolute paths rejected, `..` rejected, symlinks resolved and re-checked, a symlinked root refused. **Replay is a pure event→tree function**: no shell, no template rendering, no execution. It runs with no network and no credentials, and a scratch root is never under `testing/logs/` (which CI uploads as a downloadable artifact).
+
+**Stated as *the replay root* rather than *the scratch root* deliberately.** Requirement 8's restore writes into the working tree, where a `destination` of `config/hooks/` or `.github/workflows/` is a file that gets executed — so a contract scoped to the test's scratch directory would leave the one dangerous replay uncovered. **And requirement 8 adds a second control the test does not need:** a restore resolves `destination` through an explicit allowlist of store paths, taken from requirement 5's enumeration. **The path is never taken from the event.** At [Phase 7](phase7_s3_aggregation.md) the events replayed may originate from another machine, which makes a path-join bug reachable by anything that can write to the shared bucket.
 
 ---
 
@@ -42,15 +53,57 @@ There is a second reason, specific to this one. Phase 3's completeness requireme
 
 ## What this phase decides
 
-### The stores become projections, and that is the point
+### The journal becomes the authority, and the stores become things it regenerates
 
-Under Phase 3's rule the journal must be able to **rebuild anything any store holds, in the same format**. That inverts the authority: the stores stop being sources of truth and become **projections** of the journal. `candidates.md` becomes a materialized view; recovery becomes replay.
+Under Phase 3's rule the journal must be able to rebuild anything any store holds, in the same format. **That flips which one is the truth.** Before this phase, `candidates.md` is where the answer lives and the journal is a copy of it. After, the journal is where the answer lives and `candidates.md` is what you get when you read the journal back. Losing the table stops being a disaster and becomes a rebuild.
 
-**Provenance.** This is event sourcing, and it is Temporal's own model applied one level up: event history is the truth, workflow state is a projection rebuilt by replay.
+**Provenance.** This is event sourcing, and it is Temporal's own model applied one level up: the event history is the truth, and workflow state is regenerated from it by replay.
 
-**The consequence that must not be lost:** once this holds, a pruning rule ([Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server)) is **a decision about what the fleet can no longer reconstruct**, not a decision about disk. That reframing is why Phase 5 cannot ship rotation without snapshots, and it originates here.
+**The consequence that must not be lost:** once this holds, a rule about deleting old journal data ([Phase 5](phase5_snapshots_then_retention.md)) is **a decision about what the fleet can no longer reconstruct**, not a decision about disk. That reframing is why Phase 5 cannot ship deletion without snapshots, and it originates here.
 
-**Requirement 5 exists because the inversion is invisible from the store's own side.** Someone editing `candidates.md` by hand needs to know their edit is now a write that must also emit — otherwise the next replay silently reverts it, and they will conclude the tool is broken.
+**Requirement 6 exists because the flip is invisible from the store's own side.** Someone editing `candidates.md` by hand needs to know their edit is now a write that must also emit — otherwise the next replay silently reverts it, and they will conclude the tool is broken.
+
+### What the flip does to everyone downstream — requirement 9
+
+**The flip is not confined to these two files, and every consumer of a rebuilt store inherits something without being told.** After this phase, reading `candidates.md` is reading the journal through one layer of regeneration. So:
+
+**Every rule that governs reading the journal governs reading a rebuilt store.** That is the whole requirement, and it is stated here because this is where the flip happens rather than in each of the places that inherits it.
+
+Three consequences follow immediately, and each would otherwise have to be re-derived by whoever hits it:
+
+- **Provenance survives the rebuild.** [Phase 3](phase3_the_emit_rule.md) requirement 7 puts a trust class on every event; a rebuild that drops it hands downstream a store where fleet-authored rows and rows that arrived from somewhere else are indistinguishable. **[Phase 8](phase8_the_poller.md) is the consumer that makes this sharp** — it reads a store's to-do bit and *starts work* — so the field it would need to bound what it acts on has to survive the regeneration that produced the row.
+- **The gap reporting survives it too.** A store rebuilt from a gapped journal is a gapped store, and requirement 7's count is what says so.
+- **A write to a rebuilt store is a write to the journal.** Anything that edits one of these files — including a later phase's own failure record — emits, or the next rebuild reverts it. Requirement 5 says this for a hand-editor; requirement 9 says it for every automated consumer.
+
+**And after [Phase 7](phase7_s3_aggregation.md), the journal is a shared bucket** — so this rule is what carries that phase's ingress ruling to consumers that never read a bucket directly. Read the other way round, [Phase 8](phase8_the_poller.md)'s *"the store is safe to read precisely because of Phase 4"* is only true to the degree the journal behind it is, which is what its own gate list now says.
+
+### Restore is the thing the component is sold on, and it is not the test — requirement 8
+
+**The [roadmap](roadmap.md) sells this component with a sentence this phase did not build:** *"If a table gets corrupted, you regenerate it."* Everything above replays into a scratch directory and **diffs**. Nothing writes the result back.
+
+**That gap is worse than a missing feature, because the missing feature is three lines.** Whoever needs it first will write those three lines, and they will write them against a containment contract that — before this revision — said *"inside the scratch root"*, into a working tree where a `destination` of `config/hooks/` is executable.
+
+**So the restore is built here, with the test, and it is contained here too.** It shares the replay function with the test; what it adds is requirement 4's second control — `destination` resolved through an allowlist from requirement 5's store enumeration, never taken from the event — plus a dry-run that shows what would change before anything does.
+
+**What it is not:** an automatic recovery. Nothing detects corruption and nothing restores on its own. A human decides a store is wrong and runs it. Making that automatic is a different capability with a different failure mode, and this phase does not build it.
+
+### Where this has to be written, and why this phase cannot write it — requirement 6
+
+**The place a reader of those two tables learns what they are is [`memory-model.md`](../../guide/memory-model.md) §2.4 and §2.5**, which today checks both against the five durable-record properties and describes them as where the answer lives. After this phase that description is incomplete in a way that costs someone their edit.
+
+**That file is [MMF Phase 2](../memory-management-framework/phase2_kind1_framework.md)'s deliverable and is human-in-the-loop** under [`standards-governance.md`](../../../config/rules/standards-governance.md) — no dispatch writes it. So requirement 6 is met by **proposing the amendment, not by making it**: one note on both file surfaces saying they are rebuilt from the journal and that an edit which does not emit does not survive a rebuild. The proposal is carried in [roadmap § *Questioning the Memory Management Framework*](roadmap.md#questioning-the-memory-management-framework), challenge 4, and in this component's pull-request body.
+
+**The requirement is not satisfied by a note in this document.** A reader who is about to hand-edit `candidates.md` is not reading a phase doc in a component they may never have heard of, and requirement 6's whole content is *where* the warning lives.
+
+### Replaying a record with known holes — requirement 7
+
+[Phase 3](phase3_the_emit_rule.md) rules that a failed journal write is never silent: where nothing can be withheld, the failure appends a **gap event** and the bag is marked `incomplete`. This phase is the main consumer of that marking, and getting it wrong destroys the value of both.
+
+**The naive implementation diffs every bag the same way, and it fails in both directions.** A gapped journal replayed against a live store produces a mismatch — so the test goes red for a reason that has nothing to do with a missing emit, which is the thing it exists to catch. Told to tolerate the mismatch, it goes green over a record that is genuinely short, which is worse.
+
+**So a gap is an input to the test, not a failure of it.** Replay reads the gap events first, reports how many bags are gapped against how many were replayed, and states what each gap covered. **A gapped bag is excluded from the diff and counted, never silently tolerated inside it.** The test's verdict is then two facts rather than one: *the emits that exist are complete*, and *this fraction of the record has holes and here is where.*
+
+**Both numbers matter, and reporting only the first is the failure mode.** "The rebuild test passes" over a journal that is 12% gapped is a true sentence and a misleading one, which is exactly the shape § *Measurement* below asks every figure to carry a denominator for.
 
 ### Where this test can actually run — and the precedent the repo already set
 
@@ -67,11 +120,11 @@ Only two resolutions exist and both are bad as stated: **skip when the journal i
 
 **The completeness arm's non-CI status is stated in this doc rather than hidden**, because that is the honest shape: what CI can prove about a machine-local store is that the mechanism works, and claiming more would be the same green-check-that-verified-nothing in a different costume.
 
-### Why replay needs a floor — the genesis snapshot
+### Why replay needs a starting point — the first snapshot
 
-**Requirement 1 has no baseline without it.** `candidates.md` carries 75 rows and `direction.md` predates the journal by months; replaying only what [Phase 3](phase3_the_emit_rule.md) emitted forward reproduces a store that starts empty and never matches. The mechanism that supplies the starting state is a **snapshot** — and at draft the only snapshot lived in [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server), behind the Temporal gate, which made this phase unclosable and its likely resolution silent: weaken requirement 1 to *"reproduces the rows the journal has"*, which passes while the guarantee it stands for is false.
+**Requirement 1 has no baseline without it.** `candidates.md` carries 75 rows and `direction.md` predates the journal by months; replaying only what [Phase 3](phase3_the_emit_rule.md) emitted forward reproduces a store that starts empty and never matches. The mechanism that supplies the starting state is a **snapshot** — and at draft the only snapshot lived in [Phase 5](phase5_snapshots_then_retention.md), behind the Temporal gate, which made this phase unclosable and its likely resolution silent: weaken requirement 1 to *"reproduces the rows the journal has"*, which passes while the guarantee it stands for is false.
 
-**The error was a one-way constraint read as two-way.** *"Rotation must not ship without a snapshot to stop at"* constrains **rotation**. It says nothing about snapshots needing rotation — and reading it symmetrically parked the snapshot mechanism behind rotation's scheduler. **A genesis snapshot is a one-off materialization: no scheduler, no server, no retention policy.** Phase 5 then adds *recurring* snapshots and rotation on top of it.
+**The error was a one-way constraint read as two-way.** *"Rotation must not ship without a snapshot to stop at"* constrains **rotation**. It says nothing about snapshots needing rotation — and reading it symmetrically parked the snapshot mechanism behind rotation's scheduler. **The first snapshot is a one-off: it records what each store holds right now, and needs no scheduler, no server and no retention policy.** Phase 5 then adds *recurring* snapshots and rotation on top of it.
 
 ### Which stores are in the test set, and which are not
 
@@ -86,7 +139,7 @@ Requirement 4 forces the honest answer rather than a convenient one. The two nam
 
 **Requirement 5 forces the ruling before the phase closes**, and there are exactly two acceptable answers: Phase 3 specifies the out-of-run ingest (**the git commit is the natural emit for the file binding**), or requirement 1 is scoped to run-authored content and the exclusion is recorded below with its reason. **Silently normalising the difference away is not one of them.**
 
-**GitHub-hosted surfaces are the expected hard case**, and the honest position is that they may land in requirement 4 rather than requirement 1: a PR thread's rendered state depends on GitHub's own ordering and on edits made outside any run. If a surface cannot be rebuilt, **naming it and saying why is the deliverable** — a silent exclusion turns the test green while the guarantee is false, which is worse than having no test.
+**GitHub-hosted surfaces are the expected hard case**, and the honest position is that they may land in requirement 5 rather than requirement 1: a PR thread's rendered state depends on GitHub's own ordering and on edits made outside any run. If a surface cannot be rebuilt, **naming it and saying why is the deliverable** — a silent exclusion turns the test green while the guarantee is false, which is worse than having no test.
 
 ### Normalisation is allowed, and it is where this test goes wrong
 
@@ -98,23 +151,26 @@ Requirement 1 permits a normalisation. It is necessary — trailing whitespace, 
 
 ## Implementation checklist
 
-- [ ] Build the genesis snapshot: materialize each in-test store into the journal once, as the replay floor
+- [ ] Build the starting snapshot: record each in-test store's contents into the journal once, as the point replay starts from
 - [ ] Build the replay: read one edge's journal in order, dedupe on event identity, apply each event to a scratch directory — **with requirement 4's path-containment contract, as a pure event→tree function**
 - [ ] Build the diff against the live store, with the normalisation set stated in this doc
+- [ ] Build the **restore** (requirement 8): the same replay, writing into the working tree, with `destination` resolved through an allowlist from requirement 5's enumeration and a dry-run that shows what would change first
+- [ ] Carry provenance and gap state through the rebuild (requirement 9), and confirm a rebuilt row is distinguishable by origin
 - [ ] Rule on out-of-run writes: either Phase 3 specifies the ingest, or requirement 1 is scoped and the exclusion is recorded below
 - [ ] Run it against `candidates.md` and `direction.md` and record the result with its command
 - [ ] **Negative test**: remove one emit, confirm the test goes red, restore it
+- [ ] Read [Phase 3](phase3_the_emit_rule.md)'s gap events before diffing: **exclude gapped bags from the diff and count them**, and confirm a gapped journal produces a *reported gap* rather than either a red test or a silently tolerated mismatch
 - [ ] Enumerate every store, mark each in-test or out-of-test, and give a reason for every exclusion in § *Stores not covered*
 - [ ] Build the **committed synthetic fixture** (journal + stores) for the merge-path arm, and confirm no real journal bytes are committed
 - [ ] Wire the mechanism arm into `.github/workflows/tests.yml` and the completeness arm into [`testing/run-all.sh`](../../../testing/run-all.sh) as host-only — **and confirm no arm skips when its input is absent**
-- [ ] Add the projection note to wherever `candidates.md` and `direction.md` describe their own authority, so a hand-editor is warned
+- [ ] **Propose** the authority note for `memory-model.md` §2.4 and §2.5 — that both files are rebuilt from the journal and an edit which does not emit does not survive a rebuild — in the PR body, since that file is human-in-the-loop and no dispatch writes it
 - [ ] Record the replay wall-clock against the journal size, with its denominator, in § *Measurement*
 
 ---
 
 ## Stores not covered
 
-*(Requirement 4. Populated when the phase runs. A store listed here is a stated gap in the guarantee, not an oversight — every row carries why it cannot be rebuilt and what would have to change.)*
+*(Requirement 5. Populated when the phase runs. A store listed here is a stated gap in the guarantee, not an oversight — every row carries why it cannot be rebuilt and what would have to change.)*
 
 | Store | Why it cannot be rebuilt | What would change that |
 |---|---|---|
@@ -125,11 +181,15 @@ Requirement 1 permits a normalisation. It is necessary — trailing whitespace, 
 
 *(Populated when the phase runs.)*
 
-Two figures, both with denominators: **replay wall-clock against journal size**, because a rebuild test that takes longer than a CI budget will be disabled rather than fixed; and **the count of stores in the test set against the total enumerated**, because that ratio *is* the strength of the guarantee and stating it as a fraction stops "the rebuild test passes" from being read as "everything rebuilds."
+Three figures, all with denominators:
+
+- **Replay wall-clock against journal size**, because a rebuild test that takes longer than a CI budget will be disabled rather than fixed.
+- **Stores in the test set against the total enumerated**, because that ratio *is* the strength of the guarantee, and stating it as a fraction stops "the rebuild test passes" from being read as "everything rebuilds."
+- **Gapped bags against bags replayed** (requirement 7). A green test over a journal that is 12% gapped is a true sentence and a misleading one; this is the number that keeps it honest.
 
 ---
 
 ## Notes and open items
 
 - **This phase is where the completeness rule stops being a promise.** If it is descoped, [Phase 3](phase3_the_emit_rule.md) reverts to an unverifiable universal — and the component's central claim ("the journal can rebuild the store") becomes something nobody has checked. Descoping it is a decision about the component's thesis, not about a test.
-- **Replay cost grows with journal size**, and nothing bounds journal size until [Phase 5](roadmap.md#phase-5--snapshots-then-retention-gated-temporal-server) lands snapshots. If the measured wall-clock is already uncomfortable at Phase 4's journal size, that is the trigger to bring Phase 5 forward — and it is a real finding, not a reason to weaken this test.
+- **Replay cost grows with journal size**, and nothing bounds journal size until [Phase 5](phase5_snapshots_then_retention.md) lands snapshots. If the measured wall-clock is already uncomfortable at Phase 4's journal size, that is the trigger to bring Phase 5 forward — and it is a real finding, not a reason to weaken this test.
