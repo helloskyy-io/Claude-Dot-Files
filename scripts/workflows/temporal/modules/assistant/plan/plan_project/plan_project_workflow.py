@@ -4,8 +4,8 @@ A parent calls no model. It decides IF, WHEN and WHAT to call, and holds no
 process code. Every branch is a pure decision from `routing`; every side effect
 is an activity or a child workflow.
 
-    triage-candidates  ->  plan-candidates  ->  research(per NEW component)  ->  plan-sprint  ->  review-pr
-                           [activity, no model]    write -> verify                                  [loop-back]
+    triage-candidates -> plan-candidates -> research(per NEW component) -> plan-feature -> plan-sprint -> review-pr
+                         [activity, no model]   write -> verify           [per component]              [loop-back]
 
 TRIAGE AT THE FRONT, SPRINT MAINTENANCE AT THE BACK. Until the split, one child
 did both and nothing could be sequenced between them. Feature planning and
@@ -31,9 +31,18 @@ sprint plan — hour totals included — was updated before anything estimated t
 work those totals are of. Running it last means it reads what the middle of the
 pipeline produced instead of predicting it.
 
-WHAT IS NOT HERE YET. `plan-feature` — placing a shipped candidate inside an
-existing sprint or phase doc, and writing the `roadmap.md` and phase docs a new
-component gets — is still to come. It slots after the research step.
+`plan-feature` IS HERE NOW, AND IT RUNS INSIDE THE RESEARCH LOOP RATHER THAN
+AFTER IT. It takes ONE component and writes that component's `roadmap.md` and its
+numbered phase docs from that component's research, so it belongs immediately
+after the `research-verify` that gated the evidence it plans from — a second loop
+would separate each component's plan from its own evidence by every other
+component's research cycle.
+
+**It sizes nothing and writes no sprint entry.** Sizing is `plan-verify`'s — the
+fresh-context reviewer that DOES NOT EXIST YET — on the same `author != judge`
+argument that split research into write/verify and build into draft/refine. The
+sprint entry stays the operator's, and `plan-feature`'s report names the one each
+component needs.
 
 THE RESEARCH STEP CAN FIRE AGAIN, AND `plan-candidates` IS WHAT FIXED IT. Its
 input was `new_sprint_sections` alone, read from the sprint diff, and with
@@ -88,9 +97,18 @@ sprint triage that was already fine. Calling `research_write` and
 `research_verify` directly keeps ONE worktree and ONE PR, and reuses the same
 children the research parent uses. Same children, two callers.
 
-`plan-phase` — writing the phase doc for a new sprint section — is also still
-being ported from `plan-revision.sh`. It slots between plan-sprint and review-pr
-and needs no change to the shape below.
+`plan-phase` IS NOT COMING, AND THAT IS A RESOLUTION RATHER THAN A CANCELLATION.
+This paragraph described it as a separate port slotting between `plan-sprint` and
+`review-pr`, writing the phase doc for a new sprint section. `plan-feature` writes
+the roadmap AND the phase docs, because the phase boundaries ARE both documents'
+subject: splitting them puts a dispatch boundary in the middle of one decision,
+and deciding it twice in two contexts is how the two layers come to disagree. Its
+position is also earlier than that plan assumed — before `plan-sprint`, not after
+— so the sprint plan is maintained against work that has already been decomposed.
+
+WHAT IS STILL NOT HERE: `plan-verify`, the fresh-context judge for a plan, which
+would also supply the sizing this family currently has nowhere. Until it exists,
+`review-pr --type planning` at step 4 is the only judge a planning PR gets.
 """
 
 from __future__ import annotations
@@ -105,6 +123,7 @@ from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 from ...research.research_write import research_write_workflow as write
 from ...research.research_verify import research_verify_workflow as verify
+from ..plan_feature import plan_feature_workflow as feature
 from ..plan_sprint import plan_sprint_workflow as sprint
 from ..triage_candidates import triage_candidates_workflow as triage
 
@@ -293,10 +312,16 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         # folder name" — a message with nothing in it anybody can search for.
         # `component_slug` is idempotent, so passing the raw name changes only the
         # diagnostic.
-        component_pool = own.component_dir(
+        #
+        # RESOLVED ONCE INTO A LOCAL, because step 2b needs the same directory
+        # and a second `component_dir` call would be a second chance to pass a
+        # different `raw` or a different `source`. This is the read-once rule the
+        # sibling workflows state for their column readers, applied to a path.
+        component_root = own.component_dir(
             worktree, raw,
             source=("`component` cell in candidates.md" if signal is _SCAFFOLDED
-                    else "sprint section")) / "research"
+                    else "sprint section"))
+        component_pool = component_root / "research"
         component_pool.mkdir(parents=True, exist_ok=True)
 
         # THE BRIEF DEPENDS ON WHICH SIGNAL BROUGHT THE COMPONENT HERE, and
@@ -354,6 +379,32 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                         verbose=verbose)
         verify.run_verify(research_dir=component_pool, pr_number=pr,
                           repo_root=repo_root, worktree=worktree, verbose=verbose)
+
+        # --- Step 2b: PLAN the component that was just researched ----------
+        # INSIDE THIS LOOP, NOT AFTER IT, and that is the whole placement
+        # argument. `plan-feature` takes ONE component and plans it from ITS
+        # research; the evidence it needs is what `research-verify` just gated,
+        # two lines up. A second loop after this one would re-derive the same
+        # set from the same `origin` map and separate each component's plan from
+        # its own evidence by every other component's research cycle.
+        #
+        # THE CHILD IS HANDED A REPO-ROOTED COMPONENT, and `component_root` above
+        # is WORKTREE-rooted, so it is re-anchored here rather than passed as-is.
+        # That asymmetry is deliberate and is the one every child in this parent
+        # shares: `candidates_path` and `sprint_path` arrive repo-rooted from the
+        # runner and each child relativises against `repo_root` itself, while a
+        # directory the PARENT creates is created where the run can see it.
+        # Passing the worktree path would make the child's `relative_to(repo_root)`
+        # raise on a path that is perfectly valid — a failure naming the wrong
+        # cause.
+        feature.run_plan_feature(
+            repo_root=repo_root, worktree=worktree,
+            component=repo_root / component_root.relative_to(worktree),
+            candidates_path=candidates_path, pr_number=pr, verbose=verbose,
+        )
+        notes.append(f"`{section}` planned — `roadmap.md` and phase docs written "
+                     f"from its research. NOT SIZED: `plan-verify` estimates the "
+                     f"phases, and it does not exist yet.")
 
     # --- Step 3: MAINTAIN THE SPRINT PLAN ----------------------------------
     # LAST of the producing children, which is the second thing the split

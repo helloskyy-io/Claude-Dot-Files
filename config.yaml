@@ -99,6 +99,15 @@ models:
                                 #   what remains is reconciling a sprint plan against newer evidence
                                 #   and judging the 160-hour bar, and a cheaper tier risks a bad
                                 #   placement landing in sprint.md, the operator's own surface.
+  plan-feature: opus            # writes ONE component's roadmap.md and its numbered phase docs
+                                #   from that component's research. Opus deliberately, and the
+                                #   argument is not "planning is hard": the whole quality of this
+                                #   output is WHERE THE PHASE BOUNDARIES FALL, which means holding a
+                                #   research synthesis, a thesis and an architectural standard
+                                #   together and deciding what works end-to-end. It also has the
+                                #   thinnest safety net in the family — it is the WRITE half of a
+                                #   split whose reviewer, `plan-verify`, does not exist yet, so
+                                #   nothing downstream re-derives its decomposition today.
   review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
@@ -177,6 +186,23 @@ max_turns:
                               #   REVISE FROM THE FIRST REAL RUN — and note the working
                               #   set is variable, so a cycle with 60 untriaged rows is
                               #   a different measurement from one with 5.
+  plan-feature: 250           # NOT MEASURED — an estimate, stated as one. Nothing has
+                              #   run this workflow; it is new, so there is no V1 script
+                              #   and no split-sibling to derive a figure from. Basis is
+                              #   a stage-by-stage walk of its prompt: read one synthesis
+                              #   and four standards/architecture documents (~10), assess
+                              #   what the component already has (~5), decide the phase
+                              #   boundaries in prose (~5), then WRITE one roadmap plus
+                              #   one phase doc per ungated phase — the two existing
+                              #   examples in this repo have 5 and 6 docs at 200-260
+                              #   lines each, so ~15-25 for the writing — then the report,
+                              #   the commit and the PR (~15). That lands near 70, and the
+                              #   variance is in the phase COUNT rather than in any stage.
+                              #   250 is roughly 3x it as headroom, matching plan-sprint's
+                              #   posture for comparable read-then-write planning work.
+                              #   REVISE FROM THE FIRST REAL RUN — and note a component
+                              #   with three phases is a different measurement from one
+                              #   with eight, so one run does not settle it.
   research: 250               # pool creation — orchestration + synthesis authorship
   research-refresh: 250       # ⚠ CONVERGED 2026-08-10, FLAGGED FOR REVIEW. The two
                               #   fleets disagreed — research-refresh.sh said 200, the

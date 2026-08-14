@@ -1,9 +1,9 @@
 """Shared I/O for the planning family — promoted per §10.1 rule 3.
 
 Sits at module level because more than one workflow uses it: `plan_sprint`,
-`triage_candidates` and `plan_revision` today, `plan_tech_stack` when it lands.
-The promotion rule was anticipatory when this file was written and is now
-satisfied outright.
+`triage_candidates`, `plan_feature` and `plan_revision` today, `plan_tech_stack`
+when it lands. The promotion rule was anticipatory when this file was written and
+is now satisfied outright.
 
 THE SPLIT SETTLED WHAT BELONGS HERE, AND RULE 3 DECIDED IT — NOT TASTE. This
 docstring used to record `candidate_counts`, `direction_ceiling` and
@@ -19,7 +19,22 @@ its consumer count puts it:
     plan, in a component, or in an open issue). Two consumers, so it stays.
   * `candidate_statuses` — both workflows, each to prove it did not touch the one
     column neither of them owns. Two consumers, so it stays.
-  * `candidate_decisions` — one consumer. MOVED to `plan_sprint_activities`.
+  * `candidate_decisions` — one consumer at the split, so it MOVED to
+    `plan_sprint_activities`. **It came back when `plan_feature` landed**, which
+    holds the same `candidates.md` write grant for the same reason — the shared
+    `decision_log_and_reflection` instruction requires every producing run to
+    APPEND a proposal there — and therefore owes the same proof that it did not
+    write the transferred column. Two consumers, so rule 3 moves it back. The
+    round trip is the rule WORKING rather than churn: the helper sat where its
+    consumer count put it on both days.
+  * `checked_boxes` — one consumer at the split, and its home argued at length
+    that a second could never exist: *"every checkbox-bearing file in this tree is
+    a sprint plan or a phase doc, and [triage-candidates'] path boundary forbids
+    both outright."* True of the workflow it reasoned about, and one workflow too
+    general. `plan_feature` WRITES phase docs, so it reaches the surface the
+    argument called unreachable. Two consumers, so it is here — and the lesson is
+    narrower than "the argument was wrong": **a claim that no second consumer CAN
+    exist is a claim about every workflow not yet written.**
   * `direction_ceiling` — one consumer. MOVED to `triage_candidates_activities`.
   * `new_sprint_sections`, `component_dir` — one consumer each (`plan_project`,
     and nothing else in the tree). MOVED to `plan_project_activities`. They were
@@ -408,6 +423,37 @@ def candidate_statuses(candidates_path: Path) -> dict[str, str]:
         "Without it there is no `status` column to hold anything to."))}
 
 
+def candidate_decisions(candidates_path: Path) -> dict[str, str]:
+    """Every row's `decision`, normalised, keyed by id — `triage-candidates`' column.
+
+    PROMOTED HERE WHEN IT EARNED A SECOND CONSUMER, which is the whole of the
+    test. It lived in `plan_sprint_activities` while `plan_sprint` was the only
+    workflow proving it had not written the transferred column; `plan_feature`
+    holds the same `candidates.md` write grant, for the same reason — the shared
+    `decision_log_and_reflection` instruction requires every producing run to
+    APPEND a proposal there — and therefore owes the same proof. Two consumers,
+    so rule 3 moves it, and rule 3 is *"consumer count decides, never taste"*.
+
+    THE AUTHORITY TRANSFER, ENFORCED RATHER THAN ASSERTED. `decision` was
+    `plan-sprint`'s until triage became its own workflow; it is now
+    `triage-candidates`'s alone. Prose in nine documents says so, and prose is not
+    a mechanism: both consumers READ this file, both have write access to it in
+    their worktree, and a model that has just planned a candidate's whole
+    component is one plausible step from recording that in the column beside it.
+
+    So each snapshots this before its run and compares after. Same discipline as
+    `candidate_counts`: OBSERVE what the run wrote, never ask it what it wrote.
+
+    Normalised via `normalise_cell`, so a row reformatted from `` `ship` `` to
+    `ship` does not read as a ruling changed. The comparison must fire on MEANING
+    rather than markup, and on the SAME meaning the counter sees: two
+    hand-written normalisations had already drifted apart once.
+    """
+    return {row.id: row.decision for row in candidate_rows(
+        candidates_path,
+        missing_hint="Without it there is no `decision` column to hold anything to.")}
+
+
 def statuses_this_run_had_no_right_to(before: dict[str, str],
                                       after: dict[str, str]) -> list[str]:
     """Ids whose `status` changed on a row that already existed. Neither run may.
@@ -441,6 +487,59 @@ def ids_deleted(before: dict[str, str], after: dict[str, str]) -> list[str]:
     `before.keys() & after.keys()`, and a deleted id is in neither intersection.
     """
     return sorted(before.keys() - after.keys())
+
+
+# A completed checkbox in any of the markdown dialects this tree writes.
+_CHECKED = re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(.+?)\s*$", re.M)
+
+
+def checked_boxes(path: Path) -> Counter:
+    """The completed checkboxes in a planning file, counted by their text.
+
+    A CHECKBOX MEANS *SHIPPED AND VALIDATED*, and no workflow that reads this has
+    validated anything — `plan-sprint` places work decided elsewhere, and
+    `plan-feature` writes the plan for work nobody has started. The Documentation
+    Standard's § *Completion checkboxes* rule is the authority and it is exact:
+    a dispatch may flip a box **for work it completed in that PR**, and *built is
+    not proven*. Neither of these workflows completes any.
+
+    PROMOTED HERE WHEN A SECOND CONSUMER ARRIVED, and this module's previous home
+    for it argued at length that one never could: *"every checkbox-bearing file in
+    this tree is a sprint plan or a phase doc, and [triage-candidates'] path
+    boundary forbids both outright."* That was true of the workflow it was
+    reasoning about and it generalised one workflow too far. `plan-feature` WRITES
+    phase docs — checkbox-bearing by construction, since a roadmap phase entry is
+    3-5 completion criteria — so the surface the argument called unreachable is
+    the new consumer's primary output. The lesson is narrower than "the argument
+    was wrong": a claim that no second consumer *can* exist is a claim about
+    every workflow not yet written.
+
+    THE PARAMETER IS `path`, NOT `sprint_path`, and the rename is the promotion.
+    `plan-feature` hands it a `roadmap.md` and each phase doc in turn; a parameter
+    named for one caller's file is how a shared helper acquires a phantom scope.
+
+    COUNTED BY TEXT rather than diffed by line number, because a caller may
+    legitimately re-order sections: a positional comparison would fire on a box
+    that simply moved. Adding an UNCHECKED item is legitimate and invisible here;
+    adding a checked one is not, and shows up as a new entry. A Counter rather
+    than a set so that ticking the second of two identically worded items is
+    still seen.
+
+    A missing file is an empty Counter, and that reading is deliberate and must
+    not change: it is what lets a tree with no plan yet run at all. THIS IS
+    THEREFORE NOT AN EXISTENCE CHECK, and reading it as one is how the sprint plan
+    came to be deletable — an empty Counter after a deleted file compares
+    identically to an empty Counter after an untouched empty one.
+    `grants_that_vanished` is the existence check, and it runs ahead of this one
+    for exactly that reason.
+
+    The COMPARISON is symmetric even though this reader is not: a caller takes the
+    difference in both directions, because "flip a checkbox" is a prohibition on
+    erasing a tick as much as on adding one.
+    """
+    if not path.exists():
+        return Counter()
+    return Counter(_CHECKED.findall(path.read_text()))
 
 
 def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
@@ -657,8 +756,17 @@ PRODUCT_POOL = Path("docs/standards/architecture/research")
 COMPONENT_ROOT = Path("docs/development")
 
 
-def evidence_block(repo_root: Path) -> str:
+def evidence_block(tree: Path) -> str:
     """POINT a planning run at the thesis and the pools, PRIMARY first.
+
+    `tree` IS THE TREE THE RUN CAN SEE, NOT NECESSARILY THE REPO, and the
+    parameter is named for that the way `existing_work`'s is — for the same
+    reason and after the same near-miss. It was `tree`, and a second caller
+    duly passed one: `plan-feature` runs inside `plan-project` immediately after
+    a component was scaffolded and researched IN THE WORKTREE, so a repo-anchored
+    enumeration would list every pool except the one the run is planning from,
+    and report having seen them all. Caught by the repo-root census rather than
+    by review, which is the argument for the census.
 
     THE GAP THIS CLOSES. `plan_revision` consumes research only when the
     dispatch brief happens to hand it over — its prompt's research checks are
@@ -686,11 +794,11 @@ def evidence_block(repo_root: Path) -> str:
     def _pool(pool: Path) -> tuple[Path, int, str]:
         papers = sorted((pool / "raw").glob("*.md"))
         syn = "synthesis.md" if (pool / "synthesis.md").is_file() else "NO synthesis"
-        return pool.relative_to(repo_root), len(papers), syn
+        return pool.relative_to(tree), len(papers), syn
 
-    features = [_pool(d) for d in sorted((repo_root / COMPONENT_ROOT).glob("*/research")) if d.is_dir()]
-    product = _pool(repo_root / PRODUCT_POOL) if (repo_root / PRODUCT_POOL).is_dir() else None
-    has_thesis = (repo_root / PROBLEM_STATEMENT).is_file()
+    features = [_pool(d) for d in sorted((tree / COMPONENT_ROOT).glob("*/research")) if d.is_dir()]
+    product = _pool(tree / PRODUCT_POOL) if (tree / PRODUCT_POOL).is_dir() else None
+    has_thesis = (tree / PROBLEM_STATEMENT).is_file()
     if not (features or product or has_thesis):
         return ""
 

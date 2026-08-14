@@ -37,7 +37,6 @@ from pathlib import Path
 import pytest
 
 from modules.assistant.plan import plan_activities as act
-from modules.assistant.plan.plan_sprint import plan_sprint_activities as sprint_act
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as sprint
 from modules.assistant.plan.triage_candidates import triage_candidates_activities as triage_act
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as triage
@@ -153,7 +152,7 @@ def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = N
 def test_it_reads_a_ruling_per_row(tree: Path) -> None:
     f = tree / "c.md"
     f.write_text(_table([("C-001", "`ship`"), ("C-002", "reject"), ("C-003", "")]))
-    assert sprint_act.candidate_decisions(f) == {
+    assert act.candidate_decisions(f) == {
         "C-001": "ship", "C-002": "reject", "C-003": ""}
 
 
@@ -167,7 +166,7 @@ def test_every_spelling_of_UNRULED_reads_as_the_same_thing(tree: Path, spelling:
     """
     f = tree / "c.md"
     f.write_text(_table([("C-001", spelling)]))
-    assert sprint_act.candidate_decisions(f) == {"C-001": ""}
+    assert act.candidate_decisions(f) == {"C-001": ""}
 
 
 def test_MARKUP_is_not_MEANING(tree: Path) -> None:
@@ -180,17 +179,17 @@ def test_MARKUP_is_not_MEANING(tree: Path) -> None:
     """
     f = tree / "c.md"
     f.write_text(_table([("C-001", "`ship`")]))
-    typeset = sprint_act.candidate_decisions(f)
+    typeset = act.candidate_decisions(f)
     f.write_text(_table([("C-001", "ship")]))
-    assert sprint_act.candidate_decisions(f) == typeset
+    assert act.candidate_decisions(f) == typeset
     f.write_text(_table([("C-001", "reject")]))
-    assert sprint_act.candidate_decisions(f) != typeset
+    assert act.candidate_decisions(f) != typeset
 
 
 def test_a_missing_file_says_so_rather_than_reading_as_empty(tree: Path) -> None:
     """An empty dict from a missing file would make the guard pass vacuously."""
     with pytest.raises(FileNotFoundError, match="candidates file not found"):
-        sprint_act.candidate_decisions(tree / "nope.md")
+        act.candidate_decisions(tree / "nope.md")
 
 
 # --- the transferred authority, enforced --------------------------------------
@@ -620,7 +619,7 @@ def test_the_two_readers_agree_on_what_BLANK_means(tree: Path) -> None:
             f"count, so the row would never be offered for triage and the run would "
             f"still report a complete pass."
         )
-        assert sprint_act.candidate_decisions(f)["C-001"] == "", (
+        assert act.candidate_decisions(f)["C-001"] == "", (
             f"candidate_decisions read {spelling!r} as a ruling. plan-sprint's guard "
             f"compares this before and after, so a run that merely tidied the cell "
             f"would be failed for overturning a ruling that was never there."
@@ -645,7 +644,7 @@ def _id_keyed_readers() -> set[str]:
     `from __future__ import annotations`, which is why this compares text.
     """
     found = set()
-    for module, alias in ((act, "act"), (sprint_act, "own")):
+    for module, alias in ((act, "act"),):
         for name, fn in vars(module).items():
             if not name.startswith("candidate_") or not callable(fn):
                 continue
@@ -683,7 +682,7 @@ def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: li
     `DISAPPEARANCE_OBSERVERS["before_status"]` is the one entry in either
     workflow that does not name a guard applied to its OWN snapshot: it claims
     coverage by `before`'s guard, on the grounds that `act.candidate_statuses`
-    and `own.candidate_decisions` are both built from `act.candidate_rows` and so
+    and `act.candidate_decisions` are both built from `act.candidate_rows` and so
     can never disagree about which ids exist. That claim is TRUE today and was
     ASSERTED rather than checked — which is precisely the shape
     `observer_registry` exists to distrust, since resolving the symbols an entry
@@ -698,7 +697,7 @@ def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: li
     f.write_text(_table(rows))
     keyed = {
         "act.candidate_statuses": act.candidate_statuses(f).keys(),
-        "own.candidate_decisions": sprint_act.candidate_decisions(f).keys(),
+        "act.candidate_decisions": act.candidate_decisions(f).keys(),
         # THE THIRD READER, ADDED WHEN `component` GOT ITS GUARD AND NOT BEFORE.
         # Both workflows' `before_component` registry entries discharge their
         # deletion obligation by naming exactly this coupling — and this test
@@ -1271,7 +1270,7 @@ def _run_entrypoints():
 def test_the_repo_root_census_finds_the_entrypoints_it_is_meant_to() -> None:
     """POSITIVE CONTROL. A census over zero functions declares everything clean."""
     found = {name for name, _p, _n in _run_entrypoints()}
-    assert found == {"triage-candidates", "plan-sprint"}, (
+    assert found == {"triage-candidates", "plan-sprint", "plan-feature"}, (
         f"the census found run_* entrypoints in {sorted(found)}; if a workflow "
         f"dropped out, its repo-rooted reads stopped being checked")
 
