@@ -25,7 +25,9 @@ The through-line: *the run that authors work should not be the run that judges i
 
 Research sits *inside* the component it belongs to, so the plan and the evidence for it are never more than one directory apart and there is no central corpus to hunt through. Research is **non-binding** — a phase doc may cite a pool, never treat one as a decision already made.
 
-**Every component gets a `roadmap.md` plus phase docs**, in the same folder — including one that only ever has a single phase. This matches `MDC-Master-Planning`'s `development/service/<component>/` shape, so a workflow can find the same artifacts by name in either repo. *(One-phase exception removed 2026-08-13.)*
+**Every component gets a `roadmap.md` plus numbered `phaseN_<name>.md` files**, in the same folder — including one that only ever has a single phase.
+
+**A phase number is IDENTITY, not order** — it names the phase for life, the way a ticket number does. Order lives in two mutable places instead: the roadmap's ordering within the component, and the sprint file's ordering across components. A phase ships first or last without its filename changing. *(Numbers only impede reordering if they are read AS the order — see Documentation Standard § Sprint Structure for the sprint side, where an ordinal DOES encode a changing judgement and is therefore forbidden.)* This matches `MDC-Master-Planning`'s `development/service/<component>/` shape, so a workflow can find the same artifacts by name in either repo. *(One-phase exception removed 2026-08-13.)*
 
 **A component with no plan yet is UNPLANNED, not non-conformant.** The structure above applies when a component is planned; a folder holding only `research/` is waiting its turn in the plan family, not violating anything.
 

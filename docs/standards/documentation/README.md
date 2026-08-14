@@ -36,16 +36,34 @@ This section used to carry one — roughly a third of the standard was marked *"
 
 A permanent exclusion is a divergence nobody revisits. **A handoff gets answered once and improves both repos** — and the needs are shared, so a section that does not fit here usually does not fit upstream either.
 
-Anything below is raised with `MDC-Master-Planning` rather than ignored. Each states what the section requires, why it does not land here, and what the two repos have to settle.
+**Four were raised on 2026-08-14 and four came back resolved** (`1ffbc27` … `dc025a6`). Three were upstream defects rather than local misfits:
 
-| Section | What it requires | The open question |
+| Raised | Outcome |
+|---|---|
+| **Sprint Foundations Pattern** mandates `§N-1` clusters, which § Sprint Structure forbids for named sprints | **Upstream defect, fixed.** A named sprint's cluster is `### Foundations`, no ordinal. The sub-letter machinery is now stated as *protection against renumbering* — so a scheme with no numbers has nothing to protect and must not invent ordinals to imitate one |
+| **Sprint Close-Out** depended on MDC's `R`-item file | **Minimized, and made portable.** Close-out is a **verification gate, not a work phase** — it confirms nothing was left unplaced rather than resolving anything. The standard now requires that a recurring-check list EXIST, not which one. **Supply our own; do not build a parallel R-file** |
+| **§ 0 Component vs phase** was swallowed by a layout-specific exclusion | **Promoted to its own top-level section.** The DECISION binds everywhere; the ARTIFACT SHAPES do not — and a repo with a different layout **does not get to skip the decision because its filenames differ** |
+| **Standup Tracker** ownership | Reader-versus-owner asymmetry, deliberate. No action unless ownership moves |
+
+**Two practices were codified after we reported they were habit rather than rule:** item stamps (`closed YYYY-MM-DD · ~Nh` on every delivered item) and *close-out is reopenable; delivered work is not*. Both were visible only in MDC's sprint file, and **convention does not vendor.**
+
+**And one clause of ours was taken upstream** — *a component with no plan yet is UNPLANNED, not non-conformant* — because a conformance report that flags 11 of 13 folders trains its readers to ignore conformance reports.
+
+## Phase numbers are IDENTITY. Do not rename them.
+
+Recorded here because this repo came within one dispatch of renaming 16 phase files across 43 references, on the reasoning that ordinals impede reordering.
+
+**They do not.** The standard separates three layers, and only the first is fixed:
+
+| Layer | Mutable | Conveys |
 |---|---|---|
-| **Sprint Foundations Pattern** | every sprint's first cluster is `§N-1`, with sub-items `N-1a`, `N-1b` | Numbered-cluster machinery. Both repos are moving away from numbered sprints, so this likely no longer fits either. **What replaces it?** |
-| **Sprint Close-Out** | close-out gated on the `R`-items in `common/close_out/sprint_end_recurring.md` | That artifact is MDC's. Upstream is minimizing this section. **Adopt the minimized form when it lands.** |
-| **Development Planning Files § 0** | component-vs-phase, prescribing `roadmap.md` + `phase{N}_{name}.md` | The *decision* is layout-independent and binds; the *file prescription* is master-planning's. Tracked as `C-078`: **promote §0 out of the layout-specific section upstream.** |
-| **The Standup Tracker** | the tracker artifact and its lifecycle | Role difference rather than disagreement — that artifact lives upstream and this repo is its READER via `/standup`. Nothing to settle unless ownership moves. |
+| **Phase number** | **no** | **identity, like a ticket number** |
+| Roadmap position | yes | logical order within the component |
+| Sprint position | yes | execution order across components |
 
-**A section listed here is still read.** It is not exempt from thought, it is waiting on an answer — and the answer belongs in a conversation with upstream, not in this file.
+**The free reordering is already there** — move the line in `roadmap.md`; the filename never moves. Numbers only impede reordering if they are read *as* the order.
+
+**Sprints are the opposite and the asymmetry is the point:** *component sprints are named, never numbered*, because there an ordinal encodes a judgement the plan exists to revise. **Phases are identities; sprints are sequences.**
 
 ## The one that explicitly excludes us — read the note
 
