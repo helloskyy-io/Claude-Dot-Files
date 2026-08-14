@@ -45,8 +45,8 @@ from modules.assistant.plan.triage_candidates import triage_candidates_workflow 
 PR_URL = "https://github.com/o/r/pull/43"
 
 _HEADER = (
-    "| ID | Candidate | Source | `decision` | `status` | Note |\n"
-    "|---|---|---|---|---|---|\n"
+    "| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
+    "|---|---|---|---|---|---|---|\n"
 )
 
 
@@ -56,9 +56,15 @@ def _table(rows: list[tuple[str, ...]], note: str = "n") -> str:
     `status` defaults to `` `open` `` because that is what every row in the real
     file carries while its work is outstanding; the tests that care about the
     status guard pass the third element explicitly.
+
+    `component` is left BLANK here, and deliberately. Every assertion in this
+    module is about the two flags and the guards built on them; a component name
+    would be inert fixture noise. The rows that exercise `component` live in
+    `test_plan_candidates.py`, where the scaffolder is the subject.
     """
     body = "".join(
-        f"| {row[0]} | a candidate | PR #1 | {row[1]} | {row[2] if len(row) > 2 else '`open`'} | {note} |\n"
+        f"| {row[0]} | a candidate | | PR #1 | {row[1]} | "
+        f"{row[2] if len(row) > 2 else '`open`'} | {note} |\n"
         for row in rows)
     return "# Action candidates\n\n" + _HEADER + body
 

@@ -54,10 +54,19 @@ _REPO = Path(__file__).resolve().parents[4]
 _CANDIDATES = _REPO / "docs" / "standards" / "architecture" / "research" / \
     "candidates.md"
 
-# A row: `| C-069 | <finding> | <source> | <decision> | `status` | <note> |`.
+# A row:
+#   `| C-069 | <finding> | <component> | <source> | <decision> | `status` | <note> |`
 # Anchored at line start, exactly as the sibling check is, so a `C-NNN` merely
 # CITED inside another row's prose is not read as an allocation.
-_ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
+#
+# THE `component` CELL WAS INSERTED AFTER `Candidate` AND SHIFTED `decision` BY
+# ONE. This regex read the fourth cell as the decision; without the extra group
+# it would now read the SOURCE as one. Every source string normalises to a
+# non-blank value, so the counts below would have read the whole table as ruled
+# and the untriaged assertions would have compared thirty-one against zero —
+# loud rather than silent, which is the only reason this was cheap to catch.
+_ROW = re.compile(
+    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
 
 _SECTION = "## Where things stand"
 
@@ -82,7 +91,7 @@ def _text() -> str:
 def _rows() -> list[tuple[str, str]]:
     """`(id, decision)` for every row, decision normalised out of its markup."""
     return [(cid, dec.strip().strip("`").strip())
-            for cid, _cand, _src, dec in _ROW.findall(_text())]
+            for cid, _cand, _comp, _src, dec in _ROW.findall(_text())]
 
 
 def _declarations() -> str:

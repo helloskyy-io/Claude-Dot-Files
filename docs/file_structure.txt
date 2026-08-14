@@ -390,7 +390,13 @@ claude-dot-files/
 │                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
 │                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when
 │                   │                                #   routing.MAX_LOOPS went 1 -> 3, two of them inside a prompt sent to a model
-│                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing
+│                   ├── test_plan_candidates.py      # plan-candidates, the one step in the planning chain that is an ACTIVITY and not a
+│                   │                                #   child: no prompt, no model, so it is testable in-process at no dispatch cost.
+│                   │                                #   The four skips (not `ship`, not `open`, blank component, directory already
+│                   │                                #   exists) and what the seeded synthesis has to carry. Four negative controls,
+│                   │                                #   each predicted before it was run: 3/7/2/9, all four exact
+│                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing, plus the
+│                   │                                #   Step 1b wiring that gave the research step a reachable input again
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
 │                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,

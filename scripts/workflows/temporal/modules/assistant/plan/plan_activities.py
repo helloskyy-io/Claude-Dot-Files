@@ -64,6 +64,7 @@ import hashlib
 import re
 import subprocess
 from pathlib import Path
+from typing import NamedTuple
 
 from .. import assistant_activities as shared
 
@@ -77,10 +78,39 @@ extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
 max_turns = shared.max_turns
 
-# A candidate row: | C-001 | title | source | `decision` | `status` | note |
-_ROW = re.compile(r"^\|\s*(C-\d{3})\s*\|.*?\|.*?\|\s*(.*?)\s*\|\s*(.*?)\s*\|", re.M)
+# A candidate row:
+#   | C-001 | title | component | source | `decision` | `status` | note |
+#
+# CELLS ARE MATCHED AS `[^|\n]*`, NOT `.*?`, AND THAT IS LOAD-BEARING. Note text
+# in this file carries UNESCAPED PIPES — measured 2026-08-13, four rows of 76 do
+# — so anything that splits a whole row on `|` reads a different number of cells
+# per row. Every cell this regex captures stops at the next pipe, and the Note it
+# never reaches is the only place a stray pipe has ever appeared. Verified rather
+# than assumed: all 76 rows parse under this shape.
+_ROW = re.compile(
+    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|", re.M)
 
 _BLANK = ("", "—", "-")
+
+
+class CandidateRow(NamedTuple):
+    """One parsed row, NAMED — because the tuple grew and callers index it.
+
+    It was a bare `(id, decision, status)` triple until `component` was added
+    between `Candidate` and `Source`. Widening a positional tuple silently
+    re-points every unpacking site by one, and three of the sites here are
+    AUTHORIZATION GUARDS — `candidate_decisions` and `candidate_statuses` prove a
+    run did not write a column it does not own. A guard that compares the wrong
+    field still returns a clean dict and still reports a clean run, so the
+    failure would be invisible in exactly the place invisibility costs most.
+    Named access makes the same mistake a crash instead.
+    """
+
+    id: str
+    title: str
+    component: str
+    decision: str
+    status: str
 
 
 def normalise_cell(cell: str) -> str:
@@ -104,16 +134,22 @@ def normalise_cell(cell: str) -> str:
     return "" if value in _BLANK else value
 
 
-def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[tuple[str, str, str]]:
-    """Every `(id, decision, status)` in the file, normalised. One parse, one place.
+def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[CandidateRow]:
+    """Every row in the file, normalised. One parse, one place.
 
     `missing_hint` lets each caller say what the absent file costs IT, without a
     second copy of the regex travelling with the sentence.
+
+    `title` and `component` are normalised the same way as the two flags. For
+    `component` that matters: a filer typing `` ` — ` `` means "I did not name
+    one", and a scaffolder that read it literally would try to create a
+    directory out of an em dash.
     """
     if not candidates_path.exists():
         raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
-    return [(cid, normalise_cell(dec), normalise_cell(st))
-            for cid, dec, st in _ROW.findall(candidates_path.read_text())]
+    return [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
+                         normalise_cell(dec), normalise_cell(st))
+            for cid, title, comp, dec, st in _ROW.findall(candidates_path.read_text())]
 
 
 def candidate_counts(candidates_path: Path) -> dict[str, int]:
@@ -126,7 +162,7 @@ def candidate_counts(candidates_path: Path) -> dict[str, int]:
     rows = candidate_rows(candidates_path, missing_hint=(
         "`triage-candidates` rules the rows in it and `plan-sprint` places what "
         "they ruled; without the file neither has anything to work from."))
-    untriaged = [cid for cid, dec, _st in rows if not dec]
+    untriaged = [row.id for row in rows if not row.decision]
     return {
         "total": len(rows),
         "untriaged": len(untriaged),
@@ -149,7 +185,7 @@ def candidate_statuses(candidates_path: Path) -> dict[str, str]:
     immediately beside the one each run is legitimately reading, and *"we have
     decided to do this"* is one plausible step from *"this is handled"*.
     """
-    return {cid: st for cid, _dec, st in candidate_rows(candidates_path, missing_hint=(
+    return {row.id: row.status for row in candidate_rows(candidates_path, missing_hint=(
         "Without it there is no `status` column to hold anything to."))}
 
 

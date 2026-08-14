@@ -59,6 +59,8 @@ class _Calls:
         self.git_calls: list[tuple[Path, tuple[str, ...], tuple[str, ...]]] = []
         # Every `base_ref` Step 2's sweep was actually given.
         self.sweep_bases: list[object] = []
+        # Every positional argument pair Step 1b's scaffolder was called with.
+        self.scaffold_args: list[tuple[object, ...]] = []
 
 
 @pytest.fixture
@@ -111,6 +113,15 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     monkeypatch.setattr(pm.own, "new_sprint_sections", no_sections)
     monkeypatch.setattr(pm.own, "component_dir",
                         lambda tree, name: Path("/tmp/wt/docs/development/x"))
+    # Step 1b scaffolds nothing by default, for the same reason the sweep above
+    # returns nothing: it reads and WRITES a real tree, and the worktree here is
+    # a bare path. Faked at its boundary and recorded — which component list the
+    # parent hands the research step is exactly what the fan-out tests assert on.
+    def no_scaffold(*a: object, **k: object) -> list[str]:
+        calls.scaffold_args.append(a)
+        return []
+
+    monkeypatch.setattr(pm.own, "scaffold_candidate_components", no_scaffold)
     return calls
 
 
@@ -289,6 +300,7 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
+    monkeypatch.setattr(pm.own, "scaffold_candidate_components", lambda *a, **k: [])
     monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
@@ -307,11 +319,109 @@ def _with_sections(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
                         lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
 
 
+def _with_scaffolded(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
+    monkeypatch.setattr(pm.own, "scaffold_candidate_components",
+                        lambda *a, **k: list(names))
+    monkeypatch.setattr(pm.own, "component_dir",
+                        lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
+
+
 def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The common case. A triage that adds no section must spend nothing on research."""
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _run()
     assert wired.research_pools == []
+
+
+# --- Step 1b: plan-candidates, and the input it restored ---------------------
+
+def test_plan_candidates_runs_AFTER_triage_and_BEFORE_research(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both halves of the ordering are load-bearing and they fail differently.
+
+    Before triage there are no `ship` rulings to act on, so it would scaffold
+    nothing. After research it would be scaffolding a component the research step
+    has already been asked to research — which is the ordering `workflows.md`
+    drew, and it describes a step researching something that does not exist yet.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "Alpha")
+    _run()
+    assert wired.order[:3] == ["triage", "research", "sprint"], (
+        f"expected triage then the scaffolded component's research, got {wired.order}")
+
+
+def test_the_scaffolded_components_ARE_the_research_step_input(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE POINT OF THE WHOLE CHANGE, and it is why this assertion is not about a note.
+
+    The research step's only signal was "a sprint section this run added", and
+    with plan-sprint sequenced behind it nothing ahead of it added one — the step
+    was inert by construction and `plan_project`'s own docstring said so. A
+    scaffolded component is now a real signal reaching it.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "Alpha", "Beta")
+    _run()
+    assert wired.research_pools == [
+        Path("/tmp/wt/docs/development/alpha/research"),
+        Path("/tmp/wt/docs/development/beta/research"),
+    ], "a scaffolded component did not reach the research step"
+
+
+def test_a_component_reached_by_BOTH_signals_is_researched_ONCE(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The two signals are unioned, and a duplicate costs a full research cycle.
+
+    Not hypothetical once `plan-feature` lands: a component can be scaffolded
+    here AND gain a sprint section in the same dispatch, and each entry in this
+    list is a `research-write` plus a `research-verify` dispatch.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "Alpha")
+    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: ["Alpha"])
+    _run()
+    assert wired.research_pools == [Path("/tmp/wt/docs/development/alpha/research")], (
+        f"researched twice: {wired.research_pools}")
+
+
+def test_the_scaffolder_is_given_the_WORKTREE_copy_of_the_candidates_file(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """It WRITES, so a repo-root path would put the scaffolding outside the PR.
+
+    `candidates_path` arrives repo-root-absolute — the convention every sibling
+    follows — and the triage child re-anchors it the same way. A scaffolder
+    handed `/repo/c.md` would read the pre-triage rulings from the main checkout
+    and create directories that no branch carries and no review ever sees.
+    """
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _run()
+    assert wired.scaffold_args == [(Path("/tmp/wt"), Path("/tmp/wt/c.md"))], (
+        f"scaffolder was given {wired.scaffold_args}")
+
+
+def test_the_research_brief_for_a_SCAFFOLDED_component_claims_no_sprint_section(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A FALSE PREMISE handed to a model is worse than a thin one.
+
+    The brief for a sprint-section component tells the child to read that section
+    first. A scaffolded component has none — `sprint.md` is the operator's file
+    and nothing in this pipeline writes it — so reusing that wording would send
+    the child looking for something that does not exist and cannot be created.
+    It gets pointed at the seeded synthesis instead.
+    """
+    contexts: list[str] = []
+    monkeypatch.setattr(pm.write, "run_write",
+                        lambda **kw: contexts.append(str(kw["context"])) or PR_URL)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "Alpha")
+    _run()
+
+    assert len(contexts) == 1
+    assert "synthesis.md" in contexts[0], "the child was not pointed at its actual brief"
+    assert "NO sprint section" in contexts[0]
+    assert "was just added to" not in contexts[0], (
+        "the scaffolded component was told a sprint section was added for it")
 
 
 def test_each_new_section_is_researched_into_its_OWN_pool(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:

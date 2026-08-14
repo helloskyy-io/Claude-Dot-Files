@@ -1,8 +1,9 @@
 """plan-project's own I/O — one consumer each, so §10.1 rule 3 puts them here.
 
-Both functions read the tree so the PARENT can decide which components are new
-and where their research pool belongs. Nothing else in the family calls either,
-and [`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
+Every function here serves the PARENT's decisions: which components are new,
+where their research pool belongs, and — since `plan-candidates` — creating that
+pool for a candidate triage has agreed to. Nothing else in the family calls any
+of them, and [`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides,
 never taste"*. Rule 6 gives a one-file workflow folder its place to grow the
 helper it has earned.
@@ -14,7 +15,17 @@ whole time and were simply not in the list, so a file whose stated invariant is
 *"shared by definition"* held two functions that were not. Counted this time
 rather than eyeballed.
 
-NOT IDEMPOTENT (§7.1) is not in play here — this module only reads.
+`scaffold_candidate_components` LANDED HERE FOR THE SAME REASON AND NOT BECAUSE
+IT IS CONVENIENT. Its only consumer is `plan_project`, and it is the second
+consumer of `component_dir` — which is already in this file, so rule 3 moves
+nothing. That it needed no migration is a consequence of the rule, not a reason
+to skip checking it.
+
+NOT IDEMPOTENT (§7.1) applies to `scaffold_candidate_components` alone; the
+other two only read. It is CONVERGENT rather than idempotent: it creates nothing
+where a directory already exists, so a replay against an unchanged tree is a
+no-op and a replay after `plan-feature` has filled a component in leaves it
+alone. Under Temporal a retry is a NEW ATTEMPT, and this one is safe to repeat.
 """
 
 from __future__ import annotations
@@ -80,3 +91,94 @@ def component_dir(tree: Path, section_name: str) -> Path:
     if not slug:
         raise ValueError(f"sprint section {section_name!r} yields no folder name")
     return tree / "docs" / "development" / slug
+
+
+def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> list[str]:
+    """Create the folder and seed the synthesis for every shipped candidate that has neither.
+
+    THIS IS AN ACTIVITY, NOT A CHILD, AND THE DISTINCTION IS THE WHOLE DESIGN.
+    There is no prompt, no entry script and no model call. The job is to move
+    what triage already decided to where the next step reads from — the operator's
+    words are *"it just needs to move the info over to the correct place so the
+    next step can happen"*. Nothing in that needs judgement, so nothing in it
+    should cost a dispatch: this runs for free, deterministically, and is
+    unit-testable without a model.
+
+    An earlier attempt built it as a model child — 1,605 lines and a 173-line
+    prompt for this — and every hold the review raised was a consequence of it
+    being a dispatch at all. It was closed rather than repaired.
+
+    FOUR CONDITIONS, AND EACH SKIP IS A DECISION SOMEBODY ELSE ALREADY MADE:
+
+      * `decision` is not `ship` — triage has not agreed to do it, or has refused.
+      * `status` is not `open` — it is already handled.
+      * `component` is blank — nobody has said where it goes. **That is an
+        unanswered question, not an error**, and answering it is not this code's
+        job: the filer knows and this does not. A blank scaffolds nothing and
+        fails nothing.
+      * The directory already exists — the candidate EXTENDS something already
+        planned, so there is nothing to scaffold. Seeding a synthesis into a
+        live component's pool would put a one-line proposal on top of real
+        research.
+
+    WHAT IT DOES NOT DO: no `roadmap.md`, no phase docs. `sprint.md` says every
+    component gets both, and `plan-feature` writes them. This creates a folder
+    and a seeded synthesis and stops.
+
+    NOT IDEMPOTENT in the §7.1 sense of "safe to replay against a changed tree",
+    but it is CONVERGENT against an unchanged one: the directory-exists check
+    makes a second run over the same file a no-op. A retry that lands after
+    `plan-feature` has filled the component in will correctly leave it alone.
+
+    Returns the slugs it created, in file order — the research step's input.
+    """
+    created: list[str] = []
+    rows = act.candidate_rows(candidates_path, missing_hint=(
+        "Without it there is nothing to scaffold from, and the research step "
+        "that reads what this creates has no input."))
+
+    for row in rows:
+        if row.decision != "ship" or row.status != "open" or not row.component:
+            continue
+        target = component_dir(worktree, row.component)
+        if target.exists():
+            continue
+        (target / "research").mkdir(parents=True)
+        (target / "research" / "synthesis.md").write_text(
+            _seed(row, target.name))
+        created.append(target.name)
+
+    return created
+
+
+def _seed(row: act.CandidateRow, slug: str) -> str:
+    """The first document in a new component's pool — provenance, then the summary.
+
+    Deliberately thin. It is a HANDOFF, not a research paper: it says where this
+    came from and what was proposed, so the research child that runs next has a
+    brief instead of an empty directory. `research_write` rewrites this file with
+    real findings; anything more elaborate here would be written to be discarded.
+
+    The `C-NNN` id is the load-bearing part. It is the only link back from the
+    component to the row that authorised it, and without it a reader finding this
+    folder cannot tell scaffolding from abandoned work.
+    """
+    return (
+        f"# {slug} — synthesis\n"
+        f"\n"
+        f"**This component arrived from project-wide planning as a candidate for "
+        f"inclusion — [`{row.id}`]"
+        f"(../../../standards/architecture/research/candidates.md).** It was ruled "
+        f"`ship` by `triage-candidates` and scaffolded by `plan-candidates`, which "
+        f"creates the folder and this file and nothing else. **No research has been "
+        f"done yet**, and the `roadmap.md` and phase docs that `plan-feature` writes "
+        f"do not exist.\n"
+        f"\n"
+        f"## The candidate as filed\n"
+        f"\n"
+        f"{row.title}\n"
+        f"\n"
+        f"> That summary is a PROPOSAL, not a finding — it is what was written when "
+        f"the candidate was filed, carried across verbatim. The next research pass "
+        f"replaces this file.\n"
+    )

@@ -4,30 +4,42 @@ A parent calls no model. It decides IF, WHEN and WHAT to call, and holds no
 process code. Every branch is a pure decision from `routing`; every side effect
 is an activity or a child workflow.
 
-    triage-candidates  ->  research(per NEW component)  ->  plan-sprint  ->  review-pr
-                             write -> verify                                  [loop-back]
+    triage-candidates  ->  plan-candidates  ->  research(per NEW component)  ->  plan-sprint  ->  review-pr
+                           [activity, no model]    write -> verify                                  [loop-back]
 
 TRIAGE AT THE FRONT, SPRINT MAINTENANCE AT THE BACK. Until the split, one child
 did both and nothing could be sequenced between them. Feature planning and
 scaffolding belong in that gap, and while the two jobs shared a dispatch that was
 structurally impossible rather than merely unbuilt.
 
+`plan-candidates` IS AN ACTIVITY, NOT A CHILD, AND IT IS THE ONLY STEP HERE THAT
+IS NOT. It calls no model because it needs no judgement: triage already decided
+which candidates ship and the filer already named where each one goes, so the
+whole job is creating the directory and seeding the first document from what the
+row already says. A parent calling an activity directly is the shape §3.4
+prescribes for exactly this — deterministic work belongs in code, and this runs
+for free.
+
 IT FIXED AN ORDERING DEFECT ON ITS OWN. `plan-sprint` used to run FIRST, so the
 sprint plan — hour totals included — was updated before anything estimated the
 work those totals are of. Running it last means it reads what the middle of the
 pipeline produced instead of predicting it.
 
-WHAT IS NOT HERE YET, AND WHAT THAT COSTS TODAY. `plan-candidates` and
-`plan-feature` are the two children that belong between triage and plan-sprint.
-Until they land, THE RESEARCH STEP IN THE MIDDLE CANNOT FIRE: its input is
-`new_sprint_sections`, read from the sprint diff, and no child ahead of it can
-add a sprint section any more — plan-sprint, the only workflow that adds one,
-now runs after it. That is stated rather than papered over. The alternative was
-to invent a different NEW-component signal for a gap two planned children are
-about to fill, and a signal invented for an interim outlives the interim. The
-parent emits a note saying so when the sweep comes back empty, so an operator
-reading the run's output is told rather than left to infer it from a step that
-silently did nothing.
+WHAT IS NOT HERE YET. `plan-feature` — placing a shipped candidate inside an
+existing sprint or phase doc, and writing the `roadmap.md` and phase docs a new
+component gets — is still to come. It slots after the research step.
+
+THE RESEARCH STEP CAN FIRE AGAIN, AND `plan-candidates` IS WHAT FIXED IT. Its
+input was `new_sprint_sections` alone, read from the sprint diff, and with
+plan-sprint sequenced behind it nothing ahead of it added a sprint section — so
+the step was inert by construction. It was left wired rather than deleted or
+given an invented interim signal, on the grounds that a signal invented for an
+interim outlives the interim. `plan-candidates` supplies the real one: the
+components it scaffolds ARE the new components, named by the filer and ruled by
+triage, and no diff heuristic is involved. Both signals are read and unioned —
+`new_sprint_sections` stays because it is still the correct answer to *"did this
+run add a sprint section"*, and it will start returning rows again the moment
+anything ahead of this step writes one.
 
 WHY THIS EXISTS AT ALL. `plan-sprint` shipped and ran twice with no parent, so
 its output reached the operator UNJUDGED — and it is the only autonomous run
@@ -119,36 +131,63 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     )
     pr = routing.pr_number_from_url(pr_url, expected_repo=slug)
 
+    # --- Step 1b: SCAFFOLD each shipped candidate that has no home yet ------
+    # AN ACTIVITY, NOT A CHILD. No worktree of its own, no PR of its own, no
+    # model: it runs inline on the branch step 1 just opened, and its output
+    # lands in the same commit range under the same review.
+    #
+    # IT RUNS AFTER TRIAGE FOR THE OBVIOUS REASON — it acts on `ship` rulings,
+    # and before triage there are none. On a `--pr` redispatch the rulings are
+    # already there from an earlier pass, and the directory-exists check is what
+    # keeps that from re-scaffolding them.
+    # NOT `slug` — that name is already bound to the REPOSITORY slug above and
+    # is what step 1's PR-number lookup was given. Rebinding it in a loop here
+    # is the shadowing bug `component_dir`'s caller comment names, one scope up.
+    scaffolded = own.scaffold_candidate_components(
+        worktree, worktree / candidates_path.relative_to(repo_root))
+    for component in scaffolded:
+        notes.append(f"Scaffolded `docs/development/{component}/research/` "
+                     f"from a shipped candidate — researching it next.")
+
     # --- Step 2: RESEARCH each NEW component -------------------------------
-    # Read from the diff, never asked of the triage child: the parent must not
-    # trust an account when the artifact is right there. An edited section shows
-    # no added heading, so a component is researched only when it is genuinely
-    # new — researching one because its prose moved spends a full cycle on
-    # nothing.
+    # TWO SIGNALS, UNIONED, AND NEITHER IS ASKED OF A CHILD. The parent must not
+    # trust an account when the artifact is right there.
+    #
+    #   * what step 1b just scaffolded — a `ship` candidate whose component the
+    #     FILER named and whose directory did not exist. This is the live signal.
+    #   * a `## Sprint:` heading THIS RUN added — read from the diff. An edited
+    #     section shows no added heading, so a component is researched only when
+    #     it is genuinely new; researching one because its prose moved spends a
+    #     full cycle on nothing.
+    #
+    # THE SECOND WAS THE ONLY SIGNAL AND THAT MADE THIS STEP INERT. With
+    # plan-sprint sequenced behind it, nothing ahead of it adds a sprint section,
+    # so the sweep could not return anything. It is kept rather than replaced
+    # because it is still the correct answer to the question it asks, and it
+    # starts returning rows the moment anything ahead of this step writes one.
+    #
+    # Order matters only for reading the notes: scaffolded components first,
+    # because that is the path a candidate actually travels today.
     #
     # The research CHILDREN are called, not the research PARENT. That parent
     # would establish a second worktree and open a second PR, and its verify
     # loop would then gate a triage pass that was already fine. Same children,
     # two callers — which is the whole point of child-ness being a call-graph
     # property rather than a location.
-    #
-    # THIS SWEEP IS EMPTY BY CONSTRUCTION TODAY. See the module docstring: with
-    # plan-sprint moved behind this step, nothing ahead of it adds a sprint
-    # section, so there is no added `## Sprint:` heading in the diff to find.
-    # `plan-candidates` and `plan-feature` are what will fill this position. The
-    # call stays because the wiring is correct and only its INPUT is missing —
-    # deleting it would mean rebuilding it, and inventing a different signal
-    # would mean maintaining one past the interim it was for.
     new_sections = own.new_sprint_sections(
         worktree, str(sprint_path.relative_to(repo_root)), base_ref=base_sha)
-    if not new_sections:
+    # De-duplicated, order-preserving: a component can reach this step down both
+    # paths at once, and researching it twice would buy a second full cycle for
+    # nothing. `dict.fromkeys` rather than a set — the note order above is the
+    # order an operator reads.
+    to_research = list(dict.fromkeys(scaffolded + new_sections))
+    if not to_research:
         notes.append(
-            "No component research ran. With plan-sprint sequenced AFTER this step, "
-            "nothing ahead of it can add a sprint section, so this step's signal is "
-            "empty by construction until plan-candidates and plan-feature land. This "
-            "is the known interim state, not a silent skip."
+            "No component research ran: no shipped candidate named a component "
+            "that needed scaffolding, and this run added no sprint section. That "
+            "is an empty working set, not a skipped step."
         )
-    for section in new_sections:
+    for section in to_research:
         notes.append(f"New component `{section}` — researching before it is planned.")
         # NOT `research_dir` — that parameter is the PRODUCT pool the triage and
         # sprint children work from, and rebinding it here would hand the
@@ -157,16 +196,33 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         component_pool = own.component_dir(worktree, section) / "research"
         component_pool.mkdir(parents=True, exist_ok=True)
 
-        # The sprint section IS the brief. It states the milestones, and the
-        # research child's Stage 1 already reads the destination's planning docs
-        # to drive its topics — so a hand-written task file would be restating
-        # what it is about to read.
-        context = (
-            f"A new sprint section `{section}` was just added to "
-            f"{sprint_path.relative_to(repo_root)} and has no phase doc yet. "
-            f"Research it BEFORE it is planned. Read that section first — it is "
-            f"your brief, and its milestones are what this pool must inform."
-        )
+        # THE BRIEF DEPENDS ON WHICH SIGNAL BROUGHT THE COMPONENT HERE, and
+        # getting that wrong hands the model a FALSE PREMISE. A scaffolded
+        # component has no sprint section — `sprint.md` is the operator's file
+        # and nothing in this pipeline writes it — so telling the child to "read
+        # that section first" would send it to look for something that does not
+        # exist and cannot be created. It gets pointed at the seeded synthesis
+        # instead, which is where its actual brief was just written.
+        #
+        # In both cases the child's Stage 1 already reads the destination's
+        # planning docs to drive its topics, so a hand-written task file would
+        # be restating what it is about to read.
+        if section in scaffolded:
+            context = (
+                f"A new component `{section}` was just scaffolded from a shipped "
+                f"research candidate and has no research and no phase doc yet. "
+                f"Read `{component_pool.relative_to(worktree)}/synthesis.md` first "
+                f"— it names the candidate this came from and carries the summary "
+                f"as filed, and it is your brief. It has NO sprint section: "
+                f"planning follows this research, not the other way round."
+            )
+        else:
+            context = (
+                f"A new sprint section `{section}` was just added to "
+                f"{sprint_path.relative_to(repo_root)} and has no phase doc yet. "
+                f"Research it BEFORE it is planned. Read that section first — it is "
+                f"your brief, and its milestones are what this pool must inform."
+            )
         write.run_write(research_dir=component_pool, repo_root=repo_root,
                         worktree=worktree, context=context, pr_number=pr,
                         verbose=verbose)

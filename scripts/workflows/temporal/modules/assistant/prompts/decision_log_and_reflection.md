@@ -39,6 +39,8 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
   **PLACE IT YOURSELF, IN THIS PR — do not merely surface it.** Append a row to `docs/standards/architecture/research/candidates.md` with the next free `C-NNN` id, the finding, its source, `status: open`, and a Note carrying your evidence. **Leave `decision` BLANK** — blank means untriaged, which is the truth, and `decision` is `triage-candidates`'s output alone.
 
+  **Name the `component` this candidate belongs to when you file it** — an existing `docs/development/<name>/` if it extends one, a new name if it does not. **A blank means nothing is scaffolded for it.** You are the one who knows: you have just written the proposal, and anything downstream would be guessing from a one-line summary. A blank is an unanswered question rather than an error, so leave it blank rather than inventing a name you are not sure of.
+
   **Why you and not the reviewer** ([`finding-routing.md`](../../../../../docs/standards/finding-routing.md) § 4): a file surface needs a commit and a push, and the reviewer is decide-only — it structurally cannot write there. **And the disposal-chute argument does not reach a proposal:** it forbids filing DEFECTS you could have fixed, because that offloads your own scope. A proposal is capability that does not exist, so it was never your scope and cannot be offloaded. **You still do not decide where it belongs in the plan** — sprint, phase or nothing is separate triage with its own criteria.
 
   **A proposal you surface without placing dies at merge.** That is measured, not cautionary: three correctly-classified proposals were left in a PR body and `/standup` does not sweep merged PR bodies.

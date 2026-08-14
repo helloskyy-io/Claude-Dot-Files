@@ -32,18 +32,22 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 
 ### Where the planning fleet is going
 
-The chain below is the target shape; `plan-roadmap`, `plan-phase`, `plan-candidates` and the sprint-hours calculation do not exist yet, and `plan-feature` has no parent.
+The chain below is the target shape; `plan-roadmap`, `plan-phase` and the sprint-hours calculation do not exist yet, and `plan-feature` has no parent. **`plan-candidates` is built and wired** — and it is an ACTIVITY, not a child: plain code in the parent, no prompt and no model call, which is why it carries no brackets and no dispatch cost.
 
 ```
 research(project)  →  HiL
-plan-project       →  triage-candidates  →  research(component)  →  [plan-candidates]  →  [plan-feature]  →  plan-sprint  →  plan-roadmap  →  plan-phase  →  review-pr
+plan-project       →  triage-candidates  →  plan-candidates  →  research-write  →  research-verify  →  [plan-feature]  →  plan-sprint  →  plan-roadmap  →  plan-phase  →  review-pr
 research(feature)  →  HiL
 plan-feature       →  plan-roadmap →  plan-phase  →  review-pr
 ```
 
+**`plan-candidates` comes BEFORE the research step, not after it** — it is what creates the component the research step then researches, so the reverse order describes a step researching something that does not exist yet. The research step is also two children, `research-write` then `research-verify`, run conditionally per new component; drawing it as one hides the verify gate.
+
 **Triage moved to the FRONT and sprint maintenance to the BACK on 2026-08-12**, when `plan-sprint` was split into `triage-candidates` (rules the candidates) and a narrowed `plan-sprint` (maintains the plan). The two jobs shared one dispatch and nothing could be sequenced between them, which is where feature planning and scaffolding belong. It also fixed an ordering defect on its own: the sprint plan used to be updated *before* anything estimated the work, so its hour totals landed ahead of the estimates they depend on.
 
-**The bracketed children do not exist yet, and their absence has a cost worth knowing:** the `research(component)` step's input is *"a sprint section this branch added"*, and with `plan-sprint` now behind it nothing ahead of it adds one. That step is therefore inert until `plan-candidates` and `plan-feature` land. `plan_project` says so in a run note rather than skipping silently.
+**The research step was inert, and `plan-candidates` is what fixed it.** Its only input was *"a sprint section this branch added"*, and with `plan-sprint` sequenced behind it nothing ahead of it added one — so the sweep could not return anything. `plan-candidates` supplies the real signal: for every candidate that is `ship`, is `open`, names a `component`, and whose `docs/development/<name>/` does not exist yet, it creates that folder and seeds `research/synthesis.md` from the candidate's own summary. Those components are what the research step now researches. The sprint-section signal is kept and unioned with it — it is still the correct answer to its own question, and it starts returning rows again the moment anything ahead of the step writes one.
+
+**A named component whose directory already exists is left alone**, because the name means the candidate extends something already planned. **A blank `component` scaffolds nothing and fails nothing** — it is an unanswered question, and the filer is the one who answers it. `plan-candidates` writes no `roadmap.md` and no phase docs; `plan-feature` writes those.
 
 Three document layers, one owner each: **`sprint.md`** (clean, one entry per component) → **`<component>/roadmap.md`** (architecture, decisions, success criteria) → **`<component>/phaseN_*.md`** (build detail). `plan-roadmap` is blocked on that middle layer being defined, and the whole chain is gated on the Memory Management Framework — at seven children the prose handoff channel stops being survivable.
 
