@@ -111,24 +111,42 @@ claude-dot-files/
 │   │   ├── persistent-memory-protocol/              # PLANNED, NOT STARTED (2026-08-13) — ruled its OWN COMPONENT rather than a 7th phase
 │   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-074's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
-│   │   │                                            #   on the roadmap+phases shape. Phase docs exist ONLY for phases with no gate outside
-│   │   │   │                                        #   this component; 5, 7 and 8 carry roadmap rows and name their trigger
-│   │   │   ├── roadmap.md                           # 8 phases, listed in rollout order (6 before 5); the component-vs-phase ruling with
-│   │   │   │                                        #   its strongest counter-reading stated; a 15-concept coverage map; and the operator
-│   │   │   │                                        #   calls the plan carries WITHOUT deciding — storage budget, snapshot cadence, what
-│   │   │   │                                        #   an edge is, and Phase 7's two separate egress/ingress rulings
-│   │   │   ├── phase1_the_run_bag.md                # The container: configurable root, folder per run keyed by run_id (NEVER by path),
-│   │   │   │                                        #   subfolder per concurrent child, BagIt RFC 8493 manifest. No database — a
+│   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
+│   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
+│   │   │   ├── roadmap.md                           # Opens in plain words with a terms table; states the protocol WHOLE (eight
+│   │   │   │                                        #   commitments) before any ordering; QUESTIONS the Memory Management Framework in
+│   │   │   │                                        #   four challenges with the MMF-side change proposed for each; a 15-concept coverage
+│   │   │   │                                        #   map; and the operator calls the plan carries WITHOUT deciding — storage budget,
+│   │   │   │                                        #   snapshot cadence, what a machine is, and Phase 7's egress/ingress rulings
+│   │   │   ├── phase1_the_run_bag.md                # Configurable root, folder per run keyed by run_id (NEVER by path), subfolder per
+│   │   │   │                                        #   concurrent child, BagIt RFC 8493 manifest. FOUR bag states — open/sealed/pruned
+│   │   │   │                                        #   plus `incomplete`, which is independent of the other three. No database — a
 │   │   │   │                                        #   decision with a revisit trigger, not an omission
-│   │   │   ├── phase2_content_store.md              # bernstein §4.6 — store the bytes, hash them, re-verify quoted spans OFFLINE.
+│   │   │   ├── phase2_content_store.md              # bernstein §4.6 — store the bytes, checksum them, re-verify quoted spans OFFLINE.
 │   │   │   │                                        #   Tier 1, cost S, and it was ranked and then never placed once already
 │   │   │   ├── phase3_the_emit_rule.md              # If ANY store gets it, the journal gets it VERBATIM. Destination is a field, not
-│   │   │   │                                        #   a format. Stable edge_id — a rotating API key would orphan an edge's history
+│   │   │   │                                        #   a format. Stable edge_id — a rotating API key would orphan a machine's history.
+│   │   │   │                                        #   OWNS THE WRITE-FAILURE ANSWER: a gap may exist, a silent gap may not. And it
+│   │   │   │                                        #   rules that the journal event is a SEPARATE contract from the typed exit record,
+│   │   │   │                                        #   because exit-protocol.md §2/§2.5 forbid the extension the draft promised
 │   │   │   ├── phase4_rebuild_is_a_test.md          # Replay into a scratch dir and diff. What makes Phase 3 enforceable rather than a
 │   │   │   │                                        #   promise; its own phase because a folded-in verification is a gate runs walk past.
-│   │   │   │                                        #   Two arms — synthetic fixture on the merge path, live journal host-only; NO skip arm
+│   │   │   │                                        #   Two arms — synthetic fixture on the merge path, live journal host-only; NO skip arm.
+│   │   │   │                                        #   Also owns the RESTORE (the capability the roadmap sells) and the rule that a rebuilt
+│   │   │   │                                        #   store carries the journal's provenance forward to every consumer
+│   │   │   ├── phase5_snapshots_then_retention.md   # Snapshot FIRST, then delete — never past the last snapshot, because after Phase 4
+│   │   │   │                                        #   a deletion rule is a decision about what can no longer be reconstructed. Split
+│   │   │   │                                        #   retention: authored record never deleted, transcript on a schedule. GATED on the
+│   │   │   │                                        #   Temporal server for the recurring half ONLY
 │   │   │   ├── phase6_cpi_reads_the_journal.md      # The CONSUMER for phases 1-4, split from the poller at review so the only reader is
 │   │   │   │                                        #   not gated behind an unbuilt Temporal server. Gated on `Port review-runs` instead
+│   │   │   ├── phase7_s3_aggregation.md             # Ship bags to object storage under machine_id/run_id, writing locally first. THREE
+│   │   │   │                                        #   gates and the last two are SEPARATE operator rulings — egress (what may leave)
+│   │   │   │                                        #   and ingress (what may this machine believe); the heartbeat pollution paper is
+│   │   │   │                                        #   evidence for the second only. Names its own split seams rather than deferring them
+│   │   │   ├── phase8_the_poller.md                 # A scheduled workflow reads an existing to-do bit and starts a child with no human
+│   │   │   │                                        #   trigger. No new cue surface. Fires ONCE per cue, and a failed child neither
+│   │   │   │                                        #   retries forever nor vanishes. GATED on Temporal schedules
 │   │   │   └── research/                          # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
 │   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
 │   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
