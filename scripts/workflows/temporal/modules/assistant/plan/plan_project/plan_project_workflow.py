@@ -48,14 +48,22 @@ run add a sprint section"*, and it will start returning rows again the moment
 anything ahead of this step writes one.
 
 WHAT "CAN FIRE AGAIN" MEANS AND WHAT IT DOES NOT. The wiring is live; the input
-still depends on somebody naming a component. Measured on the tree as of
-2026-08-13: of 77 candidate rows exactly one names a `component`, and its
-directory already exists — so the next run scaffolds nothing and takes the
-empty-working-set branch. That is correct behaviour rather than a defect, but a
-reader taking this docstring as a statement about the RUNNING pipeline would be
-wrong. The step becomes productive as filers name components on the rows they
-file, which every filing prompt now instructs; the 19 pre-existing `ship`+`open`
-rows with a blank cell are the operator's to name, per `candidates.md`.
+still depends on somebody naming a component. Today every row that names one
+names a component whose directory already exists, so the next run scaffolds
+nothing and takes the empty-working-set branch. That is correct behaviour rather
+than a defect, but a reader taking this docstring as a statement about the
+RUNNING pipeline would be wrong. The step becomes productive as filers name
+components on the rows they file, which every filing prompt now instructs; the
+pre-existing `ship`+`open` rows with a blank cell are the operator's to name, per
+`candidates.md`.
+
+THE FIGURES ARE NOT RESTATED HERE, AND THAT IS THE POINT. This paragraph read
+"of 77 candidate rows exactly one names a `component`" and was false by the end
+of the same commit that wrote it, which appended a row naming one — the second
+restated tally this change falsified within a single pass, in a class the same
+pass claimed to have closed by deleting a third. `candidate_counts` and
+`candidate_components` derive both numbers from the file on demand; a sentence
+that re-types them is a copy with no gate on it.
 
 WHY THIS EXISTS AT ALL. `plan-sprint` shipped and ran twice with no parent, so
 its output reached the operator UNJUDGED — and it is the only autonomous run
@@ -181,9 +189,17 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     for component in scaffolded.resumed:
         notes.append(f"`docs/development/{component}/research/` was seeded by an "
                      f"earlier pass and never researched — resuming it.")
+    # NOT "which already holds research" — that was a claim about the pool's
+    # CONTENTS over a check of the directory's existence, and it is false for most
+    # of the tree: measured 2026-08-14, 9 of 17 components hold a `research/` with
+    # `raw/` and no synthesis, and 5 have no `research/` at all. An operator acting
+    # on the old sentence believed research existed that did not. The note now says
+    # what was actually checked.
     for cid, component in scaffolded.extends:
-        notes.append(f"`{cid}` names `{component}`, which already holds research — "
-                     f"the candidate extends it, so nothing was scaffolded.")
+        notes.append(f"`{cid}` names `docs/development/{component}/`, which already "
+                     f"exists — the candidate extends something already planned, so "
+                     f"nothing was scaffolded. Whether that component has research "
+                     f"is a separate question this step does not ask.")
     for cid, raw in scaffolded.unnamed:
         notes.append(f"`{cid}`'s `component` cell reads {raw!r}, which yields no "
                      f"folder name. Nothing scaffolded; the cell needs a real name "
@@ -256,7 +272,17 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         # sprint children work from, and rebinding it here would hand the
         # loop-back below the wrong pool. A shadowed parameter is a silent
         # wrong-argument bug.
-        component_pool = own.component_dir(worktree, section) / "research"
+        #
+        # THE RAW NAME, NOT THE SLUG, and the `source` with it. `component_dir`
+        # takes a `source` precisely so its one raise names the surface to go and
+        # look at; handing it the slugged key produced "sprint section '' yields no
+        # folder name" — a message with nothing in it anybody can search for.
+        # `component_slug` is idempotent, so passing the raw name changes only the
+        # diagnostic.
+        component_pool = own.component_dir(
+            worktree, raw,
+            source=("`component` cell in candidates.md" if signal is _SCAFFOLDED
+                    else "sprint section")) / "research"
         component_pool.mkdir(parents=True, exist_ok=True)
 
         # THE BRIEF DEPENDS ON WHICH SIGNAL BROUGHT THE COMPONENT HERE, and
@@ -287,13 +313,28 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                 f"that authorised this component, and you are about to overwrite "
                 f"the only copy of it."
             )
-        else:
+        elif signal is _SPRINT_SECTION:
             context = (
                 f"A new sprint section `{raw}` was just added to "
                 f"{sprint_path.relative_to(repo_root)} and has no phase doc yet. "
                 f"Research it BEFORE it is planned. Read that section first — it is "
                 f"your brief, and its milestones are what this pool must inform."
             )
+        else:
+            # THE ARM THAT MAKES THE INTERNING ABOVE MEAN WHAT IT CLAIMS. That
+            # comment says a typo'd literal "would silently pick the wrong one
+            # rather than raising" — and with a bare `else` it did the opposite:
+            # any value that is not `_SCAFFOLDED` fell through to the SPRINT
+            # brief, which is the false premise this branch exists to prevent,
+            # handed to a model. A third signal added later would have inherited
+            # it silently. Now the guarantee is the code's rather than the
+            # comment's.
+            raise ValueError(
+                f"`{section}` reached the research step under an unknown signal "
+                f"{signal!r}. Every signal needs its own brief: the two that exist "
+                f"are not interchangeable, since a scaffolded component has no "
+                f"sprint section to read and a sprint-section component has no "
+                f"seeded synthesis. Add the arm rather than letting it default.")
         write.run_write(research_dir=component_pool, repo_root=repo_root,
                         worktree=worktree, context=context, pr_number=pr,
                         verbose=verbose)
@@ -343,6 +384,17 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         # addressable from here; sending each loop through both children would
         # double the cost of every pass to reach a set of rulings that are, by
         # construction, already made.
+        #
+        # AND THAT ARGUMENT IS NOW INCOMPLETE, which is worth stating rather than
+        # leaving for the next reader to notice. It reasons entirely about TRIAGE,
+        # because when it was written the research step was inert by construction
+        # and no research artifact could appear in a plan-project PR. Step 1b is
+        # what changed that. A runway naming a component's SYNTHESIS — a thin
+        # citation, an unverified span — is not something `plan-sprint` can close
+        # either, so the loop spends its full budget on the one child that is
+        # reachable and reports SPENT. Routing the loop-back by what the runway
+        # names is real work and is out of a `plan-candidates` PR; it is placed as
+        # a candidate rather than left as a comment nobody acts on.
         sprint.run_plan_sprint(
             repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
             candidates_path=candidates_path, research_dir=research_dir,

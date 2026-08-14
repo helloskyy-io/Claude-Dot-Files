@@ -197,7 +197,7 @@ def test_a_component_NAME_is_slugged_to_the_convention_the_tree_follows(
 
 
 def test_a_second_run_over_an_unchanged_file_is_a_NO_OP(tree: Path) -> None:
-    """CONVERGENT, not idempotent — and under Temporal a retry is a new attempt.
+    """IDEMPOTENT (§7.1) by check-then-act — and under Temporal a retry is a new attempt.
 
     The exists-check is what makes a replay safe. Asserted on the seed CONTENT
     too: a second run that re-wrote the file would silently discard whatever the
@@ -226,16 +226,30 @@ def test_every_eligible_row_is_scaffolded_not_just_the_first(tree: Path) -> None
 
 
 def test_two_rows_naming_the_SAME_component_scaffold_it_once(tree: Path) -> None:
-    """The second row extends the first, which is the exists-check doing its job.
+    """The second row EXTENDS the first, and the bucket is the assertion.
 
     It fires WITHIN a single run, not just across runs — the directory the first
     row created is on disk by the time the second row is read.
+
+    THIS ASSERTED `.created` ALONE, WHICH IS THE ONE FIELD THAT WAS RIGHT. The
+    second row's directory exists but its `synthesis.md` still carries the marker
+    this same loop wrote a moment earlier, so `_is_unresearched` said yes and the
+    slug landed in `resumed` as well: `created=['shared'], resumed=['shared']`,
+    `to_research` carrying it twice, and the parent emitting two contradictory
+    notes — "scaffolded from a shipped candidate" and "seeded by an earlier pass
+    and never researched" — of which the second is false. Every other test in this
+    module compares the WHOLE result against `_NOTHING._replace(...)` for exactly
+    this reason (see its comment); this one opted out on the single test where the
+    bucket was wrong.
     """
     f = _write(tree, _table(
         ("C-001", "first", "shared", "`ship`", "`open`"),
         ("C-002", "second", "shared", "`ship`", "`open`"),
     ))
-    assert own.scaffold_candidate_components(tree, f).created == ["shared"]
+    assert own.scaffold_candidate_components(tree, f) == own.Scaffolded(
+        created=["shared"], resumed=[], extends=[("C-002", "shared")], unnamed=[]), (
+        "the second row must EXTEND the component the first created — a `resumed` "
+        "here tells the operator a previous run died, and duplicates the research")
     seed = (tree / "docs" / "development" / "shared" / "research"
             / "synthesis.md").read_text()
     assert "C-001" in seed and "C-002" not in seed, (
@@ -258,7 +272,7 @@ def test_a_MISSING_candidates_file_raises_and_says_what_is_now_unknown(
 # --- the parse the whole thing rests on -----------------------------------
 
 def test_the_row_parse_survives_UNESCAPED_PIPES_IN_THE_NOTE(tree: Path) -> None:
-    """Measured on the live file 2026-08-13: four rows of 76 carry pipes in the Note.
+    """The Note is the ONLY cell that may carry a pipe, and rows in the live file do.
 
     Anything that splits a row on `|` and re-joins reads a different cell count
     per row and mis-assigns every column after the stray pipe. The regex stops
@@ -276,27 +290,98 @@ def test_the_row_parse_survives_UNESCAPED_PIPES_IN_THE_NOTE(tree: Path) -> None:
     assert own.scaffold_candidate_components(tree, f).created == ["piped"]
 
 
-def test_a_SIX_COLUMN_table_RAISES_rather_than_parsing_one_cell_short(
-        tree: Path) -> None:
-    """The old shape matches `_ROW` SHORT, with every field one column left.
+# --- the shape check, keyed on the CLASS ----------------------------------
+#
+# ONE FAILURE, THREE DOORS INTO IT: a row that reads as TRIAGED without anybody
+# having ruled it, or a row that is not there at all. Either way it leaves the
+# untriaged working set, `triage-candidates` reports a complete pass over it, and
+# nothing is red.
+#
+# THE FIRST VERSION OF THIS TEST PASSED WHILE THE GUARD DID NOT FIRE, and that is
+# why the parametrization below is over SHAPES rather than one example. The guard
+# was `if _HEADER not in text` — a whole-file substring test — and this test's
+# fixture held exactly ONE table, so the two agreed by construction. The real
+# file holds NINE candidate tables: reverting one of them and leaving the other
+# eight correct satisfied the guard, and the untriaged count fell from 33 to 25
+# with nothing raised. A single-table fixture cannot see a whole-file check's
+# scope error; `_nine_tables` is what makes the difference visible.
 
-    `component` would read the Source, `decision` would read `` `open` `` and
-    `status` the Note — so every row reads as TRIAGED and the untriaged working
-    set silently empties. That is the failure `normalise_cell` exists to prevent,
-    arriving by column shift instead. Loud beats a clean-looking answer.
+_SIX_COL = ("| ID | Candidate | Source | `decision` | `status` | Note |\n"
+            "|---|---|---|---|---|---|\n")
+
+
+def _nine_tables(bad: str) -> str:
+    """Eight well-formed candidate tables and one `bad` one, as the real file is shaped."""
+    good = "".join(
+        f"\n## Cycle {n}\n\n{_HEADER}| C-{n:03d} | t | c | PR #1 | `ship` | `open` | n |\n"
+        for n in range(1, 9))
+    return "# Action candidates\n" + good + "\n## Cycle 9\n\n" + bad
+
+
+@pytest.mark.parametrize("label,bad", [
+    # A whole table left in the old shape. `_ROW` needs only five cells after the
+    # id, so every field lands one column left: `decision` reads the status.
+    ("a table still in the six-column shape",
+     _SIX_COL + "| C-009 | a thing | PR #1 |  | `open` | n |\n"),
+    # ONE row carrying a pipe in its first five cells. Markdown's own escape for a
+    # literal pipe is `\\|`, and the cell pattern treats that pipe as a boundary —
+    # so a CORRECTLY escaped title shifts the row and nothing else on the page.
+    ("one row with a pipe in its title",
+     _HEADER + "| C-009 | Make `a | b` share a pool | c | PR #1 |  | `open` | n |\n"),
+    # An id the parser does not match at all: absent from the working set, from
+    # every authorization snapshot, and from the deletion check.
+    ("an id that is not three digits",
+     _HEADER + "| C-1009 | a thing | c | PR #1 | `ship` | `open` | n |\n"),
+], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-width"])
+def test_a_SHIFTED_or_UNPARSED_row_RAISES_rather_than_reading_as_triaged(
+        tree: Path, label: str, bad: str) -> None:
+    """Every departure from the assumed shape is loud, whatever the door.
+
+    Loud beats a clean-looking answer: the whole point is that an empty-ish result
+    from this parser is indistinguishable from a genuinely quiet file.
     """
-    old = ("# Action candidates\n\n"
-           "| ID | Candidate | Source | `decision` | `status` | Note |\n"
-           "|---|---|---|---|---|---|\n"
-           "| C-001 | a thing | PR #1 |  | `open` | n |\n")
-    f = _write(tree, old)
+    f = _write(tree, _nine_tables(bad))
     with pytest.raises(ValueError) as exc:
         act.candidate_rows(f, missing_hint="x")
-    assert "seven-column" in str(exc.value)
+    assert "C-1" in str(exc.value) or "C-009" in str(exc.value), (
+        f"{label} raised without naming the offending row")
+
+
+def test_EIGHT_GOOD_TABLES_DO_NOT_EXCUSE_A_NINTH(tree: Path) -> None:
+    """THE NEGATIVE CONTROL ON THE CHECK'S SCOPE, not on its subject.
+
+    Without this, a check that reads the file as a whole passes for the wrong
+    reason and no assertion above can tell. Nine well-formed tables must parse
+    clean — so when the parametrized cases go red it is the ninth table that did
+    it, not the fixture.
+    """
+    rows = act.candidate_rows(
+        _write(tree, _nine_tables(
+            _HEADER + "| C-009 | a thing | c | PR #1 |  | `open` | n |\n")),
+        missing_hint="x")
+    assert len(rows) == 9, f"the nine-table fixture itself does not parse: {rows}"
+    assert [r.id for r in rows if not r.decision] == ["C-009"], (
+        "the untriaged row must survive the parse — losing it silently is the "
+        "entire failure this check exists to prevent")
+
+
+def test_the_REAL_candidates_file_parses_and_every_cell_is_in_vocabulary() -> None:
+    """RUN AGAINST THE ARTIFACT, because a fixture agrees with whatever it was built from.
+
+    Every check above builds its own table, so all of them would stay green if the
+    live `candidates.md` drifted out of the shape they assume. This is the one
+    assertion that reads what the pipeline will actually read.
+    """
+    # parents[5]: unit -> tests -> temporal -> workflows -> scripts -> repo root.
+    real = (Path(__file__).resolve().parents[5] / "docs" / "standards"
+            / "architecture" / "research" / "candidates.md")
+    assert real.is_file(), f"{real} is gone; this check would assert against nothing"
+    rows = act.candidate_rows(real, missing_hint="x")
+    assert len(rows) > 30, "too few rows parsed for this to mean anything"
 
 
 def test_an_UNUSABLE_component_name_is_REPORTED_not_raised(tree: Path) -> None:
-    """`candidates.md` says an unnamed component "scaffolds nothing and FAILS nothing".
+    """`candidates.md` § `component`: "Nothing is scaffolded for a blank row and nothing fails because of one".
 
     `normalise_cell`'s blank set is `""`, `-` and `—`. An EN dash, `--`, or any
     other punctuation-only cell is non-blank to it and slugs to nothing, and

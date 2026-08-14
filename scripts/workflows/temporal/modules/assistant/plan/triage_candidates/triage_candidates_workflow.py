@@ -143,7 +143,11 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "act.candidate_statuses and act.candidate_components are both built from "
         "act.candidate_rows, so a row cannot be absent from one map and present "
         "in the other. Registered rather than left implicit because that coupling "
-        "is the whole reason a second deletion check here would be dead code.",
+        "is the whole reason a second deletion check here would be dead code, and "
+        "the coupling itself is held by "
+        "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS — which this "
+        "entry named nowhere until a review pointed out it was stating the "
+        "argument and stopping, which is precisely what the registry distrusts.",
     "before_direction":
         "act.ids_deleted against the after-snapshot of the same column, checked "
         "BEFORE the status comparison because a vanished row is in neither "
@@ -296,12 +300,20 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"completes the item — and it did not move in the split — see {url}"
         )
 
-    named = act.components_this_run_had_no_right_to(
-        before_component, act.candidate_components(wt_candidates))
+    # READ ONCE INTO A LOCAL, the pattern this file states two guards above, and
+    # rendered `before->after` the way plan-sprint's twin does. Naming ids alone
+    # told the operator WHICH row and not what had been written into it — on the
+    # one column whose wrong value becomes a committed directory, that is the half
+    # they need to tell an invented component from a corrected one.
+    after_component = act.candidate_components(wt_candidates)
+    named = act.components_this_run_had_no_right_to(before_component, after_component)
     if named:
         raise RuntimeError(
             f"triage-candidates set or changed the `component` column on "
-            f"{len(named)} pre-existing candidate(s): {', '.join(named)}. That "
+            f"{len(named)} pre-existing candidate(s): "
+            + ", ".join(f"{cid} {before_component[cid]!r}->{after_component[cid]!r}"
+                        for cid in named)
+            + f". That "
             f"column belongs to whoever FILED the row, because only they know "
             f"where the proposal goes — from a one-line summary anything "
             f"downstream is guessing. And the guess does not stay a cell: "

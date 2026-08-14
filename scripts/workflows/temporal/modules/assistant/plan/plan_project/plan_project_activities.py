@@ -26,6 +26,15 @@ copying it promotes a single-workflow helper to the shared surface and breaks th
 That it needed no migration is a consequence of the rule, not a reason to skip
 checking it.
 
+AND THE SENTENCE ABOVE WAS FALSE WHEN IT WAS WRITTEN — the scaffolder built
+`docs/development/<slug>/research` by hand, ninety lines below the helper whose
+whole job is constructing that path, so `component_dir` had exactly ONE call
+site and the `source` parameter added for the second was passed by nobody. A
+worked example of rule 3 that miscounts its own call sites is worse than none,
+because the next reader copies the arithmetic rather than the rule. The
+scaffolder routes through `component_dir` now, which is what makes the claim
+true and the parameter live.
+
 IDEMPOTENT (§7.1) BY CHECK-THEN-ACT, which is the pattern §7.1's own
 `create_folder` example uses and `stateful_patterns.md` §4.1 names. The
 exists-check IS the guard: a replay against an unchanged tree creates nothing,
@@ -102,10 +111,11 @@ def component_slug(name: str) -> str:
     RETURNS RATHER THAN RAISES, because its two callers disagree about what an
     unusable name MEANS. A sprint heading that slugs to nothing is a bug in the
     sprint file and `component_dir` still raises on it; a candidate's `component`
-    cell that slugs to nothing is a filer typo, and `candidates.md`'s stated
-    contract is that an unnamed component "scaffolds nothing and FAILS nothing".
-    Sharing one raising helper made the second case abort the whole parent run
-    after the triage dispatch had already been paid for.
+    cell that slugs to nothing is a filer typo, and `candidates.md` § `component`
+    says of a blank that *"Nothing is scaffolded for a blank row and nothing fails
+    because of one"*, extending that to a cell "not blank but yields no folder
+    name". Sharing one raising helper made the second case abort the whole parent
+    run after the triage dispatch had already been paid for.
 
     Not path-traversable: every run of non-alphanumerics collapses to a single
     `-`, so `../../etc` becomes `etc` rather than escaping the tree. Idempotent,
@@ -189,19 +199,36 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         it is a filer typo, and the contract says an unnamed component fails
         nothing. It is REPORTED rather than raised, since the alternative aborted
         the parent after triage's dispatch was already spent.
-      * The directory already exists AND holds research — the candidate EXTENDS
-        something already planned, so there is nothing to scaffold. Seeding a
-        synthesis into a live component's pool would put a one-line proposal on
-        top of real research.
+      * `docs/development/<slug>/` ALREADY EXISTS — the candidate EXTENDS
+        something already planned, so there is nothing to scaffold. The operator's
+        scope is exact about this: *"If the component directory already exists, do
+        nothing for that row."* The condition is the DIRECTORY, not its contents,
+        and this said "exists AND holds research" until a review measured the tree:
+        of 17 components, 3 hold a `synthesis.md`, 9 hold a `research/` with `raw/`
+        and no synthesis, and 5 have no `research/` at all — so the stronger
+        sentence was false for 14 of them and the run note built on it told the
+        operator a pool held research that did not exist.
 
     THE EXISTS-CHECK ALONE WAS NOT ENOUGH, AND THE GAP WAS THE RECOVERY PATH.
     "The directory exists" conflated a live component with one THIS PIPELINE
-    seeded and then abandoned: a `research-verify` failure after `research-write`
-    has committed the seed leaves a real directory holding nothing but the stub,
+    seeded and then abandoned: a run dying between the seed being committed and
+    its research finishing leaves a real directory holding nothing but the stub,
     and the documented `--pr` redispatch would skip it forever while the parent
     printed "an empty working set, not a skipped step" over a stranded candidate.
     A seeded-but-unresearched pool is therefore RESUMED rather than skipped,
     detected by the `_UNRESEARCHED` marker the first real research pass removes.
+
+    WHICH HALF OF THAT GAP THIS ACTUALLY CLOSES, because the sentence above once
+    claimed both. `research_write` REWRITES `synthesis.md` and commits before
+    `research_verify` runs — its completion contract is a PR URL — so a component
+    whose write succeeded and whose VERIFY then failed carries no marker and is
+    read here as `extends`, not `resumed`. What is recovered is every component
+    the run had not reached yet, whose seed a sibling's commit sweep carried onto
+    the branch intact. The unrecovered half is not new and is not this activity's:
+    a sprint-section component whose verify failed was equally unreachable on a
+    redispatch before `plan-candidates` existed, because `new_sprint_sections`
+    diffs from the redispatch's own base. Closing it means `research-verify`
+    recording its own success, which is a change to a child two parents share.
 
     WHAT IT DOES NOT DO: no `roadmap.md`, no phase docs. `sprint.md` says every
     component gets both, and `plan-feature` writes them. This creates a folder
@@ -211,7 +238,7 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     over an unchanged tree creates nothing; it re-reports the same resume and
     skip rows, which is a read rather than a write.
 
-    Returns a `Scaffolded`, in file order. Every eligible row lands in exactly one
+    Returns a `Scaffolded`, in file order. Every eligible ROW lands in exactly one
     of its four lists, so "nothing happened" can always be told from "nothing
     was eligible".
     """
@@ -227,7 +254,20 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         if not slug:
             result.unnamed.append((row.id, row.component))
             continue
-        pool = worktree / "docs" / "development" / slug / "research"
+        pool = component_dir(worktree, row.component,
+                             source="`component` cell in candidates.md") / "research"
+        # A COMPONENT THIS LOOP JUST CREATED IS `extends` FOR EVERY LATER ROW, and
+        # the exists-check alone gets that wrong. The second row's directory does
+        # exist — but its `synthesis.md` still carries the marker this loop wrote
+        # a moment ago, so `_is_unresearched` says yes and the slug landed in
+        # `resumed` as well as `created`. The parent then printed both notes for
+        # one component — "scaffolded from a shipped candidate" and "seeded by an
+        # earlier pass and never researched" — of which the second is false, and
+        # `to_research` carried the slug twice. Checked BEFORE the marker, because
+        # the marker cannot tell this run's seed from a previous run's.
+        if slug in result.created:
+            result.extends.append((row.id, slug))
+            continue
         if pool.parent.exists():
             if _is_unresearched(pool):
                 result.resumed.append(slug)

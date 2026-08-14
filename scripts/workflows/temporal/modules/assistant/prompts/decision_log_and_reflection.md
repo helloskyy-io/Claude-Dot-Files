@@ -45,6 +45,8 @@ Items intentionally NOT addressed in this PR but tracked for follow-up. The find
 
   **A proposal you surface without placing dies at merge.** That is measured, not cautionary: three correctly-classified proposals were left in a PR body and `/standup` does not sweep merged PR bodies.
 
+  **UNLESS YOUR OWN WRITE BOUNDARY FORBIDS IT — then SURFACE the proposal in your PR body and place nothing.** This fragment is injected into every producing workflow, and three of them are explicitly barred from this file: `research-write` and `research-refresh` at component altitude (*"Do NOT write it into the product pool's `direction.md` or `candidates.md`"*) and `research-write-minor` (*"never touch `candidates.md` or `direction.md`"*, and a binding clause telling it to disobey any dispatch instructing it to file anything outside its own research directory). Without this sentence those runs receive two binding instructions that cannot both be followed, and the one they are told to prefer is the one that makes the proposal disappear. **Your write boundary wins; say in the PR body that you were barred from placing, so the reader knows the surfaced item still needs a home.**
+
 **And cluster YOUR OWN findings before considering any of them separately.** Findings sharing a file, a function, a subsystem, or one remedy are **ONE item**. Measured: four separate Issues against one file, from one pass, each individually correct.
 
 **BEFORE you pick a home, answer the two PLACEMENT questions** (`engineering-quality.md` § *A deferral is PLACED*), in this order and from the candidate's BODY rather than its title:

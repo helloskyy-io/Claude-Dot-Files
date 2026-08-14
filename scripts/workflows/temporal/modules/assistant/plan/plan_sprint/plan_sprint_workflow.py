@@ -297,8 +297,13 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # bad cell. `component` belongs to whoever FILED the row; `plan-candidates`
     # reads it in the NEXT parent run and turns a name into a committed
     # `docs/development/<name>/`. Placing an item in the sprint plan is not the
-    # same as deciding which component owns it — the prompt says so at "you never
-    # decide where a shipped candidate goes" — and a proposal this run files may
+    # same as deciding which component owns it. The prohibition this run is given
+    # is the MAY NOT row at plan_sprint.md:32 and nothing else — this comment
+    # attributed "you never decide where a shipped candidate goes" to "the prompt",
+    # and that sentence appears only in triage_candidates.md, about the workflow
+    # that does NOT place. A maintainer auditing this surface would have believed
+    # a prose backstop existed here. It does not; the row is the whole of it.
+    # A proposal this run files may
     # still name its own component, which the pre-existing-rows-only comparison
     # permits without a second rule.
     after_component = act.candidate_components(wt_candidates)

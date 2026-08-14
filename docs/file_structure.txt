@@ -396,8 +396,11 @@ claude-dot-files/
 │                   ├── test_plan_candidates.py      # plan-candidates, the one step in the planning chain that is an ACTIVITY and not a
 │                   │                                #   child: no prompt, no model, so it is testable in-process at no dispatch cost.
 │                   │                                #   The four skips (not `ship`, not `open`, blank component, directory already
-│                   │                                #   exists) and what the seeded synthesis has to carry. Four negative controls,
-│                   │                                #   each predicted before it was run: 3/7/2/9, all four exact
+│                   │                                #   exists), the resume path for a pool this pipeline seeded and abandoned, and
+│                   │                                #   what the seeded synthesis has to carry. The shape check is parametrized over
+│                   │                                #   the CLASS — six-column table, pipe in a cell, wrong id width — against a
+│                   │                                #   nine-table fixture, because a one-table fixture cannot see a whole-file
+│                   │                                #   check's scope error, and one case reads the REAL candidates.md
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing, plus the
 │                   │                                #   Step 1b wiring that gave the research step a reachable input again
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract

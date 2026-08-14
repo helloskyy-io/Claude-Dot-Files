@@ -651,11 +651,22 @@ def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: li
     """
     f = tree / "c.md"
     f.write_text(_table(rows))
-    assert (act.candidate_statuses(f).keys()
-            == sprint_act.candidate_decisions(f).keys()), (
-        "the two candidate readers no longer key the same rows, so plan-sprint's "
-        "row-deletion coverage — which its DISAPPEARANCE_OBSERVERS entry claims "
-        "comes from the `decision` guard alone — has a hole in it")
+    keyed = {
+        "act.candidate_statuses": act.candidate_statuses(f).keys(),
+        "own.candidate_decisions": sprint_act.candidate_decisions(f).keys(),
+        # THE THIRD READER, ADDED WHEN `component` GOT ITS GUARD AND NOT BEFORE.
+        # Both workflows' `before_component` registry entries discharge their
+        # deletion obligation by naming exactly this coupling — and this test
+        # asserted over two readers while three exist, so the entry read as
+        # covered and the column it covers was never in the assertion.
+        "act.candidate_components": act.candidate_components(f).keys(),
+    }
+    disagreeing = [name for name, ks in keyed.items()
+                   if ks != keyed["act.candidate_statuses"]]
+    assert not disagreeing, (
+        f"{disagreeing} no longer key the same rows as the others, so the "
+        f"row-deletion coverage both workflows' DISAPPEARANCE_OBSERVERS entries "
+        f"claim comes from a sibling column's guard has a hole in it")
 
 
 def test_the_dry_run_renders_the_SAME_correction_note_a_live_run_does() -> None:

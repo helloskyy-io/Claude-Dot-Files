@@ -97,22 +97,23 @@ _ROW = re.compile(
     r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|", re.M)
 
 # The seven-column header, as every candidate table in the file renders it.
-#
-# WHY THE SHAPE IS CHECKED AND NOT JUST THE POPULATION. `_ROW` needs only five
-# cells after the id, so a row written in the OLD six-column shape — no
-# `component` cell — matches SHORT and every field lands one column left:
-# `component` reads the Source, `decision` reads `open`, `status` reads the Note.
-# Nothing raises. Such a row reads as TRIAGED to `candidate_counts`, so it drops
-# out of the untriaged working set and `triage-candidates` reports a complete
-# pass over a candidate nobody ruled — the exact failure `normalise_cell` exists
-# to prevent, arriving by column shift instead of by normalisation drift.
-#
-# This file is appended to continuously by autonomous runs, so the old shape is
-# one stale prompt or one hand-edit away rather than hypothetical. Checking the
-# HEADER rather than each row is deliberate: it is the shape that is wrong, not
-# the row, and a per-row check would have to guess which of the two shapes a
-# short row meant.
+# Kept for the MESSAGE it can give — "your table is the old shape" is a better
+# sentence than "row C-082's decision is unreadable" when the whole table moved.
+# It is NOT the guard; see `_check_shape`.
 _HEADER = "| ID | Candidate | `component` | Source | `decision` | `status` | Note |"
+
+# Anything that PRESENTS as a candidate row, whatever its id happens to look
+# like. `_ROW` insists on `C-\d{3}`; this insists only on the shape a reader
+# would call a row, so the two can be compared and a row that fell out of the
+# parse can be named instead of vanishing.
+_ROW_LINE = re.compile(r"^\|\s*(C-\S+?)\s*\|", re.M)
+
+# THE CLOSED VOCABULARIES, AND THEY ARE THE FILE'S OWN. `candidates.md` § The
+# three dispositions: *"Every candidate ends at exactly one of these. There is no
+# fourth"* — `ship` / `requires review` / `reject`, plus blank for not-yet-triaged.
+# § Two flags gives `status` its two values.
+_DECISIONS = ("", "ship", "requires review", "reject")
+_STATUSES = ("", "open", "closed")
 
 _BLANK = ("", "—", "-")
 
@@ -170,26 +171,89 @@ def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[Candidat
     one", and a scaffolder that read it literally would try to create a
     directory out of an em dash.
 
-    THE HEADER IS CHECKED BEFORE ANY ROW IS PARSED, and it raises rather than
-    returning what it can. See `_HEADER`: a table still in the six-column shape
-    parses SHORT and silently reports every row as triaged, so an empty-ish
-    result here is not a safe degradation — it is a clean-looking answer over a
-    working set that has quietly lost its untriaged rows.
+    THE SHAPE IS CHECKED BEFORE ANY ROW IS RETURNED, and it raises rather than
+    returning what it can. See `_check_shape`: every way this file's real shape
+    can depart from the assumed one lands in the same place — a row that reads
+    as TRIAGED without anybody having ruled it, or a row that is simply not
+    there. An empty-ish result here is not a safe degradation; it is a
+    clean-looking answer over a working set that has quietly lost rows.
     """
     if not candidates_path.exists():
         raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
     text = candidates_path.read_text()
-    if _HEADER not in text:
-        raise ValueError(
-            f"{candidates_path} carries no candidate table in the expected "
-            f"seven-column shape. Expected a header line reading exactly:\n"
-            f"  {_HEADER}\n"
-            f"A table missing the `component` column parses one cell short with "
-            f"every field shifted left, which reads as a fully-triaged table and "
-            f"loses the untriaged rows silently. {missing_hint}")
-    return [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
+    rows = [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
                          normalise_cell(dec), normalise_cell(st))
             for cid, title, comp, dec, st in _ROW.findall(text)]
+    _check_shape(candidates_path, text, rows, missing_hint)
+    return rows
+
+
+def _check_shape(path: Path, text: str, rows: list[CandidateRow],
+                 missing_hint: str) -> None:
+    """Raise unless the file's real shape is the one `_ROW` assumes.
+
+    KEYED ON THE CLASS, NOT ON A SPELLING OF IT, and that distinction is the
+    whole reason this is a function rather than the one-line header test it
+    replaces. Three ways the shape has departed or can depart, all producing the
+    SAME failure — a row that leaves the untriaged working set without anybody
+    ruling it, while `triage-candidates` reports a complete pass:
+
+      * a whole TABLE in the old six-column shape. `_ROW` needs only five cells
+        after the id, so every field lands one column left.
+      * ONE ROW carrying a pipe in its first five cells. Markdown's own escape
+        for a literal pipe is `\\|`, and `[^|\\n]*` treats that pipe as a cell
+        boundary — so a CORRECTLY escaped title shifts the row.
+      * an id that is not `C-` plus exactly three digits. `_ROW` does not match
+        it at all, so the row is absent from every reader and every guard here
+        is green over it.
+
+    THE HEADER TEST CAUGHT ONLY THE FIRST, AND ONLY BY LUCK. It asked whether a
+    seven-column header appeared ANYWHERE in the file; this file holds nine
+    candidate tables, so eight correct ones satisfied it while the ninth was
+    malformed. Measured on the real file: one table reverted to the old shape and
+    the guard stayed silent while the untriaged count fell from 33 to 25.
+
+    So the check no longer asks about the table's shape at all. It asks the two
+    questions whose answers a shift necessarily corrupts:
+
+      1. did every line that PRESENTS as a candidate row actually parse?
+      2. does every parsed row's `decision` and `status` fall in the closed
+         vocabulary `candidates.md` defines for it?
+
+    A shift moves foreign text into those two cells — `open` into `decision` for
+    a six-column table, a Source string for a pipe-shifted row — so (2) fires
+    without needing to know WHICH shape went wrong, including shapes nobody has
+    thought of yet. That is the property worth having: the next departure fails
+    here rather than being discovered by a later pass.
+    """
+    parsed = {row.id for row in rows}
+    present = set(_ROW_LINE.findall(text))
+    unparsed = sorted(present - parsed)
+    if unparsed:
+        raise ValueError(
+            f"{path} holds {len(unparsed)} line(s) that present as candidate rows "
+            f"but that the row parser does not match: {', '.join(unparsed)}. An "
+            f"id must be `C-` plus exactly three digits. A row the parser cannot "
+            f"see is absent from the untriaged working set, from every "
+            f"authorization snapshot, and from the deletion check — every guard "
+            f"reads green over it. {missing_hint}")
+
+    for row in rows:
+        if row.decision in _DECISIONS and row.status in _STATUSES:
+            continue
+        shape = ("" if _HEADER in text else
+                 f"\nNo table in this file carries the expected header:\n  {_HEADER}\n"
+                 f"so the whole table is probably still in the old six-column shape.")
+        raise ValueError(
+            f"{path} row {row.id} parses to decision={row.decision!r} "
+            f"status={row.status!r}, and `candidates.md` admits no such value — "
+            f"`decision` is one of {_DECISIONS} and `status` one of {_STATUSES}. "
+            f"A cell holding anything else means the columns have SHIFTED: the "
+            f"row then reads as triaged, drops out of the untriaged working set, "
+            f"and `triage-candidates` reports a complete pass over a candidate "
+            f"nobody ruled. Either a table is in the old six-column shape, or "
+            f"this row carries a pipe in one of its first five cells — only the "
+            f"Note may contain one.{shape} {missing_hint}")
 
 
 def candidate_components(candidates_path: Path) -> dict[str, str]:
@@ -206,6 +270,15 @@ def candidate_components(candidates_path: Path) -> dict[str, str]:
     `docs/development/<slug>/research/` in the very next step of the same parent,
     on the same branch, in the same PR — so a run that invents a component name
     ships a committed directory and two research dispatches for it.
+
+    AND IT IS NO LONGER ALONE IN THAT, WHICH IS WORTH SAYING RATHER THAN LETTING
+    A READER INFER THE OPPOSITE. `_seed` writes `title` verbatim into the new
+    component's synthesis and the parent tells the research child that file is its
+    brief — so an edited SUMMARY changes what a research cycle is commissioned to
+    investigate. A fourth snapshot was considered and NOT taken: a wrong title
+    produces a wrong brief, which `research-verify` reads and can hold on, whereas
+    a wrong `component` produces a directory nothing downstream inspects. Different
+    exposure, so the guard goes where the exposure is unobserved.
 
     An APPENDED row is exempt by construction, because the comparator judges only
     ids present on both sides: a run filing a proposal is *required* to name its
