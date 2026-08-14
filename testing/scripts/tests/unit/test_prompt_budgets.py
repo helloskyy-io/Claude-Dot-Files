@@ -45,6 +45,12 @@ BUDGETS: dict[str, int] = {
     "build/build_refine/prompts/stages_2_to_4.md": 22_093,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     "build/build_draft/prompts/stages_1_to_4.md": 16_083,
+    # SET AT ITS SIZE ON THE DAY IT LANDED, not on 2026-08-14: this prompt was
+    # in flight on `build/plan-feature` when the budget test was written on
+    # `main`, so it is the first file to meet this gate rather than be measured
+    # into it. Same rule, one commit later — the number is today's size and its
+    # job is to make the NEXT addition a trade.
+    "plan/plan_feature/prompts/plan_feature.md": 17_821,
     "research/research_verify/prompts/verify.md": 15_510,
     "build/build_refine_minor/prompts/stages_2_to_4.md": 14_437,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
