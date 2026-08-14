@@ -95,9 +95,9 @@ Filing authority for **defects** sits with the reviewer, not the discoverer, and
 | **`rejected`** | it is not a real defect — state the reasoning that makes it not one |
 | **`hold`** | it is real and you are not fixing it here: `redispatch` (a correction pass fixes it) or `needs_ruling` (only a human can decide) |
 
-**A REVIEWER'S ITEM IS NOT AUTOMATICALLY ONE FINDING. When its OBSERVATION is right and its PROPOSED REMEDY is wrong, that is TWO findings and both get recorded** — the observation takes `fixed` or `hold`, the remedy takes `rejected` with the reasoning that makes it the wrong fix. **Do not average them into one disposition**: recording `fixed` alone hides that you declined the reviewer's approach, and `rejected` alone reads as denying a real defect.
+**A REVIEWER'S ITEM IS NOT AUTOMATICALLY ONE FINDING. When its OBSERVATION is right and its PROPOSED REMEDY is wrong, that is TWO findings and both get recorded** — the observation takes `fixed` or `hold`, the remedy takes `rejected` with the reasoning that makes it the wrong fix. **Do not average them into one disposition**: `fixed` alone hides that you declined the reviewer's approach, and `rejected` alone reads as denying a real defect. *(Stated 2026-08-14.)*
 
-This follows from *one finding = one entry = one recommendation* rather than adding anything to the closed list above, and it is written here because three consecutive reflections reported deriving it under turn pressure and one described the split as unreportable. **The list of dispositions is closed; the number of findings a reviewer's paragraph contains is not.**
+The list of dispositions above is closed; the number of findings a reviewer's paragraph contains is not.
 
 **`deferred`, `noted`, `escalated` and `surfaced` DO NOT EXIST for this class.** Not discouraged, not a last resort — absent. **A finding about the work in hand is never a new issue, never a candidate, and never someone else's queue item.** It is fixed, rejected with reasoning, or held.
 

@@ -80,14 +80,13 @@ exit 0
 
 ### Deny
 
-**THE SHAPE IS PER-EVENT, AND GETTING IT WRONG IS SILENT.** A hook that emits
-the wrong shape still runs, still matches, still exits 0 — and its decision is
-discarded at the far end. Nothing reports an error, so the hook appears
-healthy while blocking nothing.
+**THE SHAPE IS PER-EVENT, AND GETTING IT WRONG IS SILENT.** A hook that emits the wrong shape
+still runs, still matches, still exits 0 — and its decision is discarded. Nothing reports an
+error, so the hook appears healthy while blocking nothing.
 
 **For `PreToolUse`**, emit a nested `hookSpecificOutput`
-([contract](https://code.claude.com/docs/en/hooks)). **A top-level `decision`
-field is NOT valid for tool events:**
+([contract](https://code.claude.com/docs/en/hooks)). **A top-level `decision` field is NOT valid
+for tool events:**
 
 ```bash
 deny() {
@@ -96,15 +95,10 @@ deny() {
 }
 ```
 
-**For `Stop`**, a top-level `decision` IS the contract — and that difference is
-exactly how this document came to be wrong. **Measured 2026-08-13: this standard
-specified the `Stop` shape for a `PreToolUse` hook, `block-dangerous.sh` was
-written to it, its test suite asserted it as fact, and the hook never blocked a
-single command from the day it shipped.** Eight review passes checked the hook
-against the tests; none checked the tests against the vendor's documentation.
-
-**Always name the event when you write a deny helper**, and verify the shape
-against the linked contract rather than against another hook in this repo.
+**For `Stop`**, a top-level `decision` IS the contract. **Name the event when you write a deny
+helper, and verify the shape against the linked contract rather than against another hook in this
+repo.** *(Corrected 2026-08-13 — this document previously specified the `Stop` shape for a
+`PreToolUse` hook.)*
 
 **Define it once as a helper.** Every example in this document calls it, and a
 hook with several deny paths should not restate the payload shape at each one.
