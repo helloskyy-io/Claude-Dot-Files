@@ -220,7 +220,10 @@ All review-trios are dispatched in a single assistant message containing N `Agen
 
 Names are **`<family>-<qualifier>`**, uniform across the fleet. The family is what the script *is*; the qualifier narrows it. Read backwards it is wrong — a PR is not a *type of thing that gets reviewed*; review is the family. Two names violated this (`pr-review`, `sprint-review`) and both were renamed.
 
-- **`build*`** — fix existing code. `build.sh` is the reviewed default, `build-minor.sh` the lighter tier. **Both are parents**; the difference is the weight of the middle child (4 review lenses vs 1)
+- **`build*`** — fix existing code. **Both are parents**; the difference is the model the middle child runs on, and that is a REASONING question, not a budget one.
+  - **`build-minor.sh` runs the lighter children on a smaller model.** It is the right choice when the task does not require high-level reasoning: a scoped change to one file, a mechanical edit, a rename, a fix whose shape is already known. **Choose it because the work does not need deep reasoning — not because it is cheaper.**
+  - **`build.sh` runs the full children on the stronger model**, and is right when the task needs judgement: a new module or contract, a design decision inside the change, anything touching a safety control or an authorization boundary, or a change whose correct shape is not yet known.
+  - **Neither is "the default".** Reading one as the proper choice is how a scoped change draws the heavy tier: on 2026-08-14 three consecutive builds took it without the alternative being considered once. Ask what the task needs, then pick.
 - **`build-*`** — implement from plans
 - **`plan-*`** — create or revise planning docs
 - **`review-*`** — analyze and decide (`review-runs` on logs, `review-sprint` on a sprint, `review-pr` on a PR)

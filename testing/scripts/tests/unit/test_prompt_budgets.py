@@ -64,7 +64,7 @@ BUDGETS: dict[str, int] = {
     # this file is full of em-dashes. The test caught it on its first run,
     # which is the cheapest possible demonstration that byte counts are not
     # eyeballable.
-    "prompts/rules.md": 8_106,
+    "prompts/rules.md": 7_491,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is
