@@ -502,6 +502,9 @@ claude-dot-files/
 │   │       │                                        #   that every row RENDERS its flags the way § Two flags declares them, the
 │   │       │                                        #   vocabulary read off that section rather than hard-coded here
 │   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
+│   │       ├── test_prompt_budgets.py             # Every prompt carries a byte budget, so ADDING to one is a trade
+│   │       │                                        #   rather than free. Prompts grew 224->317 KB in seven days under
+│   │       │                                        #   review — adding is visible work, removing is nobody's job
 │   │       ├── test_relative_links_resolve.py       # Every relative markdown link in a file this repo OWNS points at a
 │   │       │                                        #   file that exists. 29 were broken and none had been caught; every
 │   │       │                                        #   one was a `../` count off by one or two. Vendored standards,
