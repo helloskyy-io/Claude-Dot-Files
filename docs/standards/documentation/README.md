@@ -28,14 +28,24 @@ These are the rules that make a doc corpus maintainable rather than merely large
 
 ## What does NOT bind here
 
-Roughly a third of the document describes a planning structure this repo does not have. Ignore, do not adapt:
+**The whole document binds here.** There is no ignore-list.
 
-- **Sprint Tracking**, **Sprint Close-Out**, **Cross-Roadmap Integration Pattern** — no sprints here; this repo plans in named phases (`docs/development/sprint.md`)
-  - *(§ Completion checkboxes used to be nested here and was structurally swallowed by this exclusion — a producing run read it that way on 2026-08-09 and was not being careless. **Upstream promoted it to its own top-level section the same day**, so the hazard is retired for every consumer and it plainly binds.)*
-  - **Our rule and the standard now AGREE:** a dispatch may flip a checkbox for work in its own diff, and the review stage must verify every flip against the artifact. See `config/rules/standards-governance.md` § Completion checkboxes. The divergence recorded here on 2026-08-09 lasted hours and is closed.
-- **Development Planning Files** — assumes the master-planning layout
-- **The Standup Tracker** — that artifact lives in `mdc-master-planning`; our side is the *reader* (`/standup`), not the owner
-- **Deferred Work — GitHub Issues** — **partially, and read this one carefully.** Only the *routing* is platform-specific and ignorable. The section's **filing authority** — it names *"the PR-review stage"* as the filer, which is this repo's own pipeline — and its **checkbox-before-issue placement rule** are not routing, and both bind here. *(Surfaced 2026-08-08: the blanket exclusion released filing authority repo-wide, and a run used it to exempt itself from the filing rule while reporting the carve-out as over-broad in the same comment. A carve-out justified by one clause must not swallow the clauses beside it.)*
+This section used to carry one — roughly a third of the standard was marked *"ignore, do not adapt"* on the grounds that it described a planning structure this repo does not have. That was wrong in a way that cost real work: **`Sprint Tracking` was excluded because "no sprints here", and this repo has `docs/development/sprint.md`.** The exclusion made three binding gates unreachable, including the **Capability-Parity Gate for Rewrites & Ports**, which names `bash→Temporal` explicitly while this repo is mid-port.
+
+## Where we diverge, it is a QUESTION, not a carve-out
+
+A permanent exclusion is a divergence nobody revisits. **A handoff gets answered once and improves both repos** — and the needs are shared, so a section that does not fit here usually does not fit upstream either.
+
+Anything below is raised with `MDC-Master-Planning` rather than ignored. Each states what the section requires, why it does not land here, and what the two repos have to settle.
+
+| Section | What it requires | The open question |
+|---|---|---|
+| **Sprint Foundations Pattern** | every sprint's first cluster is `§N-1`, with sub-items `N-1a`, `N-1b` | Numbered-cluster machinery. Both repos are moving away from numbered sprints, so this likely no longer fits either. **What replaces it?** |
+| **Sprint Close-Out** | close-out gated on the `R`-items in `common/close_out/sprint_end_recurring.md` | That artifact is MDC's. Upstream is minimizing this section. **Adopt the minimized form when it lands.** |
+| **Development Planning Files § 0** | component-vs-phase, prescribing `roadmap.md` + `phase{N}_{name}.md` | The *decision* is layout-independent and binds; the *file prescription* is master-planning's. Tracked as `C-078`: **promote §0 out of the layout-specific section upstream.** |
+| **The Standup Tracker** | the tracker artifact and its lifecycle | Role difference rather than disagreement — that artifact lives upstream and this repo is its READER via `/standup`. Nothing to settle unless ownership moves. |
+
+**A section listed here is still read.** It is not exempt from thought, it is waiting on an answer — and the answer belongs in a conversation with upstream, not in this file.
 
 ## The one that explicitly excludes us — read the note
 
