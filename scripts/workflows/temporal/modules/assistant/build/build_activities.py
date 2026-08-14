@@ -74,11 +74,27 @@ POLICY_PATH = Path("testing") / "check-policy.yaml"
 
 
 class CiVerdict(str, Enum):
-    """Four states, and the last two are the ones that get fudged."""
+    """Five states, and the last three are the ones that get fudged.
+
+    NO_CHECKS AND GATE_DID_NOT_RUN WERE ONE STATE UNTIL 2026-08-13, AND
+    COLLAPSING THEM COST TWO PRs THEIR MERGE GATE. Both mean "no blocking check
+    reported", and the causes are opposites:
+
+      - NO_CHECKS       — the repo declares no blocking checks. There is no gate
+                          to wait for, and proceeding is correct.
+      - GATE_DID_NOT_RUN — the repo DOES declare blocking checks and none of them
+                          reported. The gate exists and produced nothing, which
+                          is not a pass and must stop the run.
+
+    The usual cause of the second is a conflicted PR: `pull_request` workflows
+    run against the merge ref, GitHub cannot compute one for a conflicted PR, so
+    no run is created at all. Zero runs render as zero failures.
+    """
 
     GREEN = "green"
     RED = "red"
     NO_CHECKS = "no_checks"
+    GATE_DID_NOT_RUN = "gate_did_not_run"
     UNREADABLE_POLICY = "unreadable_policy"
 
 
@@ -150,6 +166,11 @@ def ci_verdict(pr: str, *, repo: str | None = None,
 
     gating = [c for c in checks if str(c.get("name")) in blocking]
     if not gating:
+        # THE SPLIT. `blocking` non-empty means this repo declares a gate; none
+        # of it reporting means the gate did not run, which is the opposite of
+        # "this repo has no gate" and must not share its outcome.
+        if blocking:
+            return CiVerdict.GATE_DID_NOT_RUN, sorted(blocking)
         return CiVerdict.NO_CHECKS, undeclared
 
     failed = [str(c["name"]) for c in gating

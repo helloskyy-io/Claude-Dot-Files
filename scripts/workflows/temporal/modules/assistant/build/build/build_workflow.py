@@ -159,6 +159,21 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         )
         return Verdict.HOLD_REDISPATCH
 
+    if verdict_state is CiVerdict.GATE_DID_NOT_RUN:
+        notes.append(
+            f"CI GATE: HOLD — {POLICY_PATH} declares {', '.join(extra)} blocking, and "
+            f"NONE of them reported on PR {pr}"
+            + (f" in {task.repo_target}" if task.repo_target else "")
+            + ". The gate exists and produced nothing, which is not a pass. "
+            "review-pr was NOT dispatched. The usual cause is a CONFLICTED PR: "
+            "`pull_request` workflows run against the merge ref, GitHub cannot "
+            "compute one for a conflicted PR, so no run is created at all — check "
+            "`git ls-remote origin refs/pull/<N>/merge` against the current head. "
+            "Resolve, push, and let the checks run before redispatching; the diff "
+            "is intact on the branch."
+        )
+        return Verdict.HOLD_REDISPATCH
+
     if verdict_state is CiVerdict.NO_CHECKS:
         # NOT green, and named rather than silent. A repo with no workflows, or
         # a PR whose workflows were all path-filtered out, reports nothing —

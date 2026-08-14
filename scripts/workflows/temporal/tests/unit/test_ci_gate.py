@@ -82,21 +82,44 @@ def test_an_ADVISORY_check_failing_does_NOT_block(monkeypatch, repo):
     assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GREEN
 
 
-def test_an_advisory_check_alone_is_NO_CHECKS_not_green(monkeypatch, repo):
+def test_an_advisory_check_alone_is_GATE_DID_NOT_RUN(monkeypatch, repo):
     """If the gating check did not run at all, advisory checks passing must not
-    be read as a pass — that is the substitution this whole gate exists to stop."""
+    be read as a pass — that is the substitution this whole gate exists to stop.
+
+    This asserted NO_CHECKS until 2026-08-13. The `repo` fixture DECLARES `suite`
+    blocking, so "no gating check reported" here means the declared gate did not
+    run — which is the state that must stop the fleet, not the one that means
+    "this repo has no gate".
+    """
     _gh(monkeypatch, [{"name": "CodeQL", "state": "SUCCESS"}])
-    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.NO_CHECKS
+    verdict, missing = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.GATE_DID_NOT_RUN
+    assert missing == ["suite"], "the runway must name which declared gate is absent"
 
 
-def test_no_checks_at_all_is_NO_CHECKS(monkeypatch, repo):
+def test_no_gating_check_reported_is_GATE_DID_NOT_RUN(monkeypatch, repo):
     _gh(monkeypatch, [])
-    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.NO_CHECKS
+    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GATE_DID_NOT_RUN
 
 
-def test_empty_output_is_NO_CHECKS_not_green(monkeypatch, repo):
+def test_empty_output_is_GATE_DID_NOT_RUN_not_green(monkeypatch, repo):
     _gh(monkeypatch, None, stdout="")
-    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.NO_CHECKS
+    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GATE_DID_NOT_RUN
+
+
+def test_a_repo_that_declares_NO_gate_is_NO_CHECKS(monkeypatch, tmp_path):
+    """THE CONTROL, and the whole reason the split is two states rather than one.
+
+    A repo with an empty blocking list has no gate to wait for, and holding it
+    forever would be wrong. The three tests above and this one differ ONLY in
+    whether a gate was declared — which is exactly the distinction that was
+    missing, and the one that let two PRs proceed on a gate that never ran.
+    """
+    d = tmp_path / POLICY_PATH
+    d.parent.mkdir(parents=True, exist_ok=True)
+    d.write_text("blocking: []\nadvisory:\n  - name: CodeQL\n    reason: default setup\n")
+    _gh(monkeypatch, [])
+    assert act.ci_verdict("1", repo_root=tmp_path)[0] is CiVerdict.NO_CHECKS
 
 
 def test_unreadable_output_fails_into_the_state_that_STOPS(monkeypatch, repo):
