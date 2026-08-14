@@ -111,15 +111,19 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         return []
 
     monkeypatch.setattr(pm.own, "new_sprint_sections", no_sections)
-    monkeypatch.setattr(pm.own, "component_dir",
-                        lambda tree, name: Path("/tmp/wt/docs/development/x"))
+    # `component_dir` IS NOT STUBBED. It was, to a constant `.../development/x`,
+    # which meant every fan-out test asserted against a path the code under test
+    # had not computed — and it hid the slug-versus-heading mismatch that made the
+    # two research signals fail to de-duplicate. It is pure path arithmetic and
+    # there is nothing in it to isolate.
+    #
     # Step 1b scaffolds nothing by default, for the same reason the sweep above
     # returns nothing: it reads and WRITES a real tree, and the worktree here is
     # a bare path. Faked at its boundary and recorded — which component list the
     # parent hands the research step is exactly what the fan-out tests assert on.
-    def no_scaffold(*a: object, **k: object) -> list[str]:
+    def no_scaffold(*a: object, **k: object) -> pm.own.Scaffolded:
         calls.scaffold_args.append(a)
-        return []
+        return pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
 
     monkeypatch.setattr(pm.own, "scaffold_candidate_components", no_scaffold)
     return calls
@@ -300,7 +304,9 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm.act, "worktree_add",
                         lambda repo, name, ref: added.append(name) or Path("/tmp/wt"))
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
-    monkeypatch.setattr(pm.own, "scaffold_candidate_components", lambda *a, **k: [])
+    monkeypatch.setattr(
+        pm.own, "scaffold_candidate_components",
+        lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[]))
     monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
@@ -313,17 +319,25 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     assert added == ["wt"], f"expected exactly one worktree, got {added}"
 
 
+# THE REAL `component_dir` AND THE REAL `component_slug` ARE USED, DELIBERATELY.
+# These helpers used to monkeypatch `component_dir` to `name.lower()`, and that
+# single line is what made the both-signals dedup test below assert nothing: the
+# two signals differ precisely in that one returns a SLUG and the other a raw
+# heading, and a stub that lower-cases erases the difference the test exists to
+# find. Both functions are pure path arithmetic with no I/O, so there was never
+# anything to stub.
+
+
 def _with_sections(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: list(names))
-    monkeypatch.setattr(pm.own, "component_dir",
-                        lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
 
 
 def _with_scaffolded(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
-    monkeypatch.setattr(pm.own, "scaffold_candidate_components",
-                        lambda *a, **k: list(names))
-    monkeypatch.setattr(pm.own, "component_dir",
-                        lambda root, name: Path("/tmp/wt/docs/development") / name.lower())
+    """`names` are what the activity CREATED — always slugs, as it returns directory names."""
+    monkeypatch.setattr(
+        pm.own, "scaffold_candidate_components",
+        lambda *a, **k: pm.own.Scaffolded(created=list(names), resumed=[],
+                                          extends=[], unnamed=[]))
 
 
 def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -376,13 +390,44 @@ def test_a_component_reached_by_BOTH_signals_is_researched_ONCE(
     Not hypothetical once `plan-feature` lands: a component can be scaffolded
     here AND gain a sprint section in the same dispatch, and each entry in this
     list is a `research-write` plus a `research-verify` dispatch.
+
+    **THE SPELLINGS ARE DIFFERENT ON PURPOSE, AND THAT IS THE WHOLE TEST.** The
+    scaffolder returns the directory name it made — a SLUG — while
+    `new_sprint_sections` returns the heading as the operator typed it. An
+    earlier version of this test passed the identical string down both paths and
+    stubbed `component_dir` to lower-case it, so it proved only that
+    `dict.fromkeys` de-duplicates equal strings, and stayed green while the real
+    pair (`fleet-reliability` / `Fleet Reliability`) both survived the union.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
-    _with_scaffolded(monkeypatch, "Alpha")
-    monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: ["Alpha"])
+    _with_scaffolded(monkeypatch, "fleet-reliability")
+    _with_sections(monkeypatch, "Fleet Reliability")
     _run()
-    assert wired.research_pools == [Path("/tmp/wt/docs/development/alpha/research")], (
-        f"researched twice: {wired.research_pools}")
+    assert wired.research_pools == [
+        Path("/tmp/wt/docs/development/fleet-reliability/research")], (
+        f"researched twice under two spellings of one component: {wired.research_pools}")
+
+
+def test_the_SCAFFOLDED_brief_wins_when_a_component_arrives_down_both_signals(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dedup decides HOW MANY; this decides WHICH BRIEF, and only one of them is true.
+
+    A scaffolded component's brief points at the seeded synthesis; the sprint
+    brief tells the child to read a sprint section. If the sprint signal won,
+    the child would be sent to read a section that `plan-candidates` never wrote
+    and `sprint.md` never gained — the false premise the branch exists to avoid.
+    """
+    contexts: list[str] = []
+    monkeypatch.setattr(pm.write, "run_write",
+                        lambda **kw: contexts.append(str(kw["context"])) or PR_URL)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _with_scaffolded(monkeypatch, "fleet-reliability")
+    _with_sections(monkeypatch, "Fleet Reliability")
+    _run()
+
+    assert len(contexts) == 1
+    assert "scaffolded from a shipped research candidate" in contexts[0]
+    assert "sprint section" not in contexts[0].replace("NO sprint section", "")
 
 
 def test_the_scaffolder_is_given_the_WORKTREE_copy_of_the_candidates_file(

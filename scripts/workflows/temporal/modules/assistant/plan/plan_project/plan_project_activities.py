@@ -16,27 +16,48 @@ whole time and were simply not in the list, so a file whose stated invariant is
 rather than eyeballed.
 
 `scaffold_candidate_components` LANDED HERE FOR THE SAME REASON AND NOT BECAUSE
-IT IS CONVENIENT. Its only consumer is `plan_project`, and it is the second
-consumer of `component_dir` — which is already in this file, so rule 3 moves
-nothing. That it needed no migration is a consequence of the rule, not a reason
-to skip checking it.
+IT IS CONVENIENT. Its only consumer is `plan_project`, and it is a second CALL
+SITE of `component_dir` — which is still one workflow, so rule 3 moves nothing.
+**The count rule 3 arbitrates is per WORKFLOW, not per call site**, and this
+sentence said "second consumer" until a review pointed out that the file which
+teaches the rule was demonstrating the wrong arithmetic on itself: a reader
+copying it promotes a single-workflow helper to the shared surface and breaks the
+"anything at a parent level is shared by definition" invariant the rule buys.
+That it needed no migration is a consequence of the rule, not a reason to skip
+checking it.
 
-NOT IDEMPOTENT (§7.1) applies to `scaffold_candidate_components` alone; the
-other two only read. It is CONVERGENT rather than idempotent: it creates nothing
-where a directory already exists, so a replay against an unchanged tree is a
-no-op and a replay after `plan-feature` has filled a component in leaves it
-alone. Under Temporal a retry is a NEW ATTEMPT, and this one is safe to repeat.
+IDEMPOTENT (§7.1) BY CHECK-THEN-ACT, which is the pattern §7.1's own
+`create_folder` example uses and `stateful_patterns.md` §4.1 names. The
+exists-check IS the guard: a replay against an unchanged tree creates nothing,
+and a replay landing after `plan-feature` has filled a component in leaves it
+alone. This docstring called it "CONVERGENT rather than idempotent" against a
+definition ("safe to replay against a CHANGED tree") that appears nowhere in
+§7.1, which reads as a conformance deviation on code that is the standard's
+worked example — and licenses the reverse reading, that a genuinely
+non-idempotent activity can be waved through under a softer word.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import NamedTuple
 
 from .. import plan_activities as act
 
 # Strips the leading marker so a section name is just its name.
 _SECTION_NAME = re.compile(r"^## Sprint:\s*")
+
+# In the seeded synthesis, and removed by the first real research pass.
+#
+# THE RESUME SIGNAL, AND IT IS A COMMENT RATHER THAN PROSE ON PURPOSE. A run can
+# die between the seed being committed and its research finishing — a
+# `research-verify` failure on the documented `--pr` recovery path is enough —
+# and the exists-check would then skip the component forever, because "already
+# exists" cannot distinguish a live component from one this pipeline abandoned
+# half-built. Matching a machine-readable marker rather than a sentence keeps a
+# research paper that happens to QUOTE the seed's prose from reading as unseeded.
+_UNRESEARCHED = "<!-- plan-candidates: seeded, no research yet -->"
 
 
 def new_sprint_sections(worktree: Path, sprint_rel: str, *, base_ref: str) -> list[str]:
@@ -75,7 +96,25 @@ def new_sprint_sections(worktree: Path, sprint_rel: str, *, base_ref: str) -> li
     ]
 
 
-def component_dir(tree: Path, section_name: str) -> Path:
+def component_slug(name: str) -> str:
+    """`Fleet Reliability` -> `fleet-reliability`. Empty string when nothing survives.
+
+    RETURNS RATHER THAN RAISES, because its two callers disagree about what an
+    unusable name MEANS. A sprint heading that slugs to nothing is a bug in the
+    sprint file and `component_dir` still raises on it; a candidate's `component`
+    cell that slugs to nothing is a filer typo, and `candidates.md`'s stated
+    contract is that an unnamed component "scaffolds nothing and FAILS nothing".
+    Sharing one raising helper made the second case abort the whole parent run
+    after the triage dispatch had already been paid for.
+
+    Not path-traversable: every run of non-alphanumerics collapses to a single
+    `-`, so `../../etc` becomes `etc` rather than escaping the tree. Idempotent,
+    so re-slugging an already-slugged name is safe.
+    """
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def component_dir(tree: Path, name: str, *, source: str = "sprint section") -> Path:
     """`Fleet Reliability` -> `docs/development/fleet-reliability`.
 
     The convention the whole tree already follows, applied in code rather than
@@ -86,14 +125,44 @@ def component_dir(tree: Path, section_name: str) -> Path:
     research pool this returns is written on the branch. The parameter was named
     `repo_root` and the call was correct anyway, which is the combination that
     survives review and breaks on the second caller.
+
+    `source` NAMES THE SURFACE THE NAME CAME FROM, and it is in the exception for
+    the operator's benefit. This function now serves two of them, and a message
+    reading "sprint section '--' yields no folder name" over a cell that came from
+    `candidates.md` sends whoever is debugging it to the wrong file — a diagnostic
+    that points away from the cause is worse than a bare traceback.
     """
-    slug = re.sub(r"[^a-z0-9]+", "-", section_name.lower()).strip("-")
+    slug = component_slug(name)
     if not slug:
-        raise ValueError(f"sprint section {section_name!r} yields no folder name")
+        raise ValueError(f"{source} {name!r} yields no folder name")
     return tree / "docs" / "development" / slug
 
 
-def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> list[str]:
+class Scaffolded(NamedTuple):
+    """What step 1b did, per candidate — and every row it DECLINED, with the reason.
+
+    IT RETURNED A BARE LIST OF CREATED SLUGS, AND THAT IS WHAT MADE THREE
+    SEPARATE FAILURES SILENT. "Created nothing" was indistinguishable from
+    "every eligible row already has a live component", from "one row named a
+    component off by a character and forked it", and from "an earlier pass
+    created this and died before its research finished". The parent printed the
+    same empty-working-set note over all four, and that note reads as health.
+
+    `to_research` is `created + resumed`: both are components whose research pool
+    exists and holds nothing but the seed.
+    """
+
+    created: list[str]
+    resumed: list[str]
+    extends: list[tuple[str, str]]
+    unnamed: list[tuple[str, str]]
+
+    @property
+    def to_research(self) -> list[str]:
+        return self.created + self.resumed
+
+
+def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaffolded:
     """Create the folder and seed the synthesis for every shipped candidate that has neither.
 
     THIS IS AN ACTIVITY, NOT A CHILD, AND THE DISTINCTION IS THE WHOLE DESIGN.
@@ -115,24 +184,38 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> list
       * `component` is blank — nobody has said where it goes. **That is an
         unanswered question, not an error**, and answering it is not this code's
         job: the filer knows and this does not. A blank scaffolds nothing and
-        fails nothing.
-      * The directory already exists — the candidate EXTENDS something already
-        planned, so there is nothing to scaffold. Seeding a synthesis into a
-        live component's pool would put a one-line proposal on top of real
-        research.
+        fails nothing. A cell that is not blank but slugs to nothing — an EN dash,
+        `--`, anything punctuation-only — is the same answer for the same reason:
+        it is a filer typo, and the contract says an unnamed component fails
+        nothing. It is REPORTED rather than raised, since the alternative aborted
+        the parent after triage's dispatch was already spent.
+      * The directory already exists AND holds research — the candidate EXTENDS
+        something already planned, so there is nothing to scaffold. Seeding a
+        synthesis into a live component's pool would put a one-line proposal on
+        top of real research.
+
+    THE EXISTS-CHECK ALONE WAS NOT ENOUGH, AND THE GAP WAS THE RECOVERY PATH.
+    "The directory exists" conflated a live component with one THIS PIPELINE
+    seeded and then abandoned: a `research-verify` failure after `research-write`
+    has committed the seed leaves a real directory holding nothing but the stub,
+    and the documented `--pr` redispatch would skip it forever while the parent
+    printed "an empty working set, not a skipped step" over a stranded candidate.
+    A seeded-but-unresearched pool is therefore RESUMED rather than skipped,
+    detected by the `_UNRESEARCHED` marker the first real research pass removes.
 
     WHAT IT DOES NOT DO: no `roadmap.md`, no phase docs. `sprint.md` says every
     component gets both, and `plan-feature` writes them. This creates a folder
     and a seeded synthesis and stops.
 
-    NOT IDEMPOTENT in the §7.1 sense of "safe to replay against a changed tree",
-    but it is CONVERGENT against an unchanged one: the directory-exists check
-    makes a second run over the same file a no-op. A retry that lands after
-    `plan-feature` has filled the component in will correctly leave it alone.
+    IDEMPOTENT (§7.1) by check-then-act — see the module docstring. A second run
+    over an unchanged tree creates nothing; it re-reports the same resume and
+    skip rows, which is a read rather than a write.
 
-    Returns the slugs it created, in file order — the research step's input.
+    Returns a `Scaffolded`, in file order. Every eligible row lands in exactly one
+    of its four lists, so "nothing happened" can always be told from "nothing
+    was eligible".
     """
-    created: list[str] = []
+    result = Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
     rows = act.candidate_rows(candidates_path, missing_hint=(
         "Without it there is nothing to scaffold from, and the research step "
         "that reads what this creates has no input."))
@@ -140,15 +223,38 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> list
     for row in rows:
         if row.decision != "ship" or row.status != "open" or not row.component:
             continue
-        target = component_dir(worktree, row.component)
-        if target.exists():
+        slug = component_slug(row.component)
+        if not slug:
+            result.unnamed.append((row.id, row.component))
             continue
-        (target / "research").mkdir(parents=True)
-        (target / "research" / "synthesis.md").write_text(
-            _seed(row, target.name))
-        created.append(target.name)
+        pool = worktree / "docs" / "development" / slug / "research"
+        if pool.parent.exists():
+            if _is_unresearched(pool):
+                result.resumed.append(slug)
+            else:
+                result.extends.append((row.id, slug))
+            continue
+        pool.mkdir(parents=True)
+        # `encoding` explicitly: the seed carries em dashes, and this is the one
+        # place in the family that WRITES rather than reads. A read that fails on
+        # a narrow locale fails before anything exists; a write that fails leaves
+        # the directory `mkdir` just made, half-built and indistinguishable from
+        # a component somebody is working on.
+        (pool / "synthesis.md").write_text(_seed(row, slug), encoding="utf-8")
+        result.created.append(slug)
 
-    return created
+    return result
+
+
+def _is_unresearched(pool: Path) -> bool:
+    """Does this pool still hold nothing but what `plan-candidates` seeded?
+
+    Anything other than a synthesis still carrying the marker counts as
+    researched — including a pool with no synthesis at all, which is a component
+    somebody laid out by hand and which this activity has no business touching.
+    """
+    seeded = pool / "synthesis.md"
+    return seeded.is_file() and _UNRESEARCHED in seeded.read_text(encoding="utf-8")
 
 
 def _seed(row: act.CandidateRow, slug: str) -> str:
@@ -162,9 +268,21 @@ def _seed(row: act.CandidateRow, slug: str) -> str:
     The `C-NNN` id is the load-bearing part. It is the only link back from the
     component to the row that authorised it, and without it a reader finding this
     folder cannot tell scaffolding from abandoned work.
+
+    AND THE NEXT STEP OVERWRITES THIS FILE, so the id has to be handed ON rather
+    than merely written down. `research_write`'s prompt says *"write (or fully
+    rewrite) synthesis.md"* and its synthesis contract has no provenance field —
+    so the id would live for exactly one pipeline step and be gone before any
+    reviewer saw the PR. The seed asks for it explicitly, and the parent's brief
+    for a scaffolded component asks again.
+
+    `_UNRESEARCHED` is the marker that makes an abandoned seed recoverable; a
+    rewrite removes it, which is precisely the signal wanted.
     """
     return (
         f"# {slug} — synthesis\n"
+        f"\n"
+        f"{_UNRESEARCHED}\n"
         f"\n"
         f"**This component arrived from project-wide planning as a candidate for "
         f"inclusion — [`{row.id}`]"
@@ -173,6 +291,11 @@ def _seed(row: act.CandidateRow, slug: str) -> str:
         f"creates the folder and this file and nothing else. **No research has been "
         f"done yet**, and the `roadmap.md` and phase docs that `plan-feature` writes "
         f"do not exist.\n"
+        f"\n"
+        f"> **Whoever rewrites this file: carry the `{row.id}` line above into what "
+        f"you write.** It is the only link back to the row that authorised this "
+        f"component, and a folder with no link back is indistinguishable from "
+        f"abandoned work.\n"
         f"\n"
         f"## The candidate as filed\n"
         f"\n"

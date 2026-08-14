@@ -50,20 +50,21 @@ _HEADER = (
 )
 
 
-def _table(rows: list[tuple[str, ...]], note: str = "n") -> str:
+def _table(rows: list[tuple[str, ...]], note: str = "n", component: str = "") -> str:
     """A candidates file holding exactly `rows` as (id, decision[, status]) tuples.
 
     `status` defaults to `` `open` `` because that is what every row in the real
     file carries while its work is outstanding; the tests that care about the
     status guard pass the third element explicitly.
 
-    `component` is left BLANK here, and deliberately. Every assertion in this
-    module is about the two flags and the guards built on them; a component name
-    would be inert fixture noise. The rows that exercise `component` live in
-    `test_plan_candidates.py`, where the scaffolder is the subject.
+    `component` defaults to BLANK, and deliberately. Every assertion in this
+    module is about the columns and the guards built on them; a component name
+    would be inert fixture noise except in the two tests that assert on the
+    `component` guard, which pass one explicitly. The rows that exercise
+    SCAFFOLDING live in `test_plan_candidates.py`, where that is the subject.
     """
     body = "".join(
-        f"| {row[0]} | a candidate | | PR #1 | {row[1]} | "
+        f"| {row[0]} | a candidate | {component} | PR #1 | {row[1]} | "
         f"{row[2] if len(row) > 2 else '`open`'} | {note} |\n"
         for row in rows)
     return "# Action candidates\n\n" + _HEADER + body
@@ -524,6 +525,53 @@ def test_NEITHER_workflow_may_move_the_status_column(
 
     with pytest.raises(RuntimeError, match="changed the `status` column"):
         runner(tree)
+
+
+@pytest.mark.parametrize("workflow,runner", [(sprint, _run_sprint), (triage, _run_triage)],
+                         ids=["plan_sprint", "triage"])
+def test_NEITHER_workflow_may_name_the_component_on_somebody_elses_row(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
+        workflow, runner) -> None:
+    """`component` is the FILER's, and it is the one column whose guess gets BUILT.
+
+    `decision` and `status` each got a comparator and a MAY NOT row when the
+    column split happened; `component` arrived with neither, and it is the higher
+    stake of the three: `plan-candidates` runs in the parent immediately after
+    these two and turns whatever the cell says into a committed
+    `docs/development/<name>/` on the same branch. A guessed name is not a bad
+    cell, it is a directory and two research dispatches.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    _fake_run(workflow, monkeypatch, writes=_table(
+        [("C-001", "`ship`", "`open`")], component="guessed-from-a-summary"), path=f)
+
+    with pytest.raises(RuntimeError, match="`component` column"):
+        runner(tree)
+
+
+def test_a_component_named_on_a_row_the_run_APPENDED_is_permitted(
+        tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """NEGATIVE CONTROL, and without it the guard forbids what another rule REQUIRES.
+
+    `decision_log_and_reflection.md` instructs every producing run to file a
+    proposal it surfaced AND to name that proposal's component. Judging new rows
+    would make the two instructions mutually unfollowable. Only a row that
+    already existed can have had its component set by somebody who did not file it.
+
+    `plan_sprint` ONLY, exactly as the sibling `status` control is — and for the
+    same reason rather than a copied shape. A row appended with a blank
+    `decision` fails triage's own completion post-condition before any column
+    guard is reached, so parametrizing this over triage would assert about that
+    post-condition instead of about this guard.
+    """
+    f = tree / "c.md"
+    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    body = (_table([("C-001", "`ship`", "`open`")])
+            + "| C-002 | a candidate | filed-by-this-run | PR #1 |  | `open` | n |\n")
+    _fake_run(sprint, monkeypatch, writes=body, path=f)
+
+    assert _run_sprint(tree) == PR_URL
 
 
 def test_a_row_APPENDED_with_a_status_is_not_a_status_the_run_moved(

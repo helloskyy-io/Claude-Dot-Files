@@ -100,6 +100,11 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "Set `status` on a `direction.md` row — that is the operator's":
         "own.direction_statuses snapshotted either side of the run, through the "
         "same comparator",
+    "Set or change `component` on a candidate row that already existed — that is the FILER's":
+        "act.candidate_components snapshotted either side of the run, compared by "
+        "act.components_this_run_had_no_right_to — which judges only ids present "
+        "on both sides, so the appended-row grant in the MAY column is the same "
+        "exemption rather than a second rule",
     "**Touch `sprint.md` at all** — you hold no authorization over it":
         "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
     "Write or edit any phase doc":
@@ -133,6 +138,12 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
 DISAPPEARANCE_OBSERVERS: dict[str, str] = {
     "before_status":
         "act.ids_deleted against the after-snapshot of the same column",
+    "before_component":
+        "act.ids_deleted on the SAME id set, already run against before_status — "
+        "act.candidate_statuses and act.candidate_components are both built from "
+        "act.candidate_rows, so a row cannot be absent from one map and present "
+        "in the other. Registered rather than left implicit because that coupling "
+        "is the whole reason a second deletion check here would be dead code.",
     "before_direction":
         "act.ids_deleted against the after-snapshot of the same column, checked "
         "BEFORE the status comparison because a vanished row is in neither "
@@ -168,6 +179,11 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # workflow can be re-dispatched onto a branch that already carries work, and
     # a diff against the base would attribute somebody else's edit to this run.
     before_status = act.candidate_statuses(wt_candidates)
+    # `component` is nobody's here either — it belongs to whoever FILED the row.
+    # It is the one column whose guess does not stay a guess: `plan-candidates`
+    # runs in the parent immediately after this child and turns a component name
+    # into a committed `docs/development/<name>/` on this same branch.
+    before_component = act.candidate_components(wt_candidates)
     before_direction = own.direction_statuses(worktree / rel_research)
     before_tree = act.worktree_state(worktree)
 
@@ -278,6 +294,21 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"candidate(s): {', '.join(flipped)}. Ruling a candidate is not doing it. "
             f"`status` belongs to a later process — `plan-feature`, or the build that "
             f"completes the item — and it did not move in the split — see {url}"
+        )
+
+    named = act.components_this_run_had_no_right_to(
+        before_component, act.candidate_components(wt_candidates))
+    if named:
+        raise RuntimeError(
+            f"triage-candidates set or changed the `component` column on "
+            f"{len(named)} pre-existing candidate(s): {', '.join(named)}. That "
+            f"column belongs to whoever FILED the row, because only they know "
+            f"where the proposal goes — from a one-line summary anything "
+            f"downstream is guessing. And the guess does not stay a cell: "
+            f"`plan-candidates` runs immediately after this child and turns a "
+            f"component name into a committed `docs/development/<name>/` on this "
+            f"branch. Naming the component on a row YOU appended is permitted and "
+            f"required; naming it on somebody else's is not — see {url}"
         )
 
     # THE SAME PAIR OF COMPARATORS, ON THE HIGHER-STAKES COLUMN. Read ONCE into

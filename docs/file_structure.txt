@@ -294,7 +294,10 @@ claude-dot-files/
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
 │           │                                        #   plan/ holds plan_project (parent) and three children: triage_candidates and
 │           │                                        #   plan_sprint (both wired, in that order — triage rules the candidates, sprint
-│           │                                        #   places what they ruled; split apart so planning can sit between them) and
+│           │                                        #   places what they ruled; split apart so planning can sit between them). What
+│           │                                        #   sits between them is plan-candidates — an ACTIVITY, not a child: no prompt,
+│           │                                        #   no model, it scaffolds a research pool per shipped candidate and is what
+│           │                                        #   gave the research step a reachable input again. Also
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
 │           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with

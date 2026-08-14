@@ -82,13 +82,37 @@ max_turns = shared.max_turns
 #   | C-001 | title | component | source | `decision` | `status` | note |
 #
 # CELLS ARE MATCHED AS `[^|\n]*`, NOT `.*?`, AND THAT IS LOAD-BEARING. Note text
-# in this file carries UNESCAPED PIPES — measured 2026-08-13, four rows of 76 do
-# — so anything that splits a whole row on `|` reads a different number of cells
-# per row. Every cell this regex captures stops at the next pipe, and the Note it
-# never reaches is the only place a stray pipe has ever appeared. Verified rather
-# than assumed: all 76 rows parse under this shape.
+# in this file carries UNESCAPED PIPES, so anything that splits a whole row on
+# `|` reads a different number of cells per row. Every cell this regex captures
+# stops at the next pipe, and the Note it never reaches is the only place a stray
+# pipe has ever appeared.
+#
+# THE PROPERTY IS STATED WITHOUT A TALLY, DELIBERATELY. This comment carried
+# "four rows of 76 do" and was falsified by the very commit that added the
+# `component` column, because that commit also appended a row — a restated figure
+# drifting one commit after it was measured is the class C-050's own Note names.
+# The load-bearing claim is that NO row's first five cells contain a pipe; a tally
+# of the Note's pipes is decoration and any new row can falsify it.
 _ROW = re.compile(
     r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|", re.M)
+
+# The seven-column header, as every candidate table in the file renders it.
+#
+# WHY THE SHAPE IS CHECKED AND NOT JUST THE POPULATION. `_ROW` needs only five
+# cells after the id, so a row written in the OLD six-column shape — no
+# `component` cell — matches SHORT and every field lands one column left:
+# `component` reads the Source, `decision` reads `open`, `status` reads the Note.
+# Nothing raises. Such a row reads as TRIAGED to `candidate_counts`, so it drops
+# out of the untriaged working set and `triage-candidates` reports a complete
+# pass over a candidate nobody ruled — the exact failure `normalise_cell` exists
+# to prevent, arriving by column shift instead of by normalisation drift.
+#
+# This file is appended to continuously by autonomous runs, so the old shape is
+# one stale prompt or one hand-edit away rather than hypothetical. Checking the
+# HEADER rather than each row is deliberate: it is the shape that is wrong, not
+# the row, and a per-row check would have to guess which of the two shapes a
+# short row meant.
+_HEADER = "| ID | Candidate | `component` | Source | `decision` | `status` | Note |"
 
 _BLANK = ("", "—", "-")
 
@@ -99,11 +123,12 @@ class CandidateRow(NamedTuple):
     It was a bare `(id, decision, status)` triple until `component` was added
     between `Candidate` and `Source`. Widening a positional tuple silently
     re-points every unpacking site by one, and three of the sites here are
-    AUTHORIZATION GUARDS — `candidate_decisions` and `candidate_statuses` prove a
-    run did not write a column it does not own. A guard that compares the wrong
-    field still returns a clean dict and still reports a clean run, so the
-    failure would be invisible in exactly the place invisibility costs most.
-    Named access makes the same mistake a crash instead.
+    AUTHORIZATION GUARDS — `candidate_decisions`, `candidate_statuses` and
+    `candidate_components` each prove a run did not write a column it does not
+    own. A guard that compares the wrong field still returns a clean dict and
+    still reports a clean run, so the failure would be invisible in exactly the
+    place invisibility costs most. Named access makes the same mistake a crash
+    instead.
     """
 
     id: str
@@ -144,12 +169,65 @@ def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[Candidat
     `component` that matters: a filer typing `` ` — ` `` means "I did not name
     one", and a scaffolder that read it literally would try to create a
     directory out of an em dash.
+
+    THE HEADER IS CHECKED BEFORE ANY ROW IS PARSED, and it raises rather than
+    returning what it can. See `_HEADER`: a table still in the six-column shape
+    parses SHORT and silently reports every row as triaged, so an empty-ish
+    result here is not a safe degradation — it is a clean-looking answer over a
+    working set that has quietly lost its untriaged rows.
     """
     if not candidates_path.exists():
         raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
+    text = candidates_path.read_text()
+    if _HEADER not in text:
+        raise ValueError(
+            f"{candidates_path} carries no candidate table in the expected "
+            f"seven-column shape. Expected a header line reading exactly:\n"
+            f"  {_HEADER}\n"
+            f"A table missing the `component` column parses one cell short with "
+            f"every field shifted left, which reads as a fully-triaged table and "
+            f"loses the untriaged rows silently. {missing_hint}")
     return [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
                          normalise_cell(dec), normalise_cell(st))
-            for cid, title, comp, dec, st in _ROW.findall(candidates_path.read_text())]
+            for cid, title, comp, dec, st in _ROW.findall(text)]
+
+
+def candidate_components(candidates_path: Path) -> dict[str, str]:
+    """Every row's `component`, normalised, keyed by id — the column NO workflow owns.
+
+    THE THIRD COLUMN, AND THE ONLY ONE WHOSE WRITER IS NOT A PROCESS.
+    `candidates.md` gives `decision` to `triage-candidates` and `status` to a
+    later process; it gives `component` to *whoever FILES the candidate, at the
+    moment they file it*, on the stated grounds that anything downstream would be
+    guessing at it from a one-line summary.
+
+    It needs a guard for a reason the other two do not have: a guessed value here
+    does not stay a bad cell. `plan-candidates` turns it into
+    `docs/development/<slug>/research/` in the very next step of the same parent,
+    on the same branch, in the same PR — so a run that invents a component name
+    ships a committed directory and two research dispatches for it.
+
+    An APPENDED row is exempt by construction, because the comparator judges only
+    ids present on both sides: a run filing a proposal is *required* to name its
+    component, and that is the one write of this column any workflow may make.
+    """
+    return {row.id: row.component for row in candidate_rows(candidates_path, missing_hint=(
+        "Without it there is no `component` column to hold anything to."))}
+
+
+def components_this_run_had_no_right_to(before: dict[str, str],
+                                        after: dict[str, str]) -> list[str]:
+    """Ids whose `component` changed on a row that already existed. No workflow may.
+
+    The same shape as `statuses_this_run_had_no_right_to` and for the same
+    reason — only pre-existing rows are judged, so a row this run APPENDED is
+    outside it. Written out rather than routed through a shared helper because
+    the two columns are prohibited for DIFFERENT reasons and each docstring is
+    the place that reason is recorded; sharing the body would leave one of them
+    with nowhere to say it.
+    """
+    return sorted(cid for cid in before.keys() & after.keys()
+                  if before[cid] != after[cid])
 
 
 def candidate_counts(candidates_path: Path) -> dict[str, int]:

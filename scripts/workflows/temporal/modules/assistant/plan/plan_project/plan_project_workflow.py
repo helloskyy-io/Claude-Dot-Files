@@ -16,9 +16,15 @@ structurally impossible rather than merely unbuilt.
 IS NOT. It calls no model because it needs no judgement: triage already decided
 which candidates ship and the filer already named where each one goes, so the
 whole job is creating the directory and seeding the first document from what the
-row already says. A parent calling an activity directly is the shape §3.4
-prescribes for exactly this — deterministic work belongs in code, and this runs
-for free.
+row already says. Two rules carry that, and neither is §3.4 — this docstring
+cited §3.4 until a standards pass read it, and §3.4 is *Composition — reuse
+workflows as building blocks*, which says nothing about parents calling
+activities. **§3.1/§3.3** is the layering rule: Layer 1 orchestrates and holds no
+process code, Layer 3a holds the I/O — which is why the function lives in
+`plan_project_activities.py` rather than inline here. **§3.4's actual sentence**
+supplies the other half: *"manufacturing children for their own sake adds
+dispatch overhead for no gain"*. Both support this; the sentence quoted before
+did not.
 
 IT FIXED AN ORDERING DEFECT ON ITS OWN. `plan-sprint` used to run FIRST, so the
 sprint plan — hour totals included — was updated before anything estimated the
@@ -40,6 +46,16 @@ triage, and no diff heuristic is involved. Both signals are read and unioned —
 `new_sprint_sections` stays because it is still the correct answer to *"did this
 run add a sprint section"*, and it will start returning rows again the moment
 anything ahead of this step writes one.
+
+WHAT "CAN FIRE AGAIN" MEANS AND WHAT IT DOES NOT. The wiring is live; the input
+still depends on somebody naming a component. Measured on the tree as of
+2026-08-13: of 77 candidate rows exactly one names a `component`, and its
+directory already exists — so the next run scaffolds nothing and takes the
+empty-working-set branch. That is correct behaviour rather than a defect, but a
+reader taking this docstring as a statement about the RUNNING pipeline would be
+wrong. The step becomes productive as filers name components on the rows they
+file, which every filing prompt now instructs; the 19 pre-existing `ship`+`open`
+rows with a blank cell are the operator's to name, per `candidates.md`.
 
 WHY THIS EXISTS AT ALL. `plan-sprint` shipped and ran twice with no parent, so
 its output reached the operator UNJUDGED — and it is the only autonomous run
@@ -83,6 +99,14 @@ from ...research.research_write import research_write_workflow as write
 from ...research.research_verify import research_verify_workflow as verify
 from ..plan_sprint import plan_sprint_workflow as sprint
 from ..triage_candidates import triage_candidates_workflow as triage
+
+# WHICH SIGNAL PUT A COMPONENT IN FRONT OF THE RESEARCH STEP. Interned constants
+# rather than bare strings so the brief branch below compares by IDENTITY: the
+# two briefs are not interchangeable — one of them is a false premise for the
+# other's component — and a typo'd string literal would silently pick the wrong
+# one rather than raising.
+_SCAFFOLDED = "scaffolded"
+_SPRINT_SECTION = "sprint-section"
 
 
 def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
@@ -138,16 +162,32 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     #
     # IT RUNS AFTER TRIAGE FOR THE OBVIOUS REASON — it acts on `ship` rulings,
     # and before triage there are none. On a `--pr` redispatch the rulings are
-    # already there from an earlier pass, and the directory-exists check is what
-    # keeps that from re-scaffolding them.
-    # NOT `slug` — that name is already bound to the REPOSITORY slug above and
-    # is what step 1's PR-number lookup was given. Rebinding it in a loop here
-    # is the shadowing bug `component_dir`'s caller comment names, one scope up.
+    # already there from an earlier pass, and the exists-check is what keeps that
+    # from re-scaffolding them.
     scaffolded = own.scaffold_candidate_components(
         worktree, worktree / candidates_path.relative_to(repo_root))
-    for component in scaffolded:
+
+    # EVERY OUTCOME GETS A NOTE, NOT ONLY THE PRODUCTIVE ONE. A step that reports
+    # only what it created cannot be told apart from a step that saw nothing, and
+    # the three quiet outcomes are the ones worth reading: a candidate extending a
+    # live component is the design working, a resumed pool is a previous run that
+    # died half-way, and an unusable name is a filer typo nobody else will notice.
+    #
+    # NOT `slug` for the loop variable — that name is already bound to the
+    # REPOSITORY slug above and is what step 1's PR-number lookup was given.
+    for component in scaffolded.created:
         notes.append(f"Scaffolded `docs/development/{component}/research/` "
                      f"from a shipped candidate — researching it next.")
+    for component in scaffolded.resumed:
+        notes.append(f"`docs/development/{component}/research/` was seeded by an "
+                     f"earlier pass and never researched — resuming it.")
+    for cid, component in scaffolded.extends:
+        notes.append(f"`{cid}` names `{component}`, which already holds research — "
+                     f"the candidate extends it, so nothing was scaffolded.")
+    for cid, raw in scaffolded.unnamed:
+        notes.append(f"`{cid}`'s `component` cell reads {raw!r}, which yields no "
+                     f"folder name. Nothing scaffolded; the cell needs a real name "
+                     f"or a blank.")
 
     # --- Step 2: RESEARCH each NEW component -------------------------------
     # TWO SIGNALS, UNIONED, AND NEITHER IS ASKED OF A CHILD. The parent must not
@@ -176,18 +216,41 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     # property rather than a location.
     new_sections = own.new_sprint_sections(
         worktree, str(sprint_path.relative_to(repo_root)), base_ref=base_sha)
-    # De-duplicated, order-preserving: a component can reach this step down both
-    # paths at once, and researching it twice would buy a second full cycle for
-    # nothing. `dict.fromkeys` rather than a set — the note order above is the
-    # order an operator reads.
-    to_research = list(dict.fromkeys(scaffolded + new_sections))
-    if not to_research:
+
+    # DE-DUPLICATED ON THE RESOLVED SLUG, NOT ON THE RAW STRING, AND THAT IS THE
+    # WHOLE CORRECTNESS OF THIS LINE. The two signals speak different alphabets:
+    # `scaffold_candidate_components` returns SLUGS (`fleet-reliability`) because
+    # it named the directory it made, while `new_sprint_sections` returns the RAW
+    # HEADING (`Fleet Reliability`) because it read it out of a diff. `component_dir`
+    # maps both onto the same directory, so a string-keyed union kept both — two
+    # `research-write` plus two `research-verify` dispatches into one pool, and the
+    # SECOND one handed the sprint-section brief for a component that has no sprint
+    # section, which is the false premise the branch below exists to avoid.
+    #
+    # Latent rather than firing today, because nothing ahead of this step adds a
+    # sprint section — which is exactly why it had to be fixed rather than watched:
+    # it becomes live on the day `plan-feature` lands, in a run nobody is reading.
+    #
+    # An ORIGIN MAP rather than a bare list, so the brief below reads off a
+    # recorded fact instead of re-deriving it with a membership test that has the
+    # same alphabet problem. `setdefault` makes first-signal-wins explicit, and
+    # scaffolding is listed first because a scaffolded component genuinely has no
+    # sprint section to read.
+    # The value keeps the RAW name alongside the signal, because the sprint brief
+    # below quotes the heading as the operator wrote it and a slug is not that.
+    origin: dict[str, tuple[str, str]] = {}
+    for name in scaffolded.to_research:
+        origin.setdefault(own.component_slug(name), (_SCAFFOLDED, name))
+    for name in new_sections:
+        origin.setdefault(own.component_slug(name), (_SPRINT_SECTION, name))
+    if not origin:
         notes.append(
             "No component research ran: no shipped candidate named a component "
             "that needed scaffolding, and this run added no sprint section. That "
-            "is an empty working set, not a skipped step."
+            "is an empty working set, not a skipped step. Any candidate that WAS "
+            "seen and declined is named in its own note above."
         )
-    for section in to_research:
+    for section, (signal, raw) in origin.items():
         notes.append(f"New component `{section}` — researching before it is planned.")
         # NOT `research_dir` — that parameter is the PRODUCT pool the triage and
         # sprint children work from, and rebinding it here would hand the
@@ -204,21 +267,29 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         # exist and cannot be created. It gets pointed at the seeded synthesis
         # instead, which is where its actual brief was just written.
         #
+        # Read off `origin` rather than re-derived by membership: the two signals
+        # spell a component differently, so `section in scaffolded` answered the
+        # wrong question for the one case where the answer mattered.
+        #
         # In both cases the child's Stage 1 already reads the destination's
         # planning docs to drive its topics, so a hand-written task file would
         # be restating what it is about to read.
-        if section in scaffolded:
+        if signal is _SCAFFOLDED:
             context = (
                 f"A new component `{section}` was just scaffolded from a shipped "
                 f"research candidate and has no research and no phase doc yet. "
                 f"Read `{component_pool.relative_to(worktree)}/synthesis.md` first "
                 f"— it names the candidate this came from and carries the summary "
                 f"as filed, and it is your brief. It has NO sprint section: "
-                f"planning follows this research, not the other way round."
+                f"planning follows this research, not the other way round. "
+                f"CARRY THE `C-NNN` PROVENANCE LINE at the top of that synthesis "
+                f"into the one you write — it is the only link back to the row "
+                f"that authorised this component, and you are about to overwrite "
+                f"the only copy of it."
             )
         else:
             context = (
-                f"A new sprint section `{section}` was just added to "
+                f"A new sprint section `{raw}` was just added to "
                 f"{sprint_path.relative_to(repo_root)} and has no phase doc yet. "
                 f"Research it BEFORE it is planned. Read that section first — it is "
                 f"your brief, and its milestones are what this pool must inform."

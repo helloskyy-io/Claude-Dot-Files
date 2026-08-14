@@ -61,13 +61,21 @@ def _write(tree: Path, content: str) -> Path:
     return f
 
 
+# ASSERTED AGAINST THE WHOLE RESULT, NOT AGAINST `.created`. Every skip below
+# says a row produced no directory; comparing only `created` would pass equally
+# for a row that landed in the wrong OTHER bucket — an `extends` reported as an
+# `unnamed` is a different fact about the file and a different note to the
+# operator. `_replace` names the one field a test expects to differ.
+_NOTHING = own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+
+
 # --- vacuity floor --------------------------------------------------------
 
 def test_a_shipped_open_named_row_IS_scaffolded(tree: Path) -> None:
     """The floor: if this does not fire, every skip assertion below is vacuous."""
     f = _write(tree, _table(
         ("C-001", "A thing worth building", "fleet-reliability", "`ship`", "`open`")))
-    assert own.scaffold_candidate_components(tree, f) == ["fleet-reliability"]
+    assert own.scaffold_candidate_components(tree, f).created == ["fleet-reliability"]
     pool = tree / "docs" / "development" / "fleet-reliability" / "research"
     assert pool.is_dir(), "the research pool is the whole deliverable"
     assert (pool / "synthesis.md").is_file()
@@ -79,14 +87,14 @@ def test_a_shipped_open_named_row_IS_scaffolded(tree: Path) -> None:
 def test_only_a_SHIP_row_is_scaffolded(tree: Path, decision: str) -> None:
     """Blank is untriaged, not permission. `reject` is a decision, not an absence."""
     f = _write(tree, _table(("C-001", "t", "some-component", decision, "`open`")))
-    assert own.scaffold_candidate_components(tree, f) == []
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING
     assert not (tree / "docs" / "development" / "some-component").exists()
 
 
 def test_a_CLOSED_row_is_not_scaffolded(tree: Path) -> None:
     """`closed` means the work is done. Scaffolding it would re-open finished work."""
     f = _write(tree, _table(("C-001", "t", "some-component", "`ship`", "`closed`")))
-    assert own.scaffold_candidate_components(tree, f) == []
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING
     assert not (tree / "docs" / "development" / "some-component").exists()
 
 
@@ -102,7 +110,7 @@ def test_a_BLANK_component_scaffolds_NOTHING_and_fails_NOTHING(
     worse than no directory: it exists, so the exists-check skips it forever.
     """
     f = _write(tree, _table(("C-001", "t", blank, "`ship`", "`open`")))
-    assert own.scaffold_candidate_components(tree, f) == []
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING
     made = sorted(p.name for p in (tree / "docs" / "development").iterdir())
     assert made == [], f"a blank component created {made}"
 
@@ -121,7 +129,8 @@ def test_an_EXISTING_component_directory_is_left_completely_alone(tree: Path) ->
 
     f = _write(tree, _table(
         ("C-001", "t", "memory-management-framework", "`ship`", "`open`")))
-    assert own.scaffold_candidate_components(tree, f) == []
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
+        extends=[("C-001", "memory-management-framework")])
     assert (pool / "synthesis.md").read_text() == "REAL RESEARCH, twenty-five papers deep\n"
 
 
@@ -183,7 +192,7 @@ def test_a_component_NAME_is_slugged_to_the_convention_the_tree_follows(
     directory that every reconciliation walking `docs/development/` misses.
     """
     f = _write(tree, _table(("C-001", "t", "Fleet Reliability", "`ship`", "`open`")))
-    assert own.scaffold_candidate_components(tree, f) == ["fleet-reliability"]
+    assert own.scaffold_candidate_components(tree, f).created == ["fleet-reliability"]
     assert (tree / "docs" / "development" / "fleet-reliability").is_dir()
 
 
@@ -195,12 +204,13 @@ def test_a_second_run_over_an_unchanged_file_is_a_NO_OP(tree: Path) -> None:
     research child had put there between the two attempts.
     """
     f = _write(tree, _table(("C-001", "t", "new-thing", "`ship`", "`open`")))
-    assert own.scaffold_candidate_components(tree, f) == ["new-thing"]
+    assert own.scaffold_candidate_components(tree, f).created == ["new-thing"]
 
     seed = tree / "docs" / "development" / "new-thing" / "research" / "synthesis.md"
     seed.write_text("the research child has since written this\n")
 
-    assert own.scaffold_candidate_components(tree, f) == []
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
+        extends=[("C-001", "new-thing")])
     assert seed.read_text() == "the research child has since written this\n"
 
 
@@ -212,7 +222,7 @@ def test_every_eligible_row_is_scaffolded_not_just_the_first(tree: Path) -> None
         ("C-003", "t", "beta", "`reject`", "`open`"),
         ("C-004", "t", "gamma", "`ship`", "`open`"),
     ))
-    assert own.scaffold_candidate_components(tree, f) == ["alpha", "gamma"]
+    assert own.scaffold_candidate_components(tree, f).created == ["alpha", "gamma"]
 
 
 def test_two_rows_naming_the_SAME_component_scaffold_it_once(tree: Path) -> None:
@@ -225,7 +235,7 @@ def test_two_rows_naming_the_SAME_component_scaffold_it_once(tree: Path) -> None
         ("C-001", "first", "shared", "`ship`", "`open`"),
         ("C-002", "second", "shared", "`ship`", "`open`"),
     ))
-    assert own.scaffold_candidate_components(tree, f) == ["shared"]
+    assert own.scaffold_candidate_components(tree, f).created == ["shared"]
     seed = (tree / "docs" / "development" / "shared" / "research"
             / "synthesis.md").read_text()
     assert "C-001" in seed and "C-002" not in seed, (
@@ -263,7 +273,104 @@ def test_the_row_parse_survives_UNESCAPED_PIPES_IN_THE_NOTE(tree: Path) -> None:
     assert len(rows) == 1
     assert (rows[0].id, rows[0].component, rows[0].decision, rows[0].status) == (
         "C-001", "piped", "ship", "open")
-    assert own.scaffold_candidate_components(tree, f) == ["piped"]
+    assert own.scaffold_candidate_components(tree, f).created == ["piped"]
+
+
+def test_a_SIX_COLUMN_table_RAISES_rather_than_parsing_one_cell_short(
+        tree: Path) -> None:
+    """The old shape matches `_ROW` SHORT, with every field one column left.
+
+    `component` would read the Source, `decision` would read `` `open` `` and
+    `status` the Note — so every row reads as TRIAGED and the untriaged working
+    set silently empties. That is the failure `normalise_cell` exists to prevent,
+    arriving by column shift instead. Loud beats a clean-looking answer.
+    """
+    old = ("# Action candidates\n\n"
+           "| ID | Candidate | Source | `decision` | `status` | Note |\n"
+           "|---|---|---|---|---|---|\n"
+           "| C-001 | a thing | PR #1 |  | `open` | n |\n")
+    f = _write(tree, old)
+    with pytest.raises(ValueError) as exc:
+        act.candidate_rows(f, missing_hint="x")
+    assert "seven-column" in str(exc.value)
+
+
+def test_an_UNUSABLE_component_name_is_REPORTED_not_raised(tree: Path) -> None:
+    """`candidates.md` says an unnamed component "scaffolds nothing and FAILS nothing".
+
+    `normalise_cell`'s blank set is `""`, `-` and `—`. An EN dash, `--`, or any
+    other punctuation-only cell is non-blank to it and slugs to nothing, and
+    letting `component_dir` raise on that aborted the whole parent run — after
+    triage's dispatch had already been paid for — over one filer typo.
+    """
+    for raw in ("–", "--", "···", "***"):
+        f = _write(tree, _table(("C-001", "t", raw, "`ship`", "`open`")))
+        assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
+            unnamed=[("C-001", raw)]), f"{raw!r} was not reported as unusable"
+        assert sorted(p.name for p in (tree / "docs" / "development").iterdir()) == []
+
+
+def test_a_SEEDED_but_UNRESEARCHED_pool_is_RESUMED_not_skipped_forever(
+        tree: Path) -> None:
+    """The redispatch hole: "exists" conflated a live component with an abandoned one.
+
+    `research-write` commits the seed; if `research-verify` then fails, the
+    documented `--pr` recovery redispatch would hit the exists-check, skip, and
+    report "an empty working set, not a skipped step" over a candidate that is
+    stranded forever. A pool still carrying the seed marker is unfinished work,
+    not a component somebody owns.
+    """
+    f = _write(tree, _table(("C-001", "t", "half-built", "`ship`", "`open`")))
+    assert own.scaffold_candidate_components(tree, f).created == ["half-built"]
+
+    second = own.scaffold_candidate_components(tree, f)
+    assert second == _NOTHING._replace(resumed=["half-built"])
+    assert second.to_research == ["half-built"], "a resumed pool must reach research"
+
+
+def test_a_pool_the_research_child_REWROTE_is_never_resumed(tree: Path) -> None:
+    """The marker is what separates the two, and a rewrite removes it.
+
+    Without this the resume path would re-research every component forever. It
+    is the same assertion as the no-op test one level up, stated against the
+    signal rather than against the return value.
+    """
+    f = _write(tree, _table(("C-001", "t", "researched", "`ship`", "`open`")))
+    own.scaffold_candidate_components(tree, f)
+    seed = tree / "docs" / "development" / "researched" / "research" / "synthesis.md"
+    assert own._UNRESEARCHED in seed.read_text()
+
+    seed.write_text("# researched — synthesis\n\nTwenty-five papers deep.\n")
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
+        extends=[("C-001", "researched")])
+
+
+def test_the_seed_asks_the_next_writer_to_CARRY_THE_ID_FORWARD(tree: Path) -> None:
+    """`research_write` fully rewrites this file, so writing the id down is not keeping it.
+
+    Its prompt says *"write (or fully rewrite) synthesis.md"* and its synthesis
+    contract has no provenance field. The id the docstring calls the load-bearing
+    part would live for exactly one pipeline step unless something asks for it.
+    """
+    f = _write(tree, _table(("C-042", "t", "carried", "`ship`", "`open`")))
+    own.scaffold_candidate_components(tree, f)
+    seed = (tree / "docs" / "development" / "carried" / "research"
+            / "synthesis.md").read_text()
+    assert "carry the `C-042` line above into what you write" in seed
+
+
+def test_a_run_may_NOT_name_a_component_on_a_row_it_did_not_file(tree: Path) -> None:
+    """`component` is the FILER's, and it is the one column whose guess gets BUILT.
+
+    `decision` and `status` each have a snapshot comparator and a MAY NOT row;
+    `component` had neither, while `plan-candidates` turns whatever it says into
+    a committed directory in the next step of the same parent. An APPENDED row is
+    exempt, because filing a proposal requires naming where it goes.
+    """
+    before = {"C-001": "", "C-002": "alpha"}
+    after = {"C-001": "guessed", "C-002": "alpha", "C-003": "filed-by-this-run"}
+    assert act.components_this_run_had_no_right_to(before, after) == ["C-001"], (
+        "either the guess was missed or the appended row was wrongly flagged")
 
 
 def test_the_parse_is_NAMED_so_a_widened_row_cannot_silently_shift_a_guard() -> None:
