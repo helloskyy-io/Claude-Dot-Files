@@ -2,7 +2,7 @@
 
 Both functions read the tree so the PARENT can decide which components are new
 and where their research pool belongs. Nothing else in the family calls either,
-and [`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
+and [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides,
 never taste"*. Rule 6 gives a one-file workflow folder its place to grow the
 helper it has earned.

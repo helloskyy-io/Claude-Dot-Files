@@ -2,7 +2,7 @@
 
 `direction_ceiling` sat on the planning family's shared surface while its single
 caller was `plan_sprint`; the split moved the caller, not the count.
-[`workflow-scripts.md` § Location](../../../../../../docs/standards/workflow-scripts.md)
+[`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, never
 taste"* — and rule 6 gives a one-file workflow folder its place to grow a helper
 it has earned.
@@ -10,7 +10,7 @@ it has earned.
 `direction_statuses` is the reader the operator's own column needed and did not
 have. `direction.md` is `triage-candidates`'s to APPEND to and nobody's to RULE
 on: `applied` and `rejected` are the operator's, and
-[`standards-governance.md`](../../../../../../config/rules/standards-governance.md)
+[`standards-governance.md`](../../../../../../../config/rules/standards-governance.md)
 calls that flag *"the ruling this rule exists to protect"*. The split built a
 before/after comparison for `candidates.md`'s `status` and left the
 higher-stakes column next door on prose — while both prompts told the model it

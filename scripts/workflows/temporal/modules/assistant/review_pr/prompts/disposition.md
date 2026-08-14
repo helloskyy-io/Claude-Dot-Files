@@ -154,7 +154,7 @@ All three still block MERGE. Only LAUNDERED counts against the producing run.
 
 **Self-check for a novel case — if I get this wrong, is the failure LOUD or QUIET?** A false no-change outcome is **loud**: no plan was produced and the operator sees it immediately. A buried deferral is **quiet**: the PR still reads clean and nobody notices. **The gate exists for the quiet one.** If getting it wrong would be loud, it is not the operation this constrains.
 
-**QUESTION 0 COMES BEFORE PLACEMENT — DEFECT OR PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../docs/standards/architecture/architectural_standard.md) is binding and states this; the full reasoning is [`memory-model.md` §1.1](../../../../../../docs/guide/memory-model.md). Do not restate it here — apply it.
+**QUESTION 0 COMES BEFORE PLACEMENT — DEFECT OR PROPOSAL?** [Architecture Standard § 4 Memory](../../../../../../../docs/standards/architecture/architectural_standard.md) is binding and states this; the full reasoning is [`memory-model.md` §1.1](../../../../../../../docs/guide/memory-model.md). Do not restate it here — apply it.
 
 - **A DEFECT** — something already built or already decided behaves wrongly, or a decision the existing research and planning do not supply is now blocking. Continue to placement.
 - **A PROPOSAL** — capability that does not exist yet and would be *added*. **It goes to `candidates.md` and it is NEVER an Issue**, however clean its done-state looks. **Bias here when it reads either way:** a proposal misfiled as a candidate costs a triage pass; a proposal misfiled as an Issue costs an operator's day.

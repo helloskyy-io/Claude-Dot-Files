@@ -2,8 +2,8 @@
 
 **Status:** 🟡 IN PROGRESS — the loop runs; the reflection channel is not yet swept systematically
 
-> **Running it unattended is not this phase.** `review-runs.sh` exists and belongs here; putting it on a durable schedule is [Autonomous Operation → Temporal Crons](../../sprint.md), and depends on Temporal. This phase is done when the evidence is gathered and ruled on well — not when nobody has to start it.
-**Roadmap entry:** [`../sprint.md`](../../sprint.md)
+> **Running it unattended is not this phase.** `review-runs.sh` exists and belongs here; putting it on a durable schedule is [Autonomous Operation → Temporal Crons](../sprint.md), and depends on Temporal. This phase is done when the evidence is gathered and ruled on well — not when nobody has to start it.
+**Roadmap entry:** [`../sprint.md`](../sprint.md)
 **Depends on:** [`autonomous-execution.md`](../autonomous-execution/autonomous-execution.md) — there is nothing to analyse until workflows are producing logs
 
 ## Goal
@@ -40,7 +40,7 @@ The two are complementary and neither substitutes for the other. A log shows tha
 
 ## Decisions
 
-**The ruling is always a human's.** Findings are surfaced; ship / defer / reject is decided in the interactive session. This is binding via [`standards-governance.md`](../../../../config/rules/standards-governance.md), and it is why "automated skill capture" and auto-opened PRs of workflow changes were both rejected rather than scheduled. **The system observes itself and proposes; it does not modify itself.**
+**The ruling is always a human's.** Findings are surfaced; ship / defer / reject is decided in the interactive session. This is binding via [`standards-governance.md`](../../../config/rules/standards-governance.md), and it is why "automated skill capture" and auto-opened PRs of workflow changes were both rejected rather than scheduled. **The system observes itself and proposes; it does not modify itself.**
 
 **Append-only, including the rejections.** Deferrals carry an explicit watch-criterion — *"ship on second occurrence"* — so a re-surfaced finding arrives with its own history rather than being argued from scratch. Rejections are kept for the same reason in reverse.
 
@@ -50,7 +50,7 @@ The two are complementary and neither substitutes for the other. A log shows tha
 
 ## Superseded and forbidden
 
-**Graduation evaluation — answered.** Whether to move beyond bash was a live question here; it is settled. Durable execution, adopted for durability and resumability, **not** to gain composition. See [Temporal Integration](../../sprint.md).
+**Graduation evaluation — answered.** Whether to move beyond bash was a live question here; it is settled. Durable execution, adopted for durability and resumability, **not** to gain composition. See [Temporal Integration](../sprint.md).
 
 **Advanced self-improvement — partly forbidden as originally written.** "Automated skill capture" and any auto-modify-standards item conflicts directly with `standards-governance.md`, which postdates it and wins. The measurement items in it — effectiveness tracking, regression detection, cross-workflow analysis — remain valid and interesting, but must be restated as *surface-for-review* rather than *auto-apply* before they are scheduled.
 
@@ -58,6 +58,6 @@ The two are complementary and neither substitutes for the other. A log shows tha
 
 ## Where this landed
 
-- [`../../guide/cpi-cycle.md`](../../../guide/cpi-cycle.md) — the operating manual for the cycle
-- [`../cpi-decisions.md`](../../cpi-decisions.md) — the log itself
-- [`../reviews/`](../../reviews/) — generated reports
+- [`../../guide/cpi-cycle.md`](../../guide/cpi-cycle.md) — the operating manual for the cycle
+- [`../cpi-decisions.md`](../cpi-decisions.md) — the log itself
+- [`../reviews/`](../reviews/) — generated reports
