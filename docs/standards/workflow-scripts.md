@@ -649,6 +649,59 @@ echo "================================================================"
 echo "Log file: ${LOG_FILE}"
 ```
 
+## Prompt economy — a prompt is re-read on every turn (BINDING)
+
+**A prompt is not read once. It is re-sent on every turn of every run, forever.** A 5 KB block added to a
+prompt used by a 175-turn build is 875 KB of re-read on that run alone, and the same on the next one.
+
+**Measured 2026-08-14.** Prompts in this tree grew **224 KB → 317 KB in seven days**, every byte of it a
+correct lesson. Over the same period a run's starting context went **34k → 57k tokens** and cost per run
+went **$1.90 → $13.17**. Tokens per turn — which is model-independent — went up **4x**.
+
+### What earns a place (all four must hold)
+
+1. **It changes what the model DOES**, not what it knows.
+2. **The model would not do it by default.** Do not instruct a capable reasoner in the obvious.
+3. **The harness does not already enforce it.** `Edit` errors without a prior `Read`; the tool result
+   reports a reset working directory. Restating those spends bytes on every turn and changes nothing.
+4. **It applies to MOST runs of that workflow.** A rule for a rare case belongs in that case's dispatch
+   brief, which is paid once.
+
+### The rule goes in the prompt; the evidence goes in the commit
+
+Same discipline [§ Standards state the rule](../standards/documentation/documentation_standard.md) applies
+to standards, and for the same reason: narrative is re-read forever and changes no behaviour.
+
+- **In the prompt:** the instruction, and at most one clause of *why* where the why prevents a wrong reading.
+- **In the commit:** the run it was measured on, the count of occurrences, what it cost, what it replaced.
+
+**A prompt line that opens with a date, a run id, or "measured" is evidence.** Move it.
+
+### Every prompt carries a byte budget, and a test enforces it
+
+Budgets are declared in `testing/scripts/tests/unit/test_prompt_budgets.py` and the suite fails when one is
+exceeded. **The point is not the ceiling; it is that ADDING becomes a TRADE.**
+
+**Why a budget rather than review discipline:** prompts grew 42% in a week under review, because adding is
+visible work and removing is nobody's job. A budget makes every addition compete with what it displaces.
+
+**Raising a budget is allowed and is a normal decision** — it is a one-line change with a reason in the
+commit. What is not allowed is raising it silently as a side effect of adding text.
+
+### Proportional rigour — match the bar to the change
+
+The instructions a prompt carries about *how thoroughly to verify* are its largest and most expensive
+component. They must discriminate:
+
+| Change | Bar |
+|---|---|
+| One file, one function, no contract change | minor tier; one review lens; mutation only if the change IS a guard |
+| A new module, a new contract, or a schema | full tier; mutation; multi-lens review |
+| Anything touching a safety control, a gate, or an authorization boundary | all of it, no exceptions |
+
+**Applying the last row to everything is the failure this section exists to prevent.** It reads as care and
+is indistinguishable, from the outside, from having no judgement about risk.
+
 ## Prompt-string authoring (BINDING — prompt strings are code)
 
 A workflow's `PROMPT` is a double-quoted bash assignment (or an unquoted heredoc). **Everything bash treats specially inside it is EVALUATED at runtime.** Two fleet outages in one day came from this class, both invisible to `bash -n`:
