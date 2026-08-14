@@ -26,6 +26,7 @@ WHAT THE FOUR SKIPS ACTUALLY PROTECT, since three of them look alike:
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -526,3 +527,89 @@ def test_the_parse_is_NAMED_so_a_widened_row_cannot_silently_shift_a_guard() -> 
     """
     assert act.CandidateRow._fields == (
         "id", "title", "component", "decision", "status")
+
+
+# --- what the loop meets in a pool it did not write ------------------------
+
+def test_a_pool_whose_synthesis_IS_NOT_VALID_UTF8_does_not_abort_the_run(
+        tree: Path) -> None:
+    """The one file this loop reads and did not write, read while holding built state.
+
+    Every other anomaly here is REPORTED — a blank `component`, a punctuation-only
+    one — for a stated reason: raising aborts the parent after step 1's model
+    dispatch has already been paid for. `_is_unresearched` was the exception, and
+    not deliberately: it opened a PRE-EXISTING `synthesis.md` with a strict UTF-8
+    decode, so one component pool written in some other encoding took the whole
+    `plan-project` run down, after earlier rows in the same loop had already
+    created directories on disk.
+
+    The classification is EXACT rather than degraded, which is why replacing the
+    undecodable byte is allowed: `_UNRESEARCHED` is pure ASCII and this activity
+    writes it itself, so a file that fails to decode cannot be one this pipeline
+    seeded. `False` — "not ours, leave it alone" — is the right answer, and it is
+    the answer this asserts rather than merely asserting no exception.
+    """
+    pool = tree / "docs" / "development" / "foreign" / "research"
+    pool.mkdir(parents=True)
+    (pool / "synthesis.md").write_bytes(
+        b"# foreign - synthesis\n\nlatin-1 dashes: \xd0 \xff\n")
+
+    f = _write(tree, _table(("C-001", "t", "foreign", "`ship`", "`open`")))
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
+        extends=[("C-001", "foreign")]), (
+        "an undecodable synthesis in somebody else's pool must classify as "
+        "`extends`, not abort a run that has already paid for a dispatch")
+
+
+def test_A_ROW_LATER_IN_THE_FILE_still_runs_after_an_undecodable_pool(
+        tree: Path) -> None:
+    """THE COST OF THE RAISE, NOT JUST THE RAISE — asserted from the far side.
+
+    The test above would pass on any implementation that swallowed the error and
+    returned nothing at all. What the loop actually owes is that one unreadable
+    pool costs exactly one row: the rows after it are still scaffolded, in the
+    same run, in file order.
+    """
+    pool = tree / "docs" / "development" / "foreign" / "research"
+    pool.mkdir(parents=True)
+    (pool / "synthesis.md").write_bytes(b"\xff\xfe not utf-8 at all")
+
+    f = _write(tree, _table(
+        ("C-001", "t", "foreign", "`ship`", "`open`"),
+        ("C-002", "a thing worth building", "downstream", "`ship`", "`open`"),
+    ))
+    result = own.scaffold_candidate_components(tree, f)
+    assert result.created == ["downstream"], (
+        f"the row after the unreadable pool was lost: {result}")
+    assert result.extends == [("C-001", "foreign")]
+
+
+# --- the property the exists-check's SAFETY rests on ------------------------
+
+@pytest.mark.parametrize("raw", [
+    "sprint.md", "cpi-decisions.md", "../../etc", "a/b", "Fleet Reliability",
+    "burn-test-intake-2026-08-02.md", ".", "..", "a.b.c", "x\ty",
+])
+def test_a_SLUG_IS_ONLY_LOWERCASE_ALPHANUMERICS_AND_HYPHENS(raw: str) -> None:
+    """No dot, no separator — and BOTH halves of that are load-bearing.
+
+    The no-separator half is path traversal: `component_slug`'s docstring claims
+    *"`../../etc` becomes `etc` rather than escaping the tree"*, and this is what
+    holds the claim. The value comes straight out of a markdown cell that any
+    filing run writes, and it is turned into a `mkdir(parents=True)`.
+
+    THE NO-DOT HALF IS WHY THE EXISTS-CHECK MAY ASK `.exists()` RATHER THAN
+    `.is_dir()`. A review raised that a non-directory sharing a component's name
+    would be reported as `extends` — the candidate "extends something already
+    planned" — which is a false note. The remedy is unavailable and would be
+    worse: `.is_dir()` sends the same row on to `mkdir(parents=True)` under a
+    file, turning a silent misreport into a crash. It is also unreachable, and
+    THIS is the reason: every non-directory entry under `docs/development/`
+    carries a `.md` suffix, and a slug cannot contain a dot. That argument is
+    a property of this function, so it is pinned here rather than asserted in a
+    review comment — if a slug ever grows a dot, the rejection stops being true
+    and this goes red.
+    """
+    slug = own.component_slug(raw)
+    assert re.fullmatch(r"[a-z0-9-]*", slug), f"{raw!r} slugged to {slug!r}"
+    assert own.component_slug(slug) == slug, "slugging is not idempotent"

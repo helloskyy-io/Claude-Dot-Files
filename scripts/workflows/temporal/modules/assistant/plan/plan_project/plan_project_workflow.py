@@ -190,11 +190,17 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         notes.append(f"`docs/development/{component}/research/` was seeded by an "
                      f"earlier pass and never researched — resuming it.")
     # NOT "which already holds research" — that was a claim about the pool's
-    # CONTENTS over a check of the directory's existence, and it is false for most
-    # of the tree: measured 2026-08-14, 9 of 17 components hold a `research/` with
-    # `raw/` and no synthesis, and 5 have no `research/` at all. An operator acting
-    # on the old sentence believed research existed that did not. The note now says
-    # what was actually checked.
+    # CONTENTS over a check of the directory's EXISTENCE, and it is false for most
+    # of the tree: most components hold either a `research/` with nothing rolled
+    # up or no `research/` at all. An operator acting on the old sentence believed
+    # research existed that did not. The note now says what was actually checked.
+    #
+    # The tally this comment used to carry ("9 of 17 … and 5") is gone for the
+    # reason `scaffold_candidate_components`' docstring states at length: it was
+    # wrong against the tree — it counted `docs/development/reviews/`, which is
+    # not a component — and a figure restated where nothing derives it is a copy
+    # with no gate on it. The claim the note rests on is the PROPERTY, and the
+    # property needs no denominator.
     for cid, component in scaffolded.extends:
         notes.append(f"`{cid}` names `docs/development/{component}/`, which already "
                      f"exists — the candidate extends something already planned, so "

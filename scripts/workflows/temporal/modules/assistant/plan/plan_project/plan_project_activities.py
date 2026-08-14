@@ -224,11 +224,22 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         something already planned, so there is nothing to scaffold. The operator's
         scope is exact about this: *"If the component directory already exists, do
         nothing for that row."* The condition is the DIRECTORY, not its contents,
-        and this said "exists AND holds research" until a review measured the tree:
-        of 17 components, 3 hold a `synthesis.md`, 9 hold a `research/` with `raw/`
-        and no synthesis, and 5 have no `research/` at all — so the stronger
-        sentence was false for 14 of them and the run note built on it told the
-        operator a pool held research that did not exist.
+        and this said "exists AND holds research" until a review measured the
+        tree: MOST components under `docs/development/` hold no `synthesis.md` —
+        some hold a `research/` with `raw/` and nothing rolled up, some hold no
+        `research/` at all — so the stronger sentence was false for the majority
+        of them and the run note built on it told the operator a pool held
+        research that did not exist.
+
+        THE TALLY THAT USED TO BE IN THAT SENTENCE IS GONE ON PURPOSE, and its
+        removal is the same correction one altitude up. It read *"of 17
+        components, 3 … 9 … 5"*: internally consistent, and wrong against the
+        tree, because it counted `docs/development/reviews/` — which
+        `plan_activities.existing_work` excludes BY NAME as not a component, four
+        lines from where the count was taken. A restated figure over mutable
+        state is a copy with no gate on it, and this one was written by the very
+        pass that was correcting a different false claim in the same sentence.
+        The property is what this argument needs; the denominator was decoration.
 
     THE EXISTS-CHECK ALONE WAS NOT ENOUGH, AND THE GAP WAS THE RECOVERY PATH.
     "The directory exists" conflated a live component with one THIS PIPELINE
@@ -327,9 +338,35 @@ def _is_unresearched(pool: Path) -> bool:
     Anything other than a synthesis still carrying the marker counts as
     researched — including a pool with no synthesis at all, which is a component
     somebody laid out by hand and which this activity has no business touching.
+
+    `errors="replace"` IS THE POINT OF THIS READ, NOT A DETAIL OF IT. This is the
+    only place the loop above reads a file it did NOT write, and it reads it
+    while holding partially-created state: earlier rows have already `mkdir`'d
+    and seeded, and step 1's model dispatch has already been paid for. A strict
+    decode against a pre-existing `synthesis.md` that is not valid UTF-8 — any of
+    the component pools predate this activity and none of them are its output —
+    raises `UnicodeDecodeError` out of the loop and aborts the whole parent,
+    which is exactly the cost the blank-`component` and punctuation-only-
+    `component` cases were changed to avoid: *"it is REPORTED rather than raised,
+    since the alternative aborted the parent after triage's dispatch was already
+    spent"*. A row is not responsible for the encoding of somebody else's file.
+
+    AND IT IS NOT A SWALLOWED ERROR, WHICH IS THE DISTINCTION THAT MAKES IT
+    ALLOWED. `_UNRESEARCHED` is pure ASCII and this activity writes the marker
+    itself in UTF-8, so a byte sequence that fails to decode cannot be part of
+    it: replacing an undecodable byte can only ever turn a file that does not
+    carry the marker into another file that does not carry it. The answer is
+    therefore exact for every pool this activity seeded, and `False` — "not ours,
+    leave it alone" — for one it did not, which is the correct classification
+    rather than a degraded one.
+
+    A genuine `OSError` (the pool is unreadable, the disk is gone) still
+    propagates, deliberately: that is an environment fault the operator has to
+    see, not a filer artifact this row can be blamed for.
     """
     seeded = pool / "synthesis.md"
-    return seeded.is_file() and _UNRESEARCHED in seeded.read_text(encoding="utf-8")
+    return (seeded.is_file()
+            and _UNRESEARCHED in seeded.read_text(encoding="utf-8", errors="replace"))
 
 
 def _seed(row: act.CandidateRow, slug: str) -> str:

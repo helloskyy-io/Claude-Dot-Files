@@ -291,11 +291,23 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"carries the only override — see {url}"
         )
 
+    # RENDERED `before->after`, LIKE EVERY OTHER COLUMN GUARD IN BOTH WORKFLOWS.
+    # This one named ids alone while its three siblings — plan-sprint's `status`
+    # and `component` guards and the `component` guard nine lines below — all
+    # showed the value that moved. That asymmetry is the class this correction
+    # cycle keeps meeting: a fix applied to one branch of a symmetric pair, here
+    # written down IN the sibling's own comment ("rendered `before->after` the way
+    # plan-sprint's twin does") by the pass that left this branch alone, one call
+    # above it. `test_authorization_is_observed` now asks the question of every
+    # guard the registries declare rather than of the ones anybody remembers.
     flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
     if flipped:
         raise RuntimeError(
             f"triage-candidates changed the `status` column on {len(flipped)} "
-            f"candidate(s): {', '.join(flipped)}. Ruling a candidate is not doing it. "
+            f"candidate(s): "
+            + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
+                        for cid in flipped)
+            + f". Ruling a candidate is not doing it. "
             f"`status` belongs to a later process — `plan-feature`, or the build that "
             f"completes the item — and it did not move in the split — see {url}"
         )
@@ -351,11 +363,19 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # receipt is gone — so a wrongly-set flag is not merely wrong, it is
     # unrecoverable. Only PRE-EXISTING rows are judged, because the prompt
     # REQUIRES a newly appended row to carry `status: open`.
+    #
+    # `before->after` here for a sharper reason than on the candidates side: the
+    # three values are `open`, `applied` and `rejected`, and WHICH ruling the run
+    # invented is the whole of what the operator has to undo. Naming the row and
+    # not the flag hands them the id and keeps the answer.
     ruled = act.statuses_this_run_had_no_right_to(before_direction, after_direction)
     if ruled:
         raise RuntimeError(
             f"triage-candidates changed the `status` column on {len(ruled)} "
-            f"`direction.md` row(s): {', '.join(ruled)}. That flag is the "
+            f"`direction.md` row(s): "
+            + ", ".join(f"{did} {before_direction[did]!r}->{after_direction[did]!r}"
+                        for did in ruled)
+            + f". That flag is the "
             f"OPERATOR'S ALONE — `applied` and `rejected` are the rulings this "
             f"workflow files a row to ask for, and it may not answer its own "
             f"question. Appending a row with `status: open` is the whole of this "

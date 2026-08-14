@@ -627,6 +627,51 @@ def test_the_two_readers_agree_on_what_BLANK_means(tree: Path) -> None:
         )
 
 
+def _id_keyed_readers() -> set[str]:
+    """Every `candidate_*` reader in the family that returns a row-keyed map.
+
+    DISCOVERED FROM THE ANNOTATIONS, NOT LISTED, and that is the whole point of
+    it being a function. The roster below is hand-written — it has to be, since
+    each entry names the alias its registry entry uses — and a hand-written
+    roster goes stale in exactly the way this test already caught once: it
+    asserted over two readers while three existed, so `before_component`'s entry
+    read as covered and the column it covers was never compared. Comparing the
+    roster against a DERIVED set means the fourth reader fails here the moment it
+    is written, rather than the next time somebody re-reads this test.
+
+    `dict[str, str]` is the shape that makes a reader id-keyed; `candidate_counts`
+    returns `dict[str, int]` and is a tally rather than a map, so it is correctly
+    absent. Annotations are strings because both modules carry
+    `from __future__ import annotations`, which is why this compares text.
+    """
+    found = set()
+    for module, alias in ((act, "act"), (sprint_act, "own")):
+        for name, fn in vars(module).items():
+            if not name.startswith("candidate_") or not callable(fn):
+                continue
+            if getattr(fn, "__annotations__", {}).get("return") == "dict[str, str]":
+                found.add(f"{alias}.{name}")
+    return found
+
+
+_ID_KEYED_READERS = _id_keyed_readers()
+
+
+def test_the_reader_sweep_finds_readers_at_all() -> None:
+    """POSITIVE CONTROL: an empty derived set makes the roster check vacuous.
+
+    `set(roster) == set()` fails loudly, but a sweep that found only SOME would
+    not — and a sweep that found none would turn the comparison below into a
+    claim nobody can read. This is the floor that makes the comparison mean
+    something.
+    """
+    assert len(_ID_KEYED_READERS) >= 3, (
+        f"the id-keyed reader sweep found {sorted(_ID_KEYED_READERS)}. It matches "
+        f"`candidate_*` functions annotated `-> dict[str, str]`; if that "
+        f"annotation or naming changed, the roster below is being compared "
+        f"against nothing.")
+
+
 @pytest.mark.parametrize("rows", [
     pytest.param([("C-001", "`ship`"), ("C-002", ""), ("C-003", "—")], id="mixed"),
     pytest.param([("C-001", "`ship`", ""), ("C-002", "", "`open`")], id="blank-status"),
@@ -661,6 +706,12 @@ def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: li
         # covered and the column it covers was never in the assertion.
         "act.candidate_components": act.candidate_components(f).keys(),
     }
+    assert set(keyed) == _ID_KEYED_READERS, (
+        f"the roster above is {sorted(keyed)} and the id-keyed readers in the "
+        f"family are {sorted(_ID_KEYED_READERS)}. A reader missing from the "
+        f"roster is one whose key set nothing compares, which is how the "
+        f"`before_component` entry read as covered while the column it covers "
+        f"was never in the assertion.")
     disagreeing = [name for name, ks in keyed.items()
                    if ks != keyed["act.candidate_statuses"]]
     assert not disagreeing, (

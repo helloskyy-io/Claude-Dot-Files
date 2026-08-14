@@ -195,60 +195,52 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
 
     KEYED ON THE CLASS, NOT ON A SPELLING OF IT, and that distinction is the
     whole reason this is a function rather than the one-line header test it
-    replaces. Three ways the shape has departed or can depart, all producing the
-    SAME failure — a row that leaves the untriaged working set without anybody
-    ruling it, while `triage-candidates` reports a complete pass:
+    replaces. Every way the shape has departed or can depart produces the SAME
+    failure — a row that leaves the untriaged working set without anybody ruling
+    it, while `triage-candidates` reports a complete pass — so the check asks
+    about the failure rather than about the departures.
 
-      * a whole TABLE in the old six-column shape. `_ROW` needs only five cells
-        after the id, so every field lands one column left.
-      * ONE ROW carrying a pipe in its first five cells. Markdown's own escape
-        for a literal pipe is `\\|`, and `[^|\\n]*` treats that pipe as a cell
-        boundary — so a CORRECTLY escaped title shifts the row.
-      * an id that is not `C-` plus exactly three digits. `_ROW` does not match
-        it at all, so the row is absent from every reader and every guard here
-        is green over it.
-      * TWO ROWS SHARING ONE ID. Every reader here is a dict keyed by id, so the
-        second row's `decision`, `status` and `component` silently overwrite the
-        first's and one of the two candidates stops existing for every consumer.
-        This is the door that has actually opened: `test_candidate_ids_are_unique`
-        records it three times by 2026-08-11 and twice more on 2026-08-13, always
-        the same way — two branches each allocate the next free id against the
-        same base and both merge. That test is a merge gate on ONE file on the
-        default branch; this runs at the moment a pipeline reads whatever file it
-        was handed, which is the branch mid-collision, and the two comparators
-        that would notice a lost row (`ids_deleted`, `components_this_run_had_no_
-        right_to`) are keyed by the same colliding id and see nothing.
-
-    THE HEADER TEST CAUGHT ONLY THE FIRST, AND ONLY BY LUCK. It asked whether a
-    seven-column header appeared ANYWHERE in the file; this file holds nine
-    candidate tables, so eight correct ones satisfied it while the ninth was
+    THE HEADER TEST CAUGHT ONE OF THEM, AND ONLY BY LUCK. It asked whether a
+    seven-column header appeared ANYWHERE in the file; this file holds many
+    candidate tables, so the correct ones satisfied it while another was
     malformed. Measured on the real file: one table reverted to the old shape and
     the guard stayed silent while the untriaged count fell from 33 to 25.
 
     So the check no longer asks about the table's shape at all. It asks the
-    three questions whose answers a departure necessarily corrupts:
+    questions whose answers a departure necessarily corrupts, one per helper
+    below, and each helper's docstring is the only place its case is described:
 
-      1. did every line that PRESENTS as a candidate row actually parse?
-      2. is every parsed id UNIQUE, so that keying a reader by it loses nothing?
-      3. does every parsed row's `decision` and `status` fall in the closed
-         vocabulary `candidates.md` defines for it?
+      * `_raise_on_unparsed_rows`  — is the population the readers see the
+        population the file holds?
+      * `_raise_on_duplicate_ids`  — the same question one altitude down, and it
+        needs its own helper because a SET answers neither on its own.
+      * `_raise_on_foreign_cell`   — does every parsed row's `decision` and
+        `status` fall in the closed vocabulary `candidates.md` defines?
 
-    (1) and (2) are the same question at two altitudes — is the POPULATION the
-    readers see the population the file holds — and they have to be asked
-    separately because a set answers neither on its own: `parsed` is a set, so a
-    duplicated id collapses into it and (1) reads clean over exactly the row (2)
-    exists to catch.
-
-    A shift moves foreign text into the two flag cells — `open` into `decision`
-    for a six-column table, a Source string for a pipe-shifted row — so (3)
-    fires without needing to know WHICH shape went wrong, including shapes nobody
-    has thought of yet. That is the property worth having: the next departure
-    fails here rather than being discovered by a later pass.
+    ONE CASE PER HELPER, RATHER THAN ONE LIST IN ONE DOCSTRING, and that is the
+    fix for a defect this docstring itself carried: it opened *"Three ways the
+    shape has departed"* over FOUR bulleted cases, because the fourth was added
+    without the tally being re-counted. That is the same class as every hand-kept
+    figure this repo has already gated — a count of mutable state, restated where
+    nothing derives it — arriving inside the function whose whole argument is
+    *count things, do not eyeball them*. A list that lives in one docstring per
+    case cannot go out of step with itself, and the next case added here inherits
+    that by construction rather than by anybody remembering.
     """
-    ids = [row.id for row in rows]
-    parsed = set(ids)
-    present = set(_ROW_LINE.findall(text))
-    unparsed = sorted(present - parsed)
+    _raise_on_unparsed_rows(path, text, rows, missing_hint)
+    _raise_on_duplicate_ids(path, rows, missing_hint)
+    _raise_on_foreign_cell(path, text, rows, missing_hint)
+
+
+def _raise_on_unparsed_rows(path: Path, text: str, rows: list[CandidateRow],
+                            missing_hint: str) -> None:
+    """Every line that PRESENTS as a candidate row must actually have parsed.
+
+    An id that is not `C-` plus exactly three digits is the reachable way to fail
+    this: `_ROW` does not match it at all, so the row is absent from every reader
+    and every guard here is green over it.
+    """
+    unparsed = sorted(set(_ROW_LINE.findall(text)) - {row.id for row in rows})
     if unparsed:
         raise ValueError(
             f"{path} holds {len(unparsed)} line(s) that present as candidate rows "
@@ -258,7 +250,29 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
             f"authorization snapshot, and from the deletion check — every guard "
             f"reads green over it. {missing_hint}")
 
-    repeated = sorted(cid for cid, n in Counter(ids).items() if n > 1)
+
+def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
+                            missing_hint: str) -> None:
+    """No id may name two rows — the door that has actually opened.
+
+    Every reader here is a dict keyed by id, so the second row's `decision`,
+    `status` and `component` silently overwrite the first's and one of the two
+    candidates stops existing for every consumer.
+    `test_candidate_ids_are_unique` records it three times by 2026-08-11 and
+    twice more on 2026-08-13, always the same way — two branches each allocate
+    the next free id against the same base and both merge. That test is a merge
+    gate on ONE file on the default branch; this runs at the moment a pipeline
+    reads whatever file it was handed, which is the branch mid-collision, and the
+    two comparators that would notice a lost row (`ids_deleted`,
+    `components_this_run_had_no_right_to`) are keyed by the same colliding id and
+    see nothing.
+
+    IT CANNOT BE FOLDED INTO THE CHECK ABOVE, and that is why it is its own
+    helper rather than two lines there: that one compares SETS, and a duplicated
+    id collapses into a set — so it reads clean over exactly the row this exists
+    to catch.
+    """
+    repeated = sorted(cid for cid, n in Counter(row.id for row in rows).items() if n > 1)
     if repeated:
         raise ValueError(
             f"{path} allocates {len(repeated)} id(s) to more than one row: "
@@ -271,6 +285,27 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
             f"free id against the same base and both merge; take the next free id "
             f"by re-reading the file at HEAD. {missing_hint}")
 
+
+def _raise_on_foreign_cell(path: Path, text: str, rows: list[CandidateRow],
+                           missing_hint: str) -> None:
+    """`decision` and `status` must hold values `candidates.md` admits.
+
+    THIS IS THE ARM THAT COVERS SHAPES NOBODY HAS THOUGHT OF YET, which is why it
+    does not name any of them. A column shift moves foreign text into the two
+    flag cells — `open` into `decision` for a table left in the old six-column
+    shape, a Source string for a row carrying a pipe in one of its first five
+    cells (markdown's own escape for a literal pipe is `\\|`, and `[^|\\n]*`
+    treats that pipe as a cell boundary, so a CORRECTLY escaped title shifts the
+    row). Neither shape is enumerated in the condition: the condition asks
+    whether the cell reads as something the file admits, so any future departure
+    that moves text sideways fails here rather than being discovered by a later
+    pass.
+
+    It is not exhaustive and does not claim to be — a shift lands silently only
+    if the displaced text happens to read as one of the seven admitted strings.
+    The message names both known shapes because a reader who has just been told
+    "row C-082's decision is unreadable" needs to know where to look.
+    """
     for row in rows:
         if row.decision in _DECISIONS and row.status in _STATUSES:
             continue

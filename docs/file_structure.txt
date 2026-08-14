@@ -379,7 +379,9 @@ claude-dot-files/
 │                   ├── test_authorization_is_observed.py # Every `You MAY NOT` row in a planning prompt names the code that observes it, or
 │                   │                                #   says JUDGEMENT with a reason. Keyed on the CORRESPONDENCE between the rendered table
 │                   │                                #   and a declared map, so a reworded or added row goes red — the split had a mechanism
-│                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced
+│                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced.
+│                   │                                #   Also the second half: every guard built on a `*_this_run_had_no_right_to`
+│                   │                                #   comparator must render `id 'before'->'after'`, found by AST rather than listed
 │                   ├── observer_registry.py         # ONE resolver for both observer registries — does this entry name code that EXISTS?
 │                   │                                #   A helper module, not a test module. Shared rather than copied for the reason
 │                   │                                #   normalise_cell exists: two copies drift, and the weaker one silently stops catching
@@ -400,9 +402,9 @@ claude-dot-files/
 │                   │                                #   what the seeded synthesis has to carry. The shape check is parametrized over
 │                   │                                #   the CLASS — every way a row is read wrongly or lost — against a nine-table
 │                   │                                #   fixture, because a one-table fixture cannot see a whole-file check's scope
-│                   │                                #   error, and one case reads the REAL candidates.md. The doors are enumerated
-│                   │                                #   in `_check_shape`'s docstring and NOT re-listed here: this line named three
-│                   │                                #   of them and a fourth was added the same week
+│                   │                                #   error, and one case reads the REAL candidates.md. The doors are NOT listed
+│                   │                                #   here, and no longer in one docstring either — each lives in the helper that
+│                   │                                #   raises for it, since the one list said "three ways" over four cases
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing, plus the
 │                   │                                #   Step 1b wiring that gave the research step a reachable input again, and that
 │                   │                                #   every field of `Scaffolded` reaches the operator as its own note
@@ -464,7 +466,9 @@ claude-dot-files/
 │   │       ├── test_candidates_prose_matches_the_table.py # § Where things stand declares totals, an id range, a gap list and a
 │   │       │                                        #   decision split ABOUT the table above it. Derived here, because the
 │   │       │                                        #   paragraph was hand-written three times and wrong twice — the third time
-│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
+│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read. Also
+│   │       │                                        #   that every row RENDERS its flags the way § Two flags declares them, the
+│   │       │                                        #   vocabulary read off that section rather than hard-coded here
 │   │       └── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │                                                #   checks, because every existing check was aimed at code rather than prose
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,

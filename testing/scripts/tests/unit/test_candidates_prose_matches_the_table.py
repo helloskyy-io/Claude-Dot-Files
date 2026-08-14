@@ -68,6 +68,11 @@ _CANDIDATES = _REPO / "docs" / "standards" / "architecture" / "research" / \
 _ROW = re.compile(
     r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
 
+# The SAME row, UNNORMALISED — the rendering check below needs the cell as it
+# was typed, and `_ROW` deliberately stops one cell short of `status`.
+_RAW_ROW = re.compile(
+    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
+
 _SECTION = "## Where things stand"
 
 _ONES = ("zero one two three four five six seven eight nine ten eleven twelve "
@@ -296,3 +301,86 @@ def test_the_REQUIRES_REVIEW_QUEUE_is_listed_by_id_and_the_ids_are_the_column() 
         f"against — a wrong id here routes an operator ruling to a row that "
         f"never asked for one."
     )
+
+
+# --- the flag cells, against the vocabulary the file declares for them -------
+#
+# THE SAME SHAPE AS EVERY CHECK ABOVE, ONE COLUMN OVER: a declaration kept by
+# hand, and a population read off disk. § Two flags renders each flag's admitted
+# values in backticks; every data row is supposed to render the cell the same
+# way, and 79 of 81 did. The two that did not were appended by an automated pass
+# on this very branch, minutes apart, and nothing was watching — which is the
+# whole argument for a gate rather than a third correction.
+#
+# WHY IT IS NOT `_check_shape`'S JOB. The runtime parser normalises backticks
+# away on purpose: it reads whatever file a pipeline was handed, possibly a
+# branch mid-collision, and must not abort a `plan-project` run over a cosmetic
+# cell. A merge-gate on the default branch is where a rendering convention
+# belongs, and it is the difference between "the value is admissible" (runtime)
+# and "the file speaks one language" (here).
+#
+# DERIVED FROM § Two flags, NOT HARD-CODED. If the file admits a new value, the
+# row declaring it moves this check with it — the same reason every count above
+# is derived rather than restated.
+
+_FLAG_DECL = "## Two flags, orthogonal — do not collapse them"
+_BACKTICKED = re.compile(r"`([^`]+)`")
+
+# `normalise_cell`'s blank set, which is the runtime's own definition of "this
+# row has not been ruled / has no status yet". Kept identical on purpose: a
+# rendering the parser calls blank must not be reported as a foreign spelling.
+_BLANK_SPELLINGS = ("", "—", "-")
+
+
+def _declared_values(flag: str) -> list[str]:
+    """The backticked values § Two flags admits for `decision` or `status`."""
+    body = _text().split(_FLAG_DECL, 1)[-1].split("\n## ", 1)[0]
+    for line in body.splitlines():
+        if line.startswith(f"| **`{flag}`**"):
+            values = line.strip().strip("|").split("|")[1]
+            return [v for v in _BACKTICKED.findall(values) if v != flag]
+    return []
+
+
+def test_the_FLAG_VOCABULARY_is_declared_where_this_check_reads_it() -> None:
+    """POSITIVE CONTROL on the derivation, against its own vacuity.
+
+    An empty admitted-set makes every cell foreign, which fails loudly — but a
+    PARTIAL one is the dangerous shape: it would report correct rows as
+    offenders and send somebody to edit the table instead of the declaration.
+    Naming what the section is expected to admit is what tells the two apart.
+    """
+    assert _declared_values("decision") == ["ship", "requires review", "reject"], (
+        f"§ Two flags declares decision as {_declared_values('decision')}. This "
+        f"check reads its vocabulary from that row; if the row moved or was "
+        f"reworded, the assertion below is comparing against the wrong set.")
+    assert _declared_values("status") == ["open", "closed"], (
+        f"§ Two flags declares status as {_declared_values('status')}.")
+
+
+def test_EVERY_ROW_RENDERS_ITS_FLAGS_THE_WAY_THE_FILE_DECLARES_THEM() -> None:
+    """One file, one spelling — because an automated writer appends here.
+
+    `decision_log_and_reflection.md` instructs every producing run to append a
+    row, so this table's growth is machine-written and unreviewed cell-by-cell.
+    A second spelling costs a human scanning for `` `open` `` two rows and costs
+    any future grep-shaped reader the same, and the file is the queue `/standup`
+    reads. Deriving the admitted renderings from § Two flags means the fix for a
+    genuinely new value is to declare it, not to widen this test.
+    """
+    admitted = {
+        "decision": {f"`{v}`" for v in _declared_values("decision")},
+        "status": {f"`{v}`" for v in _declared_values("status")},
+    }
+    offenders: list[str] = []
+    for cid, _cand, _comp, _src, dec, st in _RAW_ROW.findall(_text()):
+        for flag, cell in (("decision", dec), ("status", st)):
+            value = cell.strip()
+            if value in _BLANK_SPELLINGS or value in admitted[flag]:
+                continue
+            offenders.append(f"{cid} {flag}={cell!r}")
+    assert not offenders, (
+        f"these cells do not render the way § Two flags declares the value: "
+        f"{offenders}. Every other row wraps the value in backticks; the two "
+        f"that did not were written by an automated pass and nothing caught "
+        f"them. Match the declaration, or change the declaration.")
