@@ -947,7 +947,12 @@ def test_denies_when_a_pattern_cannot_be_evaluated(tmp_path: Path) -> None:
     scratch = tmp_path / "block-dangerous.sh"
     shutil.copy2(HOOK, scratch)
     source = scratch.read_text()
-    victim = "  'DROP TABLE'\n"
+    # The ANCHORED form: the SQL patterns gained a client prefix when the
+    # 2026-08-13 over-match ruling landed. The assertion below is what keeps
+    # this honest — if the line moves again the count is 0 and this fails
+    # loudly, rather than corrupting some other pattern and silently testing
+    # the wrong one.
+    victim = "  '(psql|mysql|mariadb|sqlite3|mysqldump|pg_dump|pgcli|mycli).*DROP TABLE'\n"
     assert source.count(victim) == 1, (
         f"expected exactly one {victim!r} array entry to corrupt, found "
         f"{source.count(victim)} — pick a different victim rather than "

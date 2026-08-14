@@ -131,7 +131,33 @@
 #     fixes found three more is the argument for the mandatory-`MUST ALLOW`
 #     rule stated above, not a count worth chasing to zero.
 #     BLOCKED ANYWAY: echo "never run rm -rf / on this box" >> NOTES.md
-#     BLOCKED ANYWAY: git commit -m "add DROP TABLE migration"
+#
+# OVER-MATCH NARROWED, RULED BY THE OPERATOR (2026-08-13) — SQL keywords in prose:
+#   - The acceptance above rested on "there is no clean regex fix". That is true
+#     for SHELL patterns and false for the five SQL ones, and the difference is
+#     the anchor. Every other pattern in the array is anchored to a command
+#     position; `DROP TABLE`, `DROP DATABASE`, `DROP SCHEMA`, `TRUNCATE ` and
+#     `DELETE FROM … WHERE 1` were the ONLY unanchored members. Under `grep -Ei`
+#     — case-insensitive, and correctly so, since `RM -RF` must match — a bare
+#     SQL keyword is an ENGLISH-WORD matcher.
+#   - MEASURED: five read-only commands were blocked inside twenty minutes for
+#     containing these words in prose, in a `grep` pattern, in a test fixture,
+#     and in the command that was editing this file.
+#   - THIS IS NOT A NARROWING OF INTENT, and the test suite is the evidence:
+#     every SQL deny case in it is already written as `psql -c "…"`. The tests
+#     always documented a client context; the patterns never enforced it.
+#     Anchoring makes the pattern match what its own tests assert.
+#   - The fleet also runs no SQL. Searching scripts/ and config/ for a client or
+#     a keyword returns one file, whose only hit is the word "TRUNCATED" in a
+#     docstring. These five have never had a real invocation to catch here.
+#   - The rule the ruling rests on: a control that blocks ordinary work gets
+#     routed around, and a routed-around control is worse than none because the
+#     safety story still claims it is there. That is issue #62's own opening
+#     argument, applied to the one case #62 left unruled.
+#     MUST ALLOW: git commit -m "add DROP TABLE migration"
+#     MUST ALLOW: grep -rn "DROP TABLE" docs/
+#     BLOCKED ANYWAY: psql -c "DROP TABLE users"
+#     BLOCKED ANYWAY: sqlite3 app.db "DROP TABLE t"
 #
 # OVER-MATCH NARROWED, MEASURED (2026-08-10) — a scratch delete under /tmp:
 #   The `rm` patterns match a recursive delete of ANY target, which made
@@ -618,23 +644,42 @@ REGEX_PATTERNS=(
   # Database destructive operations
   # MUST BLOCK: psql -c "DROP TABLE users"
   # MUST ALLOW: psql -c "CREATE TABLE users (id int)"
-  'DROP TABLE'
+  # THE SQL PATTERNS ARE ANCHORED TO A CLIENT INVOCATION; every other pattern
+  # in this list is anchored to a command position and these five were the only
+  # ones that were not. Matching is case-INSENSITIVE (`-i`, and correctly so:
+  # `RM -RF` must match), which turned bare SQL keywords into ENGLISH-WORD
+  # matchers. Measured 2026-08-13: five read-only commands were blocked inside
+  # twenty minutes for containing these words in prose, in grep patterns, and in
+  # a test fixture — including the command that was editing this file.
+  #
+  # THIS IS NOT A NARROWING OF INTENT. Every SQL deny case in the test suite is
+  # already written as a `psql -c "..."` invocation, so the tests always
+  # documented this context; the patterns simply never enforced it. Nothing that
+  # the suite asserts should be denied stops being denied.
+  #
+  # AND THE FLEET RUNS NO SQL. `grep -rlE 'psql|mysql|sqlite3|<keywords>'` over
+  # scripts/ and config/ returns one file, and its only hit is the word
+  # 'TRUNCATED' in a docstring. These five patterns have never had a real
+  # invocation to catch here, while blocking prose the fleet writes constantly.
+  # A control that blocks ordinary work gets disabled, and a disabled control
+  # protects nothing — that is the failure this guards against.
+  '(psql|mysql|mariadb|sqlite3|mysqldump|pg_dump|pgcli|mycli).*DROP TABLE'
   # MUST BLOCK: psql -c "drop database prod"
   # MUST ALLOW: psql -c "CREATE DATABASE prod"
-  'DROP DATABASE'
+  '(psql|mysql|mariadb|sqlite3|mysqldump|pg_dump|pgcli|mycli).*DROP DATABASE'
   # MUST BLOCK: psql -c "DROP SCHEMA public CASCADE"
   # MUST ALLOW: psql -c "CREATE SCHEMA analytics"
-  'DROP SCHEMA'
+  '(psql|mysql|mariadb|sqlite3|mysqldump|pg_dump|pgcli|mycli).*DROP SCHEMA'
   # MUST BLOCK: psql -c "TRUNCATE users"
   # MUST ALLOW: echo truncated output
-  'TRUNCATE '
+  '(psql|mysql|mariadb|sqlite3|mysqldump|pg_dump|pgcli|mycli).*TRUNCATE '
   # `1` needs a right boundary or the entry also fires on any numeric literal
   # BEGINNING with 1 — it denied `WHERE 100 < retries`, a properly scoped
   # delete, which is the over-match class issue #62 is about.
   # MUST BLOCK: psql -c "DELETE FROM users WHERE 1=1"
   # MUST ALLOW: psql -c "DELETE FROM users WHERE id = 42"
   # MUST ALLOW: psql -c "DELETE FROM sessions WHERE 100 < retries"
-  'DELETE FROM .* WHERE 1([^0-9]|$)'
+  '(psql|mysql|mariadb|sqlite3|mysqldump|pg_dump|pgcli|mycli).*DELETE FROM .* WHERE 1([^0-9]|$)'
 
   # Disk and filesystem
   # MUST BLOCK: mkfs.ext4 /dev/sdb1
