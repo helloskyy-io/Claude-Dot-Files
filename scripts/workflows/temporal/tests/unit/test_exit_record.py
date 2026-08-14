@@ -1857,6 +1857,13 @@ _WORKFLOW_MODULE_FUNCTIONS = {
     "_read_thread_for_invariant",   # an activity call with a retry, not pure
     "_thread_unreadable_note",      # Phase 3, deferred
     "_assert_block_matches_record",  # Phase 3, deferred
+    # NOT a record-to-string function and NOT deferred work: it writes the
+    # run log's `parent_route` row, which is an ACTIVITY CALL with the
+    # orchestration's own identifiers. It belongs to the layer that knows
+    # `run_id`, the PR and the expected ref, and it exists at module level
+    # rather than inline because BOTH the success path and the failure path
+    # must run identical code — see its docstring and C-060.
+    "_append_shadow_pair",
 }
 
 
@@ -2250,3 +2257,109 @@ def test_two_IDENTICAL_blocks_claiming_one_nonce_resolve_SILENTLY() -> None:
     assert helper.prior_pass_blocks(window, nonce) == (prior,), (
         "the later duplicate leaked into the prior-pass history as a phantom pass"
     )
+
+
+# ---------------------------------------------------------------------------
+# C-060 — the instrument could not see the runs that mattered.
+# ---------------------------------------------------------------------------
+
+
+def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch, tmp_path):
+    """The typed record succeeded, the prose channel did not, and the run died.
+
+    THE SHAPE THAT WENT UNRECORDED. `run-claude.sh` fails a run whose final
+    result carries no PR URL — and the PR URL is printed by the PROSE channel.
+    `run_claude` raises, so this parent's recording code never ran, and
+    `channels_agree` could only ever be written on runs where the channel it
+    exists to RETIRE had already succeeded. Every run where the typed record
+    outperformed prose was structurally invisible, so the metric could only
+    ever look like agreement. More runs do not fix a biased instrument.
+
+    MEASURED: Phase 3's run set was nine dispatches and the instrument recorded
+    eight. The ninth is this shape — a valid typed record and no prose
+    `VERDICT:` line — and it is the single most informative run in the set.
+
+    The row must exist, and it must say the channels DISAGREED. A missing row
+    and an agreeing row are the two wrong answers.
+    """
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    from modules.assistant.review_pr import review_pr_activities as act
+
+    rows: list[dict] = []
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "")   # valid record, NO prose verdict
+    wf = fake.install(monkeypatch, tmp_path)
+    monkeypatch.setattr(wf._shared, "append_parent_route",
+                        lambda _log, row: rows.append(row))
+
+    def _gate_fails(prompt, *a, **k):
+        fake.run_id = _nonce_in(prompt)
+        raise RuntimeError("review-pr FAILED (exit 1). completion pattern not found")
+
+    monkeypatch.setattr(act, "run_disposition", _gate_fails)
+
+    with pytest.raises(RuntimeError, match="completion pattern not found"):
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+    assert rows, (
+        "the run died and NOTHING was recorded — this is exactly C-060: the pair "
+        "is only ever written when the prose channel already worked, so the "
+        "agreement metric is conditioned on the channel it exists to retire"
+    )
+    row = rows[-1]
+    assert row["channels_agree"] is False, (
+        f"recorded channels_agree={row['channels_agree']!r} on a run where the "
+        f"prose channel produced no verdict at all — an absent prose verdict is "
+        f"a DISAGREEMENT, not an agreement"
+    )
+    assert row["run_id"] == fake.run_id, "the row is not joinable to the run that produced it"
+
+
+def test_the_completion_gate_still_FAILS_the_run(monkeypatch, tmp_path):
+    """THE CONTROL. Recording the evidence must not rescue the run.
+
+    Exit 0 must mean done. Buying a datapoint by swallowing the failure would
+    trade a real guarantee for a number — so the pair is recorded AND the
+    original error still reaches the caller, unchanged.
+    """
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    from modules.assistant.review_pr import review_pr_activities as act
+
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "")
+    wf = fake.install(monkeypatch, tmp_path)
+    monkeypatch.setattr(wf._shared, "append_parent_route", lambda *a, **k: None)
+
+    def _boom(prompt, *a, **k):
+        fake.run_id = _nonce_in(prompt)
+        raise RuntimeError("the original failure, verbatim")
+
+    monkeypatch.setattr(act, "run_disposition", _boom)
+
+    with pytest.raises(RuntimeError, match="the original failure, verbatim"):
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path)
+
+
+def test_an_UNREADABLE_log_does_not_stack_a_second_failure(monkeypatch, tmp_path):
+    """A log too damaged to read a pair from is a missing row, never a new error.
+
+    The failure path runs when something already went wrong. If recording threw,
+    the operator would be shown a parsing error instead of the real cause.
+    """
+    from modules.assistant.review_pr.review_pr_helper import ReviewInput
+    from modules.assistant.review_pr import review_pr_activities as act
+
+    fake = _FakeWorkflow(_record(run_id="@ISSUED@"), "")
+    wf = fake.install(monkeypatch, tmp_path)
+
+    def _unreadable(*a, **k):
+        raise ValueError("log is truncated")
+
+    monkeypatch.setattr(wf._shared, "result_event", _unreadable)
+
+    def _boom(prompt, *a, **k):
+        fake.run_id = _nonce_in(prompt)
+        raise RuntimeError("the original failure")
+
+    monkeypatch.setattr(act, "run_disposition", _boom)
+
+    with pytest.raises(RuntimeError, match="the original failure"):
+        wf.run_review(ReviewInput(pr_number="67"), tmp_path)

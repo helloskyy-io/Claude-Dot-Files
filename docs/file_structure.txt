@@ -414,6 +414,11 @@ claude-dot-files/
 │                   │                                #   returned a green run — a deleted operator ruling, a deleted sprint plan, one renamed
 │                   │                                #   out of the tree, an erased tick. Plus an AST gate binding every declared write grant
 │                   │                                #   to a deletion check, so a grant added later is covered without anyone remembering
+│                   ├── test_dry_run_previews_the_dispatched_prompt.py # No runner hand-assembles the prompt values a
+│                   │                                #   workflow already assembles. An AST sweep over scripts/run_*.py: the second argument
+│                   │                                #   to render() may not be a dict literal, nor a runner-local call one indirection down.
+│                   │                                #   Keyed on the SHAPE because the instance was fixed twice and reproduced twice — a
+│                   │                                #   preview that is wrong looks exactly like one that is right
 │                   ├── test_loop_cap_prose_is_counted.py # No workflow ASSERTS a loop cap; it reads one, or its own MAX_LOOPS really is 1.
 │                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
 │                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when

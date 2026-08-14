@@ -61,7 +61,21 @@ _PHASE_FILE = re.compile(r"^phase(\d+)([a-z]?)_[a-z0-9_-]+\.md$")
 # be named — used where the question is *which files are phase docs*, as opposed
 # to *which files may this run write*. A glob of `phase*.md` would miss
 # `Phase3.md`, and the grammar above is what judges.
-_LOOKS_LIKE_A_PHASE = re.compile(r"^phase", re.I)
+#
+# THE SUFFIX IS PART OF THE QUESTION, and leaving it out was a real bypass rather
+# than a loose end. `^phase` alone admits `phase_notes.txt` and `phase9_x.md.bak`,
+# and `phase_docs` feeds two things that then read them as phase docs: the
+# `if not after_phase` deliverable guard, which a single stray `.txt` satisfies
+# so a component with ZERO phase docs ships clean; and `planning_state`, whose
+# output is handed to the model labelled *"Counted in code, authoritative — do
+# not recount"*. Both reproduced by execution before this was tightened.
+#
+# CASE-INSENSITIVE ON BOTH HALVES, unlike `plan_docs` below, and the asymmetry is
+# the point: `plan_docs` must equal the WRITE GRANT, which is the case-sensitive
+# `[^/]+\.md$`, while this reader answers the wider *what is a phase doc* — and a
+# legacy `PHASE3.MD` that this run deletes is a phase doc that vanished, whoever
+# spelled it.
+_LOOKS_LIKE_A_PHASE = re.compile(r"^phase.*\.md$", re.I)
 
 # The other half of the output, and the only top-level name that is not a phase
 # doc. Named rather than spelled inline because three readers below test for it.
@@ -220,9 +234,24 @@ def malformed_phase_docs(before: dict[str, str], after: dict[str, str]) -> list[
                   and not _PHASE_FILE.match(name))
 
 
+def phase_identity(name: str) -> tuple[int, str] | None:
+    """`phase12b_x.md` -> `(12, "b")`, `phase12_x.md` -> `(12, "")`. None if malformed.
+
+    THE FULL IDENTITY, where `phase_number` gives only its first half. Both
+    exist because the two comparisons below need different halves: a NEW phase
+    against a PRE-EXISTING one collides on the bare number (rule 6 forbids
+    injecting a sub-letter retroactively, so `phase5b_` arriving after
+    `phase5a_` is an offence), while two files this run wrote TOGETHER collide
+    only on the whole identity, since `phase5a_` + `phase5b_` planned in one
+    pass is exactly the carve-out rule 6 permits.
+    """
+    m = _PHASE_FILE.match(name)
+    return (int(m.group(1)), m.group(2)) if m else None
+
+
 def reused_phase_numbers(before: dict[str, str],
                          after: dict[str, str]) -> list[tuple[str, int]]:
-    """New phase docs whose number was already taken. Returns `(filename, number)`.
+    """New phase docs whose identity was already taken. Returns `(filename, number)`.
 
     RULE 1 AND RULE 5 TOGETHER, AND RULE 5 IS THE ONE THAT BITES. A new phase
     takes `max(existing) + 1`; gaps are correct and are NOT free numbers, because
@@ -235,23 +264,81 @@ def reused_phase_numbers(before: dict[str, str],
     committed; that is archaeology, and the roadmap's own tombstone entries are
     where a run reads it.
 
-    A malformed new name yields no number and is reported by
+    TWO NEW FILES ARE ALSO CHECKED AGAINST EACH OTHER, and that half was missing:
+    `taken` was built once from `before` and never grew, so `phase5_a.md` and
+    `phase5_b.md` written in the SAME dispatch collided with nothing and both
+    shipped — two documents permanently both called Phase 5, past the one guard
+    that exists to make a number an identity. Reproduced by execution before this
+    was closed. The comparison among new files is by full identity rather than by
+    bare number, because `phase5a_poc.md` + `phase5b_rollout.md` in one pass is
+    rule 6's carve-out and must stay legal; a bare number mixed with a lettered
+    one is not, since the phase cannot be both chunked and not.
+
+    A malformed new name yields no identity and is reported by
     `malformed_phase_docs` instead; reporting it twice would make one mistake
     look like two.
     """
     taken = {n for n in (phase_number(name) for name in before) if n is not None}
+    written: dict[int, set[str]] = {}
     out: list[tuple[str, int]] = []
     for name in sorted(after):
         if name in before:
             continue
-        num = phase_number(name)
-        if num is not None and num in taken:
+        ident = phase_identity(name)
+        if ident is None:
+            continue
+        num, letter = ident
+        letters = written.setdefault(num, set())
+        # A bare number and a lettered one are the same phase claiming two
+        # shapes, so `letters and ("" in letters or letter == "")` is a
+        # collision exactly as an exact repeat is.
+        if (num in taken
+                or letter in letters
+                or (letters and ("" in letters or letter == ""))):
             out.append((name, num))
+        letters.add(letter)
     return out
 
 
-def hour_estimates(component: Path, tree: Path) -> list[str]:
+def hour_hits(component: Path) -> Counter:
+    """`(filename, matched text)` -> count, over the same set `hour_estimates` scans.
+
+    THE SNAPSHOT HALF, so the prohibition can be judged as a DELTA like every
+    other one in this workflow. `hour_estimates` answers *what estimates are in
+    this plan*; the guard's question is *what estimates did THIS RUN write*, and
+    those are different whenever the component already carried one. They already
+    do: `docs/development/reviews/` holds `~7h` and `~12.8 hours` today, and
+    `plan-revision` — the unsplit planner this workflow is the write half of a
+    replacement for — sizes work, so any component it planned carries estimates
+    a `plan-feature` extending it never wrote.
+
+    Scanning post-run STATE made those a permanent failure with a message
+    asserting *"plan-feature wrote N hour estimate(s)"*, which was false, and
+    left the component unplannable until a human edited text this workflow is
+    not otherwise in the business of touching.
+
+    KEYED ON (FILE, TEXT) AND NOT ON THE CITATION, because a citation carries a
+    line number and inserting a phase above an untouched estimate would move it
+    — reporting a line shift as a new estimate. The same reason `plan_boxes`
+    counts box TEXT rather than box position.
+    """
+    hits: Counter = Counter()
+    for name in plan_docs(component):
+        text = (component / name).read_text(errors="replace")
+        for line in text.splitlines():
+            for m in _HOURS.finditer(line):
+                hits[(name, m.group(0).strip())] += 1
+    return hits
+
+
+def hour_estimates(component: Path, tree: Path,
+                   only: Counter | None = None) -> list[str]:
     """`relpath:line: matched text` for every hour estimate in the component's plan.
+
+    `only` RESTRICTS THE CITATIONS to a set of `(filename, matched text)` pairs —
+    the delta `hour_hits` produces — so the operator is shown the estimates this
+    run is answerable for and not the ones it inherited. `None` means every hit,
+    which is what a standalone audit of a component wants.
 
     SIZING IS `plan-verify`'S, AND THAT IS A DESIGN DECISION RATHER THAN A
     DIVISION OF LABOUR. An author sizing their own decomposition is defending it;
@@ -275,7 +362,10 @@ def hour_estimates(component: Path, tree: Path) -> list[str]:
         rel = path.relative_to(tree)
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
             for m in _HOURS.finditer(line):
-                found.append(f"{rel}:{lineno}: {m.group(0).strip()}")
+                text = m.group(0).strip()
+                if only is not None and (name, text) not in only:
+                    continue
+                found.append(f"{rel}:{lineno}: {text}")
     return found
 
 

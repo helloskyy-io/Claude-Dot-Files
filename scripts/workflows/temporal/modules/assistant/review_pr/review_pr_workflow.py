@@ -72,6 +72,67 @@ def assemble_prompt(review_type: ReviewType) -> str:
     )
 
 
+def _append_shadow_pair(log_file, *, run_id: str, pr: str, expected_ref) -> None:
+    """Write the `parent_route` row comparing the typed channel against the prose one.
+
+    CALLED ON BOTH PATHS, AND THE FAILURE PATH IS THE POINT (`C-060`).
+
+    THE DEFECT THIS CLOSES. `run-claude.sh` returns non-zero when the model's
+    final result does not match `COMPLETION_PATTERN` — a PR URL, which the PROSE
+    channel prints. `run_claude` turns that into a `RuntimeError` before
+    returning, so this parent's recording code never ran, and `channels_agree`
+    could only ever be written on runs where the prose channel ALREADY
+    SUCCEEDED. The metric was conditioned on the very channel it exists to
+    retire, so every run where the typed record OUTPERFORMED prose was
+    structurally invisible and the number could only ever look like agreement.
+    More runs do not fix a biased instrument.
+
+    MEASURED: Phase 3's run set was nine live dispatches and the instrument
+    recorded eight. The ninth emitted a valid typed record and no prose
+    `VERDICT:` line — the single most informative run in the set, and the one
+    that went unrecorded.
+
+    THE PRECEDENT IS TEN LINES AWAY IN `assistant_activities.run_claude`, which
+    calls `append_run_resources` BEFORE its failure branch and says why: "A run
+    that died is the one whose resource numbers are most worth having, and an
+    early `raise` would throw them away at exactly the moment they became
+    evidence." One member event of the run log learned that; this one had not.
+
+    THE EVIDENCE WAS ALREADY ON DISK. Both channels read from `log_file`, which
+    the activity writes DURING the run — so this was a missing code path, never
+    missing instrumentation.
+
+    BEST EFFORT, AND IT NEVER MASKS THE ORIGINAL FAILURE. On the failure path
+    the log may be truncated or hold no result event at all. Recording is worth
+    attempting and is never worth converting a run's real error into a
+    different one, so anything raised in here is swallowed — the caller's
+    `raise` is what the operator must see.
+    """
+    try:
+        record = exit_record.route(
+            _shared.result_event(log_file), expected_run_id=run_id,
+            expected_ref=expected_ref,
+        )
+        verdict = helper.verdict_from_record(record)
+        shadow, parseable = helper.parse_verdict(_shared.assistant_text(log_file))
+        _shared.append_parent_route(log_file, {
+            "run_id": run_id,
+            "pr": pr,
+            "routed_outcome": record.routed_outcome.value,
+            "undetermined_reason": (
+                record.undetermined_reason.value if record.undetermined_reason else None
+            ),
+            "hold_kind": record.hold_kind.value if record.hold_kind else None,
+            "shadow_verdict": shadow.value,
+            "shadow_parseable": parseable,
+            "channels_agree": shadow is verdict,
+        })
+    except Exception:
+        # The pair is evidence, not a gate. A log too damaged to read one from
+        # is a missing row, never a second failure stacked on the first.
+        pass
+
+
 def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     """Disposition one PR and return its typed verdict."""
     notes: list[str] = []
@@ -129,15 +190,26 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # describes, so passing the run_id is what makes the name unique here and
     # makes the filename greppable against the record it carries.
     log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY, run_id=run_id)
-    act.run_disposition(
-        prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
-        worktree=pr_tree, verbose=task.verbose,
-        exit_record_schema=exit_record.schema_argument(), log_file=log_file,
-        # The SAME nonce that named the log and that the child echoes into the
-        # record, so all three of the run log's member events agree on it.
-        # `run_claude` refuses a log_file with no run_id for that reason.
-        run_id=run_id,
-    )
+    # WRAPPED SO THE PAIR IS RECORDED ON BOTH OUTCOMES (`C-060`). The
+    # completion gate fires on the PROSE channel's PR URL, so a prose failure
+    # killed this parent before it could record that the TYPED channel had
+    # succeeded. The gate itself is unchanged and still fails the run — exit 0
+    # must mean done, and buying a datapoint by weakening that would trade a
+    # real guarantee for a number.
+    try:
+        act.run_disposition(
+            prompt, worktree, helper.MODEL_KEY, helper.COMPLETION_PATTERN,
+            worktree=pr_tree, verbose=task.verbose,
+            exit_record_schema=exit_record.schema_argument(), log_file=log_file,
+            # The SAME nonce that named the log and that the child echoes into
+            # the record, so all three of the run log's member events agree on
+            # it. `run_claude` refuses a log_file with no run_id for that reason.
+            run_id=run_id,
+        )
+    except Exception:
+        _append_shadow_pair(log_file, run_id=run_id, pr=task.pr_number,
+                            expected_ref=expected_ref)
+        raise
 
     # --- THE TYPED CHANNEL DECIDES --------------------------------------
     # TWO IDENTITIES ARE CHECKED, NOT ONE. `run_id` says the record came from
@@ -190,18 +262,14 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # colliding is indistinguishable from a real agreement — and the E2(c) cell
     # (record absent on an otherwise-clean run, prose saying needs-assistance)
     # is the single case this phase most needs counted as a DISAGREEMENT.
-    _shared.append_parent_route(log_file, {
-        "run_id": run_id,
-        "pr": task.pr_number,
-        "routed_outcome": record.routed_outcome.value,
-        "undetermined_reason": (
-            record.undetermined_reason.value if record.undetermined_reason else None
-        ),
-        "hold_kind": record.hold_kind.value if record.hold_kind else None,
-        "shadow_verdict": shadow.value,
-        "shadow_parseable": parseable,
-        "channels_agree": shadow is verdict,
-    })
+    # RE-READS THE LOG RATHER THAN TAKING THE VALUES ABOVE, DELIBERATELY. The
+    # failure path has no `record` to hand — that is the whole point of the
+    # wrap — so the helper must derive its own. Passing pre-parsed values here
+    # and re-parsing there would give the two paths different code, and the
+    # path that runs rarely is the one that would drift. Identical code on both
+    # is worth one extra read of a local file that is already in page cache.
+    _append_shadow_pair(log_file, run_id=run_id, pr=task.pr_number,
+                        expected_ref=expected_ref)
 
     # BUILT BEFORE THE RAISE, NOT AFTER IT, AND THAT ORDERING IS A FIX RATHER
     # THAN A STYLE. R5b routes to `undetermined`, which collapses to

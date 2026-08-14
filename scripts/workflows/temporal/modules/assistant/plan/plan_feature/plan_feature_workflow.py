@@ -197,10 +197,12 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
 # arriving one layer down.
 MAY_NOT_OBSERVERS: dict[str, str] = {
     "**Estimate hours, or size the work in any unit of time** — that is `plan-verify`'s":
-        "own.hour_estimates over the roadmap and every phase doc after the run, "
+        "own.hour_hits counted either side of the run over own.plan_docs, so what "
+        "is judged is the estimates THIS RUN wrote and not the ones it inherited; "
         "keyed on estimate SHAPE (`~30 hrs`, `(8h)`, `Est: 8 hours`) and never on "
         "the word `hours` — this repo's planning docs hold three prose uses of it "
-        "and zero estimates, so a word-keyed pattern would fail correct runs",
+        "and zero estimates, so a word-keyed pattern would fail correct runs. "
+        "own.hour_estimates then cites the delta by file and line",
     "**Rename, renumber or delete an existing phase doc** — the number is IDENTITY":
         "own.phase_docs snapshotted either side of the run, compared by "
         "act.ids_deleted — a rename and a renumber are both a filename that "
@@ -214,7 +216,10 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "near-misses",
     "Give a NEW phase a number already used in this component":
         "own.reused_phase_numbers over both snapshots — a gap is not a free "
-        "number, because references to a retired phase survive elsewhere",
+        "number, because references to a retired phase survive elsewhere — and "
+        "over the new files AGAINST EACH OTHER by own.phase_identity, so two "
+        "docs written in the same dispatch cannot both be phase 5 while "
+        "`phase5a_` + `phase5b_` planned together stays legal",
     "**Touch `sprint.md` at all** — you hold no authorization over it":
         "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
     "Write or edit anything under ANOTHER component, or under your own `research/`":
@@ -279,6 +284,15 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "`<component>/[^/]+\\.md$`, so the two sets are equal by construction. "
         "That equality is the point of the reader — a guard scoped more narrowly "
         "than the grant leaves a file the run may write and nothing watches."),
+    "before_hours": (
+        "own.hour_hits over the same own.plan_docs set, and the SUBTRACTION is "
+        "the observation: `after - before` reports only what this run added, so "
+        "an estimate that DISAPPEARED is deliberately not an offence. Removing an "
+        "hour figure moves the plan toward the state this workflow is required to "
+        "leave it in, and the run cannot reach any file outside the grant to "
+        "remove one from — which is what makes the asymmetry with before_boxes "
+        "correct rather than an oversight, since an erased CHECKBOX destroys a "
+        "record of work done and an erased ESTIMATE destroys nothing."),
     "before_boxes": (
         "own.plan_boxes, over the same own.plan_docs set, counted either side of "
         "the run and compared in BOTH directions — so an ERASED tick is an "
@@ -314,6 +328,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     before_status = act.candidate_statuses(wt_candidates)
     before_component = act.candidate_components(wt_candidates)
     before_boxes = own.plan_boxes(wt_component)
+    before_hours = own.hour_hits(wt_component)
     before_tree = act.worktree_state(worktree)
 
     values = prompt_values(rel_component, rel_candidates, worktree, pr_number)
@@ -377,9 +392,11 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
         raise RuntimeError(
             f"plan-feature made {len(vanished)} file(s) it may WRITE cease to "
             f"exist: {', '.join(vanished)}. The permission covers creating and "
-            f"editing them and nothing further — `candidates.md` is the running "
-            f"proposal list this run appends to, and a planning file it deleted is "
-            f"a plan somebody wrote and nothing now records — see {url}"
+            f"editing them and nothing further. Both grants are load-bearing and "
+            f"the message names the paths above rather than guessing which: a "
+            f"planning file deleted is a plan somebody wrote and nothing now "
+            f"records, and `candidates.md` deleted is the running proposal list "
+            f"every workflow in this family appends to — see {url}"
         )
 
     # THE DELIVERABLE, OBSERVED RATHER THAN ASSERTED. The run reports what it
@@ -427,10 +444,21 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
             + f". A new phase takes `max(existing) + 1`, and a GAP IS NOT A FREE "
             f"NUMBER: a retired phase's number stays retired because commit "
             f"messages, code comments and the sprint plan may still point at it, "
-            f"and reusing it makes those references silently ambiguous — see {url}"
+            f"and reusing it makes those references silently ambiguous. This "
+            f"covers two docs you wrote in THIS run colliding with each other, "
+            f"not only with one that was already there — `phase5a_` and "
+            f"`phase5b_` planned together are one phase in two chunks and are "
+            f"fine; two bare `phase5_` files are two phases with one name — "
+            f"see {url}"
         )
 
-    hours = own.hour_estimates(wt_component, worktree)
+    # A DELTA, LIKE EVERY OTHER PROHIBITION HERE, and it was the one guard keyed
+    # on post-run STATE instead. A component that already carried an estimate —
+    # one `plan-revision` wrote, or a human did — failed this on every future
+    # dispatch, permanently and with a message that named this run as the author.
+    # `docs/development/reviews/` carries two such strings today.
+    new_hours = own.hour_hits(wt_component) - before_hours
+    hours = own.hour_estimates(wt_component, worktree, only=new_hours)
     if hours:
         raise RuntimeError(
             f"plan-feature wrote {len(hours)} hour estimate(s) into the plan:\n  "

@@ -169,6 +169,39 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
 }
 
 
+def prompt_values(rel_sprint: str, rel_candidates: Path, rel_research: Path,
+                  tree: Path, counts: dict, correction_pass: bool,
+                  pr_number: str | None) -> dict[str, str]:
+    """Every placeholder the prompt takes, assembled ONCE for both callers.
+
+    THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT. This module's
+    `correction_note` docstring records what happens otherwise: the runner built
+    its own copy of this dict, rendered only half of `CORRECTION_NOTE`, and
+    previewed text no model would ever receive. That was fixed by patching the
+    copy, which left the copy — and the shape that produced the bug — in place.
+    One assembly is what removes it.
+
+    `tree` IS THE TREE THE COUNTS ARE TAKEN FROM: the worktree on the live path,
+    the repo on the dry-run path, where no worktree exists yet.
+    """
+    return {
+        "SPRINT_PATH": rel_sprint,
+        "CANDIDATES_PATH": str(rel_candidates),
+        "RESEARCH_DIR": str(rel_research),
+        "CORRECTION_NOTE": correction_note(counts, correction_pass),
+        # THE TREE, not the repo. This workflow runs THIRD: the parent has
+        # already written any new component's `research/synthesis.md` into the
+        # worktree, and Stage 1 is told to read every synthesis this enumeration
+        # lists. Anchored at the repo it would list the main checkout, which
+        # never holds them, and the run would report reading all of nothing.
+        "EXISTING_WORK": act.existing_work(tree, tree / rel_research),
+        "SUBMIT_PROMPT": act.submit_prompt(
+            pr_number, "plan-sprint: place the ruled candidates and update the sprint plan"),
+        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
+        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+    }
+
+
 def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
                     candidates_path: Path, research_dir: Path,
                     pr_number: str | None = None, correction_pass: bool = False,
@@ -201,21 +234,8 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     before_boxes = act.checked_boxes(wt_sprint)
     before_tree = act.worktree_state(worktree)
 
-    values = {
-        "SPRINT_PATH": rel_sprint,
-        "CANDIDATES_PATH": str(rel_candidates),
-        "RESEARCH_DIR": str(rel_research),
-        "CORRECTION_NOTE": correction_note(counts, correction_pass),
-        # THE WORKTREE, not the repo. This workflow runs THIRD: the parent has
-        # already written any new component's `research/synthesis.md` into the
-        # worktree, and Stage 1 is told to read every synthesis this enumeration
-        # lists. Anchored at the repo it would list the main checkout, which
-        # never holds them, and the run would report reading all of nothing.
-        "EXISTING_WORK": act.existing_work(worktree, worktree / rel_research),
-        "SUBMIT_PROMPT": act.submit_prompt(pr_number, "plan-sprint: place the ruled candidates and update the sprint plan"),
-        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
-        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
-    }
+    values = prompt_values(rel_sprint, rel_candidates, rel_research,
+                           worktree, counts, correction_pass, pr_number)
 
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "plan_sprint.md"), values),

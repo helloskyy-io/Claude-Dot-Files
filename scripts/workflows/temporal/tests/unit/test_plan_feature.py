@@ -590,8 +590,8 @@ def test_the_runner_REFUSES_a_component_outside_the_repo(tmp_path: Path, capsys)
 
 # --- the guard SEQUENCE, driven end to end ---------------------------------
 
-def _drive(monkeypatch: pytest.MonkeyPatch, tree: Path, writes) -> str:
-    """Run `run_plan_feature` against a fake model that mutates the tree.
+def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
+    """Wire `run_plan_feature` to a fake model that mutates the tree; return the call.
 
     THE ONLY TEST HERE THAT GOES THROUGH THE ORCHESTRATOR, and the gap it closes
     is a real one: every other assertion in this module drives a comparator in
@@ -631,9 +631,22 @@ def _drive(monkeypatch: pytest.MonkeyPatch, tree: Path, writes) -> str:
     monkeypatch.setattr(act, "run_claude",
                         lambda prompt, **kw: (writes(), "https://github.com/o/r/pull/9")[1])
 
+    return lambda: wf.run_plan_feature(repo_root=tree, worktree=tree,
+                                       component=_component(tree),
+                                       candidates_path=cands)
+
+
+def _drive(monkeypatch: pytest.MonkeyPatch, tree: Path, writes) -> str:
+    """`_harness`, asserting the run FAILS, and returning the operator's message.
+
+    Split from `_harness` so a test can also assert a run SUCCEEDS. That
+    direction is not symmetry for its own sake: a guard that fires when it should
+    not is as much a defect as one that stays silent, and only a passing run can
+    show it. See `test_a_PRE_EXISTING_violation_of_a_PROHIBITION_does_not_fail_a
+    _clean_run`, which was red before `hour_hits` made the hour guard a delta.
+    """
     with pytest.raises(RuntimeError) as exc:
-        wf.run_plan_feature(repo_root=tree, worktree=tree,
-                            component=_component(tree), candidates_path=cands)
+        _harness(monkeypatch, tree, writes)()
     return str(exc.value)
 
 
@@ -660,3 +673,109 @@ def test_an_UNNUMBERED_plan_doc_fails_the_run(
 
     message = _drive(monkeypatch, tree, lambda: _write(c, "the_run_bag.md"))
     assert "the_run_bag.md" in message and "exactly two kinds" in message
+
+
+# --- CLASS CHECKS: what the guards do NOT look at --------------------------
+#
+# Three passes on this workflow have each found a SCOPE defect and no other kind:
+# a regex crossing a sentence, a grant crossing a directory, a sweep missing a
+# filename class, an ordering hiding a message, a comparator that never compared
+# new against new, a guard reading state where the prohibition is about a delta.
+# Enumerating those instances does not converge — the two tests below key on the
+# CLASS instead, so the NEXT member fails here rather than being found by a
+# fourth pass.
+
+def test_a_PRE_EXISTING_violation_of_a_PROHIBITION_does_not_fail_a_clean_run(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """CLASS: a prohibition guard judges what THIS RUN DID, never what the tree IS.
+
+    Every prohibition here is about the run's own conduct, so a component that
+    ALREADY violates one must not fail a run that violated nothing. Seeded with
+    one pre-existing instance of all four — a ticked box, an hour estimate, a
+    non-conformant filename, and a phase number in use — and a run whose only act
+    is to add one legal phase doc.
+
+    THIS WAS RED, and on exactly one of the four: `hour_estimates` scanned
+    post-run STATE, so an estimate somebody else wrote failed the run with a
+    message asserting *"plan-feature wrote 1 hour estimate(s)"*. Reproduced
+    against `docs/development/reviews/`, which carries `~7h` and `~12.8 hours`
+    today, and against `plan-revision` — the unsplit planner that DOES size work,
+    so any component it planned is one this workflow could never extend.
+
+    A FIFTH GUARD ADDED LATER AND KEYED ON STATE FAILS HERE, which is the point.
+    Add its pre-existing instance to the seed above when you add the guard.
+    """
+    c = _component(tree)
+    _write(c, "roadmap.md", "# alpha\n\n- [x] a box ticked before this run existed\n")
+    _write(c, "phase1_a.md", "An earlier planner sized this at ~30 hrs.\n")
+    _write(c, "phase7_b.md", "# seven\n")
+    _write(c, "the_run_bag.md", "a name that predates the naming rule\n")
+
+    url = _harness(monkeypatch, tree, lambda: _write(c, "phase8_new.md", "# eight\n"))()
+    assert url == "https://github.com/o/r/pull/9"
+
+
+_LOOKALIKES = ["phase_notes.txt", "phase9_x.md.bak", "phase3.markdown", "phase2.md.txt"]
+
+
+@pytest.mark.parametrize("name", _LOOKALIKES)
+def test_a_non_markdown_LOOKALIKE_is_a_phase_doc_to_NEITHER_reader(
+        tree: Path, name: str) -> None:
+    """CLASS: the two filename classifiers agree on what counts as a plan file.
+
+    `plan_docs` requires `.md` because it must equal the write grant.
+    `phase_docs` is deliberately WIDER on the stem — `^phase` case-insensitively,
+    so a legacy `Phase3.md` is still a phase doc whose deletion is an offence —
+    and it was wider on the SUFFIX too, which was not deliberate. Two consequences
+    reproduced: `planning_state` reported a `.txt` to the model under the label
+    *"Counted in code, authoritative — do not recount"*, and the
+    `if not after_phase` deliverable guard was satisfied by one.
+
+    A third classifier added later that disagrees with these two fails here.
+    """
+    c = _component(tree)
+    _write(c, name, "not a plan document\n")
+    assert name not in own.phase_docs(c), "phase_docs read a non-markdown file"
+    assert name not in own.plan_docs(c), "plan_docs read a non-markdown file"
+    assert own.phase_identity(name) is None and own.phase_number(name) is None
+
+
+def test_a_LOOKALIKE_does_not_satisfy_the_DELIVERABLE_guard(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The consequence, through the orchestrator: zero phase docs must fail."""
+    c = _component(tree)
+    _write(c, "phase_notes.txt", "scratch notes\n")
+
+    message = _drive(monkeypatch, tree, lambda: _write(c, "roadmap.md"))
+    assert "produced no phase doc" in message, (
+        f"a stray non-markdown file satisfied the deliverable guard: {message}")
+
+
+def test_two_NEW_phase_docs_may_not_claim_the_SAME_number(tree: Path) -> None:
+    """CLASS: a before/after comparator must also compare new against NEW.
+
+    `taken` was built once from `before` and never grew, so two files written in
+    the SAME dispatch collided with nothing. Both shipped, both called Phase 5 —
+    straight past the one guard that makes a number an identity.
+    """
+    assert own.reused_phase_numbers({}, {"phase5_a.md": "h", "phase5_b.md": "h"}) == [
+        ("phase5_b.md", 5)]
+
+
+def test_SUB_LETTERS_planned_in_ONE_pass_stay_legal(tree: Path) -> None:
+    """The carve-out the fix above must not eat. Rule 6, quoted in `phase_identity`."""
+    assert own.reused_phase_numbers(
+        {}, {"phase5a_poc.md": "h", "phase5b_rollout.md": "h"}) == []
+
+
+def test_a_RETROACTIVE_sub_letter_is_still_an_offence(tree: Path) -> None:
+    """Rule 6's own failure mode (c): `phase5b_` arriving after `phase5a_` shipped."""
+    assert own.reused_phase_numbers(
+        {"phase5a_poc.md": "h"},
+        {"phase5a_poc.md": "h", "phase5b_late.md": "h"}) == [("phase5b_late.md", 5)]
+
+
+def test_a_BARE_number_and_a_LETTERED_one_in_one_run_collide(tree: Path) -> None:
+    """A phase cannot be both chunked and not. `phase5_` + `phase5a_` is ambiguous."""
+    assert own.reused_phase_numbers(
+        {}, {"phase5_a.md": "h", "phase5a_b.md": "h"}) == [("phase5a_b.md", 5)]

@@ -44,14 +44,18 @@ def main(argv=None) -> int:
             print(f"  Sprint     : {sprint.relative_to(repo_root)}")
             print(f"  Candidates : {counts['total']} total · {counts['triaged']} ruled (your set) · {counts['untriaged']} untriaged (NOT yours)")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — no V1 to derive from)")
-            rendered = act.render(act.load_prompt(wf.PROMPTS / "plan_sprint.md"), {
-                "SPRINT_PATH": a.sprint, "CANDIDATES_PATH": a.candidates, "RESEARCH_DIR": a.research,
-                # The WHOLE slot, exactly as a live run builds it. Rendering only
-                # half of it made --dry-run preview text no model would receive.
-                "CORRECTION_NOTE": wf.correction_note(counts, correction_pass=False),
-                "EXISTING_WORK": act.existing_work(repo_root, research), "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
-                "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
-                "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard")})
+            # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied.
+            # This branch used to hand-build the dict, and the hand-built copy is
+            # how this workflow shipped a dry run that previewed a DIFFERENT
+            # prompt from the one dispatched (see `wf.correction_note`). Patching
+            # the copy fixed the instance and left the shape; calling the live
+            # assembly removes it.
+            rendered = act.render(
+                act.load_prompt(wf.PROMPTS / "plan_sprint.md"),
+                wf.prompt_values(str(sprint.relative_to(repo_root)),
+                                 cands.relative_to(repo_root),
+                                 research.relative_to(repo_root),
+                                 repo_root, counts, False, None))
             print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
             return 0
 

@@ -45,12 +45,21 @@ def main(argv=None) -> int:
     # RESOLVED AGAINST THE REPO, and rejected if it escapes. `--repo` and a
     # component path are two independent operator inputs, and `../../elsewhere`
     # would otherwise plan a directory outside the tree the run is reviewing.
+    # BOTH OPERATOR PATHS ARE CHECKED, not only the component one. `--candidates`
+    # is as free-form as the component argument, and the two paths through this
+    # script disagreed about it: the live run relativises it against the repo
+    # while the dry run printed the raw argument, so an absolute `--candidates`
+    # previewed one prompt and dispatched another — the exact drift
+    # `wf.prompt_values` exists to make impossible. Resolved once here, so both
+    # branches read the same value and an escape is refused before either runs.
     component = (repo_root / a.component).resolve()
-    cands = repo_root / a.candidates
-    if not component.is_relative_to(repo_root):
-        print(f"\n✗ component {a.component} resolves outside the repo: {component}",
-              file=sys.stderr)
-        return 1
+    cands = (repo_root / a.candidates).resolve()
+    for label, arg, path in (("component", a.component, component),
+                             ("candidates", a.candidates, cands)):
+        if not path.is_relative_to(repo_root):
+            print(f"\n✗ {label} {arg} resolves outside the repo: {path}",
+                  file=sys.stderr)
+            return 1
     for label, path in (("component", component), ("candidates", cands)):
         if not path.exists():
             print(f"\n✗ {label} not found: {path}", file=sys.stderr)
@@ -75,7 +84,7 @@ def main(argv=None) -> int:
             # checking the wrong artifact is worse than checking none.
             rendered = act.render(
                 act.load_prompt(wf.PROMPTS / "plan_feature.md"),
-                wf.prompt_values(rel, Path(a.candidates), repo_root, None))
+                wf.prompt_values(rel, cands.relative_to(repo_root), repo_root, None))
             print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
             return 0
 

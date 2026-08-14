@@ -136,6 +136,39 @@ _SCAFFOLDED = "scaffolded"
 _SPRINT_SECTION = "sprint-section"
 
 
+def _plan_one(*, section: str, component_root: Path, repo_root: Path,
+              worktree: Path, candidates_path: Path, pr: str | None,
+              verbose: bool) -> None:
+    """Dispatch `plan-feature` for ONE component. Raises what the child raises.
+
+    CALLED INSIDE THE RESEARCH LOOP, NOT AFTER IT, and that is the whole
+    placement argument. `plan-feature` takes ONE component and plans it from ITS
+    research; the evidence it needs is what `research-verify` gated a line
+    earlier. A second loop after the first would re-derive the same set from the
+    same `origin` map and separate each component's plan from its own evidence by
+    every other component's research cycle.
+
+    THE CHILD IS HANDED A REPO-ROOTED COMPONENT, and `component_root` is
+    WORKTREE-rooted, so it is re-anchored here rather than passed as-is. That
+    asymmetry is deliberate and is the one every child in this parent shares:
+    `candidates_path` and `sprint_path` arrive repo-rooted from the runner and
+    each child relativises against `repo_root` itself, while a directory the
+    PARENT creates is created where the run can see it. Passing the worktree path
+    would make the child's `relative_to(repo_root)` raise on a path that is
+    perfectly valid — a failure naming the wrong cause.
+
+    A FUNCTION RATHER THAN THREE INLINE LINES because the caller wraps this and
+    the two research children in one `try`, and the re-anchoring argument above
+    belongs with the expression it explains rather than a screen away inside a
+    handler. `section` is carried only so the loop reads the same either side.
+    """
+    feature.run_plan_feature(
+        repo_root=repo_root, worktree=worktree,
+        component=repo_root / component_root.relative_to(worktree),
+        candidates_path=candidates_path, pr_number=pr, verbose=verbose,
+    )
+
+
 def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                     candidates_path: Path, research_dir: Path,
                     pr_number: str | None = None, repo_target: str | None = None,
@@ -374,34 +407,53 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                 f"are not interchangeable, since a scaffolded component has no "
                 f"sprint section to read and a sprint-section component has no "
                 f"seeded synthesis. Add the arm rather than letting it default.")
-        write.run_write(research_dir=component_pool, repo_root=repo_root,
-                        worktree=worktree, context=context, pr_number=pr,
-                        verbose=verbose)
-        verify.run_verify(research_dir=component_pool, pr_number=pr,
-                          repo_root=repo_root, worktree=worktree, verbose=verbose)
-
-        # --- Step 2b: PLAN the component that was just researched ----------
-        # INSIDE THIS LOOP, NOT AFTER IT, and that is the whole placement
-        # argument. `plan-feature` takes ONE component and plans it from ITS
-        # research; the evidence it needs is what `research-verify` just gated,
-        # two lines up. A second loop after this one would re-derive the same
-        # set from the same `origin` map and separate each component's plan from
-        # its own evidence by every other component's research cycle.
+        # A FAILURE HERE ORPHANS THIS COMPONENT FROM AUTOMATIC REDISPATCH, so it
+        # is caught to SAY SO and then re-raised. Nothing is swallowed and the
+        # exit code does not change; what is added is the two things the operator
+        # cannot reconstruct from the raised message alone.
         #
-        # THE CHILD IS HANDED A REPO-ROOTED COMPONENT, and `component_root` above
-        # is WORKTREE-rooted, so it is re-anchored here rather than passed as-is.
-        # That asymmetry is deliberate and is the one every child in this parent
-        # shares: `candidates_path` and `sprint_path` arrive repo-rooted from the
-        # runner and each child relativises against `repo_root` itself, while a
-        # directory the PARENT creates is created where the run can see it.
-        # Passing the worktree path would make the child's `relative_to(repo_root)`
-        # raise on a path that is perfectly valid — a failure naming the wrong
-        # cause.
-        feature.run_plan_feature(
-            repo_root=repo_root, worktree=worktree,
-            component=repo_root / component_root.relative_to(worktree),
-            candidates_path=candidates_path, pr_number=pr, verbose=verbose,
-        )
+        # THE ORPHANING IS REAL AND IS NOT THIS LOOP'S DOING. `scaffold_candidate_
+        # components` decides "does this component still need work?" from the
+        # `_UNRESEARCHED` marker in its `synthesis.md`, and `research-write`
+        # strips that marker as its first act. So a component whose research
+        # SUCCEEDED and whose planning then failed reads as `extends` on every
+        # later `--pr` redispatch: it never re-enters `to_research`, never
+        # re-enters `origin`, and no later pass in this pipeline looks for a
+        # missing `roadmap.md` at all. Absent this message the operator's only
+        # signal is one child's error text, from which the fact that the parent
+        # will never retry is not derivable.
+        #
+        # AND THE NOTES DIE WITH IT OTHERWISE. `notes` is local and returned only
+        # on the success path, so the accounting this function's own docstring
+        # calls the part worth reading — which candidate was declined and why,
+        # which component was scaffolded — is guaranteed absent at exactly the
+        # moment it is being read for a diagnosis.
+        try:
+            write.run_write(research_dir=component_pool, repo_root=repo_root,
+                            worktree=worktree, context=context, pr_number=pr,
+                            verbose=verbose)
+            verify.run_verify(research_dir=component_pool, pr_number=pr,
+                              repo_root=repo_root, worktree=worktree, verbose=verbose)
+            _plan_one(section=section, component_root=component_root,
+                      repo_root=repo_root, worktree=worktree,
+                      candidates_path=candidates_path, pr=pr, verbose=verbose)
+        except (RuntimeError, FileNotFoundError, ValueError) as exc:
+            raise RuntimeError(
+                f"{exc}\n\n"
+                f"— plan-project stopped on component `{section}`, and the "
+                f"{len(origin)} component(s) in this run's working set are NOT all "
+                f"done. This component will not be picked up automatically: "
+                f"`scaffold_candidate_components` keys resume off the "
+                f"`<!-- plan-candidates: seeded, no research yet -->` marker, "
+                f"`research-write` removes that marker before either step above "
+                f"ran, and nothing anywhere checks for a missing `roadmap.md`. A "
+                f"`--pr` redispatch will read `{section}` as already handled.\n"
+                f"  To finish it by hand:  scripts/workflows/temporal/scripts/"
+                f"plan_feature.sh docs/development/{section}"
+                + (f" --pr {pr}" if pr else "")
+                + "\n\nWhat this run had done before it stopped:\n"
+                + "\n".join(f"  - {n}" for n in notes)
+            ) from exc
         notes.append(f"`{section}` planned — `roadmap.md` and phase docs written "
                      f"from its research. NOT SIZED: `plan-verify` estimates the "
                      f"phases, and it does not exist yet.")

@@ -159,6 +159,35 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
 }
 
 
+def prompt_values(rel_candidates: Path, rel_research: Path, tree: Path,
+                  counts: dict, pr_number: str | None) -> dict[str, str]:
+    """Every placeholder the prompt takes, assembled ONCE for both callers.
+
+    THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
+    they cannot drift. `plan_sprint.correction_note`'s docstring records the
+    family shipping exactly that bug: a runner assembling its own copy of a
+    workflow's values dict previewed a prompt that was not the one dispatched,
+    and an operator checking the wrong artifact is worse than checking none.
+
+    `tree` IS THE TREE THE COUNTS ARE TAKEN FROM: the worktree on the live path,
+    the repo on the dry-run path, where no worktree exists yet.
+    """
+    return {
+        "CANDIDATES_PATH": str(rel_candidates),
+        "RESEARCH_DIR": str(rel_research),
+        "WORKING_SET": _working_set(counts),
+        "DIRECTION_CEILING": own.direction_ceiling(tree / rel_research),
+        # THE TREE, like the line above it. Every other read in this dict is
+        # already tree-anchored; this one was the odd repo-rooted read out,
+        # sitting one line from its correct neighbour.
+        "EXISTING_WORK": act.existing_work(tree, tree / rel_research),
+        "SUBMIT_PROMPT": act.submit_prompt(
+            pr_number, "triage-candidates: rule the untriaged candidates"),
+        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
+        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+    }
+
+
 def run_triage_candidates(*, repo_root: Path, worktree: Path,
                           candidates_path: Path, research_dir: Path,
                           pr_number: str | None = None,
@@ -191,19 +220,8 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     before_direction = own.direction_statuses(worktree / rel_research)
     before_tree = act.worktree_state(worktree)
 
-    values = {
-        "CANDIDATES_PATH": str(rel_candidates),
-        "RESEARCH_DIR": str(rel_research),
-        "WORKING_SET": _working_set(counts),
-        "DIRECTION_CEILING": own.direction_ceiling(worktree / rel_research),
-        # THE WORKTREE, like the line above it. Every other read in this dict is
-        # already worktree-anchored; this one was the odd repo-rooted read out,
-        # sitting one line from its correct neighbour.
-        "EXISTING_WORK": act.existing_work(worktree, worktree / rel_research),
-        "SUBMIT_PROMPT": act.submit_prompt(pr_number, "triage-candidates: rule the untriaged candidates"),
-        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
-        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
-    }
+    values = prompt_values(rel_candidates, rel_research, worktree,
+                           counts, pr_number)
 
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "triage_candidates.md"), values),
