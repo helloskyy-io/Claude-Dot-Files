@@ -124,7 +124,7 @@ def component_slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-def component_dir(tree: Path, name: str, *, source: str = "sprint section") -> Path:
+def component_dir(tree: Path, name: str, *, source: str) -> Path:
     """`Fleet Reliability` -> `docs/development/fleet-reliability`.
 
     The convention the whole tree already follows, applied in code rather than
@@ -141,6 +141,14 @@ def component_dir(tree: Path, name: str, *, source: str = "sprint section") -> P
     reading "sprint section '--' yields no folder name" over a cell that came from
     `candidates.md` sends whoever is debugging it to the wrong file — a diagnostic
     that points away from the cause is worse than a bare traceback.
+
+    IT IS REQUIRED AND HAS NO DEFAULT, for the reason `new_sprint_sections`'
+    `base_ref` states one file over: a default is the wrong answer that a new
+    caller inherits by saying nothing. It defaulted to `"sprint section"` — which
+    was the only surface when it was written and has not been since — and both
+    production call sites had already been given an explicit value, so the default
+    was reachable only by a caller that had not thought about it. That is the one
+    caller it would have been wrong for.
     """
     slug = component_slug(name)
     if not slug:
@@ -160,6 +168,19 @@ class Scaffolded(NamedTuple):
 
     `to_research` is `created + resumed`: both are components whose research pool
     exists and holds nothing but the seed.
+
+    THE TWO HALVES ARE NOT THE SAME KIND OF LIST, AND CONFLATING THEM IS WHAT
+    PRODUCED A DEFECT IN EACH OF THE LAST TWO PASSES. `created` and `resumed`
+    name COMPONENTS and feed the research fan-out, so a slug may appear in them
+    at most once across BOTH — the parent turns each entry into an operator note
+    and a research dispatch, and a repeat is a claim that two components need
+    work when one does. `extends` and `unnamed` name ROWS and feed nothing, so
+    repeats there are correct: two rows extending one component are two facts
+    about the file, each carrying its own `C-NNN`.
+
+    Stated here because it is the invariant the loop below enforces and the one
+    `test_to_research_NEVER_NAMES_A_COMPONENT_TWICE` holds — as a property over
+    every path into the two lists, rather than one example per path.
     """
 
     created: list[str]
@@ -256,16 +277,30 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
             continue
         pool = component_dir(worktree, row.component,
                              source="`component` cell in candidates.md") / "research"
-        # A COMPONENT THIS LOOP JUST CREATED IS `extends` FOR EVERY LATER ROW, and
-        # the exists-check alone gets that wrong. The second row's directory does
-        # exist — but its `synthesis.md` still carries the marker this loop wrote
-        # a moment ago, so `_is_unresearched` says yes and the slug landed in
-        # `resumed` as well as `created`. The parent then printed both notes for
-        # one component — "scaffolded from a shipped candidate" and "seeded by an
-        # earlier pass and never researched" — of which the second is false, and
-        # `to_research` carried the slug twice. Checked BEFORE the marker, because
-        # the marker cannot tell this run's seed from a previous run's.
-        if slug in result.created:
+        # A COMPONENT ALREADY CLAIMED BY AN EARLIER ROW IS `extends` FOR EVERY
+        # LATER ONE, and the exists-check alone gets that wrong. The second row's
+        # directory does exist — but its `synthesis.md` still carries the marker
+        # this loop wrote a moment ago, so `_is_unresearched` says yes and the
+        # slug landed in `resumed` as well as `created`. The parent then printed
+        # both notes for one component — "scaffolded from a shipped candidate"
+        # and "seeded by an earlier pass and never researched" — of which the
+        # second is false, and `to_research` carried the slug twice. Checked
+        # BEFORE the marker, because the marker cannot tell this run's seed from
+        # a previous run's.
+        #
+        # KEYED ON `to_research`, NOT ON `created`, AND THAT IS THE FIX RATHER
+        # THAN A SECOND PATCH. It read `slug in result.created`, which closed the
+        # created+created pair and left the structurally identical resumed+resumed
+        # pair open: two rows naming a component a PREVIOUS run seeded and never
+        # researched both passed the exists-check, both saw the marker, and both
+        # appended — `resumed=['shared', 'shared']`, reproduced before this line
+        # changed. `to_research` is the union the parent actually consumes, so
+        # asking it is the question that has to be true for every bucket that
+        # feeds research, including one added later. A bucket that does NOT feed
+        # research (`extends`, `unnamed`) is per-ROW by design and must keep its
+        # duplicates: two rows extending one component are two facts about the
+        # file, and each is a separate note naming its own `C-NNN`.
+        if slug in result.to_research:
             result.extends.append((row.id, slug))
             continue
         if pool.parent.exists():

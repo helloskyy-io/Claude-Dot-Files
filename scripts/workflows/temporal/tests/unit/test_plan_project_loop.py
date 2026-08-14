@@ -445,6 +445,62 @@ def test_the_scaffolder_is_given_the_WORKTREE_copy_of_the_candidates_file(
         f"scaffolder was given {wired.scaffold_args}")
 
 
+def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
+        wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The claim `Scaffolded` was widened FOR, asserted over the whole type.
+
+    Its docstring says a bare list of created slugs "is what made three separate
+    failures silent" — an extending candidate, an abandoned pool and a filer typo
+    all read as "created nothing", and that note reads as health. The parent
+    answers with one note per entry. **Nothing asserted any of it**: every test
+    here checked dispatch counts and brief text, so the three quiet outcomes —
+    the whole reason the return type has four lists — were untested.
+
+    KEYED ON THE TYPE'S FIELDS RATHER THAN ON FOUR EXAMPLES. A fifth bucket added
+    later fails here until the parent gives it a note, which is the property
+    worth holding: the failure mode is a list nobody prints, and a test naming
+    today's four lists cannot see it.
+
+    IT COUNTS THE NOTES RATHER THAN LOOKING FOR ONE, AND THE FIRST VERSION DID
+    NOT — which a mutation caught and a reading would not have. `created` and
+    `resumed` feed the research fan-out, so their slugs ALSO appear in "New
+    component `x` — researching before it is planned". A presence test therefore
+    stayed green with the whole `resumed` note loop deleted: the slug was still
+    in the notes, under a sentence that says something else entirely. The
+    expected count is derived from `to_research` rather than hard-coded per
+    field, so a bucket that starts or stops feeding research adjusts with it.
+    """
+    scaffolded = pm.own.Scaffolded(
+        created=["alpha"], resumed=["beta"],
+        extends=[("C-001", "gamma")], unnamed=[("C-002", "···")])
+    monkeypatch.setattr(pm.own, "scaffold_candidate_components",
+                        lambda *a, **k: scaffolded)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _url, _verdict, _loops, notes = _run()
+
+    feeds_research = set(scaffolded.to_research)
+    for field in pm.own.Scaffolded._fields:
+        entries = getattr(scaffolded, field)
+        assert entries, f"the fixture left {field} empty, so its assertion is vacuous"
+        for entry in entries:
+            # A row-keyed list carries `(id, name)`; a component-keyed one a bare
+            # slug. Both have to be findable in the notes by what identifies them.
+            for token in (entry if isinstance(entry, tuple) else (entry,)):
+                # One note for the disposition, plus one for the research
+                # dispatch if this bucket feeds it.
+                want = 2 if token in feeds_research else 1
+                got = sum(1 for n in notes if token in n)
+                assert got >= want, (
+                    f"`Scaffolded.{field}` carried {token!r} and {got} note(s) "
+                    f"mention it, not {want} — that outcome is invisible to the "
+                    f"operator, or is visible only under another step's sentence, "
+                    f"which is exactly what this type was widened to prevent. "
+                    f"Notes: {notes}")
+
+    assert not any("empty working set" in n for n in notes), (
+        "the parent reported an empty working set while four rows were disposed of")
+
+
 def test_the_research_brief_for_a_SCAFFOLDED_component_claims_no_sprint_section(
         wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """A FALSE PREMISE handed to a model is worse than a thin one.
@@ -640,15 +696,16 @@ def test_a_heading_with_no_name_FAILS_LOUDLY_rather_than_slugging_to_nothing(
     names = own.new_sprint_sections(real_repo, "docs/development/sprint.md",
                                     base_ref=base)
     assert names == [""], f"the sweep read {names}"
-    with pytest.raises(ValueError, match="yields no folder name"):
-        own.component_dir(real_repo, names[0])
+    with pytest.raises(ValueError, match="sprint section .* yields no folder name"):
+        own.component_dir(real_repo, names[0], source="sprint section")
 
 
 def test_component_dir_slugs_the_way_the_tree_is_already_named(real_repo: Path) -> None:
     """The convention applied in code: a mismatch is invisible to every walk."""
     from modules.assistant.plan.plan_project import plan_project_activities as own
 
-    assert own.component_dir(real_repo, "Fleet Reliability") == \
+    assert own.component_dir(real_repo, "Fleet Reliability", source="sprint section") == \
         real_repo / "docs" / "development" / "fleet-reliability"
-    assert own.component_dir(real_repo, "Memory Management Framework") == \
+    assert own.component_dir(real_repo, "Memory Management Framework",
+                             source="sprint section") == \
         real_repo / "docs" / "development" / "memory-management-framework"

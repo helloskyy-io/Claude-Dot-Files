@@ -252,8 +252,16 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     # same alphabet problem. `setdefault` makes first-signal-wins explicit, and
     # scaffolding is listed first because a scaffolded component genuinely has no
     # sprint section to read.
-    # The value keeps the RAW name alongside the signal, because the sprint brief
-    # below quotes the heading as the operator wrote it and a slug is not that.
+    # The value keeps THE NAME AS ITS SIGNAL SPELLED IT alongside the signal, and
+    # that is deliberately weaker than "the raw name", which is what this said and
+    # was false for one of its two arms. `new_sprint_sections` yields the heading
+    # as the operator wrote it, and the sprint brief below quotes it — a slug is
+    # not that. `scaffolded.to_research` yields SLUGS, because the scaffolder names
+    # the directory it made, so the scaffolded arm's value is already resolved.
+    # Nothing downstream is wrong about that — `component_slug` is idempotent, and
+    # the scaffolded brief never quotes the name — but a reader taking the old
+    # sentence at face value would believe a filer's original spelling survives to
+    # here, and it does not.
     origin: dict[str, tuple[str, str]] = {}
     for name in scaffolded.to_research:
         origin.setdefault(own.component_slug(name), (_SCAFFOLDED, name))

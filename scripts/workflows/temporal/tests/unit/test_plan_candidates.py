@@ -256,6 +256,50 @@ def test_two_rows_naming_the_SAME_component_scaffold_it_once(tree: Path) -> None
         "the FIRST row scaffolded it; the second must not overwrite the seed")
 
 
+@pytest.mark.parametrize("label,pre_seed", [
+    ("both rows create it in this run", False),
+    ("both rows resume a pool a PREVIOUS run seeded and abandoned", True),
+], ids=["created+created", "resumed+resumed"])
+def test_to_research_NEVER_NAMES_A_COMPONENT_TWICE(
+        tree: Path, label: str, pre_seed: bool) -> None:
+    """THE PROPERTY, NOT ONE EXAMPLE OF IT — and the sibling path is why.
+
+    The previous pass found two rows naming one component landing in `created`
+    AND `resumed`, fixed it with `if slug in result.created`, and wrote a test
+    asserting the created+created pair. That closed one half of a symmetric pair
+    and left the other open: two rows naming a component a PREVIOUS run seeded
+    and never researched both pass the exists-check, both see the marker, and
+    both append — `resumed=['shared', 'shared']`, reproduced before the fix.
+
+    So this asserts the INVARIANT `to_research` has to satisfy however a slug
+    got there — no component named twice — parametrized over both paths into it.
+    A third bucket feeding research later inherits the assertion rather than
+    needing its own test, which is the whole difference between closing a
+    spelling and closing the class.
+
+    `extends` deliberately DOES repeat: it names ROWS, and two rows extending one
+    component are two facts about the file, each with its own `C-NNN` for the
+    operator's note.
+    """
+    if pre_seed:
+        first = _write(tree, _table(("C-000", "seeded earlier", "shared", "`ship`", "`open`")))
+        assert own.scaffold_candidate_components(tree, first).created == ["shared"]
+
+    f = _write(tree, _table(
+        ("C-001", "first", "shared", "`ship`", "`open`"),
+        ("C-002", "second", "shared", "`ship`", "`open`"),
+    ))
+    result = own.scaffold_candidate_components(tree, f)
+
+    assert len(set(result.to_research)) == len(result.to_research), (
+        f"{label}: to_research is {result.to_research} — one component named "
+        f"twice is two operator notes and two research dispatches for one pool")
+    assert result.to_research == ["shared"]
+    assert result.extends == [("C-002", "shared")], (
+        f"{label}: the row that lost the race must be reported as extending the "
+        f"component, naming its own id — got {result.extends}")
+
+
 def test_a_MISSING_candidates_file_raises_and_says_what_is_now_unknown(
         tree: Path) -> None:
     """Loud, not empty. An empty list here is indistinguishable from 'nothing eligible'.
@@ -332,19 +376,33 @@ def _nine_tables(bad: str) -> str:
     # every authorization snapshot, and from the deletion check.
     ("an id that is not three digits",
      _HEADER + "| C-1009 | a thing | c | PR #1 | `ship` | `open` | n |\n"),
-], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-width"])
-def test_a_SHIFTED_or_UNPARSED_row_RAISES_rather_than_reading_as_triaged(
+    # TWO ROWS SHARING ONE ID — the door that has actually opened, five times.
+    # Both rows parse; every reader is a dict keyed by id, so the second silently
+    # overwrites the first and one candidate stops existing. `C-001` is reused
+    # from the fixture's own first table on purpose: the collision that happens in
+    # production is across TABLES, when two branches allocate against one base.
+    ("one id allocated to two rows",
+     _HEADER + "| C-001 | a different thing | c | PR #1 | `ship` | `open` | n |\n"),
+], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-width", "duplicate-id"])
+def test_a_row_READ_WRONGLY_or_LOST_RAISES_rather_than_reading_as_triaged(
         tree: Path, label: str, bad: str) -> None:
     """Every departure from the assumed shape is loud, whatever the door.
 
     Loud beats a clean-looking answer: the whole point is that an empty-ish result
     from this parser is indistinguishable from a genuinely quiet file.
+
+    THE ERROR MUST NAME THE OFFENDING ROW, which is asserted rather than assumed.
+    A raise that says only "the file is malformed" over an eighty-row file leaves
+    the operator with the same search this check was supposed to do for them, and
+    each door here reaches the raise by a different route.
     """
     f = _write(tree, _nine_tables(bad))
     with pytest.raises(ValueError) as exc:
         act.candidate_rows(f, missing_hint="x")
-    assert "C-1" in str(exc.value) or "C-009" in str(exc.value), (
-        f"{label} raised without naming the offending row")
+    offender = "C-001" if label.startswith("one id") else (
+        "C-1009" if "three digits" in label else "C-009")
+    assert offender in str(exc.value), (
+        f"{label} raised without naming {offender}: {exc.value}")
 
 
 def test_EIGHT_GOOD_TABLES_DO_NOT_EXCUSE_A_NINTH(tree: Path) -> None:

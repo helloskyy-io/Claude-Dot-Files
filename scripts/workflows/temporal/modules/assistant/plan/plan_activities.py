@@ -63,6 +63,7 @@ from __future__ import annotations
 import hashlib
 import re
 import subprocess
+from collections import Counter
 from pathlib import Path
 from typing import NamedTuple
 
@@ -206,6 +207,17 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
       * an id that is not `C-` plus exactly three digits. `_ROW` does not match
         it at all, so the row is absent from every reader and every guard here
         is green over it.
+      * TWO ROWS SHARING ONE ID. Every reader here is a dict keyed by id, so the
+        second row's `decision`, `status` and `component` silently overwrite the
+        first's and one of the two candidates stops existing for every consumer.
+        This is the door that has actually opened: `test_candidate_ids_are_unique`
+        records it three times by 2026-08-11 and twice more on 2026-08-13, always
+        the same way — two branches each allocate the next free id against the
+        same base and both merge. That test is a merge gate on ONE file on the
+        default branch; this runs at the moment a pipeline reads whatever file it
+        was handed, which is the branch mid-collision, and the two comparators
+        that would notice a lost row (`ids_deleted`, `components_this_run_had_no_
+        right_to`) are keyed by the same colliding id and see nothing.
 
     THE HEADER TEST CAUGHT ONLY THE FIRST, AND ONLY BY LUCK. It asked whether a
     seven-column header appeared ANYWHERE in the file; this file holds nine
@@ -213,20 +225,28 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
     malformed. Measured on the real file: one table reverted to the old shape and
     the guard stayed silent while the untriaged count fell from 33 to 25.
 
-    So the check no longer asks about the table's shape at all. It asks the two
-    questions whose answers a shift necessarily corrupts:
+    So the check no longer asks about the table's shape at all. It asks the
+    three questions whose answers a departure necessarily corrupts:
 
       1. did every line that PRESENTS as a candidate row actually parse?
-      2. does every parsed row's `decision` and `status` fall in the closed
+      2. is every parsed id UNIQUE, so that keying a reader by it loses nothing?
+      3. does every parsed row's `decision` and `status` fall in the closed
          vocabulary `candidates.md` defines for it?
 
-    A shift moves foreign text into those two cells — `open` into `decision` for
-    a six-column table, a Source string for a pipe-shifted row — so (2) fires
-    without needing to know WHICH shape went wrong, including shapes nobody has
-    thought of yet. That is the property worth having: the next departure fails
-    here rather than being discovered by a later pass.
+    (1) and (2) are the same question at two altitudes — is the POPULATION the
+    readers see the population the file holds — and they have to be asked
+    separately because a set answers neither on its own: `parsed` is a set, so a
+    duplicated id collapses into it and (1) reads clean over exactly the row (2)
+    exists to catch.
+
+    A shift moves foreign text into the two flag cells — `open` into `decision`
+    for a six-column table, a Source string for a pipe-shifted row — so (3)
+    fires without needing to know WHICH shape went wrong, including shapes nobody
+    has thought of yet. That is the property worth having: the next departure
+    fails here rather than being discovered by a later pass.
     """
-    parsed = {row.id for row in rows}
+    ids = [row.id for row in rows]
+    parsed = set(ids)
     present = set(_ROW_LINE.findall(text))
     unparsed = sorted(present - parsed)
     if unparsed:
@@ -237,6 +257,19 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
             f"see is absent from the untriaged working set, from every "
             f"authorization snapshot, and from the deletion check — every guard "
             f"reads green over it. {missing_hint}")
+
+    repeated = sorted(cid for cid, n in Counter(ids).items() if n > 1)
+    if repeated:
+        raise ValueError(
+            f"{path} allocates {len(repeated)} id(s) to more than one row: "
+            f"{', '.join(repeated)}. Every reader here is a dict keyed by id, so "
+            f"the later row's `decision`, `status` and `component` overwrite the "
+            f"earlier one's and one of the two candidates stops existing for the "
+            f"untriaged working set, for both authorization snapshots and for the "
+            f"deletion check — all of which are keyed by the same colliding id and "
+            f"see nothing. This happens when two branches each allocate the next "
+            f"free id against the same base and both merge; take the next free id "
+            f"by re-reading the file at HEAD. {missing_hint}")
 
     for row in rows:
         if row.decision in _DECISIONS and row.status in _STATUSES:

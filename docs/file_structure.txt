@@ -398,11 +398,14 @@ claude-dot-files/
 │                   │                                #   The four skips (not `ship`, not `open`, blank component, directory already
 │                   │                                #   exists), the resume path for a pool this pipeline seeded and abandoned, and
 │                   │                                #   what the seeded synthesis has to carry. The shape check is parametrized over
-│                   │                                #   the CLASS — six-column table, pipe in a cell, wrong id width — against a
-│                   │                                #   nine-table fixture, because a one-table fixture cannot see a whole-file
-│                   │                                #   check's scope error, and one case reads the REAL candidates.md
+│                   │                                #   the CLASS — every way a row is read wrongly or lost — against a nine-table
+│                   │                                #   fixture, because a one-table fixture cannot see a whole-file check's scope
+│                   │                                #   error, and one case reads the REAL candidates.md. The doors are enumerated
+│                   │                                #   in `_check_shape`'s docstring and NOT re-listed here: this line named three
+│                   │                                #   of them and a fourth was added the same week
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing, plus the
-│                   │                                #   Step 1b wiring that gave the research step a reachable input again
+│                   │                                #   Step 1b wiring that gave the research step a reachable input again, and that
+│                   │                                #   every field of `Scaffolded` reaches the operator as its own note
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
 │                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,
