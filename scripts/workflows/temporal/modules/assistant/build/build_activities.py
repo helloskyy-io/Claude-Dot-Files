@@ -89,6 +89,21 @@ class CiVerdict(str, Enum):
     The usual cause of the second is a conflicted PR: `pull_request` workflows
     run against the merge ref, GitHub cannot compute one for a conflicted PR, so
     no run is created at all. Zero runs render as zero failures.
+
+    UNREADABLE_CHECKS IS THE SAME LESSON ONE LAYER OUT, AND IT COST PR #92
+    THREE REBUILDS ON 2026-08-14. `UNREADABLE_POLICY` already says that a
+    declaration which cannot be READ is a different fact from one that does not
+    exist. The CHECK LIST had no such state: a failed `gh pr checks` returns an
+    empty stdout, which became `[]`, which is indistinguishable from "the gate
+    reported nothing" — so a broken read rendered as GATE_DID_NOT_RUN, which is
+    HOLD_REDISPATCH, which rebuilds. Three passes of build-refine ran against a
+    PR that was OPEN, MERGEABLE and green on all four checks the entire time.
+
+    The distinction earns its place because THE REMEDIES ARE OPPOSITE. A gate
+    that did not run is usually a conflicted PR, and redispatching an engineer
+    to resolve it is the right move. A gate that cannot be READ is an
+    environment failure, and redispatching cannot fix it — it can only spend the
+    loop budget discovering that again.
     """
 
     GREEN = "green"
@@ -96,6 +111,7 @@ class CiVerdict(str, Enum):
     NO_CHECKS = "no_checks"
     GATE_DID_NOT_RUN = "gate_did_not_run"
     UNREADABLE_POLICY = "unreadable_policy"
+    UNREADABLE_CHECKS = "unreadable_checks"
 
 
 def read_check_policy(repo_root: Path) -> tuple[list[str], list[str], bool]:
@@ -151,11 +167,28 @@ def ci_verdict(pr: str, *, repo: str | None = None,
         cmd += ["--repo", repo]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
+    # A REPLY THAT DOES NOT PARSE IS ITS OWN STATE, AND BOTH HALVES OF THIS WERE
+    # WRONG. `if result.stdout.strip() else []` turned every FAILED `gh` — which
+    # writes its error to stderr and leaves stdout empty — into an empty check
+    # list, indistinguishable from a gate that reported nothing. With a gate
+    # declared that renders as GATE_DID_NOT_RUN, which is HOLD_REDISPATCH, which
+    # rebuilds: PR #92 ran build-refine three times while OPEN, MERGEABLE and
+    # green on all four checks.
+    #
+    # And the `except` returned NO_CHECKS while calling it "the state that
+    # stops" — NO_CHECKS appears in no HOLD branch in `build_workflow`, so it
+    # PROCEEDS. Unparseable CI output could reach a MERGE verdict on a repo that
+    # declares a gate. The comment described the intent; the enum member
+    # delivered its opposite.
+    #
+    # `gh pr checks` exits non-zero whenever checks are FAILING or PENDING, so
+    # the return code cannot be the discriminator here either. Parsing is.
     try:
-        checks = json.loads(result.stdout) if result.stdout.strip() else []
-    except json.JSONDecodeError:
-        # Unreadable output is NOT green. Fail into the state that stops.
-        return CiVerdict.NO_CHECKS, []
+        checks = json.loads(result.stdout)
+        if not isinstance(checks, list):
+            raise ValueError(f"expected a JSON list, got {type(checks).__name__}")
+    except (json.JSONDecodeError, ValueError):
+        return CiVerdict.UNREADABLE_CHECKS, []
 
     names = {str(c.get("name")) for c in checks}
     # A check that ran and appears in NEITHER list is the third state the
@@ -206,6 +239,20 @@ def wait_for_ci(pr: str, *, repo: str | None = None,
     state and this keeps waiting. Only a gate that never appears within the
     deadline reaches the caller as absent — which is the real signal, and the
     usual cause is a conflicted PR whose merge ref cannot be computed.
+
+    THREE OUTCOMES, NOT TWO, AND THE THIRD IS WHY THE FIX ABOVE WAS NOT ENOUGH:
+
+      True   the declared gate has reported and nothing is PENDING
+      False  CI was read successfully and the gate never appeared
+      raises CI could not be READ AT ALL within the deadline
+
+    The third used to collapse into the second. `gh pr checks` exits non-zero
+    whenever checks are FAILING or PENDING, so the return code cannot separate a
+    red pipeline from a broken `gh` — and the settled test ran against raw
+    stdout BEFORE parsing, so an empty reply read as "settled with no gate yet".
+    A failed read therefore burned the whole deadline and returned the same
+    `False` that means "gate absent", which the caller turns into a HOLD and a
+    rebuild. Measured on a PR that was OPEN, MERGEABLE and green throughout.
     """
     blocking: list[str] = []
     if repo_root is not None:
@@ -216,23 +263,66 @@ def wait_for_ci(pr: str, *, repo: str | None = None,
     if repo:
         cmd += ["--repo", repo]
 
+    readable_replies = 0
+    last_read_error = ""
+
     while time.monotonic() < deadline:
         result = subprocess.run(cmd, capture_output=True, text=True)
-        # `gh pr checks` exits non-zero when checks are failing OR pending, so the
-        # exit code alone cannot distinguish "settled and red" from "still running".
-        # Absence of PENDING in the payload is the settled signal.
-        settled = "PENDING" not in result.stdout.upper()
-        if settled:
+
+        # PARSE FIRST, AND LET A FAILED READ BE ITS OWN STATE. `gh pr checks`
+        # exits non-zero whenever checks are FAILING or PENDING, so the return
+        # code cannot be the discriminator — a red pipeline and a broken `gh`
+        # look identical through it. What separates "gh answered" from "gh
+        # failed" is whether the payload parses.
+        #
+        # THIS IS THE DEFECT THAT COST PR #92 THREE REBUILDS. The previous
+        # version tested `"PENDING" not in result.stdout.upper()` BEFORE
+        # parsing, so an empty stdout — every failed `gh` invocation — read as
+        # "settled", then parsed to an empty name set, which read as "the
+        # declared gate has not appeared yet". A failed read was therefore
+        # indistinguishable from a missing gate: it burned the full deadline,
+        # returned False, and the caller turned that into a HOLD. Measured
+        # 2026-08-14 on a PR that was OPEN, MERGEABLE and green on all four
+        # checks the whole time. The cost is not the ten minutes, it is an
+        # entire rebuild per occurrence.
+        try:
+            checks = json.loads(result.stdout or "")
+            if not isinstance(checks, list):
+                raise ValueError(f"expected a JSON list, got {type(checks).__name__}")
+        except (json.JSONDecodeError, ValueError) as exc:
+            last_read_error = (result.stderr or str(exc)).strip()[:300]
+            time.sleep(CI_POLL_SECONDS)
+            continue
+
+        readable_replies += 1
+
+        # Read the state off the PARSED payload rather than by scanning the raw
+        # text. Same class of bug one size smaller: a check merely NAMED
+        # something like `pending-review` would have matched the substring and
+        # held a settled pipeline open forever.
+        states = {str(c.get("state", "")).upper() for c in checks}
+        if "PENDING" not in states:
             if not blocking:
                 return True
-            try:
-                names = {str(c.get("name")) for c in json.loads(result.stdout or "[]")}
-            except json.JSONDecodeError:
-                names = set()
+            names = {str(c.get("name")) for c in checks}
             # Every declared gate has reported: genuinely settled.
             if names & set(blocking):
                 return True
             # Settled-looking but the gate is absent — keep waiting for it to appear.
         time.sleep(CI_POLL_SECONDS)
+
+    # NEVER GOT A READABLE ANSWER. This still returns False rather than raising:
+    # `build_workflow` states the rule outright — "HOLD, never `exit 1`: killing
+    # the run discards a diff two passes just built" — and the gate immediately
+    # after this call is what classifies an unreadable CI, via
+    # `CiVerdict.UNREADABLE_CHECKS`. One function decides the verdict; this one
+    # only waits.
+    if readable_replies == 0:
+        print(
+            f"WARNING: could not read CI status for PR {pr} in "
+            f"{CI_MAX_WAIT_SECONDS}s — every `gh pr checks` reply was "
+            f"unparseable. Last error: {last_read_error or '(no stderr)'}",
+            file=sys.stderr,
+        )
 
     return False

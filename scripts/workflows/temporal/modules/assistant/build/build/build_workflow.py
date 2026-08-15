@@ -128,6 +128,23 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
     verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
 
+    if verdict_state is CiVerdict.UNREADABLE_CHECKS:
+        # NEEDS_ASSISTANCE, NOT REDISPATCH, AND THE DIFFERENCE IS THE WHOLE
+        # POINT. A gate that did not RUN is usually a conflicted PR, and sending
+        # an engineer back to resolve it is right. CI that cannot be READ is an
+        # environment failure — a redispatch cannot fix it and can only spend
+        # the loop budget rediscovering that. Which is exactly what happened:
+        # a failed `gh pr checks` read as GATE_DID_NOT_RUN and PR #92 rebuilt
+        # three times while it was OPEN, MERGEABLE and green throughout.
+        notes.append(
+            f"CI GATE: HOLD — the CI status of PR {pr} could not be READ "
+            + (f"in {task.repo_target} " if task.repo_target else "")
+            + "(`gh pr checks` returned nothing parseable). This is NOT the same "
+            "as the gate not running, and a redispatch cannot fix it: check `gh "
+            "auth status`, rate limits, and network. review-pr was NOT dispatched."
+        )
+        return Verdict.HOLD_NEEDS_ASSISTANCE
+
     if verdict_state is CiVerdict.UNREADABLE_POLICY:
         # A declaration that EXISTS and cannot be read is a different fact from
         # no declaration, and collapsing them is how the skip path becomes the

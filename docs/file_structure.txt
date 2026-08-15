@@ -515,7 +515,7 @@ claude-dot-files/
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
 │   │   └── tests/unit/
-│   │       └── test_block_dangerous.py              # SPECIFICATION suite for the PreToolUse safety hook (issues #52, #61 — was
+│   │       ├── test_block_dangerous.py              # SPECIFICATION suite for the PreToolUse safety hook (issues #52, #61 — was
 │   │                                                #   characterization until the operator ruled on the four defects it found). Attack corpus +
 │   │                                                #   safe-lookalike corpus + the threat model's own gaps encoded as accepted behaviour.
 │   │                                                #   Executes the MUST BLOCK / MUST ALLOW claims written beside each pattern IN THE HOOK, and
@@ -529,6 +529,15 @@ claude-dot-files/
 │   │                                                #   the elision MUTATES the string the patterns see and a hand-picked corpus cannot bound that.
 │   │                                                #   Asserts every MUST BLOCK claim end-to-end, not only against its own regex. NO COUNTS ARE
 │   │                                                #   RESTATED HERE — they live in the test module's docstring, per its sibling README
+│   │       └── test_hook_settings.py                # The SECOND guarantee about hooks, and deliberately a different shape
+│   │                                                #   from the one above: that suite proves the hook decides CORRECTLY, this
+│   │                                                #   one proves settings.json BOUNDS it. Asserts every configured hook
+│   │                                                #   declares a `timeout`, and that none is so large it is not a bound.
+│   │                                                #   Neither claim subsumes the other — a latency test cannot cover an
+│   │                                                #   input nobody thought of, and a declared timeout cannot tell you a
+│   │                                                #   hook got slower. Written after an unbounded PreToolUse hook ran 8m44s
+│   │                                                #   at 99.9% CPU on ONE tool call and had to be killed by hand, holding a
+│   │                                                #   live build (2026-08-14).
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/
