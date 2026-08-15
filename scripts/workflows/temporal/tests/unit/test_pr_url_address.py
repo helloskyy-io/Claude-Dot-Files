@@ -533,16 +533,17 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
         for path in _v2_python_files()
         if "COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE" in path.read_text(encoding="utf-8")
     )
-    # 11 since plan_feature landed (2026-08-14), the WRITE half of the planning
-    # split; 10 since triage_candidates (2026-08-12), split out of plan-sprint;
-    # 9 since research_write_minor (2026-08-11). This census is hand-maintained
-    # ON PURPOSE: a new workflow that opens a PR must reference the shared
-    # constant, and an edit here is how a human confirms it does rather than
-    # having re-declared the literal that once cost a finished run. It fired on
-    # exactly that event when triage_candidates was added and again for
-    # plan_feature, which is the census working and not a chore.
-    assert len(referencing) == 11, (
-        f"expected 11 V2 workflows referencing the shared PR completion ERE, found "
+    # 12 since plan_verify landed (2026-08-15), the READ half of the planning
+    # split; 11 since plan_feature (2026-08-14), its write half; 10 since
+    # triage_candidates (2026-08-12), split out of plan-sprint; 9 since
+    # research_write_minor (2026-08-11). This census is hand-maintained ON
+    # PURPOSE: a new workflow that opens a PR must reference the shared constant,
+    # and an edit here is how a human confirms it does rather than having
+    # re-declared the literal that once cost a finished run. It fired on exactly
+    # that event when triage_candidates was added, again for plan_feature, and
+    # again here — which is the census working and not a chore.
+    assert len(referencing) == 12, (
+        f"expected 12 V2 workflows referencing the shared PR completion ERE, found "
         f"{len(referencing)}: {referencing}. The twelfth is plan-revision (wider, "
         f"declared above); the thirteenth is review-pr, whose contract is `^VERDICT:`."
     )

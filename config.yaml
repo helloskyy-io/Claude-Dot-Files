@@ -108,6 +108,21 @@ models:
                                 #   thinnest safety net in the family — it is the WRITE half of a
                                 #   split whose reviewer, `plan-verify`, does not exist yet, so
                                 #   nothing downstream re-derives its decomposition today.
+  plan-verify: opus             # reads ONE component's roadmap.md and phase docs COLD,
+                                #   sizes every phase in hours, and answers the question
+                                #   plan-feature's own report is required to ask and
+                                #   structurally cannot answer about itself — where is
+                                #   this plan weakest. Opus deliberately, on the same
+                                #   argument as plan-feature above and not a weaker one:
+                                #   judging whether a phase boundary is right means
+                                #   holding the synthesis, the thesis and the
+                                #   architectural standard together, which is the same
+                                #   load the write half carries. The sizing is the
+                                #   cheaper half; a wrong number costs a re-estimate,
+                                #   while a missed producer-without-a-consumer costs a
+                                #   sprint. It is also the family's ONLY judge — until
+                                #   it landed, review-pr --type planning judged the diff
+                                #   and nothing read a roadmap cold.
   review-sprint: opus           # holistic end-of-sprint judgment
   review-runs: sonnet           # CPI log analysis — mechanical + pattern work
   research: opus                # research pool creation — orchestration + synthesis authorship
@@ -200,6 +215,30 @@ max_turns:
                               #   variance is in the phase COUNT rather than in any stage.
                               #   250 is roughly 3x it as headroom, matching plan-sprint's
                               #   posture for comparable read-then-write planning work.
+                              #   REVISE FROM THE FIRST REAL RUN — and note a component
+                              #   with three phases is a different measurement from one
+                              #   with eight, so one run does not settle it.
+  plan-verify: 150            # NOT MEASURED — an estimate, stated as one. Nothing has
+                              #   run this workflow; it is new, so there is no V1 script
+                              #   and no split-sibling with a measured figure. Basis is a
+                              #   stage-by-stage walk of its prompt: read one roadmap,
+                              #   every phase doc, one synthesis and three
+                              #   standards/architecture documents (~12-18, and the phase
+                              #   COUNT is where the variance sits); judge four questions
+                              #   in prose, one of which follows citations back into the
+                              #   pool (~8); size each phase (~5); one edit to one file
+                              #   (~3); then the report, the commit and the PR (~15).
+                              #   That lands near 45.
+                              #   STRICTLY BELOW plan-feature's 250, and the reason is a
+                              #   real difference rather than a guess: this workflow
+                              #   WRITES ONE FILE and reads N, where plan-feature authors
+                              #   one roadmap plus one 200-260 line phase doc per phase.
+                              #   Reading is cheap in turns; authoring is not.
+                              #   150 is roughly 3.3x the estimate as headroom, inside the
+                              #   family's observed band (research-write 150/43 = 3.5x,
+                              #   research-verify 200/68 = 2.9x). A cap is a ceiling, not
+                              #   a spend, and a cap set BELOW an observed successful run
+                              #   has already cost a full budget once.
                               #   REVISE FROM THE FIRST REAL RUN — and note a component
                               #   with three phases is a different measurement from one
                               #   with eight, so one run does not settle it.

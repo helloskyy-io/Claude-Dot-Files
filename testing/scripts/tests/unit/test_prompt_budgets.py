@@ -52,6 +52,12 @@ BUDGETS: dict[str, int] = {
     # job is to make the NEXT addition a trade.
     "plan/plan_feature/prompts/plan_feature.md": 17_821,
     "research/research_verify/prompts/verify.md": 15_510,
+    # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_feature.md` above and for
+    # the same reason: this prompt is new, so it MEETS this gate rather than
+    # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
+    # the first draft of this table counted characters and was wrong by 49 on a
+    # file full of em-dashes.
+    "plan/plan_verify/prompts/plan_verify.md": 12_557,
     "build/build_refine_minor/prompts/stages_2_to_4.md": 14_437,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     "research/research_write_minor/prompts/write_minor.md": 12_313,

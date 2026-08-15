@@ -1,0 +1,524 @@
+"""plan-verify — read ONE component's plan COLD, size it, and say where it is weakest.
+
+Folder holds this file plus its own I/O (§10.1 rules 3 and 6); the family's
+shared capability lives in `plan_activities`.
+
+**This is the READ half of the planning split, and it completes a pattern the
+other two families finished first.** Research is `research-write` ->
+`research-verify` because *"a separate fresh-context run verifies it… the run
+that wrote an artifact defends it"*; build is `build-draft` -> `build-refine`
+because *"the fresh context is the point, not an implementation detail."*
+`plan-feature` shipped as the write half with its judge named and unbuilt, and
+its own docstring says so: *"`plan-verify` is the fresh-context reviewer, and it
+DOES NOT EXIST YET."* This is that reviewer.
+
+IT IS A SEPARATE WORKFLOW AND NOT A STAGE, on the argument that made
+`triage-candidates` its own run: a judge inside the producing dispatch shares the
+producer's context, which is the one property it exists not to have. Adding a
+sixth stage to `plan-feature` would have produced a review written by the run
+that had just talked itself into the decomposition.
+
+THE FIVE QUESTIONS, AND THE FIFTH IS THE ONE THE PRODUCER CANNOT ANSWER:
+
+  1. **Sizing** — an hour estimate per phase, from the phase's complexity.
+  2. **Does each phase end at ONE verifiable outcome?** A phase ends where
+     something can be demonstrated, not where the author ran out of scope.
+  3. **Did a producer ship without its consumer?** A phase that builds a thing
+     nothing yet reads is a phase that cannot be demonstrated.
+  4. **Does the cited evidence actually support the phase?** Following a citation
+     into the pool is work the author, who chose it, will not do again.
+  5. **Where is this plan WEAKEST?** `plan-feature`'s own prompt requires its
+     report to ask this — *"where is this plan weakest, and what would a reader
+     who has not read your research most likely challenge?"* — and structurally
+     cannot answer it, because the reader who has not read the research is the
+     one thing the author is not.
+
+HOURS LIVE IN `roadmap.md` AND NOWHERE ELSE, which is a decision this workflow
+makes rather than one it inherits. Two arguments, and the second is the harder
+one:
+
+  * **Coverage.** `plan-feature` writes a roadmap entry and NO phase doc for a
+    phase gated on something outside the component. A phase-doc-only sizing
+    therefore cannot size a gated phase — the phase whose cost an operator most
+    needs before deciding whether to unblock it.
+  * **One figure, one home.** A number restated in two places with nothing
+    deriving it is the class this repo has paid for repeatedly; `candidates.md`
+    C-050 names it and `test_measurement_figures_are_cited.py` is the gate built
+    after four consecutive passes each corrected a figure at its source and left
+    a copy standing. The enforcement here is not a second scanner — it is the
+    write grant, which reaches `roadmap.md` and no other file in the component.
+
+**AND THE HANDOFF TO `plan-sprint` DOES NOT WORK TODAY. This is stated in code
+because it is the kind of fact a reader will otherwise assume.** `plan-sprint`
+sizes against a 160-hour calibration precisely because no per-phase figure
+existed; now one does, and it still cannot see it. Its prompt says *"You never
+open a phase doc"*, its `EXISTING_WORK` block enumerates component directories,
+research syntheses, pool papers and open issues — never a `roadmap.md` — and
+neither `plan_sprint_workflow` nor `plan_activities` contains a reader for an
+hour figure. Wherever these estimates were written, that workflow would not pick
+them up. Closing it is a change to `plan-sprint`, which is deliberately NOT made
+here: one workflow's fix becoming another's regression is exactly what a silent
+edit to a neighbour produces.
+
+WHAT IT DELIBERATELY DOES NOT DO:
+
+  * **It does not re-plan.** It writes no phase doc, merges no phases, invents
+    none. A decomposition it judges wrong is a FINDING, and the runway a finding
+    opens is `plan-feature`'s to close.
+  * **It does not write `sprint.md`.** That file is the operator's cross-domain
+    sequencing surface and `plan-sprint` carries the single bounded override.
+  * **It renames and renumbers nothing.** A phase number is IDENTITY.
+  * **It touches ONE component.** Everything else under `docs/development/` is
+    forbidden, and so is this component's own `research/` — that pool is the
+    evidence question 4 is asked against, and a reviewer who edits the evidence
+    has made the evidence agree with the review.
+
+WHY IT IS SEPARATELY DISPATCHABLE. The same shape and the same reason as
+`triage_candidates` and `plan_feature`: a shim, a runner, and a workflow function
+a parent calls. Two of this repo's component directories carry a `roadmap.md`
+today — measured with `find docs/development -maxdepth 2 -name roadmap.md` — so
+running this child alone against one is both the cheap test and real work.
+
+NOT IDEMPOTENT (§7.1): it pushes commits and opens PRs. Under Temporal a retry is
+a NEW ATTEMPT, not a replay.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+from ... import routing
+
+from .. import plan_activities as act
+from . import plan_verify_activities as own
+
+_HERE = Path(__file__).resolve().parent
+PROMPTS = _HERE / "prompts"
+
+MODEL_KEY = "plan-verify"
+
+# An ESTIMATE, stated as one — nothing has measured this workflow. The basis and
+# the revise-from-measurement note live with the value in config.yaml.
+WORKFLOW_KEY = "plan-verify"   # NOT MODEL_KEY -- see run_claude's docstring
+MAX_TURNS = act.max_turns(WORKFLOW_KEY)
+
+COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
+
+# --- THE PATH BOUNDARY, DECLARED WHERE THE PROMPT'S TABLE CAN BE READ AGAINST IT
+#
+# Every path-scoped `You MAY NOT` row in `prompts/plan_verify.md`, as a pattern.
+# `docs/development/` is denied WHOLESALE and one file is granted back below,
+# which is the only ordering that makes a reviewer's boundary say what it means:
+# an allowlist alone would say nothing about the sibling components, and
+# `sprint.md` lives in that same directory.
+FORBIDDEN_PATHS = (
+    r"^docs/development/",      # "Edit a phase doc, or anything under another component"
+    r"(^|/)sprints?\.md$",      # "Touch `sprint.md` at all" — also caught above,
+                                #   stated separately because the prohibition is
+                                #   about the FILE and outlives this directory
+    r"^docs/standards/",        # "...or anything else under `docs/standards/`"
+)
+
+
+def permitted_paths(component_rel: Path) -> tuple[str, ...]:
+    """The two grants this run holds, one of them computed from its own component.
+
+    A FUNCTION AND NOT A CONSTANT, for the reason `plan_feature.permitted_paths`
+    states: half of this boundary is an argument, so a module-level tuple would
+    either grant every component at once — deleting the boundary — or hard-code
+    one, which is worse.
+
+    THE GRANT IS ONE FILE, NOT A SHAPE, AND THAT IS THE WHOLE DIFFERENCE FROM THE
+    WRITE HALF. `plan-feature`'s grant is `<component>/[^/]+\\.md$` because it
+    writes a roadmap and N phase docs; this workflow writes one file. Expressing
+    it as `roadmap\\.md$` rather than as a shape is what makes *hours live in one
+    place* enforced by the boundary check that already exists, instead of by a
+    second scanner sweeping the files this run cannot reach anyway. A reviewer
+    that may edit a phase doc is a reviewer that can quietly rewrite the plan it
+    was sent to judge.
+
+    `re.escape` ON THE COMPONENT SEGMENT, and it is a correctness requirement
+    rather than hygiene: the segment is an operator-supplied directory name on
+    the standalone path, where nothing slugs it. A component named
+    `v2.1-migration` interpolated raw makes `.` match any character, so the grant
+    reaches `v2x1-migration/roadmap.md` too — the boundary silently widening to a
+    sibling is the one failure this module exists to prevent.
+
+    The `candidates.md` grant is the shared `decision_log_and_reflection`
+    instruction's rather than this workflow's own: every producing run is
+    required to PLACE a proposal it surfaces instead of leaving it in a PR body
+    to die at merge. It comes with the column guards below.
+    """
+    return (
+        rf"^{re.escape(component_rel.as_posix())}/{re.escape(own.ROADMAP)}$",
+        r"^docs/standards/architecture/research/candidates\.md$",
+    )
+
+
+def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
+                  pr_number: str | None) -> dict[str, str]:
+    """Every placeholder the prompt takes, assembled ONCE for both callers.
+
+    THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
+    they cannot drift. `plan_sprint.correction_note`'s docstring records this
+    family shipping exactly that bug: a runner assembling its own copy of a
+    workflow's values dict previewed a prompt that was not the one dispatched,
+    and an operator checking the wrong artifact is worse than checking none.
+    `test_dry_run_previews_the_dispatched_prompt.py` holds the shape.
+
+    `tree` IS THE TREE THE COUNTS ARE TAKEN FROM: the worktree on the live path,
+    the repo on the dry-run path, where no worktree exists yet.
+    """
+    component = tree / rel_component
+    return {
+        "COMPONENT_PATH": rel_component.as_posix(),
+        "COMPONENT_NAME": rel_component.name,
+        "CANDIDATES_PATH": rel_candidates.as_posix(),
+        "PLAN_INVENTORY": own.plan_inventory(component, tree),
+        # The tree-wide pointer, alongside the component-scoped one above. It
+        # teaches the pool convention and names the thesis; `PLAN_INVENTORY` says
+        # which plan is THIS run's, which the shared block cannot know.
+        "EVIDENCE_BLOCK": act.evidence_block(tree),
+        "SUBMIT_PROMPT": act.submit_prompt(
+            pr_number, f"plan-verify: size and judge {rel_component.name}"),
+        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
+        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+    }
+
+
+# --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
+#
+# See `triage_candidates_workflow.MAY_NOT_OBSERVERS` for why this map exists and
+# why it is keyed by the row's exact text — CITED rather than restated, which is
+# the convention `plan_sprint_workflow` and `plan_feature_workflow` both follow,
+# so a correction to the argument lands in one place instead of drifting across
+# four copies. `test_authorization_is_observed.py` compares these keys against
+# the rendered table, over a DISCOVERED set of workflows, and `JUDGEMENT` is a
+# legitimate answer that must say why the property has no artifact.
+#
+# WHAT WRITING THIS TABLE ACTUALLY PRODUCED, since that is the argument for it
+# rather than a claim about it: the honest answer to *what observes "re-plan the
+# component"?* was **nothing**. Every other prohibition here is a path the
+# boundary check already sees, and that one happens entirely inside the single
+# file this workflow's grant opens — where `boundary_crossings` is blind by
+# construction. `own.roadmap_phase_links` exists because the row would not
+# otherwise have been allowed to say anything true.
+MAY_NOT_OBSERVERS: dict[str, str] = {
+    "**Edit a phase doc** — you are the plan's READER, not a second author":
+        "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, whose only "
+        "component grant is `<component>/roadmap.md` — so every phase doc is a "
+        "forbidden path, via act.worktree_state / act.boundary_crossings",
+    "**Write an hour estimate anywhere but `roadmap.md`** — one figure, one home":
+        "the same mechanism, and the grant IS the enforcement rather than a "
+        "scanner beside it: `roadmap.md` is the only file in the component this "
+        "run can reach, so a figure has nowhere else to go. own.roadmap_hours "
+        "then proves it went there",
+    "**Rename, renumber or delete a phase doc** — the number is IDENTITY":
+        "FORBIDDEN_PATHS `^docs/development/`, same mechanism — a vanished phase "
+        "doc reads as a content change through act.worktree_state's ABSENT "
+        "sentinel, and this workflow may not touch one at all, so it needs no "
+        "identity-specific comparator the way the write half does",
+    "**Re-plan the component** — add, merge, split or drop a phase":
+        "own.roadmap_phase_links counted either side of the run and compared in "
+        "BOTH directions — the one prohibition here that happens INSIDE the "
+        "granted file, where act.boundary_crossings is blind by construction",
+    "**Touch `sprint.md` at all** — you hold no authorization over it":
+        "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
+    "Write or edit anything under ANOTHER component, or under this one's `research/`":
+        "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, which grants "
+        "one named file and so reaches no sibling and no subdirectory",
+    "**Tick a completion checkbox** — nothing has been built":
+        "act.checked_boxes over the roadmap — the only file this run may write — "
+        "counted either side and compared in BOTH directions",
+    "Set `decision`, `status`, or another filer's `component` in the candidates file":
+        "act.candidate_decisions, act.candidate_statuses and "
+        "act.candidate_components snapshotted either side of the run, compared by "
+        "act.statuses_this_run_had_no_right_to and "
+        "act.components_this_run_had_no_right_to",
+    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
+        "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
+    "**Delete anything** — a candidate row, a phase doc, or the roadmap":
+        "act.ids_deleted over the candidate id snapshots, and "
+        "act.grants_that_vanished over permitted_paths for the files themselves",
+    "Decide WHEN this component gets built, or where it sits against other work":
+        "JUDGEMENT — a total this workflow produces is an INPUT to sequencing and "
+        "the sequencing itself leaves no artifact distinct from the report it is "
+        "required to write. The file that would carry the decision is "
+        "`sprint.md`, and that one IS observed; what cannot be separated "
+        "mechanically is a report that sizes the work from one that schedules it, "
+        "since both are prose about the same hours.",
+}
+
+# --- EVERY BEFORE/AFTER SNAPSHOT, AND WHAT WATCHES IT FOR ABSENCE ------------
+#
+# See `triage_candidates_workflow.DISAPPEARANCE_OBSERVERS` for the class and why
+# it is keyed by the SNAPSHOT rather than by the prohibition — cited, not
+# restated. `test_disappearance_is_observed.py` discovers every `before*` local
+# by AST, so a snapshot added later has no entry and fails the suite until
+# somebody answers "what watches this one for absence?"
+DISAPPEARANCE_OBSERVERS: dict[str, str] = {
+    "before_links": (
+        "own.roadmap_phase_links compared in BOTH directions — and here the "
+        "disappearing direction is the PRIMARY one rather than a corner case: a "
+        "judge that quietly drops a phase it disagreed with removes a link, and "
+        "Counter subtraction one way round reports nothing at all. A roadmap "
+        "deleted outright yields an empty Counter, which is why "
+        "act.grants_that_vanished runs ahead of this."),
+    "before_decision": (
+        "act.ids_deleted against the after-snapshot of the same column, checked "
+        "BEFORE the column comparisons because a vanished row is in neither "
+        "intersection those judge"),
+    "before_status": (
+        "act.ids_deleted on the SAME id set, already run against before_decision "
+        "— act.candidate_decisions, act.candidate_statuses and "
+        "act.candidate_components are all built from act.candidate_rows, so a row "
+        "cannot be absent from one map and present in another. Registered rather "
+        "than left implicit because that coupling is the whole reason a second "
+        "deletion check here would be dead code, and the coupling itself is held "
+        "by test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS."),
+    "before_component": (
+        "act.ids_deleted on the SAME id set, by the same coupling registered "
+        "against before_status — one parse, one id set, three columns"),
+    "before_boxes": (
+        "act.checked_boxes over the roadmap, counted either side and compared in "
+        "BOTH directions — so an ERASED tick is an offence exactly as an added "
+        "one is. A plan reporting work nobody built is bad; a plan that has "
+        "forgotten work somebody did is worse, because nothing downstream will "
+        "ask for it again."),
+    "before_tree": (
+        "act.grants_that_vanished over permitted_paths for the two files this run "
+        "may write; act.boundary_crossings for every other path, where a deletion "
+        "already reads as a content change via the ABSENT sentinel"),
+}
+
+
+def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
+                    candidates_path: Path, pr_number: str | None = None,
+                    verbose: bool = False) -> str:
+    """Read ONE component's plan cold, size it, judge it. Returns the PR URL."""
+    # Paths arrive rooted at the REPO because that is where they are configured,
+    # but the run reads and writes inside the WORKTREE. Resolve once, read what
+    # the model will actually see, and later re-read what it actually wrote.
+    rel_component = component.relative_to(repo_root)
+    rel_candidates = candidates_path.relative_to(repo_root)
+    wt_component = worktree / rel_component
+    wt_candidates = worktree / rel_candidates
+    permitted = permitted_paths(rel_component)
+
+    # THE DELIVERABLE'S FLOOR, READ BEFORE THE MODEL RUNS. Every phase doc is a
+    # phase and every phase needs an estimate. A phase that is GATED has a
+    # roadmap entry and no doc, so this count is a FLOOR rather than the true
+    # number — narrower than the rule, which is the safe direction for a guard:
+    # it cannot fail a correct run, and the prompt carries the rest.
+    phases = own.phase_docs_of(wt_component)
+
+    # SNAPSHOTTED AROUND THE MODEL, never diffed against `origin/main`: this
+    # workflow runs after two siblings on the same branch inside `plan-project`,
+    # and a diff against the base would attribute their legitimate edits to it.
+    before_links = own.roadmap_phase_links(wt_component)
+    before_decision = act.candidate_decisions(wt_candidates)
+    before_status = act.candidate_statuses(wt_candidates)
+    before_component = act.candidate_components(wt_candidates)
+    before_boxes = act.checked_boxes(wt_component / own.ROADMAP)
+    before_tree = act.worktree_state(worktree)
+
+    values = prompt_values(rel_component, rel_candidates, worktree, pr_number)
+
+    output = act.run_claude(
+        act.render(act.load_prompt(PROMPTS / "plan_verify.md"), values),
+        model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
+        completion_pattern=COMPLETION_PATTERN,
+        repo_root=repo_root, worktree=worktree,
+        max_turns=MAX_TURNS, verbose=verbose,
+    )
+
+    url = act.extract_pr_url(output)
+    if not url:
+        raise RuntimeError(
+            f"plan-verify produced no PR URL for `{rel_component}`. Its judgement "
+            f"is UNSUBMITTED and this component is UNSIZED — whatever the exit "
+            f"code says, nothing downstream may treat this plan as reviewed. "
+            f"Inspect the worktree before re-dispatching; the work may be there."
+        )
+
+    after_tree = act.worktree_state(worktree)
+
+    # A WRITE GRANT IS NOT A DELETE GRANT, and this is checked before every
+    # READER below, because each of those assumes the file it parses is still
+    # there. Deleting the roadmap would otherwise surface as an empty Counter
+    # from the sizing guard — a true failure naming the wrong cause, and the
+    # cause it names ("you sized nothing") is one a run would try to fix by
+    # writing the file back, which is not the same file.
+    vanished = act.grants_that_vanished(before_tree, after_tree, permitted)
+    if vanished:
+        raise RuntimeError(
+            f"plan-verify made {len(vanished)} file(s) it may WRITE cease to "
+            f"exist: {', '.join(vanished)}. The permission covers editing them and "
+            f"nothing further. `roadmap.md` is the component's whole plan — every "
+            f"phase doc is reachable only through it — and `candidates.md` is the "
+            f"running proposal list every workflow in this family appends to — "
+            f"see {url}"
+        )
+
+    # RE-PLANNING, WHICH IS THE ONE PROHIBITION THAT HAPPENS INSIDE THE GRANTED
+    # FILE. `boundary_crossings` exempts `roadmap.md` unconditionally — it must,
+    # since writing it is the job — so a judge that dropped a phase it disagreed
+    # with, merged two it thought redundant, or invented one it thought missing
+    # would return a PR URL and a green run. Compared in BOTH directions: a phase
+    # ADDED is a plan this run wrote rather than judged, and a phase REMOVED
+    # destroys the only pointer to a document that still exists on disk.
+    #
+    # CHECKED BEFORE THE SIZING GUARD, WHICH IS A REORDERING AND NOT AN ACCIDENT.
+    # The sizing floor counts phase DOCS, and dropping a phase's roadmap entry
+    # takes its estimate with it — so the commonest re-planning offence ALSO
+    # trips the deliverable guard, and with that one first the operator was told
+    # "you sized nothing" about a run that had deleted a phase. That is a true
+    # failure naming the wrong cause, and the remedy its message suggests — add
+    # an estimate — leaves the dropped phase dropped. The write half shipped the
+    # identical defect (its identity message was unreachable behind a generic
+    # grant check) and this is that lesson applied at authoring time rather than
+    # after a review. Nothing is weakened by the swap: this guard parses only the
+    # roadmap, which `grants_that_vanished` above has already proven still exists.
+    after_links = own.roadmap_phase_links(wt_component)
+    added = sorted((after_links - before_links).elements())
+    dropped = sorted((before_links - after_links).elements())
+    if added or dropped:
+        raise RuntimeError(
+            f"plan-verify changed which phases `{rel_component}/roadmap.md` "
+            f"references: "
+            + "; ".join([f"ADDED {n}" for n in added]
+                        + [f"DROPPED {n}" for n in dropped])
+            + f". You judge the decomposition; you do not rewrite it. A phase "
+            f"boundary you believe is wrong is a FINDING — say so in your report "
+            f"and let `plan-feature` close the runway, because the phase docs are "
+            f"its output and you hold no grant over them. A dropped reference is "
+            f"the worse half: the document is still on disk with nothing pointing "
+            f"at it — see {url}"
+        )
+
+    # THE DELIVERABLE, OBSERVED RATHER THAN ASSERTED, and it is keyed on STATE
+    # rather than on a delta — the opposite of every PROHIBITION guard in this
+    # family, deliberately. A `--pr` correction pass that leaves the previous
+    # pass's estimates exactly where they are has written no new hours and is
+    # entirely correct; a delta-shaped guard would fail precisely the pass most
+    # likely to be the last one anybody reads. The prohibitions around it stay
+    # deltas, because those ask what THIS RUN DID.
+    #
+    # THE FLOOR IS THE PHASE-DOC COUNT, WHICH IS NARROWER THAN THE RULE. A GATED
+    # phase has a roadmap entry and no doc, and it still needs sizing — the
+    # prompt says so and this cannot count it. Narrower is the safe direction for
+    # a guard: it cannot fail a correct run, and the residual is carried by the
+    # prompt and by the reviewer rather than hidden.
+    hours = own.roadmap_hours(wt_component)
+    if sum(hours.values()) < len(phases):
+        found = own.hour_citations(wt_component, worktree) or ["(none)"]
+        raise RuntimeError(
+            f"plan-verify left `{rel_component}` UNSIZED: its `roadmap.md` carries "
+            f"{sum(hours.values())} hour estimate(s) against {len(phases)} phase "
+            f"doc(s). What is there:\n  " + "\n  ".join(found)
+            + f"\nSizing is this workflow's whole load-bearing output — "
+            f"`plan-feature` writes no hours and FAILS ITS RUN on one, so until "
+            f"this lands the number does not exist anywhere. The estimates go in "
+            f"`roadmap.md` and nowhere else: it is the only file in the component "
+            f"this run may write, it is the only place a GATED phase (a roadmap "
+            f"entry with no doc) can be sized at all, and one figure with one home "
+            f"cannot drift from its copy — see {url}"
+        )
+
+    # THE THREE CANDIDATE COLUMNS, none of which is this workflow's. The grant on
+    # that file is to APPEND a proposal — a new row, blank `decision`, `status:
+    # open`, and the `component` cell named on THAT row and no other.
+    #
+    # DELETION FIRST, for the reason stated in the registry: both comparators
+    # below judge only ids present on BOTH sides, so a row that is simply gone is
+    # invisible to them.
+    after_decision = act.candidate_decisions(wt_candidates)
+    gone = act.ids_deleted(before_decision, after_decision)
+    if gone:
+        raise RuntimeError(
+            f"plan-verify deleted {len(gone)} candidate row(s): {', '.join(gone)}. "
+            f"No workflow deletes a row — a candidate ruled `reject` stays in the "
+            f"file precisely so the next research cycle does not re-propose it, and "
+            f"a row that merely disappears is indistinguishable from one that was "
+            f"never proposed — see {url}"
+        )
+
+    ruled = act.statuses_this_run_had_no_right_to(before_decision, after_decision)
+    if ruled:
+        raise RuntimeError(
+            f"plan-verify changed the `decision` column on {len(ruled)} "
+            f"candidate(s): "
+            + ", ".join(f"{cid} {before_decision[cid]!r}->{after_decision[cid]!r}"
+                        for cid in ruled)
+            + f". That column is `triage-candidates`' alone. A proposal you append "
+            f"leaves `decision` BLANK, because blank means untriaged and untriaged "
+            f"is the truth — judging a plan does not rule the candidates that come "
+            f"out of it — see {url}"
+        )
+
+    after_status = act.candidate_statuses(wt_candidates)
+    flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
+    if flipped:
+        raise RuntimeError(
+            f"plan-verify changed the `status` column on {len(flipped)} "
+            f"candidate(s): "
+            + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
+                        for cid in flipped)
+            + f". `status` belongs to the build that COMPLETES the item, and this "
+            f"run has built nothing — it read a plan for work nobody has started "
+            f"and put a number beside each phase — see {url}"
+        )
+
+    after_component = act.candidate_components(wt_candidates)
+    named = act.components_this_run_had_no_right_to(before_component, after_component)
+    if named:
+        raise RuntimeError(
+            f"plan-verify set or changed the `component` column on {len(named)} "
+            f"pre-existing candidate(s): "
+            + ", ".join(f"{cid} {before_component[cid]!r}->{after_component[cid]!r}"
+                        for cid in named)
+            + f". That column belongs to whoever FILED the row, because only they "
+            f"know where the proposal goes — from a one-line summary anything else "
+            f"is guessing. And the guess does not stay a cell: `plan-candidates` "
+            f"turns a component name into a committed `docs/development/<name>/`. "
+            f"Naming the component on a row YOU appended is permitted and required; "
+            f"naming it on somebody else's is not — see {url}"
+        )
+
+    # A CHECKBOX MEANS *SHIPPED AND VALIDATED*, and this run has validated
+    # nothing — it is reviewing the plan for work nobody has started. Scoped to
+    # the roadmap because that is the only file it may write; a tick anywhere
+    # else in the component is already a boundary crossing. Compared in BOTH
+    # directions: erasing a tick is the same prohibition and the worse half.
+    after_boxes = act.checked_boxes(wt_component / own.ROADMAP)
+    ticked = sorted((after_boxes - before_boxes).elements())
+    erased = sorted((before_boxes - after_boxes).elements())
+    if ticked or erased:
+        raise RuntimeError(
+            f"plan-verify flipped {len(ticked) + len(erased)} completion "
+            f"checkbox(es) in `{rel_component}/{own.ROADMAP}`: "
+            + "; ".join([f"TICKED {t!r}" for t in ticked]
+                        + [f"ERASED {e!r}" for e in erased])
+            + f". *Built is not proven* — a box marks work DEMONSTRATED, and "
+            f"sizing a phase is the clearest possible case of not having built "
+            f"it — see {url}"
+        )
+
+    # THE WHOLE DECLARED BOUNDARY, OBSERVED. One roadmap and the candidates file;
+    # every phase doc, every sibling component, this component's own `research/`,
+    # `sprint.md` and the standards tree are somebody else's.
+    crossed = act.boundary_crossings(before_tree, after_tree,
+                                     FORBIDDEN_PATHS, permitted)
+    if crossed:
+        raise RuntimeError(
+            f"plan-verify edited {len(crossed)} file(s) outside its "
+            f"authorization: {', '.join(crossed)}. This workflow READS one "
+            f"component's plan and writes one line per phase into its roadmap. A "
+            f"phase doc is `plan-feature`'s output — correcting it here would make "
+            f"the artifact agree with the review, which is the whole reason the "
+            f"author and the judge are separate runs. Its `research/` is the "
+            f"evidence you are judging the citations against, and a sprint entry "
+            f"is the operator's — see {url}"
+        )
+    return url
