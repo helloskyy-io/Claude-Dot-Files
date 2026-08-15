@@ -287,7 +287,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/block-dangerous.sh"
+            "command": "$HOME/.claude/hooks/block-dangerous.sh",
+            "timeout": 10
           }
         ]
       }
@@ -297,7 +298,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/notify-done.sh"
+            "command": "$HOME/.claude/hooks/notify-done.sh",
+            "timeout": 10
           }
         ]
       }

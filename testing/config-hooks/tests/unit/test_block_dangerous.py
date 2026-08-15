@@ -1848,7 +1848,7 @@ def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> 
     )
 
 
-@pytest.mark.parametrize("size", [4_000, 16_000])
+@pytest.mark.parametrize("size", [4_000, 16_000, 131_000])
 def test_the_hook_stays_fast_on_a_large_command(size: int) -> None:
     """A hook on EVERY tool call must be linear-ish in command size.
 
@@ -1894,4 +1894,61 @@ def test_the_hook_stays_fast_on_a_large_command(size: int) -> None:
         f"(`${{CMD//+( )/ }}` and friends), which re-scans from every position. "
         f"Collapse with a fixed-string pattern in a loop instead — each pass at "
         f"least halves the longest run."
+    )
+
+
+# The scratchpad carve-out, at both sides of the walk's length bound. The
+# command is identical in shape; only the length of the padding differs.
+#
+# THE PADDING IS ITS OWN SEGMENT, and that is not incidental. The carve-out
+# regex requires the `rm` segment to carry EXACTLY ONE operand and end there, so
+# padding appended inside that segment stops it matching and the command is
+# denied for a reason that has nothing to do with the bound under test. The
+# first draft of these fixtures did exactly that and failed for the wrong cause.
+_SCRATCH_RM = "cd /tmp/scratch-abc && " + "rm" + " -rf build"
+
+
+def _padded(width: int) -> str:
+    """`_SCRATCH_RM` preceded by a benign segment of roughly `width` bytes."""
+    return f"echo {'x' * width} ; {_SCRATCH_RM}"
+
+
+def test_a_scratchpad_delete_is_still_allowed_below_the_walk_bound() -> None:
+    """The carve-out the walk exists for, at a realistic length.
+
+    PAIRED WITH THE TEST BELOW ON PURPOSE. A bound is two claims — permitted
+    under it, refused over it — and a test for only the refusing half would pass
+    just as happily if the carve-out had been deleted outright.
+    """
+    result = run_hook(_padded(2_000))
+    assert not result.denied, (
+        "a scratchpad delete under the walk's length bound must still be elided "
+        "and allowed. This is the false positive the elision block was written "
+        "to fix, and it was killing completed autonomous runs twice overnight."
+    )
+
+
+def test_a_scratchpad_delete_is_REFUSED_above_the_walk_bound() -> None:
+    """Past the bound nothing is elided, so the raw `rm -rf` is matched.
+
+    WHY THE BOUND EXISTS. The walk re-slices its remainder each iteration, so it
+    costs O(separators x length). Skipping it when the command holds no `rm`
+    token fixed the common case — 131 KB of markdown, 87.37s -> 0.38s — and left
+    exactly ONE slow path: a huge command that DOES contain `rm`, at 86.63s.
+    That is the case that matters. A hook killed by its timeout renders no
+    verdict, so without this bound the single way to make this control too slow
+    to answer was to hand it a large command containing the very token it elides
+    for.
+
+    THE DIRECTION IS THE WHOLE POINT. Refusing here is a false positive on a
+    shape the carve-out was never written for — it exists for
+    `cd /tmp/x && rm -rf build`, a few dozen bytes — and the remedy for one is to
+    split the command. Allowing it would be a real bypass.
+    """
+    result = run_hook(_padded(9_000))
+    assert result.denied, (
+        "a command over the walk's length bound must NOT receive the scratchpad "
+        "carve-out. If this now passes, the bound was raised or removed — measure "
+        "what the hook costs on a 131,072-byte command CONTAINING `rm` before "
+        "concluding that is safe."
     )

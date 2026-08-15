@@ -494,8 +494,43 @@ _SCRATCH_RM_RE='^rm( +-[A-Za-z]+)+ +([A-Za-z0-9._/-]+)$'
 #
 # Pure parameter expansion — no `read` and no here-string, for the same reason
 # canonicalization uses no `sed`: nothing here may depend on a second binary.
-_REBUILT=""
-_REST="$CMD"
+#
+# THE WALK IS SKIPPED WHOLESALE WHEN THERE IS NO `rm` TO ELIDE. Eliding a
+# scratchpad `rm` is its only effect, so a command carrying no `rm` token
+# rebuilds BYTE-IDENTICALLY — `_REBUILT` is assigned `$CMD` and the loop never
+# runs. This is an optimisation with no behavioural surface, not a carve-out.
+#
+# IT IS NOT MICRO-OPTIMISATION. The loop re-slices the remainder each iteration,
+# making it O(separators x length), and this hook runs on EVERY Bash tool call.
+# Measured 2026-08-14 on the largest command the kernel will accept (131,072
+# bytes of markdown table — worst case, since the walk splits on `|`): 87.37s.
+# Under the guard that same command does not enter the loop at all.
+#
+# AND IT IS BOUNDED BY LENGTH, FAIL-CLOSED. The guard alone is not enough, and
+# measuring it is what showed why: it makes the harmless case fast (131 KB with
+# no `rm`, 87.37s -> 0.38s) and leaves the ONE slow path being the case that
+# carries an `rm` — 86.63s, over any sane timeout. A hook killed by its timeout
+# renders no verdict, so without this bound the single way to make this control
+# slow enough to skip is to hand it a huge command containing the exact token it
+# elides for. That is the wrong direction for a safety control to fail in.
+#
+# Past the bound NOTHING is elided: `_REBUILT` stays the raw command, the
+# scratchpad carve-out does not apply, and a borderline command is DENIED rather
+# than allowed. The cost is a false positive on a shape the carve-out was never
+# written for — it exists for `cd /tmp/x && rm -rf build`, which is a few dozen
+# bytes — and the answer to one is to split the command.
+#
+# 8 KiB is ~40x the longest command the carve-out has ever been asked about and
+# 1/16th of the kernel's 131,072-byte argv ceiling, so it cannot be reached by
+# the shapes this permits while still capping the walk in the sub-second range.
+_WALK_MAX_BYTES=8192
+_REBUILT="$CMD"
+_REST=""
+if [[ $CMD == *rm* ]] && [ "${#CMD}" -le "$_WALK_MAX_BYTES" ]; then
+  _REBUILT=""
+  _REST="$CMD"
+fi
+
 while [ -n "$_REST" ]; do
   _SEG="${_REST%%[;|&$'\n']*}"
   if [ "$_SEG" = "$_REST" ]; then
