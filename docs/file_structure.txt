@@ -445,7 +445,7 @@ claude-dot-files/
 │                   │                                #   renumber is caught as a DELETION (both name guards pass it), a gap is not a free
 │                   │                                #   number, and the hour detector does NOT fire on the three prose uses of "hours"
 │                   │                                #   that exist in this tree — a word-keyed pattern would fail three correct runs
-│                   ├── test_plan_verify.py         # plan-verify's own guards, and the TWO properties unique to a judge: the deliverable
+│                   ├── test_plan_verify.py          # plan-verify's own guards, and the TWO properties unique to a judge: the deliverable
 │                   │                                #   is keyed on STATE where every prohibition in the family is a DELTA — a --pr
 │                   │                                #   correction pass legitimately writes no new hours — and the re-planning guard
 │                   │                                #   watches the INSIDE of the one file the grant opens, where boundary_crossings is

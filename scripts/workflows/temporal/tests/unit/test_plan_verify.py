@@ -38,6 +38,7 @@ second author.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 import sys
@@ -60,6 +61,12 @@ _SIZED_ROADMAP = (
     "## Phase 2 — the gated one (~12 hrs)\n"
     "See [`phase2_the_gated_one.md`](phase2_the_gated_one.md).\n"
 )
+
+
+# The repo's own candidates path, passed EXPLICITLY because the grant is now
+# derived from the argument rather than hard-coded. Named once so the boundary
+# tests below read as being about the COMPONENT half, which is what they test.
+_CANDS = Path("docs/standards/architecture/research/candidates.md")
 
 
 @pytest.fixture
@@ -234,7 +241,7 @@ def test_a_DROPPED_phase_reference_is_the_offence_the_boundary_cannot_see(
     """
     c = _planned(tree)
     before = own.roadmap_phase_links(c)
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
 
     (c / own.ROADMAP).write_text(
         "# Alpha\n\n## Phase 1 — the first thing (~8 hrs)\n"
@@ -391,7 +398,7 @@ def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
     directory as the granted roadmap — a fixture that only denies a sibling
     component reads correct either way.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
     before = _state({
         "docs/development/alpha/roadmap.md": "a",
         "docs/development/alpha/phase1_a.md": "a",
@@ -419,7 +426,7 @@ def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
 
 def test_a_SIBLING_component_s_roadmap_is_not_granted(tree: Path) -> None:
     """The grant names one component; `roadmap.md` exists in sixteen directories."""
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
     before = _state({"docs/development/beta/roadmap.md": "a"})
     assert act.boundary_crossings(
         before, {k: "CHANGED" for k in before},
@@ -428,7 +435,7 @@ def test_a_SIBLING_component_s_roadmap_is_not_granted(tree: Path) -> None:
 
 def test_a_component_whose_name_PREFIXES_another_is_not_granted_it(tree: Path) -> None:
     """`alpha` must not grant `alpha-two`, which a prefix match would."""
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
     before = _state({"docs/development/alpha-two/roadmap.md": "a"})
     assert act.boundary_crossings(
         before, {k: "CHANGED" for k in before},
@@ -444,7 +451,7 @@ def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -
     reaches `v2x1-migration/roadmap.md` too. Every other boundary test here uses
     `alpha`, which has no metacharacter to escape.
     """
-    permitted = wf.permitted_paths(Path("docs/development/v2.1-migration"))
+    permitted = wf.permitted_paths(Path("docs/development/v2.1-migration"), _CANDS)
     before = _state({"docs/development/v2x1-migration/roadmap.md": "a"})
     assert act.boundary_crossings(
         before, {k: "CHANGED" for k in before},
@@ -459,6 +466,37 @@ def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -
         wf.FORBIDDEN_PATHS, permitted) == [], "and its own roadmap is still granted"
 
 
+def test_the_CANDIDATES_grant_follows_the_operator_s_path(tree: Path) -> None:
+    """THE OTHER HALF OF THE BOUNDARY IS ALSO AN ARGUMENT, and it used to be a literal.
+
+    `--candidates` is a documented flag on every runner in this family, and it
+    is how a DIFFERENT repository is targeted: `--repo` points at a tree whose
+    pool need not sit at this repo's path. With the grant hard-coded, that flag
+    guaranteed failure — the prompt was handed `CANDIDATES_PATH` and told to
+    append a proposal there, `^docs/standards/` denied the whole tree, and
+    `boundary_crossings` read the model obeying its instructions as a crossing.
+    A correct run failed at the LAST guard, after all the work.
+
+    ESCAPED, for the reason the component segment is: the path is operator input
+    and nothing slugs it.
+    """
+    elsewhere = Path("docs/standards/architecture/research/pool-v2.md")
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), elsewhere)
+    moved = {elsewhere.as_posix(): "a"}
+    assert act.boundary_crossings(
+        moved, {k: "CHANGED" for k in moved},
+        wf.FORBIDDEN_PATHS, permitted) == [], (
+        "the operator's candidates file was denied, so the run would fail for "
+        "doing exactly what its prompt told it to do")
+
+    default = {_CANDS.as_posix(): "a"}
+    assert act.boundary_crossings(
+        default, {k: "CHANGED" for k in default},
+        wf.FORBIDDEN_PATHS, permitted) == [_CANDS.as_posix()], (
+        "and the grant did NOT follow the argument — it still reaches the "
+        "default path, which means it is a literal wearing a parameter")
+
+
 def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     """A WRITE GRANT IS NOT A DELETE GRANT, exercised rather than declared.
 
@@ -466,7 +504,7 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     OPPOSITE things — an absent key is `BASELINE`, i.e. *git never reported this
     path*, which is how a run may legitimately CREATE a permitted file.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
     before = _state({
         "docs/development/alpha/roadmap.md": "a",
         "docs/standards/architecture/research/candidates.md": "a",
@@ -562,6 +600,16 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     `grants_that_vanished` empty on every input, which is precisely the guard the
     ordering assertions claim to be ordered against. This one mimics git: a path
     once reported stays reported, and a file that is gone reads as `act.ABSENT`.
+
+    AND IT HASHES CONTENT RATHER THAN RETURNING A CONSTANT, which it did not
+    until a test asked it to. With a fixed `"digest"` every surviving file
+    compared EQUAL either side, so `boundary_crossings` — the last and broadest
+    guard, the one that stands behind every path-scoped row in the
+    authorization table — could not fire end to end no matter what the fake
+    model wrote. Every ordering assertion that claims a guard runs *instead of*
+    the boundary check was therefore true for the wrong reason. A stub is a
+    claim about the real reader, and the claim has to hold for the property
+    under test.
     """
     cands = tree / "docs" / "standards" / "architecture" / "research" / "candidates.md"
     cands.parent.mkdir(parents=True, exist_ok=True)
@@ -576,7 +624,8 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
         seen.update(p.name for p in comp.iterdir()
                     if p.is_file() and p.suffix == ".md")
         return {f"docs/development/alpha/{n}":
-                ("digest" if (comp / n).is_file() else act.ABSENT) for n in seen}
+                (hashlib.sha256((comp / n).read_bytes()).hexdigest()
+                 if (comp / n).is_file() else act.ABSENT) for n in seen}
 
     monkeypatch.setattr(act, "worktree_state", snapshot)
     monkeypatch.setattr(act, "evidence_block", lambda *a, **k: "<evidence>")
@@ -615,7 +664,7 @@ def test_a_run_that_SIZES_NOTHING_fails_as_UNSIZED(
 
 def test_a_PARTIALLY_sized_plan_fails_too(
         tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The floor is per PHASE, not per plan.
+    """The floor is a COUNT of estimates against a COUNT of phases, not a boolean.
 
     One estimate on a two-phase component is the likelier miss than none at all —
     a run that sizes the phase it understood and skips the gated one — and a
@@ -741,3 +790,94 @@ def test_a_DELETED_roadmap_raises_the_GRANT_message_not_the_UNSIZED_one(
     assert "cease to exist" in message, (
         f"the deletion raised a different guard's message: {message}")
     assert "UNSIZED" not in message
+
+
+def test_DELETING_a_PHASE_DOC_raises_its_OWN_message_not_the_unsized_one(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE SCOPE QUESTION, ASKED OF THE GUARDS RATHER THAN OF THEIR VALUES.
+
+    Every guard above was mutated and every mutation was caught — and this case
+    still got through all of them, because the question a negative control asks
+    is *does this guard discriminate*, never *what is this guard not looking
+    at*. A phase doc deleted with the roadmap's reference to it LEFT STANDING
+    moves neither of the two guards that run before sizing:
+
+      * `grants_that_vanished` watches the two files this run may WRITE, and a
+        phase doc is not one of them;
+      * `roadmap_phase_links` reads a roadmap that did not change, so the link
+        Counter is identical either side.
+
+    It reaches `boundary_crossings` — correctly, but LAST. So a run that also
+    left a phase unsized was told "you sized nothing" about a run that had
+    erased a document, which is the identical misdirection this file already
+    reorders the sizing guard to avoid, arriving by a second route.
+
+    THE FIXTURE UNDER-SIZES ON PURPOSE. Deleting the doc drops the phase count
+    from 2 to 1 while the roadmap still carries two estimates, so a naive
+    reading passes sizing outright; the roadmap here is stripped to one estimate
+    so BOTH guards have something to say and only one of them may.
+    """
+    c = _planned(tree, roadmap=_SIZED_ROADMAP.replace(" (~12 hrs)", ""))
+    message = _drive(monkeypatch, tree,
+                     lambda: (c / "phase2_the_gated_one.md").unlink())
+    assert "phase2_the_gated_one.md" in message and "cease to exist" in message, (
+        f"a deleted phase doc raised a different guard's message: {message}")
+    assert "UNSIZED" not in message, (
+        "the sizing guard ran first and blamed the estimates for a run that "
+        "erased a document — the remedy it suggests leaves the doc deleted")
+
+
+def test_a_phase_doc_merely_EDITED_is_left_to_the_BOUNDARY_check(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE DISCRIMINATOR for the guard above, and it is a scope assertion.
+
+    Without this, the deletion guard could have been written as a content
+    compare — and it would pass the test above while stealing the message from
+    `boundary_crossings`, which is the guard that says the right thing about an
+    EDIT. Only DISAPPEARANCE needs its own message, because only disappearance
+    is what the generic message gets wrong.
+    """
+    c = _planned(tree)
+    message = _drive(monkeypatch, tree, lambda: (
+        c / "phase2_the_gated_one.md").write_text("# Phase 2 — rewritten\n"))
+    assert "outside its authorization" in message, (
+        f"an edited phase doc should reach the boundary check: {message}")
+    assert "cease to exist" not in message
+
+
+def test_TWO_estimates_beside_ONE_phase_satisfy_the_floor(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE RESIDUAL, PINNED RATHER THAN ASSUMED — this run PASSES, and should not.
+
+    The deliverable guard compares a TOTAL count of estimates against a TOTAL
+    count of phase docs. Nothing in code knows which phase an estimate sits
+    beside, so two figures written against Phase 1 cover a Phase 2 with none and
+    the run reports SIZED over a plan that is half unsized.
+
+    IT IS ASSERTED HERE, GREEN, AS A KNOWN LIMIT rather than left for the next
+    reader to discover. A per-phase association was attempted and is blocked by
+    the corpus in two independent ways, both of which would FAIL CORRECT RUNS:
+    chunking by phase heading needs a heading grammar the Documentation Standard
+    does not fix — and its own worked example puts the estimate IN the heading,
+    above the link — while requiring an estimate on each phase-REFERENCE line
+    fails outright, because `roadmap_phase_links` matches CROSS-COMPONENT
+    references by design and those are not this component's phases to size.
+
+    So the floor stays a floor, the prompt names the limit to the model in the
+    imperative, and this test is what stops the limit being silently widened or
+    silently forgotten. **If a later change makes this test FAIL, that is the
+    guard getting stronger and this test should be rewritten, not restored.**
+    """
+    c = _planned(tree, roadmap=_SIZED_ROADMAP.replace(" (~12 hrs)", ""))
+    url = _harness(monkeypatch, tree, lambda: (c / own.ROADMAP).write_text(
+        (c / own.ROADMAP).read_text().replace(
+            "## Phase 1 — the first thing (~8 hrs)",
+            "## Phase 1 — the first thing (~8 hrs)\n\nRevised up from Est. 5 hours.")))()
+    assert url == "https://github.com/o/r/pull/9", (
+        "the fixture no longer reaches the deliverable guard at all, so it has "
+        "stopped documenting anything — re-check what it writes")
+    assert sum(own.roadmap_hours(c).values()) == 2 and len(own.phase_docs_of(c)) == 2
+    assert not re.search(r"hrs|hours",
+                         (c / own.ROADMAP).read_text().split("## Phase 2")[1]), (
+        "PHASE 2 CARRIES NO ESTIMATE — that is the whole point of this fixture, "
+        "and a passing run over it is the residual being demonstrated")

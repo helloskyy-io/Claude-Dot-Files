@@ -95,7 +95,8 @@ def main(argv=None) -> int:
             print(f"  Sized now  : {sum(own.roadmap_hours(component).values())} "
                   f"estimate(s) in {own.ROADMAP} (floor is {len(phases)})")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
-            print(f"  Grants     : {', '.join(wf.permitted_paths(rel))}")
+            print(f"  Grants     : "
+                  f"{', '.join(wf.permitted_paths(rel, cands.relative_to(repo_root)))}")
             # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied. A
             # dry run that builds its own values dict previews a prompt that is
             # not the one dispatched — the family has shipped that bug once
@@ -104,7 +105,16 @@ def main(argv=None) -> int:
             rendered = act.render(
                 act.load_prompt(wf.PROMPTS / "plan_verify.md"),
                 wf.prompt_values(rel, cands.relative_to(repo_root), repo_root, None))
-            print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
+            # BYTES, VIA `.encode()`, AND NOT `len(str)`. The prompt-budget gate
+            # measures with `path.stat().st_size`, so an operator comparing this
+            # line against a budget is comparing two different units — and this
+            # prompt is 80 bytes wider than it is long, because the house style
+            # is full of em-dashes. The budget table in
+            # `test_prompt_budgets.py` shipped this exact confusion once and
+            # says so in a comment; printing it again one file over would be the
+            # same defect in the diagnostic that is supposed to catch it.
+            print(f"  Prompt     : {len(rendered.encode())} bytes rendered, "
+                  f"0 placeholders remaining")
             return 0
 
         worktree = act.worktree_add(repo_root, f"plan-verify-{int(time.time())}", "HEAD")

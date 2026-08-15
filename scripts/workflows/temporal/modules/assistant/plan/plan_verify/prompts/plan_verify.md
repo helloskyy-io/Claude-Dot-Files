@@ -68,7 +68,8 @@ The sprint plan is the operator's cross-domain sequencing surface. `plan-sprint`
 
 - **Every path outside your authorization** — every phase doc, another component, this component's `research/`, the sprint plan, anything under `docs/standards/` other than the candidates file — is compared by content. Renaming or deleting one counts as editing it.
 - **Which phase docs `roadmap.md` references** is counted before and after, in both directions.
-- **The roadmap must carry at least one hour estimate per phase doc** when you finish, or the run fails as unsized.
+- **Which phase docs EXIST on disk** is compared separately, so a doc that vanishes is named as a deletion rather than reaching you as some other guard's message.
+- **The roadmap must carry AT LEAST AS MANY hour estimates as the component has phase docs** when you finish, or the run fails as unsized. **Read that literally: it is a TOTAL against a TOTAL.** Nothing in code knows which phase an estimate sits beside, so two figures written against one phase will satisfy the count while another phase has none — the check passes and the plan is still unsized. **Nothing catches that but you.** Write exactly one estimate per phase, and if you add a sizing note, keep a second hour figure out of it.
 - **Completion checkboxes** in the roadmap are counted before and after by their text. Adding a tick fails the run, and so does erasing one.
 - **All three candidate columns** — `decision`, `status`, `component` — are compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
 - **Deleting anything** fails the run, at both altitudes: rows are compared by ID, and the files themselves are checked for still existing.

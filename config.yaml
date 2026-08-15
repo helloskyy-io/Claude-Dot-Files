@@ -106,8 +106,11 @@ models:
                                 #   research synthesis, a thesis and an architectural standard
                                 #   together and deciding what works end-to-end. It also has the
                                 #   thinnest safety net in the family — it is the WRITE half of a
-                                #   split whose reviewer, `plan-verify`, does not exist yet, so
-                                #   nothing downstream re-derives its decomposition today.
+                                #   split whose reviewer is `plan-verify`, below. That reviewer now
+                                #   EXISTS and re-derives the decomposition cold, which narrows the
+                                #   gap without closing it: a bad boundary is caught one run later
+                                #   and reported rather than prevented, and the tier is what keeps
+                                #   the first draft worth reviewing.
   plan-verify: opus             # reads ONE component's roadmap.md and phase docs COLD,
                                 #   sizes every phase in hours, and answers the question
                                 #   plan-feature's own report is required to ask and

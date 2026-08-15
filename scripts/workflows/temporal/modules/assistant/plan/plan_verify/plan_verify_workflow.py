@@ -121,13 +121,25 @@ FORBIDDEN_PATHS = (
 )
 
 
-def permitted_paths(component_rel: Path) -> tuple[str, ...]:
-    """The two grants this run holds, one of them computed from its own component.
+def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...]:
+    """The two grants this run holds, BOTH computed from this run's own arguments.
 
     A FUNCTION AND NOT A CONSTANT, for the reason `plan_feature.permitted_paths`
     states: half of this boundary is an argument, so a module-level tuple would
     either grant every component at once — deleting the boundary — or hard-code
     one, which is worse.
+
+    BOTH HALVES ARE ARGUMENTS, and the second one used to be a literal. The
+    candidates file is an operator input — `--candidates` is a documented flag on
+    every runner in this family, and it is the flag a DIFFERENT repository is
+    targeted through, since `--repo` points at a tree whose pool need not sit at
+    this repo's path. A hard-coded grant made that flag guarantee failure: the
+    prompt was handed `CANDIDATES_PATH` and told to append a proposal there,
+    while `boundary_crossings` — which the operator's path still matches, because
+    `^docs/standards/` denies the whole tree — read the model obeying its
+    instructions as a boundary crossing and failed a correct run at the last
+    guard, after all the work. The grant now follows the same path the prompt and
+    the column guards already do, so the three cannot disagree.
 
     THE GRANT IS ONE FILE, NOT A SHAPE, AND THAT IS THE WHOLE DIFFERENCE FROM THE
     WRITE HALF. `plan-feature`'s grant is `<component>/[^/]+\\.md$` because it
@@ -152,7 +164,7 @@ def permitted_paths(component_rel: Path) -> tuple[str, ...]:
     """
     return (
         rf"^{re.escape(component_rel.as_posix())}/{re.escape(own.ROADMAP)}$",
-        r"^docs/standards/architecture/research/candidates\.md$",
+        rf"^{re.escape(candidates_rel.as_posix())}$",
     )
 
 
@@ -215,10 +227,13 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "run can reach, so a figure has nowhere else to go. own.roadmap_hours "
         "then proves it went there",
     "**Rename, renumber or delete a phase doc** — the number is IDENTITY":
-        "FORBIDDEN_PATHS `^docs/development/`, same mechanism — a vanished phase "
-        "doc reads as a content change through act.worktree_state's ABSENT "
-        "sentinel, and this workflow may not touch one at all, so it needs no "
-        "identity-specific comparator the way the write half does",
+        "FORBIDDEN_PATHS `^docs/development/` for the EDIT, plus act.ids_deleted "
+        "over own.phase_docs_of either side of the run for the DISAPPEARANCE. "
+        "The second is not redundant with the first: a vanished doc does reach "
+        "boundary_crossings through act.worktree_state's ABSENT sentinel, but "
+        "that is the LAST guard, and a run that also under-sized reached the "
+        "sizing message first — a true failure naming the wrong cause, which is "
+        "the defect this file already reorders one guard to avoid",
     "**Re-plan the component** — add, merge, split or drop a phase":
         "own.roadmap_phase_links counted either side of the run and compared in "
         "BOTH directions — the one prohibition here that happens INSIDE the "
@@ -239,8 +254,11 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate row, a phase doc, or the roadmap":
-        "act.ids_deleted over the candidate id snapshots, and "
-        "act.grants_that_vanished over permitted_paths for the files themselves",
+        "act.ids_deleted over the candidate id snapshots for a ROW, "
+        "act.ids_deleted over own.phase_docs_of for a PHASE DOC, and "
+        "act.grants_that_vanished over permitted_paths for the two files this "
+        "run may write — one comparator per altitude, because the message each "
+        "has to produce is different",
     "Decide WHEN this component gets built, or where it sits against other work":
         "JUDGEMENT — a total this workflow produces is an INPUT to sequencing and "
         "the sequencing itself leaves no artifact distinct from the report it is "
@@ -258,6 +276,14 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
 # by AST, so a snapshot added later has no entry and fails the suite until
 # somebody answers "what watches this one for absence?"
 DISAPPEARANCE_OBSERVERS: dict[str, str] = {
+    "before_phases": (
+        "act.ids_deleted against own.phase_docs_of read again after the run, "
+        "checked AHEAD of the sizing guard. This snapshot is read for its COUNT "
+        "— the deliverable's floor — and registering it forced the second "
+        "question the count alone never asks: a phase doc deleted while the "
+        "roadmap's reference to it survives moves neither of the two guards "
+        "above, and reaches only the boundary check at the very end, by which "
+        "time the sizing message has already blamed the wrong thing."),
     "before_links": (
         "own.roadmap_phase_links compared in BOTH directions — and here the "
         "disappearing direction is the PRIMARY one rather than a corner case: a "
@@ -304,14 +330,18 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     rel_candidates = candidates_path.relative_to(repo_root)
     wt_component = worktree / rel_component
     wt_candidates = worktree / rel_candidates
-    permitted = permitted_paths(rel_component)
+    permitted = permitted_paths(rel_component, rel_candidates)
 
     # THE DELIVERABLE'S FLOOR, READ BEFORE THE MODEL RUNS. Every phase doc is a
     # phase and every phase needs an estimate. A phase that is GATED has a
     # roadmap entry and no doc, so this count is a FLOOR rather than the true
     # number — narrower than the rule, which is the safe direction for a guard:
     # it cannot fail a correct run, and the prompt carries the rest.
-    phases = own.phase_docs_of(wt_component)
+    #
+    # THE SAME SNAPSHOT IS ALSO THE IDENTITY BASELINE, which is why it is named
+    # `before_` and carries a `DISAPPEARANCE_OBSERVERS` row. One read, two
+    # questions: *how many phases must be sized* and *are they all still here*.
+    before_phases = own.phase_docs_of(wt_component)
 
     # SNAPSHOTTED AROUND THE MODEL, never diffed against `origin/main`: this
     # workflow runs after two siblings on the same branch inside `plan-project`,
@@ -397,6 +427,35 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"at it — see {url}"
         )
 
+    # A PHASE DOC THAT VANISHED, CHECKED BEFORE SIZING FOR THE SAME REASON THE
+    # RE-PLANNING GUARD IS. Deleting a phase doc while leaving the roadmap's
+    # reference to it standing is invisible to BOTH guards above:
+    # `grants_that_vanished` watches only the two files this run may write, and
+    # `roadmap_phase_links` reads a roadmap that did not change. It reaches
+    # `boundary_crossings`, which is the LAST guard — so a run that also
+    # under-sized was told "you sized nothing" about a run that had deleted a
+    # phase, and the remedy that message suggests leaves the document deleted.
+    # That is the identical misdirection this file already reorders the sizing
+    # guard to avoid, arriving by a second route; the write half runs exactly
+    # this comparison as its FIRST guard for the same reason.
+    #
+    # `ids_deleted` AND NOT A CONTENT COMPARE: a phase doc EDITED is a boundary
+    # crossing and the last guard names it correctly. Only DISAPPEARANCE needs
+    # its own message, because only disappearance is what the generic message
+    # gets wrong.
+    after_phases = own.phase_docs_of(wt_component)
+    lost = act.ids_deleted(before_phases, after_phases)
+    if lost:
+        raise RuntimeError(
+            f"plan-verify made {len(lost)} phase doc(s) in `{rel_component}` "
+            f"cease to exist: {', '.join(lost)}. You hold NO grant over a phase "
+            f"doc — not to edit one, and least of all to remove one. A phase "
+            f"number is IDENTITY, so a deleted doc is not a phase re-scoped, it "
+            f"is a phase erased, and `roadmap.md` may still point at it. A "
+            f"decomposition you judge wrong is a FINDING for `plan-feature` to "
+            f"act on — see {url}"
+        )
+
     # THE DELIVERABLE, OBSERVED RATHER THAN ASSERTED, and it is keyed on STATE
     # rather than on a delta — the opposite of every PROHIBITION guard in this
     # family, deliberately. A `--pr` correction pass that leaves the previous
@@ -405,18 +464,42 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     # likely to be the last one anybody reads. The prohibitions around it stay
     # deltas, because those ask what THIS RUN DID.
     #
-    # THE FLOOR IS THE PHASE-DOC COUNT, WHICH IS NARROWER THAN THE RULE. A GATED
+    # WHAT THIS GUARD DOES NOT LOOK AT, STATED FIRST, because a floor that reads
+    # as a per-phase check is worse than one that reads as what it is. It
+    # compares a TOTAL COUNT of estimates against a COUNT of phases. It has no
+    # idea WHICH phase any given estimate sits beside, so two figures written
+    # against one phase cover a phase with none — and the prompt permits *"a
+    # short sizing note beside an estimate"*, which is one plausible way to write
+    # a second. **The guard is a NECESSARY condition on the deliverable and not a
+    # sufficient one**, the reviewer reading the report is the sufficient one,
+    # and the failure message below says so rather than reporting SIZED-or-not.
+    #
+    # A PER-PHASE ASSOCIATION WAS ATTEMPTED AND IS BLOCKED BY THE CORPUS, twice
+    # over, which is why the floor stays a floor rather than being tightened:
+    #   * Chunking the roadmap by phase HEADING needs a heading grammar the
+    #     Documentation Standard does not fix, and its own worked example puts
+    #     the estimate IN the heading — above the link, so a chunk keyed on the
+    #     link attributes it to the previous phase and fails a correct run.
+    #   * Requiring an estimate on each phase-REFERENCE line fails a correct run
+    #     outright: `roadmap_phase_links` matches CROSS-COMPONENT references by
+    #     design (the memory-management-framework roadmap carries three of
+    #     persistent-memory-protocol's), and those are not this component's
+    #     phases to size. That over-count is a defect this file already fixed
+    #     once, in `plan_inventory`; re-introducing it as a guard is worse.
+    # Narrower is the safe direction for a guard — it cannot fail a correct run —
+    # and the residual is named here and pinned by a test rather than assumed.
+    #
+    # THE FLOOR IS ALSO THE PHASE-DOC COUNT, WHICH IS NARROWER STILL. A GATED
     # phase has a roadmap entry and no doc, and it still needs sizing — the
-    # prompt says so and this cannot count it. Narrower is the safe direction for
-    # a guard: it cannot fail a correct run, and the residual is carried by the
-    # prompt and by the reviewer rather than hidden.
+    # prompt says so and this cannot count it.
     hours = own.roadmap_hours(wt_component)
-    if sum(hours.values()) < len(phases):
+    if sum(hours.values()) < len(before_phases):
         found = own.hour_citations(wt_component, worktree) or ["(none)"]
         raise RuntimeError(
             f"plan-verify left `{rel_component}` UNSIZED: its `roadmap.md` carries "
-            f"{sum(hours.values())} hour estimate(s) against {len(phases)} phase "
-            f"doc(s). What is there:\n  " + "\n  ".join(found)
+            f"{sum(hours.values())} hour estimate(s) against "
+            f"{len(before_phases)} phase doc(s). What is there:\n  "
+            + "\n  ".join(found)
             + f"\nSizing is this workflow's whole load-bearing output — "
             f"`plan-feature` writes no hours and FAILS ITS RUN on one, so until "
             f"this lands the number does not exist anywhere. The estimates go in "

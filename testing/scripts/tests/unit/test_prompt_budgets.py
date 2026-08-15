@@ -57,7 +57,18 @@ BUDGETS: dict[str, int] = {
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
     # the first draft of this table counted characters and was wrong by 49 on a
     # file full of em-dashes.
-    "plan/plan_verify/prompts/plan_verify.md": 12_557,
+    #
+    # RAISED 12_557 -> 13_142 by the review pass, and the +585 bought ONE thing:
+    # the enforcement list used to tell the model *"the roadmap must carry at
+    # least one hour estimate per phase doc"*, which is not what the code checks.
+    # The code compares a TOTAL against a TOTAL and cannot see which phase an
+    # estimate sits beside, so two figures against one phase satisfy it while
+    # another phase has none. That gap is not closable in code — every candidate
+    # association fails a correct run (see the guard's own comment) — so the
+    # model is the only thing that can close it, and it could not while the
+    # prompt told it the machine was already checking. This clears the gate's
+    # own bar: it changes what the model DOES, and the harness cannot enforce it.
+    "plan/plan_verify/prompts/plan_verify.md": 13_142,
     "build/build_refine_minor/prompts/stages_2_to_4.md": 14_437,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     "research/research_write_minor/prompts/write_minor.md": 12_313,
