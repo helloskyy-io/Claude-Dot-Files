@@ -42,7 +42,7 @@ BUDGETS: dict[str, int] = {
     # ratchet, and shrinking it is separate work with its own reasoning.
     "review_pr/prompts/disposition.md": 75_496,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
-    "build/build_refine/prompts/stages_2_to_4.md": 22_093,
+    "build/build_refine/prompts/stages_2_to_4.md": 22_007,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     "build/build_draft/prompts/stages_1_to_4.md": 16_083,
     # SET AT ITS SIZE ON THE DAY IT LANDED, not on 2026-08-14: this prompt was
