@@ -358,21 +358,35 @@ fi
 # empties `$CMD` and allows everything — reintroducing the exact fail-open
 # shape issue #61 was filed about, in the fix for its sibling. Bash's own
 # substitution cannot fail that way.
-shopt -s extglob
 CMD="${CMD//\\$'\n'/}"
 CMD="${CMD//$'\t'/ }"
 CMD="${CMD//$'\r'/ }"
 CMD="${CMD//$'\v'/ }"
 CMD="${CMD//$'\f'/ }"
-CMD="${CMD//+( )/ }"
-# UNSET IMMEDIATELY. `+( )` above is the only construct in this file that needs
-# extglob, and leaving it on is a live footgun rather than a tidiness point: a
-# literal `+(` written inside a later `[[ =~ ]]` parses as the extglob operator
-# instead of a regex quantifier, bash raises `syntax error near '+('`, execution
-# CONTINUES, and the script reaches `exit 0` — a fail-open hole of exactly the
-# class issue #61 was filed about. That happened once while this file was being
-# written (see the elision block below). Narrowing the option's lifetime to the
-# one line that needs it removes the hazard from every line after it.
+
+# RUNS OF SPACES COLLAPSE BY HALVING, NOT BY `${CMD//+( )/ }`. The extglob form
+# reads better and was this hook's ENTIRE cost: measured on 2026-08-14 at 1.80s
+# for a 1 KB command and 14.20s for 2 KB, growing ~8x per doubling. This hook
+# runs on EVERY Bash tool call of every run, so one 11 KB markdown heredoc held
+# a live build for 8m44s at 99.9% CPU before it was killed. A quantified pattern
+# in a bash global substitution re-scans from every position; a fixed two-space
+# pattern does not. Each pass at least halves the longest run, so this is
+# log2(longest run) passes of a linear substitution.
+#
+# STILL NO SUBPROCESS, for the reason the block above states: a `sed` or `tr`
+# whose absence empties `$CMD` allows everything, which is the fail-open shape
+# issue #61 was filed about.
+while [[ $CMD == *"  "* ]]; do
+  CMD="${CMD//  / }"
+done
+# UNSET DEFENSIVELY — nothing in this file turns extglob ON any more, and this
+# line stays because bash INHERITS shopt settings through `BASHOPTS`, so "we
+# never set it" is not the same as "it is off". Leaving it on is a live footgun
+# rather than a tidiness point: a literal `+(` inside a later `[[ =~ ]]` parses
+# as the extglob operator instead of a regex quantifier, bash raises `syntax
+# error near '+('`, execution CONTINUES, and the script reaches `exit 0` — the
+# fail-open hole issue #61 was filed about. That happened once while this file
+# was being written (see the elision block below).
 shopt -u extglob
 
 # ---------------------------------------------------------------------------

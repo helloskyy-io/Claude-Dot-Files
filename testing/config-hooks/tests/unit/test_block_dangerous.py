@@ -100,6 +100,7 @@ import json
 import re
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -1742,7 +1743,11 @@ _LOOP_START = re.compile(r'for pattern in "\$\{(?:REGEX_PATTERNS|FIXED_PATTERNS)
 # The input-normalisation region: everything between `shopt -s extglob` and the
 # start of the pattern arrays. Whitespace canonicalization and the
 # scratch-delete elision both live here, and both match against `$CMD`.
-_NORMALISATION_START = re.compile(r"^shopt -s extglob\s*$")
+# The region opens at the FIRST canonicalising substitution. It used to anchor on
+# `shopt -s extglob`, which stopped existing when the space-collapse was rewritten
+# to not need extglob — and this scanner failed loudly rather than silently
+# scanning nothing, which is the behaviour its own message asks for.
+_NORMALISATION_START = re.compile(r'^CMD="\$\{CMD//')
 _NORMALISATION_END = re.compile(r"^REGEX_PATTERNS=\(")
 # Anything that could reach a verdict from inside that region.
 _VERDICT_LINE = re.compile(r"^\s*(deny\s|exit\s)")
@@ -1792,9 +1797,10 @@ def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> 
         elif norm_start is not None and norm_end is None and _NORMALISATION_END.match(line):
             norm_end = lineno
     assert norm_start is not None and norm_end is not None, (
-        "could not locate the input-normalisation region (`shopt -s extglob` "
-        "through `REGEX_PATTERNS=(`). The hook was restructured out from under "
-        "this scanner, so it is now checking nothing — fix the anchors."
+        "could not locate the input-normalisation region (the first "
+        '`CMD="${CMD//` through `REGEX_PATTERNS=(`). The hook was restructured '
+        "out from under this scanner, so it is now checking nothing — fix the "
+        "anchors."
     )
 
     inside_loop = False
@@ -1839,4 +1845,53 @@ def test_pattern_matching_is_reachable_only_through_the_two_guarded_arrays() -> 
         f"$CMD precisely BECAUSE it can only transform it — a deny or an exit "
         f"there is a decision no coverage guard checks and no `MUST BLOCK` "
         f"claim describes."
+    )
+
+
+@pytest.mark.parametrize("size", [4_000, 16_000])
+def test_the_hook_stays_fast_on_a_large_command(size: int) -> None:
+    """A hook on EVERY tool call must be linear-ish in command size.
+
+    WHY THIS EXISTS. On 2026-08-14 the space-collapse was written as
+    `${CMD//+( )/ }` — an extglob quantifier in a bash global substitution,
+    which re-scans from every position. Measured cost of the whole hook:
+
+        1 KB -> 1.8s     2 KB -> 12.1s     4 KB -> 91.8s     8 KB -> >120s
+
+    ~7x per doubling. A live build spent 8m44s at 99.9% CPU inside ONE 11 KB
+    tool call before it was killed, and every Bash call in every run had been
+    paying a share of this for a week.
+
+    NOTHING CAUGHT IT, and that is the point of this test rather than the fix.
+    The suite around it is thorough about SEMANTICS — every pattern carries a
+    MUST BLOCK and a MUST ALLOW claim, and a scanner proves no verdict can be
+    reached outside the two guarded arrays. Not one of them measures COST, so a
+    500x regression was invisible to 1,896 passing tests.
+
+    THE INPUT IS THE WORST CASE ON PURPOSE. A markdown table is dense in the
+    two things the hook walks — runs of spaces and `|` separators — and writing
+    a table into a PR comment is what the fleet does on every single run.
+
+    THE BOUND IS DELIBERATELY LOOSE. This is a regression cliff, not a
+    benchmark: the pre-fix cost at 8 KB already exceeded this ceiling by more
+    than an order of magnitude, so a machine being slow cannot fail it while a
+    return of the quantified pattern cannot pass.
+    """
+    row = "| `plan_feature` | writes the roadmap and phases | yes |"
+    body = ("\n".join([row] * (size // len(row) + 2)))[:size]
+    started = time.monotonic()
+    result = run_hook(f"cat > /tmp/scratch-note.md <<'MDEOF'\n{body}\nMDEOF")
+    elapsed = time.monotonic() - started
+
+    assert not result.denied, (
+        "the fixture must be ALLOWED — a denied command can short-circuit before "
+        "the normalisation this test is timing, which would make it measure nothing"
+    )
+    assert elapsed < 10.0, (
+        f"the hook took {elapsed:.1f}s on a {size:,}-char command. It runs on EVERY "
+        f"tool call of every run, so this is paid fleet-wide.\n\n"
+        f"The known cause is a QUANTIFIED pattern in a bash global substitution "
+        f"(`${{CMD//+( )/ }}` and friends), which re-scans from every position. "
+        f"Collapse with a fixed-string pattern in a loop instead — each pass at "
+        f"least halves the longest run."
     )
