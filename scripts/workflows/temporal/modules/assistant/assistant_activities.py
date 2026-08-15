@@ -596,6 +596,27 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
         "FORMATTER": str(formatter),
         "MODEL_KEY": model_key,
         "COMPLETION_PATTERN": completion_pattern,
+        # NO BYTECODE CACHE, AND THIS IS A CORRECTNESS CONTROL RATHER THAN A
+        # TUNING KNOB. Every build and plan prompt mandates a mutate-restore
+        # loop: change a guard, run the tests, restore the file, run again. A
+        # `cp` restore can land inside the mtime resolution `.pyc` validation
+        # keys on, so the interpreter reuses the MUTATED bytecode against
+        # restored source. Observed 2026-08-14: a test failed showing mutated
+        # behaviour against a file `diff` proved unchanged, costing a debugging
+        # cycle, and one control reported `2 failed` against a prediction of 1.
+        # A restored tree can lie in BOTH directions — a mutation that appears
+        # to hit, and one that appears to miss.
+        #
+        # WHY HERE AND NOT IN A PROMPT. A prompt line asking the model to clear
+        # the cache before every control is an administrative control: re-read
+        # on every turn, dependent on the model remembering, and billed against
+        # a shared fragment already at its byte budget. This eliminates the
+        # failure class instead. `__pycache__/` and `*.pyc` are gitignored, so a
+        # fresh `git worktree add` starts with ZERO cached bytecode — never
+        # writing one therefore means never reading a stale one, for the whole
+        # life of a dispatch. Measured: 183.04s vs a 189.53s cached baseline
+        # over 3,152 tests, so it costs nothing.
+        "PYTHONDONTWRITEBYTECODE": "1",
     }
     # SET **OR CLEARED**, never merely set. `env` starts from `os.environ`, so
     # an ambient `EXIT_RECORD_SCHEMA` — exported by an operator, or inherited by

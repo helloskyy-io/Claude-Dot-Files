@@ -104,6 +104,41 @@ def test_run_claude_supplies_the_delegated_env_var(var: str) -> None:
     )
 
 
+def test_the_child_runs_with_NO_bytecode_cache() -> None:
+    """A correctness control, not a tuning knob — and not a prompt line.
+
+    Every build and plan prompt mandates a mutate-restore loop: change a guard,
+    run the tests, restore the file, run again. A `cp` restore can land inside
+    the mtime resolution `.pyc` validation keys on, so the interpreter reuses
+    the MUTATED bytecode against restored source.
+
+    OBSERVED 2026-08-14: a test failed showing mutated behaviour against a file
+    `diff` proved unchanged, costing a debugging cycle, and one negative control
+    reported `2 failed` against a prediction of 1. A restored tree can lie in
+    BOTH directions — a mutation that appears to hit, and one that appears to
+    miss — which makes every control run in that state unreadable.
+
+    WHY THE ENVIRONMENT AND NOT A PROMPT. Three consecutive reflections praised
+    an instruction to clear the cache, and that instruction was in a per-run
+    brief; it existed nowhere in the fleet and every later run started without
+    it. A prompt line is an administrative control — re-read on every turn,
+    dependent on the model remembering, and billed against a shared fragment
+    already at its byte budget. This removes the failure mode instead.
+
+    WHY IT IS SUFFICIENT. `__pycache__/` and `*.pyc` are gitignored, so a fresh
+    `git worktree add` starts with ZERO cached bytecode. Never writing one
+    therefore means never reading a stale one, for the whole life of a dispatch.
+    Measured free: 183.04s against a 189.53s cached baseline over 3,152 tests.
+    """
+    assert _supplies_env_var(RUN_CLAUDE_SOURCE, "PYTHONDONTWRITEBYTECODE"), (
+        "run_claude no longer sets PYTHONDONTWRITEBYTECODE. Without it a "
+        "mutate-restore loop can validate stale bytecode against restored "
+        "source, and every negative control in that run becomes unreadable — "
+        "in both directions. If this was removed for speed, re-measure first: "
+        "it was measured FASTER than the cached baseline."
+    )
+
+
 def test_env_is_built_before_the_source_line() -> None:
     assert _builds_env_before_sourcing(RUN_CLAUDE_SOURCE), (
         "run_claude assembles its environment after sourcing run-claude.sh. The "
