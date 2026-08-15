@@ -124,7 +124,7 @@ def test_the_workflow_sweep_finds_the_registries_it_is_meant_to() -> None:
     actually covered rather than merely enumerated.
     """
     found = {p.id for p in WORKFLOWS}
-    assert found == {"triage-candidates", "plan-sprint"}, (
+    assert found == {"triage-candidates", "plan-sprint", "plan-feature"}, (
         f"the DISAPPEARANCE_OBSERVERS sweep found {sorted(found)}. If a "
         f"workflow vanished from it, every assertion below stopped running "
         f"against that workflow without anything going red.")
@@ -284,7 +284,8 @@ def _functions_with_boundary_calls() -> list[tuple[Path, ast.FunctionDef]]:
 def test_the_boundary_probe_finds_the_calls_it_is_meant_to() -> None:
     """POSITIVE CONTROL: the two workflows that declare a grant are both seen."""
     found = {p.name for p, _ in _functions_with_boundary_calls()}
-    assert found == {"triage_candidates_workflow.py", "plan_sprint_workflow.py"}, (
+    assert found == {"triage_candidates_workflow.py", "plan_sprint_workflow.py",
+                     "plan_feature_workflow.py"}, (
         f"the boundary probe found {found}; if a workflow stopped being seen, "
         f"the assertion below is passing over it rather than checking it")
 

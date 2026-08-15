@@ -6,7 +6,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
-from modules.assistant.plan.triage_candidates import triage_candidates_activities as own  # noqa: E402
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as wf  # noqa: E402
 
 BANNER = "=" * 64
@@ -41,14 +40,14 @@ def main(argv=None) -> int:
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
             print(f"  Candidates : {counts['total']} total · {counts['untriaged']} UNTRIAGED · {counts['triaged']} ruled")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
-            rendered = act.render(act.load_prompt(wf.PROMPTS / "triage_candidates.md"), {
-                "CANDIDATES_PATH": a.candidates, "RESEARCH_DIR": a.research,
-                "WORKING_SET": wf._working_set(counts),
-                "DIRECTION_CEILING": own.direction_ceiling(research),
-                "EXISTING_WORK": act.existing_work(repo_root, research),
-                "SUBMIT_PROMPT": act.submit_prompt(None, "x"),
-                "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
-                "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard")})
+            # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied — a
+            # hand-built copy here is how the sibling `plan-sprint` shipped a dry
+            # run previewing a prompt no model would receive.
+            rendered = act.render(
+                act.load_prompt(wf.PROMPTS / "triage_candidates.md"),
+                wf.prompt_values(cands.relative_to(repo_root),
+                                 research.relative_to(repo_root),
+                                 repo_root, counts, None))
             print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
             return 0
 

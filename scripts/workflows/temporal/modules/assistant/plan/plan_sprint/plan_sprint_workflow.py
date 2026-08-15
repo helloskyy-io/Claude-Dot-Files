@@ -41,7 +41,6 @@ from ... import routing
 from pathlib import Path
 
 from .. import plan_activities as act
-from . import plan_sprint_activities as own
 
 _HERE = Path(__file__).resolve().parent
 PROMPTS = _HERE / "prompts"
@@ -108,10 +107,10 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "JUDGEMENT — a milestone states what done looks like and a design states "
         "how, and both are prose in the same file. No artifact separates them.",
     "Flip a completion checkbox":
-        "own.checked_boxes counted either side of the run and compared in BOTH "
+        "act.checked_boxes counted either side of the run and compared in BOTH "
         "directions — a tick added and a tick erased are the same flip",
     "**Set `decision` on ANY candidate — see below**":
-        "own.candidate_decisions snapshotted either side of the run, compared by "
+        "act.candidate_decisions snapshotted either side of the run, compared by "
         "_rulings_this_run_had_no_right_to",
     "Set `status` in the candidates file":
         "act.candidate_statuses snapshotted either side of the run, compared by "
@@ -146,7 +145,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "act.ids_deleted, called inside _rulings_this_run_had_no_right_to",
     "before_status":
         "act.ids_deleted on the SAME id set, via _rulings_this_run_had_no_right_to "
-        "on `before` — act.candidate_statuses and own.candidate_decisions are both "
+        "on `before` — act.candidate_statuses and act.candidate_decisions are both "
         "built from act.candidate_rows, so a row cannot be absent from one map and "
         "present in the other. Registered rather than left implicit because that "
         "coupling is the whole reason a second call here would be dead code — and "
@@ -156,11 +155,11 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
     "before_component":
         "act.ids_deleted on the SAME id set, already run via "
         "_rulings_this_run_had_no_right_to on `before` — act.candidate_components "
-        "and own.candidate_decisions are both built from act.candidate_rows, so "
+        "and act.candidate_decisions are both built from act.candidate_rows, so "
         "the coupling registered for before_status covers this snapshot too, and "
         "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS is what holds it",
     "before_boxes":
-        "own.checked_boxes compared in both directions — `after - before` is a "
+        "act.checked_boxes compared in both directions — `after - before` is a "
         "tick added, `before - after` a tick erased, and Counter subtraction "
         "reports only the first",
     "before_tree":
@@ -168,6 +167,39 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "the candidates file; act.boundary_crossings for every other path, where "
         "a deletion already reads as a content change via the ABSENT sentinel",
 }
+
+
+def prompt_values(rel_sprint: str, rel_candidates: Path, rel_research: Path,
+                  tree: Path, counts: dict, correction_pass: bool,
+                  pr_number: str | None) -> dict[str, str]:
+    """Every placeholder the prompt takes, assembled ONCE for both callers.
+
+    THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT. This module's
+    `correction_note` docstring records what happens otherwise: the runner built
+    its own copy of this dict, rendered only half of `CORRECTION_NOTE`, and
+    previewed text no model would ever receive. That was fixed by patching the
+    copy, which left the copy — and the shape that produced the bug — in place.
+    One assembly is what removes it.
+
+    `tree` IS THE TREE THE COUNTS ARE TAKEN FROM: the worktree on the live path,
+    the repo on the dry-run path, where no worktree exists yet.
+    """
+    return {
+        "SPRINT_PATH": rel_sprint,
+        "CANDIDATES_PATH": str(rel_candidates),
+        "RESEARCH_DIR": str(rel_research),
+        "CORRECTION_NOTE": correction_note(counts, correction_pass),
+        # THE TREE, not the repo. This workflow runs THIRD: the parent has
+        # already written any new component's `research/synthesis.md` into the
+        # worktree, and Stage 1 is told to read every synthesis this enumeration
+        # lists. Anchored at the repo it would list the main checkout, which
+        # never holds them, and the run would report reading all of nothing.
+        "EXISTING_WORK": act.existing_work(tree, tree / rel_research),
+        "SUBMIT_PROMPT": act.submit_prompt(
+            pr_number, "plan-sprint: place the ruled candidates and update the sprint plan"),
+        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
+        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
+    }
 
 
 def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
@@ -196,27 +228,14 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # workflow runs LAST on a branch `triage-candidates` has already written to,
     # so a diff against the base would report triage's legitimate `direction.md`
     # row as this run's forbidden edit.
-    before = own.candidate_decisions(wt_candidates)
+    before = act.candidate_decisions(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
     before_component = act.candidate_components(wt_candidates)
-    before_boxes = own.checked_boxes(wt_sprint)
+    before_boxes = act.checked_boxes(wt_sprint)
     before_tree = act.worktree_state(worktree)
 
-    values = {
-        "SPRINT_PATH": rel_sprint,
-        "CANDIDATES_PATH": str(rel_candidates),
-        "RESEARCH_DIR": str(rel_research),
-        "CORRECTION_NOTE": correction_note(counts, correction_pass),
-        # THE WORKTREE, not the repo. This workflow runs THIRD: the parent has
-        # already written any new component's `research/synthesis.md` into the
-        # worktree, and Stage 1 is told to read every synthesis this enumeration
-        # lists. Anchored at the repo it would list the main checkout, which
-        # never holds them, and the run would report reading all of nothing.
-        "EXISTING_WORK": act.existing_work(worktree, worktree / rel_research),
-        "SUBMIT_PROMPT": act.submit_prompt(pr_number, "plan-sprint: place the ruled candidates and update the sprint plan"),
-        "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
-        "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
-    }
+    values = prompt_values(rel_sprint, rel_candidates, rel_research,
+                           worktree, counts, correction_pass, pr_number)
 
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "plan_sprint.md"), values),
@@ -264,7 +283,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # OBSERVE, DO NOT ASSERT. The prompt forbids writing `decision`; this reads
     # the file to check it did not. An authority transfer stated only in prose is
     # a convention a model can reason past — this is the mechanism.
-    after = own.candidate_decisions(wt_candidates)
+    after = act.candidate_decisions(wt_candidates)
     moved = sorted(_rulings_this_run_had_no_right_to(before, after))
     if moved:
         raise RuntimeError(
@@ -332,7 +351,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # and it destroys the record of work rather than fabricating one. Editing a
     # completed milestone's TEXT already failed here as an added tick, so a
     # reworded box was never legitimate and symmetry adds no new false positive.
-    after_boxes = own.checked_boxes(wt_sprint)
+    after_boxes = act.checked_boxes(wt_sprint)
     ticked = sorted((after_boxes - before_boxes).elements())
     erased = sorted((before_boxes - after_boxes).elements())
     if ticked or erased:

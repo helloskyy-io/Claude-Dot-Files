@@ -32,6 +32,22 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 LINK = re.compile(r"\[[^\]]+\]\((?!https?:|mailto:|#|/)([^)\s]+?)(?:#[^)]*)?\)")
 
 SEARCHED = ("*.md", "*.py")
+
+# MATCHED AGAINST THE PATH RELATIVE TO `REPO_ROOT`, NEVER THE ABSOLUTE ONE, and
+# that is not a tidiness point — it decided whether this check ran at all.
+#
+# `rglob` yields ABSOLUTE paths, so `set(p.parts)` carries every segment of the
+# prefix above the repo too. An autonomous dispatch works in
+# `<repo>/.claude/worktrees/<name>/`, which puts BOTH `.claude` and `worktrees`
+# in the prefix of every single file — so the intersection below matched
+# everything, `_files()` returned zero, and the check reported nothing to scan.
+# It passed from the operator's main checkout and could not run from a worktree,
+# which is where EVERY autonomous run works. Measured at `4cf4c55`, same commit
+# on both sides: 0 files from the worktree, 241 from the operator's checkout.
+#
+# The vacuity guard in the test is what surfaced it — the assertion it exists for
+# has never once run in a dispatch, and without that guard the suite would have
+# reported green over a scan of nothing.
 SKIP_PARTS = {".git", "__pycache__", "worktrees", "node_modules", ".claude"}
 
 # SKILLS TEACH BY EXAMPLE, AND THEIR LINKS DESCRIBE A HYPOTHETICAL REPO.
@@ -76,11 +92,12 @@ def _files() -> list[Path]:
     out: list[Path] = []
     for pattern in SEARCHED:
         for p in REPO_ROOT.rglob(pattern):
-            if SKIP_PARTS & set(p.parts):
+            rel = p.relative_to(REPO_ROOT)
+            if SKIP_PARTS & set(rel.parts):
                 continue
             if any(d in p.parents for d in SKIP_DIRS):
                 continue
-            if not _owned(p.relative_to(REPO_ROOT)):
+            if not _owned(rel):
                 continue
             out.append(p)
     return sorted(out)

@@ -101,7 +101,7 @@ def test_the_workflow_sweep_finds_the_tables_it_is_meant_to() -> None:
     is the moment somebody confirms its table is now covered.
     """
     found = {p.id for p in WORKFLOWS}
-    assert found == {"triage-candidates", "plan-sprint"}, (
+    assert found == {"triage-candidates", "plan-sprint", "plan-feature"}, (
         f"the MAY_NOT_OBSERVERS sweep found {sorted(found)}. If a workflow "
         f"vanished, this module is silently no longer checking its "
         f"authorization table; if one appeared, add its id here to confirm it "

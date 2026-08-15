@@ -114,7 +114,14 @@ def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
 
     values = {
         "DESCRIPTION": description,
-        "CONTEXT_BLOCK": context_block(context, act.evidence_block(repo_root)),
+        # THE WORKTREE, not the repo, and this was `repo_root` until the same
+        # defect was caught one caller over. `evidence_block` enumerates the pools
+        # and COUNTS their papers; anchored at the repo it describes the main
+        # checkout while the run reads and writes somewhere else, so a pool this
+        # branch added is invisible and every count is the wrong branch's. Not a
+        # refactor of this workflow — the identical one-argument fix its sibling
+        # took, applied where the function's own parameter is now named `tree`.
+        "CONTEXT_BLOCK": context_block(context, act.evidence_block(worktree)),
         # The two bodies V1 interpolates from heredocs. They are the ~23kB that a
         # prior port dropped; they are loaded here, and their arrival intact is
         # asserted by the parity suite rather than assumed.

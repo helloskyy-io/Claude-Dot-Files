@@ -53,6 +53,11 @@ class _Calls:
         self.correction_passes: list[bool] = []
         self.research_pools: list[Path] = []
         self.sprint_pools: list[Path] = []
+        # Every `component` the plan-feature child was handed. REPO-ROOTED by the
+        # child's contract, which is the half of this seam worth asserting: the
+        # parent holds a WORKTREE path and every other child takes one, so the
+        # re-anchoring is a place a correct-looking call is silently wrong.
+        self.planned: list[Path] = []
         # (tree, argv, children dispatched SO FAR) for every git read the parent
         # makes. The third element is what turns "it pinned a base" into "it
         # pinned it before anything could move".
@@ -85,6 +90,12 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         calls.order.append("research")
         return PR_URL
 
+    def fake_feature(**kw: object) -> str:
+        calls.planned.append(kw["component"])
+        calls.order.append("feature")
+        return PR_URL
+
+    monkeypatch.setattr(pm.feature, "run_plan_feature", fake_feature)
     monkeypatch.setattr(pm.triage, "run_triage_candidates", fake_triage)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_sprint)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
@@ -177,16 +188,24 @@ def test_triage_runs_BEFORE_the_sprint_plan_is_touched(wired: _Calls, monkeypatc
 def test_research_sits_BETWEEN_triage_and_the_sprint_plan(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The gap is the whole point of the split, so its position is pinned.
 
-    `plan-candidates` and `plan-feature` land in this same gap later. If the
-    research fan-out drifted to either end, the position they are meant to
-    occupy would quietly stop existing.
+    `plan-candidates` and `plan-feature` were the work the gap was made for, and
+    both have now landed in it — `plan-candidates` as an activity ahead of the
+    research step, `plan-feature` as a child behind it. If the research fan-out
+    drifted to either end, the position they occupy would quietly stop existing.
+
+    **`plan-feature` sits between research and the sprint plan, and BOTH sides of
+    that are load-bearing.** Ahead of research it would plan a component from a
+    pool that is still a one-line seed. Behind `plan-sprint` it would restore the
+    ordering defect the split existed to fix: the sprint plan updated before
+    anything had decomposed the work it sequences.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _with_sections(monkeypatch, "Alpha")
     _run()
-    assert wired.order == ["triage", "research", "sprint"], (
+    assert wired.order == ["triage", "research", "feature", "sprint"], (
         f"the parent dispatched {wired.order} — component research must run "
-        f"after the rulings exist and before the plan is written from them"
+        f"after the rulings exist, the component must be planned from the "
+        f"research that just landed, and the sprint plan must be maintained last"
     )
 
 
@@ -361,8 +380,9 @@ def test_plan_candidates_runs_AFTER_triage_and_BEFORE_research(
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _with_scaffolded(monkeypatch, "Alpha")
     _run()
-    assert wired.order[:3] == ["triage", "research", "sprint"], (
-        f"expected triage then the scaffolded component's research, got {wired.order}")
+    assert wired.order[:3] == ["triage", "research", "feature"], (
+        f"expected triage, then the scaffolded component's research, then its "
+        f"plan written from that research, got {wired.order}")
 
 
 def test_the_scaffolded_components_ARE_the_research_step_input(

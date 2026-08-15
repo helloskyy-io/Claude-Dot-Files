@@ -310,11 +310,14 @@ claude-dot-files/
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
 │           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
-│           │                                        #   plan/ holds plan_project (parent) and three children: triage_candidates and
-│           │                                        #   plan_sprint (both wired, in that order — triage rules the candidates, sprint
-│           │                                        #   places what they ruled; split apart so planning can sit between them). What
-│           │                                        #   sits between them is plan-candidates — an ACTIVITY, not a child: no prompt,
-│           │                                        #   no model, it scaffolds a research pool per shipped candidate and is what
+│           │                                        #   plan/ holds plan_project (parent) and its wired children in order:
+│           │                                        #   triage_candidates rules the candidates, plan_feature writes ONE component's
+│           │                                        #   roadmap.md and numbered phaseN_*.md docs from its research, plan_sprint places
+│           │                                        #   what they ruled — split apart so planning could sit between the first and last.
+│           │                                        #   plan_feature is the WRITE half only: it sizes NOTHING (plan-verify, the
+│           │                                        #   fresh-context reviewer, does — and does not exist yet) and writes no sprint.md.
+│           │                                        #   Ahead of the research step sits plan-candidates — an ACTIVITY, not a child: no
+│           │                                        #   prompt, no model, it scaffolds a research pool per shipped candidate and is what
 │           │                                        #   gave the research step a reachable input again. Also
 │           │                                        #   plan_revision (ported, NOT yet wired into plan_project — see its docstring);
 │           │                                        #   plan_revision/prompts/*.md are GENERATED from plan-revision.sh, never retyped
@@ -335,9 +338,11 @@ claude-dot-files/
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
 │           │                                        #   different parents, different model keys, separately-budgeted turn caps
-│           │                                        #   triage_candidates.sh / plan_sprint.sh are siblings for the same reason: two
-│           │                                        #   jobs, two model keys, two turn caps. Each runs standalone against the real
-│           │                                        #   queue AND is called in order by plan_project.sh
+│           │                                        #   triage_candidates.sh / plan_feature.sh / plan_sprint.sh are siblings for the same
+│           │                                        #   reason: three jobs, three model keys, three turn caps. Each runs standalone AND
+│           │                                        #   is called in order by plan_project.sh. plan_feature.sh takes ONE component
+│           │                                        #   directory, which is also the cheap way to exercise it — 14 of this repo's 16
+│           │                                        #   components under docs/development/ have no roadmap and no phase docs
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
 │               ├── fixtures/                        # MEASURED inputs, not written ones
@@ -409,6 +414,11 @@ claude-dot-files/
 │                   │                                #   returned a green run — a deleted operator ruling, a deleted sprint plan, one renamed
 │                   │                                #   out of the tree, an erased tick. Plus an AST gate binding every declared write grant
 │                   │                                #   to a deletion check, so a grant added later is covered without anyone remembering
+│                   ├── test_dry_run_previews_the_dispatched_prompt.py # No runner hand-assembles the prompt values a
+│                   │                                #   workflow already assembles. An AST sweep over scripts/run_*.py: the second argument
+│                   │                                #   to render() may not be a dict literal, nor a runner-local call one indirection down.
+│                   │                                #   Keyed on the SHAPE because the instance was fixed twice and reproduced twice — a
+│                   │                                #   preview that is wrong looks exactly like one that is right
 │                   ├── test_loop_cap_prose_is_counted.py # No workflow ASSERTS a loop cap; it reads one, or its own MAX_LOOPS really is 1.
 │                   │                                #   An AST census over string literals, with the enclosing conditional's test inspected
 │                   │                                #   so a counted sentence passes and a flat one does not. Five sites drifted when
@@ -426,6 +436,10 @@ claude-dot-files/
 │                   ├── test_plan_project_loop.py     # The plan parent's bounded loop-back and its fail-safe-to-human routing, plus the
 │                   │                                #   Step 1b wiring that gave the research step a reachable input again, and that
 │                   │                                #   every field of `Scaffolded` reaches the operator as its own note
+│                   ├── test_plan_feature.py         # plan-feature's four OWN prohibitions, each exercised where the guards disagree: a
+│                   │                                #   renumber is caught as a DELETION (both name guards pass it), a gap is not a free
+│                   │                                #   number, and the hour detector does NOT fire on the three prose uses of "hours"
+│                   │                                #   that exist in this tree — a word-keyed pattern would fail three correct runs
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
 │                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,
