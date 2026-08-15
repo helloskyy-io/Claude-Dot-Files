@@ -65,7 +65,21 @@ phase_docs_of = act.phase_docs
 # somebody put there on purpose, and `boundary_crossings` cannot see it either.
 # What it must not do is masquerade as a phase COUNT — `plan_inventory` says
 # "reference(s)" and lists the component's own docs separately for that reason.
-_PHASE_REF = re.compile(r"\bphase\d+[a-z]?_[a-z0-9_-]+\.md\b", re.I)
+# THE DESCRIPTOR IS OPTIONAL, AND MAKING IT REQUIRED WAS A HOLE. This read
+# `phase\d+[a-z]?_[a-z0-9_-]+\.md` — underscore-plus-descriptor mandatory — while
+# its PAIRED reader `act._LOOKS_LIKE_A_PHASE` deliberately accepts a legacy
+# `PHASE3.MD` and says so in its own comment. The pair is the whole mechanism:
+# `phase_docs_of` sees the FILE and this sees the POINTER, and a link the roadmap
+# drops while leaving the file on disk is visible to neither if only one of them
+# recognises the name. So a judge could delete a legacy-named phase's roadmap
+# entry — the exact re-planning offence this reader exists for — and return a
+# green run. One reader claiming coverage the other does not reciprocate is the
+# same class as a docstring claiming a behaviour the code does not have.
+#
+# THE DIGIT STAYS REQUIRED, and it is what keeps this off ordinary prose:
+# `phases.md`, `phase.md` and `phase_notes.md` do not match, and neither does
+# *"see Phase 3 of the memory doc"* — measured against both, not assumed.
+_PHASE_REF = re.compile(r"\bphase\d+[a-z]?[a-z0-9_-]*\.md\b", re.I)
 
 
 def roadmap_hours(component: Path) -> Counter:
@@ -146,13 +160,65 @@ def roadmap_phase_links(component: Path) -> Counter:
     artifact is `sprint.md` and IS observed. And a roadmap that links no phase
     doc at all yields an empty Counter on both sides, which passes vacuously;
     `plan_inventory` puts the link count in front of the model for that reason,
-    and the workflow's deliverable guard is what fails a component with no phases.
+    and `sizing_floor` is what stops that same emptiness disabling the
+    deliverable guard. **That sentence used to say the deliverable guard "fails a
+    component with no phases", and it was FALSE** — the guard compared against
+    `len(phase_docs)`, so on a component with none the comparison was `sum < 0`
+    and the guard could not fire at all. A docstring asserting what a DIFFERENT
+    object does is the one claim nothing in this tree checks; this one was one
+    read from being believed. Corrected here, and the behaviour it names is now
+    real rather than the claim being deleted.
     """
     roadmap = component / ROADMAP
     if not roadmap.is_file():
         return Counter()
     return Counter(m.group(0).lower()
                    for m in _PHASE_REF.finditer(roadmap.read_text(errors="replace")))
+
+
+def sizing_floor(component: Path, docs: dict[str, str]) -> int:
+    """The MINIMUM number of hour estimates a correct run leaves in the roadmap.
+
+    A SEPARATE FUNCTION BECAUSE THE FLOOR IS THE GUARD, and the guard was a
+    NO-OP for the exact shape the design decision was made for. It read
+    `sum(hours) < len(phase_docs)` inline, and `phase_docs` counts FILES ON DISK.
+    A component whose phases are ALL GATED has a roadmap entry per phase and no
+    doc for any of them — which is the whole reason the estimates live in
+    `roadmap.md` and not in phase docs — so the count was 0, the comparison was
+    `sum < 0`, and a run could write ZERO estimates, raise nothing, and print
+    `SIZED` at the operator. The one output this workflow exists to produce was
+    unenforced precisely where it matters most.
+
+    THE CLASS, STATED SO THE NEXT FLOOR IS NOT WRITTEN THE SAME WAY: a threshold
+    derived from a count that can legitimately be zero is a guard its own input
+    can switch off. Narrowing a floor is safe — it cannot fail a correct run —
+    right up to the point it reaches zero, at which it stops being narrow and
+    starts being absent. The distinction is invisible in the arithmetic.
+
+    THE FLOOR IS ONE WHEN THERE IS A PLAN AND NO DOCS, and one is chosen rather
+    than the true phase count because the true count is not derivable:
+
+      * `roadmap_phase_links` cannot supply it — a GATED phase has no doc, so
+        there is no `phaseN_*.md` for the roadmap to link, and it counts
+        CROSS-COMPONENT links besides.
+      * Counting roadmap HEADINGS needs a heading grammar the Documentation
+        Standard does not fix, and would fail correct runs written to a spelling
+        it did not anticipate.
+
+    So this closes the TOTAL collapse (a run that sized nothing) and not the
+    PARTIAL one (an all-gated component with six phases still passes on one
+    estimate). That residual is real, is narrower than what it replaces, and is
+    pinned by a test rather than assumed. The sufficient check remains the
+    reviewer reading the report, which the guard's message says outright.
+
+    NO ROADMAP MEANS NO FLOOR, and that is not a loophole: `plan_inventory` tells
+    a run that finds no roadmap to size nothing and stop, `run_plan_verify`
+    refuses to launch without one, and a floor here would fail that correct run
+    at the last guard for obeying its instructions.
+    """
+    if not (component / ROADMAP).is_file():
+        return 0
+    return max(len(docs), 1)
 
 
 def plan_inventory(component: Path, tree: Path) -> str:

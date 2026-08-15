@@ -86,7 +86,7 @@ def _dry_run(task: ReviewInput, repo_root: Path) -> int:
     print(f"  Pass     : {this_pass} (prior: {prior_pass})")
     print(f"  Type     : {task.review_type.value}")
     print(f"  Model key: {helper.MODEL_KEY}")
-    print(f"  Prompt   : {len(rendered)} bytes rendered, 0 placeholders remaining")
+    print(f"  Prompt   : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
     return 0
 
 

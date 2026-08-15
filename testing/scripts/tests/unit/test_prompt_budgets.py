@@ -50,7 +50,15 @@ BUDGETS: dict[str, int] = {
     # `main`, so it is the first file to meet this gate rather than be measured
     # into it. Same rule, one commit later — the number is today's size and its
     # job is to make the NEXT addition a trade.
-    "plan/plan_feature/prompts/plan_feature.md": 17_821,
+    # RAISED 17,821 -> 18,051 (+230) on 2026-08-15, and the raise IS the trade
+    # this gate exists to force. The prompt told the model *"`plan-verify` … does
+    # not exist yet"*, which the same PR that built `plan-verify` made false. The
+    # correction is longer than the sentence it replaces because it has to say
+    # what the reader now DOES — reads the roadmap cold, writes the hours this
+    # prompt forbids, answers the question this run cannot ask of itself — and
+    # that changes what the model writes, which is this table's own bar for a
+    # raise. Measured with `wc -c`, in BYTES.
+    "plan/plan_feature/prompts/plan_feature.md": 18_051,
     "research/research_verify/prompts/verify.md": 15_510,
     # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_feature.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than

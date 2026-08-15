@@ -9,7 +9,7 @@ import argparse, sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import preflight, resolve_operator_paths  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_verify import plan_verify_activities as own  # noqa: E402
 from modules.assistant.plan.plan_verify import plan_verify_workflow as wf  # noqa: E402
@@ -35,34 +35,28 @@ def main(argv=None) -> int:
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
     a = p.parse_args(argv)
 
-    try:
-        repo_root = preflight(a.repo_target)
-    except RuntimeError as exc:
-        # Nothing has been created yet — that is the point of preflight.
-        print(f"\n✗ {exc}", file=sys.stderr)
-        return 1
-
     # RESOLVED AGAINST THE REPO, and rejected if it escapes. `--repo` and a
     # component path are two independent operator inputs, and `../../elsewhere`
     # would otherwise size a plan outside the tree the run is reviewing. BOTH
     # operator paths are checked, not only the component one — `--candidates` is
     # as free-form, and the sibling runner shipped a drift where the live path
     # relativised it and the dry run printed the raw argument.
-    component = (repo_root / a.component).resolve()
-    cands = (repo_root / a.candidates).resolve()
-    for label, arg, path in (("component", a.component, component),
-                             ("candidates", a.candidates, cands)):
-        if not path.is_relative_to(repo_root):
-            print(f"\n✗ {label} {arg} resolves outside the repo: {path}",
-                  file=sys.stderr)
-            return 1
-    for label, path in (("component", component), ("candidates", cands)):
-        if not path.exists():
-            print(f"\n✗ {label} not found: {path}", file=sys.stderr)
-            return 1
-    if not component.is_dir():
-        print(f"\n✗ component is not a directory: {component}", file=sys.stderr)
+    #
+    # THE CHECK ITSELF LIVES IN `preflight`, one caller over from where it was
+    # written: it had two byte-identical consumers, and §10.1 rule 3 decides that
+    # mechanically. Two copies of a path-escape check drift in one direction —
+    # the next hardening lands in one entrypoint and the other keeps accepting
+    # what it now refuses.
+    try:
+        repo_root = preflight(a.repo_target)
+        resolved = resolve_operator_paths(
+            repo_root, {"component": a.component, "candidates": a.candidates},
+            directories=("component",))
+    except RuntimeError as exc:
+        # Nothing has been created yet — that is the point of preflight.
+        print(f"\n✗ {exc}", file=sys.stderr)
         return 1
+    component, cands = resolved["component"], resolved["candidates"]
 
     # REFUSED BEFORE ANYTHING IS CREATED, not diagnosed after a dispatch. There
     # is nothing here to verify without a plan, and the failure a run would
@@ -92,8 +86,15 @@ def main(argv=None) -> int:
             print(f"  Phase docs : {len(phases)} of its own · "
                   f"{len(own.roadmap_phase_links(component))} phase-doc "
                   f"reference(s) in the roadmap, cross-component links included")
+            # THE FLOOR FROM THE SAME FUNCTION THE GUARD USES, not `len(phases)`
+            # recomputed here. The two disagree on an all-gated component — the
+            # guard's floor is one, a phase-doc count is zero — and a dry run
+            # printing a floor the live run does not enforce is the preview-is-
+            # not-the-artifact drift `prompt_values` exists to prevent, one line
+            # over.
             print(f"  Sized now  : {sum(own.roadmap_hours(component).values())} "
-                  f"estimate(s) in {own.ROADMAP} (floor is {len(phases)})")
+                  f"estimate(s) in {own.ROADMAP} "
+                  f"(floor is {own.sizing_floor(component, phases)})")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
             print(f"  Grants     : "
                   f"{', '.join(wf.permitted_paths(rel, cands.relative_to(repo_root)))}")

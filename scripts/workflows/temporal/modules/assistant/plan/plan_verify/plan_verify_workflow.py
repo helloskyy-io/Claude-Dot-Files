@@ -8,9 +8,12 @@ other two families finished first.** Research is `research-write` ->
 `research-verify` because *"a separate fresh-context run verifies it… the run
 that wrote an artifact defends it"*; build is `build-draft` -> `build-refine`
 because *"the fresh context is the point, not an implementation detail."*
-`plan-feature` shipped as the write half with its judge named and unbuilt, and
-its own docstring says so: *"`plan-verify` is the fresh-context reviewer, and it
-DOES NOT EXIST YET."* This is that reviewer.
+`plan-feature` shipped as the write half with its judge named and unbuilt — its
+docstring said outright that this workflow *did not exist yet*. This is that
+reviewer, and that sentence is now corrected at all three places `plan-feature`
+made it, rather than left standing as the quotation it used to be here. A
+quotation attributed to a file it no longer appears in is the defect C-084
+proposes gating; repeating it to justify this module would have created one.
 
 IT IS A SEPARATE WORKFLOW AND NOT A STAGE, on the argument that made
 `triage-candidates` its own run: a judge inside the producing dispatch shares the
@@ -112,6 +115,25 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # which is the only ordering that makes a reviewer's boundary say what it means:
 # an allowlist alone would say nothing about the sibling components, and
 # `sprint.md` lives in that same directory.
+#
+# THIS TUPLE IS NOW BYTE-IDENTICAL TO `plan_feature`'s AND `triage_candidates`',
+# AND IT IS DELIBERATELY NOT PROMOTED. A review pass raised it as §10.1 rule 3 —
+# three consumers, consumer count decides — and the disposition is REJECTED, with
+# the reasoning recorded here so it is not re-derived every time somebody counts
+# to three.
+#
+# The rule promotes what more than one workflow USES. These three do not use one
+# thing: each DERIVES its own boundary from its own prompt's `You MAY NOT` table,
+# and the three tables currently happen to forbid the same paths. `plan_sprint`'s
+# is already a different two-pattern set, for a reason specific to it — it holds
+# the family's only override to write `sprint.md`. Promoting the coincidence would
+# make a reword of one prompt's table silently change three workflows'
+# authorization boundaries, which is a strictly worse failure than the
+# three-lockstep-edits it avoids: the edits at least appear in a diff.
+#
+# The mechanism that keeps these honest is `MAY_NOT_OBSERVERS`, which is keyed by
+# each row's exact prompt text and fails when a row is reworded. That is the
+# coupling worth having, and it is per-workflow by construction.
 FORBIDDEN_PATHS = (
     r"^docs/development/",      # "Edit a phase doc, or anything under another component"
     r"(^|/)sprints?\.md$",      # "Touch `sprint.md` at all" — also caught above,
@@ -492,13 +514,24 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     # THE FLOOR IS ALSO THE PHASE-DOC COUNT, WHICH IS NARROWER STILL. A GATED
     # phase has a roadmap entry and no doc, and it still needs sizing — the
     # prompt says so and this cannot count it.
+    #
+    # AND NARROWER HAS A BOTTOM, WHICH THE ARGUMENT ABOVE DID NOT REACH. Every
+    # sentence of it is true while there is at least one phase doc; at ZERO —
+    # the all-gated component, the shape the roadmap-as-home decision was MADE
+    # for — `sum < 0` is unsatisfiable and the guard is not narrow, it is
+    # absent. `own.sizing_floor` owns the threshold now, states that class in
+    # full, and keeps the floor at one when a plan exists.
     hours = own.roadmap_hours(wt_component)
-    if sum(hours.values()) < len(before_phases):
+    floor = own.sizing_floor(wt_component, before_phases)
+    if sum(hours.values()) < floor:
         found = own.hour_citations(wt_component, worktree) or ["(none)"]
+        basis = (f"{len(before_phases)} phase doc(s)" if before_phases else
+                 "a `roadmap.md` whose phases are ALL GATED — every one of them "
+                 "still gets an estimate, and one is the least this can prove")
         raise RuntimeError(
             f"plan-verify left `{rel_component}` UNSIZED: its `roadmap.md` carries "
-            f"{sum(hours.values())} hour estimate(s) against "
-            f"{len(before_phases)} phase doc(s). What is there:\n  "
+            f"{sum(hours.values())} hour estimate(s) against a floor of {floor}, "
+            f"from {basis}. What is there:\n  "
             + "\n  ".join(found)
             + f"\nSizing is this workflow's whole load-bearing output — "
             f"`plan-feature` writes no hours and FAILS ITS RUN on one, so until "

@@ -56,7 +56,7 @@ def main(argv=None) -> int:
                                  cands.relative_to(repo_root),
                                  research.relative_to(repo_root),
                                  repo_root, counts, False, None))
-            print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
+            print(f"  Prompt     : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
             return 0
 
         worktree = act.worktree_add(repo_root, f"plan-sprint-{int(time.time())}", "HEAD")

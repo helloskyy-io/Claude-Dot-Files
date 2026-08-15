@@ -15,7 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-__all__ = ["resolve_repo_root", "require_dependencies", "preflight"]
+__all__ = ["resolve_repo_root", "require_dependencies", "preflight",
+           "resolve_operator_paths"]
 
 # Every workflow imports these. A missing one is not a crash mid-run — it is a
 # crash AFTER the worktree exists, which is how a stranded worktree happens.
@@ -71,6 +72,51 @@ def require_dependencies(names: tuple[str, ...] | None = None) -> None:
             f"Install them into the interpreter running this workflow "
             f"({sys.executable}), then re-run. Nothing was created."
         )
+
+
+def resolve_operator_paths(repo_root: Path, paths: dict[str, str],
+                           directories: tuple[str, ...] = ()) -> dict[str, Path]:
+    """Resolve free-form operator paths against the repo, and refuse the escapes.
+
+    PROMOTED HERE BECAUSE TWO ENTRYPOINTS CARRIED IT BYTE-IDENTICALLY, which is
+    the whole test §10.1 rule 3 applies — *"if and only if more than one workflow
+    uses it… the consumer count decides, never taste."* It is not a tidiness
+    promotion: this block is what stops `../../elsewhere` sending a run to write
+    outside the tree it was pointed at, and **two copies of a boundary check
+    drift in one direction only**. The next hardening — symlink resolution, a
+    denylist, a `.git` check — lands in whichever entrypoint the author had open,
+    and the other keeps accepting what the first now refuses, with nothing in any
+    diff to show for it.
+
+    THE ORDER OF THE THREE PASSES IS OPERATOR-FACING BEHAVIOUR, not an
+    implementation detail, so it is preserved exactly: every escape is reported
+    before any absence, and the directory check comes last. An operator who
+    passed two bad paths gets told about the more serious problem with both of
+    them rather than about the first one twice.
+
+    RAISES `RuntimeError` LIKE ITS NEIGHBOURS, so a caller can catch this and
+    `preflight` in one clause and print one way. The messages are the diagnostics
+    and are carried over verbatim from the entrypoints — rewording them would
+    make a behaviour-preserving promotion a behaviour change.
+
+    `directories` NAMES THE LABELS THAT MUST BE A DIRECTORY, rather than being
+    inferred from the name: `component` is a directory and `candidates` is a
+    file, and a helper that guessed from the label would be wrong the first time
+    somebody passes `--research`.
+    """
+    resolved = {label: (repo_root / arg).resolve() for label, arg in paths.items()}
+
+    for label, arg in paths.items():
+        if not resolved[label].is_relative_to(repo_root):
+            raise RuntimeError(
+                f"{label} {arg} resolves outside the repo: {resolved[label]}")
+    for label, path in resolved.items():
+        if not path.exists():
+            raise RuntimeError(f"{label} not found: {path}")
+    for label in directories:
+        if not resolved[label].is_dir():
+            raise RuntimeError(f"{label} is not a directory: {resolved[label]}")
+    return resolved
 
 
 def preflight(repo_target: str | None) -> Path:

@@ -398,6 +398,16 @@ claude-dot-files/
 │                   │                                #   scan for a second `def`/`re.compile`, an exact-set gate on string splitting
 │                   │                                #   (three ad-hoc parses used to live there), the completion ERE checked against the
 │                   │                                #   extractor, and BOTH parity bounds for the owner/repo narrowing
+│                   ├── test_docstrings_do_not_promise_a_raise.py # A documented return-contract may not list an outcome
+│                   │                                #   the function cannot produce. Keyed on the TABLE form (two or more indented True/False/raises
+│                   │                                #   lines), never the word — a naive sweep flags seven correct functions. And the raise must be
+│                   │                                #   able to ESCAPE: wait_for_ci raises inside a try its own except catches, so any(ast.Raise)
+│                   │                                #   called the shipped defect correct
+│                   ├── test_no_prose_claims_a_shipped_workflow_is_UNBUILT.py # No prose says a workflow does not exist
+│                   │                                #   when its module is on disk. plan-feature said it in three places — a docstring, a prompt sent
+│                   │                                #   to the model, an operator banner — and the PR that built plan-verify falsified all three and
+│                   │                                #   updated none. The shipped set is derived from the tree, so a workflow landing retires every
+│                   │                                #   claim about it that day; historical phrasings are exempted deliberately
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
 │                   ├── test_model_gets_the_worktree_path.py # The path RENDERED to the model is the worktree-anchored one, not the
@@ -410,6 +420,12 @@ claude-dot-files/
 │                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced.
 │                   │                                #   Also the second half: every guard built on a `*_this_run_had_no_right_to`
 │                   │                                #   comparator must render `id 'before'->'after'`, found by AST rather than listed
+│                   ├── test_a_grant_follows_its_flag.py # A write grant on an operator-supplied path is DERIVED from that
+│                   │                                #   path, never named. Discovered from the RUNNERS — any run_*.py declaring --candidates must
+│                   │                                #   reach a workflow whose grant honours it — and asserted by CALLING each grant with a pool
+│                   │                                #   that is not this repo's, because a workflow can carry the literal in a comment and still
+│                   │                                #   derive correctly. Three of four hard-coded it, which failed a correct --repo run at the
+│                   │                                #   LAST guard and presented as "the flag is broken"
 │                   ├── observer_registry.py         # ONE resolver for both observer registries — does this entry name code that EXISTS?
 │                   │                                #   A helper module, not a test module. Shared rather than copied for the reason
 │                   │                                #   normalise_cell exists: two copies drift, and the weaker one silently stops catching

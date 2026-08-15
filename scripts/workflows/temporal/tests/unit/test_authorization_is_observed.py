@@ -235,11 +235,11 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
                  "docs/standards/architecture/research/direction.md")
     for path in forbidden:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.PERMITTED_PATHS) == [path], (
+                                      triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research"))) == [path], (
             f"triage-candidates may edit {path} undetected")
     for path in permitted:
         assert act.boundary_crossings({}, {path: "h"}, triage.FORBIDDEN_PATHS,
-                                      triage.PERMITTED_PATHS) == [], (
+                                      triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research"))) == [], (
             f"triage-candidates cannot do its job: {path} is blocked")
 
 
@@ -253,7 +253,7 @@ def test_plan_sprint_permits_only_its_override_and_the_proposal_file() -> None:
     separately, so permitting the path does not permit a ruling.
     """
     rel_sprint = "docs/development/sprint.md"
-    allowed = sprint.permitted_paths(rel_sprint)
+    allowed = sprint.permitted_paths(rel_sprint, "docs/standards/architecture/research/candidates.md")
     for path in (rel_sprint, "docs/standards/architecture/research/candidates.md"):
         assert act.boundary_crossings({}, {path: "h"}, sprint.FORBIDDEN_PATHS,
                                       allowed) == [], f"plan-sprint blocked from {path}"
@@ -274,7 +274,7 @@ def test_a_sprint_file_kept_somewhere_else_is_still_the_permitted_one() -> None:
     """
     rel = "planning/current-sprint.md"
     assert act.boundary_crossings({}, {rel: "h"}, sprint.FORBIDDEN_PATHS,
-                                  sprint.permitted_paths(rel)) == []
+                                  sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == []
 
 
 # --- what a guard SAYS when it fires ----------------------------------------

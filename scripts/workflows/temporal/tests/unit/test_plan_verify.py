@@ -207,6 +207,60 @@ def test_TWO_phases_sized_IDENTICALLY_count_as_two(tree: Path) -> None:
     assert sum(own.roadmap_hours(c).values()) == 2
 
 
+@pytest.mark.parametrize("name,is_a_reference", [
+    ("phase1_the_first_thing.md", True),
+    ("phase2a_a_sub_phase.md", True),
+    ("phase12_a-b.md", True),
+    # THE LEGACY SPELLINGS. `act._LOOKS_LIKE_A_PHASE` accepts these and its own
+    # comment says why — *"a legacy PHASE3.MD is a phase doc whoever spelled
+    # it"*. The pointer reader required an underscore and therefore did not, so a
+    # judge could drop a legacy-named phase's roadmap ENTRY and neither guard saw
+    # it: the file was still on disk, and the link was invisible to the link
+    # counter. One reader claiming coverage its pair does not reciprocate.
+    ("phase3.md", True),
+    ("PHASE3.MD", True),
+    # AND THE DIGIT IS WHAT KEEPS IT OFF PROSE. Widening far enough to admit
+    # these would make the re-planning guard fire on a reworded sentence, which
+    # is a guard failing correct work — the direction that gets guards deleted.
+    ("phases.md", False),
+    ("phase.md", False),
+    ("phase_notes.md", False),
+])
+def test_the_POINTER_reader_matches_every_name_the_FILE_reader_would(
+        tree: Path, name: str, is_a_reference: bool) -> None:
+    """THE PAIR HAS TO AGREE, because neither guard covers the gap alone.
+
+    `phase_docs_of` watches the FILE and `roadmap_phase_links` watches the
+    POINTER. A name one recognises and the other does not is a phase whose
+    roadmap entry can be deleted with the file left in place — invisible to the
+    disappearance guard (nothing vanished) and to the link guard (it never
+    counted the link). Asserted per name rather than as a rule, so the two
+    readers' disagreement is what fails rather than someone noticing it.
+    """
+    c = _component(tree)
+    _write(c, own.ROADMAP, f"# Alpha\n\nSee [`{name}`]({name}).\n")
+    assert bool(own.roadmap_phase_links(c)) is is_a_reference
+    if is_a_reference:
+        _write(c, name)
+        assert name in own.phase_docs_of(c), (
+            "the FILE reader must accept every name the POINTER reader does, or "
+            "the pair disagrees in the other direction")
+
+
+def test_ordinary_roadmap_PROSE_is_not_read_as_a_phase_reference(tree: Path) -> None:
+    """NEGATIVE CONTROL for the widening above, on real sentences.
+
+    The re-planning guard compares link counts either side of the run, so a
+    reader that matched prose would fire on a judge REWORDING a paragraph — which
+    is a legitimate act on the one file it may write.
+    """
+    c = _component(tree)
+    _write(c, own.ROADMAP,
+           "# Alpha\n\nSee Phase 3 of the memory doc. Phase 12 delivers the bag.\n"
+           "The phase.md convention is dead and phases.md is the index.\n")
+    assert own.roadmap_phase_links(c) == Counter()
+
+
 def test_a_MISSING_roadmap_is_an_empty_counter_and_not_an_error(tree: Path) -> None:
     """The caller turns absence into a message about the plan, not a traceback."""
     assert own.roadmap_hours(_component(tree, "beta")) == Counter()
@@ -659,7 +713,8 @@ def test_a_run_that_SIZES_NOTHING_fails_as_UNSIZED(
     c = _planned(tree, roadmap=_SIZED_ROADMAP.replace(" (~8 hrs)", "").replace(" (~12 hrs)", ""))
     message = _drive(monkeypatch, tree, lambda: (c / own.ROADMAP).write_text(
         (c / own.ROADMAP).read_text() + "\nRead it and it looks fine.\n"))
-    assert "UNSIZED" in message and "0 hour estimate(s) against 2 phase doc(s)" in message
+    assert "UNSIZED" in message
+    assert "0 hour estimate(s) against a floor of 2, from 2 phase doc(s)" in message
 
 
 def test_a_PARTIALLY_sized_plan_fails_too(
@@ -673,10 +728,84 @@ def test_a_PARTIALLY_sized_plan_fails_too(
     """
     c = _planned(tree, roadmap=_SIZED_ROADMAP.replace(" (~12 hrs)", ""))
     message = _drive(monkeypatch, tree, lambda: None)
-    assert "1 hour estimate(s) against 2 phase doc(s)" in message
+    assert "1 hour estimate(s) against a floor of 2, from 2 phase doc(s)" in message
     assert "roadmap.md:3: ~8 hrs" in message, (
         "the message must cite what WAS written; 'somewhere in the roadmap' "
         "sends the operator to grep for it")
+
+
+@pytest.mark.parametrize("docs", [0, 1, 2, 5])
+def test_the_sizing_floor_is_NEVER_ZERO_however_many_phase_docs_exist(
+        tree: Path, docs: int) -> None:
+    """CLASS: A THRESHOLD DERIVED FROM A COUNT THAT CAN BE ZERO IS A GUARD ITS
+    OWN INPUT CAN SWITCH OFF.
+
+    KEYED ON THE CLASS AND NOT ON THE INSTANCE, which is the whole point of
+    parameterising over the doc count rather than asserting the all-gated case
+    alone. The shipped guard read `sum(hours) < len(phase_docs)` inline. Every
+    word of the argument above it was true — narrower is safe, a floor cannot
+    fail a correct run — and all of it stopped applying at zero, where `sum < 0`
+    is unsatisfiable and the guard is not narrow but ABSENT. A run could write no
+    estimates at all, raise nothing, and print `SIZED` at the operator.
+
+    ZERO IS NOT A HYPOTHETICAL SHAPE HERE, it is the one the design decision was
+    made FOR: hours live in `roadmap.md` rather than in phase docs precisely
+    because a GATED phase has a roadmap entry and no doc, and a component whose
+    phases are all gated therefore has no docs at all.
+
+    A later change that tightens the floor toward the true phase count SHOULD
+    keep this green — it asserts a lower bound, not an exact figure. A change
+    that makes it fail has re-derived the floor from something that can vanish.
+    """
+    c = _component(tree)
+    for n in range(docs):
+        _write(c, f"phase{n + 1}_a_thing.md")
+    _write(c, own.ROADMAP, "# Alpha\n\n## Phase 1 — gated on the fleet\n")
+    assert own.sizing_floor(c, own.phase_docs_of(c)) >= 1
+    assert own.sizing_floor(c, own.phase_docs_of(c)) >= docs
+
+
+def test_a_component_with_NO_phase_docs_at_all_still_fails_as_UNSIZED(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE SHIPPED DEFECT, DRIVEN END TO END. Discriminator for the fix above.
+
+    Reverting `sizing_floor` to `len(docs)` makes this the ONE test that fails —
+    the run returns the PR URL, the operator is told `SIZED`, and nothing was
+    sized. Every other test in this module stays green through that revert,
+    because every other fixture writes phase-doc files.
+    """
+    c = _component(tree)
+    _write(c, own.ROADMAP,
+           "# Alpha\n\n## Phase 1 — gated on the fleet\nNo doc yet; the gate is named.\n")
+    assert own.phase_docs_of(c) == {}, "the fixture's point is that there are none"
+
+    message = _drive(monkeypatch, tree, lambda: (c / own.ROADMAP).write_text(
+        (c / own.ROADMAP).read_text() + "\nRead it cold and it looks fine.\n"))
+    assert "UNSIZED" in message
+    assert "floor of 1" in message and "ALL GATED" in message, (
+        f"the message must say WHY the floor is one on a component with no "
+        f"phase docs, or it reads as an off-by-one; got {message!r}")
+
+
+def test_ONE_estimate_clears_the_floor_on_an_all_gated_component(
+        tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE RESIDUAL, PINNED RATHER THAN ASSUMED — and it is deliberately GREEN.
+
+    The floor closes the TOTAL collapse (a run that sized nothing) and not the
+    PARTIAL one: a six-phase all-gated component still passes on one estimate,
+    because the true phase count is not derivable — a gated phase has no doc for
+    the roadmap to link, and roadmap headings have no binding grammar.
+
+    NOT AN `xfail`, which would read as *known bug, someone will fix it*. This is
+    a checked limit with a stated reason. If a later change makes this test FAIL,
+    the floor got tighter and the right response is to REWRITE this test to the
+    new bound — not to restore the old behaviour to keep it green.
+    """
+    c = _component(tree)
+    _write(c, own.ROADMAP, "# Alpha\n\n## Phase 1 — gated\n## Phase 2 — also gated\n")
+    url = _harness(monkeypatch, tree, lambda: (c / own.ROADMAP).write_text(
+        "# Alpha\n\n## Phase 1 — gated (~8 hrs)\n## Phase 2 — also gated\n"))()
+    assert url == "https://github.com/o/r/pull/9"
 
 
 def test_a_CORRECTION_PASS_that_writes_no_new_hours_is_not_UNSIZED(

@@ -776,10 +776,13 @@ def test_triage_FAILS_when_it_reached_outside_its_authorization(
         _run_triage(tree)
 
 
-@pytest.mark.parametrize("path", [
-    "docs/standards/architecture/research/candidates.md",
-    "docs/standards/architecture/research/direction.md",
-])
+# THE FIXTURE'S OWN PATHS, WHICH ARE NOT THIS REPO'S. `_run_triage` passes
+# `candidates_path=tree / "c.md"` and `research_dir=tree / "r"`, and the grants
+# now DERIVE from those arguments rather than naming this repo's pool as a
+# literal. Spelling the repo's default here passed only because the grant ignored
+# what the run was pointed at — so this parametrize is now exercising the
+# non-default pool that `--candidates` and `--research` exist to reach.
+@pytest.mark.parametrize("path", ["c.md", "r/direction.md"])
 def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         path: str) -> None:
@@ -1009,11 +1012,12 @@ def test_a_direction_row_APPENDED_beside_a_ruled_one_is_still_clean(
     assert _run_triage(tree) == PR_URL
 
 
+# Same as above: the fixture's paths, because the grants derive from them now.
 @pytest.mark.parametrize("workflow,runner,path", [
-    (triage, _run_triage, "docs/standards/architecture/research/candidates.md"),
-    (triage, _run_triage, "docs/standards/architecture/research/direction.md"),
+    (triage, _run_triage, "c.md"),
+    (triage, _run_triage, "r/direction.md"),
     (sprint, _run_sprint, "sprint.md"),
-    (sprint, _run_sprint, "docs/standards/architecture/research/candidates.md"),
+    (sprint, _run_sprint, "c.md"),
 ], ids=["triage-candidates-file", "triage-direction-file",
         "sprint-plan", "sprint-candidates-file"])
 def test_NEITHER_workflow_may_delete_a_file_it_is_merely_PERMITTED_to_write(
@@ -1098,7 +1102,8 @@ def test_renaming_the_sprint_file_AWAY_is_seen_as_editing_it(repo: Path) -> None
                     "docs/development/notes.md"], cwd=str(repo), check=True,
                    capture_output=True)
     crossed = act.boundary_crossings(before, act.worktree_state(repo),
-                                     triage.FORBIDDEN_PATHS, triage.PERMITTED_PATHS)
+                                     triage.FORBIDDEN_PATHS,
+                                     triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research")))
     assert "docs/development/sprint.md" in crossed, (
         f"a renamed-away sprint plan read as untouched; observed {crossed}")
 
@@ -1114,13 +1119,15 @@ def test_an_uncommitted_edit_counts_and_so_does_a_committed_one(repo: Path) -> N
     before = act.worktree_state(repo)
     (repo / "docs" / "development" / "sprint.md").write_text("## Sprint: X\n\nedited\n")
     assert act.boundary_crossings(before, act.worktree_state(repo),
-                                  triage.FORBIDDEN_PATHS, triage.PERMITTED_PATHS)
+                                  triage.FORBIDDEN_PATHS,
+                                     triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research")))
 
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
                     "commit", "-aqm", "edit"], cwd=str(repo), check=True,
                    capture_output=True)
     assert act.boundary_crossings(before, act.worktree_state(repo),
-                                  triage.FORBIDDEN_PATHS, triage.PERMITTED_PATHS), (
+                                  triage.FORBIDDEN_PATHS,
+                                     triage.permitted_paths(Path("docs/standards/architecture/research/candidates.md"), Path("docs/standards/architecture/research"))), (
         "committing the edit made it invisible — the diff half of the observer "
         "is not reading the base ref")
 
@@ -1148,7 +1155,7 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
     rel = "docs/development/sprint.md"
     assert act.boundary_crossings(before, act.worktree_state(repo),
                                   sprint.FORBIDDEN_PATHS,
-                                  sprint.permitted_paths(rel)) == [], (
+                                  sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == [], (
         "an edit made before this run started was charged to it")
 
 
@@ -1188,11 +1195,11 @@ def test_a_DELETED_sprint_plan_is_seen_by_the_real_observer(repo: Path, how: str
 
     after = act.worktree_state(repo)
     assert act.grants_that_vanished(before, after,
-                                    sprint.permitted_paths(rel)) == [rel], (
+                                    sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == [rel], (
         f"a {how} sprint plan read as present; observed {after.get(rel)!r}")
     if how != "renamed-within-the-tree":
         assert act.boundary_crossings(before, after, sprint.FORBIDDEN_PATHS,
-                                      sprint.permitted_paths(rel)) == [], (
+                                      sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == [], (
             "the path boundary caught this on its own, so the control proves "
             "nothing about the check written for it")
 
@@ -1209,7 +1216,7 @@ def test_a_sprint_plan_merely_EDITED_is_not_read_as_vanished(repo: Path) -> None
     (repo / rel).write_text("## Sprint: X\n\n- [ ] a new milestone\n")
 
     assert act.grants_that_vanished(before, act.worktree_state(repo),
-                                    sprint.permitted_paths(rel)) == []
+                                    sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == []
 
 
 def test_the_observer_RAISES_when_git_cannot_answer(tmp_path: Path) -> None:

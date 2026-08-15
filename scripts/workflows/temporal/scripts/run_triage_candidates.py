@@ -48,7 +48,7 @@ def main(argv=None) -> int:
                 wf.prompt_values(cands.relative_to(repo_root),
                                  research.relative_to(repo_root),
                                  repo_root, counts, None))
-            print(f"  Prompt     : {len(rendered)} bytes rendered, 0 placeholders remaining")
+            print(f"  Prompt     : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
             return 0
 
         worktree = act.worktree_add(repo_root, f"triage-candidates-{int(time.time())}", "HEAD")
