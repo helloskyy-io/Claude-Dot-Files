@@ -144,10 +144,14 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
-## Sprint: Memory Management Framework — 🟡 IN PROGRESS
+## Sprint: Memory Management Framework — ✅ COMPLETE (retired 2026-08-16)
 
-**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs.
-**All six phases complete.** Convergence is built and in shadow; enabling it is gated on the loop-bound ramp, not on further build.
+**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs, kept as the record of what was built and no longer maintained.
+**All six phases complete, and the component is retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)** — which is now the framework *and* the protocol, covering all of memory. The typed exit record is PMP's.
+
+**Why it closed on 2026-08-16 rather than earlier, because the reason is worth keeping.** The sprint carried two unchecked boxes whose trigger was *the first non-`review-pr` parent that routes on a typed record* — work `exit-protocol.md` §2 **forbids** doing before its consumer exists. **A completion list holding an item its own standards forbid discharging can never complete**, so those were never completion criteria; they were misplaced future work. Both are now closed by transfer, pointing at the component that owns their trigger.
+
+A third box was blocked on evidence and genuinely discharged: the shadow-agreement figure, once C-060's conditioning — the instrument being blind to the prose channel's own failure mode — was removed in code and the safety hook that caused every recorded disagreement was narrowed.
 
 Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
