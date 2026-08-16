@@ -433,7 +433,7 @@ def convergence_history(window: Sequence[str],
     That is not an oversight and it is not a hole in the typed channel — a Kind
     2 record's lifetime is one parent invocation (`exit-protocol.md` §1, and the
     to-do-bit ruling in Phase 3 step 6), so a prior pass's typed record does not
-    exist to be read. Kind 1 is the only durable copy, which is exactly the job
+    exist to be read. the working record is the only durable copy, which is exactly the job
     §1 gives it.
 
     THE TWO SOURCES ARE NOT ASSUMED TO AGREE — they are made to. The

@@ -1039,7 +1039,7 @@ def test_finding_ids_are_read_from_both_archive_indents() -> None:
 
 
 # ---------------------------------------------------------------------------
-# The Kind 1 ADDRESS — §6's rule covers it too, and this is the measured defect.
+# The WORKING-RECORD ADDRESS — §6's rule covers it too, and this is the measured defect.
 # ---------------------------------------------------------------------------
 
 def test_the_typed_vocabulary_is_declared_in_exactly_one_module() -> None:
@@ -1244,7 +1244,7 @@ def test_the_archive_shape_that_produced_the_wrong_pass_number() -> None:
 # when the known one comes back.
 # ---------------------------------------------------------------------------
 
-# The Kind 1 shared parse, ENUMERATED rather than asserted one name at a time.
+# The working-record shared parse, ENUMERATED rather than asserted one name at a time.
 # A table because the failure this gates is *a pair that nobody added an
 # assertion for*: the first version of this gate named two pairs and the two the
 # same commit introduced went ungated and had already drifted (`\s` vs `[ \t]`),
@@ -1357,7 +1357,7 @@ def test_the_kind_one_SHARED_PARSE_is_one_declaration_across_both_python_readers
     module = _load_replay_module()
     ours, theirs = getattr(helper, helper_name), getattr(module, replay_name)
     assert (ours.pattern, ours.flags) == (theirs.pattern, theirs.flags), (
-        f"the Kind 1 shared parse is declared two ways again: "
+        f"the working-record shared parse is declared two ways again: "
         f"review_pr_helper.{helper_name} != replay_pr_review_blocks.{replay_name} "
         f"— pattern differs: {ours.pattern != theirs.pattern}, "
         f"flags differ: {ours.flags != theirs.flags} "

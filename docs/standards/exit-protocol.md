@@ -30,11 +30,11 @@ Once every child emits the same envelope, a parent can route *any* child to *any
 
 ---
 
-## 1 · Two kinds of memory, and why both are in scope
+## 1 · The two kinds of memory this protocol carries a reference to
 
-**They differ by what ends each one's life**, and a handoff carries a reference to both. *(They differ by audience too, and that is a consequence rather than the cut: audience does not predict that one of these outlives the invocation and the other cannot, which is the whole reason the handoff has to carry a reference from the short-lived one to the long-lived one. The taxonomy and its axis are [`persistent-memory-protocol/roadmap.md` § The four kinds of record](../development/persistent-memory-protocol/roadmap.md), and this protocol uses its names.)*
+**These are two of the fleet's four record classes — the two that meet at this seam.** The other two, the journal and measurement samples, never cross it, and this section is a selection from that taxonomy rather than the whole of it. **They differ by what ends each one's life**, and a handoff carries a reference to both. *(They differ by audience too, and that is a consequence rather than the cut: audience does not predict that one of these outlives the invocation and the other cannot, which is the whole reason the handoff has to carry a reference from the short-lived one to the long-lived one. The taxonomy and its axis are [`persistent-memory-protocol/roadmap.md` § The four kinds of record](../development/persistent-memory-protocol/roadmap.md), and this protocol uses its names.)*
 
-**The working record.** Its life ends when its **to-do bit** clears. Human- and AI-readable, carries the outcome *and its reasoning*, has a to-do bit, is retrievable by a later run without replaying everything, and survives context death.
+**The working record — the durable record whose life ends when its to-do bit clears.** Human- and AI-readable, carries the outcome *and its reasoning*, has a to-do bit, is retrievable by a later run without replaying everything, and survives context death.
 
 **The typed exit record.** Its life ends when the invocation that created it ends. Machine-readable, emitted at exit on a channel the parent owns, read by code within seconds of exit. Small, versioned, total.
 
