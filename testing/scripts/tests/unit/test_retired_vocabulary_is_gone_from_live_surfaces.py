@@ -94,6 +94,9 @@ RECORD_SURFACES: dict[str, str] = {
     "testing/scripts/tests/unit/test_prompt_budgets.py":
         "a budget-raise comment quoting the old term to state the byte "
         "arithmetic; the quote IS the evidence for the number",
+    "testing/scripts/tests/unit/test_retired_vocabulary_is_gone_from_live_surfaces.py":
+        "this module — the labels are its SUBJECT, and its docstring quotes "
+        "each spelling that shipped as the evidence for the pattern below",
 }
 
 # THE FROZEN V1 BASH FLEET IS EXEMPT BY RULE, NOT BY OBSERVATION, so it is kept
@@ -132,7 +135,13 @@ def _is_record(path: str) -> str | None:
     ):
         return "the frozen V1 bash fleet — reference only, never edited"
     for prefix, reason in RECORD_SURFACES.items():
-        if path == prefix or path.startswith(prefix):
+        # A DIRECTORY entry exempts everything beneath it; a FILE entry exempts
+        # exactly itself. Matching both with a bare `startswith` silently hands
+        # the exemption to any future path that merely BEGINS with a listed
+        # filename — `docs/development/sprint.md.bak` would inherit
+        # `sprint.md`'s — which is a widened gate nobody decided to widen. Four
+        # of the eight entries below are files.
+        if path == prefix or (prefix.endswith("/") and path.startswith(prefix)):
             return reason
     return None
 
@@ -155,19 +164,34 @@ def _normalised(path: Path) -> str:
     return re.sub(r"\s+", " ", path.read_text(encoding="utf-8", errors="replace"))
 
 
-def _map_lines_describing_live_paths() -> list[tuple[int, str]]:
-    """Map lines whose reconstructed tree path is NOT a record surface.
+def _map_entries() -> list[tuple[list[int], str, str]]:
+    """Each map entry as (its line numbers, its text as ONE line, its path).
+
+    AN ENTRY IS A LEAF LINE PLUS EVERY CONTINUATION LINE UNDER IT, and joining
+    them is the same correction `_normalised` makes for ordinary files —
+    applied here because it was missing, which is the defect this docstring is
+    the record of. The scan used to keep only lines matching `_LEAF` and
+    `continue` past the rest. Multi-line annotations are the map's DOMINANT
+    format, so the gate whose entire thesis is *"a line-based instrument cannot
+    see a label wrapped across a newline"* was line-based for the one file it
+    claims to handle by careful line-scoping. Two lines carried a label into
+    exactly that blind spot.
 
     The indentation is parsed back into a path the same way its sibling
     `test_file_structure_map_covers_the_tree.py` does — a full path never
     appears on any single line of the map, so a line's subject can only be
-    recovered from the nesting.
+    recovered from the nesting. A continuation line has no `──` and therefore
+    never moves the stack; it just belongs to whichever leaf preceded it.
     """
     stack: dict[int, str] = {}
-    live: list[tuple[int, str]] = []
+    entries: list[tuple[list[int], str, str]] = []
     for number, line in enumerate(_MAP.read_text(encoding="utf-8").splitlines(), 1):
         leaf = _LEAF.match(line)
         if not leaf:
+            if entries:
+                numbers, text, path = entries[-1]
+                numbers.append(number)
+                entries[-1] = (numbers, f"{text} {line.strip()}", path)
             continue
         prefix, name = leaf.groups()
         level = len(prefix) // _MAP_INDENT
@@ -176,10 +200,16 @@ def _map_lines_describing_live_paths() -> list[tuple[int, str]]:
             del stack[deeper]
         # The root line (`claude-dot-files/`) carries no `──` and is therefore
         # not a level, which is what makes the reconstruction repo-relative.
-        path = "/".join(stack[k] for k in sorted(stack))
-        if path and not _is_record(path) and not _is_record(path + "/"):
-            live.append((number, line))
-    return live
+        entries.append(([number], line, "/".join(stack[k] for k in sorted(stack))))
+    return entries
+
+
+def _map_entries_describing_live_paths() -> list[tuple[list[int], str, str]]:
+    """The entries whose reconstructed tree path is NOT a record surface."""
+    return [
+        entry for entry in _map_entries()
+        if entry[2] and not _is_record(entry[2]) and not _is_record(entry[2] + "/")
+    ]
 
 
 def test_no_live_surface_carries_a_retired_taxonomy_label() -> None:
@@ -223,9 +253,10 @@ def test_the_file_structure_map_is_scoped_by_LINE_and_not_exempted_whole() -> No
     the three lines annotating the retired component's own docs must keep them.
     """
     offenders = [
-        f"{_MAP.name}:{number} — {sorted({m.group(0) for m in RETIRED_LABEL.finditer(line)})}"
-        for number, line in _map_lines_describing_live_paths()
-        if RETIRED_LABEL.search(line)
+        f"{_MAP.name}:{numbers[0]} ({path}) — "
+        f"{sorted({m.group(0) for m in RETIRED_LABEL.finditer(text)})}"
+        for numbers, text, path in _map_entries_describing_live_paths()
+        if RETIRED_LABEL.search(text)
     ]
     assert not offenders, (
         "a `docs/file_structure.txt` entry describes a LIVE surface using a "
@@ -252,7 +283,11 @@ def test_the_map_scope_still_reaches_the_lines_that_must_keep_the_label() -> Non
     some labelled line is exempted — because that is what fails if the path
     reconstruction breaks in the direction nothing else notices.
     """
-    live = {number for number, _ in _map_lines_describing_live_paths()}
+    live = {
+        number
+        for numbers, _, _ in _map_entries_describing_live_paths()
+        for number in numbers
+    }
     assert live, "the map parse produced no live lines — it read nothing"
     labelled = {
         number

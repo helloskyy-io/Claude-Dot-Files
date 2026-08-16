@@ -25,23 +25,43 @@ THE THREE FAILURE MODES, none of which is loud:
 
 Mode 2 is the one worth stating plainly: the hook's own tests pass whether or not
 the file is reachable from a dispatch, because they invoke it by path directly.
+
+THE THREE MODES ARE NOT THIS FILE'S INVENTION — they are the three breakage
+shapes `workflow-scripts.md` § *The safety-layer invariant* names in one
+sentence: *"adding, narrowing or reordering `--setting-sources`, moving hook
+configuration between scopes, or changing what `install.sh` symlinks."* That
+mapping is written down here because the first two passes over this file each
+closed the instance in front of them without pulling up the standard that
+already enumerated the full set, and the coverage that resulted was one shape
+guarded blind, one guarded against a hardcoded assumption, and one not guarded
+at all. Every test below names the shape it holds, so the next pass can check
+the list rather than rediscover it.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SETTINGS = REPO_ROOT / "config" / "settings.json"
+INSTALL = REPO_ROOT / "install.sh"
 
 # `install.sh` symlinks `config/hooks/` wholesale to `~/.claude/hooks/`, and the
 # commands in `settings.json` name the INSTALLED path. Both ends are checked
 # below, and they are different questions: the repo end is a property of the
 # CODE, the installed end is a property of THIS MACHINE.
 REPO_HOOKS = REPO_ROOT / "config" / "hooks"
-INSTALLED_HOOKS = Path.home() / ".claude" / "hooks"
+
+# The two entries of `install.sh`'s SYMLINK_TARGETS this wiring rests on: the
+# directory the hook script is linked from, and the file the hook is DECLARED
+# in. Named here so the tests below can ask install.sh rather than assume it.
+HOOKS_TARGET = "hooks"
+SETTINGS_TARGET = "settings.json"
+
+_SYMLINK_TARGETS = re.compile(r"^SYMLINK_TARGETS=\((.*?)^\)", re.S | re.M)
 
 # The event and matcher the safety hook must sit on. A `PreToolUse` hook on
 # `Bash` is the only placement that sees a command BEFORE it runs; anything else
@@ -60,6 +80,37 @@ def _hooks() -> list[tuple[str, str, dict]]:
         for group in groups
         for hook in group.get("hooks", [])
     ]
+
+
+def _symlink_targets() -> list[str]:
+    """What `install.sh` links into `~/.claude/`, read out of `install.sh`.
+
+    DERIVED RATHER THAN ASSUMED, and that is the whole point of this helper.
+    The installed path used to be the literal `Path.home() / ".claude" /
+    "hooks"`, which encodes install.sh's behaviour as a constant — so the third
+    breakage shape the standard names, *changing what `install.sh` symlinks*,
+    could land and every test here would stay green on a clean runner, where the
+    installed-end branch never executes at all.
+    """
+    block = _SYMLINK_TARGETS.search(INSTALL.read_text())
+    assert block, (
+        f"{INSTALL.name} no longer declares a SYMLINK_TARGETS=( ... ) array, so "
+        f"nothing here can tell what it links. The install mechanism changed "
+        f"shape; these tests read it and must change with it."
+    )
+    return re.findall(r'"([^"]+)"', block.group(1))
+
+
+def _installed_hooks() -> Path:
+    """The directory `install.sh` puts `config/hooks/` at on an installed box."""
+    targets = _symlink_targets()
+    assert HOOKS_TARGET in targets, (
+        f"install.sh's SYMLINK_TARGETS is {targets}, which no longer contains "
+        f"{HOOKS_TARGET!r} — so nothing links config/hooks/ into ~/.claude/, and "
+        f"every hook command in settings.json names a path install.sh will never "
+        f"create. This is the 'changing what install.sh symlinks' shape."
+    )
+    return Path.home() / ".claude" / HOOKS_TARGET
 
 
 def _resolve(command: str) -> Path:
@@ -120,12 +171,13 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
     are all still reachable; only the *"you personally have not installed it"*
     reading is gone.
     """
+    installed_hooks = _installed_hooks()
     broken = []
     for event, matcher, hook in _hooks():
         target = _resolve(hook.get("command", ""))
-        if target.parent != INSTALLED_HOOKS:
+        if target.parent != installed_hooks:
             broken.append(
-                f"{event}/{matcher}: {target} is not under {INSTALLED_HOOKS}, "
+                f"{event}/{matcher}: {target} is not under {installed_hooks}, "
                 f"which is the only directory install.sh links — nothing puts a "
                 f"script there"
             )
@@ -142,9 +194,9 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
                 f"{event}/{matcher}: {source.relative_to(REPO_ROOT)} is not "
                 f"executable, so the link resolves and the hook still never runs"
             )
-        elif INSTALLED_HOOKS.is_dir() and not target.is_file():
+        elif installed_hooks.is_dir() and not target.is_file():
             broken.append(
-                f"{event}/{matcher}: {INSTALLED_HOOKS} exists but {target} does "
+                f"{event}/{matcher}: {installed_hooks} exists but {target} does "
                 f"not — install.sh has not been run since this hook was added, "
                 f"or the link was clobbered"
             )
@@ -152,6 +204,117 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
         "A hook command that does not resolve never runs, and nothing reports it "
         "— the tool call simply succeeds:\n  " + "\n  ".join(broken)
     )
+
+
+def test_the_hook_is_declared_in_the_file_install_sh_puts_at_USER_scope() -> None:
+    """The 'moving hook configuration between scopes' shape.
+
+    Mode 3 below is specifically about a dispatch dropping the USER tier. That
+    only bites while the hook is declared in the file that BECOMES the user
+    tier — `config/settings.json`, via install.sh's `settings.json` target. Move
+    the declaration into a project- or local-scope settings file and mode 3's
+    tripwire still passes while the hook has silently changed which tiers it
+    depends on.
+
+    WHAT THIS DOES NOT LOOK AT. It cannot see a SECOND settings file taking
+    precedence at run time — there is exactly one settings file in this repo
+    today (`config/settings.json`; verified: no other `settings*.json` is
+    tracked), so a precedence question has nothing to be asked about yet. If a
+    project-scope settings file is ever added, this test is the one that has to
+    grow, and that is why the gap is written down rather than left to be
+    rediscovered.
+    """
+    targets = _symlink_targets()
+    assert SETTINGS_TARGET in targets, (
+        f"install.sh's SYMLINK_TARGETS is {targets}, which no longer contains "
+        f"{SETTINGS_TARGET!r} — so {SETTINGS.relative_to(REPO_ROOT)} no longer "
+        f"becomes the USER-tier settings file, and the hook declared in it is "
+        f"not in the tier the tripwire below is guarding."
+    )
+    assert SETTINGS.is_file(), (
+        f"{SETTINGS.relative_to(REPO_ROOT)} is gone, so the hook is declared "
+        f"somewhere this test does not know about"
+    )
+
+
+def _swept_sources() -> list[Path]:
+    """The files the settings-source tripwire reads.
+
+    EVERY FILE UNDER `scripts/`, AT ANY EXTENSION, and the absence of an
+    extension filter is the fix rather than an oversight. This was
+    `rglob("*.py")` until 2026-08-16 — 82 Python files and none of the 37 shell
+    files — while the one file in the whole tree that invokes `claude -p` with
+    `--dangerously-skip-permissions` is `workflows/activities/run-claude.sh`.
+    The tripwire on the fleet's only remaining safety control could not see the
+    file the flag would be added to. Measured, not reasoned: appending
+    `--setting-sources project,local` to that line left this test green and all
+    2046 tests green.
+
+    An extension is a PROXY for "a file that dispatches claude", and widening
+    the proxy to `*.py` + `*.sh` would only move the blind spot to the next
+    language. So the population is not filtered by extension at all, and
+    `test_the_settings_source_sweep_SEES_every_file_that_DISPATCHES_claude`
+    below checks the population against the property instead.
+
+    BIASED TOWARD A FALSE ALARM, deliberately. A prose mention of the flag in a
+    `scripts/**/*.md` prompt would trip this, because a prompt is not a comment
+    and nothing here can tell prose from argv. That is the right way round for a
+    safety tripwire: a false alarm costs one line to resolve, and silence costs
+    destructive-command blocking on every autonomous run. No file under
+    `scripts/` mentions the flag today.
+    """
+    return [
+        p for p in sorted((REPO_ROOT / "scripts").rglob("*"))
+        if p.is_file()
+        and "__pycache__" not in p.parts
+        and "/tests/" not in p.as_posix()
+    ]
+
+
+# A `claude` invocation as it appears in ARGV, rather than in prose about one.
+# The backtick lookarounds are the entire discriminator and they are load-
+# bearing: this repo discusses `--dangerously-skip-permissions` in 33 files and
+# PASSES it in one, and every discussion of it writes it inside backticks.
+_DISPATCHES_CLAUDE = re.compile(
+    r"(?<!`)(?:(?:^|[\s;&|(])claude\s+(?:-p|--print)"
+    r"|--dangerously-skip-permissions)(?!`)"
+)
+
+
+def _dispatchers() -> list[str]:
+    """Every tracked file that INVOKES the claude CLI, discovered not listed.
+
+    Deliberately a different instrument, and a different corpus, than
+    `_swept_sources`: this reads `git ls-files` across the WHOLE repo, so it can
+    see a dispatcher that has moved out of `scripts/` entirely. A check that
+    re-used the swept set's own glob to validate the swept set would be an
+    identity, not a check.
+    """
+    tracked = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "ls-files"],
+        capture_output=True, text=True, check=True,
+    ).stdout.split("\n")
+    found = []
+    for relative in tracked:
+        # Prose surfaces, at the two altitudes they occur: `docs/` is written
+        # ABOUT the fleet, and a `.md` anywhere is read by a model rather than
+        # by a shell. Tests are fixtures — one that spawned a dispatch would be
+        # a different problem with a different guard.
+        if not relative or relative.startswith("docs/") or relative.endswith(".md"):
+            continue
+        if relative.startswith("testing/") or "/tests/" in relative:
+            continue
+        try:
+            text = (REPO_ROOT / relative).read_text(errors="replace")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            if line.lstrip().startswith("#"):
+                continue
+            if _DISPATCHES_CLAUDE.search(line):
+                found.append(relative)
+                break
+    return found
 
 
 def test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in() -> None:
@@ -164,10 +327,12 @@ def test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in() -> None:
     ordering enforceable instead of remembered.
     """
     offenders = []
-    for path in (REPO_ROOT / "scripts").rglob("*.py"):
-        if "__pycache__" in path.parts or "/tests/" in path.as_posix():
+    for path in _swept_sources():
+        try:
+            text = path.read_text(errors="replace")
+        except OSError:
             continue
-        for n, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+        for n, line in enumerate(text.splitlines(), 1):
             if line.lstrip().startswith("#"):
                 continue          # a comment discussing the flag is not passing it
             if re.search(r"--setting-sources", line):
@@ -177,4 +342,47 @@ def test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in() -> None:
         "safety hook is declared in. Resolve the safety blocker first — give the "
         "hook another supply route — then change this test with it:\n  "
         + "\n  ".join(offenders)
+    )
+
+
+def test_the_settings_source_sweep_SEES_every_file_that_DISPATCHES_claude() -> None:
+    """The population anchor — what the tripwire above is worth is what it READS.
+
+    The tripwire's defect was never its pattern; it was its corpus. So this
+    asserts the corpus against the PROPERTY that defines it — a file that
+    invokes the claude CLI — rather than against the extension that used to
+    stand in for it. Narrow the glob back, move the runner to a language nobody
+    thought of, or relocate it out of `scripts/`, and this goes red naming the
+    file the tripwire stopped watching.
+
+    WHAT THIS DOES NOT LOOK AT, so a green run is not read as more than it is:
+
+      * **A flag that is never written as a literal.** A runner assembling
+        `--setting` + `-sources`, or reading the flag out of `config.yaml`, is
+        invisible to both this and the tripwire.
+      * **Whether the dispatcher is REACHED.** It says the file is in the swept
+        corpus, never that anything calls it.
+      * **Prose surfaces.** `docs/`, every `.md`, and every test are excluded by
+        construction — a dispatcher written in one of those would be missed. The
+        exclusion is what keeps this from firing on the 33 files that DISCUSS
+        the flag, and it is the boundary this check trades away to be readable.
+      * **The other direction.** It proves the corpus is not too NARROW. Nothing
+        here says a non-dispatcher in the corpus is harmless — that is the
+        false-alarm bias `_swept_sources` states.
+    """
+    dispatchers = _dispatchers()
+    assert dispatchers, (
+        "no tracked file was found invoking the claude CLI, which means this "
+        "check read nothing — a gate reporting a clean tree and a gate reading "
+        "nothing look identical. Either the discovery pattern stopped matching "
+        "or `git ls-files` returned nothing from this worktree."
+    )
+    swept = {p.relative_to(REPO_ROOT).as_posix() for p in _swept_sources()}
+    missed = sorted(set(dispatchers) - swept)
+    assert not missed, (
+        "a file DISPATCHES claude and the settings-source tripwire above does "
+        "not read it, so `--setting-sources` could be added there and every "
+        "test would stay green — which is exactly what happened on 2026-08-16 "
+        "when the sweep was scoped to `*.py` and the only dispatcher was "
+        "shell:\n  " + "\n  ".join(missed)
     )
