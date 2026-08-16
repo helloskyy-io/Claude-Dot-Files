@@ -246,6 +246,9 @@ claude-dot-files/
 │   │   │   │                                        #   subagent-vs-volume knob question, and the overlapping-run aggregate → MMF Phase 6 req 3
 │   │   │   ├── replay_convergence_events.py         # The LIVE convergence corpus (candidate C-059) + Phase 5's gate conditions 1 and 2 with their
 │   │   │   │                                        #   denominators. `--archive` adds condition 1; without it that half prints NOT TAKEN, never zero
+│   │   │   ├── judge_marginal_yield.py              # Whether the separate review pass finds anything the producing run had not already disclosed:
+│   │   │   │                                        #   every disposition finding classified ECHOED or NEW against the run's own reflection, with the
+│   │   │   │                                        #   denominator and the lexical-matching bias stated → sprint.md § CPI, the four-review-layers deferral
 │   │   │   └── replay_parent_route.py               # The computed abstention arm grouped by reason, and the prose-shadow agreement rate with
 │   │   │                                            #   C-060's conditioning printed beside it → MMF Phase 3 step 4, Phase 4's shadow-removal box
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
