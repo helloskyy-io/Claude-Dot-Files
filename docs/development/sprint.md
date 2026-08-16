@@ -134,13 +134,24 @@ Make the system improve its own tooling from evidence it generates itself.
 
 Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. **Half-built already**: `build.sh` and `build-minor.sh` shipped as three-child parents before any of it was written down.
 
-- [ ] **Rule fork-vs-parameterize** — gates everything else here. Refines are ~82% shared (parameterize); drafts are ~9% shared and are a *behaviour* decision, not a deduplication. Rule before a third copy family exists
+- [ ] **Rule fork-vs-parameterize** — gates the copy families. Refines are ~82% shared (parameterize); drafts are ~9% shared and are a *behaviour* decision, not a deduplication. **Scope on `plan-project` is the second instance and it answers cleanly**: feature scope runs the same children in the same order, fewer of them, so it parameterizes
+- [ ] **Derive `plan-project`'s scope from its target, and skip what that scope has no work for** — feature scope is the tail of the project chain: `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`, with triage, scaffolding and the per-component research pass skipped. **A path, not a flag** — `research` already derives PRODUCT vs COMPONENT this way, and a flag beside the path is a second source of truth that can disagree with it (`derive != declare`)
+- [ ] **Gate the two stale-doc classes that are not yet covered** — the prose-disagrees-with-its-code half is gated (`test_no_prose_claims_a_shipped_workflow_is_UNBUILT`, `test_lint_prompts_claims_only_what_ran`, `test_measurement_figures_are_cited`). What is not: a produced artifact nobody consumes, gated today only under `scripts/helpers/measure/`
 - [x] **Absorb `build-phase.sh` into `build` as `--phase`** — one family, one set of children
-- [ ] **`lint-docs.sh`** — gate the stale-doc class: a script no doc names, or a doc stating a turn count its script disagrees with
 - [x] **Split `build.sh` into draft → refine → review-pr** — shipped, two burn-test cycles
 - [x] **Split `build-minor.sh` on the same shape** — shipped, one-lens middle child
 - [x] **Extract the activities layer** — `run-claude`, `wait-for-ci`, `require-environment`
 - [x] **Write it down** — `docs/standards/workflow-scripts.md § Composition`
+
+**The three operating scenarios this sprint exists to make runnable.** Each is a research parent to satisfaction, then a planning parent to satisfaction, with a human between them:
+
+| | Research | Planning | Runs today |
+|---|---|---|---|
+| Large project | `research <product pool>` | `plan-project` | research ✅ · planning ✅ |
+| Small project | `research-minor <product pool>` | `plan-project` | research ✅ · planning ✅ |
+| Large feature | `research <component pool>` | `plan-project <feature>` | research ✅ · **planning ✗** |
+
+**Only the last cell is missing, and it is the box above.** `plan-project` already chains triage → scaffolding → per-component research → `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`; it runs all of it whatever it is pointed at.
 
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 

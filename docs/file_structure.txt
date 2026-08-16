@@ -238,6 +238,7 @@ claude-dot-files/
 │   │   │   ├── replay_convergence_predicate.py     # Replays the SHIPPED convergence predicate over the archive → MMF Phase 5 step 6.
 │   │   │   │                                       #   IMPORTS the predicate (unlike its pinning sibling above) — a copy would validate a rule nobody runs.
 │   │   │   │                                       #   Re-sorts the shared dump by comment time: the predicate forbids the `pass:` label (issue #68)
+│   │   │   ├── judge_marginal_yield.py               # Disposition findings classified ECHOED by the producing run's own reflection vs NEW to the judge — the marginal-yield measure
 │   │   │   ├── replay_pr_review_blocks.py           # Finding-set delta between review passes + stable-id conformance → MMF Phase 1 E7, Phase 5
 │   │   │   ├── run_log.py                           # NOT a replay tool — the ONE DECLARATION of the RUN LOG surface (MMF Phase 6): its member
 │   │   │   │                                        #   event types, join key, publish classification and per-figure cutovers. A test compares the
