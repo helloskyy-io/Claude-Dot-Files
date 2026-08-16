@@ -144,20 +144,17 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
-## Sprint: Memory Management Framework — ✅ COMPLETE (retired 2026-08-16)
+## Sprint: Memory Management Framework — ✅ COMPLETE
 
-**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs, kept as the record of what was built and no longer maintained.
-**All six phases complete, and the component is retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)** — which is now the framework *and* the protocol, covering all of memory. The typed exit record is PMP's.
+**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs, kept as the record of what was built.
 
-**Why it closed on 2026-08-16 rather than earlier, because the reason is worth keeping.** The sprint carried two unchecked boxes whose trigger was *the first non-`review-pr` parent that routes on a typed record* — work `exit-protocol.md` §2 **forbids** doing before its consumer exists. **A completion list holding an item its own standards forbid discharging can never complete**, so those were never completion criteria; they were misplaced future work. Both are now closed by transfer, pointing at the component that owns their trigger.
+**Retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)**, which now covers all of memory. The typed exit record is PMP's.
 
-A third box was blocked on evidence and genuinely discharged: the shadow-agreement figure, once C-060's conditioning — the instrument being blind to the prose channel's own failure mode — was removed in code and the safety hook that caused every recorded disagreement was narrowed.
-
-Two distinct kinds of memory, currently conflated and only half-built. Both exist because a context window ends and the work does not; they differ in who reads them.
+Two distinct kinds of memory, both built. Both exist because a context window ends and the work does not; they differ in who reads them.
 
 **Kind 1 — durable memory in git, read by humans and AI.** Built and in use; **documented as a framework by Phase 2**. **Five** surfaces, measured: PR threads carry change-outcomes, Issues carry no-change outcomes, the standup tracker carries continuity, `direction.md` carries rulings only the operator can make, and `candidates.md` carries research candidates and their dispositions — the last of these being what makes `direction.md`'s 90-day rotation safe, since a ruled row may only be deleted once its reasoning is recorded in the candidate that never deletes. The record's own to-do bit is what marks work as current.
 
-**Kind 2 — machine handoff in a file, read by CODE.** Not built. A parent must decide *in code, with no AI in the loop*, which child to invoke next.
+**Kind 2 — machine handoff in a file, read by CODE.** The typed exit record: a parent decides *in code, with no AI in the loop*, which child to invoke next. Now PMP's.
 
 - [x] **Phase 1 · Measure the channel** — six experiments against the pinned CLI and the archived logs. 13 rulings; 3 no-ops cancelled downstream work. Merged 2026-08-08
 - [x] **Phase 2 · Document Kind 1 as a framework** — delivered as [`docs/guide/memory-model.md`](../guide/memory-model.md). Five surfaces measured, not three. Merged 2026-08-09
