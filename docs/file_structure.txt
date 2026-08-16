@@ -585,7 +585,6 @@ claude-dot-files/
 │   │                                                #   Asserts every MUST BLOCK claim end-to-end, not only against its own regex. NO COUNTS ARE
 │   │                                                #   RESTATED HERE — they live in the test module's docstring, per its sibling README
 │   │       ├── test_hook_settings.py                # The SECOND guarantee about hooks, and deliberately a different shape
-│   │       └── test_the_safety_hook_is_wired.py  # The hook is the ONLY control once deny/permissions are gone — asserts it is declared, resolves, and is not stripped
 │   │                                                #   from the one above: that suite proves the hook decides CORRECTLY, this
 │   │                                                #   one proves settings.json BOUNDS it. Asserts every configured hook
 │   │                                                #   declares a `timeout`, and that none is so large it is not a bound.
@@ -594,6 +593,16 @@ claude-dot-files/
 │   │                                                #   hook got slower. Written after an unbounded PreToolUse hook ran 8m44s
 │   │                                                #   at 99.9% CPU on ONE tool call and had to be killed by hand, holding a
 │   │                                                #   live build (2026-08-14).
+│   │       └── test_the_safety_hook_is_wired.py     # The hook is the ONLY control once the deny list and permissions are gone, so this
+│   │                                                #   asks whether it is ever CONSULTED — not whether it decides right, which is its
+│   │                                                #   sibling suite's question. Holds the THREE breakage shapes `workflow-scripts.md`
+│   │                                                #   § The safety-layer invariant names, one test each: DECLARED on PreToolUse/Bash;
+│   │                                                #   RESOLVES, with BOTH ends of install.sh's mapping read out of install.sh instead
+│   │                                                #   of hardcoded; declared in the file install.sh puts at USER scope; and no runner
+│   │                                                #   STRIPS --setting-sources. That last sweep's population is not filtered by
+│   │                                                #   extension — an anchor test derives every claude dispatcher from `git ls-files`
+│   │                                                #   and asserts the sweep contains it, after a Python-only glob left the one shell
+│   │                                                #   runner it exists to watch unwatched (2026-08-16)
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/
