@@ -32,16 +32,12 @@ Every term of art in this component is defined here, once. Each phase doc re-def
 | **bag** | One run's folder. The name comes from BagIt, the file-layout standard the folder follows. *(Never called a "container" — that word means a Docker container everywhere else in this system, and using it for a folder has already cost real confusion.)* |
 | **manifest** | A file inside the bag listing every other file in it, with a checksum for each. It is how a reader knows what is in a folder and whether the bytes have changed, instead of guessing from file extensions. |
 | **emit** | To write one entry into the journal. "Every write also emits" means: whenever a run writes something anywhere else, it also writes a copy into the journal. |
-| **event** | One entry in the journal. Events are appended and never changed — with exactly one stated exception, a redaction, which is itself a new appended event rather than an edit (commitment 9). |
 | **store** | Any place other than the journal that a run writes to, and that a reader consults for *current* state — a markdown table, a pull-request comment, a GitHub issue. A store is edited in place; the journal is not. |
 | **rebuild** | Read the journal back and regenerate what a store holds. If the journal can rebuild a store, nothing important is missing from the journal. *(The formal name for this is "the store is a projection of the journal." The plain sentence means the same thing and is used throughout.)* |
 | **completeness** | The property that if any store got something, the journal got it too, verbatim. It is not an assertion — [Phase 4](phase4_rebuild_is_a_test.md) turns it into a test that goes red when it stops being true. |
 | **content store** | A byte cache. When a run cites a source, the source's actual bytes are saved and named by their checksum, so the claim can be re-checked later without the network. |
 | **edge** | One machine running this fleet. Today there is one. The design assumes there will be more, and says where that assumption is load-bearing. |
 | **snapshot** | A record of what every store held at one moment, written into the journal, so a rebuild can start from there instead of from the beginning of time. It is what makes deleting old folders safe. |
-| **budget** | The one size limit on the journal. A configuration value, 1 GB by default, governing the whole journal with nothing exempt (commitment 6). |
-| **activity** | A unit of work the orchestrator invokes, retries and records. Phases 1–3 are built as activities rather than as a library, so a run cannot execute without a journal (§ *Why the protocol is built as activities*). |
-| **gate** | Something that has to exist before a phase can be built. A gate says *when*, never *whether*. |
 
 ---
 
@@ -86,19 +82,6 @@ Today the fleet's memory is five curated surfaces plus a run log. The surfaces g
 
 This component closes that. Every write to any store also emits an event to the journal, and the journal carries enough to regenerate what the store holds.
 
-**This component owns:**
-
-- **the taxonomy** above, and what each class of record is for;
-- **the journal's on-disk shape** and its manifest;
-- **the emit rule**, what completeness means, and what happens when a write fails;
-- **the event contract** — every field on a journal event, its admission rule, and its identity;
-- **machine identity** — what the record is keyed by and what may never be derived from a credential (jointly with the Temporal port, § *Dependencies*);
-- **the content store** and offline checksum verification;
-- **the rebuild test** that makes completeness enforceable, and the restore built on it;
-- **snapshots, the storage budget and rotation**;
-- **the typed exit record** — built, in use, and the channel [Phase 3](phase3_the_emit_rule.md) reports an unwritable journal on;
-- and **combining records across machines** once a second machine exists.
-
 **Where a definition originated somewhere else, this plan states it anyway and cites the origin.** A protocol that points at four other documents for its own contracts is not a protocol. So *store*, *completeness*, *event* and *identity* are defined in § *The words this plan uses* and in the commitments below, not deferred; where that produces two statements of one thing, the single writer is named so they cannot drift:
 
 | The thing | Origin | Single writer from here on |
@@ -122,25 +105,7 @@ This component closes that. Every write to any store also emits an event to the 
 
 **This component depends on it in one specific, load-bearing way.** When the journal itself cannot be written, the failure cannot be recorded *in the journal* — so it surfaces on the one channel that is not the journal: this record, plus the process exit status ([Phase 3](phase3_the_emit_rule.md) § *When the journal cannot be written*, case (d)). That is the dependency running the right way round, and it is why the record is adopted rather than replaced.
 
-**Three open checkboxes came with it. They are two distinct obligations, and each is disposed of here rather than left to vanish with a component name.**
-
-| # | The obligation | Disposition |
-|---|---|---|
-| 1 | **Retire the shadow prose parse.** `review-pr`'s parent routes on the typed record and keeps the incumbent prose parse beside it as a shadow, raising a note when the two disagree. | **CLOSED, with a reason.** Removing it is a data decision, not a design one: it needs an agreement figure over a run set that is currently too small and whose runs are not independent, and the figure is structurally conditioned on the prose channel having succeeded in the first place. **Nothing in this component reads the shadow**, and the channel this component *does* depend on works identically whether the shadow is there or not. It closes when the owning workflow has the denominator, as that workflow's own change. |
-| 2 | **The unnamed `artifact` field on the envelope.** [`exit-protocol.md`](../../standards/exit-protocol.md) §3 assigns `artifact` as an additive field plus the conformance check that reads it. | **CLOSED, with a reason.** The obligation lives in the standard, on the standard's own named trigger — *the first parent other than `review-pr` that routes on a typed record* — which is where a rollout marker belongs. **Nothing in this component needs it:** the journal event is a separate contract ([Phase 3](phase3_the_emit_rule.md) r3), and it carries artifacts by reference and checksum under [Phase 2](phase2_content_store.md)'s own rule rather than through the routing envelope. Building it now would be a producer with no consumer, which is the failure this component is built to stop. |
-| 3 | **A record emitted that no parent branches on.** *(Stated as a third box, and it is the same box as row 1 seen from the other document — verified by `grep -rn '^\- \[ \]'`, which returns three lines covering two obligations. What is real underneath it is a rule, and the rule is re-homed.)* | **RE-HOMED — [Phase 3](phase3_the_emit_rule.md) requirement 11.** This component puts a new signal on that channel: the unwritable-journal report. **It ships with a committed reader in the same change**, so the one channel this component depends on does not acquire a field nobody reads. The fleet has the measured instance of what happens otherwise — three phases each appended a parent-written observable to the same run log and no committed tool read any of the three. |
-
-**Nothing in this component points at the retired framework as a live authority.** Its documents are left exactly as they are, as the record of what was built and why. **Retired means retired by operator ruling on 2026-08-16** — the component's own status line and [`sprint.md`](../sprint.md) still read as in-progress, and reconciling those is an operator edit this plan does not make.
-
-### The component-versus-phase question is answered, and this is the answer a triager should find
-
-[`C-074`](../../standards/architecture/research/candidates.md) is an open, untriaged candidate asking whether this protocol is **its own component or a phase of the Memory Management Framework**. Its Note points at a section of this roadmap that argued the case; **that section is deleted, because the argument it made is superseded rather than merely relocated.**
-
-**The answer is: its own component, by operator ruling, and the question dissolved rather than being won.** There is no longer a framework for it to be a phase of — this component absorbed it, and it is now the single owner of every kind of memory in this fleet. The filing argument that section carried compared two ownership claims; **comparing ownership claims is exactly what a retirement makes moot**, and re-stating it would be arguing a case against a party that no longer exists.
-
-**What a triager needs from this, and all they need:** the candidate's `decision` is still theirs to set, the ruling above is the evidence, and its date is 2026-08-16. **This paragraph exists so that reading C-074 leads somewhere rather than to a deleted heading** — the deletion was correct and the dangling pointer was not.
-
----
+**This protocol is its own component, not a phase of anything, by operator ruling on 2026-08-16** — the framework it would have been a phase of was retired into it. [`C-074`](../../standards/architecture/research/candidates.md) asks the question; its `decision` is the triager's to set and this is the evidence.
 
 ## The protocol, whole
 

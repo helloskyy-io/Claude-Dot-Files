@@ -49,11 +49,14 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 SETTINGS = REPO_ROOT / "config" / "settings.json"
 INSTALL = REPO_ROOT / "install.sh"
 
-# `install.sh` symlinks `config/hooks/` wholesale to `~/.claude/hooks/`, and the
-# commands in `settings.json` name the INSTALLED path. Both ends are checked
-# below, and they are different questions: the repo end is a property of the
-# CODE, the installed end is a property of THIS MACHINE.
-REPO_HOOKS = REPO_ROOT / "config" / "hooks"
+# `install.sh` symlinks `config/<item>` to `~/.claude/<item>`, and the commands
+# in `settings.json` name the INSTALLED path. Both ends are checked below, and
+# they are different questions: the repo end is a property of the CODE, the
+# installed end is a property of THIS MACHINE.
+#
+# NEITHER DIRECTORY IS WRITTEN DOWN HERE — both are read out of install.sh by
+# `_install_dirs`, because hardcoding them is what let the third breakage shape
+# the standard names go unguarded.
 
 # The two entries of `install.sh`'s SYMLINK_TARGETS this wiring rests on: the
 # directory the hook script is linked from, and the file the hook is DECLARED
@@ -101,6 +104,32 @@ def _symlink_targets() -> list[str]:
     return re.findall(r'"([^"]+)"', block.group(1))
 
 
+def _install_dirs() -> tuple[Path, Path]:
+    """`(<repo>/config, ~/.claude)` — BOTH sides of install.sh's mapping, read
+    out of install.sh.
+
+    The mapping used to be spelled twice as a constant: `REPO_ROOT / "config"`
+    here and `~/.claude/` in the resolver. Two hardcoded halves of one fact that
+    install.sh already states, which is what makes *"changing what `install.sh`
+    symlinks"* — the third breakage shape `workflow-scripts.md` § *The
+    safety-layer invariant* names — unguardable: rename either directory in
+    install.sh and every test here keeps passing against the old names.
+    """
+    text = INSTALL.read_text()
+    found = {}
+    for name in ("CONFIG_DIR", "CLAUDE_DIR"):
+        assign = re.search(rf'^{name}="([^"]*)"', text, re.M)
+        assert assign, (
+            f"install.sh no longer assigns {name}, so nothing here can tell "
+            f"which directories it maps between. The install mechanism changed "
+            f"shape; these tests read it and must change with it."
+        )
+        found[name] = assign.group(1)
+    config = Path(found["CONFIG_DIR"].replace("$REPO_DIR", str(REPO_ROOT)))
+    claude = Path(found["CLAUDE_DIR"].replace("$HOME", str(Path.home())))
+    return config, claude
+
+
 def _installed_hooks() -> Path:
     """The directory `install.sh` puts `config/hooks/` at on an installed box."""
     targets = _symlink_targets()
@@ -110,17 +139,53 @@ def _installed_hooks() -> Path:
         f"every hook command in settings.json names a path install.sh will never "
         f"create. This is the 'changing what install.sh symlinks' shape."
     )
-    return Path.home() / ".claude" / HOOKS_TARGET
+    return _install_dirs()[1] / HOOKS_TARGET
 
 
 def _resolve(command: str) -> Path:
-    """The filesystem path a hook command points at.
+    """The INSTALLED filesystem path a hook command names.
 
     Commands are shell strings; ours are a bare path to a script, optionally
     with `$HOME`. Expanding only the variable — rather than running the string —
     keeps this a static check that cannot itself execute a hook.
+
+    THIS IS A PARSE, NOT A JUDGEMENT. It says where the command points; whether
+    that is a place install.sh links, and whether a repo file backs it, are
+    `_repo_source` and the test below.
     """
     return Path(os.path.expandvars(command.strip().split()[0])).expanduser()
+
+
+def _repo_source(target: Path) -> Path | None:
+    """The repo file `target` names through install.sh's mapping, or None.
+
+    ⚠ THE PROPERTY ASSERTED HERE IS THE COMMIT'S, NOT THE MACHINE'S, AND THE
+    FIRST VERSION OF THIS FILE GOT THAT WRONG. It expanded
+    `$HOME/.claude/hooks/block-dangerous.sh` and asserted the file existed —
+    true on a workstation where `install.sh` has run, false everywhere else. It
+    put `main` red three times before anyone read the log, because the suite is
+    green locally by construction: the property it asserted was true of the
+    machine running it, never of the commit.
+
+    `install.sh` symlinks `<repo>/config/<item>` -> `~/.claude/<item>`, so a
+    command naming a path under the linked directory names a repo file through
+    that mapping. **Both ends of the mapping are read out of install.sh** by
+    `_install_dirs` rather than written here, so renaming either directory is
+    caught instead of silently re-baselined.
+
+    WHAT THIS DOES NOT LOOK AT: whether `install.sh` has actually run on any
+    given machine, and therefore whether the symlink is present at runtime. That
+    is a property of a host, not of a commit, and it needs a deployment check
+    rather than a unit test — see `C-100`, which covers exactly that gap. The
+    test below still asks it where an installation exists, which costs a clean
+    runner nothing and keeps a workstation honest.
+    """
+    config, claude = _install_dirs()
+    try:
+        relative = target.relative_to(claude)
+    except ValueError:
+        return None
+    return config / relative
 
 
 def test_the_safety_hook_is_DECLARED_on_Bash() -> None:
@@ -182,8 +247,13 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
                 f"script there"
             )
             continue
-        source = REPO_HOOKS / target.name
-        if not source.is_file():
+        source = _repo_source(target)
+        if source is None:
+            broken.append(
+                f"{event}/{matcher}: {target} is not under the directory "
+                f"install.sh maps from, so no repo file backs it"
+            )
+        elif not source.is_file():
             broken.append(
                 f"{event}/{matcher}: {target} is configured, but this repo "
                 f"ships no {source.relative_to(REPO_ROOT)} for install.sh to "

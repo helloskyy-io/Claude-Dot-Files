@@ -1326,6 +1326,18 @@ Four things survived the PMP replan's verification. **One was unfinished and I h
 
 ---
 
+## 2026-08-16 — REJECTED permanently: GitHub branch protection on `main`
+
+**Do not propose it, and do not report its absence as a finding.** Branch protection is a paid GitHub feature on this account; the operator is not buying it and the plan is **our own CI**. Direct pushes to `main` are the deliberate working mode — `tests.yml` runs on `push: branches:[main]` and reports after the fact, which is understood and accepted. A 404 from `…/branches/main/protection` is the expected state.
+
+**Recorded because it had been ruled roughly TEN times in conversation and written to no durable surface.** Every fresh context therefore re-derived the question and asked again, and the operator paid for the same ruling ten times. Searched before writing this: no issue, no candidate row, no doc mentioned it.
+
+**The finding that produced it was itself wrong, which is worth keeping.** A reflection on PR #96 inferred that `test_file_structure_map_covers_the_tree` was not on the merge path, reasoning backward from a red commit reaching `main`. The test *is* on the gate (`tests.yml:72`, via `./testing/run-all.sh`); the commit reached `main` by direct push. **An inference from a symptom to a cause is not a finding until the cause is checked** — and the check took one API call.
+
+**Standing disposition:** a review agent or reflection flagging unprotected `main` is REJECTED with this entry as the reasoning.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
