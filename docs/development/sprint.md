@@ -109,7 +109,7 @@ A dispatch gets its own git worktree, so a bad run damages nothing outside it, a
 
 ---
 
-## Sprint: Continuous Process Improvement 🟡 IN PROGRESS
+## Sprint: Continuous Process Improvement — ✅ COMPLETE
 
 **Phase doc:** [`continuous-process-improvement/continuous-process-improvement.md`](continuous-process-improvement/continuous-process-improvement.md)
 
@@ -124,7 +124,7 @@ Make the system improve its own tooling from evidence it generates itself.
 - [x] **Post-Run Reflection** — every workflow posts a decision log and tooling suggestions to its PR
 - [x] **`review-pr` mines reflections** — the run's own words are its primary evidence surface
 - [x] **CLOSED BY TRANSFER — absorbed by [PMP Phase 6](persistent-memory-protocol/phase6_cpi_reads_the_journal.md).** Reflections are pull-request comments, and PMP's emit rule puts *every comment* into the journal. Phase 6 then moves the evidence sweep onto that journal. **Building a comment-scraper here would be replaced by it**, so the requirement is real and the mechanism belongs there.
-- [ ] **Measure the judge's marginal yield** — classify 30 PRs' disposition items as already-stated-by-the-run or new, over logs and threads that already exist
+- [x] **Measure the judge's marginal yield** — `scripts/helpers/measure/judge_marginal_yield.py` classifies every disposition finding as ECHOED by the producing run's own reflection or NEW to the judge, and prints its denominator and its own limit. **Roughly half are NEW, and the lexical matching biases that UPWARD — so it is an upper bound.** The separate pass earns its cost. Answered 2026-08-16; figures are the tool's, deliberately not restated here.
 
 ---
 

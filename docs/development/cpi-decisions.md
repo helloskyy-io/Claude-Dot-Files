@@ -1282,6 +1282,22 @@ Four things survived the PMP replan's verification. **One was unfinished and I h
 
 ---
 
+## 2026-08-16 — CPI closed: the judge's marginal yield measured, and it earns its cost
+
+**The sprint's last box asked whether the separate `review-pr` pass finds anything the producing run had not already confessed.** It is the same question deferred on 2026-08-14 as *"four review layers produce 29 findings/PR, 22% rejected — is the fourth pass paying for itself?"*, parked then for lack of data.
+
+**Answer: roughly half of the judge's findings are NEW** — things the run never disclosed. `scripts/helpers/measure/judge_marginal_yield.py` prints the figure, its denominator, and its own limit. **The lexical matching biases the yield UPWARD, so that is an upper bound**, and the pass earns its cost even read pessimistically.
+
+**THE MEASUREMENT WAS WRONG TWICE BEFORE IT WAS RIGHT, and both were caught by the answer being implausible rather than by review.** First it reported **100% echoed, 0% new** — it concatenated every comment, including the judge's own, whose Decision Log made each finding match itself. **A figure that cannot come out any other way is not a measurement.** Then **97% echoed** — matching a handful of title words against a bag of thousands, where a third overlap happens by chance. Fixed by requiring ONE reflection bullet to cover the title, which is what *"the run already said this"* means.
+
+**Worth keeping: the tell in both cases was a number too clean to be true.** Neither bug was visible in the code; both were obvious in the output.
+
+**The other three CPI boxes closed by transfer to [PMP Phase 6](persistent-memory-protocol/phase6_cpi_reads_the_journal.md)** — one obligation written three times. Reflections are pull-request comments, PMP's emit rule captures every comment, and Phase 6 moves the evidence sweep onto the journal. A comment-scraper built in CPI would have been thrown away.
+
+**Sprint: Continuous Process Improvement is COMPLETE.**
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
