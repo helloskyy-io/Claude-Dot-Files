@@ -131,6 +131,144 @@ print_cycle_totals() {
     printf "Cycle totals (%s, %d runs): \$%s · %d turns\n" "$current_month" "$run_count" "$total_cost" "$total_turns"
 }
 
+# ---------------------------------------------------------------------------
+# What the worktree ACTUALLY holds — read from git, printed as facts.
+#
+# THE BANNER BELOW USED TO ASSERT THIS WITHOUT LOOKING. It printed "Work is
+# uncommitted at: <wt>" and "NOTHING was committed or pushed." on every turn-cap
+# termination, and it was FALSE the first time it mattered: PR #56's redispatch
+# hit the 100-turn cap while printing the PR URL — the last step — with every
+# deliverable already pushed and CI green (issue #65). A wrong claim about state
+# is worse than no claim: it sends an operator to salvage an empty tree, and can
+# get work that is already merge-ready re-dispatched, paying a second full
+# budget and opening a conflicting branch. Silence sends them to look; a
+# confident sentence sends them somewhere.
+#
+# WHAT THIS DOES NOT LOOK AT, stated because not asking it is what produced the
+# defect. This reads the LOCAL tree only. It does not ask the forge whether a PR
+# exists, whether CI passed, or whether the branch merged — so "pushed" here
+# means exactly "the branch's upstream ref contains every local commit", which
+# is why that arm says CHECK THE PR rather than claiming the work landed. It
+# also says nothing about whether the pushed work is CORRECT.
+#
+# CANNOT-DETERMINE IS A STATE, NOT THE CLEAN CASE. A worktree already removed, a
+# tree that is not a repository, a detached HEAD, and a branch with no upstream
+# each have no local answer. Each gets its own line saying so. Collapsing any of
+# them into "nothing was pushed" would rebuild the defect with better plumbing.
+#
+# NO `local x=$(...)` ANYWHERE BELOW. That form's exit status is `local`'s, not
+# the command's, so a failing git would read as success. Declared first, then
+# assigned — which also keeps every status explicit for the `set -euo pipefail`
+# callers: every V1 child runs under errexit and calls `run_claude` unguarded,
+# so an unguarded non-zero here would kill the workflow inside the banner that
+# exists to explain why it died.
+#
+# AND NO PIPE INTO A COUNTER, WHICH IS THE SAME MISTAKE ONE LAYER DOWN. THERE
+# ARE TWO CALLERS WITH DIFFERENT SHELL OPTIONS, and this function must be right
+# under both. The five V1 children all run `set -euo pipefail`; the V2 Python
+# fleet sources this file with NO options at all
+# (`assistant_activities.py`: `bash -c 'source "$runner"; run_claude "$1"'`), and
+# this script sets none itself. In `x=$(git ... | wc -l)` the substitution's exit
+# status is `wc`'s, and `wc -l` on empty stdin SUCCEEDS printing `0` — so without
+# pipefail a failed `git` reads as "zero commits ahead" and the function prints
+# `✓ fully pushed`. That is issue #65's defect rebuilt inside issue #65's fix,
+# reachable only on the fleet the migration is moving toward. Every counter below
+# is therefore a single command or a here-string, never a pipe: the exit status
+# that reaches the `||` is the one that knows whether the check ran.
+_wds_undetermined() {
+    echo "  ? $1"
+    echo "    Committed and pushed state cannot be determined from here — check the PR."
+}
+
+worktree_delivery_state() {
+    local wt="$1"
+
+    if [[ ! -d "$wt" ]]; then
+        _wds_undetermined "The worktree is NOT on disk: ${wt}"
+        return 0
+    fi
+    local toplevel
+    if ! toplevel=$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null); then
+        _wds_undetermined "${wt} is not a readable git worktree."
+        return 0
+    fi
+    # AND IT MUST BE *THIS* WORKTREE'S ROOT. The fleet's worktrees live at
+    # <repo>/.claude/worktrees/<name>, INSIDE the parent repository — so a
+    # leftover directory there (a `git worktree remove` that partially failed,
+    # a stale mkdir) is still a path `git -C` answers for, by walking up to the
+    # PARENT. That answer is the main checkout's branch and the main checkout's
+    # dirt, reported as this run's. It is the same defect this function exists
+    # to remove, reached through a path the -d test above cannot see.
+    local wt_real top_real
+    wt_real=$(cd "$wt" && pwd -P) || wt_real=""
+    top_real=$(cd "$toplevel" && pwd -P) || top_real=""
+    if [[ -z "$wt_real" || "$wt_real" != "$top_real" ]]; then
+        _wds_undetermined "${wt} exists but is not a worktree root — git answers there for ${toplevel}."
+        return 0
+    fi
+    # A DISTINCT REASON, NOT THE ONE ABOVE. This arm and the `rev-parse` arm are
+    # different failures — here git resolved the toplevel and then could not read
+    # the index (a corrupt or locked `.git/index`, an unreadable object store) —
+    # and they shared a sentence in the first draft. Two causes reported with one
+    # message is a report an operator cannot act on, which is a quieter form of
+    # the same defect: it names a state it did not distinguish.
+    local porcelain
+    if ! porcelain=$(git -C "$wt" status --porcelain 2>/dev/null); then
+        _wds_undetermined "${wt} is a git worktree, but its status could not be read (index or object store unreadable)."
+        return 0
+    fi
+
+    # UNCOMMITTED AND UNPUSHED ARE INDEPENDENT, and both are reported. The
+    # original banner used one sentence for both, which is how a fully-pushed
+    # tree got described as unsalvaged work.
+    #
+    # A HERE-STRING, NOT A PIPE — see the header. `x=$(... | wc -l)` would hide
+    # the counter's exit status behind `wc`'s under the V2 caller's optionless
+    # shell.
+    local dirty=0
+    [[ -z "$porcelain" ]] || dirty=$(wc -l <<<"$porcelain")
+    if [[ "$dirty" -gt 0 ]]; then
+        echo "  ✗ ${dirty} path(s) carry UNCOMMITTED changes at: ${wt}"
+    else
+        echo "  ✓ Working tree is clean — nothing uncommitted at: ${wt}"
+    fi
+
+    local branch upstream unpushed
+    branch=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null) || branch=""
+    upstream=$(git -C "$wt" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null) || upstream=""
+
+    if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
+        echo "  ? HEAD is detached — there is no branch, so whether the work was pushed"
+        echo "    has no local answer. Check the PR."
+        return 0
+    fi
+    if [[ -z "$upstream" ]]; then
+        echo "  ? Branch '${branch}' has no upstream ref — whether it was pushed cannot be"
+        echo "    determined from here. Check the PR, or: git -C ${wt} log --oneline"
+        return 0
+    fi
+    # The remote-tracking ref, NOT the remote. Read locally and deliberately: a
+    # fetch inside a failure banner is a network call on a path whose whole job
+    # is to print. A push made by this run updates the tracking ref, which is
+    # the case this arm has to get right.
+    #
+    # `rev-list --count`, NOT `log | wc -l`. It is ONE command, so the exit
+    # status the `||` sees is git's own — the count is unavailable exactly when
+    # git could not produce it, under every caller's shell options rather than
+    # only under `pipefail`. The `wc` form claimed `✓ fully pushed` from a failed
+    # git on the V2 fleet; see the header.
+    unpushed=$(git -C "$wt" rev-list --count "${upstream}..HEAD" 2>/dev/null) || unpushed=""
+    if [[ -z "$unpushed" ]]; then
+        echo "  ? Could not compare '${branch}' against '${upstream}' — pushed state unknown."
+    elif [[ "$unpushed" -gt 0 ]]; then
+        echo "  ✗ ${unpushed} commit(s) on '${branch}' are NOT pushed to '${upstream}'."
+    else
+        echo "  ✓ '${branch}' is fully pushed to '${upstream}' — the cap may have fired AFTER"
+        echo "    the work landed. CHECK THE PR BEFORE REDISPATCHING: re-running work that is"
+        echo "    already merge-ready costs a second budget and can open a conflicting branch."
+    fi
+}
+
 run_claude() {
     local prompt="$1"
     shift
@@ -276,12 +414,11 @@ run_claude() {
             echo "================================================================"
             echo "  ⚠ RUN TERMINATED AT TURN CAP (${MAX_TURNS} turns)"
             echo "================================================================"
-            echo "  Work is uncommitted at: ${wt}"
-            echo "  NOTHING was committed or pushed."
+            worktree_delivery_state "$wt"
             echo
-            echo "  Most often this means the task was mis-sized for this workflow —"
-            echo "  a heavier one (build.sh / build-phase.sh) may"
-            echo "  fit better, or the task may need splitting."
+            echo "  If work is genuinely incomplete above, the task was probably mis-sized"
+            echo "  for this workflow — a heavier one (build.sh / build-phase.sh) may fit"
+            echo "  better, or the task may need splitting."
             echo
             echo "  Inspect:  cd ${wt} && git status"
             echo "================================================================"

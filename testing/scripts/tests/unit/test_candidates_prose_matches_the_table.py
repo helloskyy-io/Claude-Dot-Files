@@ -151,6 +151,70 @@ def test_the_section_this_check_reads_still_exists() -> None:
     )
 
 
+def test_EVERY_ROW_THIS_CHECK_COUNTS_ACTUALLY_RENDERS_AS_A_TABLE_ROW() -> None:
+    """Matching `^|…|` is not the same as BEING a row, and the gap is a real one.
+
+    MEASURED, ON THIS FILE, BY THE PASS THAT ADDED THIS TEST. A run appended a
+    new candidate to the END of the file — which is BELOW `## Where things
+    stand` and its prose — instead of continuing the table. GitHub-flavoured
+    markdown needs body rows contiguous with their header and delimiter, so the
+    line rendered as a stray paragraph of pipe-delimited text and the table
+    still visibly ended at the previous id. Confirmed through GitHub's own
+    `/markdown` API: the id did not appear inside a `<td>`.
+
+    EVERY OTHER CHECK IN THIS MODULE AGREED WITH IT. `_ROW` scans the whole file
+    text with no notion of where the table is, so the orphan counted as a row;
+    the run had also updated the prose to match, so the declared total and the
+    derived total agreed and the suite went green. A guard built to stop the
+    file's claims drifting from its contents was blind to a row that textually
+    exists and visually does not — which is the class this file's own subject
+    belongs to: it checked the pattern that stands in for the property instead
+    of the property.
+
+    So the check is on CONTIGUITY, not on the id or the position: every counted
+    row must be reachable from the delimiter row by an unbroken run of `|` lines.
+    A row appended after any future heading fails here rather than rendering
+    invisibly, whatever that heading turns out to be.
+    """
+    lines = _text().split("\n")
+
+    # WHAT ENDS A GFM TABLE, WHICH IS NOT "the next line without a pipe".
+    # A plain paragraph line is LAZILY ABSORBED into the preceding row's last
+    # cell and the table keeps going — this file relies on that at C-050/C-051,
+    # where a bold paragraph sits between two rows and both still render as
+    # rows. A first version of this check broke the block on any non-`|` line
+    # and reported C-051 as an orphan; GitHub's own `/markdown` API disagreed,
+    # and the API was right. Only a blank line or a genuine block-level opener
+    # closes the table.
+    def _ends_the_table(line: str) -> bool:
+        s = line.strip()
+        return (not s
+                or s.startswith(("#", ">", "```", "~~~", "- ", "* ", "+ "))
+                or set(s) <= {"-", "*", "_", " "} and len(s) >= 3)
+
+    in_table: set[int] = set()
+    block: list[int] = []
+    for i, line in enumerate(lines + [""]):
+        if not _ends_the_table(line):
+            block.append(i)
+            continue
+        if any(set(lines[j].replace("|", "").replace(" ", "")) <= {"-", ":"}
+               and lines[j].replace("|", "").strip() for j in block):
+            in_table.update(block)
+        block = []
+
+    orphans = [lines[i].split("|")[1].strip()
+               for i, line in enumerate(lines)
+               if _ROW.match(line) and i not in in_table]
+    assert not orphans, (
+        f"these rows are counted by every check in this module but do NOT render "
+        f"as table rows: {orphans}. A `|`-line separated from the table by a "
+        f"blank line, a heading or a paragraph is a paragraph. Move it back into "
+        f"the table — appending to the end of the file puts it below "
+        f"`{_SECTION}`, which is how this was found."
+    )
+
+
 # --- each declaration is FOUND, before it is compared ---------------------
 #
 # A pattern that stops matching is the failure this file exists to prevent,
