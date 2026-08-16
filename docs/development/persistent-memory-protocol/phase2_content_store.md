@@ -21,8 +21,8 @@ This phase fixes that by keeping the bytes. When a run reads a source, the sourc
 Three payoffs from one mechanism, and they are independent of each other:
 
 1. **It mechanises what `research-critic` does by hand.** The critic re-fetches every citation from the network to check it exists and says what the paper claims. Store the bytes, hash them, re-check the quoted span offline — same guarantee, no network, no rate limit, and repeatable.
-2. **It makes a shared multi-edge store checkable for corruption.** [Phase 7](phase7_s3_aggregation.md) ships records to a store every edge reads, and a record whose bytes can be re-checked on arrival is a different object from one that is merely stored. **Read this claim narrowly, and § *What "verify" actually checks* below is the reason:** a self-computed manifest is regenerable by anyone who can write the bag, so it proves integrity against **accident and transport corruption**, not against an adversary with write access — which is precisely the party a shared store introduces. **Authenticity is Phase 7's ingress ruling, and this mechanism does not supply it.** *(The draft said "trustworthy" and "proven unaltered" flatly; corrected at review, because that claim would have been used to skip authentication at Phase 7.)*
-3. **It gives a no-new-evidence stop condition that is computed rather than judged.** An `evidence_set_hash` equal to a prior stage's means the stage saw exactly the same evidence. That is a stop condition derived from a hash, not from a model's opinion that nothing new turned up — and this fleet has already measured what model-asserted convergence flags are worth ([MMF Phase 5](../memory-management-framework/phase5_convergence_stopping.md) replaced one with a computed signal for precisely this reason).
+2. **It makes a multi-edge store checkable for corruption.** [Phase 7](phase7_s3_aggregation.md) ships records to object storage, and a record whose bytes can be re-checked on arrival is a different object from one that is merely stored. **Read this claim narrowly, and § *What "verify" actually checks* below is the reason:** a self-computed manifest is regenerable by anyone who can write the bag, so it proves integrity against **accident and transport corruption**, not against a party with write access. **Authenticity is a separate property and this mechanism does not supply it** — stated flatly here so the claim is not later used to skip an authentication step at [Phase 7](phase7_s3_aggregation.md).
+3. **It gives a no-new-evidence stop condition that is computed rather than judged.** An `evidence_set_hash` equal to a prior stage's means the stage saw exactly the same evidence. That is a stop condition derived from a hash, not from a model's opinion that nothing new turned up — and this fleet has already measured what a model-asserted convergence flag is worth, and replaced one with a computed signal for precisely this reason.
 
 ---
 
@@ -35,6 +35,7 @@ Three payoffs from one mechanism, and they are independent of each other:
 5. **`evidence_set_hash` is computed per stage**, and equality with the prior stage's is exposed as a stop condition — computed, not consumed by anything yet. Whether anything *routes* on it is a separate decision this phase does not make.
 6. **Code diffs are carried as a commit SHA** and resolved from git, never copied into the store.
 7. **The store's shape, its path derivation, and its fetch policy are specified** — § *What the store is, concretely* below. Each of the three is a way this mechanism becomes an attack surface if left to build time.
+8. **Capture and resolve are ACTIVITIES**, not helpers a caller remembers to call — the same reason [Phase 1](phase1_the_run_bag.md) requirement 11 gives, applied to the store's two entry points. A source read through a path that does not capture is a citation nobody can re-check offline, and it fails silently. **Same split as Phase 1 r11: layer placement, invocation and fail-stop are buildable today; orchestrator-driven retry and recorded execution are port-time.** And the same caveat: the boundary does not make the call happen — what does is [Phase 4](phase4_rebuild_is_a_test.md)'s test for the emit path and, here, `verify` failing closed on a citation with no stored bytes.
 
 ---
 
@@ -58,7 +59,7 @@ Nothing else. In particular it does **not** need the emit rule ([Phase 3](phase3
 
 **And our own by-value channel is a single `execve` argument, capped by the kernel at 131,072 bytes.** The largest fixed template is already at **58%** of it and the substituted blocks are unbounded. Exceeding it is not degradation — it is a hard `E2BIG` naming neither the prompt nor the block that grew.
 
-*(The parent↔child half of this rule is already shipped in [MMF Phase 3](../memory-management-framework/phase3_typed_exit_record.md). This phase applies it to the **record**: the journal names an artifact and its hash; the bytes live in the content store.)*
+*(The parent↔child half of this rule is already shipped in the typed exit record, which carries a reference rather than a payload. This phase applies the same rule to the **record**: the journal names an artifact and its hash; the bytes live in the content store.)*
 
 ### What "verify" actually checks, and what it cannot
 
@@ -70,7 +71,7 @@ Nothing else. In particular it does **not** need the emit rule ([Phase 3](phase3
 
 - **Not that the claim is true.** A correctly-quoted span from a wrong source verifies clean. Verification is an integrity check, not an epistemic one — it replaces the *mechanical* half of what `research-critic` does and leaves the judgement half exactly where it is.
 - **Not that the live source still says this.** The store is a snapshot. An upstream page that changed after capture verifies clean against the capture and is a different finding, reachable only by re-fetching — which is the currency question [`research-currency`](../../../config/agents/research-currency.md) owns, not this phase.
-- **Not that the record is authentic.** A manifest or digest computed by the storing party is regenerable by any party with write access. This detects accident and transport corruption; it does not detect an adversary who can write. See payoff #2 above and [Phase 7](phase7_s3_aggregation.md)'s ingress ruling.
+- **Not that the record is authentic.** A manifest or digest computed by the storing party is regenerable by any party with write access. This detects accident and transport corruption; it does not detect a party who can write. See payoff #2 above and [Phase 7](phase7_s3_aggregation.md) § *Where a shared bucket would change things*.
 - **Not that a back-filled capture proves anything about the run it came from.** Requirement 2 demonstrates against *a real prior run*, and a run predating the capture path has no stored bytes — so its sources must be fetched now, and the hash then proves the bytes matched **at back-fill**, not that the claim was made against them. **Requirement 2 is met by a run captured at read time.** A back-filled corpus is labelled a mechanism demonstration and nothing more.
 
 All three limits are why requirement 3's outcomes are distinct: a verifier that returns one boolean invites exactly this over-reading.
@@ -93,7 +94,7 @@ Three sub-decisions the draft left to build time. Each is where a byte cache tur
 
 Requirement 5 stops at *computed and exposed*. **Nothing gates on it in this phase**, deliberately.
 
-[MMF Phase 5](../memory-management-framework/phase5_convergence_stopping.md) is the precedent and it is worth following exactly: it built a computed convergence signal, shadowed it, and **gated nothing** — because two positive observations are not a rate, and a stopping rule that fires early ends productive work silently with no failing test. The same argument applies here without modification. Whoever proposes routing on `evidence_set_hash` owns producing the firing-rate evidence first.
+**The fleet's own convergence signal is the precedent and it is worth following exactly:** it was built as a computed signal, shadowed beside the incumbent, and **gated nothing** — because two positive observations are not a rate, and a stopping rule that fires early ends productive work silently with no failing test. The same argument applies here without modification. Whoever proposes routing on `evidence_set_hash` owns producing the firing-rate evidence first.
 
 ---
 
@@ -103,7 +104,7 @@ Requirement 5 stops at *computed and exposed*. **Nothing gates on it in this pha
 - [ ] Rule requirement 7(a): per-run or root-level shared, with the cost stated and Phase 7's checkbox reconciled
 - [ ] Specify the content store layout under the journal root — the on-disk path derived from the **computed digest alone**, algorithm-prefixed
 - [ ] Build the capture path: store raw bytes plus sha256 at the moment a source is read — and state the fetch policy, or state that it tees an existing tool and inherits that tool's policy
-- [ ] Build the single resolver that re-hashes on resolve and fails closed; `verify` is that resolver run in bulk
+- [ ] Build the single resolver that re-hashes on resolve and fails closed; `verify` is that resolver run in bulk — **both as activities** (requirement 8)
 - [ ] Build `verify`: resolve, re-hash, re-check span; three exit codes; span-miss reported separately from hash-mismatch
 - [ ] Demonstrate with the network disabled, and record how the network was disabled — **on a run captured at read time**, not a back-fill
 - [ ] Demonstrate detection of a deliberately altered stored byte

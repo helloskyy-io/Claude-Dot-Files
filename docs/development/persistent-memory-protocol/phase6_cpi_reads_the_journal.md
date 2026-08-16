@@ -12,17 +12,17 @@ The continuous-improvement sweep is the tool that looks across many past runs an
 
 **Terms used here.** The **journal** is the whole record: one folder per run, never edited after the run ends. A **bag** is one run's folder (the name comes from BagIt, the file-layout standard it follows — a folder on disk, never a Docker container). **CPI** is continuous process improvement — the cycle that reads past runs for recurring problems and turns them into tracked decisions; its **evidence sweep** is the read half of that. A **gap event** is [Phase 3](phase3_the_emit_rule.md)'s record of a write that failed. An **edge** is one machine running this fleet.
 
-The synthesis states the discipline this phase enforces plainly: **pair every producer with its consumer.** A producer with no consumer is how 262 MB accumulated unread — and this fleet has the measured local record of what happens otherwise. [MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) exists because three separate phases each added a parent-written observable to the same run log and **no committed tool read any of the three**; two of those three shipped with no reader at all, and only one of the two even placed a candidate for one.
+The synthesis states the discipline this phase enforces plainly: **pair every producer with its consumer.** A producer with no consumer is how 262 MB accumulated unread — and this fleet has the measured local record of what happens otherwise: three separate phases each added a parent-written observable to the same run log and **no committed tool read any of the three**; two of those three shipped with no reader at all, and only one of the two even placed a candidate for one.
 
 ---
 
-## Why this phase sits ahead of Phase 5 in the roadmap, and why it was split at review
+## Why this is its own phase, and why its gate is not the server
 
-**At draft this was one phase with the poller, gated on the Temporal server.** That would have put this component's *only consumer* behind a server nobody has stood up, for four phases of producers — the failure above, committed by the plan that cites it as its own cautionary precedent, with a longer fuse and a larger store.
+**Bundled with the poller, this would be gated on the Temporal server** — which would put this component's *only consumer* behind a server nobody has stood up, for four phases of producers. That is the failure above, committed by the plan that cites it as its own cautionary precedent, with a longer fuse and a larger store.
 
 Only the **poller** needs a scheduler. **Reading the journal needs a journal.** So the two split: this phase, and [Phase 8](phase8_the_poller.md).
 
-**It still has a gate, and it is a real one.** The CPI evidence sweep exists today only as `scripts/workflows/review-runs.sh`, which is in the **frozen bash fleet** and may not be modified. Its Python port is a milestone of the [Temporal Integration](../temporal-integration/temporal-integration.md) component, tracked as a checkbox in [`sprint.md`](../sprint.md) § *Sprint: Temporal Integration*. This phase builds on the port; it does not perform it, and it does not touch the bash script.
+**It does have a gate, and it is a real one.** The CPI evidence sweep exists today only as `scripts/workflows/review-runs.sh`, which is in the **frozen bash fleet** and may not be modified. Its Python port is a milestone of the [Temporal Integration](../temporal-integration/temporal-integration.md) component, tracked as a checkbox in [`sprint.md`](../sprint.md) § *Sprint: Temporal Integration*. This phase builds on the port; it does not perform it, and it does not touch the bash script.
 
 ---
 
@@ -34,7 +34,7 @@ Only the **poller** needs a scheduler. **Reading the journal needs a journal.** 
 4. **The cross-run sweep's wall-clock is measured against journal size**, and reported as the first real test of [Phase 1](phase1_the_run_bag.md)'s no-database decision.
 5. **Cross-machine CPI is not built here.** CPI stays on one machine until a second one produces runs.
 6. **Any gap in the journal appears in the sweep's own output.** § *A report over an incomplete record says so* below.
-7. **The sweep reaches its evidence through one storage interface**, with the local filesystem as the first implementation, and no filesystem semantics leak into the sweep itself. § *Why the reader has to be portable before anything needs it to be* below. This requirement exists because [Phase 7](phase7_s3_aggregation.md) requirement 3 depends on it and Phase 6 is built four positions earlier.
+7. **The sweep reaches its evidence through one storage interface**, with the local filesystem as the first implementation, and no filesystem semantics leak into the sweep itself. § *Why the reader has to be portable before anything needs it to be* below. This requirement exists because [Phase 7](phase7_s3_aggregation.md) requirement 3 depends on it and Phase 6 is built four positions earlier. **The interface's shape is also a boundary the [Temporal Integration](../temporal-integration/temporal-integration.md) component owns** — the sweep becomes a ported workflow and this is its I/O boundary — so what this phase states is what it needs, not the mechanism ([roadmap § *Constraints that run BOTH ways*](roadmap.md#constraints-that-run-both-ways-with-the-temporal-port)).
 
 ---
 
@@ -78,7 +78,7 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 
 **So the constraint lands here, as a requirement, at the phase that can actually satisfy it.** The interface is small: enumerate bags, read a file from a bag, read the gap events. The local implementation is a thin wrapper over the filesystem and costs almost nothing now; retrofitting it after three consumers read the tree directly is a cross-cutting refactor.
 
-*(This is the second forward constraint a gated phase turned out to place on an ungated one — the first is [Phase 7](phase7_s3_aggregation.md)'s ingress ruling requiring a provenance class on every [Phase 3](phase3_the_emit_rule.md) event. Both were invisible while Phase 7 was a roadmap row, and the [roadmap](roadmap.md#the-order-and-what-each-part-waits-on) now tracks them as a table so a third one cannot go missing the same way.)*
+*(This is one of several forward constraints a gated phase turned out to place on an ungated one. Each was invisible while the gated phase was a roadmap row, and the [roadmap](roadmap.md#what-a-gated-phase-requires-of-a-phase-being-built-today) now tracks them as a table so the next one cannot go missing the same way.)*
 
 ### A report over an incomplete record says so — requirement 6
 
@@ -86,7 +86,7 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 
 Two sources of incompleteness reach this phase, and both already have their own machinery:
 
-- **Gap events.** [Phase 3](phase3_the_emit_rule.md) rules that a failed journal write appends a typed gap event and marks the bag `incomplete`. [Phase 4](phase4_rebuild_is_a_test.md) requirement 7 reports gapped bags against bags replayed. **This phase carries that number into its own output**, so a reader of a CPI report learns it from the report.
+- **Gap events.** [Phase 3](phase3_the_emit_rule.md) rules that a failed journal write appends a typed gap event and marks the bag `incomplete`. [Phase 4](phase4_rebuild_is_a_test.md) requirement 7 reports gapped bags against bags replayed **and against bags rotated out behind the snapshot, deduped on `run_id`**. **This phase carries that number into its own output with the same denominator**, so a reader of a CPI report learns it from the report — and so the ratio cannot drift above 1 as retention shrinks the denominator under a numerator the snapshot preserves.
 - **Stores the journal could not rebuild.** [Phase 4](phase4_rebuild_is_a_test.md) § *Stores not covered* names each and says why. Those exclusions are inherited here, and they belong in the same place.
 
 **The place is the sweep's own output, not this document.** Someone reading a CPI report should not have to find a phase doc in a component they may never have heard of in order to learn what the record does not contain. That is the same reasoning [Phase 4](phase4_rebuild_is_a_test.md) requirement 6 applies to the two markdown tables, applied one layer up.

@@ -1,6 +1,6 @@
 # Phase 7 — Cross-machine aggregation, writing locally first
 
-**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gates:** a second machine that produces runs, plus two separate operator rulings
+**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** a second machine that produces runs
 
 ## What this phase does
 
@@ -12,17 +12,22 @@ The word "background" is doing real work. **The local file is the truth at the m
 
 **Terms used here.** A **journal** is the whole record on one machine: one folder per run, never edited after the run ends. A **bag** is one run's folder (the name comes from BagIt, the file-layout standard it follows — a folder on disk, never a Docker container). A **manifest** is the file inside a bag listing every payload file with its checksum. The **content store** is a byte cache holding the sources a run cited, named by checksum. An **edge** is one machine running this fleet. To **rebuild** a store is to read the journal back and regenerate what that store holds.
 
-## Why this phase waits, and what each gate is actually waiting for
+## Why this phase waits, and what the gate is actually waiting for
 
-Three gates. They are facts about what exists, and none of them is a reason this design is stated incompletely — two of the three **constrain what earlier phases must build today**, which is exactly why this document exists before its gates open.
+**One gate: a second machine that actually produces runs.** Building cross-machine aggregation before one exists is the speculative-generality trap [`state_passing`](research/raw/state_passing_between_workflow_children.md) §5.2 warns against — it argues this fleet does not have the problem such a framework would solve, and that building one anyway is the trap. **It is a pure scheduling gate and it constrains nothing being built today.**
 
-| Gate | What it is waiting for | What it constrains *now* |
-|---|---|---|
-| **A second machine that produces runs** | Nothing else. Building cross-machine aggregation before one exists is the speculative-generality trap [`state_passing`](research/raw/state_passing_between_workflow_children.md) §5.2 warns against — it argues this fleet does not have the problem such a framework would solve, and that building one anyway is the trap. | Nothing. This is the pure scheduling gate. |
-| **The egress ruling** — *what may leave this machine?* | An operator decision. See below. | [Phase 1](phase1_the_run_bag.md) r7's payload spec, which carries a **per-field classification slot** it does not yet fill: a classification the payload shape cannot express is one nobody can enforce later. *(This row pointed at Phase 3 until review; Phase 3 owns the event, Phase 1 owns the payload spec, and the slot landed nowhere for exactly that reason.)* |
-| **The ingress ruling** — *what may this machine believe?* | An operator decision, and a different one. See below. | [Phase 3](phase3_the_emit_rule.md) requirement 7's provenance class and credential epoch. **A field absent from version-1 events is absent forever**, so omitting them would foreclose this ruling before it is made. |
+### The storage arrangement, which is settled and is not a gate
 
-**The second and third were nearly collapsed into one gate, and collapsing them is how the third gets skipped.** They ask different questions, they have different failure modes, and satisfying one says nothing about the other.
+**Each edge has access to an S3 bucket — shared or its own — and uses it as it sees fit.** Today there is one edge and it has access to its own data. Anything further is decided by a future need rather than now.
+
+That is the whole arrangement. **It is stated here so nobody re-derives it, and it is deliberately not a ruling with a checkbox**: an earlier version of this plan held two unchecked operator rulings — one about what may leave a machine, one about what a machine may believe — and both were blocking a phase whose only real gate is a machine that does not exist.
+
+**Two things still land in earlier phases, and they land because of what they cost later rather than because a ruling waits on them:**
+
+| What earlier phases carry | Why now rather than here |
+|---|---|
+| [Phase 1](phase1_the_run_bag.md) r7's payload spec carries a **per-field classification slot** | A classification the payload shape cannot express is one nobody can act on later, and a field absent from version-1 events is absent forever. Every row's value is *shippable* today; the slot exists so a narrower answer is expressible if one is ever wanted. |
+| [Phase 3](phase3_the_emit_rule.md) r7's **provenance class** and **credential epoch** | Same reason, one layer up: a reader that cannot say where content came from cannot filter on it, and [Phase 8](phase8_the_poller.md)'s poller is the consumer that needs to. |
 
 ## This phase will split, and here is where
 
@@ -30,13 +35,11 @@ The synthesis sizes this as *"a couple of phases or its own sprint"* — an invo
 
 Three separable outcomes, in dependency order:
 
-1. **Ship and validate.** Bags sync to the bucket and validate on arrival. **Requirements 1, 2, 4 and 6.** Verifiable on its own with nothing reading the bucket. **Requirement 4 is in this seam and not a later one**, because it decides *what seam 1 actually transfers* — at the measured 1:125 authored-to-transcript ratio that is the difference between a trivial sync and a substantial one, and a seam that ships bags before the classification exists ships the transcript by default.
+1. **Ship and validate.** Bags sync to the bucket and validate on arrival. **Requirements 1, 2 and 4.** Verifiable on its own with nothing reading the bucket.
 2. **Read.** [Phase 6](phase6_cpi_reads_the_journal.md)'s sweep points at the bucket. Requirement 3. Verifiable on its own once (1) holds.
-3. **Trust.** Whatever the ingress ruling demands — origin authentication, a trust class on the reader, or an explicit decision that a shared bucket among mutually-trusting machines needs neither. Requirement 5.
+3. **Attribute.** Origin derived from the prefix, and a prefix/`edge_id` disagreement reported. Requirement 5. Small on its own, and the seam that grows if a bucket ever becomes shared between machines that do not trust each other equally.
 
-**Seam 2 does not close seam 3's question, and requirement 3 must not be read as forbidding its answer.** Requirement 3 says the *reader* does not change; **an origin or trust filter placed ahead of the reader is not a change to the reader**, and where the two conflict requirement 5 wins. Without that sentence the seam order reads as closing the reader before the ruling that constrains it — which is the shape this doc spends § *The ingress ruling* warning against.
-
-**(3) may be larger than (1) and (2) put together, and it may be empty.** That depends entirely on the ingress ruling, which is why it cannot be sized here — and why it is a seam rather than a checklist item.
+**Seam 2 does not close seam 3's question, and requirement 3 must not be read as forbidding its answer.** Requirement 3 says the *reader* does not change; **an origin filter placed ahead of the reader is not a change to the reader.** Without that sentence the seam order reads as closing the reader before the thing that constrains it.
 
 ---
 
@@ -45,9 +48,9 @@ Three separable outcomes, in dependency order:
 1. **Bags ship to `<machine_id>/<run_id>` asynchronously**, and the machine keeps running with the bucket unreachable — demonstrated with the bucket actually unreachable, not asserted.
 2. **A shipped bag validates against its own manifest after transfer**, using [Phase 2](phase2_content_store.md)'s mechanism — **and the content-store objects the bag references ship with it**, or the validation is knowingly partial and this doc says so and says why.
 3. **The sweep reads the bucket with no change to the reader written in [Phase 6](phase6_cpi_reads_the_journal.md)** — the input location changes, the reader does not.
-4. **The egress ruling is recorded, per field.** This requirement stays **unchecked** until the operator rules it — **and until it is ruled, the shipper transmits only fields explicitly classified as shippable.** The transcript and every unclassified field are excluded by default. § *The egress ruling* below states why that default and not the other one.
-5. **The ingress ruling is recorded.** It states what a reader may *act on* versus merely display, and whether records are origin-authenticated. This requirement stays **unchecked** until the operator rules it.
-6. **A gap in a shipped bag survives the transfer as a gap.** [Phase 3](phase3_the_emit_rule.md)'s `incomplete` marking and its gap events ship with the bag and are visible to a reader of the bucket. A record that arrives looking complete when it is not is worse than one that does not arrive. **Gap events are subject to requirement 4's classification like any other payload** — they are a closed typed field set by Phase 3's rule, which is what stops a gap event describing a non-shippable transcript from becoming the channel that ships part of it.
+4. **A gap in a shipped bag survives the transfer as a gap.** [Phase 3](phase3_the_emit_rule.md)'s `incomplete` marking and its gap events ship with the bag and are visible to a reader of the bucket. A record that arrives looking complete when it is not is worse than one that does not arrive.
+5. **Origin is derived from the prefix an object was found under, never from a field inside the object**, and a disagreement between the two is reported as a finding rather than resolved in favour of the field. § *Origin is where an object is, not what it claims* below.
+6. **The destination bucket blocks public access, encrypts at rest, is reached over TLS, and its credential is stored outside the repo and outside the journal.** § *The bucket's own posture* below. The last clause is the other half of [Phase 3](phase3_the_emit_rule.md) r6's no-key-in-events rule: a credential that never appears in an event but sits in a committed config file is the same exposure by a different route.
 
 ---
 
@@ -55,9 +58,9 @@ Three separable outcomes, in dependency order:
 
 - **[Phase 1](phase1_the_run_bag.md)** — the whole reason this phase is cheap. Syncing a directory tree to object storage is a solved, boring operation; syncing *"a database plus some files plus some GitHub state"* is not. This is the payoff of choosing a folder-per-run layout.
 - **[Phase 2](phase2_content_store.md)** — supplies the manifest-validation mechanism requirement 2 runs after transfer, and the content-store objects requirement 2 has to decide about.
-- **[Phase 3](phase3_the_emit_rule.md)** — supplies the stable machine id every object is filed under, and the provenance class and credential epoch the ingress ruling ranges over.
+- **[Phase 3](phase3_the_emit_rule.md)** — supplies the stable machine id every object is filed under, and the provenance class and credential epoch a reader filters on.
 - **[Phase 6](phase6_cpi_reads_the_journal.md)** — supplies the reader requirement 3 must not have to change.
-- **An operator ruling on egress, and a separate one on ingress.** Both are [roadmap § *Open inputs*](roadmap.md#open-inputs--questions-this-plan-carries-forward-without-answering), item 3. The research that would inform them is [`C-079`](../../standards/architecture/research/candidates.md).
+- **A second machine.** That is the gate, and it is the whole of it.
 
 ---
 
@@ -79,29 +82,29 @@ Object storage is the standard answer for write-once, high-volume, append-only, 
 
 **The machine id is [Phase 3](phase3_the_emit_rule.md) requirement 6's stable `edge_id`, and this is where the reason for that requirement becomes concrete.** If the key had been derived from a credential, rotating that credential would orphan a machine's entire history in the bucket — a rename of every object it ever wrote, with nothing to say the two prefixes are the same machine. One line of design in Phase 3; an unrecoverable data-modelling mess here.
 
-### The egress ruling — what may leave this machine
+### Origin is where an object is, not what it claims — requirement 5
 
-**The question:** which fields of a record may be copied to storage that other machines read?
+**The prefix is the origin authority, and the in-event `edge_id` is not.** [Phase 3](phase3_the_emit_rule.md) requirement 7(b) states the target — an id assigned by an authenticating authority and bound at ingest — and states plainly that **no ingest tier exists to do the binding**, because bags sync here sealed and a receiver cannot rebind a field inside a sealed bag without invalidating its manifest.
 
-**It is smaller than it first looks, and that is itself part of the answer.** The existing classification rule excludes model-authored text, because it was written for the per-run log, which sits beside the CLI transcript where such text arrives incidentally. **The journal is different: every byte in it was deliberately written to a durable surface**, and most of it is already public in a GitHub pull request. So the question is per-field, and most fields answer themselves.
+So the control this phase supplies instead is topological: **each machine's storage credential is scoped by storage-side policy to its own `<machine_id>/` prefix**, and a reader derives origin from **the prefix an object was found under**. A disagreement between the prefix and the `edge_id` inside the event is a reportable finding, not a tie broken in favour of the field. That is the shape [`problem-statement.md`](../../standards/architecture/problem-statement.md) already argues for at the credential layer — *no label grants one edge the ability to authenticate as another subscriber*.
 
-**It is still a decision and it still gates a shared store**, for one reason: the transcript. It carries the literal input of every command the fleet ran, and this fleet runs with permissions bypassed. [Phase 3](phase3_the_emit_rule.md)'s capture-time filter is the first control and [Phase 1](phase1_the_run_bag.md)'s redaction event class is the second, but a filter is a best effort and a shared bucket is permanent. **Whether the transcript leaves the machine at all is the live question**, and the honest default until it is ruled is that it does not.
+**⚠ What this does NOT give.** It is an *attribution* control and not an *authenticity* one. A `manifest-sha256.txt` is regenerable by anyone who can write the bag: it proves integrity against **accident and transport corruption** — which is real and is what requirement 2 buys — and it proves nothing against a party with write access to the prefix itself. [Phase 2](phase2_content_store.md) § *What "verify" actually checks* states the same limit from the other side, deliberately, so the claim is not over-read in either document.
 
-**What the ruling has to produce:** a per-field classification that requirement 4 can be checked against. Not a principle — a table.
+### Where a shared bucket would change things — a design note, not a gate
 
-### The ingress ruling — what may this machine believe
+**The arrangement today is that each edge has access to a bucket and uses it as it sees fit, and there is one edge.** So the questions below are not open decisions blocking anything; they are what to read first if a bucket ever becomes genuinely shared between machines. Written down so nobody re-derives them under time pressure.
 
-**The question:** how does a reader treat another machine's records?
+**Both postures would change, and the disclosure one is bigger than the surface-count framing suggests.** It is true that the *authored* half of the journal was deliberately written to a durable surface and is mostly already public in a GitHub pull request — **and that half is 0.8% of the bytes.** The other 99.2% is the CLI transcript: captured rather than authored, public nowhere, and carrying the literal input of every command the fleet ran under bypassed permissions. **So *what may leave* does not answer itself; it is essentially the transcript question and nothing else.**
 
-**This is an integrity question, not a disclosure one, and that is why it cannot be folded into the ruling above.** A build could classify every field correctly on the way out and still ship a reader that treats another machine's records as fleet history. The [heartbeat pollution paper](https://arxiv.org/pdf/2603.23064) is the evidence: it measured pollution reaching durable memory at rates up to **91%**, and **prompt injection was not required — ordinary misinformation sufficed.**
+**The evidence, because it is stronger than intuition suggests.** The [heartbeat pollution paper](https://arxiv.org/pdf/2603.23064) measured pollution reaching durable memory at rates up to **91%**, and **prompt injection was not required — ordinary misinformation sufficed.** Under [Phase 4](phase4_rebuild_is_a_test.md) the stores are things the journal rebuilds, so a polluted record does not merely sit in a bucket being wrong; it **replays into `candidates.md` and `direction.md`** the next time anything rebuilds them, and [Phase 8](phase8_the_poller.md) may then start a run off the result.
 
-**Under [Phase 4](phase4_rebuild_is_a_test.md) the stores are things the journal rebuilds.** So a polluted record does not merely sit in a bucket being wrong; it **replays into `candidates.md` and `direction.md`** the next time anything rebuilds them. The blast radius of believing a bad record is the fleet's own decision surfaces.
+**So the three things a shared-bucket build would state, in order:** what a reader may *act on* versus merely display; whether records are origin-authenticated beyond prefix scoping; and whether the transcript is shipped at all. **The fields those answers range over already exist** ([Phase 1](phase1_the_run_bag.md) r7's per-field classification, [Phase 3](phase3_the_emit_rule.md) r7's provenance class), which is the whole reason they are built early.
 
-**And the manifest does not close this.** A `manifest-sha256.txt` is regenerable by anyone who can write the bag. It proves integrity against **accident and transport corruption** — which is real and is what requirement 2 buys — and it proves **nothing** against a party with write access, which is exactly the party a shared bucket introduces. [Phase 2](phase2_content_store.md) § *What "verify" actually checks* states the same limit from the other side, deliberately, so this claim is not over-read in either document.
+### The bucket's own posture — named here rather than left absent
 
-**What the ruling has to produce:** a statement of what a reader may *act on* versus merely display, and whether records are origin-authenticated. **A legitimate outcome is "neither, because every machine in this fleet is one operator's"** — that is a ruling, and recording it is what stops the next person re-deriving it. What is not legitimate is building the reader without asking.
+**Requirement 6 exists because the arrangement settles *who reaches the bucket*, and settles nothing about how the bucket itself is configured.** That is a different question and it does not become smaller when there is one edge: the object shipped is 4.8 MB per run of literal command input, and a single permissive bucket policy exposes every command the fleet has ever run plus whatever [Phase 3](phase3_the_emit_rule.md)'s capture filter missed.
 
-**The field this ruling ranges over already has to exist.** [Phase 3](phase3_the_emit_rule.md) requirement 7's provenance class distinguishes fleet-authored prose, operator-authored input, and bytes fetched from the internet. Without it every downstream reader sees one undifferentiated stream and no ingress rule can be expressed at all — which is why that field lands in Phase 3 rather than here.
+**It is not an open ruling and it is not a gate — it is a requirement with an obvious answer that has to be written down so a build cannot skip it**, which is the difference between *deferred* and *absent* this plan is otherwise careful about.
 
 ### The reader does not change, and that is a requirement rather than a hope
 
@@ -115,15 +118,14 @@ Object storage is the standard answer for write-once, high-volume, append-only, 
 
 - [ ] Specify the bucket layout: `<machine_id>/<run_id>`, with the machine id from [Phase 3](phase3_the_emit_rule.md) requirement 6
 - [ ] Scope each machine's storage credential to its own prefix by storage-side policy, derive origin from the prefix, and report a prefix/`edge_id` disagreement as a finding
-- [ ] Until requirement 4 is ruled, ship only fields classified shippable — confirm by inspection that no transcript bytes leave the machine
 - [ ] Build the asynchronous shipper: local write is the truth, shipping retries, backlog is bounded and observable
 - [ ] Demonstrate a full run completing with the bucket unreachable, and the backlog draining afterwards — record both commands
 - [ ] Rule requirement 2's content-store question: objects ship with the bag, or validation is partial and this doc says so
 - [ ] Validate a shipped bag against its manifest after transfer, and demonstrate a corrupted transfer being caught
 - [ ] Confirm an `incomplete` bag arrives marked `incomplete`, with its gap events intact
 - [ ] Point [Phase 6](phase6_cpi_reads_the_journal.md)'s sweep at the bucket **with no change to the reader**, and record what did have to change
-- [ ] Record the egress ruling as a per-field table **once the operator has ruled it**; leave requirement 4 unchecked until then with prose saying why
-- [ ] Record the ingress ruling **once the operator has ruled it**, including an explicit "neither is required, and here is why" if that is the ruling; leave requirement 5 unchecked until then
+- [ ] Ship according to [Phase 1](phase1_the_run_bag.md) r7's per-field classification as it stands when this phase runs, and record what that classification was at the time
+- [ ] Confirm the bucket blocks public access, encrypts at rest and is reached over TLS, and record where its credential lives — outside the repo and outside the journal root (requirement 6)
 - [ ] Tests per the [Testing Standard](../../standards/testing/README.md): `unit/` for layout derivation and backlog behaviour, `integration/` for a real ship-and-validate cycle against a real bucket
 - [ ] Record transfer volume and wall-clock against bag count, with denominators, in § *Measurement*
 
@@ -135,7 +137,7 @@ Object storage is the standard answer for write-once, high-volume, append-only, 
 
 Three figures with denominators:
 
-- **Bytes shipped per run against bytes written per run.** If the egress ruling excludes the transcript, this ratio is roughly 1:125 on the synthesis's measured split (39,772 authored bytes against 4,823,628 transcript bytes for one `research_minor` cycle) — and knowing which side of that ruling the fleet is on is the difference between a trivial sync and a substantial one.
+- **Bytes shipped per run against bytes written per run.** The synthesis's measured split for one `research_minor` cycle is 39,772 authored bytes against 4,823,628 transcript bytes, so a build that ships everything and one that ships only the authored half differ by roughly two orders of magnitude in transfer volume. Which one this is decides whether the sync is trivial or substantial.
 - **Backlog depth over a real outage**, with the outage duration as the denominator. This is what says whether "asynchronous" is bounded in practice.
 - **Sweep wall-clock reading the bucket against reading one local journal**, over the same window. Requirement 3 is about correctness; this is about whether the result is usable.
 
@@ -144,5 +146,5 @@ Three figures with denominators:
 ## Notes and open items
 
 - **This phase does not build cross-machine retention.** [Phase 5](phase5_snapshots_then_retention.md)'s numbers are bounded by one disk; a bucket is not, and it has its own lifecycle rules and its own cost model. Inheriting the local budget here by default would be a guess dressed as a decision.
-- **Nothing in this phase authenticates a machine to the bucket beyond the storage provider's own credential scoping described above.** That is deliberate — cryptographic origin authentication may be what the ingress ruling asks for, and pre-empting a ruling is how a build opens a security gate from priors. What the prefix scoping does buy, unconditionally, is that origin is a fact about where an object *is* rather than a claim inside it.
+- **Nothing in this phase authenticates a machine to the bucket beyond the storage provider's own credential scoping described above.** That is deliberate and it is bounded by the arrangement: one edge, its own data. What the prefix scoping buys unconditionally is that origin is a fact about where an object *is* rather than a claim inside it — which is the property a stronger scheme would build on rather than replace.
 - **The second machine is likely to be a building-automation edge** — [`problem-statement.md`](../../standards/architecture/problem-statement.md) § *Building & industrial automation* names it as the natural next one because SkyyCommand already runs Home Assistant on the local network, so the domain is present and the hardware exists. It has no codebase to version; what it has is runs. That is the case this component's destination-is-a-field property was designed for, and it is the one to check this phase against when the gate opens — not a second coding machine, which would exercise none of it.
