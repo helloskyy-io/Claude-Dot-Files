@@ -126,6 +126,26 @@ def _runners_declaring_repo_paths() -> list[str]:
 _SUBJECTS = _runners_declaring_repo_paths()
 
 
+def _cases() -> list[tuple[str, str]]:
+    """(runner, dest) for EVERY declared repo path, one case per path.
+
+    ONE PATH AT A TIME, AND THE ALTERNATIVE IS WHY. Escaping all of a runner's
+    paths in a single invocation is the obvious shape and it is strictly weaker:
+    the resolver reports the first escape it finds, so that arm passes
+    identically whether the mechanism resolves EVERY declared path or only the
+    first one — and "resolves only the first" is precisely the bug class this
+    change exists to end, since it is what a hand-written dict does when someone
+    adds a fourth flag and updates three entries. Escaping one path while the
+    others are legitimate is what discriminates.
+    """
+    return [(runner, dest)
+            for runner in _SUBJECTS
+            for dest in _repo_paths_of(runner)]
+
+
+_CASES = _cases()
+
+
 class _Dispatched(Exception):
     """Raised in place of a real dispatch. Reaching it is a RESULT, not an error.
 
@@ -185,16 +205,22 @@ def test_every_runner_with_a_repo_path_is_exercised() -> None:
         f"resolution — the repo paths themselves are read off the parser.")
 
 
-@pytest.mark.parametrize("runner", _SUBJECTS, ids=lambda n: n)
+@pytest.mark.parametrize("runner,escaping", _CASES, ids=lambda v: v)
 def test_an_ESCAPING_path_is_refused_before_anything_is_created(
-        runner: str, capsys: pytest.CaptureFixture[str]) -> None:
-    """THE GUARD, one runner at a time, driven the way an operator drives it."""
+        runner: str, escaping: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """THE GUARD, one declared path at a time, driven the way an operator drives it.
+
+    Every other path on the invocation is legitimate, so a pass here says *this
+    particular argument* was resolved — not merely that something on the command
+    line was.
+    """
     declared = _repo_paths_of(runner)
     assert declared, f"{runner} matched `add_repo_path(` but declared nothing"
 
     argv = list(_ARGV_SHAPE[runner])
-    for dest in declared:
-        argv += [_ESCAPE] if _is_positional(runner, dest) else [f"--{dest.replace('_', '-')}", _ESCAPE]
+    for dest, (is_dir, _) in declared.items():
+        value = _ESCAPE if dest == escaping else _LEGITIMATE[is_dir]
+        argv += [value] if _is_positional(runner, dest) else [f"--{dest.replace('_', '-')}", value]
 
     try:
         exit_code = _module(runner).main(argv)
@@ -207,13 +233,19 @@ def test_an_ESCAPING_path_is_refused_before_anything_is_created(
     captured = capsys.readouterr()
 
     assert exit_code == 1, (
-        f"{runner} accepted an escaping path (exit {exit_code}). These run under "
-        f"`--dangerously-skip-permissions`, so this is an unattended run reading "
-        f"and writing wherever it was pointed.\n{captured.out}\n{captured.err}")
+        f"{runner} accepted an escaping `{escaping}` (exit {exit_code}). These "
+        f"run under `--dangerously-skip-permissions`, so this is an unattended "
+        f"run reading and writing wherever it was pointed."
+        f"\n{captured.out}\n{captured.err}")
     assert "resolves outside the repo" in captured.err, (
         f"{runner} refused the invocation but not as an ESCAPE. An operator told "
         f"`not found` goes and creates the directory; the argument is the "
         f"problem.\n{captured.err}")
+    assert escaping in captured.err, (
+        f"{runner} refused an escape but named a DIFFERENT argument than "
+        f"`{escaping}`, the one that actually escaped. Every other path on this "
+        f"invocation was legitimate, so this is the resolver reporting on a path "
+        f"it was not asked about.\n{captured.err}")
 
 
 @pytest.mark.parametrize("runner", _SUBJECTS, ids=lambda n: n)
