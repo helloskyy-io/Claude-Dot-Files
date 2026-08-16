@@ -1,6 +1,6 @@
 # Phase 1 — The journal root and the run bag
 
-**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today
+**Component:** [Persistent Memory Protocol](roadmap.md) · **Status: 🔨 BUILT (2026-08-16) — all eleven requirements closed on the buildable half; r11's orchestrator half is port-time and stays open with prose saying why** · **Gate:** none — unblocked today
 
 ## What this phase does
 
@@ -113,6 +113,19 @@ Four states, and the validator distinguishes them:
 
 **Deciding it implicitly during Phase 3's wiring is the outcome this requirement exists to prevent**, because that is the one place the plan itself calls expensive to unwind. Note also that the run log is keyed **per repo checkout** while the journal is one root **per edge** — so requirement 7's payload table carries the originating repo/project as a first-class field regardless of which answer wins. A field absent from v1 events is absent forever, and without it nothing downstream can express *"this depends on which repo the run was in."*
 
+#### THE ANSWER: absorption, and the seam closes in Phase 3
+
+**The journal is the run log's new home.** The second option is rejected, and the reason is that it has no upside to weigh: two per-run stores holding duplicate transcripts under two event vocabularies costs two writers, two readers and two chances to disagree, and **there is no question the second copy answers.** The payload table above already admits the CLI transcript and the execution facts — that *is* `run_log.py`'s content — so "a second surface" would mean declaring the same bytes twice and then maintaining the difference.
+
+Four consequences, stated so Phase 3 wires to a decision rather than making one:
+
+1. **`run_log.py`'s declared surface is carried, not discarded.** Its three member event types (`parent_route`, `run_resources`, `convergence`), its `run_id` join key, its `PUBLISHABLE_FIELDS` classification and its growth rule become the journal's, versioned under `Event-Schema-Version`. The classification in particular has a home waiting for it: it is the per-row value in the payload table's classification column, one altitude up.
+2. **The join key changes meaning and that is the migration's real content.** `run_log.py`'s `run_id` is minted inside `run_claude` — **per model invocation**, so a parent and its three children carry four different values and no single one addresses the run. The journal's `run_id` is minted once at the top. They are different identifiers wearing one name, which is exactly why this could not be settled by "point the writer somewhere else".
+3. **The existing `.claude/logs/` archive is NOT migrated**, and this is a separate decision with its own reasoning rather than a consequence of the first. It is gitignored, so no clone, CI runner or worktree can re-derive it; it is a moving denominator (175 → 178 files inside one day); and by consequence 2 it has no identifier that addresses a *run*, so a migration would have to fabricate run-level bags out of child-level records. **Synthesising a record is the one thing a journal must never do.** The archive stays where it is, read by its three committed readers exactly as today, until it ages out.
+4. **The [`memory-model.md`](../../guide/memory-model.md) amendment is SURFACED, not written** — it is a `docs/guide/` document under human review, and it already has a declared writer for entries of this kind: the roadmap's § *Standards-amendment candidates*, where this lands as an entry naming when it applies. A dispatch writing it directly is what [`standards-governance.md`](../../../config/rules/standards-governance.md) exists to prevent.
+
+**Nothing changes in `.claude/logs/` in Phase 1.** This phase opens bags and writes no events, so both surfaces exist and only one is written to. The cut-over is Phase 3's, which is where emitters live; what this section removes is Phase 3's freedom to decide it by accident.
+
 ### Concurrent children write to their own subfolder
 
 The event-sourcing literature warns that without a correct sequence number and a single writer per aggregate, events get reordered. This fleet fans out — the 2026-08-12 verify round dispatched two critics 21 seconds apart — so concurrent writers are real today, not hypothetical.
@@ -123,13 +136,18 @@ The event-sourcing literature warns that without a correct sequence number and a
 
 ### What goes in the journal, and what stays out
 
-| Surface | What it is | In the journal? |
-|---|---|---|
-| **Authored output** — PR body, comments, decisions, triage, candidate rows | what the run **wrote** | **Yes, verbatim** |
-| **CLI transcript** — every tool call and result | **how the run got there** | **Yes.** Basic logging, and it is not optional |
-| **Execution facts** — cost, timing, resources, re-runs | what it took | **Yes** |
-| **Code diffs** | already perfectly stored | **No** — commit SHA, fetch from git |
-| **Temporal history** | orchestration, with a retention TTL | **No** — the workflow emits what it needs at completion |
+**THIS TABLE IS THE PAYLOAD SPEC (requirement 7) AND IT IS THE AUTHORITATIVE ONE.** No other document restates it; where another needs a row, it cites this section. A restated table is a copy, and a copy of a superseded row is how a correction fails to land.
+
+**The `May leave this edge?` column is the classification slot**, and it has one more column than this phase has any use for on purpose — § *Why the payload spec carries a classification slot it does not yet fill* below is the argument. Every row gets a value; today every value is the same.
+
+| Surface | What it is | In the journal? | Why — including why not | May leave this edge? |
+|---|---|---|---|---|
+| **Authored output** — PR body, comments, decisions, triage, candidate rows | what the run **wrote** | **Yes, verbatim** | No better durable store exists. GitHub comments are editable, deletable, unversioned and hosted by a service — **and they are where the reasoning lives** | shippable |
+| **CLI transcript** — every tool call and result | **how the run got there** | **Yes.** Basic logging, and it is not optional | It is the only record of *why* a run did what it did, and it is what [Phase 4](phase4_rebuild_is_a_test.md) replays. It is also 99.2% of the bytes (below) and the one surface carrying unredacted credentials, which is why § *Schema versioning* designs a redaction path | shippable |
+| **Execution facts** — cost, timing, resources, re-runs | what it took | **Yes** | Measurement samples: each decides nothing alone and becomes a decision only as a rate over many runs, so they are worthless unless kept across runs. This is `run_log.py`'s three declared event types (§ *The surface this replaces*) | shippable |
+| **Originating repo/project** — worktree path, `origin` remote, HEAD commit | which checkout this run happened in | **Yes, as a first-class field** | The run log it supersedes is keyed **per repo checkout** while the journal is one root **per edge**, so without this nothing downstream can express *"this depends on which repo the run was in."* **A field absent from v1 events is absent forever** | shippable |
+| **Code diffs** | already perfectly stored | **No** — commit SHA, fetch from git | git is versioned, content-addressed and complete. Storing a second copy adds bytes and a second thing that can disagree with the first | n/a — not stored |
+| **Temporal history** | orchestration, with a retention TTL | **No** — the workflow emits what it needs at completion | **Excluded as a *source* only, and only because it expires.** Its identity scheme is bounded by retention and continue-as-new starts a fresh history: an execution log with a TTL, not a durable memory. Building analysis on it means building on a store that deletes itself on a schedule configured months earlier | n/a — not stored |
 
 **The line is one question: does a better durable store already exist for this artifact type?** For code it does — git is versioned, content-addressed and complete, so the journal carries the SHA. For the prose a run writes into GitHub it emphatically does not: comments are editable, deletable, unversioned and hosted by a service, **and they are where the reasoning lives.**
 
@@ -215,28 +233,71 @@ Three of this component's rules compose into a trap: the transcript goes in and 
 
 ---
 
+## What was built, and where it lives
+
+| Piece | Where |
+|---|---|
+| Root resolution and its refusals | `scripts/workflows/temporal/modules/journal/root.py` |
+| The bag: layout, manifest, lifecycle, redaction, gap records | `scripts/workflows/temporal/modules/journal/bag.py` |
+| The validator | `scripts/workflows/temporal/modules/journal/validate.py` |
+| The activity a run invokes first | `scripts/workflows/temporal/modules/journal/journal_activities.py` |
+| The operator CLI | `scripts/workflows/temporal/scripts/validate_bag.py` |
+| The root and deployment shape | `config.yaml` § `journal:` |
+| The enumerating sweep (r11's actual guarantee) | `scripts/workflows/temporal/tests/unit/test_every_parent_opens_a_run_bag.py` |
+
+---
+
 ## Implementation checklist
 
-- [ ] Write the root-resolution contract: config value first, documented default per deployment shape, explicit failure when neither resolves — **no silent fallback to a home directory** — plus requirement 9's mode rules (`0700`/`0600` at creation; refuse a group- or world-writable root, a symlink pointing outside the configured path, or a root inside a git working tree), **with the refusal naming the resolved path and the failing property**
-- [ ] Write the run-folder layout: `<root>/<run_id>/` as a BagIt bag, with one payload subfolder per child
-- [ ] Specify `bag-info.txt` contents including the schema-version field, and write the version/upcast rule and the redaction-event exception beside it
-- [ ] Specify `manifest-sha256.txt` generation over the payload, and manifest **regeneration** for the `redacted` state
-- [ ] Specify how `incomplete` is recorded on a bag, and confirm it is independent of the other three states rather than a fourth value of one field
-- [ ] Write the payload spec table into this doc's § *What goes in the journal* as the authoritative version, with the originating repo/project as a field and a classification slot per row, and confirm no other doc restates it
-- [ ] **Answer § *The surface this replaces*** — journal-absorbs-run-log or two-surfaces-with-a-seam — and record the reasoning; if it is absorption, surface the [`memory-model.md`](../../guide/memory-model.md) amendment as a candidate rather than writing it
-- [ ] **Build bag-open as an activity** the parent invokes as its first step, **and the enumerating test that discovers every parent and fails when one does not call it** — demonstrated against a deliberately non-conforming parent (requirement 11)
-- [ ] Build the validator: re-hash the payload against the manifest, report pass/fail, distinguish *missing file* from *checksum mismatch*, and always report all three fields — `lifecycle: open|sealed`, `redacted`, `incomplete` — rather than one label that hides the others
-- [ ] Add the validator to [`testing/run-all.sh`](../../../testing/run-all.sh) with a `tests/` directory per the [Testing Standard](../../standards/testing/README.md) — `unit/` for layout, manifest generation and every combination of the two lifecycle values with the two flags (including a bag that is `sealed`, `redacted` **and** `incomplete`), `integration/` for a real bag produced by a real dispatch
-- [ ] Demonstrate two concurrent writers producing one valid bag with no collision, as a **structural test over the layout API**. The live fan-out demonstration belongs to [Phase 3](phase3_the_emit_rule.md), because nothing emits until then
-- [ ] Record the measured size of one real run's bag, with its denominator, in § *Measurement* below
+- [x] Write the root-resolution contract: config value first, documented default per deployment shape, explicit failure when neither resolves — **no silent fallback to a home directory** — plus requirement 9's mode rules (`0700`/`0600` at creation; refuse a group- or world-writable root, a symlink pointing outside the configured path, or a root inside a git working tree), **with the refusal naming the resolved path and the failing property**
+- [x] Write the run-folder layout: `<root>/<run_id>/` as a BagIt bag, with one payload subfolder per child
+- [x] Specify `bag-info.txt` contents including the schema-version field, and write the version/upcast rule and the redaction-event exception beside it
+- [x] Specify `manifest-sha256.txt` generation over the payload, and manifest **regeneration** for the `redacted` state
+- [x] Specify how `incomplete` is recorded on a bag, and confirm it is independent of the other three states rather than a fourth value of one field
+- [x] Write the payload spec table into this doc's § *What goes in the journal* as the authoritative version, with the originating repo/project as a field and a classification slot per row, and confirm no other doc restates it
+- [x] **Answer § *The surface this replaces*** — journal-absorbs-run-log or two-surfaces-with-a-seam — and record the reasoning; if it is absorption, surface the [`memory-model.md`](../../guide/memory-model.md) amendment as a candidate rather than writing it
+- [x] **Build bag-open as an activity** the parent invokes as its first step, **and the enumerating test that discovers every parent and fails when one does not call it** — demonstrated against a deliberately non-conforming parent (requirement 11)
+- [x] Build the validator: re-hash the payload against the manifest, report pass/fail, distinguish *missing file* from *checksum mismatch*, and always report all three fields — `lifecycle: open|sealed`, `redacted`, `incomplete` — rather than one label that hides the others
+- [x] Add the validator to [`testing/run-all.sh`](../../../testing/run-all.sh) with a `tests/` directory per the [Testing Standard](../../standards/testing/README.md) — `unit/` for layout, manifest generation and every combination of the two lifecycle values with the two flags (including a bag that is `sealed`, `redacted` **and** `incomplete`), `integration/` for a real bag produced by a real dispatch
+- [x] Demonstrate two concurrent writers producing one valid bag with no collision, as a **structural test over the layout API**. The live fan-out demonstration belongs to [Phase 3](phase3_the_emit_rule.md), because nothing emits until then
+- [x] Record the measured size of one real run's bag, with its denominator, in § *Measurement* below
 
 ---
 
 ## Measurement
 
-*(Populated when the phase runs. Every figure is produced by a command run against the tree and pasted with the command that produced it — a restated figure is a copy, and a copy of a superseded figure is how a correction fails to land.)*
+*(Every figure is produced by a command run against the tree and pasted with the command that produced it — a restated figure is a copy, and a copy of a superseded figure is how a correction fails to land.)*
 
-**The baselines this phase is measured against**, both from the synthesis and both re-derivable:
+### What one real bag costs, measured 2026-08-16
+
+**The bag was produced by a real entrypoint**, not constructed by a test: `run_triage_candidates.main(["--repo", "."])` with `plan_activities.worktree_add` replaced by a raise, so the entrypoint's own code path ran as far as its first side effect and stopped there. No model was dispatched and no worktree was cut. The harness is eight lines and is quoted in the PR that added this section.
+
+```
+$ du -sb ~/.local/state/claude-dot-files/journal/b93d8ce8*/
+496
+
+$ find ~/.local/state/claude-dot-files/journal/b93d8ce8*/ -type f -printf '%s\t%P\n'
+442     bag-info.txt
+54      bagit.txt
+
+$ du -sh ~/.local/state/claude-dot-files/journal/b93d8ce8*/
+16K
+```
+
+| Figure | Value | What it is |
+|---|---|---|
+| One opened bag, apparent bytes | **496** | `bagit.txt` 54 + `bag-info.txt` 442. The **per-run floor** — the whole cost of the protocol before anything emits |
+| Same bag, on-disk | **16 KiB** | three directories at one 4 KiB block each, plus the two tag files. The floor an operator's `du` will report |
+| The floor as a share of one complete run | **0.010%** | 496 ÷ 4,863,400 (the two synthesis baselines below, summed) |
+| Runs per [Phase 5](phase5_snapshots_then_retention.md) 1 GB budget, at the projected complete size | **≈205** | 1,000,000,000 ÷ 4,863,400. **A projection, not a measurement** — nothing emits until [Phase 3](phase3_the_emit_rule.md), so the payload half is the synthesis figure and not something this phase weighed |
+
+**⚠ The last row is the only one here that is not measured, and it is labelled that way deliberately.** The first three are `du` against a bag that exists; the fourth multiplies a real denominator by a projected numerator. Phase 3 is where it becomes a measurement, and the figure it produces supersedes this row rather than joining it.
+
+**What the floor buys, stated because 496 bytes reads like nothing:** it is what makes a run's record *addressable* — an operator with a `run_id` has a folder, and a crashed run leaves an `open` bag rather than no evidence at all. The whole of [Phase 4](phase4_rebuild_is_a_test.md)'s rebuild stands on that folder existing.
+
+### The baselines this phase is measured against
+
+Both from the synthesis and both re-derivable:
 
 | Figure | Value | Source |
 |---|---|---|

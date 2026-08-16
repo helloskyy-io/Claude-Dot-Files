@@ -340,3 +340,44 @@ max_turns:
 resource_limits:
   slice: claude-workflows.slice   # groups children so a FUTURE aggregate cap has
                                   #   somewhere to attach. Imposes nothing today.
+
+# -----------------------------------------------------------------------------
+# journal — the run journal's root (Persistent Memory Protocol, Phase 1)
+# -----------------------------------------------------------------------------
+# One folder tree per EDGE (machine), one BagIt bag per run, keyed by run_id and
+# never by path. Every run resolves this before it starts; a root that cannot be
+# resolved to a writable, correctly-moded directory STOPS THE RUN rather than
+# letting it spend an hour and then discover its record cannot be written.
+#
+# WHY THIS IS A CONFIG VALUE AND NOT A CONSTANT. The edge is not defined yet.
+# Home-directory placement suits the machine we have, because Claude Code itself
+# requires a user context — but an edge that is not a full Linux environment
+# (HAOS is the live example) may have no user account at all. The protocol must
+# not depend on a home directory; the root is one config value, which keeps that
+# question open without blocking anything.
+#
+# THE MODE IS PART OF THE CONTRACT, NOT LEFT TO UMASK. The root holds verbatim
+# CLI transcripts including every Bash command line the fleet ran, and two of the
+# three deployment shapes are multi-user hosts. It is created 0700 and payload
+# files 0600, with the mode set at creation rather than chmod-after. Resolution
+# REFUSES a root that is not 0700, is not owned by this user, resolves through a
+# symlink, or resolves inside any git working tree — the last because a run can
+# edit repo config, and a journal inside a checkout gets committed and pushed.
+#
+# Full reasoning: docs/development/persistent-memory-protocol/phase1_the_run_bag.md
+journal:
+  # Absolute path. Empty means "use the documented default for `deployment`
+  # below" — which is a documented default, not a silent fallback: a shape with
+  # no derivable default (container) refuses rather than guessing.
+  root: ""
+
+  # user | systemd | container
+  #   user      — $XDG_STATE_HOME/claude-dot-files/journal, XDG's own default
+  #               being ~/.local/state. XDG defines this location for state that
+  #               persists between restarts, explicitly including logs, and
+  #               describes it as "analogous to /var/lib".
+  #   systemd   — /var/lib/claude-dot-files/journal (the VM worker plan)
+  #   container — no default; `root:` above MUST name the mapped persistent
+  #               volume, because a guess would land in the ephemeral layer
+  #               where the journal disappears on restart.
+  deployment: user

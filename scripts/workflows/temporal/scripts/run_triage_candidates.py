@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as wf  # noqa: E402
 
@@ -49,6 +50,16 @@ def main(argv=None) -> int:
                                  repo_root, counts, None))
             print(f"  Prompt     : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
             return 0
+
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side effect.
+        # Not a helper this file is asked to remember: the sweep in
+        # tests/unit/test_every_parent_opens_a_run_bag.py fails when an
+        # entrypoint lacks this call, which is what makes the journal
+        # structurally present rather than merely available. Nothing writes into
+        # the bag until Phase 3; a root that will not resolve stops the run here
+        # (r9), before a worktree exists and before a token is spent.
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="triage-candidates")
 
         worktree = act.worktree_add(repo_root, f"triage-candidates-{int(time.time())}", "HEAD")
         url = wf.run_triage_candidates(repo_root=repo_root, worktree=worktree,

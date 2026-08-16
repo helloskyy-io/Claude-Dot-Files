@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant import routing  # noqa: E402
 from modules.assistant.plan.plan_project.plan_project_workflow import run_plan_project  # noqa: E402
 
@@ -59,6 +60,16 @@ def main(argv: list[str] | None = None) -> int:
     research_dir = resolved["research"]
 
     try:
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side effect.
+        # Not a helper this file is asked to remember: the sweep in
+        # tests/unit/test_every_parent_opens_a_run_bag.py fails when an
+        # entrypoint lacks this call, which is what makes the journal
+        # structurally present rather than merely available. Nothing writes into
+        # the bag until Phase 3; a root that will not resolve stops the run here
+        # (r9), before a worktree exists and before a token is spent.
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="plan-project")
+
         url, verdict, loops, notes = run_plan_project(
             repo_root=repo_root,
             worktree_name=f"plan-project-{int(time.time())}",
