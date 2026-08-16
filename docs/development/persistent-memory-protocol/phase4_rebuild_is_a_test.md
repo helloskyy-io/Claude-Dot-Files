@@ -29,7 +29,9 @@ There is a second reason, specific to this one. Phase 3's completeness requireme
 ## Requirements for completion
 
 1. **Replay of the journal reproduces `candidates.md` and `direction.md`** — either byte-identical, or under a normalisation that is **stated and justified in this doc** — **from a starting snapshot forward** (requirement 2).
-2. **A starting snapshot exists.** A one-off record of each in-test store's contents, written into the journal at journal start. § *Why replay needs a starting point* below; it needs no scheduler and no server, so it belongs here rather than behind [Phase 5](phase5_snapshots_then_retention.md)'s gate.
+2. **A starting snapshot exists, in a stated shape with its own version.** A one-off record of each in-test store's contents, written into the journal at journal start. § *Why replay needs a starting point* below; it needs no scheduler and no server, so it belongs here rather than behind [Phase 5](phase5_snapshots_then_retention.md)'s gate. **The shape is two named sections and a version field**, because [Phase 5](phase5_snapshots_then_retention.md) adds structurally different content to the same artifact later and a mid-stream shape change would violate this component's own *never change a written artifact, upcast on read* rule:
+   - **(a) store materialisation** — what each in-test store held at that moment. **Replay applies this section and only this section.**
+   - **(b) carried-forward journal-meta events** — retention, gap and redaction events preserved from bags that have been rotated out ([Phase 5](phase5_snapshots_then_retention.md) r8). Empty at Phase 4. **Replay never applies section (b) as a store write**, because materialising a housekeeping record into `candidates.md` is exactly the junk this separation exists to prevent.
 3. **Deleting one emit from a write path makes the test fail**, demonstrated. A test that passes when the thing it guards is removed is not a test.
 4. **The test runs on the merge path against a committed synthetic fixture, and against the live journal only on a host.** § *Where this test can actually run* below. **The skip-when-absent arm is forbidden.**
 5. **A store the journal cannot rebuild is named as such in this doc, with the reason**, rather than quietly excluded from the test set — and out-of-run writes are ruled on explicitly (§ *Which stores are in the test set*).
@@ -185,7 +187,7 @@ Three figures, all with denominators:
 
 - **Replay wall-clock against journal size**, because a rebuild test that takes longer than a CI budget will be disabled rather than fixed.
 - **Stores in the test set against the total enumerated**, because that ratio *is* the strength of the guarantee, and stating it as a fraction stops "the rebuild test passes" from being read as "everything rebuilds."
-- **Gapped bags against bags replayed** (requirement 7). A green test over a journal that is 12% gapped is a true sentence and a misleading one; this is the number that keeps it honest.
+- **Gapped bags against bags replayed, plus bags rotated out behind the snapshot** (requirement 7). A green test over a journal that is 12% gapped is a true sentence and a misleading one; this is the number that keeps it honest. **Counting is dedupe-on-`run_id`** — after [Phase 5](phase5_snapshots_then_retention.md) a gap can be reachable both from its own bag and from the snapshot that carried it forward, and counting it twice inflates the numerator while rotation shrinks the denominator.
 
 ---
 

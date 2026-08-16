@@ -35,7 +35,7 @@ Three payoffs from one mechanism, and they are independent of each other:
 5. **`evidence_set_hash` is computed per stage**, and equality with the prior stage's is exposed as a stop condition — computed, not consumed by anything yet. Whether anything *routes* on it is a separate decision this phase does not make.
 6. **Code diffs are carried as a commit SHA** and resolved from git, never copied into the store.
 7. **The store's shape, its path derivation, and its fetch policy are specified** — § *What the store is, concretely* below. Each of the three is a way this mechanism becomes an attack surface if left to build time.
-8. **Capture and resolve are ACTIVITIES**, not helpers a caller remembers to call — the same reason [Phase 1](phase1_the_run_bag.md) requirement 11 gives, applied to the store's two entry points. A source read through a path that does not capture is a citation nobody can re-check offline, and it fails silently.
+8. **Capture and resolve are ACTIVITIES**, not helpers a caller remembers to call — the same reason [Phase 1](phase1_the_run_bag.md) requirement 11 gives, applied to the store's two entry points. A source read through a path that does not capture is a citation nobody can re-check offline, and it fails silently. **Same split as Phase 1 r11: layer placement, invocation and fail-stop are buildable today; orchestrator-driven retry and recorded execution are port-time.** And the same caveat: the boundary does not make the call happen — what does is [Phase 4](phase4_rebuild_is_a_test.md)'s test for the emit path and, here, `verify` failing closed on a citation with no stored bytes.
 
 ---
 

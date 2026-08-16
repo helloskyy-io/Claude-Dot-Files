@@ -86,7 +86,7 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 
 Two sources of incompleteness reach this phase, and both already have their own machinery:
 
-- **Gap events.** [Phase 3](phase3_the_emit_rule.md) rules that a failed journal write appends a typed gap event and marks the bag `incomplete`. [Phase 4](phase4_rebuild_is_a_test.md) requirement 7 reports gapped bags against bags replayed. **This phase carries that number into its own output**, so a reader of a CPI report learns it from the report.
+- **Gap events.** [Phase 3](phase3_the_emit_rule.md) rules that a failed journal write appends a typed gap event and marks the bag `incomplete`. [Phase 4](phase4_rebuild_is_a_test.md) requirement 7 reports gapped bags against bags replayed **and against bags rotated out behind the snapshot, deduped on `run_id`**. **This phase carries that number into its own output with the same denominator**, so a reader of a CPI report learns it from the report — and so the ratio cannot drift above 1 as retention shrinks the denominator under a numerator the snapshot preserves.
 - **Stores the journal could not rebuild.** [Phase 4](phase4_rebuild_is_a_test.md) § *Stores not covered* names each and says why. Those exclusions are inherited here, and they belong in the same place.
 
 **The place is the sweep's own output, not this document.** Someone reading a CPI report should not have to find a phase doc in a component they may never have heard of in order to learn what the record does not contain. That is the same reasoning [Phase 4](phase4_rebuild_is_a_test.md) requirement 6 applies to the two markdown tables, applied one layer up.

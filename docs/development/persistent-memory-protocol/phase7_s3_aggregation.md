@@ -50,6 +50,7 @@ Three separable outcomes, in dependency order:
 3. **The sweep reads the bucket with no change to the reader written in [Phase 6](phase6_cpi_reads_the_journal.md)** — the input location changes, the reader does not.
 4. **A gap in a shipped bag survives the transfer as a gap.** [Phase 3](phase3_the_emit_rule.md)'s `incomplete` marking and its gap events ship with the bag and are visible to a reader of the bucket. A record that arrives looking complete when it is not is worse than one that does not arrive.
 5. **Origin is derived from the prefix an object was found under, never from a field inside the object**, and a disagreement between the two is reported as a finding rather than resolved in favour of the field. § *Origin is where an object is, not what it claims* below.
+6. **The destination bucket blocks public access, encrypts at rest, is reached over TLS, and its credential is stored outside the repo and outside the journal.** § *The bucket's own posture* below. The last clause is the other half of [Phase 3](phase3_the_emit_rule.md) r6's no-key-in-events rule: a credential that never appears in an event but sits in a committed config file is the same exposure by a different route.
 
 ---
 
@@ -93,11 +94,17 @@ So the control this phase supplies instead is topological: **each machine's stor
 
 **The arrangement today is that each edge has access to a bucket and uses it as it sees fit, and there is one edge.** So the questions below are not open decisions blocking anything; they are what to read first if a bucket ever becomes genuinely shared between machines. Written down so nobody re-derives them under time pressure.
 
-**What would change is the *integrity* posture, not the disclosure one.** Every byte in the journal was deliberately written to a durable surface and most of it is already public in a GitHub pull request, so *what may leave* mostly answers itself. What does not answer itself is *what a reader may believe*.
+**Both postures would change, and the disclosure one is bigger than the surface-count framing suggests.** It is true that the *authored* half of the journal was deliberately written to a durable surface and is mostly already public in a GitHub pull request — **and that half is 0.8% of the bytes.** The other 99.2% is the CLI transcript: captured rather than authored, public nowhere, and carrying the literal input of every command the fleet ran under bypassed permissions. **So *what may leave* does not answer itself; it is essentially the transcript question and nothing else.**
 
 **The evidence, because it is stronger than intuition suggests.** The [heartbeat pollution paper](https://arxiv.org/pdf/2603.23064) measured pollution reaching durable memory at rates up to **91%**, and **prompt injection was not required — ordinary misinformation sufficed.** Under [Phase 4](phase4_rebuild_is_a_test.md) the stores are things the journal rebuilds, so a polluted record does not merely sit in a bucket being wrong; it **replays into `candidates.md` and `direction.md`** the next time anything rebuilds them, and [Phase 8](phase8_the_poller.md) may then start a run off the result.
 
-**So the three things a shared-bucket build would state, in order:** what a reader may *act on* versus merely display; whether records are origin-authenticated beyond prefix scoping; and whether the transcript — which carries the literal input of every command the fleet ran, under bypassed permissions — is shipped at all. **The fields those answers range over already exist** ([Phase 1](phase1_the_run_bag.md) r7's per-field classification, [Phase 3](phase3_the_emit_rule.md) r7's provenance class), which is the whole reason they are built early.
+**So the three things a shared-bucket build would state, in order:** what a reader may *act on* versus merely display; whether records are origin-authenticated beyond prefix scoping; and whether the transcript is shipped at all. **The fields those answers range over already exist** ([Phase 1](phase1_the_run_bag.md) r7's per-field classification, [Phase 3](phase3_the_emit_rule.md) r7's provenance class), which is the whole reason they are built early.
+
+### The bucket's own posture — named here rather than left absent
+
+**Requirement 6 exists because the arrangement settles *who reaches the bucket*, and settles nothing about how the bucket itself is configured.** That is a different question and it does not become smaller when there is one edge: the object shipped is 4.8 MB per run of literal command input, and a single permissive bucket policy exposes every command the fleet has ever run plus whatever [Phase 3](phase3_the_emit_rule.md)'s capture filter missed.
+
+**It is not an open ruling and it is not a gate — it is a requirement with an obvious answer that has to be written down so a build cannot skip it**, which is the difference between *deferred* and *absent* this plan is otherwise careful about.
 
 ### The reader does not change, and that is a requirement rather than a hope
 
@@ -118,6 +125,7 @@ So the control this phase supplies instead is topological: **each machine's stor
 - [ ] Confirm an `incomplete` bag arrives marked `incomplete`, with its gap events intact
 - [ ] Point [Phase 6](phase6_cpi_reads_the_journal.md)'s sweep at the bucket **with no change to the reader**, and record what did have to change
 - [ ] Ship according to [Phase 1](phase1_the_run_bag.md) r7's per-field classification as it stands when this phase runs, and record what that classification was at the time
+- [ ] Confirm the bucket blocks public access, encrypts at rest and is reached over TLS, and record where its credential lives — outside the repo and outside the journal root (requirement 6)
 - [ ] Tests per the [Testing Standard](../../standards/testing/README.md): `unit/` for layout derivation and backlog behaviour, `integration/` for a real ship-and-validate cycle against a real bucket
 - [ ] Record transfer volume and wall-clock against bag count, with denominators, in § *Measurement*
 

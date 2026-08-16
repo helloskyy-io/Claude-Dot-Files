@@ -12,13 +12,13 @@ Today, work that is ready to be picked up sits in a table marked `status: open` 
 
 **Terms used here.** A **journal** is the whole record: one folder per run, never edited after the run ends. A **store** is any place other than the journal that a run writes to — a markdown table, a pull-request comment, an issue. A **to-do bit** is a machine-readable flag on a record saying whether it still needs something; in this fleet's file surfaces it is a `status:` column. A **cue** is a to-do bit that has fired — a specific record that needs a specific run. An **edge** is one machine running this fleet.
 
-## Why this phase waits, and why it is last
+## Why this phase waits, and why it is the last thing built on the memory path
 
 **The gate is Temporal schedules** — the same server as [Phase 5](phase5_snapshots_then_retention.md). A poller is a scheduled workflow by definition: something has to run it on a cadence with no process sitting resident, and that is what a schedule is.
 
 **A second, softer gate is a journal with a retention rule.** A poller that starts children reads state repeatedly and forever, and doing that against an unbounded and growing tree is how a cheap read becomes an expensive one without anyone noticing. [Phase 5](phase5_snapshots_then_retention.md)'s storage budget is what bounds it.
 
-**It is last because it is the only phase that makes the fleet act rather than remember**, and acting on a record whose completeness is unproven is worse than not acting. [Phase 4](phase4_rebuild_is_a_test.md) is what makes the record's completeness a test rather than a claim; a poller built before it would be dispatching work off a record nobody had checked.
+**It is the last thing built on the memory path because it is the only phase that makes the fleet act rather than remember**, and acting on a record whose completeness is unproven is worse than not acting. *(In the roadmap's rollout order [Phase 7](phase7_s3_aggregation.md) follows it, because Phase 7's gate is a second machine rather than a server — which is the ordering requirement 7 below is written against.)* [Phase 4](phase4_rebuild_is_a_test.md) is what makes the record's completeness a test rather than a claim; a poller built before it would be dispatching work off a record nobody had checked.
 
 *(This phase and [Phase 6](phase6_cpi_reads_the_journal.md) are deliberately separate, and the reason is worth one clause so nobody merges them again: bundled, they would put this component's **only consumer** behind a server nobody has stood up, for four phases of producers. Only the poller needs a scheduler; reading needs a journal.)*
 
@@ -76,7 +76,7 @@ This looks backwards for a component whose whole thesis is *"every question star
 
 A scheduled workflow runs on a cadence and a cue stays open until something closes it, so **the default behaviour of the obvious implementation is to start a child on every tick until the work is done.** That is not a subtle bug; it is what the naive version does on its second tick.
 
-The fleet already has the rule this needs: the [Temporal Standard](../../standards/temporal/temporal_standard.md) §7.1 requires every activity to be idempotent, because activities execute at least once. **Applied here it means the identity of a dispatch is derived from the cue rather than from the tick** — the same cue produces the same dispatch identity, and starting it twice is a no-op rather than a second run.
+The fleet already has the rule this needs: activities execute at least once, which is why the [Temporal Standard](../../standards/temporal/temporal_standard.md) §7.1 requires every one of them to be idempotent. **Applied here it means the identity of a dispatch is derived from the cue rather than from the tick** — the same cue produces the same dispatch identity, and starting it twice is a no-op rather than a second run.
 
 **This is the same discipline [Phase 3](phase3_the_emit_rule.md) requirement 7 applies to events**, one level up: an event carries a deterministic identity so a retried activity cannot double-append, and a dispatch carries one so a repeated tick cannot double-start. Stating the connection is worth more than restating the mechanism — if the two are implemented with different notions of identity, a reader of either will be surprised by the other.
 
