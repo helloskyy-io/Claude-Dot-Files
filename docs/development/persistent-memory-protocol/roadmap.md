@@ -213,7 +213,9 @@ Everything above is planned. This section says only *when*, and every gate below
 
 **A new constraint stated by any gated phase adds a row here and a requirement there.** Stating it only in the gated doc is how the second and third rows above came to be missing.
 
-**Why the phase numbers do not match the order.** Numbers are creation-order identifiers; the roadmap lists phases in rollout order. Phase 6 sits ahead of Phase 5 because only Phase 5 needs a server. That split was made at review, and it is worth stating why: at draft, Phase 6 and Phase 8 were one phase gated on Temporal, which would have put this component's **only consumer** behind a server nobody has stood up, for four phases of producers. [MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) is the measured record of what happens then — three phases shipped an emitter and none shipped a reader. Splitting them is what stops this plan repeating a failure it cites.
+**The phases are listed in NUMBER ORDER, and the numbers are the logical build order.** What gets built *when* is the sprint's decision, not this document's — the gate table above says only what each phase waits on. A roadmap that reorders itself to mirror a schedule is arguing with the surface that owns scheduling, and it read as an error rather than as a convention. *(This section previously listed 1, 2, 3, 4, 6, 5, 8, 7 and explained why; the explanation was correct and the ordering was still wrong.)*
+
+**Why Phase 6 is its own phase, split from Phase 8.** At draft the two were one phase gated on Temporal, which would have put this component's **only consumer** behind a server nobody has stood up, for four phases of producers. [MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) is the measured record of what happens then — three phases shipped an emitter and none shipped a reader. Splitting them is what stops this plan repeating a failure it cites, and it is why Phase 6 waits on the `review-runs` port rather than on the server.
 
 **On phase docs existing before a sprint picks the work up.** [`sprint.md`](../sprint.md) says *"Phase docs are written when a sprint is picked up, not in advance. A detailed plan for work that has not started yet is a guess that ages badly."* This plan diverges from that and says so rather than letting it pass silently. **A gated phase with a roadmap row and no document is a half-planned design, and the gap is not neutral** — the parts that get left out are precisely the parts that constrain the parts being built now. Phase 7's ingress ruling is the example: it constrains what field [Phase 3](phase3_the_emit_rule.md) must put on every event *today*, and it only became visible once Phase 7 was written out. The divergence is deliberate, it is scoped to this component, and the sizing risk `sprint.md` names is real — a gated phase doc will need re-reading when its gate opens.
 
@@ -271,18 +273,6 @@ Replays the journal into a scratch directory and diffs the result against the li
 - [ ] **Restoring a store from the journal is built and contained** — `destination` resolved through an allowlist, never taken from the event — because that is the capability this component is sold on
 - [ ] **A rebuilt store carries the journal's provenance forward**, so every consumer of one is bound by the rules that govern reading the journal
 
-### [Phase 6 — CPI reads the journal](phase6_cpi_reads_the_journal.md)
-
-Moves the continuous-improvement evidence sweep onto the journal, so it reads one store instead of walking a per-repo pile of JSONL. **This is the consumer for everything Phases 1–4 produce, and it is listed ahead of Phase 5 because it needs no scheduler and no server.** The discipline it enforces is the synthesis's: pair every producer with its consumer. A producer with no consumer is how 262 MB accumulated unread.
-
-**Gate:** the Python port of `review-runs`. Not the Temporal server.
-
-- [ ] The evidence sweep sources the journal, and produces the same findings as the incumbent sweep over one overlapping window
-- [ ] Every producer shipped by Phases 1–4 has a named, committed consumer — enumerated, not asserted
-- [ ] The wall-clock of the cross-run sweep is measured against journal size, and reported as the first real test of Phase 1's no-database decision
-- [ ] **Any gap in the journal appears in the sweep's own output**, so a reader of a CPI report learns what the record does not contain without coming here
-- [ ] Cross-machine CPI is explicitly not built here
-
 ### [Phase 5 — Snapshots, then retention](phase5_snapshots_then_retention.md)
 
 Records what every store held at a point in time into the journal, and only then deletes anything. Deletion removes whole run folders oldest-first and never past the last snapshot — that ordering is the whole phase, because after Phase 4 the journal is the only thing that can regenerate a store, so a deletion rule is a decision about what the fleet can no longer reconstruct. The authored record never gets deleted; the transcript does, on a schedule.
@@ -295,16 +285,17 @@ Records what every store held at a point in time into the journal, and only then
 - [ ] A rebuild from the last snapshot forward still passes Phase 4's test after a deletion pass
 - [ ] The storage budget and the snapshot cadence are recorded as ruled numbers — **this box stays unchecked until the operator rules them** (§ *Open inputs*)
 
-### [Phase 8 — The poller](phase8_the_poller.md)
+### [Phase 6 — CPI reads the journal](phase6_cpi_reads_the_journal.md)
 
-No new to-do surface is needed — `candidates.md`'s `status: open` already is one, and [`memory-model.md`](../../guide/memory-model.md) §1 property 4 already makes a to-do bit a required property of a durable record. What is missing is the thing that reads it: a scheduled workflow that queries state and starts children with no human trigger.
+Moves the continuous-improvement evidence sweep onto the journal, so it reads one store instead of walking a per-repo pile of JSONL. **This is the consumer for everything Phases 1–4 produce, and it is listed ahead of Phase 5 because it needs no scheduler and no server.** The discipline it enforces is the synthesis's: pair every producer with its consumer. A producer with no consumer is how 262 MB accumulated unread.
 
-**Gate:** Temporal schedules, and a journal with a retention rule so a poller is not walking an unbounded tree.
+**Gate:** the Python port of `review-runs`. Not the Temporal server.
 
-- [ ] A scheduled workflow reads a store's to-do bit and starts a child with no human trigger, demonstrated end-to-end on one real cue
-- [ ] The cue is read from an existing surface; no new cue surface is created
-- [ ] A cue that fires twice starts one child, not two
-- [ ] The poller reads the store rather than the journal, and the phase doc says why
+- [ ] The evidence sweep sources the journal, and produces the same findings as the incumbent sweep over one overlapping window
+- [ ] Every producer shipped by Phases 1–4 has a named, committed consumer — enumerated, not asserted
+- [ ] The wall-clock of the cross-run sweep is measured against journal size, and reported as the first real test of Phase 1's no-database decision
+- [ ] **Any gap in the journal appears in the sweep's own output**, so a reader of a CPI report learns what the record does not contain without coming here
+- [ ] Cross-machine CPI is explicitly not built here
 
 ### [Phase 7 — Cross-machine aggregation, writing locally first](phase7_s3_aggregation.md)
 
@@ -391,3 +382,14 @@ The synthesis's § *What this does NOT settle* is the source. These are inputs t
 - **An invented manifest format.** BagIt (RFC 8493) exists, its manifest *is* checksums, its `bagit.txt` declares a version, and bags transfer as loose trees or serialized. Three of this plan's requirements come free with it.
 - **Cross-machine anything, before a second machine produces runs.** Phase 7's gate, and the same trap `state_passing` §5.2 caught once already.
 - **Reading Temporal's own history as memory.** Its identity scheme is bounded by retention and continue-as-new starts a fresh history — an execution log with a time limit, not a durable record. Where CPI needs something Temporal knows, the fleet emits it into the journal per step, and the failure path writes a terminal event. *(The synthesis phrases this as "at completion"; that is corrected here, because a terminated, timed-out or crashed run never reaches completion — and failed runs are CPI's primary input, so a completion-only emit loses exactly the runs the record exists for.)*
+### [Phase 8 — The poller](phase8_the_poller.md)
+
+No new to-do surface is needed — `candidates.md`'s `status: open` already is one, and [`memory-model.md`](../../guide/memory-model.md) §1 property 4 already makes a to-do bit a required property of a durable record. What is missing is the thing that reads it: a scheduled workflow that queries state and starts children with no human trigger.
+
+**Gate:** Temporal schedules, and a journal with a retention rule so a poller is not walking an unbounded tree.
+
+- [ ] A scheduled workflow reads a store's to-do bit and starts a child with no human trigger, demonstrated end-to-end on one real cue
+- [ ] The cue is read from an existing surface; no new cue surface is created
+- [ ] A cue that fires twice starts one child, not two
+- [ ] The poller reads the store rather than the journal, and the phase doc says why
+

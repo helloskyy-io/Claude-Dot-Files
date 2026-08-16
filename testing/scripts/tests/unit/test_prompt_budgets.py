@@ -40,7 +40,17 @@ BUDGETS: dict[str, int] = {
     # imperative; 19% is evidence that belongs in commits. Budget is set at
     # today's size rather than at a target: this test's job is to stop the
     # ratchet, and shrinking it is separate work with its own reasoning.
-    "review_pr/prompts/disposition.md": 75_496,
+    # RAISED 372 BYTES on 2026-08-16 for two rules, and the accounting is stated
+    # because this is the file that most needs shrinking rather than growing.
+    # Added: an ESCALATED ownership condition (a PR that BUILT the fixing
+    # mechanism owns the defect, however far it predates the branch — without it
+    # a PR can ship a safety control, apply it partially, and escalate the rest
+    # past its own review), and a COMPARATIVE convergence floor ("would this have
+    # blocked on pass 1's own bar?", answerable against the prior pass's durable
+    # yaml rather than judged alone). 315 bytes were funded by cutting three
+    # evidence anecdotes; 372 is the residue. The shrink pass this file needs is
+    # still owed and is tracked separately — this is not it.
+    "review_pr/prompts/disposition.md": 75_868,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
