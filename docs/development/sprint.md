@@ -153,46 +153,30 @@ Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md
 
 **Phase doc:** not yet written — writing it is the planning step.
 
-Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied — **and a dispatch derives what it runs on rather than inheriting it.** `run-claude` already refuses an inherited model; agents, skills, rules and hooks are the ambient inputs still outstanding. **Half-built already**: `build.sh` and `build-minor.sh` shipped as three-child parents before any of it was written down.
+Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. A dispatch derives what it runs on rather than inheriting it.
 
-- [ ] **Rule fork-vs-parameterize** — gates the copy families. Refines are ~82% shared (parameterize); drafts are ~9% shared and are a *behaviour* decision, not a deduplication. **Scope on `plan-project` is the second instance and it answers cleanly**: feature scope runs the same children in the same order, fewer of them, so it parameterizes
-- [ ] **Derive `plan-project`'s scope from its target, and skip what that scope has no work for** — feature scope is the tail of the project chain: `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`, with triage, scaffolding and the per-component research pass skipped. **A path, not a flag** — `research` already derives PRODUCT vs COMPONENT this way, and a flag beside the path is a second source of truth that can disagree with it (`derive != declare`)
-- [ ] **Centrally managed config, with a user tier beside it** — agents, skills, rules and hooks are read from `~/.claude/`, so an interactive edit silently changes what every dispatch on that machine does, and no two machines can be shown to match. The fleet's set becomes managed; the user keeps a tier they own and can extend. **The boundary is decided before the mechanism** — `commands/` is the clearest user tier, except `/standup`, which is operational — and `--agents` takes inline JSON, so it wants testing at our definition sizes. *Gate: PMP Part 1 — if the run bag records the config a run used, the divergence half of this shrinks to a reader.*
-- [ ] **Gate the two stale-doc classes that are not yet covered** — the prose-disagrees-with-its-code half is gated (`test_no_prose_claims_a_shipped_workflow_is_UNBUILT`, `test_lint_prompts_claims_only_what_ran`, `test_measurement_figures_are_cited`). What is not: a produced artifact nobody consumes, gated today only under `scripts/helpers/measure/`
+- [ ] **Rule fork-vs-parameterize** — gates the copy families
+- [ ] **Derive `plan-project`'s scope from its target** — feature scope runs `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`, skipping triage, scaffolding and the per-component research pass
+- [ ] **Centrally managed config, with a user tier beside it** — the fleet's agents, skills, rules and hooks become managed; the user keeps a tier they own and can extend. *Gate: PMP Part 1*
+- [ ] **Gate the stale-doc class still uncovered** — a produced artifact nobody consumes
 - [x] **Absorb `build-phase.sh` into `build` as `--phase`** — one family, one set of children
-- [x] **Split `build.sh` into draft → refine → review-pr** — shipped, two burn-test cycles
-- [x] **Split `build-minor.sh` on the same shape** — shipped, one-lens middle child
+- [x] **Split `build.sh` into draft → refine → review-pr**
+- [x] **Split `build-minor.sh` on the same shape** — one-lens middle child
 - [x] **Extract the activities layer** — `run-claude`, `wait-for-ci`, `require-environment`
 - [x] **Write it down** — `docs/standards/workflow-scripts.md § Composition`
 
-**The three operating scenarios this sprint exists to make runnable.** Each is a research parent to satisfaction, then a planning parent to satisfaction, with a human between them:
-
-| | Research | Planning | Runs today |
-|---|---|---|---|
-| Large project | `research <product pool>` | `plan-project` | research ✅ · planning ✅ |
-| Small project | `research-minor <product pool>` | `plan-project` | research ✅ · planning ✅ |
-| Large feature | `research <component pool>` | `plan-project <feature>` | research ✅ · **planning ✗** |
-
-**Only the last cell is missing, and it is the box above.** `plan-project` already chains triage → scaffolding → per-component research → `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`; it runs all of it whatever it is pointed at.
-
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
-## Sprint: Persistent Memory Protocol — Part 1 — 📋 QUEUED, PLANNED AND READY TO BUILD
+## Sprint: Persistent Memory Protocol — Part 1 — 🟡 IN PROGRESS
 
-**Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — roadmap plus eight phase docs.
+**Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — roadmap plus eight phase docs. Part 2 below is phases 5–8.
 
-**All of memory in this fleet — the framework and the protocol.** It owns what kinds of record exist and how long each lives, the typed record a child writes at exit, the durable journal every write also lands in, and the rules that keep the two honest. There is no second memory component.
-
-Today a finished run is scattered across a pull request, a markdown table and a log file nothing reads. This makes the journal the truth and everything else a projection of it: **if any store gets something, the journal gets it verbatim, and the store can be rebuilt from the journal.** [Phase 4](persistent-memory-protocol/phase4_rebuild_is_a_test.md) is what makes that enforceable rather than aspirational — it replays the journal and diffs the result against the live store, so completeness cannot decay silently.
-
-**Part 1 is phases 1–4 — the four with no external gate.** They depend only on each other: 1 → 2, and 1 → 3 → 4. Phases 5–8 are Part 2 below, sequenced after Temporal Integration.
+All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. Phases 1–4 have no external gate and depend only on each other.
 
 - [ ] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Phase 2 · The content store** — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
 - [ ] **Phase 3 · The emit rule** — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
 - [ ] **Phase 4 · Rebuildability is a test** — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
-
-**Sequenced behind Workflow Decomposition rather than gated on it.** Phase 3 has to enumerate every write path in the fleet, and decomposition is still changing what those paths are — the same reason Temporal Integration waits on a settled shape rather than porting one still in motion.
 
 ## Sprint: Temporal Integration — 🟡 IN PROGRESS
 
@@ -216,14 +200,14 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 
 **Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — same component, same eight phase docs. Part 1 above is phases 1–4.
 
-The four phases that wait on something that does not exist yet. Each gate is a fact about the calendar, not a limit on the design — all four are planned to the same depth as Part 1.
+The four phases that wait on something that does not exist yet.
 
 - [ ] **Phase 5 · Snapshots, then retention** — the 1 GB budget governs the whole journal with nothing exempt. *Gate: the Temporal server, for the recurring half only*
 - [ ] **Phase 6 · CPI reads the journal** — moves the continuous-improvement evidence sweep off comment-scraping. *Gate: **Port `review-runs`**, a Temporal Integration milestone — **not** the server*
 - [ ] **Phase 7 · Cross-machine aggregation** — write locally first, ship bags to a bucket per edge. *Gate: a second machine that actually produces runs — unrelated to Temporal*
 - [ ] **Phase 8 · The poller** — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
 
-**Phase 6 can be pulled forward.** It needs the `review-runs` port, not the server, and it was split out of Phase 8 for exactly this reason — so this component's only consumer is not held behind infrastructure nobody has stood up.
+**Phase 6 can be pulled forward** — it needs the `review-runs` port, not the server.
 
 ## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED
 
