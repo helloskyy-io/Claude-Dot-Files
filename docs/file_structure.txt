@@ -314,8 +314,12 @@ claude-dot-files/
 │           │                                        #   triage_candidates rules the candidates, plan_feature writes ONE component's
 │           │                                        #   roadmap.md and numbered phaseN_*.md docs from its research, plan_sprint places
 │           │                                        #   what they ruled — split apart so planning could sit between the first and last.
-│           │                                        #   plan_feature is the WRITE half only: it sizes NOTHING (plan-verify, the
-│           │                                        #   fresh-context reviewer, does — and does not exist yet) and writes no sprint.md.
+│           │                                        #   plan_feature is the WRITE half only: it sizes NOTHING and writes no sprint.md.
+│           │                                        #   plan_verify is the READ half and runs immediately after it, per component: it
+│           │                                        #   reads the roadmap and phase docs COLD, puts an hour estimate on every phase in
+│           │                                        #   roadmap.md and nowhere else, and answers the question plan_feature's own report
+│           │                                        #   must ask and cannot answer — where is this plan weakest. plan-sprint does NOT
+│           │                                        #   read those estimates yet; it never opens a roadmap.
 │           │                                        #   Ahead of the research step sits plan-candidates — an ACTIVITY, not a child: no
 │           │                                        #   prompt, no model, it scaffolds a research pool per shipped candidate and is what
 │           │                                        #   gave the research step a reachable input again. Also
@@ -338,11 +342,12 @@ claude-dot-files/
 │           ├── scripts/                             # Kickoff entrypoints, until an SDK path replaces them
 │           │                                        #   research.sh / research_minor.sh are SIBLING entries, not one script with a flag —
 │           │                                        #   different parents, different model keys, separately-budgeted turn caps
-│           │                                        #   triage_candidates.sh / plan_feature.sh / plan_sprint.sh are siblings for the same
-│           │                                        #   reason: three jobs, three model keys, three turn caps. Each runs standalone AND
-│           │                                        #   is called in order by plan_project.sh. plan_feature.sh takes ONE component
-│           │                                        #   directory, which is also the cheap way to exercise it — 14 of this repo's 16
-│           │                                        #   components under docs/development/ have no roadmap and no phase docs
+│           │                                        #   triage_candidates.sh / plan_feature.sh / plan_verify.sh / plan_sprint.sh are
+│           │                                        #   siblings for the same reason: four jobs, four model keys, four turn caps. Each
+│           │                                        #   runs standalone AND is called in order by plan_project.sh. plan_feature.sh and
+│           │                                        #   plan_verify.sh take ONE component directory, which is also the cheap way to
+│           │                                        #   exercise them; plan_verify.sh REFUSES a component with no roadmap.md rather
+│           │                                        #   than dispatching against nothing, since writing the plan is not its job
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
 │               ├── fixtures/                        # MEASURED inputs, not written ones
@@ -393,6 +398,16 @@ claude-dot-files/
 │                   │                                #   scan for a second `def`/`re.compile`, an exact-set gate on string splitting
 │                   │                                #   (three ad-hoc parses used to live there), the completion ERE checked against the
 │                   │                                #   extractor, and BOTH parity bounds for the owner/repo narrowing
+│                   ├── test_docstrings_do_not_promise_a_raise.py # A documented return-contract may not list an outcome
+│                   │                                #   the function cannot produce. Keyed on the TABLE form (two or more indented True/False/raises
+│                   │                                #   lines), never the word — a naive sweep flags seven correct functions. And the raise must be
+│                   │                                #   able to ESCAPE: wait_for_ci raises inside a try its own except catches, so any(ast.Raise)
+│                   │                                #   called the shipped defect correct
+│                   ├── test_no_prose_claims_a_shipped_workflow_is_UNBUILT.py # No prose says a workflow does not exist
+│                   │                                #   when its module is on disk. plan-feature said it in three places — a docstring, a prompt sent
+│                   │                                #   to the model, an operator banner — and the PR that built plan-verify falsified all three and
+│                   │                                #   updated none. The shipped set is derived from the tree, so a workflow landing retires every
+│                   │                                #   claim about it that day; historical phrasings are exempted deliberately
 │                   ├── test_memory_guardrail.py     # The root conftest's RLIMIT_AS cap actually binds the running process
 │                   ├── test_master_runner_results.py # run-all.sh reports per-suite results truthfully — no silent PASS over a skipped tier
 │                   ├── test_model_gets_the_worktree_path.py # The path RENDERED to the model is the worktree-anchored one, not the
@@ -405,6 +420,21 @@ claude-dot-files/
 │                   │                                #   for two rows and prose for the rest, while the prompt said all were enforced.
 │                   │                                #   Also the second half: every guard built on a `*_this_run_had_no_right_to`
 │                   │                                #   comparator must render `id 'before'->'after'`, found by AST rather than listed
+│                   ├── test_a_grant_follows_its_flag.py # A write grant on an operator-supplied path is DERIVED from that
+│                   │                                #   path, never named. Discovered from the RUNNERS — any run_*.py declaring --candidates must
+│                   │                                #   reach a workflow whose grant honours it — and asserted by CALLING each grant with a pool
+│                   │                                #   that is not this repo's, because a workflow can carry the literal in a comment and still
+│                   │                                #   derive correctly. Three of four hard-coded it, which failed a correct --repo run at the
+│                   │                                #   LAST guard and presented as "the flag is broken"
+│                   ├── test_no_runner_joins_an_UNRESOLVED_operator_path.py # No run_*.py joins an argparse namespace
+│                   │                                #   attribute onto a path. Gives the ABSENCE of an escape check the syntax test_preflight's
+│                   │                                #   sweep says it lacks, by keying on the join the absence exists to permit rather than on
+│                   │                                #   the missing call. Five of ten runners were in that state and ALL FIVE accepted
+│                   │                                #   ../../../../tmp/… and read through it under --dangerously-skip-permissions
+│                   ├── test_an_entrypoint_REFUSES_an_escaping_operator_path.py # The same property proven by EXECUTION:
+│                   │                                #   every runner declaring a repo path is driven with an escaping value and must refuse it
+│                   │                                #   AS AN ESCAPE, then with an in-repo value and must not. Both arms, because a resolver
+│                   │                                #   hard-wired to raise passes the first. argv synthesized from the parser's own registry
 │                   ├── observer_registry.py         # ONE resolver for both observer registries — does this entry name code that EXISTS?
 │                   │                                #   A helper module, not a test module. Shared rather than copied for the reason
 │                   │                                #   normalise_cell exists: two copies drift, and the weaker one silently stops catching
@@ -440,6 +470,12 @@ claude-dot-files/
 │                   │                                #   renumber is caught as a DELETION (both name guards pass it), a gap is not a free
 │                   │                                #   number, and the hour detector does NOT fire on the three prose uses of "hours"
 │                   │                                #   that exist in this tree — a word-keyed pattern would fail three correct runs
+│                   ├── test_plan_verify.py          # plan-verify's own guards, and the TWO properties unique to a judge: the deliverable
+│                   │                                #   is keyed on STATE where every prohibition in the family is a DELTA — a --pr
+│                   │                                #   correction pass legitimately writes no new hours — and the re-planning guard
+│                   │                                #   watches the INSIDE of the one file the grant opens, where boundary_crossings is
+│                   │                                #   blind by construction. Its ordering fixture FOUND a defect: a dropped phase used
+│                   │                                #   to raise UNSIZED, whose suggested remedy leaves the phase dropped
 │                   ├── test_plan_revision.py        # plan-revision's pure logic (context block, completion URL) and its CLI contract
 │                   ├── test_triage_candidates_split.py # The triage/sprint seam: the `decision` column moved to triage-candidates and
 │                   │                                #   plan-sprint FAILS THE RUN if it wrote one. Six mutation shapes — four offend,

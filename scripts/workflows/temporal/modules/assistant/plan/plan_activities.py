@@ -542,6 +542,91 @@ def checked_boxes(path: Path) -> Counter:
     return Counter(_CHECKED.findall(path.read_text()))
 
 
+# What a phase doc might be NAMED, which is deliberately wider than what one may
+# be named. This answers *which files are phase docs*, never *which files may
+# this run write* — the grammar that judges a NEW name lives in
+# `plan_feature_activities._PHASE_FILE`, beside the only workflow that writes one.
+#
+# THE SUFFIX IS PART OF THE QUESTION. `^phase` alone admits `phase_notes.txt` and
+# `phase9_x.md.bak`, and two consumers then read those as phase docs: a
+# deliverable guard that a single stray `.txt` satisfies, and a counted block
+# handed to a model labelled *"authoritative — do not recount"*. Both reproduced
+# by execution before this was tightened.
+#
+# CASE-INSENSITIVE ON BOTH HALVES: a legacy `PHASE3.MD` is a phase doc whoever
+# spelled it, and its disappearance is an offence just the same.
+_LOOKS_LIKE_A_PHASE = re.compile(r"^phase.*\.md$", re.I)
+
+
+def phase_docs(component: Path) -> dict[str, str]:
+    """Every phase-doc-shaped file directly in the component dir, name -> content hash.
+
+    PROMOTED HERE WHEN `plan-verify` LANDED, per §10.1 rule 3 — *consumer count
+    decides, never taste*. `plan-feature` asks it *did a phase doc VANISH?*, which
+    is what a rename or a renumber looks like from outside; `plan-verify` asks it
+    *what am I reading, and how many phases must I size?*. Two consumers, so the
+    definition sits here and `plan_feature_activities` reaches it by alias. A
+    second hand-written `phase*.md` sweep is precisely the drift `normalise_cell`
+    exists to record — and the two questions are far enough apart that the copies
+    would have looked reasonable side by side.
+
+    KEYED BY FILENAME, HASHED BY CONTENT, and both halves are load-bearing. The
+    key is what `ids_deleted` compares, so a rename shows up as a disappearance.
+    The value lets a caller tell a doc that was rewritten from one left alone
+    without holding two copies of the tree.
+
+    A MISSING COMPONENT DIRECTORY IS AN EMPTY MAP, NOT AN ERROR — a component may
+    hold nothing but `research/`, which is what `plan-candidates` leaves behind.
+
+    Files only, and only at the top level: `research/raw/phase_something.md` is a
+    research paper that happens to be named like a phase.
+    """
+    if not component.is_dir():
+        return {}
+    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(component.iterdir())
+            if p.is_file() and _LOOKS_LIKE_A_PHASE.match(p.name)}
+
+
+# An hour ESTIMATE, in the three spellings a plan can carry one. The
+# Documentation Standard's own worked example is `### 1-2. DAS Phase 1 +
+# Version-of-Record Phase A (~30 hrs)`, which the first two alternatives catch.
+#
+# ONE PATTERN, TWO OPPOSITE CONSUMERS, WHICH IS EXACTLY WHY IT IS SHARED.
+# `plan-feature` uses it as a PROHIBITION — an author sizing their own
+# decomposition is defending it — and `plan-verify` uses it as the DELIVERABLE it
+# must produce. Two copies of this regex would let the write half forbid a shape
+# the read half does not produce, or the read half satisfy itself with a shape
+# the write half would have rejected, and neither divergence shows in a diff.
+#
+# EVERY ALTERNATIVE REQUIRES A DIGIT ADJACENT TO THE UNIT *AND* AN ESTIMATE
+# MARKER. That second requirement is the whole discriminator: without it the
+# pattern reads "measured in hours" as a finding, and this repo's planning docs
+# hold three such prose phrases and (before `plan-verify`) zero estimates.
+#
+# THE PERIOD IS ALLOWED AFTER THE ABBREVIATION `est` AND NOWHERE ELSE, and the
+# narrowness is the fix rather than a nicety. `[^.\n]` is what keeps the label
+# and the figure inside ONE SENTENCE, so *"the estimate. It took 3 hours"* is
+# prose. A blanket `\.?` after the whole label group — which this pattern shipped
+# with — handed that property straight back, because the optional period consumed
+# a genuine sentence-ending full stop. Reproduced by execution against the
+# shipped pattern.
+#
+# The residual limit is stated rather than hidden: an estimate whose label sits
+# more than 24 non-period characters from its figure is not caught, and neither
+# is one written in a fourth spelling.
+HOUR_ESTIMATE = re.compile(
+    r"""
+      ~\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b            # ~30 hrs, ~8h
+    | \(\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\s*\)        # (30 hrs)
+    | (?: \best\.?\s                                     # Est. 2.5 hours, Est 8h
+        | \b(?:estimate[sd]?|sizing|effort)\b )          # Estimate: 8 hours
+      [^.\n]{0,24}?\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b
+    """,
+    re.I | re.X,
+)
+
+
 def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
     """Run a read-only git query in the worktree, or RAISE saying what is now unknown.
 

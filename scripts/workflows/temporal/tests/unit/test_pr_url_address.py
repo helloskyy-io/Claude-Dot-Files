@@ -445,6 +445,12 @@ def test_the_repo_slug_is_read_BEFORE_the_child_runs(
 
 _COMPLETION_ASSIGN = re.compile(r"^COMPLETION_PATTERN\s*=\s*r?[\"'](.+?)[\"']\s*$", re.M)
 
+# EVERY declaration, whatever it is bound to — a literal, the shared PR ERE, or
+# some other shared constant. `_COMPLETION_ASSIGN` above deliberately sees only
+# literals, because re-declaring one is the offence it hunts; the census message
+# needs the wider set to name the workflows that are outside it.
+_ANY_COMPLETION_DECL = re.compile(r"^COMPLETION_PATTERN\s*=", re.M)
+
 
 def _declared_completion_patterns() -> dict[str, str]:
     out: dict[str, str] = {}
@@ -533,18 +539,46 @@ def test_the_pr_url_completion_patterns_are_ONE_string_plus_ONE_declared_wider()
         for path in _v2_python_files()
         if "COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE" in path.read_text(encoding="utf-8")
     )
-    # 11 since plan_feature landed (2026-08-14), the WRITE half of the planning
-    # split; 10 since triage_candidates (2026-08-12), split out of plan-sprint;
-    # 9 since research_write_minor (2026-08-11). This census is hand-maintained
-    # ON PURPOSE: a new workflow that opens a PR must reference the shared
-    # constant, and an edit here is how a human confirms it does rather than
-    # having re-declared the literal that once cost a finished run. It fired on
-    # exactly that event when triage_candidates was added and again for
-    # plan_feature, which is the census working and not a chore.
-    assert len(referencing) == 11, (
-        f"expected 11 V2 workflows referencing the shared PR completion ERE, found "
-        f"{len(referencing)}: {referencing}. The twelfth is plan-revision (wider, "
-        f"declared above); the thirteenth is review-pr, whose contract is `^VERDICT:`."
+    # 12 since plan_verify landed (2026-08-15), the READ half of the planning
+    # split; 11 since plan_feature (2026-08-14), its write half; 10 since
+    # triage_candidates (2026-08-12), split out of plan-sprint; 9 since
+    # research_write_minor (2026-08-11). This census is hand-maintained ON
+    # PURPOSE: a new workflow that opens a PR must reference the shared constant,
+    # and an edit here is how a human confirms it does rather than having
+    # re-declared the literal that once cost a finished run. It fired on exactly
+    # that event when triage_candidates was added, again for plan_feature, and
+    # again here — which is the census working and not a chore.
+    # THE ORDINALS ARE DERIVED, NOT SPELLED, AND THAT IS THE FIX RATHER THAN THE
+    # TYPO IT REPLACES. This message read "The twelfth is plan-revision… the
+    # thirteenth is review-pr" while the assertion above it had been raised 11 ->
+    # 12 — so it named, as the twelfth member of the set, a workflow it excludes
+    # in the same clause. The census fires on every new workflow and the fleet has
+    # added one per PR for four PRs, so the next author to hit it red was going to
+    # be handed a self-contradictory instruction in the one place this file's own
+    # comment says a human confirms the change. A count and a word describing that
+    # count, maintained by hand one line apart, drift on the first edit that
+    # touches only one of them. Both the ordinals and the NAMES now come off the
+    # tree, so there is nothing left to keep in step.
+    #
+    # DERIVED FROM EVERY DECLARATION, NOT FROM `_declared_completion_patterns`.
+    # That helper matches a STRING LITERAL only, so it sees `review-pr` and not
+    # `plan-revision`, which declares `routing.PR_OR_ISSUE_COMPLETION_ERE` — a
+    # different shared constant. Deriving from it produced a message naming one
+    # of the two, silently, which is the same defect as the hand-written ordinals
+    # in a shape that looks derived. Verified by printing the message before
+    # trusting it.
+    others = sorted(
+        str(path.relative_to(_TEMPORAL))
+        for path in _v2_python_files()
+        if _ANY_COMPLETION_DECL.search(path.read_text(encoding="utf-8"))
+        and str(path.relative_to(_TEMPORAL)) not in referencing
+    )
+    ordinals = ", ".join(f"#{len(referencing) + i} {name}"
+                         for i, name in enumerate(others, start=1))
+    assert len(referencing) == 12, (
+        f"expected 12 V2 workflows referencing the shared PR completion ERE, found "
+        f"{len(referencing)}: {referencing}. The others declare a completion "
+        f"contract of their own and are outside this census — {ordinals}."
     )
 
 # THE ADVERSARIAL HALF. The list was `_REAL` plus two negatives, and every entry

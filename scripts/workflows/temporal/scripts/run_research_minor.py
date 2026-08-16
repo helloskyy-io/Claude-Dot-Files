@@ -9,11 +9,11 @@ avoid. `--refresh` on `run_research.py` is not a counter-example: refresh is the
 same pool being revalidated, not a different pool shape.
 """
 from __future__ import annotations
-import argparse, sys
+import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import RepoPathParser  # noqa: E402
 from modules.assistant.research.research_minor import research_minor_workflow as rm  # noqa: E402
 from modules.assistant.research import research_activities as act  # noqa: E402
 
@@ -21,26 +21,30 @@ BANNER = "=" * 64
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(
+    p = RepoPathParser(
         prog="research-minor",
         description="Research ONE question as ONE paper. No topic list, no synthesis.",
     )
-    p.add_argument("research_dir", help="research folder, relative to the repo root")
+    # DECLARED AS A REPO PATH, with `must_exist=False`. See `run_research.py` for
+    # both halves: the pool was joined onto `repo_root` unchecked, and this family
+    # legitimately accepts a pool that does not exist yet.
+    p.add_repo_path("research_dir", kind="dir", must_exist=False,
+                    help="research folder, relative to the repo root")
+    # NOT a repo path, deliberately — operator context from wherever they wrote it.
     p.add_argument("--task-file", dest="task_file", help="context from a file")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--pr", dest="pr_number", help="update an existing research PR")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="compute the gate and render; no model, no spend")
-    a = p.parse_args(argv)
 
     try:
-        repo_root = preflight(a.repo_target)
+        a, repo_root, resolved = p.parse_with_preflight(argv)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
 
-    research_dir = repo_root / a.research_dir
+    research_dir = resolved["research_dir"]
     context = Path(a.task_file).read_text() if a.task_file else ""
     import time
     wt = f"research-minor-{int(time.time())}"

@@ -58,6 +58,13 @@ class _Calls:
         # parent holds a WORKTREE path and every other child takes one, so the
         # re-anchoring is a place a correct-looking call is silently wrong.
         self.planned: list[Path] = []
+        # Every `component` the plan-verify child was handed, same contract and
+        # asserted for the same reason. The two are recorded SEPARATELY rather
+        # than as one counter: they run back to back on one component, so a bug
+        # that dispatched the judge against a DIFFERENT path than the author is
+        # invisible to a combined count and is exactly what re-anchoring gets
+        # wrong.
+        self.verified: list[Path] = []
         # (tree, argv, children dispatched SO FAR) for every git read the parent
         # makes. The third element is what turns "it pinned a base" into "it
         # pinned it before anything could move".
@@ -70,7 +77,7 @@ class _Calls:
 
 @pytest.fixture
 def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
-    """Stub all three children and isolation; the parent's own logic is untouched."""
+    """Stub every child and isolation; the parent's own logic is untouched."""
     calls = _Calls()
 
     def fake_triage(**kw: object) -> str:
@@ -95,7 +102,13 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         calls.order.append("feature")
         return PR_URL
 
+    def fake_plan_verify(**kw: object) -> str:
+        calls.verified.append(kw["component"])
+        calls.order.append("plan-verify")
+        return PR_URL
+
     monkeypatch.setattr(pm.feature, "run_plan_feature", fake_feature)
+    monkeypatch.setattr(pm.plan_verify, "run_plan_verify", fake_plan_verify)
     monkeypatch.setattr(pm.triage, "run_triage_candidates", fake_triage)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_sprint)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
@@ -198,14 +211,29 @@ def test_research_sits_BETWEEN_triage_and_the_sprint_plan(wired: _Calls, monkeyp
     pool that is still a one-line seed. Behind `plan-sprint` it would restore the
     ordering defect the split existed to fix: the sprint plan updated before
     anything had decomposed the work it sequences.
+
+    **`plan-verify` SITS BETWEEN THEM, AND ITS POSITION IS PINNED FROM BOTH SIDES
+    TOO.** Ahead of `plan-feature` there is no plan to read and it refuses. Behind
+    `plan-sprint` it would leave the sprint maintainer running before the only
+    thing that estimates the work — the very defect `plan_sprint_workflow`'s
+    docstring records, which had been latent rather than fixed because until this
+    child landed there were no estimates for the sprint plan to be ahead of.
     """
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _with_sections(monkeypatch, "Alpha")
     _run()
-    assert wired.order == ["triage", "research", "feature", "sprint"], (
+    assert wired.order == ["triage", "research", "feature", "plan-verify",
+                           "sprint"], (
         f"the parent dispatched {wired.order} — component research must run "
         f"after the rulings exist, the component must be planned from the "
-        f"research that just landed, and the sprint plan must be maintained last"
+        f"research that just landed, the plan must be sized before anything "
+        f"totals it, and the sprint plan must be maintained last"
+    )
+    assert wired.verified == wired.planned, (
+        f"the judge was dispatched against {wired.verified} while the author "
+        f"wrote {wired.planned}. They run back to back on ONE component and the "
+        f"path is re-anchored from the worktree to the repo for both; a judge "
+        f"pointed at a different component reads a plan nobody just wrote"
     )
 
 

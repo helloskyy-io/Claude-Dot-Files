@@ -1,10 +1,10 @@
 """Kickoff entrypoint for the research family."""
 from __future__ import annotations
-import argparse, sys
+import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import RepoPathParser  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
 from modules.assistant.research.research_refresh_parent import research_refresh_parent_workflow as rr  # noqa: E402
 from modules.assistant.research import research_activities as act  # noqa: E402
@@ -12,28 +12,37 @@ from modules.assistant.research import research_activities as act  # noqa: E402
 BANNER = "=" * 64
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="research", description="Produce or revalidate a research pool.")
-    p.add_argument("research_dir", help="research folder, relative to the repo root")
+    p = RepoPathParser(prog="research", description="Produce or revalidate a research pool.")
+    # DECLARED AS A REPO PATH — the argument's own help says *"relative to the
+    # repo root"*, and nothing enforced it: the pool was joined onto `repo_root`
+    # unchecked, so `research ../../../../tmp/x` researched into `/tmp` under
+    # `--dangerously-skip-permissions`.
+    #
+    # `must_exist=False` PRESERVES THIS FAMILY'S BEHAVIOUR EXACTLY, and the
+    # exemption is from the existence pass only — the escape pass, which is the
+    # one this closes, still runs. Nothing in the research family `mkdir`s its
+    # pool, and its `--dry-run` reports `0 due papers` for an absent one rather
+    # than failing, so requiring existence would make an escape fix into a
+    # behaviour change for a family this PR is not otherwise touching.
+    p.add_repo_path("research_dir", kind="dir", must_exist=False,
+                    help="research folder, relative to the repo root")
     p.add_argument("--refresh", action="store_true", help="revalidate DUE papers instead of researching new topics")
+    # NOT a repo path, deliberately: a task file is context the operator supplies
+    # from wherever they wrote it, routinely /tmp, and is read rather than
+    # written. `--phase` on the build runners is the same case.
     p.add_argument("--task-file", dest="task_file", help="context from a file")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--pr", dest="pr_number", help="update an existing research PR")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="compute the gate and render; no model, no spend")
-    a = p.parse_args(argv)
 
     try:
-
-        repo_root = preflight(a.repo_target)
-
+        a, repo_root, resolved = p.parse_with_preflight(argv)
     except RuntimeError as exc:
-
         # Nothing has been created yet — that is the point of preflight.
-
         print(f"\n✗ {exc}", file=sys.stderr)
-
         return 1
-    research_dir = repo_root / a.research_dir
+    research_dir = resolved["research_dir"]
     context = Path(a.task_file).read_text() if a.task_file else ""
     import time
     wt = f"research-{int(time.time())}"

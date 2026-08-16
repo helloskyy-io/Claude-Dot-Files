@@ -240,13 +240,30 @@ def wait_for_ci(pr: str, *, repo: str | None = None,
     deadline reaches the caller as absent — which is the real signal, and the
     usual cause is a conflicted PR whose merge ref cannot be computed.
 
-    THREE OUTCOMES, NOT TWO, AND THE THIRD IS WHY THE FIX ABOVE WAS NOT ENOUGH:
+    THREE STATES, NOT TWO, AND THE THIRD IS WHY THE FIX ABOVE WAS NOT ENOUGH.
+    IT RETURNS ON ALL THREE — this function NEVER raises:
 
       True   the declared gate has reported and nothing is PENDING
       False  CI was read successfully and the gate never appeared
-      raises CI could not be READ AT ALL within the deadline
+      False  CI could not be READ AT ALL within the deadline — and a warning
+             naming the last `gh` error goes to stderr, which is what separates
+             this False from the one above it for a human. For the CALLER the
+             separation is not here at all: `ci_verdict` reads the same replies
+             immediately afterwards and classifies this one as
+             `CiVerdict.UNREADABLE_CHECKS`. One function decides the verdict;
+             this one only waits, and `build_workflow` forbids `exit 1` here.
 
-    The third used to collapse into the second. `gh pr checks` exits non-zero
+    THIS BLOCK ITSELF SHIPPED THE DEFECT IT DESCRIBES. It read `raises  CI could
+    not be READ AT ALL`, and an earlier pass did make it raise — the raise was
+    reverted and the contract was not, so the docstring documented an outcome the
+    code twelve lines below it explicitly says it does not produce. A caller
+    trusting it writes an `except` that can never fire and reads the returned
+    `False` as "the gate never appeared", which is exactly the read-failure /
+    gate-absence conflation this whole function exists to remove. Nothing in the
+    suite pinned the contract either way, so it stayed green throughout.
+    `test_docstrings_do_not_promise_a_raise.py` is that pin now.
+
+    The third state used to collapse into the second. `gh pr checks` exits non-zero
     whenever checks are FAILING or PENDING, so the return code cannot separate a
     red pipeline from a broken `gh` — and the settled test ran against raw
     stdout BEFORE parsing, so an empty reply read as "settled with no gate yet".

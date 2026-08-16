@@ -55,8 +55,33 @@ BUDGETS: dict[str, int] = {
     # `main`, so it is the first file to meet this gate rather than be measured
     # into it. Same rule, one commit later — the number is today's size and its
     # job is to make the NEXT addition a trade.
-    "plan/plan_feature/prompts/plan_feature.md": 17_821,
+    # RAISED 17,821 -> 18,051 (+230) on 2026-08-15, and the raise IS the trade
+    # this gate exists to force. The prompt told the model *"`plan-verify` … does
+    # not exist yet"*, which the same PR that built `plan-verify` made false. The
+    # correction is longer than the sentence it replaces because it has to say
+    # what the reader now DOES — reads the roadmap cold, writes the hours this
+    # prompt forbids, answers the question this run cannot ask of itself — and
+    # that changes what the model writes, which is this table's own bar for a
+    # raise. Measured with `wc -c`, in BYTES.
+    "plan/plan_feature/prompts/plan_feature.md": 18_051,
     "research/research_verify/prompts/verify.md": 15_510,
+    # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_feature.md` above and for
+    # the same reason: this prompt is new, so it MEETS this gate rather than
+    # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
+    # the first draft of this table counted characters and was wrong by 49 on a
+    # file full of em-dashes.
+    #
+    # RAISED 12_557 -> 13_142 by the review pass, and the +585 bought ONE thing:
+    # the enforcement list used to tell the model *"the roadmap must carry at
+    # least one hour estimate per phase doc"*, which is not what the code checks.
+    # The code compares a TOTAL against a TOTAL and cannot see which phase an
+    # estimate sits beside, so two figures against one phase satisfy it while
+    # another phase has none. That gap is not closable in code — every candidate
+    # association fails a correct run (see the guard's own comment) — so the
+    # model is the only thing that can close it, and it could not while the
+    # prompt told it the machine was already checking. This clears the gate's
+    # own bar: it changes what the model DOES, and the harness cannot enforce it.
+    "plan/plan_verify/prompts/plan_verify.md": 13_142,
     "build/build_refine_minor/prompts/stages_2_to_4.md": 14_437,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     "research/research_write_minor/prompts/write_minor.md": 12_313,

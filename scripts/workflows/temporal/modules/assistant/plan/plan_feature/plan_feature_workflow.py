@@ -12,10 +12,20 @@ context is the point, not an implementation detail."* Planning never was:
 `plan-revision` does ASSESS, PLAN, REVISE, PEER REVIEW and RESOLVE in ONE
 context, so the run that wrote the decomposition is the run that reviews it.
 
-**This is the WRITE half of that split.** `plan-verify` is the fresh-context
-reviewer, and it DOES NOT EXIST YET — it is named here as the handoff this
-workflow's report is addressed to, and nothing in this tree calls it. Do not read
-any reference to it as a dependency.
+**This is the WRITE half of that split, and `plan-verify` — the read half — NOW
+EXISTS.** This paragraph used to say it did not, and that stopped being true the
+day `plan_verify_workflow` landed: `plan_project._plan_one` calls
+`plan_verify.run_plan_verify` immediately after this workflow, so a reference to
+it here IS a dependency at the parent's altitude. It still is not one at THIS
+module's — nothing in this file imports it, and this workflow remains separately
+dispatchable with `review-pr --type planning` as its judge on that path.
+
+*(Left as a correction rather than a rewrite because the false version was
+load-bearing: this same claim was stated in three places — here, in
+`prompts/plan_feature.md`, and in `run_plan_feature.py`'s completion banner — and
+the PR that built `plan-verify` falsified all three and updated none.
+`test_no_prose_claims_a_shipped_workflow_is_UNBUILT` is what fails now instead of
+a reviewer noticing.)*
 
 WHAT IT DOES NOT DO, AND EACH IS A DECISION RATHER THAN AN OMISSION:
 
@@ -103,14 +113,25 @@ FORBIDDEN_PATHS = (
 )
 
 
-def permitted_paths(component_rel: Path) -> tuple[str, ...]:
-    """The two grants this run holds, one of them computed from its own component.
+def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...]:
+    """The two grants this run holds, BOTH computed from this run's own arguments.
 
     A FUNCTION AND NOT A CONSTANT, because half of this boundary is an argument.
-    `triage-candidates` writes two fixed files and can name them at module level;
-    this workflow's whole subject is *which component*, so a module-level tuple
+    This workflow's whole subject is *which component*, so a module-level tuple
     would either grant every component at once — deleting the boundary — or hard-
     code one, which is worse.
+
+    BOTH HALVES ARE ARGUMENTS, AND THE SECOND ONE USED TO BE A LITERAL. That is a
+    reachable failure of a CORRECT run, not a style point: `--candidates` is a
+    documented flag on this runner and it is the flag through which a DIFFERENT
+    repository's pool is targeted, since `--repo` points at a tree whose pool need
+    not sit at this repo's path. With the grant hard-coded, the prompt was handed
+    `CANDIDATES_PATH` and told to append a proposal there, `^docs/standards/`
+    denied the whole tree, and `boundary_crossings` read the model obeying its own
+    instructions as a crossing — failing the run at the LAST guard, after every
+    turn had been spent, and presenting as *"the flag is broken"* rather than as
+    *"the grant is a literal"*. The grant now follows the same path the prompt and
+    the column guards already do, so the three cannot disagree.
 
     `re.escape` ON THE COMPONENT SEGMENT, the same way `plan_sprint` escapes its
     sprint path, and it is a correctness requirement rather than hygiene: the
@@ -140,7 +161,7 @@ def permitted_paths(component_rel: Path) -> tuple[str, ...]:
     """
     return (
         rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",
-        r"^docs/standards/architecture/research/candidates\.md$",
+        rf"^{re.escape(candidates_rel.as_posix())}$",
     )
 
 
@@ -317,7 +338,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     rel_candidates = candidates_path.relative_to(repo_root)
     wt_component = worktree / rel_component
     wt_candidates = worktree / rel_candidates
-    permitted = permitted_paths(rel_component)
+    permitted = permitted_paths(rel_component, rel_candidates)
 
     # SNAPSHOTTED AROUND THE MODEL, never diffed against `origin/main`: this
     # workflow can be re-dispatched onto a branch that already carries work, and
