@@ -437,19 +437,32 @@ def test_a_disagreement_caused_by_the_PARENT_ABSTAINING_is_separated_out(
     assert "genuine channel disagreements: 0" in out
 
 
-def test_the_agreement_figure_states_its_own_CONDITIONING(
+def test_the_agreement_figure_states_ITS_OWN_LIMIT(
         tmp_path: Path, capsys) -> None:
-    """C-060, and no larger N removes it.
+    """The figure must always ship with the limit on reading it — whatever it is.
 
-    Every row comes from a run that got past the completion gate, so
-    `channels_agree` is conditioned on the prose channel having SUCCEEDED. An
-    agreement rate printed without that is the survivorship bias it was built to
-    measure.
+    THIS ASSERTED THE OLD LIMIT VERBATIM and had to change with the code, which
+    is the honest cost of pinning prose. Until 2026-08-14 every row came from a
+    run past the completion gate, so `channels_agree` was CONDITIONED on the
+    prose channel having succeeded — the survivorship bias the reader exists to
+    measure. `_append_shadow_pair` is now called on the failing path too, so the
+    conditioning is gone and the figure is a rate.
+
+    WHAT THIS TEST PINS IS THE INVARIANT, NOT THE WORDING: the reader names
+    C-060 and states what a reader may conclude. An agreement figure printed
+    with no statement of its own limit is the defect, in either direction.
     """
     _log(tmp_path, "review-pr-20260811-100000-aaa.jsonl", _route())
     out = _run(tmp_path, capsys, "replay_parent_route")
-    assert "C-060" in out
-    assert "CONDITIONAL, NOT AS A RATE" in out
+    assert "C-060" in out, "the figure must still name the candidate it came from"
+    assert "DENOMINATOR'S OWN LIMIT" in out, (
+        "the reader printed an agreement figure without the section stating how "
+        "far it may be read — which is the bias it was built to expose"
+    )
+    assert "_append_shadow_pair" in out, (
+        "the limit section no longer names the mechanism that removed the "
+        "conditioning, so a reader cannot check the claim"
+    )
 
 
 # --- THE CLASS: a record left out of a figure without being named ------------
