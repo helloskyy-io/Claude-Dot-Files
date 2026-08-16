@@ -134,8 +134,8 @@ def test_no_entrypoint_INLINES_the_operator_path_escape_check() -> None:
       * It cannot see a runner that takes an operator path and checks NOTHING.
         That is the more dangerous state and it is invisible to this sweep,
         because the absence of a check has no syntax. **That gap was real and it
-        was live:** five of ten runners were in exactly that state, and three of
-        them accepted `../../../../tmp/...` and read through it. It is now closed
+        was live:** five of ten runners were in exactly that state, and ALL FIVE
+        accepted `../../../../tmp/...` and read through it. It is now closed
         from the other side by
         `test_no_runner_joins_an_UNRESOLVED_operator_path.py`, which gives the
         absence syntax by keying on the JOIN the absence exists to permit rather
@@ -309,3 +309,85 @@ def test_add_repo_path_REFUSES_a_kind_it_does_not_understand() -> None:
     with pytest.raises(ValueError) as exc:
         p.add_repo_path("--pool", kind="directory")
     assert "kind must be 'file' or 'dir'" in str(exc.value)
+
+
+def test_a_declared_path_with_NO_VALUE_and_NO_DEFAULT_fails_by_name(tmp_path: Path) -> None:
+    """`must_exist=True` plus `default=None` used to drop the path silently.
+
+    The declaration reads as *"must exist if given"*, and unsupplied it fell out of
+    the resolved mapping — so the caller's `resolved["pool"]` raised a bare
+    `KeyError: 'pool'` naming neither the argument nor the reason, three frames from
+    anything the operator typed. Nothing declares this shape today; refusing it at
+    the point the contradiction exists is what stops the first runner that writes it
+    from debugging a KeyError.
+    """
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    p = RepoPathParser(prog="fixture")
+    p.add_argument("--repo", dest="repo_target")
+    p.add_repo_path("--pool", kind="dir")          # no default, must_exist defaults True
+
+    with pytest.raises(RuntimeError) as exc:
+        p.parse_with_preflight(["--repo", str(tmp_path)])
+    assert "pool" in str(exc.value), "the message must name the argument to fix"
+    assert "must_exist" in str(exc.value), "and the contradiction that caused it"
+
+
+def test_an_OPTIONAL_path_with_no_value_is_simply_ABSENT_not_an_error(tmp_path: Path) -> None:
+    """THE OTHER ARM — the refusal above must not swallow the legitimate case.
+
+    `must_exist=False` with no value is a path the operator did not supply, which is
+    allowed: the research runners' pool is the live instance. Without this arm the
+    check above would pass just as well if it refused every unsupplied path.
+    """
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    p = RepoPathParser(prog="fixture")
+    p.add_argument("--repo", dest="repo_target")
+    p.add_repo_path("--pool", kind="dir", must_exist=False)
+
+    a, repo_root, resolved = p.parse_with_preflight(["--repo", str(tmp_path)])
+    assert "pool" not in resolved, "an unsupplied optional path has nothing to resolve"
+    assert a.pool is None
+
+
+def test_a_NON_CANONICAL_repo_root_does_not_refuse_legitimate_paths(tmp_path: Path) -> None:
+    """Both sides of `is_relative_to` must be canonical or the comparison means nothing.
+
+    The operator side is always `.resolve()`d — collapsing `..` is the whole subject.
+    If `repo_root` is not, every LEGITIMATE in-tree path fails containment and the
+    operator is told their correct argument *resolves outside the repo*: a false
+    refusal naming a remedy that does not apply, which is worse than a bare error.
+
+    DRIVEN THROUGH `resolve_operator_paths` AND NOT THROUGH `resolve_repo_root`,
+    because that is where it discriminates. `git rev-parse --show-toplevel`
+    canonicalises on its own — measured — so a symlink test routed through the
+    entrypoint passes with or without the fix. This one fails without it.
+    """
+    real = tmp_path / "real"
+    (real / "docs").mkdir(parents=True)
+    link = tmp_path / "via-symlink"
+    link.symlink_to(real)
+
+    resolved = resolve_operator_paths(link, {"component": "docs"},
+                                      directories=("component",))
+    assert resolved["component"] == real.resolve() / "docs", (
+        "a legitimate in-repo path was refused or mis-resolved because `repo_root` "
+        "was not canonical while the operator path was")
+
+
+def test_resolve_operator_paths_still_refuses_an_escape_from_a_NON_CANONICAL_root(
+        tmp_path: Path) -> None:
+    """NEGATIVE CONTROL for the normalisation above.
+
+    Canonicalising `repo_root` must not be a way to widen containment: an escaping
+    path is still an escape when the root is reached through a symlink. Without this
+    arm, `repo_root = repo_root.resolve()` could have been replaced by anything that
+    made the previous test pass.
+    """
+    real = tmp_path / "real"
+    (real / "docs").mkdir(parents=True)
+    link = tmp_path / "via-symlink"
+    link.symlink_to(real)
+
+    with pytest.raises(RuntimeError) as exc:
+        resolve_operator_paths(link, {"component": "../../../elsewhere"})
+    assert "resolves outside the repo" in str(exc.value)

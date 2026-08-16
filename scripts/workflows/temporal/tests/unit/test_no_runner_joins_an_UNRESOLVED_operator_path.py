@@ -8,12 +8,21 @@ for a COPIED check and says in its own docstring that it cannot do the other hal
      That is the more dangerous state and it is invisible to this sweep,
      because the absence of a check has no syntax."
 
-It was right, and the more dangerous state was live. Measured by execution on
-2026-08-15, five of ten runners accepted `--candidates ../../../../tmp/escape-probe/…`
-and read through it — `run_triage_candidates`, `run_plan_sprint`, `run_plan_project`,
-`run_research` and `run_research_minor`. These run under
-`--dangerously-skip-permissions`, so an escaping path is an unattended run writing
-wherever it is pointed.
+It was right, and the more dangerous state was live. Measured by execution, five of
+ten runners accepted an escaping path and read through it — `run_triage_candidates`,
+`run_plan_sprint`, `run_plan_project`, `run_research` and `run_research_minor`. These
+run under `--dangerously-skip-permissions`, so an escaping path is an unattended run
+writing wherever it is pointed.
+
+ALL FIVE RE-MEASURED ON 2026-08-16 against the pre-fix code, because three artifacts
+said "three of those" where this one said five and a count nobody had re-run is not a
+record. Driven from `cf1776e`: `run_research --refresh` on an escaping pool ENUMERATED
+AND READ `/tmp/…/raw/probe-paper.md` and reported it due; `run_research_minor` reported
+it past its window; `run_triage_candidates` and `run_plan_sprint` each parsed 92 rows
+out of an escaping `--candidates`; and `run_plan_project`, which has no `--dry-run`,
+carried both escaping paths into its dispatch call (stubbed) — the worst of the five,
+since it would have cut a worktree and spent against them. Five, not three; the other
+three sites were corrected to match rather than this one softened.
 
 WHY A JOIN AND NOT A MISSING CALL. An omission cannot be grepped; the thing the
 omission is FOR can be. Every one of those five reached the escaping path the same
@@ -49,6 +58,17 @@ WHAT THIS DOES NOT LOOK AT, so it is not read as covering more than it does:
     every runner legitimately interpolates argument values into its banner and a
     sweep that flagged those would be turned off. An `f"{root}/{a.flag}"` therefore
     passes this. That is a real hole and it is stated rather than papered over.
+  * **Aliasing DEEPER THAN ONE HOP.** One hop IS caught — see `_aliased_operator_locals`
+    — because it was not, and that was a live escape rather than a theoretical one.
+    A pass that kept `add_repo_path` for two paths, dropped the third to plain
+    `add_argument`, and laundered the join through a local (`research_arg = a.research`
+    then `repo_root / research_arg`) passed BOTH guards in this directory with the
+    whole suite green, and `run_plan_sprint.py --dry-run --research ../../…/tmp/x`
+    exited 0. Two hops (`x = a.flag; y = x; root / y`) are still invisible, as is a
+    value that round-trips through a list, a dict or a function. The rule this
+    enforces is therefore *"the join is visible within one alias"*, not *"no operator
+    string can ever reach a join"* — the second is not decidable by a sweep, and
+    claiming it would be the more dangerous error.
   * **Whether the declared KIND is right.** A file declared `kind="dir"` passes here
     and fails at runtime; `resolve_operator_paths` owns that.
   * **How WIDE the resulting grant is.** A contained path can still be granted too
@@ -97,31 +117,72 @@ def _namespace_names(tree: ast.AST) -> set[str]:
     return names
 
 
+def _aliased_operator_locals(tree: ast.AST, namespaces: set[str]) -> dict[str, str]:
+    """Locals bound DIRECTLY to a namespace attribute — `research_arg = a.research`.
+
+    ONE HOP, AND THE HOP IS THE WHOLE POINT. Without this the sweep matched on the
+    SPELLING of the defect rather than on the defect, so moving the attribute read
+    one line up defeated it — measured, not supposed: a runner keeping
+    `add_repo_path` for two paths and laundering the third through a local passed
+    this file, passed the execution guard beside it, and still accepted
+    `../../../../tmp/…` at exit 0.
+
+    Deliberately NOT a general taint analysis. It resolves `x = a.flag` and stops;
+    it does not follow `y = x`, a list, a dict or a call. A sweep that tried would
+    need the runner's whole dataflow and would start reporting on its own
+    approximations — and the omission it is really guarding against is a person
+    moving one line, not a person building a laundering chain. The residue is
+    stated in this module's docstring rather than implied away.
+    """
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        value = node.value
+        if not (isinstance(value, ast.Attribute)
+                and isinstance(value.value, ast.Name)
+                and value.value.id in namespaces):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                aliases[target.id] = f"{value.value.id}.{value.attr}"
+    return aliases
+
+
 def _joined_operator_attrs(tree: ast.AST, namespaces: set[str]) -> list[tuple[int, str]]:
-    """Every `(line, expression)` where a namespace attribute is joined to a path.
+    """Every `(line, expression)` where operator input is joined to a path.
 
     Three shapes, because those are the three ways this tree spells a join:
     `root / a.flag`, `root.joinpath(a.flag)`, and `os.path.join(root, a.flag)`.
     Both operands of `/` are checked rather than only the right, so the reversed
     spelling cannot pass by being unusual.
+
+    An operand counts if it is a namespace attribute (`a.flag`) OR a local aliased
+    to one a single hop earlier (`f = a.flag; root / f`) — see
+    `_aliased_operator_locals` for why the second is not optional.
     """
-    def is_operator_attr(node: ast.AST) -> bool:
-        return (isinstance(node, ast.Attribute)
-                and isinstance(node.value, ast.Name)
-                and node.value.id in namespaces)
+    aliases = _aliased_operator_locals(tree, namespaces)
+
+    def describe(node: ast.AST) -> str | None:
+        if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                and node.value.id in namespaces):
+            return f"{node.value.id}.{node.attr}"
+        if isinstance(node, ast.Name) and node.id in aliases:
+            return f"{node.id} (aliased from {aliases[node.id]})"
+        return None
 
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
             for side in (node.left, node.right):
-                if is_operator_attr(side):
-                    found.append((side.lineno, f"{side.value.id}.{side.attr}"))
+                if (what := describe(side)) is not None:
+                    found.append((side.lineno, what))
         elif isinstance(node, ast.Call):
             qualifier = getattr(node.func, "attr", None)
             if qualifier in ("joinpath", "join"):
                 for arg in node.args:
-                    if is_operator_attr(arg):
-                        found.append((arg.lineno, f"{arg.value.id}.{arg.attr}"))
+                    if (what := describe(arg)) is not None:
+                        found.append((arg.lineno, what))
     return found
 
 
@@ -192,6 +253,11 @@ def test_the_detector_FIRES_on_each_shape_it_claims_to_cover() -> None:
         "joinpath": "a = p.parse_args(v)\nx = root.joinpath(a.candidates)\n",
         "os.path.join": "a = p.parse_args(v)\nx = os.path.join(root, a.candidates)\n",
         "tuple target": "a, r, paths = p.parse_with_preflight(v)\nx = r / a.sprint\n",
+        # THE SHAPE THAT WAS LIVE. Every other positive here was written from the
+        # docstring; this one was written from a mutation that passed, and it is
+        # the reason `_aliased_operator_locals` exists.
+        "aliased local": "a = p.parse_args(v)\nresearch_arg = a.research\nx = root / research_arg\n",
+        "aliased into joinpath": "a = p.parse_args(v)\nf = a.candidates\nx = root.joinpath(f)\n",
     }
     for label, source in positives.items():
         tree = ast.parse(source)
@@ -203,7 +269,12 @@ def test_the_detector_FIRES_on_each_shape_it_claims_to_cover() -> None:
     clean = ("a, repo_root, resolved = p.parse_with_preflight(v)\n"
              "cands = resolved['candidates']\n"
              "derived = cands.parent / 'direction.md'\n"
-             "print(f'{a.candidates}')\n")
+             "print(f'{a.candidates}')\n"
+             # The alias rule must not fire on a local read out of the RESOLVED
+             # mapping and then joined — that is the shape every fixed runner
+             # uses, and flagging it would make the guard unusable the same week.
+             "research = resolved['research']\n"
+             "paper = research / 'raw'\n")
     tree = ast.parse(clean)
     assert not _joined_operator_attrs(tree, _namespace_names(tree)), (
         "the detector fired on the shape the fixed runners use — reading a "

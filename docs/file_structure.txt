@@ -429,7 +429,7 @@ claude-dot-files/
 │                   ├── test_no_runner_joins_an_UNRESOLVED_operator_path.py # No run_*.py joins an argparse namespace
 │                   │                                #   attribute onto a path. Gives the ABSENCE of an escape check the syntax test_preflight's
 │                   │                                #   sweep says it lacks, by keying on the join the absence exists to permit rather than on
-│                   │                                #   the missing call. Five of ten runners were in that state and three accepted
+│                   │                                #   the missing call. Five of ten runners were in that state and ALL FIVE accepted
 │                   │                                #   ../../../../tmp/… and read through it under --dangerously-skip-permissions
 │                   ├── test_an_entrypoint_REFUSES_an_escaping_operator_path.py # The same property proven by EXECUTION:
 │                   │                                #   every runner declaring a repo path is driven with an escaping value and must refuse it

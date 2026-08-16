@@ -15,9 +15,10 @@ import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 __all__ = ["resolve_repo_root", "require_dependencies", "preflight",
-           "resolve_operator_paths", "RepoPathParser"]
+           "resolve_operator_paths", "RepoPathParser", "RepoPathSpec"]
 
 # Every workflow imports these. A missing one is not a crash mid-run — it is a
 # crash AFTER the worktree exists, which is how a stranded worktree happens.
@@ -48,7 +49,16 @@ def resolve_repo_root(repo_target: str | None) -> Path:
             f"not inside a git repository: {invoked_from}\n"
             f"Run from a repo, or pass --repo <path-to-repo>."
         )
-    return Path(probe.stdout.strip())
+    # `.resolve()` IS A NO-OP HERE TODAY AND IS KEPT ANYWAY, which is worth one
+    # sentence because the obvious reading is wrong. `git rev-parse --show-toplevel`
+    # already canonicalises: run with `cwd` inside a SYMLINK to a repo it returns the
+    # real path, measured. So nothing a test can drive through this function
+    # distinguishes the two — a test asserting otherwise passes for the wrong reason,
+    # which is how this line was first shipped with a test that did not discriminate.
+    # The invariant that actually matters — both sides of `is_relative_to` canonical —
+    # is enforced in `resolve_operator_paths`, where the comparison lives and where a
+    # direct caller can supply any `repo_root` it likes.
+    return Path(probe.stdout.strip()).resolve()
 
 
 def require_dependencies(names: tuple[str, ...] | None = None) -> None:
@@ -117,6 +127,15 @@ def resolve_operator_paths(repo_root: Path, paths: dict[str, str],
     already a property of this function (`directories` is the same idea); what is
     new is a second axis, not a weaker rule.
     """
+    # BOTH SIDES OF THE COMPARISON MUST BE CANONICAL OR IT MEANS NOTHING. The
+    # operator side is `.resolve()`d — that is the entire point, since `..` has to
+    # be collapsed before containment can be tested. `repo_root` is whatever the
+    # caller passed: `preflight` supplies a canonical one, but this function is
+    # public and its other callers are tests. Given a non-canonical root, every
+    # LEGITIMATE in-tree path fails `is_relative_to` and the operator is told their
+    # correct argument resolves outside the repo — a false refusal with no action
+    # available to them. Normalised here rather than assumed of every caller.
+    repo_root = repo_root.resolve()
     resolved = {label: (repo_root / arg).resolve() for label, arg in paths.items()}
 
     for label, arg in paths.items():
@@ -149,13 +168,28 @@ def preflight(repo_target: str | None) -> Path:
     return resolve_repo_root(repo_target)
 
 
+class RepoPathSpec(NamedTuple):
+    """What was DECLARED about one repo path — never what was supplied for it.
+
+    NAMED RATHER THAN A BARE `tuple[bool, bool]`, because both fields are booleans
+    and the pair is read positionally in `parse_with_preflight`. Transposing
+    `is_dir` and `must_exist` there type-checks, runs, and silently swaps "assert
+    this is a directory" for "allow this to be absent" — a containment control
+    whose two axes had quietly traded places. Unpacking still works, so callers
+    that read it as a 2-tuple are unaffected.
+    """
+
+    is_dir: bool
+    must_exist: bool
+
+
 class RepoPathParser(argparse.ArgumentParser):
     """A parser where DECLARING a repo path and CHECKING it are the same act.
 
     WHY THE CHECK MOVED INTO THE DECLARATION, AND NOT JUST INTO MORE CALLERS.
     `resolve_operator_paths` was correct and had two callers; five other runners
-    joined their operator paths onto `repo_root` unchecked, and three of those
-    accepted `../../../../tmp/...` and read through it under
+    joined their operator paths onto `repo_root` unchecked, and ALL FIVE accepted
+    `../../../../tmp/...` and read through it under
     `--dangerously-skip-permissions`. Adding five more hand-written calls closes
     those five and leaves the shape that produced them — **a check each runner
     must remember, against a hand-written dict of its own path arguments.** The
@@ -182,6 +216,15 @@ class RepoPathParser(argparse.ArgumentParser):
         `test_no_runner_joins_an_UNRESOLVED_operator_path.py` exists for, and it
         is the half of the property with syntax to grep: the omission is now
         VISIBLE as a join, where before it was an absence.
+
+        SO "OMISSION IS IMPOSSIBLE" IS TRUE OF THIS CLASS AND NOT OF THE TREE, and
+        the difference is not pedantry — it was measured. A runner keeping
+        `add_repo_path` for two paths, dropping the third to `add_argument`, and
+        reading the attribute one line before joining it defeated BOTH guards with
+        the suite green. The sweep now follows one alias hop, so that shape fails;
+        what holds is *a declared path cannot skip the check, and an undeclared one
+        is visible at the join within one alias* — not *no operator string can
+        reach a join*, which no sweep can decide.
       * It says nothing about paths that are deliberately outside the repo.
         `--task-file` and `--phase` are read from wherever the operator points
         them, on purpose, and are declared with `add_argument` for that reason.
@@ -192,8 +235,7 @@ class RepoPathParser(argparse.ArgumentParser):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # dest -> (is a directory, must already exist)
-        self._repo_paths: dict[str, tuple[bool, bool]] = {}
+        self._repo_paths: dict[str, RepoPathSpec] = {}
 
     def add_repo_path(self, *names: str, kind: str = "file",
                       must_exist: bool = True, **kwargs) -> argparse.Action:
@@ -210,7 +252,7 @@ class RepoPathParser(argparse.ArgumentParser):
                 f"whether the resolver asserts `is_dir()`, and a third spelling "
                 f"would silently assert neither.")
         action = self.add_argument(*names, **kwargs)
-        self._repo_paths[action.dest] = (kind == "dir", must_exist)
+        self._repo_paths[action.dest] = RepoPathSpec(kind == "dir", must_exist)
         return action
 
     def parse_with_preflight(
@@ -241,11 +283,29 @@ class RepoPathParser(argparse.ArgumentParser):
         # A declared-but-unsupplied optional path (`default=None`) is not a path
         # the operator gave, so there is nothing to contain. Resolving `None`
         # would raise a TypeError three frames from anything naming the cause.
+        #
+        # BUT ONLY WHEN IT WAS DECLARED OPTIONAL. `add_repo_path("--foo")` with no
+        # `default=` reads as "must exist if given" and gets `must_exist=True`;
+        # unsupplied, it would drop out of the mapping here and surface later as a
+        # bare `KeyError: 'foo'` from the caller's `resolved["foo"]` — a message
+        # naming neither the argument nor the reason. Nothing declares that shape
+        # today; this refuses it at the point the contradiction exists rather than
+        # waiting for the first runner to write it.
+        missing_required = sorted(
+            dest for dest, spec in self._repo_paths.items()
+            if getattr(a, dest) is None and spec.must_exist)
+        if missing_required:
+            raise RuntimeError(
+                f"{self.prog}: {', '.join(missing_required)} declared with "
+                f"must_exist=True but no value and no default. Give the "
+                f"declaration a `default=`, make it a required positional, or "
+                f"declare it `must_exist=False` if absent is legitimate.")
+
         declared = {dest: getattr(a, dest) for dest in self._repo_paths
                     if getattr(a, dest) is not None}
         resolved = resolve_operator_paths(
             repo_root, declared,
-            directories=tuple(d for d in declared if self._repo_paths[d][0]),
-            optional=tuple(d for d in declared if not self._repo_paths[d][1]),
+            directories=tuple(d for d in declared if self._repo_paths[d].is_dir),
+            optional=tuple(d for d in declared if not self._repo_paths[d].must_exist),
         )
         return a, repo_root, resolved

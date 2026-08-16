@@ -47,6 +47,7 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -167,17 +168,71 @@ def never_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     than belt-and-braces: an autonomous suite that can start a real dispatch is a
     worse defect than the one this file guards.
 
-    Patched by NAME on each runner module (`run_plan_project`, `run_plan_sprint`,
-    …), which is how every runner in this tree imports its workflow entry.
+    TWO IMPORT SHAPES, AND MISSING THE SECOND MADE THIS FIXTURE A NO-OP FOR SIX OF
+    THE SEVEN RUNNERS. It used to scan `dir(module)` for a `run_`-prefixed callable,
+    which only `run_plan_project` has — it does `from …plan_project_workflow import
+    run_plan_project`. The other six bind a MODULE (`from … import
+    plan_sprint_workflow as wf`) and call `wf.run_plan_sprint(...)`; a module is not
+    `callable()` and its name is not `run_`-prefixed, so nothing was patched and the
+    fixture's own docstring claimed a guarantee it was not providing. Masked only
+    because `_ARGV_SHAPE` hands those six `--dry-run`, so `main` returns before the
+    dispatch — i.e. the safety net was load-bearing in exactly the case it was
+    absent. Both shapes are now walked, and `test_the_fixture_ACTUALLY_patched…`
+    below asserts the walk found something for every runner, so a third import shape
+    fails loudly instead of silently reinstating this.
     """
     for name in _SUBJECTS:
         module = _module(name)
-        for attribute in dir(module):
-            if attribute.startswith("run_") and callable(getattr(module, attribute)):
-                monkeypatch.setattr(
-                    module, attribute,
-                    lambda *a, **k: (_ for _ in ()).throw(_Dispatched(attribute)),
-                    raising=False)
+        _patched[name] = _stub_dispatches(monkeypatch, module)
+
+
+def _stub_dispatches(monkeypatch: pytest.MonkeyPatch, module) -> list[str]:
+    """Replace every dispatch entry reachable from a runner module. Returns what.
+
+    `attr=attribute` binds the name at lambda-DEFINITION time. Bound late, every
+    stub reported whichever attribute the loop finished on, so a failure message
+    would name the wrong function — cosmetic until the moment it is read, which is
+    always a moment somebody is already confused.
+    """
+    patched: list[str] = []
+
+    def stub(where, attribute: str, label: str) -> None:
+        monkeypatch.setattr(
+            where, attribute,
+            lambda *a, _label=label, **k: (_ for _ in ()).throw(_Dispatched(_label)),
+            raising=False)
+        patched.append(label)
+
+    for attribute in dir(module):
+        value = getattr(module, attribute)
+        if attribute.startswith("run_") and callable(value):
+            stub(module, attribute, f"{module.__name__}.{attribute}")
+        elif isinstance(value, ModuleType) and value.__name__.startswith("modules."):
+            for inner in dir(value):
+                if inner.startswith("run_") and callable(getattr(value, inner)):
+                    stub(value, inner, f"{attribute}.{inner}")
+    return patched
+
+
+_patched: dict[str, list[str]] = {}
+
+
+def test_the_fixture_ACTUALLY_patched_a_dispatch_for_every_runner() -> None:
+    """The safety net is asserted, not assumed — because it was absent for six of seven.
+
+    A fixture that silently patches nothing is indistinguishable from one that
+    works, right up until a case is added without `--dry-run` and a unit test cuts
+    a worktree and spends a model call. That is the same class as the defect this
+    whole file guards: an omission with no syntax, made visible by asserting the
+    thing that should have happened.
+    """
+    assert set(_patched) == set(_SUBJECTS), (
+        f"the fixture did not run for {set(_SUBJECTS) - set(_patched)}")
+    unpatched = [name for name, hits in _patched.items() if not hits]
+    assert not unpatched, (
+        f"{unpatched} had no dispatch entry stubbed, so nothing stops a real "
+        f"dispatch if any of their cases stops passing `--dry-run`. A runner that "
+        f"imports its workflow a third way needs a branch in `_stub_dispatches`.")
 
 
 def test_the_sweep_finds_the_runners_that_declare_a_repo_path() -> None:
