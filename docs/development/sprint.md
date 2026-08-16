@@ -2,7 +2,7 @@
 
 **What is being built:** a Claude Code environment that improves itself. Custom agents and methodology skills, autonomous workflows that run headless and deliver reviewed PRs, a memory model built on git rather than state files, and a continuous-improvement loop that reads the system's own run logs and feeds findings back as tracked decisions. It syncs to every machine from one repo.
 
-**The arc.** The completed phases built the foundation — sync, safety, agents, and the autonomous workflows themselves. The current work is **decomposition**: breaking monolithic workflows into composable parents and children, so that each boundary is a review boundary and a retry point. That leads to a **typed handoff** between runs, which is what lets a parent route on a child's result in code rather than by parsing prose — and that, in turn, is the prerequisite for porting onto **durable execution**, where a failed leg resumes instead of restarting.
+**The arc.** The completed phases built the foundation — sync, safety, agents, and the autonomous workflows themselves. The current work rests on a **typed handoff** between runs — the record that lets a parent route on a child's result in code rather than by parsing prose. On top of it sits **decomposition**: breaking monolithic workflows into composable parents and children, so that each boundary is a review boundary and a retry point. A boundary is only sound once the handoff across it is typed, which is why the handoff comes first even though decomposition is what revealed the need for it. Both are prerequisites for porting onto **durable execution**, where a failed leg resumes instead of restarting.
 
 The through-line: *the run that authors work should not be the run that judges it, and a system should be able to tell you what it decided in a form that code can act on.*
 
@@ -128,6 +128,27 @@ Make the system improve its own tooling from evidence it generates itself.
 
 ---
 
+## Sprint: Memory Management Framework — ✅ COMPLETE
+
+**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs, kept as the record of what was built.
+
+**Retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)**, which now covers all of memory. The typed exit record is PMP's.
+
+Two distinct kinds of memory, both built. Both exist because a context window ends and the work does not; they differ in who reads them.
+
+**Kind 1 — durable memory in git, read by humans and AI.** Built and in use; **documented as a framework by Phase 2**. **Five** surfaces, measured: PR threads carry change-outcomes, Issues carry no-change outcomes, the standup tracker carries continuity, `direction.md` carries rulings only the operator can make, and `candidates.md` carries research candidates and their dispositions — the last of these being what makes `direction.md`'s 90-day rotation safe, since a ruled row may only be deleted once its reasoning is recorded in the candidate that never deletes. The record's own to-do bit is what marks work as current.
+
+**Kind 2 — machine handoff in a file, read by CODE.** The typed exit record: a parent decides *in code, with no AI in the loop*, which child to invoke next. Now PMP's.
+
+- [x] **Phase 1 · Measure the channel** — six experiments against the pinned CLI and the archived logs. 13 rulings; 3 no-ops cancelled downstream work. Merged 2026-08-08
+- [x] **Phase 2 · Document Kind 1 as a framework** — delivered as [`docs/guide/memory-model.md`](../guide/memory-model.md). Five surfaces measured, not three. Merged 2026-08-09
+- [x] **Phase 3 · The typed exit record** — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
+- [x] **Phase 4 · Migrate the fleet** — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
+- [x] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
+- [x] **Phase 6 · Read what it writes** — three readers for the run log's parent-written observables
+
+Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
+
 ## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
 
 **Phase doc:** not yet written — writing it is the planning step.
@@ -154,27 +175,6 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 **Only the last cell is missing, and it is the box above.** `plan-project` already chains triage → scaffolding → per-component research → `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`; it runs all of it whatever it is pointed at.
 
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
-
-## Sprint: Memory Management Framework — ✅ COMPLETE
-
-**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs, kept as the record of what was built.
-
-**Retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)**, which now covers all of memory. The typed exit record is PMP's.
-
-Two distinct kinds of memory, both built. Both exist because a context window ends and the work does not; they differ in who reads them.
-
-**Kind 1 — durable memory in git, read by humans and AI.** Built and in use; **documented as a framework by Phase 2**. **Five** surfaces, measured: PR threads carry change-outcomes, Issues carry no-change outcomes, the standup tracker carries continuity, `direction.md` carries rulings only the operator can make, and `candidates.md` carries research candidates and their dispositions — the last of these being what makes `direction.md`'s 90-day rotation safe, since a ruled row may only be deleted once its reasoning is recorded in the candidate that never deletes. The record's own to-do bit is what marks work as current.
-
-**Kind 2 — machine handoff in a file, read by CODE.** The typed exit record: a parent decides *in code, with no AI in the loop*, which child to invoke next. Now PMP's.
-
-- [x] **Phase 1 · Measure the channel** — six experiments against the pinned CLI and the archived logs. 13 rulings; 3 no-ops cancelled downstream work. Merged 2026-08-08
-- [x] **Phase 2 · Document Kind 1 as a framework** — delivered as [`docs/guide/memory-model.md`](../guide/memory-model.md). Five surfaces measured, not three. Merged 2026-08-09
-- [x] **Phase 3 · The typed exit record** — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
-- [x] **Phase 4 · Migrate the fleet** — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
-- [x] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
-- [x] **Phase 6 · Read what it writes** — three readers for the run log's parent-written observables
-
-Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
 ## Sprint: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
 
