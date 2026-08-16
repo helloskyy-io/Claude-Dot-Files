@@ -50,6 +50,7 @@ import hashlib
 import os
 import posixpath
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -64,7 +65,8 @@ __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
            "payload_symlinks", "sha256_of", "contained_relpath",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
-           "LABEL_GAP", "LABEL_SEALED_AT"]
+           "LABEL_GAP", "LABEL_SEALED_AT", "BagState", "bag_state",
+           "lifecycle_of"]
 
 # THE EVENT SCHEMA VERSION. Bumping it is a deliberate act with a written rule
 # beside it (see the module docstring and the phase doc's § Schema versioning):
@@ -334,6 +336,83 @@ def read_tag_file(path: Path) -> list[tuple[str, str]]:
     return entries
 
 
+@dataclass(frozen=True)
+class BagState:
+    """The three fields requirement 8 says are reported TOGETHER, always.
+
+    `lifecycle` is `open` or `sealed` — one field with two values. `redacted` and
+    `incomplete` are INDEPENDENT flags on top of it, because a redaction only
+    applies to a bag that was sealed and `incomplete` can accompany either. A
+    single collapsed label would make a bag that lost data to a full disk
+    indistinguishable from one a human deliberately redacted.
+
+    `redactions` and `gaps` carry the records behind the two flags, so a reader
+    that wants "what was lost" does not have to walk the tag entries again with
+    its own idea of which label means what — which is the duplication this type
+    exists to end.
+    """
+
+    lifecycle: str
+    redacted: bool
+    incomplete: bool
+    redactions: tuple[str, ...] = ()
+    gaps: tuple[str, ...] = ()
+
+
+def lifecycle_of(manifest_exists: bool) -> str:
+    """`sealed` once a manifest exists, `open` until then. Never a third value.
+
+    THE ONE PLACE THE TWO LIFECYCLE STRINGS ARE PRODUCED. Trivial, and named
+    anyway: `Bag.lifecycle` and `validate_bag` each derived it from
+    `manifest-sha256.txt` existing, so "sealed" meant whatever two functions
+    independently agreed it meant.
+    """
+    return "sealed" if manifest_exists else "open"
+
+
+def bag_state(*, manifest_exists: bool,
+              info_entries: Sequence[tuple[str, str]]) -> BagState:
+    """THE ONE PLACE `bag-info.txt` labels become the three state fields.
+
+    WHY THIS FUNCTION EXISTS, AS THE MEASUREMENT RATHER THAN AS A PRINCIPLE. The
+    rule was typed twice — `Bag.redacted`/`Bag.incomplete` read the labels one
+    way and `validate_bag` read them another, down to an independently retyped
+    `.strip().lower() == "true"`. Both copies were correct on the day they were
+    written, which is exactly why the defect is invisible in review: nothing is
+    wrong until one of them is edited. **When they drift, `Bag.incomplete`
+    disagrees with `BagReport.incomplete` about the same bag** — the state
+    collapse requirement 8 exists to forbid, arriving by drift instead of by
+    design, and arriving in the direction that matters: a bag that lost bytes
+    reported as one a human redacted, or as neither.
+
+    THE TRIGGER IS PHASE 3, WHICH IS WHY IT IS CLOSED NOW. Phase 3 adds emitters
+    and with them the third reader, and a third hand-written copy is how a rule
+    kept in prose gets a hole in it — this package has already paid that once,
+    for containment (see `contained_relpath`).
+
+    A VALUE IS `true` OR IT IS NOT THE FLAG. The comparison is deliberately
+    strict-after-normalising: `bag-info.txt` is written by this module, which
+    writes the literal `true`, so accepting `yes`/`1`/`on` would be inventing a
+    dialect no writer produces. Case and surrounding space ARE forgiven, because
+    a folded or hand-edited tag line is a realistic way for the same intent to
+    arrive differently spelled.
+
+    ⚠ ANY OTHER VALUE — `false`, `unknown`, a typo — LEAVES THE FLAG FALSE, and
+    that is a decision. `Journal-Incomplete` is written only when a write has
+    already failed, so a bag carrying an unparseable value is a bag something
+    else has already gone wrong in; reporting it as complete keeps this function
+    total, and the malformed line is still visible in the tag file itself.
+    """
+    redactions = tuple(value for label, value in info_entries
+                       if label == LABEL_REDACTION)
+    gaps = tuple(value for label, value in info_entries if label == LABEL_GAP)
+    incomplete = any(label == LABEL_INCOMPLETE and value.strip().lower() == "true"
+                     for label, value in info_entries)
+    return BagState(lifecycle=lifecycle_of(manifest_exists),
+                    redacted=bool(redactions), incomplete=incomplete,
+                    redactions=redactions, gaps=gaps)
+
+
 def sha256_of(path: Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -401,8 +480,16 @@ class Bag:
 
     @property
     def lifecycle(self) -> str:
-        """`sealed` once a manifest exists, `open` until then. Never a third value."""
-        return "sealed" if self.manifest_path.is_file() else "open"
+        """`sealed` once a manifest exists, `open` until then. Never a third value.
+
+        DELIBERATELY NOT ROUTED THROUGH `state`, which would read `bag-info.txt`.
+        `open_bag` asks a bag its lifecycle while adopting one whose tag files a
+        racing creator may not have written yet (see `open_bag`'s last warning),
+        and `read_tag_file` raises on a file that is not there — so making the
+        cheap question depend on the expensive one would turn a documented
+        survivable race into a crash. The RULE still lives in one place.
+        """
+        return lifecycle_of(self.manifest_path.is_file())
 
     def info(self) -> list[tuple[str, str]]:
         return read_tag_file(self.info_path)
@@ -591,13 +678,23 @@ class Bag:
     # --- flags ---------------------------------------------------------------
 
     @property
+    def state(self) -> BagState:
+        """All three state fields, from the one function that derives them.
+
+        Reads `bag-info.txt` on every access rather than caching: a bag is a
+        folder other processes write into, so a cached answer would be a
+        statement about when this object was built rather than about the bag.
+        """
+        return bag_state(manifest_exists=self.manifest_path.is_file(),
+                         info_entries=self.info())
+
+    @property
     def redacted(self) -> bool:
-        return any(label == LABEL_REDACTION for label, _ in self.info())
+        return self.state.redacted
 
     @property
     def incomplete(self) -> bool:
-        return any(label == LABEL_INCOMPLETE and value.strip().lower() == "true"
-                   for label, value in self.info())
+        return self.state.incomplete
 
 
 def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> Bag:

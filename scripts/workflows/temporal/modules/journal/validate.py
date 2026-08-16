@@ -163,20 +163,26 @@ def validate_bag(bag_path: Path) -> BagReport:
     vanished between `rglob` and `stat`, and one such bag killed the whole sweep.
     """
     structural: list[str] = []
-    lifecycle = "open"
-    redacted = incomplete = False
-    redactions: list[str] = []
-    gaps: list[str] = []
+    entries: list[tuple[str, str]] = []
     on_disk: list[Path] = []
     payload_bytes = 0
     missing: list[str] = []
     mismatched: list[str] = []
     unlisted: list[str] = []
 
+    # THE STATE FIELDS ARE NEVER DERIVED HERE — `bag.bag_state` is the one place
+    # a `bag-info.txt` label becomes one of them, and this function's copy of that
+    # rule is the defect that produced the shared function. Re-derived at each
+    # point new information arrives, so a partial report still carries everything
+    # known at the point it stopped.
+    state = bagmod.bag_state(manifest_exists=False, info_entries=())
+
     if not bag_path.is_dir():
-        return BagReport(path=bag_path, lifecycle="open", redacted=False,
-                         incomplete=False,
+        return BagReport(path=bag_path, lifecycle=state.lifecycle,
+                         redacted=state.redacted, incomplete=state.incomplete,
                          structural=(f"{bag_path} is not a directory",))
+
+    manifest_path = bag_path / MANIFEST_FILE
 
     try:
         bagit = bag_path / BAGIT_FILE
@@ -205,18 +211,22 @@ def validate_bag(bag_path: Path) -> BagReport:
             except BagError as exc:
                 structural.append(str(exc))
                 entries = []
-            for label, value in entries:
-                if label == bagmod.LABEL_REDACTION:
-                    redacted = True
-                    redactions.append(value)
-                elif label == bagmod.LABEL_INCOMPLETE and value.strip().lower() == "true":
-                    incomplete = True
-                elif label == bagmod.LABEL_GAP:
-                    gaps.append(value)
             if not any(label == bagmod.LABEL_SCHEMA_VERSION for label, _ in entries):
                 structural.append(
                     f"{BAG_INFO_FILE} carries no {bagmod.LABEL_SCHEMA_VERSION} — an "
                     f"event written without a version is unrecoverable on read")
+
+        # BOTH INPUTS ARE NOW KNOWN, so the state is derived once, HERE, and
+        # before the payload walk rather than after it. A bag whose payload
+        # cannot be read still reports the lifecycle and flags its tag files
+        # already told us — under the old ordering an `OSError` on the walk
+        # returned `open` for a bag that was plainly sealed, which is the report
+        # collapsing under exactly the partial-read case it promises to survive.
+        # `entries` is `[]` when `bag-info.txt` is missing or unparseable, which
+        # is what makes the flags false rather than unknown; the missing file is
+        # already a structural finding, so the report says both.
+        state = bagmod.bag_state(manifest_exists=manifest_path.is_file(),
+                                 info_entries=entries)
 
         if not (bag_path / PAYLOAD_DIR).is_dir():
             structural.append(f"{PAYLOAD_DIR}/ is missing — a bag has a payload directory")
@@ -234,9 +244,7 @@ def validate_bag(bag_path: Path) -> BagReport:
         on_disk = payload_files(bag_path) if (bag_path / PAYLOAD_DIR).is_dir() else []
         payload_bytes = sum((bag_path / rel).stat().st_size for rel in on_disk)
 
-        manifest_path = bag_path / MANIFEST_FILE
-        if manifest_path.is_file():
-            lifecycle = "sealed"
+        if state.lifecycle == "sealed":
             try:
                 listed = _parse_manifest(manifest_path.read_text(encoding="utf-8"),
                                          manifest_path)
@@ -263,11 +271,12 @@ def validate_bag(bag_path: Path) -> BagReport:
             f"partial — everything after this point was not examined.")
 
     return BagReport(
-        path=bag_path, lifecycle=lifecycle, redacted=redacted, incomplete=incomplete,
+        path=bag_path, lifecycle=state.lifecycle, redacted=state.redacted,
+        incomplete=state.incomplete,
         structural=tuple(structural), missing=tuple(missing),
         mismatched=tuple(mismatched), unlisted=tuple(unlisted),
         payload_files=len(on_disk), payload_bytes=payload_bytes,
-        redactions=tuple(redactions), gaps=tuple(gaps))
+        redactions=state.redactions, gaps=state.gaps)
 
 
 def render_report(report: BagReport) -> str:
