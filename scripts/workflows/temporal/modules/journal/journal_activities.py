@@ -92,13 +92,37 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
     problem r9 exists to diagnose cleanly — a misconfiguration. The refusal names
     the file and the parser's own message, which is what an operator needs when
     the journal that would have recorded the failure is the thing that failed.
+
+    AND SO IS AN UNREADABLE ONE, WHICH IS THE THIRD BRANCH OF THE SAME RULE. The
+    two paragraphs above each fixed one way this function could raise a
+    non-`RuntimeError` — an unparseable file, then a file that parses to a
+    scalar — and the file being unreadable in the first place was left raising a
+    bare `PermissionError` from `read_text`. It is reachable exactly where r9 is
+    argued hardest: on the systemd shape the service account and the checkout's
+    owner can differ, and this is the FIRST call `open_run_bag` makes, so the
+    traceback arrives before anything else could report it.
+
+    THE RULE, RATHER THAN A THIRD PATCH: every call on the resolution path raises
+    `JournalRootError` or nothing. `test_every_way_the_config_can_fail_is_a_RuntimeError`
+    holds the population instead of this docstring, because three consecutive
+    fixes to one function is what a missing check looks like.
     """
     path = CONFIG_PATH if config_path is None else config_path
-    if not path.is_file():
-        return {}
+    try:
+        if not path.is_file():
+            return {}
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise JournalRootError(
+            f"config.yaml could not be read: {path}\n"
+            f"  failing property: {exc.strerror or exc}\n"
+            f"  remedy: make the file readable by the account the fleet runs as, "
+            f"or remove it to accept the documented default for this deployment "
+            f"shape. Defaulting past a config that exists would put verbatim "
+            f"transcripts somewhere the operator did not choose.") from exc
     import yaml  # a hard preflight dependency; see scripts/preflight.py
     try:
-        loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        loaded = yaml.safe_load(text) or {}
     except yaml.YAMLError as exc:
         raise JournalRootError(
             f"config.yaml could not be parsed: {path}\n"
@@ -207,8 +231,19 @@ def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
 def _open(root: Path, run_id: str, repo_root: Path, workflow_key: str,
           worktree_name: str | None, remote: str, commit: str) -> Bag:
     """The bag-creating half of `open_run_bag`, split out only so the `OSError`
-    boundary above wraps every filesystem call this activity makes rather than
-    the subset that happened to be on one line."""
+    boundary above wraps every filesystem call that WRITES the bag rather than
+    the subset that happened to be on one line.
+
+    ⚠ IT IS NOT EVERY FILESYSTEM CALL THE ACTIVITY MAKES, AND THIS SENTENCE USED
+    TO SAY IT WAS. Two run before it: `load_journal_config`, which now raises
+    `JournalRootError` on its own for every way a config can fail to be read; and
+    `_git`, which needs no wrapper here for a checked reason rather than an
+    assumed one — `preflight.resolve_repo_root` runs the same `subprocess.run(["git",
+    …], cwd=repo_root)` shape from the same directory before any entrypoint
+    reaches this activity, so a missing `git` binary or an unreachable
+    `repo_root` has already been refused there. `_git` cannot be the first to
+    discover either.
+    """
     return open_bag(root, run_id, info={
         "Journal-Workflow": workflow_key,
         "Journal-Origin-Repo": str(repo_root),

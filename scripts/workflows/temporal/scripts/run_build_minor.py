@@ -62,13 +62,12 @@ def main(argv: list[str] | None = None) -> int:
             # Nothing has been created yet — that is the point of preflight.
             print(f"\n✗ {exc}", file=sys.stderr)
             return 1
-        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side effect.
-        # Not a helper this file is asked to remember: the sweep in
-        # tests/unit/test_every_parent_opens_a_run_bag.py fails when an
-        # entrypoint lacks this call, which is what makes the journal
-        # structurally present rather than merely available. Nothing writes into
-        # the bag until Phase 3; a root that will not resolve stops the run here
-        # (r9), before a worktree exists and before a token is spent.
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
         # The name is computed here rather than below so the bag can record it.
         # It is a pure string — nothing is created until `run_build_minor` — so
         # this does not move a side effect ahead of the bag.

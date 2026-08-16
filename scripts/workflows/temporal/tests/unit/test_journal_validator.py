@@ -32,16 +32,9 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, DIR_MODE,
-                                 MANIFEST_FILE, PAYLOAD_DIR, open_bag)
+from modules.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE,
+                                 PAYLOAD_DIR, open_bag)
 from modules.journal.validate import render_report, validate_bag
-
-
-@pytest.fixture
-def root(tmp_path: Path) -> Path:
-    journal = tmp_path / "journal"
-    journal.mkdir(mode=DIR_MODE)
-    return journal
 
 
 def _bag(root: Path, run_id: str, *, sealed: bool, redacted: bool, incomplete: bool):
@@ -290,7 +283,7 @@ def test_the_rendered_report_states_PASS_or_FAIL_and_never_only_a_state(root: Pa
     assert "result     : FAIL" in render_report(validate_bag(broken.path))
 
 
-def test_a_SYMLINK_in_the_payload_is_reported_STRUCTURALLY(tmp_path: Path) -> None:
+def test_a_SYMLINK_in_the_payload_is_reported_STRUCTURALLY(root: Path, tmp_path: Path) -> None:
     """A link is not payload, and silence about it is the harm.
 
     A bag transfers as a directory tree; a link's target does not travel with it,
@@ -298,8 +291,6 @@ def test_a_SYMLINK_in_the_payload_is_reported_STRUCTURALLY(tmp_path: Path) -> No
     bytes. Before this, `payload_files` followed the link and hashed the target —
     the bag validated, and what it validated was a file it did not contain.
     """
-    root = tmp_path / "journal"
-    root.mkdir(mode=0o700)
     outside = tmp_path / "outside.txt"
     outside.write_text("not payload")
 

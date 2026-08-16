@@ -37,13 +37,6 @@ from modules.journal.bag import (BAGIT_FILE, BAG_INFO_FILE, DIR_MODE,
                                  open_bag, read_tag_file)
 
 
-@pytest.fixture
-def root(tmp_path: Path) -> Path:
-    journal = tmp_path / "journal"
-    journal.mkdir(mode=DIR_MODE)
-    return journal
-
-
 def _info(bag) -> dict[str, list[str]]:
     """bag-info as label -> every value, since most labels are repeatable."""
     out: dict[str, list[str]] = {}

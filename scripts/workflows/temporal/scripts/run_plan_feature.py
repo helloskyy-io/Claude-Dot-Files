@@ -79,13 +79,12 @@ def main(argv=None) -> int:
             print(f"  Prompt     : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
             return 0
 
-        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side effect.
-        # Not a helper this file is asked to remember: the sweep in
-        # tests/unit/test_every_parent_opens_a_run_bag.py fails when an
-        # entrypoint lacks this call, which is what makes the journal
-        # structurally present rather than merely available. Nothing writes into
-        # the bag until Phase 3; a root that will not resolve stops the run here
-        # (r9), before a worktree exists and before a token is spent.
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
         worktree_name = f"plan-feature-{int(time.time())}"
         journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
                              workflow_key="plan-feature",

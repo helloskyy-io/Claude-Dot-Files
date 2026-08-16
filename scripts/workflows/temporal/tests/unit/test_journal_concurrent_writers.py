@@ -39,18 +39,11 @@ from pathlib import Path
 
 import pytest
 
-from modules.journal.bag import DIR_MODE, open_bag
+from modules.journal.bag import open_bag
 from modules.journal.validate import validate_bag
 
 WRITERS = 16
 _BARRIER_TIMEOUT_S = 30
-
-
-@pytest.fixture
-def root(tmp_path: Path) -> Path:
-    journal = tmp_path / "journal"
-    journal.mkdir(mode=DIR_MODE)
-    return journal
 
 
 def test_sixteen_writers_racing_on_ONE_NAME_get_sixteen_directories(root: Path) -> None:

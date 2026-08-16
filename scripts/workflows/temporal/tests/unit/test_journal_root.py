@@ -348,3 +348,101 @@ def test_an_ABSENT_config_is_not_an_error(tmp_path: Path) -> None:
     from modules.journal.journal_activities import load_journal_config
 
     assert load_journal_config(tmp_path / "nope.yaml") == {}
+
+
+def _every_way_a_config_can_fail(tmp_path: Path):
+    """Each way `load_journal_config` can meet a file it cannot turn into a mapping.
+
+    A LIST OF CASES IS THE HONEST SHAPE HERE AND THE DOCSTRING SAYS SO. There is
+    no AST predicate for "an I/O call that raises outside the contract" the way
+    there is for a path join or a state derivation, so this is an enumeration —
+    and an enumeration is exactly what this repo has measured as non-convergent.
+    What makes it worth more than the three separate tests it replaces is that it
+    names the RULE in one place with the population beside it: adding a branch to
+    `load_journal_config` without adding a row here leaves a visible hole, where
+    three sibling tests scattered down the file left none.
+    """
+    unparseable = tmp_path / "unparseable.yaml"
+    unparseable.write_text("journal:\n  root: \"unclosed\n")
+
+    not_a_mapping = tmp_path / "scalar.yaml"
+    not_a_mapping.write_text("just-a-string\n")
+
+    a_directory = tmp_path / "directory.yaml"
+    a_directory.mkdir()
+
+    unreadable = tmp_path / "unreadable.yaml"
+    unreadable.write_text("journal:\n  deployment: user\n")
+    os.chmod(unreadable, 0o000)
+
+    return [
+        ("unparseable YAML", unparseable),
+        ("parses to a scalar", not_a_mapping),
+        # A DIRECTORY IS NOT AN ABSENT FILE. `is_file()` is False for it, so this
+        # one legitimately returns `{}` — asserted below as its own outcome
+        # rather than left out, because "which branch does this land in" is the
+        # question the enumeration exists to answer.
+        ("a directory where the file should be", a_directory),
+        ("exists but is not readable", unreadable),
+    ]
+
+
+def test_every_way_the_config_can_fail_is_a_RuntimeError(tmp_path: Path) -> None:
+    """THE RULE: nothing on the resolution path raises outside r9's contract.
+
+    Three separate fixes landed on `load_journal_config` in three passes — the
+    `yaml.YAMLError`, then the parses-to-a-scalar `AttributeError`, then the
+    `PermissionError` from `read_text` — each correct, each written as though it
+    were the last one. Ten of the eleven entrypoints catch
+    `(RuntimeError, FileNotFoundError[, ValueError])`, so any fourth branch that
+    raises something else is a raw traceback for precisely the misconfiguration
+    r9 exists to report cleanly, and it is `open_run_bag`'s FIRST call, so
+    nothing else could report it first.
+
+    A directory in the file's place is included and asserted to return `{}` — it
+    is the case that looks like a failure and is not, and leaving it out is how
+    an enumeration acquires a hole nobody can see.
+    """
+    if os.geteuid() == 0:
+        pytest.skip("root reads a 0o000 file, so the unreadable case cannot be built")
+
+    from modules.journal.journal_activities import load_journal_config
+
+    for description, path in _every_way_a_config_can_fail(tmp_path):
+        if path.is_dir():
+            assert load_journal_config(path) == {}, (
+                f"{description}: `is_file()` is False, so this is the no-override "
+                f"path and must not raise")
+            continue
+        with pytest.raises(JournalRootError) as exc:
+            load_journal_config(path)
+        message = str(exc.value)
+        assert str(path) in message, (
+            f"{description}: the refusal must name the file — r9's message is the "
+            f"recovery path, and it cannot need a working journal to be read")
+        assert "remedy:" in message, (
+            f"{description}: the refusal must carry a remedy, not only a diagnosis")
+
+
+def test_an_UNREADABLE_config_names_the_file_and_does_not_traceback(tmp_path: Path) -> None:
+    """The third branch, alone, because it is the one that shipped unwrapped.
+
+    Reachable on the systemd deployment shape this plan explicitly targets: the
+    service account and the checkout's owner can differ, and `config.yaml` is
+    read from the fleet's own repo root. Before this, `path.read_text` raised a
+    bare `PermissionError` — not a `RuntimeError`, so ten of eleven entrypoints
+    printed a traceback instead of the refusal.
+    """
+    if os.geteuid() == 0:
+        pytest.skip("root reads a 0o000 file, so the failure cannot be provoked")
+
+    from modules.journal.journal_activities import load_journal_config
+
+    blocked = tmp_path / "config.yaml"
+    blocked.write_text("journal:\n  deployment: user\n")
+    os.chmod(blocked, 0o000)
+
+    with pytest.raises(JournalRootError) as exc:
+        load_journal_config(blocked)
+    assert str(blocked) in str(exc.value)
+    assert "could not be read" in str(exc.value)

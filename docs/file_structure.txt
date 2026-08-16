@@ -119,8 +119,9 @@ claude-dot-files/
 │   │   │   │                                        #   map; and the operator calls the plan carries WITHOUT deciding — storage budget,
 │   │   │   │                                        #   snapshot cadence, what a machine is, and Phase 7's egress/ingress rulings
 │   │   │   ├── phase1_the_run_bag.md                # Configurable root, folder per run keyed by run_id (NEVER by path), subfolder per
-│   │   │   │                                        #   concurrent child, BagIt RFC 8493 manifest. FOUR bag states — open/sealed/pruned
-│   │   │   │                                        #   plus `incomplete`, which is independent of the other three. No database — a
+│   │   │   │                                        #   concurrent child, BagIt RFC 8493 manifest. A bag state is `lifecycle: open/sealed`
+│   │   │   │                                        #   plus TWO INDEPENDENT FLAGS, `redacted` and `incomplete` — never one collapsed
+│   │   │   │                                        #   label, or a bag that lost bytes reads like one a human redacted. No database — a
 │   │   │   │                                        #   decision with a revisit trigger, not an omission
 │   │   │   ├── phase2_content_store.md              # bernstein §4.6 — store the bytes, checksum them, re-verify quoted spans OFFLINE.
 │   │   │   │                                        #   Tier 1, cost S, and it was ranked and then never placed once already
@@ -366,7 +367,12 @@ claude-dot-files/
 │           │                                        #   exercise them; plan_verify.sh REFUSES a component with no roadmap.md rather
 │           │                                        #   than dispatching against nothing, since writing the plan is not its job
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
-│               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles)
+│               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles), AND the
+│               │                                    #   session-wide autouse fixture that points every bag the suite opens at a temp
+│               │                                    #   root — the FIX for the defect test_the_suite_never_writes_… guards, since five
+│               │                                    #   unit modules drive an entrypoint main() and were writing real bags into the
+│               │                                    #   operator's ~/.local/state/. Redirects CONFIG_PATH, not XDG_STATE_HOME, so a
+│               │                                    #   configured root cannot silently lose the protection
 │               ├── integration/                    # Runs against what the FLEET actually wrote, not against a constructed fixture
 │               │   └── test_a_real_bag_validates.py # Every journal bag on THIS machine still validates. Skips — distinctly from passing —
 │               │                                    #   where no dispatch has run, because a clone has no journal and there is nothing
@@ -547,6 +553,21 @@ claude-dot-files/
 │                   │                                #   declares why it cannot escape — so ADDING a join is what fails. The battery beside it
 │                   │                                #   catches the other half: reverting a guard leaves the declaration standing and true of
 │                   │                                #   nothing, which the sweep alone reads as covered
+│                   ├── journal_entrypoint_facts.py  # WHAT THE ENTRYPOINT POPULATION IS, discovered once for the two guards that ask —
+│                   │                                #   the bag-open sweep and the prose-figure guard. A helper and not a shared test
+│                   │                                #   module because test_test_tree_hygiene refuses test-imports-test; two copies of
+│                   │                                #   "which files are the parents" is the defect both guards exist to catch
+│                   ├── conftest.py                  # The unit tier's shared `root` fixture — a journal root at DIR_MODE. Was pasted into
+│                   │                                #   three modules with a fourth copy already drifted to a bare 0o700 literal. Here and
+│                   │                                #   not in tests/conftest.py: the integration tier deliberately reads the REAL root
+│                   ├── test_journal_prose_figures_are_DERIVED.py # THE RESTATED-FIGURE CLASS, which four passes closed one instance at a
+│                   │                                #   time — "six of eleven" when it was five, "eight entrypoints" when only seven have a
+│                   │                                #   --dry-run, "open/sealed/pruned" for a state named `redacted`. Sweeps this package's
+│                   │                                #   prose (modules, its tests, the phase doc, this map) for entrypoint-population
+│                   │                                #   figures; each must be BOUND to a deriver that computes it from the tree or DECLARED
+│                   │                                #   with why none can — a historical or hypothetical count has no ground truth. An
+│                   │                                #   unregistered figure FAILS, which is the part that converges. States what it cannot
+│                   │                                #   see: "over half", a file outside the sweep, and any CAUSAL claim at all
 │                   ├── test_journal_concurrent_writers.py # Sixteen threads released by a barrier all ask for ONE writer name and must get
 │                   │                                #   sixteen directories. Sequential calls would pass against a check-then-create, which is
 │                   │                                #   the implementation r3 exists to rule out. States its own limits: no global ORDER, no
