@@ -60,12 +60,25 @@ p1_files=0        # Pass 1: files scanned for unescaped backticks
 p2_files=0        # Pass 2: files containing at least one prompt block
 p2_blocks=0       # Pass 2: prompt blocks constructed in the sandbox
 p3_keys=0         # Pass 3: MODEL_KEYs resolved against config.yaml
+p3_seen=0         # Pass 3: MODEL_KEY declarations found — its OWN population
 p3_skip=""        # Pass 3: non-empty means it DID NOT RUN, and says why
 
 # STRICT turns an un-run pass into a failure. CI sets it: on a runner the
 # absence of yq is a broken image, not a local convenience, and the ruling
 # belongs here beside the pass rather than re-derived by every caller.
-STRICT="${LINT_PROMPTS_STRICT:-0}"
+#
+# OFF IS AN ENUMERATED SET, NOT "anything but 0". The first version tested
+# `!= "0"`, so `LINT_PROMPTS_STRICT=false` turned strict ON — and `false` is the
+# natural spelling here, because the sibling this script sits beside spells its
+# boolean that way (`run-claude.sh`: `VERBOSE` is "true"/"false", executed as a
+# literal). A flag whose off-switch turns it on is the same class as the rest of
+# this file: a control reporting a state nobody established. Both spellings are
+# accepted, and anything else is ON — an unrecognised value must not silently
+# disable a gate.
+STRICT=1
+case "${LINT_PROMPTS_STRICT:-0}" in
+    0|false|no|"") STRICT=0 ;;
+esac
 
 # --- sandbox: only `cat` is reachable -----------------------------------------
 SANDBOX="$(mktemp -d)"
@@ -144,7 +157,18 @@ for f in "$WF_DIR"/*.sh "$WF_DIR"/children/*.sh; do
         if [[ "$startline" == *'=$(cat <<'* ]]; then
             # heredoc form: PROMPT=$(cat <<EOF ... EOF )  — ends at a lone ')'
             e=$(awk -v s="$s" 'NR>s && /^\)/ {print NR; exit}' "$f")
-            [[ -n "$e" ]] || continue
+            # A DROP IS NAMED AND COUNTED, NEVER SILENT. This `continue` used to
+            # be bare: a block whose closing `)` the scan could not find left the
+            # population without leaving a trace, so the summary's block count
+            # quietly went down by one and nothing said a block had gone
+            # unchecked. That is this script's own subject — a report that does
+            # not mention what it failed to look at — and the case it hides is
+            # the worst one, an unterminated heredoc.
+            if [[ -z "$e" ]]; then
+                echo "✗ ${f#"$WF_DIR"/}:${s} — prompt block starts here and its closing ')' was never found; NOT constructed"
+                fail=1
+                continue
+            fi
             block=$(sed -n "${s},${e}p" "$f")
         else
             # inline form: VAR="…" — extract EXACTLY the assignment statement, by
@@ -220,6 +244,7 @@ else
         [[ -e "$f" ]] || continue
         mk=$(grep -m1 '^MODEL_KEY=' "$f" | sed 's/MODEL_KEY="//;s/"//')
         [[ -n "$mk" ]] || continue
+        p3_seen=$(( p3_seen + 1 ))
         if [[ -z "$(yq -r ".models.\"${mk}\" // \"\"" "$CONFIG")" ]]; then
             echo "✗ ${f#"$WF_DIR"/} — MODEL_KEY '${mk}' has no entry in config.yaml models: — this workflow CANNOT dispatch"
             fail=1
@@ -230,7 +255,14 @@ else
     # A file with no `MODEL_KEY=` line is skipped by the loop, which is correct
     # — not every workflow script declares one — but if NONE did, the pass
     # examined nothing and must not be reported as having run.
-    [[ $p3_keys -gt 0 || $fail -ne 0 ]] || p3_skip="no MODEL_KEY declarations found under ${WF_DIR}"
+    #
+    # KEYED ON PASS 3's OWN POPULATION (`p3_seen`), NOT ON THE GLOBAL `$fail`.
+    # The first version read `$fail`, which passes 1 and 2 also write — so a
+    # pass-1 failure suppressed pass 3's "examined nothing" diagnostic on a run
+    # where pass 3 had genuinely examined nothing. That is this file's own
+    # subject inverted: a state established and then not reported because an
+    # unrelated check happened to have failed.
+    [[ $p3_seen -gt 0 ]] || p3_skip="no MODEL_KEY declarations found under ${WF_DIR}"
 fi
 
 # --- Summary: claim exactly what ran ------------------------------------------

@@ -162,18 +162,34 @@ print_cycle_totals() {
 # callers: every V1 child runs under errexit and calls `run_claude` unguarded,
 # so an unguarded non-zero here would kill the workflow inside the banner that
 # exists to explain why it died.
+#
+# AND NO PIPE INTO A COUNTER, WHICH IS THE SAME MISTAKE ONE LAYER DOWN. THERE
+# ARE TWO CALLERS WITH DIFFERENT SHELL OPTIONS, and this function must be right
+# under both. The five V1 children all run `set -euo pipefail`; the V2 Python
+# fleet sources this file with NO options at all
+# (`assistant_activities.py`: `bash -c 'source "$runner"; run_claude "$1"'`), and
+# this script sets none itself. In `x=$(git ... | wc -l)` the substitution's exit
+# status is `wc`'s, and `wc -l` on empty stdin SUCCEEDS printing `0` — so without
+# pipefail a failed `git` reads as "zero commits ahead" and the function prints
+# `✓ fully pushed`. That is issue #65's defect rebuilt inside issue #65's fix,
+# reachable only on the fleet the migration is moving toward. Every counter below
+# is therefore a single command or a here-string, never a pipe: the exit status
+# that reaches the `||` is the one that knows whether the check ran.
+_wds_undetermined() {
+    echo "  ? $1"
+    echo "    Committed and pushed state cannot be determined from here — check the PR."
+}
+
 worktree_delivery_state() {
     local wt="$1"
 
     if [[ ! -d "$wt" ]]; then
-        echo "  ? The worktree is NOT on disk: ${wt}"
-        echo "    Committed and pushed state cannot be determined from here — check the PR."
+        _wds_undetermined "The worktree is NOT on disk: ${wt}"
         return 0
     fi
     local toplevel
     if ! toplevel=$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null); then
-        echo "  ? ${wt} is not a readable git worktree."
-        echo "    Committed and pushed state cannot be determined from here — check the PR."
+        _wds_undetermined "${wt} is not a readable git worktree."
         return 0
     fi
     # AND IT MUST BE *THIS* WORKTREE'S ROOT. The fleet's worktrees live at
@@ -187,22 +203,30 @@ worktree_delivery_state() {
     wt_real=$(cd "$wt" && pwd -P) || wt_real=""
     top_real=$(cd "$toplevel" && pwd -P) || top_real=""
     if [[ -z "$wt_real" || "$wt_real" != "$top_real" ]]; then
-        echo "  ? ${wt} exists but is not a worktree root — git answers there for ${toplevel}."
-        echo "    This run's committed and pushed state cannot be determined from here — check the PR."
+        _wds_undetermined "${wt} exists but is not a worktree root — git answers there for ${toplevel}."
         return 0
     fi
+    # A DISTINCT REASON, NOT THE ONE ABOVE. This arm and the `rev-parse` arm are
+    # different failures — here git resolved the toplevel and then could not read
+    # the index (a corrupt or locked `.git/index`, an unreadable object store) —
+    # and they shared a sentence in the first draft. Two causes reported with one
+    # message is a report an operator cannot act on, which is a quieter form of
+    # the same defect: it names a state it did not distinguish.
     local porcelain
     if ! porcelain=$(git -C "$wt" status --porcelain 2>/dev/null); then
-        echo "  ? ${wt} is not a readable git worktree."
-        echo "    Committed and pushed state cannot be determined from here — check the PR."
+        _wds_undetermined "${wt} is a git worktree, but its status could not be read (index or object store unreadable)."
         return 0
     fi
 
     # UNCOMMITTED AND UNPUSHED ARE INDEPENDENT, and both are reported. The
     # original banner used one sentence for both, which is how a fully-pushed
     # tree got described as unsalvaged work.
+    #
+    # A HERE-STRING, NOT A PIPE — see the header. `x=$(... | wc -l)` would hide
+    # the counter's exit status behind `wc`'s under the V2 caller's optionless
+    # shell.
     local dirty=0
-    [[ -z "$porcelain" ]] || dirty=$(printf '%s\n' "$porcelain" | wc -l)
+    [[ -z "$porcelain" ]] || dirty=$(wc -l <<<"$porcelain")
     if [[ "$dirty" -gt 0 ]]; then
         echo "  ✗ ${dirty} path(s) carry UNCOMMITTED changes at: ${wt}"
     else
@@ -227,7 +251,13 @@ worktree_delivery_state() {
     # fetch inside a failure banner is a network call on a path whose whole job
     # is to print. A push made by this run updates the tracking ref, which is
     # the case this arm has to get right.
-    unpushed=$(git -C "$wt" log --oneline "${upstream}..HEAD" 2>/dev/null | wc -l) || unpushed=""
+    #
+    # `rev-list --count`, NOT `log | wc -l`. It is ONE command, so the exit
+    # status the `||` sees is git's own — the count is unavailable exactly when
+    # git could not produce it, under every caller's shell options rather than
+    # only under `pipefail`. The `wc` form claimed `✓ fully pushed` from a failed
+    # git on the V2 fleet; see the header.
+    unpushed=$(git -C "$wt" rev-list --count "${upstream}..HEAD" 2>/dev/null) || unpushed=""
     if [[ -z "$unpushed" ]]; then
         echo "  ? Could not compare '${branch}' against '${upstream}' — pushed state unknown."
     elif [[ "$unpushed" -gt 0 ]]; then

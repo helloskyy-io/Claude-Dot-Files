@@ -188,3 +188,73 @@ def test_a_scan_that_examined_NOTHING_is_a_failure_not_a_tick(tmp_path: Path) ->
     assert r.returncode == 1, r.stdout + r.stderr
     assert "examined nothing" in r.stdout, r.stdout
     assert "prompt lint clean" not in r.stdout, r.stdout
+
+
+# ---------------------------------------------------------------------------
+# The flag's OFF switch must switch it off.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("off", ["0", "false", "no", ""])
+def test_the_STRICT_flag_is_OFF_for_every_spelling_of_off(off: str) -> None:
+    """`LINT_PROMPTS_STRICT=false` used to turn strict mode ON.
+
+    The first version read `STRICT="${LINT_PROMPTS_STRICT:-0}"` and gated on
+    `!= "0"`, so every spelling but `0` enabled it — including `false`, which is
+    the natural one: the script this sits beside in the fleet spells its booleans
+    that way (`run-claude.sh`'s `VERBOSE` is "true"/"false", executed as a
+    literal). A gate whose off-switch turns it on is this file's own subject with
+    a different subject line — the flag reports a state the caller never asked
+    for.
+
+    Driven with yq ABSENT, because that is the only state where the flag's value
+    changes the outcome; with yq present both settings exit 0 and the test would
+    pass against the defect.
+    """
+    r = _run(path=_path_without_yq(), strict=off)
+    assert r.returncode == 0, (
+        f"LINT_PROMPTS_STRICT={off!r} was treated as ON:\n{r.stdout}{r.stderr}"
+    )
+    assert "DID NOT RUN" in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize("on", ["1", "true", "yes"])
+def test_an_UNRECOGNISED_value_does_not_silently_disable_the_gate(on: str) -> None:
+    """The error direction is chosen deliberately: unknown means ON.
+
+    A typo'd value must not quietly turn a CI gate off — that failure is silent
+    and green, which is the worse of the two.
+    """
+    assert _run(path=_path_without_yq(), strict=on).returncode == 1
+
+
+def test_an_UNDELIMITABLE_prompt_block_FAILS_rather_than_vanishing(tmp_path: Path) -> None:
+    """Pass 2's extractor used to `continue` past a block it could not delimit.
+
+    Silently: no count, no message, no failure. So a block whose closing `)` the
+    scan never found simply left the population, the summary's block count went
+    down by one, and nothing said a prompt had gone unchecked. That is this
+    script's own subject one layer down — a report that does not mention what it
+    failed to look at — and the case it hides is the worst one, an unterminated
+    heredoc.
+
+    SELF-CONTAINED FIXTURE: a copy of the shipped script over a purpose-built
+    workflows/ tree, so the control cannot be reading the repo's own health.
+    """
+    helpers = tmp_path / "scripts" / "helpers"
+    helpers.mkdir(parents=True)
+    wf = tmp_path / "scripts" / "workflows"
+    wf.mkdir()
+    (tmp_path / "config.yaml").write_text("models: {}\n")
+    # One well-formed block so the vacuous-scan guard is satisfied and this test
+    # reads the drop rather than the empty-tree failure, and one whose closing
+    # `)` never arrives.
+    (wf / "good.sh").write_text('PROMPT=$(cat <<EOF\nhello\nEOF\n)\n')
+    (wf / "truncated.sh").write_text('PROMPT=$(cat <<EOF\nhello\nEOF\n')
+    copy = helpers / "lint-prompts.sh"
+    shutil.copy2(LINT, copy)
+
+    r = _run(script=copy)
+    assert r.returncode == 1, f"an unchecked prompt block was reported clean:\n{r.stdout}"
+    assert "closing ')' was never found" in r.stdout, r.stdout
+    assert "truncated.sh" in r.stdout, r.stdout
+    assert "prompt lint clean" not in r.stdout, r.stdout
