@@ -12,7 +12,7 @@ The continuous-improvement sweep is the tool that looks across many past runs an
 
 **Terms used here.** The **journal** is the whole record: one folder per run, never edited after the run ends. A **bag** is one run's folder (the name comes from BagIt, the file-layout standard it follows — a folder on disk, never a Docker container). **CPI** is continuous process improvement — the cycle that reads past runs for recurring problems and turns them into tracked decisions; its **evidence sweep** is the read half of that. A **gap event** is [Phase 3](phase3_the_emit_rule.md)'s record of a write that failed. An **edge** is one machine running this fleet.
 
-The synthesis states the discipline this phase enforces plainly: **pair every producer with its consumer.** A producer with no consumer is how 262 MB accumulated unread — and this fleet has the measured local record of what happens otherwise. [MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) exists because three separate phases each added a parent-written observable to the same run log and **no committed tool read any of the three**; two of those three shipped with no reader at all, and only one of the two even placed a candidate for one.
+The synthesis states the discipline this phase enforces plainly: **pair every producer with its consumer.** A producer with no consumer is how 262 MB accumulated unread — and this fleet has the measured local record of what happens otherwise: three separate phases each added a parent-written observable to the same run log and **no committed tool read any of the three**; two of those three shipped with no reader at all, and only one of the two even placed a candidate for one.
 
 ---
 
@@ -34,7 +34,7 @@ Only the **poller** needs a scheduler. **Reading the journal needs a journal.** 
 4. **The cross-run sweep's wall-clock is measured against journal size**, and reported as the first real test of [Phase 1](phase1_the_run_bag.md)'s no-database decision.
 5. **Cross-machine CPI is not built here.** CPI stays on one machine until a second one produces runs.
 6. **Any gap in the journal appears in the sweep's own output.** § *A report over an incomplete record says so* below.
-7. **The sweep reaches its evidence through one storage interface**, with the local filesystem as the first implementation, and no filesystem semantics leak into the sweep itself. § *Why the reader has to be portable before anything needs it to be* below. This requirement exists because [Phase 7](phase7_s3_aggregation.md) requirement 3 depends on it and Phase 6 is built four positions earlier.
+7. **The sweep reaches its evidence through one storage interface**, with the local filesystem as the first implementation, and no filesystem semantics leak into the sweep itself. § *Why the reader has to be portable before anything needs it to be* below. This requirement exists because [Phase 7](phase7_s3_aggregation.md) requirement 3 depends on it and Phase 6 is built four positions earlier. **The interface's shape is also a boundary the [Temporal Integration](../temporal-integration/temporal-integration.md) component owns** — the sweep becomes a ported workflow and this is its I/O boundary — so what this phase states is what it needs, not the mechanism ([roadmap § *Constraints that run BOTH ways*](roadmap.md#constraints-that-run-both-ways-with-the-temporal-port)).
 
 ---
 
@@ -78,7 +78,7 @@ CPI today assembles its evidence from a per-repo pile of `.claude/logs/*.jsonl` 
 
 **So the constraint lands here, as a requirement, at the phase that can actually satisfy it.** The interface is small: enumerate bags, read a file from a bag, read the gap events. The local implementation is a thin wrapper over the filesystem and costs almost nothing now; retrofitting it after three consumers read the tree directly is a cross-cutting refactor.
 
-*(This is the second forward constraint a gated phase turned out to place on an ungated one — the first is [Phase 7](phase7_s3_aggregation.md)'s ingress ruling requiring a provenance class on every [Phase 3](phase3_the_emit_rule.md) event. Both were invisible while Phase 7 was a roadmap row, and the [roadmap](roadmap.md#the-order-and-what-each-part-waits-on) now tracks them as a table so a third one cannot go missing the same way.)*
+*(This is one of several forward constraints a gated phase turned out to place on an ungated one. Each was invisible while the gated phase was a roadmap row, and the [roadmap](roadmap.md#what-a-gated-phase-requires-of-a-phase-being-built-today) now tracks them as a table so the next one cannot go missing the same way.)*
 
 ### A report over an incomplete record says so — requirement 6
 

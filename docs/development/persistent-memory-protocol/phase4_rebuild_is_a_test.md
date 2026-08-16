@@ -18,7 +18,7 @@ The check is simple to describe. Read the record back from the start, write out 
 
 The temptation is to fold it in: Phase 3 emits, and *"verify the emit is complete"* looks like a completion criterion of emitting.
 
-**[MMF Phase 6](../memory-management-framework/phase6_read_what_it_writes.md) is the measured record of what happens then.** Three phases each added a parent-written observable to the same run log — `parent_route`, `convergence`, `run_resources` — and no committed tool read any of the three. Folded into any of those phases, the reader would have been the last checklist item of a phase whose headline was already met. **Two of the three shipped without a reader, and only one of those two placed a candidate for it.**
+**This fleet has the measured record of what happens then.** Three phases each added a parent-written observable to the same run log — `parent_route`, `convergence`, `run_resources` — and no committed tool read any of the three. Folded into any of those phases, the reader would have been the last checklist item of a phase whose headline was already met. **Two of the three shipped without a reader, and only one of those two placed a candidate for it.**
 
 The general shape: **a verification folded into the phase it verifies is a gate the same run walks straight past on its way to the thing it already intended to build.** As its own phase, it is a ruling with a human in between.
 
@@ -75,7 +75,7 @@ Three consequences follow immediately, and each would otherwise have to be re-de
 - **The gap reporting survives it too.** A store rebuilt from a gapped journal is a gapped store, and requirement 7's count is what says so.
 - **A write to a rebuilt store is a write to the journal.** Anything that edits one of these files — including a later phase's own failure record — emits, or the next rebuild reverts it. Requirement 5 says this for a hand-editor; requirement 9 says it for every automated consumer.
 
-**And after [Phase 7](phase7_s3_aggregation.md), the journal is a shared bucket** — so this rule is what carries that phase's ingress ruling to consumers that never read a bucket directly. Read the other way round, [Phase 8](phase8_the_poller.md)'s *"the store is safe to read precisely because of Phase 4"* is only true to the degree the journal behind it is, which is what its own gate list now says.
+**And after [Phase 7](phase7_s3_aggregation.md), the journal behind a store may include folders that arrived from another machine** — so this rule is what carries origin to consumers that never read object storage directly. Read the other way round, [Phase 8](phase8_the_poller.md)'s *"the store is safe to read precisely because of Phase 4"* is only true to the degree the journal behind it is, which is why that phase filters on origin rather than assuming it.
 
 ### Restore is the thing the component is sold on, and it is not the test — requirement 8
 
@@ -91,7 +91,7 @@ Three consequences follow immediately, and each would otherwise have to be re-de
 
 **The place a reader of those two tables learns what they are is [`memory-model.md`](../../guide/memory-model.md) §2.4 and §2.5**, which today checks both against the five durable-record properties and describes them as where the answer lives. After this phase that description is incomplete in a way that costs someone their edit.
 
-**That file is [MMF Phase 2](../memory-management-framework/phase2_kind1_framework.md)'s deliverable and is human-in-the-loop** under [`standards-governance.md`](../../../config/rules/standards-governance.md) — no dispatch writes it. So requirement 6 is met by **proposing the amendment, not by making it**: one note on both file surfaces saying they are rebuilt from the journal and that an edit which does not emit does not survive a rebuild. The proposal is carried in [roadmap § *Questioning the Memory Management Framework*](roadmap.md#questioning-the-memory-management-framework), challenge 4, and in this component's pull-request body.
+**That file is the fleet's operating manual for the working record and is human-in-the-loop** under [`standards-governance.md`](../../../config/rules/standards-governance.md) — no dispatch writes it. So requirement 6 is met by **proposing the amendment, not by making it**: one note on both file surfaces saying they are rebuilt from the journal and that an edit which does not emit does not survive a rebuild. The proposal is placed at [roadmap § *Standards-amendment candidates*](roadmap.md#standards-amendment-candidates), item 2, with this phase's landing as its trigger.
 
 **The requirement is not satisfied by a note in this document.** A reader who is about to hand-edit `candidates.md` is not reading a phase doc in a component they may never have heard of, and requirement 6's whole content is *where* the warning lives.
 
@@ -163,7 +163,7 @@ Requirement 1 permits a normalisation. It is necessary — trailing whitespace, 
 - [ ] Enumerate every store, mark each in-test or out-of-test, and give a reason for every exclusion in § *Stores not covered*
 - [ ] Build the **committed synthetic fixture** (journal + stores) for the merge-path arm, and confirm no real journal bytes are committed
 - [ ] Wire the mechanism arm into `.github/workflows/tests.yml` and the completeness arm into [`testing/run-all.sh`](../../../testing/run-all.sh) as host-only — **and confirm no arm skips when its input is absent**
-- [ ] **Propose** the authority note for `memory-model.md` §2.4 and §2.5 — that both files are rebuilt from the journal and an edit which does not emit does not survive a rebuild — in the PR body, since that file is human-in-the-loop and no dispatch writes it
+- [ ] **Propose** the authority note for [`memory-model.md`](../../guide/memory-model.md) §2.4 and §2.5 — that both files are rebuilt from the journal and an edit which does not emit does not survive a rebuild — by landing it at [roadmap § *Standards-amendment candidates*](roadmap.md#standards-amendment-candidates) item 2 with its trigger fired, since that file is human-in-the-loop and no dispatch writes it
 - [ ] Record the replay wall-clock against the journal size, with its denominator, in § *Measurement*
 
 ---
@@ -192,4 +192,4 @@ Three figures, all with denominators:
 ## Notes and open items
 
 - **This phase is where the completeness rule stops being a promise.** If it is descoped, [Phase 3](phase3_the_emit_rule.md) reverts to an unverifiable universal — and the component's central claim ("the journal can rebuild the store") becomes something nobody has checked. Descoping it is a decision about the component's thesis, not about a test.
-- **Replay cost grows with journal size**, and nothing bounds journal size until [Phase 5](phase5_snapshots_then_retention.md) lands snapshots. If the measured wall-clock is already uncomfortable at Phase 4's journal size, that is the trigger to bring Phase 5 forward — and it is a real finding, not a reason to weaken this test.
+- **Replay cost grows with journal size**, and nothing bounds journal size until [Phase 5](phase5_snapshots_then_retention.md) lands the storage budget. If the measured wall-clock is already uncomfortable at Phase 4's journal size, that is the trigger to bring Phase 5 forward — and it is a real finding, not a reason to weaken this test.
