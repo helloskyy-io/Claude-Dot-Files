@@ -36,6 +36,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SETTINGS = REPO_ROOT / "config" / "settings.json"
 
+# `install.sh` symlinks `config/hooks/` wholesale to `~/.claude/hooks/`, and the
+# commands in `settings.json` name the INSTALLED path. Both ends are checked
+# below, and they are different questions: the repo end is a property of the
+# CODE, the installed end is a property of THIS MACHINE.
+REPO_HOOKS = REPO_ROOT / "config" / "hooks"
+INSTALLED_HOOKS = Path.home() / ".claude" / "hooks"
+
 # The event and matcher the safety hook must sit on. A `PreToolUse` hook on
 # `Bash` is the only placement that sees a command BEFORE it runs; anything else
 # observes damage rather than preventing it.
@@ -88,14 +95,59 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
     is a lesser problem, but it is the same defect and the same silence, and a
     check that covers one path while the next one over is unchecked is the shape
     this repo has been bitten by before.
+
+    ASKED AT BOTH ENDS, BECAUSE THEY ARE DIFFERENT QUESTIONS — and the first
+    version of this test asked only the second, which made it **host-coupled**:
+    it asserted that `~/.claude/hooks/block-dangerous.sh` exists, which is true
+    on a machine where `install.sh` has run and false on every clean runner. It
+    passed on its author's workstation and was red on `main` for three
+    consecutive pushes, reporting a missing safety control that was not missing.
+
+      * **The REPO end is a property of the code** and is checked always: the
+        command must name a script under the directory `install.sh` links, and
+        that script must be shipped here and executable. This is what fails on a
+        rename, a deletion, or a `chmod` — every way the wiring can break in a
+        commit, which is what a merge gate can act on.
+      * **The INSTALLED end is a property of this machine** and is checked only
+        where there is an installation to check. On a workstation this still
+        catches `install.sh` never having been run, or the link having been
+        clobbered.
+
+    WHAT IT NO LONGER LOOKS AT, stated so the narrowing is visible: on a machine
+    with no `~/.claude/hooks/` at all it cannot tell you the hook is unlinked —
+    because on that machine nothing was ever linked, and that is not a defect in
+    anything this repo ships. The three failure modes in the module docstring
+    are all still reachable; only the *"you personally have not installed it"*
+    reading is gone.
     """
     broken = []
     for event, matcher, hook in _hooks():
         target = _resolve(hook.get("command", ""))
-        if not target.is_file():
-            broken.append(f"{event}/{matcher}: {target} does not exist")
-        elif not os.access(target, os.X_OK):
-            broken.append(f"{event}/{matcher}: {target} is not executable")
+        if target.parent != INSTALLED_HOOKS:
+            broken.append(
+                f"{event}/{matcher}: {target} is not under {INSTALLED_HOOKS}, "
+                f"which is the only directory install.sh links — nothing puts a "
+                f"script there"
+            )
+            continue
+        source = REPO_HOOKS / target.name
+        if not source.is_file():
+            broken.append(
+                f"{event}/{matcher}: {target} is configured, but this repo "
+                f"ships no {source.relative_to(REPO_ROOT)} for install.sh to "
+                f"link — renamed or deleted"
+            )
+        elif not os.access(source, os.X_OK):
+            broken.append(
+                f"{event}/{matcher}: {source.relative_to(REPO_ROOT)} is not "
+                f"executable, so the link resolves and the hook still never runs"
+            )
+        elif INSTALLED_HOOKS.is_dir() and not target.is_file():
+            broken.append(
+                f"{event}/{matcher}: {INSTALLED_HOOKS} exists but {target} does "
+                f"not — install.sh has not been run since this hook was added, "
+                f"or the link was clobbered"
+            )
     assert not broken, (
         "A hook command that does not resolve never runs, and nothing reports it "
         "— the tool call simply succeeds:\n  " + "\n  ".join(broken)
