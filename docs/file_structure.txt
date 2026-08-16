@@ -426,6 +426,15 @@ claude-dot-files/
 │                   │                                #   that is not this repo's, because a workflow can carry the literal in a comment and still
 │                   │                                #   derive correctly. Three of four hard-coded it, which failed a correct --repo run at the
 │                   │                                #   LAST guard and presented as "the flag is broken"
+│                   ├── test_no_runner_joins_an_UNRESOLVED_operator_path.py # No run_*.py joins an argparse namespace
+│                   │                                #   attribute onto a path. Gives the ABSENCE of an escape check the syntax test_preflight's
+│                   │                                #   sweep says it lacks, by keying on the join the absence exists to permit rather than on
+│                   │                                #   the missing call. Five of ten runners were in that state and three accepted
+│                   │                                #   ../../../../tmp/… and read through it under --dangerously-skip-permissions
+│                   ├── test_an_entrypoint_REFUSES_an_escaping_operator_path.py # The same property proven by EXECUTION:
+│                   │                                #   every runner declaring a repo path is driven with an escaping value and must refuse it
+│                   │                                #   AS AN ESCAPE, then with an in-repo value and must not. Both arms, because a resolver
+│                   │                                #   hard-wired to raise passes the first. argv synthesized from the parser's own registry
 │                   ├── observer_registry.py         # ONE resolver for both observer registries — does this entry name code that EXISTS?
 │                   │                                #   A helper module, not a test module. Shared rather than copied for the reason
 │                   │                                #   normalise_cell exists: two copies drift, and the weaker one silently stops catching

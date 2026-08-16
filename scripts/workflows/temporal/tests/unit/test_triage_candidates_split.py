@@ -32,6 +32,7 @@ untriaged this week.
 from __future__ import annotations
 
 import inspect
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -1341,7 +1342,17 @@ def test_every_use_of_repo_root_in_a_run_ENTRYPOINT_is_declared() -> None:
 # two are modelled on. Executing the path is the only thing that sees it.
 
 def _fixture_repo(tmp_path: Path) -> Path:
-    """The minimum tree both entrypoints check for before rendering anything."""
+    """The minimum tree both entrypoints check for before rendering anything.
+
+    A REAL `git init`, so that `preflight` runs rather than being stubbed out.
+    These two tests used to `monkeypatch.setattr(kickoff, "preflight", ...)`,
+    which worked while each runner imported the function into its own namespace
+    and broke the moment the resolution moved inside `RepoPathParser`. Stubbing
+    it was never the point — the point is a tree the entrypoints can render
+    against — and one `git init` buys the real path, which is the one that now
+    also resolves every declared operator path.
+    """
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     research = tmp_path / "docs" / "standards" / "architecture" / "research"
     research.mkdir(parents=True)
     (research / "candidates.md").write_text(
@@ -1372,7 +1383,6 @@ def test_the_dry_run_of_each_entrypoint_RUNS_and_renders(
     kickoff = importlib.import_module(module_name)
 
     repo = _fixture_repo(tmp_path)
-    monkeypatch.setattr(kickoff, "preflight", lambda target: repo)
     monkeypatch.setattr(kickoff.act, "existing_work", lambda *a, **k: "<work>")
 
     assert kickoff.main(["--repo", str(repo), "--dry-run"]) == 0
@@ -1400,7 +1410,6 @@ def test_the_dry_run_would_FAIL_on_a_values_dict_that_had_drifted(
     kickoff = importlib.import_module(module_name)
 
     repo = _fixture_repo(tmp_path)
-    monkeypatch.setattr(kickoff, "preflight", lambda target: repo)
     monkeypatch.setattr(kickoff.act, "existing_work", lambda *a, **k: "<work>")
     monkeypatch.setattr(kickoff.act, "load_prompt",
                         lambda p: "${A_SLOT_THE_SCRIPT_DOES_NOT_SUPPLY}")

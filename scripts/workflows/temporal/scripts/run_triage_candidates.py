@@ -1,38 +1,37 @@
 """Kickoff entrypoint for triage-candidates."""
 from __future__ import annotations
-import argparse, sys, time
+import sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import RepoPathParser  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.triage_candidates import triage_candidates_workflow as wf  # noqa: E402
 
 BANNER = "=" * 64
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="triage-candidates",
+    p = RepoPathParser(prog="triage-candidates",
         description="Rule every untriaged research candidate. Decides; does not place or design.")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
-    p.add_argument("--candidates", default="docs/standards/architecture/research/candidates.md")
-    p.add_argument("--research", default="docs/standards/architecture/research")
+    # BOTH DECLARED AS REPO PATHS. This runner used to join them onto `repo_root`
+    # unchecked and test only `.exists()` — which follows `..`, so an escaping
+    # `--candidates` passed, was rendered into the prompt, and was ruled on by a
+    # run holding `--dangerously-skip-permissions`. Demonstrated by execution.
+    p.add_repo_path("--candidates", default="docs/standards/architecture/research/candidates.md")
+    p.add_repo_path("--research", kind="dir", default="docs/standards/architecture/research")
     p.add_argument("--pr", dest="pr_number", help="update an existing triage-candidates PR")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
-    a = p.parse_args(argv)
 
     try:
-        repo_root = preflight(a.repo_target)
+        a, repo_root, resolved = p.parse_with_preflight(argv)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
 
-    cands, research = repo_root / a.candidates, repo_root / a.research
-    for label, path in (("candidates", cands), ("research", research)):
-        if not path.exists():
-            print(f"\n✗ {label} not found: {path}", file=sys.stderr)
-            return 1
+    cands, research = resolved["candidates"], resolved["research"]
 
     try:
         counts = act.candidate_counts(cands)

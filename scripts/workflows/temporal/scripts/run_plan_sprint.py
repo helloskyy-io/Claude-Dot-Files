@@ -1,41 +1,46 @@
 """Kickoff entrypoint for plan-sprint."""
 from __future__ import annotations
-import argparse, sys, time
+import sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import RepoPathParser  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_sprint import plan_sprint_workflow as wf  # noqa: E402
 
 BANNER = "=" * 64
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="plan-sprint",
+    p = RepoPathParser(prog="plan-sprint",
         description="Place the ruled candidates and keep the sprint plan current. "
                     "Places; does not rule (that is triage_candidates.sh) and does not design.")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
-    p.add_argument("--sprint", default="docs/development/sprint.md")
-    p.add_argument("--candidates", default="docs/standards/architecture/research/candidates.md")
-    p.add_argument("--research", default="docs/standards/architecture/research")
+    # ALL THREE DECLARED AS REPO PATHS. This runner used to join them onto
+    # `repo_root` unchecked and then test only `.exists()` — and `.exists()`
+    # FOLLOWS `..`, so `--candidates ../../../../tmp/x/candidates.md` passed it,
+    # was handed to the prompt, and was read and written by a run executing under
+    # `--dangerously-skip-permissions`. Demonstrated by execution on 2026-08-15,
+    # not argued.
+    #
+    # `Path.relative_to` WOULD NOT HAVE CAUGHT IT EITHER, which is why the fix is
+    # a resolver and not an extra `if`: it is lexical, so `repo_root/"../../x"`
+    # still reads as being under `repo_root`. The `..` has to be collapsed first,
+    # which is `.resolve()`'s job and `resolve_operator_paths`' whole subject.
+    p.add_repo_path("--sprint", default="docs/development/sprint.md")
+    p.add_repo_path("--candidates", default="docs/standards/architecture/research/candidates.md")
+    p.add_repo_path("--research", kind="dir", default="docs/standards/architecture/research")
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-sprint PR")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
-    a = p.parse_args(argv)
 
     try:
-        repo_root = preflight(a.repo_target)
+        a, repo_root, resolved = p.parse_with_preflight(argv)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
 
-    sprint, cands = repo_root / a.sprint, repo_root / a.candidates
-    research = repo_root / a.research
-    for label, path in (("sprint", sprint), ("candidates", cands), ("research", research)):
-        if not path.exists():
-            print(f"\n✗ {label} not found: {path}", file=sys.stderr)
-            return 1
+    sprint, cands, research = resolved["sprint"], resolved["candidates"], resolved["research"]
 
     try:
         counts = act.candidate_counts(cands)

@@ -5,11 +5,11 @@ the Temporal path exists this is replaced by a client that starts the workflow
 on a task queue; the workflow module itself does not change.
 """
 from __future__ import annotations
-import argparse, sys, time
+import sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight, resolve_operator_paths  # noqa: E402
+from preflight import RepoPathParser  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_verify import plan_verify_activities as own  # noqa: E402
 from modules.assistant.plan.plan_verify import plan_verify_workflow as wf  # noqa: E402
@@ -23,35 +23,31 @@ DEFAULT_CANDIDATES = "docs/standards/architecture/research/candidates.md"
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="plan-verify",
+    p = RepoPathParser(prog="plan-verify",
         description="Read ONE component's roadmap and phase docs COLD, size every phase "
                     "in hours, and say where the plan is weakest. Writes no phase doc.")
-    p.add_argument("component",
-                   help="the component directory, e.g. docs/development/fleet-reliability")
+    # DECLARED AS REPO PATHS, WHICH IS WHAT INSTALLS THE CHECK. `--repo` and a
+    # component path are two independent operator inputs, and `../../elsewhere`
+    # would otherwise size a plan outside the tree the run is reviewing. BOTH are
+    # declared, not only the component one — `--candidates` is as free-form, and
+    # the sibling runner shipped a drift where the live path relativised it and
+    # the dry run printed the raw argument.
+    #
+    # THIS FILE USED TO CALL `resolve_operator_paths` BY HAND, correctly, with a
+    # dict it retyped from its own arguments. That was right and it was not the
+    # property: five sibling runners had no such call at all, and a check a
+    # runner must remember cannot be missing in a way anything can read. The
+    # declaration is now the check, so the dict has no author to forget it.
+    p.add_repo_path("component", kind="dir",
+                    help="the component directory, e.g. docs/development/fleet-reliability")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
-    p.add_argument("--candidates", default=DEFAULT_CANDIDATES)
+    p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-verify PR")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
-    a = p.parse_args(argv)
 
-    # RESOLVED AGAINST THE REPO, and rejected if it escapes. `--repo` and a
-    # component path are two independent operator inputs, and `../../elsewhere`
-    # would otherwise size a plan outside the tree the run is reviewing. BOTH
-    # operator paths are checked, not only the component one — `--candidates` is
-    # as free-form, and the sibling runner shipped a drift where the live path
-    # relativised it and the dry run printed the raw argument.
-    #
-    # THE CHECK ITSELF LIVES IN `preflight`, one caller over from where it was
-    # written: it had two byte-identical consumers, and §10.1 rule 3 decides that
-    # mechanically. Two copies of a path-escape check drift in one direction —
-    # the next hardening lands in one entrypoint and the other keeps accepting
-    # what it now refuses.
     try:
-        repo_root = preflight(a.repo_target)
-        resolved = resolve_operator_paths(
-            repo_root, {"component": a.component, "candidates": a.candidates},
-            directories=("component",))
+        a, repo_root, resolved = p.parse_with_preflight(argv)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
         print(f"\n✗ {exc}", file=sys.stderr)

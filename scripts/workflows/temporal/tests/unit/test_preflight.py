@@ -23,8 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from preflight import (preflight, require_dependencies, resolve_operator_paths,
-                       resolve_repo_root)
+from preflight import (RepoPathParser, preflight, require_dependencies,
+                       resolve_operator_paths, resolve_repo_root)
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 
@@ -124,13 +124,23 @@ def test_no_entrypoint_INLINES_the_operator_path_escape_check() -> None:
 
       * It does not check that the entrypoint validates the RIGHT paths. A
         runner that resolves `component` and forgets `--candidates` passes here;
-        `resolve_operator_paths` is a mechanism, not a policy.
+        `resolve_operator_paths` is a mechanism, not a policy. `RepoPathParser`
+        is what makes the SET a policy — it is derived from the declarations
+        rather than retyped — but that is a property of the parser, not of this
+        sweep.
       * It does not reach `is_relative_to` anywhere but the entrypoints. A
         workflow module doing its own escape check is a different question, and
         `boundary_crossings` is the mechanism for that altitude.
       * It cannot see a runner that takes an operator path and checks NOTHING.
         That is the more dangerous state and it is invisible to this sweep,
-        because the absence of a check has no syntax.
+        because the absence of a check has no syntax. **That gap was real and it
+        was live:** five of ten runners were in exactly that state, and three of
+        them accepted `../../../../tmp/...` and read through it. It is now closed
+        from the other side by
+        `test_no_runner_joins_an_UNRESOLVED_operator_path.py`, which gives the
+        absence syntax by keying on the JOIN the absence exists to permit rather
+        than on the missing call. This sweep still owns the copied-check half —
+        the two are complementary and neither subsumes the other.
 
     READ BY AST, NOT BY SUBSTRING, AND THAT IS NOT FASTIDIOUSNESS. This check
     was first written as `"is_relative_to" in text and "resolve_operator_paths"
@@ -204,3 +214,98 @@ def test_an_ESCAPE_is_reported_before_a_MISSING_path(tmp_path: Path) -> None:
         resolve_operator_paths(tmp_path, {"component": "../outside/nothing"})
     assert "resolves outside the repo" in str(exc.value)
     assert "not found" not in str(exc.value)
+
+
+def test_an_OPTIONAL_path_is_exempt_from_EXISTENCE_and_not_from_CONTAINMENT(
+        tmp_path: Path) -> None:
+    """The exemption is one pass wide, and the wrong reading of it is the defect.
+
+    `optional` exists for the research family, whose pool legitimately may not
+    exist yet — nothing in it `mkdir`s, and its dry run reports `0 due papers`
+    for an absent pool rather than failing. Requiring existence there would turn
+    an escape fix into a behaviour change.
+
+    BOTH HALVES ARE ASSERTED BECAUSE ONLY THE PAIR MEANS ANYTHING. An `optional`
+    that also skipped the containment pass would read identically at every call
+    site and would silently re-open the hole this whole change closes, on exactly
+    the two runners that take an unconstrained positional.
+    """
+    absent = resolve_operator_paths(tmp_path, {"pool": "docs/not-yet"},
+                                    directories=("pool",), optional=("pool",))
+    assert absent == {"pool": tmp_path / "docs" / "not-yet"}, (
+        "an optional path that does not exist must resolve, not raise")
+
+    with pytest.raises(RuntimeError) as escape:
+        resolve_operator_paths(tmp_path, {"pool": "../outside"},
+                               directories=("pool",), optional=("pool",))
+    assert "resolves outside the repo" in str(escape.value), (
+        "`optional` exempted the path from CONTAINMENT, which is the one pass it "
+        "must never reach")
+
+
+def test_declaring_a_repo_path_is_what_CHECKS_it(tmp_path: Path) -> None:
+    """THE PROPERTY. The registry is derived from the declarations, never retyped.
+
+    Built as a parser rather than asserted about, because the claim is about what
+    happens when somebody uses the class normally: two paths declared, neither
+    named again anywhere, and both resolved. A runner cannot accept a repo path
+    through this parser and skip the check — there is no step between the two to
+    forget, which is what five hand-written call sites did not have.
+    """
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "c.md").write_text("x")
+
+    def parser() -> RepoPathParser:
+        p = RepoPathParser(prog="fixture")
+        p.add_argument("--repo", dest="repo_target")
+        p.add_repo_path("component", kind="dir")
+        p.add_repo_path("--candidates", default="docs/c.md")
+        p.add_argument("--unrelated", default="../../not-a-path")
+        return p
+
+    a, repo_root, resolved = parser().parse_with_preflight(
+        ["docs", "--repo", str(tmp_path)])
+    assert repo_root == tmp_path.resolve()
+    assert set(resolved) == {"component", "candidates"}, (
+        f"the resolved set is {sorted(resolved)}; it must be exactly what was "
+        f"DECLARED as a repo path — no more, and nothing hand-listed")
+    assert resolved["component"] == tmp_path.resolve() / "docs"
+    assert a.unrelated == "../../not-a-path", (
+        "a plain `add_argument` must be left alone — `--task-file` and `--phase` "
+        "point outside the repo on purpose")
+
+    with pytest.raises(RuntimeError) as exc:
+        parser().parse_with_preflight(
+            ["docs", "--candidates", "../../../elsewhere.md", "--repo", str(tmp_path)])
+    assert "resolves outside the repo" in str(exc.value)
+
+
+def test_a_parser_declaring_repo_paths_without_repo_FAILS_LOUDLY(tmp_path: Path) -> None:
+    """Silence here would reintroduce #48 one layer up.
+
+    Without `--repo`, `preflight(None)` roots on the invocation directory — so a
+    parser that declared repo paths and forgot the flag would contain them
+    against whatever directory the operator happened to be standing in, and every
+    check would pass while meaning nothing.
+    """
+    p = RepoPathParser(prog="fixture")
+    p.add_repo_path("--candidates", default="docs/c.md")
+
+    with pytest.raises(RuntimeError) as exc:
+        p.parse_with_preflight([])
+    assert "no `--repo` argument" in str(exc.value)
+    assert "repo_target" in str(exc.value), "the message must name the dest to fix"
+
+
+def test_add_repo_path_REFUSES_a_kind_it_does_not_understand() -> None:
+    """A third spelling would assert neither `is_dir()` nor anything else.
+
+    `kind="directory"` is the obvious near-miss, and silently accepting it would
+    leave the caller believing a check was installed that never runs — the same
+    shape as the defect this whole change closes, one layer smaller.
+    """
+    p = RepoPathParser(prog="fixture")
+    with pytest.raises(ValueError) as exc:
+        p.add_repo_path("--pool", kind="directory")
+    assert "kind must be 'file' or 'dir'" in str(exc.value)
