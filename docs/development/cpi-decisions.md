@@ -1198,6 +1198,38 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ---
 
+## 2026-08-16 (later) — PR #94 reflections mined: three shipped, one dissolved by today's own lesson
+
+**Source:** PR #94 (`lint-prompts`/turn-cap-banner/pass-counter), three passes. Same occurrence-count bar as the #93 pass above.
+
+### SHIPPED
+
+**A fenced `pr_review:` block is not a review pass until it carries a 32-hex `run_id`** — `review_pr_activities.count_prior_passes`. Issue #68 anchored the predicate so PROSE mentioning the key stopped counting; what arrived instead was a **build run posting a genuine fenced block for its own decision log**, because nothing tells a build run that key is the review workflow's address. **Measured across seven PRs: 11 of 12 real blocks carry the nonce, and the one that does not is that build comment** (`run_id: build-refine-correction-1786880277`, `verdict: READY` — not in the review enum). The filter therefore keys on something real passes already have. Mutation-checked; four test fixtures updated to be realistic rather than the assertion weakened.
+
+**THE PROMPT TWIN OF THAT FIX WAS DELIBERATELY NOT SHIPPED, and the reasoning is today's own lesson.** The run proposed telling build prompts that `pr_review:` is taken and to use `build_report:` instead. That is an administrative control every run must remember; the reader-side filter cannot be forgotten by anyone. **Shipping both would have been the compensating-control pattern removed three times today.** The shared reflection fragment was also at its byte budget with no evidence to trade, which made the cost explicit.
+
+**A mutation proves a guard discriminates WITHIN ITS POPULATION, never that the population is complete** — `build_refine`. **Three passes on one PR each independently named a DIFFERENT new miss-cause**, which is why this shipped as a set rather than a line: a test coupled to what the mutation changed (tell: *more* failures than predicted, inside the mutated area), and a harness that cannot reach a case at all (tell: a de-duplicating step — `set()`, "distinct names"). The second caused this PR's most serious defect: a class-check whose docstring claimed every `git -C <wt> <subcommand>` became a case, while three call sites de-duplicated to one and the shim only ever reached the first. **All seven mutations hit; none could see it.**
+
+**`READ closingIssuesReferences`** — `disposition.md` Stage 1. The body CLAIMS what merging does; the field is the fact, and **a closing keyword inside backticks still binds.** Raised on three passes and it caught the single most consequential defect on the PR. Added beside the `mergeable` check that exists for the same reason.
+
+### DEFERRED — watch-criteria stated
+
+**`gh pr checks` should be polled, not sampled.** Immediately after a push it returns three checks with the merge gate ABSENT, which reads identically to "three checks, all green" — the same shape as the CI-gate defect fixed on 2026-08-15. One occurrence. **Watch-criteria: second occurrence, or any run that reports green against a check set smaller than the previous head's.**
+
+**A brief assembled from issue bodies should carry the issues' filing DATES.** #68 was filed 2026-08-08, fixed 2026-08-09, and dispatched 2026-08-16 — the eight-day gap would have been visible before Stage 1 rather than discovered in it. This is the reader half of C-094. **Watch-criteria: ship with C-094, or on the second brief whose premise was stale on arrival.**
+
+**"Emphasis in a brief is a signal about how much the author wanted it true, never about whether it is."** #94's most emphatic section — *"THE FIX IS UNAMBIGUOUS BECAUSE THE CODE CONTRADICTS ITS OWN SPEC"* — was its only false premise. Named on two passes. **Not shipped because the existing rule (verify the brief's asserted facts) already caught it, twice.** Watch-criteria: ship if a run ever reports missing a false premise *because* it read the emphasis as authority.
+
+### NOTED
+
+**C-095 is placed** for the third channel a closing keyword lives in: a commit message, which `closingIssuesReferences` cannot see and which is only actionable **before the commit is written** — after the push the remedy needs a force-push the dispatch is not permitted.
+
+### Accounting
+
+`build_refine` **22,026 -> 21,899 and the budget ratcheted down to match** — the two additions were more than funded by cutting two evidence anecdotes. `disposition.md` 75,865 against its 75,868 budget, no raise needed. **Net prompt bytes across both mining passes: negative.**
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
