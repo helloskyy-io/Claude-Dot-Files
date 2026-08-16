@@ -320,3 +320,31 @@ def test_JournalRootError_is_a_RuntimeError() -> None:
     eleven stack traces with the suite still green.
     """
     assert issubclass(JournalRootError, RuntimeError)
+
+
+def test_a_MALFORMED_config_refuses_as_a_RuntimeError_not_a_traceback(tmp_path: Path) -> None:
+    """r9's contract is a diagnosable refusal, and `yaml.YAMLError` is not one.
+
+    Every entrypoint catches `RuntimeError` and prints the message the layer that
+    knew what failed wrote. `yaml.YAMLError` is not a `RuntimeError`, so an
+    unparseable `config.yaml` gave all eleven a raw traceback for exactly the
+    class of problem — a misconfiguration — that this design exists to report
+    cleanly. The refusal names the file and the parser's own complaint.
+    """
+    from modules.journal.journal_activities import load_journal_config
+
+    broken = tmp_path / "config.yaml"
+    broken.write_text("journal:\n  root: \"unclosed\n  deployment: user\n")
+
+    with pytest.raises(JournalRootError) as exc:
+        load_journal_config(broken)
+    message = str(exc.value)
+    assert str(broken) in message, "the refusal must name the file"
+    assert "not valid YAML" in message
+
+
+def test_an_ABSENT_config_is_not_an_error(tmp_path: Path) -> None:
+    """Absent means "no override", which is the designed path, not a degradation."""
+    from modules.journal.journal_activities import load_journal_config
+
+    assert load_journal_config(tmp_path / "nope.yaml") == {}

@@ -69,10 +69,13 @@ def main(argv: list[str] | None = None) -> int:
         # structurally present rather than merely available. Nothing writes into
         # the bag until Phase 3; a root that will not resolve stops the run here
         # (r9), before a worktree exists and before a token is spent.
-        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
-                             workflow_key="build")
-
+        # The name is computed here rather than below so the bag can record it.
+        # It is a pure string — nothing is created until `run_build` — so this
+        # does not move a side effect ahead of the bag.
         worktree_name = f"build-{int(__import__('time').time())}"
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="build", worktree_name=worktree_name)
+
         result = run_build(task, repo_root, worktree_name)
     except (RuntimeError, FileNotFoundError) as exc:
         # These carry operator-facing recovery instructions from the layer that

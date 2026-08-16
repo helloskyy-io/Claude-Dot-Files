@@ -80,12 +80,27 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
     exists and does not parse is a different thing entirely: it means the
     operator's intent is unreadable, and defaulting past it would put the journal
     somewhere they did not choose.
+
+    A PARSE FAILURE IS RERAISED AS `JournalRootError`, WHICH IS THE MODULE'S
+    DOCUMENTED CONTRACT. `yaml.YAMLError` is not a `RuntimeError`, so letting it
+    escape would give all eleven entrypoints a raw traceback for the one class of
+    problem r9 exists to diagnose cleanly — a misconfiguration. The refusal names
+    the file and the parser's own message, which is what an operator needs when
+    the journal that would have recorded the failure is the thing that failed.
     """
     path = CONFIG_PATH if config_path is None else config_path
     if not path.is_file():
         return {}
     import yaml  # a hard preflight dependency; see scripts/preflight.py
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise JournalRootError(
+            f"config.yaml could not be parsed: {path}\n"
+            f"  failing property: not valid YAML — {exc}\n"
+            f"  remedy: fix the syntax. The journal root is read from this file, "
+            f"and defaulting past an unreadable one would put verbatim "
+            f"transcripts somewhere the operator did not choose.") from exc
 
 
 def _git(repo_root: Path, *args: str) -> str:

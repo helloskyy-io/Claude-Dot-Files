@@ -639,7 +639,7 @@ claude-dot-files/
 │
 ├── .gitignore                                       # Git ignore rules
 ├── CLAUDE.md                                        # Project instructions (read by Claude Code when working in this repo)
-├── config.yaml                                      # Centralized service/workflow configuration (gh-monitor + per-workflow models map)
+├── config.yaml                                      # Centralized service/workflow configuration (gh-monitor, per-workflow models map, journal root + deployment shape)
 ├── conftest.py                                      # Repo-root pytest config — RLIMIT_AS memory guardrail (Testing Standard § Test Resource Safety, binding)
 ├── install.sh                                       # Creates symlinks from config/* into ~/.claude/
 ├── LICENSE                                          # MIT license

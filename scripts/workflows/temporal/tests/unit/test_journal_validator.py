@@ -288,3 +288,31 @@ def test_the_rendered_report_states_PASS_or_FAIL_and_never_only_a_state(root: Pa
     broken = _bag(root, "b", sealed=True, redacted=False, incomplete=False)
     (broken.payload_dir / "child" / "payload.jsonl").unlink()
     assert "result     : FAIL" in render_report(validate_bag(broken.path))
+
+
+def test_a_SYMLINK_in_the_payload_is_reported_STRUCTURALLY(tmp_path: Path) -> None:
+    """A link is not payload, and silence about it is the harm.
+
+    A bag transfers as a directory tree; a link's target does not travel with it,
+    so the receiving end gets a dangling pointer where the manifest promised
+    bytes. Before this, `payload_files` followed the link and hashed the target —
+    the bag validated, and what it validated was a file it did not contain.
+    """
+    root = tmp_path / "journal"
+    root.mkdir(mode=0o700)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("not payload")
+
+    bag = open_bag(root, "r")
+    (bag.payload_dir / "real.txt").write_text("payload")
+    (bag.payload_dir / "link.txt").symlink_to(outside)
+    bag.seal()
+
+    report = validate_bag(bag.path)
+    assert not report.ok, "a bag containing a link must not report clean"
+    assert any("symlink" in item for item in report.structural), report.structural
+    # The three state fields are still reported — r8's "always" survives a
+    # structural failure, which is the case an operator most needs them in.
+    assert report.lifecycle == "sealed"
+    assert report.redacted is False
+    assert report.incomplete is False

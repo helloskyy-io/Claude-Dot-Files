@@ -33,6 +33,8 @@ import os
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SETTINGS = REPO_ROOT / "config" / "settings.json"
 
@@ -81,14 +83,59 @@ def test_the_safety_hook_is_DECLARED_on_Bash() -> None:
     )
 
 
-def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
-    """Failure mode 2: the path is a string nobody checks points at anything.
+def test_every_hook_command_RESOLVES_to_an_executable_script_in_the_repo() -> None:
+    """Failure mode 2, half one: the path is a string nobody checks.
+
+    CHECKED AGAINST `config/hooks/`, THE SOURCE OF TRUTH, NOT AGAINST `~/.claude/`.
+    The original version asserted the installed path existed, which is true on a
+    workstation where `install.sh` has run and false on every clone — so it
+    turned the merge gate RED for the whole repo while passing for the person who
+    wrote it. That is the signature of a host-coupled test: it asserted something
+    about one machine, not about the code.
+
+    The half this half covers is the one a clone CAN answer: the command names a
+    script that exists in this repo and is executable. A rename, a typo or a
+    deleted script fails here, on every runner. The other half — whether
+    `install.sh` actually linked it on THIS machine — is the test below, which
+    can only run where an install exists.
 
     Checked for EVERY hook rather than only the safety one. A broken `Stop` hook
-    is a lesser problem, but it is the same defect and the same silence, and a
-    check that covers one path while the next one over is unchecked is the shape
-    this repo has been bitten by before.
+    is a lesser problem, but it is the same defect and the same silence.
     """
+    hooks_dir = REPO_ROOT / "config" / "hooks"
+    broken = []
+    for event, matcher, hook in _hooks():
+        target = _resolve(hook.get("command", ""))
+        source = hooks_dir / target.name
+        if not source.is_file():
+            broken.append(
+                f"{event}/{matcher}: command points at {target}, whose basename "
+                f"{target.name!r} is not a script in config/hooks/")
+        elif not os.access(source, os.X_OK):
+            broken.append(f"{event}/{matcher}: {source} is not executable")
+    assert not broken, (
+        "A hook command that does not resolve never runs, and nothing reports it "
+        "— the tool call simply succeeds:\n  " + "\n  ".join(broken)
+    )
+
+
+def test_the_INSTALLED_hook_paths_resolve_where_an_install_exists() -> None:
+    """Failure mode 2, half two: `install.sh` did not link `hooks/`.
+
+    SKIPPED WHERE THERE IS NO INSTALL, WHICH IS NOT THE SAME AS PASSING. A CI
+    runner and a fresh clone have no `~/.claude/hooks/`, and there is nothing
+    honest to assert about a link that was never meant to exist there. A skip
+    says "not measured"; a pass would say "checked and fine", and those are
+    different facts.
+
+    Where an install DOES exist — every machine that actually dispatches — this
+    is the check that catches a stale or missing symlink, which is the failure
+    the whole file is about.
+    """
+    installed_dir = Path(os.path.expanduser("~/.claude/hooks"))
+    if not installed_dir.exists():
+        pytest.skip(f"no install at {installed_dir} — install.sh has not run here")
+
     broken = []
     for event, matcher, hook in _hooks():
         target = _resolve(hook.get("command", ""))
@@ -97,8 +144,8 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
         elif not os.access(target, os.X_OK):
             broken.append(f"{event}/{matcher}: {target} is not executable")
     assert not broken, (
-        "A hook command that does not resolve never runs, and nothing reports it "
-        "— the tool call simply succeeds:\n  " + "\n  ".join(broken)
+        "This machine has an install, and a declared hook does not resolve into "
+        "it — re-run install.sh:\n  " + "\n  ".join(broken)
     )
 
 

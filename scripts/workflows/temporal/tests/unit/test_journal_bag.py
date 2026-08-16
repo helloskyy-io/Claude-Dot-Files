@@ -337,3 +337,123 @@ def test_open_bag_refuses_a_path_that_exists_and_is_not_a_directory(root: Path) 
         open_bag(root, "r")
     assert "not a directory" in str(exc.value)
     os.remove(collision)
+
+
+# --- containment: the redaction path is the module's one sanctioned mutation ------
+#
+# THESE EXIST BECAUSE THEY DID NOT, AND TWO ESCAPES SHIPPED. `writer_dir`'s free
+# text was slugified and adversarially tested from the start; `redact`'s
+# `payload_relpath` has to preserve internal `/` (it addresses a nested payload
+# file), so slugification was not available and a first-segment check stood in
+# for containment. Both holes below were demonstrated against a real bag before
+# they were fixed, which is why each test names the observed damage rather than
+# the rule.
+
+
+def test_a_redaction_path_that_walks_OUT_of_the_bag_is_refused(root: Path) -> None:
+    """`data/../../x` passed the first-segment check and overwrote a file.
+
+    Observed: the marker was written over a file sitting in the journal root
+    beside the bag — another run's record, in a real journal.
+    """
+    bag = open_bag(root, "r")
+    (bag.payload_dir / "kept.txt").write_text("payload")
+    bag.seal()
+
+    victim = root / "ANOTHER-RUNS-FILE.txt"
+    victim.write_text("precious")
+
+    with pytest.raises(BagError) as exc:
+        bag.redact("data/../../ANOTHER-RUNS-FILE.txt", "should never land")
+    assert "outside this bag" in str(exc.value)
+    assert victim.read_text() == "precious", "the file outside the bag was written to"
+
+
+def test_a_redaction_target_that_is_a_SYMLINK_is_refused(root: Path) -> None:
+    """`is_file()` follows links, so the write landed on the link's target.
+
+    Observed: a symlink under `data/` was hashed into the manifest as payload,
+    and redacting it truncated the file it pointed at — outside the bag.
+    """
+    bag = open_bag(root, "r")
+    outside = root.parent / "outside.txt"
+    outside.write_text("untouched")
+    (bag.payload_dir / "link.txt").symlink_to(outside)
+
+    with pytest.raises(BagError) as exc:
+        bag.redact("data/link.txt", "should never land")
+    assert "symlink" in str(exc.value)
+    assert outside.read_text() == "untouched", "the symlink's target was written to"
+
+
+def test_a_symlink_under_data_is_not_treated_as_payload(root: Path) -> None:
+    """A bag holds bytes, not pointers to bytes that do not travel with it."""
+    bag = open_bag(root, "r")
+    outside = root.parent / "elsewhere.txt"
+    outside.write_text("not payload")
+    (bag.payload_dir / "real.txt").write_text("payload")
+    (bag.payload_dir / "link.txt").symlink_to(outside)
+
+    listed = [p.as_posix() for p in bagmod.payload_files(bag.path)]
+    assert listed == ["data/real.txt"], listed
+    assert [p.as_posix() for p in bagmod.payload_symlinks(bag.path)] == ["data/link.txt"]
+
+    bag.seal()
+    assert "link.txt" not in bag.manifest_path.read_text()
+
+
+# --- caller metadata at creation is untrusted, exactly as it is on append ----------
+
+
+def test_a_NEWLINE_in_bag_info_metadata_is_refused_at_CREATION_too(root: Path) -> None:
+    """The forging check belonged to the tag format, not to one of two writers.
+
+    Observed: `open_bag(info={"Journal-Worktree": "wt\\nJournal-Incomplete: true"})`
+    wrote a second line that the validator read as a lifecycle flag, so a bag
+    claimed a gap nobody recorded. `_append_tag_line` had refused this from the
+    start; the creation path did not.
+    """
+    with pytest.raises(BagError) as exc:
+        open_bag(root, "r", info={"Journal-Worktree": "wt\nJournal-Incomplete: true"})
+    assert "newline" in str(exc.value)
+
+
+@pytest.mark.parametrize("label", ["Event-Schema-Version", "External-Identifier",
+                                   "Journal-Redaction", "Journal-Incomplete",
+                                   "Journal-Gap", "Payload-Oxum"])
+def test_a_caller_cannot_set_a_label_this_module_OWNS(root: Path, label: str) -> None:
+    """Two different harms, one rule.
+
+    Overwriting `Event-Schema-Version` makes every upcaster read the bag wrongly,
+    forever. Setting `Journal-Incomplete` at creation declares a lifecycle fact
+    that has not happened — and `incomplete` existing to be distinguishable from
+    `redacted` is the whole of r8.
+    """
+    with pytest.raises(BagError) as exc:
+        open_bag(root, f"r-{label}", info={label: "anything"})
+    assert label in str(exc.value)
+
+
+def test_ordinary_caller_metadata_is_still_recorded(root: Path) -> None:
+    """The guard above must not have closed the door it exists to keep usable."""
+    bag = open_bag(root, "r", info={"Journal-Workflow": "build",
+                                    "Journal-Origin-Remote": "git@example:x.git"})
+    info = _info(bag)
+    assert info["Journal-Workflow"] == ["build"]
+    assert info["Journal-Origin-Remote"] == ["git@example:x.git"]
+
+
+def test_open_bag_ADOPTS_rather_than_crashing_when_the_directory_appears_first(root: Path) -> None:
+    """The `mkdir` race the module handles correctly everywhere else.
+
+    A directory created between the `exists()` fast path and the `mkdir` is what
+    a duplicate activity delivery produces. The loser must adopt; it used to
+    raise an unhandled `FileExistsError`, which is the opposite of the
+    idempotency `open_bag`'s docstring promises.
+    """
+    first = open_bag(root, "raced")
+    (first.payload_dir / "a.txt").write_text("written by the winner")
+
+    second = open_bag(root, "raced")
+    assert second.path == first.path
+    assert (second.payload_dir / "a.txt").read_text() == "written by the winner"

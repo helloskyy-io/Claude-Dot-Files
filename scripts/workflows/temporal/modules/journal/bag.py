@@ -53,10 +53,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+# The `LABEL_*` names are part of the public surface, not implementation detail:
+# `validate.py` reads all four lifecycle labels to build its report and the tests
+# assert against them. Omitting them here understated the contract that Phase 6's
+# reader and Phase 7's sync will both bind to.
 __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "PAYLOAD_DIR", "MANIFEST_FILE", "BAGIT_FILE", "BAG_INFO_FILE",
            "DIR_MODE", "FILE_MODE", "REDACTION_MARKER", "BagError", "Bag",
-           "open_bag", "read_tag_file", "utc_now", "payload_files", "sha256_of"]
+           "open_bag", "read_tag_file", "utc_now", "payload_files",
+           "payload_symlinks", "sha256_of",
+           "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
+           "LABEL_GAP", "LABEL_SEALED_AT"]
 
 # THE EVENT SCHEMA VERSION. Bumping it is a deliberate act with a written rule
 # beside it (see the module docstring and the phase doc's § Schema versioning):
@@ -119,15 +126,38 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _refuse_folded_value(label: str, value: str) -> None:
+    """A tag value carrying a newline would fold into what reads as a NEW LABEL.
+
+    ONE RULE, ONE PLACE, BECAUSE HAVING IT IN ONLY ONE OF TWO WRITERS IS HOW IT
+    WAS BYPASSED. `_append_tag_line` refused newlines from the start; the
+    bag-info file written at creation did not, so a caller passing
+    `{"Journal-Worktree": "wt\\nJournal-Incomplete: true"}` set a flag nobody
+    asked for — demonstrated against a real bag. The check belongs to the tag
+    format, not to one of its two writers, so both call it.
+    """
+    if "\n" in value or "\r" in value:
+        raise BagError(
+            f"tag value for {label} contains a newline: {value!r}. A multi-line "
+            f"value would fold into what reads as a second label, so free text "
+            f"is refused here rather than sanitised.")
+
+
 def _write_tag_file(path: Path, lines: list[str]) -> None:
     """Write a tag file at `FILE_MODE`, with the mode set at creation.
 
     Same discipline as the root's directory mode: an `open()` followed by a
     `chmod` leaves a window in which a world-readable file holding transcript
     metadata exists on a multi-user host.
+
+    `O_NOFOLLOW` BECAUSE NOTHING THIS MODULE WRITES IS EVER LEGITIMATELY A
+    SYMLINK. A tag file and a redaction marker both belong to the bag; if the
+    path is a link, the bytes would land in a file the bag does not own. The
+    callers already refuse symlinked targets — this closes the window between
+    that check and this write rather than trusting it.
     """
     body = "".join(line if line.endswith("\n") else line + "\n" for line in lines)
-    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, FILE_MODE)
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, FILE_MODE)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(body)
 
@@ -142,11 +172,7 @@ def _append_tag_line(path: Path, label: str, value: str) -> None:
     flag no caller asked for. Refusing at the write is cheaper than sanitising,
     and it makes the caller's mistake visible where it is made.
     """
-    if "\n" in value or "\r" in value:
-        raise BagError(
-            f"tag value for {label} contains a newline: {value!r}. A multi-line "
-            f"value would fold into what reads as a second label, so free text "
-            f"is refused here rather than sanitised.")
+    _refuse_folded_value(label, value)
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(f"{label}: {value}\n")
 
@@ -164,6 +190,13 @@ def _set_tag_line(path: Path, label: str, value: str) -> None:
     The line is rewritten WHERE IT WAS rather than moved to the end, so a bag's
     tag file keeps a stable shape across reseals and a diff between two bags
     shows the value that changed rather than the ordering that did.
+
+    ⚠ IT DOES NOT UNDERSTAND CONTINUATION LINES. The scan is line-by-line, so a
+    folded value's continuation is preserved verbatim as an unrelated line rather
+    than replaced with its label. Harmless for every label this is called with —
+    `Payload-Oxum`, `Bagging-Date` and `Journal-Sealed-At` are all short
+    single-token values that cannot fold — and stated so a future caller does not
+    reach for it with a free-text label whose value could.
     """
     lines = path.read_text(encoding="utf-8").splitlines()
     replacement = f"{label}: {value}"
@@ -215,15 +248,39 @@ def sha256_of(path: Path) -> str:
     return digest.hexdigest()
 
 
+def payload_symlinks(bag_path: Path) -> list[Path]:
+    """Every symlink under `data/`, sorted, as bag-relative paths.
+
+    Reported separately rather than silently skipped, because a symlink in a
+    payload is never benign here: a bag is meant to be a self-contained folder
+    that transfers as a directory tree, and a link's target does not travel with
+    it. The validator turns this into a structural finding.
+    """
+    payload = bag_path / PAYLOAD_DIR
+    if not payload.is_dir():
+        return []
+    found = [p for p in payload.rglob("*") if p.is_symlink()]
+    return sorted(p.relative_to(bag_path) for p in found)
+
+
 def payload_files(bag_path: Path) -> list[Path]:
-    """Every regular file under `data/`, sorted, as bag-relative paths.
+    """Every regular NON-SYMLINK file under `data/`, sorted, as bag-relative paths.
 
     Sorted so a manifest is byte-stable across regenerations — a manifest whose
     line order depended on directory iteration order would show a spurious diff
     on every reseal and make a real change hard to see.
+
+    SYMLINKS ARE EXCLUDED, AND IT IS A CORRECTNESS RULE RATHER THAN A FILTER.
+    `Path.is_file()` follows links, so a symlink under `data/` pointing at
+    `~/.bashrc` would previously be hashed into the manifest as though it were
+    payload — and `redact()` would then follow it and truncate the target. Two
+    separate consequences, one cause: a bag must contain BYTES, not pointers to
+    bytes that live outside it and do not travel with the directory tree.
+    `payload_symlinks` reports them so the validator can say so out loud rather
+    than leaving them silently uncovered.
     """
     payload = bag_path / PAYLOAD_DIR
-    found = [p for p in payload.rglob("*") if p.is_file()]
+    found = [p for p in payload.rglob("*") if p.is_file() and not p.is_symlink()]
     return sorted(p.relative_to(bag_path) for p in found)
 
 
@@ -325,6 +382,48 @@ class Bag:
         _set_tag_line(self.info_path, LABEL_SEALED_AT, sealed_at)
         return self.manifest_path
 
+    def _contained_payload_target(self, payload_relpath: str) -> Path:
+        """`<bag>/<payload_relpath>`, proven to still be inside the payload dir.
+
+        THE FIRST-SEGMENT CHECK IS NOT CONTAINMENT, AND TREATING IT AS ONE COST
+        THIS MODULE TWO ESCAPES. `Path("data/../../x").parts[:1]` is `("data",)`,
+        so a `..` walk passed the caller-facing guard and `self.path / relpath`
+        landed outside the bag — and separately, a SYMLINK under `data/` passed
+        `is_file()` (which follows links), so the write landed on the link's
+        target. Both were demonstrated against a real bag, not reasoned about.
+
+        This is the same containment technique `root.py` already applies one
+        layer up — normalise, resolve, then prove the result is still inside the
+        directory it is supposed to be inside — applied here because the input is
+        the same class: a caller-supplied string composed onto a trusted path.
+
+        EVERY SEGMENT IS CHECKED FOR A LINK, not only the leaf, because a
+        symlinked intermediate directory relocates everything beneath it just as
+        effectively as a symlinked file does.
+        """
+        target = self.path / payload_relpath
+        payload = self.payload_dir
+
+        for segment in (target, *target.parents):
+            if segment == self.path:
+                break
+            if segment.is_symlink():
+                raise BagError(
+                    f"cannot redact {payload_relpath}: {segment} is a symlink. A "
+                    f"bag holds bytes, not pointers to bytes that live outside it "
+                    f"— following one would write to a file this bag does not own.")
+
+        resolved = Path(os.path.realpath(str(target)))
+        payload_resolved = Path(os.path.realpath(str(payload)))
+        if resolved != payload_resolved and payload_resolved not in resolved.parents:
+            raise BagError(
+                f"cannot redact {payload_relpath}: it resolves to {resolved}, "
+                f"which is outside this bag's payload directory "
+                f"({payload_resolved}). A relative segment that escapes the bag is "
+                f"refused rather than normalised, because the caller asking for it "
+                f"has a different bug than the one a rewrite would hide.")
+        return target
+
     def redact(self, payload_relpath: str, reason: str) -> None:
         """Replace one payload file with a marker and record the tombstone.
 
@@ -352,7 +451,7 @@ class Bag:
                 f"cannot redact {payload_relpath}: only payload files under "
                 f"{PAYLOAD_DIR}/ are redactable. A tag file is the record OF the "
                 f"redaction and cannot also be its subject.")
-        target = self.path / payload_relpath
+        target = self._contained_payload_target(payload_relpath)
         if not target.is_file():
             raise BagError(
                 f"cannot redact {payload_relpath}: no such payload file in "
@@ -419,6 +518,16 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
     RE-OPENING A SEALED BAG IS REFUSED. A sealed bag's manifest is a statement
     about a finished run; appending to it under the same `run_id` would make that
     statement false with nothing recording that it had been.
+
+    ⚠ WHAT IDEMPOTENT DOES NOT MEAN HERE: creating a bag is three syscalls, not
+    one, so a second caller that loses the `mkdir` race can observe the bag
+    directory between its creation and its tag files being written, and will
+    adopt a bag whose `bag-info.txt` does not exist yet. Sequential retry — the
+    case Temporal actually produces — is fully safe, because the first attempt
+    either finished or left a directory the second completes reading. A true
+    simultaneous race is not, and closing it needs a lock or a
+    create-then-rename, neither of which is worth building before anything writes
+    into a bag. Named rather than papered over.
     """
     if not run_id or "/" in run_id or os.sep in run_id or run_id in (".", ".."):
         raise BagError(
@@ -427,20 +536,38 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
             f"would put the bag somewhere other than under the root.")
 
     bag_path = root / run_id
-    if bag_path.exists():
+
+    def _adopt() -> Bag:
         if not bag_path.is_dir():
             raise BagError(f"{bag_path} exists and is not a directory")
-        bag = Bag(path=bag_path, run_id=run_id)
-        if bag.lifecycle == "sealed":
+        existing = Bag(path=bag_path, run_id=run_id)
+        if existing.lifecycle == "sealed":
             raise BagError(
                 f"bag {run_id} is already SEALED at {bag_path}. Its manifest is a "
                 f"statement about a finished run; re-opening it under the same "
                 f"run_id would make that statement false with nothing recording "
                 f"that it had been. Mint a new run_id.")
-        return bag
+        return existing
 
-    os.mkdir(str(bag_path), DIR_MODE)
-    os.mkdir(str(bag_path / PAYLOAD_DIR), DIR_MODE)
+    if bag_path.exists():
+        return _adopt()
+
+    # CREATE BY WINNING OR LOSING A `mkdir`, NEVER BY CHECK-THEN-CREATE. The
+    # `exists()` above is a fast path, not the guard: two concurrent calls for one
+    # `run_id` — precisely the duplicate delivery Temporal §7.1 idempotency exists
+    # for — both see it as False and race here. Without this catch the loser
+    # crashed with `FileExistsError` instead of adopting the winner's bag, which
+    # is the opposite of the idempotency this docstring promises. `writer_dir` and
+    # `root._create_with_mode` already use this pattern; this was the one place
+    # that did not.
+    try:
+        os.mkdir(str(bag_path), DIR_MODE)
+    except FileExistsError:
+        return _adopt()
+    try:
+        os.mkdir(str(bag_path / PAYLOAD_DIR), DIR_MODE)
+    except FileExistsError:
+        pass
 
     # EXACTLY TWO LINES. RFC 8493 §2.1.1 requires it, and requirement 6 turns on
     # it: anything else here makes the bag non-conforming, which is why the
@@ -455,7 +582,25 @@ def open_bag(root: Path, run_id: str, *, info: dict[str, str] | None = None) -> 
         LABEL_SCHEMA_VERSION: str(JOURNAL_SCHEMA_VERSION),
         "Bag-Software-Agent": "claude-dot-files journal (Persistent Memory Protocol Phase 1)",
     }
-    entries.update(info or {})
+
+    # CALLER METADATA IS UNTRUSTED INPUT, and it is the only untrusted input on
+    # this path. A caller cannot overwrite a label this module owns — the schema
+    # version in particular, since a bag claiming the wrong version is a bag an
+    # upcaster reads wrongly forever — and cannot set a LIFECYCLE label at
+    # creation, because `redacted` and `incomplete` are facts about what happened
+    # to a run and never something its opener declares.
+    reserved = set(entries) | {LABEL_REDACTION, LABEL_INCOMPLETE, LABEL_GAP,
+                               LABEL_SEALED_AT, "Payload-Oxum", "Bagging-Date"}
+    for label, value in (info or {}).items():
+        if label in reserved:
+            raise BagError(
+                f"cannot set {label!r} when opening a bag: it is written by this "
+                f"module and a caller-supplied value would either contradict the "
+                f"bag's own record or declare a lifecycle fact that has not "
+                f"happened. Reserved: {', '.join(sorted(reserved))}.")
+        _refuse_folded_value(label, str(value))
+        entries[label] = value
+
     _write_tag_file(bag_path / BAG_INFO_FILE,
                     [f"{label}: {value}" for label, value in entries.items()])
 

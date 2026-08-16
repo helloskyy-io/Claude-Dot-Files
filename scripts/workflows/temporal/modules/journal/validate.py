@@ -41,7 +41,8 @@ from pathlib import Path
 
 from . import bag as bagmod
 from .bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE, PAYLOAD_DIR,
-                  BagError, payload_files, sha256_of, read_tag_file)
+                  BagError, payload_files, payload_symlinks, sha256_of,
+                  read_tag_file)
 
 __all__ = ["BagReport", "validate_bag", "render_report", "main"]
 
@@ -172,6 +173,16 @@ def validate_bag(bag_path: Path) -> BagReport:
 
     if not (bag_path / PAYLOAD_DIR).is_dir():
         structural.append(f"{PAYLOAD_DIR}/ is missing — a bag has a payload directory")
+
+    # A SYMLINK IN A PAYLOAD IS A STRUCTURAL PROBLEM, NOT A FILE TO HASH. BagIt
+    # bags transfer as directory trees and a link's target does not travel with
+    # one, so the receiving end gets a dangling pointer where the manifest
+    # promised bytes. `payload_files` excludes them; without this they would be
+    # silently uncovered by the manifest instead of reported.
+    for link in payload_symlinks(bag_path):
+        structural.append(
+            f"{link.as_posix()} is a symlink — a bag holds bytes, not pointers to "
+            f"bytes outside it, which do not survive a transfer")
 
     on_disk = payload_files(bag_path) if (bag_path / PAYLOAD_DIR).is_dir() else []
     payload_bytes = sum((bag_path / rel).stat().st_size for rel in on_disk)

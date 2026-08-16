@@ -268,13 +268,24 @@ def resolve_journal_root(
     if create:
         _create_with_mode(candidate)
 
-    if not candidate.is_dir():
+    # `lstat`, NOT `stat`, AND IT CLOSES THE WINDOW THE REALPATH CHECK ABOVE
+    # LEAVES OPEN. That check proved the path was not a symlink at the moment it
+    # ran; everything after it re-traverses the path fresh, so a link planted in
+    # between would have had its TARGET's ownership and mode checked while the
+    # refusal reported on the path. `lstat` answers about the final component
+    # itself, so a link is simply not a directory and is refused as one.
+    try:
+        info = os.lstat(candidate)
+    except OSError:
+        raise _refuse(
+            candidate, "does not exist",
+            "create it with mode 0700, or set `journal.root:` in config.yaml.") from None
+
+    if not stat.S_ISDIR(info.st_mode):
         raise _refuse(
             candidate,
-            "does not exist" if not candidate.exists() else "is not a directory",
+            "is a symlink" if stat.S_ISLNK(info.st_mode) else "is not a directory",
             "create it with mode 0700, or set `journal.root:` in config.yaml.")
-
-    info = candidate.stat()
 
     if info.st_uid != os.geteuid():
         raise _refuse(

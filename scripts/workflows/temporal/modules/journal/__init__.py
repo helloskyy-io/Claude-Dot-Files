@@ -17,6 +17,19 @@ DEPENDENCY-FREE ON THE WORKFLOW TREE, on purpose. Nothing here imports
 future CPI sweep without dragging in the workflow modules — the same discipline
 `convergence.py` and `run_log.py` already keep.
 
+WHY `modules/journal/` AND NOT `scripts/` BESIDE `preflight.py`, since that is
+the closest existing "every entrypoint needs it" module and a reader will ask.
+`preflight.py` is a helper: it computes paths and validates arguments, and it
+touches the filesystem only to look. This package does I/O that has to be
+recorded and retried — it CREATES the directory a run's whole record lives in —
+and the Temporal Standard §3 puts I/O in the activities layer, which lives under
+`modules/`. Requirement 11's entire argument is that bag-open is an ACTIVITY and
+not a library function, so putting it in `scripts/` would contradict the thing it
+is built to be. It is a top-level sibling of `modules/assistant/` rather than a
+child of it because it belongs to no edge: `assistant/` is one domain, and the
+journal is fleet-wide. That placement is what the sweep's
+`test_the_journal_package_imports_no_workflow_module` pins.
+
 NO DATABASE, AND IT IS A DECISION WITH A REVISIT TRIGGER RATHER THAN AN OMISSION
 (requirement 10). The `state_passing` research paper's format table has one empty
 row — *queries over accumulated history* — and the reflex is to fill it with

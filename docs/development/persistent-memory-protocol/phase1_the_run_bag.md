@@ -245,6 +245,17 @@ Three of this component's rules compose into a trap: the transcript goes in and 
 | The root and deployment shape | `config.yaml` § `journal:` |
 | The enumerating sweep (r11's actual guarantee) | `scripts/workflows/temporal/tests/unit/test_every_parent_opens_a_run_bag.py` |
 
+### Two boundaries of the built guarantee, stated because every other one here is
+
+- **`--dry-run` is a deliberate exemption.** Eight entrypoints return from their dry-run branch before reaching bag-open, so on that path the call is present and does not execute. That is intended — a dry run states *"nothing invoked, nothing posted"*, and creating a directory would falsify it and fill the journal with empty bags from previews. No run happens on that path, so no run lacks a bag.
+- **The ordering check reaches 8 of the 11 entrypoints.** It can see a `worktree_add` call and a workflow handoff called by name; `run_research.py`, `run_research_minor.py` and `run_review_pr.py` reach their workflow through an aliased module that also carries pure prompt-assembly functions legitimately running before the bag, so treating any call on it as a side effect would fail those three falsely. The set it does not cover is **pinned in the test**, so an entrypoint dropping out of coverage fails rather than passing vacuously. Presence is still checked for all 11.
+
+### Redaction containment — the one sanctioned mutation needed the strictest guard and initially had the weakest
+
+`redact()` composes a caller-supplied relative path onto a trusted bag path, which is the same class of input § *Why the root is configurable* treats adversarially one layer up — and it was the one input in the package that could not be defended by slugification, because it must preserve internal `/` to address a nested payload file. Two escapes followed and both were demonstrated against a real bag rather than reasoned about: a `..` walk (`data/../../x`) passed a first-segment check and overwrote a file beside the bag in the journal root, and a symlink under `data/` passed `is_file()`, was hashed into the manifest as though it were payload, and was followed on redaction so the write landed on the link's target.
+
+Both are closed the way the root's containment is: normalise, resolve, then prove the result is still inside the directory it must be inside — plus a symlink refusal on every path segment, `O_NOFOLLOW` on the write, and **a symlink under `data/` reported by the validator as a structural failure**. The general rule this leaves behind: *a bag holds bytes, not pointers to bytes that live outside it* — a pointer does not survive the directory-tree transfer [Phase 7](phase7_s3_aggregation.md) depends on.
+
 ---
 
 ## Implementation checklist
