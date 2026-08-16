@@ -84,3 +84,80 @@ def test_a_runner_that_renders_calls_a_workflow_level_ASSEMBLER(runner: Path) ->
             f"{runner.name} line {values.lineno} fills the prompt from a "
             f"module-local call. The assembler must live with the workflow that "
             f"dispatches the prompt, so both paths reach the same one.")
+
+
+def _byte_labelled_prints(tree: ast.AST) -> list[ast.FormattedValue]:
+    """Every `{...}` interpolation in an f-string whose own text says "bytes"."""
+    out: list[ast.FormattedValue] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.JoinedStr):
+            continue
+        literal = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+        if "bytes" not in literal:
+            continue
+        out.extend(v for v in node.values if isinstance(v, ast.FormattedValue))
+    return out
+
+
+@pytest.mark.parametrize("runner", _RUNNERS, ids=lambda p: p.name)
+def test_a_figure_a_runner_LABELS_bytes_is_measured_in_bytes(runner: Path) -> None:
+    """CLASS: A DRY RUN MAY NOT PRINT A CHARACTER COUNT UNDER A `bytes` LABEL.
+
+    THE SAME SEAM AS THE REST OF THIS MODULE, one column over. Everything above
+    asserts the previewed prompt is the dispatched one; this asserts the FIGURE
+    printed beside it is the one the gate measures. A preview whose text is right
+    and whose number is wrong is the same failure — an operator checked an
+    artifact and concluded something false about it.
+
+    THE TWO UNITS ARE NOT INTERCHANGEABLE AND THE GAP IS NOT SMALL. The budget
+    gate, `testing/scripts/tests/unit/test_prompt_budgets.py`, measures
+    `path.stat().st_size` — bytes on disk. `len(str)` counts CODE POINTS. The
+    house style is dense in em-dashes and arrows, each three bytes and one code
+    point, so on this fleet's prompts the two differ by hundreds. An operator
+    comparing a dry run against a budget on a prompt near its ceiling reads
+    headroom that does not exist, and the budget raise that follows is priced
+    against the wrong number.
+
+    FOUR RUNNERS SHIPPED THE CHARACTER COUNT while a fifth had already been fixed
+    with a comment explaining why — which is precisely the state a per-instance
+    fix leaves behind, and precisely what this parametrized sweep replaces.
+
+    WHAT THIS DOES NOT LOOK AT:
+
+      * It does not check the figure is the PROMPT's. A runner printing
+        `len(other.encode())` under a bytes label passes; the unit is the
+        property, not the subject.
+      * It does not reach a figure built outside an f-string, or one assigned to
+        a variable first (`size = len(rendered)` then `f"{size} bytes"`). The
+        label and the expression have to be in the same literal for this to see
+        them, which is how all ten runners spell it today.
+      * It says nothing about any other unit. `{n} turns`, `{n} rows` and the
+        rest are unconstrained.
+    """
+    for interp in _byte_labelled_prints(ast.parse(runner.read_text())):
+        expr = ast.unparse(interp.value)
+        assert ".encode()" in expr or "st_size" in expr, (
+            f"{runner.name} line {interp.lineno} prints `{expr}` under a `bytes` "
+            f"label. `len(str)` counts code points, and the budget gate measures "
+            f"`path.stat().st_size` — on this fleet's em-dash-dense prompts the "
+            f"two differ by hundreds, so an operator reads headroom that is not "
+            f"there. Use `len(rendered.encode())`.")
+
+
+def test_the_byte_label_sweep_can_actually_SEE_a_figure() -> None:
+    """VACUITY FLOOR for the check above, and it is the likelier failure.
+
+    The reader keys on the word `bytes` appearing in an f-string's own literal
+    text. Reword the line to `size in bytes:` on a separate print, or hand the
+    figure through a variable, and every assertion above passes over an empty
+    set — indistinguishable from a green run. This asserts the reader still
+    finds the figures it was written against.
+    """
+    found = {r.name: len(_byte_labelled_prints(ast.parse(r.read_text())))
+             for r in _RUNNERS}
+    total = sum(found.values())
+    assert total >= 5, (
+        f"the byte-label reader found {total} interpolations across {len(_RUNNERS)} "
+        f"runners, and there were five when it was written: {found}. Either the "
+        f"dry-run lines were reworded or the reader broke — fix the reader, do "
+        f"not delete this test.")

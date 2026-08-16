@@ -40,6 +40,12 @@ from pathlib import Path
 
 from .. import plan_activities as act
 
+# The operator's inbox, inside whatever `--research` names. Named rather than
+# spelled inline because THREE consumers test for it — the two readers below and
+# the workflow's write grant — and the grant drifting from the readers is how a
+# run is authorised to write one file and reads another.
+DIRECTION = "direction.md"
+
 # A direction row: | D-001 | recommendation | why | source | `status` |
 _ROW = re.compile(r"^\|\s*`?(D-\d{3})`?\s*\|.*?\|.*?\|.*?\|\s*(.*?)\s*\|", re.M)
 
@@ -54,7 +60,7 @@ def direction_rows(research_dir: Path) -> list[tuple[str, str]]:
     created the thing it was told to create. Empty on both sides of the snapshot
     is the same answer as unchanged.
     """
-    f = research_dir / "direction.md"
+    f = research_dir / DIRECTION
     if not f.exists():
         return []
     return [(did, act.normalise_cell(st)) for did, st in _ROW.findall(f.read_text())]
@@ -67,7 +73,7 @@ def direction_ceiling(research_dir: Path) -> str:
     guesses the next ID collides with an existing row or skips a block, and
     either way the file's promise that an ID is stable breaks silently.
     """
-    if not (research_dir / "direction.md").exists():
+    if not (research_dir / DIRECTION).exists():
         return ("`direction.md` does NOT exist yet — create it with the header row "
                 "and start at `D-001`.")
     # Sliced, not split: `_ROW` already fixes the id at `D` plus three digits, so

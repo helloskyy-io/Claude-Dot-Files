@@ -1222,9 +1222,13 @@ def test_pr_review_blocks_returns_EVERY_block_in_comment_order(
     from review_run_fakes import _with_comments
 
     act = _with_comments(monkeypatch, [
-        "```yaml\npr_review:\n  findings:\n    - id: one\n```",
-        "Quoting the prior block:\n```yaml\npr_review:\n  findings:\n    - id: one\n```\n"
-        "and mine:\n```yaml\npr_review:\n  findings:\n    - id: two\n```",
+        # Every block carries a 32-hex `run_id`: a fenced block without one is
+        # not a review pass and is filtered out at the reader (a build run's
+        # decision log borrowed this key on PR #94). The quoted block repeats
+        # the first pass's nonce, which is what quoting means.
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  findings:\n    - id: one\n```",
+        "Quoting the prior block:\n```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  findings:\n    - id: one\n```\n"
+        "and mine:\n```yaml\npr_review:\n  run_id: fedcba9876543210fedcba9876543210\n  findings:\n    - id: two\n```",
     ])
     count, blocks = act.thread_snapshot("66", tmp_path)
     assert [sorted(helper.finding_ids_in_block(b)) for b in blocks] == \

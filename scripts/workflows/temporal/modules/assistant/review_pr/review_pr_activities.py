@@ -39,6 +39,12 @@ def fetch_pr(pr_number: str, repo_root: Path) -> dict:
     )
 
 
+# A review pass's record carries a 32-lowercase-hex nonce (`exit-protocol.md`).
+# A fenced `pr_review:` block without one was written by something that is not
+# a review pass — today, a build run's decision log borrowing the key.
+_RUN_ID_IN_BLOCK = re.compile(r"^\s*run_id:\s*[0-9a-f]{32}\s*$", re.M)
+
+
 def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     """How many disposition comments already exist on this PR.
 
@@ -111,11 +117,33 @@ def thread_snapshot(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
     the most recently reviewed PR in the repo (issue #68); PR #31's blocks run
     1, 2, 4. Consecutiveness is a property of the sequence, not of the label.
     """
-    raw = _shared.gh_json(["pr", "view", pr_number, "--json", "comments"], repo_root)
+    # A BLOCK IS NOT A PASS UNTIL IT CARRIES A RUN ID. Fence-anchoring (issue #68)
+    # was right about the trigger it was written for — prose mentioning the phrase
+    # — and silent about the one that arrived: a BUILD run posting a genuine
+    # fenced `pr_review:` block for its own decision log. Nothing tells a build
+    # run that key is the review workflow's address, so it borrowed it, and every
+    # reader here counted it as a review pass.
+    #
+    # MEASURED on PR #94: two comments carry the key without being passes, and the
+    # V1 reader reports 3 where the truth is 1. A wrong `pass:` propagates into the
+    # durable record and into the convergence predicate that reads it.
+    #
+    # `run_id` IS THE DISCRIMINATOR AND IT IS ALREADY REQUIRED. `exit-protocol.md`
+    # mandates a 32-lowercase-hex nonce on every review pass's record, so this
+    # filters on something a real pass already has rather than on a new
+    # convention nobody has adopted. Fixing it HERE rather than in the prompts is
+    # deliberate: a prompt line telling build runs to pick a different key is an
+    # administrative control that each run must remember, and this cannot be
+    # forgotten by anyone.
     window = [
         matches[-1].group(1)
-        for c in raw.get("comments", [])
-        if (matches := list(helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")))
+        for c in _shared.gh_json(
+            ["pr", "view", pr_number, "--json", "comments"], repo_root
+        ).get("comments", [])
+        if (matches := [
+            m for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
+            if _RUN_ID_IN_BLOCK.search(m.group(1))
+        ])
     ]
     return len(window), window
 

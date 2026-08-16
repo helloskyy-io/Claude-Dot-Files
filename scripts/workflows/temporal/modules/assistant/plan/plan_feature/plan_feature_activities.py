@@ -3,7 +3,16 @@
 [`workflow-scripts.md` § Location](../../../../../../../docs/standards/workflow-scripts.md)
 restates §10.1 rule 3 as BINDING and mechanical — *"consumer count decides, never
 taste"* — and rule 6 gives a workflow folder its place to grow the helpers it has
-earned. Everything below has exactly one consumer: `plan_feature_workflow`.
+earned. Everything DEFINED below has exactly one consumer: `plan_feature_workflow`.
+
+TWO SYMBOLS ARE NOW ALIASES RATHER THAN DEFINITIONS, and the rule is what moved
+them. `phase_docs` and the hour pattern acquired a second consumer the day
+`plan-verify` landed — the fresh-context reader asks *what am I reading, and how
+many phases must I size?* of the first, and produces as its DELIVERABLE the
+shape the second exists to forbid here. Rule 3 puts a two-consumer helper on the
+shared surface, so their definitions are in `plan_activities` and this module
+reaches them by name. The round trip is the rule working: `checked_boxes` and
+`candidate_decisions` made the same journey when this workflow itself landed.
 
 WHAT THIS MODULE IS FOR. `plan-feature` writes a component's `roadmap.md` and its
 numbered phase docs. Three of its four prohibitions are properties of FILENAMES
@@ -35,9 +44,11 @@ figure is a boundary crossing here. But *"true for a few hours"* and *"a shelf
 life measured in hours"* are ordinary prose, and this repo's planning docs
 contain exactly three such phrases and ZERO estimates. A pattern keyed on the
 word `hours` would fail three runs that did nothing wrong on the first component
-that quoted one of those lines. `_HOURS` therefore requires an estimate SHAPE —
-a tilde, a bare parenthetical, or an explicit sizing label — which none of the
-three prose instances has.
+that quoted one of those lines. `act.HOUR_ESTIMATE` therefore requires an estimate
+SHAPE — a tilde, a bare parenthetical, or an explicit sizing label — which none of
+the three prose instances has. **The pattern is shared with `plan-verify`, which
+uses it as the deliverable it must produce**, so the shape this workflow forbids
+and the shape that workflow writes cannot drift apart.
 
 NOT IDEMPOTENT (§7.1) is not in play here — this module only reads.
 """
@@ -57,89 +68,21 @@ from .. import plan_activities as act
 # Anchored at both ends because the whole point is that no OTHER form is valid.
 _PHASE_FILE = re.compile(r"^phase(\d+)([a-z]?)_[a-z0-9_-]+\.md$")
 
-# What a phase doc might be NAMED, which is deliberately wider than what one may
-# be named — used where the question is *which files are phase docs*, as opposed
-# to *which files may this run write*. A glob of `phase*.md` would miss
-# `Phase3.md`, and the grammar above is what judges.
+# PROMOTED TO THE SHARED SURFACE WHEN `plan-verify` BECAME A SECOND CONSUMER, per
+# §10.1 rule 3 — *consumer count decides, never taste*. Reached through `own.` so
+# this module's callers, its registry entries and its tests keep one spelling; the
+# DEFINITION lives once, in `plan_activities`, which is what stops a `phase*.md`
+# sweep and an hour pattern from acquiring second copies that drift.
 #
-# THE SUFFIX IS PART OF THE QUESTION, and leaving it out was a real bypass rather
-# than a loose end. `^phase` alone admits `phase_notes.txt` and `phase9_x.md.bak`,
-# and `phase_docs` feeds two things that then read them as phase docs: the
-# `if not after_phase` deliverable guard, which a single stray `.txt` satisfies
-# so a component with ZERO phase docs ships clean; and `planning_state`, whose
-# output is handed to the model labelled *"Counted in code, authoritative — do
-# not recount"*. Both reproduced by execution before this was tightened.
-#
-# CASE-INSENSITIVE ON BOTH HALVES, unlike `plan_docs` below, and the asymmetry is
-# the point: `plan_docs` must equal the WRITE GRANT, which is the case-sensitive
-# `[^/]+\.md$`, while this reader answers the wider *what is a phase doc* — and a
-# legacy `PHASE3.MD` that this run deletes is a phase doc that vanished, whoever
-# spelled it.
-_LOOKS_LIKE_A_PHASE = re.compile(r"^phase.*\.md$", re.I)
+# The asymmetry with `plan_docs` below survives the move and is still the point:
+# `plan_docs` must equal the case-sensitive WRITE GRANT `[^/]+\.md$`, while
+# `phase_docs` answers the wider *what is a phase doc*.
+phase_docs = act.phase_docs
+_HOURS = act.HOUR_ESTIMATE
 
 # The other half of the output, and the only top-level name that is not a phase
 # doc. Named rather than spelled inline because three readers below test for it.
 ROADMAP = "roadmap.md"
-
-# An hour ESTIMATE, in the three spellings a plan can carry one. The Documentation
-# Standard's own worked example is `### 1-2. DAS Phase 1 + Version-of-Record
-# Phase A (~30 hrs)`, which the first two alternatives both catch.
-#
-# EVERY ALTERNATIVE REQUIRES A DIGIT ADJACENT TO THE UNIT *AND* AN ESTIMATE
-# MARKER. That second requirement is the whole discriminator: without it the
-# pattern reads "measured in hours" as a finding.
-#
-# THE PERIOD IS ALLOWED AFTER THE ABBREVIATION `est` AND NOWHERE ELSE, and the
-# narrowness is the fix rather than a nicety. `[^.\n]` is what keeps the label
-# and the figure inside ONE SENTENCE, so *"the estimate. It took 3 hours"* is
-# prose and not a finding. A blanket `\.?` after the whole label group — which
-# this pattern shipped with — handed that property straight back: the optional
-# period consumed a genuine sentence-ending full stop, and `"the estimate. It
-# took 3 hours"`, `"effort. Then 5 hours later"` and `"sizing. We waited 2
-# hours"` all matched. Reproduced by execution against the shipped pattern; the
-# comment here previously asserted the opposite.
-#
-# `\best\.?\s` covers the abbreviation and only the abbreviation: `Est. 2.5
-# hours` and `Est 2 hours` match, `estimate.` cannot, because the spelled-out
-# alternative carries no `\.?` at all. The residual limit is stated rather than
-# hidden — an estimate whose label sits more than 24 non-period characters from
-# its figure is not caught, and neither is one written in a fourth spelling.
-_HOURS = re.compile(
-    r"""
-      ~\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b            # ~30 hrs, ~8h
-    | \(\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\s*\)        # (30 hrs)
-    | (?: \best\.?\s                                     # Est. 2.5 hours, Est 8h
-        | \b(?:estimate[sd]?|sizing|effort)\b )          # Estimate: 8 hours
-      [^.\n]{0,24}?\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b
-    """,
-    re.I | re.X,
-)
-
-
-def phase_docs(component: Path) -> dict[str, str]:
-    """Every phase-doc-shaped file directly in the component dir, name -> content hash.
-
-    KEYED BY FILENAME, HASHED BY CONTENT, and both halves are load-bearing.
-    The key is what `plan_activities.ids_deleted` compares, so a rename shows up
-    as a disappearance — which is exactly what a renumber IS, seen from outside.
-    The value is what lets a caller tell a phase doc that was rewritten from one
-    that was merely left alone, without holding two copies of the tree.
-
-    A MISSING COMPONENT DIRECTORY IS AN EMPTY MAP, NOT AN ERROR. The before-read
-    happens on a component that may hold nothing but `research/`, which is the
-    normal case: `plan-candidates` creates the folder and the seed and nothing
-    else. Empty on both sides is the same answer as unchanged.
-
-    Files only, and only at the top level: `research/raw/phase_something.md` is a
-    research paper that happens to be named like a phase, and this workflow
-    neither writes nor judges anything under `research/`.
-    """
-    if not component.is_dir():
-        return {}
-    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(component.iterdir())
-            if p.is_file() and _LOOKS_LIKE_A_PHASE.match(p.name)}
-
 
 def plan_docs(component: Path) -> dict[str, str]:
     """EVERY top-level markdown file in the component — the write grant's own scope.

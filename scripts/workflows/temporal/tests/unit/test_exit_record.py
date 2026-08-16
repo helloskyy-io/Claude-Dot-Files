@@ -1110,7 +1110,7 @@ def test_count_prior_passes_no_longer_counts_a_mention(monkeypatch, tmp_path) ->
     """
     act = _with_comments(monkeypatch, [
         "## Post-Run Reflection\nThe `pr_review:` block spec was clear.",
-        "```yaml\npr_review:\n  pr: 66\n  pass: 1\n```",
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pr: 66\n  pass: 1\n```",
     ])
     assert act.count_prior_passes("66", tmp_path) == 1
 
@@ -1122,9 +1122,9 @@ def test_the_window_reader_puts_the_LAST_block_LAST(monkeypatch, tmp_path) -> No
     superseded record and not know it did.
     """
     act = _with_comments(monkeypatch, [
-        "```yaml\npr_review:\n  pass: 1\n  findings:\n    - id: old\n```",
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 1\n  findings:\n    - id: old\n```",
         "unrelated chatter mentioning pr_review: in passing",
-        "```yaml\npr_review:\n  pass: 2\n  findings:\n    - id: new\n```",
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 2\n  findings:\n    - id: new\n```",
     ])
     block = act.pr_review_blocks("66", tmp_path)[-1]
     assert helper.finding_ids_in_block(block) == frozenset({"new"})
@@ -1150,14 +1150,42 @@ def test_the_window_reader_takes_the_LAST_block_WITHIN_a_comment_too(
     comment had already been posted. The failure was loud, wrong, and unrecoverable.
     """
     act = _with_comments(monkeypatch, [
-        "```yaml\npr_review:\n  pass: 1\n  findings:\n    - id: old\n```",
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 1\n  findings:\n    - id: old\n```",
         "Superseding the previous disposition, quoted here for continuity:\n\n"
-        "```yaml\npr_review:\n  pass: 1\n  findings:\n    - id: old\n```\n\n"
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 1\n  findings:\n    - id: old\n```\n\n"
         "This pass:\n\n"
-        "```yaml\npr_review:\n  pass: 2\n  findings:\n    - id: new\n```",
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 2\n  findings:\n    - id: new\n```",
     ])
     block = act.pr_review_blocks("66", tmp_path)[-1]
     assert helper.finding_ids_in_block(block) == frozenset({"new"})
+
+
+def test_a_block_without_a_32_hex_run_id_is_NOT_a_pass(monkeypatch, tmp_path) -> None:
+    """Fence-anchoring was right about its trigger and silent about this one.
+
+    Issue #68 anchored the predicate so PROSE mentioning `pr_review:` stopped
+    counting. What arrived instead was a BUILD run posting a genuine fenced
+    block for its own decision log — nothing tells a build run that key is the
+    review workflow's address, so it borrowed it, and every reader counted it.
+
+    MEASURED on PR #94: `run_id: build-refine-correction-1786880277` and
+    `verdict: READY`, which is not in the review enum. Across seven PRs, 11 of
+    12 real blocks carry a 32-hex nonce and the one that does not is that build
+    comment — so the nonce discriminates on something real passes already have,
+    which is why the fix is here and not a prompt line asking build runs to
+    remember a different key.
+    """
+    act = _with_comments(monkeypatch, [
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 1\n```",
+        "# build-refine — Decision Log\n"
+        "```yaml\npr_review:\n  run_id: build-refine-correction-1786880277\n"
+        "  verdict: READY\n```",
+    ])
+    assert act.count_prior_passes("94", tmp_path) == 1, (
+        "a build run's decision log carried a fenced `pr_review:` block and was "
+        "counted as a review pass — the durable `pass:` number it inflates is "
+        "read by the convergence predicate"
+    )
 
 
 def test_count_prior_passes_counts_COMMENTS_even_when_one_quotes_another(
@@ -1173,9 +1201,15 @@ def test_count_prior_passes_counts_COMMENTS_even_when_one_quotes_another(
     comment.
     """
     act = _with_comments(monkeypatch, [
-        "```yaml\npr_review:\n  pass: 1\n```",
-        "Quoting the prior block:\n```yaml\npr_review:\n  pass: 1\n```\n"
-        "and mine:\n```yaml\npr_review:\n  pass: 2\n```",
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 1\n```",
+        # The quoted block carries the FIRST pass's nonce, because that is what
+        # quoting means; "mine" carries this pass's own. Both are 32-hex, so the
+        # run_id filter is not what makes this comment count once — the
+        # one-comment-one-pass rule is.
+        "Quoting the prior block:\n"
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pass: 1\n```\n"
+        "and mine:\n"
+        "```yaml\npr_review:\n  run_id: fedcba9876543210fedcba9876543210\n  pass: 2\n```",
     ])
     assert act.count_prior_passes("66", tmp_path) == 2, (
         "two comments carry a block, so two passes have posted — the second "
@@ -1198,7 +1232,7 @@ def test_the_archive_shape_that_produced_the_wrong_pass_number() -> None:
     comments = [
         "## Post-Run Reflection\nNo friction. The `pr_review:` block spec was clear.",
         "build-refine summary — the pr_review: key is the wire format, unchanged.",
-        "```yaml\npr_review:\n  pr: 66\n  pass: 1\n```",
+        "```yaml\npr_review:\n  run_id: 0123456789abcdef0123456789abcdef\n  pr: 66\n  pass: 1\n```",
     ]
     assert sum(1 for c in comments if helper.PR_REVIEW_BLOCK.search(c)) == 1
     assert sum(1 for c in comments if "pr_review:" in c) == 3   # the defect, reproduced
