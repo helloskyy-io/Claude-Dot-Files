@@ -311,27 +311,33 @@ def test_the_banner_actually_CALLS_the_reader(describe) -> None:
 _AHEAD_COUNT_SUBCOMMANDS = ("rev-list", "log", "cherry")
 
 
-def _describe_with_failing_push_check(
-    wt: Path, shim_dir: Path, preamble: str,
+def _describe_with_failing_git(
+    wt: Path, shim_dir: Path, preamble: str, subcommands: tuple[str, ...],
 ) -> str:
-    """Run the reader with a `git` that fails for any ahead-count subcommand.
+    """Run the reader with a `git` that fails for the named subcommands.
 
     A SHIM RATHER THAN A CORRUPTED REPO, and that is the point of it. The states
     that make `git rev-list` fail for real — a pruned object behind a live ref,
     a half-written pack — are hard to build and harder to keep stable across git
     versions, so a test that tried would be testing git. What has to be pinned is
     THIS function's behaviour when its own check fails, which is a property of
-    how the exit status is captured, not of why git failed. Everything else git
-    is asked here still answers truthfully, so the other arms are unaffected and
-    the reader reaches the push check with a real branch and a real upstream.
+    how the exit status is captured, not of why git failed. Everything git is
+    NOT asked to fail still answers truthfully, so the reader reaches the failing
+    check with a real branch, a real upstream and a real tree.
     """
     real = shutil.which("git")
     assert real, "git is required"
     shim = shim_dir / "git"
-    cases = "|".join(_AHEAD_COUNT_SUBCOMMANDS)
+    cases = "|".join(subcommands)
+    # KEYED ON THE SUBCOMMAND POSITION, NOT ON "any argument equals this word".
+    # Every call in the reader is `git -C "$wt" <subcommand> …`, so the
+    # subcommand is `$3`. Scanning all of `"$@"` would fail the wrong invocation
+    # the day a fixture uses a branch, remote or path named `status` or `log` —
+    # and because the assertions here are deliberately generic, the test would
+    # still pass while exercising a different call site than it names.
     shim.write_text(
         "#!/usr/bin/env bash\n"
-        f'for a in "$@"; do case "$a" in {cases}) exit 128 ;; esac; done\n'
+        f'case "$3" in {cases}) exit 128 ;; esac\n'
         f'exec {real} "$@"\n'
     )
     shim.chmod(0o755)
@@ -343,6 +349,15 @@ def _describe_with_failing_push_check(
     )
     assert out.returncode == 0, out.stderr
     return out.stdout
+
+
+def _describe_with_failing_push_check(
+    wt: Path, shim_dir: Path, preamble: str,
+) -> str:
+    """The ahead-count case, by name — see `_AHEAD_COUNT_SUBCOMMANDS`."""
+    return _describe_with_failing_git(
+        wt, shim_dir, preamble, _AHEAD_COUNT_SUBCOMMANDS
+    )
 
 
 @pytest.mark.parametrize("shape", sorted(_CALLER_SHAPES), ids=sorted(_CALLER_SHAPES))
@@ -363,6 +378,14 @@ def test_a_FAILED_push_check_is_reported_unknown_under_EITHER_caller(
     `||` sees is git's own and the arm is correct under both shapes. This test
     is parametrized over both because under only V1 it passed against the broken
     version too.
+
+    KEPT ALONGSIDE the derived per-call-site sweep below, which also fails this
+    arm. The two probe different properties and neither subsumes the other: the
+    sweep fails the ahead-count by its POSITION in the run, so a mutation that
+    swapped `rev-list` for `git log | wc -l` would still be covered there — while
+    THIS test keys on the subcommand CLASS (`rev-list|log|cherry`), which is what
+    pins the arm's behaviour to any command that could implement the count rather
+    than to the one it uses today.
     """
     shim_dir = tmp_path / f"shim-{shape}"
     shim_dir.mkdir()
@@ -374,3 +397,152 @@ def test_a_FAILED_push_check_is_reported_unknown_under_EITHER_caller(
         f"under {shape} the reader claimed the work was pushed from a git "
         f"invocation that FAILED:\n{out}"
     )
+
+
+# ---------------------------------------------------------------------------
+# THE CLASS, NOT THE ARM. Every git call the reader makes, failed in turn.
+#
+# The test above pins ONE check's failure path, and the arm beside it — a failed
+# `git status --porcelain` — shipped with neither a test nor a mutation: removing
+# its guard left the reader printing "✓ Working tree is clean" and "✓ fully
+# pushed" from a check that had failed, and all 24 tests still passed. Adding a
+# second hand-written case would have closed that instance and left the next one
+# open, which is how this file arrived here in the first place.
+#
+# So the population is DERIVED FROM THE SHIPPED READER rather than enumerated. A
+# git call added to the reader tomorrow is covered the moment it is written, and
+# a swallowed failure in it FAILS here rather than being found by a later pass.
+#
+# BY CALL SITE, NOT BY SUBCOMMAND NAME — and the difference is a real hole this
+# check shipped with for one review round. Keying the cases on the DISTINCT
+# subcommand names the reader uses collapses `rev-parse`'s THREE call sites
+# (`--show-toplevel`, `--abbrev-ref HEAD`, `--abbrev-ref --symbolic-full-name`)
+# into one case, and a shim that fails every `rev-parse` fails the FIRST one —
+# which returns early. So the branch-detection and upstream-detection guards
+# were never exercised failing, under a docstring promising every call was. Those
+# two lines are issue #65's defect verbatim (`|| branch=""`, `|| upstream=""`),
+# so the one check that named them was the one not testing them. De-duplicating
+# by name is exactly the "claims more than it evaluated" shape this file is about.
+#
+# The fix is to key on ORDINAL POSITION instead: fail the Nth git invocation of
+# the run, for every N the reader can reach. Nothing is de-duplicated, no
+# argument matching is involved, and a second call to an existing subcommand gets
+# its own case for free.
+#
+# THE DERIVATION IS ITSELF CONTROLLED, because a derivation that silently yields
+# zero generates zero cases and reports green — which is precisely this PR's
+# subject, rebuilt inside its own regression test.
+# ---------------------------------------------------------------------------
+
+_GIT_CALL = re.compile(r'git -C "\$wt" ')
+
+
+def _git_call_sites_in_the_reader() -> tuple[int, ...]:
+    """1-based ordinals of every `git -C "$wt" …` call in the shipped reader."""
+    n = len(_GIT_CALL.findall(_shipped_state_reader()))
+    assert n >= 4, (
+        f"only {n} `git -C \"$wt\"` call(s) were found in the shipped reader. It "
+        f"asks git for the toplevel, the porcelain status, the branch, the "
+        f"upstream and the ahead-count — fewer than four means either the reader "
+        f"stopped checking things it still reports on, or _GIT_CALL no longer "
+        f"matches how it asks. Both make the cases below vacuous."
+    )
+    return tuple(range(1, n + 1))
+
+
+def _describe_with_git_failing_at(
+    wt: Path, shim_dir: Path, preamble: str, nth: int,
+) -> str:
+    """Run the reader with a `git` that fails its Nth invocation and no other.
+
+    ORDINAL RATHER THAN ARGUMENT MATCHING, so two calls to the same subcommand
+    are two cases. The counter lives in a file because each invocation is a fresh
+    process; it is per-case, under the case's own tmp dir, so nothing is shared
+    between parametrizations.
+    """
+    real = shutil.which("git")
+    assert real, "git is required"
+    counter = shim_dir / "n"
+    counter.write_text("0")
+    shim = shim_dir / "git"
+    shim.write_text(
+        "#!/usr/bin/env bash\n"
+        f'n=$(( $(cat "{counter}") + 1 )); printf %s "$n" > "{counter}"\n'
+        f'[[ "$n" == "{nth}" ]] && exit 128\n'
+        f'exec {real} "$@"\n'
+    )
+    shim.chmod(0o755)
+    out = subprocess.run(
+        ["bash", "-c", f"{preamble}\n{_shipped_state_reader()}\n"
+                       'worktree_delivery_state "$1"', "_", str(wt)],
+        capture_output=True, text=True,
+        env={**os.environ, "PATH": f"{shim_dir}{os.pathsep}{os.environ['PATH']}"},
+    )
+    assert out.returncode == 0, out.stderr
+    return out.stdout
+
+
+@pytest.mark.parametrize("shape", sorted(_CALLER_SHAPES), ids=sorted(_CALLER_SHAPES))
+@pytest.mark.parametrize("nth", _git_call_sites_in_the_reader())
+def test_ANY_failed_git_call_is_VISIBLE_and_claims_no_delivery(
+    pushed_tree: Path, tmp_path: Path, nth: int, shape: str,
+) -> None:
+    """A check that could not run must show up as a `?`, and must claim nothing.
+
+    TWO PROPERTIES, both true of every call site, which is what makes this a
+    class check rather than a bundle of arm checks:
+
+      1. THE FAILURE IS VISIBLE. If a git call fails and the report comes back
+         with no undetermined marker at all, the reader swallowed it — the
+         report then describes a state nobody established, which is issue #65
+         exactly.
+      2. NOTHING IS CLAIMED DELIVERED. `✓ fully pushed` is the conclusion that
+         sends an operator away from the worktree, and no call site may reach it
+         on a run where one of the reader's own checks failed.
+
+    Deliberately NOT asserted here: the absence of every other line. When the
+    ahead-count fails, `✓ Working tree is clean` is still EARNED — `git status`
+    answered. A blanket "claim nothing" would be false, and writing it would make
+    this test pass for the wrong reason on most of its cases.
+    """
+    shim_dir = tmp_path / f"shim-{nth}-{shape}"
+    shim_dir.mkdir()
+    out = _describe_with_git_failing_at(
+        pushed_tree, shim_dir, _CALLER_SHAPES[shape], nth
+    )
+    assert "?" in out, (
+        f"git call #{nth} failed and the reader reported no undetermined state "
+        f"at all — the failure was swallowed:\n{out}"
+    )
+    assert "fully pushed" not in out, (
+        f"git call #{nth} failed and the reader still claimed the work was "
+        f"pushed. That is a delivery claim manufactured by a check that did not "
+        f"run:\n{out}"
+    )
+
+
+@pytest.mark.parametrize("shape", sorted(_CALLER_SHAPES), ids=sorted(_CALLER_SHAPES))
+def test_a_FAILED_status_check_does_not_manufacture_a_CLEAN_tree(
+    pushed_tree: Path, tmp_path: Path, shape: str,
+) -> None:
+    """The instance that the class check above was written from.
+
+    Kept as its own case because the class check asserts only what is true of
+    EVERY arm, and this arm's specific wrong answer is stronger than that: a
+    failed `git status --porcelain` used to produce `✓ Working tree is clean`,
+    a positive claim about the one fact an operator would act on. Measured with
+    the guard removed: "✓ Working tree is clean" followed by "✓ fully pushed" —
+    a complete, entirely fabricated delivery report.
+    """
+    shim_dir = tmp_path / f"shim-status-{shape}"
+    shim_dir.mkdir()
+    out = _describe_with_failing_git(
+        pushed_tree, shim_dir, _CALLER_SHAPES[shape], ("status",)
+    )
+    assert "status could not be read" in out, out
+    assert "cannot be determined" in out, out
+    assert "Working tree is clean" not in out, (
+        f"a failed `git status` was reported as a clean tree:\n{out}"
+    )
+    assert "UNCOMMITTED" not in out, out
+    assert "fully pushed" not in out, out

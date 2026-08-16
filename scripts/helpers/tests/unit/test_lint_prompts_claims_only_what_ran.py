@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
@@ -41,17 +42,41 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 LINT = REPO_ROOT / "scripts" / "helpers" / "lint-prompts.sh"
 
 
-# Everything `lint-prompts.sh` reaches for as an external command. DERIVED FROM
-# THE SCRIPT, not from memory of what a shell script usually needs — the first
-# hand-written list omitted `env`, and the failure it produced ("env: command not
-# found", 16 times, inside a sandbox construction error) named the sandbox rather
-# than the PATH, so it read as a lint defect instead of a fixture defect.
-# Regenerate with:
-#   grep -oE '\b(awk|basename|bash|cat|dirname|env|find|grep|ln|mktemp|rm|sed|wc)\b' \
-#       scripts/helpers/lint-prompts.sh | sort -u
+# Everything `lint-prompts.sh` reaches for as an external command.
+#
+# THIS LIST IS HAND-MAINTAINED. It said "DERIVED FROM THE SCRIPT" and gave a
+# regeneration command, and that claim was false in the way this whole file is
+# about: the command was
+#   grep -oE '\b(awk|basename|bash|…|wc)\b' scripts/helpers/lint-prompts.sh | sort -u
+# whose alternation IS this list. It confirms the listed tools are still used and
+# CANNOT surface an unlisted one — measured by appending `sort /dev/null` to a
+# copy of the script and re-running it: `sort` does not appear in the output. So
+# the recipe answered a question nobody asked, under a heading claiming it
+# answered the one that matters. A comment that says "derived" is read as a
+# guarantee that the list cannot go stale, which is exactly when nobody rechecks
+# it.
+#
+# WHAT DISCOVERS AN ADDITION IS EXECUTION, NOT A GREP, and it is
+# `test_the_declared_tool_list_is_SUFFICIENT_and_NAMES_what_is_missing` below —
+# it runs the lint under a PATH built from this list alone and extracts any
+# `<cmd>: command not found` the run produces.
+#
+# THE TELL, because the failure mode is misleading and has already cost a
+# debugging cycle: the first hand-written list omitted `env`, and the failure
+# surfaced as "env: command not found" SIXTEEN TIMES, nested inside a
+# sandbox-construction error. That names the lint, not the fixture, so it reads
+# as a defect in the thing under test. If tests in this file fail with
+# "<cmd>: command not found", the fixture is missing <cmd> — add it here.
+#
 # `cat` earns its place twice: the script also links it into its own `env -i`
 # sandbox, which is the one thing reachable from inside a constructed block.
-_LINT_NEEDS = ("awk", "basename", "bash", "cat", "dirname", "env", "find",
+#
+# `find` WAS LISTED HERE AND IS NOT USED. The script never invokes it; the only
+# occurrence of the word is inside a comment ("a block whose closing `)` the scan
+# could not find"). The deleted recipe *confirmed* it — the grep matched the
+# comment — so the circular command did not merely fail to discover an addition,
+# it actively vouched for an entry that was never real. Removed.
+_LINT_NEEDS = ("awk", "basename", "bash", "cat", "dirname", "env",
                "grep", "ln", "mktemp", "rm", "sed", "wc")
 
 
@@ -281,3 +306,223 @@ def test_an_UNDELIMITABLE_prompt_block_FAILS_rather_than_vanishing(tmp_path: Pat
     assert "closing ')' was never found" in r.stdout, r.stdout
     assert "truncated.sh" in r.stdout, r.stdout
     assert "prompt lint clean" not in r.stdout, r.stdout
+
+
+# ---------------------------------------------------------------------------
+# THE CLASS, NOT THE REASON. Every way pass 3 can fail to run, driven.
+#
+# Pass 3 has THREE ways to not run, and only one of them — a missing `yq` — was
+# driven. The other two shipped with nothing behind them, and one of those was
+# shipped deliberately: a Decision Log entry recorded that its diagnostic was
+# "currently unreachable — the summary it feeds only prints when `fail -eq 0`",
+# so there was "no observable behaviour to drive". That premise was false. The
+# STRICT branch reads the same variable and is NOT gated on `$fail`, and CI sets
+# STRICT — so the untested thing was on the merge path the whole time.
+#
+# Enumerating the two missing reasons would close them and leave the fourth
+# reason, whenever it is written, in exactly the position these two were in. So
+# the population is DERIVED FROM THE SHIPPED SCRIPT: every `p3_skip="…"` it can
+# assign must have a fixture here that produces it, and the enumeration test
+# fails when a new reason is added without one.
+# ---------------------------------------------------------------------------
+
+_P3_SKIP_ASSIGNMENT = re.compile(r'p3_skip="([^"]+)"')
+
+class _Fixture(NamedTuple):
+    """How to build the tree that makes pass 3 report one particular reason.
+
+    A NAMED TUPLE RATHER THAN A KWARGS DICT, because `strip_yq` is a property of
+    the RUN (which PATH to use), not of the TREE, so a dict splatted into
+    `_fixture_tree` had to be copied and popped at the call site first. The next
+    reason added with a run-level knob would have repeated that, or raised an
+    unhelpful TypeError when someone forgot.
+    """
+    config: bool
+    model_key: bool
+    strip_yq: bool
+
+
+# Reason prefix -> the fixture that produces it. Prefixes, because two of the
+# three reasons interpolate an absolute path that only exists at run time.
+_DID_NOT_RUN_FIXTURES = {
+    "yq is not installed": _Fixture(config=True, model_key=True, strip_yq=True),
+    "no config.yaml at ": _Fixture(config=False, model_key=True, strip_yq=False),
+    "no MODEL_KEY declarations found under ":
+        _Fixture(config=True, model_key=False, strip_yq=False),
+}
+
+
+def _fixture_tree(tmp_path: Path, *, config: bool, model_key: bool,
+                  pass1_fails: bool = False) -> Path:
+    """A self-contained tree with a copy of the shipped script. Returns the copy.
+
+    SELF-CONTAINED, NOT THE REPO'S OWN — the repo tree has a config.yaml and
+    twelve MODEL_KEYs, so two of the three reasons below cannot be produced
+    against it at all, and a control that shares a fixture with the thing it
+    probes cannot tell its own effect from the fixture's.
+
+    Pass 1 and pass 2 are given real work in every variant, because a tree that
+    fails the vacuous-scan guard exits before pass 3 is ever summarised and the
+    test would pass on the wrong exit path.
+    """
+    helpers = tmp_path / "scripts" / "helpers"
+    helpers.mkdir(parents=True)
+    wf = tmp_path / "scripts" / "workflows"
+    wf.mkdir()
+    if config:
+        (tmp_path / "config.yaml").write_text('models:\n  build: "claude-opus-5"\n')
+
+    lines = []
+    if model_key:
+        lines.append('MODEL_KEY="build"')
+    lines.append('PROMPT=$(cat <<EOF\nhello\nEOF\n)')
+    if pass1_fails:
+        # An unescaped backtick in a multi-line double-quoted assignment: pass 1
+        # reports it by line number and pass 2's sandbox cannot construct it.
+        lines.append('NOTE="a line with `landmine` in it\nand a second line"')
+    (wf / "a.sh").write_text("\n".join(lines) + "\n")
+
+    copy = helpers / "lint-prompts.sh"
+    shutil.copy2(LINT, copy)
+    return copy
+
+
+def _reasons_the_script_can_emit() -> tuple[str, ...]:
+    reasons = tuple(sorted(set(_P3_SKIP_ASSIGNMENT.findall(LINT.read_text()))))
+    assert reasons, (
+        "no `p3_skip=\"…\"` assignment was found in lint-prompts.sh — either pass "
+        "3 stopped recording why it did not run (in which case the summary is "
+        "back to claiming a pass it may not have run) or this regex no longer "
+        "matches how it records it. Both make the cases below vacuous."
+    )
+    return reasons
+
+
+def test_every_DID_NOT_RUN_reason_the_SCRIPT_can_emit_IS_DRIVEN() -> None:
+    """The enumeration check, in both directions.
+
+    Forward: a reason the script can emit with no fixture here is a skip path
+    nothing exercises — the position all three were in before, and the position
+    two of them were still in after the first fix. Backward: a fixture for a
+    reason the script can no longer emit is a test asserting against a deleted
+    branch, which passes forever while covering nothing.
+    """
+    emitted = _reasons_the_script_can_emit()
+    undriven = [r for r in emitted
+                if not any(r.startswith(k) for k in _DID_NOT_RUN_FIXTURES)]
+    assert not undriven, (
+        f"pass 3 can report these reasons for not running, and no fixture below "
+        f"produces them: {undriven}. Add one — an un-run pass that nothing drives "
+        f"is how the STRICT branch shipped untested."
+    )
+    unreachable = [k for k in _DID_NOT_RUN_FIXTURES
+                   if not any(r.startswith(k) for r in emitted)]
+    assert not unreachable, (
+        f"these fixtures produce reasons the script no longer emits: {unreachable}"
+    )
+
+
+@pytest.mark.skipif(shutil.which("yq") is None,
+                    reason="two of the three reasons require yq to be present")
+@pytest.mark.parametrize("reason", sorted(_DID_NOT_RUN_FIXTURES))
+def test_each_DID_NOT_RUN_reason_is_NAMED_and_is_STRICT_failable(
+    tmp_path: Path, reason: str,
+) -> None:
+    """Both directions per reason, which is what makes this more than coverage.
+
+    Honest-skip direction: exit 0, and the report NAMES this reason rather than
+    a generic one — collapsing them would tell an operator to install yq on a
+    machine where yq is fine and the config file is what moved.
+    Failure direction: under STRICT the same state is exit 1. A reason that is
+    named but that STRICT cannot fail on is a gate declaration with nothing
+    behind it.
+    """
+    spec = _DID_NOT_RUN_FIXTURES[reason]
+    script = _fixture_tree(tmp_path, config=spec.config, model_key=spec.model_key)
+    path = _path_without_yq() if spec.strip_yq else None
+
+    skipped = _run(script=script, path=path)
+    assert skipped.returncode == 0, (
+        f"the honest skip for {reason!r} was not a skip:\n{skipped.stdout}"
+    )
+    assert "DID NOT RUN" in skipped.stdout, skipped.stdout
+    assert reason in skipped.stdout, (
+        f"pass 3 did not run and the report did not say it was because of "
+        f"{reason!r}:\n{skipped.stdout}"
+    )
+    assert not _RESOLVED_CLAIM.search(skipped.stdout), skipped.stdout
+
+    strict = _run(script=script, path=path, strict="1")
+    assert strict.returncode == 1, (
+        f"STRICT did not fail on {reason!r} — a pass that cannot run is a "
+        f"failure:\n{strict.stdout}"
+    )
+    assert reason in strict.stdout, strict.stdout
+
+
+@pytest.mark.skipif(shutil.which("yq") is None, reason="the fixture needs yq present")
+def test_pass_3s_own_diagnostic_SURVIVES_an_unrelated_pass_1_failure(
+    tmp_path: Path,
+) -> None:
+    """The reason `p3_seen` exists, and the case its `$fail` keying suppressed.
+
+    The diagnostic used to be keyed on the GLOBAL `$fail`, which passes 1 and 2
+    also write. So on a run where pass 1 failed AND pass 3 examined nothing, the
+    "examined nothing" diagnostic was suppressed — a state that WAS established
+    and then not reported because an unrelated check happened to have failed.
+    That is this file's subject inverted, and it is the broken-checkout shape the
+    whole summary redesign exists for: several things wrong at once.
+
+    DRIVEN THROUGH STRICT, WHICH IS THE MERGE PATH. `.github/workflows/tests.yml`
+    sets LINT_PROMPTS_STRICT=1, and the STRICT branch is not gated on `$fail`, so
+    this output is on the gate rather than in a summary that a failing run never
+    prints. The Decision Log entry that shipped this fix untested reasoned from
+    the summary alone and concluded there was nothing observable to drive.
+    """
+    script = _fixture_tree(tmp_path, config=True, model_key=False, pass1_fails=True)
+    r = _run(script=script, strict="1")
+
+    assert r.returncode == 1, r.stdout
+    assert "unescaped backtick" in r.stdout, (
+        f"the fixture was supposed to fail pass 1 — without that this test "
+        f"passes against the old $fail keying:\n{r.stdout}"
+    )
+    assert "pass 3" in r.stdout and "DID NOT RUN" in r.stdout, r.stdout
+    assert "no MODEL_KEY declarations found" in r.stdout, (
+        f"a pass-1 failure suppressed pass 3's report that it examined "
+        f"nothing:\n{r.stdout}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# The fixture's own dependency list, checked by execution rather than asserted.
+# ---------------------------------------------------------------------------
+
+def test_the_declared_tool_list_is_SUFFICIENT_and_NAMES_what_is_missing() -> None:
+    """`_LINT_NEEDS` is hand-maintained, so something has to discover additions.
+
+    THE DISCRIMINATOR IS THE PAIR OF RUNS, NOT THE OUTPUT OF EITHER. A lint that
+    fails under the sanitized PATH is either a broken tree or a short tool list,
+    and the failure text cannot tell them apart — a missing fixture tool surfaces
+    INSIDE a sandbox-construction error, which is the shape of a genuine prompt
+    defect. Running the same script under the real PATH separates them: same
+    tree, same script, only PATH differs, so a clean real run plus a failing
+    sanitized run isolates the cause to this list.
+    """
+    real = _run()
+    assert real.returncode == 0, (
+        f"the repo's own prompts do not lint clean under the real PATH. That is "
+        f"a TREE defect, not a fixture defect, and it has to be fixed before "
+        f"this test can discriminate:\n{real.stdout}{real.stderr}"
+    )
+
+    sanitized = _run(path=_path_without_yq())
+    missing = sorted(set(re.findall(
+        r"\b([A-Za-z0-9_.-]+): command not found", sanitized.stdout + sanitized.stderr
+    )))
+    assert sanitized.returncode == 0 and not missing, (
+        f"lint-prompts.sh reaches for {missing or 'a command'} that _LINT_NEEDS "
+        f"does not provide. THIS IS A FIXTURE DEFECT, NOT A LINT DEFECT: the same "
+        f"script exits 0 under the real PATH. Add {missing or 'it'} to "
+        f"_LINT_NEEDS.\n{sanitized.stdout}{sanitized.stderr}"
+    )
