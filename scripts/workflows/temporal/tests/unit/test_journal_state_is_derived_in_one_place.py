@@ -65,16 +65,37 @@ PACKAGE = TEMPORAL / "modules" / "journal"
 sys.path.insert(0, str(TEMPORAL))
 
 from modules.journal import bag as bagmod                        # noqa: E402
+from modules.journal import validate as validate_mod             # noqa: E402
 from modules.journal.bag import (BagState, bag_state, lifecycle_of,  # noqa: E402
                                  open_bag)
 from modules.journal.validate import validate_bag                # noqa: E402
 
-# The labels that produce a STATE FIELD. `LABEL_SCHEMA_VERSION` is deliberately
-# absent: `validate_bag` compares it to report a structural problem, which is not
-# one of the three fields and is derived nowhere else. A guard that swept it too
-# would be banning a comparison that has no second copy to drift from.
+# EVERY LABEL THIS PACKAGE DEFINES, AND THE RULE IS THAT SIMPLE ON PURPOSE. An
+# earlier draft of this file swept four of the five and justified the exclusion
+# by "`Event-Schema-Version` is not one of the three state fields" — a rule its
+# own contents then broke, because `Journal-Sealed-At` is not one of the three
+# either. It is swept because a reader could conclude `sealed` from that tag's
+# PRESENCE, which mints a second lifecycle derivation by another spelling; and
+# once that is the reason, an inclusion rule of "the ones I judged risky" is a
+# judgement call made once and inherited forever.
+#
+# So the set is total and the escape hatch is a DECLARATION, exactly as
+# `test_journal_containment.py` handles the same problem for path joins: a
+# comparison that is not a state derivation is listed below with the reason it
+# is not. That turns a false positive from a blocked author into a two-line
+# claim someone can check.
 _STATE_LABELS = {"LABEL_REDACTION", "LABEL_INCOMPLETE", "LABEL_GAP",
-                 "LABEL_SEALED_AT"}
+                 "LABEL_SEALED_AT", "LABEL_SCHEMA_VERSION"}
+
+# `(module, comparison source text)` → why this comparison does not derive one
+# of the three state fields. Keyed by SOURCE TEXT so an entry survives a line
+# move and lapses when the expression changes.
+_DECLARED_NON_DERIVATIONS = {
+    ("validate.py", "label == bagmod.LABEL_SCHEMA_VERSION"):
+        "reports a MISSING schema version as a structural problem. It reads no "
+        "state field: a bag with no version is neither open nor sealed by "
+        "virtue of that, and no second copy of this check exists to drift from.",
+}
 
 # The two lifecycle values. Named here as data rather than reached for as
 # literals, so this file does not become the third copy of the thing it guards.
@@ -87,6 +108,52 @@ _LABEL_DERIVER = ("bag.py", "bag_state")
 _LIFECYCLE_DERIVER = ("bag.py", "lifecycle_of")
 
 
+def imports_the_journal_package(source: str, path: pathlib.Path) -> bool:
+    """Does this module import the journal package, under ANY spelling?
+
+    RESOLVED FROM THE AST, NOT MATCHED AS A SUBSTRING, and the difference is the
+    whole future-proofing claim. The first draft asked whether the text contained
+    `"modules.journal"` or `"from .journal"`. That was true of every importer
+    that exists today and false of at least four legal spellings of the same
+    import — `from modules import journal`, `from . import journal`,
+    `from ..journal import bag`, `import modules.journal.bag as b` — none of
+    which violates any convention this repo documents. A Phase 3 emitter written
+    that way would have been outside the sweep while the docstring claimed it was
+    inside it, which is a worse failure than not sweeping at all: an undisclosed
+    hole in the guarantee the file is trusted for.
+
+    Every import is resolved to the dotted path it actually names — walking `..`
+    levels up from the importing file — and compared against the package's own.
+    """
+    try:
+        tree = ast.parse(source, filename=str(path))
+    except SyntaxError:                     # not our module to reason about
+        return False
+
+    package_path = PACKAGE.relative_to(TEMPORAL).as_posix().replace("/", ".")
+    named: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            named.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if node.level:
+                anchor = path.parent
+                for _ in range(node.level - 1):
+                    anchor = anchor.parent
+                if not anchor.is_relative_to(TEMPORAL):
+                    continue
+                prefix = anchor.relative_to(TEMPORAL).as_posix().replace("/", ".")
+                base = f"{prefix}.{base}" if base else prefix
+            # BOTH the module and each imported NAME: `from modules import
+            # journal` names the package in the second position, not the first.
+            named.append(base)
+            named.extend(f"{base}.{alias.name}" if base else alias.name
+                         for alias in node.names)
+    return any(name == package_path or name.startswith(f"{package_path}.")
+               for name in named)
+
+
 def _swept_modules() -> list[pathlib.Path]:
     """The journal package, plus every non-test module that imports it.
 
@@ -95,15 +162,12 @@ def _swept_modules() -> list[pathlib.Path]:
     the same author who adds the reader it is supposed to catch.
     """
     package = [p for p in PACKAGE.glob("*.py") if "__pycache__" not in p.parts]
-    importers = []
-    for path in TEMPORAL.rglob("*.py"):
-        if "__pycache__" in path.parts or "tests" in path.parts:
-            continue
-        if path.is_relative_to(PACKAGE):
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "modules.journal" in text or "from .journal" in text:
-            importers.append(path)
+    importers = [
+        path for path in TEMPORAL.rglob("*.py")
+        if "__pycache__" not in path.parts and "tests" not in path.parts
+        and not path.is_relative_to(PACKAGE)
+        and imports_the_journal_package(path.read_text(encoding="utf-8"), path)
+    ]
     return sorted(package + importers)
 
 
@@ -145,6 +209,19 @@ def _is_state_label(node: ast.AST) -> bool:
     return False
 
 
+def _mentions_a_state_label(operand: ast.AST) -> bool:
+    """A state label ANYWHERE in this operand, not only as the operand itself.
+
+    ⚠ THE WHOLE OPERAND SUBTREE, because `label in (LABEL_REDACTION, LABEL_GAP)`
+    is the idiomatic way to write "is this entry one of the flag labels" and the
+    first draft of this predicate could not see it: it asked whether the operand
+    WAS a label, and the operand was a `Tuple`. A guard that catches `==` and
+    misses `in` catches the copy someone wrote yesterday and not the one they
+    will write tomorrow.
+    """
+    return any(_is_state_label(node) for node in ast.walk(operand))
+
+
 def find_label_derivations(source: str, filename: str) -> list[tuple[str, int, str]]:
     """`(filename, lineno, source)` for every comparison against a state label."""
     tree = ast.parse(source, filename=filename)
@@ -153,10 +230,12 @@ def find_label_derivations(source: str, filename: str) -> list[tuple[str, int, s
     for node in ast.walk(tree):
         if not isinstance(node, ast.Compare):
             continue
-        if not any(_is_state_label(operand)
+        if not any(_mentions_a_state_label(operand)
                    for operand in [node.left, *node.comparators]):
             continue
         if (filename, owner.get(node, "")) == _LABEL_DERIVER:
+            continue
+        if (filename, ast.unparse(node)) in _DECLARED_NON_DERIVATIONS:
             continue
         found.append((filename, node.lineno, ast.unparse(node)))
     return found
@@ -175,13 +254,28 @@ def find_lifecycle_derivations(source: str, filename: str) -> list[tuple[str, in
     tree = ast.parse(source, filename=filename)
     owner = _functions_by_node(tree)
     parent = _parents(tree)
+
+    def consumed_by_a_comparison(node: ast.AST) -> bool:
+        """⚠ THROUGH ANY CONTAINER LITERAL, not only as a direct operand.
+
+        `(report.lifecycle, report.redacted) == ("sealed", True)` is one
+        comparison, and the literal's PARENT is the tuple. Reading only the
+        immediate parent reported that as a derivation — a false positive on an
+        idiom this repo already uses, and a guard that fires on legitimate
+        reading is a guard someone switches off within a week.
+        """
+        current = parent.get(node)
+        while isinstance(current, (ast.Tuple, ast.List, ast.Set)):
+            current = parent.get(current)
+        return isinstance(current, ast.Compare)
+
     found = []
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Constant) and node.value in _LIFECYCLE_VALUES):
             continue
         if isinstance(node.value, bool):        # `True in {"open"}` is False, but be explicit
             continue
-        if isinstance(parent.get(node), ast.Compare):
+        if consumed_by_a_comparison(node):
             continue
         if (filename, owner.get(node, "")) == _LIFECYCLE_DERIVER:
             continue
@@ -247,22 +341,42 @@ def some_new_reader(entries):
     return any(label == bagmod.LABEL_REDACTION for label, _ in entries)
 '''
 
+# The one a review pass found the FIRST predicate could not see: `in` over a
+# container, which is how anyone would write "is this one of the flag labels".
+_RETYPED_FLAG_AS_MEMBERSHIP = '''
+from .bag import LABEL_INCOMPLETE, LABEL_REDACTION
+
+def some_new_reader(entries):
+    return [v for label, v in entries
+            if label in (LABEL_REDACTION, LABEL_INCOMPLETE)]
+'''
+
 _RETYPED_LIFECYCLE = '''
 def some_new_reader(bag_path):
     return "sealed" if (bag_path / "manifest-sha256.txt").is_file() else "open"
 '''
 
-_LEGITIMATE_CONSUMPTION = '''
-def a_caller(bag):
+# Two things the sweeps must NOT fire on, in one fixture: a WRITER passing a
+# label as an argument, and a caller comparing an already-derived lifecycle —
+# including through a tuple, which the first predicate misread as a derivation.
+_LEGITIMATE_USE = '''
+from .bag import LABEL_GAP
+
+def a_writer(bag, what):
+    _append_tag_line(bag.info_path, LABEL_GAP, what)
+
+def a_caller(bag, report):
     if bag.lifecycle == "sealed":
         bag.seal()
+    assert (report.lifecycle, report.redacted) == ("sealed", True)
     return bag.state.incomplete
 '''
 
 
-@pytest.mark.parametrize("source", [_RETYPED_FLAG, _RETYPED_FLAG_QUALIFIED])
+@pytest.mark.parametrize("source", [_RETYPED_FLAG, _RETYPED_FLAG_QUALIFIED,
+                                    _RETYPED_FLAG_AS_MEMBERSHIP])
 def test_the_label_sweep_CATCHES_a_retyped_flag_rule(source: str) -> None:
-    """Both spellings — the bare name and the module-qualified one."""
+    """Three spellings — bare name, module-qualified, and `in` over a container."""
     assert find_label_derivations(source, "some_new_module.py")
 
 
@@ -270,14 +384,33 @@ def test_the_lifecycle_sweep_CATCHES_a_retyped_lifecycle_rule() -> None:
     assert find_lifecycle_derivations(_RETYPED_LIFECYCLE, "some_new_module.py")
 
 
-def test_neither_sweep_fires_on_legitimate_CONSUMPTION() -> None:
-    """The predicate has to leave `== "sealed"` alone or every caller is an offender.
+def test_neither_sweep_fires_on_a_WRITER_or_on_legitimate_CONSUMPTION() -> None:
+    """The half that keeps the guard usable rather than merely strict.
 
-    This is the half that keeps the guard usable: a check that fires on reading a
-    derived value would be turned off within a week.
+    Both halves discriminate, which an earlier draft's did not: its fixture
+    mentioned no label at all, so the label assertion passed no matter what the
+    predicate did. A writer PASSING a label is the case that has to stay legal —
+    every append in `bag.py` is one — and the tuple comparison is the idiom the
+    lifecycle predicate used to misread.
     """
-    assert not find_label_derivations(_LEGITIMATE_CONSUMPTION, "a_caller.py")
-    assert not find_lifecycle_derivations(_LEGITIMATE_CONSUMPTION, "a_caller.py")
+    assert not find_label_derivations(_LEGITIMATE_USE, "a_caller.py")
+    assert not find_lifecycle_derivations(_LEGITIMATE_USE, "a_caller.py")
+
+
+def test_a_DECLARED_non_derivation_is_exempt_and_an_undeclared_one_is_not() -> None:
+    """The escape hatch exists, and it is keyed to the exact expression.
+
+    Without this an author adding a legitimate structural check against a label
+    has no move except weakening the sweep. With it, the exemption costs a
+    written reason — the same trade `test_journal_containment.py` makes.
+    """
+    declared = 'x = 1 if label == bagmod.LABEL_SCHEMA_VERSION else 2'
+    assert not find_label_derivations(declared, "validate.py")
+    assert find_label_derivations(declared, "some_other_module.py"), \
+        "a declaration must not exempt the same expression in another module"
+    assert find_label_derivations(
+        'x = label != bagmod.LABEL_SCHEMA_VERSION', "validate.py"), \
+        "a declaration must lapse when the expression changes"
 
 
 def test_the_swept_set_actually_contains_the_two_readers_that_drifted() -> None:
@@ -291,6 +424,85 @@ def test_the_swept_set_actually_contains_the_two_readers_that_drifted() -> None:
     assert "run_build.py" in swept, (
         "an entrypoint that opens a bag is no longer being swept, so the "
         f"importer discovery has stopped working: {sorted(swept)}")
+
+
+# `(where the importing file lives, what it writes)`. A RELATIVE import names the
+# journal package only from certain locations, so the location is part of the
+# case — a parametrisation that varied only the statement asserted something
+# false and was corrected by running it.
+_DEEP = TEMPORAL / "modules" / "assistant" / "emit" / "an_emitter.py"
+_BESIDE = TEMPORAL / "modules" / "an_emitter.py"
+_ONE_DOWN = TEMPORAL / "modules" / "assistant" / "an_emitter.py"
+
+
+@pytest.mark.parametrize("author,statement", [
+    (_DEEP, "from modules.journal import bag"),      # the spelling in use today
+    (_DEEP, "from modules.journal.bag import bag_state"),
+    (_DEEP, "import modules.journal.bag"),
+    (_DEEP, "import modules.journal.bag as b"),
+    (_DEEP, "from modules import journal"),          # names the package SECOND
+    (_BESIDE, "from . import journal"),              # relative, beside the package
+    (_BESIDE, "from .journal import bag"),
+    (_ONE_DOWN, "from ..journal.bag import bag_state"),   # up out of a subpackage
+])
+def test_importer_discovery_sees_EVERY_spelling_of_the_import(
+        author: pathlib.Path, statement: str) -> None:
+    """The claim the whole design leans on: Phase 3's emitters are in scope.
+
+    A substring match on `"modules.journal"` was true of every importer that
+    exists today and false of four of these, none of which breaks any documented
+    convention. The guarantee was therefore stronger in the docstring than in the
+    code — the exact shape of defect this file exists to catch, in this file.
+    """
+    assert imports_the_journal_package(statement + "\n", author), statement
+
+
+@pytest.mark.parametrize("author,statement", [
+    (_DEEP, "import os"),
+    (_DEEP, "from modules.assistant import plan_activities"),
+    (_DEEP, "from ..assistant import plan_activities"),
+    # RESOLVED, NOT PATTERN-MATCHED: from three packages down, `.journal` names
+    # `modules.assistant.emit.journal`, which is a different module that happens
+    # to share a name. A checker that keyed on the word would claim this file.
+    (_DEEP, "from . import journal"),
+    (_DEEP, "from .journal import bag"),
+])
+def test_importer_discovery_does_not_claim_UNRELATED_modules(
+        author: pathlib.Path, statement: str) -> None:
+    """Sweeping everything would be the other way to be useless."""
+    assert not imports_the_journal_package(statement + "\n", author), statement
+
+
+def test_a_sealed_bag_still_reports_SEALED_when_the_payload_cannot_be_read(
+        tmp_path, monkeypatch) -> None:
+    """The one behavioural change this refactor makes, asserted rather than commented.
+
+    `validate_bag` used to set the lifecycle AFTER walking the payload, so an
+    `OSError` mid-walk returned `open` for a bag whose manifest was plainly on
+    disk — the report collapsing under exactly the partial-read case its
+    docstring promises to survive. The state is now derived from the tag files
+    and the manifest before the walk, so the partial report still carries what
+    was known.
+
+    MONKEYPATCHED RATHER THAN `chmod`-ED, deliberately: a mode-based fixture is a
+    no-op for root, and this suite's own history includes a test that asserted a
+    property of the machine it ran on and put the merge gate red three times.
+    """
+    bag = _bag_in_state(tmp_path, "run-unreadable", sealed=True, redacted=False,
+                        incomplete=False)
+    assert validate_bag(bag.path).lifecycle == "sealed"      # before the fault
+
+    def refuse(*_args, **_kwargs):
+        raise OSError(5, "Input/output error", str(bag.payload_dir))
+
+    monkeypatch.setattr(validate_mod, "payload_files", refuse)
+    report = validate_bag(bag.path)
+
+    assert report.lifecycle == "sealed", \
+        "a sealed bag whose payload could not be walked is not an open bag"
+    assert not report.ok
+    assert any("could not be read" in problem for problem in report.structural), \
+        report.structural
 
 
 # --- the battery: the derivation itself, and that both readers agree ------------------
@@ -340,19 +552,31 @@ def test_the_bag_and_the_validator_NEVER_disagree_about_one_bag(
            (lifecycle_of(sealed), redacted, incomplete)
 
 
-def test_bag_state_is_TOTAL_over_a_malformed_incomplete_value() -> None:
-    """An unparseable flag value leaves the flag false rather than raising.
+def test_a_malformed_flag_value_leaves_the_flag_FALSE_and_says_so(tmp_path) -> None:
+    """The refusal to guess, and the report that keeps the refusal honest.
 
-    Documented in `bag_state` as a decision, so it is asserted rather than left
-    as a property of whatever the implementation happened to do. The gap records
-    still carry what was lost, so nothing is hidden by the answer.
+    Neither guess is safe: `true` asserts a gap nobody recorded, and a silent
+    `false` is an operator reading `incomplete: false` off a line no code could
+    parse — this component's own worst outcome. So the boolean stays false AND
+    the line is surfaced, and the validator turns that into a structural finding
+    so the bag does not read as `ok`.
     """
     state = bag_state(manifest_exists=False, info_entries=[
         (bagmod.LABEL_INCOMPLETE, "perhaps"),
         (bagmod.LABEL_GAP, "the PR body — disk full"),
     ])
     assert state == BagState(lifecycle="open", redacted=False, incomplete=False,
-                             redactions=(), gaps=("the PR body — disk full",))
+                             redactions=(), gaps=("the PR body — disk full",),
+                             unreadable=("Journal-Incomplete: perhaps",))
+
+    bag = open_bag(tmp_path, "run-malformed")
+    with bag.info_path.open("a", encoding="utf-8") as handle:
+        handle.write(f"{bagmod.LABEL_INCOMPLETE}: perhaps\n")
+    report = validate_bag(bag.path)
+    assert not report.incomplete
+    assert not report.ok, "an unreadable lifecycle value must not report as fine"
+    assert any("cannot be read" in problem for problem in report.structural), \
+        report.structural
 
 
 @pytest.mark.parametrize("value", ["true", "TRUE", " True "])

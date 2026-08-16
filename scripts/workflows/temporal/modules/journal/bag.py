@@ -350,6 +350,13 @@ class BagState:
     that wants "what was lost" does not have to walk the tag entries again with
     its own idea of which label means what — which is the duplication this type
     exists to end.
+
+    `unreadable` is what the derivation could NOT honour: a lifecycle tag line
+    whose value it does not understand. It exists so that "the flag is false"
+    and "the flag could not be read" stop being the same answer — the same
+    distinction the whole component draws between *no gap* and *a gap nobody
+    recorded*. `validate_bag` turns each entry into a structural finding; a
+    caller that ignores it is no worse off than before.
     """
 
     lifecycle: str
@@ -357,6 +364,7 @@ class BagState:
     incomplete: bool
     redactions: tuple[str, ...] = ()
     gaps: tuple[str, ...] = ()
+    unreadable: tuple[str, ...] = ()
 
 
 def lifecycle_of(manifest_exists: bool) -> str:
@@ -397,20 +405,25 @@ def bag_state(*, manifest_exists: bool,
     a folded or hand-edited tag line is a realistic way for the same intent to
     arrive differently spelled.
 
-    ⚠ ANY OTHER VALUE — `false`, `unknown`, a typo — LEAVES THE FLAG FALSE, and
-    that is a decision. `Journal-Incomplete` is written only when a write has
-    already failed, so a bag carrying an unparseable value is a bag something
-    else has already gone wrong in; reporting it as complete keeps this function
-    total, and the malformed line is still visible in the tag file itself.
+    ⚠ ANY OTHER VALUE — `false`, `unknown`, a typo — LEAVES THE FLAG FALSE AND
+    IS REPORTED IN `unreadable`, and the second half is what makes the first
+    half safe. Guessing `true` would assert a gap that may not exist; guessing
+    `false` silently would be this component's own worst outcome, an operator
+    reading `incomplete: false` off a line the code could not parse. So the
+    boolean stays honest and the line is surfaced, rather than one of the two
+    being chosen. `Journal-Incomplete` is written only when a write has already
+    failed, so an unparseable one means something is already wrong here.
     """
     redactions = tuple(value for label, value in info_entries
                        if label == LABEL_REDACTION)
     gaps = tuple(value for label, value in info_entries if label == LABEL_GAP)
-    incomplete = any(label == LABEL_INCOMPLETE and value.strip().lower() == "true"
-                     for label, value in info_entries)
+    flags = [value for label, value in info_entries if label == LABEL_INCOMPLETE]
+    incomplete = any(value.strip().lower() == "true" for value in flags)
+    unreadable = tuple(f"{LABEL_INCOMPLETE}: {value}" for value in flags
+                       if value.strip().lower() != "true")
     return BagState(lifecycle=lifecycle_of(manifest_exists),
                     redacted=bool(redactions), incomplete=incomplete,
-                    redactions=redactions, gaps=gaps)
+                    redactions=redactions, gaps=gaps, unreadable=unreadable)
 
 
 def sha256_of(path: Path) -> str:
@@ -688,6 +701,12 @@ class Bag:
         return bag_state(manifest_exists=self.manifest_path.is_file(),
                          info_entries=self.info())
 
+    # ⚠ ONE FIELD PER READ. Each of these takes its own snapshot, so a caller
+    # that wants a CONSISTENT triple must read `.state` once and destructure it
+    # — reading two properties of a folder another process is writing into can
+    # straddle a write. Harmless today (nothing emits until Phase 3) and stated
+    # here because `BagState` promises the three fields "together" and these two
+    # convenience properties are the one place that promise does not hold.
     @property
     def redacted(self) -> bool:
         return self.state.redacted

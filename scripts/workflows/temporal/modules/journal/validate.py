@@ -228,6 +228,18 @@ def validate_bag(bag_path: Path) -> BagReport:
         state = bagmod.bag_state(manifest_exists=manifest_path.is_file(),
                                  info_entries=entries)
 
+        # A LIFECYCLE VALUE THE DERIVATION COULD NOT READ IS A STRUCTURAL
+        # PROBLEM, not a false flag. `bag_state` refuses to guess, and this is
+        # where the refusal becomes visible: without it an operator reads
+        # `incomplete: false` off a line nothing could parse, which is exactly
+        # the silent-gap outcome the component exists to prevent.
+        for line in state.unreadable:
+            structural.append(
+                f"{BAG_INFO_FILE} carries a lifecycle value that cannot be read: "
+                f"{line!r}. The flag it sets is reported false because guessing "
+                f"either way would assert something about this run that nobody "
+                f"recorded.")
+
         if not (bag_path / PAYLOAD_DIR).is_dir():
             structural.append(f"{PAYLOAD_DIR}/ is missing — a bag has a payload directory")
 
