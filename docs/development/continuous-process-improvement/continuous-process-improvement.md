@@ -18,7 +18,7 @@ The distinguishing property, and the reason this is a phase rather than a habit:
 - [x] Every finding reaches an explicit ruling — ship, defer or reject
 - [x] Deferrals carry a **watch-criterion**: what would bring this back
 - [x] Rejections are recorded so they are not re-litigated
-- [ ] The self-disclosure channel is mined as systematically as the log channel
+- [x] The self-disclosure channel is mined as systematically as the log channel — **delivered by [PMP Phase 6](../persistent-memory-protocol/phase6_cpi_reads_the_journal.md)**, which sweeps the journal that PMP's emit rule already puts every reflection into
 
 ## The two evidence sources
 
@@ -36,7 +36,7 @@ The two are complementary and neither substitutes for the other. A log shows tha
 - [x] **`cpi-decisions.md`** — append-only ship / defer / reject with watch-criteria
 - [x] **Reflection posted by every workflow** — `DECISION_LOG_AND_REFLECTION`, shared across the fleet
 - [x] **`review-pr` mines reflections** — the disposition engine's primary hunting ground is the run's own words
-- [ ] **Close the reflection loop** — tooling suggestions are *written* by every run and *read* opportunistically. Nothing sweeps them systematically the way `review-runs.sh` sweeps logs
+- [x] **Close the reflection loop — CLOSED BY TRANSFER.** Tooling suggestions are written by every run and read opportunistically; nothing sweeps them the way `review-runs.sh` sweeps logs. **The gap is real and the fix is not ours**: [PMP Phase 6](../persistent-memory-protocol/phase6_cpi_reads_the_journal.md) reads the journal, and PMP's emit rule already captures every pull-request comment. A scraper built here would be thrown away.
 
 ## Decisions
 

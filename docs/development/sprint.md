@@ -123,7 +123,7 @@ Make the system improve its own tooling from evidence it generates itself.
 - [x] **Append-only decisions log** — ship / defer / reject, deferrals carrying an explicit watch-criterion
 - [x] **Post-Run Reflection** — every workflow posts a decision log and tooling suggestions to its PR
 - [x] **`review-pr` mines reflections** — the run's own words are its primary evidence surface
-- [ ] **Sweep the reflection channel systematically** — tooling suggestions are written by every run and read opportunistically; nothing sweeps them the way `review-runs.sh` sweeps logs
+- [x] **CLOSED BY TRANSFER — absorbed by [PMP Phase 6](persistent-memory-protocol/phase6_cpi_reads_the_journal.md).** Reflections are pull-request comments, and PMP's emit rule puts *every comment* into the journal. Phase 6 then moves the evidence sweep onto that journal. **Building a comment-scraper here would be replaced by it**, so the requirement is real and the mechanism belongs there.
 - [ ] **Measure the judge's marginal yield** — classify 30 PRs' disposition items as already-stated-by-the-run or new, over logs and threads that already exist
 
 ---
