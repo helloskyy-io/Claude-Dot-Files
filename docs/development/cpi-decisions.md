@@ -1230,6 +1230,22 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ---
 
+## 2026-08-16 (later still) — 🔁 RECURRENCE shipped: a deferred item's watch-criteria fired within the hour
+
+**Deferred earlier today** (see the PR #94 entry above): *"`gh pr checks` should be polled, not sampled"* — one occurrence, **watch-criteria: second occurrence, or any run that reports green against a check set smaller than the previous head's.**
+
+**Both fired, on me, while merging PR #94.** Polling its checks after a push returned **3 checks with CodeQL absent**, then 4 — so a sample taken at t+25s reads *"3 checks, 0 pending"* as settled. My first poll predicate was itself wrong (`state == "PENDING"`), which produced exactly the false green the deferred item describes.
+
+### SHIPPED — and it turned out to be a live defect in code, not a prompt gap
+
+**`wait_for_ci` treated an IN_PROGRESS check as settled.** The test was `"PENDING" not in states`; `gh pr checks` also emits **IN_PROGRESS** and **QUEUED**. Observed directly: `IN_PROGRESS  suite`, with `suite` the declared blocking gate — which under that test reads as *settled, and the gate is present*, so the wait returns True and the review runs against a pipeline still going.
+
+**The fix is an ALLOW-LIST of terminal states, and that is the substance rather than a detail.** Testing for one non-terminal name asks what the guard looks FOR and never what it is blind to — which is C-089's question, applied to a guard written two days ago by the same actor that shipped C-089. A state GitHub adds later is unknown, and **unknown now means keep waiting rather than proceed.** Mutation-checked; two tests, one pinning the observed state and one pinning the closed-set property.
+
+**Note the chain, because it is the argument for the deferral discipline rather than for immediate shipping:** the item was deferred at one occurrence, its watch-criteria was written precisely enough to recognise the second, the second arrived within the hour, and following it led to a live defect in the CI gate that no prompt change would have fixed. **A prompt line telling a reviewer to poll would have left the code wrong.**
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

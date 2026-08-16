@@ -391,3 +391,43 @@ def test_a_READABLE_reply_whose_gate_never_appears_still_returns_False(monkeypat
     """
     _gh_replies(monkeypatch, [_Reply(json.dumps([{"name": "CodeQL", "state": "SUCCESS"}]))])
     assert act.wait_for_ci("1", repo_root=repo) is False
+
+
+def test_an_IN_PROGRESS_check_is_NOT_settled(monkeypatch, repo):
+    """`gh` says IN_PROGRESS, and the settled test asked about PENDING.
+
+    OBSERVED 2026-08-16 while polling PR #94: `IN_PROGRESS  suite`, with `suite`
+    the declared blocking gate. Under `"PENDING" not in states` that reads as
+    settled AND the gate is present, so the wait returns True and the review
+    proceeds against a pipeline still running — the same false-green removed
+    from three other controls over the preceding two days.
+
+    THE FIX IS AN ALLOW-LIST, and that is the point rather than an
+    implementation detail. Testing for one non-terminal name asks what the guard
+    looks FOR and never what it is blind to; `gh` also emits QUEUED, and a state
+    GitHub adds later is unknown. Unknown must mean keep waiting.
+    """
+    calls = _gh_replies(monkeypatch, [
+        _Reply(json.dumps([{"name": "suite", "state": "IN_PROGRESS"}])),
+        _Reply(json.dumps([{"name": "suite", "state": "SUCCESS"}])),
+    ])
+    assert act.wait_for_ci("1", repo_root=repo) is True
+    assert calls["n"] == 2, (
+        f"returned after {calls['n']} poll(s) — an IN_PROGRESS gate was read as "
+        f"settled, so the review would run against unfinished CI"
+    )
+
+
+def test_an_unknown_check_state_is_NOT_settled(monkeypatch, repo):
+    """A state nobody has seen must hold, not proceed.
+
+    Split from the test above deliberately: that one pins a state `gh` emits
+    today, this one pins the CLOSED-SET property that makes the guard survive
+    GitHub adding another.
+    """
+    calls = _gh_replies(monkeypatch, [
+        _Reply(json.dumps([{"name": "suite", "state": "SOME_FUTURE_STATE"}])),
+        _Reply(json.dumps([{"name": "suite", "state": "SUCCESS"}])),
+    ])
+    assert act.wait_for_ci("1", repo_root=repo) is True
+    assert calls["n"] == 2, "an unrecognised state was treated as terminal"

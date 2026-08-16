@@ -217,6 +217,16 @@ def ci_verdict(pr: str, *, repo: str | None = None,
     return (CiVerdict.RED, failed) if failed else (CiVerdict.GREEN, undeclared)
 
 
+# A check has SETTLED only in one of these. Everything else — IN_PROGRESS,
+# QUEUED, WAITING, REQUESTED, or anything GitHub adds later — means keep
+# waiting. Naming the terminal set rather than the pending one is what stops
+# a new state silently reading as done.
+_TERMINAL_CHECK_STATES = frozenset({
+    "SUCCESS", "FAILURE", "SKIPPED", "NEUTRAL",
+    "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STALE", "ERROR",
+})
+
+
 def wait_for_ci(pr: str, *, repo: str | None = None,
                 repo_root: Path | None = None) -> bool:
     """Block until the PR's declared gate has REPORTED and settled.
@@ -318,7 +328,20 @@ def wait_for_ci(pr: str, *, repo: str | None = None,
         # something like `pending-review` would have matched the substring and
         # held a settled pipeline open forever.
         states = {str(c.get("state", "")).upper() for c in checks}
-        if "PENDING" not in states:
+        # SETTLED IS AN ALLOW-LIST OF TERMINAL STATES, NOT A DENY-LIST OF ONE.
+        # This tested `"PENDING" not in states`, which asks what the guard is
+        # looking FOR and never what it is blind to — `gh pr checks` also emits
+        # IN_PROGRESS and QUEUED, and both read as settled under that test.
+        #
+        # OBSERVED 2026-08-16 while polling PR #94: `IN_PROGRESS  suite`, with
+        # `suite` the declared blocking gate. Under the old test that is
+        # "settled, and the gate is present" — so the review proceeds against a
+        # pipeline still running, which is the same false-green this fleet spent
+        # two days removing from three other controls.
+        #
+        # The set is deliberately CLOSED: a state GitHub adds later is unknown,
+        # and unknown must mean keep waiting rather than proceed.
+        if states <= _TERMINAL_CHECK_STATES:
             if not blocking:
                 return True
             names = {str(c.get("name")) for c in checks}
