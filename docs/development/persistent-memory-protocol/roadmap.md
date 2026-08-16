@@ -151,7 +151,7 @@ Not everything is a challenge, and one MMF property is load-bearing here in a wa
 
 **Read this section as the design.** The phase list after it is a delivery order over exactly this content, and nothing here is contingent on when a part gets built.
 
-The protocol is eight commitments. They are stated in dependency order — each one assumes the ones above it — not in build order.
+The protocol is nine commitments. They are stated in dependency order — each one assumes the ones above it — not in build order.
 
 **1 · One place, one folder per run, each file in whatever format suits it.**
 The journal is one configurable root per machine. Inside it, one folder per run, keyed by run id and never by filesystem path. Concurrent children each write into their own subfolder, so no two writers ever touch one file. Each artifact keeps the format that suits it — the transcript stays JSONL, authored text stays markdown, execution facts are typed JSON, code is a commit SHA. A manifest per folder says what is in it and carries a checksum for each file, so a reader never has to guess from file extensions. The layout is BagIt (RFC 8493) because it already specifies exactly this and there is no reason to invent one.
