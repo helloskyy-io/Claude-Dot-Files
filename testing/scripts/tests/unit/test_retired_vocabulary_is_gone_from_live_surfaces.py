@@ -1,10 +1,30 @@
 """The retired memory-taxonomy labels survive only where they are a RECORD.
 
 `Kind 1` / `Kind 2` / `Kind 3` were replaced on 2026-08-16 by the names
-`persistent-memory-protocol/roadmap.md` § *The four kinds of record* declares —
+`persistent-memory-protocol/roadmap.md` § *Reading the old names* maps them to —
 **the working record**, **the typed exit record**, **measurement samples**. The
 operator's rule for the sweep was one sentence: *rename it where it is still
 binding; leave it where it is a record.* This gate holds the first half.
+
+CITE § *Reading the old names*, NOT § *The four kinds of record*. The enclosing
+section declares FOUR classes — *invocation state*, *the working record*, *the
+journal*, *measurement samples* — and **the typed exit record is invocation
+state's one contracted member rather than a class of its own**. The three names
+above are the old-label *translation*, which is what § *Reading the old names*
+is. An author tripping this gate on a document about a run's in-flight state or
+about the journal must not be handed a three-name menu with no name for their
+case; the roadmap's ⚠ against reading *invocation state* as a leftovers bin is
+the same failure one level up.
+
+THE REPRESENTATION RULE, because breaking it is what every pass here has done.
+**Every predicate below consumes the record's own representation — a file as
+normalised text, a map entry as its joined leaf-plus-continuations — and none
+reads a raw line as a stand-in for it.** A raw line is a *proxy* for a document,
+and each of the four passes that believed this sweep complete was defeated by
+that proxy exactly once: three by a line-based `grep`, and the fourth by
+`labelled` below, which was assembled line by line inside this very module and
+then subtracted from an entry-granular set. The rule is stated as a rule so the
+next predicate added here is a conformance question rather than a rediscovery.
 
 WHY A GATE RATHER THAN A FIFTH SWEEP. The sweep was performed with
 `grep -n 'Kind 1\\|Kind 2\\|Kind 3'` and then *verified complete* with the same
@@ -35,7 +55,10 @@ WHAT THIS GATE DOES NOT LOOK AT, so a green run is not read as more than it is:
     in the new names passes it.
   * **File and directory NAMES.** `phase2_kind1_framework.md` is a path, and the
     pattern deliberately requires a separator so it does not fire on one. A
-    future file named `..._kind_two_...` would be invisible here.
+    future file named `..._kind_two_...` would be invisible **as a name** — and
+    would be a false POSITIVE in every live document citing it, because such a
+    name carries the separator. That is the costly direction, and the benign
+    corpus below covers only the separator-less `kind1` form that has shipped.
   * **Paraphrase.** *"the second kind of record"* carries the retired cut in
     words this pattern has no purchase on.
   * **Whether a RECORD surface is correctly classified.** The allowlist below is
@@ -47,6 +70,7 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
@@ -85,12 +109,23 @@ RECORD_SURFACES: dict[str, str] = {
     "docs/development/persistent-memory-protocol/roadmap.md":
         "§ Reading the old names is the translation table that keeps every "
         "other exclusion readable, and the applied amendment preserves its "
-        "original entry verbatim",
+        "original entry verbatim. FILE-WIDE, and that is broader than the two "
+        "sections that need it: this is a LIVE document and the taxonomy's "
+        "declared single writer, so it could reintroduce a label as binding "
+        "vocabulary and this gate would be silent. Scoped file-wide anyway "
+        "because narrowing it needs a section parser whose own correctness "
+        "nothing would assert — a disclosed gap traded for an undisclosed one. "
+        "The residual is stated here so the judgement is reviewable rather "
+        "than invisible",
     "docs/development/persistent-memory-protocol/research/":
         "research papers and their digests — a record of what was read",
     "docs/standards/architecture/research/":
         "candidates.md's proposal rows, and the pool's synthesis and topic "
-        "queues, are records of what was proposed at the time",
+        "queues, are records of what was proposed at the time. This is the one "
+        "standards-tree path autonomous runs may WRITE to every cycle, so the "
+        "exemption is the widest here and the least reviewed — it holds "
+        "because appending to a proposal queue IS recording what was proposed "
+        "at the time, which is the shape the operator's rule exempts",
     "testing/scripts/tests/unit/test_prompt_budgets.py":
         "a budget-raise comment quoting the old term to state the byte "
         "arithmetic; the quote IS the evidence for the number",
@@ -127,8 +162,19 @@ _LEAF = re.compile(r"^(.*?)[├└]──\s+(\S+)")
 _MAP_INDENT = 4
 
 
-def _is_record(path: str) -> str | None:
-    """The reason `path` is a record surface, or None if it is live."""
+def _is_record(path: str, *, is_dir: bool = False) -> str | None:
+    """The reason `path` is a record surface, or None if it is live.
+
+    `is_dir` says whether `path` NAMES A DIRECTORY, and the caller is expected
+    to know: a directory key in `RECORD_SURFACES` is spelled with a trailing
+    slash, so a caller holding a slash-less directory path had to append one to
+    get a true answer. That was `_map_entries_describing_live_paths`' job for
+    one revision — it called this twice, once with `path` and once with
+    `path + "/"` — which is a caller routing around its own predicate. The
+    parser already knows; it passes what it knows.
+    """
+    if is_dir and not path.endswith("/"):
+        path += "/"
     if path.endswith(".sh") and any(
         path.startswith(parent) and "/" not in path[len(parent):]
         for parent in _FROZEN_BASH
@@ -139,8 +185,14 @@ def _is_record(path: str) -> str | None:
         # exactly itself. Matching both with a bare `startswith` silently hands
         # the exemption to any future path that merely BEGINS with a listed
         # filename — `docs/development/sprint.md.bak` would inherit
-        # `sprint.md`'s — which is a widened gate nobody decided to widen. Four
-        # of the eight entries below are files.
+        # `sprint.md`'s — which is a widened gate nobody decided to widen.
+        #
+        # NO COUNT OF THE ENTRIES IS STATED HERE, and the omission is the point:
+        # the sentence that used to end this comment counted them, was wrong
+        # three times inside one PR (5, then a reviewer's "correction" to 4,
+        # against a truth of 6), and the argument needs no arithmetic. The
+        # file-versus-directory split is now ASSERTED, per entry, by
+        # `test_the_exemption_semantics_hold_for_EVERY_declared_surface` below.
         if path == prefix or (prefix.endswith("/") and path.startswith(prefix)):
             return reason
     return None
@@ -164,7 +216,23 @@ def _normalised(path: Path) -> str:
     return re.sub(r"\s+", " ", path.read_text(encoding="utf-8", errors="replace"))
 
 
-def _map_entries() -> list[tuple[list[int], str, str]]:
+class _Entry(NamedTuple):
+    """One map entry, carrying what the parser knew rather than a re-derivation.
+
+    `is_dir` is read off the map's own trailing slash at parse time. It exists
+    because `path` cannot carry it: the path is composed by joining stack
+    segments that have had their slashes stripped, so a consumer receiving only
+    `path` has to guess a directory back by string surgery — which is exactly
+    what `_map_entries_describing_live_paths` used to do.
+    """
+
+    lines: list[int]
+    text: str
+    path: str
+    is_dir: bool
+
+
+def _map_entries() -> list[_Entry]:
     """Each map entry as (its line numbers, its text as ONE line, its path).
 
     AN ENTRY IS A LEAF LINE PLUS EVERY CONTINUATION LINE UNDER IT, and joining
@@ -184,14 +252,37 @@ def _map_entries() -> list[tuple[list[int], str, str]]:
     never moves the stack; it just belongs to whichever leaf preceded it.
     """
     stack: dict[int, str] = {}
-    entries: list[tuple[list[int], str, str]] = []
+    entries: list[_Entry] = []
     for number, line in enumerate(_MAP.read_text(encoding="utf-8").splitlines(), 1):
         leaf = _LEAF.match(line)
         if not leaf:
-            if entries:
-                numbers, text, path = entries[-1]
-                numbers.append(number)
-                entries[-1] = (numbers, f"{text} {line.strip()}", path)
+            # A CONTINUATION LINE CARRIES THE TREE'S VERTICAL GLYPH; A TRAILER
+            # LINE DOES NOT, and the difference is load-bearing rather than
+            # cosmetic. The map ends with 27 lines that are not tree lines at
+            # all — the `---`, the symlink-strategy legend, the machine-local
+            # list. Attaching them to `entries[-1]` gave them the exemption
+            # status of whichever leaf happened to be last, which is live today
+            # only by luck: reorder the tree so the final leaf sits under
+            # `docs/development/memory-management-framework/` and the whole
+            # trailer silently becomes a record surface. So the trailer gets its
+            # OWN entry, with no path, and the rule below is that a pathless
+            # entry is LIVE — never dropped, which would exempt it by omission.
+            if "│" in line:
+                if entries and entries[-1].path:
+                    head = entries[-1]
+                    entries[-1] = head._replace(
+                        lines=[*head.lines, number],
+                        text=f"{head.text} {line.strip()}",
+                    )
+                    continue
+            if entries and not entries[-1].path:
+                tail = entries[-1]
+                entries[-1] = tail._replace(
+                    lines=[*tail.lines, number],
+                    text=f"{tail.text} {line.strip()}",
+                )
+            elif line.strip():
+                entries.append(_Entry([number], line, "", False))
             continue
         prefix, name = leaf.groups()
         level = len(prefix) // _MAP_INDENT
@@ -200,15 +291,25 @@ def _map_entries() -> list[tuple[list[int], str, str]]:
             del stack[deeper]
         # The root line (`claude-dot-files/`) carries no `──` and is therefore
         # not a level, which is what makes the reconstruction repo-relative.
-        entries.append(([number], line, "/".join(stack[k] for k in sorted(stack))))
+        entries.append(_Entry(
+            [number], line,
+            "/".join(stack[k] for k in sorted(stack)),
+            name.endswith("/"),
+        ))
     return entries
 
 
-def _map_entries_describing_live_paths() -> list[tuple[list[int], str, str]]:
-    """The entries whose reconstructed tree path is NOT a record surface."""
+def _map_entries_describing_live_paths() -> list[_Entry]:
+    """The entries this gate must read: everything that is not a record surface.
+
+    A PATHLESS ENTRY IS LIVE. The map's trailer resolves to no tree path, and
+    the predicate for "not a record" has to return True for it — dropping it
+    would exempt 27 lines of the authoritative map by omission, which is the
+    quietest possible way to widen a gate.
+    """
     return [
         entry for entry in _map_entries()
-        if entry[2] and not _is_record(entry[2]) and not _is_record(entry[2] + "/")
+        if not (entry.path and _is_record(entry.path, is_dir=entry.is_dir))
     ]
 
 
@@ -222,7 +323,13 @@ def test_no_live_surface_carries_a_retired_taxonomy_label() -> None:
     """
     offenders = []
     for relative in _tracked():
-        if _is_record(relative) or relative.endswith(Path(__file__).name):
+        # THIS MODULE'S OWN EXEMPTION IS ITS `RECORD_SURFACES` ENTRY AND NOTHING
+        # ELSE. It used to also carry `relative.endswith(Path(__file__).name)`,
+        # a second, path-blind exemption: move this module and the declared
+        # entry goes stale loudly (its own staleness test) while the `endswith`
+        # keeps exempting it silently — and any same-named file anywhere in the
+        # tree inherits it. One declaration, and it is the reviewed one.
+        if _is_record(relative):
             continue
         if relative == "docs/file_structure.txt":
             continue        # scoped by line, in its own test below
@@ -237,10 +344,14 @@ def test_no_live_surface_carries_a_retired_taxonomy_label() -> None:
         "a LIVE surface still carries a retired memory-taxonomy label: "
         + "; ".join(offenders)
         + ". Rename it to the name `persistent-memory-protocol/roadmap.md` "
-          "§ The four kinds of record declares — the working record / the "
-          "typed exit record / measurement samples — or, if this surface is a "
-          "RECORD of what was written at the time, add it to RECORD_SURFACES "
-          "in this module WITH the reason it is one."
+          "§ Reading the old names maps it to — the working record / the typed "
+          "exit record / measurement samples. If your case is none of those, "
+          "read § The four kinds of record instead: it declares FOUR classes "
+          "(invocation state, the working record, the journal, measurement "
+          "samples) and the typed exit record is invocation state's one "
+          "contracted member, not a class. Or, if this surface is a RECORD of "
+          "what was written at the time, add it to RECORD_SURFACES in this "
+          "module WITH the reason it is one."
     )
 
 
@@ -252,11 +363,19 @@ def test_the_file_structure_map_is_scoped_by_LINE_and_not_exempted_whole() -> No
     `exit_record.py`, the one-declaration gates) by the retired labels — while
     the three lines annotating the retired component's own docs must keep them.
     """
+    # An entry spans up to fourteen lines, so reporting `lines[0]` sends the
+    # reader to a leaf that may carry no label at all. Report the first line
+    # that actually matches, and fall back to the leaf only for a label the
+    # joining recovered because it was WRAPPED across two lines — which no
+    # single raw line contains, and which is the case this module exists for.
+    raw = _MAP.read_text(encoding="utf-8").splitlines()
     offenders = [
-        f"{_MAP.name}:{numbers[0]} ({path}) — "
-        f"{sorted({m.group(0) for m in RETIRED_LABEL.finditer(text)})}"
-        for numbers, text, path in _map_entries_describing_live_paths()
-        if RETIRED_LABEL.search(text)
+        f"{_MAP.name}:"
+        f"{next((n for n in entry.lines if RETIRED_LABEL.search(raw[n - 1])), entry.lines[0])}"
+        f" ({entry.path or '<the map trailer — no tree path>'}) — "
+        f"{sorted({m.group(0) for m in RETIRED_LABEL.finditer(entry.text)})}"
+        for entry in _map_entries_describing_live_paths()
+        if RETIRED_LABEL.search(entry.text)
     ]
     assert not offenders, (
         "a `docs/file_structure.txt` entry describes a LIVE surface using a "
@@ -282,17 +401,28 @@ def test_the_map_scope_still_reaches_the_lines_that_must_keep_the_label() -> Non
     anything the other did not. The unique property is the COMPLEMENT — that
     some labelled line is exempted — because that is what fails if the path
     reconstruction breaks in the direction nothing else notices.
+
+    BOTH SETS ARE DERIVED FROM `_map_entries`, per the representation rule in
+    the module docstring. `labelled` was built by scanning RAW LINES for one
+    revision, so the two sides of the subtraction below were a line-granular
+    set and an entry-granular one — and a label wrapped across two lines is
+    invisible to the raw side, which is the exact blindness this module was
+    written to close. Nothing red would have said so: `labelled` merely
+    shrinks, and if it empties the assertion below fires with a message
+    instructing the reader to DELETE this test and its sibling.
     """
+    entries = _map_entries()
     live = {
         number
-        for numbers, _, _ in _map_entries_describing_live_paths()
-        for number in numbers
+        for entry in _map_entries_describing_live_paths()
+        for number in entry.lines
     }
     assert live, "the map parse produced no live lines — it read nothing"
     labelled = {
         number
-        for number, line in enumerate(_MAP.read_text(encoding="utf-8").splitlines(), 1)
-        if RETIRED_LABEL.search(line)
+        for entry in entries
+        if RETIRED_LABEL.search(entry.text)
+        for number in entry.lines
     }
     assert labelled, (
         "no `file_structure.txt` line carries a retired label any more. If the "
@@ -352,6 +482,123 @@ def test_every_declared_RECORD_SURFACE_still_carries_a_label() -> None:
     # carries no label today and may never be edited if it acquires one — so it
     # is deliberately NOT in the loop above. Stated here so its absence reads as
     # a decision rather than an oversight.
+
+
+def test_the_exemption_semantics_hold_for_EVERY_declared_surface() -> None:
+    """The blast radius of each entry, ASSERTED rather than described.
+
+    THIS TEST IS WHAT THE DELETED COUNT WAS TRYING TO BE. `_is_record` used to
+    carry a comment explaining that file entries match exactly and directory
+    entries match by prefix, and it ended by counting how many of each there
+    were. The count was wrong three separate times inside one PR, in a module
+    whose entire thesis is that hand-verification does not converge. A count is
+    the one thing a guard cannot check about itself; the SEMANTICS it stands in
+    for are checkable, so they are checked here and no number is stated
+    anywhere. Every entry added from now on is covered whatever shape it has.
+
+    ONE NOTATION, ONE MEANING, ARBITRATED BY DISK. The first assertion is the
+    load-bearing one: a directory key must be spelled with a trailing slash.
+    Drop it and the two consumers of `RECORD_SURFACES` disagree in the worst
+    possible way — the staleness test above `rglob`s the real directory and
+    goes green, while `_is_record` exempts nothing under it, so the main sweep
+    reds every file beneath and tells the operator to add an entry that is
+    already there. The natural resolutions to that contradiction are a
+    duplicate entry or widening `_is_record`.
+
+    WHAT THIS DOES NOT REACH: whether a surface DESERVES its exemption (the
+    module docstring already rules that out of scope), and whether an entry's
+    stated reason is true. It proves the mechanism, never the judgement.
+    """
+    wrong_notation = [
+        f"{prefix!r} (is_dir={(_REPO / prefix).is_dir()}, "
+        f"spelled {'with' if prefix.endswith('/') else 'without'} a trailing slash)"
+        for prefix in RECORD_SURFACES
+        if (_REPO / prefix).is_dir() != prefix.endswith("/")
+    ]
+    assert not wrong_notation, (
+        "a RECORD_SURFACES key's trailing slash disagrees with what is on "
+        "disk: " + "; ".join(wrong_notation)
+        + ". A directory key MUST end in `/` and a file key MUST NOT — "
+          "`_is_record` reads the slash while the staleness test above reads "
+          "the filesystem, so a mismatch makes one of them silently wrong."
+    )
+
+    nested = [
+        f"{inner!r} is unreachable behind {outer!r}"
+        for outer in RECORD_SURFACES if outer.endswith("/")
+        for inner in RECORD_SURFACES
+        if inner != outer and inner.startswith(outer)
+    ]
+    assert not nested, (
+        "one RECORD_SURFACES entry is nested inside another: " + "; ".join(nested)
+        + ". The outer entry answers first, so the inner one's stated reason "
+          "stops being why anything is exempt while its staleness check keeps "
+          "passing — a reason nobody can falsify is worse than no reason."
+    )
+
+    for prefix in RECORD_SURFACES:
+        if prefix.endswith("/"):
+            assert _is_record(prefix + "probe.md"), (
+                f"the directory entry {prefix!r} does not exempt a file beneath "
+                f"it — the prefix match is broken and every record under it is "
+                f"about to be reported as a live surface"
+            )
+            sibling = prefix.rstrip("/") + "-x/probe.md"
+            assert _is_record(sibling) is None, (
+                f"the directory entry {prefix!r} exempts {sibling!r}, a "
+                f"DIFFERENT directory that merely begins with its name"
+            )
+        else:
+            assert _is_record(prefix), (
+                f"the file entry {prefix!r} does not exempt itself"
+            )
+            assert _is_record(prefix + ".bak") is None, (
+                f"the file entry {prefix!r} exempts {prefix + '.bak'!r}. This "
+                f"is the widened gate the exact-match rule exists to prevent: "
+                f"a bare `startswith` hands a listed filename's exemption to "
+                f"every path that merely begins with it"
+            )
+            assert _is_record(prefix + "/child.md") is None, (
+                f"the file entry {prefix!r} exempts a path BENEATH it, so it "
+                f"is behaving as a directory entry"
+            )
+
+
+@pytest.mark.parametrize(("path", "exempt"), [
+    ("scripts/workflows/build.sh", True),                    # frozen, top level
+    ("scripts/workflows/children/review-pr.sh", True),       # frozen, children/
+    ("scripts/workflows/activities/run-claude.sh", False),   # LIVE V2 dispatcher
+    ("scripts/workflows/temporal/anything.sh", False),       # LIVE V2 tree
+    ("scripts/workflows/children/deeper/x.sh", False),       # no such tier exists
+    ("scripts/workflows/build.py", False),                   # rule is `.sh` only
+])
+def test_the_FROZEN_BASH_bound_is_exactly_two_tiers_deep(
+    path: str, exempt: bool
+) -> None:
+    """The widest exemption in this module, and nothing else asserts it.
+
+    `_FROZEN_BASH` is deliberately kept out of the observation-checked loop
+    above — it is exempt by RULE, and it carries no retired label today, so an
+    entry there would go red for exempting nothing and the only remedies would
+    be deleting the exemption or editing a file `personal-tooling.md` forbids
+    editing. That decision leaves this branch of `_is_record` with no coverage
+    at all, and it is the branch a careless simplification widens furthest.
+
+    THE BOUND IS TWO THINGS AND BOTH MATTER: the `.sh` suffix, and *no deeper
+    path segment*. Relax the second to a bare `startswith` — the very
+    simplification the comment in `_is_record` warns against for the OTHER
+    branch — and `scripts/workflows/activities/run-claude.sh` drops out of the
+    sweep. That is the fleet's single live shell dispatcher, and a file THIS PR
+    edits. Note also that a trailing `/` means something different here than it
+    does in `RECORD_SURFACES`: there it is *everything beneath*, here it is
+    *direct `.sh` children only*, which is why `children/` must be listed
+    separately even though it already begins with the first entry.
+    """
+    assert (_is_record(path) is not None) is exempt, (
+        f"_is_record({path!r}) is "
+        f"{'exempt' if _is_record(path) else 'live'}; expected "
+        f"{'exempt' if exempt else 'live'}"
+    )
 
 
 @pytest.mark.parametrize("spelling", [

@@ -215,6 +215,75 @@ def test_EVERY_ROW_THIS_CHECK_COUNTS_ACTUALLY_RENDERS_AS_A_TABLE_ROW() -> None:
     )
 
 
+def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
+    """A row with a surplus `|` renders TRUNCATED, and everything stays green.
+
+    THE SIBLING ABOVE ASKS WHETHER A ROW RENDERS AT ALL; THIS ASKS WHETHER IT
+    RENDERS WHOLE, and the two are different failures with the same green.
+    GitHub-flavoured markdown splits a table row on `|` BEFORE it parses inline
+    content, so a pipe inside an inline code span — a regex alternation, a
+    shell pipeline in the evidence — is a cell break. GFM then DROPS every cell
+    past the header's count, and the last surviving cell is cut at the offending
+    pipe. Nothing errors and nothing warns.
+
+    MEASURED ON THIS FILE, RENDERED THROUGH GITHUB'S OWN `/markdown` API rather
+    than reasoned about: three rows were truncated at once. C-101 lost 2158 of
+    its 2769 characters at `` `git show … | grep -c …` ``; C-093 lost 2818 of
+    3561 at `` `grep -rn 'hour|hrs'` ``; C-062 lost its adjudication at a
+    `(MiB|GiB|MB|GB|KiB)` character class. What is lost is always the RIGHT-HAND
+    side of the row — which in this table is the `Note`, i.e. the evidence a
+    human triaging the candidate is supposed to weigh. The row keeps its id, its
+    `decision` and its `status`, so every derived count in this module was
+    correct over all three and every one of them was green.
+
+    THE ESCAPE IS `\\|`, AND IT WORKS INSIDE A CODE SPAN — the escape is
+    processed at cell-splitting time and the backslash does not survive into the
+    rendered code. This file already relied on that at C-056 and C-064 before
+    anyone stated it.
+
+    WHY THIS BELONGS HERE. This module's own subject is a file whose claims
+    drift from its contents, and its sibling above already records the class:
+    *"it checked the pattern that stands in for the property instead of the
+    property."* The source text is a stand-in for the rendering. The module even
+    keeps a second regex, `_RAW_ROW`, precisely because the rendering check
+    needs the cell as typed — and then never counted the cells.
+
+    WHAT THIS DOES NOT LOOK AT. It is a CELL-COUNT check, not a rendering
+    check: it cannot see a row that renders as a paragraph (the sibling above
+    holds that), an unbalanced backtick, or a cell whose content is malformed in
+    any way that does not change how many cells there are. And it says nothing
+    about the OTHER tables in this file — its population is the candidate table's
+    `C-NNN` rows, which is where the evidence lives.
+    """
+    text = _text()
+    header = next(
+        line for line in text.split("\n")
+        if line.startswith("| ID |") or (
+            line.startswith("|") and "`decision`" in line and "`status`" in line
+        )
+    )
+
+    def _cells(line: str) -> int:
+        """Cells a GFM renderer sees. `\\|` is an escape and never splits."""
+        return len(re.split(r"(?<!\\)\|", line))
+
+    expected = _cells(header)
+    wrong = [
+        (line.split("|")[1].strip(), _cells(line))
+        for line in text.split("\n")
+        if _ROW.match(line) and _cells(line) != expected
+    ]
+    assert not wrong, (
+        f"these rows do not split into the header's {expected} fields, so "
+        f"GitHub drops their surplus cells and truncates the last one that "
+        f"survives — the Note, which is the evidence: "
+        + "; ".join(f"{cid} ({n} fields)" for cid, n in wrong)
+        + ". Escape the pipe as `\\|`. It is honoured inside an inline code "
+          "span, so a regex alternation or a shell pipeline in the evidence "
+          "stays readable. Do NOT resolve this by deleting the evidence."
+    )
+
+
 # --- each declaration is FOUND, before it is compared ---------------------
 #
 # A pattern that stops matching is the failure this file exists to prevent,

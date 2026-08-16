@@ -26,16 +26,34 @@ THE THREE FAILURE MODES, none of which is loud:
 Mode 2 is the one worth stating plainly: the hook's own tests pass whether or not
 the file is reachable from a dispatch, because they invoke it by path directly.
 
-THE THREE MODES ARE NOT THIS FILE'S INVENTION — they are the three breakage
-shapes `workflow-scripts.md` § *The safety-layer invariant* names in one
-sentence: *"adding, narrowing or reordering `--setting-sources`, moving hook
-configuration between scopes, or changing what `install.sh` symlinks."* That
-mapping is written down here because the first two passes over this file each
+THE MODES ARE NOT THE STANDARD'S SHAPES, AND CONFLATING THEM COSTS A PASS. The
+modes above are how the wiring FAILS; `workflow-scripts.md` § *The safety-layer
+invariant* names how it BREAKS — *"adding, narrowing or reordering
+`--setting-sources`, moving hook configuration between scopes, or changing what
+`install.sh` symlinks."* Those are different lists that happen to be the same
+length, and an earlier revision of this docstring asserted they were the same
+list. They are not: mode 1 corresponds to no shape at all, and shape (b) is held
+by a test that is not one of the modes. The correspondence, so the next pass
+checks it rather than rediscovering it:
+
+  | Shape (`workflow-scripts.md` § The safety-layer invariant) | Held by |
+  |---|---|
+  | (a) adding, narrowing or reordering `--setting-sources` | `test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in`, with `test_the_settings_source_sweep_SEES_every_file_that_DISPATCHES_claude` as its anchor |
+  | (b) moving hook configuration between scopes | `test_the_hook_is_declared_in_the_file_install_sh_puts_at_USER_scope` |
+  | (c) changing what `install.sh` symlinks | `test_every_hook_command_RESOLVES_to_an_executable_file`, via `_symlink_targets` and `_install_dirs` reading both directories OUT of install.sh |
+  | *(no shape — the declaration itself)* | `test_the_safety_hook_is_DECLARED_on_Bash`, mode 1 |
+
+The right-hand column is CHECKED, not asserted — see
+`test_the_shape_to_test_MAPPING_above_names_tests_that_exist` at the bottom of
+this file. A prose table naming code is a second copy of a fact the module
+already owns, and a renamed test would leave it pointing at nothing while every
+test here stayed green. That is the same defect class as a hand-typed count.
+
+That mapping is written down because the first two passes over this file each
 closed the instance in front of them without pulling up the standard that
 already enumerated the full set, and the coverage that resulted was one shape
 guarded blind, one guarded against a hardcoded assumption, and one not guarded
-at all. Every test below names the shape it holds, so the next pass can check
-the list rather than rediscover it.
+at all.
 """
 from __future__ import annotations
 
@@ -101,7 +119,15 @@ def _symlink_targets() -> list[str]:
         f"nothing here can tell what it links. The install mechanism changed "
         f"shape; these tests read it and must change with it."
     )
-    return re.findall(r'"([^"]+)"', block.group(1))
+    # COMMENTS ARE STRIPPED FIRST, and that is not tidiness. Deleting a target
+    # is how a reader imagines this shape breaking; COMMENTING IT OUT is how
+    # bash is actually edited — `# "hooks"` while debugging, never restored.
+    # Reading the raw array body finds the quoted string inside the comment, so
+    # install.sh links nothing into `~/.claude/hooks/`, every hook command in
+    # settings.json names a path that will never exist, and every assertion
+    # below stays green. That is the third breakage shape landing silently in
+    # the file written to catch it.
+    return re.findall(r'"([^"]+)"', re.sub(r"#[^\n]*", "", block.group(1)))
 
 
 def _install_dirs() -> tuple[Path, Path]:
@@ -125,8 +151,30 @@ def _install_dirs() -> tuple[Path, Path]:
             f"shape; these tests read it and must change with it."
         )
         found[name] = assign.group(1)
-    config = Path(found["CONFIG_DIR"].replace("$REPO_DIR", str(REPO_ROOT)))
-    claude = Path(found["CLAUDE_DIR"].replace("$HOME", str(Path.home())))
+    # `${REPO_DIR}` AND `$REPO_DIR` ARE THE SAME SHELL, and a `.replace()` on
+    # the brace-less spelling only handles one of them. Rewrite install.sh's
+    # line to the equally idiomatic `CONFIG_DIR="${REPO_DIR}/config"` and the
+    # substitution silently does nothing: `config` becomes the literal relative
+    # path `${REPO_DIR}/config`, and the caller's `Path.relative_to(REPO_ROOT)`
+    # then raises `ValueError` — so the suite reports a broken TEST rather than
+    # broken hook wiring, on the module guarding the fleet's only live control.
+    def _expand(raw: str, var: str, value: str) -> str:
+        return re.sub(rf"\$\{{{var}\}}|\${var}\b", value.replace("\\", "\\\\"), raw)
+
+    config = Path(_expand(found["CONFIG_DIR"], "REPO_DIR", str(REPO_ROOT)))
+    claude = Path(_expand(found["CLAUDE_DIR"], "HOME", str(Path.home())))
+    # FAIL HERE, NAMING THE UNEXPANDED VALUE, rather than letting an unexpanded
+    # `$VAR` travel into a caller that reports a confusing error about a path.
+    for name, resolved, raw in (
+        ("CONFIG_DIR", config, found["CONFIG_DIR"]),
+        ("CLAUDE_DIR", claude, found["CLAUDE_DIR"]),
+    ):
+        assert "$" not in str(resolved) and resolved.is_absolute(), (
+            f"install.sh's {name}={raw!r} did not expand to an absolute path "
+            f"(got {str(resolved)!r}). It uses a shell construction this parse "
+            f"does not know — teach `_expand` that spelling; do not work around "
+            f"it downstream, because every check here rests on this mapping."
+        )
     return config, claude
 
 
@@ -225,9 +273,12 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
         rename, a deletion, or a `chmod` — every way the wiring can break in a
         commit, which is what a merge gate can act on.
       * **The INSTALLED end is a property of this machine** and is checked only
-        where there is an installation to check. On a workstation this still
-        catches `install.sh` never having been run, or the link having been
-        clobbered.
+        where there is an installation to check — which is asked with
+        `os.path.lexists`, about the LINK, not with `is_dir()`, which follows it
+        and so answers a question that is already the answer. On a workstation
+        this still catches `install.sh` never having been run, or the link
+        having been clobbered — including the dangling-link case, which is what
+        a repo move after installation leaves behind.
 
     WHAT IT NO LONGER LOOKS AT, stated so the narrowing is visible: on a machine
     with no `~/.claude/hooks/` at all it cannot tell you the hook is unlinked —
@@ -237,9 +288,26 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
     reading is gone.
     """
     installed_hooks = _installed_hooks()
+    # `is_dir()` FOLLOWS SYMLINKS, and every installation here IS a symlink, so
+    # asking it "does an installation exist?" answers "does the link still
+    # resolve?" — which is the very breakage the branch below is for. Move or
+    # rename the repo after `install.sh` ran and `~/.claude/hooks` is a DANGLING
+    # link: `is_dir()` is False, the check is skipped, and the test passes on a
+    # machine where the safety hook genuinely does not resolve. `lexists` asks
+    # about the link itself, which is the question actually being put.
+    is_installed = os.path.lexists(installed_hooks)
     broken = []
     for event, matcher, hook in _hooks():
-        target = _resolve(hook.get("command", ""))
+        command = hook.get("command", "")
+        if not command.strip():
+            # A hook entry with no command cannot be resolved, and `_resolve`
+            # would raise `IndexError` on the empty split rather than say so.
+            broken.append(
+                f"{event}/{matcher}: the hook entry declares no `command`, so "
+                f"nothing runs on this event and no path can be checked"
+            )
+            continue
+        target = _resolve(command)
         if target.parent != installed_hooks:
             broken.append(
                 f"{event}/{matcher}: {target} is not under {installed_hooks}, "
@@ -264,7 +332,7 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
                 f"{event}/{matcher}: {source.relative_to(REPO_ROOT)} is not "
                 f"executable, so the link resolves and the hook still never runs"
             )
-        elif installed_hooks.is_dir() and not target.is_file():
+        elif is_installed and not target.is_file():
             broken.append(
                 f"{event}/{matcher}: {installed_hooks} exists but {target} does "
                 f"not — install.sh has not been run since this hook was added, "
@@ -455,4 +523,37 @@ def test_the_settings_source_sweep_SEES_every_file_that_DISPATCHES_claude() -> N
         "test would stay green — which is exactly what happened on 2026-08-16 "
         "when the sweep was scoped to `*.py` and the only dispatcher was "
         "shell:\n  " + "\n  ".join(missed)
+    )
+
+
+def test_the_shape_to_test_MAPPING_above_names_tests_that_exist() -> None:
+    """The module docstring's shape table is a claim about this file; check it.
+
+    A prose table mapping the standard's breakage shapes onto the tests that
+    hold them is a SECOND declaration of a fact this module already owns, and
+    the one thing it cannot do is notice when it stops being true. Rename any
+    test below and the table quietly points at nothing while all five tests
+    stay green — the reader who checks *"is shape (b) covered?"* against a
+    stale name concludes it is not, or worse, concludes it is when the test it
+    names was deleted.
+
+    This is the same defect class as a hand-typed count and it has the same
+    remedy: derive the check rather than restate the fact. What it does NOT
+    look at is whether the test a row names actually holds that shape — that is
+    a judgement, and it lives in each test's own docstring.
+    """
+    source = Path(__file__).read_text(encoding="utf-8")
+    docstring = source.split('"""')[1]
+    named = set(re.findall(r"`(test_[A-Za-z0-9_]+)`", docstring))
+    assert named, (
+        "the docstring names no test at all — the shape-to-test table was "
+        "removed or reformatted, and this check now reads nothing"
+    )
+    defined = set(re.findall(r"^def (test_[A-Za-z0-9_]+)", source, re.M))
+    missing = sorted(named - defined)
+    assert not missing, (
+        "the module docstring's shape table names tests this file does not "
+        "define: " + ", ".join(missing)
+        + ". Either the test was renamed and the table was not, or a shape is "
+          "recorded as covered by something that no longer exists."
     )

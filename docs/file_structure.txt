@@ -547,9 +547,11 @@ claude-dot-files/
 │   │       │                                        #   paragraph was hand-written three times and wrong twice — the third time
 │   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read. Also
 │   │       │                                        #   that every row RENDERS its flags the way § Two flags declares them, the
-│   │       │                                        #   vocabulary read off that section rather than hard-coded here
-│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
-│   │       ├── test_prompt_budgets.py             # Every prompt carries a byte budget, so ADDING to one is a trade
+│   │       │                                        #   vocabulary read off that section rather than hard-coded here. Also
+│   │       │                                        #   that every row splits into the header's CELL COUNT — an unescaped
+│   │       │                                        #   `|` inside a code span truncated three rows on GitHub while every
+│   │       │                                        #   gate stayed green, because the source was read and never the render
+│   │       ├── test_prompt_budgets.py               # Every prompt carries a byte budget, so ADDING to one is a trade
 │   │       │                                        #   rather than free. Prompts grew 224->317 KB in seven days under
 │   │       │                                        #   review — adding is visible work, removing is nobody's job
 │   │       ├── test_relative_links_resolve.py       # Every relative markdown link in a file this repo OWNS points at a
@@ -558,8 +560,8 @@ claude-dot-files/
 │   │       │                                        #   research citations and skills' examples are excluded by name
 │   │       ├── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │       │                                        #   checks, because every existing check was aimed at code rather than prose
-│   │       └── test_retired_vocabulary_is_gone_from_live_surfaces.py
-│   │                                                # The retired Kind 1/2/3 labels survive only where they are a RECORD. Reads every
+│   │       └── test_retired_vocabulary_is_gone_from_live_surfaces.py # The retired Kind 1/2/3 labels survive only
+│   │                                                #   where they are a RECORD. Reads every
 │   │                                                #   tracked file as WHITESPACE-NORMALISED text — a different instrument than the
 │   │                                                #   line-based grep that did the sweep and then verified it, which shared its every
 │   │                                                #   blind spot. Four passes, five spellings: spaced, wrapped across a newline,
