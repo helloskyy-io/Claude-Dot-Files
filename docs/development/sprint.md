@@ -176,6 +176,27 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
+## Sprint: Persistent Memory Protocol — 📋 QUEUED, PLANNED AND READY TO BUILD
+
+**Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — roadmap plus eight phase docs.
+
+**All of memory in this fleet — the framework and the protocol.** It owns what kinds of record exist and how long each lives, the typed record a child writes at exit, the durable journal every write also lands in, and the rules that keep the two honest. There is no second memory component.
+
+Today a finished run is scattered across a pull request, a markdown table and a log file nothing reads. This makes the journal the truth and everything else a projection of it: **if any store gets something, the journal gets it verbatim, and the store can be rebuilt from the journal.** [Phase 4](persistent-memory-protocol/phase4_rebuild_is_a_test.md) is what makes that enforceable rather than aspirational — it replays the journal and diffs the result against the live store, so completeness cannot decay silently.
+
+**Phases 1–4 have no external gate and depend only on each other.** The remaining four wait on something named, and each gate is a fact about the calendar rather than a limit on the design.
+
+- [ ] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
+- [ ] **Phase 2 · The content store** — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
+- [ ] **Phase 3 · The emit rule** — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
+- [ ] **Phase 4 · Rebuildability is a test** — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
+- [ ] **Phase 5 · Snapshots, then retention** — the 1 GB budget governs the whole journal with nothing exempt. *Gate: the Temporal server, for the recurring half only*
+- [ ] **Phase 6 · CPI reads the journal** — moves the continuous-improvement evidence sweep off comment-scraping. *Gate: the Python port of `review-runs`, not the server*
+- [ ] **Phase 7 · Cross-machine aggregation** — write locally first, ship bags to a bucket per edge. *Gate: a second machine that actually produces runs*
+- [ ] **Phase 8 · The poller** — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
+
+**Sequenced behind Workflow Decomposition rather than gated on it.** Phase 3 has to enumerate every write path in the fleet, and decomposition is still changing what those paths are — the same reason Temporal Integration waits on a settled shape rather than porting one still in motion.
+
 ## Sprint: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
 
 **Phase doc:** not yet written. **The boundary decision comes first** — the mechanism follows from it, and picking a mechanism first is backwards.
