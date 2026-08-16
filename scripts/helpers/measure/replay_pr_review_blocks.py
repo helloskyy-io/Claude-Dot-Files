@@ -76,7 +76,7 @@ CATEGORY = re.compile(r"^\s*category:\s*([^\s#]+)", re.MULTILINE)
 # and the convergence rate this tool measures is silently wrong.
 #
 # BYTE-IDENTICAL to `review_pr_helper._FINDINGS_SECTION` and paired in
-# `SHARED_KIND_ONE_PATTERNS`, because both readers now anchor: the live path's
+# `SHARED_WORKING_RECORD_PATTERNS`, because both readers now anchor: the live path's
 # render↔record invariant and this tool's denominator would otherwise disagree
 # about what a finding is, which is the drift that gate exists to catch.
 #

@@ -68,7 +68,7 @@ Three document layers, one owner each: **`sprint.md`** (clean, one entry per com
 
 **A `phaseN_` number is IDENTITY, not order.** It names the phase for life, the way a ticket number does; rollout order lives in the roadmap's ordering and execution order in `sprint.md`, and both are mutable while the filename is not. A phase ships first or last without being renamed. (The inverse holds for sprints — *named, never numbered* — because there an ordinal encodes a judgement the plan exists to revise. **Phases are identities; sprints are sequences.**)
 
-The chain remains gated on the Memory Management Framework — at seven children the prose handoff channel stops being survivable.
+The chain remains gated on the [Persistent Memory Protocol](../development/persistent-memory-protocol/roadmap.md) — at seven children the prose handoff channel stops being survivable. *(It named the Memory Management Framework until that component was retired into PMP on 2026-08-16; the gate is unchanged, only its owner moved.)*
 
 ---
 

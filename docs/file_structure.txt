@@ -113,9 +113,11 @@ claude-dot-files/
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
 │   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
 │   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
-│   │   │   ├── roadmap.md                           # Opens in plain words with a terms table; states the protocol WHOLE (eight
-│   │   │   │                                        #   commitments) before any ordering; QUESTIONS the Memory Management Framework in
-│   │   │   │                                        #   four challenges with the MMF-side change proposed for each; a 15-concept coverage
+│   │   │   ├── roadmap.md                           # Opens in plain words with a terms table; states the protocol WHOLE (nine
+│   │   │   │                                        #   commitments) before any ordering; § The four kinds of record is the SINGLE
+│   │   │   │                                        #   WRITER of the memory taxonomy and carries § Reading the old names, the
+│   │   │   │                                        #   Kind 1/2/3 → working record/typed exit record/measurement samples map;
+│   │   │   │                                        #   § Absorbed work records what came over when MMF retired; a 15-concept coverage
 │   │   │   │                                        #   map; and the operator calls the plan carries WITHOUT deciding — storage budget,
 │   │   │   │                                        #   snapshot cadence, what a machine is, and Phase 7's egress/ingress rulings
 │   │   │   ├── phase1_the_run_bag.md                # Configurable root, folder per run keyed by run_id (NEVER by path), subfolder per
@@ -554,8 +556,16 @@ claude-dot-files/
 │   │       │                                        #   file that exists. 29 were broken and none had been caught; every
 │   │       │                                        #   one was a `../` count off by one or two. Vendored standards,
 │   │       │                                        #   research citations and skills' examples are excluded by name
-│   │       └── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
-│   │                                                #   checks, because every existing check was aimed at code rather than prose
+│   │       ├── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
+│   │       │                                        #   checks, because every existing check was aimed at code rather than prose
+│   │       └── test_retired_vocabulary_is_gone_from_live_surfaces.py
+│   │                                                # The retired Kind 1/2/3 labels survive only where they are a RECORD. Reads every
+│   │                                                #   tracked file as WHITESPACE-NORMALISED text — a different instrument than the
+│   │                                                #   line-based grep that did the sweep and then verified it, which shared its every
+│   │                                                #   blind spot. Four passes, five spellings: spaced, wrapped across a newline,
+│   │                                                #   UPPERCASE, hyphenated, and the number as a word inside an identifier. The
+│   │                                                #   record set is declared here ONCE; file_structure.txt is scoped by LINE, since
+│   │                                                #   it annotates live and retired surfaces in one file
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it

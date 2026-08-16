@@ -565,7 +565,7 @@ def test_the_child_schema_cannot_express_the_computed_abstention_arm() -> None:
     assert set(outcomes) == {o.value for o in er.Outcome}
 
 
-def test_the_kind_one_reference_is_not_typed_as_a_url() -> None:
+def test_the_working_record_reference_is_not_typed_as_a_url() -> None:
     """A component whose work product is not code in git has no PR to point at.
 
     The guard is that the reference carries a `substrate` discriminator and an
@@ -1250,7 +1250,7 @@ def test_the_archive_shape_that_produced_the_wrong_pass_number() -> None:
 # same commit introduced went ungated and had already drifted (`\s` vs `[ \t]`),
 # with both suites green. Adding a shared regex is now a row here, and
 # `test_the_shared_parse_ENUMERATION_is_complete` fails until it is.
-SHARED_KIND_ONE_PATTERNS = (
+SHARED_WORKING_RECORD_PATTERNS = (
     ("PR_REVIEW_BLOCK", "FENCE"),
     ("_FINDING_ID", "FINDING_ID"),
     ("_FINDING_ITEM", "FINDING_ENTRY"),
@@ -1315,8 +1315,8 @@ def _load_replay_module():
     return module
 
 
-@pytest.mark.parametrize("helper_name,replay_name", SHARED_KIND_ONE_PATTERNS)
-def test_the_kind_one_SHARED_PARSE_is_one_declaration_across_both_python_readers(
+@pytest.mark.parametrize("helper_name,replay_name", SHARED_WORKING_RECORD_PATTERNS)
+def test_the_working_record_SHARED_PARSE_is_one_declaration_across_both_python_readers(
     helper_name: str, replay_name: str,
 ) -> None:
     """§6 covers the record's schema AND ITS ADDRESS, and the address is the
@@ -1374,8 +1374,8 @@ def test_the_shared_parse_ENUMERATION_is_complete() -> None:
     list retires itself the moment it passes.
     """
     module = _load_replay_module()
-    helper_gated = {h for h, _ in SHARED_KIND_ONE_PATTERNS}
-    replay_gated = {r for _, r in SHARED_KIND_ONE_PATTERNS}
+    helper_gated = {h for h, _ in SHARED_WORKING_RECORD_PATTERNS}
+    replay_gated = {r for _, r in SHARED_WORKING_RECORD_PATTERNS}
 
     helper_patterns = {n for n, v in vars(helper).items() if isinstance(v, re.Pattern)}
     replay_patterns = {n for n, v in vars(module).items() if isinstance(v, re.Pattern)}
@@ -1385,7 +1385,7 @@ def test_the_shared_parse_ENUMERATION_is_complete() -> None:
         f"the declared one-sided ones — ungated: "
         f"{sorted(helper_patterns - helper_gated - HELPER_ONLY_PATTERNS)}, "
         f"stale: {sorted((helper_gated | HELPER_ONLY_PATTERNS) - helper_patterns)}. "
-        f"Add the pair to SHARED_KIND_ONE_PATTERNS, or state why it is one-sided."
+        f"Add the pair to SHARED_WORKING_RECORD_PATTERNS, or state why it is one-sided."
     )
     assert replay_patterns == replay_gated | REPLAY_ONLY_PATTERNS, (
         f"replay_pr_review_blocks' regexes are no longer exactly the gated set "
@@ -2174,6 +2174,19 @@ def test_a_cross_channel_reference_names_the_stage_that_OWNS_that_channel(
     prompt = _disposition_prompt()
     if what == "the typed record":
         cited = set(re.findall(r"typed exit record you emit in Stage (\d+[a-z])", prompt))
+        # A SUBSET ASSERTION IS SATISFIED BY THE EMPTY SET, so the check below
+        # reports clean the moment the prompt stops carrying the phrase it
+        # reads — a rewording, not a deletion, and the wording HAS moved before
+        # (`fb85c3e`, which this gate exists to catch). Pin the reading first:
+        # the gate must fail because the reference is wrong, never because it
+        # went looking and found nothing.
+        assert cited, (
+            "the prompt no longer says 'the typed exit record you emit in "
+            "Stage <N><x>' anywhere, so this gate read nothing and its subset "
+            "assertion below passes vacuously. If the sentence was reworded, "
+            "move this pattern with it; if the cross-reference was deleted on "
+            "purpose, delete this gate and say so."
+        )
         assert cited <= {owner}, (
             f"the prompt says the record is emitted in Stage {sorted(cited)} "
             f"while Stage {owner} is the one that instructs the tool call"
