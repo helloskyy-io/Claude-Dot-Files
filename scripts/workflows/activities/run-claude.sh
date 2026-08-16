@@ -131,6 +131,114 @@ print_cycle_totals() {
     printf "Cycle totals (%s, %d runs): \$%s · %d turns\n" "$current_month" "$run_count" "$total_cost" "$total_turns"
 }
 
+# ---------------------------------------------------------------------------
+# What the worktree ACTUALLY holds — read from git, printed as facts.
+#
+# THE BANNER BELOW USED TO ASSERT THIS WITHOUT LOOKING. It printed "Work is
+# uncommitted at: <wt>" and "NOTHING was committed or pushed." on every turn-cap
+# termination, and it was FALSE the first time it mattered: PR #56's redispatch
+# hit the 100-turn cap while printing the PR URL — the last step — with every
+# deliverable already pushed and CI green (issue #65). A wrong claim about state
+# is worse than no claim: it sends an operator to salvage an empty tree, and can
+# get work that is already merge-ready re-dispatched, paying a second full
+# budget and opening a conflicting branch. Silence sends them to look; a
+# confident sentence sends them somewhere.
+#
+# WHAT THIS DOES NOT LOOK AT, stated because not asking it is what produced the
+# defect. This reads the LOCAL tree only. It does not ask the forge whether a PR
+# exists, whether CI passed, or whether the branch merged — so "pushed" here
+# means exactly "the branch's upstream ref contains every local commit", which
+# is why that arm says CHECK THE PR rather than claiming the work landed. It
+# also says nothing about whether the pushed work is CORRECT.
+#
+# CANNOT-DETERMINE IS A STATE, NOT THE CLEAN CASE. A worktree already removed, a
+# tree that is not a repository, a detached HEAD, and a branch with no upstream
+# each have no local answer. Each gets its own line saying so. Collapsing any of
+# them into "nothing was pushed" would rebuild the defect with better plumbing.
+#
+# NO `local x=$(...)` ANYWHERE BELOW. That form's exit status is `local`'s, not
+# the command's, so a failing git would read as success. Declared first, then
+# assigned — which also keeps every status explicit for the `set -euo pipefail`
+# callers: every V1 child runs under errexit and calls `run_claude` unguarded,
+# so an unguarded non-zero here would kill the workflow inside the banner that
+# exists to explain why it died.
+worktree_delivery_state() {
+    local wt="$1"
+
+    if [[ ! -d "$wt" ]]; then
+        echo "  ? The worktree is NOT on disk: ${wt}"
+        echo "    Committed and pushed state cannot be determined from here — check the PR."
+        return 0
+    fi
+    local toplevel
+    if ! toplevel=$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null); then
+        echo "  ? ${wt} is not a readable git worktree."
+        echo "    Committed and pushed state cannot be determined from here — check the PR."
+        return 0
+    fi
+    # AND IT MUST BE *THIS* WORKTREE'S ROOT. The fleet's worktrees live at
+    # <repo>/.claude/worktrees/<name>, INSIDE the parent repository — so a
+    # leftover directory there (a `git worktree remove` that partially failed,
+    # a stale mkdir) is still a path `git -C` answers for, by walking up to the
+    # PARENT. That answer is the main checkout's branch and the main checkout's
+    # dirt, reported as this run's. It is the same defect this function exists
+    # to remove, reached through a path the -d test above cannot see.
+    local wt_real top_real
+    wt_real=$(cd "$wt" && pwd -P) || wt_real=""
+    top_real=$(cd "$toplevel" && pwd -P) || top_real=""
+    if [[ -z "$wt_real" || "$wt_real" != "$top_real" ]]; then
+        echo "  ? ${wt} exists but is not a worktree root — git answers there for ${toplevel}."
+        echo "    This run's committed and pushed state cannot be determined from here — check the PR."
+        return 0
+    fi
+    local porcelain
+    if ! porcelain=$(git -C "$wt" status --porcelain 2>/dev/null); then
+        echo "  ? ${wt} is not a readable git worktree."
+        echo "    Committed and pushed state cannot be determined from here — check the PR."
+        return 0
+    fi
+
+    # UNCOMMITTED AND UNPUSHED ARE INDEPENDENT, and both are reported. The
+    # original banner used one sentence for both, which is how a fully-pushed
+    # tree got described as unsalvaged work.
+    local dirty=0
+    [[ -z "$porcelain" ]] || dirty=$(printf '%s\n' "$porcelain" | wc -l)
+    if [[ "$dirty" -gt 0 ]]; then
+        echo "  ✗ ${dirty} path(s) carry UNCOMMITTED changes at: ${wt}"
+    else
+        echo "  ✓ Working tree is clean — nothing uncommitted at: ${wt}"
+    fi
+
+    local branch upstream unpushed
+    branch=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null) || branch=""
+    upstream=$(git -C "$wt" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null) || upstream=""
+
+    if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
+        echo "  ? HEAD is detached — there is no branch, so whether the work was pushed"
+        echo "    has no local answer. Check the PR."
+        return 0
+    fi
+    if [[ -z "$upstream" ]]; then
+        echo "  ? Branch '${branch}' has no upstream ref — whether it was pushed cannot be"
+        echo "    determined from here. Check the PR, or: git -C ${wt} log --oneline"
+        return 0
+    fi
+    # The remote-tracking ref, NOT the remote. Read locally and deliberately: a
+    # fetch inside a failure banner is a network call on a path whose whole job
+    # is to print. A push made by this run updates the tracking ref, which is
+    # the case this arm has to get right.
+    unpushed=$(git -C "$wt" log --oneline "${upstream}..HEAD" 2>/dev/null | wc -l) || unpushed=""
+    if [[ -z "$unpushed" ]]; then
+        echo "  ? Could not compare '${branch}' against '${upstream}' — pushed state unknown."
+    elif [[ "$unpushed" -gt 0 ]]; then
+        echo "  ✗ ${unpushed} commit(s) on '${branch}' are NOT pushed to '${upstream}'."
+    else
+        echo "  ✓ '${branch}' is fully pushed to '${upstream}' — the cap may have fired AFTER"
+        echo "    the work landed. CHECK THE PR BEFORE REDISPATCHING: re-running work that is"
+        echo "    already merge-ready costs a second budget and can open a conflicting branch."
+    fi
+}
+
 run_claude() {
     local prompt="$1"
     shift
@@ -276,12 +384,11 @@ run_claude() {
             echo "================================================================"
             echo "  ⚠ RUN TERMINATED AT TURN CAP (${MAX_TURNS} turns)"
             echo "================================================================"
-            echo "  Work is uncommitted at: ${wt}"
-            echo "  NOTHING was committed or pushed."
+            worktree_delivery_state "$wt"
             echo
-            echo "  Most often this means the task was mis-sized for this workflow —"
-            echo "  a heavier one (build.sh / build-phase.sh) may"
-            echo "  fit better, or the task may need splitting."
+            echo "  If work is genuinely incomplete above, the task was probably mis-sized"
+            echo "  for this workflow — a heavier one (build.sh / build-phase.sh) may fit"
+            echo "  better, or the task may need splitting."
             echo
             echo "  Inspect:  cd ${wt} && git status"
             echo "================================================================"

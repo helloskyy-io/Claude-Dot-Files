@@ -252,6 +252,9 @@ claude-dot-files/
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
 │   │           ├── test_check_settings.py           # NC-A..K negative controls for check_settings.py's hook-path validator (Testing Standard § Mutation evidence)
+│   │           ├── test_lint_prompts_claims_only_what_ran.py  # lint-prompts.sh may claim only the passes that RAN (#57): with yq stripped from PATH the
+│   │           │                                    #   summary makes no MODEL_KEY claim, with yq it claims a NON-ZERO count, STRICT makes a skip fatal,
+│   │           │                                    #   and a scan over an empty tree is a failure rather than a tick
 │   │           ├── test_replay_completion_predicate.py  # Guards the anchoring and strict-vs-loose gap E5's zero depends on (3 mutation-proven)
 │   │           ├── test_replay_convergence_predicate.py  # Guards both early-fire counters — the OBSERVED one (a later pass reopened work)
 │   │           │                                    #   and the circular self-reported one — plus comment-order sequencing, the pass-1
@@ -457,6 +460,9 @@ claude-dot-files/
 │                   │                                #   and ${CONTEXT_BLOCK} is assembled from pieces write_minor.md does not author — which
 │                   │                                #   is exactly where the one live defect this suite's file-only checks all missed lived
 │                   ├── test_runner_discovery.py     # An orphaned test file FAILS the suite — runs python.sh against a synthetic tree
+│                   ├── test_turn_cap_banner_reads_the_worktree.py # The turn-cap banner reports the tree it can SEE (#65): worktree_delivery_state
+│                   │                                #   extracted from run-claude.sh and run under the callers' `set -euo pipefail` against real
+│                   │                                #   git fixtures — dirty, unpushed, fully-pushed, gone, no-upstream, detached, leftover-dir
 │                   └── test_testpaths_matches_discovery.py # pytest.ini's testpaths lists every tests/ dir python.sh discovers — a bare
 │                                                        #   `pytest` must never silently cover less than run-all.sh while both report green
 │

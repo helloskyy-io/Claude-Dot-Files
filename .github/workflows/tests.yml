@@ -114,34 +114,37 @@ jobs:
       # workflow-scripts.md already says prompt edits MUST pass this. It was a
       # MUST enforced by memory: referenced in three docs, gated nowhere.
       #
-      # WHY THE `yq` ASSERTION BELOW, AND WHY IT IS NOT PEDANTRY: the lint's
-      # Pass 3 (every MODEL_KEY resolves in config.yaml) is guarded by
-      # `command -v yq` and SELF-SKIPS when yq is absent — while still printing
-      # the clean "every MODEL_KEY resolves" line. And Pass 3 is the ONLY thing
-      # anywhere that checks the 12 bash-fleet MODEL_KEYs: the pytest that looks
-      # like a backstop, test_model_keys_resolve.py, sweeps `modules/assistant`
-      # for the Python spelling `MODEL_KEY = "..."` and says so in its own
-      # docstring — the two cover DISJOINT sets, not overlapping ones. So on a
-      # runner that ever stops shipping yq, coverage of the bash fleet silently
-      # drops to zero behind a green tick. ubuntu-latest ships yq today, which
-      # means Pass 3 does run here; asserting it makes that a fact the gate
-      # enforces rather than a property of the image. The class Pass 3 catches
-      # is a RENAME (revision.sh -> revision-minor.sh moved the config key while
-      # MODEL_KEY kept the old name, leaving the workflow unlaunchable and
-      # silent about it until someone tried to dispatch). Tracked at #57.
+      # WHY `LINT_PROMPTS_STRICT=1`, AND WHY IT IS NOT PEDANTRY: the lint's
+      # Pass 3 (every MODEL_KEY resolves in config.yaml) is guarded on `yq`
+      # being installed and SELF-SKIPS when it is absent. Pass 3 is the ONLY
+      # thing anywhere that checks the 12 bash-fleet MODEL_KEYs: the pytest that
+      # looks like a backstop, test_model_keys_resolve.py, sweeps
+      # `modules/assistant` for the Python spelling `MODEL_KEY = "..."` and says
+      # so in its own docstring — the two cover DISJOINT sets, not overlapping
+      # ones. So on a runner that ever stops shipping yq, coverage of the bash
+      # fleet drops to zero. ubuntu-latest ships yq today, which means Pass 3
+      # does run here; STRICT makes that a fact the gate enforces rather than a
+      # property of the image. The class Pass 3 catches is a RENAME
+      # (revision.sh -> revision-minor.sh moved the config key while MODEL_KEY
+      # kept the old name, leaving the workflow unlaunchable and silent about it
+      # until someone tried to dispatch).
+      #
+      # THIS STEP USED TO HAND-ROLL THE `command -v yq` CHECK, because the lint
+      # printed "every MODEL_KEY resolves" whether or not Pass 3 ran (issue
+      # #57). That is fixed at the source: the lint now reports per-pass what it
+      # examined, and STRICT is the ruling — "a pass that cannot run is a
+      # failure" — declared once, beside the pass, rather than re-derived by
+      # every caller. A CI step that re-implements a script's own precondition
+      # is a second declaration that drifts.
       #
       # DOES NOT CATCH: whether a prompt says something sensible — only that
       # constructing it does not execute anything. Passes 1 and 2, the outage
       # class above, need nothing beyond bash.
       - name: Prompt-construction lint
         if: '!cancelled()'
-        run: |
-          command -v yq >/dev/null || {
-            echo "yq is absent: lint-prompts.sh Pass 3 would self-skip and still report clean."
-            echo "That would leave the 12 bash-fleet MODEL_KEYs ungated. Failing loudly instead."
-            exit 1
-          }
-          ./scripts/helpers/lint-prompts.sh
+        env:
+          LINT_PROMPTS_STRICT: '1'
+        run: ./scripts/helpers/lint-prompts.sh
 
       # NOT GATED HERE: scripts/helpers/vendor-standards.sh --check, the drift
       # detector for the four vendored MIRROR standard sets CLAUDE.md forbids
