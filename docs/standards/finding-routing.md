@@ -2,7 +2,7 @@
 
 **This document owns one question end to end: a run — or a human — has found something. Where does it go?**
 
-It exists because that question had no owner. The rules lived in six documents, four local and two mirrored, and they disagreed at the seams. **Every section marked `INTERFACE` is general and is a candidate for upstream promotion to `MDC-Master-Planning`; every section marked `BINDING` is this repo's own and never promotes.** That split is deliberate — it is the same interface-versus-binding discipline [`memory-model.md`](../guide/memory-model.md) applies to Kind 1, applied one level up.
+It exists because that question had no owner. The rules lived in six documents, four local and two mirrored, and they disagreed at the seams. **Every section marked `INTERFACE` is general and is a candidate for upstream promotion to `MDC-Master-Planning`; every section marked `BINDING` is this repo's own and never promotes.** That split is deliberate — it is the same interface-versus-binding discipline [`memory-model.md`](../guide/memory-model.md) applies to the working record, applied one level up.
 
 **Where this and a mirrored standard overlap, the mirrored one wins** and this document cites rather than restates it. See §6.
 
