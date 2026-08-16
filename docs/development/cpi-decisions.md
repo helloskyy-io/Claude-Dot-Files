@@ -1268,6 +1268,20 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ---
 
+## 2026-08-16 — PMP residuals, dispositioned
+
+Four things survived the PMP replan's verification. **One was unfinished and I had called it defensible; three are correctly left alone.**
+
+**SHIPPED (dispatched):** the memory-taxonomy rename reaches the live standards — `exit-protocol.md`, `finding-routing.md`, `memory-model.md`. #95 renamed inside PMP only, on human-in-the-loop grounds. The operator's rule: **rename where it is still binding, leave it where it is a record.** The brief carries that rule verbatim so it can be applied to anything the brief did not anticipate, and separates the mechanical sweep from `memory-model.md` §3.1's **structural** re-cut — that table's single discriminator is *when the to-do bit clears*, and the journal has none.
+
+**NOTED — `C-074` is answered by events.** It asks whether the protocol is its own component or a phase of MMF. **MMF is retired and PMP is the component, so the question is settled** — not by argument but by what happened. Nobody's row edited; recorded here for the next `triage-candidates` pass to rule on.
+
+**REJECTED — `Kind 1`/`Kind 2` in MMF's seven retired docs, and in `sprint.md`'s completed MMF entry.** Renaming a retired record makes it describe something that never happened. Abandon in place.
+
+**REJECTED — PMP's § *Reading the old names* translation table.** It is what makes the two rejections above safe: a reader meeting `Kind 1` in history can map it. Deleting it would break the exclusions rather than complete the rename.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.
