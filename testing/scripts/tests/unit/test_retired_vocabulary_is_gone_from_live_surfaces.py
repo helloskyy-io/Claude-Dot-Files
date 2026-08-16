@@ -216,6 +216,28 @@ def _normalised(path: Path) -> str:
     return re.sub(r"\s+", " ", path.read_text(encoding="utf-8", errors="replace"))
 
 
+def _joinable(line: str) -> str:
+    """A continuation line with its comment marker removed, ready to be joined.
+
+    THE DECORATION IS NOT WHITESPACE, AND THAT DEFEATED THE JOIN. A continuation
+    line opens with the tree's vertical glyphs and then a `#` comment marker, so
+    joining one to its leaf produced `... The retired Kind │   │   #   1/2/3 ...`
+    — and `RETIRED_LABEL`'s separator class is `[ _-]`, which contains neither
+    `│` nor `#`. A label wrapped **inside this file** therefore stayed invisible
+    even after the joining was added, in the one file whose handling this module
+    singles out, while the module's headline claim is that normalising
+    whitespace makes a wrapped label visible.
+
+    That claim was only ever true of PROSE, where wrapping inserts whitespace
+    and nothing else. It was FOUND BY MUTATION, not by reading: wrapping every
+    labelled map line left the gate green both before and after the joining fix,
+    which is the signature of a fixture the instrument cannot reach rather than
+    of a guard that discriminates. Reading the code would not have shown it —
+    the joining looks obviously correct, and it is, for the wrong file.
+    """
+    return re.sub(r"^[│├└─\s]*#*\s*", "", line)
+
+
 class _Entry(NamedTuple):
     """One map entry, carrying what the parser knew rather than a re-derivation.
 
@@ -272,14 +294,14 @@ def _map_entries() -> list[_Entry]:
                     head = entries[-1]
                     entries[-1] = head._replace(
                         lines=[*head.lines, number],
-                        text=f"{head.text} {line.strip()}",
+                        text=f"{head.text} {_joinable(line)}",
                     )
                     continue
             if entries and not entries[-1].path:
                 tail = entries[-1]
                 entries[-1] = tail._replace(
                     lines=[*tail.lines, number],
-                    text=f"{tail.text} {line.strip()}",
+                    text=f"{tail.text} {_joinable(line)}",
                 )
             elif line.strip():
                 entries.append(_Entry([number], line, "", False))
@@ -482,6 +504,33 @@ def test_every_declared_RECORD_SURFACE_still_carries_a_label() -> None:
     # carries no label today and may never be edited if it acquires one — so it
     # is deliberately NOT in the loop above. Stated here so its absence reads as
     # a decision rather than an oversight.
+
+
+def test_a_label_WRAPPED_inside_the_map_is_still_seen() -> None:
+    """The module's headline claim, checked on the map rather than on prose.
+
+    `_normalised` makes a wrapped label visible in an ordinary file because
+    wrapping there inserts whitespace and nothing else. THE MAP IS NOT AN
+    ORDINARY FILE: its continuation lines open with tree glyphs and a `#`, so
+    joining a leaf to its continuation used to produce `Kind │  #  2` — which
+    `RETIRED_LABEL` does not match, because its separator class is `[ _-]`.
+
+    So the one file this module singles out for careful handling was the one
+    file the joining did not actually reach, and every other test here was
+    green. Found by mutation, and this is the guard that keeps it found: strip
+    `_joinable`'s decoration handling and this goes red on its own, without
+    needing a real label to be wrapped in the live map first.
+    """
+    leaf = "│   │       ├── memory-model.md                      # the Kind"
+    continuation = "│   │       │                                        #   2 seam"
+    joined = f"{leaf} {_joinable(continuation)}"
+    assert RETIRED_LABEL.search(joined), (
+        f"a label wrapped across two MAP lines is invisible to the joined "
+        f"text: {joined!r}. `_joinable` no longer strips the tree glyphs and "
+        f"the `#` comment marker, so the two halves of the label are separated "
+        f"by decoration rather than by whitespace — which is the blindness "
+        f"this module's whole premise is that it does not have."
+    )
 
 
 def test_the_exemption_semantics_hold_for_EVERY_declared_surface() -> None:
