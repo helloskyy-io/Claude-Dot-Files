@@ -153,10 +153,11 @@ Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md
 
 **Phase doc:** not yet written — writing it is the planning step.
 
-Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. **Half-built already**: `build.sh` and `build-minor.sh` shipped as three-child parents before any of it was written down.
+Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied — **and a dispatch derives what it runs on rather than inheriting it.** `run-claude` already refuses an inherited model; agents, skills, rules and hooks are the ambient inputs still outstanding. **Half-built already**: `build.sh` and `build-minor.sh` shipped as three-child parents before any of it was written down.
 
 - [ ] **Rule fork-vs-parameterize** — gates the copy families. Refines are ~82% shared (parameterize); drafts are ~9% shared and are a *behaviour* decision, not a deduplication. **Scope on `plan-project` is the second instance and it answers cleanly**: feature scope runs the same children in the same order, fewer of them, so it parameterizes
 - [ ] **Derive `plan-project`'s scope from its target, and skip what that scope has no work for** — feature scope is the tail of the project chain: `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`, with triage, scaffolding and the per-component research pass skipped. **A path, not a flag** — `research` already derives PRODUCT vs COMPONENT this way, and a flag beside the path is a second source of truth that can disagree with it (`derive != declare`)
+- [ ] **Centrally managed config, with a user tier beside it** — agents, skills, rules and hooks are read from `~/.claude/`, so an interactive edit silently changes what every dispatch on that machine does, and no two machines can be shown to match. The fleet's set becomes managed; the user keeps a tier they own and can extend. **The boundary is decided before the mechanism** — `commands/` is the clearest user tier, except `/standup`, which is operational — and `--agents` takes inline JSON, so it wants testing at our definition sizes. *Gate: PMP Part 1 — if the run bag records the config a run used, the divergence half of this shrinks to a reader.*
 - [ ] **Gate the two stale-doc classes that are not yet covered** — the prose-disagrees-with-its-code half is gated (`test_no_prose_claims_a_shipped_workflow_is_UNBUILT`, `test_lint_prompts_claims_only_what_ran`, `test_measurement_figures_are_cited`). What is not: a produced artifact nobody consumes, gated today only under `scripts/helpers/measure/`
 - [x] **Absorb `build-phase.sh` into `build` as `--phase`** — one family, one set of children
 - [x] **Split `build.sh` into draft → refine → review-pr** — shipped, two burn-test cycles
@@ -223,17 +224,6 @@ The four phases that wait on something that does not exist yet. Each gate is a f
 - [ ] **Phase 8 · The poller** — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
 
 **Phase 6 can be pulled forward.** It needs the `review-runs` port, not the server, and it was split out of Phase 8 for exactly this reason — so this component's only consumer is not held behind infrastructure nobody has stood up.
-
-## Sprint: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
-
-**Phase doc:** not yet written. **The boundary decision comes first** — the mechanism follows from it, and picking a mechanism first is backwards.
-
-Monolithic agent files are not a problem; they are dumb and simple and that is a feature. The problem is *where they live and who can change them*. Everything a workflow depends on is symlinked into `~/.claude/`, so an interactive session editing any of it silently changes what every autonomous dispatch on that machine does — with no divergence detection between machines. `run-claude.sh` already refuses to dispatch on an inherited *model*; by that same rule all of this is ambient and underived.
-
-- [ ] **Decide where the managed/user boundary falls** — agents, skills, rules and hooks are all workflow-critical; `commands/` is the clearest user tier, except `/standup` which is operational
-- [ ] **⚠️ Resolve the safety blocker first** — `hooks.PreToolUse → block-dangerous.sh` lives in **user-level** `settings.json`, and headless runs pass `--dangerously-skip-permissions`, making it the only live control. `--setting-sources project,local` would strip it from every autonomous run. The hook must change scope, or be supplied another way, before the flag is touched
-- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
-- [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
 
 ## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED
 
