@@ -32,6 +32,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -40,28 +41,50 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 LINT = REPO_ROOT / "scripts" / "helpers" / "lint-prompts.sh"
 
 
-def _path_without_yq() -> str:
-    """The real PATH with every directory holding a `yq` removed.
+# Everything `lint-prompts.sh` reaches for as an external command. DERIVED FROM
+# THE SCRIPT, not from memory of what a shell script usually needs — the first
+# hand-written list omitted `env`, and the failure it produced ("env: command not
+# found", 16 times, inside a sandbox construction error) named the sandbox rather
+# than the PATH, so it read as a lint defect instead of a fixture defect.
+# Regenerate with:
+#   grep -oE '\b(awk|basename|bash|cat|dirname|env|find|grep|ln|mktemp|rm|sed|wc)\b' \
+#       scripts/helpers/lint-prompts.sh | sort -u
+# `cat` earns its place twice: the script also links it into its own `env -i`
+# sandbox, which is the one thing reachable from inside a constructed block.
+_LINT_NEEDS = ("awk", "basename", "bash", "cat", "dirname", "env", "find",
+               "grep", "ln", "mktemp", "rm", "sed", "wc")
 
-    NOT a hardcoded `/usr/bin:/bin`. That happens to work on this workstation
-    and encodes where yq is installed today into a test about yq being absent —
-    and it would silently start testing something else the day a runner put yq
-    in /usr/bin. Directories are dropped until `which` comes back empty, and the
-    result is asserted, so the test cannot run green against a PATH that still
-    resolves yq.
+
+def _path_without_yq() -> str:
+    """A PATH that resolves everything the lint needs and NOT `yq`.
+
+    BUILT BY SELECTION, NOT BY SUBTRACTION, and the difference is a CI outage.
+    The first version took the real PATH and dropped every directory containing
+    a `yq`. That is host-coupled in a way that is invisible on a workstation and
+    fatal on a runner: here `yq` sits alone in /usr/local/bin, so dropping it
+    costs nothing — but ubuntu-latest ships `yq` in the SAME directory as `bash`,
+    `sed` and `awk`, so the subtraction took the shell out with it and eight
+    tests failed on the merge gate with "bash is not on the stripped PATH" while
+    the whole suite was green locally. A test about a missing `yq` must not be
+    able to remove anything else.
+
+    So: one directory of symlinks to the tools the lint needs, resolved from the
+    real PATH, with no `yq` link made. Nothing else is reachable, which is also
+    a tighter control — the lint cannot quietly satisfy Pass 3 through some other
+    yaml reader.
     """
-    entries = os.environ.get("PATH", "").split(os.pathsep)
-    kept = [e for e in entries if e and not (Path(e) / "yq").exists()]
-    path = os.pathsep.join(kept)
+    sanitized = Path(tempfile.mkdtemp(prefix="lint-path-no-yq-"))
+    for tool in _LINT_NEEDS:
+        real = shutil.which(tool)
+        assert real, f"{tool} is not installed — the lint cannot run at all"
+        (sanitized / tool).symlink_to(real)
+    path = str(sanitized)
     assert shutil.which("yq", path=path) is None, (
         f"the stripped PATH still resolves yq — this test would assert the "
         f"skip branch while running the pass: {path}"
     )
-    # The lint needs a shell, awk, sed, grep, mktemp and cat. If stripping yq
-    # took those out, the run would fail for an unrelated reason and the
-    # assertions below would be reading noise.
-    for tool in ("bash", "awk", "sed", "grep", "mktemp", "cat", "wc"):
-        assert shutil.which(tool, path=path), f"{tool} is not on the stripped PATH"
+    for tool in _LINT_NEEDS:
+        assert shutil.which(tool, path=path), f"{tool} is not on the sanitized PATH"
     return path
 
 
