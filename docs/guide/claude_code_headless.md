@@ -82,7 +82,7 @@ COMPLETION_PATTERN='https://github\.com/[^ )]+/pull/[0-9]+'
 
 Then check the final result against it. A miss means the run stopped early — **fail loud and return non-zero.** The principle: *exit 0 must mean done.* Without this, "the workflow ran fine" and "the workflow did nothing" are the same signal.
 
-The contract pays a second dividend. Once a run provably reports completion plus a stable identifier on its last line, another script can *chain* to it — the exit code plus that line is a complete interface between two independent runs. That is the whole mechanism behind the parent/child workflow pattern; see [workflows.md](workflows.md#why-the-parent-is-pure-bash).
+The contract pays a second dividend. Once a run provably reports completion plus a stable identifier on its last line, another script can *chain* to it — the exit code plus that line is a complete interface between two independent runs. That is the whole mechanism behind the parent/child workflow pattern; see [workflows.md](workflows.md).
 
 ## Using Plans as Work Orders
 

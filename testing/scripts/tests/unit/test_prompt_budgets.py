@@ -59,7 +59,7 @@ BUDGETS: dict[str, int] = {
     # and the remainder is a number changed on purpose with a reason attached.
     "build/build_refine/prompts/stages_2_to_4.md": 21_899,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
-    "build/build_draft/prompts/stages_1_to_4.md": 16_083,
+    "build/build_draft/prompts/stages_1_to_4.md": 16_060,
     # SET AT ITS SIZE ON THE DAY IT LANDED, not on 2026-08-14: this prompt was
     # in flight on `build/plan-feature` when the budget test was written on
     # `main`, so it is the first file to meet this gate rather than be measured

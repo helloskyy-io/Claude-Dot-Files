@@ -1246,6 +1246,28 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ---
 
+## 2026-08-16 (evening) — PR #95 mined: two shipped, and a suite gap with six live instances
+
+**Source:** PR #95 (PMP replan), one plan-revision pass. Same occurrence bar.
+
+### SHIPPED
+
+**The link test now checks ANCHORS, not just files.** `test_every_relative_link_resolves` deliberately DISCARDS the fragment — its regex closes the trailing group non-capturing — so a link naming the right file and a dead heading has always passed. **Measured when the check landed: six such links, on a green suite.** Two were sprint headings renamed *Phase* → *Sprint*, one named a heading that no longer exists at all, one was a stale PMP section, and two were mine from an hour earlier. All six fixed.
+
+**The cost lands at exactly the wrong moment, which is why this is worth a test rather than care:** a build that renames or deletes headings is both the most likely to break these and the least able to notice. The run that surfaced it deleted and created about six headings other files point at, found the breakage only by writing a throwaway checker, and said so.
+
+**"Check `origin/main`, not only your tree, before calling a premise false"** — added to `build_draft`. **Two occurrences:** #93's brief was keyed to the merge-base rather than branch HEAD, and #95's headline premise was false in its worktree and true on the default branch. A run that reports the brief wrong on that basis is reporting staleness as an artifact defect.
+
+### NOT SHIPPED — and the reason is a guarantee, not a budget
+
+**The same clause was written into `plan_revision`'s prompt and reverted.** That file is pinned **byte-identical to V1** by `test_plan_revision_v1_parity`, which is what keeps the frozen fleet comparable. The parity suite caught it immediately. Recorded because the instinct to apply a fix to every sibling — correct all week — has exactly one exception in this tree, and it is enforced rather than remembered.
+
+### NOTED — recurrence, not re-filed
+
+**Three docs attributed reasoning to a vendored Temporal §7.1 that does not contain it** — the section says only *"Every activity must be idempotent"*; the *"because activities execute at least once"* justification is true of Temporal and absent from the citation. **C-084 already proposes gating quotations against the cited file.** Reported as a recurrence with its count, nobody's row edited — the shape written into `engineering-quality.md` this morning.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

@@ -155,3 +155,60 @@ def test_every_relative_link_resolves() -> None:
         "file and the repo root rather than copying a run from a neighbouring file "
         "at a different depth."
     )
+
+
+# A link that names BOTH a file and a heading inside it. The check above proves
+# the file exists; this one proves the heading does.
+ANCHORED = re.compile(r"\[[^\]]+\]\((?!https?:|mailto:|#|/)([^)\s#]+\.md)#([a-z0-9][a-z0-9-]*)\)")
+
+# GitHub's slug: lowercase, punctuation dropped, spaces to hyphens. Approximate
+# on purpose — it is applied to BOTH sides, so a heading this gets wrong is
+# still matched by a link written from the same heading.
+_SLUG_STRIP = re.compile(r"[^a-z0-9 -]")
+
+
+def _slugs(md: Path) -> set[str]:
+    out = set()
+    for h in re.findall(r"^#{1,6}\s+(.*?)\s*$", md.read_text(errors="replace"), re.M):
+        out.add(_SLUG_STRIP.sub("", h.lower()).strip().replace(" ", "-"))
+    return out
+
+
+def test_every_link_ANCHOR_resolves() -> None:
+    """A link naming a heading must name one that exists.
+
+    WHY THIS IS SEPARATE FROM THE FILE CHECK ABOVE. That one deliberately
+    DISCARDS the fragment — `LINK`'s trailing group is non-capturing — so a link
+    to the right file and a dead heading has always passed. Measured when this
+    landed: **six** such links, on a suite that was green.
+
+    THE COST IS PAID AT EXACTLY THE WRONG MOMENT. A build that renames or deletes
+    headings is the one most likely to break these, and it is also the one whose
+    author is least able to notice — the run that surfaced this deleted and
+    created about six headings other files point at, found the breakage only by
+    writing a throwaway checker, and said so.
+
+    APPROXIMATE SLUGGING IS FINE HERE AND WOULD NOT BE IN A RENDERER. The same
+    transform is applied to the heading and to the link, so a heading this gets
+    wrong still matches a link written from it. What it catches is a heading that
+    is GONE, which is the failure that actually happens.
+    """
+    files = [f for f in _files() if f.suffix == ".md"]
+    assert len(files) > 50, f"only {len(files)} markdown files scanned"
+
+    broken = []
+    for f in files:
+        for m in ANCHORED.finditer(f.read_text(errors="replace")):
+            target = (f.parent / m.group(1)).resolve()
+            if not target.is_file():
+                continue          # the file check above owns this case
+            if m.group(2) not in _slugs(target):
+                broken.append((f.relative_to(REPO_ROOT), m.group(1), m.group(2)))
+
+    assert not broken, (
+        f"{len(broken)} link(s) name a heading that does not exist:\n"
+        + "\n".join(f"  {f}\n    -> {t}#{a}" for f, t, a in broken)
+        + "\n\nThe file resolves; the heading does not. Either the heading was "
+        "renamed or deleted, or the anchor was written from a heading that never "
+        "existed. Check the target's headings rather than adjusting the slug."
+    )

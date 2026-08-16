@@ -332,5 +332,5 @@ Done when all of the following hold:
 
   **It cannot be built here by rule, not by circumstance.** `exit-protocol.md` §2 requires the routing consumer to already exist, and its trigger — *the first non-`review-pr` parent that routes on a typed record* — is future work. **A completion list holding an item its own standards forbid discharging can never complete**, which is why this box was moved once already, in 2026-08-11, and moved to the wrong place.
 
-  **Re-homed to [Persistent Memory Protocol § *Absorbed work — the typed exit record*](../persistent-memory-protocol/roadmap.md#absorbed-work--the-typed-exit-record)**, which owns the typed exit record and therefore the trigger. Closed here as transferred, not as done.
+  **Re-homed to [Persistent Memory Protocol § *Absorbed work — the typed exit record*](../persistent-memory-protocol/roadmap.md)**, which owns the typed exit record and therefore the trigger. Closed here as transferred, not as done.
 
