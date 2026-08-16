@@ -1298,6 +1298,34 @@ Four things survived the PMP replan's verification. **One was unfinished and I h
 
 ---
 
+## 2026-08-16 — Fleet Reliability dissolved: it was five candidate rows, never triaged as a group
+
+**REJECTED as a sprint.** Its five checkboxes are candidates **C-011, C-012, C-028, C-029 and C-030** pasted under a heading, assembled before `triage-candidates` existed to scrutinise them. Nobody ever asked whether they belonged together, and they do not: measured against what has actually happened, their evidence runs from overwhelming to nil.
+
+| Item | Occurrences observed |
+|---|---|
+| A run reports a success it did not achieve | **7+** — six commits over five days, plus one on the day of this ruling |
+| A run stalls or loops with nobody told | 1 — the four-hour run killed on 2026-08-15 |
+| The safety hook is not actually wired into a headless dispatch | 0 observed, and **0 tests** |
+| A credential expires overnight | 0 |
+| A restart loses in-flight work | 0 — and it is for Temporal workers that do not exist |
+| A provider quota is hit | **0.** The only structured cap-shaped errors on disk are 7 × `529 overloaded`, which is the provider being busy, not a quota |
+
+**Bundling was doing active harm**: it held the highest-evidence defect class in the repo behind three items with no evidence at all.
+
+**DISPOSITIONS — every item placed, none parked:**
+
+- **Restart-recovery contract** → a checkbox on **Temporal Integration**, beside the workers that trigger it. Retrofitting one onto running workers is a rewrite.
+- **Three-legged liveness** → **expands** Autonomous Operation's existing *observable exit criteria* item. A driver that keeps going must know which of stalled / looping / stranded it is in.
+- **Blocked-work notifier** → **Autonomous Operation**, same trigger.
+- **False completion** → **already filed as candidate C-067** by someone else; the only new information is that it RECURRED, so the count is reported here and **no row is edited and nothing re-filed**.
+- **Per-credential quota headroom** → **REJECTED, zero evidence.** Watch-criteria: ship on the first *structured* quota or rate-limit error — a `429` or an explicit usage-cap response, never a `529`.
+- **Safety-hook wiring test** → **resolved live rather than deferred**, on the same day. It guards what is now the only control.
+
+**Why the hook test could not wait for a placement.** The deny list was removed and the hook narrowed 59 patterns → 5 hours earlier, which makes the hook the sole live safety control in headless runs — and `test_hook_settings.py` only checked that hooks declare timeouts and that the JSON parses. **Recording a deferral would have cost more than the fix.**
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

@@ -176,7 +176,7 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 
 Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
 
-## Sprint: Persistent Memory Protocol — 📋 QUEUED, PLANNED AND READY TO BUILD
+## Sprint: Persistent Memory Protocol — Part 1 — 📋 QUEUED, PLANNED AND READY TO BUILD
 
 **Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — roadmap plus eight phase docs.
 
@@ -184,43 +184,14 @@ Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-int
 
 Today a finished run is scattered across a pull request, a markdown table and a log file nothing reads. This makes the journal the truth and everything else a projection of it: **if any store gets something, the journal gets it verbatim, and the store can be rebuilt from the journal.** [Phase 4](persistent-memory-protocol/phase4_rebuild_is_a_test.md) is what makes that enforceable rather than aspirational — it replays the journal and diffs the result against the live store, so completeness cannot decay silently.
 
-**Phases 1–4 have no external gate and depend only on each other.** The remaining four wait on something named, and each gate is a fact about the calendar rather than a limit on the design.
+**Part 1 is phases 1–4 — the four with no external gate.** They depend only on each other: 1 → 2, and 1 → 3 → 4. Phases 5–8 are Part 2 below, sequenced after Temporal Integration.
 
 - [ ] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Phase 2 · The content store** — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
 - [ ] **Phase 3 · The emit rule** — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
 - [ ] **Phase 4 · Rebuildability is a test** — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
-- [ ] **Phase 5 · Snapshots, then retention** — the 1 GB budget governs the whole journal with nothing exempt. *Gate: the Temporal server, for the recurring half only*
-- [ ] **Phase 6 · CPI reads the journal** — moves the continuous-improvement evidence sweep off comment-scraping. *Gate: the Python port of `review-runs`, not the server*
-- [ ] **Phase 7 · Cross-machine aggregation** — write locally first, ship bags to a bucket per edge. *Gate: a second machine that actually produces runs*
-- [ ] **Phase 8 · The poller** — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
 
 **Sequenced behind Workflow Decomposition rather than gated on it.** Phase 3 has to enumerate every write path in the fleet, and decomposition is still changing what those paths are — the same reason Temporal Integration waits on a settled shape rather than porting one still in motion.
-
-## Sprint: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
-
-**Phase doc:** not yet written. **The boundary decision comes first** — the mechanism follows from it, and picking a mechanism first is backwards.
-
-Monolithic agent files are not a problem; they are dumb and simple and that is a feature. The problem is *where they live and who can change them*. Everything a workflow depends on is symlinked into `~/.claude/`, so an interactive session editing any of it silently changes what every autonomous dispatch on that machine does — with no divergence detection between machines. `run-claude.sh` already refuses to dispatch on an inherited *model*; by that same rule all of this is ambient and underived.
-
-- [ ] **Decide where the managed/user boundary falls** — agents, skills, rules and hooks are all workflow-critical; `commands/` is the clearest user tier, except `/standup` which is operational
-- [ ] **⚠️ Resolve the safety blocker first** — `hooks.PreToolUse → block-dangerous.sh` lives in **user-level** `settings.json`, and headless runs pass `--dangerously-skip-permissions`, making it the only live control. `--setting-sources project,local` would strip it from every autonomous run. The hook must change scope, or be supplied another way, before the flag is touched
-- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
-- [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
-
-## Sprint: Fleet Reliability — 📋 QUEUED, NEEDS PLANNING
-
-**Phase doc:** not yet written — writing it is the planning step.
-
-The fleet fails in ways nothing watches for. A credential expires overnight, a run reports a success it did not achieve, a dispatch is never claimed at all — and the operator finds out by noticing that nothing happened.
-
-This is the layer that notices, and the one channel that reaches a human when work is blocked rather than a dashboard nobody opens. **It lands before workers**: a restart-recovery contract retrofitted onto running workers is a rewrite, and the guards apply to the fleet that runs today regardless of what it is ported onto.
-
-- [ ] **Three cheap guards** — credential expiry, false completion, and a safety-hook wiring test
-- [ ] **A restart-recovery contract** — durable dispatch id and per-subsystem recovery, designed once and covering all three guards
-- [ ] **The three-legged liveness predicate** — stalled, looping and stranded, each detected separately
-- [ ] **A blocked-work notifier** — and an inbox the operator reads, in place of a dashboard
-- [ ] **Per-credential quota headroom** — derived from observed cap-errors, with no provider telemetry
 
 ## Sprint: Temporal Integration — 🟡 IN PROGRESS
 
@@ -234,10 +205,35 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 - [ ] **Port `review-runs`** — the CPI log sweep, the one of the four with a live role and a run history
 - [ ] **Rule on `plan-new` and `review-sprint`** — 1,228 lines between them and **neither has ever executed**; decide whether they die with the bash fleet or earn a port
 - [ ] **Stand up the Temporal server** — Postgres-backed, on the VM that gets backed up
+- [ ] **A restart-recovery contract** — a durable dispatch id and per-subsystem recovery, designed once. Retrofitting one onto running workers is a rewrite, so it lands with them rather than after
 - [ ] **Stage B — semantic wrappers** — `@activity.defn` over the plain functions from Stage A
 - [ ] **Stage C — orchestrate** — workflows compose the wrappers; schedules replace timers
 
 ---
+
+## Sprint: Persistent Memory Protocol — Part 2 — 📋 QUEUED, GATED
+
+**Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — same component, same eight phase docs. Part 1 above is phases 1–4.
+
+The four phases that wait on something that does not exist yet. Each gate is a fact about the calendar, not a limit on the design — all four are planned to the same depth as Part 1.
+
+- [ ] **Phase 5 · Snapshots, then retention** — the 1 GB budget governs the whole journal with nothing exempt. *Gate: the Temporal server, for the recurring half only*
+- [ ] **Phase 6 · CPI reads the journal** — moves the continuous-improvement evidence sweep off comment-scraping. *Gate: **Port `review-runs`**, a Temporal Integration milestone — **not** the server*
+- [ ] **Phase 7 · Cross-machine aggregation** — write locally first, ship bags to a bucket per edge. *Gate: a second machine that actually produces runs — unrelated to Temporal*
+- [ ] **Phase 8 · The poller** — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
+
+**Phase 6 can be pulled forward.** It needs the `review-runs` port, not the server, and it was split out of Phase 8 for exactly this reason — so this component's only consumer is not held behind infrastructure nobody has stood up.
+
+## Sprint: Managed Configuration — 📋 QUEUED, NEEDS A DECISION FIRST
+
+**Phase doc:** not yet written. **The boundary decision comes first** — the mechanism follows from it, and picking a mechanism first is backwards.
+
+Monolithic agent files are not a problem; they are dumb and simple and that is a feature. The problem is *where they live and who can change them*. Everything a workflow depends on is symlinked into `~/.claude/`, so an interactive session editing any of it silently changes what every autonomous dispatch on that machine does — with no divergence detection between machines. `run-claude.sh` already refuses to dispatch on an inherited *model*; by that same rule all of this is ambient and underived.
+
+- [ ] **Decide where the managed/user boundary falls** — agents, skills, rules and hooks are all workflow-critical; `commands/` is the clearest user tier, except `/standup` which is operational
+- [ ] **⚠️ Resolve the safety blocker first** — `hooks.PreToolUse → block-dangerous.sh` lives in **user-level** `settings.json`, and headless runs pass `--dangerously-skip-permissions`, making it the only live control. `--setting-sources project,local` would strip it from every autonomous run. The hook must change scope, or be supplied another way, before the flag is touched
+- [ ] **Test `--agents` at our prompt sizes** — it takes inline JSON and our definitions are large
+- [ ] **Choose the mechanism** — injection at dispatch, scope separation, or something else
 
 ## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED
 
@@ -246,7 +242,8 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 The tier above parents: a driver that composes **parents** into a loop that keeps going, choosing each next dispatch from persisted state rather than a script written in advance. **Gated on Temporal Integration.** Distinct from *Autonomous Execution* above, which built the workflows themselves.
 
 - [ ] **A driver that dispatches from persisted state** — the payoff of the Memory Management Framework
-- [ ] **Observable exit criteria** — a `HOLD`, a convergence signal, a budget ceiling. Not a turn count
+- [ ] **Observable exit criteria** — a `HOLD`, a convergence signal, a budget ceiling. Not a turn count. **Includes the three-legged liveness predicate** — stalled, looping and stranded detected separately, since a driver that keeps going needs to know which of the three it is in
+- [ ] **A blocked-work notifier** — the one channel that reaches a human when work is blocked, and an inbox the operator reads rather than a dashboard nobody opens
 - [ ] **Scheduled dispatch on Temporal schedules** — off `claude schedule` and systemd timers, so a schedule survives the machine being off
 - [ ] **Catch-up behaviour per schedule** — decided by the window-scoped vs state-converging split in the phase doc
 
