@@ -56,13 +56,31 @@ def _hooks() -> list[tuple[str, str, dict]]:
 
 
 def _resolve(command: str) -> Path:
-    """The filesystem path a hook command points at.
+    """The REPO file a hook command points at, resolved through install.sh's mapping.
 
-    Commands are shell strings; ours are a bare path to a script, optionally
-    with `$HOME`. Expanding only the variable — rather than running the string —
-    keeps this a static check that cannot itself execute a hook.
+    ⚠ THIS DELIBERATELY DOES NOT LOOK AT `$HOME`, AND THE FIRST VERSION DID.
+    It expanded `$HOME/.claude/hooks/block-dangerous.sh` and asserted the file
+    existed — which passes on a workstation where `install.sh` has run and FAILS
+    everywhere else. It put `main` red three times before anyone read the log,
+    because the suite is green locally by construction: the property it asserted
+    was true of the machine running it, never of the commit.
+
+    `install.sh` symlinks `$HOME/.claude/<item>` -> `<repo>/config/<item>`, so a
+    command naming a path under `~/.claude/` names a repo file through that
+    mapping. Resolving it that way asserts something the COMMIT owns, which is
+    the only thing a test on the merge path can honestly hold.
+
+    WHAT THIS NO LONGER LOOKS AT: whether `install.sh` has actually run on any
+    given machine, and therefore whether the symlink is present at runtime. That
+    is a property of a host, not of a commit, and it needs a deployment check
+    rather than a unit test — see `C-100`, which covers exactly that gap.
     """
-    return Path(os.path.expandvars(command.strip().split()[0])).expanduser()
+    raw = command.strip().split()[0]
+    expanded = os.path.expandvars(raw).replace(str(Path.home()), "~", 1)
+    if not expanded.startswith("~/.claude/"):
+        # Not a managed path — resolve it literally so the check still applies.
+        return Path(expanded).expanduser()
+    return REPO_ROOT / "config" / expanded[len("~/.claude/"):]
 
 
 def test_the_safety_hook_is_DECLARED_on_Bash() -> None:
@@ -92,10 +110,11 @@ def test_every_hook_command_RESOLVES_to_an_executable_file() -> None:
     broken = []
     for event, matcher, hook in _hooks():
         target = _resolve(hook.get("command", ""))
+        rel = target.relative_to(REPO_ROOT) if REPO_ROOT in target.parents else target
         if not target.is_file():
-            broken.append(f"{event}/{matcher}: {target} does not exist")
+            broken.append(f"{event}/{matcher}: {rel} is not shipped by this repo")
         elif not os.access(target, os.X_OK):
-            broken.append(f"{event}/{matcher}: {target} is not executable")
+            broken.append(f"{event}/{matcher}: {rel} is not executable")
     assert not broken, (
         "A hook command that does not resolve never runs, and nothing reports it "
         "— the tool call simply succeeds:\n  " + "\n  ".join(broken)
