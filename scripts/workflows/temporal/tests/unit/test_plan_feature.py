@@ -384,7 +384,7 @@ def test_the_boundary_grants_the_component_and_denies_its_SIBLING(tree: Path) ->
     are exercised here in one comparison, so the grant and the denial are
     separable in the result.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("docs/standards/architecture/research/candidates.md"))
     before = _state({
         "docs/development/alpha/roadmap.md": "a",
         "docs/development/beta/roadmap.md": "a",
@@ -415,7 +415,7 @@ def test_the_grant_reaches_NO_subdirectory_of_the_component(tree: Path) -> None:
     grows `notes/` or `diagrams/` is covered with no rule to remember. Asserted
     over a directory that does not exist today, which is the whole claim.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("docs/standards/architecture/research/candidates.md"))
     before = _state({
         "docs/development/alpha/phase1_a.md": "a",
         "docs/development/alpha/research/raw/p.md": "a",
@@ -436,7 +436,7 @@ def test_a_component_whose_name_PREFIXES_another_is_not_granted_it(tree: Path) -
     an argument: `docs/development/` holds sixteen sibling slugs and several
     share prefixes.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("docs/standards/architecture/research/candidates.md"))
     before = _state({"docs/development/alpha-two/roadmap.md": "a"})
     after = {k: "CHANGED" for k in before}
     assert act.boundary_crossings(
@@ -455,7 +455,7 @@ def test_the_component_name_is_ESCAPED_before_it_becomes_a_pattern(tree: Path) -
     SIBLING is the one failure the whole module exists to prevent, and every
     other boundary test here uses `alpha`, which has no metacharacter to escape.
     """
-    permitted = wf.permitted_paths(Path("docs/development/v2.1-migration"))
+    permitted = wf.permitted_paths(Path("docs/development/v2.1-migration"), Path("docs/standards/architecture/research/candidates.md"))
     before = _state({"docs/development/v2x1-migration/roadmap.md": "a"})
     after = {k: "CHANGED" for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [
@@ -483,7 +483,7 @@ def test_every_granted_path_is_also_watched_for_DELETION(tree: Path) -> None:
     being failed for it. This fixture used `{}` and observed nothing; the guard
     was right and the fixture's model of `worktree_state` was wrong.
     """
-    permitted = wf.permitted_paths(Path("docs/development/alpha"))
+    permitted = wf.permitted_paths(Path("docs/development/alpha"), Path("docs/standards/architecture/research/candidates.md"))
     before = _state({
         "docs/development/alpha/roadmap.md": "a",
         "docs/standards/architecture/research/candidates.md": "a",

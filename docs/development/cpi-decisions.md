@@ -1164,6 +1164,40 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ---
 
+## 2026-08-16 — PR #93 reflections mined: five shipped, three deferred
+
+**Source:** PR #93 (`plan-verify`), three review passes. Every item below came from the run's own Friction / Tooling-level sections. **The bar applied was OCCURRENCE COUNT** — a first occurrence is deferred with watch-criteria unless it closes a bypass.
+
+### SHIPPED
+
+**C-089's remedy reached `build_draft`, one PR after it reached `build_refine`.** The draft pass is where guards are WRITTEN and therefore where the class is introduced; the refine pass only finds it afterwards. **Third consecutive PR on which the class recurred.** Verified before shipping: `grep -c "does NOT look at"` returned 0 case-sensitively everywhere and 1 case-insensitively in `build_refine` only — the prior pass's measurement was right about the gap and wrong about the cause, because the remedy had shipped in capitals. Paid for by cutting two evidence anecdotes; net **−13 bytes**.
+
+**`ESCALATED` gained an ownership condition: if this PR BUILT the mechanism that fixes the defect, the PR owns the defect** — however far it predates the branch. *"Merging does not change its severity"* is literally true of anything already on `main`, so without this a PR can ship a safety control, apply it to some call sites, and escalate the remainder past its own review. **The reviewer reached the right answer by judgement and reported that the discriminator "held, but only just."** A gate that depends on the reviewer being careful is not a gate.
+
+**The convergence rule gained a COMPARATIVE severity floor:** *"would this finding have blocked on pass 1's own bar?"* — answerable against the prior pass's durable `pr_review:` block. Replaces a preventive/live judgement made alone. Named independently on two passes; the second used it explicitly and returned MERGE on a finding it could otherwise have talked itself into holding.
+
+**`engineering-quality.md` gained the shape its three deferral options miss: the remedy is ALREADY FILED BY SOMEONE ELSE and the only new information is that it RECURRED.** Report the recurrence with its count where you are already working, and edit nobody's row — amending another filer's entry collides with column ownership, and re-filing duplicates. **Three consecutive passes hit this and each independently invented the same answer.** Written as explicitly NOT a fourth placement, so it does not breach the no-ledger rule beneath it.
+
+**`build_refine` now says to PRINT what a mutation actually produced before measuring.** A shell-escaping artifact makes a regex invalid rather than wider, and the resulting failure count reads exactly like a guard finding. **Two occurrences — and the first was a prior reflection predicting it would happen again, which it then did.**
+
+### DEFERRED — watch-criteria stated
+
+**Mutate the test harness's STUBS, not only the code under test.** One occurrence, but a sharp one: an end-to-end harness stubbed `worktree_state` with a constant digest, so the guard it was written to test could never fire, and no mutation of the shipped code could have found it. **Watch-criteria: ship on the second occurrence, or on any PR where a new harness stub is introduced alongside the guard it stands in for.**
+
+**`of_total` counts an honest hand-up beside a genuine deferral.** A run that BURIES an item and one that surfaces it correctly score identically, which inverts the incentive. Named on two passes. **Not shipped because nothing yet consumes `of_total` to make a decision** — it is reported, not ruled on. **Watch-criteria: ship the `surfaced_for_reviewer` count the moment any gate, predicate or operator ruling reads `of_total`.**
+
+**A range stat is not a per-commit stat.** `git diff --stat A..B` attributed a file change to the wrong commit and nearly produced an escalation aimed at the wrong artifact; `git show <commit> -- <path>` is the instrument. One occurrence. **Watch-criteria: second occurrence, or any pass that records a wrong attribution in a posted comment.**
+
+### NOTED — already tracked, not re-filed
+
+**The reviewer's subject should be the BRANCH, not the producing run's diff.** Six commits on PR #93 — including a PreToolUse safety hook and both hook timeouts — rode in the diff and had been read by no lens. **Already filed as C-094 by `review-pr` from the other side**, so this is a recurrence report rather than a new item, which is the shape the `engineering-quality.md` change above now names.
+
+### Accounting
+
+`disposition.md`'s budget was **raised 372 bytes deliberately** for the two rules it gained, after 315 bytes were funded by cutting evidence anecdotes. **That file is 75 KB and is the one most needing a shrink pass; this was not it, and the raise is recorded rather than silent.** Every other prompt change paid for itself: `build_draft` net −13, `build_refine` net −1.
+
+---
+
 ## How to read this log
 
 **For run #2 prep:** scan DEFERRED sections. Items with `Watch-criteria` met by run #2 evidence become Tier 1 ship candidates. Items still deferred get re-deferred with updated counts.

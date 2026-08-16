@@ -67,13 +67,22 @@ FORBIDDEN_PATHS = (
 )
 
 
-def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
-    """The two files this workflow legitimately writes, given where the plan lives.
+def permitted_paths(sprint_rel: str, candidates_rel: str) -> tuple[str, ...]:
+    """The two files this workflow legitimately writes, BOTH from its own arguments.
 
     Computed from the sprint path rather than hard-coded because the path is a
     parameter — `--sprint` moves it, and a boundary that assumed
     `docs/development/sprint.md` would fail a correct run in any repo that keeps
     its plan elsewhere.
+
+    AND THE SAME ARGUMENT APPLIES TO THE SECOND GRANT, which was a literal while
+    the first was derived — the inconsistency being the whole tell. `--candidates`
+    is a documented flag on this runner too, and it is the flag through which a
+    DIFFERENT repository's pool is targeted. Pointed anywhere but this repo's own
+    path, the prompt is handed `CANDIDATES_PATH` and told to append a proposal
+    there, `^docs/standards/` denies the whole tree, and `boundary_crossings`
+    fails a correct run at the LAST guard for obeying its own instructions. One
+    reason, two parameters, so both are derived.
 
     `candidates.md` is permitted for APPENDING ONLY, and the permission does not
     weaken that: `decision` and `status` on it are guarded column-by-column
@@ -84,7 +93,7 @@ def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
     to it is `triage-candidates`'s alone.
     """
     return (rf"^{re.escape(sprint_rel)}$",
-            r"^docs/standards/architecture/research/candidates\.md$")
+            rf"^{re.escape(candidates_rel)}$")
 
 
 # --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
@@ -268,7 +277,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # the moment it is declared.
     after_tree = act.worktree_state(worktree)
     vanished = act.grants_that_vanished(before_tree, after_tree,
-                                        permitted_paths(rel_sprint))
+                                        permitted_paths(rel_sprint, str(rel_candidates)))
     if vanished:
         raise RuntimeError(
             f"plan-sprint made {len(vanished)} file(s) it may WRITE cease to "
@@ -371,7 +380,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # exactly one file, and it sits in the same directory as the phase docs the
     # same table forbids — so the edge is observed rather than trusted.
     crossed = act.boundary_crossings(before_tree, after_tree,
-                                     FORBIDDEN_PATHS, permitted_paths(rel_sprint))
+                                     FORBIDDEN_PATHS, permitted_paths(rel_sprint, str(rel_candidates)))
     if crossed:
         raise RuntimeError(
             f"plan-sprint edited {len(crossed)} file(s) outside its authorization: "

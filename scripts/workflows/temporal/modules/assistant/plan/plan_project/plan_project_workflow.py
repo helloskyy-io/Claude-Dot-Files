@@ -4,8 +4,8 @@ A parent calls no model. It decides IF, WHEN and WHAT to call, and holds no
 process code. Every branch is a pure decision from `routing`; every side effect
 is an activity or a child workflow.
 
-    triage-candidates -> plan-candidates -> research(per NEW component) -> plan-feature -> plan-sprint -> review-pr
-                         [activity, no model]   write -> verify           [per component]              [loop-back]
+    triage-candidates -> plan-candidates -> research(per NEW component) -> plan-feature -> plan-verify -> plan-sprint -> review-pr
+                         [activity, no model]   write -> verify           [-------- per component -------]            [loop-back]
 
 TRIAGE AT THE FRONT, SPRINT MAINTENANCE AT THE BACK. Until the split, one child
 did both and nothing could be sequenced between them. Feature planning and
@@ -38,11 +38,26 @@ after the `research-verify` that gated the evidence it plans from — a second l
 would separate each component's plan from its own evidence by every other
 component's research cycle.
 
-**It sizes nothing and writes no sprint entry.** Sizing is `plan-verify`'s — the
-fresh-context reviewer that DOES NOT EXIST YET — on the same `author != judge`
-argument that split research into write/verify and build into draft/refine. The
-sprint entry stays the operator's, and `plan-feature`'s report names the one each
-component needs.
+**It sizes nothing and writes no sprint entry.** Sizing is `plan-verify`'s, on
+the same `author != judge` argument that split research into write/verify and
+build into draft/refine — and that child now EXISTS and runs immediately after
+it, per component, inside the same loop. The sprint entry stays the operator's,
+and `plan-feature`'s report names the one each component needs.
+
+`plan-verify` CLOSED THE FAMILY'S LAST `author != judge` GAP. It reads the
+roadmap and the phase docs cold, sizes every phase in hours, and answers the
+question `plan-feature`'s own report is required to ask and structurally cannot
+answer about itself — *where is this plan weakest*. Its estimates go into
+`<component>/roadmap.md` and nowhere else.
+
+**AND `plan-sprint` DOES NOT READ THEM, which is worth knowing here because this
+is where the ordering argument lives.** Running the sizer before the sprint
+maintainer is necessary and is not yet sufficient: `plan-sprint`'s prompt states
+it never opens a phase doc, its `EXISTING_WORK` block enumerates components,
+syntheses, pool papers and issues but no roadmap, and no reader for an hour
+figure exists in it. It still sizes against the 160-hour calibration. Closing
+that is a change to `plan-sprint` and is deliberately not made from the PR that
+built the sizer.
 
 THE RESEARCH STEP CAN FIRE AGAIN, AND `plan-candidates` IS WHAT FIXED IT. Its
 input was `new_sprint_sections` alone, read from the sprint diff, and with
@@ -106,9 +121,13 @@ and deciding it twice in two contexts is how the two layers come to disagree. It
 position is also earlier than that plan assumed — before `plan-sprint`, not after
 — so the sprint plan is maintained against work that has already been decomposed.
 
-WHAT IS STILL NOT HERE: `plan-verify`, the fresh-context judge for a plan, which
-would also supply the sizing this family currently has nowhere. Until it exists,
-`review-pr --type planning` at step 4 is the only judge a planning PR gets.
+`plan-verify` IS HERE NOW, and this paragraph used to say it was the one thing
+missing. Two judges now see a planning PR and they are not redundant:
+`plan-verify` reads the ARTIFACT cold — a roadmap and its phase docs, whether the
+boundaries are right and what each costs — while `review-pr --type planning` at
+step 4 judges the DIFF against the planning criteria and returns the verdict this
+parent routes on. Neither substitutes for the other: a plan can be a clean diff
+and a bad decomposition.
 """
 
 from __future__ import annotations
@@ -125,6 +144,7 @@ from ...research.research_write import research_write_workflow as write
 from ...research.research_verify import research_verify_workflow as verify
 from ..plan_feature import plan_feature_workflow as feature
 from ..plan_sprint import plan_sprint_workflow as sprint
+from ..plan_verify import plan_verify_workflow as plan_verify
 from ..triage_candidates import triage_candidates_workflow as triage
 
 # WHICH SIGNAL PUT A COMPONENT IN FRONT OF THE RESEARCH STEP. Interned constants
@@ -139,7 +159,9 @@ _SPRINT_SECTION = "sprint-section"
 def _plan_one(*, section: str, component_root: Path, repo_root: Path,
               worktree: Path, candidates_path: Path, pr: str | None,
               verbose: bool) -> None:
-    """Dispatch `plan-feature` for ONE component. Raises what the child raises.
+    """Dispatch `plan-feature` then `plan-verify` for ONE component, in that order.
+
+    Raises what either child raises.
 
     CALLED INSIDE THE RESEARCH LOOP, NOT AFTER IT, and that is the whole
     placement argument. `plan-feature` takes ONE component and plans it from ITS
@@ -148,23 +170,41 @@ def _plan_one(*, section: str, component_root: Path, repo_root: Path,
     same `origin` map and separate each component's plan from its own evidence by
     every other component's research cycle.
 
-    THE CHILD IS HANDED A REPO-ROOTED COMPONENT, and `component_root` is
+    `plan-verify` IS THE SECOND CALL AND NOT A SECOND LOOP, for the same reason.
+    It reads ONE component's plan, so it belongs beside the run that wrote it —
+    and it must run before `plan-sprint`, which is step 3 below. That ordering is
+    not stylistic: `plan_sprint_workflow`'s own docstring records the defect it
+    fixes, *"the sprint plan used to be updated BEFORE anything estimated the
+    work, so its hour totals landed ahead of the estimates they depend on"*, and
+    until this child landed there were no estimates for it to be ahead OF.
+
+    THE FRESH CONTEXT IS THE POINT. It is a separate dispatch rather than a stage
+    inside `plan-feature` because a judge sharing the producer's context is the
+    one thing it exists not to be — the same argument that made `research-verify`
+    and `build-refine` separate runs.
+
+    BOTH CHILDREN ARE HANDED A REPO-ROOTED COMPONENT, and `component_root` is
     WORKTREE-rooted, so it is re-anchored here rather than passed as-is. That
     asymmetry is deliberate and is the one every child in this parent shares:
     `candidates_path` and `sprint_path` arrive repo-rooted from the runner and
     each child relativises against `repo_root` itself, while a directory the
     PARENT creates is created where the run can see it. Passing the worktree path
     would make the child's `relative_to(repo_root)` raise on a path that is
-    perfectly valid — a failure naming the wrong cause.
+    perfectly valid — a failure naming the wrong cause. Resolved ONCE into a
+    local so the two calls cannot be given different anchors.
 
-    A FUNCTION RATHER THAN THREE INLINE LINES because the caller wraps this and
-    the two research children in one `try`, and the re-anchoring argument above
-    belongs with the expression it explains rather than a screen away inside a
-    handler. `section` is carried only so the loop reads the same either side.
+    A FUNCTION RATHER THAN INLINE LINES because the caller wraps this and the two
+    research children in one `try`, and the re-anchoring argument above belongs
+    with the expression it explains rather than a screen away inside a handler.
+    `section` is carried only so the loop reads the same either side.
     """
+    repo_component = repo_root / component_root.relative_to(worktree)
     feature.run_plan_feature(
-        repo_root=repo_root, worktree=worktree,
-        component=repo_root / component_root.relative_to(worktree),
+        repo_root=repo_root, worktree=worktree, component=repo_component,
+        candidates_path=candidates_path, pr_number=pr, verbose=verbose,
+    )
+    plan_verify.run_plan_verify(
+        repo_root=repo_root, worktree=worktree, component=repo_component,
         candidates_path=candidates_path, pr_number=pr, verbose=verbose,
     )
 
@@ -448,15 +488,28 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
                 f"`research-write` removes that marker before either step above "
                 f"ran, and nothing anywhere checks for a missing `roadmap.md`. A "
                 f"`--pr` redispatch will read `{section}` as already handled.\n"
-                f"  To finish it by hand:  scripts/workflows/temporal/scripts/"
-                f"plan_feature.sh docs/development/{section}"
+                f"  To finish it by hand, IN THIS ORDER — the second reads what "
+                f"the first writes, and `plan_verify.sh` refuses a component with "
+                f"no `roadmap.md` rather than dispatching against nothing:\n"
+                f"    scripts/workflows/temporal/scripts/plan_feature.sh "
+                f"docs/development/{section}"
                 + (f" --pr {pr}" if pr else "")
+                + "\n"
+                f"    scripts/workflows/temporal/scripts/plan_verify.sh "
+                f"docs/development/{section}"
+                + (f" --pr {pr}" if pr else "")
+                + "\n  Skip the first if the plan is already written; the second "
+                f"is what puts an hour estimate on each phase.\n"
                 + "\n\nWhat this run had done before it stopped:\n"
                 + "\n".join(f"  - {n}" for n in notes)
             ) from exc
-        notes.append(f"`{section}` planned — `roadmap.md` and phase docs written "
-                     f"from its research. NOT SIZED: `plan-verify` estimates the "
-                     f"phases, and it does not exist yet.")
+        notes.append(f"`{section}` planned and SIZED — `plan-feature` wrote "
+                     f"`roadmap.md` and its phase docs from the component's "
+                     f"research, and `plan-verify` then read them cold, put an "
+                     f"hour estimate on every phase in `roadmap.md`, and reported "
+                     f"where the plan is weakest. `plan-sprint` does not read "
+                     f"those estimates; it still sizes against its 160-hour "
+                     f"calibration.")
 
     # --- Step 3: MAINTAIN THE SPRINT PLAN ----------------------------------
     # LAST of the producing children, which is the second thing the split

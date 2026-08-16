@@ -221,10 +221,10 @@ Everything above is planned. This section says only *when*, and every gate below
 
 | Phase | Waits on | Why that thing and not another |
 |---|---|---|
-| **6** — CPI reads the journal | *Port `review-runs`* — a milestone of the [Temporal Integration](../temporal-integration/temporal-integration.md) component, tracked as a checkbox in [`sprint.md`](../sprint.md) § *Sprint: Temporal Integration* | The evidence sweep exists today only in the frozen bash fleet, which may not be modified. **Not the Temporal server** — a sweep is a batch read, not a schedule. |
-| **5** — snapshots, then retention | the Temporal server (*Stand up the Temporal server*, same component, same tracking surface) — **and only its recurring half** | Running the retention pass *on a cadence* is a scheduled workflow. Only requirement 1's recurrence needs that; the other requirements are a policy and a command, and Phase 4 already builds the one-off snapshot. |
-| **8** — the poller | Temporal schedules (same server) | Reading a to-do bit and starting a child with no human trigger is what a scheduler does. |
+| **5** — snapshots, then retention | the Temporal server (*Stand up the Temporal server*, a milestone of the [Temporal Integration](../temporal-integration/temporal-integration.md) component, tracked as a checkbox in [`sprint.md`](../sprint.md) § *Sprint: Temporal Integration*) — **and only its recurring half** | Running the retention pass *on a cadence* is a scheduled workflow. Only requirement 1's recurrence needs that; the other eight are a policy and a command, and Phase 4 already builds the one-off snapshot. |
+| **6** — CPI reads the journal | *Port `review-runs`* — same component, same tracking surface | The evidence sweep exists today only in the frozen bash fleet, which may not be modified. **Not the Temporal server** — a sweep is a batch read, not a schedule. |
 | **7** — cross-machine aggregation | a second machine that actually produces runs | Building this before a second machine exists is the speculative-generality trap [`state_passing`](research/raw/state_passing_between_workflow_children.md) §5.2 warns this fleet against. **One gate, not three** — the storage arrangement is settled (commitment 8) and is not a gate. |
+| **8** — the poller | Temporal schedules (same server) | Reading a to-do bit and starting a child with no human trigger is what a scheduler does. |
 
 ### What a gated phase requires of a phase being built today
 
@@ -241,7 +241,9 @@ Everything above is planned. This section says only *when*, and every gate below
 
 **A new constraint stated by any gated phase adds a row here and a requirement there.** Stating it only in the gated doc is how such a constraint goes missing.
 
-**Why the phase numbers do not match the order.** Numbers are creation-order identifiers and a number names a phase for life; the roadmap lists phases in rollout order. Phase 6 sits ahead of Phase 5 because only Phase 5 needs a server, and Phase 6 is this component's **only consumer** — putting it behind a server nobody has stood up, for four phases of producers, is the emitter-without-a-reader failure this fleet has already measured.
+**The phases are listed in NUMBER ORDER, and the numbers are the logical build order.** A phase number names a phase for life. **What gets built *when* is the sprint's decision and not this document's** — the gate table above says only what each phase waits on, and a roadmap that reorders itself to mirror a schedule is arguing with the surface that owns scheduling.
+
+**Why Phase 6 is its own phase, split from Phase 8.** At draft the two were one phase gated on the Temporal server, which would have put this component's **only consumer** behind a server nobody has stood up, for four phases of producers. This fleet has the measured record of what happens then — three phases each appended a parent-written observable to one log and no committed tool read any of the three. Splitting them is why Phase 6 waits on the `review-runs` port rather than on the server.
 
 **The checkboxes under each phase below are a reading aid, not a completion record.** They summarise each phase doc's numbered requirements without reproducing them, and **the phase doc is authoritative** — so a fully-checked list here never means a phase is done. A dispatch briefed from this section alone will under-size every phase; most of all Phase 3, whose write-path inventory has no checkbox here. **Brief from the phase doc, and track completion against its numbered requirements.**
 
@@ -301,19 +303,6 @@ Replays the journal into a scratch directory and diffs the result against the li
 - [ ] **Restoring a store from the journal is built and contained** — `destination` resolved through an allowlist, never taken from the event — because that is the capability this component is sold on
 - [ ] **A rebuilt store carries the journal's provenance forward**, so every consumer of one is bound by the rules that govern reading the journal
 
-### [Phase 6 — CPI reads the journal](phase6_cpi_reads_the_journal.md)
-
-Moves the continuous-improvement evidence sweep onto the journal, so it reads one store instead of walking a per-repo pile of JSONL. **This is the consumer for everything Phases 1–4 produce, and it is listed ahead of Phase 5 because it needs no scheduler and no server.** The discipline it enforces is the synthesis's: pair every producer with its consumer. A producer with no consumer is how 262 MB accumulated unread.
-
-**Gate:** the Python port of `review-runs`. Not the Temporal server.
-
-- [ ] The evidence sweep sources the journal, and produces the same findings as the incumbent sweep over one overlapping window
-- [ ] Every producer shipped by Phases 1–4 has a named, committed consumer — enumerated, not asserted
-- [ ] The wall-clock of the cross-run sweep is measured against journal size, and reported as the first real test of Phase 1's no-database decision
-- [ ] **Any gap in the journal appears in the sweep's own output** (r6), so a reader of a CPI report learns what the record does not contain without coming here
-- [ ] The sweep reaches its evidence through one storage interface (r7), so pointing it at object storage later is a change of input rather than a rewrite
-- [ ] Cross-machine CPI is explicitly not built here
-
 ### [Phase 5 — Snapshots, then retention](phase5_snapshots_then_retention.md)
 
 Records what every store held at a point in time into the journal, and only then deletes anything. Deletion removes whole run folders oldest-first until the journal is under its budget, and never past the last snapshot — that ordering is the whole phase, because after Phase 4 the journal is the only thing that can regenerate a store. **One budget governs the whole journal and nothing is exempt from it**; deletion is all-or-nothing per run, because a half-readable run reads as coverage.
@@ -329,18 +318,18 @@ Records what every store held at a point in time into the journal, and only then
 - [ ] A rebuild from the last snapshot forward still passes Phase 4's test after a deletion pass
 - [ ] A retention pass emits its own journal events, carried into the snapshot **preserving event class and originating `run_id`**, and a bag that is both incomplete and redacted stays distinguishable as both
 
-### [Phase 8 — The poller](phase8_the_poller.md)
+### [Phase 6 — CPI reads the journal](phase6_cpi_reads_the_journal.md)
 
-No new to-do surface is needed — `candidates.md`'s `status: open` already is one, and a to-do bit is a required property of every working record. What is missing is the thing that reads it: a scheduled workflow that queries state and starts children with no human trigger.
+Moves the continuous-improvement evidence sweep onto the journal, so it reads one store instead of walking a per-repo pile of JSONL. **This is the consumer for everything Phases 1–4 produce**, and it needs no scheduler and no server. The discipline it enforces is the synthesis's: pair every producer with its consumer. A producer with no consumer is how 262 MB accumulated unread.
 
-**Gate:** Temporal schedules, and a journal with a retention rule so a poller is not walking an unbounded tree.
+**Gate:** the Python port of `review-runs`. Not the Temporal server.
 
-- [ ] A scheduled workflow reads a store's to-do bit and starts a child with no human trigger, demonstrated end-to-end on one real cue
-- [ ] The cue is read from an existing surface; no new cue surface is created
-- [ ] A cue that fires twice starts one child, not two
-- [ ] The poller reads the store rather than the journal, and the phase doc says why
-- [ ] The workflow a cue starts is chosen by the surface in a fixed code-side table, never by the row's content
-- [ ] The poller acts only on cues of local origin
+- [ ] The evidence sweep sources the journal, and produces the same findings as the incumbent sweep over one overlapping window
+- [ ] Every producer shipped by Phases 1–4 has a named, committed consumer — enumerated, not asserted
+- [ ] The wall-clock of the cross-run sweep is measured against journal size, and reported as the first real test of Phase 1's no-database decision
+- [ ] **Any gap in the journal appears in the sweep's own output** (r6), so a reader of a CPI report learns what the record does not contain without coming here
+- [ ] The sweep reaches its evidence through one storage interface (r7), so pointing it at object storage later is a change of input rather than a rewrite
+- [ ] Cross-machine CPI is explicitly not built here
 
 ### [Phase 7 — Cross-machine aggregation, writing locally first](phase7_s3_aggregation.md)
 
@@ -354,6 +343,19 @@ Folders sync to object storage under machine id and run id. The local file is th
 - [ ] A gap in a shipped folder survives the transfer as a gap
 - [ ] Origin is derived from the prefix an object was found under, never from a field inside the object, and a disagreement between the two is reported
 - [ ] The bucket blocks public access, encrypts at rest and is reached over TLS, and its credential lives outside the repo and outside the journal
+
+### [Phase 8 — The poller](phase8_the_poller.md)
+
+No new to-do surface is needed — `candidates.md`'s `status: open` already is one, and a to-do bit is a required property of every working record. What is missing is the thing that reads it: a scheduled workflow that queries state and starts children with no human trigger.
+
+**Gate:** Temporal schedules, and a journal with a retention rule so a poller is not walking an unbounded tree.
+
+- [ ] A scheduled workflow reads a store's to-do bit and starts a child with no human trigger, demonstrated end-to-end on one real cue
+- [ ] The cue is read from an existing surface; no new cue surface is created
+- [ ] A cue that fires twice starts one child, not two
+- [ ] The poller reads the store rather than the journal, and the phase doc says why
+- [ ] The workflow a cue starts is chosen by the surface in a fixed code-side table, never by the row's content
+- [ ] The poller acts only on cues of local origin
 
 ---
 

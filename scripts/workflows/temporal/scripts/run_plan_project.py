@@ -7,14 +7,13 @@ on a task queue; the workflow module itself does not change.
 
 from __future__ import annotations
 
-import argparse
 import sys
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from preflight import preflight  # noqa: E402
+from preflight import RepoPathParser  # noqa: E402
 
 from modules.assistant import routing  # noqa: E402
 from modules.assistant.plan.plan_project.plan_project_workflow import run_plan_project  # noqa: E402
@@ -29,35 +28,44 @@ DEFAULT_RESEARCH = "docs/standards/architecture/research"
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(
+    p = RepoPathParser(
         prog="plan-project",
         description="Triage research candidates into the sprint plan, then judge the result.",
     )
-    p.add_argument("--sprint", default=DEFAULT_SPRINT, help=f"sprint plan (default: {DEFAULT_SPRINT})")
-    p.add_argument("--research", default=DEFAULT_RESEARCH, help=f"product research pool (default: {DEFAULT_RESEARCH})")
+    # DECLARED AS REPO PATHS, WHICH IS WHAT INSTALLS THE CHECK. This runner
+    # joined both onto `repo_root` unchecked and tested NEITHER, so an escaping
+    # `--research` reached the parent as an absolute path containing `..` and
+    # took the whole three-child pipeline with it. Demonstrated by execution with
+    # the dispatch stubbed, since this entrypoint has no `--dry-run`.
+    #
+    # THE EXISTENCE CHECK IS NEW HERE AND IS A DELIBERATE BEHAVIOUR CHANGE. This
+    # was the one runner in the family that validated nothing, so a typo'd
+    # `--sprint` used to surface after the worktree was cut — the orphaned-
+    # worktree class (#48/#49) that `preflight` exists to close, reached through
+    # the one argument `preflight` did not see.
+    p.add_repo_path("--sprint", default=DEFAULT_SPRINT, help=f"sprint plan (default: {DEFAULT_SPRINT})")
+    p.add_repo_path("--research", kind="dir", default=DEFAULT_RESEARCH,
+                    help=f"product research pool (default: {DEFAULT_RESEARCH})")
     p.add_argument("--pr", dest="pr_number", help="update an existing planning PR instead of opening one")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--verbose", "-v", action="store_true")
-    a = p.parse_args(argv)
 
     try:
-
-        repo_root = preflight(a.repo_target)
-
+        a, repo_root, resolved = p.parse_with_preflight(argv)
     except RuntimeError as exc:
-
         # Nothing has been created yet — that is the point of preflight.
-
         print(f"\n✗ {exc}", file=sys.stderr)
-
         return 1
-    research_dir = repo_root / a.research
+    research_dir = resolved["research"]
 
     try:
         url, verdict, loops, notes = run_plan_project(
             repo_root=repo_root,
             worktree_name=f"plan-project-{int(time.time())}",
-            sprint_path=repo_root / a.sprint,
+            sprint_path=resolved["sprint"],
+            # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
+            # of its own: `research_dir` is proven inside the repo and a literal
+            # segment cannot walk back out of it. This is not an operator path.
             candidates_path=research_dir / "candidates.md",
             research_dir=research_dir,
             pr_number=a.pr_number, repo_target=a.repo_target, verbose=a.verbose,

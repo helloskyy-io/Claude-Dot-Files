@@ -34,6 +34,7 @@ defect in it would be debugged through three other stages.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from ... import routing
@@ -68,14 +69,40 @@ FORBIDDEN_PATHS = (
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
 )
 
-# The two files this workflow EXISTS to write. Both live under `docs/standards/`,
-# so without the exception the forbidden pattern above fails every correct run.
-# `direction.md` is the operator's inbox rather than a standard, which is why the
-# prompt names it as the one exception to the standards-directory rule.
-PERMITTED_PATHS = (
-    r"^docs/standards/architecture/research/candidates\.md$",
-    r"^docs/standards/architecture/research/direction\.md$",
-)
+def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]:
+    """The two files this workflow EXISTS to write, BOTH from this run's arguments.
+
+    Both live under `docs/standards/`, so without the exception the forbidden
+    pattern above fails every correct run. `direction.md` is the operator's inbox
+    rather than a standard, which is why the prompt names it as the one exception
+    to the standards-directory rule.
+
+    A FUNCTION AND NOT THE MODULE-LEVEL TUPLE IT USED TO BE. The tuple's own
+    comment said this workflow *"writes two fixed files and can name them at
+    module level"* — and they are not fixed. `--candidates` and `--research` are
+    documented flags on this runner, and they are the flags through which a
+    DIFFERENT repository's pool is targeted, since `--repo` points at a tree whose
+    pool need not sit at this repo's path. Pointed anywhere else, the prompt was
+    handed `CANDIDATES_PATH` and told to rule rows there, `^docs/standards/`
+    denied the whole tree, and `boundary_crossings` read the model obeying its own
+    instructions as a crossing — failing a CORRECT run at the LAST guard, after
+    every turn had been spent. It presents as *"the flag is broken"*.
+
+    `direction.md` DERIVES FROM `--research` AND NOT FROM `--candidates`, because
+    that is the parameter the workflow already holds it under: `prompt_values`
+    reads `direction_ceiling(tree / rel_research)` and the run snapshots
+    `own.direction_statuses(worktree / rel_research)`. Deriving the grant from
+    anything else would let the grant and the readers point at different files.
+
+    `re.escape` ON BOTH, for the reason `plan_feature.permitted_paths` states at
+    length: an operator-supplied segment interpolated raw makes `.` match any
+    character, and a boundary silently widening to a sibling is the one failure
+    these modules exist to prevent.
+    """
+    return (
+        rf"^{re.escape(candidates_rel.as_posix())}$",
+        rf"^{re.escape((research_rel / own.DIRECTION).as_posix())}$",
+    )
 
 # --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
 #
@@ -115,10 +142,10 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "about a shipped candidate, so the observable that would separate "
         "designing from reporting is the prose itself.",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
-        "FORBIDDEN_PATHS `^docs/standards/` less PERMITTED_PATHS, same mechanism",
+        "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate row, a `direction.md` row, or either file":
         "act.ids_deleted over both id snapshots, and act.grants_that_vanished "
-        "over PERMITTED_PATHS for the files themselves",
+        "over permitted_paths for the files themselves",
 }
 
 # --- EVERY BEFORE/AFTER SNAPSHOT, AND WHAT WATCHES IT FOR ABSENCE ------------
@@ -153,7 +180,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "BEFORE the status comparison because a vanished row is in neither "
         "intersection that comparison judges",
     "before_tree":
-        "act.grants_that_vanished over PERMITTED_PATHS for the two files this "
+        "act.grants_that_vanished over permitted_paths for the two files this "
         "workflow writes; act.boundary_crossings for every other path, where a "
         "deletion already reads as a content change via the ABSENT sentinel",
 }
@@ -199,6 +226,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     rel_candidates = candidates_path.relative_to(repo_root)
     rel_research = research_dir.relative_to(repo_root)
     wt_candidates = worktree / rel_candidates
+    permitted = permitted_paths(rel_candidates, rel_research)
 
     # Counted in code so the report cannot assert a total it invented.
     counts = act.candidate_counts(wt_candidates)
@@ -244,7 +272,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # from the counter — a true failure naming the wrong cause, which is the
     # shape that gets a guard "fixed" by making the reader tolerant.
     after_tree = act.worktree_state(worktree)
-    vanished = act.grants_that_vanished(before_tree, after_tree, PERMITTED_PATHS)
+    vanished = act.grants_that_vanished(before_tree, after_tree, permitted)
     if vanished:
         raise RuntimeError(
             f"triage-candidates made {len(vanished)} file(s) it may WRITE cease "
@@ -298,7 +326,7 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
     # the first of those — "if a candidate you ship looks like it needs a sprint
     # section, say so" — one step short of writing the section instead.
     crossed = act.boundary_crossings(before_tree, after_tree,
-                                     FORBIDDEN_PATHS, PERMITTED_PATHS)
+                                     FORBIDDEN_PATHS, permitted)
     if crossed:
         raise RuntimeError(
             f"triage-candidates edited {len(crossed)} file(s) outside its "

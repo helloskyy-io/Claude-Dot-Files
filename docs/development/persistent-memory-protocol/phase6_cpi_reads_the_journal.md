@@ -16,13 +16,13 @@ The synthesis states the discipline this phase enforces plainly: **pair every pr
 
 ---
 
-## Why this phase sits ahead of Phase 5 in the roadmap, and why it was split at review
+## Why this is its own phase, and why its gate is not the server
 
-**At draft this was one phase with the poller, gated on the Temporal server.** That would have put this component's *only consumer* behind a server nobody has stood up, for four phases of producers — the failure above, committed by the plan that cites it as its own cautionary precedent, with a longer fuse and a larger store.
+**Bundled with the poller, this would be gated on the Temporal server** — which would put this component's *only consumer* behind a server nobody has stood up, for four phases of producers. That is the failure above, committed by the plan that cites it as its own cautionary precedent, with a longer fuse and a larger store.
 
 Only the **poller** needs a scheduler. **Reading the journal needs a journal.** So the two split: this phase, and [Phase 8](phase8_the_poller.md).
 
-**It still has a gate, and it is a real one.** The CPI evidence sweep exists today only as `scripts/workflows/review-runs.sh`, which is in the **frozen bash fleet** and may not be modified. Its Python port is a milestone of the [Temporal Integration](../temporal-integration/temporal-integration.md) component, tracked as a checkbox in [`sprint.md`](../sprint.md) § *Sprint: Temporal Integration*. This phase builds on the port; it does not perform it, and it does not touch the bash script.
+**It does have a gate, and it is a real one.** The CPI evidence sweep exists today only as `scripts/workflows/review-runs.sh`, which is in the **frozen bash fleet** and may not be modified. Its Python port is a milestone of the [Temporal Integration](../temporal-integration/temporal-integration.md) component, tracked as a checkbox in [`sprint.md`](../sprint.md) § *Sprint: Temporal Integration*. This phase builds on the port; it does not perform it, and it does not touch the bash script.
 
 ---
 
