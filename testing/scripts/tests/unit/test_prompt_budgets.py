@@ -50,7 +50,15 @@ BUDGETS: dict[str, int] = {
     # yaml rather than judged alone). 315 bytes were funded by cutting three
     # evidence anecdotes; 372 is the residue. The shrink pass this file needs is
     # still owed and is tracked separately — this is not it.
-    "review_pr/prompts/disposition.md": 75_868,
+    # RAISED 4 BYTES on 2026-08-16, and the trade is the smallest this gate has
+    # been asked to rule on: NOT new content, but one term corrected in place.
+    # The line cites `exit-protocol.md` §2.1 for "the Kind 2 record"; the memory
+    # taxonomy is now cut on lifecycle and §2.1 no longer carries that label, so
+    # the citation named a term its target had stopped using. "typed exit record"
+    # is 4 bytes longer than "Kind 2 record" and nothing was added around it.
+    # Stated rather than absorbed, because a 4-byte raise on the file that most
+    # needs shrinking is exactly the kind that gets waved through silently.
+    "review_pr/prompts/disposition.md": 75_872,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
