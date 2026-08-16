@@ -58,10 +58,12 @@ def main(argv=None) -> int:
         # structurally present rather than merely available. Nothing writes into
         # the bag until Phase 3; a root that will not resolve stops the run here
         # (r9), before a worktree exists and before a token is spent.
+        worktree_name = f"triage-candidates-{int(time.time())}"
         journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
-                             workflow_key="triage-candidates")
+                             workflow_key="triage-candidates",
+                             worktree_name=worktree_name)
 
-        worktree = act.worktree_add(repo_root, f"triage-candidates-{int(time.time())}", "HEAD")
+        worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
         url = wf.run_triage_candidates(repo_root=repo_root, worktree=worktree,
                                        candidates_path=cands, research_dir=research,
                                        pr_number=a.pr_number, verbose=a.verbose)

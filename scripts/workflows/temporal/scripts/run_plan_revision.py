@@ -147,10 +147,12 @@ def main(argv: list[str] | None = None) -> int:
         # structurally present rather than merely available. Nothing writes into
         # the bag until Phase 3; a root that will not resolve stops the run here
         # (r9), before a worktree exists and before a token is spent.
+        worktree_name = f"plan-revision-{int(time.time())}"
         journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
-                             workflow_key="plan-revision")
+                             workflow_key="plan-revision",
+                             worktree_name=worktree_name)
 
-        worktree = act.worktree_add(repo_root, f"plan-revision-{int(time.time())}", ref)
+        worktree = act.worktree_add(repo_root, worktree_name, ref)
 
         url = wf.run_plan_revision(
             description=a.description, repo_root=repo_root, worktree=worktree,

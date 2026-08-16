@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import posixpath
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -61,7 +62,7 @@ __all__ = ["JOURNAL_SCHEMA_VERSION", "BAGIT_VERSION", "TAG_FILE_ENCODING",
            "PAYLOAD_DIR", "MANIFEST_FILE", "BAGIT_FILE", "BAG_INFO_FILE",
            "DIR_MODE", "FILE_MODE", "REDACTION_MARKER", "BagError", "Bag",
            "open_bag", "read_tag_file", "utc_now", "payload_files",
-           "payload_symlinks", "sha256_of",
+           "payload_symlinks", "sha256_of", "contained_relpath",
            "LABEL_SCHEMA_VERSION", "LABEL_REDACTION", "LABEL_INCOMPLETE",
            "LABEL_GAP", "LABEL_SEALED_AT"]
 
@@ -116,6 +117,61 @@ class BagError(RuntimeError):
     """
 
 
+def contained_relpath(relpath: str, *, subdir: str = PAYLOAD_DIR) -> str:
+    """A caller-supplied bag-relative path, normalised and proven to stay under `subdir`.
+
+    ONE NAME FOR A RULE THIS PACKAGE HAD THREE COPIES AND ONE HOLE OF, and the
+    hole is why it exists rather than tidiness. The shape is always the same — an
+    externally-supplied string composed onto a trusted base path — and three
+    review passes each found one instance of it:
+
+      * `redact()`'s first-segment check, which `Path("data/../../x").parts[:1]`
+        walks straight through;
+      * a symlink under `data/`, which `is_file()` follows;
+      * `validate.py`'s manifest join, where `bag_path / name` with `name` read
+        out of an untrusted `manifest-sha256.txt` hashed a file OUTSIDE the bag
+        and reported the bag as PASS with an empty payload.
+
+    Three correct hand-written implementations and one missing one is what a rule
+    kept as prose produces. `test_journal_containment.py` is the other half: it
+    sweeps this package for entry points that take a caller-supplied path and
+    fails when one is not covered here.
+
+    LEXICAL ONLY, AND THAT SPLIT IS DELIBERATE. This resolves `.` and `..` and
+    refuses an absolute path or an escape — the half every caller needs. It does
+    NOT touch the filesystem, because the two callers need opposite things from a
+    symlink: `Bag._contained_payload_target` must REFUSE one before writing
+    through it, while `validate_bag` must REPORT one and keep going. Doing that
+    here would force one of those two to be wrong.
+
+    Returns the normalised POSIX path, which is also what a manifest should have
+    been written with — so a foreign bag using the `sha256sum` convention
+    (`./data/x.txt`) normalises to the same key this module writes rather than
+    being reported as both present and unlisted.
+    """
+    if not relpath or not relpath.strip():
+        raise BagError(
+            f"empty bag-relative path: {relpath!r}. A path into a bag names a "
+            f"file; naming nothing is a caller bug, not an empty selection.")
+
+    if os.path.isabs(relpath) or posixpath.isabs(relpath):
+        raise BagError(
+            f"{relpath!r} is an absolute path. A bag-relative path is composed "
+            f"onto the bag's own directory, so an absolute one addresses a file "
+            f"the bag does not contain — and joining it would silently DISCARD "
+            f"the bag's path entirely rather than escape it by degrees.")
+
+    normalised = posixpath.normpath(relpath.replace(os.sep, "/"))
+    if normalised != subdir and not normalised.startswith(f"{subdir}/"):
+        raise BagError(
+            f"{relpath!r} normalises to {normalised!r}, which is not under "
+            f"{subdir}/ — it addresses a file outside this bag. A path that "
+            f"leaves the payload directory is refused rather than rewritten, "
+            f"because the caller asking for it has a different bug than the one "
+            f"a rewrite would hide.")
+    return normalised
+
+
 def utc_now() -> str:
     """One spelling of "now" for every tag record this module writes.
 
@@ -126,6 +182,36 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _refuse_forged_label(label: str) -> None:
+    """The LABEL is composed onto the same line as its value, so it forges the same way.
+
+    THIS IS THE VALUE CHECK'S MISSING HALF, and it survived a pass that fixed the
+    value because the fix was written against the one parameter that had been
+    exploited. `open_bag` passes a caller-supplied `label` straight through to
+    `f"{label}: {value}"`, so `{"X\\nJournal-Incomplete: true": "y"}` forges the
+    flag exactly as the value case did. Every fleet call site passes a literal
+    today, which is precisely why nothing caught it.
+
+    The four refusals are `_LABEL_RE`'s own requirements read back as a writer's
+    contract: a label that cannot be parsed back out of the file it was written
+    into is a label that silently changes meaning on read.
+    """
+    if not label or label != label.strip():
+        raise BagError(
+            f"tag label {label!r} is empty or carries surrounding whitespace. A "
+            f"line starting with whitespace is a CONTINUATION of the label above "
+            f"it under RFC 8493, so this would append to a record it does not own.")
+    if "\n" in label or "\r" in label:
+        raise BagError(
+            f"tag label {label!r} contains a newline. It is written onto the same "
+            f"line as its value, so a multi-line label forges a second record.")
+    if ":" in label:
+        raise BagError(
+            f"tag label {label!r} contains a colon, which separates a label from "
+            f"its value. Written out and read back, everything after the first "
+            f"colon becomes the value and the record means something else.")
+
+
 def _refuse_folded_value(label: str, value: str) -> None:
     """A tag value carrying a newline would fold into what reads as a NEW LABEL.
 
@@ -133,9 +219,16 @@ def _refuse_folded_value(label: str, value: str) -> None:
     WAS BYPASSED. `_append_tag_line` refused newlines from the start; the
     bag-info file written at creation did not, so a caller passing
     `{"Journal-Worktree": "wt\\nJournal-Incomplete: true"}` set a flag nobody
-    asked for — demonstrated against a real bag. The check belongs to the tag
-    format, not to one of its two writers, so both call it.
+    asked for — demonstrated against a real bag.
+
+    THE THREE TAG-LINE COMPOSERS CALL THIS: `_append_tag_line`, `_set_tag_line`
+    and `open_bag`'s creation loop. `_write_tag_file` deliberately does NOT — it
+    also writes `manifest-sha256.txt` and the redaction marker, neither of which
+    is a tag line, so a per-line tag check there would refuse correct output.
+    Stated because an earlier version of this docstring claimed "both writers"
+    when there were three and one of them did not call it.
     """
+    _refuse_forged_label(label)
     if "\n" in value or "\r" in value:
         raise BagError(
             f"tag value for {label} contains a newline: {value!r}. A multi-line "
@@ -198,6 +291,7 @@ def _set_tag_line(path: Path, label: str, value: str) -> None:
     single-token values that cannot fold — and stated so a future caller does not
     reach for it with a free-text label whose value could.
     """
+    _refuse_folded_value(label, value)
     lines = path.read_text(encoding="utf-8").splitlines()
     replacement = f"{label}: {value}"
     kept: list[str] = []
@@ -400,8 +494,14 @@ class Bag:
         EVERY SEGMENT IS CHECKED FOR A LINK, not only the leaf, because a
         symlinked intermediate directory relocates everything beneath it just as
         effectively as a symlinked file does.
+
+        THE LEXICAL HALF IS NOW `contained_relpath`, SHARED WITH THE VALIDATOR.
+        This function keeps the two halves the validator must not have: refusing
+        a symlinked segment (the validator reports one instead) and the realpath
+        re-check, which is defence in depth against a link planted between the
+        lexical check and the write.
         """
-        target = self.path / payload_relpath
+        target = self.path / contained_relpath(payload_relpath)
         payload = self.payload_dir
 
         for segment in (target, *target.parents):

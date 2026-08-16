@@ -537,6 +537,16 @@ claude-dot-files/
 │                   │                                #   incomplete, because a validator checked at three of eight points looks exactly as green
 │                   │                                #   as one checked at all eight. Missing / mismatched / unlisted are distinguished — the
 │                   │                                #   third is a write landing AFTER the seal, invisible to any check that walks the manifest
+│                   ├── test_the_suite_never_writes_to_the_operators_journal.py # Making bag-open structural made the SUITE a
+│                   │                                #   dispatch: five modules drive an entrypoint main(), so every pytest run left a real bag
+│                   │                                #   under ~/.local/state — 24 in one day, and the integration tier was grading them as
+│                   │                                #   dispatch output. Keyed on the observable (did the real root change), not the mechanism
+│                   ├── test_journal_containment.py  # The CLASS behind four escapes found one-per-review-pass: an externally-supplied string
+│                   │                                #   composed onto a trusted base. Sweeps every `base / x` in the package and refuses one
+│                   │                                #   whose right operand is neither a module constant nor contained_relpath() unless a row
+│                   │                                #   declares why it cannot escape — so ADDING a join is what fails. The battery beside it
+│                   │                                #   catches the other half: reverting a guard leaves the declaration standing and true of
+│                   │                                #   nothing, which the sweep alone reads as covered
 │                   ├── test_journal_concurrent_writers.py # Sixteen threads released by a barrier all ask for ONE writer name and must get
 │                   │                                #   sixteen directories. Sequential calls would pass against a check-then-create, which is
 │                   │                                #   the implementation r3 exists to rule out. States its own limits: no global ORDER, no
@@ -581,6 +591,11 @@ claude-dot-files/
 │   │       │                                        #   enumerates it completely, and every tracked file is reachable through some
 │   │       │                                        #   entry. Paths are reconstructed from the indentation — leaf-name matching scored
 │   │       │                                        #   unrelated directories as enumerated and demanded the roll-ups be expanded
+│   │       ├── test_the_on_disk_footprint_is_documented.py # State written OUTSIDE any checkout must be named where an OPERATOR reads
+│   │       │                                        #   — CLAUDE.md, README.md, docs/guide/. Keyed on the journal's DEPLOYMENT_SHAPES
+│   │       │                                        #   rather than a list of paths, so a fourth shape fails until the docs say where
+│   │       │                                        #   the bytes land. A planning doc deliberately does not count: that is where the
+│   │       │                                        #   journal root already was when review-pr found it undocumented
 │   │       ├── test_candidate_ids_are_unique.py     # A `C-NNN` addresses ONE proposal. Three dispatches collided on the id space
 │   │       │                                        #   within forty minutes on 2026-08-11 and nothing would have said so
 │   │       ├── test_candidates_prose_matches_the_table.py # § Where things stand declares totals, an id range, a gap list and a

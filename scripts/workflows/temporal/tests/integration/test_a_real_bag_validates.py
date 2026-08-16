@@ -23,7 +23,22 @@ WHAT THIS DOES NOT PROVE, so a green run is not over-read:
     have them; the contract for those is pinned in the unit tier.
   * It cannot run in CI as things stand, because the journal is machine-local
     state that no clone can re-derive — which is exactly the property that made
-    `.claude/logs/` invisible to every consumer that reads the repo.
+    `.claude/logs/` invisible to every consumer that reads the repo. **A skipped
+    tier reports PASS in `run-all.sh`'s summary having asserted nothing**, which
+    is the same gap `C-067` describes for `mutate.sh`'s legs reached through a
+    second tool: no pytest exit code carries an executed-test count. So this tier
+    is never the evidence a guard works — the unit tier is.
+  * ⚠ **"A REAL dispatch" was not true of most of what this read, until it was
+    made true.** The unit suite drives entrypoint `main()`s, every entrypoint
+    opens a bag, and nothing redirected the root — so each `pytest` run left a
+    real bag in the real journal and this tier graded it as dispatch output.
+    Twenty-four had accumulated in a day. `tests/conftest.py` now redirects the
+    root for the whole session and
+    `tests/unit/test_the_suite_never_writes_to_the_operators_journal.py` fails if
+    that ever stops being true. **Bags predating that fix are still on any
+    machine that ran the suite**, so a corpus older than PR #99's final pass is
+    part litter — which affects what this tier's greenness MEANS, not whether the
+    assertions are correct.
 """
 
 from __future__ import annotations

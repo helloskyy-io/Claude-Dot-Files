@@ -25,10 +25,11 @@ other covered.
 WHY THE SWEPT UNIT IS THE ENTRYPOINT AND NOT THE WORKFLOW MODULE. This tree has
 two defensible readings of "parent" and they do not agree: `test_isolation_
 invariants.py` classifies six workflow modules as parents by `act.worktree_add(`,
-while ELEVEN entrypoints are 1:1 with a run. Six of those eleven call
+while ELEVEN entrypoints are 1:1 with a run. FIVE of those eleven call
 `worktree_add` themselves and hand the workflow module an already-cut worktree,
-so a bag opened inside the workflow module would fire AFTER a worktree existed
-on disk in more than half the fleet — and r9 says the run *does not start*. The
+and three more hand off by name to a module that cuts one, so a bag opened inside
+the workflow module would fire AFTER a worktree existed on disk in EIGHT of the
+eleven — and r9 says the run *does not start*. The
 entrypoint is where `preflight` already lives, for exactly this reason. At port
 time the entrypoint becomes a client that starts the workflow on a task queue,
 and the call moves to the workflow's first activity invocation; this predicate
@@ -363,7 +364,40 @@ def test_the_ordering_check_FAILS_on_a_reversed_entrypoint(tmp_path: Path) -> No
     assert offenders_in(handoff_reversed), (
         "a workflow handoff called BY NAME before bag-open must be flagged — this "
         "is the case the narrow `worktree_add`-only predicate could not see, and "
-        "it is six of the eleven entrypoints")
+        "it is three of the eleven entrypoints")
+
+
+def test_the_worktree_cutting_count_this_argument_RESTS_ON() -> None:
+    """The placement argument is quantitative, so the quantity is a GUARD.
+
+    Three docstrings said "six of eleven … more than half the fleet" and the
+    count was five — while a comment sixty lines below one of them said five.
+    Nothing was checking, in a package whose central claim is that a rule kept as
+    prose does not hold. A reader who catches one false count discounts the rest
+    of the prose, and this package is roughly half prose.
+
+    So the numbers stop being claims. Five cut their own worktree; three more
+    hand off by name to a `*_workflow` module that cuts one; eight of eleven
+    either way, which is what the argument actually needs and is true.
+    """
+    entrypoints = _entrypoints(ENTRYPOINTS_DIR)
+    cut_their_own = [p.name for p in entrypoints
+                     if "act.worktree_add(" in p.read_text()]
+    hand_off_by_name = [p.name for p in entrypoints
+                        if p.name not in cut_their_own
+                        and _side_effect_lines(ast.parse(p.read_text()))]
+
+    assert len(cut_their_own) == 5, (
+        f"the prose in this file and in journal_activities.py says FIVE "
+        f"entrypoints cut their own worktree; the tree says "
+        f"{len(cut_their_own)}: {sorted(cut_their_own)}. Correct the prose — a "
+        f"count restated beside the code that derives it is how it drifted last time.")
+    assert len(cut_their_own) + len(hand_off_by_name) == 8, (
+        f"the placement argument rests on EIGHT of eleven entrypoints reaching a "
+        f"worktree before any workflow-module code runs; the tree says "
+        f"{len(cut_their_own) + len(hand_off_by_name)}. If that number has moved, "
+        f"the argument for opening the bag at the entrypoint rather than in the "
+        f"workflow module has moved with it and needs restating, not renumbering.")
 
 
 # --- the other reading of "parent", so neither is silently dropped ------------------

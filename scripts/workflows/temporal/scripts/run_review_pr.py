@@ -114,7 +114,12 @@ def main(argv: list[str] | None = None) -> int:
         # the bag until Phase 3; a root that will not resolve stops the run here
         # (r9), before a worktree exists and before a token is spent.
         journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
-                             workflow_key="review-pr")
+                             workflow_key="review-pr",
+                             # The ONE workflow that cuts no worktree — it
+                             # reviews a PR in place. Stated rather than
+                             # defaulted, so `-` in a bag means "this run had
+                             # none" and never "somebody forgot the argument".
+                             worktree_name=None)
 
         worktree = repo_root
         result = wf.run_review(task, worktree)

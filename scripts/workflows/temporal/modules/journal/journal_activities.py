@@ -28,10 +28,15 @@ port carries that half.
 
 WHY THE CALL SITE IS THE ENTRYPOINT AND NOT THE WORKFLOW MODULE, TODAY. r9 says a
 root that cannot be resolved means *the run does not start*, and that is only
-literally true before the first side effect. Six of this fleet's eleven
+literally true before the first side effect. FIVE of this fleet's eleven
 entrypoints call `act.worktree_add` themselves and hand the workflow module an
-already-cut worktree, so a bag opened inside the workflow module would fire after
-a worktree existed on disk in more than half the fleet. The entrypoint is where
+already-cut worktree, and THREE more hand off by name to a `*_workflow` module
+that cuts one — so in eight of eleven a bag opened inside the workflow module
+would fire after a worktree existed on disk. (This paragraph said "six … more
+than half" through three passes; the count is five, the argument survives on
+eight of eleven, and `test_the_worktree_cutting_count_this_argument_RESTS_ON` now
+pins both numbers so the next reader who counts finds the prose true.)
+The entrypoint is where
 `preflight` already lives for exactly this reason. At port time the entrypoint
 becomes a client that starts the workflow on a task queue, and this call moves to
 the workflow's first activity invocation — the sweep's predicate moves with it.
@@ -93,7 +98,7 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
         return {}
     import yaml  # a hard preflight dependency; see scripts/preflight.py
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
         raise JournalRootError(
             f"config.yaml could not be parsed: {path}\n"
@@ -101,6 +106,24 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
             f"  remedy: fix the syntax. The journal root is read from this file, "
             f"and defaulting past an unreadable one would put verbatim "
             f"transcripts somewhere the operator did not choose.") from exc
+
+    # PARSING IS NOT THE SAME AS BEING A CONFIG, and this is the half the
+    # `YAMLError` fix above missed. A truncated or garbled file that yields a
+    # scalar or a list parses perfectly and is truthy, so it sails past the
+    # `or {}` guard and raises `AttributeError` on the first `.get` — which is
+    # not a `RuntimeError`, so none of the eleven entrypoint handlers catches it
+    # and the operator gets a traceback for exactly the misconfiguration r9
+    # exists to report cleanly. Same failure, adjacent branch.
+    if not isinstance(loaded, Mapping):
+        raise JournalRootError(
+            f"config.yaml is not a mapping: {path}\n"
+            f"  failing property: parsed as {type(loaded).__name__}, not a "
+            f"mapping of top-level keys\n"
+            f"  remedy: the file should be `key: value` at the top level. A "
+            f"partially-written or truncated config parses cleanly as a scalar "
+            f"and would otherwise be read as though it had no `journal:` section "
+            f"at all.")
+    return loaded
 
 
 def _git(repo_root: Path, *args: str) -> str:
@@ -119,10 +142,21 @@ def _git(repo_root: Path, *args: str) -> str:
 
 
 def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
-                 worktree_name: str | None = None,
+                 worktree_name: str | None,
                  config_path: Path | None = None,
                  env: Mapping[str, str] | None = None) -> Bag:
     """Resolve the journal root and open this run's bag. Raises to stop the run.
+
+    `worktree_name` HAS NO DEFAULT, AND THAT IS THE POINT. It was optional, and
+    nine of eleven entrypoints omitted it — so nine of eleven runs would have
+    written `Journal-Worktree: -` forever, under a phase rule that says a field
+    absent from v1 records is absent for good. Eight of those nine had the string
+    in hand within five lines of the call. This package's own thesis is that an
+    optional control is a skipped control; a keyword with no default applies it
+    to the package's own parameter, and the next entrypoint added fails at the
+    call rather than writing a placeholder nobody notices. Pass `None`
+    explicitly to state that a workflow cuts no worktree — `run_review_pr` is the
+    one that genuinely does not.
 
     THE ORIGINATING REPO IS A FIRST-CLASS FIELD, recorded here rather than left
     to Phase 3. The run log it supersedes is keyed per repo CHECKOUT while the
@@ -139,12 +173,42 @@ def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
     entrypoint's existing precondition handler already prints. That is r9: the
     run does not start, and the message names the resolved path and the failing
     property so recovery does not itself need a working journal.
+
+    ⚠ AND THAT CONTRACT IS ENFORCED HERE, AT THE BOUNDARY, BECAUSE IT WAS NOT.
+    `resolve_journal_root` only wraps the `OSError` from CREATING a missing
+    component — which is the first-run case. From the second run onward the root
+    already exists, `os.access` answers about permission and not about space, and
+    the first call that actually fails on a full disk is `open_bag`'s own `mkdir`
+    or tag-file write, raising a bare `OSError`. Ten of the eleven entrypoints
+    catch `(RuntimeError, FileNotFoundError[, ValueError])`, so the operator got a
+    traceback for precisely the steady-state failure — a full journal — that r9's
+    whole argument is built on being diagnosable without a working journal.
     """
     root = resolve_journal_root(config=load_journal_config(config_path), env=env)
 
     remote = _git(repo_root, "remote", "get-url", "origin")
     commit = _git(repo_root, "rev-parse", "HEAD")
 
+    try:
+        return _open(root, run_id, repo_root, workflow_key, worktree_name, remote, commit)
+    except OSError as exc:
+        raise JournalRootError(
+            f"journal root unusable: {root}\n"
+            f"  failing property: the bag for run {run_id} could not be written "
+            f"— {exc.strerror}"
+            f"{f' at {exc.filename}' if getattr(exc, 'filename', None) else ''}\n"
+            f"  remedy: free space under the root, or point `journal.root:` in "
+            f"config.yaml at a filesystem with room. A full journal stops every "
+            f"run including the one you would use to diagnose it, which is why "
+            f"this message names the path rather than raising a traceback."
+        ) from exc
+
+
+def _open(root: Path, run_id: str, repo_root: Path, workflow_key: str,
+          worktree_name: str | None, remote: str, commit: str) -> Bag:
+    """The bag-creating half of `open_run_bag`, split out only so the `OSError`
+    boundary above wraps every filesystem call this activity makes rather than
+    the subset that happened to be on one line."""
     return open_bag(root, run_id, info={
         "Journal-Workflow": workflow_key,
         "Journal-Origin-Repo": str(repo_root),

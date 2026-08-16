@@ -122,10 +122,12 @@ def main(argv=None) -> int:
         # structurally present rather than merely available. Nothing writes into
         # the bag until Phase 3; a root that will not resolve stops the run here
         # (r9), before a worktree exists and before a token is spent.
+        worktree_name = f"plan-verify-{int(time.time())}"
         journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
-                             workflow_key="plan-verify")
+                             workflow_key="plan-verify",
+                             worktree_name=worktree_name)
 
-        worktree = act.worktree_add(repo_root, f"plan-verify-{int(time.time())}", "HEAD")
+        worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
         url = wf.run_plan_verify(repo_root=repo_root, worktree=worktree,
                                  component=component, candidates_path=cands,
                                  pr_number=a.pr_number, verbose=a.verbose)

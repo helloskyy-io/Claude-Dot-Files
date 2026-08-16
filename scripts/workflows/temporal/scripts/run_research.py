@@ -66,7 +66,7 @@ def main(argv=None) -> int:
         # the bag until Phase 3; a root that will not resolve stops the run here
         # (r9), before a worktree exists and before a token is spent.
         journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
-                             workflow_key="research")
+                             workflow_key="research", worktree_name=wt)
 
         result = rr.run_research_refresh(research_dir=research_dir, repo_root=repo_root,
                                          worktree_name=wt, verbose=a.verbose) if a.refresh \

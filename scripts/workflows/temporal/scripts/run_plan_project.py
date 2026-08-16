@@ -67,12 +67,14 @@ def main(argv: list[str] | None = None) -> int:
         # structurally present rather than merely available. Nothing writes into
         # the bag until Phase 3; a root that will not resolve stops the run here
         # (r9), before a worktree exists and before a token is spent.
+        worktree_name = f"plan-project-{int(time.time())}"
         journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
-                             workflow_key="plan-project")
+                             workflow_key="plan-project",
+                             worktree_name=worktree_name)
 
         url, verdict, loops, notes = run_plan_project(
             repo_root=repo_root,
-            worktree_name=f"plan-project-{int(time.time())}",
+            worktree_name=worktree_name,
             sprint_path=resolved["sprint"],
             # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
             # of its own: `research_dir` is proven inside the repo and a literal

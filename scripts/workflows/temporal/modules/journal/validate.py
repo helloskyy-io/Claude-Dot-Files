@@ -36,13 +36,13 @@ MISSING IS NOT MISMATCHED IS NOT UNLISTED, and the distinction is the diagnosis:
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import bag as bagmod
 from .bag import (BAGIT_FILE, BAG_INFO_FILE, MANIFEST_FILE, PAYLOAD_DIR,
-                  BagError, payload_files, payload_symlinks, sha256_of,
-                  read_tag_file)
+                  BagError, contained_relpath, payload_files, payload_symlinks,
+                  sha256_of, read_tag_file)
 
 __all__ = ["BagReport", "validate_bag", "render_report", "main"]
 
@@ -55,15 +55,26 @@ class BagReport:
     lifecycle: str                                    # "open" | "sealed"
     redacted: bool
     incomplete: bool
-    ok: bool
     structural: tuple[str, ...] = ()
     missing: tuple[str, ...] = ()
     mismatched: tuple[str, ...] = ()
     unlisted: tuple[str, ...] = ()
     payload_files: int = 0
     payload_bytes: int = 0
-    redactions: tuple[str, ...] = field(default=())
-    gaps: tuple[str, ...] = field(default=())
+    redactions: tuple[str, ...] = ()
+    gaps: tuple[str, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        """DERIVED, NEVER STORED — a `PASS` printed above a missing file is the
+        single worst output an integrity tool can produce, and a stored field
+        makes it constructible. `ok` is the conjunction of the four evidence
+        tuples and nothing else, so a report cannot be built that disagrees with
+        its own contents. The flags are deliberately absent from it: `redacted`
+        and `incomplete` describe what happened to the RUN, `ok` describes the
+        BYTES, and a redacted bag whose payload matches its manifest is valid.
+        """
+        return not (self.structural or self.missing or self.mismatched or self.unlisted)
 
 
 def _parse_manifest(text: str, path: Path) -> dict[str, str]:
@@ -86,6 +97,24 @@ def _parse_manifest(text: str, path: Path) -> dict[str, str]:
     A REPEATED PATH IS ALSO REFUSED. Two lines naming one file is a manifest
     that does not decide what the file's checksum is, and a plain dict
     assignment would silently keep the last one.
+
+    ⚠ THE PATH IS CONTAINED, AND WITHOUT THIS THE VALIDATOR CERTIFIED A LIE.
+    `manifest-sha256.txt` is untrusted input — it is a file on disk that this
+    module did not necessarily write — and `validate_bag` joined its second field
+    straight onto the bag's path. Demonstrated against a real bag: a bag with an
+    EMPTY `data/` and the single line
+    `<sha256 of /etc/hostname>  ../../../../etc/hostname` reported `result: PASS`,
+    because the escaped file existed and hashed correctly, `missing` was empty,
+    and `unlisted` could not see it (`present` held nothing). An absolute entry
+    is worse still: `Path("/j/run") / "/etc/hostname"` DISCARDS the base entirely.
+    This is the same class `Bag._contained_payload_target` was hardened against
+    one module over, which is why both now call `contained_relpath`.
+
+    NORMALISING ALSO FIXES A FALSE FAILURE, and the two are one edit because they
+    are one omission. A foreign bag written with the `sha256sum` convention
+    `./data/x.txt` previously reported that file as present-and-matching AND as
+    `unlisted` — `ok=False` on a healthy bag — which contradicted this
+    docstring's own stated tolerance for other BagIt implementations.
     """
     entries: dict[str, str] = {}
     for lineno, raw in enumerate(text.splitlines(), start=1):
@@ -94,11 +123,16 @@ def _parse_manifest(text: str, path: Path) -> dict[str, str]:
         parts = raw.split(None, 1)
         if len(parts) != 2:
             raise BagError(f"{path}:{lineno} is not `<checksum> <path>`: {raw!r}")
-        checksum, name = parts[0].lower(), parts[1].strip()
+        checksum, listed_name = parts[0].lower(), parts[1].strip()
         if len(checksum) != 64 or any(c not in "0123456789abcdef" for c in checksum):
             raise BagError(
                 f"{path}:{lineno} does not begin with a 64-character sha256 "
                 f"checksum: {raw!r}")
+        try:
+            name = contained_relpath(listed_name)
+        except BagError as exc:
+            raise BagError(f"{path}:{lineno} names a path this bag cannot "
+                           f"contain: {exc}") from exc
         if name in entries:
             raise BagError(
                 f"{path}:{lineno} lists {name} a second time, with a different "
@@ -120,101 +154,117 @@ def validate_bag(bag_path: Path) -> BagReport:
     a thousand bags wants a report per bag, not an exception on the first
     malformed one; and a bag that is structurally broken still has a lifecycle
     worth reporting.
+
+    ⚠ AND THAT INCLUDES A FILESYSTEM ERROR, which is the half the sentence above
+    promised before the code delivered it. Only `BagError` was collected; every
+    `read_text`, `stat`, `rglob` and `open` here could raise `OSError` straight
+    out of the function. The reachable case is not exotic — Phase 3 writes into
+    bags while they exist, so a sweep over a live journal meets a file that
+    vanished between `rglob` and `stat`, and one such bag killed the whole sweep.
     """
     structural: list[str] = []
     lifecycle = "open"
     redacted = incomplete = False
     redactions: list[str] = []
     gaps: list[str] = []
-
-    if not bag_path.is_dir():
-        return BagReport(path=bag_path, lifecycle="open", redacted=False,
-                         incomplete=False, ok=False,
-                         structural=(f"{bag_path} is not a directory",))
-
-    bagit = bag_path / BAGIT_FILE
-    if not bagit.is_file():
-        structural.append(f"{BAGIT_FILE} is missing — RFC 8493 requires it")
-    else:
-        lines = [ln for ln in bagit.read_text(encoding="utf-8").splitlines() if ln.strip()]
-        if len(lines) != 2:
-            structural.append(
-                f"{BAGIT_FILE} has {len(lines)} lines; RFC 8493 §2.1.1 requires "
-                f"exactly two (BagIt-Version, Tag-File-Character-Encoding)")
-        elif not lines[0].startswith("BagIt-Version:") or \
-                not lines[1].startswith("Tag-File-Character-Encoding:"):
-            structural.append(
-                f"{BAGIT_FILE} does not declare BagIt-Version then "
-                f"Tag-File-Character-Encoding, in that order")
-
-    info_path = bag_path / BAG_INFO_FILE
-    if not info_path.is_file():
-        structural.append(
-            f"{BAG_INFO_FILE} is missing — it is where this fleet's schema "
-            f"version, redaction tombstones and gap records live")
-    else:
-        try:
-            entries = read_tag_file(info_path)
-        except BagError as exc:
-            structural.append(str(exc))
-            entries = []
-        for label, value in entries:
-            if label == bagmod.LABEL_REDACTION:
-                redacted = True
-                redactions.append(value)
-            elif label == bagmod.LABEL_INCOMPLETE and value.strip().lower() == "true":
-                incomplete = True
-            elif label == bagmod.LABEL_GAP:
-                gaps.append(value)
-        if not any(label == bagmod.LABEL_SCHEMA_VERSION for label, _ in entries):
-            structural.append(
-                f"{BAG_INFO_FILE} carries no {bagmod.LABEL_SCHEMA_VERSION} — an "
-                f"event written without a version is unrecoverable on read")
-
-    if not (bag_path / PAYLOAD_DIR).is_dir():
-        structural.append(f"{PAYLOAD_DIR}/ is missing — a bag has a payload directory")
-
-    # A SYMLINK IN A PAYLOAD IS A STRUCTURAL PROBLEM, NOT A FILE TO HASH. BagIt
-    # bags transfer as directory trees and a link's target does not travel with
-    # one, so the receiving end gets a dangling pointer where the manifest
-    # promised bytes. `payload_files` excludes them; without this they would be
-    # silently uncovered by the manifest instead of reported.
-    for link in payload_symlinks(bag_path):
-        structural.append(
-            f"{link.as_posix()} is a symlink — a bag holds bytes, not pointers to "
-            f"bytes outside it, which do not survive a transfer")
-
-    on_disk = payload_files(bag_path) if (bag_path / PAYLOAD_DIR).is_dir() else []
-    payload_bytes = sum((bag_path / rel).stat().st_size for rel in on_disk)
-
-    manifest_path = bag_path / MANIFEST_FILE
+    on_disk: list[Path] = []
+    payload_bytes = 0
     missing: list[str] = []
     mismatched: list[str] = []
     unlisted: list[str] = []
 
-    if manifest_path.is_file():
-        lifecycle = "sealed"
-        try:
-            listed = _parse_manifest(manifest_path.read_text(encoding="utf-8"), manifest_path)
-        except BagError as exc:
-            structural.append(str(exc))
-            listed = {}
+    if not bag_path.is_dir():
+        return BagReport(path=bag_path, lifecycle="open", redacted=False,
+                         incomplete=False,
+                         structural=(f"{bag_path} is not a directory",))
 
-        present = {rel.as_posix() for rel in on_disk}
-        for name, checksum in sorted(listed.items()):
-            target = bag_path / name
-            if not target.is_file():
-                missing.append(name)
-                continue
-            if sha256_of(target) != checksum:
-                mismatched.append(name)
-        unlisted = sorted(present - set(listed))
+    try:
+        bagit = bag_path / BAGIT_FILE
+        if not bagit.is_file():
+            structural.append(f"{BAGIT_FILE} is missing — RFC 8493 requires it")
+        else:
+            lines = [ln for ln in bagit.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            if len(lines) != 2:
+                structural.append(
+                    f"{BAGIT_FILE} has {len(lines)} lines; RFC 8493 §2.1.1 requires "
+                    f"exactly two (BagIt-Version, Tag-File-Character-Encoding)")
+            elif not lines[0].startswith("BagIt-Version:") or \
+                    not lines[1].startswith("Tag-File-Character-Encoding:"):
+                structural.append(
+                    f"{BAGIT_FILE} does not declare BagIt-Version then "
+                    f"Tag-File-Character-Encoding, in that order")
 
-    ok = not (structural or missing or mismatched or unlisted)
+        info_path = bag_path / BAG_INFO_FILE
+        if not info_path.is_file():
+            structural.append(
+                f"{BAG_INFO_FILE} is missing — it is where this fleet's schema "
+                f"version, redaction tombstones and gap records live")
+        else:
+            try:
+                entries = read_tag_file(info_path)
+            except BagError as exc:
+                structural.append(str(exc))
+                entries = []
+            for label, value in entries:
+                if label == bagmod.LABEL_REDACTION:
+                    redacted = True
+                    redactions.append(value)
+                elif label == bagmod.LABEL_INCOMPLETE and value.strip().lower() == "true":
+                    incomplete = True
+                elif label == bagmod.LABEL_GAP:
+                    gaps.append(value)
+            if not any(label == bagmod.LABEL_SCHEMA_VERSION for label, _ in entries):
+                structural.append(
+                    f"{BAG_INFO_FILE} carries no {bagmod.LABEL_SCHEMA_VERSION} — an "
+                    f"event written without a version is unrecoverable on read")
+
+        if not (bag_path / PAYLOAD_DIR).is_dir():
+            structural.append(f"{PAYLOAD_DIR}/ is missing — a bag has a payload directory")
+
+        # A SYMLINK IN A PAYLOAD IS A STRUCTURAL PROBLEM, NOT A FILE TO HASH. BagIt
+        # bags transfer as directory trees and a link's target does not travel with
+        # one, so the receiving end gets a dangling pointer where the manifest
+        # promised bytes. `payload_files` excludes them; without this they would be
+        # silently uncovered by the manifest instead of reported.
+        for link in payload_symlinks(bag_path):
+            structural.append(
+                f"{link.as_posix()} is a symlink — a bag holds bytes, not pointers to "
+                f"bytes outside it, which do not survive a transfer")
+
+        on_disk = payload_files(bag_path) if (bag_path / PAYLOAD_DIR).is_dir() else []
+        payload_bytes = sum((bag_path / rel).stat().st_size for rel in on_disk)
+
+        manifest_path = bag_path / MANIFEST_FILE
+        if manifest_path.is_file():
+            lifecycle = "sealed"
+            try:
+                listed = _parse_manifest(manifest_path.read_text(encoding="utf-8"),
+                                         manifest_path)
+            except BagError as exc:
+                structural.append(str(exc))
+                listed = {}
+
+            present = {rel.as_posix() for rel in on_disk}
+            for name, checksum in sorted(listed.items()):
+                # `name` came through `contained_relpath`, so this join cannot
+                # leave the bag. That is the ONLY reason this line is safe, and
+                # it was not safe before that call existed.
+                target = bag_path / name
+                if not target.is_file():
+                    missing.append(name)
+                    continue
+                if sha256_of(target) != checksum:
+                    mismatched.append(name)
+            unlisted = sorted(present - set(listed))
+    except OSError as exc:
+        structural.append(
+            f"could not be read: {exc.strerror} at "
+            f"{getattr(exc, 'filename', None) or bag_path}. The report below is "
+            f"partial — everything after this point was not examined.")
 
     return BagReport(
         path=bag_path, lifecycle=lifecycle, redacted=redacted, incomplete=incomplete,
-        ok=ok, structural=tuple(structural), missing=tuple(missing),
+        structural=tuple(structural), missing=tuple(missing),
         mismatched=tuple(mismatched), unlisted=tuple(unlisted),
         payload_files=len(on_disk), payload_bytes=payload_bytes,
         redactions=tuple(redactions), gaps=tuple(gaps))

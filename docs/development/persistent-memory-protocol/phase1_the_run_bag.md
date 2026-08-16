@@ -256,6 +256,44 @@ Three of this component's rules compose into a trap: the transcript goes in and 
 
 Both are closed the way the root's containment is: normalise, resolve, then prove the result is still inside the directory it must be inside — plus a symlink refusal on every path segment, `O_NOFOLLOW` on the write, and **a symlink under `data/` reported by the validator as a structural failure**. The general rule this leaves behind: *a bag holds bytes, not pointers to bytes that live outside it* — a pointer does not survive the directory-tree transfer [Phase 7](phase7_s3_aggregation.md) depends on.
 
+### And the rule stayed prose, so it leaked twice more — which is why it is now a function and a sweep
+
+**The two escapes above were fixed as two instances. The next review pass found two more of the same shape**, which is the evidence that enumerating instances does not converge here:
+
+- **The validator's manifest join.** `manifest-sha256.txt` is untrusted input — a file on disk this module did not necessarily write — and `validate_bag` composed its second field straight onto the bag's path. Demonstrated: a bag with an **empty `data/`** and the single line `<sha256 of /etc/hostname>  ../../../../etc/hostname` reported **`result: PASS`**. Every check agreed and every check was wrong for the same reason: `missing` saw a file that existed, `mismatched` saw a checksum that matched, and `unlisted` compared against an empty set. An absolute entry is worse — `Path("/j/run") / "/etc/hostname"` *discards* the base rather than escaping it. **This is requirement 5's own deliverable certifying a false statement**, on the tool an operator reaches for when the journal is what has gone wrong.
+- **The tag-label parameter.** The pass that closed value-forging in `_refuse_folded_value` wrote the fix against the parameter that had been exploited. The *label* is composed onto the same line, so `open_bag(info={"X\nJournal-Incomplete: true": "y"})` forged the flag identically. Every fleet call site passes a literal, which is exactly why nothing caught it.
+
+**Four instances, one shape: an externally-supplied string composed onto a trusted base.** Three of the four had been fixed correctly and independently, in three places, with no shared name — which is this component's own thesis (*a rule written in prose has not once prevented a write path being added without its emit*) coming true about the component. The remedy is the one r11 already argues for, applied to containment:
+
+- **One named rule** — `bag.contained_relpath`, called by `redact()` and by the manifest parser.
+- **A sweep that fails on the next one** — `tests/unit/test_journal_containment.py` walks every `base / x` composition in the package and refuses any whose right operand is neither a module constant nor `contained_relpath(...)`, unless a row declares *why that value cannot escape*. **Adding a join is what fails**, not remembering to test one.
+
+**The two halves catch different things, measured rather than assumed.** Reverting the manifest guard leaves the sweep GREEN — the declaration is still there, it is merely no longer true — and only the behavioural battery fails. Reverting `redact()`'s guard leaves the battery green (the realpath check still catches those inputs) and only the sweep fails. Neither substitutes for the other, and a fifth escape needs both to be wrong at once.
+
+*(Fixing normalisation also fixed a false failure in the other direction: a foreign bag using the `sha256sum` convention `./data/x.txt` had been reporting its only payload file as both present-and-matching **and** `unlisted` — `ok=false` on a healthy bag, contradicting the parser's own stated tolerance for other BagIt implementations.)*
+
+### Making bag-open structural made the TEST SUITE a dispatch, and nothing could go red about it
+
+**Found by running the suite and then looking at the operator's home directory** — not by an assertion, because every assertion passed the whole time. Five unit modules drive an entrypoint's `main()` to test its preconditions; every entrypoint now opens a bag; nothing stood between the two. **Twenty-four real bags accumulated under `~/.local/state/claude-dot-files/journal/` in a single day**, one per `pytest` invocation.
+
+Three consequences, and the third is the one that matters most to this component:
+
+1. Durable state written outside `tmp_path`, which the Testing Standard's fixture-placement rule forbids for exactly the reason it survives the run.
+2. [Phase 5](phase5_snapshots_then_retention.md)'s budget is measured over the whole root, so running the tests spends an operator's retention budget.
+3. **The integration tier was grading the unit suite's litter.** `test_a_real_bag_validates.py` reads whatever is under the real root and validates it *as a bag a real dispatch produced*. Its evidence base was mostly produced by the suite running two directories away — a tier that reads shared machine state cannot tell who wrote it.
+
+**Fixed as a property rather than as five edits:** an autouse session fixture in `tests/conftest.py` points `CONFIG_PATH` at a generated config naming a temporary root — **by config and not by `XDG_STATE_HOME`, because a configured root wins over every default**, so the environment route would protect only a machine whose `journal.root:` is empty. The check is separate from the remedy and keyed on the observable — *did the real root change* — rather than on the mechanism, since the mechanism varied every time this package leaked something. It discovers the entrypoint-driving modules by AST, runs them in a subprocess, and diffs the real root before and after.
+
+*(This is the third distinct thing in this phase that was correct-as-written, invisible to every test, and found only by executing something and looking at the result. The other two are the reseal appending a single-valued label, and the validator reporting `PASS` over a manifest naming a file outside the bag.)*
+
+### What requirement 9 does NOT check, and why that is a decision rather than a gap
+
+**The root's own properties are checked; its ANCESTORS' are not.** A group- or world-writable non-sticky directory *above* the root lets a different local account rename the root aside, at which point the next run recreates it, every check passes, and the fleet silently starts a fresh empty journal with the prior record gone.
+
+**It is not covered, deliberately, and the reasoning is r9's own scope.** Requirement 9 enumerates what the resolved root must be — absolute, `0700`, owned by this user, not a symlink, not inside a git working tree, writable — and both shipped defaults have safe ancestors (`/var/lib` and `~/.local/state` are neither group- nor world-writable). Reaching an unsafe ancestor requires an operator setting `journal.root:` under a shared directory. **Adding an unrequested refusal is not free here:** § *Why this is an activity* already names the cost that every run now hard-depends on this resolution succeeding, so a new way for it to fail stops the whole fleet including the run you would diagnose with.
+
+**The threat model this sits inside is already stated above** — *append-only here is a convention the fleet keeps, not a property the filesystem enforces*, and every run executes as the user that owns the root with permissions bypassed. An adversary with a local account and write on an ancestor is a machine misconfiguration one layer below what this component can repair. **Named here rather than left silent, because the doc describing the multi-user hazard while the code quietly declined half of it is the shape worth avoiding.** If a deployment ever puts the root under a shared parent, this is the requirement that grows a clause.
+
 ---
 
 ## Implementation checklist
@@ -281,26 +319,30 @@ Both are closed the way the root's containment is: normalise, resolve, then prov
 
 ### What one real bag costs, measured 2026-08-16
 
-**The bag was produced by a real entrypoint**, not constructed by a test: `run_triage_candidates.main(["--repo", "."])` with `plan_activities.worktree_add` replaced by a raise, so the entrypoint's own code path ran as far as its first side effect and stopped there. No model was dispatched and no worktree was cut. The harness is eight lines and is quoted in the PR that added this section.
+**The bag is produced by a real entrypoint's inputs**, not constructed by a test: `run_triage_candidates`'s own `open_run_bag` arguments, with the run stopped before its first side effect. No model was dispatched and no worktree was cut. The harness is eight lines and is quoted in the PR that added this section.
+
+**Measured against a temporary root rather than the default one, and that is a correction.** The first version of this measurement wrote its bag into `~/.local/state/claude-dot-files/journal/` — which is how the suite-pollution defect above went unnoticed for a pass. A bag's byte cost does not depend on where its root is, so nothing is lost by measuring in a sandbox, and a measurement that litters the thing it measures is a measurement that changes its own denominator.
 
 ```
-$ du -sb ~/.local/state/claude-dot-files/journal/b93d8ce8*/
-496
+$ du -sb /tmp/tmpixqez8jh/journal/0c4a0aa4*/
+523
 
-$ find ~/.local/state/claude-dot-files/journal/b93d8ce8*/ -type f -printf '%s\t%P\n'
-442     bag-info.txt
+$ find /tmp/tmpixqez8jh/journal/0c4a0aa4*/ -type f -printf '%s\t%P\n'
+469     bag-info.txt
 54      bagit.txt
 
-$ du -sh ~/.local/state/claude-dot-files/journal/b93d8ce8*/
+$ du -sh /tmp/tmpixqez8jh/journal/0c4a0aa4*/
 16K
 ```
 
 | Figure | Value | What it is |
 |---|---|---|
-| One opened bag, apparent bytes | **496** | `bagit.txt` 54 + `bag-info.txt` 442. The **per-run floor** — the whole cost of the protocol before anything emits |
+| One opened bag, apparent bytes | **523** | `bagit.txt` 54 + `bag-info.txt` 469. The **per-run floor** — the whole cost of the protocol before anything emits |
 | Same bag, on-disk | **16 KiB** | three directories at one 4 KiB block each, plus the two tag files. The floor an operator's `du` will report |
-| The floor as a share of one complete run | **0.010%** | 496 ÷ 4,863,400 (the two synthesis baselines below, summed) |
+| The floor as a share of one complete run | **0.011%** | 523 ÷ 4,863,400 (the two synthesis baselines below, summed) |
 | Runs per [Phase 5](phase5_snapshots_then_retention.md) 1 GB budget, at the projected complete size | **≈205** | 1,000,000,000 ÷ 4,863,400. **A projection, not a measurement** — nothing emits until [Phase 3](phase3_the_emit_rule.md), so the payload half is the synthesis figure and not something this phase weighed |
+
+**⚠ This supersedes an earlier figure of 496 bytes and the reason is substantive, not a re-run.** That bag carried `Journal-Worktree: -`, because the field was an optional argument nine of eleven entrypoints omitted — so nine of eleven runs would have recorded no worktree identity, permanently, under this doc's own rule that *a field absent from v1 events is absent forever*. The argument is now required and all eleven pass one; the floor grew by the 27 bytes of a real worktree name. **The old number is not re-stated anywhere** — it measured a bag this code no longer produces.
 
 **⚠ The last row is the only one here that is not measured, and it is labelled that way deliberately.** The first three are `du` against a bag that exists; the fourth multiplies a real denominator by a projected numerator. Phase 3 is where it becomes a measurement, and the figure it produces supersedes this row rather than joining it.
 
