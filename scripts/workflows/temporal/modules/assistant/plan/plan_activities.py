@@ -792,8 +792,6 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     that ships a candidate already tracked as an open issue creates two homes for
     one item, which is the duplication the candidates file exists to prevent.
     """
-    import subprocess
-
     lines: list[str] = []
 
     comps = sorted(d for d in (tree / "docs" / "development").iterdir()
@@ -820,9 +818,12 @@ def existing_work(tree: Path, research_dir: Path) -> str:
                  f"sprint plan is a Stage 4 coherence finding:")
     lines += [f"  - `{n}`" for n in papers]
 
-    r = subprocess.run(["gh", "issue", "list", "--state", "open", "--limit", "50",
-                        "--json", "number,title"], cwd=str(tree),
-                       capture_output=True, text=True)
+    # `gh_attempt`, NOT `subprocess.run`: this block degrades to a COULD-NOT-BE-READ
+    # note rather than raising, so it wants the retry without the raise — and a
+    # planning run that silently loses its open-issue list to one 503 plans
+    # against a repo it believes has no tracked work.
+    r = shared.gh_attempt(["issue", "list", "--state", "open", "--limit", "50",
+                           "--json", "number,title"], tree)
     if r.returncode == 0:
         import json
         issues = json.loads(r.stdout)

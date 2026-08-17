@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import os
+import time
 import uuid
 from collections.abc import Iterator
 from datetime import datetime
@@ -704,6 +705,192 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     return output
 
 
+# ── THE `gh` RETRY, AND THE TWO GUARDS THAT KEEP IT HONEST ──────────────────
+#
+# On 2026-08-17 GitHub ran a Partial System Outage and a single
+# `gh repo view --json nameWithOwner` in preflight took one
+# `HTTP 503: No server is currently available to service your request`. The
+# whole dispatch died before doing any work: one blip, one wasted run.
+#
+# The retry is HERE and not in each caller for the reason `gh_json` below
+# already argues about exception families — a caller cannot be expected to know
+# which failures this function's implementation can emit, and the next `gh`
+# reader re-acquires the gap by writing the obvious two lines. Exactly one
+# caller had written them (`review_pr_workflow._read_thread_for_invariant`),
+# for one path, after a flaky read nearly discarded a completed review.
+#
+# THE RISK IS NOT UNDER-RETRYING, IT IS OVER-RETRYING, and both guards below
+# exist to fail toward "do not retry". Retrying a deterministic failure turns a
+# fast truthful error into a slow one; retrying a MUTATION double-posts, which
+# is not hypothetical here — issue #41 records duplicate comments on an issue an
+# operator had to rule on.
+
+# A later identical call may get a different answer for these, and only these.
+# 403 is deliberately NOT here: it is both "you may not do this" (terminal) and
+# "you have exceeded a secondary rate limit" (transient), and the status alone
+# cannot separate them. `_RATE_LIMIT_PHRASES` is what rescues the second.
+_RETRYABLE_HTTP = frozenset({429, 502, 503, 504})
+
+# Lowercased. Used ONLY to promote a 403; never to promote any other status, so
+# a 404 whose prose happens to mention a rate limit stays terminal.
+_RATE_LIMIT_PHRASES = ("rate limit", "abuse detection", "too many requests")
+
+# Both shapes `gh` actually emits, MEASURED against the live outage rather than
+# assumed: `HTTP 503: No server is currently available…` on the GraphQL path,
+# and `gh: Not Found (HTTP 404)` on the REST path.
+_HTTP_STATUS = re.compile(r"HTTP (\d{3})")
+
+# `gh`'s grammar is `gh <noun> <verb>`, and these verbs read. Anything absent
+# from this set — `create`, `comment`, `merge`, `edit`, `close`, and every verb
+# GitHub adds later — is NOT retried. An allowlist rather than a denylist
+# because the cost of the two mistakes is not symmetric: a read that fails to
+# retry costs one dispatch, a mutation that retries posts twice.
+#
+# `api` IS ABSENT ON PURPOSE. Its method is a flag (`-X`, `-f`), not a verb, so
+# the positional rule below cannot decide it, and nothing in the fleet routes
+# `gh api` through here today. Add it with the first caller and with a rule that
+# reads the flags — do not assume it is a read because the common case is.
+_READ_ONLY_GH_VERBS = frozenset({"view", "list", "checks", "status", "diff"})
+
+# THREE ATTEMPTS, ≤8 SECONDS OF ADDED LATENCY. Two pauses because one retry is a
+# coin flip on a blip and four starts disguising an outage as latency — the
+# operator's stated concern is runs that will not stop. 2.0s because the 503s
+# measured during this outage cleared within seconds; 6.0s rather than the 8.0
+# its sibling uses because this sits UNDERNEATH
+# `review_pr_workflow._THREAD_READ_BACKOFF_SECONDS`, and the composition on that
+# one path is 3×3 = 9 attempts and ~34s. Bounded, and stated so it stays bounded.
+# Shape matches that sibling deliberately: a tuple of pauses, with the final
+# attempt outside the loop and uncaught so the real error surfaces.
+_GH_RETRY_BACKOFF_SECONDS = (2.0, 6.0)
+
+
+def _gh_label(args: list[str]) -> str:
+    """The invocation, short enough to belong on a console line.
+
+    `' '.join(args)` is fine in an exception, which is read once. It is not fine
+    in a retry notice: `gh pr comment --body-file` aside, several call sites pass
+    multi-line prose, and a retry that dumps a PR body into the operator's
+    console teaches them to stop reading the retries.
+    """
+    label = " ".join(args).replace("\n", " ")
+    return label if len(label) <= 120 else label[:117] + "..."
+
+
+def _gh_transient_reason(stderr: str) -> str | None:
+    """Why this `gh` error is worth trying again, or None if it is not.
+
+    KEYED ON THE HTTP STATUS `gh` PRINTS, not on prose. Prose is server-supplied
+    English that changes without notice; the status token is the one part of the
+    message that means the same thing every time.
+
+    READS STDERR ONLY, WHICH IS A DELIBERATE NARROWING. `gh api` writes the
+    response BODY to stdout and its own diagnostic to stderr (measured), so
+    classifying on stderr keeps server-controlled content out of the decision.
+
+    EVERY STATUS FOUND MUST BE RETRYABLE, NOT MERELY ONE OF THEM. A message
+    carrying both a 404 and — for any reason, including a quoted body — a 503 is
+    treated as terminal. The asymmetry is the point: the failure mode of being
+    wrong here is a run that will not stop.
+
+    NO STATUS AT ALL IS TERMINAL. That is correct for the cases it was measured
+    against (`unknown flag: --not-a-flag`, and GraphQL's
+    `Could not resolve to a PullRequest`, which is a 404 wearing no status) and
+    it is the fail-safe direction for everything else. See this module's tests
+    for what that costs — a transport error and a GraphQL-layer 5xx both present
+    with no status and are both left un-retried.
+    """
+    codes = {int(c) for c in _HTTP_STATUS.findall(stderr)}
+    if not codes:
+        return None
+    lowered = stderr.lower()
+    rate_limited = any(p in lowered for p in _RATE_LIMIT_PHRASES)
+    for code in sorted(codes):
+        if code in _RETRYABLE_HTTP:
+            continue
+        if code == 403 and rate_limited:
+            continue
+        return None
+    if rate_limited:
+        return f"HTTP {sorted(codes)[0]}, throttled"
+    return f"HTTP {sorted(codes)[0]}, server-side"
+
+
+def _gh_is_read_only(args: list[str]) -> bool:
+    """Whether re-running this invocation is free of consequence.
+
+    A 502 on a MUTATION may mean the mutation landed and only the reply was
+    lost. Nothing in the reply can distinguish that from a mutation that never
+    ran, so the only safe answer for a write is: do not retry, raise, and let a
+    human or a caller with more context decide.
+
+    POSITIONAL, AND IT DOES NOT PARSE FLAGS — it takes the second non-flag token
+    as the verb. That is imprecise, and every direction the imprecision runs is
+    toward NOT retrying: a global flag placed before the noun shifts the window
+    so the noun lands in the verb slot and matches nothing, and a flag VALUE that
+    happens to spell a read verb still sits behind its own noun. A full parse
+    would need to track which flags take values, i.e. a model of `gh`'s CLI that
+    goes stale silently.
+
+    WHAT IT DOES NOT LOOK AT: whether the SERVER considers the call a write. A
+    read verb pointed at an endpoint with side effects — none exist in this
+    fleet — would be retried on its say-so.
+    """
+    verbs = [a for a in args if not a.startswith("-")]
+    return len(verbs) >= 2 and verbs[1] in _READ_ONLY_GH_VERBS
+
+
+def gh_attempt(args: list[str], repo_root: Path) -> subprocess.CompletedProcess:
+    """`gh`, retried past transient server-side failures, returned UNJUDGED.
+
+    The caller decides what a non-zero exit means, which is why this exists
+    beside `gh` rather than inside it: `gh issue list` in `plan_activities`
+    degrades to a "COULD NOT BE READ" note instead of raising, and it wants the
+    retries without the raise.
+
+    A RETRY IS VISIBLE OR IT NEVER HAPPENED. Every attempt past the first prints
+    what failed, how it was classified, and how long the pause is; a run that
+    eventually succeeded prints which attempt did it. Silent retries are how
+    nobody ever learns whether the answer to "is it GitHub or us?" is on record.
+    """
+    label = _gh_label(args)
+    attempts = len(_GH_RETRY_BACKOFF_SECONDS) + 1
+    spent = 0
+
+    for pause in _GH_RETRY_BACKOFF_SECONDS:
+        r = subprocess.run(["gh", *args], cwd=str(repo_root),
+                           capture_output=True, text=True)
+        spent += 1
+        if r.returncode == 0:
+            if spent > 1:
+                print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}",
+                      flush=True)
+            return r
+        reason = _gh_transient_reason(r.stderr)
+        if reason is None or not _gh_is_read_only(args):
+            # NOT SILENT, because "it did not retry" is the half of this an
+            # operator cannot infer from the absence of a line — a run that
+            # never retried and a run whose retry code is broken look identical
+            # in a log that only speaks when it retries.
+            print(f"→ gh {label}: attempt {spent}/{attempts} failed, TERMINAL "
+                  f"(not retried) — {_gh_label([r.stderr.strip()])}", flush=True)
+            return r
+        print(f"⚠ gh {label}: attempt {spent}/{attempts} failed, TRANSIENT "
+              f"({reason}) — retrying in {pause}s", flush=True)
+        time.sleep(pause)
+
+    # The last attempt is deliberately OUTSIDE the loop, so a persistent failure
+    # returns the real `gh` reply rather than one classified and swallowed.
+    r = subprocess.run(["gh", *args], cwd=str(repo_root),
+                       capture_output=True, text=True)
+    spent += 1
+    if r.returncode == 0:
+        print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}", flush=True)
+    else:
+        print(f"✗ gh {label}: FAILED after {spent}/{attempts} attempts — "
+              f"{_gh_label([r.stderr.strip()])}", flush=True)
+    return r
+
+
 def gh(args: list[str], repo_root: Path) -> str:
     """Run `gh` INSIDE the target repo rather than passing --repo.
 
@@ -712,9 +899,18 @@ def gh(args: list[str], repo_root: Path) -> str:
     derive the repo from the process cwd — which is exactly what the flag's own
     documentation promises never happens. Setting cwd keeps the identity
     explicit without needing to parse a remote URL into a slug.
+
+    Non-zero is a `RuntimeError` as it always was; what changed is that a
+    transient server-side failure on a read no longer reaches that raise on its
+    first occurrence.
+
+    THE ATTEMPT COUNT IS NOT IN THIS MESSAGE, AND THAT IS DELIBERATE. Only
+    `gh_attempt` knows it — deriving it here from the final stderr gets it wrong
+    for the mixed case (a 503 that becomes a 404 on the next attempt), and a
+    figure that is right most of the time is the kind a reader stops checking.
+    It prints the count on the line immediately above this raise instead.
     """
-    r = subprocess.run(["gh", *args], cwd=str(repo_root),
-                       capture_output=True, text=True)
+    r = gh_attempt(args, repo_root)
     if r.returncode != 0:
         raise RuntimeError(f"gh {' '.join(args)} failed in {repo_root}: {r.stderr.strip()}")
     return r.stdout
@@ -741,6 +937,27 @@ def gh_json(args: list[str], repo_root: Path):
     The raw body is quoted (truncated) into the message, because "expecting value
     at line 1 column 1" says nothing about whether the answer was an HTML error
     page, an empty string or a half-written array.
+
+    A DECODE FAILURE IS NOT RETRYABLE HERE, AND THIS FUNCTION ADDS ZERO
+    ATTEMPTS. `gh` exited 0: the transport succeeded and the server named no
+    condition a later identical call would satisfy. Nothing available at this
+    point distinguishes a truncated body from a server that answered fully and
+    wrongly, and "retry until it parses" is precisely the loop that turns a
+    deterministic wrong answer into a slow one.
+
+    THE SEPARATION IS THE WHOLE REASON THE RETRY LIVES BELOW THIS LINE. The
+    paragraph above exists because a 503 and a zero-exit-unparseable-body were
+    once conflated by callers; normalising them to one exception TYPE is what
+    callers need, and it is exactly what a retry must not be built on. Retrying
+    `RuntimeError` here would re-run the terminal failures `gh_attempt`
+    deliberately refused — every 404, every bad flag — because by the time the
+    exception exists the cause has been erased. So the classification happens in
+    `gh_attempt`, where the exit code and the stderr are still separate facts,
+    and this function is a pure parse over whatever survived that.
+
+    If a truncated body is ever MEASURED rather than inferred, it earns its own
+    named classification with its own evidence — not a quiet membership in the
+    transient set.
     """
     raw = gh(args, repo_root)
     try:
