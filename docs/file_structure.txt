@@ -533,9 +533,15 @@ claude-dot-files/
 │   │   └── tests/unit/                              # TIER 3 for the harness AND the repo-wide test-tree properties that only matter
 │   │                                                #   because of it — a collection failure exits 2, which pytest reports identically
 │   │                                                #   whether the guard fired or nothing ran at all (issue #72)
+│   │       ├── gfm_table_scan.py                    # NOT a test module — where a GFM table IS, owned once and asked by both
+│   │       │                                        #   markdown gates below. Every boundary in it is measured through GitHub's
+│   │       │                                        #   `POST /markdown` rather than read off CommonMark, because the two
+│   │       │                                        #   disagree in both directions (`2.` interrupts a table, `<span>` does not)
 │   │       ├── test_mutate.py                       # The harness's own guards
 │   │       ├── test_test_tree_hygiene.py            # No test_*.py imports another test_*.py — anywhere in the repo, including a pair
-│   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read
+│   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read.
+│   │                                                #   TWO checks since PR #96: the import-statement one, and a second reading CALL ARGUMENTS,
+│   │                                                #   because a path LOAD emits no ast.Import node and slipped past the first one unseen
 │   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
 │   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
 │   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-050
@@ -558,9 +564,11 @@ claude-dot-files/
 │   │       │                                        #   `.md` rather than one file — the defect is not file-shaped. Six
 │   │       │                                        #   instances in three files were closed one at a time across four review
 │   │       │                                        #   passes of one PR, and the sixth was live when the fifth was called
-│   │       │                                        #   fixed. Imports `_table_blocks`/`_cells` from the sibling rather than
-│   │       │                                        #   copying them; fenced code blocks are excluded because GFM renders no
-│   │       │                                        #   table inside a fence, so a finding there is a false positive
+│   │       │                                        #   fixed. Takes its scanner from gfm_table_scan.py rather than copying it
+│   │       │                                        #   — a first draft path-LOADED the sibling test module, which is the
+│   │       │                                        #   coupling test_test_tree_hygiene.py forbids and did not then catch.
+│   │       │                                        #   Fenced code blocks are excluded because GFM renders no table inside a
+│   │       │                                        #   fence, so a finding there is a false positive by construction
 │   │       ├── test_prompt_budgets.py               # Every prompt carries a byte budget, so ADDING to one is a trade
 │   │       │                                        #   rather than free. Prompts grew 224->317 KB in seven days under
 │   │       │                                        #   review — adding is visible work, removing is nobody's job

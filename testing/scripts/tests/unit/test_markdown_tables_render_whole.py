@@ -29,7 +29,7 @@ module so it fails loudly if it ever stops being true:
     of columns and the wrong names passes, and so does a body row whose cells
     are correctly counted and shifted one column left. Held by
     `test_a_SHIFTED_ROW_is_the_residual_this_gate_does_NOT_see`.
-  * AN HTML BLOCK OPENER inside a table. `_ends_the_table` tests no `<`, and
+  * AN HTML BLOCK OPENER inside a table. `ends_the_table` tests no `<`, and
     that is deliberate — measured through `POST /markdown`, `<div>` ends a
     table for GitHub and `<span>` does not, so a blanket test would invent
     failures. Tree-wide this scan would OVER-extend a block past a `<div>` and
@@ -43,12 +43,32 @@ module so it fails loudly if it ever stops being true:
   * FILES GIT DOES NOT TRACK, and files that are not `.md`.
 
 VENDORED MIRRORS ARE IN THE POPULATION ON PURPOSE, AND THAT HAS A COST WORTH
-NAMING. `docs/standards/{documentation,research,testing,temporal}/` are
-verbatim copies that MUST NOT be edited here. If this gate ever goes red on one
-of them the fix is UPSTREAM followed by a re-vendor, NOT a local edit — do not
-resolve it by touching the mirror, and do not resolve it by carving the mirror
-out of this scan. Measured today: 11 vendored files, 10 of them carrying
-tables, all clean.
+NAMING — BUT ONLY SIX FILES CARRY IT, NOT THE WHOLE DIRECTORY. An earlier
+revision of this paragraph said `docs/standards/{documentation,research,
+testing,temporal}/` were all verbatim copies, which is WRONG and would have
+misdirected a contributor: `scripts/helpers/vendor-standards.sh` copies exactly
+six files — `documentation_standard.md`, `research_standard.md`,
+`testing_standard.md`, `temporal_standard.md`, `stateful_patterns.md`,
+`worker_deployment_standard.md`. The four `README.md` applicability notes and
+`temporal/claude-dot-files-addendum.md` in those same directories are LOCAL and
+editable here, and each says so of itself.
+
+So: if this gate goes red on one of the six, the fix is UPSTREAM followed by a
+re-vendor, and neither editing the mirror nor carving it out of this scan is
+the answer. If it goes red on a README or the addendum, fix it in place like
+any other file. The six are read off `vendor-standards.sh` rather than restated
+here, held by `test_the_VENDORED_SET_is_read_off_the_script_that_defines_it`,
+because a hard-coded list is exactly the hand-kept declaration this repo's
+gates exist to catch.
+
+WHAT THIS GATE DOES NOT COVER THAT ITS SIBLING DOES — nothing. The stray-line
+shape (a paragraph tail split onto its own line inside a table, which renders
+as a DETACHED row and steals its neighbour's evidence — C-050 lost 1,956
+characters that way) is gated here tree-wide too, by
+`test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW`. It was left out
+of the first revision of this module on the reasoning that it was "the
+sibling's shape", which was wrong: the sibling's copy reads `candidates.md`
+alone, so tree-wide the shape was ungated by both.
 
 FENCED CODE BLOCKS ARE EXCLUDED BECAUSE GFM DOES NOT RENDER THEM AS TABLES AT
 ALL, which makes any finding inside one a false positive by construction. That
@@ -63,33 +83,28 @@ stops a documentation example from failing it later.
 
 from __future__ import annotations
 
-import importlib.util
 import re
 import subprocess
-import sys
 from pathlib import Path
+
+from gfm_table_scan import cells, table_blocks
 
 _REPO = Path(__file__).resolve().parents[4]
 
-# The GFM scanner is IMPORTED rather than reimplemented. Two definitions of
-# "inside a table" is precisely the drift seam this module's subject is about,
-# and the sibling's copy is the one with the measured HTML-block and
-# ordered-list boundaries written into it. Loaded by path rather than by module
-# name so it resolves identically under pytest and under a bare interpreter.
-_SIBLING = Path(__file__).with_name("test_candidates_prose_matches_the_table.py")
-
-
-def _load_sibling():
-    spec = importlib.util.spec_from_file_location("_candidates_table_gate", _SIBLING)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["_candidates_table_gate"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-_GFM = _load_sibling()
-
-_FENCE = re.compile(r"^\s*(```+|~~~+)")
+# THE FENCE RULE IS COMMONMARK'S, NOT A LOOSER APPROXIMATION OF IT, and both
+# tightenings below were added after review because the loose version could
+# only fail SILENTLY — it blanks live content rather than reporting it:
+#
+#   * AT MOST THREE SPACES of indent. Four or more is an indented code block,
+#     so a ```-looking line inside one is literal text, not a fence opener.
+#     `\s*` would have opened a phantom fence there and blanked everything
+#     after it until a later false close.
+#   * A CLOSING fence carries NO info string — only the marker and trailing
+#     whitespace. An opener may carry one (```python). Without that asymmetry a
+#     line like ``` example inside a real fence reads as a close, and the TRUE
+#     close then re-opens a phantom fence that blanks real markdown behind it.
+_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})([^`]*)$")
+_FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 
 
 def _tracked_markdown() -> list[Path]:
@@ -110,21 +125,23 @@ def _blank_fenced(lines: list[str]) -> list[str]:
 
     The closing fence must be at least as long as the opener and of the same
     character, which is CommonMark's rule and is what lets a ```` ```` ```` ````
-    block contain a ``` line.
+    block contain a ``` line. See `_FENCE_OPEN` / `_FENCE_CLOSE` above for the
+    two further rules — indent depth and info strings — and for why a loose
+    version of either fails silently rather than loudly.
     """
     out: list[str] = []
     fence: str | None = None
     for line in lines:
-        match = _FENCE.match(line)
         if fence is None:
-            if match:
-                fence = match.group(1)
+            opener = _FENCE_OPEN.match(line)
+            if opener:
+                fence = opener.group(1)
                 out.append("")
                 continue
             out.append(line)
             continue
-        closing = match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence)
-        if closing:
+        closer = _FENCE_CLOSE.match(line)
+        if closer and closer.group(1)[0] == fence[0] and len(closer.group(1)) >= len(fence):
             fence = None
         out.append("")
     return out
@@ -149,32 +166,52 @@ def _off_width_rows(path: Path) -> list[str]:
     """Rows in `path` that do not split into their own table header's count."""
     lines = _blank_fenced(path.read_text(encoding="utf-8", errors="replace").split("\n"))
     wrong: list[str] = []
-    for block in _GFM._table_blocks(lines):
-        expected = _GFM._cells(lines[block[0]])
+    for block in table_blocks(lines):
+        expected = cells(lines[block[0]])
         for i in block:
             line = lines[i]
             if not line.lstrip().startswith("|"):
-                continue  # a stray line inside a block is the sibling's shape
-            if _GFM._cells(line) != expected:
+                continue  # the stray-line check below owns this shape
+            if cells(line) != expected:
                 wrong.append(
                     f"{_display(path)}:{i + 1} "
-                    f"({_GFM._cells(line)} fields, expected {expected})"
+                    f"({cells(line)} fields, expected {expected})"
                 )
     return wrong
 
 
 # --- vacuity floor -------------------------------------------------------
 
-def test_the_SHARED_TABLE_SCANNER_is_the_one_this_gate_reads() -> None:
-    """If the sibling is renamed, this gate must fail rather than vanish."""
-    assert _SIBLING.exists(), (
-        f"{_SIBLING.name} is where the GFM table scanner lives and this gate "
-        "imports it by path. If it moved, repoint this import — do NOT write a "
-        "second copy of `_table_blocks`, which is the drift this gate exists to "
-        "catch in prose."
+def test_the_SHARED_TABLE_SCANNER_IS_NOT_A_TEST_MODULE() -> None:
+    """The scanner has a DECLARED OWNER, and that is not a style preference.
+
+    A first draft of this gate reached the four scanning functions by
+    `importlib`-loading its sibling `test_candidates_prose_matches_the_table.py`
+    by path. That is the coupling `test_test_tree_hygiene.py` forbids — private
+    names as a contract between two files with no owner, breaking at COLLECTION,
+    which `mutate.sh` reads as a caught mutation (issue #72) — and the hygiene
+    gate did NOT catch it, because its scan reads `ast.Import` nodes and a path
+    load emits none. Both were fixed together: the names moved to
+    `gfm_table_scan.py`, and the hygiene gate now sees dynamic loads too.
+
+    So this test asserts the SHAPE of the dependency, not merely that it
+    resolves — if the scanner ever moves back inside a `test_*.py`, this fails
+    here rather than being rediscovered by a review pass.
+    """
+    import gfm_table_scan
+
+    owner = Path(gfm_table_scan.__file__)
+    assert not owner.name.startswith("test_"), (
+        f"the GFM scanner now lives in {owner.name}, which pytest COLLECTS. "
+        "Move it back to a non-`test_`-prefixed helper module — a test module "
+        "is not an importable surface."
     )
-    for name in ("_table_blocks", "_cells", "_ends_the_table", "_is_delimiter"):
-        assert hasattr(_GFM, name), f"the shared scanner no longer exports {name}"
+    for name in ("table_blocks", "cells", "ends_the_table", "is_delimiter"):
+        assert hasattr(gfm_table_scan, name), (
+            f"the shared scanner no longer exports {name}; repoint the import "
+            "rather than writing a second copy, which is the drift this gate "
+            "exists to catch in prose"
+        )
 
 
 def test_there_are_enough_markdown_files_for_this_gate_to_mean_anything() -> None:
@@ -211,6 +248,64 @@ def test_EVERY_TABLE_ROW_IN_EVERY_TRACKED_MARKDOWN_FILE_RENDERS_WHOLE() -> None:
         "stays readable. Do NOT resolve this by deleting the evidence, and if "
         "the file is a vendored mirror under `docs/standards/`, fix it upstream "
         "and re-vendor rather than editing the copy."
+    )
+
+
+def test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
+    """The OTHER half of the class, which the first revision of this file missed.
+
+    A non-`|` line inside a table does not become prose and is not absorbed by
+    its neighbour — it renders as its own DETACHED `<tr>` with the whole
+    paragraph in the first column, while the row above it is CUT. Measured on
+    C-050 through `POST /markdown`: a 1,981-character tail on its own line came
+    back as a seventh `<tr>`, and C-050's own Note lost 1,956 characters.
+
+    THE SIBLING GATES THIS FOR ONE FILE ONLY. `test_EVERY_LINE_INSIDE_A_TABLE_
+    BLOCK_IS_ACTUALLY_A_ROW` in `test_candidates_prose_matches_the_table.py`
+    reads `candidates.md` and nothing else, so leaving this out "because it is
+    the sibling's shape" left it ungated everywhere else — the same
+    file-shaped reasoning this module exists to correct. Measured across all
+    tracked `.md` today: zero.
+    """
+    stray: list[str] = []
+    for path in _tracked_markdown():
+        lines = _blank_fenced(path.read_text(encoding="utf-8", errors="replace").split("\n"))
+        for block in table_blocks(lines):
+            for i in block:
+                if lines[i].strip() and not lines[i].lstrip().startswith("|"):
+                    stray.append(f"{_display(path)}:{i + 1}")
+
+    assert not stray, (
+        "these lines sit INSIDE a table block without being rows, so GitHub "
+        "renders each as a detached row that takes its neighbour's evidence "
+        "with it: " + "; ".join(stray) + ". Join the line back onto the cell it "
+        "belongs to, or put a blank line before it so the table ends first. Do "
+        "NOT resolve this by deleting the text."
+    )
+
+
+def test_the_VENDORED_SET_is_read_off_the_script_that_defines_it() -> None:
+    """This module's docstring names six mirrors; the script is the authority.
+
+    The docstring tells a contributor whose fix goes upstream and whose is
+    local, and a review pass caught an earlier revision claiming the whole of
+    `docs/standards/{documentation,research,testing,temporal}/` was vendored —
+    11 files rather than the 6 that actually are. A wrong answer there stalls a
+    legitimate local fix against a source that has no counterpart for it.
+    """
+    script = _REPO / "scripts" / "helpers" / "vendor-standards.sh"
+    assert script.is_file(), f"{script} is where the vendored set is declared"
+
+    declared = re.findall(r'^\s*"[^"]+:([^"]+)"', script.read_text(encoding="utf-8"), re.M)
+    names = sorted(Path(d).name for d in declared)
+    assert names == sorted([
+        "documentation_standard.md", "research_standard.md",
+        "stateful_patterns.md", "temporal_standard.md",
+        "testing_standard.md", "worker_deployment_standard.md",
+    ]), (
+        f"the vendored set changed to {names}. Update this module's docstring "
+        "paragraph on which files route upstream — a contributor reads it to "
+        "decide where a fix goes."
     )
 
 
@@ -252,7 +347,7 @@ def test_A_TABLE_INSIDE_A_FENCED_CODE_BLOCK_IS_NOT_GATED(tmp_path: Path) -> None
         encoding="utf-8",
     )
     lines = _blank_fenced(doc.read_text(encoding="utf-8").split("\n"))
-    assert _GFM._table_blocks(lines) == [], (
+    assert table_blocks(lines) == [], (
         "a table inside a fenced code block was picked up as a live table; GFM "
         "renders it as literal text, so every row it reports is a false failure"
     )
@@ -285,14 +380,10 @@ def test_a_SHIFTED_ROW_is_the_residual_this_gate_does_NOT_see(tmp_path: Path) ->
     """
     doc = tmp_path / "shifted.md"
     doc.write_text("| a | b | c |\n|---|---|---|\n|  | a-value | b-value |\n", encoding="utf-8")
-    lines = _blank_fenced(doc.read_text(encoding="utf-8").split("\n"))
-    wrong = [
-        i for block in _GFM._table_blocks(lines)
-        for i in block
-        if lines[i].lstrip().startswith("|")
-        and _GFM._cells(lines[i]) != _GFM._cells(lines[block[0]])
-    ]
-    assert wrong == [], (
+    # `_off_width_rows` ITSELF, for the same reason the discrimination test
+    # above calls it: a residual test that reimplements the predicate stops
+    # describing the predicate the moment either one moves.
+    assert _off_width_rows(doc) == [], (
         "a row whose cells are correctly COUNTED and shifted one column left is "
         "now caught; the docstring says it is not"
     )
@@ -309,9 +400,16 @@ def test_an_HTML_BLOCK_opener_is_the_residual_TREE_WIDE_TOO() -> None:
     The second assertion is what keeps this honest — the residual is currently
     UNEXERCISED, and if a `<`-opening line ever lands inside a table block the
     count below moves and this test says so.
+
+    COMPANION: `test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see`
+    in `test_candidates_prose_matches_the_table.py` holds the same residual for
+    that file. Both are claims about `ends_the_table`, which they now share, so
+    teaching it CommonMark's block-tag list retires BOTH tests and BOTH
+    docstring bullets — delete them in one commit or the surviving one starts
+    describing a residual that no longer exists.
     """
     doc = ["| a | b |", "|---|---|", "| x | y |", "<div>html</div>", "| p | q |"]
-    blocks = _GFM._table_blocks(doc)
+    blocks = table_blocks(doc)
     assert blocks and len(blocks[0]) == 5, (
         "the scan now stops at an HTML block opener; if that is deliberate, "
         "delete this test and the matching docstring bullet together"
@@ -321,7 +419,7 @@ def test_an_HTML_BLOCK_opener_is_the_residual_TREE_WIDE_TOO() -> None:
         f"{p.relative_to(_REPO)}:{i + 1}"
         for p in _tracked_markdown()
         for lines in [_blank_fenced(p.read_text(encoding="utf-8", errors="replace").split("\n"))]
-        for block in _GFM._table_blocks(lines)
+        for block in table_blocks(lines)
         for i in block
         if lines[i].lstrip().startswith("<")
     ]
