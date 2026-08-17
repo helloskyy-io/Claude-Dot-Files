@@ -4,6 +4,8 @@ The comment must contain these two sections:
 
 ## Decision Log
 
+**FIRST LINE, ALWAYS: `Rigour tier: <one file | new contract | safety control> — <N> mutations.`** Sized before you test, not justified after. **`0 mutations` is correct and common on the first tier.**
+
 List NON-OBVIOUS decisions made during this run. One bullet per decision, format:
 `**[High/Medium/Low]** <what was decided>. Alternatives: <what else was considered>. Why: <brief rationale>.`
 
