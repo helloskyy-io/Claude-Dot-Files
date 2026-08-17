@@ -402,6 +402,10 @@ claude-dot-files/
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+│                   ├── prose_number_words.py        # English number-words for the two prose-figure sweeps, in a HELPER module for the
+│                   │                                #   same reason as review_run_fakes below. Each sweep had its own copy and they had
+│                   │                                #   ALREADY diverged (twelve vs fourteen), so a figure written "thirteen X" was
+│                   │                                #   invisible to one of them — their own defect class, in their own supporting data
 │                   ├── review_run_fakes.py          # The shared review_pr fakes, in a HELPER module rather than a test module — a test
 │                   │                                #   module is collected, not imported, and the coupling it replaced broke at COLLECTION,
 │                   │                                #   which mutate.sh reads as a caught mutation (issue #72)
@@ -423,7 +427,7 @@ claude-dot-files/
 │                   │                                #   cannot see WHICH ARM supplies a key, so this drives the real entry points at both
 │                   │                                #   research altitudes and both build tiers, and asserts the two draft tiers render
 │                   │                                #   byte-identically — the property the deleted file-identity assertion used to hold
-│                   ├── test_promotion_guard_prose_FIGURES_are_derived.py # A promotion guard may not state a figure
+│                   ├── test_promotion_guard_prose_figures_are_DERIVED.py # A promotion guard may not state a figure
 │                   │                                #   about the corpus it polices. Five counts in these three modules were falsified by
 │                   │                                #   the change that shipped them, so every `<N> <noun>` in their prose must be BOUND
 │                   │                                #   to a deriver or DECLARED historical with a reason. Exemptions are matched in a

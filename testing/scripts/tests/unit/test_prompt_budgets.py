@@ -100,11 +100,17 @@ BUDGETS: dict[str, int] = {
     # prompts/fidelity_read_and_compare.md, fidelity_evidence_discipline.md and
     # fidelity_mutate_what_you_added.md. SAME ACCOUNTING AS THE MOVE ABOVE and
     # the two movements run opposite ways, so both are stated rather than netted:
-    # this file GAINED 1,427 bytes of substance — five `Measured:` evidence
+    # this file GAINED 1,431 bytes of substance — five `Measured:` evidence
     # sentences the minor tier alone carried, which every major refine run now
-    # reads — and then the 5,777-byte union moved out. All six pairs were ONE-SIDED
-    # ADDITIVE, which is why the union could only add: verified by rendering both
-    # tiers before and after and diffing, opcodes `equal`/`insert` only.
+    # reads. It then LOST the whole 4,383-byte span to three placeholder lines
+    # costing 95: 15,345 - 4,383 + 95 = 11,057, which is the number below.
+    # ALL SIX PAIRS WERE ONE-SIDED ADDITIVE, which is why a union could only add:
+    # verified by rendering both tiers before and after and diffing, opcode kinds
+    # `equal`/`insert` ONLY, so nothing was replaced, deleted or invented.
+    # THE COMPONENT FIGURES ARE BYTES, NOT CHARACTERS, and the first draft of
+    # this comment had them in characters — off by 90 on this file — which is the
+    # exact error the `plan_verify` note below warns about. Em-dashes are three
+    # bytes each and this prompt is full of them.
     "build/build_refine/prompts/stages_2_to_4.md": 11_057,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
@@ -154,11 +160,13 @@ BUDGETS: dict[str, int] = {
     # it would let the file regrow to 8,000 unbudgeted, which is the ratchet
     # running backwards. The floor decides what must ACQUIRE a budget, never
     # what may lose one.
-    # RATCHETED DOWN 7_988 -> 2_693, the other side of that third move: +420 for
+    # RATCHETED DOWN 7_988 -> 2_693, the other side of that third move: +424 for
     # the major tier's `gh pr view` truncation warning — the one pair of the six
-    # where the MAJOR tier was the superset — then the same 5,777-byte union
-    # moved out to the same three fragments. It sits far below the FLOOR now and
-    # still keeps its line, for
+    # where the MAJOR tier was the superset — then its 5,390-byte span went to
+    # the same three placeholder lines costing 95: 7,988 - 5,390 + 95 = 2,693.
+    # The two spans differ (4,383 vs 5,390) because each tier's copy was its own
+    # size before the union; the FRAGMENTS they both now read total 5,814.
+    # It sits far below the FLOOR now and still keeps its line, for
     # the reason already stated above: the floor decides what must ACQUIRE a
     # budget, never what may lose one, and dropping the line would let 5 KB of
     # vacated space refill unwatched.

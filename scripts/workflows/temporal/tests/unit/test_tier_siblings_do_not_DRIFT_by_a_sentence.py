@@ -57,8 +57,9 @@ when written — the corpus held 22, and 19 was the undercount produced by a
 25%-length prefilter that `_drifted` rejects below as unsafe. The reconciliation
 in the same PR then moved the true figure TO 19, so the wrong number became
 accidentally right while nothing about how it was obtained improved. A bare
-count in prose is a race with the tree; `test_promotion_guard_prose_FIGURES_are_
-derived` now binds this one to the detector that produces it.
+count in prose is a race with the tree, so this one is no longer stated here —
+`test_promotion_guard_prose_figures_are_DERIVED` fails any figure in these
+guards that is neither bound to a deriver nor declared historical.
 
 WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
 
@@ -80,6 +81,17 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
     `COMPARE THE CHECK SET` and `PRINT WHAT THE MUTATION ACTUALLY PRODUCED` are
     general guidance only one tier is given. Whether they SHOULD be is the
     fork-vs-parameterize ruling, unmade, and no guard can make it.
+  * **A SUBSEQUENCE that is not an append.** `_one_sided` is exact for what it
+    says — every opcode is `equal` or `insert` — and that is slightly broader
+    than "one tier's block plus a tail": a block quoting another verbatim inside
+    a wrapper also satisfies it. For prose the two coincide almost always, and
+    the failure direction is a false POSITIVE (a pair surfaced for a human), not
+    a miss.
+  * **A SECOND block sharing a 60-byte opening.** `KEY_LEN` is the entry key, so
+    two blocks in one child that start identically collapse to one entry, and
+    such pairs exist in this corpus today. `_scan` takes the MAX rather than the
+    last write, so a drifting block can no longer be MASKED by a namesake — but
+    the frozen list still shows one line where two blocks are in play.
   * **Which side is right.** When a pair is genuinely accidental the remedy is
     usually a union, but that is a reading of the two texts, not a computation.
   * **Anything outside the child prompt tree.** Drift between a prompt and the
@@ -151,7 +163,13 @@ ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
 
 
 def _blocks(child: str) -> list[str]:
-    """Every substantive block in one child's prompts, in no particular order."""
+    """Every substantive block in one child's prompts, SORTED.
+
+    Sorted because `rglob` order is filesystem-dependent and `_scan` keys its
+    result on a 60-byte opening: where two blocks in one child share an opening,
+    iteration order would otherwise decide which entry a reader sees, and the
+    same tree could report differently on two machines.
+    """
     out = []
     for p in ASSISTANT.rglob("prompts/*.md"):
         if p.parent == SHARED or p.parent.parent.name != child:
@@ -160,31 +178,49 @@ def _blocks(child: str) -> list[str]:
             b = raw.strip()
             if len(b) >= MIN_BLOCK:
                 out.append(b)
-    return out
+    return sorted(out)
 
 
-def _drifted(major: str, minor: str) -> dict[str, float]:
-    """Openings of the MAJOR tier's blocks that a minor-tier block nearly matches.
+def _scan(major_blocks: list[str], minor_blocks: list[str],
+          score) -> dict[str, float]:
+    """Best score per MAJOR block, keyed by its opening.
+
+    Takes BLOCK LISTS rather than child names so a control can drive it with
+    synthetic input — against the live tree only the passing path ever runs.
+    Both detectors share this body: they differ ONLY in `score`, and having two
+    copies of the bookkeeping would reproduce, inside the guard, the very defect
+    the guard exists to police.
+
+    `max` ON COLLISION, NOT OVERWRITE. Blocks sharing a 60-byte opening within
+    one child already exist in this corpus — measured, not hypothetical — so a
+    plain assignment let a drifting block be masked by a non-drifting namesake
+    scanned after it. The key stays the opening rather than a hash because the
+    frozen list is meant to be READ.
+    """
+    found: dict[str, float] = {}
+    for x in major_blocks:
+        best = 0.0
+        for y in minor_blocks:
+            best = max(best, score(x, y))
+        if best:
+            key = x[:KEY_LEN]
+            found[key] = max(found.get(key, 0.0), best)
+    return found
+
+
+def _ratio_score(x: str, y: str) -> float:
+    """How alike, when they are near-but-not-equal.
 
     `quick_ratio()` is an UPPER BOUND on `ratio()`, so skipping on it can never
     discard a real hit — it is the only prefilter that is safe here. The obvious
     alternative, skipping on a length difference, is not: two blocks differing
     30% in length can still score 0.82.
     """
-    found: dict[str, float] = {}
-    minor_blocks = _blocks(minor)
-    for x in _blocks(major):
-        best = 0.0
-        for y in minor_blocks:
-            m = difflib.SequenceMatcher(None, x, y)
-            if m.quick_ratio() <= NEAR:
-                continue
-            r = m.ratio()
-            if NEAR < r < 1.0:
-                best = max(best, r)
-        if best:
-            found[x[:KEY_LEN]] = best
-    return found
+    m = difflib.SequenceMatcher(None, x, y)
+    if m.quick_ratio() <= NEAR:
+        return 0.0
+    r = m.ratio()
+    return r if NEAR < r < 1.0 else 0.0
 
 
 def _one_sided(small: str, big: str) -> bool:
@@ -198,26 +234,34 @@ def _one_sided(small: str, big: str) -> bool:
                for tag, *_ in difflib.SequenceMatcher(None, small, big).get_opcodes())
 
 
-def _appended(major: str, minor: str) -> dict[str, float]:
-    """Openings of MAJOR blocks that are one tier's text plus an APPEND.
+def _append_score(x: str, y: str) -> float:
+    """Non-zero when one block is the other plus an append, at ANY ratio.
 
     The second detector, and it needs no threshold: a ratio answers "how alike",
     which is the wrong question for a class defined by "identical, plus more".
-    Runs beside `_drifted` rather than replacing it — the ratio still owns
+    Runs beside `_ratio_score` rather than replacing it — the ratio still owns
     two-sided edits, where no subset relation holds in either direction.
+
+    The length comparison is a free prefilter, not an optimisation of taste: an
+    insertion cannot SHRINK a string, so `_one_sided(x, y)` is impossible when
+    `y` is shorter and the `get_opcodes()` call in that direction is wasted.
     """
-    found: dict[str, float] = {}
-    minor_blocks = _blocks(minor)
-    for x in _blocks(major):
-        best = 0.0
-        for y in minor_blocks:
-            if x == y:
-                continue          # identical is the verbatim guard's population
-            if _one_sided(x, y) or _one_sided(y, x):
-                best = max(best, difflib.SequenceMatcher(None, x, y).ratio())
-        if best:
-            found[x[:KEY_LEN]] = best
-    return found
+    if x == y:
+        return 0.0                # identical is the verbatim guard's population
+    ordered = (x, y) if len(y) >= len(x) else (y, x)
+    if not _one_sided(*ordered):
+        return 0.0
+    return difflib.SequenceMatcher(None, x, y).ratio()
+
+
+def _drifted(major: str, minor: str) -> dict[str, float]:
+    """Openings of the MAJOR tier's blocks that a minor-tier block nearly matches."""
+    return _scan(_blocks(major), _blocks(minor), _ratio_score)
+
+
+def _appended(major: str, minor: str) -> dict[str, float]:
+    """Openings of MAJOR blocks that are one tier's text plus an APPEND."""
+    return _scan(_blocks(major), _blocks(minor), _append_score)
 
 
 def _drift(major: str, minor: str) -> dict[str, float]:
@@ -255,6 +299,35 @@ def test_the_APPEND_detector_fires_on_a_one_sided_drift() -> None:
 
     assert _one_sided("", base), "insertion into nothing is still insertion"
     assert not _one_sided(base, ""), "deletion to nothing must not read as insertion"
+
+
+def test_the_APPEND_detector_SEES_WHAT_THE_RATIO_CANNOT() -> None:
+    """The claim this module was rewritten for, exercised rather than narrated.
+
+    THE LIVE CORPUS CANNOT SHOW THIS AND THAT IS THE POINT. Every sub-floor pair
+    that motivated `_appended` was reconciled and promoted in the same change, so
+    the only survivor scores 0.91 — which `_ratio_score` finds on its own. A
+    regression that broke `_appended`'s sub-floor reach specifically would leave
+    every live assertion green. So the two detectors are driven through `_scan`
+    against a synthetic pair sitting BELOW `NEAR`, and the ratio detector is
+    required to miss it.
+    """
+    base = ("A rule with a reason attached, stated at the length a real block of "
+            "guidance in this corpus actually runs to, so the comparison is fair.")
+    appended = base + (" **Measured:** " + "and here is a long evidence sentence "
+                       "that landed in exactly one tier and nowhere else. " * 3)
+    ratio = difflib.SequenceMatcher(None, base, appended).ratio()
+    assert ratio < NEAR, (
+        f"the fixture scores {ratio:.3f}, at or above the {NEAR} floor — it no "
+        f"longer represents the sub-floor class and proves nothing"
+    )
+    assert _scan([base], [appended], _ratio_score) == {}, (
+        "the RATIO detector claims to find a pair below its own floor"
+    )
+    assert _scan([base], [appended], _append_score), (
+        "the APPEND detector cannot see a one-sided drift below the ratio floor "
+        "— which is the entire reason it exists"
+    )
 
 
 def test_the_two_detectors_TOGETHER_cover_the_pairs_the_frozen_list_names() -> None:

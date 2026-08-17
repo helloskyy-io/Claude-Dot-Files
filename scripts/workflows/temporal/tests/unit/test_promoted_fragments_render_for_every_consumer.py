@@ -166,7 +166,7 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
 # This banner used to state a count and the count was left behind twice by the
 # commits that grew the list — "six" over eight entries, then over eleven. The
 # list's own length is the figure, so the banner no longer restates it and
-# `test_promotion_guard_prose_FIGURES_are_derived` enforces that it cannot
+# `test_promotion_guard_prose_figures_are_DERIVED` enforces that it cannot
 # start again.
 
 _REFINE_FRAGMENTS = [

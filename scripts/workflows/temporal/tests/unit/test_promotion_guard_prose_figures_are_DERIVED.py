@@ -47,6 +47,14 @@ told they were misled.
     body, a standard, or `docs/file_structure.txt` is out of scope here.
   * **A DECLARED figure is never re-checked.** Declaring is an escape hatch with
     a reason attached, not a proof; a wrong declaration is invisible forever.
+  * **THE REGISTRY IS CORPUS-WIDE, NOT PER-FILE.** A key registered for one
+    module's prose would also excuse a figure in another module's, if it fell
+    inside that figure's window. The keys are long, specific historical quotes
+    so a collision is unlikely, but nothing PREVENTS it — this is the same
+    "reads a neighbour's evidence" shape `_WINDOW` was added to fix, one level
+    out, and it is named here rather than claimed to be absent.
+  * **AN INLINE TRAILING COMMENT** (`code  # eleven fragments`) is not swept:
+    only lines whose first non-space character is `#` are collected.
 """
 
 from __future__ import annotations
@@ -74,9 +82,7 @@ _PROSE = [
     UNIT / "test_tier_siblings_do_not_DRIFT_by_a_sentence.py",
 ]
 
-_NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-                 "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
-                 "twelve": 12, "thirteen": 13, "fourteen": 14}
+from prose_number_words import NUMBER_WORDS as _NUMBER_WORDS  # noqa: E402
 
 # What this corpus counts. The sweep fires on `<N> <noun>`, so widening this
 # tuple widens the guard.
@@ -202,7 +208,20 @@ def _figures_in(path: pathlib.Path) -> list[tuple[str, str]]:
             doc = ast.get_docstring(node)
             if doc:
                 prose.append(doc)
-    prose += [ln.split("#", 1)[1] for ln in src.splitlines() if ln.lstrip().startswith("#")]
+    # CONSECUTIVE COMMENT LINES ARE JOINED INTO ONE UNIT. Sweeping them
+    # line-by-line — as the first version did — makes a figure whose noun wrapped
+    # onto the next line invisible ENTIRELY rather than merely unregistered:
+    # "# the corpus holds eleven\n# fragments" has the number in one unit and the
+    # noun in the next, and no regex over either can see it.
+    run: list[str] = []
+    for ln in src.splitlines():
+        if ln.lstrip().startswith("#"):
+            run.append(ln.split("#", 1)[1])
+        elif run:
+            prose.append(" ".join(run))
+            run = []
+    if run:
+        prose.append(" ".join(run))
     # Also sweep string literals that are clearly explanatory notes.
     prose += re.findall(r'"([^"\n]{40,})"', src)
     out = []

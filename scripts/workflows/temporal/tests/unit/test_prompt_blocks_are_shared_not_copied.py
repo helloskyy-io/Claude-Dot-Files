@@ -36,7 +36,7 @@ sets" and was wrong on both halves by the time anyone re-measured: there are
 eight sets, and two of them are not cross-family at all — `research_write` +
 `research_write_minor` are tier siblings, and `plan_feature` + `plan_verify` are
 one family. The count is now derived by
-`test_promotion_guard_prose_FIGURES_are_derived` rather than restated here,
+`test_promotion_guard_prose_figures_are_DERIVED` rather than restated here,
 which is why the prose carries a shape and not a number.
 
 HOW TO FIX ONE, rather than adding to the baseline: move the block to
