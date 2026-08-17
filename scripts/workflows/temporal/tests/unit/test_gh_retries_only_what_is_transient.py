@@ -386,6 +386,35 @@ def test_a_retry_says_what_it_retried_and_why_it_thought_it_could(
         "nothing records which attempt actually answered")
 
 
+def test_a_call_that_never_needed_a_retry_says_NOTHING(
+    monkeypatch, tmp_path, slept, capsys,
+) -> None:
+    """VISIBLE MEANS "WHEN SOMETHING HAPPENED", NOT "ALWAYS".
+
+    The ✓ line is written in two places — inside the retry loop and in the tail
+    that runs the final attempt — and the tail's copy was UNGATED while the
+    loop's was `if spent > 1`. Equivalent only by accident: `attempts` is
+    `len(_GH_RETRY_BACKOFF_SECONDS) + 1`, so emptying that tuple — the natural
+    one-character way to turn retries off — makes the loop never run, lands
+    every call in the tail with `spent == 1`, and prints a ✓ for every
+    successful `gh` in the fleet. The kill switch for this feature also floods
+    the console.
+
+    The empty tuple is set here rather than argued about, because the property
+    is "the tail does not print on a first-attempt success" and the tail is only
+    reachable on attempt 1 when the loop is empty.
+    """
+    monkeypatch.setattr(act, "_GH_RETRY_BACKOFF_SECONDS", ())
+    _install(monkeypatch, [(0, "")])
+    act.gh(_READ, tmp_path)
+
+    assert capsys.readouterr().out == "", (
+        "a `gh` call that succeeded first time printed something. Nothing "
+        "happened worth an operator's attention, and a line per call is how a "
+        "log stops being read."
+    )
+
+
 def test_a_refusal_to_retry_is_ALSO_logged(
     monkeypatch, tmp_path, slept, capsys,
 ) -> None:

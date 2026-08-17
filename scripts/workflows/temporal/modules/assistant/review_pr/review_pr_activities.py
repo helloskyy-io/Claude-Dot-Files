@@ -34,14 +34,32 @@ MAX_TURNS_KEY = WORKFLOW_KEY
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
     """PR metadata. Raises rather than returning a partial dict."""
-    # `expect=dict`, because every caller of this reads it by KEY. The default
-    # `(dict, list)` would let a JSON array through to an `AttributeError` in
-    # somebody else's function, which is the second exception family `gh_json`
-    # exists to prevent.
-    return _shared.gh_json(
+    # `expect=dict`, because this reader indexes by KEY. `GH_JSON_SHAPES` — the
+    # permissive "either shape `gh --json` can send" — would let a JSON array
+    # through to an `AttributeError` in somebody else's function, which is the
+    # second exception family `gh_json` exists to prevent. The policy argument
+    # for why `expect` is stated at every call site lives at `gh_json`; what
+    # belongs here is the local fact.
+    reply = _shared.gh_json(
         ["pr", "view", pr_number, "--json", "headRefName,state,title"], repo_root,
         expect=dict,
     )
+    # A MAPPING IS NOT AN ANSWER. `expect=dict` proves the reply is indexable and
+    # nothing more; `{"message": "Not Found"}` satisfies it and then reaches
+    # `pr["headRefName"]` in `run_review` as a `KeyError` — which the entrypoint
+    # does NOT catch, so an operator gets a raw traceback after the journal bag
+    # and the worktree already exist. `thread_snapshot` below already converts
+    # this shape into the `RuntimeError` the caller handles; this is the other
+    # `expect=dict` caller getting the same treatment.
+    missing = [k for k in ("headRefName", "state") if not isinstance(reply.get(k), str)]
+    if missing:
+        raise RuntimeError(
+            f"`gh pr view {pr_number}` returned a JSON object without usable "
+            f"{'/'.join(missing)}. Keys present: {sorted(reply)[:10]}. This is a "
+            f"reply that PARSED without ANSWERING — check the PR number and the "
+            f"repo the run is pointed at."
+        )
+    return reply
 
 
 # A review pass's record carries a 32-lowercase-hex nonce (`exit-protocol.md`).

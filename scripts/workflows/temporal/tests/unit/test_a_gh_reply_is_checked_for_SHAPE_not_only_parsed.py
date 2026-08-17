@@ -109,6 +109,9 @@ class _Parses(ast.NodeVisitor):
         # flat name -> node dict resolves both to whichever `ast.walk` saw last,
         # so an unguarded site could be checked against the wrong body.
         self.sites: list[tuple[str, ast.AST | None, int, str | None]] = []
+        # Decode calls already claimed by a named position, so the
+        # catch-all `visit_Call` below does not report them a second time.
+        self._handled: set[int] = set()
 
     def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
         self.stack.append(node)
@@ -121,6 +124,23 @@ class _Parses(ast.NodeVisitor):
         self._maybe(node.value, node.targets)
         self.generic_visit(node)
 
+    def visit_Call(self, node: ast.Call):  # noqa: N802
+        # EVERY OTHER POSITION, AND THE ORIGINATING DEFECT LIVED IN ONE OF THEM.
+        # This visitor used to implement `Assign` and `Return` only, so
+        # `for i in json.loads(r.stdout):` — which is `existing_work`'s crash
+        # rewritten in one line, iterating a decoded dict's KEYS — was not in
+        # the census at all. Neither was `AnnAssign`, a walrus, or a decode
+        # passed straight into a call. Recorded with a None name because there
+        # is no binding to point an `isinstance` at, which is the same reason
+        # `return json.loads(...)` is a finding.
+        #
+        # `_handled` IS WHAT KEEPS THIS FROM DOUBLE-COUNTING: `visit_Assign`
+        # runs `_maybe` before `generic_visit` descends here, so a decode that
+        # already has a name is claimed by the time this sees it.
+        if id(node) not in self._handled:
+            self._maybe(node, [])
+        self.generic_visit(node)
+
     def visit_Return(self, node: ast.Return):  # noqa: N802
         # `return json.loads(raw)` has no name to check, which is precisely how
         # `gh_json` shipped without a shape check: there was nothing to point an
@@ -130,6 +150,8 @@ class _Parses(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _maybe(self, value, targets) -> None:
+        if isinstance(value, ast.Call):
+            self._handled.add(id(value))
         if not (isinstance(value, ast.Call)
                 and isinstance(value.func, ast.Attribute)
                 and value.func.attr == "loads"
@@ -245,8 +267,8 @@ def test_gh_json_still_returns_BOTH_legitimate_gh_shapes(monkeypatch, tmp_path) 
     """THE NEGATIVE CONTROL. A guard that rejects everything also rejects a 503.
 
     `gh --json` answers with an object (`pr view`) or an array (`pr checks`), and
-    the default must pass both — a shape check tightened past what `gh` actually
-    sends would break every caller in the fleet on its first real reply.
+    `GH_JSON_SHAPES` must pass both — a shape check tightened past what `gh`
+    actually sends would break every caller in the fleet on its first real reply.
     """
     for body, expected in (('{"a": 1}', {"a": 1}), ("[1, 2]", [1, 2])):
         monkeypatch.setattr(
@@ -258,9 +280,9 @@ def test_gh_json_still_returns_BOTH_legitimate_gh_shapes(monkeypatch, tmp_path) 
 
 
 def test_a_narrowed_caller_gets_the_narrower_answer(monkeypatch, tmp_path) -> None:
-    """`expect=dict` IS WHY THE DEFAULT BEING PERMISSIVE IS SAFE.
+    """`expect=dict` IS WHY `GH_JSON_SHAPES` BEING PERMISSIVE IS SAFE.
 
-    `(dict, list)` catches what `gh` can never have sent. It does not catch a
+    `GH_JSON_SHAPES` catches what `gh` can never have sent. It does not catch a
     list arriving where a caller will write `.get()` — so the two callers that
     read by key say `expect=dict`, and this is the assertion that the parameter
     is load-bearing rather than decorative.
@@ -302,6 +324,11 @@ _GUARDED = ("def f(r):\n    x = json.loads(r.stdout)\n"
                      "    return x[0]\n",
                      True, False, "a name assigned from `gh` a line earlier",
                      id="indirect-gh"),
+        pytest.param("def f(r):\n    for i in json.loads(r.stdout):\n        pass\n",
+                     True, False, "a decode in EXPRESSION position — the "
+                     "originating defect written in one line, and the shape the "
+                     "Assign/Return-only visitor could not see at all",
+                     id="expression-position"),
         pytest.param("def f(line):\n    e = json.loads(line)\n    return e['t']\n",
                      False, False, "a log line, which is a different population",
                      id="not-a-reply"),

@@ -167,6 +167,22 @@ class _Launches(ast.NodeVisitor):
                                    f"from subprocess import {alias.name}"))
         self.generic_visit(node)
 
+    def visit_Import(self, node: ast.Import):  # noqa: N802
+        # AND SO DOES `import subprocess as sp`, FOR THE IDENTICAL REASON. The
+        # matcher above tests `f.value.id == "subprocess"`, so `sp.run(cmd)` is
+        # invisible to it — exactly the hole `from subprocess import run` was
+        # promoted from "unlooked-at" to "refused" to close, one import
+        # statement away. The docstring claimed alias spellings were refused
+        # outright while only one of the two was; the tree already demonstrates
+        # the aliasing habit is live (`test_exit_record.py` imports `ast` as
+        # `_ast`). A plain `import subprocess` is untouched — it is what the
+        # bounded sites use.
+        for alias in node.names:
+            if alias.name == "subprocess" and alias.asname:
+                self.other.append((self.rel, "<import>", node.lineno,
+                                   f"import subprocess as {alias.asname}"))
+        self.generic_visit(node)
+
 
 def _census() -> tuple[list, list, list]:
     runs, popens, other = [], [], []
@@ -310,6 +326,7 @@ def test_the_bounded_predicate_discriminates(snippet: str, expect_bounded: bool,
         pytest.param("subprocess.call(cmd)", "call", id="call"),
         pytest.param("os.system(cmd)", "os.system", id="os-system"),
         pytest.param("from subprocess import run", "a direct import", id="import-from"),
+        pytest.param("import subprocess as sp", "an aliased import", id="import-as"),
     ],
 )
 def test_the_other_spelling_detector_discriminates(snippet: str, why: str) -> None:

@@ -123,12 +123,24 @@ class TimedOutProcess(subprocess.CompletedProcess):
     keyed on that number would be wrong the first time `gh` or `git` exits 124
     for a reason of its own. `isinstance` cannot collide with a real reply.
 
-    NON-ZERO SO EVERY CONVERTED CALLER IS ALREADY CORRECT. Each site routed
-    through `run_bounded` below had a `returncode != 0` branch it had already
-    reasoned about — raise and name the stale-base risk, return `""` for absent
-    metadata, record the read error and keep polling — and a timeout belongs in
-    every one of them. Returning this instead of letting `TimeoutExpired` escape
-    is what keeps a brand-new exception path out of a running fleet.
+    NON-ZERO SO A SITE THAT ALREADY BRANCHES ON `returncode` IS CORRECT — AND A
+    SITE THAT DOES NOT IS NOT. Returning this instead of letting `TimeoutExpired`
+    escape is what keeps a brand-new exception path out of a running fleet, and
+    for the sites that raise, poll, or degrade on a non-zero code a timeout
+    belongs in the branch they already have.
+
+    THIS PARAGRAPH USED TO ASSERT THAT EVERY CONVERTED CALLER WAS ALREADY
+    CORRECT, AND THAT CLAIM IS WHAT SHIPPED THE DEFECT. It was a universal
+    supported by three named behaviours; six production sites route through
+    `run_bounded`, one of the three named behaviours (`""` for absent metadata)
+    describes `journal_activities._git`, which bounds itself and is not one of
+    them, and `observe_outcome`'s `git status` read — which was one of them —
+    discarded its return code entirely and printed "Uncommitted changes: none"
+    for a worktree it had never read. A reviewer found it two passes later. The
+    claim is not restated in a fixed form here on purpose: `run_bounded` cannot
+    know what its callers do, so the property belongs where it can be CHECKED —
+    `test_a_bounded_reply_is_CHECKED_not_only_read.py` walks the call sites and
+    goes red on the seventh one that reads `.stdout` without reading `rc`.
 
     READ IT THROUGH `is_timed_out`, NOT THROUGH `isinstance` DIRECTLY. The type
     is the in-process signal and `timed_out` is the one that survives a
@@ -264,32 +276,65 @@ def observe_outcome(worktree: Path, branch: str | None = None) -> str:
 
     Returns a human-readable observation. If it cannot determine the state it
     SAYS SO — it never reports a negative it did not verify.
+
+    `_git` RAISES RATHER THAN RETURNING A CODE, AND THAT IS THE FIX FOR A LIVE
+    DEFECT RATHER THAN A STYLE PREFERENCE. It used to return `tuple[int, str]`,
+    which makes *ignore the failure signal* a WELL-TYPED EXPRESSION: the middle
+    read here was `rc, dirty = _git("status", "--porcelain")` and never looked at
+    `rc` again. Once `run_bounded` began rendering a hang as `returncode=124,
+    stdout=""`, an unread `git status` became indistinguishable from a clean
+    worktree, and this function — whose only production caller is `run_claude`'s
+    `code != 0` path, WITHOUT a `branch` argument, so the banner is exactly two
+    facts — printed "Uncommitted changes: none" for a worktree nothing had read.
+    Half a banner, fabricated, on the one path whose documented cost of being
+    wrong is a duplicate full-budget dispatch.
+
+    No linter saw it: `rc` is rebound and read eleven lines down, so it is not an
+    unused variable. Raising is what makes the ignoring unwritable — dropping the
+    failure now costs an `except … : pass`, which is loud, greppable, and already
+    banned by `engineering-quality.md`.
+
+    THE RAISE IS CAUGHT PER FACT, NOT AROUND THE BODY, so a read that fails costs
+    ONLY ITS OWN LINE. Aborting the whole observation would discard the HEAD this
+    function had already successfully read, and reporting what it CAN determine
+    is the entire point.
     """
-    def _git(*args: str) -> tuple[int, str]:
+    class _Unreadable(RuntimeError):
+        """git did not answer this question. Never means "the answer is no"."""
+
+    def _git(*args: str) -> str:
         r = run_bounded(["git", *args], cwd=worktree)
-        return r.returncode, r.stdout.strip()
+        if r.returncode != 0:
+            raise _Unreadable(" ".join(args))
+        return r.stdout.strip()
 
     if not worktree.exists():
         return f"Worktree {worktree} no longer exists — cannot determine what landed."
 
     lines: list[str] = []
-    rc, head = _git("log", "-1", "--format=%h %s")
-    if rc != 0:
+    try:
+        head = _git("log", "-1", "--format=%h %s")
+    except _Unreadable:
         return f"Could not read git state in {worktree}. Inspect it by hand before re-running."
     lines.append(f"HEAD in worktree: {head}")
 
-    rc, dirty = _git("status", "--porcelain")
-    lines.append(f"Uncommitted changes: {'YES — ' + str(len(dirty.splitlines())) + ' file(s)' if dirty else 'none'}")
+    try:
+        dirty = _git("status", "--porcelain")
+    except _Unreadable:
+        lines.append("Uncommitted changes: COULD NOT BE READ — do not assume none.")
+    else:
+        lines.append(f"Uncommitted changes: {'YES — ' + str(len(dirty.splitlines())) + ' file(s)' if dirty else 'none'}")
 
     if branch:
-        rc, unpushed = _git("log", f"origin/{branch}..HEAD", "--oneline")
-        if rc == 0:
+        try:
+            unpushed = _git("log", f"origin/{branch}..HEAD", "--oneline")
+        except _Unreadable:
+            lines.append(f"Could not compare against origin/{branch} — do not assume either way.")
+        else:
             lines.append(
                 f"Commits NOT yet on origin/{branch}: {len(unpushed.splitlines()) if unpushed else 0}"
                 + (f"\n  {unpushed}" if unpushed else "")
             )
-        else:
-            lines.append(f"Could not compare against origin/{branch} — do not assume either way.")
 
     lines.append(f"Worktree retained at: {worktree}")
     return "\n".join(lines)
@@ -1104,7 +1149,14 @@ def gh_attempt(args: list[str],
         # attempt never got an answer at all.
         print(_gh_timed_out_line(label, spent, attempts, args), flush=True)
     elif r.returncode == 0:
-        print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}", flush=True)
+        # GATED THE SAME WAY ITS TWIN IN THE LOOP IS, and it was not. With
+        # `_GH_RETRY_BACKOFF_SECONDS = ()` — the one-character way to turn
+        # retries off — the loop never runs, every `gh` call in the fleet lands
+        # here with `spent == 1`, and every successful read printed a ✓ line.
+        # The kill switch for this feature also flooded the console.
+        if spent > 1:
+            print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}",
+                  flush=True)
     else:
         print(f"✗ gh {label}: FAILED after {spent}/{attempts} attempts — "
               f"{_one_line(r.stderr.strip())}", flush=True)

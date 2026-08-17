@@ -408,6 +408,8 @@ claude-dot-files/
 │                   │                                #   back — a decode guard alone lets `{"message": …}` through to a `TypeError`
 │                   ├── test_a_census_guard_proves_its_own_predicate.py # A guard that walks the tree must exercise its PREDICATE on a
 │                   │                                #   literal too — a floored walk over an unconditional predicate is a permanent green
+│                   ├── test_a_bounded_reply_is_CHECKED_not_only_read.py # A launch reply's stdout may not be read as evidence unless
+│                   │                                #   its return code was; per-BINDING, so a name rebound and read later stays a finding
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
 │                   ├── review_run_fakes.py          # The shared review_pr fakes, in a HELPER module rather than a test module — a test

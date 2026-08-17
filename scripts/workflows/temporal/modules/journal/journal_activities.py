@@ -190,7 +190,19 @@ def _git(repo_root: Path, *args: str) -> str:
               f"metadata as absent, which is NOT the same as it being absent",
               flush=True)
         return ""
-    return probe.stdout.strip() if probe.returncode == 0 else ""
+    if probe.returncode != 0:
+        # THE SAME LINE FOR THE SAME CONFLATION, AND IT WAS MISSING. The branch
+        # above prints because `""` cannot distinguish "no remote" from "the
+        # probe failed" — and this branch returned the identical `""` in
+        # silence, one line below it. The docstring's "an empty string is a
+        # legitimate absence" is true of a repo with no `origin` and false of a
+        # git that answered 128, so only the callable case may be quiet.
+        print(f"⚠ journal: `git {' '.join(args)}` failed in {repo_root} "
+              f"({probe.returncode}): {probe.stderr.strip()[:200]} — recording "
+              f"this metadata as absent, which is NOT the same as it being absent",
+              flush=True)
+        return ""
+    return probe.stdout.strip()
 
 
 def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
