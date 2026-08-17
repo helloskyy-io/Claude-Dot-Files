@@ -554,6 +554,13 @@ claude-dot-files/
 │   │       │                                        #   that every row splits into the header's CELL COUNT — an unescaped
 │   │       │                                        #   `|` inside a code span truncated three rows on GitHub while every
 │   │       │                                        #   gate stayed green, because the source was read and never the render
+│   │       ├── test_markdown_tables_render_whole.py # The same cell-count property as the sibling above, over EVERY tracked
+│   │       │                                        #   `.md` rather than one file — the defect is not file-shaped. Six
+│   │       │                                        #   instances in three files were closed one at a time across four review
+│   │       │                                        #   passes of one PR, and the sixth was live when the fifth was called
+│   │       │                                        #   fixed. Imports `_table_blocks`/`_cells` from the sibling rather than
+│   │       │                                        #   copying them; fenced code blocks are excluded because GFM renders no
+│   │       │                                        #   table inside a fence, so a finding there is a false positive
 │   │       ├── test_prompt_budgets.py               # Every prompt carries a byte budget, so ADDING to one is a trade
 │   │       │                                        #   rather than free. Prompts grew 224->317 KB in seven days under
 │   │       │                                        #   review — adding is visible work, removing is nobody's job
