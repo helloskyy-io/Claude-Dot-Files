@@ -60,7 +60,7 @@ def count_prior_passes(pr_number: str, repo_root: Path) -> int:
     is in the archive and it is DURABLE: PR #31's blocks run `pass: 1, 2, 4` —
     there was never a pass 3 — and PR #66's single block is labelled `pass: 3`
     and is pass 1. `pass:` is a field of the durable record, so an over-matching
-    reader writes a wrong number into Kind 1 permanently. Tracked as issue #68.
+    reader writes a wrong number into the working record permanently. Tracked as issue #68.
 
     The declaration lives in `review_pr_helper.PR_REVIEW_BLOCK`, not here:
     `exit-protocol.md` §6 requires the record's schema AND ITS ADDRESS to be

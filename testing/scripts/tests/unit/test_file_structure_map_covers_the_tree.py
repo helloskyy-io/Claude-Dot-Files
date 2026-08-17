@@ -67,6 +67,14 @@ _MAP = _REPO / "docs" / "file_structure.txt"
 # is what gives the depth — the map indents four characters per level — and the
 # name carries a trailing slash on directory entries, stripped so `tests/`
 # composes into a path segment.
+#
+# THIS GRAMMAR IS PARSED A SECOND TIME, and this note is the price of keeping
+# the two parsers separate. `test_retired_vocabulary_is_gone_from_live_surfaces.py`
+# reads the same map with its own copy of `_LEAF` and `_MAP_INDENT`, because it
+# needs per-entry line numbers and leaf-plus-continuation joined text where this
+# module needs only a `set` of paths. A change to the map's rendering — the
+# indent width, the tree glyphs — has to move in BOTH. This file is the older
+# and more discoverable of the two, so it is the one someone opens first.
 _LEAF = re.compile(r"^(.*?)[├└]──\s+(\S+)")
 _INDENT = 4
 

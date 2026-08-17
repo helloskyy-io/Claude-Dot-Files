@@ -50,9 +50,36 @@ import collections
 import re
 from pathlib import Path
 
+import pytest
+
+from gfm_table_scan import (
+    blank_fenced,
+    cells,
+    off_width_rows,
+    stranded_rows,
+    stray_lines,
+    table_blocks,
+)
+
 _REPO = Path(__file__).resolve().parents[4]
 _CANDIDATES = _REPO / "docs" / "standards" / "architecture" / "research" / \
     "candidates.md"
+
+
+def _scan() -> list[str]:
+    """`candidates.md`'s lines with fenced code blanked.
+
+    THIS FILE WENT UNFENCED FOR ONE REVISION WHILE ITS SIBLING DID NOT, and
+    nothing said so. Both gates read `candidates.md` — it is tracked `.md`, so
+    it is in the tree-wide population too — which meant a fenced example of a
+    malformed row would have been a defect to one gate and correct to the
+    other. That is plausible content for THIS file specifically, since it is
+    the file the whole defect class was found in and its Notes quote table
+    rows. Measured today: zero fenced blocks in `candidates.md`, so this
+    changes no current verdict. It removes an asymmetry that was undisclosed
+    rather than decided.
+    """
+    return blank_fenced(_text().split("\n"))
 
 # A row:
 #   `| C-069 | <finding> | <component> | <source> | <decision> | `status` | <note> |`
@@ -176,32 +203,8 @@ def test_EVERY_ROW_THIS_CHECK_COUNTS_ACTUALLY_RENDERS_AS_A_TABLE_ROW() -> None:
     A row appended after any future heading fails here rather than rendering
     invisibly, whatever that heading turns out to be.
     """
-    lines = _text().split("\n")
-
-    # WHAT ENDS A GFM TABLE, WHICH IS NOT "the next line without a pipe".
-    # A plain paragraph line is LAZILY ABSORBED into the preceding row's last
-    # cell and the table keeps going — this file relies on that at C-050/C-051,
-    # where a bold paragraph sits between two rows and both still render as
-    # rows. A first version of this check broke the block on any non-`|` line
-    # and reported C-051 as an orphan; GitHub's own `/markdown` API disagreed,
-    # and the API was right. Only a blank line or a genuine block-level opener
-    # closes the table.
-    def _ends_the_table(line: str) -> bool:
-        s = line.strip()
-        return (not s
-                or s.startswith(("#", ">", "```", "~~~", "- ", "* ", "+ "))
-                or set(s) <= {"-", "*", "_", " "} and len(s) >= 3)
-
-    in_table: set[int] = set()
-    block: list[int] = []
-    for i, line in enumerate(lines + [""]):
-        if not _ends_the_table(line):
-            block.append(i)
-            continue
-        if any(set(lines[j].replace("|", "").replace(" ", "")) <= {"-", ":"}
-               and lines[j].replace("|", "").strip() for j in block):
-            in_table.update(block)
-        block = []
+    lines = _scan()
+    in_table = {i for block in table_blocks(lines) for i in block}
 
     orphans = [lines[i].split("|")[1].strip()
                for i, line in enumerate(lines)
@@ -213,6 +216,316 @@ def test_EVERY_ROW_THIS_CHECK_COUNTS_ACTUALLY_RENDERS_AS_A_TABLE_ROW() -> None:
         f"the table — appending to the end of the file puts it below "
         f"`{_SECTION}`, which is how this was found."
     )
+
+
+def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
+    """A row with a surplus `|` renders TRUNCATED, and everything stays green.
+
+    THE SIBLING ABOVE ASKS WHETHER A ROW RENDERS AT ALL; THIS ASKS WHETHER IT
+    RENDERS WHOLE, and the two are different failures with the same green.
+    GitHub-flavoured markdown splits a table row on `|` BEFORE it parses inline
+    content, so a pipe inside an inline code span — a regex alternation, a
+    shell pipeline in the evidence — is a cell break. GFM then DROPS every cell
+    past the header's count, and the last surviving cell is cut at the offending
+    pipe. Nothing errors and nothing warns.
+
+    MEASURED ON THIS FILE, RENDERED THROUGH GITHUB'S OWN `/markdown` API rather
+    than reasoned about: three rows were truncated at once. C-101 lost 2158 of
+    its 2769 characters at `` `git show … | grep -c …` ``; C-093 lost 2818 of
+    3561 at `` `grep -rn 'hour|hrs'` ``; C-062 lost its adjudication at a
+    `(MiB|GiB|MB|GB|KiB)` character class. What is lost is always the RIGHT-HAND
+    side of the row — which in this table is the `Note`, i.e. the evidence a
+    human triaging the candidate is supposed to weigh. The row keeps its id, its
+    `decision` and its `status`, so every derived count in this module was
+    correct over all three and every one of them was green.
+
+    THE ESCAPE IS `\\|`, AND IT WORKS INSIDE A CODE SPAN — the escape is
+    processed at cell-splitting time and the backslash does not survive into the
+    rendered code. This file already relied on that at C-056 and C-064 before
+    anyone stated it.
+
+    WHY THIS BELONGS HERE. This module's own subject is a file whose claims
+    drift from its contents, and its sibling above already records the class:
+    *"it checked the pattern that stands in for the property instead of the
+    property."* The source text is a stand-in for the rendering. The module even
+    keeps a second regex, `_RAW_ROW`, precisely because the rendering check
+    needs the cell as typed — and then never counted the cells.
+
+    ITS POPULATION IS WHAT GFM TREATS AS A ROW, NOT WHAT `_ROW` MATCHES, and
+    that distinction is this check's own second defect rather than a nicety.
+    The first version iterated lines matching `^\\| (C-\\d{3}) \\|` — a PROXY for
+    "a row", and the same substitution the sibling above was written to record.
+    A line GFM renders as a row while carrying no `C-NNN` is invisible to it,
+    and one was sitting in this file when the check shipped: C-050's Note had
+    its 1,981-character tail split onto its own line, which rendered as a
+    detached row with the whole paragraph in the ID column and cut C-050's Note
+    by 1,956 characters. Cell-count blind, contiguity blind, every derived
+    count green — because the stray carried no id, so nothing counted it and
+    nothing missed it. The population is now every line inside a table block.
+
+    EACH BLOCK IS CHECKED AGAINST ITS OWN HEADER. This file holds tables of two
+    widths — § Two flags and the `component` table are three columns, the
+    eleven candidate tables are seven — so a single expected count taken from
+    the candidate header would report every narrow row as malformed. That is
+    the shape a widened population fails in, and it is why `table_blocks`
+    returns blocks rather than one flat set of line numbers.
+
+    WHAT THIS DOES NOT LOOK AT. It is a CELL-COUNT check, not a rendering
+    check: it cannot see an unbalanced backtick, or a cell whose content is
+    malformed in any way that does not change how many cells there are. It
+    cannot see a table whose header is WRONG — a header with the right number
+    of columns and the wrong names passes, and so does a body row whose cells
+    are correctly counted and shifted one column left. It says nothing about
+    tables in any other file: that is
+    `test_EVERY_TABLE_ROW_IN_EVERY_TRACKED_MARKDOWN_FILE_RENDERS_WHOLE` in
+    `test_markdown_tables_render_whole.py`, which asks the same derivation of
+    every tracked `.md`. Both call `off_width_rows`, so there is one definition
+    of the property and two populations, rather than two loops that were
+    identical on the day they were typed.
+
+    AND IT INHERITS `ends_the_table`'s NOTION OF WHERE A TABLE STOPS. This
+    paragraph SAID THE WRONG THING for one revision, in the same docstring that
+    corrects `ends_the_table`'s own wrong story two functions above — it
+    claimed such an opener "would end a table here while GFM kept it open,
+    silently shrinking the population". Measured through `POST /markdown`, it
+    is the other way round: `<div>html</div>` inside a table ENDS it for
+    GitHub, and this scan — which tests no `<` — keeps the block open and reads
+    the rows after it as members. They are not members: GitHub renders them as
+    literal text. So the failure is the scan OVER-extending and missing rows
+    that stopped rendering, not under-reaching. The residual is disclosed here
+    and held red-able by
+    `test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see`, because
+    `<span>` does NOT end a table and a blanket `<` test would invent failures
+    GitHub does not have.
+    """
+    lines = _scan()
+    wrong = [
+        f"{lines[i].split('|')[1].strip()[:40] or f'line {i + 1}'} "
+        f"({actual} fields, expected {expected})"
+        for i, actual, expected in off_width_rows(lines)
+    ]
+
+    assert not wrong, (
+        "these rows do not split into their table header's field count, so "
+        "GitHub drops their surplus cells and truncates the last one that "
+        "survives — the Note, which is the evidence: "
+        + "; ".join(wrong)
+        + ". Escape the pipe as `\\|`. It is honoured inside an inline code "
+          "span, so a regex alternation or a shell pipeline in the evidence "
+          "stays readable. Do NOT resolve this by deleting the evidence."
+    )
+
+
+def test_EVERY_LINE_INSIDE_A_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
+    """A non-`|` line inside a table renders as a DETACHED row, not as prose.
+
+    THIS IS A SHAPE CHECK, NOT A CELL COUNT, and it rode inside the cell-count
+    check for one revision — one function, two properties, two unrelated
+    failure messages, so a red run named "cell count" in the report and "stray
+    line" in the body. It belongs beside the contiguity check above, which asks
+    the SAME boundary question from the other side: that one asks whether every
+    row is inside a block, this one asks whether everything inside a block is a
+    row. Together they are what "the population is what GFM treats as a row"
+    actually means.
+
+    The instance that produced it: C-050's `Note` had a 1,981-character tail
+    split onto its own line. Rendered through `POST /markdown` it came back as
+    its own `<tr>` with the whole paragraph in the ID column and six empty
+    cells beside it, while C-050's own Note was cut by 1,956 characters —
+    invisible to the cell count (it carried no id for `_ROW` to match) and
+    invisible to contiguity (contiguity only asks about lines that DO match).
+    """
+    lines = _scan()
+    strays = [f"line {i + 1}: {lines[i].strip()[:60]!r}" for i in stray_lines(lines)]
+    assert not strays, (
+        f"these lines sit INSIDE a table block but are not rows — they open "
+        f"with no `|`, so GFM renders each as a detached row carrying its whole "
+        f"text in the FIRST column and blanks in the rest, while the row above "
+        f"loses the text as its own Note: {strays}. This is what a `Note` cell "
+        f"split across two lines looks like. Join it back onto the end of the "
+        f"row it belongs to, escaping any interior pipe as `\\|`, and change no "
+        f"word of the content."
+    )
+
+
+def test_EVERY_PIPE_OPENING_LINE_SITS_INSIDE_A_TABLE_BLOCK() -> None:
+    """The other half of the same boundary, and the half that was still open.
+
+    WHY THIS EXISTS WHEN THE CONTIGUITY CHECK ALREADY RUNS. That one's
+    population is `_ROW` — `^\\| (C-\\d{3}) \\|` — so it can only speak for the
+    candidate tables. This file also holds two THREE-COLUMN tables (§ Two flags
+    and the `component` table) whose rows carry no id, and they are the ones
+    that state who may write `decision`, `status` and `component`. MEASURED:
+    inserting a `- ` list line into § Two flags left the ENTIRE suite green,
+    while `POST /markdown` broke the table there and swallowed the row after it
+    into the `<li>`. Both existing checks were structurally unable to see it —
+    `table_blocks` ends the block at the `- `, so the stranded row is outside
+    every block and the two checks above only ever look INSIDE one.
+
+    So the question this asks is the complement: not "is everything in a block
+    a row" but "is every row in a block". A `|`-opening line that no block
+    claims is a line GFM has stopped rendering as a row.
+
+    IT IS A FLOOR, NOT A PARSE. It cannot tell you WHY the line fell out — the
+    block-level opener above it, a deleted delimiter, a stray blank — only that
+    it did, which is enough to make somebody look. Measured at 0 violations on
+    the file as it stands.
+
+    THIS IS THE STRICT BAR, AND IT IS THE ONE THING THE TREE-WIDE GATE DOES NOT
+    COPY. `stranded_rows` asserts that EVERY `|`-opening line is a row, which is
+    right here — `candidates.md` is a curated table file with no prose reason to
+    type a pipe at the start of a line — and wrong for the tree, where three
+    files carry a deliberate one-line row-shape illustration under a heading.
+    `test_NO_TABLE_ROW_ANYWHERE_IN_THE_TREE_IS_SEVERED_FROM_ITS_BLOCK` in
+    `test_markdown_tables_render_whole.py` asks `severed_rows` instead, which is
+    the same shape at a bar that survives prose. Two bars, one derivation, and
+    each states why it is the one it is.
+    """
+    lines = _scan()
+    stranded = [f"line {i + 1}: {lines[i].strip()[:60]!r}" for i in stranded_rows(lines)]
+    assert not stranded, (
+        f"these lines open with `|` but sit OUTSIDE every table block, so GFM "
+        f"renders them as literal text rather than as rows and every cell they "
+        f"carry is lost: {stranded}. Something above them ended the table — a "
+        f"list marker, a heading, a blockquote, an HTML block, or a delimiter "
+        f"row that stopped being one. Find that line and move it out of the "
+        f"table; do not delete the rows."
+    )
+
+
+def test_the_TABLE_BLOCK_SCAN_reads_the_tables_that_are_actually_there() -> None:
+    """The widened population's own vacuity floor.
+
+    `table_blocks` returning `[]` — a changed delimiter spelling, a heading
+    convention this scan does not recognise — makes the two checks above pass
+    over nothing, and a guard reading no lines is indistinguishable from a
+    guard finding no defects. The sibling module states this rule for the
+    file-sweep; a population derived by parsing needs it more, not less.
+
+    THE WIDTHS ARE ASSERTED, NOT JUST THE COUNT. Two widths is the property
+    that makes per-block headers necessary; collapsing to one would make a
+    single global expected count look correct again.
+    """
+    lines = _scan()
+    blocks = table_blocks(lines)
+    assert len(blocks) > 5, (
+        f"the table scan found {len(blocks)} tables in {_CANDIDATES.name}. The "
+        f"cell-count and contiguity checks are both derived from this, so a "
+        f"scan that finds nothing turns both green against nothing."
+    )
+    counted = sum(len(b) for b in blocks)
+    assert counted > 60, (
+        f"the table scan reached only {counted} lines across {len(blocks)} "
+        f"tables — the blocks are being truncated, and every line it did not "
+        f"reach is a line neither check above is looking at."
+    )
+    widths = {cells(lines[b[0]]) for b in blocks}
+    assert len(widths) > 1, (
+        f"every table in {_CANDIDATES.name} is now {widths} fields wide. The "
+        f"per-block header lookup exists because they are not — if the narrow "
+        f"tables were removed or widened, say so deliberately; until then this "
+        f"is the scan mis-reading a header."
+    )
+
+
+# --- the gate discriminates ----------------------------------------------
+#
+# SECTION HEADERS HERE MATCH `test_markdown_tables_render_whole.py`'s VERBATIM,
+# and that is not decoration. The two modules are structurally parallel — same
+# derivations, two populations, two bars — and their docstrings cross-reference
+# each other by name throughout. For one revision this module folded its
+# discrimination tests and its residual tests into a single undifferentiated
+# section, so a reader comparing the two had to redo the categorisation by eye
+# every time instead of reading it off the outline.
+#
+# EVERY CHECK ABOVE IS DERIVED FROM `table_blocks`, AND UNTIL HERE ITS ONLY
+# CORPUS WAS `candidates.md` AS IT STANDS TODAY. That makes "still parses the
+# file correctly" the whole of its regression cover, which says nothing about a
+# shape the file does not currently contain — and the tree-wide gate now takes
+# these helpers to every markdown table the repo treats as authoritative, where
+# those shapes are the point. The fixtures below are synthetic on purpose: each
+# one's expected answer was MEASURED through GitHub's `POST /markdown` first,
+# so what is asserted here is the renderer's behaviour rather than this
+# module's reading of the spec.
+
+
+@pytest.mark.parametrize(("shape", "body", "expect_rows_after"), [
+    ("a plain paragraph line",   "a stray paragraph",            True),
+    ("an unordered list marker", "- a stray list line",          False),
+    ("an ordered list at 1",     "1. a stray ordered line",      False),
+    ("an ordered list at 2",     "2. a stray ordered line",      False),
+    ("a heading",                "## a stray heading",           False),
+    ("a blockquote",             "> a stray quote",              False),
+])
+def test_the_SCAN_BREAKS_A_TABLE_WHERE_GITHUB_BREAKS_IT(
+    shape: str, body: str, expect_rows_after: bool,
+) -> None:
+    """Each answer below came back from `POST /markdown`, not from the spec.
+
+    `expect_rows_after` is whether GitHub still rendered `| 3 | 4 |` as a
+    `<tr>` after the interposed line. For the plain paragraph it did — twice,
+    which is the measurement that made `ends_the_table` stop breaking on
+    every non-`|` line. For the five block-level openers it did not: the row
+    came back inside the `<ol>`/`<ul>`/raw text instead.
+
+    THE ORDERED-LIST PAIR IS WHY THIS IS PARAMETRIZED RATHER THAN ONE CASE.
+    CommonMark only lets an ordered list interrupt a PARAGRAPH when it starts
+    at 1, so a spec reading predicts `2.` keeps the table open. Measured, it
+    does not — `<ol start="2">` swallowed the row exactly as `1.` did. The
+    pattern is `^\\d+[.)] ` because of this line, not despite it.
+    """
+    lines = f"| A | B |\n|---|---|\n| 1 | 2 |\n{body}\n| 3 | 4 |\n".split("\n")
+    blocks = table_blocks(lines)
+    assert len(blocks) == 1, f"{shape}: expected one table, got {len(blocks)}"
+    reached = 4 in blocks[0]
+    assert reached is expect_rows_after, (
+        f"{shape}: GitHub {'still renders' if expect_rows_after else 'does NOT render'} "
+        f"the row after it as a `<tr>`, and this scan {'does not' if expect_rows_after else 'does'} "
+        f"agree. `ends_the_table` and the renderer have to draw the same "
+        f"boundary — a scan that ends the table early reports live rows as "
+        f"stranded, and one that ends it late reads literal text as rows."
+    )
+
+
+@pytest.mark.parametrize(("shape", "text"), [
+    ("a two-column header",  "| A | B |"),
+    ("one escaping pipe",    "| a \\| b | c |"),
+    ("a doubled backslash",  "| a \\\\| b | c |"),
+])
+def test_CELLS_counts_what_the_renderer_SPLITS_ON(shape: str, text: str) -> None:
+    """A DOUBLED backslash was raised as a miscount and MEASURED not to be one.
+
+    A reviewer read `(?<!\\\\)\\|` as mishandling `\\\\|`: by CommonMark's inline
+    rules a doubled backslash is an escaped backslash, so the pipe after it is
+    unescaped and ought to split, truncating the row exactly the way this whole
+    module exists to catch. Rendered through `POST /markdown` against a
+    two-column header, `| a \\\\| b | c |` came back as exactly TWO cells reading
+    `a | b` and `c` — GitHub's ROW SPLITTER runs before inline escaping and
+    treats ANY backslash-preceded pipe as escaped, doubled or not. The
+    one-character lookbehind is what the renderer does.
+
+    All three shapes below are two rendered columns, so all three must count
+    the same. Kept as a fixture rather than a note in a review comment, because
+    the next reader will have the same correct-sounding instinct and a note
+    does not go red.
+    """
+    assert cells(text) == cells("| A | B |"), f"{shape}: {text!r}"
+
+
+def test_A_RUN_WITH_NO_DELIMITER_IS_NOT_A_TABLE() -> None:
+    """The floor under `table_blocks`' own definition of a table.
+
+    Pipes alone do not make a table — GFM needs the `|---|` row, and a run of
+    pipe-looking prose without one renders as a paragraph. If this stopped
+    holding, every `|`-bearing paragraph in the file would become a block and
+    the cell-count check would start reporting prose as malformed rows.
+
+    The second case is the reason `delimiter > run[0]` is in the code: a
+    delimiter with nothing above it inside the same run has no header, so GFM
+    builds no table and neither does this.
+    """
+    assert table_blocks("| a | b |\n| c | d |\n".split("\n")) == []
+    assert table_blocks("|---|---|\n| c | d |\n".split("\n")) == []
 
 
 # --- each declaration is FOUND, before it is compared ---------------------
@@ -448,3 +761,41 @@ def test_EVERY_ROW_RENDERS_ITS_FLAGS_THE_WAY_THE_FILE_DECLARES_THEM() -> None:
         f"{offenders}. Every other row wraps the value in backticks; the two "
         f"that did not were written by an automated pass and nothing caught "
         f"them. Match the declaration, or change the declaration.")
+
+
+# --- the residuals, held red-able ----------------------------------------
+#
+# Same header, same meaning, same position as in
+# `test_markdown_tables_render_whole.py`. A residual is a LIMIT held as a
+# claim that can go red, so it is not a discrimination test and does not
+# belong among them.
+
+
+def test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see() -> None:
+    """The stated limit, held as a claim that can go red.
+
+    MEASURED, BOTH DIRECTIONS: `<div>html</div>` interposed in a table ends it
+    for GitHub and the row after comes back as literal text; `<span>x</span>`
+    interposed in a table does NOT end it and the row after comes back as a
+    `<tr>`. Which one a `<` line is depends on CommonMark's fixed list of ~62
+    HTML *block* tag names, so `s.startswith("<")` is not the fix — it would
+    end a table at a `<span>` GitHub keeps open and report every row below it
+    as stranded, which is a false failure on a live file.
+
+    So the gap is declared rather than closed: `candidates.md` has zero lines
+    opening with `<`, and whether a repo-wide gate should carry the block-tag
+    list is C-103's to rule. This test exists so the declaration cannot go
+    quietly stale — the same contract as the vocabulary gate's mid-word
+    residual, and for the same reason.
+
+    IF THIS GOES RED, NOTHING IS BROKEN: somebody taught `ends_the_table` the
+    block-tag list. Delete this test and the limits-list paragraph it holds, in
+    the same commit.
+    """
+    lines = "| A | B |\n|---|---|\n| 1 | 2 |\n<div>x</div>\n| 3 | 4 |\n".split("\n")
+    assert 4 in table_blocks(lines)[0], (
+        "`ends_the_table` now breaks a table at an HTML-block opener. That is "
+        "an improvement, not a failure — but the cell-count check's limits list "
+        "still declares it a residual, and `<span>` must keep NOT breaking one. "
+        "Update the list and delete this test together."
+    )

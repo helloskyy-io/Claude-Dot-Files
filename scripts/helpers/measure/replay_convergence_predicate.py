@@ -25,7 +25,7 @@ its durable `pr_review:` block, parsed as prose. In the live workflow the pass
 under assessment comes from the TYPED exit record instead, with the render↔record
 invariant guaranteeing the two carry identical `(id, disposition)` pairs. So this
 replay measures the predicate over the channel that survived, which is the only
-channel a historical pass has — a Kind 2 record's lifetime is one parent
+channel a historical pass has — a typed exit record's lifetime is one parent
 invocation.
 
 Reads only `gh` output. Writes nothing.

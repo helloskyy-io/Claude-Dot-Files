@@ -4,7 +4,7 @@
 >
 > This is a **scaffold**, authored 2026-08-08 before the thing it describes exists. It states the **shape** the protocol must have; almost every **value** in it is an open question owned by a numbered phase, marked `⟨PHASE N⟩` inline.
 >
-> **An engineer building a Memory Management Framework phase should read this for orientation and write the answers into it — not treat it as a contract to satisfy.** A section still carrying `⟨PHASE N⟩` markers is a section whose answer has not been measured.
+> **An engineer answering one of the open questions below should read this for orientation and write the answer into it — not treat it as a contract to satisfy.** A section still carrying `⟨PHASE N⟩` markers is a section whose answer has not been measured. *(Those markers are [Memory Management Framework](../development/memory-management-framework/roadmap.md) phase numbers. That component was **retired on 2026-08-16** and its docs are the record of what it built; the remaining answers are the [Persistent Memory Protocol](../development/persistent-memory-protocol/roadmap.md)'s, which now owns all things memory. The markers are left as filed — re-expressing them is part of the ratification below, not a rename.)*
 >
 > **What makes it binding:** all five phases complete, the protocol proven across the fleet rather than on one pair, and an explicit operator ratification recorded here with its date. Not before. A protocol ratified on one proven pair is a guess with a version number.
 
@@ -30,21 +30,21 @@ Once every child emits the same envelope, a parent can route *any* child to *any
 
 ---
 
-## 1 · Two kinds of memory, and why both are in scope
+## 1 · The two kinds of memory this protocol carries a reference to
 
-They differ by **who reads them**, and a handoff carries a reference to both.
+**These are the two records that meet at this seam, and they sit at different levels of the fleet's taxonomy** — the working record is one of its four classes, while the typed exit record is **invocation state**'s one contracted member rather than a class of its own. The other three classes never cross this seam: the journal and measurement samples do not, and invocation state crosses it only through the one member named here. This section is a selection from that taxonomy rather than the whole of it. **They differ by what ends each one's life**, and a handoff carries a reference to both. *(They differ by audience too, and that is a consequence rather than the cut: audience does not predict that one of these outlives the invocation and the other cannot, which is the whole reason the handoff has to carry a reference from the short-lived one to the long-lived one. The taxonomy and its axis are [`persistent-memory-protocol/roadmap.md` § The four kinds of record](../development/persistent-memory-protocol/roadmap.md), and this protocol uses its names.)*
 
-**Kind 1 — the durable record.** Human- and AI-readable, carries the outcome *and its reasoning*, has a **to-do bit**, is retrievable by a later run without replaying everything, and survives context death.
+**The working record — the durable record whose life ends when its to-do bit clears.** **Its five properties are declared once, in [`memory-model.md` §1](../guide/memory-model.md), and are not re-listed here** — per [Documentation Standard § Single-source codified fields](documentation/documentation_standard.md), a second copy drifts from the one that gets maintained. *This line's copy had already drifted:* it listed *survives context death*, which §1 rules **a consequence rather than a member**, in place of §1's property 1, **durable**. So the two documents handed a substrate implementer different five-element contracts, and the standard's was the one missing the property that forces persistence off-box.
 
-**Kind 2 — the typed record.** Machine-readable, emitted at exit on a channel the parent owns, read by code within seconds of exit. Small, versioned, total.
+**The typed exit record.** Its life ends when the invocation that created it ends. Machine-readable, emitted at exit on a channel the parent owns, read by code within seconds of exit. Small, versioned, total.
 
-### Kind 1 is an INTERFACE, not GitHub — this is binding on the shape even in draft
+### The working record is an INTERFACE, not GitHub — this is binding on the shape even in draft
 
-In this repo Kind 1 is currently implemented as PR threads, Issues, and the standup tracker, with *open* as the to-do bit. **Every one of those is a GitHub fact, not a property of the interface**, and a component whose work product is not code in git — an edge device, a robot, a datacenter node — has no PR to comment on and no issue to close.
+In this repo the working record is currently implemented as PR threads, Issues, and the standup tracker, with *open* as the to-do bit. **Every one of those is a GitHub fact, not a property of the interface**, and a component whose work product is not code in git — an edge device, a robot, a datacenter node — has no PR to comment on and no issue to close.
 
-So the five properties above are the contract. GitHub is **one binding of it**. Any document describing Kind 1 must state which parts are substrate-specific and which are the interface. **That enumeration exists: [`memory-model.md` §9](../guide/memory-model.md) states it as a single inherit-versus-re-implement table, and this protocol cites it rather than restating it** — per [Documentation Standard § Single-source codified fields](documentation/documentation_standard.md), a second copy of that table would drift from the one that gets maintained. *(Roadmap candidate 7, applied.)*
+So [`memory-model.md` §1](../guide/memory-model.md)'s five properties are the contract. GitHub is **one binding of it**. Any document describing the working record must state which parts are substrate-specific and which are the interface. **That enumeration exists: [`memory-model.md` §9](../guide/memory-model.md) states it as a single inherit-versus-re-implement table, and this protocol cites it rather than restating it** — per [Documentation Standard § Single-source codified fields](documentation/documentation_standard.md), a second copy of that table would drift from the one that gets maintained. *(Roadmap candidate 7, applied.)*
 
-**Consequence for the envelope:** a Kind 2 record carries a **substrate-agnostic reference** to its Kind 1 record. Today that resolves to a PR URL; on another substrate it resolves to something else. The field is not optional, and its form is `completion_ref` in §2 — **four parts, of which exactly one names the substrate and none is typed as a URL.** A component whose work product is not code in git has no PR to point at, and this fleet is going there.
+**Consequence for the envelope:** a typed exit record carries a **substrate-agnostic reference** to its working record. Today that resolves to a PR URL; on another substrate it resolves to something else. The field is not optional, and its form is `completion_ref` in §2 — **four parts, of which exactly one names the substrate and none is typed as a URL.** A component whose work product is not code in git has no PR to point at, and this fleet is going there.
 
 ---
 
@@ -56,7 +56,7 @@ So the five properties above are the contract. GitHub is **one binding of it**. 
 |---|---|
 | Field list | **WRITTEN — §2.1 and §2.2 below**, derived from Phase 1 E6's enumeration. Phase 3 added two child-authored fields and re-typed a third; each addition names the requirement that forced it, in §2.1's *Required by* column |
 | Per-field: named consumer, publish classification (publishable / internal) | **WRITTEN — the two rightmost columns of §2.1 and §2.2** |
-| Reference to the Kind 1 record (§1) | **WRITTEN — `completion_ref`, §2.1.** Substrate-discriminated, never typed as a URL |
+| Reference to the working record (§1) | **WRITTEN — `completion_ref`, §2.1.** Substrate-discriminated, never typed as a URL |
 | Transport | **MEASURED — `--output-format json --json-schema`, the parent reading `structured_output`.** Phase 1 E1(g), 2026-08-08, on CLI 2.1.224 — *confirms* the roadmap's preference, judged on isolation and Temporal replay cost rather than availability alone. The file variant would ask a child under `--dangerously-skip-permissions` to write outside its worktree, which is the isolation boundary the fleet's safety argument rests on. **One constraint the measurement added and nobody predicted: the schema is an inline shell argument**, so its size and quoting are a build-time concern for every caller. See [`phase1_measure_the_channel.md`](../development/memory-management-framework/phase1_measure_the_channel.md) § E1. **Phase 3 measured one thing more, and it changes what a caller must do — §2.4.** |
 | Size bound | **WRITTEN — §2.5.** The one corroborated figure in the evidence base is Tekton's 4096 bytes. **Do not cite the GitHub Actions 1 MB / 50 MB caps** — unverified in the fetched primary |
 
@@ -225,7 +225,7 @@ A future version's `hold_kind` reaching a parent whose supported set was widened
 
 - **One declaration — of the record's SCHEMA *and* of its ADDRESS.** Both are declared once and loaded, never re-typed per consumer. A duplicated vocabulary passes every test in both copies while diverging — that is how `parse_verdict` came to be typed twice, and the copy that decided merges had zero tests.
 
-  > **The address half is not a generalisation; it is the measured instance.** [Phase 2](../development/memory-management-framework/phase2_kind1_framework.md) found the Kind 1 block marker declared **three incompatible ways** — two readers matching any comment that merely *mentions* `pr_review:`, one fence-anchored — producing **3 false positives on 2 of the 8 archived PRs that carry a block**, and a wrong durable `pass:` on the most recently reviewed PR in the repo. Every test in every copy was green. **A schema-only reading of this rule would have called that conformant**, which is why the rule names both. Tracked as issue **#68**. *(Roadmap candidate 6, applied.)*
+  > **The address half is not a generalisation; it is the measured instance.** [Phase 2](../development/memory-management-framework/phase2_kind1_framework.md) found the working record's block marker declared **three incompatible ways** — two readers matching any comment that merely *mentions* `pr_review:`, one fence-anchored — producing **3 false positives on 2 of the 8 archived PRs that carry a block**, and a wrong durable `pass:` on the most recently reviewed PR in the repo. Every test in every copy was green. **A schema-only reading of this rule would have called that conformant**, which is why the rule names both. Tracked as issue **#68**. *(Roadmap candidate 6, applied.)*
 - Every child emits a conforming record; every parent routes only on the record. ⟨PHASE 4⟩.
 - A guard ships with a demonstration that it fails when the property is violated — **mutation evidence, per the Testing Standard.**
 - Prompt-borne emission is part of the conformance surface: the verdict and findings are model-authored, so the *instruction* to emit is in prompt text, and a check must verify the emit instruction still corresponds to the field the parent reads.
