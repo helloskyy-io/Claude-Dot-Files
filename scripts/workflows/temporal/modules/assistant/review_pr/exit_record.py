@@ -1,4 +1,4 @@
-"""The Kind 2 typed exit record — schema, vocabulary and fail-safe contract.
+"""The typed exit record — schema, vocabulary and fail-safe contract.
 
 THE ONE DECLARATION. `docs/standards/exit-protocol.md` §6 requires the record's
 schema *and its address* to be declared once and loaded, never re-typed per
@@ -183,7 +183,7 @@ CHILD_SCHEMA: dict = {
         "run_id": {"type": "string"},
         "outcome": {"type": "string", "enum": ["merge", "hold"]},
         "hold_kind": {"type": "string", "enum": ["redispatch", "needs_ruling"]},
-        # The substrate-agnostic reference to this record's Kind 1 record
+        # The substrate-agnostic reference to this record's working record
         # (`exit-protocol.md` §1). NOT typed as a PR URL: a component whose work
         # product is not code in git has no PR to point at, and this fleet is
         # going there. `substrate` is what lets a reader resolve the address
@@ -399,7 +399,7 @@ def route(result_event: dict | None, *, expected_run_id: str,
     `result_event` is the CLI's `result` event as a dict, or None when the log
     carried none at all.
 
-    `expected_ref` is the `completion_ref` this invocation is ABOUT — the Kind 1
+    `expected_ref` is the `completion_ref` this invocation is ABOUT — the working
     record the parent dispatched against — or None when the caller genuinely has
     none to compare. IT HAS NO DEFAULT ON PURPOSE. A keyword with a default of
     None is a check that skips itself, and every rule in this module exists

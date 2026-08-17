@@ -13,7 +13,7 @@ testing/
 ├── suites/python.sh        TIER 2 · one runner per framework actually in use
 ├── scripts/mutate.sh       the mutation harness (see "Adding a test" below)
 ├── scripts/tests/unit/     TIER 3 · the harness's own tests, and the repo-wide
-│                                    test-tree properties that exist because of it
+│                                    test-tree and docs/prose gates no code unit owns
 ├── config-hooks/tests/     TIER 3 · tests for config/hooks/ — see its README
 └── logs/                   per-suite output (gitignored)
 

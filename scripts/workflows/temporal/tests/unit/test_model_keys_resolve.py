@@ -70,9 +70,16 @@ def test_at_least_one_model_key_was_discovered() -> None:
     """Positive control on the sweep itself.
 
     A regex that matched nothing would make every parametrised case below
-    vacuous and the suite would report green over zero coverage. Eight keys are
-    declared today; the assertion is only that the sweep finds SOME, so adding
-    or removing a workflow does not make this test wrong.
+    vacuous and the suite would report green over zero coverage. The assertion
+    is only that the sweep finds SOME, so adding or removing a workflow does not
+    make this test wrong.
+
+    NO COUNT IS STATED HERE, and the sentence that used to state one was wrong.
+    It read *"Eight keys are declared today"* against a real 13 declaring pairs
+    over 12 distinct keys — a number nothing derives, in a docstring nothing can
+    check, inoculated with the word *today* and stale anyway. The parametrised
+    cases below enumerate the real set at collection time, so a reader who wants
+    the count reads `pytest --collect-only` rather than a sentence.
     """
     assert _declared_keys(), (
         f"no MODEL_KEY declarations found under {ASSISTANT} — the sweep is inert, "

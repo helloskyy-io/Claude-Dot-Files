@@ -43,6 +43,7 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
         values |= {
             "STAGES_1_TO_4": act.load_prompt(PROMPTS / stages),
             "RULES": act.shared_prompt("rules"),
+            "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),
             "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
             "PLAN_PATH": plan_path, "CONTEXT_BLOCK": context,
         }

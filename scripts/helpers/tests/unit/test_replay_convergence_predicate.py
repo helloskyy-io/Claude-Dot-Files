@@ -386,5 +386,5 @@ def test_the_tool_delegates_extraction_rather_than_re_declaring_the_address() ->
     assert "replay_pr_review_blocks.py" in source
     assert "re.compile" not in source, (
         "the replay tool grew its own parser — that is a fourth declaration of "
-        "the Kind 1 address, which already has an open issue for having three"
+        "the working-record address, which already has an open issue for having three"
     )

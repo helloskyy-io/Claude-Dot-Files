@@ -36,9 +36,17 @@ discovered by the unmodified runner, the placement is wrong — not the runner.
 
 | File | Covers |
 |---|---|
-| `tests/unit/test_block_dangerous.py` | `config/hooks/block-dangerous.sh` — issue #52 |
+| `tests/unit/test_block_dangerous.py` | `config/hooks/block-dangerous.sh` — does the hook make the right DECISION? Issue #52 |
+| `tests/unit/test_hook_settings.py` | `config/settings.json`'s hook block as configuration — shape, and the `timeout` bounds |
+| `tests/unit/test_the_safety_hook_is_wired.py` | Is the hook ever CONSULTED? Holds all three breakage shapes named at [`workflow-scripts.md` § *The safety-layer invariant*](../../docs/standards/workflow-scripts.md) |
 
 `notify-done.sh` has no tests yet.
+
+**The first two rows are not the same question, and the third is neither.** A
+hook that decides correctly and is never reached blocks nothing, and nothing
+says so out loud — the tool call simply succeeds. That is why the wiring test
+exists as a separate module, and why this table lists what each one ASKS rather
+than only what file it names.
 
 ## These were characterization tests, and are now a specification
 

@@ -113,9 +113,11 @@ claude-dot-files/
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
 │   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
 │   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
-│   │   │   ├── roadmap.md                           # Opens in plain words with a terms table; states the protocol WHOLE (eight
-│   │   │   │                                        #   commitments) before any ordering; QUESTIONS the Memory Management Framework in
-│   │   │   │                                        #   four challenges with the MMF-side change proposed for each; a 15-concept coverage
+│   │   │   ├── roadmap.md                           # Opens in plain words with a terms table; states the protocol WHOLE (nine
+│   │   │   │                                        #   commitments) before any ordering; § The four kinds of record is the SINGLE
+│   │   │   │                                        #   WRITER of the memory taxonomy and carries § Reading the old names, the
+│   │   │   │                                        #   Kind 1/2/3 → working record/typed exit record/measurement samples map;
+│   │   │   │                                        #   § Absorbed work records what came over when MMF retired; a 15-concept coverage
 │   │   │   │                                        #   map; and the operator calls the plan carries WITHOUT deciding — storage budget,
 │   │   │   │                                        #   snapshot cadence, what a machine is, and Phase 7's egress/ingress rulings
 │   │   │   ├── phase1_the_run_bag.md                # Configurable root, folder per run keyed by run_id (NEVER by path), subfolder per
@@ -171,13 +173,15 @@ claude-dot-files/
 │   ├── guide/                                       # USER-FACING — operating manuals
 │   │   ├── deployment.md                            # DEPLOYMENT — install/sync model, prerequisites, local + VM + Ansible paths, services, troubleshooting
 │   │   ├── operations.md                            # THE OPERATING MANUAL — memory model orientation, daily loop, and the single roster of every workflow/agent/command/skill/rule
-│   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — Kind 1 as a substrate-free interface, this fleet's five-surface binding, per-field consumer lists, the addressing convention
+│   │   ├── memory-model.md                          # THE MEMORY FRAMEWORK — the working record as a substrate-free interface, this fleet's five-surface binding, per-field consumer lists, the addressing convention
 │   │   ├── workflows.md                             # Workflow architecture — the build split, model management, escalation ladder, MAX_TURNS table
 │   │   ├── cpi-cycle.md                             # CPI cycle methodology (run-decide-log loop)
 │   │   ├── claude_code_agents.md                    # PLATFORM BACKGROUND — what agents are, frontmatter, tool guardrails, dispatch patterns
 │   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
 │   │   ├── claude_code_orchestration.md             # PLATFORM BACKGROUND — orchestration options and which one this repo landed on
 │   │   ├── claude_code_rules.md                     # PLATFORM BACKGROUND — rules vs CLAUDE.md, when to split
+│   │   ├── altitude_product.md                   # SHARED product-altitude authorization block — promoted from two byte-identical copies (issue #91)
+│   │   ├── mutation_discipline.md                # SHARED build discipline — forked once, so a test now holds the variants together
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
@@ -267,10 +271,10 @@ claude-dot-files/
 │   │           │                                    #   and every row names a consumer in `Read by`. run_log.py excluded BY NAME, exclusion asserted
 │   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
-│   │           ├── test_nullable_fields_are_not_truth_tested.py  # A NUMERIC nullable may never be truth-tested: `not x` folds an unmeasured record into a measured zero. Reads USAGE, not the declaration — the declaration gate could not see seven instances of it
 │   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name — including a slug JOINED into
 │   │           │                                    #   a sentence or TRUNCATED for a column — the derived model→workflow map finding the one
 │   │           │                                    #   ambiguous pair, and the two subagent parsers agreeing over the live archive
+│   │           ├── test_nullable_fields_are_not_truth_tested.py  # A NUMERIC nullable may never be truth-tested: `not x` folds an unmeasured record into a measured zero. Reads USAGE, not the declaration — the declaration gate could not see seven instances of it
 │   │           └── test_run_log_readers.py          # The three readers' OUTPUT: exclusions named by commit cutover, figure 1's denominator being
 │   │                                                #   EVERY record, high/oom labelled not-applicable per record, the overlap sweep bounded from
 │   │                                                #   both sides and naming any window it cannot place, an unmeasured record not killing the
@@ -334,7 +338,7 @@ claude-dot-files/
 │           │                                        #   plan_activities.py holds ONLY what more than one of them calls; a helper with
 │           │                                        #   one consumer lives in that workflow's own {name}_activities.py, per §10.1
 │           │                                        #   rule 3 — consumer count decides, never taste
-│           │                                        #   exit_record.py — the Kind 2 typed exit record: THE ONE DECLARATION of its
+│           │                                        #   exit_record.py — the typed exit record: THE ONE DECLARATION of its
 │           │                                        #   schema and vocabulary, and the ten-rule fail-safe contract a parent routes on
 │           │                                        #   (docs/standards/exit-protocol.md). Dependency-free, like its sibling routing.py
 │           │                                        #   convergence.py — MMF Phase 5's computed stopping predicate: the open/closed
@@ -408,15 +412,17 @@ claude-dot-files/
 │                   │                                #   conditional across modules/ AND scripts/, not a text scan of one package
 │                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
 │                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
-│                   │                                #   and FOUR one-declaration gates: the schema, the Kind 1 shared parse (enumerated,
+│                   │                                #   and FOUR one-declaration gates: the schema, the working-record shared parse (enumerated,
 │                   │                                #   with a completeness check), `parse_verdict` by AST scan of the whole tree, and
 │                   │                                #   exit-protocol §4's reason column compared against the shipped enum
+│                   ├── test_build_prompt_variants_do_not_fork.py  # A stage-prompt variant must not silently lose its sibling's discipline (PR #99)
+│                   ├── test_prompt_blocks_are_shared_not_copied.py  # §10.1 for prose: a block in 2 children must be SHARED — frozen baseline that may only shrink
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
-│                   ├── test_shim_usage_names_itself.py   # Every shim's `#   ./x.sh` usage line must name the shim it is in. Four documented a different workflow; copy-pasting one ran the wrong one
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.
 │                   │                                #   Plus the permission_denials surface both fleets share: it names every denied
 │                   │                                #   tool, never prints the command line, and ROUTES NOTHING (asserted structurally)
+│                   ├── test_shim_usage_names_itself.py   # Every shim's `#   ./x.sh` usage line must name the shim it is in. Four documented a different workflow; copy-pasting one ran the wrong one
 │                   ├── test_run_log_emission.py     # The EMISSION side of the run-log surface: all three member events agree on `run_id`,
 │                   │                                #   with a control on the DEFECT'S OWN SHAPE (a stem that ENDS with the nonce, so a
 │                   │                                #   suffix-match looks right and joins nothing); `workflow_key` required with no
@@ -614,9 +620,20 @@ claude-dot-files/
 │   │   └── tests/unit/                              # TIER 3 for the harness AND the repo-wide test-tree properties that only matter
 │   │                                                #   because of it — a collection failure exits 2, which pytest reports identically
 │   │                                                #   whether the guard fired or nothing ran at all (issue #72)
+│   │       ├── gfm_table_scan.py                    # NOT a test module — where a GFM table IS *and what is wrong with it*, owned
+│   │       │                                        #   once and asked by both markdown gates below. Every boundary in it is
+│   │       │                                        #   measured through GitHub's `POST /markdown` rather than read off
+│   │       │                                        #   CommonMark, because the two disagree in both directions (`2.` interrupts
+│   │       │                                        #   a table, `<span>` does not). Carries the four DERIVED checks too, not
+│   │       │                                        #   just the primitives: an extraction that stopped at the primitives left
+│   │       │                                        #   each caller re-typing the loops, and three reviewers filed four findings
+│   │       │                                        #   that were that one omission wearing four hats — a duplicated loop, two
+│   │       │                                        #   dead imports, an undisclosed fence asymmetry, a missing vacuity floor
 │   │       ├── test_mutate.py                       # The harness's own guards
 │   │       ├── test_test_tree_hygiene.py            # No test_*.py imports another test_*.py — anywhere in the repo, including a pair
-│   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read
+│   │                                                #   nobody has written yet. The coupling breaks at collection, which mutate.sh cannot read.
+│   │                                                #   TWO checks since PR #96: the import-statement one, and a second reading CALL ARGUMENTS,
+│   │                                                #   because a path LOAD emits no ast.Import node and slipped past the first one unseen
 │   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
 │   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
 │   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-050
@@ -636,17 +653,40 @@ claude-dot-files/
 │   │       │                                        #   paragraph was hand-written three times and wrong twice — the third time
 │   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read. Also
 │   │       │                                        #   that every row RENDERS its flags the way § Two flags declares them, the
-│   │       │                                        #   vocabulary read off that section rather than hard-coded here
-│   │       │                                        #   in a MERGE, where a dropped row leaves no diff for anyone to read
-│   │       ├── test_prompt_budgets.py             # Every prompt carries a byte budget, so ADDING to one is a trade
+│   │       │                                        #   vocabulary read off that section rather than hard-coded here. Also
+│   │       │                                        #   that every row splits into the header's CELL COUNT — an unescaped
+│   │       │                                        #   `|` inside a code span truncated three rows on GitHub while every
+│   │       │                                        #   gate stayed green, because the source was read and never the render
+│   │       ├── test_markdown_tables_render_whole.py # The same cell-count property as the sibling above, over EVERY tracked
+│   │       │                                        #   `.md` rather than one file — the defect is not file-shaped. Six
+│   │       │                                        #   instances in three files were closed one at a time across four review
+│   │       │                                        #   passes of one PR, and the sixth was live when the fifth was called
+│   │       │                                        #   fixed. Takes its scanner from gfm_table_scan.py rather than copying it
+│   │       │                                        #   — a first draft path-LOADED the sibling test module, which is the
+│   │       │                                        #   coupling test_test_tree_hygiene.py forbids and did not then catch.
+│   │       │                                        #   Fenced code blocks are excluded because GFM renders no table inside a
+│   │       │                                        #   fence, so a finding there is a false positive by construction.
+│   │       │                                        #   THREE shapes, not one: a row that misses its header's count, a non-row
+│   │       │                                        #   line INSIDE a block, and a row SEVERED from one. The third uses a weaker
+│   │       │                                        #   bar than the sibling's — three tracked files carry a deliberate one-line
+│   │       │                                        #   row-shape illustration, and the strict bar fails all three
+│   │       ├── test_prompt_budgets.py               # Every prompt carries a byte budget, so ADDING to one is a trade
 │   │       │                                        #   rather than free. Prompts grew 224->317 KB in seven days under
 │   │       │                                        #   review — adding is visible work, removing is nobody's job
 │   │       ├── test_relative_links_resolve.py       # Every relative markdown link in a file this repo OWNS points at a
 │   │       │                                        #   file that exists. 29 were broken and none had been caught; every
 │   │       │                                        #   one was a `../` count off by one or two. Vendored standards,
 │   │       │                                        #   research citations and skills' examples are excluded by name
-│   │       └── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
-│   │                                                #   checks, because every existing check was aimed at code rather than prose
+│   │       ├── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
+│   │       │                                        #   checks, because every existing check was aimed at code rather than prose
+│   │       └── test_retired_vocabulary_is_gone_from_live_surfaces.py # The retired Kind 1/2/3 labels survive only
+│   │                                                #   where they are a RECORD. Reads every
+│   │                                                #   tracked file as WHITESPACE-NORMALISED text — a different instrument than the
+│   │                                                #   line-based grep that did the sweep and then verified it, which shared its every
+│   │                                                #   blind spot. Four passes, five spellings: spaced, wrapped across a newline,
+│   │                                                #   UPPERCASE, hyphenated, and the number as a word inside an identifier. The
+│   │                                                #   record set is declared here ONCE; file_structure.txt is scoped by LINE, since
+│   │                                                #   it annotates live and retired surfaces in one file
 │   ├── config-hooks/                                # TIER 3 for config/hooks/ — the ONE component whose tests do not sit beside its code,
 │   │   │                                            #   because install.sh symlinks config/hooks wholesale into ~/.claude/hooks. See its README
 │   │   ├── README.md                                # The placement rationale, and why the runner was not changed to accommodate it
@@ -666,7 +706,6 @@ claude-dot-files/
 │   │                                                #   Asserts every MUST BLOCK claim end-to-end, not only against its own regex. NO COUNTS ARE
 │   │                                                #   RESTATED HERE — they live in the test module's docstring, per its sibling README
 │   │       ├── test_hook_settings.py                # The SECOND guarantee about hooks, and deliberately a different shape
-│   │       └── test_the_safety_hook_is_wired.py  # The hook is the ONLY control once deny/permissions are gone — asserts it is declared, resolves, and is not stripped
 │   │                                                #   from the one above: that suite proves the hook decides CORRECTLY, this
 │   │                                                #   one proves settings.json BOUNDS it. Asserts every configured hook
 │   │                                                #   declares a `timeout`, and that none is so large it is not a bound.
@@ -675,6 +714,16 @@ claude-dot-files/
 │   │                                                #   hook got slower. Written after an unbounded PreToolUse hook ran 8m44s
 │   │                                                #   at 99.9% CPU on ONE tool call and had to be killed by hand, holding a
 │   │                                                #   live build (2026-08-14).
+│   │       └── test_the_safety_hook_is_wired.py     # The hook is the ONLY control once the deny list and permissions are gone, so this
+│   │                                                #   asks whether it is ever CONSULTED — not whether it decides right, which is its
+│   │                                                #   sibling suite's question. Holds the THREE breakage shapes `workflow-scripts.md`
+│   │                                                #   § The safety-layer invariant names, one test each: DECLARED on PreToolUse/Bash;
+│   │                                                #   RESOLVES, with BOTH ends of install.sh's mapping read out of install.sh instead
+│   │                                                #   of hardcoded; declared in the file install.sh puts at USER scope; and no runner
+│   │                                                #   STRIPS --setting-sources. That last sweep's population is not filtered by
+│   │                                                #   extension — an anchor test derives every claude dispatcher from `git ls-files`
+│   │                                                #   and asserts the sweep contains it, after a Python-only glob left the one shell
+│   │                                                #   runner it exists to watch unwatched (2026-08-16)
 │   └── logs/                                        # Per-suite run output (gitignored — ephemeral)
 │
 ├── .github/

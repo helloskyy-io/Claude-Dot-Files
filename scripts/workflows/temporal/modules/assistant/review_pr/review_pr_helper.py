@@ -32,7 +32,7 @@ from .. import routing
 Verdict = routing.Verdict
 
 
-# THE KIND 1 ADDRESS, DECLARED ONCE for this tree. `exit-protocol.md` §6 covers
+# THE WORKING RECORD'S ADDRESS, DECLARED ONCE for this tree. `exit-protocol.md` §6 covers
 # the record's schema AND its address, because the measured duplication was in
 # the address: three incompatible declarations of this marker, two of them
 # unanchored, writing a wrong durable `pass:` onto 2 of 8 archived PRs (issue
@@ -157,7 +157,7 @@ _DISPOSITION = re.compile(r"^[ \t]*disposition:[ \t]*([^\s#]+)", re.MULTILINE)
 # shadow needs both values in one place to be countable.
 #
 # Shape-identical to `replay_pr_review_blocks.CONVERGED` and paired in
-# `SHARED_KIND_ONE_PATTERNS`, for the reason every other pattern in this file
+# `SHARED_WORKING_RECORD_PATTERNS`, for the reason every other pattern in this file
 # is: the two readers attribute the same field, and a silent divergence would
 # make the workflow's agreement count disagree with the archive replay's while
 # both suites stayed green.
@@ -223,7 +223,7 @@ def findings_section(block: str) -> str:
     Measured over the archive at 27 blocks / 14 PRs: **0 blocks carry a `- id:`
     outside `findings:`**, so anchoring moves no replayed figure. The regexes
     themselves are UNCHANGED — they stay byte-identical to
-    `replay_pr_review_blocks`' pair, which `SHARED_KIND_ONE_PATTERNS` gates —
+    `replay_pr_review_blocks`' pair, which `SHARED_WORKING_RECORD_PATTERNS` gates —
     and the fix is a narrowing of the INPUT in the consumer that holds the
     contract. That is the same ruling this phase made for the `pass:` ordering
     defect: the shared extractor feeds a published figure, so a consumer's
@@ -284,7 +284,7 @@ def asserted_converged_in_block(block: str) -> bool | None:
 # echoing a truncated, quoted or placeholder value does not match and the
 # selection degrades to position rather than binding to the wrong block.
 #
-# NOT PAIRED IN `SHARED_KIND_ONE_PATTERNS`: `replay_pr_review_blocks.py` has no
+# NOT PAIRED IN `SHARED_WORKING_RECORD_PATTERNS`: `replay_pr_review_blocks.py` has no
 # reader for this field, so there is no second declaration to keep identical.
 # The moment it acquires one, it belongs in that table.
 # A TRAILING YAML COMMENT IS TOLERATED, and that is measured rather than
@@ -430,11 +430,11 @@ def convergence_history(window: Sequence[str],
     THE PREDICATE IS A HYBRID AND THIS FUNCTION IS WHERE THAT SHOWS. The pass
     under assessment comes from the TYPED record, which is authoritative; every
     prior pass comes from its durable `pr_review:` block, parsed as prose.
-    That is not an oversight and it is not a hole in the typed channel — a Kind
-    2 record's lifetime is one parent invocation (`exit-protocol.md` §1, and the
-    to-do-bit ruling in Phase 3 step 6), so a prior pass's typed record does not
-    exist to be read. Kind 1 is the only durable copy, which is exactly the job
-    §1 gives it.
+    That is not an oversight and it is not a hole in the typed channel — a typed
+    exit record's lifetime is one parent invocation (`exit-protocol.md` §1, and
+    the to-do-bit ruling in Phase 3 step 6), so a prior pass's typed record does
+    not exist to be read. The working record is the only durable copy, which is
+    exactly the job §1 gives it.
 
     THE TWO SOURCES ARE NOT ASSUMED TO AGREE — they are made to. The
     render↔record invariant (`review_pr_workflow._assert_block_matches_record`)

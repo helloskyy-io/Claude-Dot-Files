@@ -50,7 +50,18 @@ BUDGETS: dict[str, int] = {
     # yaml rather than judged alone). 315 bytes were funded by cutting three
     # evidence anecdotes; 372 is the residue. The shrink pass this file needs is
     # still owed and is tracked separately — this is not it.
-    "review_pr/prompts/disposition.md": 75_868,
+    # RAISED 4 BYTES on 2026-08-16, and the trade is the smallest this gate has
+    # been asked to rule on: NOT new content, but one term corrected in place.
+    # The line cites `exit-protocol.md` §2.1 for "the Kind 2 record"; the memory
+    # taxonomy is now cut on lifecycle and that document no longer carries the
+    # label anywhere, so the citation named a term its target had stopped using.
+    # (§2.1 itself never carried it — the label lived in §1, §2's requirement
+    # table and §6 — so the citation was pointing past the term as well as at a
+    # retired one.) "typed exit record" is 4 bytes longer than "Kind 2 record"
+    # and nothing was added around it.
+    # Stated rather than absorbed, because a 4-byte raise on the file that most
+    # needs shrinking is exactly the kind that gets waved through silently.
+    "review_pr/prompts/disposition.md": 75_872,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -59,7 +70,10 @@ BUDGETS: dict[str, int] = {
     # and the remainder is a number changed on purpose with a reason attached.
     "build/build_refine/prompts/stages_2_to_4.md": 21_899,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
-    "build/build_draft/prompts/stages_1_to_4.md": 16_060,
+    # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
+    # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
+    # MOVED — so both lines exist and neither absorbs growth silently.
+    "build/build_draft/prompts/stages_1_to_4.md": 9_919,
     # SET AT ITS SIZE ON THE DAY IT LANDED, not on 2026-08-14: this prompt was
     # in flight on `build/plan-feature` when the budget test was written on
     # `main`, so it is the first file to meet this gate rather than be measured
@@ -105,6 +119,7 @@ BUDGETS: dict[str, int] = {
     # which is the cheapest possible demonstration that byte counts are not
     # eyeballable.
     "prompts/rules.md": 7_491,
+    "prompts/mutation_discipline.md": 6_584,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is

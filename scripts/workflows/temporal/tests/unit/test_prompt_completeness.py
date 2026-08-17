@@ -38,11 +38,35 @@ def _placeholders(prompt: Path) -> list[str]:
     return sorted(set(_PLACEHOLDER.findall(prompt.read_text())))
 
 
+def _consumers_of_shared(stem: str) -> list[Path]:
+    """Every workflow that loads the shared fragment `stem`.
+
+    A shared fragment has NO workflow beside it, so "the directory it sits in"
+    cannot answer who supplies its placeholders. Its consumers are whoever calls
+    `shared_prompt("<stem>")`, and there is more than one by definition —
+    otherwise it would not have been promoted (§10.1).
+    """
+    needle = f'shared_prompt("{stem}")'
+    return [f for f in _ASSISTANT.rglob("*.py") if needle in f.read_text()]
+
+
 def _has_a_supplier(prompt: Path, name: str) -> bool:
     """A supplier is either the workflow beside it or a promoted shared prompt.
 
     Kept as a named predicate so the positive control below can prove it fires.
+
+    A SHARED FRAGMENT IS THE STRICTER CASE, and it arrived with
+    `altitude_product.md` (issue #91) — the first promoted prompt to carry any
+    placeholder at all. EVERY workflow that loads it must supply them, not just
+    one somewhere in the tree: a fragment supplied by one consumer and not
+    another renders with a live `${...}` in the second, and `render()` raises at
+    dispatch time rather than here.
     """
+    if prompt.parent == _ASSISTANT / "prompts":
+        consumers = _consumers_of_shared(prompt.stem)
+        return bool(consumers) and all(
+            f'"{name}"' in f.read_text() for f in consumers
+        )
     workflow_dir = prompt.parent.parent
     source = (
         "".join(f.read_text() for f in workflow_dir.glob("*.py"))
