@@ -179,8 +179,6 @@ claude-dot-files/
 │   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
 │   │   ├── claude_code_orchestration.md             # PLATFORM BACKGROUND — orchestration options and which one this repo landed on
 │   │   ├── claude_code_rules.md                     # PLATFORM BACKGROUND — rules vs CLAUDE.md, when to split
-│   │   ├── altitude_product.md                   # SHARED product-altitude authorization block — promoted from two byte-identical copies (issue #91)
-│   │   ├── mutation_discipline.md                # SHARED build discipline — forked once, so a test now holds the variants together
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
@@ -402,6 +400,12 @@ claude-dot-files/
 │                   │                                #   cannot see WHICH ARM supplies a key, so this drives the real entry points at both
 │                   │                                #   research altitudes and both build tiers, and asserts the two draft tiers render
 │                   │                                #   byte-identically — the property the deleted file-identity assertion used to hold
+│                   ├── test_tier_siblings_do_not_DRIFT_by_a_sentence.py # The blind spot the block guard NAMES and
+│                   │                                #   cannot see: a copy that drifted by one word stops being verbatim and vanishes
+│                   │                                #   from its baseline. Scoped to a workflow and its own _minor tier, where the axis
+│                   │                                #   of difference is documented, so a near-match is an accident by definition. It
+│                   │                                #   SURFACES and never rules — the frozen list may shrink, and may grow only with a
+│                   │                                #   note saying the difference is deliberate
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.

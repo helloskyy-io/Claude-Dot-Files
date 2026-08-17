@@ -32,12 +32,15 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
     values = {
         "DESCRIPTION": description,
         "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
-        # SIX FRAGMENTS SHARED WITH build_refine — see that workflow. What stays
-        # local here is only what the ONE-lens tier says differently.
+        # EIGHT FRAGMENTS SHARED WITH build_refine — see that workflow, which
+        # carries the note on why the last two are shared. What stays local here
+        # is only what the ONE-lens tier says differently.
         "FIDELITY_PREMISE": act.shared_prompt("fidelity_premise"),
         "FIDELITY_NEEDS_A_SEPARATE_RUN": act.shared_prompt("fidelity_needs_a_separate_run"),
         "RESOLVE_DISPOSITION_AUTHORITY": act.shared_prompt("resolve_disposition_authority"),
+        "RESOLVE_REJECTIONS_MUST_BE_EXECUTED": act.shared_prompt("resolve_rejections_must_be_executed"),
         "RESOLVE_CLOSED_DISPOSITION_LIST": act.shared_prompt("resolve_closed_disposition_list"),
+        "RESOLVE_DISPOSITION_DEFINITIONS": act.shared_prompt("resolve_disposition_definitions"),
         "RESOLVE_FIX_BY_DEFAULT_AND_SUMMARY": act.shared_prompt("resolve_fix_by_default_and_summary"),
         "VERIFY_AND_CI_GATE": act.shared_prompt("verify_and_ci_gate"),
         "PR_NUMBER": pr_number,

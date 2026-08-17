@@ -52,14 +52,17 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     # inbox, and both entry points must be permitted exactly the same things.
     #
     # The component block was ONCE described here as genuinely differing between
-    # write and refresh. It does not: 31 of its 36 lines were byte-identical
-    # copies, and only the closing section differs — this one sizes a new pool,
-    # refresh's says it may not resize an existing one. So the shared lane rules
-    # are `shared_prompt("altitude_component")` and the local file is the tail.
+    # write and refresh. It does not: the two files opened with 32 byte-identical
+    # lines out of 43 here and 35 in refresh, and only the closing section
+    # differs — this one sizes a new pool, refresh's says it may not resize an
+    # existing one. So the shared lane rules are
+    # `shared_prompt("altitude_component")` and the local file is the tail, named
+    # `altitude_component_tail.md` so that searching for the lane rules finds the
+    # one file that carries them rather than three files with the same name.
     if level == "PRODUCT":
         altitude = act.shared_prompt("altitude_product")
     else:
-        altitude = act.load_prompt(PROMPTS / "altitude_component.md")
+        altitude = act.load_prompt(PROMPTS / "altitude_component_tail.md")
 
     blocks = [b for b in (context, act.upstream_block(pool, worktree),
                           act.component_pools_block(pool, worktree), currency) if b]

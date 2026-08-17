@@ -136,15 +136,11 @@ ${RESOLVE_DISPOSITION_AUTHORITY}
 
 For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards-auditor, quality-control), exactly ONE of these four. There is no fifth, and you may not invent one:
 
-**A REVIEW'S REJECTED FINDINGS ARE DISPOSITIONS YOU MUST EXECUTE, not items already handled.** A rejection with reasoning is a decision — usually to delete a claim, correct a doc, or withdraw an assertion — and something has to carry it out. Walk the rejections before you call the runway closed.
+${RESOLVE_REJECTIONS_MUST_BE_EXECUTED}
 
 ${RESOLVE_CLOSED_DISPOSITION_LIST}
 
-- **FIXED** — you corrected it here. Say what you changed.
-- **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
-- **DEFERRED** — real, and an EXISTING durable home already covers it. Allowed ONLY with a pointer you FETCHED: run the command, record what you saw. See the Deferred Work rules at the end of this prompt — they are binding here, at the moment of decision, not merely when you write the comment up. **If you cannot verify a home, this is not a DEFERRED; it is a SURFACED.**
-- **RULING-REQUIRED** — real, you believe the reviewers are RIGHT, and acting on it would override an EXPLICIT operator instruction — **whether that instruction phrases a MEANS (a definition-of-done naming how) or a CONSTRAINT (a brief forbidding something the reviewers dispute). Both are the same shape and both belong here** — (a stated definition-of-done, a scoped constraint). Do not override it and do not dismiss the finding: fix whatever substance you legitimately can, state the recommendation plainly, and hand the placement decision up. **This is the shape whenever a DoD phrases a MEANS and reviewers dispute the means while agreeing on the end** — measured on a settings-validator placement where three reviewers agreed and the taxonomy pushed toward either overriding the operator or dismissing all three.
-- **SURFACED** — real, genuinely outside this change's scope, and NO verified home exists. State it plainly in the PR body with no pointer at all, so \`review-pr\` and the operator can dispose of it. Do NOT invent a tracker — surfacing IS the action, and a naked surfaced item gets picked up downstream while a plausible-looking pointer gets filed away as handled.
+${RESOLVE_DISPOSITION_DEFINITIONS}
 
 ${RESOLVE_FIX_BY_DEFAULT_AND_SUMMARY}
 

@@ -88,6 +88,36 @@ def test_every_draft_stage_prompt_REACHES_the_discipline() -> None:
     )
 
 
+def _strays(build_root: Path) -> list[Path]:
+    """Plan-variant prompt files sitting inside a draft child instead of the pool.
+
+    Takes its root so the control below can point it at a fabricated tree. The
+    real tree only ever exercises the empty case, and an assertion whose failing
+    path has never run is indistinguishable from one that cannot fail.
+    """
+    return [
+        p
+        for child in ("build_draft", "build_draft_minor")
+        for p in (build_root / child / "prompts").glob("*from_plan*.md")
+    ]
+
+
+def test_the_STRAY_COPY_check_fires_when_a_child_holds_one(tmp_path: Path) -> None:
+    """Live control, and it covers the case the block-level baseline cannot.
+
+    A promoted file re-copied into ONE child leaves
+    `test_prompt_blocks_are_shared_not_copied` green — the block then has a
+    single consumer, so it is not duplicated at all. This is the check that
+    still sees it, so its failing path is the one worth demonstrating.
+    """
+    for child in ("build_draft", "build_draft_minor"):
+        (tmp_path / child / "prompts").mkdir(parents=True)
+    assert _strays(tmp_path) == [], "an empty tree must be clean"
+    planted = tmp_path / "build_draft_minor" / "prompts" / "stages_1_to_4_from_plan.md"
+    planted.write_text("a re-copied plan variant")
+    assert _strays(tmp_path) == [planted], "the glob is blind to a re-copied file"
+
+
 def test_no_draft_child_KEEPS_a_private_copy_of_the_plan_variant() -> None:
     """The collapse must stay collapsed — a re-copied file is the fork returning.
 
@@ -97,11 +127,7 @@ def test_no_draft_child_KEEPS_a_private_copy_of_the_plan_variant() -> None:
     floor and only once someone regenerates its frozen baseline; this names the
     file, which is the form the defect actually took.
     """
-    strays = [
-        p
-        for child in ("build_draft", "build_draft_minor")
-        for p in (BUILD / child / "prompts").glob("*from_plan*.md")
-    ]
+    strays = _strays(BUILD)
     assert not strays, (
         "a draft child carries its own copy of a plan-driven prompt again. Both "
         "children load these from modules/assistant/prompts/ via shared_prompt(); "

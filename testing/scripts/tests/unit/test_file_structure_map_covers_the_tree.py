@@ -84,6 +84,11 @@ _INDENT = 4
 # assumed, so this exclusion cannot quietly grow.
 _EXCLUDED_NAMES = frozenset({".gitkeep"})
 
+# The map's own convention for a variable path segment: `raw/<topic>.md` names a
+# naming rule, not a file. Pinned by `test_the_TEMPLATE_exemption_is_only_what_it
+# _says_it_is` so the exemption cannot grow by accident.
+_TEMPLATE = re.compile(r"<[^>]+>")
+
 
 def _tracked() -> list[Path]:
     out = subprocess.run(["git", "ls-files"], cwd=_REPO,
@@ -91,25 +96,38 @@ def _tracked() -> list[Path]:
     return [Path(line) for line in out.stdout.split()]
 
 
-def _mapped_paths() -> set[str]:
-    """Every entry in the map, as a repo-relative path.
+def _mapped_entries() -> dict[str, bool]:
+    """Every entry in the map, as a repo-relative path -> "is a directory".
 
     The root line (`claude-dot-files/`) carries no `──` and is therefore not a
     level — which is what makes the reconstructed paths repo-relative and
     directly comparable to `git ls-files` output.
+
+    DIRECTORY-NESS COMES FROM THE TRAILING SLASH the map writes, not from what
+    is on disk, because the check below is precisely about entries whose disk
+    counterpart does not exist. Measured on the whole map: 254 file entries and
+    60 directory entries, with ZERO disagreements against disk on the entries
+    that do resolve — so the convention is reliable enough to key an assertion
+    on.
     """
     stack: dict[int, str] = {}
-    paths = set()
+    entries: dict[str, bool] = {}
     for line in _MAP.read_text().splitlines():
         found = _LEAF.match(line)
         if not found:
             continue
         level = len(found.group(1)) // _INDENT
-        stack[level] = found.group(2).rstrip("/")
+        leaf = found.group(2)
+        stack[level] = leaf.rstrip("/")
         for deeper in [k for k in stack if k > level]:
             del stack[deeper]
-        paths.add("/".join(stack[k] for k in sorted(stack)))
-    return paths
+        entries["/".join(stack[k] for k in sorted(stack))] = leaf.endswith("/")
+    return entries
+
+
+def _mapped_paths() -> set[str]:
+    """Every entry in the map, as a repo-relative path."""
+    return set(_mapped_entries())
 
 
 def test_the_exclusion_list_is_only_what_it_says_it_is() -> None:
@@ -135,6 +153,85 @@ def test_the_map_PARSES_into_paths_that_actually_exist() -> None:
         f"disk — the indentation parse is wrong, or the map has drifted far "
         f"enough that this check is measuring the wrong thing. Sample of "
         f"non-resolving entries: {sorted(set(paths) - set(resolves))[:8]}"
+    )
+
+
+def test_every_FILE_ENTRY_in_the_map_NAMES_A_FILE_THAT_EXISTS() -> None:
+    """The other direction: the map may summarise, but it may not INVENT.
+
+    Every check above reads `git ls-files` and asks whether the map reaches it.
+    None of them reads the map and asks whether what it says is true, so a row
+    naming a file that has never existed at that path is green under all of
+    them — and it is worse than a missing row, because a reader who cannot find
+    a file through the map concludes the file does not exist, while a reader who
+    CAN find it goes to the wrong bucket and finds nothing there either.
+
+    THE MEASURED RECURRENCE, which is why this keys on the class rather than on
+    the two rows that were wrong. Of the two PRs that promoted a shared prompt
+    fragment and added a row for it — #91 (`altitude_product.md`) and #99
+    (`mutation_discipline.md`) — BOTH put the row under `docs/guide/`, where
+    neither file has ever lived; both live in the shared prompt pool at
+    `scripts/workflows/temporal/modules/assistant/prompts/`, which the map
+    deliberately rolls up. Two for two is not a slip, it is the default outcome
+    of adding a row by eye.
+
+    WHY THE EXISTING PARSE CONTROL DID NOT CATCH IT.
+    `test_the_map_PARSES_into_paths_that_actually_exist` tolerates 10%
+    non-resolving paths ON PURPOSE — it is asserting that the INDENTATION PARSE
+    works, and a control that demanded perfection would fail on the template row
+    below and stop being a parser control. Its slack absorbed both rows for
+    months. This is the reconciliation the slack was never meant to cover, and
+    it is a separate test rather than a tightening of that one for exactly that
+    reason.
+
+    NOTE WHAT THIS DOES NOT LOOK AT: it checks that a named path EXISTS, never
+    that the annotation beside it is true. A row that files a real file under a
+    plausible-but-wrong description is invisible here, as it is everywhere else.
+    """
+    ghosts, bad_templates = [], []
+    for path, is_dir in sorted(_mapped_entries().items()):
+        if is_dir:
+            continue                       # rolled-up directories are checked above
+        if _TEMPLATE.search(path):
+            # `raw/<topic>.md` stands for a naming CONVENTION, so no such file
+            # exists or should. The claim it still makes is that the directory
+            # holding them does, and that is what gets checked.
+            if not (_REPO / path).parent.is_dir():
+                bad_templates.append(path)
+            continue
+        if not (_REPO / path).exists():
+            ghosts.append(path)
+    assert not ghosts, (
+        "docs/file_structure.txt — which CLAUDE.md calls authoritative — has rows "
+        "naming files that do not exist at the path the row reconstructs to:\n  "
+        + "\n  ".join(ghosts)
+        + "\n\nDelete the row, or move it under the directory the file is really "
+          "in. Before moving it, check whether that directory is ROLLED UP: adding "
+          "a per-file row to a rolled-up directory flips it to enumerated and "
+          "`test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY` will then "
+          "demand a row for every one of its files."
+    )
+    assert not bad_templates, (
+        "these map rows are templates (`<…>` stands for a variable segment), so "
+        "the file is not expected to exist — but the directory holding them does "
+        "not exist either, which means the row points nowhere at all:\n  "
+        + "\n  ".join(bad_templates)
+    )
+
+
+def test_the_TEMPLATE_exemption_is_only_what_it_says_it_is() -> None:
+    """The control on the exemption above — it may not quietly become a hole.
+
+    `<…>` is the map's own convention for a variable path segment, and it is the
+    one shape that legitimately names no file. If a future row picked up angle
+    brackets for some other reason, it would inherit the exemption silently, so
+    the exempted set is pinned by name.
+    """
+    exempt = sorted(p for p in _mapped_paths() if _TEMPLATE.search(p))
+    assert exempt == ["docs/standards/architecture/research/raw/<topic>.md"], (
+        f"the set of template rows in the map changed: {exempt}. Each one is "
+        f"exempt from the file-exists assertion, so a new member is a new hole — "
+        f"confirm it really is a naming convention and not a typo, then add it here."
     )
 
 

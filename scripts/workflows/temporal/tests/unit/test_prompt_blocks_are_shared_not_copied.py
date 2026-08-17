@@ -130,6 +130,48 @@ def test_no_NEW_block_is_copied_between_children() -> None:
     )
 
 
+def _spread(accepted: dict[str, str],
+            dup: dict[str, tuple[str, set[str]]]) -> list[tuple[str, int, list[str], str]]:
+    """Baselined blocks now carried by MORE children than the note freezes.
+
+    Split out from the test so the control below can drive it with a synthetic
+    baseline. The real tree can only ever exercise the passing case, and a
+    ratchet whose failing path has never run is a ratchet nobody has seen work.
+    """
+    out = []
+    for h, note in accepted.items():
+        if h not in dup:
+            continue                      # stale — the last test owns that case
+        m = re.match(r"(\d+)x", note)
+        assert m, f"{h}'s baseline note must start with its consumer count, e.g. '2x': {note!r}"
+        frozen, owners = int(m.group(1)), dup[h][1]
+        if len(owners) > frozen:
+            out.append((h, frozen, sorted(owners), note))
+    return out
+
+
+def test_the_SPREAD_check_fires_when_a_block_gains_a_consumer() -> None:
+    """Live control for the ratchet below, from the mutation that found the hole.
+
+    PR #100's correction pass copied an already-baselined block into a THIRD
+    child and got `1282 passed` with zero failures: the baseline froze WHICH
+    blocks were duplicated and never HOW WIDELY. That mutation is reproduced
+    here against `_spread` directly rather than narrated in a comment, so the
+    failing path is exercised on every run instead of once, by hand, in a
+    session nobody can re-open.
+    """
+    frozen = {"deadbeef1234": "2x  a block two children were forgiven for"}
+    within = {"deadbeef1234": ("text", {"build_draft", "build_draft_minor"})}
+    assert _spread(frozen, within) == [], "the check fires at the frozen width"
+    widened = {"deadbeef1234": ("text", {"build_draft", "build_draft_minor", "plan_revision"})}
+    assert _spread(frozen, widened), "the check is blind to a THIRD consumer"
+    narrowed = {"deadbeef1234": ("text", {"build_draft"})}
+    assert _spread(frozen, narrowed) == [], (
+        "shrinkage must stay green — the list may only shrink, and "
+        "test_a_FIXED_duplication_is_removed_from_the_baseline owns that half"
+    )
+
+
 def test_a_baselined_block_does_not_SPREAD_to_another_child() -> None:
     """The other axis of the ratchet: a forgiven block may not gain consumers.
 
@@ -138,16 +180,7 @@ def test_a_baselined_block_does_not_SPREAD_to_another_child() -> None:
     Widening was therefore free, and free is what the `Nx` prefix looked like it
     was preventing while checking nothing.
     """
-    dup = _duplicated()
-    spread = []
-    for h, note in ACCEPTED.items():
-        if h not in dup:
-            continue                      # stale — the test below owns that case
-        m = re.match(r"(\d+)x", note)
-        assert m, f"{h}'s baseline note must start with its consumer count, e.g. '2x': {note!r}"
-        frozen, owners = int(m.group(1)), dup[h][1]
-        if len(owners) > frozen:
-            spread.append((h, frozen, sorted(owners), note))
+    spread = _spread(ACCEPTED, _duplicated())
     assert not spread, (
         "These blocks were already duplicated when the baseline froze and have "
         "since been copied into MORE children. The baseline forgives the "

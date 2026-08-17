@@ -47,7 +47,9 @@ _PROMOTED = [
     "fidelity_premise",
     "fidelity_needs_a_separate_run",
     "resolve_disposition_authority",
+    "resolve_rejections_must_be_executed",
     "resolve_closed_disposition_list",
+    "resolve_disposition_definitions",
     "resolve_fix_by_default_and_summary",
     "verify_and_ci_gate",
     "altitude_component",
@@ -67,10 +69,12 @@ def _needle(stem: str) -> str:
     identified BY their indentation, so they must be tested against the RAW one.
     Testing both against `lstrip()` — as the first version of this did — makes
     the continuation arm unreachable, since `lstrip()` has already eaten the very
-    whitespace that arm looks for. Harmless while no promoted fragment carries a
-    header (none does: the two that did were removed as prompt-economy waste),
-    and silently vacuous the moment a short one gains a header, because the
-    needle would then be drawn from the commentary that renders unconditionally.
+    whitespace that arm looks for. Harmless while no prompt carries a header —
+    none does, and that is now GATED rather than observed:
+    `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model` fails on any HTML
+    comment in any prompt file, so this arm cannot silently start mattering. It
+    is kept because the gate is the thing that could be deleted, and a needle
+    drawn from commentary would make every membership check below vacuous.
     """
     lines = [
         ln.strip()
@@ -156,7 +160,8 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
 
 _REFINE_FRAGMENTS = [
     "fidelity_premise", "fidelity_needs_a_separate_run",
-    "resolve_disposition_authority", "resolve_closed_disposition_list",
+    "resolve_disposition_authority", "resolve_rejections_must_be_executed",
+    "resolve_closed_disposition_list", "resolve_disposition_definitions",
     "resolve_fix_by_default_and_summary", "verify_and_ci_gate",
 ]
 
@@ -166,7 +171,7 @@ _REFINE_FRAGMENTS = [
     [("build_refine", refine.run_refine),
      ("build_refine_minor", refine_minor.run_refine_minor)],
 )
-def test_a_refine_pass_renders_all_six_shared_fragments(
+def test_a_refine_pass_renders_EVERY_shared_disposition_fragment(
     monkeypatch, tmp_path, name: str, entry
 ) -> None:
     monkeypatch.setattr(act, "pr_branch", lambda *a, **k: "build/x")
@@ -279,14 +284,14 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
         _draft_prompt(monkeypatch, tmp_path, draft.run_draft)
 
 
-def test_the_needles_are_real(monkeypatch) -> None:
+def test_the_needles_are_real() -> None:
     """Vacuity guard: every assertion here is `needle in prompt`.
 
     A `_needle` that silently returned "" would make every membership check
     above pass against any string at all, and the PRODUCT-altitude check would
     then be the only one that failed — pointing at the wrong thing entirely.
     """
-    assert len(_PROMOTED) == 9, "the promoted set changed; update this module"
+    assert len(_PROMOTED) == 11, "the promoted set changed; update this module"
     for stem in _PROMOTED:
         assert (_SHARED / f"{stem}.md").is_file(), f"prompts/{stem}.md is missing"
         n = _needle(stem)

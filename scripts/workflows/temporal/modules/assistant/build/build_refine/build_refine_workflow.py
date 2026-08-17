@@ -35,14 +35,25 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     values = {
         "DESCRIPTION": description,
         "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
-        # SIX FRAGMENTS SHARED WITH build_refine_minor. The two tiers differ in
+        # EIGHT FRAGMENTS SHARED WITH build_refine_minor. The two tiers differ in
         # how many review lenses they run, never in what a refine pass IS — so
         # the fidelity premise, the closed disposition list and the verify gate
         # are one text. §10.1: consumer count decides. Edit them under prompts/.
+        #
+        # THE LAST TWO ARRIVED BY DRIFT, WHICH IS THE ARGUMENT FOR THE OTHER SIX.
+        # They were copies, not shared text, and they had already diverged by one
+        # sentence each — in OPPOSITE directions, so neither was tiering. The
+        # major tier alone carried the clause extending RULING-REQUIRED to a
+        # brief's CONSTRAINT; the minor tier alone carried the measured evidence
+        # that rejections get left standing. Both tiers were disposing findings
+        # under rules the other one had. Reconciled by union, then promoted so
+        # the next sentence cannot land in one of them.
         "FIDELITY_PREMISE": act.shared_prompt("fidelity_premise"),
         "FIDELITY_NEEDS_A_SEPARATE_RUN": act.shared_prompt("fidelity_needs_a_separate_run"),
         "RESOLVE_DISPOSITION_AUTHORITY": act.shared_prompt("resolve_disposition_authority"),
+        "RESOLVE_REJECTIONS_MUST_BE_EXECUTED": act.shared_prompt("resolve_rejections_must_be_executed"),
         "RESOLVE_CLOSED_DISPOSITION_LIST": act.shared_prompt("resolve_closed_disposition_list"),
+        "RESOLVE_DISPOSITION_DEFINITIONS": act.shared_prompt("resolve_disposition_definitions"),
         "RESOLVE_FIX_BY_DEFAULT_AND_SUMMARY": act.shared_prompt("resolve_fix_by_default_and_summary"),
         "VERIFY_AND_CI_GATE": act.shared_prompt("verify_and_ci_gate"),
         "RULES": act.shared_prompt("rules"),

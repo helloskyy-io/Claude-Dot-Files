@@ -64,7 +64,7 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     if level == "PRODUCT":
         altitude = act.shared_prompt("altitude_product")
     else:
-        altitude = act.load_prompt(PROMPTS / "altitude_component.md")
+        altitude = act.load_prompt(PROMPTS / "altitude_component_tail.md")
 
     values = {
         # The path the MODEL is given must be the one it can actually write to.
