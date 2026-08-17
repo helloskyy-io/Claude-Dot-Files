@@ -4,8 +4,8 @@ THE CLASS, NOT THE INSTANCE. The finding that produced this file was one
 missing `timeout=` in `assistant_activities.gh_attempt._run` — the single launch
 point for every retried `gh` in the fleet. Enumerating that one site and fixing
 it would have been the wrong shape of answer: a sweep at the time found SEVEN
-more `subprocess.run` calls in this tree with the same gap, four of them `git`
-rather than `gh`, one of them in `scripts/preflight.py` which is the very first
+more `subprocess.run` calls in this tree with the same gap — six of them `git`
+rather than `gh`, one of them in `scripts/preflight.py`, which is the very first
 thing a dispatch executes. A guard listing the sites it knew about would have
 been green on the eighth.
 
@@ -36,14 +36,19 @@ TWO LAUNCH SHAPES, TWO RULES, because they are genuinely different:
 WHAT THIS GUARD DOES NOT LOOK AT, stated because a check read as broader than
 it is does more harm than a narrow one:
 
-  * **`os.system`, `os.popen`, `subprocess.call`, `check_output`, `Popen` via an
-    alias, or anything invoked through a shell string.** It matches two spelled
-    attribute accesses on the `subprocess` module. A launch spelled any other
-    way is unbounded and invisible here. Nothing in the tree spells it another
-    way today (verified by the census assertion below), which is the only
-    reason the narrow match is adequate.
+  * **`Popen` via an alias, or a launch assembled through a variable.** The
+    matcher wants a spelled `subprocess.<attr>` access. The OTHER spellings a
+    reader would worry about — `os.system`, `os.popen`, `subprocess.call`,
+    `check_call`, `check_output`, and `from subprocess import run` — are not a
+    gap, because `test_no_launch_arrives_by_another_spelling` refuses them
+    outright rather than trusting that nobody will write one. That test is what
+    makes this narrow match adequate; this bullet used to claim the census
+    below verified it, and the census did no such thing.
   * **Whether the timeout VALUE is sane.** `timeout=0.001` passes. The value is
     argued where each constant is defined; this asks only that a bound exists.
+    `timeout=None` does NOT pass — it is a keyword spelling of no bound at all,
+    which is the one value that would re-open the hole this file was written
+    for, and it is rejected explicitly.
   * **The `Popen` sites' actual behaviour.** They are exempted by NAME. If one
     stops streaming and starts blocking on `communicate()`, this test still
     passes and the exemption's reasoning has silently stopped being true.
@@ -73,10 +78,29 @@ _ROOTS = (_TREE / "modules", _TREE / "scripts")
 # or model run that legitimately takes an hour. Bounding these means choosing a
 # longest-legitimate-build, which is a decision nobody has made and which this
 # guard must not make by accident.
+#
+# THE CONDITION THAT REMOVES THIS EXEMPTION, because an allowlist with no expiry
+# is a permanent quiet carve-out: it goes when a no-output-for-N-minutes bound
+# for a streaming child is decided. Neither site watches for silence today —
+# `run_claude` blocks on `for line in proc.stdout` with nothing observing the
+# gap between lines — so a wedged model child is as unbounded as a wedged `gh`
+# was, one layer up and for longer. That decision is not this PR's to make and
+# is surfaced in its body rather than guessed at here.
 _STREAMING_POPEN = {
     ("modules/assistant/assistant_activities.py", "run_claude"),
     ("modules/assistant/build/build_activities.py", "run_child"),
 }
+
+
+# Launch spellings that carry no `timeout=` at all (`os.system`, `os.popen`) or
+# that would slip past an attribute matcher. None of them appears in the tree;
+# the rule is that none of them may, rather than that none happens to.
+_OTHER_LAUNCH_SPELLINGS = frozenset({"call", "check_call", "check_output", "getoutput",
+                                     "getstatusoutput"})
+
+
+def where_or_module(stack: list[str]) -> str:
+    return stack[0] if stack else "<module>"
 
 
 class _Launches(ast.NodeVisitor):
@@ -87,6 +111,7 @@ class _Launches(ast.NodeVisitor):
         self.func: list[str] = []
         self.runs: list[tuple[str, str, int, bool]] = []
         self.popens: list[tuple[str, str, int]] = []
+        self.other: list[tuple[str, str, int, str]] = []
 
     def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
         self.func.append(node.name)
@@ -104,15 +129,35 @@ class _Launches(ast.NodeVisitor):
             # failure message; `gh_attempt` and `observe_outcome` do.
             where = self.func[0] if self.func else "<module>"
             if f.attr == "run":
-                bounded = any(k.arg == "timeout" for k in node.keywords)
+                # `timeout=None` IS NOT A BOUND. It is the default spelled out,
+                # and it is the one edit that re-opens this hole while looking
+                # like a deliberate answer to this very test.
+                bounded = any(
+                    k.arg == "timeout"
+                    and not (isinstance(k.value, ast.Constant) and k.value.value is None)
+                    for k in node.keywords)
                 self.runs.append((self.rel, where, node.lineno, bounded))
             elif f.attr == "Popen":
                 self.popens.append((self.rel, where, node.lineno))
+            elif f.attr in _OTHER_LAUNCH_SPELLINGS:
+                self.other.append((self.rel, where, node.lineno, f"subprocess.{f.attr}"))
+        elif (isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name)
+                and f.value.id == "os" and f.attr in {"system", "popen"}):
+            self.other.append((self.rel, where_or_module(self.func), node.lineno,
+                               f"os.{f.attr}"))
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom):  # noqa: N802
+        # `from subprocess import run` defeats the attribute matcher entirely.
+        if node.module == "subprocess":
+            for alias in node.names:
+                self.other.append((self.rel, "<import>", node.lineno,
+                                   f"from subprocess import {alias.name}"))
         self.generic_visit(node)
 
 
-def _census() -> tuple[list, list]:
-    runs, popens = [], []
+def _census() -> tuple[list, list, list]:
+    runs, popens, other = [], [], []
     for root in _ROOTS:
         for path in sorted(root.rglob("*.py")):
             rel = str(path.relative_to(_TREE))
@@ -120,7 +165,8 @@ def _census() -> tuple[list, list]:
             v.visit(ast.parse(path.read_text(encoding="utf-8")))
             runs += v.runs
             popens += v.popens
-    return runs, popens
+            other += v.other
+    return runs, popens, other
 
 
 def test_the_census_is_not_vacuous() -> None:
@@ -132,7 +178,7 @@ def test_the_census_is_not_vacuous() -> None:
     floor rather than an equality: the point is that the walk still reaches
     production code, not that the count never changes.
     """
-    runs, popens = _census()
+    runs, popens, _other = _census()
     assert len(runs) >= 3, (
         f"the AST walk found {len(runs)} `subprocess.run` call(s) under "
         f"{[str(r.relative_to(_TREE)) for r in _ROOTS]} — it is no longer "
@@ -152,7 +198,7 @@ def test_every_blocking_launch_carries_a_timeout() -> None:
     the assistant tree (`modules/journal/`, `scripts/preflight.py`), and both of
     those say so at the call.
     """
-    runs, _ = _census()
+    runs, _p, _o = _census()
     unbounded = [(rel, where, line) for rel, where, line, ok in runs if not ok]
     assert unbounded == [], (
         "these launch a subprocess with no wall-clock ceiling, so a command "
@@ -171,7 +217,7 @@ def test_a_new_streaming_launch_must_be_decided_on_purpose() -> None:
     "`Popen` is fine" would have covered it silently. Adding an entry here is
     cheap and forces the question to be asked once.
     """
-    _, popens = _census()
+    _r, popens, _o = _census()
     found = {(rel, where) for rel, where, _ in popens}
     unexpected = sorted(found - _STREAMING_POPEN)
     assert unexpected == [], (
@@ -184,6 +230,88 @@ def test_a_new_streaming_launch_must_be_decided_on_purpose() -> None:
         f"an exemption in `_STREAMING_POPEN` no longer matches any call site: "
         f"{sorted(_STREAMING_POPEN - found)}. A stale exemption is a hole "
         f"nobody can see.")
+
+
+def test_no_launch_arrives_by_another_spelling() -> None:
+    """THE RULE ABOVE IS ONLY AS WIDE AS THE SPELLINGS IT CAN SEE.
+
+    `subprocess.check_output(cmd)` takes a `timeout=` and is invisible to the
+    `run` matcher. `os.system` cannot take one at all. `from subprocess import
+    run` defeats the attribute match entirely. Each is a way to add an unbounded
+    launch and leave this file green — so rather than assert that nobody would,
+    they are refused outright.
+
+    NOT A STYLE RULE. `subprocess.run` and `Popen` cover every launch this tree
+    needs, and the cost of the ban is that somebody occasionally writes one
+    extra line. The cost of not having it is a guard whose own docstring claims
+    a coverage it does not have, which is worse than no guard.
+    """
+    _r, _p, other = _census()
+    assert other == [], (
+        "these reach a subprocess by a spelling this guard's `timeout=` rule "
+        "cannot inspect:\n"
+        + "\n".join(f"  {rel}:{line} in {where} — {what}"
+                    for rel, where, line, what in other)
+        + "\n\nUse `assistant_activities.run_bounded`, or `subprocess.run` with "
+          "an explicit `timeout=`.")
+
+
+# ── THE PREDICATE'S OWN CONTROL ────────────────────────────────────────────
+#
+# Everything above asks the tree a question. Nothing above proves the QUESTION
+# still discriminates: if `bounded` began returning True unconditionally — an
+# AST shape change, a keyword folded into `**kwargs`, a refactor of the visitor
+# — every rule test passes forever AND the vacuity floors still pass, because
+# the walk is still finding call sites. The Testing Standard's
+# "structural tests need a positive control" is aimed exactly at this, and the
+# control has to be a snippet the guard has never seen rather than the tree.
+
+@pytest.mark.parametrize(
+    ("snippet", "expect_bounded", "why"),
+    [
+        pytest.param("subprocess.run(cmd, timeout=1)", True, "an explicit bound",
+                     id="bounded"),
+        pytest.param("subprocess.run(cmd)", False, "no bound at all", id="bare"),
+        pytest.param("subprocess.run(cmd, capture_output=True)", False,
+                     "other keywords are not a bound", id="other-kwargs"),
+        pytest.param("subprocess.run(cmd, timeout=None)", False,
+                     "the default, spelled out", id="timeout-None"),
+        pytest.param("subprocess.run(cmd, timeout=SOME_CONSTANT)", True,
+                     "a named bound is still a bound", id="named-constant"),
+    ],
+)
+def test_the_bounded_predicate_discriminates(snippet: str, expect_bounded: bool,
+                                             why: str) -> None:
+    """WOULD THIS TEST FAIL IF THE PROPERTY WERE VIOLATED? Asked of the guard itself."""
+    v = _Launches("<control>")
+    v.visit(ast.parse(snippet))
+    assert len(v.runs) == 1, f"the matcher did not see the launch in: {snippet}"
+    assert v.runs[0][3] is expect_bounded, (
+        f"`{snippet}` was read as {'bounded' if v.runs[0][3] else 'unbounded'}; "
+        f"it is {'bounded' if expect_bounded else 'unbounded'} — {why}")
+
+
+@pytest.mark.parametrize(
+    ("snippet", "why"),
+    [
+        pytest.param("subprocess.check_output(cmd)", "check_output", id="check_output"),
+        pytest.param("subprocess.call(cmd)", "call", id="call"),
+        pytest.param("os.system(cmd)", "os.system", id="os-system"),
+        pytest.param("from subprocess import run", "a direct import", id="import-from"),
+    ],
+)
+def test_the_other_spelling_detector_discriminates(snippet: str, why: str) -> None:
+    """AND ITS CONTROL, for the same reason. A refuser that refuses nothing passes."""
+    v = _Launches("<control>")
+    v.visit(ast.parse(snippet))
+    assert v.other, f"{why} was not detected as an alternative spelling: {snippet}"
+
+
+def test_the_control_does_not_flag_ordinary_code() -> None:
+    """THE NEGATIVE HALF. A detector that fires on everything also fires on nothing."""
+    v = _Launches("<control>")
+    v.visit(ast.parse("import subprocess\nx = json.loads(r.stdout)\nos.path.join(a, b)\n"))
+    assert v.other == [] and v.runs == [] and v.popens == []
 
 
 @pytest.mark.parametrize(
@@ -201,7 +329,7 @@ def test_run_bounded_turns_a_hang_into_an_ordinary_non_zero_reply(
     Every converted call site keeps its existing `returncode != 0` branch and
     grows no `except`. That only holds while `run_bounded` swallows
     `TimeoutExpired` and returns instead — the moment it re-raises, six call
-    sites across four modules acquire an uncaught exception at once.
+    sites across three modules acquire an uncaught exception at once.
     """
     import subprocess
     import sys

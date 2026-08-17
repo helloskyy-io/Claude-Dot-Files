@@ -131,8 +131,9 @@ def run_bounded(cmd: list[str], *, cwd: Path | str | None = None,
     single: no module under `modules/` may reach `subprocess.run` without a
     `timeout=`, so the next launch added anywhere either comes through here or
     states its own bound out loud. The check is on the CLASS rather than on the
-    seven sites that existed when it was written — four of them were `git`, and
-    a guard listing the sites it knew about would have missed the fifth.
+    seven other sites that existed when it was written — six of them `git` and
+    only one `gh` — and a guard listing the sites it knew about would have been
+    green on the eighth.
 
     PARTIAL OUTPUT IS DISCARDED, WHICH IS A DELIBERATE NARROWING.
     `TimeoutExpired` carries whatever the child had written before it was
@@ -141,6 +142,17 @@ def run_bounded(cmd: list[str], *, cwd: Path | str | None = None,
     not a reply, and a reader who sees JSON in a stderr message will try to read
     it. What the message states instead is the one fact that is certain: the
     call did not finish inside its budget.
+
+    THE CEILING BINDS THIS PROCESS, NOT THE PROCESS TREE. `subprocess.run`
+    SIGKILLs the direct child on expiry and then, on POSIX, `wait()`s for it —
+    verified against this interpreter's own `inspect.getsource(subprocess.run)`
+    rather than assumed, because the Windows branch does re-enter `communicate()`
+    unbounded and reading the wrong branch turns this note into a false alarm.
+    So `run_bounded` DOES return inside its budget. What it does not do is reap
+    a GRANDCHILD: `git fetch` spawns `git-remote-https`, and SIGKILLing `git`
+    orphans that. It holds a pipe nobody reads and blocks nobody; it is a leak,
+    not a hang, and bounding it means process groups, which is a larger decision
+    than this function should make on its own.
     """
     try:
         return subprocess.run(cmd, cwd=str(cwd) if cwd is not None else None,
@@ -824,22 +836,38 @@ _READ_ONLY_GH_VERBS = frozenset({"view", "list", "checks", "status", "diff"})
 # measured during this outage cleared within seconds; 6.0s rather than the 8.0
 # its sibling uses because this sits UNDERNEATH
 # `review_pr_workflow._THREAD_READ_BACKOFF_SECONDS`, and the composition on that
-# one path is 3×3 = 9 attempts and ~34s. Bounded, and stated so it stays bounded.
+# one path is 3×3 = 9 attempts and ~34s of PAUSES.
+#
+# ~34s IS THE ADDED-LATENCY BOUND AND IT IS NOT THE WALL-CLOCK ONE, which this
+# comment said nothing about until `_SUBPROCESS_TIMEOUT_SECONDS` existed. The
+# wall-clock bound is `attempts × timeout + pauses`: 3×120 + 8 ≈ 6min here, and
+# 9×120 + 34 ≈ 18min composed — because `504 Gateway Timeout` is in the
+# retryable set and by definition arrives slowly. An attempt count stopped
+# bounding wall-clock the moment each attempt acquired a ceiling; bounding it
+# would take a monotonic deadline on the outer loop, which is a change to
+# `review_pr_workflow` and not to this tuple. Both figures are asserted in
+# `test_the_retry_under_the_review_threads_retry_stays_bounded`.
 # Shape matches that sibling deliberately: a tuple of pauses, with the final
 # attempt outside the loop and uncaught so the real error surfaces.
 _GH_RETRY_BACKOFF_SECONDS = (2.0, 6.0)
 
 
-def _gh_label(args: list[str]) -> str:
-    """The invocation, short enough to belong on a console line.
+def _one_line(text: str, limit: int = 120) -> str:
+    """Anything, flattened short enough to belong on a console line.
 
     `' '.join(args)` is fine in an exception, which is read once. It is not fine
     in a retry notice: `gh pr comment --body-file` aside, several call sites pass
     multi-line prose, and a retry that dumps a PR body into the operator's
     console teaches them to stop reading the retries.
+
+    NAMED FOR WHAT IT DOES, NOT FOR ITS FIRST CALLER. This was `_gh_label(args)`
+    and three of its four uses passed `[stderr]` rather than an argv — so the
+    name told the next author that arg-aware logic (redacting `--body-file`,
+    say) belonged here, and that change would silently have reformatted every
+    error string in this module's console output.
     """
-    label = " ".join(args).replace("\n", " ")
-    return label if len(label) <= 120 else label[:117] + "..."
+    flat = text.replace("\n", " ")
+    return flat if len(flat) <= limit else flat[:limit - 3] + "..."
 
 
 def _gh_transient_reason(stderr: str) -> str | None:
@@ -905,6 +933,51 @@ def _gh_is_read_only(args: list[str]) -> bool:
     return len(verbs) >= 2 and verbs[1] in _READ_ONLY_GH_VERBS
 
 
+def _gh_timed_out_line(label: str, spent: int, attempts: int,
+                       args: list[str]) -> str:
+    """A TIMEOUT IS A THIRD FACT, AND IT MUST NOT WEAR EITHER REFUSAL'S LINE.
+
+    It is not `TERMINAL` in the sense the first refusal means — that one says
+    *the request is wrong and GitHub told us so*, which points at us. It is not
+    the write refusal either — that one says *GitHub is unwell and we stopped
+    anyway because a repeat may double-apply*. A hang says GitHub is unwell AND
+    told us nothing at all.
+
+    NOT RETRIED, FOR READS AS WELL AS WRITES. Both guards in this module default
+    to "do not retry" and so does this one, but state the bound honestly rather
+    than better than it is:
+
+      * with a timeout TERMINAL, a wedged endpoint costs 1 attempt here and 3
+        under `_THREAD_READ_BACKOFF_SECONDS` — 3×120s ≈ 6min;
+      * were it another transient class, the same path would be 9×120s + 34s
+        ≈ 18min.
+
+    AND ~18min IS ALREADY REACHABLE WITHOUT IT, which is the part a confident
+    sentence would have hidden. `504 Gateway Timeout` is in the retryable set
+    and by definition arrives slowly, so nine attempts that each answer 504 just
+    under the ceiling compose to the same ~18min. What the terminal
+    classification buys is therefore the EXPECTED case, not the bound: a wedged
+    endpoint stays wedged, so the all-hangs path is the likely one, and paying
+    6min for it rather than 18 is the whole trade. Bounding the worst case would
+    need a monotonic DEADLINE on the outer loop rather than an attempt count,
+    because attempt counts stopped bounding wall-clock the moment each attempt
+    acquired a ceiling.
+    """
+    line = (f"→ gh {label}: attempt {spent}/{attempts} gave NO ANSWER within "
+            f"{_SUBPROCESS_TIMEOUT_SECONDS:.0f}s — TIMED OUT (not retried): a "
+            f"hung call names no server condition a repeat would satisfy, and "
+            f"repeating it would move this path's wedged-endpoint cost from "
+            f"~6min to ~18min")
+    if not _gh_is_read_only(args):
+        # The one thing `run_bounded`'s generic message cannot say, because only
+        # here is the invocation known to be a mutation. A killed `gh pr comment`
+        # may have been applied server-side, and "it was not retried" does not
+        # answer the operator's actual question.
+        line += (" — AND THIS IS NOT A READ: the write may have been applied "
+                 "server-side before the kill, so verify before re-running")
+    return line
+
+
 def gh_attempt(args: list[str],
                repo_root: Path | None) -> subprocess.CompletedProcess:
     """`gh`, retried past transient server-side failures, returned UNJUDGED.
@@ -928,7 +1001,7 @@ def gh_attempt(args: list[str],
     eventually succeeded prints which attempt did it. Silent retries are how
     nobody ever learns whether the answer to "is it GitHub or us?" is on record.
     """
-    label = _gh_label(args)
+    label = _one_line(" ".join(args))
     attempts = len(_GH_RETRY_BACKOFF_SECONDS) + 1
     spent = 0
 
@@ -941,33 +1014,11 @@ def gh_attempt(args: list[str],
         # `run_bounded` is where the timeout landed.
         return run_bounded(["gh", *args], cwd=repo_root)
 
-    def _timed_out(r: subprocess.CompletedProcess) -> bool:
-        """A timeout is a THIRD fact, and it must not wear either refusal's line.
-
-        It is not `TERMINAL` in the sense the first refusal means — that one says
-        *the request is wrong and GitHub told us so*, which points at us. It is
-        not the write refusal either — that one says *GitHub is unwell and we
-        stopped anyway because a repeat may double-apply*. A hang says GitHub is
-        unwell AND told us nothing at all, and the run stopped because repeating
-        an unbounded call is how a bounded policy stops being one.
-
-        NOT RETRIED, FOR READS AS WELL AS WRITES, and the bound is the whole
-        reason. Three attempts at 120s plus the pauses is ~368s here, which
-        composes under `_THREAD_READ_BACKOFF_SECONDS` to roughly EIGHTEEN
-        MINUTES — worse than the failure it would be treating. Both guards in
-        this module default to "do not retry"; so does this one.
-        """
-        return isinstance(r, TimedOutProcess)
-
     for pause in _GH_RETRY_BACKOFF_SECONDS:
         r = _run()
         spent += 1
-        if _timed_out(r):
-            print(f"→ gh {label}: attempt {spent}/{attempts} gave NO ANSWER "
-                  f"within {_SUBPROCESS_TIMEOUT_SECONDS:.0f}s — TIMED OUT (not "
-                  f"retried): a hung call names no server condition a repeat "
-                  f"would satisfy, and repeating it would move this policy's "
-                  f"worst case from ~34s to ~18min", flush=True)
+        if isinstance(r, TimedOutProcess):
+            print(_gh_timed_out_line(label, spent, attempts, args), flush=True)
             return r
         if r.returncode == 0:
             if spent > 1:
@@ -988,13 +1039,13 @@ def gh_attempt(args: list[str],
         # half the time.
         if reason is None:
             print(f"→ gh {label}: attempt {spent}/{attempts} failed, TERMINAL "
-                  f"(not retried) — {_gh_label([r.stderr.strip()])}", flush=True)
+                  f"(not retried) — {_one_line(r.stderr.strip())}", flush=True)
             return r
         if not _gh_is_read_only(args):
             print(f"→ gh {label}: attempt {spent}/{attempts} failed, TRANSIENT "
                   f"({reason}) but NOT A READ — not retried, because repeating "
                   f"it may apply the write twice — "
-                  f"{_gh_label([r.stderr.strip()])}", flush=True)
+                  f"{_one_line(r.stderr.strip())}", flush=True)
             return r
         print(f"⚠ gh {label}: attempt {spent}/{attempts} failed, TRANSIENT "
               f"({reason}) — retrying in {pause}s", flush=True)
@@ -1004,18 +1055,18 @@ def gh_attempt(args: list[str],
     # returns the real `gh` reply rather than one classified and swallowed.
     r = _run()
     spent += 1
-    if _timed_out(r):
-        # The same third fact, on the path a caller reaches after two real
-        # 503s. Falling through to the ✗ line below would report "FAILED after
-        # 3 attempts" for a run whose last attempt never got an answer at all.
-        print(f"→ gh {label}: attempt {spent}/{attempts} gave NO ANSWER within "
-              f"{_SUBPROCESS_TIMEOUT_SECONDS:.0f}s — TIMED OUT (not retried)",
-              flush=True)
+    if isinstance(r, TimedOutProcess):
+        # ONE definition of the line, for the same reason `_run` has one
+        # definition of the invocation. This was written twice and the two
+        # copies had already diverged before anyone ran them: the ✗ line below
+        # would otherwise report "FAILED after 3 attempts" for a run whose last
+        # attempt never got an answer at all.
+        print(_gh_timed_out_line(label, spent, attempts, args), flush=True)
     elif r.returncode == 0:
         print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}", flush=True)
     else:
         print(f"✗ gh {label}: FAILED after {spent}/{attempts} attempts — "
-              f"{_gh_label([r.stderr.strip()])}", flush=True)
+              f"{_one_line(r.stderr.strip())}", flush=True)
     return r
 
 

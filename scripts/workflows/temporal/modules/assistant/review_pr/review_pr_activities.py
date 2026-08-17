@@ -140,11 +140,26 @@ def thread_snapshot(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
     # deliberate: a prompt line telling build runs to pick a different key is an
     # administrative control that each run must remember, and this cannot be
     # forgotten by anyone.
+    # `expect=dict` PROVES IT IS A MAPPING AND NOT THAT IT HAS THE KEY, which is
+    # the half a shape check cannot carry. `{"message": "Not Found"}` is a dict;
+    # `.get("comments", [])` would then hand back `[]`, this function would
+    # report ZERO prior passes on a thread that has some, and the invariant
+    # check downstream raises "posted no new block" — blaming the child for a
+    # read failure and costing the review this retry exists to protect. A
+    # missing key is a failed READ, so it is raised as the `RuntimeError` the
+    # caller's retry already catches rather than silently answered as empty.
+    reply = _shared.gh_json(
+        ["pr", "view", pr_number, "--json", "comments"], repo_root, expect=dict)
+    comments = reply.get("comments")
+    if not isinstance(comments, list):
+        raise RuntimeError(
+            f"gh pr view {pr_number} --json comments returned a JSON object with "
+            f"no usable `comments` list (got {type(comments).__name__}). Treating "
+            f"that as an empty thread would under-count the prior passes on this "
+            f"PR. Keys present: {sorted(reply)[:10]}")
     window = [
         matches[-1].group(1)
-        for c in _shared.gh_json(
-            ["pr", "view", pr_number, "--json", "comments"], repo_root, expect=dict
-        ).get("comments", [])
+        for c in comments
         if (matches := [
             m for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
             if _RUN_ID_IN_BLOCK.search(m.group(1))

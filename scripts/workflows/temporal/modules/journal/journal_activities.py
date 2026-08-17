@@ -180,6 +180,15 @@ def _git(repo_root: Path, *args: str) -> str:
                                capture_output=True, text=True,
                                timeout=_PROBE_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
+        # SAID OUT LOUD, because the return value cannot say it. `""` means "no
+        # remote" or "no HEAD" in the bag, and a timed-out probe would write the
+        # same `-` — the no-data-versus-data-showing-nothing conflation this
+        # family refuses everywhere else. The record format is not the place to
+        # fix that; the console is, and it costs one line.
+        print(f"⚠ journal: `git {' '.join(args)}` did not answer within "
+              f"{_PROBE_TIMEOUT_SECONDS:.0f}s in {repo_root} — recording this "
+              f"metadata as absent, which is NOT the same as it being absent",
+              flush=True)
         return ""
     return probe.stdout.strip() if probe.returncode == 0 else ""
 

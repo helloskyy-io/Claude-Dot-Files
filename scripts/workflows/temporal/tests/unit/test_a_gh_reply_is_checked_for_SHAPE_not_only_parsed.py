@@ -59,28 +59,47 @@ sys.path.insert(0, str(_TREE))
 from modules.assistant import assistant_activities as act  # noqa: E402
 
 
+def _is_gh_call(node: ast.AST) -> bool:
+    """A call to `gh(...)` under ANY of the names the fleet reaches it by.
+
+    `assistant_activities` calls it `gh`; every other module imports the shared
+    module and writes `shared.gh(...)` or `_shared.gh(...)`. Matching only the
+    bare `ast.Name` made this guard one file wide — and the motivating defect
+    was in `plan_activities`, one of the modules it could not see. It was caught
+    only because it happened to use the `.stdout` spelling instead.
+    """
+    if not isinstance(node, ast.Call):
+        return False
+    f = node.func
+    return ((isinstance(f, ast.Name) and f.id == "gh")
+            or (isinstance(f, ast.Attribute) and f.attr == "gh"))
+
+
 def _is_reply(node: ast.AST) -> bool:
     """Is this expression visibly the output of a subprocess or of `gh`?
 
-    Two spellings, both present in the tree: `<name>.stdout` (optionally
-    `or ""`), and the return of a call whose function is named `gh`. Anything
-    else — a file, a log line, a literal — is a different population with
-    different failure modes and is left alone.
+    Three spellings, all present in the tree: `<name>.stdout` (optionally
+    `or ""`), an inline `gh(...)` / `shared.gh(...)` call, and — resolved in
+    `_maybe`, which has the enclosing function — a name assigned from one of
+    those a line earlier. Anything else — a file, a log line, a literal — is a
+    different population with different failure modes and is left alone.
     """
     if isinstance(node, ast.BoolOp):
         return any(_is_reply(v) for v in node.values)
     if isinstance(node, ast.Attribute) and node.attr == "stdout":
         return True
-    if isinstance(node, ast.Name):
-        return False
-    return False
+    return _is_gh_call(node)
 
 
 class _Parses(ast.NodeVisitor):
     def __init__(self, rel: str) -> None:
         self.rel = rel
         self.stack: list[ast.FunctionDef] = []
-        self.sites: list[tuple[str, str, int, str | None]] = []
+        # (file, enclosing FunctionDef NODE, line, bound name). The node and not
+        # its name: `_run` and `_git` are closure names this tree reuses, and a
+        # flat name -> node dict resolves both to whichever `ast.walk` saw last,
+        # so an unguarded site could be checked against the wrong body.
+        self.sites: list[tuple[str, ast.AST | None, int, str | None]] = []
 
     def visit_FunctionDef(self, node: ast.FunctionDef):  # noqa: N802
         self.stack.append(node)
@@ -112,26 +131,24 @@ class _Parses(ast.NodeVisitor):
             return
         arg = value.args[0]
         # `raw = gh(...)` one line up is the third spelling. Resolved by looking
-        # for a same-function assignment of that name from a call to `gh`.
+        # for a same-function assignment of that name from a `gh` call.
         source_is_reply = _is_reply(arg)
         if not source_is_reply and isinstance(arg, ast.Name) and self.stack:
             for sub in ast.walk(self.stack[-1]):
                 if (isinstance(sub, ast.Assign)
                         and any(isinstance(t, ast.Name) and t.id == arg.id
                                 for t in sub.targets)
-                        and isinstance(sub.value, ast.Call)
-                        and isinstance(sub.value.func, ast.Name)
-                        and sub.value.func.id == "gh"):
+                        and _is_reply(sub.value)):
                     source_is_reply = True
         if not source_is_reply:
             return
         name = next((t.id for t in targets if isinstance(t, ast.Name)), None)
-        where = self.stack[-1].name if self.stack else "<module>"
-        self.sites.append((self.rel, where, value.lineno, name))
+        self.sites.append((self.rel, self.stack[-1] if self.stack else None,
+                           value.lineno, name))
 
 
-def _guarded(fn: ast.FunctionDef, name: str | None) -> bool:
-    if name is None:
+def _guarded(fn: ast.AST | None, name: str | None) -> bool:
+    if name is None or fn is None:
         return False
     for sub in ast.walk(fn):
         if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
@@ -146,14 +163,29 @@ def _census() -> list[tuple[str, str, int, bool]]:
     for root in _ROOTS:
         for path in sorted(root.rglob("*.py")):
             rel = str(path.relative_to(_TREE))
-            tree = ast.parse(path.read_text(encoding="utf-8"))
             v = _Parses(rel)
-            v.visit(tree)
-            fns = {f.name: f for f in ast.walk(tree)
-                   if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))}
-            for rel_, where, line, name in v.sites:
-                out.append((rel_, where, line,
-                            _guarded(fns[where], name) if where in fns else False))
+            v.visit(ast.parse(path.read_text(encoding="utf-8")))
+            for rel_, fn, line, name in v.sites:
+                where = getattr(fn, "name", "<module>")
+                out.append((rel_, where, line, _guarded(fn, name)))
+    return out
+
+
+def _gh_json_calls() -> list[tuple[str, int, bool]]:
+    """Every production `gh_json(...)` call, and whether it says `expect=`."""
+    out = []
+    for root in _ROOTS:
+        for path in sorted(root.rglob("*.py")):
+            rel = str(path.relative_to(_TREE))
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if not isinstance(node, ast.Call):
+                    continue
+                f = node.func
+                named = ((isinstance(f, ast.Name) and f.id == "gh_json")
+                         or (isinstance(f, ast.Attribute) and f.attr == "gh_json"))
+                if named:
+                    out.append((rel, node.lineno,
+                                any(k.arg == "expect" for k in node.keywords)))
     return out
 
 
@@ -250,22 +282,96 @@ def test_a_narrowed_caller_gets_the_narrower_answer(monkeypatch, tmp_path) -> No
         act.gh_json(["pr", "view"], tmp_path, expect=dict)
 
 
-def test_the_callers_that_read_by_KEY_actually_pass_expect_dict() -> None:
-    """THE PARAMETER EXISTING IS NOT THE PARAMETER BEING USED.
+def test_every_gh_json_call_states_the_shape_it_expects() -> None:
+    """THE PARAMETER EXISTING IS NOT THE PARAMETER BEING USED — AND THIS IS KEYED
+    ON THE CLASS, NOT ON THE TWO CALLERS THAT EXIST.
 
-    Asserted against the source rather than through a call, because both call
-    sites sit inside functions that would need a full `gh` fake to reach, and
-    what is being pinned is that somebody chose — not what happens once they
-    have.
+    An earlier draft of this test read one hardcoded path and asserted
+    `len(calls) == 2`. That is the instance-keyed shape this whole file argues
+    against: a `gh_json` call added in `build_activities` or `plan_activities`
+    that reads by key would have been invisible to it, which is precisely the
+    defect the file's header describes a per-instance fix leaving behind.
+
+    WHAT IS REQUIRED IS THAT THE QUESTION WAS ASKED, not which answer was given.
+    `expect=dict` or `expect=list` are both fine; the default `(dict, list)`
+    catches only what `gh` can never have sent, and a caller that knows which of
+    the two it needs is the one who has to say so. Same philosophy as the
+    `isinstance` rule above.
     """
-    src = (_TREE / "modules/assistant/review_pr/review_pr_activities.py").read_text()
-    tree = ast.parse(src)
-    calls = [n for n in ast.walk(tree)
-             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
-             and n.func.attr == "gh_json"]
-    assert len(calls) == 2, f"expected 2 `gh_json` call sites, found {len(calls)}"
-    for c in calls:
-        assert any(k.arg == "expect" and isinstance(k.value, ast.Name)
-                   and k.value.id == "dict" for k in c.keywords), (
-            f"the `gh_json` call at line {c.lineno} reads its reply by key and "
-            f"does not say `expect=dict`, so a JSON array reaches `.get()`")
+    calls = _gh_json_calls()
+    assert len(calls) >= 2, (
+        f"found {len(calls)} `gh_json` call site(s) under {_ROOTS}; there were "
+        f"2 when this was written, so the walk is no longer reading the tree")
+    silent = [(rel, line) for rel, line, stated in calls if not stated]
+    assert silent == [], (
+        "these call `gh_json` without saying what shape they expect back, so a "
+        "valid reply of the wrong type reaches an index or a `.get()` in the "
+        "caller and raises from somewhere that cannot explain it:\n"
+        + "\n".join(f"  {rel}:{line}" for rel, line in silent)
+        + "\n\nAdd `expect=dict` or `expect=list` — whichever the next line "
+          "actually assumes.")
+
+
+# ── THE PREDICATES' OWN CONTROLS ───────────────────────────────────────────
+#
+# The two rule tests above ask the tree a question. Neither proves the QUESTION
+# still discriminates: were `_is_reply` or `_guarded` to start answering
+# `True`/`False` unconditionally after a refactor, both rules pass forever AND
+# the vacuity floor still passes, because the walk is still finding sites. The
+# Testing Standard's "structural tests need a positive control" is aimed at
+# exactly this, and the control must be a snippet the guard has never seen.
+
+_UNGUARDED = "def f(r):\n    x = json.loads(r.stdout)\n    return x[0]\n"
+_GUARDED = ("def f(r):\n    x = json.loads(r.stdout)\n"
+            "    if not isinstance(x, list):\n        return None\n    return x[0]\n")
+
+
+@pytest.mark.parametrize(
+    ("snippet", "expect_found", "expect_ok", "why"),
+    [
+        pytest.param(_UNGUARDED, True, False, "a bare decode of a reply", id="bare"),
+        pytest.param(_GUARDED, True, True, "the same, with a shape check", id="guarded"),
+        pytest.param("def f(sh, p):\n    x = json.loads(sh.gh(p))\n    return x[0]\n",
+                     True, False, "the `shared.gh(...)` spelling every module but "
+                     "one uses — the spelling this guard was once blind to",
+                     id="attribute-gh"),
+        pytest.param("def f(p):\n    raw = gh(p)\n    x = json.loads(raw)\n"
+                     "    return x[0]\n",
+                     True, False, "a name assigned from `gh` a line earlier",
+                     id="indirect-gh"),
+        pytest.param("def f(line):\n    e = json.loads(line)\n    return e['t']\n",
+                     False, False, "a log line, which is a different population",
+                     id="not-a-reply"),
+    ],
+)
+def test_the_reply_and_guard_predicates_discriminate(
+    snippet: str, expect_found: bool, expect_ok: bool, why: str,
+) -> None:
+    """WOULD THIS TEST FAIL IF THE PROPERTY WERE VIOLATED? Asked of the guard itself."""
+    v = _Parses("<control>")
+    v.visit(ast.parse(snippet))
+    assert bool(v.sites) is expect_found, (
+        f"`_is_reply` {'missed' if expect_found else 'wrongly claimed'} {why}")
+    if expect_found:
+        _rel, fn, _line, name = v.sites[0]
+        assert _guarded(fn, name) is expect_ok, (
+            f"`_guarded` read {why} as "
+            f"{'checked' if not expect_ok else 'unchecked'}")
+
+
+def test_the_expect_detector_discriminates() -> None:
+    """AND THE `expect=` DETECTOR'S CONTROL. A detector that always says yes is
+    a permanent pass wearing a rule's name."""
+    import textwrap
+    src = textwrap.dedent("""
+        a = gh_json(x, y)
+        b = shared.gh_json(x, y, expect=dict)
+        c = _shared.gh_json(x, y)
+    """)
+    found = [(n.lineno, any(k.arg == "expect" for k in n.keywords))
+             for n in ast.walk(ast.parse(src))
+             if isinstance(n, ast.Call)
+             and ((isinstance(n.func, ast.Name) and n.func.id == "gh_json")
+                  or (isinstance(n.func, ast.Attribute) and n.func.attr == "gh_json"))]
+    assert len(found) == 3, "the `gh_json` matcher missed a spelling"
+    assert [ok for _l, ok in found] == [False, True, False]
