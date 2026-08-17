@@ -113,7 +113,12 @@ BUDGETS: dict[str, int] = {
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
     # pays for it, so a byte here costs more than a byte in any single prompt.
-    "prompts/decision_log_and_reflection.md": 9_605,
+    # RAISED 9_605 -> 9_810 for the one-line rigour-tier declaration. The tier rule
+    # existed in the prompt and the standard and NOTHING checked it was applied, so
+    # the operator was the enforcement mechanism and asked four times in three days.
+    # Paid for by a raise rather than a cut: the fragment carries no duplicated
+    # sentences, so funding it meant deleting substance to hit a number.
+    "prompts/decision_log_and_reflection.md": 9_810,
     # 8,106 not 8,057 — the first draft of this budget counted CHARACTERS and
     # this file is full of em-dashes. The test caught it on its first run,
     # which is the cheapest possible demonstration that byte counts are not
