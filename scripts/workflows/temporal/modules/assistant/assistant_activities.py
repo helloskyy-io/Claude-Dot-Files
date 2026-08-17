@@ -839,13 +839,23 @@ def _gh_is_read_only(args: list[str]) -> bool:
     return len(verbs) >= 2 and verbs[1] in _READ_ONLY_GH_VERBS
 
 
-def gh_attempt(args: list[str], repo_root: Path) -> subprocess.CompletedProcess:
+def gh_attempt(args: list[str],
+               repo_root: Path | None) -> subprocess.CompletedProcess:
     """`gh`, retried past transient server-side failures, returned UNJUDGED.
 
-    The caller decides what a non-zero exit means, which is why this exists
-    beside `gh` rather than inside it: `gh issue list` in `plan_activities`
-    degrades to a "COULD NOT BE READ" note instead of raising, and it wants the
-    retries without the raise.
+    THIS FUNCTION NEVER RAISES ON A NON-ZERO EXIT, and that is the whole reason
+    it exists beside `gh` rather than inside it. Two callers need the retries
+    without the raise: `gh issue list` in `plan_activities` degrades to a "COULD
+    NOT BE READ" note, and `ci_verdict` in `build_activities` classifies by
+    PARSING because `gh pr checks` exits non-zero whenever checks are failing or
+    pending. Folding the raise in here would break both, so
+    `test_gh_attempt_RETURNS_a_failure_rather_than_raising_it` pins it.
+
+    `repo_root` IS OPTIONAL BECAUSE ONE CALLER LEGITIMATELY HAS NO TREE. `gh()`
+    always passes one (see its docstring on why cwd rather than `--repo`), but
+    `ci_verdict` addresses the PR with an explicit `--repo` and must keep using
+    the process cwd; `None` means exactly that, and preserves what its raw
+    `subprocess.run` did before it was routed through here.
 
     A RETRY IS VISIBLE OR IT NEVER HAPPENED. Every attempt past the first prints
     what failed, how it was classified, and how long the pause is; a run that
@@ -856,9 +866,17 @@ def gh_attempt(args: list[str], repo_root: Path) -> subprocess.CompletedProcess:
     attempts = len(_GH_RETRY_BACKOFF_SECONDS) + 1
     spent = 0
 
+    def _run() -> subprocess.CompletedProcess:
+        # ONE definition of the invocation, called from two places. The "final
+        # attempt outside the loop" property below is about CONTROL FLOW, not
+        # about the text of this line — and two copies of it drift the moment
+        # someone adds a `timeout=` to one of them.
+        return subprocess.run(["gh", *args],
+                              cwd=str(repo_root) if repo_root is not None else None,
+                              capture_output=True, text=True)
+
     for pause in _GH_RETRY_BACKOFF_SECONDS:
-        r = subprocess.run(["gh", *args], cwd=str(repo_root),
-                           capture_output=True, text=True)
+        r = _run()
         spent += 1
         if r.returncode == 0:
             if spent > 1:
@@ -866,13 +884,26 @@ def gh_attempt(args: list[str], repo_root: Path) -> subprocess.CompletedProcess:
                       flush=True)
             return r
         reason = _gh_transient_reason(r.stderr)
-        if reason is None or not _gh_is_read_only(args):
-            # NOT SILENT, because "it did not retry" is the half of this an
-            # operator cannot infer from the absence of a line — a run that
-            # never retried and a run whose retry code is broken look identical
-            # in a log that only speaks when it retries.
+        # NOT SILENT, because "it did not retry" is the half of this an operator
+        # cannot infer from the absence of a line — a run that never retried and
+        # a run whose retry code is broken look identical in a log that only
+        # speaks when it retries.
+        #
+        # AND THE TWO REFUSALS SAY DIFFERENT THINGS, because they are different
+        # facts and the operator's question is "is it GitHub or us?". A
+        # deterministic failure is about the request; a transient failure refused
+        # on a write is about GitHub, and the run stopped anyway because a repeat
+        # might double-apply. One label for both answers the question wrongly
+        # half the time.
+        if reason is None:
             print(f"→ gh {label}: attempt {spent}/{attempts} failed, TERMINAL "
                   f"(not retried) — {_gh_label([r.stderr.strip()])}", flush=True)
+            return r
+        if not _gh_is_read_only(args):
+            print(f"→ gh {label}: attempt {spent}/{attempts} failed, TRANSIENT "
+                  f"({reason}) but NOT A READ — not retried, because repeating "
+                  f"it may apply the write twice — "
+                  f"{_gh_label([r.stderr.strip()])}", flush=True)
             return r
         print(f"⚠ gh {label}: attempt {spent}/{attempts} failed, TRANSIENT "
               f"({reason}) — retrying in {pause}s", flush=True)
@@ -880,8 +911,7 @@ def gh_attempt(args: list[str], repo_root: Path) -> subprocess.CompletedProcess:
 
     # The last attempt is deliberately OUTSIDE the loop, so a persistent failure
     # returns the real `gh` reply rather than one classified and swallowed.
-    r = subprocess.run(["gh", *args], cwd=str(repo_root),
-                       capture_output=True, text=True)
+    r = _run()
     spent += 1
     if r.returncode == 0:
         print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}", flush=True)
@@ -958,6 +988,18 @@ def gh_json(args: list[str], repo_root: Path):
     If a truncated body is ever MEASURED rather than inferred, it earns its own
     named classification with its own evidence — not a quiet membership in the
     transient set.
+
+    "ZERO ATTEMPTS" IS TRUE AT THIS LAYER AND FALSE ONE LAYER UP, which is worth
+    saying rather than leaving a reader to trust the sentence further than it
+    goes. `review_pr_workflow._read_thread_for_invariant` catches bare
+    `RuntimeError` around `thread_snapshot`, which reaches this function — so on
+    that ONE path a decode failure is retried up to three times after all. That
+    is a consequence of the normalisation described above, not an accident: the
+    exception type is deliberately the same, so a caller that retries the type
+    retries both members of it. It is left as it is because that caller's
+    alternative is discarding a ~40-minute review, and it is BOUNDED — pinned,
+    with the composed count, by
+    `test_a_decode_failure_IS_retried_by_the_one_caller_that_retries_the_TYPE`.
     """
     raw = gh(args, repo_root)
     try:

@@ -20,6 +20,7 @@ import time
 from enum import Enum
 from pathlib import Path
 
+from .. import assistant_activities as shared
 from .build_inputs import ChildResult
 
 # How long CI is given to settle before a review reads its result. The bash
@@ -162,10 +163,26 @@ def ci_verdict(pr: str, *, repo: str | None = None,
         if not readable:
             return CiVerdict.UNREADABLE_POLICY, []
 
-    cmd = ["gh", "pr", "checks", pr, "--json", "name,state"]
+    cmd = ["pr", "checks", pr, "--json", "name,state"]
     if repo:
         cmd += ["--repo", repo]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # `gh_attempt`, NOT `subprocess.run`: THIS IS THE ONE-SHOT READ, and a single
+    # transient 503 here parses as nothing, which is UNREADABLE_CHECKS, which is
+    # a HOLD a human has to clear. `wait_for_ci` below is deliberately left on
+    # raw `subprocess.run` because its own deadline loop already re-reads — a
+    # retry underneath a poll loop only makes each poll slower.
+    #
+    # `None` for the tree, not `repo_root`: this call addresses the PR with an
+    # explicit `--repo` and has always run in the process cwd. Passing the tree
+    # would change which repo `gh` infers when `--repo` is absent, which is a
+    # different change from adding a retry.
+    #
+    # Nothing about the non-zero path moves. `gh pr checks` exits non-zero on
+    # failing or pending checks with no HTTP status in stderr, so the classifier
+    # calls that TERMINAL and spends exactly one attempt, and `gh_attempt`
+    # returns the reply unjudged — which is why parsing, below, is still the
+    # discriminator.
+    result = shared.gh_attempt(cmd, None)
 
     # A REPLY THAT DOES NOT PARSE IS ITS OWN STATE, AND BOTH HALVES OF THIS WERE
     # WRONG. `if result.stdout.strip() else []` turned every FAILED `gh` — which

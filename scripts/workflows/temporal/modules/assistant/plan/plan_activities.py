@@ -824,9 +824,20 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     # against a repo it believes has no tracked work.
     r = shared.gh_attempt(["issue", "list", "--state", "open", "--limit", "50",
                            "--json", "number,title"], tree)
+    # THE DECODE IS GUARDED, because `gh_attempt` returns UNJUDGED and a zero
+    # exit is not a promise that the body parsed. That is the shape `gh_json`'s
+    # docstring records as having crashed a parent build loop at zero attempts,
+    # and an unguarded `json.loads` here would kill a planning dispatch on a
+    # truncated reply — the same run this block's else-branch exists to keep
+    # alive when the read fails outright.
+    issues = None
     if r.returncode == 0:
         import json
-        issues = json.loads(r.stdout)
+        try:
+            issues = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            issues = None
+    if issues is not None:
         lines.append(f"\n**Open issues** — {len(issues)}. **A candidate matching one of these is ALREADY tracked**; "
                      f"say so and do not create a second home for it:")
         lines += [f"  - #{i['number']} {i['title']}" for i in issues]

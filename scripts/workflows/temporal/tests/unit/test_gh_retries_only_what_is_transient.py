@@ -260,6 +260,39 @@ def test_a_403_is_read_by_its_TEXT_because_the_status_alone_cannot_decide(
     assert forbidden is None
 
 
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        pytest.param("gh: Not Found (HTTP 404) — rate limit exceeded for this "
+                     "org, per the docs", id="404-quoting-a-rate-limit"),
+        pytest.param("HTTP 401: Bad credentials. Too Many Requests were made "
+                     "with this token.", id="401-quoting-too-many-requests"),
+        pytest.param("HTTP 422: Validation failed — abuse detection mechanism "
+                     "rules are documented here", id="422-quoting-abuse-detection"),
+    ],
+)
+def test_rate_limit_PROSE_promotes_ONLY_a_403_and_never_another_status(
+    stderr: str,
+) -> None:
+    """THE PROSE RESCUE IS THE ONE PLACE THIS CLASSIFIER READS SERVER ENGLISH,
+    AND ITS SCOPE IS THE ONLY THING KEEPING THAT SAFE.
+
+    403 is genuinely both "you may not do this" and "you are throttled", so the
+    status alone cannot separate them and `_RATE_LIMIT_PHRASES` breaks the tie.
+    Nothing else needs that tie broken — and `gh` quotes server-supplied text,
+    so any status at all can arrive carrying these words without being about
+    them.
+
+    MEASURED, NOT REASONED ABOUT: widening the `code == 403` clause to bare
+    `rate_limited` left this module and the whole tree GREEN before this test
+    existed, while making `gh: Not Found (HTTP 404) — ... rate limit ...`
+    retryable. `_RATE_LIMIT_PHRASES`' own comment already claimed this could not
+    happen; nothing checked the claim.
+    """
+    assert act._gh_transient_reason(stderr) is None, (
+        f"a non-403 status was promoted to retryable by prose alone: {stderr!r}")
+
+
 # ── the idempotence gate ───────────────────────────────────────────────────
 
 @pytest.mark.parametrize(
@@ -353,6 +386,43 @@ def test_a_refusal_to_retry_is_ALSO_logged(
         "a refused retry left no trace, so a broken classifier would be invisible")
 
 
+def test_the_TWO_refusals_do_not_say_the_same_thing(
+    monkeypatch, tmp_path, slept, capsys,
+) -> None:
+    """A REFUSED WRITE AND A DETERMINISTIC FAILURE ARE DIFFERENT ANSWERS TO THE
+    OPERATOR'S ONE QUESTION, and one label for both answers it wrongly half the
+    time.
+
+    "Is it GitHub or us?" — a 404 says us, a 503 on a `gh pr comment` says
+    GitHub and the run stopped anyway because repeating it might post twice.
+    Both used to print `TERMINAL (not retried)`.
+
+    ASSERTED AS A PAIR ON PURPOSE. Two separate tests each checking one line
+    would both still pass if the two branches were re-merged into one string, so
+    long as that string contained both words. The claim is that the lines
+    DIFFER.
+    """
+    _install(monkeypatch, [(1, _REST_404)])
+    with pytest.raises(RuntimeError):
+        act.gh(_READ, tmp_path)
+    deterministic = capsys.readouterr().out
+
+    _install(monkeypatch, [(1, _LIVE_503)])
+    with pytest.raises(RuntimeError):
+        act.gh(["pr", "comment", "100", "--body", "x"], tmp_path)
+    refused_write = capsys.readouterr().out
+
+    assert deterministic != refused_write, (
+        "a deterministic 404 and a transient 503 refused for being a write "
+        "printed the same line — the log cannot tell an operator which it was")
+    assert "TERMINAL" in deterministic and "TRANSIENT" not in deterministic
+    assert "TRANSIENT" in refused_write and "HTTP 503" in refused_write, (
+        "the refused write does not say that GitHub, not the request, failed")
+    assert "NOT A READ" in refused_write, (
+        "the refused write does not say WHY it was refused despite being "
+        "classified transient")
+
+
 def test_a_multi_line_body_is_not_dumped_into_the_console(
     monkeypatch, tmp_path, slept, capsys,
 ) -> None:
@@ -367,6 +437,111 @@ def test_a_multi_line_body_is_not_dumped_into_the_console(
 
     for line in capsys.readouterr().out.splitlines():
         assert len(line) < 400, f"a console line ran to {len(line)} characters"
+
+
+# ── gh_attempt's own contract: the thing `gh` is NOT ──────────────────────
+
+@pytest.mark.parametrize(
+    ("replies", "expected_calls", "why"),
+    [
+        pytest.param([(1, _REST_404)], 1, "a terminal failure", id="terminal"),
+        pytest.param([(1, _LIVE_503)], _ATTEMPTS, "an exhausted transient one",
+                     id="transient-exhausted"),
+    ],
+)
+def test_gh_attempt_RETURNS_a_failure_rather_than_raising_it(
+    monkeypatch, tmp_path, slept, replies, expected_calls: int, why: str,
+) -> None:
+    """THE ONE PROPERTY THAT SEPARATES `gh_attempt` FROM `gh`, AND IT WAS
+    ASSERTED NOWHERE.
+
+    Every other test in this file reaches the retry through `act.gh`, which
+    raises — so all of them stay green if the raise is pushed down into
+    `gh_attempt`. Measured: doing exactly that fired ZERO tests across the whole
+    tree, while breaking both callers that exist BECAUSE of the tolerance.
+    `plan_activities.existing_work` degrades to a "COULD NOT BE READ" note and
+    `build_activities.ci_verdict` classifies by parsing, since `gh pr checks`
+    exits non-zero on a merely-red PR. A raise here turns each into a crash.
+
+    The returned reply must also be the REAL one — `gh`'s own exit code and
+    stderr, not a classified summary — because both callers read those fields.
+    """
+    fake = _install(monkeypatch, replies)
+
+    r = act.gh_attempt(_READ, tmp_path)
+
+    assert isinstance(r, subprocess.CompletedProcess)
+    assert r.returncode != 0, "the caller cannot see that anything failed"
+    assert r.stderr == replies[0][1], "the reply was paraphrased, not returned"
+    assert len(fake.calls) == expected_calls, (
+        f"{why} spent {len(fake.calls)} attempts, expected {expected_calls}")
+
+
+def test_gh_attempt_runs_in_the_PROCESS_cwd_when_given_no_tree(
+    monkeypatch, slept,
+) -> None:
+    """`None` MEANS "WHEREVER THIS PROCESS IS", NOT THE STRING "None".
+
+    `ci_verdict` addresses its PR with an explicit `--repo` and has always run
+    in the process cwd; routing it through here must not silently move it into
+    a tree. Without the `is not None` guard, `cwd=str(None)` is the literal
+    directory `None`, and `subprocess` fails with a `FileNotFoundError` that
+    names a path nobody wrote.
+    """
+    seen: dict = {}
+
+    def reply(argv, **kwargs):
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(argv, 0, stdout="[]", stderr="")
+
+    monkeypatch.setattr(act.subprocess, "run", reply)
+    act.gh_attempt(["pr", "checks", "1"], None)
+
+    assert seen["cwd"] is None, f"cwd was {seen['cwd']!r}, not None"
+
+
+@pytest.mark.parametrize(
+    ("code", "stdout", "why"),
+    [
+        pytest.param(1, "", "the read failed outright", id="non-zero-exit"),
+        pytest.param(0, "<html>502 Bad Gateway</html>",
+                     "the read succeeded and the body does not parse",
+                     id="zero-exit-unparseable"),
+    ],
+)
+def test_the_tolerant_caller_DEGRADES_rather_than_killing_its_dispatch(
+    monkeypatch, tmp_path, slept, code: int, stdout: str, why: str,
+) -> None:
+    """BOTH WAYS OF NOT GETTING AN ISSUE LIST MUST REACH THE SAME NOTE.
+
+    `plan_activities.existing_work` is the caller `gh_attempt` was widened for:
+    it wants the retries without the raise, so that losing the open-issue list
+    downgrades a planning prompt instead of ending a dispatch. `gh_attempt`
+    returns UNJUDGED, and a zero exit is not a promise that the body parsed —
+    so the second case here reached a bare `json.loads` and killed the run,
+    which is the shape `gh_json`'s docstring records as having crashed a parent
+    build loop once already.
+
+    The note itself is the assertion because it is what the model reads: a
+    planning run that believes the repo has no tracked work will file a second
+    home for something already tracked.
+    """
+    from modules.assistant.plan import plan_activities as plan
+
+    def reply(argv, **_kwargs):
+        return subprocess.CompletedProcess(argv, code, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(act.subprocess, "run", reply)
+    (tmp_path / "docs" / "development").mkdir(parents=True)
+    research = tmp_path / "research"
+    (research / "raw").mkdir(parents=True)
+
+    out = plan.existing_work(tmp_path, research)
+
+    assert "COULD NOT BE READ" in out, (
+        f"{why}, and the prompt did not say so — the planning run reads this as "
+        f"a repo with no tracked work")
+    assert "**Open issues** —" not in out, "it claimed to have read an issue list"
 
 
 # ── gh_json's position, and the composition with the caller above it ───────
@@ -431,3 +606,48 @@ def test_the_retry_under_the_review_threads_retry_stays_bounded(
         f"the new worst-case wall-clock is — it is 3×(2.0+6.0) + 2.0+8.0 = 34s "
         f"today, and an operator waits through all of it.")
     assert len(fake.calls) == _ATTEMPTS * (len(wf._THREAD_READ_BACKOFF_SECONDS) + 1)
+
+
+def test_a_decode_failure_IS_retried_by_the_one_caller_that_retries_the_TYPE(
+    monkeypatch, tmp_path, slept,
+) -> None:
+    """`gh_json`'s "ZERO ATTEMPTS" IS TRUE AT ITS OWN LAYER AND FALSE ONE UP.
+
+    `_read_thread_for_invariant` catches bare `RuntimeError`, and `gh_json`
+    deliberately normalises a decode failure to that same type so callers guard
+    one thing. Both decisions are defensible; together they mean a decode
+    failure IS retried three times on this one path, which contradicts the
+    plainest reading of `gh_json`'s docstring.
+
+    PINNED RATHER THAN FIXED, and the reasoning is the caller's own: its
+    alternative is discarding a ~40-minute review, and three re-reads of a
+    truncated body is a cheap way to find out whether it was truncated. What is
+    NOT acceptable is that the behaviour was unstated and unmeasured — a reader
+    trusting the docstring would have predicted 1.
+
+    THREE, NOT NINE. The retry underneath never fires: `gh` exited 0, so
+    `gh_attempt` returns on its first attempt every time and only the OUTER loop
+    spends attempts. That is the multiplication NOT happening, and it is the
+    observable difference between this path and the 503 path above.
+    """
+    from modules.assistant.review_pr import review_pr_workflow as wf
+
+    monkeypatch.setattr(wf.time, "sleep", lambda _s: None)
+    calls: list[list[str]] = []
+
+    def reply(argv, **_kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout="<html>502</html>",
+                                           stderr="")
+
+    monkeypatch.setattr(act.subprocess, "run", reply)
+
+    with pytest.raises(RuntimeError, match="did not return JSON"):
+        wf._read_thread_for_invariant("100", tmp_path)
+
+    assert len(calls) == 3, (
+        f"a decode failure cost {len(calls)} attempts on this path, not 3. If "
+        f"that is deliberate, say so in `gh_json`'s docstring, which is where "
+        f"the claim a reader checks actually lives.")
+    assert len(calls) == len(wf._THREAD_READ_BACKOFF_SECONDS) + 1, (
+        "the outer loop's bound moved")
