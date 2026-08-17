@@ -147,7 +147,7 @@ Two distinct kinds of memory, both built. Both exist because a context window en
 - [x] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
 - [x] **Phase 6 · Read what it writes** — three readers for the run log's parent-written observables
 
-Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
+Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisions.md) (2026-08-17), which salvaged them from the deleted burn-test intake
 
 ## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
 
@@ -157,10 +157,10 @@ Turning every heavy workflow into a parent over children, so each boundary is a 
 
 - [x] **Phase 1 · Decompose the build families and codify the shape** — draft/refine/review-pr, the activities layer, and the composition contract written down
 - [ ] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism and standard shipped; the fleet backlog and the drifted-copy ruling remain
-- [ ] **Phase 3 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, and scope from the target
+- [ ] **Phase 3 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, scope from the target, and centrally managed config
 - [ ] **Phase 4 · The missing children and parents** — *gated on the operator's list, then research*
 
-Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
+Origin and the rulings salvaged from it: [`cpi-decisions.md`](cpi-decisions.md) (2026-08-17)
 
 ## Sprint: Persistent Memory Protocol — Part 1 — 🟡 IN PROGRESS
 

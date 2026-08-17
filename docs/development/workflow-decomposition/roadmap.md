@@ -2,7 +2,7 @@
 
 **Status: 🟡 IN PROGRESS.** Phase 1 is complete, Phase 2 is live, Phases 3 and 4 are ahead.
 
-**This roadmap was written after Phase 1 shipped.** The component ran for eleven days on a burn-test triage list ([`burn-test-intake-2026-08-02.md`](../burn-test-intake-2026-08-02.md)) with no roadmap, no phase docs and an empty research pool. Phase 1's boxes below are therefore a **record of what was built**, not requirements it was built against. Phases 2–4 are real planning.
+**This roadmap was written after Phase 1 shipped.** The component ran for eleven days on a burn-test triage list — since deleted, its two orphaned rulings salvaged into [`cpi-decisions.md`](../cpi-decisions.md) (2026-08-17) — with no roadmap, no phase docs and an empty research pool. Phase 1's boxes below are therefore a **record of what was built**, not requirements it was built against. Phases 2–4 are real planning.
 
 ---
 
@@ -58,6 +58,7 @@ Take the monoliths apart, then write down what the shape is.
 
 - [ ] **Every child runs standalone and under a parent, equally well**
 - [ ] **`plan-project` derives feature scope from its target** — feature scope is the project chain's tail, and a path states it rather than a flag
+- [ ] **Centrally managed config, with a user tier beside it** — agents, skills, rules and hooks are read from `~/.claude/`, so an interactive edit silently changes what every dispatch on that machine does and no two machines can be shown to match. The fleet's set becomes managed; the user keeps a tier they own and can extend. *Gate: PMP Part 1 — if the run bag records the config a run used, the divergence half shrinks to a reader.* **`run-claude` already refuses an inherited model; this is the same seam applied to everything else a dispatch absorbs.**
 - [ ] **`research_refresh_parent` has no entrypoint** — a parent nothing can invoke, found while counting for the box above
 
 ### Phase 4 — The missing children and parents ⬜ GATED
@@ -83,4 +84,5 @@ Take the monoliths apart, then write down what the shape is.
 ## What is deliberately not built
 
 - **A god workflow** — one entrypoint that does everything. Phase 4 turns this from a preference into a rule with a checkable boundary.
+- **Agents as independently retryable units.** Operator ruling: a Tier-3 agent — independently addressable and independently retryable — is the canonical answer for a **metered API** integration, not for a **subscription-based CLI overlay**. It would need the CLI baked into worker images and a credential per pod. **The accepted trade, stated so nobody re-derives it as a gap:** agents stay inside Claude Code's process model and are therefore not independently retryable, and the parallel-narrow-then-sequential-integration pattern stays enforced by prompt discipline rather than by structure. A known limit, deliberately taken — and it rules out one shape of answer before Phase 4's research starts.
 - **Retry and resumption inside children** — that is durability, and it belongs to the Temporal port. See its retry-boundary item: `gh()` already carries a bounded retry for transient outages, and nesting that inside an activity retry multiplies attempts.

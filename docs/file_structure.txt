@@ -74,7 +74,6 @@ claude-dot-files/
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
 │   │   ├── sprint.md                                # The sprint plan — what gets built and in what order. NEVER a history lesson
-│   │   ├── burn-test-intake-2026-08-02.md           # NOT a sprint — intake record feeding three of them; delete once absorbed
 │   │   │
 │   │   │                                            # One FOLDER per sprint, directly under development/ (there is no phases/ level).
 │   │   │                                            # Two shapes, both per the convention in sprint.md:

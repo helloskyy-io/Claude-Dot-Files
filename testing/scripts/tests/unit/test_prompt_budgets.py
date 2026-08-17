@@ -66,7 +66,12 @@ BUDGETS: dict[str, int] = {
     # output tokens (a refine at ~92k plus a review at ~53k). This clause exists to
     # remove loop-backs. Partly funded by deleting a second current-tree anecdote —
     # one example already carried that rule.
-    "review_pr/prompts/disposition.md": 76_004,
+    # 76_004 -> 76_507: the pass-scope clause shipped too broad. It banned ALL
+    # re-searching, including the sweep-from-a-different-angle that closed a
+    # credential-leak class on PR #233. Now it bans repeating a prior search and
+    # permits a new angle, stated. Fixing the defect costs more bytes than the
+    # defect did — that is the trade, and it still removes loop-backs.
+    "review_pr/prompts/disposition.md": 76_507,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
