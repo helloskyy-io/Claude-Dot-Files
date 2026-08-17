@@ -63,6 +63,21 @@ WHAT THIS GATE DOES NOT LOOK AT, so a green run is not read as more than it is:
     words this pattern has no purchase on.
   * **Whether a RECORD surface is correctly classified.** The allowlist below is
     a judgement, declared once and asserted non-empty — not derived.
+  * **Decoration this joiner does not know, and decoration that is not at the
+    START of a line.** `_normalised` strips the tree glyphs, a leading `#` and a
+    leading `>` before it joins, because those are what lines open with in this
+    repo's Python, shell, YAML and markdown. It does NOT strip `//`, `/*`, `*`,
+    `--`, `;` or `<!--`, so a label wrapped across two lines decorated by one of
+    those is invisible exactly as the `#` case was — the fix is to add the
+    marker to `_joinable`, and this bullet is where that gap is declared until
+    somebody does. Stripping is line-LEADING only on purpose: a `#` mid-line is
+    content, and stripping there would invent joins no renderer makes, so a
+    right-hand decoration (a box-drawing `│` closing a column, a `*/`) still
+    separates the two halves of a label.
+  * **A label split MID-WORD.** `Ki` / `nd 1` survives every normalisation here,
+    because no amount of whitespace or decoration handling puts the word back
+    together. `test_a_label_split_MID_WORD_is_the_residual_and_is_NOT_seen`
+    below holds this limit as a checkable claim rather than a sentence.
 """
 
 from __future__ import annotations
@@ -212,8 +227,30 @@ def _normalised(path: Path) -> str:
     This is the whole point of the module: the sweep this gate backstops read
     the tree line by line, and the one survivor it missed was a label split
     across a newline by ordinary paragraph wrapping.
+
+    IT COLLAPSED WHITESPACE AND NOTHING ELSE, WHICH MADE THE HEADLINE CLAIM
+    TRUE OF PROSE AND FALSE OF CODE. `_joinable` below already diagnosed this
+    for `docs/file_structure.txt` — *"that claim was only ever true of PROSE,
+    where wrapping inserts whitespace and nothing else"* — and then the fix was
+    applied only inside `_map_entries`, so exactly one file in the tree got it.
+    Every other file came through here, where a label wrapped across two
+    COMMENTED or QUOTED lines still joined as `# THE KIND # 1 ADDRESS`, and
+    `RETIRED_LABEL`'s separator class is `[ _-]`, which contains neither `#`
+    nor `>`. Measured on this module's own functions before the fix: of five
+    wrapped fixtures, the Python comment, the shell comment and the blockquote
+    were BLIND; only the markdown list continuation and plain prose were seen.
+
+    That is the largest population this gate sweeps, not a hypothetical: two of
+    the five spellings that actually shipped in this repo lived in Python — a
+    `#` comment and an identifier — and both were found by a later pass.
+
+    So the decoration stripping is applied here, per line, by CALLING
+    `_joinable` rather than by typing a second regex. One definition, so the
+    two cannot drift — this module's own back-pointer discipline, and the same
+    reason `_is_record` is the single predicate both consumers ask.
     """
-    return re.sub(r"\s+", " ", path.read_text(encoding="utf-8", errors="replace"))
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return re.sub(r"\s+", " ", " ".join(_joinable(line) for line in text.splitlines()))
 
 
 def _joinable(line: str) -> str:
@@ -234,8 +271,17 @@ def _joinable(line: str) -> str:
     which is the signature of a fixture the instrument cannot reach rather than
     of a guard that discriminates. Reading the code would not have shown it —
     the joining looks obviously correct, and it is, for the wrong file.
+
+    `>` IS IN THE CLASS BECAUSE THIS IS NOW THE WHOLE TREE'S JOINER, not just
+    the map's. `_normalised` calls it for every tracked file, so the decoration
+    it must strip is whatever a line in this repo opens with: the map's tree
+    glyphs, a `#` comment marker in Python, shell, YAML and markdown headings,
+    and a `>` blockquote marker in markdown — which is how a wrapped label
+    inside quoted evidence stayed invisible. The class is line-LEADING only, by
+    design: a `#` in the middle of a line is content, and stripping there would
+    invent joins the renderer never makes.
     """
-    return re.sub(r"^[│├└─\s]*#*\s*", "", line)
+    return re.sub(r"^[│├└─>\s]*#*\s*", "", line)
 
 
 class _Entry(NamedTuple):
@@ -530,6 +576,68 @@ def test_a_label_WRAPPED_inside_the_map_is_still_seen() -> None:
         f"the `#` comment marker, so the two halves of the label are separated "
         f"by decoration rather than by whitespace — which is the blindness "
         f"this module's whole premise is that it does not have."
+    )
+
+
+@pytest.mark.parametrize(("decoration", "wrapped"), [
+    ("a Python comment",       "# THE KIND\n# 1 ADDRESS\n"),
+    ("a shell comment",        "# the Kind\n# 2 record\n"),
+    ("a markdown blockquote",  "> the retired Kind\n> 3 label\n"),
+    ("a markdown list",        "- the Kind\n  1 record\n"),
+    ("nothing — plain prose",  "the Kind\n1 record\n"),
+])
+def test_a_label_wrapped_across_two_DECORATED_lines_is_still_seen(
+    tmp_path: Path, decoration: str, wrapped: str,
+) -> None:
+    """The headline claim, on the corpus the gate actually sweeps.
+
+    Its sibling above holds this for `docs/file_structure.txt`, which is one
+    file. THIS HOLDS IT FOR EVERY OTHER FILE, and the split is the defect: the
+    decoration handling lived only inside `_map_entries`, so the map got it and
+    the tree did not. Measured before the fix, on these exact five fixtures —
+    the first three were BLIND and the last two were seen, which is why the two
+    that were seen are parametrized here too. A fix that closes the comment
+    cases while regressing plain prose would be a trade, not a fix, and the
+    only thing that says so is keeping the working cases in the same table.
+
+    The Python and shell cases are not hypothetical shapes. `# THE KIND 1
+    ADDRESS` in a code comment is one of the five spellings that really
+    survived a sweep in this repo, and Python is the largest body of text this
+    gate reads.
+    """
+    probe = tmp_path / "probe.md"
+    probe.write_text(wrapped, encoding="utf-8")
+    assert RETIRED_LABEL.search(_normalised(probe)), (
+        f"a retired label wrapped across two lines decorated by {decoration} is "
+        f"invisible to `_normalised`: {wrapped!r} normalises to "
+        f"{_normalised(probe)!r}. Collapsing whitespace is not enough — the "
+        f"decoration is not whitespace, and `RETIRED_LABEL`'s separator class "
+        f"is `[ _-]`, which contains neither `#` nor `>`. `_normalised` must "
+        f"strip line-leading decoration via `_joinable` before it joins."
+    )
+
+
+def test_a_label_split_MID_WORD_is_the_residual_and_is_NOT_seen(
+    tmp_path: Path,
+) -> None:
+    """The stated limit, held as a claim that can go red.
+
+    A `WHAT THIS GATE DOES NOT LOOK AT` list is only worth something while it
+    is TRUE — a residual that quietly stops being a residual leaves the list
+    overstating the gap, which is the same failure as understating it. So the
+    mid-word split is asserted invisible rather than described as invisible.
+
+    IF THIS GOES RED, NOTHING IS BROKEN: somebody widened the gate past what
+    the docstring admits. Delete this test and the bullet it holds, in the same
+    commit, so the limits list keeps matching the instrument.
+    """
+    probe = tmp_path / "probe.md"
+    probe.write_text("the Ki\nnd 1 record\n", encoding="utf-8")
+    assert not RETIRED_LABEL.search(_normalised(probe)), (
+        "a label split MID-WORD is now visible to `_normalised`. That is an "
+        "improvement, not a failure — but the module docstring still lists it "
+        "under WHAT THIS GATE DOES NOT LOOK AT. Update the list and delete "
+        "this test together."
     )
 
 

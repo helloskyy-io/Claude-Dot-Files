@@ -127,6 +127,84 @@ _REJECTED = re.compile(r"\*\*(\d+) rejected, and the reasoning is the point\.\*\
 _ID = re.compile(r"C-\d{3}")
 
 
+# --- where a table IS, derived once and asked by both rendering checks -------
+#
+# THE TWO CHECKS BELOW ASK DIFFERENT QUESTIONS OF THE SAME BOUNDARY, and they
+# used to compute it separately — one inline, one not at all. That is the drift
+# seam this file's own subject is about, one level down: a second definition of
+# "inside a table" is a second thing that can be right on Tuesday.
+
+
+def _ends_the_table(line: str) -> bool:
+    """Whether `line` closes a GFM table block. NOT "has no pipe".
+
+    A PLAIN PARAGRAPH LINE DOES NOT CLOSE THE TABLE, and a first version of the
+    contiguity check below broke the block on any non-`|` line and reported
+    C-051 as an orphan. GitHub's own `/markdown` API disagreed and the API was
+    right. Only a blank line or a genuine block-level opener closes it.
+
+    WHAT SUCH A LINE ACTUALLY DOES WAS STATED WRONG HERE FOR ONE REVISION, and
+    the correction is the whole reason the cell-count check below was blind.
+    This comment used to say the paragraph is *"lazily absorbed into the
+    preceding row's last cell"*. It is not. MEASURED through `POST /markdown`
+    on lines 157-164 of this file, back when a 1,981-character paragraph sat
+    between C-050 and C-051: the block rendered **seven** `<tr>`s, not six, and
+    the paragraph was its own row with all 1,981 characters in the **ID**
+    column and six empty cells beside it — while C-050's Note was cut to 6,677
+    characters, losing exactly the evidence the paragraph carried. Joining it
+    back took the block to six `<tr>`s and C-050's Note to 8,633.
+
+    So the absorption story was consoling and false: a stray line inside a
+    table is not swallowed by its neighbour, it is a VISIBLE detached row that
+    steals its neighbour's evidence. Both rows still render, which is what made
+    the wrong explanation survive — the sibling check only ever asked whether
+    C-050 and C-051 rendered, and they did.
+    """
+    s = line.strip()
+    return (not s
+            or s.startswith(("#", ">", "```", "~~~", "- ", "* ", "+ "))
+            or set(s) <= {"-", "*", "_", " "} and len(s) >= 3)
+
+
+def _is_delimiter(line: str) -> bool:
+    """The `|---|---|` row, which is what makes a run of lines a TABLE."""
+    return (set(line.replace("|", "").replace(" ", "")) <= {"-", ":"}
+            and bool(line.replace("|", "").strip()))
+
+
+def _table_blocks(lines: list[str]) -> list[list[int]]:
+    """Every table in the file, as the line indices GFM renders it from.
+
+    A block is returned HEADER-FIRST — `block[0]` is the header row, `block[1]`
+    its delimiter, and the rest its body — because the header is what every
+    per-table question is asked against. A run of lines with no delimiter is
+    not a table and is not returned; a delimiter with no line above it inside
+    the same run has no header, so GFM builds no table and neither does this.
+
+    THE FILE HOLDS TABLES OF TWO DIFFERENT WIDTHS and that is why blocks are
+    kept separate rather than merged into one set of "table lines": § Two flags
+    and the `component` table are three columns, the eleven candidate tables
+    are seven. A single expected cell count applied across the file would
+    report every row of the narrow tables as malformed.
+    """
+    blocks: list[list[int]] = []
+    run: list[int] = []
+    for index, line in enumerate([*lines, ""]):
+        if not _ends_the_table(line):
+            run.append(index)
+            continue
+        delimiter = next((j for j in run if _is_delimiter(lines[j])), None)
+        if delimiter is not None and delimiter > run[0]:
+            blocks.append([j for j in run if j >= delimiter - 1])
+        run = []
+    return blocks
+
+
+def _cells(line: str) -> int:
+    """Cells a GFM renderer sees. `\\|` is an escape and never splits."""
+    return len(re.split(r"(?<!\\)\|", line))
+
+
 # --- vacuity floor -------------------------------------------------------
 
 def test_the_candidates_file_is_where_it_is_declared_to_be() -> None:
@@ -177,31 +255,7 @@ def test_EVERY_ROW_THIS_CHECK_COUNTS_ACTUALLY_RENDERS_AS_A_TABLE_ROW() -> None:
     invisibly, whatever that heading turns out to be.
     """
     lines = _text().split("\n")
-
-    # WHAT ENDS A GFM TABLE, WHICH IS NOT "the next line without a pipe".
-    # A plain paragraph line is LAZILY ABSORBED into the preceding row's last
-    # cell and the table keeps going — this file relies on that at C-050/C-051,
-    # where a bold paragraph sits between two rows and both still render as
-    # rows. A first version of this check broke the block on any non-`|` line
-    # and reported C-051 as an orphan; GitHub's own `/markdown` API disagreed,
-    # and the API was right. Only a blank line or a genuine block-level opener
-    # closes the table.
-    def _ends_the_table(line: str) -> bool:
-        s = line.strip()
-        return (not s
-                or s.startswith(("#", ">", "```", "~~~", "- ", "* ", "+ "))
-                or set(s) <= {"-", "*", "_", " "} and len(s) >= 3)
-
-    in_table: set[int] = set()
-    block: list[int] = []
-    for i, line in enumerate(lines + [""]):
-        if not _ends_the_table(line):
-            block.append(i)
-            continue
-        if any(set(lines[j].replace("|", "").replace(" ", "")) <= {"-", ":"}
-               and lines[j].replace("|", "").strip() for j in block):
-            in_table.update(block)
-        block = []
+    in_table = {i for block in _table_blocks(lines) for i in block}
 
     orphans = [lines[i].split("|")[1].strip()
                for i, line in enumerate(lines)
@@ -248,39 +302,102 @@ def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
     keeps a second regex, `_RAW_ROW`, precisely because the rendering check
     needs the cell as typed — and then never counted the cells.
 
+    ITS POPULATION IS WHAT GFM TREATS AS A ROW, NOT WHAT `_ROW` MATCHES, and
+    that distinction is this check's own second defect rather than a nicety.
+    The first version iterated lines matching `^\\| (C-\\d{3}) \\|` — a PROXY for
+    "a row", and the same substitution the sibling above was written to record.
+    A line GFM renders as a row while carrying no `C-NNN` is invisible to it,
+    and one was sitting in this file when the check shipped: C-050's Note had
+    its 1,981-character tail split onto its own line, which rendered as a
+    detached row with the whole paragraph in the ID column and cut C-050's Note
+    by 1,956 characters. Cell-count blind, contiguity blind, every derived
+    count green — because the stray carried no id, so nothing counted it and
+    nothing missed it. The population is now every line inside a table block.
+
+    EACH BLOCK IS CHECKED AGAINST ITS OWN HEADER. This file holds tables of two
+    widths — § Two flags and the `component` table are three columns, the
+    eleven candidate tables are seven — so a single expected count taken from
+    the candidate header would report every narrow row as malformed. That is
+    the shape a widened population fails in, and it is why `_table_blocks`
+    returns blocks rather than one flat set of line numbers.
+
     WHAT THIS DOES NOT LOOK AT. It is a CELL-COUNT check, not a rendering
-    check: it cannot see a row that renders as a paragraph (the sibling above
-    holds that), an unbalanced backtick, or a cell whose content is malformed in
-    any way that does not change how many cells there are. And it says nothing
-    about the OTHER tables in this file — its population is the candidate table's
-    `C-NNN` rows, which is where the evidence lives.
+    check: it cannot see an unbalanced backtick, or a cell whose content is
+    malformed in any way that does not change how many cells there are. It
+    cannot see a table whose header is WRONG — a header with the right number
+    of columns and the wrong names passes, and so does a body row whose cells
+    are correctly counted and shifted one column left. It says nothing about
+    tables in any other file. And it inherits `_ends_the_table`'s notion of
+    where a table stops, so a block-level opener this repo has not used yet
+    (an HTML block, a footnote definition) would end a table here while GFM
+    kept it open, silently shrinking the population rather than failing.
     """
-    text = _text()
-    header = next(
-        line for line in text.split("\n")
-        if line.startswith("| ID |") or (
-            line.startswith("|") and "`decision`" in line and "`status`" in line
-        )
+    lines = _text().split("\n")
+
+    wrong: list[str] = []
+    strays: list[str] = []
+    for block in _table_blocks(lines):
+        expected = _cells(lines[block[0]])
+        for i in block:
+            line = lines[i]
+            if not line.lstrip().startswith("|"):
+                strays.append(f"line {i + 1}: {line.strip()[:60]!r}")
+            elif _cells(line) != expected:
+                label = line.split("|")[1].strip()[:40] or f"line {i + 1}"
+                wrong.append(f"{label} ({_cells(line)} fields, expected {expected})")
+
+    assert not strays, (
+        f"these lines sit INSIDE a table block but are not rows — they open "
+        f"with no `|`, so GFM renders each as a detached row carrying its whole "
+        f"text in the FIRST column and blanks in the rest, while the row above "
+        f"loses the text as its own Note: {strays}. This is what a `Note` cell "
+        f"split across two lines looks like. Join it back onto the end of the "
+        f"row it belongs to, escaping any interior pipe as `\\|`, and change no "
+        f"word of the content."
     )
-
-    def _cells(line: str) -> int:
-        """Cells a GFM renderer sees. `\\|` is an escape and never splits."""
-        return len(re.split(r"(?<!\\)\|", line))
-
-    expected = _cells(header)
-    wrong = [
-        (line.split("|")[1].strip(), _cells(line))
-        for line in text.split("\n")
-        if _ROW.match(line) and _cells(line) != expected
-    ]
     assert not wrong, (
-        f"these rows do not split into the header's {expected} fields, so "
-        f"GitHub drops their surplus cells and truncates the last one that "
-        f"survives — the Note, which is the evidence: "
-        + "; ".join(f"{cid} ({n} fields)" for cid, n in wrong)
+        "these rows do not split into their table header's field count, so "
+        "GitHub drops their surplus cells and truncates the last one that "
+        "survives — the Note, which is the evidence: "
+        + "; ".join(wrong)
         + ". Escape the pipe as `\\|`. It is honoured inside an inline code "
           "span, so a regex alternation or a shell pipeline in the evidence "
           "stays readable. Do NOT resolve this by deleting the evidence."
+    )
+
+
+def test_the_TABLE_BLOCK_SCAN_reads_the_tables_that_are_actually_there() -> None:
+    """The widened population's own vacuity floor.
+
+    `_table_blocks` returning `[]` — a changed delimiter spelling, a heading
+    convention this scan does not recognise — makes the two checks above pass
+    over nothing, and a guard reading no lines is indistinguishable from a
+    guard finding no defects. The sibling module states this rule for the
+    file-sweep; a population derived by parsing needs it more, not less.
+
+    THE WIDTHS ARE ASSERTED, NOT JUST THE COUNT. Two widths is the property
+    that makes per-block headers necessary; collapsing to one would make a
+    single global expected count look correct again.
+    """
+    lines = _text().split("\n")
+    blocks = _table_blocks(lines)
+    assert len(blocks) > 5, (
+        f"the table scan found {len(blocks)} tables in {_CANDIDATES.name}. The "
+        f"cell-count and contiguity checks are both derived from this, so a "
+        f"scan that finds nothing turns both green against nothing."
+    )
+    counted = sum(len(b) for b in blocks)
+    assert counted > 60, (
+        f"the table scan reached only {counted} lines across {len(blocks)} "
+        f"tables — the blocks are being truncated, and every line it did not "
+        f"reach is a line neither check above is looking at."
+    )
+    widths = {_cells(lines[b[0]]) for b in blocks}
+    assert len(widths) > 1, (
+        f"every table in {_CANDIDATES.name} is now {widths} fields wide. The "
+        f"per-block header lookup exists because they are not — if the narrow "
+        f"tables were removed or widened, say so deliberately; until then this "
+        f"is the scan mis-reading a header."
     )
 
 
