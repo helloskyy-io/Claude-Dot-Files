@@ -179,6 +179,7 @@ claude-dot-files/
 │   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
 │   │   ├── claude_code_orchestration.md             # PLATFORM BACKGROUND — orchestration options and which one this repo landed on
 │   │   ├── claude_code_rules.md                     # PLATFORM BACKGROUND — rules vs CLAUDE.md, when to split
+│   │   ├── mutation_discipline.md                # SHARED build discipline — forked once, so a test now holds the variants together
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
@@ -386,6 +387,7 @@ claude-dot-files/
 │                   │                                #   class-scoped assertion that NOTHING branches on the signal — an AST walk over every
 │                   │                                #   conditional across modules/ AND scripts/, not a text scan of one package
 │                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
+│                   ├── test_build_prompt_variants_do_not_fork.py  # A stage-prompt variant must not silently lose its sibling's discipline (PR #99)
 │                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
 │                   │                                #   and FOUR one-declaration gates: the schema, the working-record shared parse (enumerated,
 │                   │                                #   with a completeness check), `parse_verdict` by AST scan of the whole tree, and

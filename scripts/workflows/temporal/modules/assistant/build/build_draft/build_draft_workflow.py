@@ -48,6 +48,8 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
         "PLAN_PATH": plan_path or "",
         "CONTEXT_BLOCK": context,
         "RULES": act.shared_prompt("rules"),
+        # SHARED because it was forked and drifted — see prompts/mutation_discipline.md.
+        "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
