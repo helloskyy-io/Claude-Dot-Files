@@ -397,6 +397,11 @@ claude-dot-files/
 │                   │                                #   exit-protocol §4's reason column compared against the shipped enum
 │                   ├── test_build_prompt_variants_do_not_fork.py  # A stage-prompt variant must not silently lose its sibling's discipline (PR #99)
 │                   ├── test_prompt_blocks_are_shared_not_copied.py  # §10.1 for prose: a block in 2 children must be SHARED — frozen baseline that may only shrink
+│                   ├── test_promoted_fragments_render_for_every_consumer.py # A promoted fragment must RENDER for every
+│                   │                                #   consumer, not merely have a supplier somewhere in its source. The static check
+│                   │                                #   cannot see WHICH ARM supplies a key, so this drives the real entry points at both
+│                   │                                #   research altitudes and both build tiers, and asserts the two draft tiers render
+│                   │                                #   byte-identically — the property the deleted file-identity assertion used to hold
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.
