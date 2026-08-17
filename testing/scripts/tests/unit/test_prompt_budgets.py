@@ -68,7 +68,12 @@ BUDGETS: dict[str, int] = {
     # residue is 19 bytes. Worth stating because this is the mechanism working
     # rather than failing: the addition competed, most of it was funded by a cut,
     # and the remainder is a number changed on purpose with a reason attached.
-    "build/build_refine/prompts/stages_2_to_4.md": 21_899,
+    # RATCHETED DOWN 21_899 -> 17_358: twelve blocks it shared verbatim with
+    # build_refine_minor moved to six shared fragments under prompts/. CONTENT
+    # DID NOT SHRINK, IT MOVED — the same 4,541 bytes are still sent on every
+    # refine run, they are just sent from one place instead of two. The budget
+    # follows the bytes so the vacated 4.5 KB cannot quietly refill.
+    "build/build_refine/prompts/stages_2_to_4.md": 17_358,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
@@ -106,7 +111,9 @@ BUDGETS: dict[str, int] = {
     # prompt told it the machine was already checking. This clears the gate's
     # own bar: it changes what the model DOES, and the harness cannot enforce it.
     "plan/plan_verify/prompts/plan_verify.md": 13_142,
-    "build/build_refine_minor/prompts/stages_2_to_4.md": 14_437,
+    # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
+    # above the FLOOR, so it keeps its line rather than dropping off the table.
+    "build/build_refine_minor/prompts/stages_2_to_4.md": 9_896,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     "research/research_write_minor/prompts/write_minor.md": 12_313,
     "research/research_write/prompts/write.md": 11_669,

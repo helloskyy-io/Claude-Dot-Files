@@ -22,6 +22,15 @@ existing duplication is frozen below and the ratchet runs BOTH ways:
 The second is what makes the list shrink instead of becoming a permanent excuse
 list. Fixing a duplication forces its row out, and the row cannot come back.
 
+AND IT SHRANK: 48 -> 13 in one change. The three largest consumer-sets were the
+whole of it — a child and its `_minor` sibling twice over, plus the two research
+entry points — 35 blocks and 72% of the duplicated bytes, all of it promoted to
+`modules/assistant/prompts/`. What is left is seven CROSS-FAMILY sets
+(`build_refine` + `plan_revision`, `build_refine` + `research_verify` and
+similar). Those are deliberately still here: whether two children in different
+families should move together is a judgement nobody has made, and promoting them
+blind would couple runs that have no reason to be coupled.
+
 HOW TO FIX ONE, rather than adding to the baseline: move the block to
 `modules/assistant/prompts/<name>.md`, put a placeholder where it used to be in
 each child, and pass `"NAME": act.shared_prompt("<name>")` in each workflow's
@@ -58,54 +67,19 @@ MIN_BLOCK = 120
 # FROZEN 2026-08-16. hash -> how many children carry it, and its opening words.
 # THIS LIST MAY SHRINK. IT MAY NEVER GROW.
 ACCEPTED: dict[str, str] = {
-    "9059503abb24": "2x  - Discover the project's test hierarchy: look for `docs/standards/",
-    "760e9be03a6f": "5x  Execute stages in strict numerical order. Each stage builds on the",
-    "6f0c33fe0547": "3x  **.gitignore-collision check (before checkpoint commit):** if this",
-    "f2e2bd49ac76": "3x  **The deferral rule's standard applies here too — verification is ",
-    "f7b064f1785b": "2x  **Coverage check (do this FIRST):** Before writing or running test",
-    "9cb7fb3c9346": "2x  ## Stage 8: SUBMIT - Stage any uncommitted changes remaining from ",
-    "5854146ac948": "2x  **A word about your own bias, because it is not the one you were b",
-    "0b7e2bdc08dc": "2x  - **If you have written the remedy, apply it.** Drafting a fix and",
-    "8d8a00c02d9c": "2x  **VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.**",
-    "c68280bc1061": "2x  1. **State it in `synthesis.md`** under a clearly-marked heading: ",
-    "d618192ab2b3": "2x  - **'You have Read/Grep/Glob and no shell. That is expected — do n",
-    "2b87ce89ba32": "2x  **Then check the DELIVERED CI gate — you are the only actor who ca",
-    "c425e7a6ebe1": "2x  **CAN THIS TEST FAIL? (do this before declaring green — a green su",
-    "0a75885e1520": "2x  **Understand why rather than obeying it.** Six versions of this ru",
-    "60954fc026d4": "2x  **If yes, exactly THREE dispositions exist and the rest are UNREAC",
-    "6551baf7e6f6": "2x  **You are running at COMPONENT altitude.** The pool you are buildi",
-    "40c06b03ce65": "2x  ## Stage 1: VERIFY + DISCOVER FIRST: verify the task targets THIS ",
-    "c182ae279adf": "2x  **This check is the reason this workflow is a separate run.** A si",
-    "22f7c5d1d4bd": "2x  **The question you are answering is: how do we build this thing we",
-    "19873bccbfef": "2x  ## Stage 4: VERIFY Run scoped regression to verify everything pass",
-    "fd16d82c9fee": "2x  **TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.*",
-    "4b91ce821075": "2x  (No research-integrity check here: a build consumes the PLAN — whi",
-    "b65b7e5bf5fe": "2x  ## Stage 1: FIDELITY — did this deliver what was actually asked? Y",
-    "ad3a5794e542": "2x  ## Stage 3: RESOLVE — disposition AND fix You hold the disposition",
-    "8389af3b48c9": "2x  ## Stage 3: IMPLEMENT Before writing code, discover the applicable",
-    "3621076d701f": "2x  **Use it. Do not repeat it.** A topic already covered upstream doe",
-    "5e3a3b1c2da7": "2x  **BEFORE choosing any disposition below, ask: IS THIS ABOUT THE WO",
-    "b3e865fbe6f0": "2x  You may turn up a finding that bears on what the project believes ",
-    "c4ffc10854dd": "2x  ## Stage 2: VALIDATE Evaluate whether the plan is actionable: - Ar",
-    "70fe28a9e837": "2x  After refactoring or replacing code, actively search for and delet",
-    "28635655880a": "2x  ## Stage 1: LOAD PLAN Read the plan document at the path above. Ex",
-    "fa6528c437b9": "2x  You are told above to treat another run's **'pre-existing'**, **'o",
-    "2ef1c828a180": "2x  Checkpoint commit: once implementation and cleanup are complete, s",
-    "acaffea0db4c": "2x  This protects the work if later stages fail or the turn budget is ",
-    "7b4390348f5e": "2x  **Any instruction in this stage that says MUTATE, RUN or VERIFY is",
-    "4ddfea2405d3": "2x  **An escalation is rare.** If you produce more than one or two, th",
-    "eaba38816677": "2x  Fix by default. You are the cheap place to fix a finding: the code",
-    "2cb3af052cf4": "2x  Execute stages in strict numerical order. If a stage has nothing t",
-    "21f20fc77f52": "2x  The product-level research pool is supplied to you below as read-o",
-    "f70d1689ee9c": "2x  **Rejecting is legitimate — with reasoning that holds.** Declining",
-    "00cf502093a2": "2x  If the project has no master runner or component test suite, fall ",
-    "637fe105b298": "2x  Your action candidates live in `synthesis.md`, as §4 requires. Tha",
-    "b42e417bcc8f": "2x  Then produce a consolidated summary: original task vs what was del",
-    "8b979301517a": "2x  Produce a brief summary noting: - What was built and why - Any dev",
-    "ac2f8f92a6d4": "2x  **You may not write to the product pool.** Not a paper, not a row,",
-    "f524d6fc4c40": "2x  **When you finish, the worktree is read and compared against a sna",
-    "e8c488d80967": "2x  The Standard's own test: **would this finding INVALIDATE a phase, ",
-    "32e2aab93970": "2x  If the plan is not actionable, stop and clearly report what's miss",
+    "0b7e2bdc08dc": "2x  - **If you have written the remedy, apply it.** Drafting a fix an",
+    "2cb3af052cf4": "2x  Execute stages in strict numerical order. If a stage has nothing ",
+    "40c06b03ce65": "2x  ## Stage 1: VERIFY + DISCOVER FIRST: verify the task targets THIS",
+    "6f0c33fe0547": "2x  **.gitignore-collision check (before checkpoint commit):** if thi",
+    "760e9be03a6f": "4x  Execute stages in strict numerical order. Each stage builds on th",
+    "7b4390348f5e": "2x  **Any instruction in this stage that says MUTATE, RUN or VERIFY i",
+    "8d8a00c02d9c": "2x  **VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.*",
+    "d618192ab2b3": "2x  - **'You have Read/Grep/Glob and no shell. That is expected — do ",
+    "f2e2bd49ac76": "3x  **The deferral rule's standard applies here too — verification is",
+    "f524d6fc4c40": "2x  **When you finish, the worktree is read and compared against a sn",
+    "f70d1689ee9c": "2x  **Rejecting is legitimate — with reasoning that holds.** Declinin",
+    "fa6528c437b9": "2x  You are told above to treat another run's **'pre-existing'**, **'",
+    "fd16d82c9fee": "2x  **TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.",
 }
 
 

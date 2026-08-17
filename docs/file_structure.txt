@@ -319,6 +319,9 @@ claude-dot-files/
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
 │           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
+│           │                                        #   prompts/ is the SHARED PROMPT POOL — a .md fragment lives there iff more than one
+│           │                                        #   child loads it, by §10.1's promotion rule applied to prose. Deliberately rolled up
+│           │                                        #   here: a fragment is reached through shared_prompt("<stem>"), never through this map
 │           │                                        #   plan/ holds plan_project (parent) and its wired children in order:
 │           │                                        #   triage_candidates rules the candidates, plan_feature writes ONE component's
 │           │                                        #   roadmap.md and numbered phaseN_*.md docs from its research, plan_sprint places

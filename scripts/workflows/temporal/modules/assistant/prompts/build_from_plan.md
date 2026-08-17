@@ -1,3 +1,6 @@
+<!-- SHARED. The plan-driven draft wrapper, loaded by build_draft AND build_draft_minor
+     via shared_prompt("build_from_plan"). It was two byte-identical copies. Edit here. -->
+
 You are executing the BUILD-PHASE workflow on a new branch.
 
 This workflow builds a planned phase or feature from a plan document. Follow all 8 stages thoroughly.

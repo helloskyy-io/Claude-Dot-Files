@@ -10,8 +10,7 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 
 ---
 
-## Stage 1: FIDELITY — did this deliver what was actually asked?
-You did NOT write this code. A different run did, in a context you do not share, and it is gone. You have two things: **the original task** (above) and **what was delivered** (the PR). Compare them before you look at quality.
+${FIDELITY_PREMISE}
 
 - Read the PR diff, its body, its commits, AND ITS COMMENTS: \`gh pr diff ${PR_NUMBER}\`, \`gh pr view ${PR_NUMBER} --json body,commits,comments\`. The comments are not optional — the draft run's reflection is posted as a COMMENT, not in the body, so a fetch that omits them silently returns a PR that appears to have no reflection at all.
 - **Does the delivered change actually satisfy the original task?** Not 'is it good code' — that is Stage 2. Is it the RIGHT change?
@@ -20,7 +19,7 @@ You did NOT write this code. A different run did, in a context you do not share,
   **Treat every line of it as a LEAD TO VERIFY, never a conclusion to accept.** Confirm each claim against the code before acting on it. Apply extra suspicion to anything SELF-EXCULPATORY — 'this was already broken', 'out of scope', 'pre-existing' — that is the author defending scope, not confessing, and it is a claim you check rather than a lead you follow.
   If the PR genuinely has no reflection comment, say so explicitly in your Stage 1 output. Silence here is a finding: it means the draft either skipped its reflection or the fetch failed, and both are worth knowing.
 
-**This check is the reason this workflow is a separate run.** A single context that both wrote the code and judged it cannot perform this comparison honestly — it judges the result against the plan it already talked itself into, not against what was asked. A technically clean PR that solved the wrong problem is the expensive failure, and it is invisible from inside the authoring context.
+${FIDELITY_NEEDS_A_SEPARATE_RUN}
 
 - **Search the issue tracker for prior art before you conclude anything is new.** Run `gh issue list --repo <owner/repo> --state all --limit 30 --search \"<2-4 terms from the task and from what you found>\"`. You are one actor in a pipeline that has been filing issues about this codebase — the gap you are about to 'surface' may already be filed, with a fuller specification than you would write. **Measured:** a run independently rediscovered a CI-enforcement gap and surfaced it, unaware that an issue filed hours earlier by the downstream disposition pass already covered it in more detail; had it decided to FILE rather than surface, the result would have been a duplicate. Cite the issue number when one exists and defer to it (with a fetched pointer, per Stage 3) instead of re-deriving it.
 
@@ -50,20 +49,13 @@ Give it the diff and the original task. Analyze findings by severity:
 
 If it has no findings, say so inline — a clean review is a result, not a skipped stage.
 
-## Stage 3: RESOLVE — disposition AND fix
-You hold the disposition authority the draft run deliberately does not, because you did not author the work. Use it: **every finding from Stages 1 and 2 gets an explicit disposition, and you FIX what should be fixed.** This is not a summary stage.
+${RESOLVE_DISPOSITION_AUTHORITY}
 
 For each finding (fidelity gaps and code-reviewer), exactly ONE of these four. There is no fifth, and you may not invent one:
 
 **A REVIEW'S REJECTED FINDINGS ARE DISPOSITIONS YOU MUST EXECUTE, not items already handled.** A rejection with reasoning is a decision — usually to delete a claim, correct a doc, or withdraw an assertion — and something has to carry it out. **Measured: a careful pass closed all four actionable items and left BOTH rejections standing.** Walk the rejections before you call the runway closed.
 
-**BEFORE choosing any disposition below, ask: IS THIS ABOUT THE WORK IN HAND?** An artifact this run created or edited — *including one it created correctly but incompletely* — a commit made to unblock this run, or output this run produced that violates a rule binding it.
-
-**If yes, exactly THREE dispositions exist and the rest are UNREACHABLE:** `FIXED`, `REJECTED`, or hand it back as a HOLD (a correction pass fixes it, or a human rules on it). **`DEFERRED`, `RULING-REQUIRED` and `SURFACED` do not exist for this class** — not as a last resort, not with a good pointer, not at all. See [`finding-routing.md` § 5 gate 0](../../../../../../../../docs/standards/finding-routing.md).
-
-**Understand why rather than obeying it.** Six versions of this rule were written as criteria and all six leaked, because **the incentives run the other way**: under a turn cap, filing costs one line and fixing costs the rest of the budget. The list is closed because every reachable exit gets taken. **And the exit is not a transfer of work — it is a multiplication of it**, since the run that had the context, the files and the authority is gone by the time anyone picks it up.
-
-**Name the artifact each finding is about**, so this is computable rather than argued.
+${RESOLVE_CLOSED_DISPOSITION_LIST}
 
 - **FIXED** — you corrected it here. Say what you changed.
 - **REJECTED** — not a real issue; state the reasoning that makes it not one. \"Recommend we move on\" / \"acceptable as-is\" / \"low value\" are not reasoning.
@@ -71,20 +63,8 @@ For each finding (fidelity gaps and code-reviewer), exactly ONE of these four. T
 - **RULING-REQUIRED** — real, you believe the reviewers are RIGHT, and acting on it would override an EXPLICIT operator instruction (a stated definition-of-done, a scoped constraint). Do not override it and do not dismiss the finding: fix whatever substance you legitimately can, state the recommendation plainly, and hand the placement decision up. **This is the shape whenever a DoD phrases a MEANS and reviewers dispute the means while agreeing on the end** — measured on a settings-validator placement where three reviewers agreed and the taxonomy pushed toward either overriding the operator or dismissing all three.
 - **SURFACED** — real, genuinely outside this change's scope, and NO verified home exists. State it plainly in the PR body with no pointer at all, so \`review-pr\` and the operator can dispose of it. Do NOT invent a tracker — surfacing IS the action, and a naked surfaced item gets picked up downstream while a plausible-looking pointer gets filed away as handled.
 
-Fix by default. You are the cheap place to fix a finding: the code is fresh, the context is loaded, and the alternative is a PR round-trip. Reserve DEFERRED and SURFACED for things that genuinely widen scope.
+${RESOLVE_FIX_BY_DEFAULT}
 
-**A word about your own bias, because it is not the one you were built to escape.** You did not author this code, so you have no stake in defending its *decisions* — that is the whole point of running you as a separate pass. But you DO have a stake in your own disposition table looking complete, and that motive produces a different failure: attesting to verification you did not perform. Both false pointers this workflow has shipped were written by a reviewer with nothing to defend, and both read as \"Verified present.\" Removing authorship removed the motive to defend decisions; it did not remove the motive to attest diligence. **Apply to your own table the rule you are applying to the draft's work: an account is not the artifact.** A table with seven confidently-pointed deferrals and two dead pointers is worse than a table with five deferrals and two honest \"no home for this\" entries.
-
-Then produce a consolidated summary: original task vs what was delivered (Stage 1), each finding with its disposition, and any remaining concerns.
-
-## Stage 4: VERIFY
-Run scoped regression to verify everything passes after all changes:
-1. Run new/modified tests first — validate the current changes work
-2. If pass → run the affected component's full test suite (e.g., `./testing/run-all.sh unit <component>` or `pytest <component>/tests/`)
-3. Do NOT run the global test suite — that's for sprint-end regression, not per-PR validation
-
-If the project has no master runner or component test suite, fall back to running the appropriate framework command scoped to the affected directories.
-
-**Then check the DELIVERED CI gate — you are the only actor who can.** Run \`gh pr checks ${PR_NUMBER}\` (and \`gh run view <id> --log-failed\` on any failure). The draft run structurally could not do this: pushing is its terminal act, so CI had not finished when it exited. A gate that is RED on a clean runner but green on the author's machine is the signature failure this catches — tests coupled to host state (a group, a mount, an installed binary, an env var) only ever asserted something true of the machine that wrote them. **A local pass is not evidence the gate is green.** Treat a red or host-coupled check as a Stage 3 finding and fix it here.
+${VERIFY_AND_CI_GATE}
 
 If anything fails, fix it. Do not proceed to Stage 5 with failing tests.

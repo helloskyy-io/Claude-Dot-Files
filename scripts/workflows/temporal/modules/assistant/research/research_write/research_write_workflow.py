@@ -47,11 +47,15 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     # and direction.md are product-pool surfaces, and a component pool that
     # grows its own forks the operator's inbox.
     level = act.altitude(pool, worktree)
-    # PRODUCT is SHARED, COMPONENT is not — and that asymmetry is the whole point.
-    # The product-altitude block is one authorization contract about what a run may
-    # write to the operator's inbox, and both entry points must be permitted exactly
-    # the same things; it lived as byte-identical copies until issue #91. The
-    # component blocks genuinely DIFFER between write and refresh, so they stay local.
+    # BOTH altitude blocks are SHARED, and the product one has been since #91: it
+    # is one authorization contract about what a run may write to the operator's
+    # inbox, and both entry points must be permitted exactly the same things.
+    #
+    # The component block was ONCE described here as genuinely differing between
+    # write and refresh. It does not: 31 of its 36 lines were byte-identical
+    # copies, and only the closing section differs — this one sizes a new pool,
+    # refresh's says it may not resize an existing one. So the shared lane rules
+    # are `shared_prompt("altitude_component")` and the local file is the tail.
     if level == "PRODUCT":
         altitude = act.shared_prompt("altitude_product")
     else:
@@ -78,6 +82,12 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     # placeholder is resolved in the same pass.
     if level == "PRODUCT":
         values["CANDIDATE_CEILING"] = act.candidate_ceiling(research_dir)
+    else:
+        # Only the component fragment is loaded at component altitude, for the
+        # mirror-image reason: supplying it at product altitude would inject
+        # lane rules for a pool this run is not in. render() resolves to a fixed
+        # point, so the fragment's own ${RESEARCH_DIR} is filled in the same pass.
+        values["ALTITUDE_COMPONENT"] = act.shared_prompt("altitude_component")
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "write.md"), values,
                    opaque=frozenset({"CONTEXT_BLOCK"})),
