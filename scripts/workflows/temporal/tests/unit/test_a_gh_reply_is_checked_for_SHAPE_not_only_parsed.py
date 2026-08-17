@@ -38,8 +38,13 @@ WHAT THIS GUARD DOES NOT LOOK AT:
     one `isinstance`.
   * **Anything `gh_json` hands back once the shape check passes.** `expect=dict`
     proves it is a mapping, not that it has the keys the caller wants. A `gh`
-    reply missing a requested field is a different failure and nothing here
-    sees it.
+    reply missing a requested field is a different failure — `count_prior_passes`
+    guards its own, and nothing here sees the class.
+  * **Whether `gh_json`'s callers STATE a shape.** That was an AST census in
+    this file and is now the SIGNATURE: `expect` is a required keyword-only
+    parameter, so the interpreter refuses a silent caller at every call site
+    there will ever be — including ones outside `_ROOTS`, which the census
+    could not reach. A rule the language can enforce should not be a test.
 """
 
 from __future__ import annotations
@@ -62,11 +67,15 @@ from modules.assistant import assistant_activities as act  # noqa: E402
 def _is_gh_call(node: ast.AST) -> bool:
     """A call to `gh(...)` under ANY of the names the fleet reaches it by.
 
-    `assistant_activities` calls it `gh`; every other module imports the shared
-    module and writes `shared.gh(...)` or `_shared.gh(...)`. Matching only the
-    bare `ast.Name` made this guard one file wide — and the motivating defect
-    was in `plan_activities`, one of the modules it could not see. It was caught
-    only because it happened to use the `.stdout` spelling instead.
+    All three production `gh(...)` calls today are bare `ast.Name`, and all three
+    are in `assistant_activities` — verified by grep, because an earlier version
+    of this docstring asserted that "every other module writes `shared.gh(...)`"
+    and `shared.gh(` occurs nowhere in the tree. The attribute spelling is
+    therefore PRE-EMPTIVE rather than observed: `plan_activities` and
+    `build_activities` already reach `gh_attempt` and `gh_json` as
+    `shared.<name>(...)`, so the first module to want `gh` itself will spell it
+    that way, and a matcher that only knew `ast.Name` would have been one file
+    wide without ever saying so.
     """
     if not isinstance(node, ast.Call):
         return False
@@ -171,24 +180,6 @@ def _census() -> list[tuple[str, str, int, bool]]:
     return out
 
 
-def _gh_json_calls() -> list[tuple[str, int, bool]]:
-    """Every production `gh_json(...)` call, and whether it says `expect=`."""
-    out = []
-    for root in _ROOTS:
-        for path in sorted(root.rglob("*.py")):
-            rel = str(path.relative_to(_TREE))
-            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-                if not isinstance(node, ast.Call):
-                    continue
-                f = node.func
-                named = ((isinstance(f, ast.Name) and f.id == "gh_json")
-                         or (isinstance(f, ast.Attribute) and f.attr == "gh_json"))
-                if named:
-                    out.append((rel, node.lineno,
-                                any(k.arg == "expect" for k in node.keywords)))
-    return out
-
-
 def test_the_census_is_not_vacuous() -> None:
     """FOUR SITES WHEN THIS WAS WRITTEN, AND A FLOOR RATHER THAN AN EQUALITY.
 
@@ -262,7 +253,8 @@ def test_gh_json_still_returns_BOTH_legitimate_gh_shapes(monkeypatch, tmp_path) 
             act.subprocess, "run",
             lambda argv, _b=body, **_k: subprocess.CompletedProcess(
                 argv, 0, stdout=_b, stderr=""))
-        assert act.gh_json(["pr", "view"], tmp_path) == expected
+        assert act.gh_json(["pr", "view"], tmp_path,
+                           expect=act.GH_JSON_SHAPES) == expected
 
 
 def test_a_narrowed_caller_gets_the_narrower_answer(monkeypatch, tmp_path) -> None:
@@ -277,39 +269,10 @@ def test_a_narrowed_caller_gets_the_narrower_answer(monkeypatch, tmp_path) -> No
         act.subprocess, "run",
         lambda argv, **_k: subprocess.CompletedProcess(argv, 0, stdout="[]", stderr=""))
 
-    assert act.gh_json(["pr", "view"], tmp_path) == []      # permitted by default
+    assert act.gh_json(["pr", "view"], tmp_path,
+                       expect=act.GH_JSON_SHAPES) == []   # both shapes permitted
     with pytest.raises(RuntimeError, match="expected dict"):
         act.gh_json(["pr", "view"], tmp_path, expect=dict)
-
-
-def test_every_gh_json_call_states_the_shape_it_expects() -> None:
-    """THE PARAMETER EXISTING IS NOT THE PARAMETER BEING USED — AND THIS IS KEYED
-    ON THE CLASS, NOT ON THE TWO CALLERS THAT EXIST.
-
-    An earlier draft of this test read one hardcoded path and asserted
-    `len(calls) == 2`. That is the instance-keyed shape this whole file argues
-    against: a `gh_json` call added in `build_activities` or `plan_activities`
-    that reads by key would have been invisible to it, which is precisely the
-    defect the file's header describes a per-instance fix leaving behind.
-
-    WHAT IS REQUIRED IS THAT THE QUESTION WAS ASKED, not which answer was given.
-    `expect=dict` or `expect=list` are both fine; the default `(dict, list)`
-    catches only what `gh` can never have sent, and a caller that knows which of
-    the two it needs is the one who has to say so. Same philosophy as the
-    `isinstance` rule above.
-    """
-    calls = _gh_json_calls()
-    assert len(calls) >= 2, (
-        f"found {len(calls)} `gh_json` call site(s) under {_ROOTS}; there were "
-        f"2 when this was written, so the walk is no longer reading the tree")
-    silent = [(rel, line) for rel, line, stated in calls if not stated]
-    assert silent == [], (
-        "these call `gh_json` without saying what shape they expect back, so a "
-        "valid reply of the wrong type reaches an index or a `.get()` in the "
-        "caller and raises from somewhere that cannot explain it:\n"
-        + "\n".join(f"  {rel}:{line}" for rel, line in silent)
-        + "\n\nAdd `expect=dict` or `expect=list` — whichever the next line "
-          "actually assumes.")
 
 
 # ── THE PREDICATES' OWN CONTROLS ───────────────────────────────────────────
@@ -332,8 +295,8 @@ _GUARDED = ("def f(r):\n    x = json.loads(r.stdout)\n"
         pytest.param(_UNGUARDED, True, False, "a bare decode of a reply", id="bare"),
         pytest.param(_GUARDED, True, True, "the same, with a shape check", id="guarded"),
         pytest.param("def f(sh, p):\n    x = json.loads(sh.gh(p))\n    return x[0]\n",
-                     True, False, "the `shared.gh(...)` spelling every module but "
-                     "one uses — the spelling this guard was once blind to",
+                     True, False, "the attribute spelling — pre-emptive, and the "
+                     "one this guard was blind to when it shipped",
                      id="attribute-gh"),
         pytest.param("def f(p):\n    raw = gh(p)\n    x = json.loads(raw)\n"
                      "    return x[0]\n",
@@ -357,21 +320,3 @@ def test_the_reply_and_guard_predicates_discriminate(
         assert _guarded(fn, name) is expect_ok, (
             f"`_guarded` read {why} as "
             f"{'checked' if not expect_ok else 'unchecked'}")
-
-
-def test_the_expect_detector_discriminates() -> None:
-    """AND THE `expect=` DETECTOR'S CONTROL. A detector that always says yes is
-    a permanent pass wearing a rule's name."""
-    import textwrap
-    src = textwrap.dedent("""
-        a = gh_json(x, y)
-        b = shared.gh_json(x, y, expect=dict)
-        c = _shared.gh_json(x, y)
-    """)
-    found = [(n.lineno, any(k.arg == "expect" for k in n.keywords))
-             for n in ast.walk(ast.parse(src))
-             if isinstance(n, ast.Call)
-             and ((isinstance(n.func, ast.Name) and n.func.id == "gh_json")
-                  or (isinstance(n.func, ast.Attribute) and n.func.attr == "gh_json"))]
-    assert len(found) == 3, "the `gh_json` matcher missed a spelling"
-    assert [ok for _l, ok in found] == [False, True, False]

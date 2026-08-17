@@ -80,12 +80,24 @@ _ROOTS = (_TREE / "modules", _TREE / "scripts")
 # guard must not make by accident.
 #
 # THE CONDITION THAT REMOVES THIS EXEMPTION, because an allowlist with no expiry
-# is a permanent quiet carve-out: it goes when a no-output-for-N-minutes bound
-# for a streaming child is decided. Neither site watches for silence today —
-# `run_claude` blocks on `for line in proc.stdout` with nothing observing the
-# gap between lines — so a wedged model child is as unbounded as a wedged `gh`
-# was, one layer up and for longer. That decision is not this PR's to make and
-# is surfaced in its body rather than guessed at here.
+# is a permanent quiet carve-out. It is NOT "when a ceiling for a streaming
+# child is decided" — that trigger was written first and CANNOT FIRE, because
+# the fleet has already ruled the other way: for the STALLED leg (a streaming
+# child emitting nothing) `docs/development/fleet-reliability/research/
+# synthesis.md` §4 rules "record and alert; do NOT kill", pricing the false
+# positive at "up to ~60 min of unrecoverable paid work". An exemption whose
+# expiry depends on a decision already made in the opposite direction is
+# permanent while looking temporary, which is the thing this comment exists to
+# refuse.
+#
+# So it goes when `docs/development/sprint.md` § Temporal Integration's
+# unchecked "A `claude_cli` activity domain — heartbeating for 10-60 minute
+# runs" lands: heartbeating is the liveness answer that ruling implies, and that
+# item already owns this trigger. Until then, what is true is worth stating —
+# neither site watches for silence (`run_claude` blocks on
+# `for line in proc.stdout` with nothing observing the gap between lines), so a
+# wedged model child is as unbounded as a wedged `gh` was, one layer up and for
+# longer.
 _STREAMING_POPEN = {
     ("modules/assistant/assistant_activities.py", "run_claude"),
     ("modules/assistant/build/build_activities.py", "run_child"),

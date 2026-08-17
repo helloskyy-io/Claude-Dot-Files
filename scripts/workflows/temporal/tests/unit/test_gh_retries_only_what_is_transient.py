@@ -56,6 +56,22 @@ _BAD_FLAG = "unknown flag: --not-a-flag"
 _READ = ["repo", "view", "--json", "nameWithOwner"]
 _ATTEMPTS = len(act._GH_RETRY_BACKOFF_SECONDS) + 1
 
+# DERIVED, NEVER SPELLED — the seconds are pinned as literals above and in
+# `test_the_retry_BUDGET_is_pinned_as_LITERALS_and_never_derived`; the MINUTES
+# are a consequence and were previously restated as prose in four places, so
+# moving the ceiling left three of them quietly wrong. `_read_thread_for_invariant`
+# is imported lazily inside the tests that use it, so its bound is read here by
+# the same lazy import rather than at module scope.
+def _outer_attempts() -> int:
+    from modules.assistant.review_pr import review_pr_workflow as wf
+    return len(wf._THREAD_READ_BACKOFF_SECONDS) + 1
+
+
+_OUTER_ATTEMPTS = _outer_attempts()
+_HANG_CEILING_MIN = _OUTER_ATTEMPTS * act._SUBPROCESS_TIMEOUT_SECONDS / 60
+_IF_RETRIED_MIN = (_ATTEMPTS * _OUTER_ATTEMPTS * act._SUBPROCESS_TIMEOUT_SECONDS
+                   + sum(act._GH_RETRY_BACKOFF_SECONDS) * _OUTER_ATTEMPTS) / 60
+
 
 class _FakeGh:
     """A scripted `gh`, recording every invocation it was actually asked for.
@@ -581,7 +597,7 @@ def test_gh_json_adds_ZERO_attempts_when_the_body_does_not_parse(
     monkeypatch.setattr(act.subprocess, "run", reply)
 
     with pytest.raises(RuntimeError, match="did not return JSON"):
-        act.gh_json(_READ, tmp_path)
+        act.gh_json(_READ, tmp_path, expect=act.GH_JSON_SHAPES)
 
     assert len(calls) == 1, (
         f"the unparseable body was fetched {len(calls)} times — a decode "
@@ -619,11 +635,13 @@ def test_the_retry_under_the_review_threads_retry_stays_bounded(
         f"DIFFERENT THINGS AND THIS ASSERTION USED TO STATE ONLY THE FIRST: "
         f"added LATENCY is 3×(2.0+6.0) + 2.0+8.0 = 34s, which is what an "
         f"operator waits through when GitHub answers quickly with 503s. "
-        f"WALL-CLOCK when GitHub does not answer AT ALL is 3×120s = 6min — 3 "
-        f"and not 9, because a timeout is TERMINAL, so `gh_attempt` spends ONE "
-        f"attempt per hang and only the outer loop multiplies. Retrying a "
-        f"timeout instead would make it 9×120s + 34s ≈ 18min, which is the whole "
-        f"argument for classifying it terminal. "
+        f"WALL-CLOCK when GitHub does not answer AT ALL is "
+        f"{_OUTER_ATTEMPTS}×{act._SUBPROCESS_TIMEOUT_SECONDS:.0f}s = "
+        f"{_HANG_CEILING_MIN:.0f}min — {_OUTER_ATTEMPTS} and not 9, because a "
+        f"timeout is TERMINAL, so `gh_attempt` spends ONE attempt per hang and "
+        f"only the outer loop multiplies. Retrying a timeout instead would make "
+        f"it {_IF_RETRIED_MIN:.0f}min, which is the whole argument for "
+        f"classifying it terminal. "
         f"`test_a_hang_costs_ONE_attempt_here_and_THREE_on_the_composed_path` "
         f"asserts both counts rather than leaving them as prose.")
     assert len(fake.calls) == _ATTEMPTS * (len(wf._THREAD_READ_BACKOFF_SECONDS) + 1)
@@ -831,10 +849,11 @@ def test_a_hang_costs_ONE_attempt_here_and_THREE_on_the_composed_path(
     with pytest.raises(RuntimeError):
         wf._read_thread_for_invariant("100", tmp_path)
 
-    assert len(hanging.calls) == 3, (
+    assert len(hanging.calls) == _OUTER_ATTEMPTS, (
         f"a hang cost {len(hanging.calls)} launches on the composed path "
-        f"against 3. 9 means the timeout became a retryable class and the "
-        f"worst case is now ~18 minutes rather than ~6.")
+        f"against {_OUTER_ATTEMPTS}. {_ATTEMPTS * _OUTER_ATTEMPTS} means the "
+        f"timeout became a retryable class and the ceiling is now "
+        f"~{_IF_RETRIED_MIN:.0f} minutes rather than ~{_HANG_CEILING_MIN:.0f}.")
     assert len(hanging.calls) == len(wf._THREAD_READ_BACKOFF_SECONDS) + 1
 
 

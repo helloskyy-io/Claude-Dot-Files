@@ -855,7 +855,8 @@ def test_a_zero_exit_gh_reply_that_is_not_JSON_raises_the_RETRYABLE_type(
     from modules.assistant import assistant_activities as shared
     monkeypatch.setattr(shared, "gh", lambda *a, **k: body)
     with pytest.raises(RuntimeError, match="did not return JSON") as caught:
-        shared.gh_json(["pr", "view", "67", "--json", "comments"], tmp_path)
+        shared.gh_json(["pr", "view", "67", "--json", "comments"], tmp_path,
+                       expect=shared.GH_JSON_SHAPES)
     assert repr(body[:200]) in str(caught.value), (
         "the reply was swallowed — an operator cannot tell an error page from a "
         "truncated body from an empty one"

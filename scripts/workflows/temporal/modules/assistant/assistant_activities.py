@@ -97,10 +97,21 @@ def max_turns(key: str) -> int:
 # said nothing about wall-clock until this constant existed.
 #
 # ONE NUMBER, DELIBERATELY. Per-command budgets would each need defending and
-# would go stale silently as call sites move. 120s is comfortably above the
-# slowest legitimate call in this fleet — `gh pr view --json comments` on a long
-# review thread, a `git fetch` of this repo — and far below anything an operator
-# would still call "working".
+# would go stale silently as call sites move.
+#
+# AND IT IS A POLICY CHOICE, NOT A MEASUREMENT — said plainly because every
+# other constant in this module cites one (`_RETRYABLE_HTTP`'s shapes and
+# `_GH_RETRY_BACKOFF_SECONDS`' pauses were both captured from the live outage),
+# and a reader is entitled to know which kind of number this is. 120s is a
+# false-positive tolerance: how long a legitimate call may take before the fleet
+# would rather be wrong than keep waiting. Nothing was timed to produce it.
+#
+# WHICH CALL EXCEEDS IT FIRST, AND WHAT THAT LOOKS LIKE. `git fetch` in
+# `worktree_add` is the only size-dependent launch here — every `gh` call is a
+# bounded API read — so a large target repo on a slow link is the realistic
+# false positive. The operator sees "did not answer within 120s", which reads
+# as a hang rather than as "your repo is large". If that ever happens the fix is
+# a larger budget for THAT call, not a larger one here.
 _SUBPROCESS_TIMEOUT_SECONDS = 120.0
 
 
@@ -118,7 +129,34 @@ class TimedOutProcess(subprocess.CompletedProcess):
     metadata, record the read error and keep polling — and a timeout belongs in
     every one of them. Returning this instead of letting `TimeoutExpired` escape
     is what keeps a brand-new exception path out of a running fleet.
+
+    READ IT THROUGH `is_timed_out`, NOT THROUGH `isinstance` DIRECTLY. The type
+    is the in-process signal and `timed_out` is the one that survives a
+    serialization boundary; see that predicate for why the distinction matters
+    to the Temporal port.
     """
+
+    timed_out = True
+
+
+def is_timed_out(r: subprocess.CompletedProcess) -> bool:
+    """Did this reply come from a call that never answered?
+
+    ONE PREDICATE, TWO SIGNALS, BECAUSE ONE OF THEM DOES NOT SURVIVE A BOUNDARY.
+    `isinstance` is exact and free in-process. It is also Python type identity,
+    and the stated port plan (`sprint.md` § Temporal Integration — *"semantic
+    wrappers: `@activity.defn` over the plain functions"*) puts an activity
+    boundary between `run_bounded` and its callers. Across it the subclass is
+    gone, and a hang would silently read as an ordinary non-zero reply: safe
+    today only by ACCIDENT, because the synthesized stderr happens to carry no
+    `HTTP nnn` token so `_gh_transient_reason` still refuses it — one wording
+    change away from flipping.
+
+    `timed_out` is a plain bool and survives. Checking both means the port
+    cannot quietly delete a distinction two operator-facing log lines depend on,
+    and it costs one `getattr`.
+    """
+    return isinstance(r, TimedOutProcess) or getattr(r, "timed_out", False)
 
 
 def run_bounded(cmd: list[str], *, cwd: Path | str | None = None,
@@ -152,7 +190,10 @@ def run_bounded(cmd: list[str], *, cwd: Path | str | None = None,
     a GRANDCHILD: `git fetch` spawns `git-remote-https`, and SIGKILLing `git`
     orphans that. It holds a pipe nobody reads and blocks nobody; it is a leak,
     not a hang, and bounding it means process groups, which is a larger decision
-    than this function should make on its own.
+    than this function should make on its own. THE SCOPE CONDITION ON "leak, not
+    a hang" IS THAT THIS PROCESS IS SHORT-LIVED — a dispatch exits and the OS
+    reaps. Under a long-lived Temporal worker the orphans accumulate for the
+    worker's lifetime instead, so the conclusion changes when the port does.
     """
     try:
         return subprocess.run(cmd, cwd=str(cwd) if cwd is not None else None,
@@ -1017,7 +1058,7 @@ def gh_attempt(args: list[str],
     for pause in _GH_RETRY_BACKOFF_SECONDS:
         r = _run()
         spent += 1
-        if isinstance(r, TimedOutProcess):
+        if is_timed_out(r):
             print(_gh_timed_out_line(label, spent, attempts, args), flush=True)
             return r
         if r.returncode == 0:
@@ -1055,7 +1096,7 @@ def gh_attempt(args: list[str],
     # returns the real `gh` reply rather than one classified and swallowed.
     r = _run()
     spent += 1
-    if isinstance(r, TimedOutProcess):
+    if is_timed_out(r):
         # ONE definition of the line, for the same reason `_run` has one
         # definition of the invocation. This was written twice and the two
         # copies had already diverged before anyone ran them: the ✗ line below
@@ -1095,8 +1136,15 @@ def gh(args: list[str], repo_root: Path) -> str:
     return r.stdout
 
 
+# Both shapes `gh --json` can legitimately answer with, and nothing else — a
+# scalar or a null is a reply `gh` cannot have sent. Named so a caller that
+# genuinely accepts either says which "either" it means, rather than leaning on
+# a default nobody chose.
+GH_JSON_SHAPES = (dict, list)
+
+
 def gh_json(args: list[str], repo_root: Path, *,
-            expect: type | tuple[type, ...] = (dict, list)):
+            expect: type | tuple[type, ...]):
     """`gh` plus its parse, so a `gh` FAILURE IS ONE EXCEPTION TYPE.
 
     ONE FAILURE SURFACE, BECAUSE CALLERS GUARD AGAINST A TYPE AND NOT AN EVENT.
@@ -1164,10 +1212,15 @@ def gh_json(args: list[str], repo_root: Path, *,
     # decode without complaint, and the caller then does `.get("comments")` or
     # `i["number"]` and dies of `AttributeError` or `TypeError` — two more
     # exception families, in the one function whose entire purpose is that
-    # callers guard against ONE type. `gh --json` answers with an object or an
-    # array and never with a scalar, so the default rejects what `gh` cannot
-    # legitimately have sent; a caller that knows which of the two it needs says
-    # so and gets the same single failure type instead of a wrong-shape success.
+    # callers guard against ONE type.
+    #
+    # `expect` IS REQUIRED RATHER THAN DEFAULTED, and that is the whole design.
+    # A permissive `(dict, list)` default would have been dead by policy — every
+    # production caller here reads by key or by index, so every one of them has
+    # an answer — and enforcing "state your shape" is then either an AST census
+    # over the tree (which was written, and which missed any caller outside its
+    # roots) or the signature, which the interpreter enforces for free at every
+    # call site there will ever be. Use `GH_JSON_SHAPES` to say "either" out loud.
     if not isinstance(parsed, expect):
         wanted = expect if isinstance(expect, tuple) else (expect,)
         raise RuntimeError(
