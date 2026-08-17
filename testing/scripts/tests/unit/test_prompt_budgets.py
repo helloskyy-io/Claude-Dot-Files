@@ -66,7 +66,12 @@ BUDGETS: dict[str, int] = {
     # output tokens (a refine at ~92k plus a review at ~53k). This clause exists to
     # remove loop-backs. Partly funded by deleting a second current-tree anecdote —
     # one example already carried that rule.
-    "review_pr/prompts/disposition.md": 76_004,
+    # 76_004 -> 76_507: the pass-scope clause shipped too broad. It banned ALL
+    # re-searching, including the sweep-from-a-different-angle that closed a
+    # credential-leak class on PR #233. Now it bans repeating a prior search and
+    # permits a new angle, stated. Fixing the defect costs more bytes than the
+    # defect did — that is the trade, and it still removes loop-backs.
+    "review_pr/prompts/disposition.md": 76_507,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -113,7 +118,12 @@ BUDGETS: dict[str, int] = {
     "plan/plan_verify/prompts/plan_verify.md": 13_142,
     "build/build_refine_minor/prompts/stages_2_to_4.md": 14_437,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
-    "research/research_write_minor/prompts/write_minor.md": 12_313,
+    # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
+    # forbade it on the argument that with one paper the roll-up IS the paper —
+    # true on run 1, false on run 2, since papers accumulate and the synthesis is
+    # replaced. Without it a planner reports "no synthesis" and plans from priors
+    # while the paper sits unread, which wastes the whole cycle.
+    "research/research_write_minor/prompts/write_minor.md": 13_941,
     "research/research_write/prompts/write.md": 11_669,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
