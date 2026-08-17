@@ -179,6 +179,7 @@ claude-dot-files/
 │   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
 │   │   ├── claude_code_orchestration.md             # PLATFORM BACKGROUND — orchestration options and which one this repo landed on
 │   │   ├── claude_code_rules.md                     # PLATFORM BACKGROUND — rules vs CLAUDE.md, when to split
+│   │   ├── altitude_product.md                   # SHARED product-altitude authorization block — promoted from two byte-identical copies (issue #91)
 │   │   ├── mutation_discipline.md                # SHARED build discipline — forked once, so a test now holds the variants together
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │

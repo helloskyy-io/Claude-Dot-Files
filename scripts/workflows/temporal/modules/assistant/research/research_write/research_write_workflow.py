@@ -47,7 +47,15 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
     # and direction.md are product-pool surfaces, and a component pool that
     # grows its own forks the operator's inbox.
     level = act.altitude(pool, worktree)
-    fragment = "altitude_product.md" if level == "PRODUCT" else "altitude_component.md"
+    # PRODUCT is SHARED, COMPONENT is not — and that asymmetry is the whole point.
+    # The product-altitude block is one authorization contract about what a run may
+    # write to the operator's inbox, and both entry points must be permitted exactly
+    # the same things; it lived as byte-identical copies until issue #91. The
+    # component blocks genuinely DIFFER between write and refresh, so they stay local.
+    if level == "PRODUCT":
+        altitude = act.shared_prompt("altitude_product")
+    else:
+        altitude = act.load_prompt(PROMPTS / "altitude_component.md")
 
     blocks = [b for b in (context, act.upstream_block(pool, worktree),
                           act.component_pools_block(pool, worktree), currency) if b]
@@ -60,7 +68,7 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
         "RESEARCH_DIR": str(pool),
         "CONTEXT_BLOCK": "\n\n".join(blocks),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research: {research_dir}"),
-        "ALTITUDE_BLOCK": act.load_prompt(PROMPTS / fragment),
+        "ALTITUDE_BLOCK": altitude,
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
