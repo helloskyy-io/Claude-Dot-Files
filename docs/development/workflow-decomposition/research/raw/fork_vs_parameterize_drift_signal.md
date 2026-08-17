@@ -74,6 +74,25 @@ Critic:         PASS-WITH-FIXES — 2026-08-17. A fresh-context read-only critic
                 weaker evidence than a survey's, the mis-description had been inflating §3.5's
                 literature negative from the beginning. Corrected in §3.5 item 1, in the result
                 statement, in the [R6] citation entry, in this header and in the synthesis.
+                ROUND 3 (final; the correction ceiling is three rounds) — a third pass re-verified
+                the round-2 changed spans. No fabrication and no miscitation of any claim's content;
+                all eight round-2 dispositions confirmed closed at source, including the [R6] genre
+                correction at all five sites, judged correctly weighted. [R10] re-verified by
+                clone-and-grep, [R11] by arXiv API plus raw-byte grep, [R9]'s `jq` recipe confirmed
+                to reproduce its own number, [R5]'s scenario tags checked against the Table 7 /
+                Table 8 captions, and the round-2 rewrap confirmed to have altered no quoted span
+                (the full multiset of quoted spans was diffed, 111 → 128, every one accounted for).
+                Four mechanical corrections were returned and applied here, each re-verified: [R6]'s
+                page count was **8 → 22** (the wrong figure came from `file`; `pdfinfo` and 22 form
+                feeds agree on 22 — and the larger figure strengthens the negative rather than
+                weakening it); the §3.5 HEADING and §8's source-count justification still said the
+                literature "does not have this concept" / "does not exist yet" after round 2
+                rephrased everything around them, and both now match the not-found form this header
+                promises; the sourcing note's "exhaustive four paths" had a FIFTH member the same
+                round-2 commit introduced — the arXiv Atom API, which carries [R6]'s TOSEM venue
+                span that appears zero times in the PDF — now added as path (e) with the (a) clause
+                narrowed; and a sentence-final period fabricated inside an [R6] abstract quote was
+                replaced with an elision mark, matching the same quote's correct form elsewhere.
 ```
 
 > **Volatility note (Research Standard §3, mixed-volatility rule).** The load-bearing evidence is
@@ -86,14 +105,19 @@ Critic:         PASS-WITH-FIXES — 2026-08-17. A fresh-context read-only critic
 > searches and §5's commands, and leave the rest alone.**
 
 > **Sourcing note (read before quoting this paper).** Every span presented as a quotation below is
-> an exact character sequence returned to this analyst, by one of **four** paths — the list is
+> an exact character sequence returned to this analyst, by one of **five** paths — the list is
 > exhaustive and every quoted span in this paper falls under exactly one: **(a)** `pdftotext` (with
 > or without `-layout`) over PDF bytes fetched with `curl` — the dominant path here, and the path
-> for every [R1]–[R7] span; **(b)** a raw `raw.githubusercontent.com` file or a GitHub API JSON
-> response ([R9], [R10]); **(c)** a local file read at commit `a92e53a` ([L1]–[L3]); **(d)** HTML
-> bytes fetched with `curl` with markup stripped locally (`sed 's/<[^>]*>/ /g'`), used only for
-> [R11] — and for that one span the exact character sequence was additionally confirmed present in
-> the **raw HTML bytes**, so no tag boundary falls inside it.
+> for every [R1]–[R7] span **that is drawn from the paper's own text**; **(b)** a raw
+> `raw.githubusercontent.com` file or a GitHub API JSON response ([R9], [R10]); **(c)** a local file
+> read at commit `a92e53a` ([L1]–[L3]); **(d)** HTML bytes fetched with `curl` with markup stripped
+> locally (`sed 's/<[^>]*>/ /g'`), used only for [R11] — and for that one span the exact character
+> sequence was additionally confirmed present in the **raw HTML bytes**, so no tag boundary falls
+> inside it; **(e)** the **arXiv Atom API** (`export.arxiv.org/api/query?id_list=…`), which is
+> metadata ABOUT a paper and is not in the paper — it carries [R6]'s venue span *"Accepted by ACM
+> Transactions on Software Engineering and Methodology (ACM TOSEM)"* (from `<arxiv:comment>`; the
+> string `TOSEM` occurs **zero** times in the PDF extraction, so path (a) would send a verifier to
+> the wrong artifact) and [R11]'s authors, title and submission date.
 >
 > **Four mechanical normalizations were applied, and they are the only departures from the returned
 > bytes. Each names the span class it touches, because two of them touch local reads, not only
@@ -477,7 +501,7 @@ agreement (κ = 0.271) on code [R3]. *(derived — two studies, two artifact typ
 categorisation targets; the comparison is this paper's and is suggestive, not controlled. It is
 consistent with the obvious reading: content type is in the text, intent is not.)*
 
-### 3.5 The prompt / LLM-engineering literature does not have this concept *(negative finding, with method)*
+### 3.5 No prompt / LLM-engineering literature on this concept was FOUND *(negative finding, with method)*
 
 **Searched:**
 
@@ -543,7 +567,11 @@ consistent with the obvious reading: content type is in the text, intent is not.
    **15 `blob` + 1 `tree`** (the `tree` is the `examples/partials/` directory node). **The
    case-insensitivity is load-bearing and is stated because it is not guessable:** the same filter
    run case-SENSITIVELY returns only **9** entries (8 blob + 1 tree), because seven of the sixteen
-   are `java/.../Partial*.java` with a capital P. A verifier who clones the repo and counts *files*
+   are Java files under `java/com/google/dotprompt/` whose basenames capitalise the P — and only
+   three of those seven actually begin with it (`PartialData`, `PartialRef`, `PartialResolver`; the
+   other four are `DeletePromptOrPartialOptions`, `ListPartialsOptions`, `LoadPartialOptions`,
+   `PaginatedPartials`), so read the `jq` filter above rather than any glob. A verifier who clones
+   the repo and counts *files*
    correctly gets **15**; all three numbers are right, over three different populations. The raw
    spec shows the inclusion syntax verbatim [R9]:
    ```
@@ -582,7 +610,7 @@ weight of evidence, and the tooling half is the weaker one.**
 in item 1 above). It says of itself: *"As a vision paper, this work primarily focuses on
 articulating the conceptual framework for promptware engineering and outlining associated research
 opportunities."* [R6 §5], and its abstract promises *"a comprehensive roadmap for promptware
-engineering, identifying key research directions."* [R6] **That distinction changes the strength of
+engineering, identifying key research directions …"* [R6] **That distinction changes the strength of
 the negative and is why it is written down rather than glossed.** A vision paper's silence is NOT
 field coverage — it cannot stand in for a database sweep. What it IS: six authors setting out to
 re-contextualise the ENTIRE SE lifecycle for prompts and to enumerate the field's open research
@@ -914,8 +942,12 @@ artifacts. Counted by enumerating the entries below: [R1]–[R7] and [R11] = 8 a
 [R10] = 2 first-party raw; [R8] = 1 rendered; [U1] = 1 upstream; [L1]–[L3] = 3 local.
 This sits at the small end of the Research Standard §2/§3 band **by design and is argued to be
 sufficient**: the general question is already answered by [U1] at 24 sources and is not re-derived
-here (§1.1); the residual question is single-concern; and §3.5 establishes by enumerated search that
-one of the two literatures that could bear on it **does not exist yet**. Padding past this point
+here (§1.1); the residual question is single-concern; and §3.5's enumerated search **found nothing**
+in one of the two literatures that could bear on it. **That third reason is the weakest of the
+three and is deliberately not stated more strongly** — §3.5 does not establish that the literature
+does not exist, only that these methods did not find it on this date, so a later refresh that finds
+such work would remove this leg and the sufficiency argument would then rest on the first two.
+Padding past this point
 would mean citing commentary above first-party and peer-reviewed evidence, which §3 forbids. No
 source was excluded for space.
 
@@ -950,7 +982,10 @@ source was excluded for space.
   §4 (ablation, Tables 5–6, cross-project Table 8), §5 (discussion of Kapser categories).*
 - **[R6]** Z. Chen, C. Wang, W. Sun, X. Liu, J. M. Zhang, Y. Liu — *Promptware Engineering: Software
   Engineering for Prompt-Enabled Systems.* arXiv:2503.02400v2, 27 Jan 2026.
-  https://arxiv.org/pdf/2503.02400 — *fetched 2026-08-17 (8 pages, 1,208-line `-layout` extraction).
+  https://arxiv.org/pdf/2503.02400 — *fetched 2026-08-17 (**22 pages** per `pdfinfo`, corroborated
+  by 22 form feeds in the extraction; 1,208-line `-layout` extraction. This entry read "8 pages"
+  until 2026-08-17: that figure came from `file`, which reports PDF page counts heuristically and
+  was wrong here — `pdfinfo` is the authority.)
   Read: abstract, §4 (Roadmap), §5 (Limitations and Future Work), O24 (versioning and traceability).
   **A VISION / ROADMAP paper, not a systematic survey** — self-described *"As a vision paper…"* in
   §5; this paper called it a survey until 2026-08-17 and the description was corrected, because the
