@@ -400,7 +400,12 @@ claude-dot-files/
 │                   ├── test_v1_parity.py            # Turn caps are DERIVED from V1, never re-declared; plus the ruff F821 executability sweep
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
 │                   ├── test_gh_retries_only_what_is_transient.py # `gh` rides out a 5xx or a throttle and refuses everything else — the
-│                   │                                #   terminal twin of every transient case, and the write gate that stops a retried mutation
+│                   │                                #   terminal twin of every transient case, the write gate that stops a retried mutation,
+│                   │                                #   and the hang that is TERMINAL because retrying it turns a ~6min ceiling into ~18min
+│                   ├── test_every_subprocess_the_fleet_launches_is_bounded.py # No `subprocess.run` in the production tree may omit
+│                   │                                #   `timeout=`; `Popen` is exempt only by NAME, for the two streaming child dispatches
+│                   ├── test_a_gh_reply_is_checked_for_SHAPE_not_only_parsed.py # Every `gh`-reply `json.loads` asks what SHAPE came
+│                   │                                #   back — a decode guard alone lets `{"message": …}` through to a `TypeError`
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
 │                   ├── review_run_fakes.py          # The shared review_pr fakes, in a HELPER module rather than a test module — a test

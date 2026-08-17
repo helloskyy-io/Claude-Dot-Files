@@ -86,6 +86,73 @@ def max_turns(key: str) -> int:
         )
     return int(value)
 
+# ── EVERY SUBPROCESS THIS FLEET LAUNCHES HAS A CEILING ─────────────────────
+#
+# A `gh` or a `git` that never RETURNS is invisible to every guard in this tree.
+# The retry below, `wait_for_ci`'s deadline loop, and every `returncode` check
+# here all run AFTER the call comes back — so a TCP connection that neither
+# answers nor resets, which is the ordinary shape of a degraded endpoint and
+# GitHub was degraded on 2026-08-17, parks the dispatch forever with no ceiling
+# and no log line. The retry this module adds is bounded in ADDED LATENCY and
+# said nothing about wall-clock until this constant existed.
+#
+# ONE NUMBER, DELIBERATELY. Per-command budgets would each need defending and
+# would go stale silently as call sites move. 120s is comfortably above the
+# slowest legitimate call in this fleet — `gh pr view --json comments` on a long
+# review thread, a `git fetch` of this repo — and far below anything an operator
+# would still call "working".
+_SUBPROCESS_TIMEOUT_SECONDS = 120.0
+
+
+class TimedOutProcess(subprocess.CompletedProcess):
+    """A launch that never answered, wearing the shape every caller already reads.
+
+    DISTINGUISHED BY TYPE, NOT BY EXIT CODE. `returncode` is 124 so a log line
+    carries the `timeout(1)` convention a reader recognises, but a classifier
+    keyed on that number would be wrong the first time `gh` or `git` exits 124
+    for a reason of its own. `isinstance` cannot collide with a real reply.
+
+    NON-ZERO SO EVERY CONVERTED CALLER IS ALREADY CORRECT. Each site routed
+    through `run_bounded` below had a `returncode != 0` branch it had already
+    reasoned about — raise and name the stale-base risk, return `""` for absent
+    metadata, record the read error and keep polling — and a timeout belongs in
+    every one of them. Returning this instead of letting `TimeoutExpired` escape
+    is what keeps a brand-new exception path out of a running fleet.
+    """
+
+
+def run_bounded(cmd: list[str], *, cwd: Path | str | None = None,
+                timeout: float = _SUBPROCESS_TIMEOUT_SECONDS
+                ) -> subprocess.CompletedProcess:
+    """`subprocess.run` with a wall-clock ceiling and no new exception path.
+
+    THE SINGLE LAUNCH POINT FOR THIS FLEET, and
+    `test_every_subprocess_the_fleet_launches_is_bounded.py` is what keeps it
+    single: no module under `modules/` may reach `subprocess.run` without a
+    `timeout=`, so the next launch added anywhere either comes through here or
+    states its own bound out loud. The check is on the CLASS rather than on the
+    seven sites that existed when it was written — four of them were `git`, and
+    a guard listing the sites it knew about would have missed the fifth.
+
+    PARTIAL OUTPUT IS DISCARDED, WHICH IS A DELIBERATE NARROWING.
+    `TimeoutExpired` carries whatever the child had written before it was
+    killed, and quoting half an answer into the failure message invites exactly
+    the conflation this module spent a PR removing — a fragment of a reply is
+    not a reply, and a reader who sees JSON in a stderr message will try to read
+    it. What the message states instead is the one fact that is certain: the
+    call did not finish inside its budget.
+    """
+    try:
+        return subprocess.run(cmd, cwd=str(cwd) if cwd is not None else None,
+                              capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return TimedOutProcess(
+            cmd, 124, stdout="",
+            stderr=f"`{' '.join(str(c) for c in cmd)}` did not answer within "
+                   f"{timeout:.0f}s and was killed. A hung call is not a server "
+                   f"condition a repeat would satisfy, so it is not retried.")
+
+
 def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     """Create an isolated worktree, matching V1's behaviour exactly.
 
@@ -113,16 +180,16 @@ def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     """
     wt = repo_root / ".claude" / "worktrees" / name
     remote_branch = ref.removeprefix("origin/")
-    f = subprocess.run(["git", "fetch", "-q", "origin", remote_branch],
-                       cwd=str(repo_root), capture_output=True, text=True)
+    f = run_bounded(["git", "fetch", "-q", "origin", remote_branch],
+                    cwd=repo_root)
     if f.returncode != 0 and ref.startswith("origin/"):
         raise RuntimeError(
             f"git fetch origin {remote_branch} failed: {f.stderr.strip()}. "
             f"Refusing to cut a worktree from {ref} — a stale local copy of that ref "
             f"would succeed here and put the run on a base that has already moved."
         )
-    r = subprocess.run(["git", "worktree", "add", "-f", str(wt), ref],
-                       cwd=str(repo_root), capture_output=True, text=True)
+    r = run_bounded(["git", "worktree", "add", "-f", str(wt), ref],
+                    cwd=repo_root)
     if r.returncode != 0:
         raise RuntimeError(f"worktree add failed for {ref}: {r.stderr.strip()}")
     return wt
@@ -146,8 +213,7 @@ def observe_outcome(worktree: Path, branch: str | None = None) -> str:
     SAYS SO — it never reports a negative it did not verify.
     """
     def _git(*args: str) -> tuple[int, str]:
-        r = subprocess.run(["git", *args], cwd=str(worktree),
-                           capture_output=True, text=True)
+        r = run_bounded(["git", *args], cwd=worktree)
         return r.returncode, r.stdout.strip()
 
     if not worktree.exists():
@@ -870,14 +936,39 @@ def gh_attempt(args: list[str],
         # ONE definition of the invocation, called from two places. The "final
         # attempt outside the loop" property below is about CONTROL FLOW, not
         # about the text of this line — and two copies of it drift the moment
-        # someone adds a `timeout=` to one of them.
-        return subprocess.run(["gh", *args],
-                              cwd=str(repo_root) if repo_root is not None else None,
-                              capture_output=True, text=True)
+        # someone changes the budget on one of them. That drift is not
+        # hypothetical: this comment used to name `timeout=` as the example, and
+        # `run_bounded` is where the timeout landed.
+        return run_bounded(["gh", *args], cwd=repo_root)
+
+    def _timed_out(r: subprocess.CompletedProcess) -> bool:
+        """A timeout is a THIRD fact, and it must not wear either refusal's line.
+
+        It is not `TERMINAL` in the sense the first refusal means — that one says
+        *the request is wrong and GitHub told us so*, which points at us. It is
+        not the write refusal either — that one says *GitHub is unwell and we
+        stopped anyway because a repeat may double-apply*. A hang says GitHub is
+        unwell AND told us nothing at all, and the run stopped because repeating
+        an unbounded call is how a bounded policy stops being one.
+
+        NOT RETRIED, FOR READS AS WELL AS WRITES, and the bound is the whole
+        reason. Three attempts at 120s plus the pauses is ~368s here, which
+        composes under `_THREAD_READ_BACKOFF_SECONDS` to roughly EIGHTEEN
+        MINUTES — worse than the failure it would be treating. Both guards in
+        this module default to "do not retry"; so does this one.
+        """
+        return isinstance(r, TimedOutProcess)
 
     for pause in _GH_RETRY_BACKOFF_SECONDS:
         r = _run()
         spent += 1
+        if _timed_out(r):
+            print(f"→ gh {label}: attempt {spent}/{attempts} gave NO ANSWER "
+                  f"within {_SUBPROCESS_TIMEOUT_SECONDS:.0f}s — TIMED OUT (not "
+                  f"retried): a hung call names no server condition a repeat "
+                  f"would satisfy, and repeating it would move this policy's "
+                  f"worst case from ~34s to ~18min", flush=True)
+            return r
         if r.returncode == 0:
             if spent > 1:
                 print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}",
@@ -913,7 +1004,14 @@ def gh_attempt(args: list[str],
     # returns the real `gh` reply rather than one classified and swallowed.
     r = _run()
     spent += 1
-    if r.returncode == 0:
+    if _timed_out(r):
+        # The same third fact, on the path a caller reaches after two real
+        # 503s. Falling through to the ✗ line below would report "FAILED after
+        # 3 attempts" for a run whose last attempt never got an answer at all.
+        print(f"→ gh {label}: attempt {spent}/{attempts} gave NO ANSWER within "
+              f"{_SUBPROCESS_TIMEOUT_SECONDS:.0f}s — TIMED OUT (not retried)",
+              flush=True)
+    elif r.returncode == 0:
         print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}", flush=True)
     else:
         print(f"✗ gh {label}: FAILED after {spent}/{attempts} attempts — "
@@ -946,7 +1044,8 @@ def gh(args: list[str], repo_root: Path) -> str:
     return r.stdout
 
 
-def gh_json(args: list[str], repo_root: Path):
+def gh_json(args: list[str], repo_root: Path, *,
+            expect: type | tuple[type, ...] = (dict, list)):
     """`gh` plus its parse, so a `gh` FAILURE IS ONE EXCEPTION TYPE.
 
     ONE FAILURE SURFACE, BECAUSE CALLERS GUARD AGAINST A TYPE AND NOT AN EVENT.
@@ -1003,12 +1102,29 @@ def gh_json(args: list[str], repo_root: Path):
     """
     raw = gh(args, repo_root)
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"gh {' '.join(args)} in {repo_root} exited 0 but did not return JSON: "
             f"{exc}. First 200 bytes of the reply: {raw[:200]!r}"
         ) from exc
+    # PARSING IS NOT THE SAME AS ANSWERING, which is the half this function used
+    # to leave to its callers. `{"message": "Not Found"}` and `[]` and `"x"` all
+    # decode without complaint, and the caller then does `.get("comments")` or
+    # `i["number"]` and dies of `AttributeError` or `TypeError` — two more
+    # exception families, in the one function whose entire purpose is that
+    # callers guard against ONE type. `gh --json` answers with an object or an
+    # array and never with a scalar, so the default rejects what `gh` cannot
+    # legitimately have sent; a caller that knows which of the two it needs says
+    # so and gets the same single failure type instead of a wrong-shape success.
+    if not isinstance(parsed, expect):
+        wanted = expect if isinstance(expect, tuple) else (expect,)
+        raise RuntimeError(
+            f"gh {' '.join(args)} in {repo_root} exited 0 and returned valid JSON "
+            f"of the wrong shape: expected {' or '.join(t.__name__ for t in wanted)}, "
+            f"got {type(parsed).__name__}. First 200 bytes: {raw[:200]!r}"
+        )
+    return parsed
 
 
 def repo_slug(repo_root: Path) -> str:

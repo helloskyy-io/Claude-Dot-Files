@@ -150,6 +150,14 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
     return loaded
 
 
+# These probes read purely LOCAL git metadata — a remote URL from `.git/config`,
+# a HEAD sha — so 30s is already an order of magnitude past anything healthy.
+# Deliberately shorter than the assistant tree's 120s network budget: nothing
+# here touches the network, and a bound copied from a call that does would be
+# defending a risk this function does not carry.
+_PROBE_TIMEOUT_SECONDS = 30.0
+
+
 def _git(repo_root: Path, *args: str) -> str:
     """One-line `git` output, or `""` when git cannot answer.
 
@@ -160,8 +168,19 @@ def _git(repo_root: Path, *args: str) -> str:
     a run over — the journal root's properties are what r9 refuses on, and this
     is metadata.
     """
-    probe = subprocess.run(["git", *args], cwd=str(repo_root),
-                           capture_output=True, text=True)
+    # BOUNDED, AND BOUNDED HERE RATHER THAN VIA `assistant_activities.run_bounded`.
+    # This package is the lower layer — nothing under `modules/journal/` imports
+    # the assistant tree, and reaching upward for a helper would invert that to
+    # save four lines. The ceiling itself is not optional: a `git` that hangs
+    # while this probe reads repo METADATA would park a run before it has opened
+    # its bag, and the empty-string contract above already says exactly what to
+    # do when the probe cannot answer.
+    try:
+        probe = subprocess.run(["git", *args], cwd=str(repo_root),
+                               capture_output=True, text=True,
+                               timeout=_PROBE_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        return ""
     return probe.stdout.strip() if probe.returncode == 0 else ""
 
 

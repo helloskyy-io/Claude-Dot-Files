@@ -34,8 +34,13 @@ MAX_TURNS_KEY = WORKFLOW_KEY
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
     """PR metadata. Raises rather than returning a partial dict."""
+    # `expect=dict`, because every caller of this reads it by KEY. The default
+    # `(dict, list)` would let a JSON array through to an `AttributeError` in
+    # somebody else's function, which is the second exception family `gh_json`
+    # exists to prevent.
     return _shared.gh_json(
-        ["pr", "view", pr_number, "--json", "headRefName,state,title"], repo_root
+        ["pr", "view", pr_number, "--json", "headRefName,state,title"], repo_root,
+        expect=dict,
     )
 
 
@@ -138,7 +143,7 @@ def thread_snapshot(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
     window = [
         matches[-1].group(1)
         for c in _shared.gh_json(
-            ["pr", "view", pr_number, "--json", "comments"], repo_root
+            ["pr", "view", pr_number, "--json", "comments"], repo_root, expect=dict
         ).get("comments", [])
         if (matches := [
             m for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")

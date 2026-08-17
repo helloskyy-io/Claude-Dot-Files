@@ -507,6 +507,18 @@ def test_gh_attempt_runs_in_the_PROCESS_cwd_when_given_no_tree(
         pytest.param(0, "<html>502 Bad Gateway</html>",
                      "the read succeeded and the body does not parse",
                      id="zero-exit-unparseable"),
+        # THE THIRD SHAPE, AND THE ONE A DECODE GUARD ALONE LETS THROUGH.
+        # `{"message": …}` parses without complaint; `len()` then succeeds and
+        # `for i in issues` iterates its KEYS, so `i["number"]` raises
+        # `TypeError` on a string index — a dead planning dispatch, four lines
+        # below a comment promising that both ways of not getting a list reach
+        # the same note. There were three ways.
+        pytest.param(0, '{"message": "Not Found"}',
+                     "the read succeeded and the body parsed to the wrong SHAPE",
+                     id="zero-exit-json-object-not-a-list"),
+        pytest.param(0, '"just a string"',
+                     "the read succeeded and the body parsed to a scalar",
+                     id="zero-exit-json-scalar"),
     ],
 )
 def test_the_tolerant_caller_DEGRADES_rather_than_killing_its_dispatch(
@@ -603,8 +615,17 @@ def test_the_retry_under_the_review_threads_retry_stays_bounded(
     assert len(fake.calls) == 9, (
         f"the composed bound moved: {len(fake.calls)} attempts against 9. If a "
         f"constant changed deliberately, change this number with it and say what "
-        f"the new worst-case wall-clock is — it is 3×(2.0+6.0) + 2.0+8.0 = 34s "
-        f"today, and an operator waits through all of it.")
+        f"the new worst-case wall-clock is. TWO FIGURES, BECAUSE THEY BOUND "
+        f"DIFFERENT THINGS AND THIS ASSERTION USED TO STATE ONLY THE FIRST: "
+        f"added LATENCY is 3×(2.0+6.0) + 2.0+8.0 = 34s, which is what an "
+        f"operator waits through when GitHub answers quickly with 503s. "
+        f"WALL-CLOCK when GitHub does not answer AT ALL is 3×120s = 6min — 3 "
+        f"and not 9, because a timeout is TERMINAL, so `gh_attempt` spends ONE "
+        f"attempt per hang and only the outer loop multiplies. Retrying a "
+        f"timeout instead would make it 9×120s + 34s ≈ 18min, which is the whole "
+        f"argument for classifying it terminal. "
+        f"`test_a_hang_costs_ONE_attempt_here_and_THREE_on_the_composed_path` "
+        f"asserts both counts rather than leaving them as prose.")
     assert len(fake.calls) == _ATTEMPTS * (len(wf._THREAD_READ_BACKOFF_SECONDS) + 1)
 
 
@@ -651,3 +672,216 @@ def test_a_decode_failure_IS_retried_by_the_one_caller_that_retries_the_TYPE(
         f"the claim a reader checks actually lives.")
     assert len(calls) == len(wf._THREAD_READ_BACKOFF_SECONDS) + 1, (
         "the outer loop's bound moved")
+
+
+# ── THE CEILING: the failure the retry could not see ───────────────────────
+#
+# Everything above this line runs AFTER `gh` comes back. A `gh` that never comes
+# back was the one GitHub-trouble mode the policy left unbounded, at the very
+# function this PR made the single launch point for every retried `gh` in the
+# fleet. `time.sleep` is faked here as everywhere else in this file, and so is
+# the timeout — no test below waits for anything.
+
+class _HangingGh:
+    """A `gh` that never answers, spelled the way `subprocess.run` spells it.
+
+    RAISES `TimeoutExpired` RATHER THAN RETURNING A FAKE TIMEOUT, because the
+    property under test is that `run_bounded` converts the exception into a
+    reply — a fake that already returned a `TimedOutProcess` would be asserting
+    the test's own construction.
+    """
+
+    def __init__(self, hangs: int = 99) -> None:
+        self.hangs = hangs
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv, **kwargs):
+        self.calls.append(argv)
+        if len(self.calls) <= self.hangs:
+            raise subprocess.TimeoutExpired(argv, kwargs.get("timeout", 0))
+        return subprocess.CompletedProcess(argv, 0, stdout='{"ok":true}', stderr="")
+
+
+def test_every_gh_launch_carries_a_wall_clock_ceiling(monkeypatch, tmp_path) -> None:
+    """THE BOUND THE RETRY DID NOT HAVE.
+
+    `_GH_RETRY_BACKOFF_SECONDS`' comment says "Bounded, and stated so it stays
+    bounded", and that was true of added LATENCY and false of wall-clock: with
+    no `timeout=`, a hung `gh` parked the dispatch with no ceiling and no log
+    line, because the retry only ever runs after a call RETURNS.
+
+    ASSERTED ON THE KWARG `subprocess.run` ACTUALLY RECEIVED, not on the source
+    text. A grep for `timeout` passes on a comment.
+    """
+    seen: list[dict] = []
+
+    def record(argv, **kwargs):
+        seen.append(kwargs)
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(act.subprocess, "run", record)
+    act.gh_attempt(_READ, tmp_path)
+
+    assert seen and "timeout" in seen[0], (
+        "`gh` was launched with no `timeout=` — a call that never returns is "
+        "never retried and never bounded")
+    assert seen[0]["timeout"] == act._SUBPROCESS_TIMEOUT_SECONDS
+
+
+def test_a_hang_is_TERMINAL_and_costs_exactly_one_attempt(
+    monkeypatch, tmp_path, slept, capsys,
+) -> None:
+    """A TIMEOUT IS NOT A TRANSIENT CLASS, AND THE BOUND IS THE REASON.
+
+    A 503 is GitHub naming a condition a later call may satisfy. A hang names
+    nothing at all, and retrying it multiplies the one number that is already
+    the largest in this policy: three attempts at 120s composes under
+    `_THREAD_READ_BACKOFF_SECONDS` to roughly eighteen minutes, which is worse
+    than the failure it would be treating.
+
+    THE NEGATIVE HALF MATTERS MORE THAN THE POSITIVE. A guard that bounds the
+    call and then retries the bound has replaced an unbounded hang with a
+    long one.
+    """
+    hanging = _HangingGh()
+    monkeypatch.setattr(act.subprocess, "run", hanging)
+
+    r = act.gh_attempt(_READ, tmp_path)
+
+    assert len(hanging.calls) == 1, (
+        f"a hung `gh` was launched {len(hanging.calls)} times — a timeout is "
+        f"classified TERMINAL precisely so it costs one attempt")
+    assert slept == [], "a hang paid the backoff it is not supposed to pay"
+    assert isinstance(r, act.TimedOutProcess) and r.returncode != 0
+    assert "TIMED OUT" in capsys.readouterr().out, (
+        "the hang was silent — a retry policy that stops without saying why "
+        "is indistinguishable from one that is broken")
+
+
+def test_a_hung_WRITE_is_likewise_not_repeated(
+    monkeypatch, tmp_path, slept,
+) -> None:
+    """THE WRITE CASE IS THE ONE THAT COSTS SOMETHING TO GET WRONG.
+
+    A `gh pr comment` that hangs may have POSTED. Nothing in a timeout says
+    whether the server applied it, which is the same reasoning `_gh_is_read_only`
+    already applies to a 502 on a mutation — and the timeout branch must reach
+    the same answer without going through that gate at all, since it returns
+    before the read check runs.
+    """
+    hanging = _HangingGh()
+    monkeypatch.setattr(act.subprocess, "run", hanging)
+
+    act.gh_attempt(["pr", "comment", "101", "--body", "x"], tmp_path)
+
+    assert len(hanging.calls) == 1, (
+        f"a hung write was launched {len(hanging.calls)} times — a repeat may "
+        f"double-post, and a hang gives no evidence either way")
+    assert slept == []
+
+
+def test_gh_RAISES_on_a_hang_and_the_message_names_the_budget(
+    monkeypatch, tmp_path, slept,
+) -> None:
+    """`gh()`'s contract does not change: non-zero is a `RuntimeError`.
+
+    The timeout arrives as an ordinary non-zero reply precisely so this stays
+    true — no caller in the fleet grew a second exception family for it.
+    """
+    monkeypatch.setattr(act.subprocess, "run", _HangingGh())
+
+    with pytest.raises(RuntimeError, match="did not answer within 120s"):
+        act.gh(_READ, tmp_path)
+
+
+def test_gh_attempt_STILL_RETURNS_rather_than_raising_when_gh_hangs(
+    monkeypatch, tmp_path, slept,
+) -> None:
+    """THE TOLERANT CONTRACT SURVIVES THE NEW FAILURE MODE.
+
+    `existing_work` and `ci_verdict` exist on the promise that `gh_attempt`
+    returns a failure rather than raising it. `TimeoutExpired` escaping through
+    `run_bounded` would have broken both — and it would have broken them in the
+    one condition they were added to survive.
+    """
+    monkeypatch.setattr(act.subprocess, "run", _HangingGh())
+
+    r = act.gh_attempt(_READ, tmp_path)   # must not raise
+
+    assert r.returncode != 0 and "did not answer" in r.stderr
+
+
+def test_a_hang_costs_ONE_attempt_here_and_THREE_on_the_composed_path(
+    monkeypatch, tmp_path, slept,
+) -> None:
+    """THE WALL-CLOCK CEILING, PINNED THE WAY THE LATENCY BOUND ALREADY WAS.
+
+    3 AND NOT 9, and the difference IS the terminal classification. `gh_attempt`
+    spends one attempt on a hang, so only `_read_thread_for_invariant`'s loop
+    multiplies: 3×120s ≈ 6min. Were a timeout treated as another transient
+    class, the same path would be 9×120s + 34s ≈ 18min. A reader who has to
+    derive that from two files at once will not, so it is asserted here.
+    """
+    from modules.assistant.review_pr import review_pr_workflow as wf
+
+    monkeypatch.setattr(wf.time, "sleep", lambda _s: None)
+    hanging = _HangingGh()
+    monkeypatch.setattr(act.subprocess, "run", hanging)
+
+    with pytest.raises(RuntimeError):
+        wf._read_thread_for_invariant("100", tmp_path)
+
+    assert len(hanging.calls) == 3, (
+        f"a hang cost {len(hanging.calls)} launches on the composed path "
+        f"against 3. 9 means the timeout became a retryable class and the "
+        f"worst case is now ~18 minutes rather than ~6.")
+    assert len(hanging.calls) == len(wf._THREAD_READ_BACKOFF_SECONDS) + 1
+
+
+def test_the_THREE_refusals_do_not_say_the_same_thing(
+    monkeypatch, tmp_path, slept, capsys,
+) -> None:
+    """"IS IT GITHUB OR US?" NOW HAS THREE ANSWERS, AND THEY ARE DIFFERENT.
+
+    A 404 says us. A 503 on a write says GitHub, and we stopped anyway because
+    a repeat may double-apply. A hang says GitHub told us NOTHING, and we
+    stopped because repeating an unbounded call is how a bounded policy stops
+    being one. One label for three facts answers the question wrongly two thirds
+    of the time — and the first two of these were one label until a prior pass
+    split them, which is why the third is asserted rather than assumed.
+    """
+    _install(monkeypatch, [(1, _REST_404)])
+    act.gh_attempt(_READ, tmp_path)
+    terminal = capsys.readouterr().out
+
+    _install(monkeypatch, [(1, _LIVE_503)])
+    act.gh_attempt(["pr", "comment", "1", "--body", "x"], tmp_path)
+    write = capsys.readouterr().out
+
+    monkeypatch.setattr(act.subprocess, "run", _HangingGh())
+    act.gh_attempt(_READ, tmp_path)
+    hang = capsys.readouterr().out
+
+    assert "TERMINAL" in terminal and "NOT A READ" not in terminal
+    assert "NOT A READ" in write and "TIMED OUT" not in write
+    assert "TIMED OUT" in hang, "a hang was reported as one of the other two"
+    assert len({terminal, write, hang}) == 3, (
+        "two of the three refusals print the same line")
+
+
+def test_a_hung_git_FETCH_is_fatal_the_way_a_failed_one_is(
+    monkeypatch, tmp_path,
+) -> None:
+    """THE SAME CLASS, ONE LAYER OUT AND BEFORE ANY `gh` RUNS.
+
+    `worktree_add`'s fetch is the first network call a dispatch makes, and its
+    own docstring argues at length that a failed fetch must be FATAL because a
+    stale local ref would otherwise let the run plan on a base that has moved.
+    A hung fetch had neither outcome: it simply never returned. Routing it
+    through `run_bounded` makes a timeout arrive as the non-zero reply that
+    docstring already reasoned about, so the fatal branch fires unchanged.
+    """
+    monkeypatch.setattr(act.subprocess, "run", _HangingGh())
+
+    with pytest.raises(RuntimeError, match="git fetch origin"):
+        act.worktree_add(tmp_path, "wt", "origin/main")

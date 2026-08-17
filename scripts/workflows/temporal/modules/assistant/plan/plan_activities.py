@@ -77,7 +77,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import NamedTuple
@@ -641,7 +640,7 @@ def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
     empty return is indistinguishable from a clean run, so a git failure would
     manufacture evidence of compliance.
     """
-    out = subprocess.run(argv, cwd=str(worktree), capture_output=True, text=True)
+    out = shared.run_bounded(argv, cwd=worktree)
     if out.returncode != 0:
         raise RuntimeError(
             f"could not read the worktree state in {worktree} via "
@@ -830,12 +829,23 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     # and an unguarded `json.loads` here would kill a planning dispatch on a
     # truncated reply — the same run this block's else-branch exists to keep
     # alive when the read fails outright.
+    #
+    # AND THE SHAPE IS GUARDED TOO, WHICH IS A SEPARATE FACT. A guard that
+    # catches only `JSONDecodeError` says "it parsed" and lets the caller assume
+    # "it is a list". `{"message": "Not Found"}` parses; `len()` then succeeds,
+    # `for i in issues` iterates its KEYS, and `i["number"]` raises `TypeError` —
+    # the planning dispatch dies on the third way of not getting an issue list,
+    # four lines below the comment promising all of them reach the same note.
+    # `ci_verdict` and `wait_for_ci` in `build_activities` already spell this
+    # `isinstance(..., list)`; this block was the one sibling that did not.
     issues = None
     if r.returncode == 0:
         import json
         try:
             issues = json.loads(r.stdout)
         except json.JSONDecodeError:
+            issues = None
+        if not isinstance(issues, list):
             issues = None
     if issues is not None:
         lines.append(f"\n**Open issues** — {len(issues)}. **A candidate matching one of these is ALREADY tracked**; "

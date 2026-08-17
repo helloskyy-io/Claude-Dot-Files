@@ -40,10 +40,25 @@ def resolve_repo_root(repo_target: str | None) -> Path:
     accounting for those runs is then unrecoverable.
     """
     invoked_from = Path(repo_target) if repo_target else Path.cwd()
-    probe = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        cwd=str(invoked_from), capture_output=True, text=True,
-    )
+    # BOUNDED, AND BOUNDED INLINE RATHER THAN VIA `assistant_activities.run_bounded`.
+    # This module imports nothing from `modules/` on purpose — it is what an
+    # entrypoint runs BEFORE the workflow tree is on the path — and 30s is the
+    # journal probe's local-git budget rather than the 120s network one, because
+    # `rev-parse --show-toplevel` reads `.git` and never the network. A hang here
+    # parks a dispatch before it has done anything at all, on the first call it
+    # makes, which is the worst place in the fleet to be unbounded.
+    try:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=str(invoked_from), capture_output=True, text=True, timeout=30.0,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"git could not answer within 30s in: {invoked_from}\n"
+            f"`git rev-parse --show-toplevel` reads local metadata, so this is a "
+            f"wedged git or an unresponsive filesystem rather than a network "
+            f"problem. Nothing downstream can resolve a repo root without it."
+        ) from exc
     if probe.returncode != 0:
         raise RuntimeError(
             f"not inside a git repository: {invoked_from}\n"

@@ -168,9 +168,11 @@ def ci_verdict(pr: str, *, repo: str | None = None,
         cmd += ["--repo", repo]
     # `gh_attempt`, NOT `subprocess.run`: THIS IS THE ONE-SHOT READ, and a single
     # transient 503 here parses as nothing, which is UNREADABLE_CHECKS, which is
-    # a HOLD a human has to clear. `wait_for_ci` below is deliberately left on
-    # raw `subprocess.run` because its own deadline loop already re-reads — a
-    # retry underneath a poll loop only makes each poll slower.
+    # a HOLD a human has to clear. `wait_for_ci` below is deliberately left
+    # WITHOUT THE RETRY because its own deadline loop already re-reads — a retry
+    # underneath a poll loop only makes each poll slower. It still goes through
+    # `shared.run_bounded`, because a CEILING is not a RETRY and its deadline
+    # loop cannot enforce one on a call that has not returned.
     #
     # `None` for the tree, not `repo_root`: this call addresses the PR with an
     # explicit `--repo` and has always run in the process cwd. Passing the tree
@@ -311,7 +313,13 @@ def wait_for_ci(pr: str, *, repo: str | None = None,
     last_read_error = ""
 
     while time.monotonic() < deadline:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # `run_bounded`, NOT raw `subprocess.run`: this loop's deadline is only
+        # consulted BETWEEN iterations, so a single `gh` that never returns makes
+        # `CI_MAX_WAIT_SECONDS` a number nothing enforces. The retry is still
+        # deliberately absent here — the loop already re-reads — but a ceiling is
+        # not a retry, and a timed-out reply lands in the same failed-read branch
+        # below that an unparseable one does, which is already the right answer.
+        result = shared.run_bounded(cmd)
 
         # PARSE FIRST, AND LET A FAILED READ BE ITS OWN STATE. `gh pr checks`
         # exits non-zero whenever checks are FAILING or PENDING, so the return
