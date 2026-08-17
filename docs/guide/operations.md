@@ -290,10 +290,42 @@ Always-loaded global instructions. Unlike skills, these are not on-demand — ev
 
 ---
 
+## What this repo puts on your machine
+
+`install.sh` symlinks seven items into `~/.claude/` and that list is in
+[`CLAUDE.md`](../../CLAUDE.md). **It is not the whole footprint**, and the rest is
+here because state that nothing documents is state nobody knows to look at, back
+up, or delete.
+
+| Path | Who writes it | Removed by |
+|---|---|---|
+| `~/.claude/{settings.json,CLAUDE.md,agents,commands,hooks,rules,skills}` | `install.sh`, as symlinks into this repo | `install.sh` / deleting the link |
+| `<repo>/.claude/logs/*.jsonl` | every dispatch, one file per run | nothing — there is no pruning code |
+| `<repo>/.claude/worktrees/<name>/` | any workflow that cuts a worktree | `/cleanup-merged-worktrees` |
+| `~/.local/state/claude-dot-files/journal/<run_id>/` | **every non-dry-run dispatch**, created on demand, mode `0700` | nothing yet — retention is [PMP Phase 5](../development/persistent-memory-protocol/phase5_snapshots_then_retention.md) |
+
+**The journal root is the one outside any repository checkout**, which is
+deliberate: it is state rather than source, so it survives a clone being deleted
+and never lands in a commit. Its location is a config value —
+[`config.yaml`](../../config.yaml) `journal.root:`, empty meaning the documented
+default for `journal.deployment:` (`user` → the path above, following
+`XDG_STATE_HOME`; `systemd` → `/var/lib/claude-dot-files/journal`; `container` →
+no default, so it must be set). A root that cannot be resolved to a writable,
+correctly-moded directory outside any git working tree **stops the run before it
+starts**, with a message naming the resolved path and the failing property.
+
+Inspect one with `python3 scripts/workflows/temporal/scripts/validate_bag.py`,
+which takes a single bag, a whole root, or nothing (resolving the configured root
+read-only). Today a bag is ~16 KiB; from PMP Phase 3, when runs start writing
+into it, expect roughly 4.9 MB per run.
+
+---
+
 ## Where things live
 
 | Need | Go to |
 |---|---|
+| What this repo writes to disk outside the repo | [above](#what-this-repo-puts-on-your-machine) |
 | Install / deploy / sync | [deployment.md](deployment.md) |
 | Why the build split exists, model management, escalation ladder | [workflows.md](workflows.md) |
 | Running the CPI cycle and reading the decisions log | [cpi-cycle.md](cpi-cycle.md) |

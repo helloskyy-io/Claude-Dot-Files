@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
 
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant import routing  # noqa: E402
 from modules.assistant.plan.plan_project.plan_project_workflow import run_plan_project  # noqa: E402
 
@@ -59,9 +60,20 @@ def main(argv: list[str] | None = None) -> int:
     research_dir = resolved["research"]
 
     try:
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
+        worktree_name = f"plan-project-{int(time.time())}"
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="plan-project",
+                             worktree_name=worktree_name)
+
         url, verdict, loops, notes = run_plan_project(
             repo_root=repo_root,
-            worktree_name=f"plan-project-{int(time.time())}",
+            worktree_name=worktree_name,
             sprint_path=resolved["sprint"],
             # DERIVED FROM AN ALREADY-CONTAINED PATH, so it needs no declaration
             # of its own: `research_dir` is proven inside the repo and a literal

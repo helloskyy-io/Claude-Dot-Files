@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
 
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.review_pr import review_pr_activities as act  # noqa: E402
 from modules.assistant.review_pr import review_pr_helper as helper  # noqa: E402
 from modules.assistant.review_pr import review_pr_workflow as wf  # noqa: E402
@@ -104,6 +105,20 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if dry:
             return _dry_run(task, repo_root)
+
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="review-pr",
+                             # The ONE workflow that cuts no worktree — it
+                             # reviews a PR in place. Stated rather than
+                             # defaulted, so `-` in a bag means "this run had
+                             # none" and never "somebody forgot the argument".
+                             worktree_name=None)
 
         worktree = repo_root
         result = wf.run_review(task, worktree)

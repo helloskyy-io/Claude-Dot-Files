@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.research.research_minor import research_minor_workflow as rm  # noqa: E402
 from modules.assistant.research import research_activities as act  # noqa: E402
 
@@ -59,6 +60,15 @@ def main(argv=None) -> int:
             for d in due:
                 print(f"    - {d.name}")
             return 0
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="research-minor", worktree_name=wt)
+
         result = rm.run_research_minor(
             research_dir=research_dir, repo_root=repo_root, worktree_name=wt,
             context=context, pr_number=a.pr_number, verbose=a.verbose,

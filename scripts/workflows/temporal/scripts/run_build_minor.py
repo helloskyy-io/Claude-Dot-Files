@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
 
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.build.build_inputs import BuildInput  # noqa: E402
 from modules.assistant.build.build_minor.build_minor_workflow import run_build_minor  # noqa: E402
 
@@ -61,7 +62,19 @@ def main(argv: list[str] | None = None) -> int:
             # Nothing has been created yet — that is the point of preflight.
             print(f"\n✗ {exc}", file=sys.stderr)
             return 1
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
+        # The name is computed here rather than below so the bag can record it.
+        # It is a pure string — nothing is created until `run_build_minor` — so
+        # this does not move a side effect ahead of the bag.
         worktree_name = f"build-{int(__import__('time').time())}"
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="build-minor", worktree_name=worktree_name)
+
         result = run_build_minor(task, repo_root, worktree_name)
     except (RuntimeError, FileNotFoundError) as exc:
         # These carry operator-facing recovery instructions from the layer that

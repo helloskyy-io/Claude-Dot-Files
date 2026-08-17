@@ -170,6 +170,14 @@ DECLARED_SPLITS = {
     # AWAY produced a path matching nothing and the guard passed over it. The
     # rewrite uses `--no-renames`, so there is no arrow to parse at all.
     ("plan_activities.py", "worktree_state"),
+    # A `manifest-sha256.txt` line — `<64 hex chars>  <payload path>` per RFC
+    # 8493 §2.1.3, which separates the two by whitespace and permits any amount
+    # of it. Not a URL, and the split cannot yield a plausible-but-wrong path the
+    # way `rsplit` on a URL can: the FIRST field's shape is asserted immediately
+    # after (64 hex characters, or `BagError`), which is a check `rsplit("/", 1)`
+    # on a URL has no equivalent of. The maxsplit of 1 is load-bearing — a
+    # payload path may legitimately contain spaces.
+    ("validate.py", "_parse_manifest"),
 }
 
 

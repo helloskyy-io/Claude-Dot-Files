@@ -18,7 +18,10 @@ testing/
 └── logs/                   per-suite output (gitignored)
 
 scripts/workflows/temporal/tests/
-└── unit/                   TIER 3 · the code unit owns its tests
+├── unit/                   TIER 3 · the code unit owns its tests
+└── integration/            TIER 3 · tests that read machine-local state a real
+                                     dispatch produced, and cannot build it
+                                     themselves — so they SKIP on a clean runner
 ```
 
 There is no `suites/bash.sh` and that is deliberate — the standard says to
@@ -41,9 +44,23 @@ live config on every machine. The reasoning is in
 unmodified runner like any other component — that is the bar a placement has
 to clear.
 
-`integration/` and `e2e/` do not exist yet either. `run-all.sh` reports them
-as `SKIP (no tests/integration)` rather than as passes, because a skip and a
-pass must never look alike in a summary.
+`e2e/` does not exist yet. `run-all.sh` reports an absent category as
+`SKIP (no tests/<category>)` rather than as a pass, because a skip and a pass
+must never look alike in a summary.
+
+**`integration/` now exists** (`scripts/workflows/temporal/tests/integration/`,
+added with the journal package) — and it has a limit worth knowing before you
+add to it. Its tests read bags that real dispatches left on this machine, which
+a clean checkout does not have, so every test in it is `skipif`-gated and the
+whole tier reports **PASS having asserted nothing** on a CI runner. That is the
+category-present-but-nothing-ran case, which is a different thing from the
+category being absent, and `run-all.sh` cannot currently tell them apart — no
+pytest exit code carries an executed-test count. It is the same gap
+[`C-067`](../docs/standards/architecture/research/candidates.md) already
+describes for `mutate.sh`'s legs, met here through a second tool. **So an
+integration test is never the evidence that a guard works** — write the unit
+test that runs everywhere, and let the integration tier confirm the shape
+against real output.
 
 ## Prerequisites
 

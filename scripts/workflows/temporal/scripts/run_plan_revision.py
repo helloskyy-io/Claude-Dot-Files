@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import preflight  # noqa: E402
 
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_revision import plan_revision_workflow as wf  # noqa: E402
 
@@ -139,7 +140,18 @@ def main(argv: list[str] | None = None) -> int:
         # --pr path the worktree is cut from the PR branch, matching V1; on the
         # new-branch path from HEAD.
         ref = f"origin/{act.pr_branch(a.pr_number, repo_root)}" if a.pr_number else "HEAD"
-        worktree = act.worktree_add(repo_root, f"plan-revision-{int(time.time())}", ref)
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
+        worktree_name = f"plan-revision-{int(time.time())}"
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="plan-revision",
+                             worktree_name=worktree_name)
+
+        worktree = act.worktree_add(repo_root, worktree_name, ref)
 
         url = wf.run_plan_revision(
             description=a.description, repo_root=repo_root, worktree=worktree,

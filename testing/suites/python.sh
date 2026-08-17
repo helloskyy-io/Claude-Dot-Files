@@ -16,8 +16,9 @@
 #   3  nothing to run — no `tests/<category>/` directory anywhere in the tree
 #
 # The 1-vs-3 split matters. Exit 3 means the category is simply not present in
-# this repo yet (there are no integration tests, and that is a stated fact, not
-# a fault). Exit 1 on an empty-but-present directory is deliberate: Testing
+# this repo yet (`e2e` is the remaining one; `integration` arrived with the
+# journal package, so it exits 0 or 1 now rather than 3). Exit 1 on an
+# empty-but-present directory is deliberate: Testing
 # Standard § Tier Enforcement — "a runner that finds no files ... and exits zero
 # is indistinguishable from a passing run. Assert a non-zero expected count."
 

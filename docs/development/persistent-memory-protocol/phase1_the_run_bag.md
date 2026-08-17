@@ -1,6 +1,6 @@
 # Phase 1 — The journal root and the run bag
 
-**Component:** [Persistent Memory Protocol](roadmap.md) · **Status:** not started · **Gate:** none — unblocked today
+**Component:** [Persistent Memory Protocol](roadmap.md) · **Status: 🔨 BUILT (2026-08-16) — all eleven requirements closed on the buildable half; r11's orchestrator half is port-time and stays open with prose saying why** · **Gate:** none — unblocked today
 
 ## What this phase does
 
@@ -113,6 +113,19 @@ Four states, and the validator distinguishes them:
 
 **Deciding it implicitly during Phase 3's wiring is the outcome this requirement exists to prevent**, because that is the one place the plan itself calls expensive to unwind. Note also that the run log is keyed **per repo checkout** while the journal is one root **per edge** — so requirement 7's payload table carries the originating repo/project as a first-class field regardless of which answer wins. A field absent from v1 events is absent forever, and without it nothing downstream can express *"this depends on which repo the run was in."*
 
+#### THE ANSWER: absorption, and the seam closes in Phase 3
+
+**The journal is the run log's new home.** The second option is rejected, and the reason is that it has no upside to weigh: two per-run stores holding duplicate transcripts under two event vocabularies costs two writers, two readers and two chances to disagree, and **there is no question the second copy answers.** The payload table above already admits the CLI transcript and the execution facts — that *is* `run_log.py`'s content — so "a second surface" would mean declaring the same bytes twice and then maintaining the difference.
+
+Four consequences, stated so Phase 3 wires to a decision rather than making one:
+
+1. **`run_log.py`'s declared surface is carried, not discarded.** Its three member event types (`parent_route`, `run_resources`, `convergence`), its `run_id` join key, its `PUBLISHABLE_FIELDS` classification and its growth rule become the journal's, versioned under `Event-Schema-Version`. The classification in particular has a home waiting for it: it is the per-row value in the payload table's classification column, one altitude up.
+2. **The join key changes meaning and that is the migration's real content.** `run_log.py`'s `run_id` is minted inside `run_claude` — **per model invocation**, so a parent and its three children carry four different values and no single one addresses the run. The journal's `run_id` is minted once at the top. They are different identifiers wearing one name, which is exactly why this could not be settled by "point the writer somewhere else".
+3. **The existing `.claude/logs/` archive is NOT migrated**, and this is a separate decision with its own reasoning rather than a consequence of the first. It is gitignored, so no clone, CI runner or worktree can re-derive it; it is a moving denominator (175 → 178 files inside one day); and by consequence 2 it has no identifier that addresses a *run*, so a migration would have to fabricate run-level bags out of child-level records. **Synthesising a record is the one thing a journal must never do.** The archive stays where it is, read by its three committed readers exactly as today, until it ages out.
+4. **The [`memory-model.md`](../../guide/memory-model.md) amendment is SURFACED, not written** — it is a `docs/guide/` document under human review, and it already has a declared writer for entries of this kind: the roadmap's § *Standards-amendment candidates*, where this lands as an entry naming when it applies. A dispatch writing it directly is what [`standards-governance.md`](../../../config/rules/standards-governance.md) exists to prevent.
+
+**Nothing changes in `.claude/logs/` in Phase 1.** This phase opens bags and writes no events, so both surfaces exist and only one is written to. The cut-over is Phase 3's, which is where emitters live; what this section removes is Phase 3's freedom to decide it by accident.
+
 ### Concurrent children write to their own subfolder
 
 The event-sourcing literature warns that without a correct sequence number and a single writer per aggregate, events get reordered. This fleet fans out — the 2026-08-12 verify round dispatched two critics 21 seconds apart — so concurrent writers are real today, not hypothetical.
@@ -123,13 +136,18 @@ The event-sourcing literature warns that without a correct sequence number and a
 
 ### What goes in the journal, and what stays out
 
-| Surface | What it is | In the journal? |
-|---|---|---|
-| **Authored output** — PR body, comments, decisions, triage, candidate rows | what the run **wrote** | **Yes, verbatim** |
-| **CLI transcript** — every tool call and result | **how the run got there** | **Yes.** Basic logging, and it is not optional |
-| **Execution facts** — cost, timing, resources, re-runs | what it took | **Yes** |
-| **Code diffs** | already perfectly stored | **No** — commit SHA, fetch from git |
-| **Temporal history** | orchestration, with a retention TTL | **No** — the workflow emits what it needs at completion |
+**THIS TABLE IS THE PAYLOAD SPEC (requirement 7) AND IT IS THE AUTHORITATIVE ONE.** No other document restates it; where another needs a row, it cites this section. A restated table is a copy, and a copy of a superseded row is how a correction fails to land.
+
+**The `May leave this edge?` column is the classification slot**, and it has one more column than this phase has any use for on purpose — § *Why the payload spec carries a classification slot it does not yet fill* below is the argument. Every row gets a value; today every value is the same.
+
+| Surface | What it is | In the journal? | Why — including why not | May leave this edge? |
+|---|---|---|---|---|
+| **Authored output** — PR body, comments, decisions, triage, candidate rows | what the run **wrote** | **Yes, verbatim** | No better durable store exists. GitHub comments are editable, deletable, unversioned and hosted by a service — **and they are where the reasoning lives** | shippable |
+| **CLI transcript** — every tool call and result | **how the run got there** | **Yes.** Basic logging, and it is not optional | It is the only record of *why* a run did what it did, and it is what [Phase 4](phase4_rebuild_is_a_test.md) replays. It is also 99.2% of the bytes (below) and the one surface carrying unredacted credentials, which is why § *Schema versioning* designs a redaction path | shippable |
+| **Execution facts** — cost, timing, resources, re-runs | what it took | **Yes** | Measurement samples: each decides nothing alone and becomes a decision only as a rate over many runs, so they are worthless unless kept across runs. This is `run_log.py`'s three declared event types (§ *The surface this replaces*) | shippable |
+| **Originating repo/project** — worktree path, `origin` remote, HEAD commit | which checkout this run happened in | **Yes, as a first-class field** | The run log it supersedes is keyed **per repo checkout** while the journal is one root **per edge**, so without this nothing downstream can express *"this depends on which repo the run was in."* **A field absent from v1 events is absent forever** | shippable |
+| **Code diffs** | already perfectly stored | **No** — commit SHA, fetch from git | git is versioned, content-addressed and complete. Storing a second copy adds bytes and a second thing that can disagree with the first | n/a — not stored |
+| **Temporal history** | orchestration, with a retention TTL | **No** — the workflow emits what it needs at completion | **Excluded as a *source* only, and only because it expires.** Its identity scheme is bounded by retention and continue-as-new starts a fresh history: an execution log with a TTL, not a durable memory. Building analysis on it means building on a store that deletes itself on a schedule configured months earlier | n/a — not stored |
 
 **The line is one question: does a better durable store already exist for this artifact type?** For code it does — git is versioned, content-addressed and complete, so the journal carries the SHA. For the prose a run writes into GitHub it emphatically does not: comments are editable, deletable, unversioned and hosted by a service, **and they are where the reasoning lives.**
 
@@ -215,28 +233,124 @@ Three of this component's rules compose into a trap: the transcript goes in and 
 
 ---
 
+## What was built, and where it lives
+
+| Piece | Where |
+|---|---|
+| Root resolution and its refusals | `scripts/workflows/temporal/modules/journal/root.py` |
+| The bag: layout, manifest, lifecycle, redaction, gap records | `scripts/workflows/temporal/modules/journal/bag.py` |
+| The validator | `scripts/workflows/temporal/modules/journal/validate.py` |
+| The activity a run invokes first | `scripts/workflows/temporal/modules/journal/journal_activities.py` |
+| The operator CLI | `scripts/workflows/temporal/scripts/validate_bag.py` |
+| The root and deployment shape | `config.yaml` § `journal:` |
+| The enumerating sweep (r11's actual guarantee) | `scripts/workflows/temporal/tests/unit/test_every_parent_opens_a_run_bag.py` |
+
+### Two boundaries of the built guarantee, stated because every other one here is
+
+- **`--dry-run` is a deliberate exemption.** Seven of the 11 entrypoints return from their dry-run branch before reaching bag-open, so on that path the call is present and does not execute. *(The other four have no `--dry-run` at all. This said EIGHT until the figure was derived rather than restated — see [`test_journal_prose_figures_are_DERIVED.py`](../../../scripts/workflows/temporal/tests/unit/test_journal_prose_figures_are_DERIVED.py), which now fails when a count in this document contradicts the tree.)* That is intended — a dry run states *"nothing invoked, nothing posted"*, and creating a directory would falsify it and fill the journal with empty bags from previews. No run happens on that path, so no run lacks a bag.
+- **The ordering check reaches 8 of the 11 entrypoints.** It can see a `worktree_add` call and a workflow handoff called by name; `run_research.py`, `run_research_minor.py` and `run_review_pr.py` reach their workflow through an aliased module that also carries pure prompt-assembly functions legitimately running before the bag, so treating any call on it as a side effect would fail those three falsely. The set it does not cover is **pinned in the test**, so an entrypoint dropping out of coverage fails rather than passing vacuously. Presence is still checked for all 11.
+
+### Redaction containment — the one sanctioned mutation needed the strictest guard and initially had the weakest
+
+`redact()` composes a caller-supplied relative path onto a trusted bag path, which is the same class of input § *Why the root is configurable* treats adversarially one layer up — and it was the one input in the package that could not be defended by slugification, because it must preserve internal `/` to address a nested payload file. Two escapes followed and both were demonstrated against a real bag rather than reasoned about: a `..` walk (`data/../../x`) passed a first-segment check and overwrote a file beside the bag in the journal root, and a symlink under `data/` passed `is_file()`, was hashed into the manifest as though it were payload, and was followed on redaction so the write landed on the link's target.
+
+Both are closed the way the root's containment is: normalise, resolve, then prove the result is still inside the directory it must be inside — plus a symlink refusal on every path segment, `O_NOFOLLOW` on the write, and **a symlink under `data/` reported by the validator as a structural failure**. The general rule this leaves behind: *a bag holds bytes, not pointers to bytes that live outside it* — a pointer does not survive the directory-tree transfer [Phase 7](phase7_s3_aggregation.md) depends on.
+
+### And the rule stayed prose, so it leaked twice more — which is why it is now a function and a sweep
+
+**The two escapes above were fixed as two instances. The next review pass found two more of the same shape**, which is the evidence that enumerating instances does not converge here:
+
+- **The validator's manifest join.** `manifest-sha256.txt` is untrusted input — a file on disk this module did not necessarily write — and `validate_bag` composed its second field straight onto the bag's path. Demonstrated: a bag with an **empty `data/`** and the single line `<sha256 of /etc/hostname>  ../../../../etc/hostname` reported **`result: PASS`**. Every check agreed and every check was wrong for the same reason: `missing` saw a file that existed, `mismatched` saw a checksum that matched, and `unlisted` compared against an empty set. An absolute entry is worse — `Path("/j/run") / "/etc/hostname"` *discards* the base rather than escaping it. **This is requirement 5's own deliverable certifying a false statement**, on the tool an operator reaches for when the journal is what has gone wrong.
+- **The tag-label parameter.** The pass that closed value-forging in `_refuse_folded_value` wrote the fix against the parameter that had been exploited. The *label* is composed onto the same line, so `open_bag(info={"X\nJournal-Incomplete: true": "y"})` forged the flag identically. Every fleet call site passes a literal, which is exactly why nothing caught it.
+
+**Four instances, one shape: an externally-supplied string composed onto a trusted base.** Three of the four had been fixed correctly and independently, in three places, with no shared name — which is this component's own thesis (*a rule written in prose has not once prevented a write path being added without its emit*) coming true about the component. The remedy is the one r11 already argues for, applied to containment:
+
+- **One named rule** — `bag.contained_relpath`, called by `redact()` and by the manifest parser.
+- **A sweep that fails on the next one** — `tests/unit/test_journal_containment.py` walks every `base / x` composition in the package and refuses any whose right operand is neither a module constant nor `contained_relpath(...)`, unless a row declares *why that value cannot escape*. **Adding a join is what fails**, not remembering to test one.
+
+**The two halves catch different things, measured rather than assumed.** Reverting the manifest guard leaves the sweep GREEN — the declaration is still there, it is merely no longer true — and only the behavioural battery fails. Reverting `redact()`'s guard leaves the battery green (the realpath check still catches those inputs) and only the sweep fails. Neither substitutes for the other, and a fifth escape needs both to be wrong at once.
+
+*(Fixing normalisation also fixed a false failure in the other direction: a foreign bag using the `sha256sum` convention `./data/x.txt` had been reporting its only payload file as both present-and-matching **and** `unlisted` — `ok=false` on a healthy bag, contradicting the parser's own stated tolerance for other BagIt implementations.)*
+
+### Making bag-open structural made the TEST SUITE a dispatch, and nothing could go red about it
+
+**Found by running the suite and then looking at the operator's home directory** — not by an assertion, because every assertion passed the whole time. Five unit modules drive an entrypoint's `main()` to test its preconditions; every entrypoint now opens a bag; nothing stood between the two. **Twenty-four real bags accumulated under `~/.local/state/claude-dot-files/journal/` in a single day**, one per `pytest` invocation.
+
+Three consequences, and the third is the one that matters most to this component:
+
+1. Durable state written outside `tmp_path`, which the Testing Standard's fixture-placement rule forbids for exactly the reason it survives the run.
+2. [Phase 5](phase5_snapshots_then_retention.md)'s budget is measured over the whole root, so running the tests spends an operator's retention budget.
+3. **The integration tier was grading the unit suite's litter.** `test_a_real_bag_validates.py` reads whatever is under the real root and validates it *as a bag a real dispatch produced*. Its evidence base was mostly produced by the suite running two directories away — a tier that reads shared machine state cannot tell who wrote it.
+
+**Fixed as a property rather than as five edits:** an autouse session fixture in `tests/conftest.py` points `CONFIG_PATH` at a generated config naming a temporary root — **by config and not by `XDG_STATE_HOME`, because a configured root wins over every default**, so the environment route would protect only a machine whose `journal.root:` is empty. The check is separate from the remedy and keyed on the observable — *did the real root change* — rather than on the mechanism, since the mechanism varied every time this package leaked something. It discovers the entrypoint-driving modules by AST, runs them in a subprocess, and diffs the real root before and after.
+
+*(This is the third distinct thing in this phase that was correct-as-written, invisible to every test, and found only by executing something and looking at the result. The other two are the reseal appending a single-valued label, and the validator reporting `PASS` over a manifest naming a file outside the bag.)*
+
+### What requirement 9 does NOT check, and why that is a decision rather than a gap
+
+**The root's own properties are checked; its ANCESTORS' are not.** A group- or world-writable non-sticky directory *above* the root lets a different local account rename the root aside, at which point the next run recreates it, every check passes, and the fleet silently starts a fresh empty journal with the prior record gone.
+
+**It is not covered, deliberately, and the reasoning is r9's own scope.** Requirement 9 enumerates what the resolved root must be — absolute, `0700`, owned by this user, not a symlink, not inside a git working tree, writable — and both shipped defaults have safe ancestors (`/var/lib` and `~/.local/state` are neither group- nor world-writable). Reaching an unsafe ancestor requires an operator setting `journal.root:` under a shared directory. **Adding an unrequested refusal is not free here:** § *Why this is an activity* already names the cost that every run now hard-depends on this resolution succeeding, so a new way for it to fail stops the whole fleet including the run you would diagnose with.
+
+**The threat model this sits inside is already stated above** — *append-only here is a convention the fleet keeps, not a property the filesystem enforces*, and every run executes as the user that owns the root with permissions bypassed. An adversary with a local account and write on an ancestor is a machine misconfiguration one layer below what this component can repair. **Named here rather than left silent, because the doc describing the multi-user hazard while the code quietly declined half of it is the shape worth avoiding.** If a deployment ever puts the root under a shared parent, this is the requirement that grows a clause.
+
+---
+
 ## Implementation checklist
 
-- [ ] Write the root-resolution contract: config value first, documented default per deployment shape, explicit failure when neither resolves — **no silent fallback to a home directory** — plus requirement 9's mode rules (`0700`/`0600` at creation; refuse a group- or world-writable root, a symlink pointing outside the configured path, or a root inside a git working tree), **with the refusal naming the resolved path and the failing property**
-- [ ] Write the run-folder layout: `<root>/<run_id>/` as a BagIt bag, with one payload subfolder per child
-- [ ] Specify `bag-info.txt` contents including the schema-version field, and write the version/upcast rule and the redaction-event exception beside it
-- [ ] Specify `manifest-sha256.txt` generation over the payload, and manifest **regeneration** for the `redacted` state
-- [ ] Specify how `incomplete` is recorded on a bag, and confirm it is independent of the other three states rather than a fourth value of one field
-- [ ] Write the payload spec table into this doc's § *What goes in the journal* as the authoritative version, with the originating repo/project as a field and a classification slot per row, and confirm no other doc restates it
-- [ ] **Answer § *The surface this replaces*** — journal-absorbs-run-log or two-surfaces-with-a-seam — and record the reasoning; if it is absorption, surface the [`memory-model.md`](../../guide/memory-model.md) amendment as a candidate rather than writing it
-- [ ] **Build bag-open as an activity** the parent invokes as its first step, **and the enumerating test that discovers every parent and fails when one does not call it** — demonstrated against a deliberately non-conforming parent (requirement 11)
-- [ ] Build the validator: re-hash the payload against the manifest, report pass/fail, distinguish *missing file* from *checksum mismatch*, and always report all three fields — `lifecycle: open|sealed`, `redacted`, `incomplete` — rather than one label that hides the others
-- [ ] Add the validator to [`testing/run-all.sh`](../../../testing/run-all.sh) with a `tests/` directory per the [Testing Standard](../../standards/testing/README.md) — `unit/` for layout, manifest generation and every combination of the two lifecycle values with the two flags (including a bag that is `sealed`, `redacted` **and** `incomplete`), `integration/` for a real bag produced by a real dispatch
-- [ ] Demonstrate two concurrent writers producing one valid bag with no collision, as a **structural test over the layout API**. The live fan-out demonstration belongs to [Phase 3](phase3_the_emit_rule.md), because nothing emits until then
-- [ ] Record the measured size of one real run's bag, with its denominator, in § *Measurement* below
+- [x] Write the root-resolution contract: config value first, documented default per deployment shape, explicit failure when neither resolves — **no silent fallback to a home directory** — plus requirement 9's mode rules (`0700`/`0600` at creation; refuse a group- or world-writable root, a symlink pointing outside the configured path, or a root inside a git working tree), **with the refusal naming the resolved path and the failing property**
+- [x] Write the run-folder layout: `<root>/<run_id>/` as a BagIt bag, with one payload subfolder per child
+- [x] Specify `bag-info.txt` contents including the schema-version field, and write the version/upcast rule and the redaction-event exception beside it
+- [x] Specify `manifest-sha256.txt` generation over the payload, and manifest **regeneration** for the `redacted` state
+- [x] Specify how `incomplete` is recorded on a bag, and confirm it is independent of the other three states rather than a fourth value of one field
+- [x] Write the payload spec table into this doc's § *What goes in the journal* as the authoritative version, with the originating repo/project as a field and a classification slot per row, and confirm no other doc restates it
+- [x] **Answer § *The surface this replaces*** — journal-absorbs-run-log or two-surfaces-with-a-seam — and record the reasoning; if it is absorption, surface the [`memory-model.md`](../../guide/memory-model.md) amendment as a candidate rather than writing it
+- [x] **Build bag-open as an activity** the parent invokes as its first step, **and the enumerating test that discovers every parent and fails when one does not call it** — demonstrated against a deliberately non-conforming parent (requirement 11)
+- [x] Build the validator: re-hash the payload against the manifest, report pass/fail, distinguish *missing file* from *checksum mismatch*, and always report all three fields — `lifecycle: open|sealed`, `redacted`, `incomplete` — rather than one label that hides the others
+- [x] Add the validator to [`testing/run-all.sh`](../../../testing/run-all.sh) with a `tests/` directory per the [Testing Standard](../../standards/testing/README.md) — `unit/` for layout, manifest generation and every combination of the two lifecycle values with the two flags (including a bag that is `sealed`, `redacted` **and** `incomplete`), `integration/` for a real bag produced by a real dispatch
+- [x] Demonstrate two concurrent writers producing one valid bag with no collision, as a **structural test over the layout API**. The live fan-out demonstration belongs to [Phase 3](phase3_the_emit_rule.md), because nothing emits until then
+- [x] Record the measured size of one real run's bag, with its denominator, in § *Measurement* below
 
 ---
 
 ## Measurement
 
-*(Populated when the phase runs. Every figure is produced by a command run against the tree and pasted with the command that produced it — a restated figure is a copy, and a copy of a superseded figure is how a correction fails to land.)*
+*(Every figure is produced by a command run against the tree and pasted with the command that produced it — a restated figure is a copy, and a copy of a superseded figure is how a correction fails to land.)*
 
-**The baselines this phase is measured against**, both from the synthesis and both re-derivable:
+### What one real bag costs, measured 2026-08-16
+
+**The bag is produced by a real entrypoint's inputs**, not constructed by a test: `run_triage_candidates`'s own `open_run_bag` arguments, with the run stopped before its first side effect. No model was dispatched and no worktree was cut. The harness is eight lines and is quoted in the PR that added this section.
+
+**Measured against a temporary root rather than the default one, and that is a correction.** The first version of this measurement wrote its bag into `~/.local/state/claude-dot-files/journal/` — which is how the suite-pollution defect above went unnoticed for a pass. A bag's byte cost does not depend on where its root is, so nothing is lost by measuring in a sandbox, and a measurement that litters the thing it measures is a measurement that changes its own denominator.
+
+```
+$ du -sb /tmp/tmpixqez8jh/journal/0c4a0aa4*/
+523
+
+$ find /tmp/tmpixqez8jh/journal/0c4a0aa4*/ -type f -printf '%s\t%P\n'
+469     bag-info.txt
+54      bagit.txt
+
+$ du -sh /tmp/tmpixqez8jh/journal/0c4a0aa4*/
+16K
+```
+
+| Figure | Value | What it is |
+|---|---|---|
+| One opened bag, apparent bytes | **523** | `bagit.txt` 54 + `bag-info.txt` 469. The **per-run floor** — the whole cost of the protocol before anything emits |
+| Same bag, on-disk | **16 KiB** | three directories at one 4 KiB block each, plus the two tag files. The floor an operator's `du` will report |
+| The floor as a share of one complete run | **0.011%** | 523 ÷ 4,863,400 (the two synthesis baselines below, summed) |
+| Runs per [Phase 5](phase5_snapshots_then_retention.md) 1 GB budget, at the projected complete size | **≈205** | 1,000,000,000 ÷ 4,863,400. **A projection, not a measurement** — nothing emits until [Phase 3](phase3_the_emit_rule.md), so the payload half is the synthesis figure and not something this phase weighed |
+
+**⚠ This supersedes an earlier figure of 496 bytes and the reason is substantive, not a re-run.** That bag carried `Journal-Worktree: -`, because the field was an optional argument nine of eleven entrypoints omitted — so nine of eleven runs would have recorded no worktree identity, permanently, under this doc's own rule that *a field absent from v1 events is absent forever*. The argument is now required and all eleven pass one; the floor grew by the 27 bytes of a real worktree name. **The old number is not re-stated anywhere** — it measured a bag this code no longer produces.
+
+**⚠ The last row is the only one here that is not measured, and it is labelled that way deliberately.** The first three are `du` against a bag that exists; the fourth multiplies a real denominator by a projected numerator. Phase 3 is where it becomes a measurement, and the figure it produces supersedes this row rather than joining it.
+
+**What the floor buys, stated because 496 bytes reads like nothing:** it is what makes a run's record *addressable* — an operator with a `run_id` has a folder, and a crashed run leaves an `open` bag rather than no evidence at all. The whole of [Phase 4](phase4_rebuild_is_a_test.md)'s rebuild stands on that folder existing.
+
+### The baselines this phase is measured against
+
+Both from the synthesis and both re-derivable:
 
 | Figure | Value | Source |
 |---|---|---|
