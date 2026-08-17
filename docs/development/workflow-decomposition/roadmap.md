@@ -23,7 +23,7 @@ Two things follow from that, and they are the second half of the work: children 
 - **Family alignment** — how children that share a job stay aligned, and where they are allowed to differ
 - **The invocation contract** — how a workflow learns what to do from how it was called
 
-**It does not own:** durability or resumption ([Temporal Integration](../temporal-integration/temporal-integration.md)), what a run records ([PMP](../persistent-memory-protocol/roadmap.md)), or making a child better at its job ([Self Improvement](../sprint.md)).
+**It does not own:** designing or building workflows that do not exist yet — that is [Assistant Workflow Design](../sprint.md), which is the other side of this component's seam: decomposition takes apart what already existed, that one creates what does not. Nor durability or resumption ([Temporal Integration](../temporal-integration/temporal-integration.md)), what a run records ([PMP](../persistent-memory-protocol/roadmap.md)), or making a child better at its job ([Self Improvement](../sprint.md)).
 
 ---
 
@@ -52,7 +52,15 @@ Take the monoliths apart, then write down what the shape is.
 - [ ] **Rule fork-vs-parameterize** — the half a test cannot judge: a copy that has already drifted reads as intent, not accident
 - [ ] **Extend the producer-with-no-consumer gate** beyond `scripts/helpers/measure/`
 
-### Phase 3 — The invocation contract ⬜
+### Phase 3 — Split the remaining long-running workflows ⬜
+
+*The research and plan families never got the split that `build` did.* Same treatment, same reason: separate the work from its review and its correction, so each boundary is a place to retry rather than a place to restart.
+
+- [ ] **The research family** — `research_write` and `research_verify` are already separate children, but the cycle around them is not split the way `build_draft` → `build_refine` is
+- [ ] **The plan family** — `plan_feature`, `plan_sprint`, `plan_verify` run as a chain with no correction stage of their own
+- [ ] **Name what should NOT be split** — a workflow whose work and review are genuinely one act, and why
+
+### Phase 4 — The invocation contract ⬜
 
 *A workflow derives what it needs from how it was called.* Dual-mode is *who called me*; scope derivation is *what was I pointed at*.
 
@@ -61,21 +69,9 @@ Take the monoliths apart, then write down what the shape is.
 - [ ] **Centrally managed config, with a user tier beside it** — agents, skills, rules and hooks are read from `~/.claude/`, so an interactive edit silently changes what every dispatch on that machine does and no two machines can be shown to match. The fleet's set becomes managed; the user keeps a tier they own and can extend. *Gate: PMP Part 1 — if the run bag records the config a run used, the divergence half shrinks to a reader.* **`run-claude` already refuses an inherited model; this is the same seam applied to everything else a dispatch absorbs.**
 - [ ] **`research_refresh_parent` has no entrypoint** — a parent nothing can invoke, found while counting for the box above
 
-### Phase 4 — The missing children and parents ⬜ GATED
-
-*The set we do not have yet.* Standalone because it is the largest phase and the only one with no evidence behind it.
-
-- [ ] **Design the set** — which children should exist and where the boundaries fall
-- [ ] **"No god workflows" as an actual rule** — what a single workflow may not do, stated so it can be checked
-- [ ] **Build them**
-
----
-
 ## The order, and what each part waits on
 
-**Phases 2 and 3 have no external gate** and can be planned and built now.
-
-**Phase 4 waits on two things, in order:** the operator's list of what the set should contain, then research. It is the phase this component's own history argues hardest for — Phase 1 was built without either, which is why this roadmap is being written at the end instead of the beginning.
+**Phases 2, 3 and 4 have no external gate.** The component has a real end: when they close, decomposition is done. What used to be Phase 4 — the set of workflows that do not exist yet — moved to [Assistant Workflow Design](../sprint.md), because building what is missing is not the same act as taking apart what is here.
 
 **Research:** [`research/`](research/) is scaffolded and empty. Phase 4 is what should fill it.
 
@@ -83,6 +79,6 @@ Take the monoliths apart, then write down what the shape is.
 
 ## What is deliberately not built
 
-- **A god workflow** — one entrypoint that does everything. Phase 4 turns this from a preference into a rule with a checkable boundary.
+- **A god workflow** — one entrypoint that does everything. Turning that from a preference into a checkable rule belongs to [Assistant Workflow Design](../sprint.md), which decides what the set contains.
 - **Agents as independently retryable units.** Operator ruling: a Tier-3 agent — independently addressable and independently retryable — is the canonical answer for a **metered API** integration, not for a **subscription-based CLI overlay**. It would need the CLI baked into worker images and a credential per pod. **The accepted trade, stated so nobody re-derives it as a gap:** agents stay inside Claude Code's process model and are therefore not independently retryable, and the parallel-narrow-then-sequential-integration pattern stays enforced by prompt discipline rather than by structure. A known limit, deliberately taken — and it rules out one shape of answer before Phase 4's research starts.
 - **Retry and resumption inside children** — that is durability, and it belongs to the Temporal port. See its retry-boundary item: `gh()` already carries a bounded retry for transient outages, and nesting that inside an activity retry multiplies attempts.
