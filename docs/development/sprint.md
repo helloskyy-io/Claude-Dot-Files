@@ -153,14 +153,11 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 
 **Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — four phases. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
 
-Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. A dispatch derives what it runs on rather than inheriting it.
+Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
 - [x] **Phase 1 · Decompose the build families and codify the shape** — draft/refine/review-pr, the activities layer, and the composition contract written down
 - [ ] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism and standard shipped; the fleet backlog and the drifted-copy ruling remain
-- [ ] **Phase 3 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, scope from the target, and centrally managed config
-- [ ] **Phase 4 · The missing children and parents** — *gated on the operator's list, then research*
-
-Origin and the rulings salvaged from it: [`cpi-decisions.md`](cpi-decisions.md) (2026-08-17)
+- [ ] **Phase 3 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, scope from the target, centrally managed config
 
 ## Sprint: Persistent Memory Protocol — Part 1 — 🟡 IN PROGRESS
 
@@ -205,18 +202,31 @@ The four phases that wait on something that does not exist yet.
 
 **Phase 6 can be pulled forward** — it needs the `review-runs` port, not the server.
 
+## Sprint: Assistant Workflow Design — 🔵 NOT SCHEDULED, NEEDS RESEARCH THEN PLANNING
+
+**Planning:** not yet written. Research first — this component's whole failure mode is building children nobody sized.
+
+**Named for `modules/assistant/`, which is where every one of these lives.** Decomposition takes apart what already existed; this designs, builds and trains what does not. **A long-running component: it gains phases as the fleet gains capabilities, and those phases land in much later sprints while staying this feature.**
+
+- [ ] **The roster** — what every parent and child IS and what it DOES, as one readable catalog. The set is currently knowable only by reading the tree
+- [ ] **"No god workflows" as an actual rule** — what a single workflow may not do, stated so it can be checked
+- [ ] **Marketing children** — viability, target audience, opportunities. A loop that revises the *problem statement* rather than building against it: who has this problem, how common is it, can the solution be sold
+- [ ] **Research-children training** — getting a research cycle to produce what was actually wanted, at accuracy. **The prerequisite to [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning), not part of it**
+- [ ] **Chain `plan-verify` into `plan-project`** — it exists as a child and appears in all three planning scenarios, and nothing calls it
+
 ## Sprint: Self Improvement — 🔵 NOT SCHEDULED, NEEDS RESEARCH THEN PLANNING
 
 **Planning:** not yet written. Research comes first — this is a measurement problem before it is a training problem.
 
 Making a child better at its job, measured rather than asserted. Today a child's performance is scattered across pull-request comments and log files nothing reads, so there is no baseline to improve against and no way to tell an improvement from a good day.
 
+**Training the children is NOT here** — that is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning), and it is the prerequisite. This component is the system improving itself, which presupposes children that already work.
+
 **Gated on the journal.** [PMP](persistent-memory-protocol/roadmap.md) Part 1 gives runs a durable record; [Phase 6](persistent-memory-protocol/phase6_cpi_reads_the_journal.md) is what reads it back. Until a child's behaviour is measurable across runs, training is guesswork with a confident voice.
 
 **It sits in front of [Autonomous Operation](#sprint-autonomous-operation--🔵-not-scheduled)** because a loop that dispatches its own work amplifies whatever the children already do — well or badly. Improving them first is cheaper than supervising them later.
 
 - [ ] **Measure a child's performance** — what a good run looks like, derived from the journal rather than declared
-- [ ] **Train one child against that measure** — the candidate-reasoning child is the natural first subject; it is the one whose ceiling may be human-in-the-loop
 - [ ] **Decide what generalises** — whether the method transfers to other children or only fit the first one
 
 ## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED

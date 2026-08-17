@@ -177,7 +177,12 @@ BUDGETS: dict[str, int] = {
     # vacated space refill unwatched.
     "build/build_refine_minor/prompts/stages_2_to_4.md": 2_693,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
-    "research/research_write_minor/prompts/write_minor.md": 12_313,
+    # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
+    # forbade it on the argument that with one paper the roll-up IS the paper —
+    # true on run 1, false on run 2, since papers accumulate and the synthesis is
+    # replaced. Without it a planner reports "no synthesis" and plans from priors
+    # while the paper sits unread, which wastes the whole cycle.
+    "research/research_write_minor/prompts/write_minor.md": 13_941,
     "research/research_write/prompts/write.md": 11_669,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one
