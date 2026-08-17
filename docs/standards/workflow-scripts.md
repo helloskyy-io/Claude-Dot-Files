@@ -35,7 +35,7 @@ scripts/               kickoff entrypoints, until an SDK path replaces them
 
 Four §10.1 rules bear directly on how we lay work out:
 
-- **The promotion rule (rule 3) is the ONLY test for what sits at a parent level.** A helper, activities or inputs module moves out of a workflow folder **if and only if more than one workflow uses it.** Consumer count decides, never taste. The payoff is that anything at a parent level is shared **by definition**, so a reader never opens a file to learn its scope.
+- **The promotion rule (rule 3) is the ONLY test for what sits at a parent level.** A helper, activities or inputs module moves out of a workflow folder **if and only if more than one workflow uses it.** Consumer count decides, never taste. The payoff is that anything at a parent level is shared **by definition**, so a reader never opens a file to learn its scope. **This applies to prompt `.md` files exactly as it applies to modules** — see [§ A prompt block with two consumers is promoted](#a-prompt-block-with-two-consumers-is-promoted-and-a-test-enforces-it). The rule was stated for code, the paragraph below noted that we additionally ship prompts, and nobody extended it across; the measured cost was 61 duplicated blocks carrying 25,270 bytes.
 - **Folder name and file prefix MUST match (rule 4).** `config_apply/` holding `home_assistant_config_apply_*.py` is non-conformant.
 - **Purpose folders are optional; module folders are not (rule 5).** A purpose folder is used only *when the grouping earns its level*; a workflow with no natural purpose sibling sits directly under its module.
 - **A one-file workflow folder is conformant (rule 6)**, and an **activity-only module** with no workflow at all is an allowed shape that must not be "corrected" into a trio (rule 7).
@@ -701,6 +701,18 @@ component. They must discriminate:
 
 **Applying the last row to everything is the failure this section exists to prevent.** It reads as care and
 is indistinguishable, from the outside, from having no judgement about risk.
+
+### A prompt block with two consumers is promoted, and a test enforces it
+
+**A block that appears verbatim in two children moves to `modules/assistant/prompts/` and is referenced by placeholder.** This is the promotion rule above, applied to prose: consumer count decides, never taste. The shared pool sits above *all* families, so a fragment may be shared by a build child and a research child — family boundaries do not enter into it.
+
+**Why it is an economy rule and not a tidiness one.** A duplicated block is re-sent on every turn of every run that loads it, so the cost is paid per-turn, per-copy, forever. It is also how a rule silently stops applying: `stages_1_to_4.md` and its `_from_plan` sibling forked, the plan variant never received eleven testing rules, and **every phase built from a plan ran without the instruction that says how much rigour to apply** — the § *Proportional rigour* table above. Nobody chose that. A copy simply stopped being updated, and no reader could tell, because a copy and an original are the same file type.
+
+**Mechanically:** move the block to `modules/assistant/prompts/<name>.md`, put a placeholder where it was in each child, and pass `"NAME": act.shared_prompt("<name>")` in each workflow's values dict. `prompts/mutation_discipline.md` is the worked example. A shared fragment carrying its own placeholders is allowed, and **every** consumer must supply them — one that does not renders a live `${…}` and `render()` raises at dispatch rather than in the suite.
+
+**Enforced by `test_prompt_blocks_are_shared_not_copied.py`**, which freezes the duplication that existed when the rule landed and ratchets **both ways**: a duplicated block absent from the baseline fails, and a baseline entry that is no longer duplicated also fails so its line must be deleted. The second is what makes the list shrink rather than become a permanent excuse list — a fix cannot be made without the baseline shrinking to match.
+
+**What the test does NOT see, so the rule is not over-read: near-duplicates.** Matching is verbatim, so a copy that has already drifted by one word is invisible — and a drifted copy is the more dangerous kind, because it reads as intent rather than as an accident. Three same-named prompts sit at 85.8%, 76.1% and 62.1% similarity to their siblings and none appears in the baseline. **That half is a judgement about which differences are deliberate, and it belongs to the fork-vs-parameterize ruling, not to a test.**
 
 ## Prompt-string authoring (BINDING — prompt strings are code)
 
