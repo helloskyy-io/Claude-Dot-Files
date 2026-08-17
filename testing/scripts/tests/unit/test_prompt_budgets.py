@@ -73,7 +73,15 @@ BUDGETS: dict[str, int] = {
     # DID NOT SHRINK, IT MOVED — the same 4,541 bytes are still sent on every
     # refine run, they are just sent from one place instead of two. The budget
     # follows the bytes so the vacated 4.5 KB cannot quietly refill.
-    "build/build_refine/prompts/stages_2_to_4.md": 17_358,
+    # Then 17_358 -> 17_370, and the twelve bytes NEVER REACH THE MODEL: the
+    # correction pass renamed the fragment `resolve_fix_by_default` ->
+    # `resolve_fix_by_default_and_summary`, so `${RESOLVE_FIX_BY_DEFAULT}` grew
+    # by twelve characters that `render()` substitutes away before dispatch.
+    # Raised rather than absorbed because this table measures the FILE, which is
+    # the right proxy almost always and is a slight over-count exactly here —
+    # and a budget quietly wrong by twelve bytes is worse than one raised on
+    # purpose with the reason attached.
+    "build/build_refine/prompts/stages_2_to_4.md": 17_370,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
@@ -113,7 +121,8 @@ BUDGETS: dict[str, int] = {
     "plan/plan_verify/prompts/plan_verify.md": 13_142,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
-    "build/build_refine_minor/prompts/stages_2_to_4.md": 9_896,
+    # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
+    "build/build_refine_minor/prompts/stages_2_to_4.md": 9_908,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     "research/research_write_minor/prompts/write_minor.md": 12_313,
     "research/research_write/prompts/write.md": 11_669,

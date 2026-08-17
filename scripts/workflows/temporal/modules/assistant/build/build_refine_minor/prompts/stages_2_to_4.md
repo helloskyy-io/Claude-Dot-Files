@@ -63,7 +63,7 @@ ${RESOLVE_CLOSED_DISPOSITION_LIST}
 - **RULING-REQUIRED** — real, you believe the reviewers are RIGHT, and acting on it would override an EXPLICIT operator instruction (a stated definition-of-done, a scoped constraint). Do not override it and do not dismiss the finding: fix whatever substance you legitimately can, state the recommendation plainly, and hand the placement decision up. **This is the shape whenever a DoD phrases a MEANS and reviewers dispute the means while agreeing on the end** — measured on a settings-validator placement where three reviewers agreed and the taxonomy pushed toward either overriding the operator or dismissing all three.
 - **SURFACED** — real, genuinely outside this change's scope, and NO verified home exists. State it plainly in the PR body with no pointer at all, so \`review-pr\` and the operator can dispose of it. Do NOT invent a tracker — surfacing IS the action, and a naked surfaced item gets picked up downstream while a plausible-looking pointer gets filed away as handled.
 
-${RESOLVE_FIX_BY_DEFAULT}
+${RESOLVE_FIX_BY_DEFAULT_AND_SUMMARY}
 
 ${VERIFY_AND_CI_GATE}
 

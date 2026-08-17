@@ -48,7 +48,7 @@ _PROMOTED = [
     "fidelity_needs_a_separate_run",
     "resolve_disposition_authority",
     "resolve_closed_disposition_list",
-    "resolve_fix_by_default",
+    "resolve_fix_by_default_and_summary",
     "verify_and_ci_gate",
     "altitude_component",
 ]
@@ -57,14 +57,27 @@ _PROMOTED = [
 def _needle(stem: str) -> str:
     """The longest line of a fragment — distinctive enough to locate it in a prompt.
 
-    Skips the `<!-- SHARED -->` editor header, which is commentary about the
-    fragment rather than its substance, and skips placeholder-only lines, which
-    are gone by the time the prompt is rendered.
+    Skips an HTML comment header — commentary about the fragment rather than its
+    substance — and placeholder-only lines, which are gone by the time the
+    prompt is rendered.
+
+    NOTE THE TWO DIFFERENT SUBJECTS, because getting them the same way round is
+    what makes the second condition dead code. An opening `<!--` may be indented,
+    so it is tested against the STRIPPED line; a header's CONTINUATION lines are
+    identified BY their indentation, so they must be tested against the RAW one.
+    Testing both against `lstrip()` — as the first version of this did — makes
+    the continuation arm unreachable, since `lstrip()` has already eaten the very
+    whitespace that arm looks for. Harmless while no promoted fragment carries a
+    header (none does: the two that did were removed as prompt-economy waste),
+    and silently vacuous the moment a short one gains a header, because the
+    needle would then be drawn from the commentary that renders unconditionally.
     """
     lines = [
         ln.strip()
         for ln in (_SHARED / f"{stem}.md").read_text().splitlines()
-        if ln.strip() and not ln.lstrip().startswith(("<!--", "-->", "     "))
+        if ln.strip()
+        and not ln.lstrip().startswith(("<!--", "-->"))
+        and not ln.startswith("     ")
         and "${" not in ln
     ]
     assert lines, f"{stem}.md yielded no usable needle — the fragment is empty or all placeholders"
@@ -144,7 +157,7 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
 _REFINE_FRAGMENTS = [
     "fidelity_premise", "fidelity_needs_a_separate_run",
     "resolve_disposition_authority", "resolve_closed_disposition_list",
-    "resolve_fix_by_default", "verify_and_ci_gate",
+    "resolve_fix_by_default_and_summary", "verify_and_ci_gate",
 ]
 
 

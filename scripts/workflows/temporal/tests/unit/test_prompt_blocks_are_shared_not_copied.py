@@ -66,6 +66,17 @@ MIN_BLOCK = 120
 
 # FROZEN 2026-08-16. hash -> how many children carry it, and its opening words.
 # THIS LIST MAY SHRINK. IT MAY NEVER GROW.
+#
+# THE LEADING `Nx` IS AN ASSERTION, NOT A NOTE — see
+# `test_a_baselined_block_does_not_SPREAD_to_another_child`. It was decoration
+# until PR #100's correction pass mutated the guard and found that copying an
+# ALREADY-BASELINED block into a THIRD child produced 1282 passed and zero
+# failures: the baseline froze WHICH blocks are duplicated and never HOW WIDELY,
+# so a duplication could keep spreading through the exact blocks the list had
+# already forgiven. The same pass had just regenerated these counts (one moved
+# 5x -> 4x), which is what made leaving them unchecked the worse option — a
+# freshly-rewritten number reads as live data.
+
 ACCEPTED: dict[str, str] = {
     "0b7e2bdc08dc": "2x  - **If you have written the remedy, apply it.** Drafting a fix an",
     "2cb3af052cf4": "2x  Execute stages in strict numerical order. If a stage has nothing ",
@@ -115,6 +126,35 @@ def test_no_NEW_block_is_copied_between_children() -> None:
         + "\n  ".join(
             f'{h} · {sorted(o)} · {" ".join(t.split())[:90]}'
             for h, (t, o) in sorted(new.items())
+        )
+    )
+
+
+def test_a_baselined_block_does_not_SPREAD_to_another_child() -> None:
+    """The other axis of the ratchet: a forgiven block may not gain consumers.
+
+    `test_no_NEW_block_is_copied_between_children` keys on the block, so once a
+    hash is in ACCEPTED it is forgiven no matter how many children carry it.
+    Widening was therefore free, and free is what the `Nx` prefix looked like it
+    was preventing while checking nothing.
+    """
+    dup = _duplicated()
+    spread = []
+    for h, note in ACCEPTED.items():
+        if h not in dup:
+            continue                      # stale — the test below owns that case
+        m = re.match(r"(\d+)x", note)
+        assert m, f"{h}'s baseline note must start with its consumer count, e.g. '2x': {note!r}"
+        frozen, owners = int(m.group(1)), dup[h][1]
+        if len(owners) > frozen:
+            spread.append((h, frozen, sorted(owners), note))
+    assert not spread, (
+        "These blocks were already duplicated when the baseline froze and have "
+        "since been copied into MORE children. The baseline forgives the "
+        "duplication that existed, never its growth — promote the block to "
+        "modules/assistant/prompts/ rather than widening its entry:\n  "
+        + "\n  ".join(
+            f"{h}  frozen at {n}x, now {len(o)}x {o}" for h, n, o, _ in sorted(spread)
         )
     )
 
