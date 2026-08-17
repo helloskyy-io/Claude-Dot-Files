@@ -93,6 +93,37 @@ def _install(monkeypatch, replies: list[tuple[int, str]]) -> _FakeGh:
     return fake
 
 
+# ── the budget itself ──────────────────────────────────────────────────────
+
+def test_the_retry_BUDGET_is_pinned_as_LITERALS_and_never_derived() -> None:
+    """EVERY OTHER TEST HERE DERIVES ITS EXPECTATION FROM THE CONSTANT, SO THE
+    CONSTANT ITSELF IS UNPINNED WITHOUT THIS.
+
+    Measured, not reasoned about: widening `_GH_RETRY_BACKOFF_SECONDS` from two
+    pauses to five and running this module fired ZERO tests. `_ATTEMPTS` is
+    computed from the constant and the sleep assertions compare against the
+    constant, so both sides moved together — the classic shared-fixture control,
+    where the test and the code under test read the same value.
+
+    That matters because the bound IS the design. "Ride out a blip" and
+    "disguise an outage as latency" differ only in this tuple, and the operator's
+    stated concern is runs that will not stop. So the numbers are restated here
+    as literals: changing the policy now costs a deliberate edit to a test whose
+    docstring says what the numbers were chosen to buy.
+
+      2.0s  the 503s measured during the 2026-08-17 outage cleared in seconds
+      6.0s  one more, shorter than the 8.0 its sibling uses, because this sits
+            UNDERNEATH `_THREAD_READ_BACKOFF_SECONDS` and the product is what an
+            operator waits through
+      3     attempts total: one retry is a coin flip, four starts hiding an outage
+    """
+    assert act._GH_RETRY_BACKOFF_SECONDS == (2.0, 6.0), (
+        "the retry budget moved. That is allowed — but say in the PR what the "
+        "new worst-case wall-clock is, here and in the composition test below.")
+    assert sum(act._GH_RETRY_BACKOFF_SECONDS) == 8.0
+    assert _ATTEMPTS == 3
+
+
 # ── the transient direction ────────────────────────────────────────────────
 
 def test_a_503_on_a_read_is_retried_and_the_run_survives_it(
@@ -391,9 +422,12 @@ def test_the_retry_under_the_review_threads_retry_stays_bounded(
     with pytest.raises(RuntimeError):
         wf._read_thread_for_invariant("100", tmp_path)
 
-    expected = _ATTEMPTS * (len(wf._THREAD_READ_BACKOFF_SECONDS) + 1)
-    assert len(fake.calls) == expected, (
-        f"the composed bound moved: {len(fake.calls)} attempts against the "
-        f"{expected} the two policies multiply to. If a constant changed "
-        f"deliberately, change this number with it and say what the new "
-        f"worst-case wall-clock is.")
+    # 9 AS A LITERAL, and the derivation beside it. The derived form alone moves
+    # with whichever constant was just edited, which is exactly how the sibling
+    # test above measured a five-pause budget as green.
+    assert len(fake.calls) == 9, (
+        f"the composed bound moved: {len(fake.calls)} attempts against 9. If a "
+        f"constant changed deliberately, change this number with it and say what "
+        f"the new worst-case wall-clock is — it is 3×(2.0+6.0) + 2.0+8.0 = 34s "
+        f"today, and an operator waits through all of it.")
+    assert len(fake.calls) == _ATTEMPTS * (len(wf._THREAD_READ_BACKOFF_SECONDS) + 1)
