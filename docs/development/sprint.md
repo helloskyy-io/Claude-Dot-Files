@@ -209,7 +209,7 @@ The four phases that wait on something that does not exist yet.
 **Named for `modules/assistant/`, which is where every one of these lives.** Decomposition takes apart what already existed; this designs, builds and trains what does not. **A long-running component: it gains phases as the fleet gains capabilities, and those phases land in much later sprints while staying this feature.**
 
 - [ ] **The roster** — what every parent and child IS and what it DOES, as one readable catalog. The set is currently knowable only by reading the tree
-- [ ] **"No god workflows" as an actual rule** — what a single workflow may not do, stated so it can be checked
+- [ ] **The conditions under which a god-like workflow becomes possible** — long chains with no human behind each parent are the eventual goal, not a prohibition. They are blocked today by child performance, not by design: HiL is load-bearing because the children need it. Name what has to be true — accuracy, measured — before review stops being the thing holding a chain together. Gated on [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning)
 - [ ] **Marketing children** — viability, target audience, opportunities. A loop that revises the *problem statement* rather than building against it: who has this problem, how common is it, can the solution be sold
 - [ ] **Research-children training** — getting a research cycle to produce what was actually wanted, at accuracy. **The prerequisite to [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning), not part of it**
 - [ ] **Chain `plan-verify` into `plan-project`** — it exists as a child and appears in all three planning scenarios, and nothing calls it
