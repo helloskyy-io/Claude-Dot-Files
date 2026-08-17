@@ -50,6 +50,8 @@ import collections
 import re
 from pathlib import Path
 
+import pytest
+
 _REPO = Path(__file__).resolve().parents[4]
 _CANDIDATES = _REPO / "docs" / "standards" / "architecture" / "research" / \
     "candidates.md"
@@ -159,10 +161,32 @@ def _ends_the_table(line: str) -> bool:
     steals its neighbour's evidence. Both rows still render, which is what made
     the wrong explanation survive — the sibling check only ever asked whether
     C-050 and C-051 rendered, and they did.
+
+    ORDERED-LIST MARKERS ARE IN THE SET AND `<` IS DELIBERATELY NOT, and both
+    halves of that are MEASURED through `POST /markdown` rather than reasoned
+    from the spec:
+
+      * `1. text` and `2. text` inside a table both END it — the row after
+        each came back inside an `<ol>`/`<ol start="2">` as literal `| 3 | 4 |`
+        text, not as a `<tr>`. So ANY ordered-list marker interrupts, not only
+        one starting at 1, which is what the paragraph-interruption rule alone
+        would have predicted. That is why the pattern is `^\\d+[.)] ` and not
+        `^1[.)] `.
+      * `<div>html</div>` inside a table ENDS it; `<span>x</span>` inside a
+        table DOES NOT — it came back as a `<tr>`. Whether a `<` line closes a
+        table depends on CommonMark's fixed list of ~62 HTML *block* tag names,
+        and a blanket `s.startswith("<")` would therefore invent a boundary
+        GitHub does not draw and report the rows after a `<span>` as stranded.
+        That residual is named in the cell-count check's limits list and held
+        by `test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see`;
+        it is disclosed rather than implemented because `candidates.md` has
+        ZERO lines opening with `<` today and the repo-wide question is C-103's
+        to rule, not this pass's to guess at.
     """
     s = line.strip()
     return (not s
             or s.startswith(("#", ">", "```", "~~~", "- ", "* ", "+ "))
+            or bool(re.match(r"^\d+[.)] ", s))
             or set(s) <= {"-", "*", "_", " "} and len(s) >= 3)
 
 
@@ -327,25 +351,74 @@ def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
     cannot see a table whose header is WRONG — a header with the right number
     of columns and the wrong names passes, and so does a body row whose cells
     are correctly counted and shifted one column left. It says nothing about
-    tables in any other file. And it inherits `_ends_the_table`'s notion of
-    where a table stops, so a block-level opener this repo has not used yet
-    (an HTML block, a footnote definition) would end a table here while GFM
-    kept it open, silently shrinking the population rather than failing.
+    tables in any other file — that is C-103, and it is a proposal, not a gap
+    this check is pretending to cover.
+
+    AND IT INHERITS `_ends_the_table`'s NOTION OF WHERE A TABLE STOPS. This
+    paragraph SAID THE WRONG THING for one revision, in the same docstring that
+    corrects `_ends_the_table`'s own wrong story two functions above — it
+    claimed such an opener "would end a table here while GFM kept it open,
+    silently shrinking the population". Measured through `POST /markdown`, it
+    is the other way round: `<div>html</div>` inside a table ENDS it for
+    GitHub, and this scan — which tests no `<` — keeps the block open and reads
+    the rows after it as members. They are not members: GitHub renders them as
+    literal text. So the failure is the scan OVER-extending and missing rows
+    that stopped rendering, not under-reaching. The residual is disclosed here
+    and held red-able by
+    `test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see`, because
+    `<span>` does NOT end a table and a blanket `<` test would invent failures
+    GitHub does not have.
     """
     lines = _text().split("\n")
 
     wrong: list[str] = []
-    strays: list[str] = []
     for block in _table_blocks(lines):
         expected = _cells(lines[block[0]])
         for i in block:
             line = lines[i]
             if not line.lstrip().startswith("|"):
-                strays.append(f"line {i + 1}: {line.strip()[:60]!r}")
-            elif _cells(line) != expected:
+                continue  # the stray check below owns this shape
+            if _cells(line) != expected:
                 label = line.split("|")[1].strip()[:40] or f"line {i + 1}"
                 wrong.append(f"{label} ({_cells(line)} fields, expected {expected})")
 
+    assert not wrong, (
+        "these rows do not split into their table header's field count, so "
+        "GitHub drops their surplus cells and truncates the last one that "
+        "survives — the Note, which is the evidence: "
+        + "; ".join(wrong)
+        + ". Escape the pipe as `\\|`. It is honoured inside an inline code "
+          "span, so a regex alternation or a shell pipeline in the evidence "
+          "stays readable. Do NOT resolve this by deleting the evidence."
+    )
+
+
+def test_EVERY_LINE_INSIDE_A_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
+    """A non-`|` line inside a table renders as a DETACHED row, not as prose.
+
+    THIS IS A SHAPE CHECK, NOT A CELL COUNT, and it rode inside the cell-count
+    check for one revision — one function, two properties, two unrelated
+    failure messages, so a red run named "cell count" in the report and "stray
+    line" in the body. It belongs beside the contiguity check above, which asks
+    the SAME boundary question from the other side: that one asks whether every
+    row is inside a block, this one asks whether everything inside a block is a
+    row. Together they are what "the population is what GFM treats as a row"
+    actually means.
+
+    The instance that produced it: C-050's `Note` had a 1,981-character tail
+    split onto its own line. Rendered through `POST /markdown` it came back as
+    its own `<tr>` with the whole paragraph in the ID column and six empty
+    cells beside it, while C-050's own Note was cut by 1,956 characters —
+    invisible to the cell count (it carried no id for `_ROW` to match) and
+    invisible to contiguity (contiguity only asks about lines that DO match).
+    """
+    lines = _text().split("\n")
+    strays = [
+        f"line {i + 1}: {lines[i].strip()[:60]!r}"
+        for block in _table_blocks(lines)
+        for i in block
+        if not lines[i].lstrip().startswith("|")
+    ]
     assert not strays, (
         f"these lines sit INSIDE a table block but are not rows — they open "
         f"with no `|`, so GFM renders each as a detached row carrying its whole "
@@ -355,14 +428,45 @@ def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
         f"row it belongs to, escaping any interior pipe as `\\|`, and change no "
         f"word of the content."
     )
-    assert not wrong, (
-        "these rows do not split into their table header's field count, so "
-        "GitHub drops their surplus cells and truncates the last one that "
-        "survives — the Note, which is the evidence: "
-        + "; ".join(wrong)
-        + ". Escape the pipe as `\\|`. It is honoured inside an inline code "
-          "span, so a regex alternation or a shell pipeline in the evidence "
-          "stays readable. Do NOT resolve this by deleting the evidence."
+
+
+def test_EVERY_PIPE_OPENING_LINE_SITS_INSIDE_A_TABLE_BLOCK() -> None:
+    """The other half of the same boundary, and the half that was still open.
+
+    WHY THIS EXISTS WHEN THE CONTIGUITY CHECK ALREADY RUNS. That one's
+    population is `_ROW` — `^\\| (C-\\d{3}) \\|` — so it can only speak for the
+    candidate tables. This file also holds two THREE-COLUMN tables (§ Two flags
+    and the `component` table) whose rows carry no id, and they are the ones
+    that state who may write `decision`, `status` and `component`. MEASURED:
+    inserting a `- ` list line into § Two flags left the ENTIRE suite green,
+    while `POST /markdown` broke the table there and swallowed the row after it
+    into the `<li>`. Both existing checks were structurally unable to see it —
+    `_table_blocks` ends the block at the `- `, so the stranded row is outside
+    every block and the two checks above only ever look INSIDE one.
+
+    So the question this asks is the complement: not "is everything in a block
+    a row" but "is every row in a block". A `|`-opening line that no block
+    claims is a line GFM has stopped rendering as a row.
+
+    IT IS A FLOOR, NOT A PARSE. It cannot tell you WHY the line fell out — the
+    block-level opener above it, a deleted delimiter, a stray blank — only that
+    it did, which is enough to make somebody look. Measured at 0 violations on
+    the file as it stands.
+    """
+    lines = _text().split("\n")
+    claimed = {i for block in _table_blocks(lines) for i in block}
+    stranded = [
+        f"line {i + 1}: {line.strip()[:60]!r}"
+        for i, line in enumerate(lines)
+        if line.lstrip().startswith("|") and i not in claimed
+    ]
+    assert not stranded, (
+        f"these lines open with `|` but sit OUTSIDE every table block, so GFM "
+        f"renders them as literal text rather than as rows and every cell they "
+        f"carry is lost: {stranded}. Something above them ended the table — a "
+        f"list marker, a heading, a blockquote, an HTML block, or a delimiter "
+        f"row that stopped being one. Find that line and move it out of the "
+        f"table; do not delete the rows."
     )
 
 
@@ -399,6 +503,128 @@ def test_the_TABLE_BLOCK_SCAN_reads_the_tables_that_are_actually_there() -> None
         f"tables were removed or widened, say so deliberately; until then this "
         f"is the scan mis-reading a header."
     )
+
+
+# --- the parser itself, on shapes this file does not happen to contain ----
+#
+# EVERY CHECK ABOVE IS DERIVED FROM `_table_blocks`, AND UNTIL HERE ITS ONLY
+# CORPUS WAS `candidates.md` AS IT STANDS TODAY. That makes "still parses the
+# file correctly" the whole of its regression cover, which says nothing about a
+# shape the file does not currently contain — and C-103 proposes taking these
+# four helpers to every markdown table the repo treats as authoritative, where
+# those shapes are the point. The fixtures below are synthetic on purpose: each
+# one's expected answer was MEASURED through GitHub's `POST /markdown` first,
+# so what is asserted here is the renderer's behaviour rather than this
+# module's reading of the spec.
+
+
+@pytest.mark.parametrize(("shape", "body", "expect_rows_after"), [
+    ("a plain paragraph line",   "a stray paragraph",            True),
+    ("an unordered list marker", "- a stray list line",          False),
+    ("an ordered list at 1",     "1. a stray ordered line",      False),
+    ("an ordered list at 2",     "2. a stray ordered line",      False),
+    ("a heading",                "## a stray heading",           False),
+    ("a blockquote",             "> a stray quote",              False),
+])
+def test_the_SCAN_BREAKS_A_TABLE_WHERE_GITHUB_BREAKS_IT(
+    shape: str, body: str, expect_rows_after: bool,
+) -> None:
+    """Each answer below came back from `POST /markdown`, not from the spec.
+
+    `expect_rows_after` is whether GitHub still rendered `| 3 | 4 |` as a
+    `<tr>` after the interposed line. For the plain paragraph it did — twice,
+    which is the measurement that made `_ends_the_table` stop breaking on
+    every non-`|` line. For the five block-level openers it did not: the row
+    came back inside the `<ol>`/`<ul>`/raw text instead.
+
+    THE ORDERED-LIST PAIR IS WHY THIS IS PARAMETRIZED RATHER THAN ONE CASE.
+    CommonMark only lets an ordered list interrupt a PARAGRAPH when it starts
+    at 1, so a spec reading predicts `2.` keeps the table open. Measured, it
+    does not — `<ol start="2">` swallowed the row exactly as `1.` did. The
+    pattern is `^\\d+[.)] ` because of this line, not despite it.
+    """
+    lines = f"| A | B |\n|---|---|\n| 1 | 2 |\n{body}\n| 3 | 4 |\n".split("\n")
+    blocks = _table_blocks(lines)
+    assert len(blocks) == 1, f"{shape}: expected one table, got {len(blocks)}"
+    reached = 4 in blocks[0]
+    assert reached is expect_rows_after, (
+        f"{shape}: GitHub {'still renders' if expect_rows_after else 'does NOT render'} "
+        f"the row after it as a `<tr>`, and this scan {'does not' if expect_rows_after else 'does'} "
+        f"agree. `_ends_the_table` and the renderer have to draw the same "
+        f"boundary — a scan that ends the table early reports live rows as "
+        f"stranded, and one that ends it late reads literal text as rows."
+    )
+
+
+def test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see() -> None:
+    """The stated limit, held as a claim that can go red.
+
+    MEASURED, BOTH DIRECTIONS: `<div>html</div>` interposed in a table ends it
+    for GitHub and the row after comes back as literal text; `<span>x</span>`
+    interposed in a table does NOT end it and the row after comes back as a
+    `<tr>`. Which one a `<` line is depends on CommonMark's fixed list of ~62
+    HTML *block* tag names, so `s.startswith("<")` is not the fix — it would
+    end a table at a `<span>` GitHub keeps open and report every row below it
+    as stranded, which is a false failure on a live file.
+
+    So the gap is declared rather than closed: `candidates.md` has zero lines
+    opening with `<`, and whether a repo-wide gate should carry the block-tag
+    list is C-103's to rule. This test exists so the declaration cannot go
+    quietly stale — the same contract as the vocabulary gate's mid-word
+    residual, and for the same reason.
+
+    IF THIS GOES RED, NOTHING IS BROKEN: somebody taught `_ends_the_table` the
+    block-tag list. Delete this test and the limits-list paragraph it holds, in
+    the same commit.
+    """
+    lines = "| A | B |\n|---|---|\n| 1 | 2 |\n<div>x</div>\n| 3 | 4 |\n".split("\n")
+    assert 4 in _table_blocks(lines)[0], (
+        "`_ends_the_table` now breaks a table at an HTML-block opener. That is "
+        "an improvement, not a failure — but the cell-count check's limits list "
+        "still declares it a residual, and `<span>` must keep NOT breaking one. "
+        "Update the list and delete this test together."
+    )
+
+
+@pytest.mark.parametrize(("shape", "text"), [
+    ("a two-column header",  "| A | B |"),
+    ("one escaping pipe",    "| a \\| b | c |"),
+    ("a doubled backslash",  "| a \\\\| b | c |"),
+])
+def test_CELLS_counts_what_the_renderer_SPLITS_ON(shape: str, text: str) -> None:
+    """A DOUBLED backslash was raised as a miscount and MEASURED not to be one.
+
+    A reviewer read `(?<!\\\\)\\|` as mishandling `\\\\|`: by CommonMark's inline
+    rules a doubled backslash is an escaped backslash, so the pipe after it is
+    unescaped and ought to split, truncating the row exactly the way this whole
+    module exists to catch. Rendered through `POST /markdown` against a
+    two-column header, `| a \\\\| b | c |` came back as exactly TWO cells reading
+    `a | b` and `c` — GitHub's ROW SPLITTER runs before inline escaping and
+    treats ANY backslash-preceded pipe as escaped, doubled or not. The
+    one-character lookbehind is what the renderer does.
+
+    All three shapes below are two rendered columns, so all three must count
+    the same. Kept as a fixture rather than a note in a review comment, because
+    the next reader will have the same correct-sounding instinct and a note
+    does not go red.
+    """
+    assert _cells(text) == _cells("| A | B |"), f"{shape}: {text!r}"
+
+
+def test_A_RUN_WITH_NO_DELIMITER_IS_NOT_A_TABLE() -> None:
+    """The floor under `_table_blocks`' own definition of a table.
+
+    Pipes alone do not make a table — GFM needs the `|---|` row, and a run of
+    pipe-looking prose without one renders as a paragraph. If this stopped
+    holding, every `|`-bearing paragraph in the file would become a block and
+    the cell-count check would start reporting prose as malformed rows.
+
+    The second case is the reason `delimiter > run[0]` is in the code: a
+    delimiter with nothing above it inside the same run has no header, so GFM
+    builds no table and neither does this.
+    """
+    assert _table_blocks("| a | b |\n| c | d |\n".split("\n")) == []
+    assert _table_blocks("|---|---|\n| c | d |\n".split("\n")) == []
 
 
 # --- each declaration is FOUND, before it is compared ---------------------

@@ -69,15 +69,34 @@ WHAT THIS GATE DOES NOT LOOK AT, so a green run is not read as more than it is:
     repo's Python, shell, YAML and markdown. It does NOT strip `//`, `/*`, `*`,
     `--`, `;` or `<!--`, so a label wrapped across two lines decorated by one of
     those is invisible exactly as the `#` case was — the fix is to add the
-    marker to `_joinable`, and this bullet is where that gap is declared until
-    somebody does. Stripping is line-LEADING only on purpose: a `#` mid-line is
-    content, and stripping there would invent joins no renderer makes, so a
-    right-hand decoration (a box-drawing `│` closing a column, a `*/`) still
-    separates the two halves of a label.
+    marker to `_joinable`, and
+    `test_the_UNSTRIPPED_MARKERS_are_the_residual_and_are_NOT_seen` below holds
+    that gap as a checkable claim rather than a sentence. Stripping is
+    line-LEADING only on purpose: a `#` mid-line is content, and stripping
+    there would invent joins no renderer makes, so a right-hand decoration (a
+    box-drawing `│` closing a column, a `*/`) still separates the two halves of
+    a label.
   * **A label split MID-WORD.** `Ki` / `nd 1` survives every normalisation here,
     because no amount of whitespace or decoration handling puts the word back
     together. `test_a_label_split_MID_WORD_is_the_residual_and_is_NOT_seen`
     below holds this limit as a checkable claim rather than a sentence.
+
+WHAT THIS GATE COSTS, which is not the same list as what it cannot see:
+
+  * **Joining lines can BRIDGE two unrelated ones into a false positive.** The
+    line-joining premise is what makes a wrapped label visible, and it cannot
+    distinguish a wrapped label from an ordinary sentence ending in the English
+    word *"kind"* followed by a line opening with `1`. That bridge is not new —
+    plain prose has joined that way since this module shipped — but routing
+    every file through `_joinable` extends it to `#`-commented and `>`-quoted
+    boundaries, which is where such a pair is likelier. It is a LOUD failure:
+    the suite goes red and names the file, so nothing hides.
+    **IF IT FIRES ON INNOCENT PROSE, THE FIX IS NOT A NEW `RECORD_SURFACES`
+    ENTRY.** That allowlist declares a surface to be a historical RECORD, and
+    using it to silence a bridging false positive misclassifies a live document
+    forever to quiet one line. Reword the prose, or narrow `RETIRED_LABEL` —
+    and if neither is acceptable, that is a finding about the pattern, not a
+    surface to exempt.
 """
 
 from __future__ import annotations
@@ -638,6 +657,48 @@ def test_a_label_split_MID_WORD_is_the_residual_and_is_NOT_seen(
         "improvement, not a failure — but the module docstring still lists it "
         "under WHAT THIS GATE DOES NOT LOOK AT. Update the list and delete "
         "this test together."
+    )
+
+
+@pytest.mark.parametrize(("marker", "wrapped"), [
+    ("//   — C, C++, Go, JS",   "// the Kind\n// 1 record\n"),
+    ("/* * — a C block comment", "/* the Kind\n * 1 record\n"),
+    ("--   — SQL, Lua, Haskell", "-- the Kind\n-- 1 record\n"),
+    (";    — ini, Lisp, asm",    "; the Kind\n; 1 record\n"),
+    ("<!-- — HTML and markdown", "<!-- the Kind\n<!-- 1 record\n"),
+    ("*    — an asterisk bullet", "* the Kind\n* 1 record\n"),
+])
+def test_the_UNSTRIPPED_MARKERS_are_the_residual_and_are_NOT_seen(
+    tmp_path: Path, marker: str, wrapped: str,
+) -> None:
+    """The OTHER residual bullet, held to the same contract as the mid-word one.
+
+    THE PASS THAT ADDED BOTH BULLETS TESTED ONLY ONE OF THEM. The mid-word
+    split got `test_a_label_split_MID_WORD_is_the_residual_and_is_NOT_seen`
+    with the module's own stated reason — *"a residual that quietly stops being
+    a residual leaves the list overstating the gap"* — and the six-marker
+    bullet immediately above it got a sentence. Two reviewers found that
+    asymmetry independently, which is the evidence that a prose-only claim in
+    this file is the shape that drifts: in the same pass, one such claim about
+    `_ends_the_table` in the sibling module turned out to be factually
+    BACKWARDS and had gone a full review round undetected.
+
+    So each marker the bullet names is asserted invisible here. These are not
+    hypothetical shapes — `//` is the whole JS/Go family, `--` is SQL, and the
+    repo already tracks `.sql`-adjacent and HTML-commented prose.
+
+    IF ANY CASE GOES RED, NOTHING IS BROKEN: somebody taught `_joinable` that
+    marker. Remove it from the bullet and from this parametrize list, in the
+    same commit, so the limits list keeps matching the instrument.
+    """
+    probe = tmp_path / "probe.md"
+    probe.write_text(wrapped, encoding="utf-8")
+    assert not RETIRED_LABEL.search(_normalised(probe)), (
+        f"`_joinable` now strips {marker.split(' ')[0]!r}, so a label wrapped "
+        f"across two lines decorated by it is visible: {wrapped!r} normalises "
+        f"to {_normalised(probe)!r}. That is an improvement, not a failure — "
+        f"but the module docstring still lists this marker under WHAT THIS GATE "
+        f"DOES NOT LOOK AT. Update the bullet and this parametrize list together."
     )
 
 
