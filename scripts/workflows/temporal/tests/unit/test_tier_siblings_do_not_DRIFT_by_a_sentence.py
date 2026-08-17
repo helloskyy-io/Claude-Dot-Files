@@ -43,6 +43,32 @@ exact. Lowering NEAR was measured and rejected — 0.65 still misses the 0.479
 pair, and 0.50 grows the frozen list with false positives in the other two tier
 pairs.
 
+AND A THIRD, BECAUSE BOTH OF THOSE READ A BLOCK AS AN ATOM. `_orphan_lines`
+looks INSIDE the pairs the two above surface, and it exists because the block
+granularity hid a live defect for two review passes. The `## Stage 5: SUBMIT`
+pair sat frozen here noted *"Two-sided, so not the append class. Unruled."* —
+a classification true about the MECHANISM and misleading about the CONTENT. Its
+two-sidedness was ENTIRELY tier-identity tokens (the rework-vs-scoped-correction
+line and the `build-refine:` commit prefix), and hiding behind that noise was a
+pure one-sided omission: the minor tier was never told to RE-CHECK `origin/main`
+before pushing, an instruction whose own text carries the evidence *"two
+candidate-id collisions in one day, one of which would have merged silently"*.
+The ratio detector saw a pair and said nothing about its contents; the append
+detector was routed away by the tier-identity replacements; the frozen note
+recorded the pair as looked-at. **A baseline entry is the one place a defect can
+be simultaneously recorded and invisible**, so the remedy keys on the class —
+a whole LINE with no counterpart on the other side — rather than on the bullet
+that happened to be missing.
+
+WHY A LINE AND NOT A SENTENCE. These prompts are bullet lists, so a line IS the
+unit an author adds or forgets; splitting further would fire on every reworded
+clause. `LINE_PAIRED` is the floor below which a line is judged to have no
+counterpart at all, and it was chosen from a measured GAP rather than tuned: the
+live orphan scores 0.366 against its best partner and the nearest non-orphan —
+a genuine tier-appropriate rewording — scores 0.692, so anything in between
+separates them identically. A constant sitting in the middle of an empty band is
+one nobody had to pick a side on.
+
 WHY TIER SIBLINGS AND NOT THE WHOLE CORPUS. Near-duplicate pairs exist across
 the whole child corpus, most of them cross-family (`build_refine` +
 `plan_revision` and similar). Whether two children in different families should
@@ -73,14 +99,19 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
     ratio, so what remains uncovered is two-sided divergence that also scores
     low. Divergence written from scratch is still invisible, correctly: it is
     not a copy that drifted.
-  * **A block present in ONE tier and absent from the other.** Both detectors
-    compare pairs, so text existing in only one sibling has no counterpart to
-    match and cannot register — this is the LARGEST uncovered class, not a
-    corner. Most of it is the documented lens-count axis (the major tier's
-    Stage-2a/2b machinery), but not all: `MUTATE AN ASSERTION'S SCOPE`,
+  * **A block present in ONE tier and absent from the other.** Both block
+    detectors compare pairs, so text existing in only one sibling has no
+    counterpart to match and cannot register — this is the LARGEST uncovered
+    class, not a corner. Most of it is the documented lens-count axis (the major
+    tier's Stage-2a/2b machinery), but not all: `MUTATE AN ASSERTION'S SCOPE`,
     `COMPARE THE CHECK SET` and `PRINT WHAT THE MUTATION ACTUALLY PRODUCED` are
     general guidance only one tier is given. Whether they SHOULD be is the
-    fork-vs-parameterize ruling, unmade, and no guard can make it.
+    fork-vs-parameterize ruling, unmade, and no guard can make it. **It is
+    placed as `C-108` rather than left as a remark**, because a class named only
+    in a docstring is re-derived from scratch by whoever next edits a tier.
+    Note the distinction from `_orphan_lines` below, which is deliberately NOT
+    this class: an orphan LINE lives inside a block that HAS a counterpart, and
+    that is why a guard can reach it at all.
   * **A SUBSEQUENCE that is not an append.** `_one_sided` is exact for what it
     says — every opcode is `equal` or `insert` — and that is slightly broader
     than "one tier's block plus a tail": a block quoting another verbatim inside
@@ -92,6 +123,15 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
     such pairs exist in this corpus today. `_scan` takes the MAX rather than the
     last write, so a drifting block can no longer be MASKED by a namesake — but
     the frozen list still shows one line where two blocks are in play.
+  * **A LINE under `MIN_LINE` bytes**, and a line orphaned inside a pair that
+    NEITHER block detector surfaced. `_orphan_lines` inherits its population
+    from `_drift`, so it can only look inside pairs something else already
+    matched — it widens the granularity, never the reach.
+  * **WHICH BLOCK IS THE COUNTERPART.** `_partner` takes the highest-ratio
+    block, which is a heuristic and not a fact. If a tier moved a bullet into a
+    DIFFERENT block, the line reads as orphaned in one and unmatched in the
+    other; the failure direction is a false positive handed to a human, which is
+    this module's stance everywhere.
   * **Which side is right.** When a pair is genuinely accidental the remedy is
     usually a union, but that is a reading of the two texts, not a computation.
   * **Anything outside the child prompt tree.** Drift between a prompt and the
@@ -152,12 +192,48 @@ ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
             "lens-count one, so the 'plausibly deliberate' reading is weaker "
             "than it looks and the ruling is still owed.",
         "## Stage 5: SUBMIT\n- Stage any uncommitted changes remaining":
-            "0.86 — the submit stage. Two-sided, so not the append class. "
-            "Unruled.",
+            "0.998 — the submit stage, and the one entry here that is RULED "
+            "rather than observed. The residual delta is TIER IDENTITY ONLY: "
+            "the rework-vs-scoped-correction self-description and the "
+            "`build-refine:` / `build-refine-minor:` commit prefix, both "
+            "intended. Its previous note read 'Two-sided, so not the append "
+            "class. Unruled.' — true about the mechanism, and it hid a pure "
+            "one-sided content omission for two review passes, because those "
+            "two identity tokens are what made the pair read as two-sided. The "
+            "missing bullet is reconciled and `_orphan_lines` now keys on that "
+            "class, so the note and the content can no longer disagree "
+            "silently.",
     },
     "research_write+research_write_minor": {
         "RULES:\n- This is an EVIDENCE workflow: never fabricate, neve":
             "0.94 — the evidence rules. Unruled.",
+    },
+}
+
+
+# One granularity down from MIN_BLOCK, and the same value: a line long enough to
+# carry an instruction is long enough to be worth a guard.
+MIN_LINE = 120
+
+# Below this, a line has no counterpart on the other side. Chosen from a measured
+# gap and not tuned — see the docstring's WHY A LINE AND NOT A SENTENCE.
+LINE_PAIRED = 0.60
+
+# FROZEN 2026-08-17, same ratchet and same rules as ACCEPTED_DRIFT above: it may
+# shrink, and it may not grow without a note saying the difference is deliberate.
+# Keyed by the opening of the ORPHANED line.
+ACCEPTED_ORPHAN_LINES: dict[str, dict[str, str]] = {
+    "build_draft+build_draft_minor": {},
+    "build_refine+build_refine_minor": {},
+    "research_write+research_write_minor": {
+        "- **Before your final commit, confirm the paper is at its co":
+            "DELIBERATE, and the one axis these two tiers genuinely differ on: "
+            "`research_write` lands several artifacts and enumerates them "
+            "(`topics.md`, `raw/*.md`), `research_write_minor` lands exactly "
+            "one paper and names it. The same instruction, with the artifact "
+            "list each tier actually has. The major tier's counterpart line "
+            "sits just above the floor against it, which is why only one side "
+            "of the same reword is reported.",
     },
 }
 
@@ -275,6 +351,220 @@ def _drift(major: str, minor: str) -> dict[str, float]:
     for opening, ratio in _appended(major, minor).items():
         seen[opening] = max(seen.get(opening, 0.0), ratio)
     return seen
+
+
+def _lines(block: str) -> list[str]:
+    """The substantive lines of a block, stripped."""
+    return [ln.strip() for ln in block.split("\n") if len(ln.strip()) >= MIN_LINE]
+
+
+def _partner(x: str, candidates: list[str]) -> str:
+    """The block most like `x`, which is a HEURISTIC and named as one.
+
+    `quick_ratio()` is an upper bound on `ratio()`, so skipping a candidate that
+    cannot beat the incumbent can never discard the true maximum — the same
+    prefilter, and the same reason, as `_ratio_score`. Without it this walks
+    every minor block for every surfaced pair on every run.
+    """
+    best, chosen = -1.0, ""
+    for y in candidates:
+        m = difflib.SequenceMatcher(None, x, y)
+        if m.quick_ratio() <= best:
+            continue
+        r = m.ratio()
+        if r > best:
+            best, chosen = r, y
+    return chosen
+
+
+def _line_orphans_between(x: str, y: str) -> dict[str, float]:
+    """Lines of `x` with no counterpart in `y`, keyed by opening.
+
+    A pure function over two blocks so the controls can drive it synthetically.
+    ONE DIRECTION ONLY — the caller runs it both ways, because an instruction
+    present only in the MINOR tier is exactly as much a divergence as one
+    present only in the major, and a detector that looked only downhill would
+    have a blind side no note records.
+    """
+    out: dict[str, float] = {}
+    other = _lines(y)
+    for a in _lines(x):
+        best = max((difflib.SequenceMatcher(None, a, b).ratio() for b in other),
+                   default=0.0)
+        if best < LINE_PAIRED:
+            key = a[:KEY_LEN]
+            out[key] = min(out.get(key, 1.0), best)
+    return out
+
+
+def _orphan_lines(major: str, minor: str) -> dict[str, tuple[str, float]]:
+    """Orphaned lines inside the pairs the BLOCK detectors already surfaced.
+
+    The population is `_drift`'s, deliberately: this detector widens the
+    GRANULARITY of what is inspected, never the reach. A block with no
+    counterpart at all is a different class, placed as `C-108` rather than
+    guarded here, because there is nothing to compare it against.
+    """
+    mb, nb = _blocks(major), _blocks(minor)
+    found: dict[str, tuple[str, float]] = {}
+    for opening in _drift(major, minor):
+        x = next((b for b in mb if b.startswith(opening)), None)
+        if x is None:                 # opening came from a block since edited
+            continue
+        y = _partner(x, nb)
+        for side, (p, q) in (("major-only", (x, y)), ("minor-only", (y, x))):
+            for key, score in _line_orphans_between(p, q).items():
+                if key not in found or score < found[key][1]:
+                    found[key] = (side, score)
+    return found
+
+
+def test_the_LINE_detector_SEES_WHAT_THE_BLOCK_DETECTORS_CANNOT() -> None:
+    """The control for the class this module was extended for.
+
+    THE FIXTURE IS THE REAL DEFECT'S SHAPE, not a convenient one. The live
+    `## Stage 5: SUBMIT` pair carried a whole missing bullet for two review
+    passes while every assertion here stayed green, and the mechanism was
+    precise: two TIER-IDENTITY replacements made the pair read as two-sided, so
+    `_append_score` — whose entire claim is that it needs no threshold — was
+    routed away, and `_ratio_score` reported only that a pair existed. So the
+    fixture must reproduce all three properties at once, and each is asserted
+    rather than described.
+    """
+    # The shared bulk is sized so the pair lands ABOVE `NEAR`, because that is
+    # where the real one sat: a block big enough that one missing bullet barely
+    # moves the ratio is exactly the block whose missing bullet nobody sees.
+    shared = "\n".join(
+        f"- Bullet {n} of real operational guidance, stated at the length these "
+        f"prompts actually run to, so the comparison is honest rather than "
+        f"convenient and the ratio means what it means in the live corpus."
+        for n in ("one", "two", "three", "four")
+    )
+    identity = "- This is the {} tier, which is the difference that is intended."
+    orphan = ("- **RE-CHECK the upstream branch NOW, immediately before "
+              "pushing** — a finding true when written can be false two hours "
+              "later, and an id allocated from a stale read merges silently.")
+    major = "\n".join([shared, identity.format("MAJOR"), orphan])
+    minor = "\n".join([shared, identity.format("MINOR")])
+
+    ratio = difflib.SequenceMatcher(None, major, minor).ratio()
+    assert ratio > NEAR, (
+        f"the fixture scores {ratio:.3f}, at or below the {NEAR} floor — the "
+        f"defect it stands for hid ABOVE the floor, inside an ACCEPTED pair, "
+        f"and a sub-floor fixture would be testing a different story"
+    )
+
+    assert _scan([major], [minor], _ratio_score), (
+        "the fixture does not even register as a near-duplicate PAIR — it is "
+        "not the shape that hid the defect"
+    )
+    assert _scan([major], [minor], _append_score) == {}, (
+        "the fixture is one-sided, so the APPEND detector would have caught it "
+        "on its own and the fixture proves nothing about the line detector"
+    )
+    orphans = _line_orphans_between(major, minor)
+    assert orphans, (
+        "the LINE detector cannot see a whole bullet present in one tier and "
+        "absent from the other, inside a block pair both block detectors "
+        "already match — which is the entire reason it exists"
+    )
+    assert any(k.startswith("- **RE-CHECK") for k in orphans), (
+        f"the wrong line was reported as orphaned: {sorted(orphans)}"
+    )
+
+
+def test_the_LINE_detector_does_NOT_fire_on_a_tier_appropriate_REWORD() -> None:
+    """The other half, and without it `LINE_PAIRED` could be set to 1.0.
+
+    A detector that reported every non-identical line would be a second copy of
+    the ratio detector with the threshold removed, and its frozen list would
+    grow until nobody read it. A line REWORDED for its tier still has a
+    counterpart; only a line with nothing on the other side is an orphan.
+    """
+    major = ("- Confirm each artifact is at its contract path and nowhere "
+             "else, then list them, because a consumer reading the wrong path "
+             "gets silence rather than an error.")
+    minor = ("- Confirm the paper is at its contract path and nowhere else, "
+             "then list it, because a consumer reading the wrong path gets "
+             "silence rather than an error.")
+    assert _line_orphans_between(major, minor) == {}, (
+        "a tier-appropriate rewording of the SAME instruction is being reported "
+        "as an orphan — the floor is too high and the frozen list will grow "
+        "until it is an excuse list"
+    )
+    assert _line_orphans_between(minor, major) == {}, "and in both directions"
+
+
+def test_no_NEW_orphan_line_appears_inside_a_matched_block_pair() -> None:
+    new: list[str] = []
+    for major, minor in TIER_PAIRS:
+        frozen = ACCEPTED_ORPHAN_LINES[f"{major}+{minor}"]
+        for key, (side, score) in sorted(_orphan_lines(major, minor).items()):
+            if key not in frozen:
+                new.append(f"{major} vs {minor}  [{side}]  ({score:.2f})  {key!r}")
+    assert not new, (
+        "a whole LINE exists on one side of a block pair the two tiers "
+        "otherwise share, and has no counterpart on the other. This is the "
+        "shape that hid a missing push-time instruction behind an accepted "
+        "0.86 entry for two review passes — the block was frozen as looked-at "
+        "while a bullet inside it was missing:\n  "
+        + "\n  ".join(new)
+        + "\n\nTWO WAYS TO CLOSE THIS, and the second is a real option:\n"
+          "  1. The omission is an accident — copy the line into the sibling "
+          "VERBATIM. Check afterwards whether the block became identical; if "
+          "it did, test_no_NEW_block_is_copied_between_children will tell you "
+          "to promote it.\n"
+          "  2. The difference is DELIBERATE — add the opening to "
+          "ACCEPTED_ORPHAN_LINES with a note saying which tier is meant to "
+          "carry it and why. This test does not rule on that; it requires that "
+          "somebody did."
+    )
+
+
+def test_a_RECONCILED_orphan_line_is_removed_from_the_frozen_list() -> None:
+    """The ratchet, matching the one `ACCEPTED_DRIFT` runs."""
+    stale: list[str] = []
+    for major, minor in TIER_PAIRS:
+        key = f"{major}+{minor}"
+        live = _orphan_lines(major, minor)
+        stale += [f"{key}  {o!r}" for o in sorted(ACCEPTED_ORPHAN_LINES[key])
+                  if o not in live]
+    assert not stale, (
+        "these frozen entries no longer describe an orphaned line — it was "
+        "reconciled, deleted, or reworded. Remove the line so the list keeps "
+        "shrinking:\n  " + "\n  ".join(stale)
+    )
+
+
+def test_TIER_PAIRS_NAMES_EVERY_MINOR_SIBLING_THAT_HAS_PROMPTS() -> None:
+    """The population itself is declared by hand, so something must check it.
+
+    Every other vacuity guard here protects the frozen lists against the pair
+    list. Nothing protected the PAIR LIST against the tree: a `_minor` child
+    added tomorrow with its own `prompts/` would be watched by nothing, and
+    every assertion in this module would stay green because it was never asked
+    about it. That is the same shape as a frozen note whose classification no
+    longer matches its content — recorded as complete, and silently not.
+
+    `_minor` children with no `prompts/` directory are correctly absent: they
+    are workflow modules that reuse another child's prompts, so there is no
+    second copy of anything to drift.
+    """
+    minors = {p.parent.parent.name for p in ASSISTANT.rglob("prompts/*.md")
+              if p.parent != SHARED and p.parent.parent.name.endswith("_minor")}
+    named = {minor for _, minor in TIER_PAIRS}
+    assert minors == named, (
+        f"the tree has minor-tier prompt children this module does not watch, "
+        f"or names ones that no longer exist. Unwatched: {sorted(minors - named)}; "
+        f"named but absent: {sorted(named - minors)}. Add the pair to TIER_PAIRS "
+        f"and give it an entry in BOTH frozen dicts."
+    )
+    for major, minor in TIER_PAIRS:
+        assert minor == f"{major}_minor", (
+            f"TIER_PAIRS names {major!r}/{minor!r}, which are not a tier pair "
+            f"by name — the two frozen lists would be keyed on a relationship "
+            f"that does not exist"
+        )
 
 
 def test_the_APPEND_detector_fires_on_a_one_sided_drift() -> None:
@@ -400,6 +690,11 @@ def test_the_frozen_list_COVERS_the_pairs_it_claims_to() -> None:
     and both assertions above would pass for the wrong reason.
     """
     assert set(ACCEPTED_DRIFT) == {f"{a}+{b}" for a, b in TIER_PAIRS}
+    assert set(ACCEPTED_ORPHAN_LINES) == {f"{a}+{b}" for a, b in TIER_PAIRS}, (
+        "the line-orphan baseline is keyed on a different set of pairs than the "
+        "block baseline — a pair missing from it would KeyError rather than "
+        "assert, and one present in it alone would be silently unreachable"
+    )
     for major, minor in TIER_PAIRS:
         for child in (major, minor):
             assert len(_blocks(child)) > 5, (
