@@ -52,15 +52,7 @@ Take the monoliths apart, then write down what the shape is.
 - [ ] **Rule fork-vs-parameterize** — the half a test cannot judge: a copy that has already drifted reads as intent, not accident
 - [ ] **Extend the producer-with-no-consumer gate** beyond `scripts/helpers/measure/`
 
-### Phase 3 — Split the remaining long-running workflows ⬜
-
-*The research and plan families never got the split that `build` did.* Same treatment, same reason: separate the work from its review and its correction, so each boundary is a place to retry rather than a place to restart.
-
-- [ ] **The research family** — `research_write` and `research_verify` are already separate children, but the cycle around them is not split the way `build_draft` → `build_refine` is
-- [ ] **The plan family** — `plan_feature`, `plan_sprint`, `plan_verify` run as a chain with no correction stage of their own
-- [ ] **Name what should NOT be split** — a workflow whose work and review are genuinely one act, and why
-
-### Phase 4 — The invocation contract ⬜
+### Phase 3 — The invocation contract ⬜
 
 *A workflow derives what it needs from how it was called.* Dual-mode is *who called me*; scope derivation is *what was I pointed at*.
 
@@ -71,7 +63,7 @@ Take the monoliths apart, then write down what the shape is.
 
 ## The order, and what each part waits on
 
-**Phases 2, 3 and 4 have no external gate.** The component has a real end: when they close, decomposition is done. What used to be Phase 4 — the set of workflows that do not exist yet — moved to [Assistant Workflow Design](../sprint.md), because building what is missing is not the same act as taking apart what is here.
+**Phases 2 and 3 have no external gate.** The component has a real end: when they close, decomposition is done. What used to be Phase 4 — the set of workflows that do not exist yet — moved to [Assistant Workflow Design](../sprint.md), because building what is missing is not the same act as taking apart what is here.
 
 **Research:** [`research/`](research/) is scaffolded and empty. Phase 4 is what should fill it.
 

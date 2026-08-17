@@ -157,8 +157,7 @@ Taking apart the long-running workflows that already existed, so each boundary i
 
 - [x] **Phase 1 · Decompose the build families and codify the shape** — draft/refine/review-pr, the activities layer, and the composition contract written down
 - [ ] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism and standard shipped; the fleet backlog and the drifted-copy ruling remain
-- [ ] **Phase 3 · Split the remaining long-running workflows** — the research and plan families never got the draft → refine → review split that `build` did. Separate the work from its review and correction
-- [ ] **Phase 4 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, scope from the target, centrally managed config
+- [ ] **Phase 3 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, scope from the target, centrally managed config
 
 ## Sprint: Persistent Memory Protocol — Part 1 — 🟡 IN PROGRESS
 
