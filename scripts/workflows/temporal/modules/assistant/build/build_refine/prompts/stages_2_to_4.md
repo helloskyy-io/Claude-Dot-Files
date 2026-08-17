@@ -12,22 +12,11 @@ and proceed to the next stage. Do not silently skip, reorder, or interleave stag
 
 ${FIDELITY_PREMISE}
 
-- Read the PR diff, its body, its commits, AND ITS COMMENTS: \`gh pr diff ${PR_NUMBER}\`, \`gh pr view ${PR_NUMBER} --json body,commits,comments\`. The comments are not optional — the draft run's reflection is posted as a COMMENT, not in the body, so a fetch that omits them silently returns a PR that appears to have no reflection at all. **WRITE THE COMMENTS TO A FILE AND READ THE FILE:** `gh pr view ${PR_NUMBER} --json comments > /tmp/pr-comments.json`, then read it. The bare invocation TRUNCATES on any PR with real review history and returns a preview — silently, with no error — so the disposition comment you were told to read is simply absent. **This failure is quiet and this instruction is load-bearing**, which is the worst possible combination.
-- **Does the delivered change actually satisfy the original task?** Not 'is it good code' — that is Stage 2. Is it the RIGHT change?
-- Enumerate explicitly: what the task asked for that is **present**; what it asked for that is **missing**; what was delivered that was **NOT asked for** (scope creep is a finding too).
-- **Mine the draft run's own Decision Log / Deferred Work / reflection comment.** This is where the author told on itself: near-misses, shortcuts taken under time pressure, things it noticed and did not chase. Half of it is breadcrumbs to defects invisible in the tree — a demo that reported \`ok\` while running against a reverted file leaves no trace in the diff — and half is inoculation against you repeating the same mistake. You are the only actor in the chain that can both FIND and FIX in one pass; a breadcrumb you follow gets resolved here, the same breadcrumb reaching only the downstream disposition pass becomes a HOLD and another dispatch cycle.
-  **Treat every line of it as a LEAD TO VERIFY, never a conclusion to accept.** Confirm each claim against the code before acting on it. Apply extra suspicion to anything SELF-EXCULPATORY — 'this was already broken', 'out of scope', 'pre-existing' — that is the author defending scope, not confessing, and it is a claim you check rather than a lead you follow.
-  If the PR genuinely has no reflection comment, say so explicitly in your Stage 1 output. Silence here is a finding: it means the draft either skipped its reflection or the fetch failed, and both are worth knowing.
+${FIDELITY_READ_AND_COMPARE}
 
 ${FIDELITY_NEEDS_A_SEPARATE_RUN}
 
-- **Search the issue tracker for prior art before you conclude anything is new.** Run `gh issue list --repo <owner/repo> --state all --limit 30 --search \"<2-4 terms from the task and from what you found>\"`. You are one actor in a pipeline that has been filing issues about this codebase — the gap you are about to 'surface' may already be filed, with a fuller specification than you would write. Cite the issue number when one exists and defer to it (with a fetched pointer, per Stage 3) instead of re-deriving it.
-
-- **Verify the artifact's own PROSE as rigorously as its code, wherever that prose is load-bearing** — step comments in a CI file, header comments that state a threat model, a doc row that tells the next reader what a gate covers.
-
-- **When a verification FAILS, doubt your own invocation before you doubt the claim.** A failed reproduction is a hypothesis about the CLAIM or about YOUR REPRODUCTION, and the second is at least as likely — rule it out before writing the finding. A false accusation of fabricated evidence is among the most expensive findings you can write, because it discredits work that was correct and sends the next pass chasing nothing.
-
-- **If the PR ships or MODIFIES a tool that certifies other work — a test harness, a linter, a gate, a validator — RUN IT before trusting either the diff or the self-account.** **And MUTATE it, do not merely run it** — a passing suite proves the tool runs, not that it discriminates. Measured: reading the shipped tests would not have found the widened gate; only asking *"would this test fail if the property were violated?"* did. Reading it is not enough: a harness reports a verdict, and a wrong verdict is invisible in a diff.
+${FIDELITY_EVIDENCE_DISCIPLINE}
 
 **ASK WHAT EACH GUARD DOES NOT LOOK AT.** A negative control proves the tests discriminate AS SCOPED — mutating a narrow guard still fails the narrow tests written for it. Every scope defect this fleet has shipped was invisible to that and visible to this. Name the inputs a guard never inspects.
 
@@ -37,7 +26,7 @@ ${FIDELITY_NEEDS_A_SEPARATE_RUN}
 
 **PRINT WHAT THE MUTATION ACTUALLY PRODUCED BEFORE YOU MEASURE ANYTHING.** A shell-escaping artifact makes a regex INVALID rather than wider, and the resulting failure count reads exactly like a guard finding. Echo the mutated value, then run the suite.
 
-**AND MUTATE WHAT *YOU* ADDED, NOT ONLY WHAT YOU INHERITED — the asymmetry is backwards.** Every mutation instruction here points at what the draft shipped. But a draft's tests have at least run against a real implementation, while **a correction pass's tests are written minutes before shipping with no second reader at all.**
+${FIDELITY_MUTATE_WHAT_YOU_ADDED}
 
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 

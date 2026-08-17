@@ -25,11 +25,19 @@ list. Fixing a duplication forces its row out, and the row cannot come back.
 AND IT SHRANK: 48 -> 13 in one change. The three largest consumer-sets were the
 whole of it — a child and its `_minor` sibling twice over, plus the two research
 entry points — 35 blocks and 72% of the duplicated bytes, all of it promoted to
-`modules/assistant/prompts/`. What is left is seven CROSS-FAMILY sets
+`modules/assistant/prompts/`. What is left is mostly CROSS-FAMILY sets
 (`build_refine` + `plan_revision`, `build_refine` + `research_verify` and
 similar). Those are deliberately still here: whether two children in different
 families should move together is a judgement nobody has made, and promoting them
 blind would couple runs that have no reason to be coupled.
+
+"MOSTLY", AND THE WORD IS DOING WORK. This sentence read "seven CROSS-FAMILY
+sets" and was wrong on both halves by the time anyone re-measured: there are
+eight sets, and two of them are not cross-family at all — `research_write` +
+`research_write_minor` are tier siblings, and `plan_feature` + `plan_verify` are
+one family. The count is now derived by
+`test_promotion_guard_prose_FIGURES_are_derived` rather than restated here,
+which is why the prose carries a shape and not a number.
 
 HOW TO FIX ONE, rather than adding to the baseline: move the block to
 `modules/assistant/prompts/<name>.md`, put a placeholder where it used to be in
@@ -40,9 +48,12 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
 
   * **NEAR-duplicates are invisible to it.** Blocks are matched verbatim, so a
     copy that has already drifted by a single word does not register — and a
-    drifted copy is the more dangerous kind, because it reads as intent. Three
-    same-named prompts sit at 85.8%, 76.1% and 62.1% similarity to their
-    siblings and NONE of them appears below.
+    drifted copy is the more dangerous kind, because it reads as intent.
+    `test_tier_siblings_do_not_DRIFT_by_a_sentence` is the complement and owns
+    that half. This list used to name three same-named prompts "at 85.8%, 76.1%
+    and 62.1%"; two of those three figures were falsified by the promotions in
+    the very PR that wrote them, which is why the similarities are no longer
+    restated here.
   * It cannot say whether a block SHOULD be shared. A child doing a genuinely
     different job may legitimately repeat a sentence. This reports duplication;
     a human rules on it.

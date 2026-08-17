@@ -2,8 +2,10 @@
 
 WHY THIS IS NOT test_prompt_completeness. That module answers "does something
 supply `${NAME}`?" by reading the consumer's source for the literal string
-`"NAME"`. It is a text match, and it cannot see WHICH ARM supplies it. Nine
-fragments were promoted in one change and two of their suppliers sit inside an
+`"NAME"`. It is a text match, and it cannot see WHICH ARM supplies it. When this
+module landed, nine fragments had just been promoted in one change (a historical
+count, not a claim about `_PROMOTED` below, which has grown since) and two of
+their suppliers sat inside an
 `if`/`else` — `ALTITUDE_COMPONENT` is set only on the component arm, mirroring
 `CANDIDATE_CEILING` on the product arm. A supplier written into the wrong branch
 satisfies the static check completely and ships a literal `${ALTITUDE_COMPONENT}`
@@ -45,7 +47,10 @@ _PROMOTED = [
     "build_from_plan",
     "stages_1_to_4_from_plan",
     "fidelity_premise",
+    "fidelity_read_and_compare",
     "fidelity_needs_a_separate_run",
+    "fidelity_evidence_discipline",
+    "fidelity_mutate_what_you_added",
     "resolve_disposition_authority",
     "resolve_rejections_must_be_executed",
     "resolve_closed_disposition_list",
@@ -156,10 +161,18 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
     )
 
 
-# --- build: the refine pair's six fragments -----------------------------------
+# --- build: the fragments BOTH refine tiers share -----------------------------
+#
+# This banner used to state a count and the count was left behind twice by the
+# commits that grew the list — "six" over eight entries, then over eleven. The
+# list's own length is the figure, so the banner no longer restates it and
+# `test_promotion_guard_prose_FIGURES_are_derived` enforces that it cannot
+# start again.
 
 _REFINE_FRAGMENTS = [
-    "fidelity_premise", "fidelity_needs_a_separate_run",
+    "fidelity_premise", "fidelity_read_and_compare",
+    "fidelity_needs_a_separate_run", "fidelity_evidence_discipline",
+    "fidelity_mutate_what_you_added",
     "resolve_disposition_authority", "resolve_rejections_must_be_executed",
     "resolve_closed_disposition_list", "resolve_disposition_definitions",
     "resolve_fix_by_default_and_summary", "verify_and_ci_gate",
@@ -291,7 +304,7 @@ def test_the_needles_are_real() -> None:
     above pass against any string at all, and the PRODUCT-altitude check would
     then be the only one that failed — pointing at the wrong thing entirely.
     """
-    assert len(_PROMOTED) == 11, "the promoted set changed; update this module"
+    assert len(_PROMOTED) == 14, "the promoted set changed; update this module"
     for stem in _PROMOTED:
         assert (_SHARED / f"{stem}.md").is_file(), f"prompts/{stem}.md is missing"
         n = _needle(stem)

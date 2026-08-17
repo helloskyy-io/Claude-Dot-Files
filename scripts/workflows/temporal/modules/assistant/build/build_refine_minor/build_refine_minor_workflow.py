@@ -32,11 +32,14 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
     values = {
         "DESCRIPTION": description,
         "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
-        # EIGHT FRAGMENTS SHARED WITH build_refine — see that workflow, which
-        # carries the note on why the last two are shared. What stays local here
-        # is only what the ONE-lens tier says differently.
+        # ELEVEN FRAGMENTS SHARED WITH build_refine — see that workflow, which
+        # carries the note on why the last five arrived by drift. What stays
+        # local here is only what the ONE-lens tier says differently.
         "FIDELITY_PREMISE": act.shared_prompt("fidelity_premise"),
+        "FIDELITY_READ_AND_COMPARE": act.shared_prompt("fidelity_read_and_compare"),
         "FIDELITY_NEEDS_A_SEPARATE_RUN": act.shared_prompt("fidelity_needs_a_separate_run"),
+        "FIDELITY_EVIDENCE_DISCIPLINE": act.shared_prompt("fidelity_evidence_discipline"),
+        "FIDELITY_MUTATE_WHAT_YOU_ADDED": act.shared_prompt("fidelity_mutate_what_you_added"),
         "RESOLVE_DISPOSITION_AUTHORITY": act.shared_prompt("resolve_disposition_authority"),
         "RESOLVE_REJECTIONS_MUST_BE_EXECUTED": act.shared_prompt("resolve_rejections_must_be_executed"),
         "RESOLVE_CLOSED_DISPOSITION_LIST": act.shared_prompt("resolve_closed_disposition_list"),

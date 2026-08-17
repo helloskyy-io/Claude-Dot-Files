@@ -96,7 +96,16 @@ BUDGETS: dict[str, int] = {
     # every refine run now reads) and then LOST 2,122 to the promotion. The net
     # is a ratchet down; the substance change is a raise, and both are here so
     # neither hides inside the other.
-    "build/build_refine/prompts/stages_2_to_4.md": 15_345,
+    # RATCHETED DOWN 15_345 -> 11_057: six more blocks moved out, to
+    # prompts/fidelity_read_and_compare.md, fidelity_evidence_discipline.md and
+    # fidelity_mutate_what_you_added.md. SAME ACCOUNTING AS THE MOVE ABOVE and
+    # the two movements run opposite ways, so both are stated rather than netted:
+    # this file GAINED 1,427 bytes of substance — five `Measured:` evidence
+    # sentences the minor tier alone carried, which every major refine run now
+    # reads — and then the 5,777-byte union moved out. All six pairs were ONE-SIDED
+    # ADDITIVE, which is why the union could only add: verified by rendering both
+    # tiers before and after and diffing, opcodes `equal`/`insert` only.
+    "build/build_refine/prompts/stages_2_to_4.md": 11_057,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
@@ -145,7 +154,15 @@ BUDGETS: dict[str, int] = {
     # it would let the file regrow to 8,000 unbudgeted, which is the ratchet
     # running backwards. The floor decides what must ACQUIRE a budget, never
     # what may lose one.
-    "build/build_refine_minor/prompts/stages_2_to_4.md": 7_988,
+    # RATCHETED DOWN 7_988 -> 2_693, the other side of that third move: +420 for
+    # the major tier's `gh pr view` truncation warning — the one pair of the six
+    # where the MAJOR tier was the superset — then the same 5,777-byte union
+    # moved out to the same three fragments. It sits far below the FLOOR now and
+    # still keeps its line, for
+    # the reason already stated above: the floor decides what must ACQUIRE a
+    # budget, never what may lose one, and dropping the line would let 5 KB of
+    # vacated space refill unwatched.
+    "build/build_refine_minor/prompts/stages_2_to_4.md": 2_693,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     "research/research_write_minor/prompts/write_minor.md": 12_313,
     "research/research_write/prompts/write.md": 11_669,

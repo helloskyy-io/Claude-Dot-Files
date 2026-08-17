@@ -423,10 +423,17 @@ claude-dot-files/
 │                   │                                #   cannot see WHICH ARM supplies a key, so this drives the real entry points at both
 │                   │                                #   research altitudes and both build tiers, and asserts the two draft tiers render
 │                   │                                #   byte-identically — the property the deleted file-identity assertion used to hold
+│                   ├── test_promotion_guard_prose_FIGURES_are_derived.py # A promotion guard may not state a figure
+│                   │                                #   about the corpus it polices. Five counts in these three modules were falsified by
+│                   │                                #   the change that shipped them, so every `<N> <noun>` in their prose must be BOUND
+│                   │                                #   to a deriver or DECLARED historical with a reason. Exemptions are matched in a
+│                   │                                #   local window — a docstring-wide lookup excused every figure in the docstring
 │                   ├── test_tier_siblings_do_not_DRIFT_by_a_sentence.py # The blind spot the block guard NAMES and
 │                   │                                #   cannot see: a copy that drifted by one word stops being verbatim and vanishes
 │                   │                                #   from its baseline. Scoped to a workflow and its own _minor tier, where the axis
-│                   │                                #   of difference is documented, so a near-match is an accident by definition. It
+│                   │                                #   of difference is documented, so a near-match is an accident by definition. TWO
+│                   │                                #   detectors: a similarity ratio, and a one-sided-append predicate for the class the
+│                   │                                #   ratio is LEAST likely to see the larger the accidental append gets. It
 │                   │                                #   SURFACES and never rules — the frozen list may shrink, and may grow only with a
 │                   │                                #   note saying the difference is deliberate
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
