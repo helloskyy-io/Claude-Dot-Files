@@ -11,18 +11,43 @@ Feeds:          docs/development/workflow-decomposition/roadmap.md § Phase 2, t
 Last validated: 2026-08-17
 Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on what each cited study did, measured and reported (all quotes are
-                exact character sequences returned by a raw fetch or a local read — see the
-                sourcing note below). DEFINITIVE on the local counts in §5, each enumerated by a
+                exact character sequences returned by a `pdftotext` extraction of curl-fetched PDF
+                bytes, by a raw fetch, or by a local read — see the sourcing note below, which
+                names every normalization applied and the span class it applies to).
+                DEFINITIVE on the local counts in §5, each enumerated by a
                 command whose output is quoted. DERIVED on this paper's central claim — that the
                 retrospective signal the field actually uses is FIT-TO-REFERENT and CONTEXT, not
                 inter-copy similarity — and on the four-signal ordering in §4.2; the inputs are
                 definitive, the ordering is this paper's. NEGATIVE FINDINGS, with search method,
                 on (a) the absence of any prompt/LLM-engineering literature on divergence between
                 copies of a prompt and (b) the absence of any source using drift MAGNITUDE as an
-                intent signal. UNVERIFIED: nothing in this paper rests on uncorroborated
+                intent signal. REDUCED CONFIDENCE on one negative: §3.5's "no TOOLING for it" is
+                bounded to three named checks (a clone-detector search, one prompt file format,
+                one prompt-management product's enumerated feature index) and means "none found by
+                those", not "none exists" — the literature half of that section is the strong half.
+                UNVERIFIED: nothing in this paper rests on uncorroborated
                 commentary; the one vendor article consulted is cited only for what it does NOT
                 contain, and is not quoted.
-Critic:         not-yet-verified — 2026-08-17
+Critic:         PASS-WITH-FIXES — 2026-08-17. A fresh-context read-only critic pass covered all 13
+                sources cited at the time; every source resolved, and every §5 local command was
+                re-run at `a92e53a` and reproduced exactly (48 baseline entries, `2 passed in
+                0.04s`, all sixteen SHA-1 prefixes, the four byte sizes). SEVEN fixes were then
+                applied by the analyst and each replacement span re-verified against its own source
+                before being reported fixed: (1) BLOCKING — §2's M4 row and §6.4 asserted that [R5]
+                "does not transfer across projects"; the source reports degradation that threshold
+                tuning recovers and concludes the opposite, so both places were restated and the
+                source is now quoted in BOTH directions. (2) BLOCKING — §6.3's [R1] quote was a
+                truncated substring of a different threat's sentence; replaced with the sentence
+                that actually follows the inconclusive-default, re-extracted from the PDF and
+                confirmed by `grep -F`. (3) The sourcing note declared a normalization scope
+                narrower than what was applied; it now names four normalizations and the span class
+                each one touches, including local reads. (4) A [R2] quote that joins across a
+                floated table now says so, matching the treatment [R7] already had. (5) An
+                unsourced "most-cited" superlative was dropped. (6) The [R9] count now states its
+                enumeration method and reconciles 16 tree entries against 15 blobs. (7) §3.5's
+                tooling negative now names the classes checked and is bounded to them.
+                NOT YET CRITIC-VERIFIED: [R10] and [R11], the two sources added during this fix
+                round — they were sourced and verified by the analyst, not by the critic pass.
 ```
 
 > **Volatility note (Research Standard §3, mixed-volatility rule).** The load-bearing evidence is
@@ -30,16 +55,35 @@ Critic:         not-yet-verified — 2026-08-17
 > skip on refresh**: §2, §3.1–§3.4, §4, and every claim attributed to [R1]–[R5] and [R7]. The
 > header takes the *highest* tier present, which comes from two smaller parts: **§3.5** (the
 > prompt/LLM-engineering negative finding — a fast-moving literature where one new paper flips a
-> stated gap) and **§5** (local repo measurements, pinned to commit `a92e53a` and true only of that
+> stated gap, and the only home of [R6], [R10] and [R11]) and **§5** (local repo measurements, pinned to commit `a92e53a` and true only of that
 > commit). **A refresh should re-run §3.5's searches and §5's commands, and leave the rest alone.**
 
 > **Sourcing note (read before quoting this paper).** Every span presented as a quotation below is
-> an exact character sequence returned to this analyst — from `pdftotext -layout` over bytes
-> fetched with `curl`, from a raw `raw.githubusercontent.com` file, or from a local file read. Two
-> mechanical normalizations were applied to PDF-derived spans and to nothing else: **line breaks
-> introduced by two-column extraction were joined, and end-of-line hyphenation introduced by the
-> typesetter was closed** (`in-\ntentionally` → `intentionally`). **No word was changed, added or
-> dropped.** Where a quote joins text the source did not have adjacent, it says so.
+> an exact character sequence returned to this analyst, by one of three paths: **(a)** `pdftotext`
+> (with or without `-layout`) over PDF bytes fetched with `curl` — the dominant path here, and the
+> path for every [R1]–[R7] span; **(b)** a raw `raw.githubusercontent.com` file or a GitHub API JSON
+> response ([R9]); **(c)** a local file read at commit `a92e53a` ([L1]–[L3]).
+>
+> **Four mechanical normalizations were applied, and they are the only departures from the returned
+> bytes. Each names the span class it touches, because two of them touch local reads, not only
+> PDFs:**
+>
+> 1. **Line breaks were joined** — both those introduced by PDF extraction (`-layout` two-column
+>    output) *and* those already in a local source's own wrapping. This includes the [L1] docstring
+>    quotes in §5.5 and §6.6, whose source wraps mid-sentence and indents each continuation line by
+>    four spaces; that indentation is dropped by the join.
+> 2. **End-of-line hyphenation introduced by the typesetter was closed** (`in-\ntentionally` →
+>    `intentionally`).
+> 3. **Footnote superscript markers that extraction inlines into the running text were removed** —
+>    [R5]'s destination-feature quote in §2.4 reads `Difference in Only Postfix Numbers7 : Whether
+>    the name…` in the extraction and is quoted here without the `7` and the space before the colon.
+> 4. **Markdown emphasis markers were stripped from local-read spans** taken out of `.md` sources,
+>    since the quotation is itself rendered in italics here (the [L2] span in §5.7 is bolded in
+>    source).
+>
+> **No word was changed, added or dropped.** Elisions are marked `…`. Where a quote joins text the
+> source did not have adjacent — a floated table or a page break intervening in the extraction — it
+> says so at the quote.
 
 ---
 
@@ -95,12 +139,12 @@ neglected. Three of them appear in the corpus; the fourth is the absence of one.
 | **M1** | **Ask the developers** | yes | no | treated as ground truth [R1] |
 | **M2** | **Infer motivation from artifact + context**, manually | no | no | κ = 0.271, three judges [R3] |
 | **M3** | **Fit-to-referent asymmetry**, computed | no | no | 79% precision on prose [R4] |
-| **M4** | **Learn a classifier from features** | no | optional | does not transfer across projects [R5] |
+| **M4** | **Learn a classifier from features** | no | optional | *"significantly less effective"* cross-project than inner-project [R5] |
 
 ### 2.1 M1 — ask the author, and default to DELIBERATE when you cannot *(definitive)*
 
-Juergens et al.'s ICSE 2009 study is the field's most-cited empirical treatment of exactly this
-distinction, and its method is unambiguous [R1]:
+Juergens et al.'s ICSE 2009 study treats exactly this distinction empirically, and its method is
+unambiguous [R1]:
 
 > *"The inconsistent clone groups were then presented to the developers of the respective systems
 > in the tool CloneDetective mentioned in Section 4.4, which is able to display the commonalities
@@ -299,6 +343,12 @@ Kapser & Godfrey's own study did not measure agreement at all, and says so [R2]:
 > *"First, the RGCs were judged by a single expert observer who is one of the authors of this
 > paper. Without additional judges in this study there is no way to measure bias."*
 
+*(Same extraction shape as the [R7] quote in §3.4, and flagged for the same reason. The two halves
+are contiguous prose in §4.7 of the published paper, but Table 8 and a running page footer fall
+between them in the `pdftotext -layout` output — the break is at "Without additional / judges". They
+are presented as one quotation because the source has them adjacent; the note is here so a reader
+re-running the extraction is not surprised.)*
+
 **Derived (from [R2] + [R3]):** retrospective intent classification is *reproducible enough to be
 worth doing and not reproducible enough to be a gate*. κ = 0.271 across three experts means two
 competent reviewers looking at the same pair will often disagree. That is a strong argument for the
@@ -421,12 +471,30 @@ consistent with the obvious reading: content type is in the text, intent is not.
    through a summarizing fetch, and is therefore not quoted anywhere in this paper.)*
 3. **Web-searched** for `prompt clone detection` / `duplicate prompt detection` static-analysis
    tooling. Nothing prompt-specific returned; results were code-clone detection tools and
-   LLMs-detecting-code-clones papers.
+   LLMs-detecting-code-clones papers. **The product class that would plausibly own this — the prompt
+   registry / prompt-management platform — was then checked FIRST-PARTY rather than by search**,
+   because a search summary is not a source. Langfuse's documentation repo is public markdown, so
+   its prompt-management feature index is enumerable: the git-tree API filtered to
+   `content/docs/prompt-management/features/*.mdx` returns **15 pages**, listed rather than counted
+   — `a-b-testing`, `agentic-access`, `caching`, `composability`, `config`, `folders`,
+   `github-integration`, `guaranteed-availability`, `link-to-traces`, `message-placeholders`,
+   `n8n-node`, `playground`, `prompt-version-control`, `variables`,
+   `webhooks-slack-integrations`. **Not one is a duplication, clone, or divergence feature.** The
+   single diff feature is scoped to one prompt's own history — *"The prompt version diff view shows
+   you the changes you made to the prompt over time."* [R10] — that is version-to-version inside one
+   named prompt, never prompt-to-prompt across two separately-maintained ones. *(One product's
+   documented surface, read first-party. It is NOT a claim about every product in the class:
+   LangSmith, PromptLayer and Agenta were seen only through search results and nothing about them is
+   asserted here.)*
 4. **What DOES exist first-party is the FORWARD mechanism only.** Google's Dotprompt file format
    ships **partials** — a shared-fragment primitive. Confirmed `default_branch` is `main` via the
    GitHub contents API before fetching, then enumerated the repo tree for paths matching `partial`
-   (16 paths, including `spec/partials.yaml`, `examples/partials.prompt`,
-   `java/.../PartialResolver.java`). The raw spec shows the inclusion syntax verbatim [R9]:
+   (16 entries, including `spec/partials.yaml`, `examples/partials.prompt`,
+   `java/.../PartialResolver.java`). **Enumeration method, so the next verifier does not re-derive
+   it:** `git/trees/main?recursive=1` filtered on `.path` matching `partial`, then the entries
+   counted by `.type` — **15 `blob` + 1 `tree`** (the `tree` is the `examples/partials/` directory
+   node). A verifier who clones the repo and counts *files* correctly gets **15**; both numbers are
+   right, by different populations. The raw spec shows the inclusion syntax verbatim [R9]:
    ```
    - name: basic_partial
      template: |
@@ -435,13 +503,33 @@ consistent with the obvious reading: content type is in the text, intent is not.
        greeting: "Hello from a partial!"
    ```
    That is the same mechanism this repo already implements as `modules/assistant/prompts/<name>.md`
-   plus `act.shared_prompt("<name>")` [L2]. **It prevents duplication; it says nothing about
-   diagnosing copies that already drifted** — the same limitation [R1] names for CloneTracker and
-   CReN.
+   plus `act.shared_prompt("<name>")` [L2]. Langfuse ships the same primitive under another name and
+   states the same motivation — *"As you create more prompts, you will often find yourself using the
+   same snippets of text or instructions in multiple prompts. To avoid duplication, you can compose
+   prompts by referencing other prompts."* [R10] **Two independent first-party products ship
+   prevention and neither ships diagnosis: they prevent duplication and say nothing about diagnosing
+   copies that already drifted** — the same limitation [R1] names for CloneTracker and CReN.
+
+5. **The one 2025 study of prompt-specific technical debt was checked directly**, because a search
+   summary suggested it covered duplicated and diverging prompts. [R11] studies self-admitted
+   technical debt across LLM projects. Fetched the HTML, stripped markup locally, and grepped:
+   **zero hits for `clone`, `copy-paste` and `diverg`; the sole `duplicat` hit is dataset cleaning**
+   — *"removing non-informative or irrelevant comments, such as duplicate comments, license headers,
+   generated code comments, and non-English comments."* [R11] **It does not falsify this section's
+   finding.** *(The search summary that suggested otherwise was never a source — the same caution as
+   item 2, hit twice in one section.)*
 
 **Stated as a result:** as of 2026-08-17, **there is no prompt-engineering or LLM-engineering
 literature on divergence between two separately-maintained copies of the same prompt text, and no
-tooling for it.** The nearest usable prior art is the documentation-clone work in §2.3 and §3.4,
+tooling found that diagnoses it.** **The two halves of that sentence do not rest on the same weight
+of evidence, and the tooling half is the weaker one.** The literature half is reproducible by anyone
+— two full-text extractions grepped for the concept ([R6], [R11]). The tooling half rests on three
+checks and is stated at correspondingly lower confidence: **(a)** a search of the static-analysis
+clone-detector class for a prompt-specific tool (item 3), **(b)** one first-party prompt file format
+([R9], item 4), and **(c)** one first-party prompt-management product's enumerated feature index
+([R10], item 3). **No other product in the prompt-registry class was read first-party, so "no
+tooling" means "none found by those three checks," not "none exists."** The nearest usable prior art
+is the documentation-clone work in §2.3 and §3.4,
 which studies prose but prose with a *formal* referent. *(negative finding; method enumerated above.
 It is the claim in this paper most likely to be falsified by a refresh, which is why the header takes
 the high volatility tier.)*
@@ -567,7 +655,8 @@ is derived, and this paper does not rule on any specific pair** — see §6.5.)*
 similarity percentages appear in exactly two places, and I quote both in full:
 
 > *"Three same-named prompts sit at 85.8%, 76.1% and 62.1% similarity to their siblings and NONE of
-> them appears below."* — [L1], docstring line 35
+> them appears below."* — [L1], docstring lines 34–36 (the source wraps mid-sentence; joined per the
+> sourcing note)
 
 > *"Three same-named prompts sit at 85.8%, 76.1% and 62.1% similarity to their siblings and none
 > appears in the baseline."* — [L2], line 715
@@ -622,10 +711,11 @@ judgement with its reasoning written down, which is where [L2] already put it.
 
 ### 6.3 The field's conservative default is SAFE FOR THEM AND UNSAFE FOR US *(derived — read this one carefully)*
 
-[R1] defaulted inconclusive cases to *intentional and non-faulty* for a stated reason: it *"only
-reduces the chances to positively answer the research question."* Their hypothesis was *inconsistent
-clones cause faults*; defaulting toward "intentional" made their positive result harder to reach, so
-it was conservative **for them**.
+[R1] defaulted inconclusive cases to *intentional and non-faulty* and gave the reason in the very
+next sentence of its internal-validity section: *"Inconclusive candidates were ranked as intentional
+and non-faulty. Hence, again only the chance to answer the research question positively is
+reduced."* [R1 §7.2] Their hypothesis was *inconsistent clones cause faults*; defaulting toward
+"intentional" made their positive result harder to reach, so it was conservative **for them**.
 
 **Our decision has the opposite shape.** We are ruling on whether to merge copies. Defaulting to
 "deliberate variant" preserves the copy, and preserving the copy is precisely the outcome [L2]
@@ -649,9 +739,22 @@ and [R7] study prose at all, and:
   in the corpus establishes that it transfers at all.
 - **[R7] categorises content type, not intent** (§3.4). It corroborates that prose copies drift and
   are forgotten; it does not supply an intent discriminator.
-- **[R5] does not transfer across projects.** Its own cross-project table reports recall as low as
-  1.3% at threshold 0.1 in one direction [R5, Table 8]. The "train a classifier" path is closed at
-  our scale — we have seven multi-child prompt groups (§5.2), not a training set.
+- **[R5] DEGRADES across projects; it does not fail there.** Its cross-project table reports recall
+  as low as 1.3% in one direction at threshold 0.1 (`XProj-YProj(0.1)`: blocking rate 0.5%, recall
+  1.3%) [R5, Table 8], and the source states the approach is *"significantly less effective in the
+  aggressive scenario for cross-project prediction than for inner-project prediction."* [R5] **But
+  that subsection's own conclusion runs the other way, and it is quoted here so the reader is not
+  told the literature closed M4:** in the other direction at threshold 0.3 the approach *"blocks
+  34.0% to avoid 68.1% of harmful cloning operations"*, and the source concludes that *"our approach
+  has the potential to be used in cross-project prediction in practice if developers can
+  appropriately tune the threshold to maintain an appropriate blocking rate"* and, in summary, that
+  *"our approach is able to provide help for cross-project prediction, and has a large space of
+  enhancement if developers can appropriately tune the threshold."* [R5] The honest reading is
+  **degradation recoverable by threshold tuning**, not failure to transfer. **The classifier path is
+  still closed for us, for the reason in the next sentence rather than for the transfer result:**
+  tuning a threshold presupposes a training set, and we have seven multi-child prompt groups (§5.2),
+  not one. *(definitive as to what [R5] reports in both directions; the conclusion for our scale is
+  derived.)*
 
 ### 6.5 Confirmation risk, named
 
@@ -729,8 +832,10 @@ this paper from derived to measured.
 
 ## 8. Citations
 
-**Source count: 13** — 9 external (7 peer-reviewed or archival, 1 first-party raw spec, 1 rendered
-vendor page cited only for an absence), 1 upstream research paper, and 3 local first-party artifacts.
+**Source count: 15** — 11 external (8 peer-reviewed or archival, 2 first-party raw sources, 1
+rendered vendor page cited only for an absence), 1 upstream research paper, and 3 local first-party
+artifacts. Counted by enumerating the entries below: [R1]–[R7] and [R11] = 8 archival; [R9] and
+[R10] = 2 first-party raw; [R8] = 1 rendered; [U1] = 1 upstream; [L1]–[L3] = 3 local.
 This sits at the small end of the Research Standard §2/§3 band **by design and is argued to be
 sufficient**: the general question is already answered by [U1] at 24 sources and is not re-derived
 here (§1.1); the residual question is single-concern; and §3.5 establishes by enumerated search that
@@ -778,14 +883,31 @@ source was excluded for space.
   Tables 2–3). Book-chapter preprint; the underlying study is its reference [25], which was not
   independently fetched — **claims sourced here are attributed to this chapter's own text, not to
   the primary study.***
+- **[R11]** A. Aljohani, H. Do — *PromptDebt: A Comprehensive Study of Technical Debt Across LLM
+  Projects.* arXiv:2509.20497v1, submitted 2025-09-24 (authors, title and date read from the arXiv
+  API response, not from the rendered page). https://arxiv.org/html/2509.20497v1 — *fetched
+  2026-08-17; HTML bytes `curl`-ed, markup stripped locally, then grepped. The quoted span was
+  confirmed present in the raw HTML bytes (no markup inside it). Read: the dataset-construction
+  section. **Cited as a NEGATIVE finding only** — the one 2025 study of prompt-specific technical
+  debt does not address copy divergence (§3.5 item 5). The arXiv HTML rendering is the version
+  checked; no ACM/venue version was fetched, so nothing about its publication venue is asserted
+  here.*
 
 ### First-party documentation (raw)
 
 - **[R9]** Google Dotprompt — *partials specification.*
   `raw.githubusercontent.com/google/dotprompt/main/spec/partials.yaml` (fetched 2026-08-17;
   `default_branch` confirmed `main` via `api.github.com/repos/google/dotprompt` before fetching, and
-  the 16 `partial`-matching repo paths enumerated via the git-tree API). *Cited as an existence
-  proof of the shared-fragment primitive in a first-party prompt file format.*
+  the 16 `partial`-matching repo entries — 15 blobs + 1 tree — enumerated and counted by `.type` via
+  the git-tree API; see §3.5 item 4 for the reconciliation with a 15-file clone count). *Cited as an
+  existence proof of the shared-fragment primitive in a first-party prompt file format.*
+- **[R10]** Langfuse — *Prompt Version Control* and *Prompt Composability* documentation.
+  `raw.githubusercontent.com/langfuse/langfuse-docs/main/content/docs/prompt-management/features/prompt-version-control.mdx`
+  and `.../composability.mdx` (both fetched raw 2026-08-17; `default_branch` confirmed `main` via
+  `api.github.com/repos/langfuse/langfuse-docs`; the 15-page feature index enumerated via the
+  git-tree API and listed in §3.5 item 3). *Cited for TWO things: that the shared-fragment primitive
+  exists in a second first-party product, and — as a negative — that its diff feature is scoped to
+  one prompt's own version history. Nothing is asserted about any other vendor in this class.*
 
 ### Consulted for an absence (not quoted, reduced confidence)
 
