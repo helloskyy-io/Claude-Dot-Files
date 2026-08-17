@@ -13,19 +13,22 @@ Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on what each cited study did, measured and reported (all quotes are
                 exact character sequences returned by a `pdftotext` extraction of curl-fetched PDF
                 bytes, by a raw fetch, or by a local read — see the sourcing note below, which
-                names every normalization applied and the span class it applies to).
-                DEFINITIVE on the local counts in §5, each enumerated by a
-                command whose output is quoted. DERIVED on this paper's central claim — that the
+                names every normalization applied and the span class it applies to). DEFINITIVE on
+                the local counts in §5, each enumerated by a command whose output is quoted.
+                DERIVED on this paper's central claim — that the
                 retrospective signal the field actually uses is FIT-TO-REFERENT and CONTEXT, not
                 inter-copy similarity — and on the four-signal ordering in §4.2; the inputs are
-                definitive, the ordering is this paper's. NEGATIVE FINDINGS, with search method,
-                on (a) the absence of any prompt/LLM-engineering literature on divergence between
-                copies of a prompt and (b) the absence of any source using drift MAGNITUDE as an
-                intent signal. REDUCED CONFIDENCE on one negative: §3.5's "no TOOLING for it" is
-                bounded to three named checks (a clone-detector search, one prompt file format,
-                one prompt-management product's enumerated feature index) and means "none found by
-                those", not "none exists" — the literature half of that section is the strong half.
-                UNVERIFIED: nothing in this paper rests on uncorroborated
+                definitive, the ordering is this paper's. NEGATIVE FINDINGS, each stating its search
+                method and each phrased as NOT FOUND rather than as does-not-exist: (a) no
+                prompt/LLM-engineering literature on divergence between copies of a prompt, and (b)
+                no source using drift MAGNITUDE as an intent signal. The two negatives in §3.5 do
+                NOT carry equal weight and the section says which is which: the LITERATURE half is
+                the stronger — a lifecycle-wide ROADMAP paper that enumerates the field's open
+                research directions returns zero hits — but §3.5 also writes down what that does NOT
+                establish, since a vision paper's silence is not a database sweep; the TOOLING half is
+                bounded to three named checks (a clone-detector search, one prompt file format, one
+                prompt-management product's enumerated feature index) and means "none found by
+                those", not "none exists". UNVERIFIED: nothing in this paper rests on uncorroborated
                 commentary; the one vendor article consulted is cited only for what it does NOT
                 contain, and is not quoted.
 Critic:         PASS-WITH-FIXES — 2026-08-17. A fresh-context read-only critic pass covered all 13
@@ -46,8 +49,31 @@ Critic:         PASS-WITH-FIXES — 2026-08-17. A fresh-context read-only critic
                 unsourced "most-cited" superlative was dropped. (6) The [R9] count now states its
                 enumeration method and reconciles 16 tree entries against 15 blobs. (7) §3.5's
                 tooling negative now names the classes checked and is bounded to them.
-                NOT YET CRITIC-VERIFIED: [R10] and [R11], the two sources added during this fix
-                round — they were sourced and verified by the analyst, not by the critic pass.
+                ROUND 2 — a second critic pass re-verified the CHANGED SPANS ONLY (round 1's corpus
+                verification stands and was not repeated) and returned ZERO blocking findings: no
+                fabrication, no miscitation, and all seven round-1 repairs confirmed genuinely
+                closed rather than merely re-worded. The two sources added in round 1 are NO LONGER
+                carved out — [R10] was re-verified by clone-and-grep against `langfuse/langfuse-docs`
+                with the 15-page feature index re-enumerated name-for-name, and [R11] by independent
+                re-grep under two tag-stripping methods plus arXiv-API confirmation of its authors,
+                title and date. Eight non-blocking items were then dispositioned by the analyst,
+                each re-verified at its source: a "the one 2025 study" superlative downgraded (same
+                defect class as fix 5 above, a fresh instance); §3.5 item 3's flat "not one is a
+                duplication feature" narrowed to "not one DIAGNOSES divergence", which had come to
+                contradict item 4's own composability quote; the [R9] enumeration method marked
+                case-INSENSITIVE (run case-sensitively it returns 9, not 16 — the recipe did not
+                reproduce its own number); the sourcing note extended from three paths to four to
+                cover [R11]'s strip-markup-locally path; a [R5] quote in §6.4 re-tagged to the
+                conservative scenario it actually closes; `Empir Software Eng` corrected from
+                "running footer" to the journal's running head; three wrapping artifacts repaired;
+                and §3.5's literature negative re-phrased as NOT FOUND with the argument for its
+                strength written out rather than left implicit. Writing that last argument surfaced
+                a defect NEITHER critic round caught and which predates both: **[R6] was described
+                throughout as a "full-lifecycle survey" and it is a VISION / ROADMAP paper** — it
+                calls itself *"a vision paper"* in its own §5. Since a vision paper's silence is
+                weaker evidence than a survey's, the mis-description had been inflating §3.5's
+                literature negative from the beginning. Corrected in §3.5 item 1, in the result
+                statement, in the [R6] citation entry, in this header and in the synthesis.
 ```
 
 > **Volatility note (Research Standard §3, mixed-volatility rule).** The load-bearing evidence is
@@ -55,14 +81,19 @@ Critic:         PASS-WITH-FIXES — 2026-08-17. A fresh-context read-only critic
 > skip on refresh**: §2, §3.1–§3.4, §4, and every claim attributed to [R1]–[R5] and [R7]. The
 > header takes the *highest* tier present, which comes from two smaller parts: **§3.5** (the
 > prompt/LLM-engineering negative finding — a fast-moving literature where one new paper flips a
-> stated gap, and the only home of [R6], [R10] and [R11]) and **§5** (local repo measurements, pinned to commit `a92e53a` and true only of that
-> commit). **A refresh should re-run §3.5's searches and §5's commands, and leave the rest alone.**
+> stated gap, and the only home of [R6], [R10] and [R11]) and **§5** (local repo measurements,
+> pinned to commit `a92e53a` and true only of that commit). **A refresh should re-run §3.5's
+> searches and §5's commands, and leave the rest alone.**
 
 > **Sourcing note (read before quoting this paper).** Every span presented as a quotation below is
-> an exact character sequence returned to this analyst, by one of three paths: **(a)** `pdftotext`
-> (with or without `-layout`) over PDF bytes fetched with `curl` — the dominant path here, and the
-> path for every [R1]–[R7] span; **(b)** a raw `raw.githubusercontent.com` file or a GitHub API JSON
-> response ([R9]); **(c)** a local file read at commit `a92e53a` ([L1]–[L3]).
+> an exact character sequence returned to this analyst, by one of **four** paths — the list is
+> exhaustive and every quoted span in this paper falls under exactly one: **(a)** `pdftotext` (with
+> or without `-layout`) over PDF bytes fetched with `curl` — the dominant path here, and the path
+> for every [R1]–[R7] span; **(b)** a raw `raw.githubusercontent.com` file or a GitHub API JSON
+> response ([R9], [R10]); **(c)** a local file read at commit `a92e53a` ([L1]–[L3]); **(d)** HTML
+> bytes fetched with `curl` with markup stripped locally (`sed 's/<[^>]*>/ /g'`), used only for
+> [R11] — and for that one span the exact character sequence was additionally confirmed present in
+> the **raw HTML bytes**, so no tag boundary falls inside it.
 >
 > **Four mechanical normalizations were applied, and they are the only departures from the returned
 > bytes. Each names the span class it touches, because two of them touch local reads, not only
@@ -344,8 +375,9 @@ Kapser & Godfrey's own study did not measure agreement at all, and says so [R2]:
 > paper. Without additional judges in this study there is no way to measure bias."*
 
 *(Same extraction shape as the [R7] quote in §3.4, and flagged for the same reason. The two halves
-are contiguous prose in §4.7 of the published paper, but Table 8 and a running page footer fall
-between them in the `pdftotext -layout` output — the break is at "Without additional / judges". They
+are contiguous prose in §4.7 of the published paper, but Table 8 and the journal's running head
+(`Empir Software Eng`, line 1 of the extraction and repeated on every page) fall between them in the
+`pdftotext -layout` output — the break is at "Without additional / judges". They
 are presented as one quotation because the source has them adjacent; the note is here so a reader
 re-running the extraction is not surprised.)*
 
@@ -450,9 +482,15 @@ consistent with the obvious reading: content type is in the text, intent is not.
 **Searched:**
 
 1. **[R6] "Promptware Engineering: Software Engineering for Prompt-Enabled Systems"** (arXiv
-   2503.02400v2, 27 Jan 2026; ACM copyright block present) — a full-lifecycle survey of SE for
-   prompt-based systems that enumerates open problems, including *"O24: Versioning and
-   traceability"*. Fetched the PDF, extracted with `pdftotext -layout` (1,208 lines), and grepped
+   2503.02400v2, 27 Jan 2026; ACM copyright block present, and the arXiv API records it *"Accepted
+   by ACM Transactions on Software Engineering and Methodology (ACM TOSEM)"*) — a **vision /
+   roadmap paper**, NOT a systematic survey. **This paper described it as a "full-lifecycle survey"
+   until 2026-08-17 and that was wrong**; the source calls itself *"a vision paper"* [R6 §5] and its
+   abstract offers *"a comprehensive roadmap for promptware engineering, identifying key research
+   directions"* [R6]. It re-contextualises the whole SE lifecycle for prompts and enumerates open
+   problems, including *"O24: Versioning and traceability"*. The correction matters because the
+   strength of this section's negative depends on it — see the result statement at the end of §3.5.
+   Fetched the PDF, extracted with `pdftotext -layout` (1,208 lines), and grepped
    the whole extraction for `clone|duplicat|redundan|DRY`. **Result: zero hits for `clone` and zero
    for `duplicat`.** The sole `redundan` hit is *"token compression eliminates redundancies"* —
    context-window economy, not artifact duplication. Prompt versioning appears as an **open
@@ -460,7 +498,7 @@ consistent with the obvious reading: content type is in the text, intent is not.
    version control tools to track prompt iterations, document modifications, and ensure
    accountability"*, and *"Additionally, automated diff-checking mechanisms could highlight changes
    in prompts and their impact on LLM responses, improving reliability."* [R6] Both sentences are in
-   the conditional — a gap the survey names, not a practice it reports.
+   the conditional — a gap the roadmap names, not a practice it reports.
 2. **The term "prompt drift" is taken, and it means something else.** Web-searched for prompt drift
    as divergence between separately-maintained copies. A search-result summary asserted that a
    vendor article defined it that way; **fetching the article contradicted the summary** — [R8] is
@@ -479,22 +517,35 @@ consistent with the obvious reading: content type is in the text, intent is not.
    — `a-b-testing`, `agentic-access`, `caching`, `composability`, `config`, `folders`,
    `github-integration`, `guaranteed-availability`, `link-to-traces`, `message-placeholders`,
    `n8n-node`, `playground`, `prompt-version-control`, `variables`,
-   `webhooks-slack-integrations`. **Not one is a duplication, clone, or divergence feature.** The
-   single diff feature is scoped to one prompt's own history — *"The prompt version diff view shows
-   you the changes you made to the prompt over time."* [R10] — that is version-to-version inside one
-   named prompt, never prompt-to-prompt across two separately-maintained ones. *(One product's
-   documented surface, read first-party. It is NOT a claim about every product in the class:
-   LangSmith, PromptLayer and Agenta were seen only through search results and nothing about them is
-   asserted here.)*
+   `webhooks-slack-integrations`. **Not one DIAGNOSES duplication, cloning or divergence between two
+   separately-maintained prompts.** Grepping all fifteen for `diff|clone|duplicat|diverg` returns
+   hits in seven, and the three that come closest are worth naming rather than eliding, because each
+   is a near-miss of a different kind:
+   - `composability` **prevents** duplication rather than detecting it — *"To avoid duplication, you
+     can compose prompts by referencing other prompts."* [R10] That is the forward mechanism of item
+     4 below, not a retrospective signal.
+   - `prompt-version-control` diffs **one prompt against its own past** — *"The prompt version diff
+     view shows you the changes you made to the prompt over time."* [R10] Version-to-version inside
+     one named prompt, never prompt-to-prompt across two.
+   - `playground` compares *"different prompts and models"* [R10] by **running** them — an
+     interactive output-comparison bench, not a textual divergence diagnosis.
+
+   *(One product's documented surface, read first-party. It is NOT a claim about every product in
+   the class: LangSmith, PromptLayer and Agenta were seen only through search results and nothing
+   about them is asserted here.)*
 4. **What DOES exist first-party is the FORWARD mechanism only.** Google's Dotprompt file format
    ships **partials** — a shared-fragment primitive. Confirmed `default_branch` is `main` via the
    GitHub contents API before fetching, then enumerated the repo tree for paths matching `partial`
    (16 entries, including `spec/partials.yaml`, `examples/partials.prompt`,
    `java/.../PartialResolver.java`). **Enumeration method, so the next verifier does not re-derive
-   it:** `git/trees/main?recursive=1` filtered on `.path` matching `partial`, then the entries
-   counted by `.type` — **15 `blob` + 1 `tree`** (the `tree` is the `examples/partials/` directory
-   node). A verifier who clones the repo and counts *files* correctly gets **15**; both numbers are
-   right, by different populations. The raw spec shows the inclusion syntax verbatim [R9]:
+   it:** `git/trees/main?recursive=1`, entries filtered on `.path` matching `partial`
+   **case-INSENSITIVELY** — `jq 'select(.path|test("partial";"i"))'` — then counted by `.type`:
+   **15 `blob` + 1 `tree`** (the `tree` is the `examples/partials/` directory node). **The
+   case-insensitivity is load-bearing and is stated because it is not guessable:** the same filter
+   run case-SENSITIVELY returns only **9** entries (8 blob + 1 tree), because seven of the sixteen
+   are `java/.../Partial*.java` with a capital P. A verifier who clones the repo and counts *files*
+   correctly gets **15**; all three numbers are right, over three different populations. The raw
+   spec shows the inclusion syntax verbatim [R9]:
    ```
    - name: basic_partial
      template: |
@@ -510,8 +561,10 @@ consistent with the obvious reading: content type is in the text, intent is not.
    prevention and neither ships diagnosis: they prevent duplication and say nothing about diagnosing
    copies that already drifted** — the same limitation [R1] names for CloneTracker and CReN.
 
-5. **The one 2025 study of prompt-specific technical debt was checked directly**, because a search
-   summary suggested it covered duplicated and diverging prompts. [R11] studies self-admitted
+5. **A 2025 study of prompt-specific technical debt — the one a search surfaced — was checked
+   directly**, because a search summary suggested it covered duplicated and diverging prompts. **No
+   claim is made that it is the only such study; this paper never enumerated that literature.**
+   [R11] studies self-admitted
    technical debt across LLM projects. Fetched the HTML, stripped markup locally, and grepped:
    **zero hits for `clone`, `copy-paste` and `diverg`; the sole `duplicat` hit is dataset cleaning**
    — *"removing non-informative or irrelevant comments, such as duplicate comments, license headers,
@@ -519,18 +572,37 @@ consistent with the obvious reading: content type is in the text, intent is not.
    finding.** *(The search summary that suggested otherwise was never a source — the same caution as
    item 2, hit twice in one section.)*
 
-**Stated as a result:** as of 2026-08-17, **there is no prompt-engineering or LLM-engineering
-literature on divergence between two separately-maintained copies of the same prompt text, and no
-tooling found that diagnoses it.** **The two halves of that sentence do not rest on the same weight
-of evidence, and the tooling half is the weaker one.** The literature half is reproducible by anyone
-— two full-text extractions grepped for the concept ([R6], [R11]). The tooling half rests on three
-checks and is stated at correspondingly lower confidence: **(a)** a search of the static-analysis
-clone-detector class for a prompt-specific tool (item 3), **(b)** one first-party prompt file format
-([R9], item 4), and **(c)** one first-party prompt-management product's enumerated feature index
-([R10], item 3). **No other product in the prompt-registry class was read first-party, so "no
-tooling" means "none found by those three checks," not "none exists."** The nearest usable prior art
-is the documentation-clone work in §2.3 and §3.4,
-which studies prose but prose with a *formal* referent. *(negative finding; method enumerated above.
+**Stated as a result:** as of 2026-08-17, **no prompt-engineering or LLM-engineering literature on
+divergence between two separately-maintained copies of the same prompt text was found, and no
+tooling that diagnoses it was found.** **The two halves of that sentence do not rest on the same
+weight of evidence, and the tooling half is the weaker one.**
+
+**What the literature half rests on, argued explicitly — and bounded by what [R6] actually is.**
+[R6] is **not a systematic survey, and this paper earlier described it as one in error** (corrected
+in item 1 above). It says of itself: *"As a vision paper, this work primarily focuses on
+articulating the conceptual framework for promptware engineering and outlining associated research
+opportunities."* [R6 §5], and its abstract promises *"a comprehensive roadmap for promptware
+engineering, identifying key research directions."* [R6] **That distinction changes the strength of
+the negative and is why it is written down rather than glossed.** A vision paper's silence is NOT
+field coverage — it cannot stand in for a database sweep. What it IS: six authors setting out to
+re-contextualise the ENTIRE SE lifecycle for prompts and to enumerate the field's open research
+directions produced a document that names *"O24: Versioning and traceability"* as an open problem
+while containing **zero** occurrences of `clone` and **zero** of `duplicat` across a 1,208-line
+extraction. That is real evidence that copy-divergence is **not on the field's stated agenda**;
+it is not evidence that no paper anywhere addresses it. [R11] corroborates under an independent
+grep, and is likewise one paper rather than an index. **No systematic review was run here and no
+database index was enumerated**, [R6] is dated 27 Jan 2026, and this literature moves near-weekly.
+So the honest form is the one stated above — *not found, by these methods, on this date* — and that
+is exactly why §3.5 sets the paper's volatility tier.
+
+**The tooling half has no equivalent argument.** It rests on three checks and is stated at
+correspondingly lower confidence: **(a)** a search of the static-analysis clone-detector class for a
+prompt-specific tool (item 3), **(b)** one first-party prompt file format ([R9], item 4), and
+**(c)** one first-party prompt-management product's enumerated feature index ([R10], item 3).
+**No other product in the prompt-registry class was read first-party, so "no tooling" means "none
+found by those three checks," not "none exists."** The nearest usable prior art is the
+documentation-clone work in §2.3 and §3.4, which studies prose but prose with a *formal* referent.
+*(negative finding; method enumerated above.
 It is the claim in this paper most likely to be falsified by a refresh, which is why the header takes
 the high volatility tier.)*
 
@@ -744,12 +816,16 @@ and [R7] study prose at all, and:
   1.3%) [R5, Table 8], and the source states the approach is *"significantly less effective in the
   aggressive scenario for cross-project prediction than for inner-project prediction."* [R5] **But
   that subsection's own conclusion runs the other way, and it is quoted here so the reader is not
-  told the literature closed M4:** in the other direction at threshold 0.3 the approach *"blocks
-  34.0% to avoid 68.1% of harmful cloning operations"*, and the source concludes that *"our approach
-  has the potential to be used in cross-project prediction in practice if developers can
-  appropriately tune the threshold to maintain an appropriate blocking rate"* and, in summary, that
-  *"our approach is able to provide help for cross-project prediction, and has a large space of
-  enhancement if developers can appropriately tune the threshold."* [R5] The honest reading is
+  told the literature closed M4.** [R5] reports two scenarios and the quotes below are tagged to
+  theirs, because they are not interchangeable: **in the aggressive scenario** (Table 8), in the
+  other direction at threshold 0.3, the approach *"blocks 34.0% to avoid 68.1% of harmful cloning
+  operations"*; **in the conservative scenario** (Table 7), the paragraph closes *"This observation
+  demonstrates that our approach has the potential to be used in cross-project prediction in
+  practice if developers can appropriately tune the threshold to maintain an appropriate blocking
+  rate."*; and **the subsection's own summary, which is scenario-agnostic and is what this bullet
+  actually leans on**, is that *"our approach is able to provide help for cross-project prediction,
+  and has a large space of enhancement if developers can appropriately tune the threshold."* [R5]
+  The honest reading is
   **degradation recoverable by threshold tuning**, not failure to transfer. **The classifier path is
   still closed for us, for the reason in the next sentence rather than for the transfer result:**
   tuning a threshold presupposes a training set, and we have seven multi-child prompt groups (§5.2),
@@ -874,7 +950,11 @@ source was excluded for space.
   §4 (ablation, Tables 5–6, cross-project Table 8), §5 (discussion of Kapser categories).*
 - **[R6]** Z. Chen, C. Wang, W. Sun, X. Liu, J. M. Zhang, Y. Liu — *Promptware Engineering: Software
   Engineering for Prompt-Enabled Systems.* arXiv:2503.02400v2, 27 Jan 2026.
-  https://arxiv.org/pdf/2503.02400 — *fetched 2026-08-17. Read: O24 (versioning and traceability).
+  https://arxiv.org/pdf/2503.02400 — *fetched 2026-08-17 (8 pages, 1,208-line `-layout` extraction).
+  Read: abstract, §4 (Roadmap), §5 (Limitations and Future Work), O24 (versioning and traceability).
+  **A VISION / ROADMAP paper, not a systematic survey** — self-described *"As a vision paper…"* in
+  §5; this paper called it a survey until 2026-08-17 and the description was corrected, because the
+  weight of §3.5's negative depends on which it is. arXiv API records acceptance by ACM TOSEM.
   **Cited primarily as a NEGATIVE finding: full-text grep for `clone|duplicat` returns zero relevant
   hits — see §3.5.***
 - **[R7]** S. Wagner, D. Méndez Fernández — *Analysing Text in Software Projects.*
@@ -888,8 +968,9 @@ source was excluded for space.
   API response, not from the rendered page). https://arxiv.org/html/2509.20497v1 — *fetched
   2026-08-17; HTML bytes `curl`-ed, markup stripped locally, then grepped. The quoted span was
   confirmed present in the raw HTML bytes (no markup inside it). Read: the dataset-construction
-  section. **Cited as a NEGATIVE finding only** — the one 2025 study of prompt-specific technical
-  debt does not address copy divergence (§3.5 item 5). The arXiv HTML rendering is the version
+  section. **Cited as a NEGATIVE finding only** — a 2025 study of prompt-specific technical debt,
+  surfaced by search rather than by an enumeration of that literature, does not address copy
+  divergence (§3.5 item 5). The arXiv HTML rendering is the version
   checked; no ACM/venue version was fetched, so nothing about its publication venue is asserted
   here.*
 
@@ -898,8 +979,9 @@ source was excluded for space.
 - **[R9]** Google Dotprompt — *partials specification.*
   `raw.githubusercontent.com/google/dotprompt/main/spec/partials.yaml` (fetched 2026-08-17;
   `default_branch` confirmed `main` via `api.github.com/repos/google/dotprompt` before fetching, and
-  the 16 `partial`-matching repo entries — 15 blobs + 1 tree — enumerated and counted by `.type` via
-  the git-tree API; see §3.5 item 4 for the reconciliation with a 15-file clone count). *Cited as an
+  the 16 case-insensitively `partial`-matching repo entries — 15 blobs + 1 tree — enumerated and
+  counted by `.type` via the git-tree API; **case-sensitively the same filter returns 9**, see §3.5
+  item 4 for that reconciliation and for the 15-file clone count). *Cited as an
   existence proof of the shared-fragment primitive in a first-party prompt file format.*
 - **[R10]** Langfuse — *Prompt Version Control* and *Prompt Composability* documentation.
   `raw.githubusercontent.com/langfuse/langfuse-docs/main/content/docs/prompt-management/features/prompt-version-control.mdx`
