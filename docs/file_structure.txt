@@ -386,6 +386,7 @@ claude-dot-files/
 │                   │                                #   conditional across modules/ AND scripts/, not a text scan of one package
 │                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
 │                   ├── test_build_prompt_variants_do_not_fork.py  # A stage-prompt variant must not silently lose its sibling's discipline (PR #99)
+│                   ├── test_prompt_blocks_are_shared_not_copied.py  # §10.1 for prose: a block in 2 children must be SHARED — frozen baseline that may only shrink
 │                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
 │                   │                                #   and FOUR one-declaration gates: the schema, the Kind 1 shared parse (enumerated,
 │                   │                                #   with a completeness check), `parse_verdict` by AST scan of the whole tree, and
