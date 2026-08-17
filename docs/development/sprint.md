@@ -147,25 +147,20 @@ Two distinct kinds of memory, both built. Both exist because a context window en
 - [x] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
 - [x] **Phase 6 · Read what it writes** — three readers for the run log's parent-written observables
 
-Evidence, prior art and the plateau correction: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
+Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisions.md) (2026-08-17), which salvaged them from the deleted burn-test intake
 
 ## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
 
-**Phase doc:** not yet written — writing it is the planning step.
+**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — four phases. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
 
 Turning every heavy workflow into a parent over children, so each boundary is a retry/resume point and children become recombinable rather than copied. A dispatch derives what it runs on rather than inheriting it.
 
-- [ ] **Rule fork-vs-parameterize** — gates the copy families
-- [ ] **Derive `plan-project`'s scope from its target** — feature scope runs `plan-feature` → `plan-sprint` → `plan-verify` → `review-pr`, skipping triage, scaffolding and the per-component research pass
-- [ ] **Centrally managed config, with a user tier beside it** — the fleet's agents, skills, rules and hooks become managed; the user keeps a tier they own and can extend. *Gate: PMP Part 1*
-- [ ] **Gate the stale-doc class still uncovered** — a produced artifact nobody consumes
-- [x] **Absorb `build-phase.sh` into `build` as `--phase`** — one family, one set of children
-- [x] **Split `build.sh` into draft → refine → review-pr**
-- [x] **Split `build-minor.sh` on the same shape** — one-lens middle child
-- [x] **Extract the activities layer** — `run-claude`, `wait-for-ci`, `require-environment`
-- [x] **Write it down** — `docs/standards/workflow-scripts.md § Composition`
+- [x] **Phase 1 · Decompose the build families and codify the shape** — draft/refine/review-pr, the activities layer, and the composition contract written down
+- [ ] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism and standard shipped; the fleet backlog and the drifted-copy ruling remain
+- [ ] **Phase 3 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, scope from the target, and centrally managed config
+- [ ] **Phase 4 · The missing children and parents** — *gated on the operator's list, then research*
 
-Evidence and confidence levels: [`burn-test-intake-2026-08-02.md`](burn-test-intake-2026-08-02.md)
+Origin and the rulings salvaged from it: [`cpi-decisions.md`](cpi-decisions.md) (2026-08-17)
 
 ## Sprint: Persistent Memory Protocol — Part 1 — 🟡 IN PROGRESS
 
@@ -191,6 +186,7 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 - [ ] **Rule on `plan-new` and `review-sprint`** — 1,228 lines between them and **neither has ever executed**; decide whether they die with the bash fleet or earn a port
 - [ ] **Stand up the Temporal server** — Postgres-backed, on the VM that gets backed up
 - [ ] **A restart-recovery contract** — a durable dispatch id and per-subsystem recovery, designed once. Retrofitting one onto running workers is a rewrite, so it lands with them rather than after
+- [ ] **Rule the retry boundary before wrapping anything** — Temporal retries an ACTIVITY, and `gh()` gained its own bounded retry for transient outages (PR #101). Nesting them multiplies: 3 activity attempts × 3 call attempts is 9, which turns a brief outage into a long stall. Decide which layer owns it, and carry the transient-vs-terminal classification into `non_retryable_error_types` rather than re-deriving it — Temporal's default retries almost everything, including a `404`. **`preflight` is outside this and stays outside**: it runs before any workflow exists, so no retry policy can reach it
 - [ ] **Stage B — semantic wrappers** — `@activity.defn` over the plain functions from Stage A
 - [ ] **Stage C — orchestrate** — workflows compose the wrappers; schedules replace timers
 
@@ -208,6 +204,20 @@ The four phases that wait on something that does not exist yet.
 - [ ] **Phase 8 · The poller** — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
 
 **Phase 6 can be pulled forward** — it needs the `review-runs` port, not the server.
+
+## Sprint: Self Improvement — 🔵 NOT SCHEDULED, NEEDS RESEARCH THEN PLANNING
+
+**Planning:** not yet written. Research comes first — this is a measurement problem before it is a training problem.
+
+Making a child better at its job, measured rather than asserted. Today a child's performance is scattered across pull-request comments and log files nothing reads, so there is no baseline to improve against and no way to tell an improvement from a good day.
+
+**Gated on the journal.** [PMP](persistent-memory-protocol/roadmap.md) Part 1 gives runs a durable record; [Phase 6](persistent-memory-protocol/phase6_cpi_reads_the_journal.md) is what reads it back. Until a child's behaviour is measurable across runs, training is guesswork with a confident voice.
+
+**It sits in front of [Autonomous Operation](#sprint-autonomous-operation--🔵-not-scheduled)** because a loop that dispatches its own work amplifies whatever the children already do — well or badly. Improving them first is cheaper than supervising them later.
+
+- [ ] **Measure a child's performance** — what a good run looks like, derived from the journal rather than declared
+- [ ] **Train one child against that measure** — the candidate-reasoning child is the natural first subject; it is the one whose ceiling may be human-in-the-loop
+- [ ] **Decide what generalises** — whether the method transfers to other children or only fit the first one
 
 ## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED
 

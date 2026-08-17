@@ -138,8 +138,6 @@ RECORD_SURFACES: dict[str, str] = {
     "docs/development/cpi-decisions.md":
         "the append-only decisions log, including the ruling that made these "
         "exclusions",
-    "docs/development/burn-test-intake-2026-08-02.md":
-        "a dated intake record of how work was routed on that day",
     "docs/development/persistent-memory-protocol/roadmap.md":
         "§ Reading the old names is the translation table that keeps every "
         "other exclusion readable, and the applied amendment preserves its "

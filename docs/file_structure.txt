@@ -74,7 +74,6 @@ claude-dot-files/
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
 │   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
 │   │   ├── sprint.md                                # The sprint plan — what gets built and in what order. NEVER a history lesson
-│   │   ├── burn-test-intake-2026-08-02.md           # NOT a sprint — intake record feeding three of them; delete once absorbed
 │   │   │
 │   │   │                                            # One FOLDER per sprint, directly under development/ (there is no phases/ level).
 │   │   │                                            # Two shapes, both per the convention in sprint.md:
@@ -156,6 +155,7 @@ claude-dot-files/
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
+│   │   │   ├── roadmap.md                         # Four phases; written after Phase 1 shipped, so that phase is a record not requirements
 │   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
