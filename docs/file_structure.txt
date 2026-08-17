@@ -269,10 +269,10 @@ claude-dot-files/
 │   │           │                                    #   and every row names a consumer in `Read by`. run_log.py excluded BY NAME, exclusion asserted
 │   │           ├── test_replay_pr_review_blocks.py  # Guards block extraction + absent-vs-false `converged`, which E7's cross-tab depends on (2 mutation-proven)
 │   │           ├── test_run_log.py                  # The run-log surface's declaration: declared members == actual writers (both directions), the
-│   │           ├── test_nullable_fields_are_not_truth_tested.py  # A NUMERIC nullable may never be truth-tested: `not x` folds an unmeasured record into a measured zero. Reads USAGE, not the declaration — the declaration gate could not see seven instances of it
 │   │           │                                    #   publish check firing on a MODEL-AUTHORED VALUE not a key name — including a slug JOINED into
 │   │           │                                    #   a sentence or TRUNCATED for a column — the derived model→workflow map finding the one
 │   │           │                                    #   ambiguous pair, and the two subagent parsers agreeing over the live archive
+│   │           ├── test_nullable_fields_are_not_truth_tested.py  # A NUMERIC nullable may never be truth-tested: `not x` folds an unmeasured record into a measured zero. Reads USAGE, not the declaration — the declaration gate could not see seven instances of it
 │   │           └── test_run_log_readers.py          # The three readers' OUTPUT: exclusions named by commit cutover, figure 1's denominator being
 │   │                                                #   EVERY record, high/oom labelled not-applicable per record, the overlap sweep bounded from
 │   │                                                #   both sides and naming any window it cannot place, an unmeasured record not killing the
@@ -387,18 +387,18 @@ claude-dot-files/
 │                   │                                #   class-scoped assertion that NOTHING branches on the signal — an AST walk over every
 │                   │                                #   conditional across modules/ AND scripts/, not a text scan of one package
 │                   ├── test_exit_record.py          # The fail-safe contract: every outcome x hold_kind cell, one test per absence mode,
-│                   ├── test_build_prompt_variants_do_not_fork.py  # A stage-prompt variant must not silently lose its sibling's discipline (PR #99)
-│                   ├── test_prompt_blocks_are_shared_not_copied.py  # §10.1 for prose: a block in 2 children must be SHARED — frozen baseline that may only shrink
 │                   │                                #   the shadow comparison firing, the render↔record invariant bound to THIS pass,
 │                   │                                #   and FOUR one-declaration gates: the schema, the working-record shared parse (enumerated,
 │                   │                                #   with a completeness check), `parse_verdict` by AST scan of the whole tree, and
 │                   │                                #   exit-protocol §4's reason column compared against the shipped enum
+│                   ├── test_build_prompt_variants_do_not_fork.py  # A stage-prompt variant must not silently lose its sibling's discipline (PR #99)
+│                   ├── test_prompt_blocks_are_shared_not_copied.py  # §10.1 for prose: a block in 2 children must be SHARED — frozen baseline that may only shrink
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
-│                   ├── test_shim_usage_names_itself.py   # Every shim's `#   ./x.sh` usage line must name the shim it is in. Four documented a different workflow; copy-pasting one ran the wrong one
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.
 │                   │                                #   Plus the permission_denials surface both fleets share: it names every denied
 │                   │                                #   tool, never prints the command line, and ROUTES NOTHING (asserted structurally)
+│                   ├── test_shim_usage_names_itself.py   # Every shim's `#   ./x.sh` usage line must name the shim it is in. Four documented a different workflow; copy-pasting one ran the wrong one
 │                   ├── test_run_log_emission.py     # The EMISSION side of the run-log surface: all three member events agree on `run_id`,
 │                   │                                #   with a control on the DEFECT'S OWN SHAPE (a stem that ENDS with the nonce, so a
 │                   │                                #   suffix-match looks right and joins nothing); `workflow_key` required with no
