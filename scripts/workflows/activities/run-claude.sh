@@ -18,7 +18,7 @@
 #                        count as complete. Missing → run_claude fails LOUD and
 #                        returns nonzero (exit 0 must mean done). PR-producing
 #                        workflows set this to a PR-URL pattern. Unset = no check.
-#   EXIT_RECORD_SCHEMA — a JSON Schema, inline, declaring the typed exit
+#   EXIT_RECORD_SCHEMA — a JSON Schema, inline, declaring the Kind 2 typed exit
 #                        record the child emits at exit (docs/standards/exit-protocol.md).
 #                        Set → the CLI is invoked with --json-schema and the
 #                        result event carries `structured_output`. Unset → this

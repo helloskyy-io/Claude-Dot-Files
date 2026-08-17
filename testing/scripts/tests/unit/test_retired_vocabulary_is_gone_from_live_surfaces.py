@@ -175,9 +175,16 @@ RECORD_SURFACES: dict[str, str] = {
 # in the observation-checked list would go red for carrying no label, and the
 # only ways to clear that are to delete the exemption or edit a frozen file.
 #
-# It is `scripts/workflows/*.sh` and `scripts/workflows/children/*.sh` ONLY —
-# the Python tree under `scripts/workflows/temporal/` is live and is swept.
-_FROZEN_BASH = ("scripts/workflows/", "scripts/workflows/children/")
+# `personal-tooling.md` names `scripts/workflows/*.sh` and
+# `scripts/workflows/children/*.sh`. IT PREDATES THE ACTIVITIES EXTRACTION and
+# so does not name `scripts/workflows/activities/*.sh` — which is frozen in
+# FACT: every caller of it is a bash-fleet script, and the Python tree replaced
+# it with `assistant_activities.py`, referring to it only in comments. Sweeping
+# it forced an edit to a frozen file, which is the one thing the rule forbids,
+# so the stale enumeration is corrected here rather than obeyed literally.
+# The Python tree under `scripts/workflows/temporal/` is live and IS swept.
+_FROZEN_BASH = ("scripts/workflows/", "scripts/workflows/children/",
+                "scripts/workflows/activities/")
 
 # `docs/file_structure.txt` is on BOTH sides of the split and must not be
 # allowlisted whole: three of its lines annotate the retired component's own
@@ -785,7 +792,7 @@ def test_the_exemption_semantics_hold_for_EVERY_declared_surface() -> None:
 @pytest.mark.parametrize(("path", "exempt"), [
     ("scripts/workflows/build.sh", True),                    # frozen, top level
     ("scripts/workflows/children/review-pr.sh", True),       # frozen, children/
-    ("scripts/workflows/activities/run-claude.sh", False),   # LIVE V2 dispatcher
+    ("scripts/workflows/activities/run-claude.sh", True),    # frozen, activities/
     ("scripts/workflows/temporal/anything.sh", False),       # LIVE V2 tree
     ("scripts/workflows/children/deeper/x.sh", False),       # no such tier exists
     ("scripts/workflows/build.py", False),                   # rule is `.sh` only
@@ -803,11 +810,17 @@ def test_the_FROZEN_BASH_bound_is_exactly_two_tiers_deep(
     at all, and it is the branch a careless simplification widens furthest.
 
     THE BOUND IS TWO THINGS AND BOTH MATTER: the `.sh` suffix, and *no deeper
-    path segment*. Relax the second to a bare `startswith` — the very
-    simplification the comment in `_is_record` warns against for the OTHER
-    branch — and `scripts/workflows/activities/run-claude.sh` drops out of the
-    sweep. That is the fleet's single live shell dispatcher, and a file THIS PR
-    edits. Note also that a trailing `/` means something different here than it
+    path segment*. Relax the second to a bare `startswith` and `.sh` files under
+    any future subdirectory drop out of the sweep unexamined.
+
+    `activities/` IS LISTED, AND THIS CORRECTS AN EARLIER READING OF IT AS LIVE.
+    Measured before changing it: every caller of
+    `scripts/workflows/activities/run-claude.sh` is a bash-fleet script, and
+    nothing in the Python tree executes it — `assistant_activities.py` replaced
+    it and refers to it only in comments. So it is frozen in FACT, and
+    `personal-tooling.md`'s list simply predates the activities extraction.
+    Sweeping it forced an edit to a file that rule forbids editing, which is how
+    the stale enumeration surfaced at all. Note also that a trailing `/` means something different here than it
     does in `RECORD_SURFACES`: there it is *everything beneath*, here it is
     *direct `.sh` children only*, which is why `children/` must be listed
     separately even though it already begins with the first entry.
