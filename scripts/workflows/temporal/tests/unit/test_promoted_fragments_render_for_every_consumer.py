@@ -58,6 +58,7 @@ _PROMOTED = [
     "resolve_fix_by_default_and_summary",
     "verify_and_ci_gate",
     "altitude_component",
+    "submit_and_push",
 ]
 
 
@@ -176,6 +177,7 @@ _REFINE_FRAGMENTS = [
     "resolve_disposition_authority", "resolve_rejections_must_be_executed",
     "resolve_closed_disposition_list", "resolve_disposition_definitions",
     "resolve_fix_by_default_and_summary", "verify_and_ci_gate",
+    "submit_and_push",
 ]
 
 
@@ -297,6 +299,66 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
         _draft_prompt(monkeypatch, tmp_path, draft.run_draft)
 
 
+# FROZEN 2026-08-17: substantive lines (40+ chars) per promoted fragment.
+#
+# WHY A FLOOR EXISTS AT ALL, measured rather than imagined. PROMOTION TRADES A
+# DRIFT RISK FOR A DELETION RISK. While text is duplicated across two children a
+# one-sided edit is a divergence some detector can see; once it is shared,
+# removing it takes it from every consumer at once and NOTHING diverges. Proved
+# on the fragment this change created: deleting the `RE-CHECK origin/main`
+# bullet from `submit_and_push.md` outright left the entire suite green. The
+# membership checks above could not see it because `_needle` returns the LONGEST
+# line, so deleting any other line simply promotes a new needle.
+#
+# THIS IS THE LOCAL HALF. The general question — a standing content gate over the
+# whole pool, including the five fragments outside `_PROMOTED` — is C-106, which
+# was widened to cover it. A floor is not that gate: it catches deletion and
+# says nothing about a line being rewritten into something else.
+_FRAGMENT_FLOOR = {
+    "build_from_plan": 9,
+    "stages_1_to_4_from_plan": 46,
+    "fidelity_premise": 2,
+    "fidelity_read_and_compare": 6,
+    "fidelity_needs_a_separate_run": 1,
+    "fidelity_evidence_discipline": 4,
+    "fidelity_mutate_what_you_added": 1,
+    "resolve_disposition_authority": 2,
+    "resolve_rejections_must_be_executed": 1,
+    "resolve_closed_disposition_list": 4,
+    "resolve_disposition_definitions": 5,
+    "resolve_fix_by_default_and_summary": 3,
+    "verify_and_ci_gate": 6,
+    "altitude_component": 16,
+    "submit_and_push": 5,
+}
+
+
+def _substantive_lines(stem: str) -> int:
+    body = (_SHARED / f"{stem}.md").read_text(encoding="utf-8")
+    return len([ln for ln in body.split("\n") if len(ln.strip()) >= 40])
+
+
+def test_no_PROMOTED_fragment_QUIETLY_LOSES_A_LINE() -> None:
+    """Shared text can be deleted from every consumer at once, in one edit."""
+    assert set(_FRAGMENT_FLOOR) == set(_PROMOTED), (
+        f"the floor and the promoted set disagree; a fragment with no floor is "
+        f"unguarded and a floor with no fragment asserts nothing. Only in the "
+        f"floor: {sorted(set(_FRAGMENT_FLOOR) - set(_PROMOTED))}; only promoted:"
+        f" {sorted(set(_PROMOTED) - set(_FRAGMENT_FLOOR))}"
+    )
+    shrunk = [f"{s}: {_substantive_lines(s)} lines, floor {n}"
+              for s, n in sorted(_FRAGMENT_FLOOR.items())
+              if _substantive_lines(s) < n]
+    assert not shrunk, (
+        "a shared fragment lost a substantive line, which removes it from EVERY "
+        "consumer at once with no divergence for any drift detector to see:\n  "
+        + "\n  ".join(shrunk)
+        + "\n\nIf the deletion is intended, lower the floor in the same commit — "
+          "that is the whole point of the number, and it makes the removal a "
+          "decision somebody wrote down rather than a line that stopped existing."
+    )
+
+
 def test_the_needles_are_real() -> None:
     """Vacuity guard: every assertion here is `needle in prompt`.
 
@@ -304,7 +366,7 @@ def test_the_needles_are_real() -> None:
     above pass against any string at all, and the PRODUCT-altitude check would
     then be the only one that failed — pointing at the wrong thing entirely.
     """
-    assert len(_PROMOTED) == 14, "the promoted set changed; update this module"
+    assert len(_PROMOTED) == 15, "the promoted set changed; update this module"
     for stem in _PROMOTED:
         assert (_SHARED / f"{stem}.md").is_file(), f"prompts/{stem}.md is missing"
         n = _needle(stem)

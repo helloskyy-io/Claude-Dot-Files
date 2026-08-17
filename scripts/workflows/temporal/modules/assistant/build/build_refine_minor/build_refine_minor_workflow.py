@@ -32,7 +32,8 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
     values = {
         "DESCRIPTION": description,
         "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
-        # ELEVEN FRAGMENTS SHARED WITH build_refine — see that workflow, which
+        # SHARED WITH build_refine — the values dict below IS the count. See that
+        # workflow, which
         # carries the note on why the last five arrived by drift. What stays
         # local here is only what the ONE-lens tier says differently.
         "FIDELITY_PREMISE": act.shared_prompt("fidelity_premise"),
@@ -46,6 +47,7 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
         "RESOLVE_DISPOSITION_DEFINITIONS": act.shared_prompt("resolve_disposition_definitions"),
         "RESOLVE_FIX_BY_DEFAULT_AND_SUMMARY": act.shared_prompt("resolve_fix_by_default_and_summary"),
         "VERIFY_AND_CI_GATE": act.shared_prompt("verify_and_ci_gate"),
+        "SUBMIT_AND_PUSH": act.shared_prompt("submit_and_push"),
         "PR_NUMBER": pr_number,
         "PR_BRANCH": branch,
         "RULES": act.shared_prompt("rules"),

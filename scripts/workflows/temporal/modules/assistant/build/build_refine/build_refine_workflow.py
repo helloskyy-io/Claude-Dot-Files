@@ -35,7 +35,10 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     values = {
         "DESCRIPTION": description,
         "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
-        # ELEVEN FRAGMENTS SHARED WITH build_refine_minor. The two tiers differ
+        # SHARED WITH build_refine_minor — the values dict below IS the count, so
+        # nothing here can disagree with it. It used to say ELEVEN, then TWELVE,
+        # over a run of thirteen: a hand-maintained figure in two files, outside
+        # every prose sweep, corrected twice as an instance. The two tiers differ
         # in how many review lenses they run, never in what a refine pass IS —
         # so the fidelity premise, the closed disposition list and the verify
         # gate are one text. §10.1: consumer count decides. Edit them under
@@ -63,6 +66,7 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
         "RESOLVE_DISPOSITION_DEFINITIONS": act.shared_prompt("resolve_disposition_definitions"),
         "RESOLVE_FIX_BY_DEFAULT_AND_SUMMARY": act.shared_prompt("resolve_fix_by_default_and_summary"),
         "VERIFY_AND_CI_GATE": act.shared_prompt("verify_and_ci_gate"),
+        "SUBMIT_AND_PUSH": act.shared_prompt("submit_and_push"),
         "RULES": act.shared_prompt("rules"),
         "PR_NUMBER": pr_number,
         "PR_BRANCH": act.pr_branch(pr_number, repo_root),
