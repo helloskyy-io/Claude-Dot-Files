@@ -29,14 +29,33 @@ against at least one literal source snippet, i.e. build its own visitor over an
 THE RECOGNISER USED TO KEY ON A PRIVATE VARIABLE NAME, AND THAT IS THE DEFECT
 THIS FILE SHIPPED WITH. It required a module-level `_ROOTS`, and the bullet
 below used to claim "the two spellings covered are the two the tree uses".
-Measured: **18** modules here walk the production tree; **2** carry `_ROOTS`,
-and both were written by the pass that wrote this file. The other 16 spell it
-`_TEMPORAL`, `_SCRIPTS`, `_RUNNERS`, `FLEET`, or a bare local — so whether the
-rule applied to a guard was decided by its author's choice of variable name, and
-12 uncontrolled guards sat outside a check that was green. The file condemning
-permanent greens was one. Keying on the BEHAVIOUR is the fix, because a module
-cannot walk the tree without doing the thing being matched; the 12 are
-grandfathered by name in a list that may only shrink.
+Most of this population spells its roots `_TEMPORAL`, `_SCRIPTS`, `_RUNNERS`,
+`FLEET`, or a bare local — so whether the rule applied to a guard was decided by
+its author's choice of variable name, and every uncontrolled guard sat outside a
+check that was green. The file condemning permanent greens was one. Keying on
+the BEHAVIOUR is the fix, because a module cannot walk the tree without doing
+the thing being matched; the uncontrolled ones are grandfathered by name in a
+list that may only shrink.
+
+THE POPULATION FIGURES ARE DERIVED BY `test_the_census_matches_the_tree` AND
+WRITTEN IN NO PROSE HERE. The version of this docstring that shipped said
+"Measured: **18** modules here walk the production tree; **2** carry `_ROOTS`",
+repeated that first figure in the comment below, and derived a third from the
+pair. Both were wrong, and they were wrong ON ARRIVAL — the commit that wrote
+the sentence added a walker in the same commit. Nothing went red, so every
+guard added after it would have made the claim further wrong in silence.
+
+That is the failure this whole PR is about, committed by the file that states
+the rule: a coverage claim must either be a derived assertion that goes red, or
+must not be written as a universal. This file takes the first arm for its
+population and the second arm for its recogniser's boundary, and says which is
+which below. The repository gates this class in four corpora now —
+`test_journal_prose_figures_are_DERIVED.py` for the journal package,
+`testing/scripts/tests/unit/test_measurement_figures_are_cited.py` for the
+phase docs that opt in, `test_candidates_prose_matches_the_table.py` for
+`candidates.md`, and `test_a_prose_COUNT_of_a_collection_is_DERIVED.py`, added
+alongside this correction, for prose in this directory that counts a collection
+the same module defines. That last one is what holds the one figure below.
 
 WHAT THIS GUARD DOES NOT LOOK AT:
 
@@ -50,7 +69,36 @@ WHAT THIS GUARD DOES NOT LOOK AT:
     import bindings, so `import ast as _ast` is covered; `from ast import parse`
     is not. Each would need adding here, and the failure direction is that a new
     spelling escapes rather than that a good guard is blocked.
-  * **Whether a grandfathered module's debt is ever paid.** The 12 names in
+  * **A READ THAT IS NOT IN ARGUMENT POSITION, AND THIS IS THE LARGEST HOLE.**
+    The match is `ast.parse(<expr>.read_text(...))` — the read inlined into the
+    parse call. A module that binds the source first walks the tree just as much
+    and is invisible here. Several do, each in a different shape, and they are
+    NAMED RATHER THAN COUNTED so this bullet cannot rot the way the sentence
+    above it did — a count here would have been wrong within the same edit,
+    because writing the fourth member is what produced the fourth bullet:
+
+      - `test_authorization_is_observed.py` assigns `src = …read_text(…)` on the
+        line before the parse;
+      - `test_journal_prose_figures_are_DERIVED.py` gets its sources from a dict
+        comprehension of `read_text` values, so no single assignment carries it;
+      - `test_journal_state_is_derived_in_one_place.py` parses a function
+        PARAMETER, and the read happens at a call site in another function;
+      - `test_a_prose_COUNT_of_a_collection_is_DERIVED.py`, added by the same
+        correction that wrote this bullet, needs the source text for its
+        comment scan and so binds it before parsing. It is named here rather
+        than quietly reshaped to satisfy the recogniser, because a guard edited
+        to fit a matcher is how a population stops meaning anything.
+
+    Closing this is not a wider regex. `_parses_a_literal` decides "is a control"
+    by the *same* inlining test, negated — so admitting them without redesigning
+    both predicates together would mark every one CONTROLLED with no control,
+    which is a permanent green and strictly worse than the hole. That
+    redesign wants data flow, it is a design task rather than a correction, and
+    it is stated in the PR body rather than attempted in the last minutes of a
+    correction pass — the mechanism that produced this finding class four times.
+    This bullet is the second arm of the rule above: not derived, and therefore
+    not written as a universal.
+  * **Whether a grandfathered module's debt is ever paid.** The 11 names in
     `_WITHOUT_A_CONTROL_YET` are excused from the rule, not from the class.
     Nothing here forces one of them to gain a control — only that the list
     cannot GROW and cannot go stale. A list that stops shrinking is invisible
@@ -68,31 +116,51 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 
+# `(walkers, of which controlled)` — MEASURED, then written here, and written
+# nowhere else. One literal rather than one in the comparison and a second in
+# the failure text: the message is read by exactly the person about to change
+# the number, so a message that disagreed with its own assertion would mislead
+# at the worst possible moment. That double-write is the class this file is
+# being corrected for, so it may not appear in the correction.
+_PINNED = (19, 8)
+
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.
 #
 # THIS LIST IS THE MEASUREMENT THAT REPLACED A FALSE SENTENCE. The recogniser
 # below used to require a module-level `_ROOTS`, and this file's docstring said
-# "the two spellings covered are the two the tree uses". Measured: 18 modules
-# under `tests/unit/` walk the production tree and 2 carry `_ROOTS` — the two
-# written by the same pass as this guard. The other 16 spell their roots
-# `_TEMPORAL`, `_SCRIPTS`, `_RUNNERS`, `FLEET`, or a bare local, so a file's
-# private variable name decided whether the rule applied to it. The guard was
-# green over a population of two already-compliant members while 12 uncontrolled
-# ones sat outside it, which is the permanent-green failure its own docstring
-# condemns, committed by the docstring's own file.
+# "the two spellings covered are the two the tree uses" — so a file's private
+# variable name decided whether the rule applied to it, and the guard was green
+# over a handful of already-compliant members while every uncontrolled one sat
+# outside it. That is the permanent-green failure the docstring condemns,
+# committed by the docstring's own file.
+#
+# NO POPULATION FIGURE IS RESTATED HERE. Those live in
+# `test_the_census_matches_the_tree` and nowhere else: the previous version of
+# this comment carried a second copy of "18 modules ... 2 carry `_ROOTS`", the
+# copy went stale with the docstring's, and correcting one would have left the
+# other.
+#
+# THE ONE COUNT THIS FILE DOES STATE — the docstring's count of the names in
+# this list — is stated on purpose and is GATED, by
+# `test_a_prose_COUNT_of_a_collection_is_DERIVED.py`, which compares a prose
+# count of a collection against the collection. That is the first arm of the
+# rule rather than an exception to it: a reader needs the size, and the number
+# is now held by something that goes red. It went red on exactly this line
+# during the correction that wrote this comment, when a name came out of the
+# list below and the sentence still said the old figure.
 #
 # EXEMPT BY NAME, NOT BY SHAPE, AND THE LIST MAY ONLY SHRINK. Adding a control
 # to one of these means deleting its line; `test_no_exemption_is_stale` fails
 # when a name here stops needing the carve-out, so the debt cannot quietly
 # become permanent. A guard written AFTER today gets no entry and fails.
 #
-# WHY GRANDFATHERING RATHER THAN FIXING ALL 12 HERE: each needs a control
-# written against a predicate its own author designed, and writing 12 of those
-# in the last minutes of a correction pass — unreviewed, by someone who did not
-# write any of the predicates — is the mechanism that produced this finding in
-# the first place. Enumerating the debt makes it visible and makes the NEXT
-# guard fail; clearing it is real work with a real design in it.
+# WHY GRANDFATHERING RATHER THAN FIXING THEM HERE: each needs a control written
+# against a predicate its own author designed, and writing that many in the last
+# minutes of a correction pass — unreviewed, by someone who did not write any of
+# the predicates — is the mechanism that produced this finding in the first
+# place. Enumerating the debt makes it visible and makes the NEXT guard fail;
+# clearing it is real work with a real design in it, tracked at issue #103.
 _WITHOUT_A_CONTROL_YET = frozenset({
     "test_a_grant_follows_its_flag.py",
     "test_convergence.py",
@@ -104,9 +172,42 @@ _WITHOUT_A_CONTROL_YET = frozenset({
     "test_pr_url_address.py",
     "test_preflight.py",
     "test_run_log_emission.py",
-    "test_the_suite_never_writes_to_the_operators_journal.py",
     "test_triage_candidates_split.py",
 })
+
+
+def _ast_aliases(tree: ast.Module) -> set[str]:
+    """The names `ast` is bound to in this module.
+
+    SHARED BY BOTH PREDICATES, AND THAT IS THE POINT. `_walks_the_tree` resolved
+    aliases and `_parses_a_literal` hard-coded `"ast"`, which made the two
+    disagree about the same call. The dangerous direction was silent: a
+    grandfathered module gaining a control spelled `_ast.parse("<snippet>")`
+    would still read as uncontrolled, `test_no_exemption_is_stale` would never
+    fire, and its carve-out would become permanent — the one outcome that test
+    exists to prevent. One module in this tree already imports it that way.
+    """
+    aliases = {"ast"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            aliases |= {a.asname or a.name for a in node.names if a.name == "ast"}
+    return aliases
+
+
+def _parse_calls(tree: ast.Module):
+    """Every `<ast-alias>.parse(<arg>, …)` call's first argument."""
+    aliases = _ast_aliases(tree)
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "parse"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id in aliases and node.args):
+            yield node.args[0]
+
+
+def _reads_a_file(node: ast.expr) -> bool:
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "read_text")
 
 
 def _walks_the_tree(tree: ast.Module) -> bool:
@@ -119,21 +220,7 @@ def _walks_the_tree(tree: ast.Module) -> bool:
     `import ast as _ast` — which one module in this tree already uses — cannot
     walk out of the population.
     """
-    aliases = {"ast"}
-    for n in ast.walk(tree):
-        if isinstance(n, ast.Import):
-            aliases |= {a.asname or a.name for a in n.names if a.name == "ast"}
-    for node in ast.walk(tree):
-        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "parse"
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id in aliases and node.args):
-            continue
-        arg = node.args[0]
-        if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) \
-                and arg.func.attr == "read_text":
-            return True
-    return False
+    return any(_reads_a_file(arg) for arg in _parse_calls(tree))
 
 
 def _census_guards() -> list[tuple[str, ast.Module]]:
@@ -153,34 +240,48 @@ def _parses_a_literal(tree: ast.Module) -> bool:
     literal or a parameter. The tree-walking call is always
     `ast.parse(path.read_text(...))`, so "the argument is not a `.read_text()`
     call" separates the two without needing to know either module's variables.
+
+    IT SHARES `_ast_aliases` WITH `_walks_the_tree` — see that helper for why
+    the two disagreeing was a silent hole rather than an inconsistency.
     """
-    for node in ast.walk(tree):
-        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "parse"
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id == "ast"):
-            continue
-        if not node.args:
-            continue
-        arg = node.args[0]
-        reads_a_file = (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute)
-                        and arg.func.attr == "read_text")
-        if not reads_a_file:
-            return True
-    return False
+    return any(not _reads_a_file(arg) for arg in _parse_calls(tree))
 
 
-def test_the_population_is_not_vacuous() -> None:
-    """TWO CENSUS GUARDS EXIST. If this finds none, the rule below is decoration.
+def test_the_census_matches_the_tree() -> None:
+    """THE POPULATION IS DERIVED, AND THIS IS THE ONLY PLACE IT IS WRITTEN.
 
-    A floor rather than an equality: more of these are expected and welcome, and
-    an equality would make adding one fail for the wrong reason.
+    A FLOOR IS WHAT LET THE FIGURE ROT, so it is gone. This used to assert
+    `>= 2` and reason that "an equality would make adding one fail for the wrong
+    reason" — but a floor is green over a recogniser that has silently narrowed
+    AND over prose that has silently gone stale, which is both failures this
+    file exists to refuse. The sibling written in the same commit
+    (`test_a_bounded_reply_is_CHECKED_not_only_read.test_the_census_matches_the_tree`)
+    took the equality and its figure did not rot; this one took the floor and
+    its figure was wrong on arrival. The comparison is the whole argument.
+
+    Failing here is not a defect. It is the census reporting that the population
+    moved, and the fix is one number plus whatever prose quoted it.
     """
     guards = _census_guards()
-    assert len(guards) >= 2, (
-        f"found {len(guards)} census guard(s) under {_HERE.name}/ — there were 2 "
-        f"when this was written, so the recogniser has stopped matching the "
-        f"population it audits and every assertion below is trivially true. "
+    controlled = [name for name, tree in guards if _parses_a_literal(tree)]
+    assert (len(guards), len(controlled)) == _PINNED, (
+        f"the walk found {len(guards)} census guard(s) of which {len(controlled)} "
+        f"carry a positive control; it was {_PINNED[0]} and {_PINNED[1]} when "
+        f"this was pinned.\n"
+        f"If you ADDED a guard: confirm it exercises its own predicate against a "
+        f"literal snippet, then raise both numbers in `_PINNED`.\n"
+        f"If you added a CONTROL to a grandfathered guard: only the second "
+        f"number moves, and that guard's line comes out of "
+        f"`_WITHOUT_A_CONTROL_YET` in the same commit — `test_no_exemption_is_"
+        f"stale` will insist. That is the debt in issue #103 being paid and it "
+        f"is the most likely reason you are reading this.\n"
+        f"If you did none of those: the recogniser has stopped matching the "
+        f"population it audits, and every assertion below is trivially true.\n"
+        f"No POPULATION figure is written anywhere else in this file — that is "
+        f"deliberate, and the reason `_PINNED` is the only thing to update. The "
+        f"one count the docstring does state is the size of "
+        f"`_WITHOUT_A_CONTROL_YET`, and "
+        f"`test_a_prose_COUNT_of_a_collection_is_DERIVED.py` holds it.\n"
         f"Found: {[n for n, _ in guards]}")
 
 
@@ -215,8 +316,9 @@ def test_no_exemption_is_stale() -> None:
     that name inherits it silently. Failing here costs one deleted line; not
     failing costs a guard that looks enforced and is not.
     """
-    walking = {name for name, _ in _census_guards()}
-    controlled = {name for name, tree in _census_guards() if _parses_a_literal(tree)}
+    guards = _census_guards()
+    walking = {name for name, _ in guards}
+    controlled = {name for name, tree in guards if _parses_a_literal(tree)}
     stale = sorted((_WITHOUT_A_CONTROL_YET - walking) | (_WITHOUT_A_CONTROL_YET & controlled))
     assert not stale, (
         f"these are grandfathered as having no positive control, and no longer "
@@ -239,9 +341,21 @@ def test_the_recogniser_discriminates() -> None:
     walk_only = ast.parse(
         "import ast\n"
         "def walk(p):\n    return ast.parse(p.read_text(encoding='utf-8'))\n")
+    aliased_control = ast.parse(
+        "import ast as _ast\n"
+        "def walk(p):\n    return _ast.parse(p.read_text())\n"
+        "def control():\n    return _ast.parse('x = 1')\n")
 
     assert _parses_a_literal(controlled) is True, (
         "a module that parses a literal snippet was read as having no control")
+    assert _parses_a_literal(aliased_control) is True, (
+        "a control written as `_ast.parse(<snippet>)` was not seen. This is the "
+        "asymmetry that used to exist between the two predicates: the walk "
+        "resolved `ast` aliases and this one did not, so a GRANDFATHERED module "
+        "paying its debt in the aliased spelling would never have cleared "
+        "`test_no_exemption_is_stale`, and its carve-out would have become "
+        "permanent in silence. One module in this tree already imports it that "
+        "way")
     assert _parses_a_literal(walk_only) is False, (
         "a module that only ever parses files was read as having a control — "
         "the recogniser accepts the tree walk itself, so this whole file is a "

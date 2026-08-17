@@ -410,6 +410,8 @@ claude-dot-files/
 │                   │                                #   literal too — a floored walk over an unconditional predicate is a permanent green
 │                   ├── test_a_bounded_reply_is_CHECKED_not_only_read.py # A launch reply's stdout may not be read as evidence unless
 │                   │                                #   its return code was; per-BINDING, so a name rebound and read later stays a finding
+│                   ├── test_a_prose_COUNT_of_a_collection_is_DERIVED.py # Prose here that counts a collection the same module defines
+│                   │                                #   must match it — the fourth corpus to gate the figure-nobody-derives class
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
 │                   ├── review_run_fakes.py          # The shared review_pr fakes, in a HELPER module rather than a test module — a test
