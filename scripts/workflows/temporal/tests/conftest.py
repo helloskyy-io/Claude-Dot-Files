@@ -43,3 +43,52 @@ UNIT_TESTS = Path(__file__).resolve().parent / "unit"
 
 if str(UNIT_TESTS) not in sys.path:
     sys.path.insert(0, str(UNIT_TESTS))
+
+
+# --- the journal root must never be the OPERATOR'S during a test run ---------------
+
+# FOUND BY RUNNING THE SUITE AND THEN LOOKING AT THE OPERATOR'S HOME, which is the
+# only way it could have been found: every assertion passed the whole time.
+# PR #99 made all eleven entrypoints open a journal bag, and five unit modules
+# drive an entrypoint's `main()` to test its preconditions — so each `pytest` run
+# created REAL bags under `~/.local/state/claude-dot-files/journal/`. Twenty-four
+# had accumulated in one day. Three separate consequences, none of them visible
+# as a red test:
+#
+#   * durable state written outside `tmp_path`, which the Testing Standard's
+#     fixture-placement rule forbids precisely because it survives the run;
+#   * the integration tier reads that root and validates what it finds AS THOUGH
+#     A REAL DISPATCH PRODUCED IT — so it was grading the unit suite's litter;
+#   * Phase 5's budget is measured over the whole root, so a test suite run
+#     would consume an operator's retention budget.
+#
+# REDIRECTED BY CONFIG AND NOT BY ENVIRONMENT, deliberately. Setting
+# `XDG_STATE_HOME` would work only while `config.yaml`'s `journal.root:` is
+# empty — the configured value wins over every default by design — so an operator
+# who sets a root would silently lose the protection. Pointing `CONFIG_PATH` at a
+# generated config is true regardless of what the real one says.
+#
+# AUTOUSE AND SESSION-WIDE BECAUSE THE DEFECT WAS OPT-OUT. A fixture each test
+# had to remember is the same shape as the optional control this component's own
+# requirement 11 exists to argue against: five modules reach an entrypoint today
+# and the sixth is what this is for.
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _journal_root_is_never_the_operators(tmp_path_factory):
+    """Point every bag this suite opens at a temporary root, for the whole session."""
+    from modules.journal import journal_activities
+
+    sandbox = tmp_path_factory.mktemp("journal-sandbox")
+    config = sandbox / "config.yaml"
+    config.write_text(f'journal:\n  root: "{sandbox / "journal"}"\n  deployment: user\n',
+                      encoding="utf-8")
+
+    real = journal_activities.CONFIG_PATH
+    journal_activities.CONFIG_PATH = config
+    try:
+        yield sandbox / "journal"
+    finally:
+        journal_activities.CONFIG_PATH = real

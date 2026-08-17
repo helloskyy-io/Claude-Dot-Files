@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
+from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_feature import plan_feature_activities as own  # noqa: E402
 from modules.assistant.plan.plan_feature import plan_feature_workflow as wf  # noqa: E402
@@ -78,7 +79,18 @@ def main(argv=None) -> int:
             print(f"  Prompt     : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
             return 0
 
-        worktree = act.worktree_add(repo_root, f"plan-feature-{int(time.time())}", "HEAD")
+        # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
+        # effect, and a root that will not resolve stops the run here (r9). Why
+        # this is not a helper each file remembers to call, and what the sweep
+        # that enforces it can and cannot see: `journal_activities.py`'s module
+        # docstring and `tests/unit/test_every_parent_opens_a_run_bag.py`. Said
+        # once there rather than eleven times here.
+        worktree_name = f"plan-feature-{int(time.time())}"
+        journal.open_run_bag(run_id=journal.mint_run_id(), repo_root=repo_root,
+                             workflow_key="plan-feature",
+                             worktree_name=worktree_name)
+
+        worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
         url = wf.run_plan_feature(repo_root=repo_root, worktree=worktree,
                                   component=component, candidates_path=cands,
                                   pr_number=a.pr_number, verbose=a.verbose)

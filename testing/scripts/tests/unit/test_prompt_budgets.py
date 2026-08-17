@@ -61,7 +61,12 @@ BUDGETS: dict[str, int] = {
     # and nothing was added around it.
     # Stated rather than absorbed, because a 4-byte raise on the file that most
     # needs shrinking is exactly the kind that gets waved through silently.
-    "review_pr/prompts/disposition.md": 75_872,
+    # RAISED 75_872 -> 76_004 for the pass-1-only sweep scope. The arithmetic is
+    # not close: 132 bytes re-sent per turn against a loop-back measured at ~145,000
+    # output tokens (a refine at ~92k plus a review at ~53k). This clause exists to
+    # remove loop-backs. Partly funded by deleting a second current-tree anecdote —
+    # one example already carried that rule.
+    "review_pr/prompts/disposition.md": 76_004,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
