@@ -311,7 +311,7 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
 # line, so deleting any other line simply promotes a new needle.
 #
 # THIS IS THE LOCAL HALF. The general question — a standing content gate over the
-# whole pool, including the five fragments outside `_PROMOTED` — is C-106, which
+# whole pool, including the fragments outside `_PROMOTED` — is C-106, which
 # was widened to cover it. A floor is not that gate: it catches deletion and
 # says nothing about a line being rewritten into something else.
 _FRAGMENT_FLOOR = {

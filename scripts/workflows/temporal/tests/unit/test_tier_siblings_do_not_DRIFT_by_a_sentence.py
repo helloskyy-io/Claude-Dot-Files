@@ -736,14 +736,14 @@ def test_the_LINE_detector_IS_LOOKING_AT_SOMETHING() -> None:
             f"nothing"
         )
         total += lines
-    # PER-PAIR THE FLOOR CAN ONLY BE 1, because two of the three pairs really do
-    # surface a single-line block today — so a per-pair floor cannot tell a
-    # healthy corpus from a collapsed one. The CORPUS total can: it stands at 10
-    # and a regression that quietly cut the population by most of itself would
-    # still clear every per-pair check above.
+    # PER-PAIR THE FLOOR CAN ONLY BE 1, because most tier pairs really do surface
+    # a single-line block today — so a per-pair floor cannot tell a healthy
+    # corpus from a collapsed one. The CORPUS total can: a regression that
+    # quietly cut the population by most of itself would still clear every
+    # per-pair check above.
     assert total >= 5, (
         f"the line detector inspects {total} lines across the whole corpus, "
-        f"down from the 10 it was built against. Something upstream — MIN_LINE, "
+        f"below the floor it was built against. Something upstream — MIN_LINE, "
         f"_partner, the block split — has collapsed its population, and an "
         f"empty orphan list now means 'looked at almost nothing' rather than "
         f"'found nothing'"
