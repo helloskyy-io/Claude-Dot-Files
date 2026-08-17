@@ -103,10 +103,7 @@ def _fans_out_per_topic(text: str) -> bool:
 MACHINERY = [
     ("topics.md-as-a-write-target",
      lambda t: _writes_artifact_at_contract_path(t, "topics.md")),
-    ("synthesis.md-as-a-write-target",
-     lambda t: _writes_artifact_at_contract_path(t, "synthesis.md")),
     ("a-SIZE-stage", lambda t: _has_stage_titled(t, "SIZE")),
-    ("a-SYNTHESIZE-stage", lambda t: _has_stage_titled(t, "SYNTHESIZE")),
     ("a-per-topic-fan-out", _fans_out_per_topic),
 ]
 
@@ -115,8 +112,8 @@ MACHINERY = [
 def test_the_minor_prompt_does_not_carry(label: str, predicate) -> None:
     assert predicate(MINOR_PROMPT.read_text()) is False, (
         f"write_minor.md carries {label}. The minor cycle's entire value is that "
-        "this machinery is absent — a one-paper run that still emits a topic list "
-        "or a synthesis is the full cycle wearing a smaller name."
+        "this machinery is absent — a one-paper run that still sizes, fans out or "
+        "emits a topic list is the full cycle wearing a smaller name. The SYNTHESIS is NOT in this list: see the test below."
     )
 
 
@@ -136,15 +133,41 @@ def test_the_full_prompt_still_carries_it(label: str, predicate) -> None:
     )
 
 
-def test_the_minor_cycle_has_exactly_three_stages() -> None:
-    """Discover -> one paper -> submit. Nothing between.
+def test_the_minor_cycle_writes_a_SYNTHESIS() -> None:
+    """The inverse of a guard this suite used to carry, and the reversal is the point.
+
+    Forbidding a synthesis rested on "with one paper the roll-up IS the paper".
+    That is true on the first run and false on the second: papers ACCUMULATE and
+    the synthesis is REPLACED (Research Standard §4), so a pool holding two minor
+    papers and no synthesis has nothing rolling them up. It also stranded the
+    evidence — `plan_feature` is told not to read raw papers wholesale, so it
+    reported "no synthesis" and planned from priors while the paper sat unread.
+
+    Asserted POSITIVELY rather than deleted: a guard whose design reverses should
+    become its own inverse, or the property stops being checked in either
+    direction.
+    """
+    text = MINOR_PROMPT.read_text()
+    assert _has_stage_titled(text, "SYNTHESIZE"), (
+        "write_minor.md has no SYNTHESIZE stage. Its one paper then reaches no "
+        "downstream consumer: the planner reads synthesis.md and is told not to "
+        "read the pool wholesale."
+    )
+    assert _writes_artifact_at_contract_path(text, "synthesis.md"), (
+        "the SYNTHESIZE stage does not name synthesis.md at its contract path, so "
+        "nothing guarantees the consumer finds it where it looks."
+    )
+
+
+def test_the_minor_cycle_has_exactly_four_stages() -> None:
+    """Discover -> one paper -> synthesize -> submit. Nothing between.
 
     Counted rather than named so a renamed stage does not silently become a
     fourth: the shape is the claim, and a fourth stage in a workflow whose
     premise is 'fewer artifacts' is the regression worth catching.
     """
     titles = _stage_titles(MINOR_PROMPT.read_text())
-    assert len(titles) == 3, f"expected 3 stages, found {len(titles)}: {titles}"
+    assert len(titles) == 4, f"expected 4 stages, found {len(titles)}: {titles}"
     assert len(_stage_titles(FULL_PROMPT.read_text())) == 5, (
         "research_write no longer has 5 stages — the comparison this suite draws "
         "between the two shapes is against a moved reference"
