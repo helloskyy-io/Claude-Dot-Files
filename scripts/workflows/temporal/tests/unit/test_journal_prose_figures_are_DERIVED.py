@@ -84,7 +84,14 @@ _PROSE = (
     # way to keep it green would be to stop quoting the thing that shipped.
     + sorted(p for p in (TEMPORAL / "tests" / "unit").glob("test_journal_*.py")
              if p.name != pathlib.Path(__file__).name)
-    + [TEMPORAL / "tests" / "unit" / "test_every_parent_opens_a_run_bag.py",
+    # `journal_entrypoint_facts.py` CARRIES FIGURES AND WAS NOT SWEPT. The
+    # extraction that created it moved registered figures out of the modules
+    # above and into it, leaving the guard green, the claim false and the
+    # registry entries dead — the exact shape this module exists to catch,
+    # committed by the pass that shipped the module. A file that states a figure
+    # is prose regardless of whether it holds tests.
+    + [TEMPORAL / "tests" / "unit" / "journal_entrypoint_facts.py",
+       TEMPORAL / "tests" / "unit" / "test_every_parent_opens_a_run_bag.py",
        TEMPORAL / "tests" / "unit" / "test_the_suite_never_writes_to_the_operators_journal.py",
        TEMPORAL / "tests" / "integration" / "test_a_real_bag_validates.py",
        REPO_ROOT / "docs" / "development" / "persistent-memory-protocol" / "phase1_the_run_bag.md",
@@ -234,6 +241,10 @@ _BOUND_FIGURES = {
         "reach a worktree before workflow-module code",
     ("test_the_suite_never_writes_to_the_operators_journal.py", "eleven entrypoints"):
         "the entrypoint population",
+    # MOVED HERE BY THIS PR'S OWN EXTRACTION, from the two modules above.
+    ("journal_entrypoint_facts.py", "8 OF 11"):
+        "inside the ordering check's reach",
+    ("journal_entrypoint_facts.py", "five entrypoints"): "cut their own worktree",
     ("phase1_the_run_bag.md", "Seven of the 11 entrypoints"):
         "return from a dry-run branch before bag-open",
     ("phase1_the_run_bag.md", "8 of the 11 entrypoints"):
@@ -245,6 +256,12 @@ _BOUND_FIGURES = {
 # has no ground truth to check against — and saying so in two lines is what
 # stops the exemption being confused with an oversight.
 _DECLARED_NON_DERIVATIONS = {
+    ("journal_entrypoint_facts.py", "one entrypoint"):
+        "NOT A POPULATION FIGURE. It reads 'calls that create something, in one "
+        "entrypoint' — the scope of one call to the function, not a count of how "
+        "many of the eleven do anything. No deriver could produce it because it "
+        "is not a claim about the fleet, and binding it to one would make a "
+        "derived number answer a question nobody asked.",
     ("journal_activities.py", "nine of eleven entrypoints"):
         "the PRE-FIX state inside this PR: how many omitted the then-optional "
         "`worktree_name`. The argument for making it required rests on it, and "
