@@ -165,7 +165,7 @@ Taking apart the long-running workflows that already existed, so each boundary i
 
 All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. Phases 1–4 have no external gate and depend only on each other.
 
-- [ ] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
+- [x] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Phase 2 · The content store** — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
 - [ ] **Phase 3 · The emit rule** — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
 - [ ] **Phase 4 · Rebuildability is a test** — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
