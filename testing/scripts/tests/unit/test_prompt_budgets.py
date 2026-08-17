@@ -59,7 +59,10 @@ BUDGETS: dict[str, int] = {
     # and the remainder is a number changed on purpose with a reason attached.
     "build/build_refine/prompts/stages_2_to_4.md": 21_899,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
-    "build/build_draft/prompts/stages_1_to_4.md": 16_060,
+    # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
+    # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
+    # MOVED — so both lines exist and neither absorbs growth silently.
+    "build/build_draft/prompts/stages_1_to_4.md": 9_919,
     # SET AT ITS SIZE ON THE DAY IT LANDED, not on 2026-08-14: this prompt was
     # in flight on `build/plan-feature` when the budget test was written on
     # `main`, so it is the first file to meet this gate rather than be measured
@@ -105,6 +108,7 @@ BUDGETS: dict[str, int] = {
     # which is the cheapest possible demonstration that byte counts are not
     # eyeballable.
     "prompts/rules.md": 7_491,
+    "prompts/mutation_discipline.md": 6_584,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is
