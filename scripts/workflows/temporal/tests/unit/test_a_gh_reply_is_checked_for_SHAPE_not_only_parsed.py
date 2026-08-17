@@ -347,3 +347,49 @@ def test_the_reply_and_guard_predicates_discriminate(
         assert _guarded(fn, name) is expect_ok, (
             f"`_guarded` read {why} as "
             f"{'checked' if not expect_ok else 'unchecked'}")
+
+
+# ── a mapping is not an answer ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("body,why", [
+    pytest.param('{"message": "Not Found"}', "GitHub's own not-found object, which "
+                 "arrives on exit 0 and satisfies `expect=dict`", id="not-found"),
+    pytest.param("{}", "an empty object", id="empty"),
+    pytest.param('{"state": "OPEN", "title": "t"}', "a real reply missing only the "
+                 "field the caller indexes", id="missing-one-field"),
+])
+def test_fetch_pr_refuses_a_mapping_that_did_not_ANSWER(
+    monkeypatch, tmp_path, body: str, why: str,
+) -> None:
+    """`expect=dict` PROVES INDEXABLE, NOT ANSWERED — the gap one layer up.
+
+    `fetch_pr`'s reply reaches `run_review` as `pr["headRefName"]`. A `KeyError`
+    there is caught by nothing: the entrypoint handles `RuntimeError`,
+    `FileNotFoundError`, `ValueError` and `OSError`, so the operator gets a raw
+    traceback AFTER the journal bag and the worktree already exist. The sibling
+    `thread_snapshot` in the same module already converts this shape; this is the
+    other `expect=dict` caller getting the same treatment.
+
+    ASSERTED AS THE EXCEPTION TYPE, not the wording — the type is what the
+    entrypoint's `except` clause matches on, and it is the whole point.
+    """
+    from modules.assistant.review_pr import review_pr_activities as rp
+
+    monkeypatch.setattr(
+        act.subprocess, "run",
+        lambda argv, **_k: subprocess.CompletedProcess(argv, 0, stdout=body, stderr=""))
+
+    with pytest.raises(RuntimeError, match="PARSED without ANSWERING"):
+        rp.fetch_pr("1", tmp_path)
+
+
+def test_fetch_pr_still_returns_a_reply_that_DID_answer(monkeypatch, tmp_path) -> None:
+    """THE NEGATIVE CONTROL. A check that refuses everything also refuses a good PR."""
+    from modules.assistant.review_pr import review_pr_activities as rp
+
+    good = '{"headRefName": "feat/x", "state": "OPEN", "title": "t"}'
+    monkeypatch.setattr(
+        act.subprocess, "run",
+        lambda argv, **_k: subprocess.CompletedProcess(argv, 0, stdout=good, stderr=""))
+
+    assert rp.fetch_pr("1", tmp_path)["headRefName"] == "feat/x"
