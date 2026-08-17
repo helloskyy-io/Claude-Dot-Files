@@ -21,6 +21,13 @@ roadmap.md:269` returned 203 of 452 rendered characters and
 closed instances one at a time; the sixth was still live when the fifth was
 declared fixed. That is the evidence for gating the CLASS rather than the file.
 
+THE THREE SHAPES ARE THREE CHECKS BECAUSE THEY ARE THREE REMEDIES. A row that
+does not split into its header's count is fixed by escaping a pipe; a non-row
+line inside a block is fixed by joining it back onto the cell it fell off; a
+row severed from its block is fixed by moving whatever interrupted the table.
+All three are derived in `gfm_table_scan.py` and asked here of every tracked
+`.md`.
+
 WHAT THIS GATE DOES NOT LOOK AT, stated because a limits list that is only
 prose is a claim nobody checks — each item below is held by a test in this
 module so it fails loudly if it ever stops being true:
@@ -29,6 +36,13 @@ module so it fails loudly if it ever stops being true:
     of columns and the wrong names passes, and so does a body row whose cells
     are correctly counted and shifted one column left. Held by
     `test_a_SHIFTED_ROW_is_the_residual_this_gate_does_NOT_see`.
+  * A ROW SEPARATED FROM ITS TABLE BY A BLANK LINE. The severed-row check
+    below keys on adjacency across a blank-free run, because that is the only
+    property that tells a torn-off row apart from a deliberate one-line
+    ROW-SHAPE ILLUSTRATION — and three correct files in this tree contain the
+    latter. Put a blank line between a table and a row that belonged to it and
+    nothing here can still tell which it was. Held by
+    `test_a_BLANK_SEPARATED_ROW_is_the_residual_this_gate_does_NOT_see`.
   * AN HTML BLOCK OPENER inside a table. `ends_the_table` tests no `<`, and
     that is deliberate — measured through `POST /markdown`, `<div>` ends a
     table for GitHub and `<span>` does not, so a blanket test would invent
@@ -37,9 +51,14 @@ module so it fails loudly if it ever stops being true:
     Measured today: ZERO tracked `.md` files have a `<`-opening line inside a
     table block, so the residual is real and unexercised. Held by
     `test_an_HTML_BLOCK_opener_is_the_residual_TREE_WIDE_TOO`.
-  * ANYTHING THAT IS NOT A CELL COUNT — an unbalanced backtick, a broken
-    link, a cell whose content is malformed without changing how many cells
-    there are.
+  * A FENCE INDENTED TO ITS CONTAINER rather than to the page. `blank_fenced`
+    measures the ≤3-space rule from the start of the physical line, so a fence
+    nested inside a list item at four or more absolute spaces is read as an
+    indented code block and left unblanked. Held by
+    `test_a_CONTAINER_INDENTED_FENCE_is_the_residual_this_gate_does_NOT_see`.
+  * ANYTHING THAT IS NOT A CELL COUNT OR A BLOCK BOUNDARY — an unbalanced
+    backtick, a broken link, a cell whose content is malformed without
+    changing how many cells there are.
   * FILES GIT DOES NOT TRACK, and files that are not `.md`.
 
 VENDORED MIRRORS ARE IN THE POPULATION ON PURPOSE, AND THAT HAS A COST WORTH
@@ -61,14 +80,23 @@ here, held by `test_the_VENDORED_SET_is_read_off_the_script_that_defines_it`,
 because a hard-coded list is exactly the hand-kept declaration this repo's
 gates exist to catch.
 
-WHAT THIS GATE DOES NOT COVER THAT ITS SIBLING DOES — nothing. The stray-line
-shape (a paragraph tail split onto its own line inside a table, which renders
-as a DETACHED row and steals its neighbour's evidence — C-050 lost 1,956
-characters that way) is gated here tree-wide too, by
-`test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW`. It was left out
-of the first revision of this module on the reasoning that it was "the
-sibling's shape", which was wrong: the sibling's copy reads `candidates.md`
-alone, so tree-wide the shape was ungated by both.
+WHAT THIS GATE DOES NOT COVER THAT ITS SIBLING DOES — one thing, deliberately,
+and this paragraph SAID "nothing" FOR ONE REVISION WHILE THAT WAS FALSE. The
+sibling asserts `test_EVERY_PIPE_OPENING_LINE_SITS_INSIDE_A_TABLE_BLOCK`: in
+`candidates.md`, a curated table file, EVERY `|`-opening line must be a row.
+That bar is correct there and wrong here — three tracked files carry a
+deliberate one-line row-shape illustration under a heading, which is not a
+defect and which the strict bar would fail. This module asserts the weaker,
+tree-safe half of the same property via `severed_rows`. The gap is one bar, not
+one shape, and the shape itself IS gated here.
+
+The false "nothing" claim is worth recording rather than quietly deleting,
+because the paragraph diagnosed its own error one shape over while making it:
+the stray-line check was left out of the first revision of this module on the
+reasoning that it was "the sibling's shape", which was wrong for the same
+reason — the sibling reads `candidates.md` alone, so tree-wide the shape was
+ungated by both. That reasoning was then repeated verbatim for the stranded
+shape, one revision later, by the paragraph correcting it.
 
 FENCED CODE BLOCKS ARE EXCLUDED BECAUSE GFM DOES NOT RENDER THEM AS TABLES AT
 ALL, which makes any finding inside one a false positive by construction. That
@@ -87,24 +115,15 @@ import re
 import subprocess
 from pathlib import Path
 
-from gfm_table_scan import cells, table_blocks
+from gfm_table_scan import (
+    blank_fenced,
+    off_width_rows,
+    severed_rows,
+    stray_lines,
+    table_blocks,
+)
 
 _REPO = Path(__file__).resolve().parents[4]
-
-# THE FENCE RULE IS COMMONMARK'S, NOT A LOOSER APPROXIMATION OF IT, and both
-# tightenings below were added after review because the loose version could
-# only fail SILENTLY — it blanks live content rather than reporting it:
-#
-#   * AT MOST THREE SPACES of indent. Four or more is an indented code block,
-#     so a ```-looking line inside one is literal text, not a fence opener.
-#     `\s*` would have opened a phantom fence there and blanked everything
-#     after it until a later false close.
-#   * A CLOSING fence carries NO info string — only the marker and trailing
-#     whitespace. An opener may carry one (```python). Without that asymmetry a
-#     line like ``` example inside a real fence reads as a close, and the TRUE
-#     close then re-opens a phantom fence that blanks real markdown behind it.
-_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})([^`]*)$")
-_FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 
 
 def _tracked_markdown() -> list[Path]:
@@ -116,43 +135,12 @@ def _tracked_markdown() -> list[Path]:
     return [_REPO / name for name in out]
 
 
-def _blank_fenced(lines: list[str]) -> list[str]:
-    """Fenced-code lines replaced by blanks, with line INDICES preserved.
-
-    Blanked rather than removed so a reported line number still points at the
-    line a human will open. A blank also terminates a table block, which is
-    what GFM does at a fence anyway.
-
-    The closing fence must be at least as long as the opener and of the same
-    character, which is CommonMark's rule and is what lets a ```` ```` ```` ````
-    block contain a ``` line. See `_FENCE_OPEN` / `_FENCE_CLOSE` above for the
-    two further rules — indent depth and info strings — and for why a loose
-    version of either fails silently rather than loudly.
-    """
-    out: list[str] = []
-    fence: str | None = None
-    for line in lines:
-        if fence is None:
-            opener = _FENCE_OPEN.match(line)
-            if opener:
-                fence = opener.group(1)
-                out.append("")
-                continue
-            out.append(line)
-            continue
-        closer = _FENCE_CLOSE.match(line)
-        if closer and closer.group(1)[0] == fence[0] and len(closer.group(1)) >= len(fence):
-            fence = None
-        out.append("")
-    return out
-
-
 def _display(path: Path) -> str:
     """Repo-relative where possible, absolute otherwise.
 
     A `tmp_path` fixture is not under `_REPO`, and `relative_to` RAISES rather
     than falling back. Without this the fixture-driven tests below could not
-    call `_off_width_rows` itself and would have to reimplement its loop — which
+    call the real predicates and would have to reimplement their loops — which
     would leave the real predicate untested by the very tests written to prove
     it discriminates.
     """
@@ -162,30 +150,82 @@ def _display(path: Path) -> str:
         return str(path)
 
 
-def _off_width_rows(path: Path) -> list[str]:
+def _scan(path: Path) -> list[str]:
+    """The file's lines, fenced code blanked, ready for any shared check.
+
+    ONE READ AND ONE BLANKING PER FILE, asked by three checks. Each check used
+    to re-read and re-blank, which is not merely wasteful: it is three places
+    that can disagree about what "the file" means.
+    """
+    return blank_fenced(path.read_text(encoding="utf-8", errors="replace").split("\n"))
+
+
+def _off_width(path: Path) -> list[str]:
     """Rows in `path` that do not split into their own table header's count."""
-    lines = _blank_fenced(path.read_text(encoding="utf-8", errors="replace").split("\n"))
-    wrong: list[str] = []
-    for block in table_blocks(lines):
-        expected = cells(lines[block[0]])
-        for i in block:
-            line = lines[i]
-            if not line.lstrip().startswith("|"):
-                continue  # the stray-line check below owns this shape
-            if cells(line) != expected:
-                wrong.append(
-                    f"{_display(path)}:{i + 1} "
-                    f"({cells(line)} fields, expected {expected})"
-                )
-    return wrong
+    return [
+        f"{_display(path)}:{i + 1} ({actual} fields, expected {expected})"
+        for i, actual, expected in off_width_rows(_scan(path))
+    ]
 
 
-# --- vacuity floor -------------------------------------------------------
+# --- vacuity floors ------------------------------------------------------
+
+def test_there_are_enough_markdown_files_for_this_gate_to_mean_anything() -> None:
+    """A population that silently collapsed to nothing passes everything."""
+    files = _tracked_markdown()
+    assert len(files) > 100, (
+        f"only {len(files)} tracked `.md` files found — this gate claims to "
+        "cover the tree and was measured over 228. A collapse this large means "
+        "`git ls-files` ran somewhere unexpected, not that the docs were deleted."
+    )
+    assert all(p.exists() for p in files)
+
+
+def test_the_TREE_WIDE_SCAN_finds_the_tables_that_are_actually_there() -> None:
+    """A file count is not a table count, and only the second one floors this gate.
+
+    THE FILE FLOOR ABOVE WAS THE ONLY ONE FOR ONE REVISION, AND IT CANNOT SEE
+    THE FAILURE THAT MATTERS. Every check in this module is derived from
+    `table_blocks`. If that ever stopped matching real tables — a change to
+    `is_delimiter` or `ends_the_table`, over-broad fence blanking, an encoding
+    regression — all 228 files would still be found and every check would go
+    permanently, silently green having examined ZERO tables. That is precisely
+    the "nothing errors, nothing warns" shape this whole module exists to
+    catch, reproduced inside its own harness.
+
+    The sibling has had this floor since its own scan was widened and states
+    the rationale in the same words; the tree-wide module simply did not copy
+    it. Measured today: 449 blocks over 3,476 lines in 228 files.
+    """
+    blocks = lines = 0
+    for path in _tracked_markdown():
+        found = table_blocks(_scan(path))
+        blocks += len(found)
+        lines += sum(len(b) for b in found)
+
+    assert blocks > 200, (
+        f"the tree-wide scan found {blocks} tables across every tracked `.md`, "
+        "and 449 were measured. All three checks below are derived from this "
+        "scan, so a collapse here turns all three green against nothing."
+    )
+    assert lines > 1500, (
+        f"the scan reached only {lines} lines across {blocks} tables — the "
+        "blocks are being truncated, and every line it did not reach is a line "
+        "none of the three checks below is looking at."
+    )
+
+
+# --- the dependency's SHAPE, which is not a vacuity floor ----------------
+#
+# THIS SAT UNDER THE VACUITY HEADER FOR ONE REVISION. A vacuity floor asserts
+# the population is non-empty; this asserts the scanner lives somewhere pytest
+# does not collect and still exports what both gates import. Different
+# question, different failure, its own section.
 
 def test_the_SHARED_TABLE_SCANNER_IS_NOT_A_TEST_MODULE() -> None:
     """The scanner has a DECLARED OWNER, and that is not a style preference.
 
-    A first draft of this gate reached the four scanning functions by
+    A first draft of this gate reached the scanning functions by
     `importlib`-loading its sibling `test_candidates_prose_matches_the_table.py`
     by path. That is the coupling `test_test_tree_hygiene.py` forbids — private
     names as a contract between two files with no owner, breaking at COLLECTION,
@@ -206,23 +246,16 @@ def test_the_SHARED_TABLE_SCANNER_IS_NOT_A_TEST_MODULE() -> None:
         "Move it back to a non-`test_`-prefixed helper module — a test module "
         "is not an importable surface."
     )
-    for name in ("table_blocks", "cells", "ends_the_table", "is_delimiter"):
+    for name in (
+        "table_blocks", "cells", "ends_the_table", "is_delimiter",
+        "blank_fenced", "off_width_rows", "stray_lines", "stranded_rows",
+        "severed_rows",
+    ):
         assert hasattr(gfm_table_scan, name), (
             f"the shared scanner no longer exports {name}; repoint the import "
             "rather than writing a second copy, which is the drift this gate "
             "exists to catch in prose"
         )
-
-
-def test_there_are_enough_markdown_files_for_this_gate_to_mean_anything() -> None:
-    """A population that silently collapsed to nothing passes everything."""
-    files = _tracked_markdown()
-    assert len(files) > 100, (
-        f"only {len(files)} tracked `.md` files found — this gate claims to "
-        "cover the tree and was measured over 228. A collapse this large means "
-        "`git ls-files` ran somewhere unexpected, not that the docs were deleted."
-    )
-    assert all(p.exists() for p in files)
 
 
 # --- the class gate ------------------------------------------------------
@@ -237,7 +270,7 @@ def test_EVERY_TABLE_ROW_IN_EVERY_TRACKED_MARKDOWN_FILE_RENDERS_WHOLE() -> None:
     """
     wrong: list[str] = []
     for path in _tracked_markdown():
-        wrong.extend(_off_width_rows(path))
+        wrong.extend(_off_width(path))
 
     assert not wrong, (
         "these table rows do not split into their own header's field count, so "
@@ -252,7 +285,7 @@ def test_EVERY_TABLE_ROW_IN_EVERY_TRACKED_MARKDOWN_FILE_RENDERS_WHOLE() -> None:
 
 
 def test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
-    """The OTHER half of the class, which the first revision of this file missed.
+    """The second half of the class, which the first revision of this file missed.
 
     A non-`|` line inside a table does not become prose and is not absorbed by
     its neighbour — it renders as its own DETACHED `<tr>` with the whole
@@ -260,20 +293,14 @@ def test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
     C-050 through `POST /markdown`: a 1,981-character tail on its own line came
     back as a seventh `<tr>`, and C-050's own Note lost 1,956 characters.
 
-    THE SIBLING GATES THIS FOR ONE FILE ONLY. `test_EVERY_LINE_INSIDE_A_TABLE_
-    BLOCK_IS_ACTUALLY_A_ROW` in `test_candidates_prose_matches_the_table.py`
-    reads `candidates.md` and nothing else, so leaving this out "because it is
+    THE SIBLING GATES THIS FOR ONE FILE ONLY, so leaving it out "because it is
     the sibling's shape" left it ungated everywhere else — the same
     file-shaped reasoning this module exists to correct. Measured across all
     tracked `.md` today: zero.
     """
     stray: list[str] = []
     for path in _tracked_markdown():
-        lines = _blank_fenced(path.read_text(encoding="utf-8", errors="replace").split("\n"))
-        for block in table_blocks(lines):
-            for i in block:
-                if lines[i].strip() and not lines[i].lstrip().startswith("|"):
-                    stray.append(f"{_display(path)}:{i + 1}")
+        stray.extend(f"{_display(path)}:{i + 1}" for i in stray_lines(_scan(path)))
 
     assert not stray, (
         "these lines sit INSIDE a table block without being rows, so GitHub "
@@ -281,6 +308,48 @@ def test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
         "with it: " + "; ".join(stray) + ". Join the line back onto the cell it "
         "belongs to, or put a blank line before it so the table ends first. Do "
         "NOT resolve this by deleting the text."
+    )
+
+
+def test_NO_TABLE_ROW_ANYWHERE_IN_THE_TREE_IS_SEVERED_FROM_ITS_BLOCK() -> None:
+    """The third half, and the one the two checks above are structurally blind to.
+
+    BOTH CHECKS ABOVE ONLY EVER LOOK INSIDE A BLOCK. A row that has fallen OUT
+    of one is invisible to both by construction, and the consequence is total
+    rather than partial: GFM renders every cell of a severed row as literal
+    text, so the whole row is lost rather than truncated.
+
+    MEASURED ON THIS TREE, not argued. Inserting `- a stray list line` into the
+    class table in `docs/standards/finding-routing.md` left BOTH markdown gate
+    modules fully green — 39 tests, no failures — while `POST /markdown`
+    returned the `PROPOSAL`, `RULING` and `OPERATING STATE` rows swallowed into
+    an `<li>` as literal text. One list marker, three rows of a binding
+    standard's own routing table gone, nothing red. The same measurement one
+    pass earlier on `candidates.md` § Two flags — the three-column table that
+    declares who may write `decision`, `status` and `component` — produced
+    `2093 passed, 0 failed`.
+
+    WHY THIS USES THE WEAKER BAR. The sibling asserts that every `|`-opening
+    line in `candidates.md` sits inside a block, which is right for a curated
+    table file and wrong for a tree containing prose: three files carry a
+    deliberate one-line row-shape illustration under a heading, and the strict
+    bar fails all three. `severed_rows` keys on adjacency across a blank-free
+    run instead, which is the property that actually separates a torn-off row
+    from a written-standalone one. See its docstring for the residual that
+    costs.
+    """
+    severed: list[str] = []
+    for path in _tracked_markdown():
+        severed.extend(f"{_display(path)}:{i + 1}" for i in severed_rows(_scan(path)))
+
+    assert not severed, (
+        "these lines open with `|` and sit OUTSIDE every table block while "
+        "still touching one, so something interrupted the table and GitHub now "
+        "renders them as literal text — every cell they carry is lost, not "
+        "merely truncated: " + "; ".join(severed) + ". Find the line above them "
+        "that ended the table — a list marker, a heading, a blockquote, an HTML "
+        "block, or a delimiter row that stopped being one — and move it out of "
+        "the table. Do NOT resolve this by deleting the rows."
     )
 
 
@@ -325,12 +394,107 @@ def test_AN_UNESCAPED_PIPE_IS_ACTUALLY_CAUGHT(tmp_path: Path) -> None:
     bad = tmp_path / "bad.md"
     bad.write_text("| a | b |\n|---|---|\n| `x | y` | z |\n", encoding="utf-8")
 
-    # `_off_width_rows` ITSELF is called here, not a copy of its loop. An
-    # earlier draft of this test reimplemented the loop, which meant gutting the
-    # real predicate left this test green — the exact shape it exists to catch.
-    assert _off_width_rows(good) == [], "an escaped pipe must not be reported"
-    assert len(_off_width_rows(bad)) == 1, (
+    # The REAL predicate is called here, not a copy of its loop. An earlier
+    # draft of this test reimplemented the loop, which meant gutting the real
+    # function left this test green — the exact shape it exists to catch.
+    assert _off_width(good) == [], "an escaped pipe must not be reported"
+    assert len(_off_width(bad)) == 1, (
         "an unescaped pipe inside a code span must be reported"
+    )
+
+
+def test_A_STRAY_LINE_INSIDE_A_TABLE_IS_ACTUALLY_CAUGHT(tmp_path: Path) -> None:
+    """The one shape whose predicate could be DELETED with the suite still green.
+
+    FOUND BY MUTATING THIS PASS'S OWN WORK, WHICH IS THE ONLY WAY IT COULD HAVE
+    BEEN FOUND. `stray_lines` is asked by both gate modules, and both only ever
+    assert that it returns NOTHING — which it does today, because the tree has
+    zero instances. Replacing its whole body with `return []` left all 46 tests
+    across both modules PASSING. The other six predicates in `gfm_table_scan.py`
+    were each caught by at least one test when gutted; this one was decoration,
+    and it was decoration guarding the exact defect that cost C-050 1,956
+    characters of evidence.
+
+    A guard proven only against content that does not contain the defect is not
+    proven at all. The fixture is the measured C-050 shape: a `Note` tail split
+    onto its own line inside the table.
+    """
+    doc = tmp_path / "stray.md"
+    doc.write_text(
+        "| a | b |\n|---|---|\n| 1 | 2 |\nthe tail of a cell, split onto its own line\n| 3 | 4 |\n",
+        encoding="utf-8",
+    )
+    assert [i + 1 for i in stray_lines(_scan(doc))] == [4], (
+        "a non-row line inside a table block must be reported — GFM renders it "
+        "as a detached row and CUTS the row above it"
+    )
+
+    clean = tmp_path / "clean.md"
+    clean.write_text("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n", encoding="utf-8")
+    assert stray_lines(_scan(clean)) == [], (
+        "a well-formed table must not be reported; a check that flags both is "
+        "un-satisfiable and one that flags neither is decoration"
+    )
+
+
+def test_A_SEVERED_ROW_IS_CAUGHT_AND_AN_ILLUSTRATION_IS_NOT(tmp_path: Path) -> None:
+    """The discrimination the tree-wide bar exists to make, both directions.
+
+    THIS IS THE TEST THAT WOULD HAVE FAILED BEFORE THIS CHECK EXISTED, and the
+    second half is why the check is not a copy of the sibling's. The severed
+    fixture is the exact shape measured on `finding-routing.md`; the
+    illustration fixture is the exact shape of the three tracked files that
+    carry one. A bar that catches the first and spares the second is the only
+    one that can run tree-wide.
+    """
+    severed = tmp_path / "severed.md"
+    severed.write_text(
+        "| a | b |\n|---|---|\n| 1 | 2 |\n- a stray list line\n| 3 | 4 |\n",
+        encoding="utf-8",
+    )
+    illustration = tmp_path / "illustration.md"
+    illustration.write_text(
+        "### Row shape\n\n| ID | Recommendation | `status` |\n\nUse that shape.\n",
+        encoding="utf-8",
+    )
+
+    assert [i + 1 for i in severed_rows(_scan(severed))] == [5], (
+        "a row torn off its table by a list marker must be reported — every "
+        "cell it carries renders as literal text"
+    )
+    assert severed_rows(_scan(illustration)) == [], (
+        "a standalone row-shape illustration under a heading is not a defect; "
+        "reporting it would fail three correct files in this tree"
+    )
+
+
+def test_A_DELIMITER_ROW_WITHOUT_A_HYPHEN_IS_NOT_A_TABLE(tmp_path: Path) -> None:
+    """`is_delimiter`'s soundness, in the direction that produces FALSE REDS.
+
+    Every other check here fails when the tree is wrong. This one fails when
+    the SCANNER is wrong, and the failure runs the other way: a delimiter
+    predicate that is too permissive fabricates a table block where GitHub
+    renders a plain paragraph, and then every derived check reports off-width
+    rows and stray lines against content that is not a table at all.
+
+    Both shapes below were MEASURED through `POST /markdown` and returned zero
+    `<tr>` elements; the valid one returned two. See `is_delimiter`'s docstring
+    for the full measured table.
+    """
+    for name, delimiter in (("colons", "|:::|:::|"), ("one_bad_cell", "|-|::|")):
+        doc = tmp_path / f"{name}.md"
+        doc.write_text(f"| a | b |\n{delimiter}\n| 1 | 2 | 3 |\n", encoding="utf-8")
+        assert table_blocks(_scan(doc)) == [], (
+            f"`{delimiter}` was accepted as a delimiter row, so this scan built "
+            "a table GitHub does not render. The three-cell row below it would "
+            "be reported as off-width against a header that is not a header — "
+            "a false RED in a gate whose value is being trustworthy when green."
+        )
+
+    doc = tmp_path / "valid.md"
+    doc.write_text("| a | b |\n|:---|---:|\n| 1 | 2 |\n", encoding="utf-8")
+    assert len(table_blocks(_scan(doc))) == 1, (
+        "an alignment-marked delimiter row is valid GFM and must still parse"
     )
 
 
@@ -346,15 +510,14 @@ def test_A_TABLE_INSIDE_A_FENCED_CODE_BLOCK_IS_NOT_GATED(tmp_path: Path) -> None
         "Example:\n\n```\n| a | b |\n|---|---|\n| x | y | z |\n```\n\nDone.\n",
         encoding="utf-8",
     )
-    lines = _blank_fenced(doc.read_text(encoding="utf-8").split("\n"))
-    assert table_blocks(lines) == [], (
+    assert table_blocks(_scan(doc)) == [], (
         "a table inside a fenced code block was picked up as a live table; GFM "
         "renders it as literal text, so every row it reports is a false failure"
     )
 
 
 def test_a_LONGER_FENCE_CAN_CONTAIN_A_SHORTER_ONE(tmp_path: Path) -> None:
-    """CommonMark's fence rule, held so `_blank_fenced` cannot silently regress.
+    """CommonMark's fence rule, held so `blank_fenced` cannot silently regress.
 
     A ```` ```` ```` opener is closed only by a fence at least as long, so the
     inner ``` line does NOT reopen live content. Getting this wrong would let
@@ -365,8 +528,30 @@ def test_a_LONGER_FENCE_CAN_CONTAIN_A_SHORTER_ONE(tmp_path: Path) -> None:
         "````\n```\n| a | b |\n|---|---|\n| x | y | z |\n```\n````\n",
         encoding="utf-8",
     )
-    lines = _blank_fenced(doc.read_text(encoding="utf-8").split("\n"))
-    assert lines == [""] * 7 + [""], f"nested fence not fully blanked: {lines}"
+    assert _scan(doc) == [""] * 8, f"nested fence not fully blanked: {_scan(doc)}"
+
+
+def test_a_TILDE_FENCE_MAY_CARRY_A_BACKTICK_IN_ITS_INFO_STRING(tmp_path: Path) -> None:
+    """CommonMark's info-string rule is per-marker, and reading it as universal
+    leaves live content UNBLANKED.
+
+    A backtick is forbidden in the info string of a BACKTICK fence only, because
+    that is what would make the opener ambiguous with inline code. A single
+    ``[^`]*`` for both markers fails to recognise the opener below, leaves the
+    fenced table scanned as live markdown, and reports a documentation example
+    as a defect. Zero tracked files open a `~~~` fence today; the rule is
+    written correctly anyway because getting it wrong is invisible until it is
+    not.
+    """
+    doc = tmp_path / "tilde.md"
+    doc.write_text(
+        "~~~ text with a ` backtick\n| a | b |\n|---|---|\n| x | y | z |\n~~~\n",
+        encoding="utf-8",
+    )
+    assert table_blocks(_scan(doc)) == [], (
+        "a `~~~` fence whose info string contains a backtick was not "
+        "recognised, so its contents were scanned as live markdown"
+    )
 
 
 # --- the residuals, held red-able ----------------------------------------
@@ -380,12 +565,61 @@ def test_a_SHIFTED_ROW_is_the_residual_this_gate_does_NOT_see(tmp_path: Path) ->
     """
     doc = tmp_path / "shifted.md"
     doc.write_text("| a | b | c |\n|---|---|---|\n|  | a-value | b-value |\n", encoding="utf-8")
-    # `_off_width_rows` ITSELF, for the same reason the discrimination test
-    # above calls it: a residual test that reimplements the predicate stops
-    # describing the predicate the moment either one moves.
-    assert _off_width_rows(doc) == [], (
+    # The REAL predicate, for the same reason the discrimination tests call it:
+    # a residual test that reimplements the predicate stops describing the
+    # predicate the moment either one moves.
+    assert _off_width(doc) == [], (
         "a row whose cells are correctly COUNTED and shifted one column left is "
         "now caught; the docstring says it is not"
+    )
+
+
+def test_a_BLANK_SEPARATED_ROW_is_the_residual_this_gate_does_NOT_see(tmp_path: Path) -> None:
+    """A blank line makes a torn-off row indistinguishable from a written one.
+
+    This is the price of running tree-wide. `severed_rows` keys on adjacency
+    across a blank-free run because that is the only property separating a row
+    torn off a table from a deliberate row-shape illustration — and once a
+    blank line sits between the table and the row, the two shapes are
+    IDENTICAL. No scanner can tell them apart, and guessing would fail three
+    correct files in this tree.
+
+    IF THIS TEST EVER GOES RED NOTHING IS BROKEN — it means the gate found a
+    property this one does not have. Delete this test and the matching bullet
+    in the module docstring together, so the two cannot disagree.
+    """
+    doc = tmp_path / "blank-separated.md"
+    doc.write_text("| a | b |\n|---|---|\n| 1 | 2 |\n\n| 3 | 4 |\n", encoding="utf-8")
+    assert severed_rows(_scan(doc)) == [], (
+        "a row separated from its table by a blank line is now reported; the "
+        "docstring says this gate cannot tell it from an illustration"
+    )
+
+
+def test_a_CONTAINER_INDENTED_FENCE_is_the_residual_this_gate_does_NOT_see(
+    tmp_path: Path,
+) -> None:
+    """Fence indent is measured from the page, not from the enclosing container.
+
+    CommonMark's ≤3-space rule is relative to the container's content column,
+    so a fence nested inside a list item can sit at four or more ABSOLUTE
+    spaces and still be a fence. `blank_fenced` reads that as an indented code
+    block and leaves it unblanked, so a table inside it is scanned as live
+    markdown. Container tracking is a block parser, which is a different
+    program from this one.
+
+    IF THIS TEST EVER GOES RED NOTHING IS BROKEN — it means `blank_fenced`
+    learned about containers. Delete this test and the matching bullet in the
+    module docstring together, so the two cannot disagree.
+    """
+    doc = tmp_path / "container-fence.md"
+    doc.write_text(
+        "- an item\n\n    ```\n    | a | b |\n    |---|---|\n    | x | y | z |\n    ```\n",
+        encoding="utf-8",
+    )
+    assert table_blocks(_scan(doc)) != [], (
+        "a container-indented fence is now blanked; the docstring says this "
+        "gate reads it as an indented code block and scans it as live markdown"
     )
 
 
@@ -416,9 +650,9 @@ def test_an_HTML_BLOCK_opener_is_the_residual_TREE_WIDE_TOO() -> None:
     )
 
     live = [
-        f"{p.relative_to(_REPO)}:{i + 1}"
+        f"{_display(p)}:{i + 1}"
         for p in _tracked_markdown()
-        for lines in [_blank_fenced(p.read_text(encoding="utf-8", errors="replace").split("\n"))]
+        for lines in [_scan(p)]
         for block in table_blocks(lines)
         for i in block
         if lines[i].lstrip().startswith("<")

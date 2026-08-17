@@ -31,6 +31,38 @@ def _test_modules() -> list[Path]:
     ]
 
 
+def _module_stems_named_in_call_arguments(tree: ast.AST) -> list[tuple[int, str]]:
+    """`(lineno, stem)` for every module name a call argument spells LITERALLY.
+
+    THIS IS THE PREDICATE, AND IT IS A MODULE-LEVEL FUNCTION SO THAT THE TEST
+    DECLARING ITS RESIDUAL CAN CALL IT. For one revision it was typed inline in
+    the check below AND typed again inside
+    `test_an_ASSEMBLED_module_path_is_the_residual_this_gate_does_NOT_see`,
+    which meant that test asserted a property of Python's `ast` module rather
+    than a property of this gate. Its own contract says it must go red if the
+    gate ever grows past literals — MEASURED, it did not: teaching the real
+    check to resolve `ast.BinOp` concatenation left the residual test green,
+    so the docstring paragraph claiming the gate cannot see an assembled path
+    would have become false with nothing reporting it. That is exactly the rot
+    the contract exists to prevent, and the identical defect was caught twice
+    in the sibling markdown module during the same pull request.
+
+    A trailing `.py` is stripped so a filename and a stem are the same answer;
+    `Path(...).with_name("test_x.py")` and `import_module("test_x")` are the
+    same coupling.
+    """
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for arg in [*node.args, *(k.value for k in node.keywords)]:
+            if not isinstance(arg, ast.Constant) or not isinstance(arg.value, str):
+                continue
+            value = arg.value
+            found.append((node.lineno, value[:-3] if value.endswith(".py") else value))
+    return found
+
+
 def test_no_test_module_imports_another_test_module() -> None:
     """A TEST MODULE IS NOT AN IMPORTABLE SURFACE, and the failure is at collection.
 
@@ -128,17 +160,11 @@ def test_no_test_module_LOADS_another_test_module_DYNAMICALLY() -> None:
     offenders: list[str] = []
     for path in modules:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            for arg in [*node.args, *(k.value for k in node.keywords)]:
-                if not isinstance(arg, ast.Constant) or not isinstance(arg.value, str):
-                    continue
-                target = arg.value[:-3] if arg.value.endswith(".py") else arg.value
-                if target in names and target != path.stem:
-                    offenders.append(
-                        f"{path.relative_to(REPO_ROOT)}:{node.lineno} loads {target}"
-                    )
+        for lineno, target in _module_stems_named_in_call_arguments(tree):
+            if target in names and target != path.stem:
+                offenders.append(
+                    f"{path.relative_to(REPO_ROOT)}:{lineno} loads {target}"
+                )
 
     assert not offenders, (
         "a test module names another test module in a call argument, which is "
@@ -157,17 +183,22 @@ def test_an_ASSEMBLED_module_path_is_the_residual_this_gate_does_NOT_see() -> No
     IF THIS TEST EVER GOES RED NOTHING IS BROKEN — it means the gate above grew
     past literals. Delete this test and the matching docstring paragraph
     together, so the two cannot disagree.
+
+    IT CALLS `_module_stems_named_in_call_arguments` ITSELF, and for one
+    revision it did not — it re-typed the extraction inline, so it asserted a
+    property of `ast` rather than of the gate and could not honour the contract
+    in the paragraph above. MEASURED: teaching the real check to resolve
+    `ast.BinOp` concatenation left this test green while the residual it
+    declares stopped being real. A residual test that reimplements the
+    predicate stops describing the predicate the moment either one moves,
+    which makes it worse than no test — it reads as coverage.
     """
     source = 'import importlib\nname = "test_" + "mutate" + ".py"\nimportlib.import_module(name)\n'
-    tree = ast.parse(source)
+    stems = [stem for _lineno, stem in
+             _module_stems_named_in_call_arguments(ast.parse(source))]
 
-    literals = [
-        arg.value
-        for node in ast.walk(tree) if isinstance(node, ast.Call)
-        for arg in [*node.args, *(k.value for k in node.keywords)]
-        if isinstance(arg, ast.Constant) and isinstance(arg.value, str)
-    ]
-    assert "test_mutate" not in literals and "test_mutate.py" not in literals, (
-        "an assembled module path is now visible as a call-argument literal; "
-        "the gate above may have grown stronger than its docstring claims"
+    assert "test_mutate" not in stems, (
+        "the gate now resolves an ASSEMBLED module path, so it is stronger "
+        "than the docstring paragraph above claims. Nothing is broken — delete "
+        f"this test and that paragraph in one commit. (Saw: {stems})"
     )
