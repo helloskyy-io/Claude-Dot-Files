@@ -1,8 +1,9 @@
-"""research-verify — FRESH context: verify the papers, fix, trace, verify the synthesis.
+"""research-verify — FRESH context: verify everything the PR ships, and fix it.
 
 Folder holds only this file (§10.1 rule 6).
 
-Three jobs the monolith never separated:
+Three jobs the monolith never separated, all still done, now in ONE critic loop
+rather than three stages:
   1. verify each paper (this existed, as stage 4)
   2. trace every correction through to the synthesis (§4 binding rule, never executed)
   3. verify the SYNTHESIS itself (never existed at all)
@@ -11,6 +12,18 @@ Job 3 is why this child exists. The synthesis carries a paper's full sourcing
 burden per §4 and is the only artifact the standup consumes — and nothing
 checked it. A wrong count in one cycle's synthesis propagated into the next
 cycle's dispatch prompts and mis-instructed two analysts.
+
+WHY THEY COLLAPSED INTO ONE PASS. They were separate stages because a separate
+`research-analyst` did the writing, so each artifact needed its own hand-off.
+The child now holds Write/Edit and applies the critic's findings itself, which
+makes tracing a correction into the synthesis simply part of fixing it.
+
+AND THE SCOPE WIDENED WITH IT: the papers, the synthesis, the PR body, internal
+links, the header block, and every claim the paper makes about OUR platform —
+which the authoring run could not check, having been on the web while this child
+holds the repo. Measured: three of four items on one cycle's first review pass
+came from outside the paper, so a verifier scoped to "the papers" leaves the
+common defect for a downstream reviewer that cannot fix it.
 """
 
 from __future__ import annotations

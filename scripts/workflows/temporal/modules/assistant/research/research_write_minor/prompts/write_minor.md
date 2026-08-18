@@ -1,22 +1,24 @@
 You are executing the RESEARCH-MINOR workflow on a new branch.
 
-This workflow produces ONE research mini-paper. It is the scaled-down member of the research family: no topic list, no sizing assessment, and no fan-out — but it DOES write a synthesis, because that is the document every downstream consumer reads. The target repo's Research Standard owns the artifact contract — it is your binding input, and every per-paper obligation in it applies to your one paper in full.
+**WHAT THIS WORKFLOW IS FOR.** You are given a TOPIC — a candidate feature or direction, big enough to warrant multi-phase planning, too small to need several papers on separate subjects. You produce the basis a PLANNER plans from: best practices, what the industry does, where the evidence points. **The synthesis is the deliverable; the paper is the durable repository it draws on and the pool keeps.**
+
+**A TOPIC IS NOT A QUESTION.** A topic legitimately spans several concerns — that is what makes it a topic. **Do not decompose it and answer one slice:** a narrowed paper is the same size as a complete one and covers a quarter of the ground. The 20-source ceiling below is what bounds scope, not the number of concerns.
+
+The target repo's Research Standard owns the artifact contract — your binding input, and every per-paper obligation in it applies to your one paper in full.
 
 Research dir: ${RESEARCH_DIR}
 ${CONTEXT_BLOCK}
 ${HEADLESS_EXECUTION_GUARD}
 
-**WHY THIS SHAPE EXISTS, so you do not try to restore the parts that are missing.** A single question — the kind a person could ask over coffee — was once answered with five papers and a synthesis, at roughly 3.5 hours. That was not a sizing error to be corrected by choosing fewer topics: even a correctly-sized Small cycle still emits a topic list, a fan-out and a roll-up. **The absent machinery is absent on purpose.** Do not create `topics.md`. Do not write a sizing assessment. Do not dispatch more than one analyst. **You DO write `synthesis.md`, and the earlier version of this prompt was wrong to forbid it.** The argument was that with one paper the roll-up IS the paper. That holds on the first run and breaks on the second: papers ACCUMULATE and the synthesis is REPLACED (Research Standard §4), so a pool with two minor papers and no synthesis has nothing rolling them up. It also strands the evidence — a planner is told not to read raw papers wholesale, so it reports "no synthesis" and plans from priors while your paper sits unread. Keep it SHORT: one input, no fan-out, a roll-up and its candidates.
+**THE ABSENT MACHINERY IS ABSENT ON PURPOSE — do not restore it.** Do not create `topics.md`. Do not write a sizing assessment. Do not dispatch more than one analyst. **You DO write `synthesis.md`:** papers ACCUMULATE and the synthesis is REPLACED (Research Standard §4), so a pool with two minor papers and no synthesis has nothing rolling them up — and a planner told not to read raw papers wholesale reports "no synthesis" and plans from priors while your paper sits unread.
 
-**A CEILING, AND IT IS BINDING: 20 CITED SOURCES. If answering the question honestly needs more, STOP — you have the wrong instrument.**
+**A CEILING, AND IT IS BINDING: 20 CITED SOURCES. If covering the topic honestly needs more, STOP — you have the wrong instrument.**
 
-Say so, name the question, and stop: this is a FULL cycle, not a minor one. Do not write a bigger paper and do not silently narrow the question to fit.
+Say so, name the topic, and stop: this is a FULL cycle, not a minor one. **Do not write a bigger paper, and do not silently narrow the topic to fit** — a narrowed topic delivered as if it were the whole one is the worse of the two failures, because nothing downstream can tell.
 
-**WHY, MEASURED 2026-08-12.** A minor cycle was pointed at four questions at once. It produced ONE conforming paper — 1,103 lines, 28 sources — and the paper itself was fine at **$9.14 and 21 minutes**. Then verification cost **$58.62 and 135 minutes**, because that stage's cost tracks SOURCES, not papers: 28 sources, re-verified from scratch on every correction round. **The whole saving of a minor cycle evaporates the moment its one paper is large**, and nothing here was watching the variable that decides it. The Research Standard sets a source FLOOR — 10-20 for medium-and-up, proportionally fewer for small — and no ceiling anywhere. This is the ceiling.
+**WHY A CEILING AT ALL.** Verification cost tracks SOURCES, not papers — every source is re-checked as the paper converges. The Research Standard sets a source FLOOR (10-20 for medium-and-up, proportionally fewer for small) and no ceiling anywhere; this is the ceiling. **20 is the top of that same band** — generous for one topic, well under what a full cycle produces, and measured against this repo's corpus rather than chosen by taste.
 
-**WHERE 20 COMES FROM — the corpus, not taste.** All 32 papers in this repo were measured: **median 34 sources, mean 33, max 54; median 872 lines.** The 28-source paper that triggered this was *below* the median — it was a NORMAL paper, and an earlier draft of this rule set the cap at 12, which would have rejected almost every paper ever written here. **20 is the top of the Research Standard's own 10-20 band for medium-and-up topics**, which is generous for a cycle answering ONE question and still well under what a full cycle produces.
-
-**AND BE CLEAR WHAT THIS CAP DOES: it bounds SCOPE CREEP, not cost.** The $58.62 verification came from re-verifying the same sources across five rounds, not from there being 28 of them. A cap on the paper is the smaller of the two levers and is here to stop one cycle quietly becoming four.
+**BE CLEAR WHAT IT DOES: it bounds SCOPE CREEP, not cost.** It is here to stop one cycle quietly becoming four.
 
 **What is NOT reduced: the paper itself.** Source discipline and the count rule, per-claim confidence marking, the honest-boundary analysis, the currency header with its machine-parseable revalidation interval — all binding, all unchanged. Those are per-PAPER rigor and have nothing to do with how many papers a cycle produces. A thin paper is not what "minor" means.
 
@@ -31,12 +33,20 @@ FIRST: verify the task targets THIS repo. If ${RESEARCH_DIR} or the context refe
 
 Then:
 - Locate and READ the repo's research standard (expected at `docs/standards/research/research_standard.md` or the repo's equivalent — check CLAUDE.md / the docs index). If NO research standard exists in this repo, STOP and report it — the artifact contract is a required input, not something to improvise.
-- Read ${RESEARCH_DIR} if it already exists — the papers in `raw/`. A re-run corrects or extends what is there; it does not blindly duplicate it. **If a current paper already answers the question you were given, say so and stop rather than writing a second one** — that is a finding, not a failed run.
+- Read ${RESEARCH_DIR} if it already exists — the papers in `raw/`. A re-run corrects or extends what is there; it does not blindly duplicate it. **If a current paper already covers the topic you were given, say so and stop rather than writing a second one** — that is a finding, not a failed run.
+- **IF A PAPER EXISTS BUT THE TOPIC HAS MOVED — extend it in place.** Papers accumulate and the pool is read by subject, so two papers on one subject means a reader finds whichever they hit first. Widen its `Topic:` line, add the new ground, note the shift in the PR body. **A new paper only when the topic is genuinely a DIFFERENT subject** — say why. Retire the old one (`Revalidate: retired`) only if it is now WRONG, never merely narrower.
 - **VERIFY the context against your branch before reasoning from it.** If the dispatch quotes or names a document section, confirm that section EXISTS on your branch. When it does not, do NOT conclude the dispatch is wrong about its own repo and do NOT research against a frame you cannot see — the likely cause is a commit that was not pushed when you were dispatched. Locate it (check the default branch tip and recent local refs), work from the version the dispatch describes, and **report the discrepancy as a low-confidence call in your PR body**.
 - **Your worktree is checked out from the branch under work.** If this run is updating an existing PR, the papers you read ARE that PR's — not main's. Extend and correct what the PR already produced; never conclude the directory is empty because main does not have it yet.
-- Read the planning doc or decision this paper feeds — **the DESTINATION is what makes the question answerable.** A paper with no destination is not in scope for this workflow.
+**YOUR INPUTS — read all of them before you scope anything:**
+- **The dispatch prompt** — the topic.
+- **The feature's own location** — its roadmap entry and any feature/phase docs. This is what is already decided; re-opening a settled decision is waste.
+- **The project's scope and top-level synthesis** — so recommendations fit the system being built, not a generic one.
+- **The PROJECT-level research pool**, located in the context above. **REFERENCE what is there rather than reproducing it** — re-deriving a project-level finding pays full price for something already bought.
+- **The destination** — the planning doc or decision this feeds. **The DESTINATION is what makes the topic tractable**; a paper without one is not in scope.
 
-**State the question and its destination in one line before you go further**, in the shape the standard's header block uses: `Topic: <the question this paper answers>` / `Feeds: <the decision or doc it validates>`. If the dispatch handed you something broader than one question — several concerns bundled together, or a subject with real competing alternatives to weigh — **say so and stop.** That is a Medium-or-larger component by the standard's own sizing rubric, and it belongs in the full `research` workflow, not here. Reporting the mis-fit costs one paragraph; researching a five-topic subject one topic at a time produces a paper that reads complete and is not.
+**State the topic and its destination in one line before you go further**, in the shape the standard's header block uses: `Topic: <the subject this paper covers>` / `Feeds: <the decision or doc it validates>`.
+
+**A topic with several concerns in it is NORMAL and is not a mis-fit — cover them.** Stop and report a mis-fit only when the subject genuinely needs MORE THAN ONE PAPER: separate subjects that would each carry their own sources, their own destination and their own honest-boundary case. That is a Medium-or-larger component by the standard's sizing rubric and belongs in the full `research` workflow. Reporting a real mis-fit costs one paragraph; **treating a normal multi-concern topic as a mis-fit, or quietly answering one slice of it, produces a paper that reads complete and is not.**
 
 ## Stage 2: RESEARCH — ONE PAPER
 Dispatch the **research-analyst** agent, ONCE, to write `${RESEARCH_DIR}/raw/<topic>.md`.
@@ -53,7 +63,9 @@ The analyst's prompt must include: the question, its `Feeds:` destination, **the
   - **a count is a claim** — enumerate the population and count the enumeration, or state the count as a gap
   - **gaps are findings**, and a negative finding states its search method
   - **the honest-boundary analysis** (content arc item 5) — when this is NOT needed, and where it fails. A paper with no case against its own thesis is advocacy, not research. This section is not optional because the cycle is small; a one-paper answer with no counter-case is the single most dangerous artifact this workflow can produce, because there is no second paper to disagree with it.
-- **You run NO critic rounds.** The analyst sets `Critic: not-yet-verified — <date>` in the header, which §3 names as a legal and honest value. **A separate fresh-context run verifies the paper** — that seam is why your own verdict would be worthless: an actor that writes a paper and then certifies it has verified its own work.
+  - **EVERY QUOTED SPAN IS CHECKED AGAINST THE BYTES AT WRITE TIME, and the resolved SHA recorded beside it.** `curl -s https://raw.githubusercontent.com/<org>/<repo>/<sha>/<path> | grep -F "<the exact span>"`. Never establish a quote with `WebFetch` — it is model-mediated, non-deterministic on an unchanged URL, and blends near-duplicates into a span existing in NO source. **A quote checked here costs one HTTP request; the same quote caught downstream costs a critic round, a fix and a re-verify.**
+  - **Every internal link resolves.** `ls` the path before you write the link. A document whose purpose is traversable evidence fails completely on a broken one, and one verification pass once found eighteen.
+- **You run NO critic rounds.** The analyst sets `Critic: not-yet-verified — <date>` in the header, which §3 names as a legal and honest value. **A separate fresh-context run verifies the paper** — that seam is why your own verdict would be worthless: an actor that writes a paper and then certifies it has verified its own work. **Self-checking at write time does NOT replace it**: it lowers the defect rate the verifier finds so the run converges in one round instead of three.
 - **Currency claims passed to the analyst MUST come from the computed table in the context above**, never from prose. Where the two disagree, the table wins.
 - After the analyst returns, checkpoint-commit the paper.
 
@@ -69,7 +81,7 @@ Write (or fully rewrite) `${RESEARCH_DIR}/synthesis.md` per the Research Standar
 
 - **Cites your paper** with its `Last validated` date and its critic verdict — the same citation burden a full cycle carries
 - **Cites any paper already in the pool**, because a second minor cycle rewrites this file over BOTH papers. Read `raw/` before writing; you may not be the first run here
-- **Rolls up what it means for us**, so a human can act without opening the paper
+- **Rolls up what it means for us — written for the PLANNER who reads it next.** Best practices, what the industry does, and which direction the evidence points, at the altitude someone decomposing this feature into phases can act on without opening the paper
 - **Ends in action candidates** — adopt / change direction / new concept / no change, sized for a standup. **A candidate with no home is named as homeless HERE**; you surface it, you do not file it
 - **EXCLUDES retired papers** — a paper marked `Revalidate: retired` is provenance, not input
 

@@ -17,21 +17,19 @@ Research also has a staleness cost nothing else carries: a high-volatility paper
 
 **Candidates are cargo. They ride through the review untouched.** You do not rule on them, rank them, or convert them into findings. Enumerate them so the operator can see them; that is all.
 
-### Axis 2 — the blocking-defect checklist (exactly six; nothing else blocks)
+### Axis 2 — what the run tells on itself about, and where each routes
 
-1. **Every citation resolves and the claim matches the source.**
-2. **Internal links resolve.**
-3. **Header block present and machine-parseable** — `Revalidate:` interval, `Critic:` line.
-4. **Honest-boundary section present.**
-5. **No statement about our platform that is factually false.**
-6. **Source-count floor met for the paper's size.**
+**There is no checklist here, and that is deliberate. You do not verify papers, citations, quotes, links, headers or counts** — `research-critic` does that inside the run and `research-verify` checks everything the PR ships. Repeating it is the most expensive thing this review can do and it establishes nothing they have not.
 
-That is the whole review. These artifacts already passed `research-critic` **inside** the run; this is a **fresh-context integrity pass**, not a second opinion on the research itself.
+| The run reports | Exit |
+|---|---|
+| **Non-convergent paper** — `STATUS: NOT VERIFIED — excluded from synthesis` | **needs_ruling.** Verify spent its rounds; redispatch asks the same actor to fail again |
+| **Unverifiable claims**, marked as such | **Not blocking.** Enumerate — an honestly recorded gap is a finding by design |
+| **Candidates / standards amendments** | **Cargo**, per Axis 1. Enumerate, never rule |
+| **A defect verify should have caught** — wrong PR body, dead link, missing header | **redispatch** — the exception path, not the design |
 
-Worth knowing why it is kept rather than skipped: one pass found **18 broken links** in a document whose entire purpose is traversable evidence, plus a false statement about shipped state. `research-critic` verifies that sources exist and claims match them — it does **not** check internal link integrity or platform accuracy. That gap is real, and fresh-context review is what closes it.
+**If that last row fires routinely, the defect is `research-verify`'s scope, not this review's diligence.** Say so rather than compensating by looking harder here.
 
-### The volume expectation — state it to yourself before you begin
+### The volume expectation
 
-**A clean research PR returns `MERGE` with ZERO findings. That is the expected outcome, not a failure of diligence.**
-
-A reviewer instructed to enumerate *will* find things. Resist it. If the six checks pass, say so and merge — a manufactured finding costs the operator real attention and teaches them to distrust the next one.
+**A clean research PR returns `MERGE` with ZERO findings. That is the expected outcome, not a failure of diligence.** A reviewer instructed to enumerate *will* find things — resist it. A manufactured finding costs the operator real attention and teaches them to distrust the next one.
