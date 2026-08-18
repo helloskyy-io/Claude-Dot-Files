@@ -1,51 +1,185 @@
 # Synthesis — workflow-decomposition research
 
-**Cycle:** 2026-08-17 (cycle 1) · **Pool:** 1 paper · **Tier:** Small / single-concern component
+**Cycle:** 2026-08-18 (cycle 2) · **Pool:** 2 papers · **Tier:** Small / single-concern component per paper
 
-Read this instead of the pool. It says what the evidence means for the Phase 2 ruling and ends in reviewable candidates. Nothing here is binding — research is evidence, and a finding becomes a rule only by being codified into a standard through human review.
+Read this instead of the pool. It says what the evidence means for Phase 2's and Phase 3's rulings
+and ends in reviewable candidates. Nothing here is binding — research is evidence, and a finding
+becomes a rule only by being codified into a standard through human review.
 
 ## Inputs
 
 | Paper | Last validated | Revalidate | Critic verdict |
 |---|---|---|---|
-| [`raw/fork_vs_parameterize_drift_signal.md`](raw/fork_vs_parameterize_drift_signal.md) | 2026-08-17 | high — 6 weeks | **PASS-WITH-FIXES** — three critic rounds (the correction ceiling). Round 1: full pass over all 13 sources then cited; every source resolved and every §5 local command reproduced at `a92e53a`; two miscitations fixed (an [R5] cross-project result stated as a failure the source denies; an [R1] quote taken from the wrong sentence) plus five conformance items. Round 2: re-verification of the changed spans, **zero blocking findings**, all seven round-1 repairs confirmed genuinely closed, both sources added in round 1 now verified, and eight non-blocking items dispositioned. Round 3 (final): re-verification of the round-2 spans, **again no blocking findings** — no fabrication and no miscitation of claim content, all eight round-2 dispositions confirmed closed at source, and four mechanical corrections applied (a page count, two surviving does-not-exist phrasings, a fifth sourcing path, a fabricated quote terminator). Full list in the paper's `Critic:` header. |
+| [`raw/fork_vs_parameterize_drift_signal.md`](raw/fork_vs_parameterize_drift_signal.md) | 2026-08-17 | high — 6 weeks (due 2026-09-28) | **PASS-WITH-FIXES** — three critic rounds, zero blocking findings from round 2 on. Full history in the prior cycle-1 synthesis, preserved below. |
+| [`raw/invocation_contract.md`](raw/invocation_contract.md) | 2026-08-18 | high — 4 weeks (due 2026-09-15; mixed-volatility, §4.3 fast-decaying, §2/§3 slow-decaying) | **PASS-WITH-FIXES** — two critic rounds under `research-verify` on 2026-08-18, the second returning PASS with no findings. All seventeen external sources resolve and every re-checked span matched a byte-exact raw GET, at SHAs the paper now records. Four defects (a wrong test-id pointer, a blended docstring quote, a dropped RST markup, and a false observation about Terraform's repo layout) and three packaging counts were repaired in that round. No fabricated source, no confidence inflation. |
 
-This paper also leans on an upstream, product-pool paper it cites rather than re-derives: [`docs/standards/architecture/research/raw/workflow_reuse_boundary.md`](../../../standards/architecture/research/raw/workflow_reuse_boundary.md) (`Last validated: 2026-08-03`, `Revalidate: high — 6 weeks`, `Critic: PASS-WITH-FIXES` — inside its window). Treat any claim below sourced to "upstream" as carrying that paper's own verdict, not this cycle's.
+Both papers also lean on upstream, product-pool papers they cite rather than re-derive:
+[`docs/standards/architecture/research/raw/workflow_reuse_boundary.md`](../../../standards/architecture/research/raw/workflow_reuse_boundary.md)
+(`Last validated: 2026-08-03`, `high — 6 weeks`, due 2026-09-14, current, PASS-WITH-FIXES) and, new
+this cycle,
+[`claude_code_integration_surface.md`](../../../standards/architecture/research/raw/claude_code_integration_surface.md)
+(`2026-07-25`, `high — 4 weeks`, due 2026-08-22 — **four days from its window at cycle time**;
+`invocation_contract.md` §1.3 flags that its own P13/P12 corroboration to that paper should be treated
+as unverified after that date) and
+[`paperclip_assessment.md`](../../../standards/architecture/research/raw/paperclip_assessment.md)
+(`2026-08-04`, `high — 4 weeks`, due 2026-09-01, current, PASS-WITH-FIXES). Treat any claim below
+sourced to "upstream" as carrying that paper's own verdict, not this cycle's.
 
-**The paper is verified across three rounds, and one boundary on that verdict is worth carrying.** The round-1 carve-out is retired: `[R10]` (Langfuse prompt-management docs) and `[R11]` (the PromptDebt arXiv study), both added while applying round-1 fixes and both feeding the paper's §3.5 negative finding, were independently re-verified in round 2 and again in round 3, and are no longer analyst-only. The boundary that remains: a separate critic pass over *this synthesis* checked it against its inputs, not against the paper's external sources — the verdict in the column above is the PAPER's, earned by the paper-scoped passes. It does not block acting on what follows, but a consequential call should read the paper itself.
+**One boundary carried forward from cycle 1, unchanged:** a critic pass over *this synthesis* checks
+it against its inputs, not against either paper's external sources. The verdict column above is each
+paper's own. Both papers have now been through a critic round, so a claim below is no weaker than
+its paper states — but a consequential call should still read the paper itself rather than this
+rollup, because the fixes that round applied land in the paper's wording, not in this summary.
 
-## What this means for us
+---
 
-**The question this cycle answers:** holding only two already-drifted prompt texts — no authoring history, no author to ask — what tells a reviewer a deliberate variant from a neglected copy? The upstream paper already settled the *general* parameterize-vs-fork question (the field's discriminator is expected future co-evolution, not textual overlap) and explicitly declined to extend it to prompt prose. This cycle's paper is the extension, and it answers a narrower and more useful question than the one the roadmap item names: not "is this drift intentional" in the abstract, but "what can a reviewer with no history actually check."
+## What this means for us — Phase 2 (unchanged from cycle 1)
 
-Three findings change how the open roadmap item should be read:
+Fork-vs-parameterize is a human judgement, reasoning written down, never an automated gate — the
+κ=0.271 inter-rater ceiling and intent being a property of a person's awareness, not of a text, rule
+out scoring it. When ruling on a drifted pair, check fit-to-referent and drift *pattern*, not
+inter-copy similarity magnitude. Do not import the literature's default-to-intentional convention —
+it was conservative for a research hypothesis, and our failure mode runs the opposite direction. Full
+detail, findings 1–3 and action candidates 1–6, is unchanged from the prior cycle and not restated
+here — read the paper's own §6.1–6.3 and §7 rather than a second summary of a summary.
 
-1. **Intent is a property of a person's awareness, not of a text — so no artifact-only method can be complete, and the roadmap item's phrasing ("a copy that has already drifted reads as intent") is a heuristic, not a rule that can be automated.** The paper's own §6.1 makes the honest admission — a reviewer working from two texts "is not recovering intent; they are forecasting co-evolution and calling the forecast intent." This caps how far any tooling investment on this half of Phase 2 can go — the ceiling is a human judgement with reasoning written down, which is where the standard already puts it.
+## What this means for us — Phase 3, the invocation contract
 
-2. **The one implemented, precision-evaluated method for prose (RepliComment, 79% precision) compares each copy to its own referent, never the two copies to each other — and drift *magnitude* (the 85.8/76.1/62.1% figures) is not a signal anyone in the corpus uses; drift *pattern* (whole-block presence/absence vs. named-entity substitution) is.** This directly undercuts the intuitive next move ("diff the two harder" or "set a similarity threshold"). It also means the standard's own similarity figures are decorative for ruling purposes even where they're checkable — and the paper found they currently aren't: neither the test docstring nor `workflow-scripts.md` names which three prompts they describe or how the percentage was computed.
+**The paper's own framing correction matters more than any single finding: `plan-project` is already
+built and running, and it already derives component scope from a positional path.** A planner who
+reads Phase 3's checkbox wording cold and scopes "build target-derived scope" is scoping a project
+that shipped. The real work is narrower — see below.
 
-3. **The field's own conservative default — when the author can't be asked, assume deliberate — does not transfer to us, and importing it silently would reproduce the exact harm the ratchet exists to prevent.** Juergens et al. defaulted inconclusive cases to *intentional and non-faulty* because that direction was conservative *for their research claim* — in the source's own words, "Inconclusive candidates were ranked as intentional and non-faulty. Hence, again only the chance to answer the research question positively is reduced." (paper §6.3, quoting [R1] §7.2). Our decision has the opposite shape: defaulting to "deliberate" preserves the copy, which is the documented failure (`stages_1_to_4.md` / `_from_plan.md` forking silently and one sibling losing eleven testing rules). A borrowed default with an unexamined rationale would point this repo the wrong way.
+### 1. Facet 1 (dual-mode) is a shape that already exists, mostly — with one unresolved contradiction blocking how far it should be extended
 
-**One measurement this repo can run that the literature never could:** commit history exists here even though the ruling method must not consult it while classifying. A sealed blind classification, scored afterward against history, converts the paper's derived four-signal ordering into a measured one. Held to the paper's own scope, the claim is that this is "the check Kapser & Godfrey could not run" and that "No cited source performed this validation" (paper §7 item 2) — *not* that ground truth was unavailable to those authors. Their method used no commit history; whether their subject systems had usable history is not something this cycle established.
+The fleet's shim → runner → core-function structure is already the field's converged answer
+(Temporal's "two entrypoints, one core," `workflow-scripts.md`'s own parent/child rule that "a child
+workflow is not a kind of file in a place, it is a workflow that another workflow starts"), with
+`verbose` already threaded as an explicit parameter rather than detected. **The measured gap is nine
+workflow modules — all children — with no standalone runner, not a wrong pattern.** Fixing that is a
+mechanical nine-adapter job, cheap to scope and cheap to build.
+
+**But it may not be the right nine to build**, and the paper cannot settle this — it is a ruling, not
+a finding, and the synthesis surfaces it rather than resolving it: `workflow-scripts.md` already
+states *"Running one by hand is recovery … never the interface."* Phase 3's checkbox — *"every child
+runs standalone and under a parent, equally well"* — reads as the opposite rule. **A planner cannot
+decompose this checkbox without an operator ruling on which of the two stands first.** If
+standalone-is-recovery-only is the standing rule, nine children without shells is a deliberate
+narrowing, not a defect, and the checkbox needs rewording before it is planned against.
+
+The enumerated failure surface for whichever children *do* get adapters is concrete and citable:
+verbosity inversion, exit-code semantics, interactive-prompt blocking, stream discipline,
+working-directory assumptions (measured: six of seven V2 entrypoints once dropped repo-root
+resolution and used `cwd` instead) — each backed by a first-party span, not asserted.
+
+### 2. Facet 2's real work is three missing properties, not a missing mechanism
+
+The field's convergent answer for a *safe* derived value is five properties: anchor on a marker
+(a fact, not a similarity judgement), publish the algorithm, echo what was derived, provide an
+explicit override, and state the derived value's scope of effect. Measured against what shipped:
+**the marker-anchor and the override already exist** (`resolve_repo_root`'s git-root anchoring;
+`--repo`). **The published algorithm, the echo, and the stated scope of effect do not.** That's the
+actual Phase 3 item — three specific, small additions to code that already runs, not a new
+derivation subsystem.
+
+**The strongest counter-case is one this repo already decided correctly and should not re-litigate:**
+repo identity is declared (`--repo`, explicitly "never derived from cwd"), component scope is
+derived. Derivation is a per-value decision with a stated reason, not a blanket policy — a Phase 3
+rule that says "prefer derivation" would contradict a decision already shipped and working.
+
+**One structural honest-boundary point carries real weight:** a wrong derivation produces a
+*plausible* wrong run — the workflow plans the wrong component competently — where a wrong flag fails
+loudly at parse time. Against an LLM producer, that asymmetry is the argument for the echo (M3) being
+non-optional, and it is also the reason M3 collides with facet 1's verbosity property (F1) — echoing
+costs output, and the caller that most wants silence (a parent) is the caller that most needs the
+echo suppressible. Nobody has measured the trade; it is argued convention, not evidence, across every
+source found.
+
+**A wording defect in the roadmap itself, surfaced and not corrected here (out of this run's write
+boundary):** Phase 3's third checkbox says `research_refresh_parent` "has no entrypoint — a parent
+nothing can invoke." Measured at `128091c`: it *is* invocable, via `run_research.py --refresh`. The
+real, narrower defect is that it has no entrypoint **of its own** — no `research_refresh.sh`. A
+planner decomposing the checkbox as currently worded will scope the wrong fix.
+
+### 3. Facet 3's honest answer is: build one digest, and stop there until the evidence says otherwise
+
+Seven systems were read for managed-plus-user config layering — five of them shipping a documented
+precedence model, plus chezmoi and Nix for the narrower drift-and-agreement question. The precedence direction is
+**not universal** — it is a policy choice disguised as a technical one, and it runs two opposite ways
+depending on who "managed" means: vendor-package systems (git, npm, systemd) let the *local* tier
+win; org-policy systems (VS Code Policy, Claude Code's own Managed tier) let the *managed* tier win
+unconditionally. **Phase 3's stated intent — "the user keeps a tier they own and can extend" — is the
+first shape.** A design that reaches for Claude Code's own Managed tier because it is named "managed"
+would silently adopt the second shape and remove the very tier the checkbox promises the user.
+
+**One derived finding is flagged, not adopted, because it needs a measurement this cycle did not
+run:** declaring the safety hook specifically in Claude Code's Managed tier would plausibly make it
+immune to both `--setting-sources` and `--safe-mode` — a direct route out of the blocker recorded in
+`test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in`. This is an inference across three
+sources, one of them a rendered page. **It must be measured (paper's T2) before any design relies on
+it**, and the safety-layer invariant already demands exactly that kind of demonstration before
+landing.
+
+**The facet's own gate, already stated in the roadmap, is currently open and cheap to close:** *"if
+the run bag records the config a run used, the divergence half shrinks to a reader."* Measured: the
+run bag carries five `Journal-` tags today and none of them names the configuration used. Closing
+that gate is one additional tag. **And once it is closed, most of the rest of what the field ships —
+provenance commands, typed drift diffs, cross-machine agreement proofs — may never be justified**:
+if the digest is in the bag, divergence detection falls out for free as a post-hoc reader over run
+bags, without building a drift detector at all. The paper's own honest-boundary section goes further
+still: this fleet currently has one operator, and the multi-machine case the checkbox describes may
+not be live yet — the minimal, defensible Phase 3 increment for this facet is **one digest, one info
+tag, one reader**, with everything else deferred until the evidence says it's needed.
+
+---
 
 ## Action candidates
 
-Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run surfaces candidates here and writes nothing outside `research/` — routing is the reviewer's and the operator's.
+Reviewable items, sized for a standup. Nothing is ratified. Per §7 this run surfaces candidates here
+and writes nothing outside `research/` — routing is the reviewer's and the operator's.
 
 | # | Candidate | Type | Rests on |
 |---|---|---|---|
-| 1 | **Rule Phase 2's fork-vs-parameterize item as: a human judgement, with the reasoning written down (signal 4 short-circuits the rest) — never an automated gate.** The κ = 0.271 inter-rater reliability ceiling (three expert judges, eleven categories, "fair" agreement) and the structural point that intent is an awareness property, not a text property, together rule out a scored/automated version of this ruling. | adopt | `raw/fork_vs_parameterize_drift_signal.md` §2.2, §6.1–6.2 |
-| 2 | **When ruling on a specific drifted pair, check fit-to-referent and drift pattern (whole-block vs. named-entity vs. in-place rewording) — not inter-copy similarity percentage.** The one implemented retrospective method for prose targets referent-fit; no source uses magnitude as a signal. This directly informs how a human applies candidate 1's judgement. | adopt | `raw/fork_vs_parameterize_drift_signal.md` §3.3, §4.2 |
-| 3 | **Do not import Juergens et al.'s *default-to-intentional-when-the-author-is-unreachable* convention.** (That hyphenated label is this synthesis's shorthand, not a phrase from [R1].) It was conservative for a research hypothesis, not for a merge decision; our failure mode runs the opposite direction (default-to-deliberate preserves silently-forked copies). Any local heuristic that leans on the literature's default without this caveat would be a methodological error. | no change *(the finding IS the warning — nothing local changes, and the value is that a tempting import is ruled out before it is made)* | `raw/fork_vs_parameterize_drift_signal.md` §6.3 |
-| 4 | **Either publish the method behind the standard's 85.8% / 76.1% / 62.1% similarity figures and name the three prompts, or drop the numbers.** They appear in exactly two places (the ratchet test's docstring and `workflow-scripts.md:715`), neither states which prompts or how the percentage was computed, and the paper's own finding is that magnitude isn't a signal anyone uses — so dropping costs nothing. **Home (§7):** this touches a standard, so it belongs in `workflow-decomposition/roadmap.md` § *Standards-amendment candidates* — a section that does not exist yet and that §7 says to create; a **planning run** writes it there after the operator's ratification pass, never this run. The test docstring carries the same two sentences and follows whichever way the ruling goes. | adopt | `raw/fork_vs_parameterize_drift_signal.md` §7 item 5, §5.5, §3.3 |
-| 5 | **Run the blind-classify-then-reveal-history validation (test plan items 1–2).** Two reviewers classify the five currently-drifted prompt groups from text alone, then are scored against the real commit history. Cheap, and — in the paper's own scope — a validation no cited source performed (§7 item 2). | adopt | `raw/fork_vs_parameterize_drift_signal.md` §7 items 1–2 |
-| 6 | **No change to the `from_plan.md` byte-identical pair or any other specific pair.** Neither this paper nor this synthesis rules on a script — that's explicitly out of scope, and the pair may be a legitimate pending-fork. | no change *(the restraint is the finding)* | `raw/fork_vs_parameterize_drift_signal.md` §5.3, §6.5 |
+| 1 | **Rule Phase 2's fork-vs-parameterize item as a human judgement, reasoning written down — never automated.** Unchanged from cycle 1. | adopt | `raw/fork_vs_parameterize_drift_signal.md` §2.2, §6.1–6.2 |
+| 2 | **When ruling a specific drifted pair, check fit-to-referent and drift pattern, not inter-copy similarity magnitude.** Unchanged from cycle 1. | adopt | `raw/fork_vs_parameterize_drift_signal.md` §3.3, §4.2 |
+| 3 | **Do not import the literature's default-to-intentional-when-unreachable convention.** Unchanged from cycle 1. | no change *(the finding IS the warning)* | `raw/fork_vs_parameterize_drift_signal.md` §6.3 |
+| 4 | **Either publish the method behind the standard's 85.8%/76.1%/62.1% similarity figures, or drop them.** Unchanged from cycle 1. Home per §7: `workflow-decomposition/roadmap.md` § *Standards-amendment candidates* (create if absent) — a planning run writes it there after the operator's ratification pass, never a research run. | adopt | `raw/fork_vs_parameterize_drift_signal.md` §7 item 5, §5.5, §3.3 |
+| 5 | **Run the blind-classify-then-reveal-history validation.** Unchanged from cycle 1. | adopt | `raw/fork_vs_parameterize_drift_signal.md` §7 items 1–2 |
+| 6 | **No change to the `from_plan.md` byte-identical pair or any other specific pair.** Unchanged from cycle 1. | no change *(the restraint is the finding)* | `raw/fork_vs_parameterize_drift_signal.md` §5.3, §6.5 |
+| 7 | **Before decomposing Phase 3's first checkbox, get an operator ruling on the standing contradiction: `workflow-scripts.md` says standalone invocation is "recovery … never the interface"; the checkbox says "every child runs standalone and under a parent, equally well."** A planner cannot resolve this — it is a design decision, not evidence. Whichever way it rules, the nine-missing-adapter gap (facet 1, measured) is the concrete unit of work either to build or to explicitly decline. | new concept *(a ruling to make, not a build to plan yet)* | `raw/invocation_contract.md` §6.1 |
+| 8 | **Adopt the five-property safe-derivation checklist (anchor / published algorithm / echo / override / stated scope) and apply the two missing properties (echo, stated scope) plus the published-algorithm write-up to `plan-feature`'s already-shipped component-path derivation.** Marker-anchor and override are already satisfied; this is finishing three properties on code that runs today, not new derivation machinery. | adopt | `raw/invocation_contract.md` §2.2 (M1–M5), §4.2 (P6, P7), §5.2 |
+| 9 | **Correct Phase 3's third checkbox wording before it is planned: `research_refresh_parent` IS invocable (via `run_research.py --refresh`); the real defect is that it has no entrypoint of its own.** Home per §7: the phase doc's own text once Phase 3 gets one, or the roadmap line directly — a **planning run** writes it, never this research run. | change direction | `raw/invocation_contract.md` §5.1 |
+| 10 | **Ship the minimal facet-3 increment only: one config digest, added as a sixth `Journal-` tag in the run bag, read back by a reader — and defer provenance commands, typed drift diffs, and cross-machine agreement proofs until the digest shows they're needed.** This closes the roadmap's own stated gate ("if the run bag records the config a run used, the divergence half shrinks to a reader") at the cost the paper's own honest-boundary section argues is the only currently-justified one, given a single-operator fleet today. | adopt | `raw/invocation_contract.md` §2.3 (P17), §5.3 (P16), §6.3 |
+| 11 | **Do NOT design toward Claude Code's own Managed settings tier as a load-bearing mechanism until T2 (declare the safety hook there; test against `--setting-sources` and `--safe-mode`) is actually run.** The immunity property is a three-source inference, one source rendered, explicitly flagged by the paper as unmeasured. | adopt *(as a "measure before building" constraint, not a design)* | `raw/invocation_contract.md` §4.3 (P14), §7 (T2) |
+| 12 | **Do not read Claude Code's `--bare` flag as applicable to this fleet, despite the upstream integration paper recommending it for reproducibility.** `--bare` skips hooks (the safety-layer invariant's sole live control in headless runs) and refuses OAuth/keychain reads (the subscription credential this whole edge runs on). The upstream recommendation is correct for an API-keyed worker and does not transfer to a subscription-backed edge. | no change *(a citation this repo should not follow, named so it isn't adopted by association)* | `raw/invocation_contract.md` §4.3 (P13); `claude_code_integration_surface.md` §8 |
+| 13 | **When building the nine missing dual-mode adapters (if candidate 7 rules to build them), add the shim-naming guard at the same time — do not let it lag.** `test_shim_usage_names_itself.py` exists because three prior V2 entry scripts shipped with wrong usage text copied from their clone source; adding nine new adapters without the corresponding guard risks the same defect at three times today's scale. | adopt | `raw/invocation_contract.md` §4.4 (P19) |
 
-**Homeless findings this cycle: none.** Every candidate above has a home in §7's routing table, and that is a clean result worth stating plainly rather than leaving to inference. Candidate 4 was the only doubtful one: it is *not* homeless — §7 defines a homeless finding as one meaning "the surface is missing" and needing the standard to define it, and §7 already anticipates the missing `Standards-amendment candidates` section by instructing that it be created if absent. That this run cannot write outside `research/` is true of **every** candidate here and is the §7 division of labour working as designed, not an absent surface.
+**Homeless findings this cycle: none.** Every candidate above has a home in §7's routing table.
+Candidate 7 is a ruling for the operator, not a filing gap — §7's table does not need to name a home
+for "the operator decides," since the operator is always reachable directly, and this synthesis is
+where the reviewer routes it per the disposition doctrine.
 
 ## Gaps this cycle did not cover
 
-- **No prompt/LLM-engineering literature on divergence between copies of a prompt was found** — established by full-text search of two extractions: the 2026 *Promptware Engineering* roadmap paper and the 2025 *PromptDebt* technical-debt study; the term "prompt drift" in that literature means output-behaviour change over time, not copy divergence. The weight comes from the first enumerating the field's open research directions across the whole SE lifecycle and still returning zero hits — but it is a **vision/roadmap paper, not a systematic survey** (this cycle initially mis-described it as a survey and corrected it), so the honest form is *not found by these methods on this date*, never *does not exist*. No database index was enumerated. If this literature appears later, it is the first thing a refresh should re-check (§3.5 of the paper is flagged high-volatility for exactly this reason).
-- **The companion "no TOOLING for it" finding is the weaker half, and the paper now says so.** It is bounded to three named checks — a clone-detector search, one first-party prompt file format (Dotprompt), and one first-party prompt-management product's enumerated feature index (Langfuse, 15 feature pages, **none of which DIAGNOSES divergence between two separately-maintained prompts** — two come close and are named in the paper: composability *prevents* duplication, and the diff view compares one prompt against its own past). No other prompt-registry product was read first-party, so this means "none found by those checks", not "none exists". A refresh that wants to strengthen it should read LangSmith, PromptLayer and Agenta first-party.
-- **Whether fit-to-referent scoring is computable for a prose referent (a child's job description) rather than a formal one (a method signature) is untested** — the paper's single highest-value open question, named as test-plan item 3.
-- Three adjacent lines of enquiry were named and not pursued, per this component's edges: whether the current child set is the right one (Assistant Workflow Design), whether a shared fragment survives a resumed/retried run (Temporal Integration), and whether a prompt block makes a child better at its job (Self Improvement).
+- **`invocation_contract.md` has now been verified** (`Critic: PASS-WITH-FIXES`, 2026-08-18) — the
+  gap this bullet used to record is closed. What the round did *not* do is settle the two findings
+  the paper itself holds below definitive: P14 and P18 remain unmeasured inferences, and the two
+  bullets below are still the live gaps.
+- **No source was found measuring the defect rate of derived-vs-declared configuration** — the
+  entire industry position on facet 2 (derive when safe) is argued by convention across five sources,
+  never evidenced by data. Stated as a gap in the paper (§6.2), carried here because it bears
+  directly on how much weight candidate 8 should get.
+- **Whether declaring the safety hook in the Managed tier actually confers immunity to
+  `--setting-sources`/`--safe-mode` (P14) is untested** — flagged above as candidate 11's constraint,
+  restated here as a gap because it blocks any facet-3 design beyond the minimal digest increment.
+  Paper's test plan T2 is the way to close it.
+- **Whether `managed-settings.d/` (a drop-in directory alongside Claude Code's single managed-settings
+  file) exists and merges is unverified** — single rendered-page source, no verbatim span. Paper's
+  test plan T8.
+- **The paper's own negative finding on TTY-sniffing (no first-party source recommends detection
+  without an explicit override) rests on two sources, not a survey** — the paper names this itself
+  (§6.1) as thin for the weight a reader might put on it.
+- Prompt/LLM-engineering literature coverage, tooling-search coverage, and the three adjacent
+  out-of-scope lines of enquiry (child-set correctness, resumed-run fragment survival,
+  prompt-quality-vs-child-performance) are unchanged from cycle 1 — see the paper's own §7/§8 for the
+  Phase 2 gaps, unchanged and not restated here.

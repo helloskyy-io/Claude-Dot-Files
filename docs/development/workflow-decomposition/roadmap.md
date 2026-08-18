@@ -1,8 +1,8 @@
 # Workflow Decomposition — Roadmap
 
-**Status: 🟡 IN PROGRESS.** Phase 1 is complete, Phase 2 is live, Phases 3 and 4 are ahead.
+**Status: 🟡 IN PROGRESS.** Phase 1 is complete, Phase 2 is live, Phase 3 is ahead.
 
-**This roadmap was written after Phase 1 shipped.** The component ran for eleven days on a burn-test triage list — since deleted, its two orphaned rulings salvaged into [`cpi-decisions.md`](../cpi-decisions.md) (2026-08-17) — with no roadmap, no phase docs and an empty research pool. Phase 1's boxes below are therefore a **record of what was built**, not requirements it was built against. Phases 2–4 are real planning.
+**This roadmap was written after Phase 1 shipped.** The component ran for eleven days on a burn-test triage list — since deleted, its two orphaned rulings salvaged into [`cpi-decisions.md`](../cpi-decisions.md) (2026-08-17) — with no roadmap, no phase docs and an empty research pool. Phase 1's boxes below are therefore a **record of what was built**, not requirements it was built against. Phases 2 and 3 are real planning.
 
 ---
 
@@ -65,7 +65,7 @@ Take the monoliths apart, then write down what the shape is.
 
 **Phases 2 and 3 have no external gate.** The component has a real end: when they close, decomposition is done. What used to be Phase 4 — the set of workflows that do not exist yet — moved to [Assistant Workflow Design](../sprint.md), because building what is missing is not the same act as taking apart what is here.
 
-**Research:** [`research/`](research/) holds one paper — [`raw/fork_vs_parameterize_drift_signal.md`](research/raw/fork_vs_parameterize_drift_signal.md) (`Last validated: 2026-08-17`, `Revalidate: high — 6 weeks`, `Critic: PASS-WITH-FIXES`) — and a [`synthesis.md`](research/synthesis.md) rolling it up into reviewable candidates. It is evidence for the unchecked Phase 2 item **Rule fork-vs-parameterize**, not a ruling on it.
+**Research:** [`research/`](research/) holds two papers, each with its own destination. [`raw/fork_vs_parameterize_drift_signal.md`](research/raw/fork_vs_parameterize_drift_signal.md) (`Last validated: 2026-08-17`, `Revalidate: high — 6 weeks`, `Critic: PASS-WITH-FIXES`) is evidence for the unchecked Phase 2 item **Rule fork-vs-parameterize**. [`raw/invocation_contract.md`](research/raw/invocation_contract.md) (`Last validated: 2026-08-18`, `Revalidate: high — 4 weeks`, `Critic: PASS-WITH-FIXES`) is the evidence base for **all four Phase 3 checkboxes**, which have no phase doc yet. [`synthesis.md`](research/synthesis.md) rolls both up into reviewable candidates. Neither paper is a ruling on the item it feeds — research is evidence, and a ruling is a separate act.
 
 ---
 
