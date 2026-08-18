@@ -53,7 +53,20 @@ Confidence:     DEFINITIVE for every span quoted from a raw first-party artifact
                 `hashicorp/terraform` repository, so no raw source was available and it is NOT
                 cited (§8, "searched, not cited").
                 UNVERIFIED: nothing load-bearing in this paper rests on uncorroborated commentary.
-Critic:         not-yet-verified — 2026-08-18
+Critic:         PASS-WITH-FIXES — 2026-08-18, one `research-critic` round under `research-verify`.
+                Every one of the seventeen external sources resolves, and every span re-checked
+                against a byte-exact raw GET matched; the path-scoped commit SHAs each source was
+                re-fetched at are recorded in §8 so a later re-check hits the same bytes. FOUR
+                defects were found and all four are repaired in place: P14 pointed the reader at
+                test T7 where §7's P14 test is T2; the docstring span attributed to
+                `test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in` blended wording
+                from two different docstrings in that file; the M2 pytest span had lost the source's
+                RST double-backticks; and the Terraform negative finding described a `website/`
+                directory as absent when it exists, holding only a redirect README. Three packaging
+                counts were corrected in the same round — §2.3's count of systems read, §8's
+                per-facet source distribution, and a §1.3 row for a paper nothing in the body rests
+                on. NO fabricated source and NO confidence inflation was found; the two speculative
+                facet-3 findings (P14, P18) were already correctly held below definitive.
 ```
 
 > **Read this first — one framing correction, because it changes what Phase 3's second checkbox is
@@ -120,7 +133,6 @@ Checked at authoring time; all inside their windows.
 |---|---|---|---|---|
 | `fork_vs_parameterize_drift_signal.md` (this pool) | 2026-08-17 | high — 6 weeks | 2026-09-28 | PASS-WITH-FIXES |
 | `claude_code_integration_surface.md` (upstream) | 2026-07-25 | high — 4 weeks | 2026-08-22 | PASS |
-| `hook_sourcing_supplement.md` (upstream) | 2026-07-25 | high — 4 weeks | 2026-08-22 | PASS |
 | `paperclip_assessment.md` (upstream) | 2026-08-04 | high — 4 weeks | 2026-09-01 | PASS-WITH-FIXES |
 | `openclaw_assessment.md` (upstream) | 2026-08-06 | high — 3 weeks | 2026-08-27 | PASS |
 | `hermes_assessment.md` (upstream) | 2026-08-06 | high — 3 weeks | 2026-08-27 | PASS-WITH-FIXES |
@@ -291,7 +303,7 @@ and the invariant that falls out of it:
 **M2 — Publish a DETERMINISTIC, WRITTEN-DOWN algorithm.** pytest documents rootdir derivation as a
 numbered procedure, and states its own fallback [S8]:
 
-> Determine the common ancestor directory for the specified `args` that are recognised as paths that exist in the file system. If no such paths are found, the common ancestor directory is set to the current working directory.
+> Determine the common ancestor directory for the specified ``args`` that are recognised as paths that exist in the file system. If no such paths are found, the common ancestor directory is set to the current working directory.
 
 **M3 — REPORT what was derived, unprompted.** pytest again [S8]:
 
@@ -325,9 +337,13 @@ finds. That circularity is intrinsic and is the strongest single argument in §6
 
 ### 2.3 Facet 3 — managed config with a user tier beside it *(slow-decaying section, except §4.3)*
 
-Five shipping systems were read. All five have precedence; **four of five also ship provenance; two
-ship drift classification; one ships a machine-checkable agreement proof.** That distribution is the
-finding.
+Seven systems were read for this facet. **Five ship a documented precedence model — git, npm,
+systemd, VS Code and Claude Code — and four of those five also ship provenance. Two of the seven
+ship drift classification (systemd, chezmoi); one ships a machine-checkable agreement proof
+(chezmoi); and one supplies the digest primitive that proof implies (Nix).** That distribution is
+the finding. The precedence table immediately below covers the five that have precedence; chezmoi
+and Nix enter two subsections later, where the question narrows to drift and agreement — which is
+why §3.3's comparative table has seven rows and this sentence used to say five.
 
 #### Precedence — and the direction is NOT universal
 
@@ -567,10 +583,10 @@ These are the claims a Phase 3 plan may cite. Each carries its confidence class 
   *"Admin-managed (policy) settings still apply"*; [S14]'s precedence placing Managed above CLI
   args)*.** **Declaring the safety hook in the MANAGED tier would make it immune both to
   `--setting-sources` and to `--safe-mode`.** That is a direct route out of the blocker recorded in
-  `test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in`, whose own docstring says the
-  Managed Configuration work *"has that flag as a live proposal"* and that *"the safety blocker must
-  be resolved BEFORE the flag is touched."* **This is an inference across three sources, one of which
-  is a rendered page — it MUST be measured before it is relied on.** Test T7 in §7. The safety-layer
+  `test_no_runner_STRIPS_the_settings_file_the_safety_hook_lives_in`, whose own docstring says
+  *"The Managed Configuration sprint carries that flag as a candidate mechanism, and its own
+  checkbox says the safety blocker must be resolved BEFORE the flag is touched."* **This is an inference across three sources, one of which
+  is a rendered page — it MUST be measured before it is relied on.** Test T2 in §7. The safety-layer
   invariant already demands demonstration before landing, and this is exactly the demonstration it
   means.
 - **P15 *(definitive — §5.3)*.** The current managed tier is **seven symlinks and no version
@@ -856,9 +872,10 @@ provenance) and nothing else.
   exist"*.
 - **Terraform was pursued as the best first-party statement of human-vs-automation invocation and
   abandoned.** Method: `hashicorp/terraform` default branch confirmed as `main`; `website/docs/cli`
-  and `website/docs/cli/config` both returned `Not Found` from the contents API; a repo-root
-  enumeration shows no `website/` directory. The docs have moved out of the repository and only a
-  rendered site remains. **Terraform is therefore not cited anywhere in this paper**, rather than
+  and `website/docs/cli/config` both returned `Not Found` from the contents API; the `website/`
+  directory that does remain at repo root holds exactly one file, a `README.md` redirecting all
+  documentation contributions to `hashicorp/web-unified-docs`. The docs have moved out of the
+  repository and only a rendered site remains. **Terraform is therefore not cited anywhere in this paper**, rather than
   cited from a rendered page — its would-be contribution (`-input=false`, `TF_IN_AUTOMATION`) is
   already covered by [S1]'s `--no-input`.
 - **`rust-lang/cargo`'s workspace reference was sought as a second path-derivation exemplar** and its
@@ -943,11 +960,16 @@ at a pinned version (S13); **one rendered page whose three quoted spans were eac
 against the raw HTML bytes** (S5); and **one rendered page read through a summarizing fetch, from
 which nothing is quoted** (S14).
 
-**Distribution across the facets, counting each source once per facet it is used in:** facet 3 draws
-on ten (S2, S3, S10, S11, S13, S14, S15, S16, S17, S18) because it is the facet where the field has
-actually shipped mechanisms; facet 1 on five (S1, S2, S4, S12, S13); facet 2 on four (S5, S6, S7, S8),
-which is the fewest deliberately — as §6.2 records, the field *argues* that position rather than
-measuring it, so additional sources would have added restatements and not evidence.
+**Distribution across the facets, counting each source once per facet it is used in** — re-enumerated
+during verification, because the figures first published here were estimated rather than counted:
+facet 3 draws on ten (S2, S3, S10, S11, S13, S14, S15, S16, S17, S18), being the facet where the
+field has actually shipped mechanisms; facet 2 on six (S2, S5, S6, S7, S8, S17); facet 1 on four
+(S1, S2, S4, S12). Two sources carry across facets — S2 in all three, S17 in facets 2 and 3 — so the
+three counts sum to twenty over seventeen sources, which is the arithmetic check that they were
+enumerated and not guessed. **Facet 2's evidence is still the thinnest where it counts:** only four
+of its six (S5, S6, S7, S8) address the derivation question directly, S2 and S17 entering solely as
+comparative rows in §3.2 — and as §6.2 records, all four *argue* that position rather than measuring
+it, so additional sources would have added restatements and not evidence.
 
 ### External — raw first-party (definitive)
 
@@ -968,6 +990,34 @@ measuring it, so additional sources would have added restatements and not eviden
 | S17 | chezmoi (default branch `master`, confirmed via the repos API) — five files under `assets/chezmoi.io/docs/`: `what-does-chezmoi-do.md`, and `reference/commands/` `verify.md`, `status.md`, `managed.md`, `unmanaged.md` | https://raw.githubusercontent.com/twpayne/chezmoi/master/assets/chezmoi.io/docs/what-does-chezmoi-do.md · https://raw.githubusercontent.com/twpayne/chezmoi/master/assets/chezmoi.io/docs/reference/commands/verify.md · https://raw.githubusercontent.com/twpayne/chezmoi/master/assets/chezmoi.io/docs/reference/commands/status.md · https://raw.githubusercontent.com/twpayne/chezmoi/master/assets/chezmoi.io/docs/reference/commands/managed.md · https://raw.githubusercontent.com/twpayne/chezmoi/master/assets/chezmoi.io/docs/reference/commands/unmanaged.md | spans read out of the raw byte streams |
 | S18 | Nix — `doc/manual/source/store/store-path.md` (default branch `master`) | https://raw.githubusercontent.com/NixOS/nix/master/doc/manual/source/store/store-path.md | span read out of the raw byte stream |
 
+**Pinned at verification — the SHAs a re-check should use.** The URLs above address a branch tip,
+which moves. During the `research-verify` round on 2026-08-18 each source was re-fetched at the
+path-scoped commit below and returned HTTP 200; quoting these rather than the tip is what makes a
+later re-check hit the same bytes this paper was written against, instead of whatever the branch has
+moved to since.
+
+| # | Path-scoped commit at verification |
+|---|---|
+| S1 | `2bd6023eae2aa60a374c4e7275f935d0917c6c86` |
+| S2 | `4fa2c6e0457c5d00742f0cebded4f122f1dcd81a` |
+| S3 | `cf56a1e4df9c8ae7b7e9752437d827a183e4040e` |
+| S4 | `6a686a58cb187b68ea8c53288ab0972e057dd034` |
+| S6 | `b990d0599141b030e68d1a1bb91aac9981d1fd56` |
+| S7 | `13ecdf583301a94484a1ae0eb27c56fcf3248dc5` |
+| S8 | `1027dee0156aa4928a1d09d3eac91d20c6a1b306` |
+| S10 | `6f9bfb0e06f9ddea4a1a6182b230a8d5e9e90323` |
+| S11 | `5b62e4a3430c5190e1b59a36ebd41f717f1c2625` |
+| S12 | `26e515f28f8fdb27628b2fc968ef8f74a1d48d0f` |
+| S15 | `3a79aaea83ead6bd743fab9355a480c4c1a554c1` |
+| S16 | `af29d0b1796bd165bec4ddee65531333bd2e6aba` |
+| S17 | one per file: `what-does-chezmoi-do.md` `788eb3bb5e9cff42197ebfd908836ee3540401dd` · `verify.md` `6c4431e430d4ad45b10bd44e711bd5d5c64ed5a5` · `status.md` `30a2391dfb3a2e30903d5e1360ab9e359aef790e` · `managed.md` `7df7c5805d43a6428ce113f79a49543fe77e30aa` · `unmanaged.md` `557cd16eee281d267e868aa100a461ef2889c75f` |
+| S18 | `22d1e6eef7eaaac25b322ac141bad07d25239357` |
+
+**S5, S13 and S14 have no commit to pin, and that is a real limit rather than an omission.** S5 and
+S14 are rendered pages served from no public repository — a re-check of S5's three spans re-fetches
+the live HTML and may legitimately fail if the page is re-rendered. S13 is the locally installed CLI,
+pinned instead by its version string (2.1.234), which is the only identifier it exposes.
+
 ### External — first-party, observed locally (definitive)
 
 | # | Source | Verification |
@@ -985,7 +1035,8 @@ measuring it, so additional sources would have added restatements and not eviden
 
 - **Terraform** — the natural first-party source for human-versus-automation invocation. Its docs are
   no longer in `hashicorp/terraform`; `website/docs/cli` and `website/docs/cli/config` both return
-  `Not Found` and a repo-root enumeration shows no `website/`. Not cited from a rendered page.
+  `Not Found`, and the `website/` directory still present at repo root holds only a `README.md`
+  redirecting contributions to `hashicorp/web-unified-docs`. Not cited from a rendered page.
 - **Cargo** — `src/doc/src/reference` returns `Not Found` on `master`. Not cited.
 - **Open Policy Agent** — `docs/content` returns `Not Found` on `main`. Not pursued further; the
   policy-as-code angle is covered by VS Code Policy settings [S11] and Claude Code's managed tier
@@ -1005,8 +1056,12 @@ measuring it, so additional sources would have added restatements and not eviden
 
 `openclaw_assessment.md` and `hermes_assessment.md` were read for facet-3 material (per-agent
 credential stores with a stated precedence; `/etc/hermes` managed scope) and are **not cited as
-evidence** — neither adds a mechanism the five systems in §2.3 do not already document, and citing
-them would inflate the source list without adding an argument.
+evidence** — neither adds a mechanism the systems in §2.3 do not already document, and citing them
+would inflate the source list without adding an argument. `hook_sourcing_supplement.md` belongs in
+the same category and is recorded here for the same reason: it was read at authoring time and an
+earlier revision listed it in §1.3 as evidence this paper leans on, but **no claim anywhere in the
+body rests on it**, so the verification round moved it out of that table rather than leaving a row
+that overstated what was drawn on.
 
 ### Internal — local artifacts read at commit `128091c`
 

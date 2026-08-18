@@ -11,7 +11,7 @@ becomes a rule only by being codified into a standard through human review.
 | Paper | Last validated | Revalidate | Critic verdict |
 |---|---|---|---|
 | [`raw/fork_vs_parameterize_drift_signal.md`](raw/fork_vs_parameterize_drift_signal.md) | 2026-08-17 | high — 6 weeks (due 2026-09-28) | **PASS-WITH-FIXES** — three critic rounds, zero blocking findings from round 2 on. Full history in the prior cycle-1 synthesis, preserved below. |
-| [`raw/invocation_contract.md`](raw/invocation_contract.md) | 2026-08-18 | high — 4 weeks (due 2026-09-15; mixed-volatility, §4.3 fast-decaying, §2/§3 slow-decaying) | **not-yet-verified** — this paper has not yet been through a critic round. Treat every claim below sourced to it as unverified evidence until a `research-critic` pass runs. |
+| [`raw/invocation_contract.md`](raw/invocation_contract.md) | 2026-08-18 | high — 4 weeks (due 2026-09-15; mixed-volatility, §4.3 fast-decaying, §2/§3 slow-decaying) | **PASS-WITH-FIXES** — one critic round under `research-verify` on 2026-08-18. All seventeen external sources resolve and every re-checked span matched a byte-exact raw GET, at SHAs the paper now records. Four defects (a wrong test-id pointer, a blended docstring quote, a dropped RST markup, and a false observation about Terraform's repo layout) and three packaging counts were repaired in that round. No fabricated source, no confidence inflation. |
 
 Both papers also lean on upstream, product-pool papers they cite rather than re-derive:
 [`docs/standards/architecture/research/raw/workflow_reuse_boundary.md`](../../../standards/architecture/research/raw/workflow_reuse_boundary.md)
@@ -27,8 +27,9 @@ sourced to "upstream" as carrying that paper's own verdict, not this cycle's.
 
 **One boundary carried forward from cycle 1, unchanged:** a critic pass over *this synthesis* checks
 it against its inputs, not against either paper's external sources. The verdict column above is each
-paper's own. `invocation_contract.md` additionally has no critic round at all yet — a consequential
-call should read the paper itself, not this rollup.
+paper's own. Both papers have now been through a critic round, so a claim below is no weaker than
+its paper states — but a consequential call should still read the paper itself rather than this
+rollup, because the fixes that round applied land in the paper's wording, not in this summary.
 
 ---
 
@@ -102,7 +103,8 @@ planner decomposing the checkbox as currently worded will scope the wrong fix.
 
 ### 3. Facet 3's honest answer is: build one digest, and stop there until the evidence says otherwise
 
-Five shipping systems were read for managed-plus-user config layering. The precedence direction is
+Seven systems were read for managed-plus-user config layering — five of them shipping a documented
+precedence model, plus chezmoi and Nix for the narrower drift-and-agreement question. The precedence direction is
 **not universal** — it is a policy choice disguised as a technical one, and it runs two opposite ways
 depending on who "managed" means: vendor-package systems (git, npm, systemd) let the *local* tier
 win; org-policy systems (VS Code Policy, Claude Code's own Managed tier) let the *managed* tier win
@@ -159,9 +161,10 @@ where the reviewer routes it per the disposition doctrine.
 
 ## Gaps this cycle did not cover
 
-- **`invocation_contract.md` carries `Critic: not-yet-verified`.** No claim in the Phase 3 section
-  above should be treated as more certain than the paper itself states until a `research-critic`
-  pass runs against it.
+- **`invocation_contract.md` has now been verified** (`Critic: PASS-WITH-FIXES`, 2026-08-18) — the
+  gap this bullet used to record is closed. What the round did *not* do is settle the two findings
+  the paper itself holds below definitive: P14 and P18 remain unmeasured inferences, and the two
+  bullets below are still the live gaps.
 - **No source was found measuring the defect rate of derived-vs-declared configuration** — the
   entire industry position on facet 2 (derive when safe) is argued by convention across five sources,
   never evidenced by data. Stated as a gap in the paper (§6.2), carried here because it bears
