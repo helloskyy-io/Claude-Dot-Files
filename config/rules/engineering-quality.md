@@ -162,10 +162,10 @@ When multiple review agents run in a workflow stage, each has a distinct lens. D
 | Agent | Lens question | Scope |
 |---|---|---|
 | `code-reviewer` | Is this code correct? **AND** could it be structured better? | TWO LENSES, reported separately: correctness (bugs, edge cases, real-world failure modes) and structure (coupling, abstractions, duplication, dead code), the latter prioritized High/Medium/Low with Risk and Scope. Absorbed `code-reviewer's structure lens` 2026-08-18 |
-| `standards-auditor` | Does this match our documented standards? | Project conventions, exemplar conformance |
+
 | `security-auditor` | Are there vulnerabilities? | Security risks, attack surface, sensitive data handling |
 | `standards-architect` | Are the standards docs themselves coherent? | Corpus-level audit, NOT per-PR conformance |
-| `quality-control` | Would a senior engineer at a top-tier org sign off? | Holistic integration across dimensions — runs SEQUENTIALLY after the parallel narrow-lens reviewers, with access to their findings |
+| `quality-control` | Does this follow what the project already decided? | **PRIMARY: standards conformance** — CLAUDE.md chains, `docs/standards/`, exemplars. Secondarily coarse security shapes and quality compromises. Runs in PARALLEL with `code-reviewer`. Absorbed `standards-auditor` 2026-08-18; the cross-finding read it used to do moved to the orchestrator's RESOLVE stage |
 | `architect` | Is the design coherent and scalable? | Planning-stage system design |
 | `planner` | Is this implementation feasible and well-scoped? | Planning-stage decomposition and risk |
 | `doc-manager` | Is the doc system being managed end-to-end? | Documentation systems engineer — 4 modes (AUTHOR / COORDINATE / AUDIT / MAINTAIN) covering the full doc lifecycle. Substance always human-in-the-loop. Invoked on-demand OUTSIDE workflow review stages |

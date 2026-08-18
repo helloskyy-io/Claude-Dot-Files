@@ -257,7 +257,7 @@ Reach exactly ONE verdict:
 
 | | model | turn cap | review lenses |
 |---|---|---|---|
-| `build.sh` | **opus** | 250 + 250 | **three** — code-reviewer (correctness AND structure lenses) and standards-auditor in parallel, then quality-control sequentially over their findings |
+| `build.sh` | **opus** | 250 + 250 | **two, parallel** — code-reviewer (correctness + structure) and quality-control (standards + coarse security). No sequential third pass. **A HOLD loops to `build-refine-minor`, not to the full tier** |
 | `build-minor.sh` | **opus — same as `build.sh`** | 100 + 100 | **one** — code-reviewer |
 | `plan-revision.sh` | opus | 300 | doc/plan edits |
 

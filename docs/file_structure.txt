@@ -46,7 +46,6 @@ claude-dot-files/
 │   │   ├── research-currency.md                     # Research refresh differ — fresh sweep vs existing paper, revalidation intervals
 │   │   ├── security-auditor.md                      # Vulnerability detection & audit
 │   │   ├── standards-architect.md                   # Audits standards corpus for coherence, bloat, drift
-│   │   ├── standards-auditor.md                     # Audits code conformance to standards
 │   │   ├── test-writer.md                           # Generates & runs tests
 │   │   └── workflow-analyst.md                      # CPI workflow-log analysis
 │   │

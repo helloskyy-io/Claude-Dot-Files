@@ -211,9 +211,9 @@ ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
     },
     "build_refine+build_refine_minor": {
         "For each finding (fidelity gaps, code-reviewer's two lenses,":
-            "0.82 — the finding-source enumeration. DELIBERATE and forced: "
+            "0.87 — the finding-source enumeration. DELIBERATE and forced: "
             "the full tier lists fidelity gaps, both code-reviewer lenses, "
-            "standards-auditor and quality-control; the minor tier lists "
+            "both code-reviewer lenses and quality-control; the minor tier lists "
             "fidelity gaps and code-reviewer, because those are the only "
             "sources it HAS. Reconciling by union would tell a one-lens run "
             "to disposition findings from agents it never dispatched.",

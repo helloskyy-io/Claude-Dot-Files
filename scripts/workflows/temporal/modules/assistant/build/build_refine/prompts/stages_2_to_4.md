@@ -30,7 +30,7 @@ ${FIDELITY_MUTATE_WHAT_YOU_ADDED}
 
 Record fidelity gaps as findings and carry them into Stage 3 alongside the review findings.
 
-## Stage 2: PEER REVIEW (two-phase)
+## Stage 2: PEER REVIEW
 
 Stage 2 has TWO sub-phases. Phase 2a runs the narrow-lens reviewers in parallel; phase 2b runs the holistic quality-control reviewer sequentially with access to 2a's findings. This split exists because the parallel-narrow-then-sequential-integration pattern is the right shape for review (see `engineering-quality.md` "Review-stage agent lenses").
 
@@ -55,9 +55,9 @@ invocation. Put this in the dispatch, in these two parts:
 YOU, not to them.** The agents read; the orchestrator executes. An instruction
 they cannot obey is one they will spend words apologising for.
 
-### Stage 2a: NARROW PEER REVIEW (parallel)
+**TWO agents, dispatched in PARALLEL.**
 
-Dispatch BOTH peer-review agents — code-reviewer and standards-auditor — back-to-back BEFORE processing any results. **`refactoring-evaluator` was absorbed into `code-reviewer` on 2026-08-18**, which now carries correctness and structure as two lenses and reports them separately. They review the SAME artifact — the draft run's diff on this PR branch, as read in Stage 1 — independently; there is no ordering dependency between them.
+Dispatch BOTH peer-review agents — code-reviewer and quality-control — back-to-back BEFORE processing any results. **`refactoring-evaluator` was absorbed into `code-reviewer` on 2026-08-18**, which now carries correctness and structure as two lenses and reports them separately. They review the SAME artifact — the draft run's diff on this PR branch, as read in Stage 1 — independently; there is no ordering dependency between them.
 
 **The dispatch contract (headless-safe):** dispatch both as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after BOTH narrow-lens results are in hand.
 
@@ -69,36 +69,22 @@ Each agent's review focus:
 
 **Expect both halves.** A code-reviewer result carrying only correctness findings has done half its job — say so and ask for the structural pass rather than accepting it. Structural findings carry Risk and Scope (contained / cascading); a suggestion without them cannot be sized.
 
-#### standards-auditor agent — project conventions and documented standards
+#### quality-control agent — conformance, plus a coarse security net
 Analyze findings by severity:
 - Critical violations: must fix before proceeding
 - Warnings: should fix if scope allows
 - Info: note for future improvement
 
-If one agent has no findings, note it inline (e.g., "standards-auditor: no findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
+If one agent has no findings, note it inline (e.g., "quality-control: no findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
 
-### Stage 2b: HOLISTIC REVIEW (sequential, after 2a returns)
+**CROSS-READ BOTH TABLES BEFORE FIXING ANYTHING — this is the step that replaced the holistic reviewer.** You hold both agents' findings at once and neither of them does. Ask the question no single lens can: *do these findings TOGETHER say something?* Four separate items in one file is a file nobody understood. A conformance miss and a correctness bug in the same function is a rushed edit, not two coincidences. **State what the cross-read found, or state that it found nothing** — silence here is indistinguishable from not having looked.
 
-After Stage 2a's two agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
-
-The quality-control prompt MUST include:
-- The work being reviewed (file paths changed, summary of the change)
-- The structured findings from Stage 2a (code-reviewer's correctness AND structure lenses + standards-auditor, verbatim or paraphrased clearly)
-- Instruction to apply the holistic six-dimension lens AND look for meta-patterns across the trio's findings ("do these findings together suggest the work was rushed, under-specified, or quality-compromised?")
-
-quality-control applies the senior-engineer integration test: would a peer reviewer at a top-tier engineering organization sign off on this? Its lens is HOLISTIC — it pulls signals across dimensions that no narrow reviewer catches. See `quality-control-methodology` skill for the six dimensions (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor) and severity calibration.
-
-quality-control runs SEQUENTIALLY (not in parallel with 5a) because its lens benefits from seeing 2a's findings. This is the only review agent that runs sequentially — narrow-lens agents stay parallel.
-
-### Consolidating findings (after both 5a and 5b)
-
-After all four reviews complete (5a's three + 5b's quality-control), fix any Critical issues found across ANY of the four reviews.
+Then fix any Critical issue found by either review.
 
 **Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
 - **code-reviewer** judges engineering quality — correctness, safety, robustness, real-world failure modes
 - **code-reviewer's structure lens** judges structural improvement potential — uses High/Medium/Low priority, not Critical/Warning
-- **standards-auditor** judges documented-standard conformance — whether an explicit rule is violated
-- **quality-control** judges the senior-engineer integration test — would a top-tier-org peer sign off
+- **quality-control** judges documented-standard conformance — whether an explicit rule is violated — plus coarse security shapes and quality compromises
 
 **When severities conflict on the same code, the engineering-quality bar is the override authority.** A code-reviewer Critical or quality-control Critical trumps a standards-auditor Info on the same finding — real correctness/safety/quality concerns win over "no documented violation." Don't try to reconcile severities into a single label; address each reviewer's finding by their own bar.
 
@@ -117,7 +103,7 @@ You are told above to treat another run's **"pre-existing"**, **"out of scope"**
 
 ${RESOLVE_DISPOSITION_AUTHORITY}
 
-For each finding (fidelity gaps, code-reviewer's two lenses, standards-auditor, quality-control), exactly ONE of these four. There is no fifth, and you may not invent one:
+For each finding (fidelity gaps, code-reviewer's two lenses, quality-control), exactly ONE of these four. There is no fifth, and you may not invent one:
 
 ${RESOLVE_REJECTIONS_MUST_BE_EXECUTED}
 
