@@ -41,7 +41,6 @@ claude-dot-files/
 │   │   ├── doc-manager.md                           # Documentation systems engineer — 4 modes (AUTHOR/COORDINATE/AUDIT/MAINTAIN)
 │   │   ├── planner.md                               # Detailed implementation plans (Opus, on-demand)
 │   │   ├── quality-control.md                       # Senior-engineer holistic lens — runs sequentially after parallel reviewers
-│   │   ├── refactoring-evaluator.md                 # Structural improvement evaluation
 │   │   ├── research-analyst.md                      # Deep-research mini-paper author (opus + web; raw-sources-over-rendered, gaps-are-findings)
 │   │   ├── research-critic.md                       # Anti-hallucination gate — fetches every cited source, verifies claims match
 │   │   ├── research-currency.md                     # Research refresh differ — fresh sweep vs existing paper, revalidation intervals

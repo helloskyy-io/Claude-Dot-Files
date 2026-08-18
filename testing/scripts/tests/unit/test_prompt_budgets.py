@@ -78,7 +78,7 @@ BUDGETS: dict[str, int] = {
     # 77_115 -> 77643: the reviewer picks the dispatch tool and was never told
     # `-minor` is a LESS CAPABLE MODEL. Its whole sizing axis was scope and turn
     # caps, so a scoped-and-known fix needing judgement routed to the weak tier.
-    "review_pr/prompts/disposition.md": 78141,
+    "review_pr/prompts/disposition.md": 78018,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -123,7 +123,7 @@ BUDGETS: dict[str, int] = {
     # this comment had them in characters — off by 90 on this file — which is the
     # exact error the `plan_verify` note below warns about. Em-dashes are three
     # bytes each and this prompt is full of them.
-    "build/build_refine/prompts/stages_2_to_4.md": 11_057,
+    "build/build_refine/prompts/stages_2_to_4.md": 11307,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
@@ -182,7 +182,7 @@ BUDGETS: dict[str, int] = {
     # the reason already stated above: the floor decides what must ACQUIRE a
     # budget, never what may lose one, and dropping the line would let 5 KB of
     # vacated space refill unwatched.
-    "build/build_refine_minor/prompts/stages_2_to_4.md": 2_693,
+    "build/build_refine_minor/prompts/stages_2_to_4.md": 2989,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —

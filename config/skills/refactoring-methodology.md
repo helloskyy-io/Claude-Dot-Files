@@ -101,7 +101,7 @@ When reviewing code, look for these categories of issues:
 
 ## Evaluating Refactoring Suggestions
 
-When reviewing suggestions from a code-reviewer or refactoring-evaluator agent, apply these filters:
+When reviewing suggestions from `code-reviewer`'s structure lens, apply these filters:
 
 ### Accept If:
 - The suggestion makes future changes easier (measurable benefit)

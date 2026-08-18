@@ -210,15 +210,13 @@ ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
             "0.86 — the characterization rule. Unruled.",
     },
     "build_refine+build_refine_minor": {
-        "#### code-reviewer agent — correctness and code quality\nAnal":
-            "0.91 — the code-reviewer lens brief, one-sided additive. Unruled, "
-            "and the ONE pair deliberately left when the other six were "
-            "reconciled: review depth is the single axis the two tiers are "
-            "documented to differ on, so this is the one place a difference is "
-            "plausibly intended. Note the measured delta is 'Give it the diff "
-            "and the original task.' — a dispatch-contents sentence, not a "
-            "lens-count one, so the 'plausibly deliberate' reading is weaker "
-            "than it looks and the ruling is still owed.",
+        "For each finding (fidelity gaps, code-reviewer's two lenses,":
+            "0.82 — the finding-source enumeration. DELIBERATE and forced: "
+            "the full tier lists fidelity gaps, both code-reviewer lenses, "
+            "standards-auditor and quality-control; the minor tier lists "
+            "fidelity gaps and code-reviewer, because those are the only "
+            "sources it HAS. Reconciling by union would tell a one-lens run "
+            "to disposition findings from agents it never dispatched.",
         "## Stage 5: SUBMIT\n- Stage any uncommitted changes remaining":
             "0.992 — the submit stage, and the one entry here that is RULED "
             "rather than observed. The residual delta INSIDE THIS BLOCK is a "

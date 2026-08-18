@@ -16,7 +16,7 @@ We use a dual workflow model:
 
 Available workflow scripts (run from terminal, not from this chat):
 - `build-minor.sh "description"` — minor code fixes, single pass, no review agents
-- `build.sh "description"` — significant code rework. **Parent workflow**: a draft run writes the change, then a SECOND run with fresh context reviews and corrects it (code-reviewer + refactoring-evaluator + standards-auditor + quality-control)
+- `build.sh "description"` — significant code rework. **Parent workflow**: a draft run writes the change, then a SECOND run with fresh context reviews and corrects it (code-reviewer + standards-auditor + quality-control)
 - `build-phase.sh path/to/plan.md "context"` — implement from a plan document
 - `plan-new.sh "project-name" "context"` — define a new project from scratch (architect + planner + security-auditor review)
 - `plan-revision.sh "description" "context"` — revise existing planning docs (architect + planner review)

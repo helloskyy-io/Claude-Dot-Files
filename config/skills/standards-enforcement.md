@@ -125,4 +125,4 @@ This skill is loaded by the standards-auditor agent during review stages in:
 - **build-phase.sh** — Stage 7 (STANDARDS), in the review pipeline
 - **build-minor.sh** — inline discovery reminder only (no dedicated standards stage)
 
-The standards-auditor focuses on **project-specific conformance** — not general code quality (code-reviewer) or structural improvement (refactoring-evaluator). Its unique value is connecting changes back to the project's documented standards and existing patterns.
+The standards-auditor focuses on **project-specific conformance** — not general code quality (code-reviewer) or structural improvement (code-reviewer's structure lens). Its unique value is connecting changes back to the project's documented standards and existing patterns.

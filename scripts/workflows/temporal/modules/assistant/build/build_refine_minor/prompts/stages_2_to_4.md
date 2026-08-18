@@ -30,11 +30,12 @@ Dispatch the `code-reviewer` agent — **one agent, and that is the whole review
 
 **The dispatch contract (headless-safe):** dispatch code-reviewer as a FOREGROUND agent (`run_in_background: false`). A text-only turn with no tool call ENDS a headless run, so you must NEVER background-dispatch and then wait — the wait itself becomes a run-killing turn — and must NEVER use ScheduleWakeup to wait for it.
 
-#### code-reviewer agent — correctness and code quality
-Give it the diff and the original task. Analyze findings by severity:
-- Critical issues: must fix before proceeding
-- Warnings: should fix if scope allows
-- Info: note for future improvement
+#### code-reviewer agent — TWO LENSES, reported separately
+Give it the diff and the original task. It returns both:
+- **Correctness** by severity: Critical (must fix before proceeding), Warning (fix if scope allows)
+- **Structure** by priority: High (implement if scope allows), Medium (implement if quick and low risk), Low (defer)
+
+**This tier dispatches ONE agent, and that agent now carries BOTH lenses** — the structural review arrives at no extra dispatch. Expect both halves; a result carrying only correctness has done half its job.
 
 If it has no findings, say so inline — a clean review is a result, not a skipped stage.
 

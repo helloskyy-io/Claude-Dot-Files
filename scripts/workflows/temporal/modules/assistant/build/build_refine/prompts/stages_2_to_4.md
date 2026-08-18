@@ -57,23 +57,17 @@ they cannot obey is one they will spend words apologising for.
 
 ### Stage 2a: NARROW PEER REVIEW (parallel)
 
-Dispatch all THREE peer-review agents — code-reviewer, refactoring-evaluator, and standards-auditor — back-to-back BEFORE processing any results. They review the SAME artifact — the draft run's diff on this PR branch, as read in Stage 1 — independently; there is no ordering dependency between them.
+Dispatch BOTH peer-review agents — code-reviewer and standards-auditor — back-to-back BEFORE processing any results. **`refactoring-evaluator` was absorbed into `code-reviewer` on 2026-08-18**, which now carries correctness and structure as two lenses and reports them separately. They review the SAME artifact — the draft run's diff on this PR branch, as read in Stage 1 — independently; there is no ordering dependency between them.
 
-**The dispatch contract (headless-safe):** dispatch all three as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after ALL three narrow-lens results are in hand.
+**The dispatch contract (headless-safe):** dispatch both as FOREGROUND agents (`run_in_background: false`) in a single assistant message — foreground agents run concurrently where the harness allows AND the turn BLOCKS until every result returns. This is mandatory in a headless run: a text-only turn with no tool call ends the run, so you must NEVER background-dispatch and then wait (the wait becomes a run-killing text-only turn) and must NEVER use ScheduleWakeup to wait for agents here. quality-control (next sub-stage) runs only after BOTH narrow-lens results are in hand.
 
 Each agent's review focus:
 
-#### code-reviewer agent — correctness and code quality
-Analyze findings by severity:
-- Critical issues: must fix before proceeding
-- Warnings: should fix if scope allows
-- Info: note for future improvement
+#### code-reviewer agent — TWO LENSES, reported separately
+- **Correctness** by severity: Critical (must fix before proceeding), Warning (fix if scope allows)
+- **Structure** by priority: High (implement if scope allows), Medium (implement if quick and low risk), Low (defer)
 
-#### refactoring-evaluator agent — structural improvements
-Analyze findings by priority:
-- High priority: implement if scope allows
-- Medium priority: implement if quick and low risk
-- Low priority: defer to future work
+**Expect both halves.** A code-reviewer result carrying only correctness findings has done half its job — say so and ask for the structural pass rather than accepting it. Structural findings carry Risk and Scope (contained / cascading); a suggestion without them cannot be sized.
 
 #### standards-auditor agent — project conventions and documented standards
 Analyze findings by severity:
@@ -81,15 +75,15 @@ Analyze findings by severity:
 - Warnings: should fix if scope allows
 - Info: note for future improvement
 
-If one agent has no findings, note it inline (e.g., "refactoring-evaluator: no findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
+If one agent has no findings, note it inline (e.g., "standards-auditor: no findings") rather than emitting a SKIPPED marker — the sub-phase as a whole still ran.
 
 ### Stage 2b: HOLISTIC REVIEW (sequential, after 2a returns)
 
-After Stage 2a's three agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
+After Stage 2a's two agents return, dispatch the `quality-control` agent SEQUENTIALLY. Send a single assistant message with ONE Agent call for quality-control.
 
 The quality-control prompt MUST include:
 - The work being reviewed (file paths changed, summary of the change)
-- The structured findings from Stage 2a (code-reviewer + refactoring-evaluator + standards-auditor outputs, verbatim or paraphrased clearly)
+- The structured findings from Stage 2a (code-reviewer's correctness AND structure lenses + standards-auditor, verbatim or paraphrased clearly)
 - Instruction to apply the holistic six-dimension lens AND look for meta-patterns across the trio's findings ("do these findings together suggest the work was rushed, under-specified, or quality-compromised?")
 
 quality-control applies the senior-engineer integration test: would a peer reviewer at a top-tier engineering organization sign off on this? Its lens is HOLISTIC — it pulls signals across dimensions that no narrow reviewer catches. See `quality-control-methodology` skill for the six dimensions (best-practices grounding, enterprise-readiness, compromise detection, maintainability, robustness, decision rigor) and severity calibration.
@@ -102,7 +96,7 @@ After all four reviews complete (5a's three + 5b's quality-control), fix any Cri
 
 **Reviewers may legitimately disagree on severity for the same finding because their bars differ:**
 - **code-reviewer** judges engineering quality — correctness, safety, robustness, real-world failure modes
-- **refactoring-evaluator** judges structural improvement potential — uses High/Medium/Low priority, not Critical/Warning
+- **code-reviewer's structure lens** judges structural improvement potential — uses High/Medium/Low priority, not Critical/Warning
 - **standards-auditor** judges documented-standard conformance — whether an explicit rule is violated
 - **quality-control** judges the senior-engineer integration test — would a top-tier-org peer sign off
 
@@ -123,7 +117,7 @@ You are told above to treat another run's **"pre-existing"**, **"out of scope"**
 
 ${RESOLVE_DISPOSITION_AUTHORITY}
 
-For each finding (fidelity gaps, code-reviewer, refactoring-evaluator, standards-auditor, quality-control), exactly ONE of these four. There is no fifth, and you may not invent one:
+For each finding (fidelity gaps, code-reviewer's two lenses, standards-auditor, quality-control), exactly ONE of these four. There is no fifth, and you may not invent one:
 
 ${RESOLVE_REJECTIONS_MUST_BE_EXECUTED}
 
