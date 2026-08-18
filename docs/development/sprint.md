@@ -165,7 +165,7 @@ Taking apart the long-running workflows that already existed, so each boundary i
 
 All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. Phases 1–4 have no external gate and depend only on each other.
 
-- [ ] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
+- [x] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Phase 2 · The content store** — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
 - [ ] **Phase 3 · The emit rule** — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
 - [ ] **Phase 4 · Rebuildability is a test** — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
@@ -178,12 +178,14 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 
 - [x] **Stage A — the Python tree** — `scripts/workflows/temporal/`, parent/child modules with a CLI entrypoint, no Temporal runtime
 - [x] **V1 parity suite** — the Python fleet checked against the bash one it replaces
+- [ ] **Prove an invocation is indistinguishable from an operator at a terminal** — the constraint that decides whether the port is viable on a subscription model at all. Not a permission question; a design one, and it gates everything below it
 - [ ] **A `claude_cli` activity domain** — heartbeating for 10–60 minute runs, transcript-to-file for payload limits. The genuinely new work; the rest is a port
 - [ ] **Port `review-runs`** — the CPI log sweep, the one of the four with a live role and a run history
 - [ ] **Rule on `plan-new` and `review-sprint`** — 1,228 lines between them and **neither has ever executed**; decide whether they die with the bash fleet or earn a port
 - [ ] **Stand up the Temporal server** — Postgres-backed, on the VM that gets backed up
 - [ ] **A restart-recovery contract** — a durable dispatch id and per-subsystem recovery, designed once. Retrofitting one onto running workers is a rewrite, so it lands with them rather than after
 - [ ] **Rule the retry boundary before wrapping anything** — Temporal retries an ACTIVITY, and `gh()` gained its own bounded retry for transient outages (PR #101). Nesting them multiplies: 3 activity attempts × 3 call attempts is 9, which turns a brief outage into a long stall. Decide which layer owns it, and carry the transient-vs-terminal classification into `non_retryable_error_types` rather than re-deriving it — Temporal's default retries almost everything, including a `404`. **`preflight` is outside this and stays outside**: it runs before any workflow exists, so no retry policy can reach it
+- [ ] **Reduce `gh()`'s own retry when wrapping** — it retries a CALL, Temporal retries an ACTIVITY, and nested that is 3 × 3 = 9 attempts and ~34s of pauses (the shipped code says so in its own comment). Cut `gh()` to one attempt inside activities, carry `_RETRYABLE_HTTP` across as `non_retryable_error_types` rather than re-deriving it, and **leave `preflight` alone — it runs before any workflow exists and no retry policy reaches it**
 - [ ] **Stage B — semantic wrappers** — `@activity.defn` over the plain functions from Stage A
 - [ ] **Stage C — orchestrate** — workflows compose the wrappers; schedules replace timers
 
@@ -209,7 +211,7 @@ The four phases that wait on something that does not exist yet.
 **Named for `modules/assistant/`, which is where every one of these lives.** Decomposition takes apart what already existed; this designs, builds and trains what does not. **A long-running component: it gains phases as the fleet gains capabilities, and those phases land in much later sprints while staying this feature.**
 
 - [ ] **The roster** — what every parent and child IS and what it DOES, as one readable catalog. The set is currently knowable only by reading the tree
-- [ ] **"No god workflows" as an actual rule** — what a single workflow may not do, stated so it can be checked
+- [ ] **The conditions under which a god-like workflow becomes possible** — long chains with no human behind each parent are the eventual goal, not a prohibition. They are blocked today by child performance, not by design: HiL is load-bearing because the children need it. Name what has to be true — accuracy, measured — before review stops being the thing holding a chain together. Gated on [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning)
 - [ ] **Marketing children** — viability, target audience, opportunities. A loop that revises the *problem statement* rather than building against it: who has this problem, how common is it, can the solution be sold
 - [ ] **Research-children training** — getting a research cycle to produce what was actually wanted, at accuracy. **The prerequisite to [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning), not part of it**
 - [ ] **Chain `plan-verify` into `plan-project`** — it exists as a child and appears in all three planning scenarios, and nothing calls it

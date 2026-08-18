@@ -24,6 +24,13 @@ __all__ = ["resolve_repo_root", "require_dependencies", "preflight",
 # crash AFTER the worktree exists, which is how a stranded worktree happens.
 _REQUIRED = ("yaml",)
 
+# `git rev-parse --show-toplevel` reads `.git` and never the network, so this is
+# the local-git budget (`journal_activities._PROBE_TIMEOUT_SECONDS`) rather than
+# the assistant tree's 120s network one. Named rather than inlined because the
+# message raised below quotes it: a literal in both places means widening the
+# bound ships an error that lies to the operator about what was exceeded.
+_REPO_ROOT_TIMEOUT_SECONDS = 30.0
+
 
 def resolve_repo_root(repo_target: str | None) -> Path:
     """The repository ROOT, never the directory the operator happened to be in.
@@ -40,10 +47,29 @@ def resolve_repo_root(repo_target: str | None) -> Path:
     accounting for those runs is then unrecoverable.
     """
     invoked_from = Path(repo_target) if repo_target else Path.cwd()
-    probe = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        cwd=str(invoked_from), capture_output=True, text=True,
-    )
+    # BOUNDED, AND BOUNDED INLINE RATHER THAN VIA `assistant_activities.run_bounded`.
+    # NOT because `modules/` is unimportable here — every entrypoint inserts the
+    # temporal root on `sys.path` before it imports this module, so it plainly
+    # is. The reason is dependency direction: preflight's whole job is to report
+    # a broken precondition cleanly, and it cannot do that if a broken workflow
+    # tree stops it importing. It reaches for nothing under `modules/`.
+    #
+    # A hang here parks a dispatch before it has done anything at all, on the
+    # first call it makes, which is the worst place in the fleet to be unbounded.
+    try:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=str(invoked_from), capture_output=True, text=True,
+            timeout=_REPO_ROOT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"git could not answer within {_REPO_ROOT_TIMEOUT_SECONDS:.0f}s in: "
+            f"{invoked_from}\n"
+            f"`git rev-parse --show-toplevel` reads local metadata, so this is a "
+            f"wedged git or an unresponsive filesystem rather than a network "
+            f"problem. Nothing downstream can resolve a repo root without it."
+        ) from exc
     if probe.returncode != 0:
         raise RuntimeError(
             f"not inside a git repository: {invoked_from}\n"

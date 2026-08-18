@@ -71,7 +71,14 @@ BUDGETS: dict[str, int] = {
     # credential-leak class on PR #233. Now it bans repeating a prior search and
     # permits a new angle, stated. Fixing the defect costs more bytes than the
     # defect did — that is the trade, and it still removes loop-backs.
-    "review_pr/prompts/disposition.md": 76_507,
+    # 76_507 -> 77_115 for the asymmetric-presence sweep. It cleared the two-PR
+    # bar the hard way: #96 and #100 each produced their HEADLINE finding from it,
+    # and neither was reachable by the deleted-artifact sweep beside it, because
+    # nothing had been deleted — something was added to one side of a pair only.
+    # 77_115 -> 77643: the reviewer picks the dispatch tool and was never told
+    # `-minor` is a LESS CAPABLE MODEL. Its whole sizing axis was scope and turn
+    # caps, so a scoped-and-known fix needing judgement routed to the weak tier.
+    "review_pr/prompts/disposition.md": 78141,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

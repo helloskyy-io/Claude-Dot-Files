@@ -79,8 +79,15 @@ gh-monitor:
 #
 # Changes take effect on the NEXT dispatch — no restarts required.
 models:
-  build-draft-minor: sonnet  # minor tier, child 1: writes the scoped change
-  build-refine-minor: sonnet # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
+  # MINOR MEANS SMALLER, NOT WEAKER — ruled 2026-08-18. The tier's saving comes
+  # from SCOPE: 100 turns against 250, and ONE review lens against five. Buying a
+  # further cut by downgrading the reasoner was the wrong trade, because a small
+  # task is not the same as an easy one — deriving a set, ruling which exclusions
+  # are legitimate, stating a consequence rather than a mismatch are all small and
+  # all need judgement. A weak reasoner getting one of those wrong costs a full
+  # redispatch, which is strictly more than having run opus once.
+  build-draft-minor: opus    # minor tier, child 1: writes the scoped change
+  build-refine-minor: opus   # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
   build-draft: opus          # parent step 1: writes the change, opens an unreviewed PR
   build-refine: opus         # parent step 2: FRESH context — fidelity, review, corrections
   build-phase: opus             # phase implementation — the default engineer
@@ -135,7 +142,17 @@ models:
                                 #   untouched by this key. What runs here is pure orchestration —
                                 #   read the standard, dispatch one analyst, commit, open the PR —
                                 #   with no sizing judgment and no synthesis to author. That is the
-                                #   same shape build-draft-minor already runs at sonnet. Keying it to
+                                #   same shape build-draft-minor ran at sonnet. ⚠ THAT PRECEDENT WAS
+                                #   WITHDRAWN 2026-08-18 — build-draft-minor is opus now, on the
+                                #   ruling that minor means smaller not weaker. This key was NOT
+                                #   changed with it: whether the same argument applies here is an
+                                #   open operator decision, and the sonnet pin is left standing
+                                #   rather than changed by implication. ⚠ THE EVIDENCE IS ALREADY
+                                #   IN, MEASURED ON PR #102 (2026-08-17): the paper cost 22,815
+                                #   output tokens to WRITE and ~337,000 to verify and correct —
+                                #   roughly 15x, the same shape that retired the build-minor pin.
+                                #   A cheap writer whose output costs 15x to fix has not saved
+                                #   anything. Decide with that number in hand. Keying it to
                                 #   `research` (opus) would tie the cheap cycle's cost to the
                                 #   expensive one, which is the thing this workflow exists to avoid.
   research-refresh: opus        # research revalidation — orchestration + synthesis diff

@@ -40,26 +40,32 @@ from modules.assistant.research.research_write import research_write_workflow as
 
 _SHARED = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "prompts"
 
-# A distinctive sentence from each fragment promoted by this change, keyed by
-# stem. Read from the FILE rather than pasted here: a copy would drift, and a
-# drifted needle turns every assertion below into a permanent pass.
-_PROMOTED = [
-    "build_from_plan",
-    "stages_1_to_4_from_plan",
-    "fidelity_premise",
-    "fidelity_read_and_compare",
-    "fidelity_needs_a_separate_run",
-    "fidelity_evidence_discipline",
-    "fidelity_mutate_what_you_added",
-    "resolve_disposition_authority",
-    "resolve_rejections_must_be_executed",
-    "resolve_closed_disposition_list",
-    "resolve_disposition_definitions",
-    "resolve_fix_by_default_and_summary",
-    "verify_and_ci_gate",
-    "altitude_component",
-    "submit_and_push",
-]
+# THE POOL IS THE PROMOTED SET, DERIVED RATHER THAN LISTED.
+#
+# This was a hand-maintained enumeration of a derivable set, and it fell behind
+# the pool it guards: `altitude_product`, `decision_log_and_reflection`,
+# `headless_execution_guard`, `mutation_discipline` and `rules` were all promoted
+# before anyone re-counted, so each sat outside `_FRAGMENT_FLOOR` below and was
+# unguarded against silent deletion for as long as the literal list went
+# unrevisited. Pasting the missing names in would have left the NEXT promotion
+# uncovered the day it landed — the same defect, one commit later. Deriving from
+# the pool directory makes coverage SET-EQUAL to it by construction.
+#
+# The obligation does not depend on WHEN a fragment was promoted: what this
+# module verifies is that a shared fragment renders for every consumer that
+# loads it, which is true of every fragment in the pool.
+#
+# THERE IS NO EXCLUSION SET, AND EMPTY IS THE INTENDED STEADY STATE. Every
+# fragment in the pool yields a usable needle and carries a floor — measured, in
+# `test_the_needles_are_real` and `test_no_PROMOTED_fragment_QUIETLY_LOSES_A_LINE`
+# respectively. If one ever genuinely cannot be render-checked per consumer,
+# exclude it HERE as a named constant with a one-line reason per entry, NEVER by
+# narrowing the glob: an undocumented omission is precisely what produced this
+# defect, and a reason in-line is what makes the next one reviewable.
+#
+# Needles are read from the FILE rather than pasted here: a copy would drift, and
+# a drifted needle turns every assertion below into a permanent pass.
+_PROMOTED = sorted(p.stem for p in _SHARED.glob("*.md"))
 
 
 def _needle(stem: str) -> str:
@@ -310,10 +316,12 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
 # membership checks above could not see it because `_needle` returns the LONGEST
 # line, so deleting any other line simply promotes a new needle.
 #
-# THIS IS THE LOCAL HALF. The general question — a standing content gate over the
-# whole pool, including the fragments outside `_PROMOTED` — is C-106, which
-# was widened to cover it. A floor is not that gate: it catches deletion and
-# says nothing about a line being rewritten into something else.
+# THIS IS THE LOCAL HALF, AND IT NOW SPANS THE WHOLE POOL — `_PROMOTED` is
+# derived from it, so no fragment sits outside the floor. The general question
+# remains open: a standing CONTENT gate, which is C-108 (placed as C-106 and
+# renumbered when this branch's merge found the id taken). A floor is not that
+# gate — it catches deletion and says nothing about a line being rewritten into
+# something else, which is the half no guard here reaches.
 _FRAGMENT_FLOOR = {
     "build_from_plan": 9,
     "stages_1_to_4_from_plan": 46,
@@ -330,6 +338,14 @@ _FRAGMENT_FLOOR = {
     "verify_and_ci_gate": 6,
     "altitude_component": 16,
     "submit_and_push": 5,
+    # MEASURED 2026-08-17 by `_substantive_lines`, when `_PROMOTED` stopped being
+    # a literal list and these came under the floor for the first time. Each was
+    # promoted before this module last counted, so each was unguarded until now.
+    "altitude_product": 34,
+    "decision_log_and_reflection": 43,
+    "headless_execution_guard": 6,
+    "mutation_discipline": 12,
+    "rules": 22,
 }
 
 
@@ -366,7 +382,12 @@ def test_the_needles_are_real() -> None:
     above pass against any string at all, and the PRODUCT-altitude check would
     then be the only one that failed — pointing at the wrong thing entirely.
     """
-    assert len(_PROMOTED) == 15, "the promoted set changed; update this module"
+    assert _PROMOTED, (
+        f"the pool glob matched nothing under {_SHARED} — every membership "
+        f"assertion in this module would be vacuous. This replaces a literal "
+        f"count, which was the same hand-maintained-figure defect that deriving "
+        f"`_PROMOTED` exists to remove."
+    )
     for stem in _PROMOTED:
         assert (_SHARED / f"{stem}.md").is_file(), f"prompts/{stem}.md is missing"
         n = _needle(stem)

@@ -150,6 +150,14 @@ def load_journal_config(config_path: Path | None = None) -> Mapping[str, object]
     return loaded
 
 
+# These probes read purely LOCAL git metadata — a remote URL from `.git/config`,
+# a HEAD sha — so 30s is already an order of magnitude past anything healthy.
+# Deliberately shorter than the assistant tree's 120s network budget: nothing
+# here touches the network, and a bound copied from a call that does would be
+# defending a risk this function does not carry.
+_PROBE_TIMEOUT_SECONDS = 30.0
+
+
 def _git(repo_root: Path, *args: str) -> str:
     """One-line `git` output, or `""` when git cannot answer.
 
@@ -160,9 +168,41 @@ def _git(repo_root: Path, *args: str) -> str:
     a run over — the journal root's properties are what r9 refuses on, and this
     is metadata.
     """
-    probe = subprocess.run(["git", *args], cwd=str(repo_root),
-                           capture_output=True, text=True)
-    return probe.stdout.strip() if probe.returncode == 0 else ""
+    # BOUNDED, AND BOUNDED HERE RATHER THAN VIA `assistant_activities.run_bounded`.
+    # This package is the lower layer — nothing under `modules/journal/` imports
+    # the assistant tree, and reaching upward for a helper would invert that to
+    # save four lines. The ceiling itself is not optional: a `git` that hangs
+    # while this probe reads repo METADATA would park a run before it has opened
+    # its bag, and the empty-string contract above already says exactly what to
+    # do when the probe cannot answer.
+    try:
+        probe = subprocess.run(["git", *args], cwd=str(repo_root),
+                               capture_output=True, text=True,
+                               timeout=_PROBE_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        # SAID OUT LOUD, because the return value cannot say it. `""` means "no
+        # remote" or "no HEAD" in the bag, and a timed-out probe would write the
+        # same `-` — the no-data-versus-data-showing-nothing conflation this
+        # family refuses everywhere else. The record format is not the place to
+        # fix that; the console is, and it costs one line.
+        print(f"⚠ journal: `git {' '.join(args)}` did not answer within "
+              f"{_PROBE_TIMEOUT_SECONDS:.0f}s in {repo_root} — recording this "
+              f"metadata as absent, which is NOT the same as it being absent",
+              flush=True)
+        return ""
+    if probe.returncode != 0:
+        # THE SAME LINE FOR THE SAME CONFLATION, AND IT WAS MISSING. The branch
+        # above prints because `""` cannot distinguish "no remote" from "the
+        # probe failed" — and this branch returned the identical `""` in
+        # silence, one line below it. The docstring's "an empty string is a
+        # legitimate absence" is true of a repo with no `origin` and false of a
+        # git that answered 128, so only the callable case may be quiet.
+        print(f"⚠ journal: `git {' '.join(args)}` failed in {repo_root} "
+              f"({probe.returncode}): {probe.stderr.strip()[:200]} — recording "
+              f"this metadata as absent, which is NOT the same as it being absent",
+              flush=True)
+        return ""
+    return probe.stdout.strip()
 
 
 def open_run_bag(*, run_id: str, repo_root: Path, workflow_key: str,
