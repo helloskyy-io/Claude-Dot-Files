@@ -24,10 +24,26 @@ The limit of the technique, stated so nobody reads more into a green run than is
 there: a source-grep catches DRIFT — a guard removed, a call reshaped, a ternary
 reintroduced. It does NOT prove the module runs, and it does not prove
 `observe_outcome` produces a CORRECT report; only that it still reads the two
-things it must read. Proving the behaviour needs a real git repo in `tmp_path`,
-which is integration-tier and does not exist yet. That gap is tracked at issue
-#36, which carries the ranked list — NOT in a PR body, because a PR body stops
-being reachable the moment the PR merges.
+things it must read.
+
+AND THAT LIMIT WAS NOT ACADEMIC — IT CERTIFIED A LIVE DEFECT. `_refuses_to_guess`
+asks whether the SOURCE contains "cannot determine" or "do not assume", and
+`observe_outcome` contained both while its middle read discarded git's return
+code and printed "Uncommitted changes: none" for a worktree it had never read.
+The predicate cannot distinguish "every unreadable path says so" from "one of
+three does", so it was green for two passes over exactly the false negative this
+module exists to prevent.
+
+THE STATED REASON FOR ACCEPTING THAT LIMIT EXPIRED, which is why there is now a
+behavioural test below. This header used to say proving the behaviour "needs a
+real git repo in `tmp_path`, which is integration-tier and does not exist yet".
+That stopped being true when `observe_outcome` moved to `run_bounded`: every
+launch now funnels through one `subprocess.run`, which a unit test monkeypatches
+freely. `test_observe_outcome_does_not_report_a_negative_it_could_not_read`
+takes the property the grep could only approximate. The REMAINING gap — a real
+repo, git's own stderr, the already-exists collision — is still real and is
+still tracked at issue #36, NOT in a PR body, because a PR body stops being
+reachable the moment the PR merges.
 """
 
 from __future__ import annotations
@@ -279,6 +295,54 @@ def test_observe_outcome_refuses_to_guess_when_it_cannot_read() -> None:
         "observe_outcome lost its I-cannot-tell branch. A function that always "
         "produces a confident answer will produce a confident WRONG answer the "
         "first time git is unreadable — which is the failure that cost a duplicate run."
+    )
+
+
+@pytest.mark.parametrize("failure", [
+    pytest.param(lambda cmd, **kw: (_ for _ in ()).throw(
+        subprocess.TimeoutExpired(cmd, kw.get("timeout", 120))), id="git-status-hangs"),
+    pytest.param(lambda cmd, **kw: subprocess.CompletedProcess(
+        cmd, 128, stdout="", stderr="fatal: not a git repository"), id="git-status-fails"),
+])
+def test_observe_outcome_does_not_report_a_negative_it_could_not_read(
+        monkeypatch, tmp_path, failure) -> None:
+    """THE PROPERTY THE SOURCE-GREP ABOVE COULD ONLY APPROXIMATE.
+
+    An unread `git status` must never render as a clean worktree. Both failure
+    shapes are covered because they arrive differently and converge on the same
+    lie: a hang becomes `returncode=124, stdout=""` via `run_bounded`, and an
+    ordinary git failure is already `returncode!=0, stdout=""`. Empty stdout is
+    what a CLEAN tree also produces, which is the whole conflation.
+
+    ASSERTED AS AN ABSENCE, deliberately. Matching the new wording would pass
+    just as well against a function that emitted both sentences, so what is
+    checked is that the confident negative is GONE — and, separately, that the
+    fact the function DID read survives, because degrading the whole report
+    would trade a wrong answer for no answer.
+    """
+    def fake_run(cmd, **kw):
+        if cmd[:2] == ["git", "status"]:
+            return failure(cmd, **kw)
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout="abc1234 real work committed\n", stderr="")
+
+    monkeypatch.setattr(act.subprocess, "run", fake_run)
+    report = act.observe_outcome(tmp_path)
+
+    assert "Uncommitted changes: none" not in report, (
+        "observe_outcome reported a clean worktree from a `git status` that "
+        "never answered. This is the false negative the module's docstring "
+        "records as having cost a duplicate full-budget dispatch — and the "
+        "source-grep guard above is green on it, which is why this test exists."
+    )
+    assert "COULD NOT BE READ" in report, (
+        "the unreadable state must be NAMED, not merely omitted — an operator "
+        "who sees no line about uncommitted work will assume there is none."
+    )
+    assert "abc1234 real work committed" in report, (
+        "the HEAD this function DID successfully read was discarded along with "
+        "the failed one. Reporting what it CAN determine is the entire point; "
+        "aborting the whole observation trades a wrong answer for no answer."
     )
 
 

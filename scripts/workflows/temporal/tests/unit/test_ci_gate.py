@@ -17,6 +17,7 @@ and a silent skip is the filtered-gate defect wearing different clothes.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -24,15 +25,25 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from modules.assistant import assistant_activities as shared  # noqa: E402
 from modules.assistant.build import build_activities as act  # noqa: E402
 from modules.assistant.build.build_activities import POLICY_PATH, CiVerdict  # noqa: E402
 
 
-def _gh(monkeypatch, payload, *, stdout=None):
-    """Stand in for `gh pr checks --json name,state`."""
-    class R:
-        def __init__(self): self.stdout = stdout if stdout is not None else json.dumps(payload)
-    monkeypatch.setattr(act.subprocess, "run", lambda *a, **k: R())
+def _gh(monkeypatch, payload, *, stdout=None, stderr="", returncode=0):
+    """Stand in for `gh pr checks --json name,state`.
+
+    IT CARRIES ALL THREE CHANNELS because `ci_verdict` now reads this through
+    `gh_attempt`, which classifies on `returncode` and `stderr` before handing
+    the reply back unjudged. A fake with only `stdout` was enough while the call
+    was a bare `subprocess.run`; it is not enough to model one that can retry,
+    and a fake that cannot express a transient failure cannot test one.
+    """
+    body = stdout if stdout is not None else json.dumps(payload)
+    monkeypatch.setattr(
+        act.subprocess, "run",
+        lambda *a, **k: subprocess.CompletedProcess(
+            a[0] if a else [], returncode, stdout=body, stderr=stderr))
 
 
 @pytest.fixture
@@ -117,6 +128,76 @@ def test_empty_output_is_UNREADABLE_CHECKS_not_a_silent_gate(monkeypatch, repo):
     """
     _gh(monkeypatch, None, stdout="")
     assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.UNREADABLE_CHECKS
+
+
+def test_a_transient_503_on_the_gate_read_is_RIDDEN_OUT_not_turned_into_a_HOLD(
+    monkeypatch, repo,
+):
+    """THE ONE-SHOT READ THAT DECIDES A MERGE, AND IT HAD NO RETRY.
+
+    `wait_for_ci` re-reads inside its own deadline loop, so a blip there heals
+    itself. This call has no loop at all: one transient 503 leaves stdout empty,
+    which parses as nothing, which is UNREADABLE_CHECKS, which `build_workflow`
+    routes to a HOLD a human has to clear. That is the exact harm the `gh` retry
+    was built for, on the highest-consequence `gh` read in the fleet, and it sat
+    two files away from the fix.
+
+    THE VERDICT IS THE ASSERTION, NOT THE ATTEMPT COUNT. What matters to the
+    operator is that a blip no longer stops the run; the attempt count is
+    asserted beside it only so a fake that never failed cannot pass this
+    vacuously.
+    """
+    replies = [
+        subprocess.CompletedProcess([], 1, stdout="",
+                                    stderr="HTTP 503: No server is currently available"),
+        subprocess.CompletedProcess([], 0, stdout=json.dumps(
+            [{"name": "suite", "state": "SUCCESS"}]), stderr=""),
+    ]
+    calls = {"n": 0}
+
+    def run(*_a, **_k):
+        r = replies[min(calls["n"], len(replies) - 1)]
+        calls["n"] += 1
+        return r
+
+    monkeypatch.setattr(act.subprocess, "run", run)
+    monkeypatch.setattr(shared.time, "sleep", lambda _s: None)
+
+    assert act.ci_verdict("1", repo_root=repo)[0] is CiVerdict.GREEN, (
+        "one transient 503 still turns a green PR into a HOLD")
+    assert calls["n"] == 2, (
+        f"the gate read was attempted {calls['n']} times — 1 means the retry "
+        f"never fired and this test proves nothing")
+
+
+def test_a_merely_RED_pr_still_costs_exactly_one_gate_read(monkeypatch, repo):
+    """THE NEGATIVE CONTROL FOR THE TEST ABOVE, and the reason routing this
+    call through `gh_attempt` is safe at all.
+
+    `gh pr checks` exits NON-ZERO whenever checks are failing or pending — that
+    is why this function classifies by parsing rather than by exit code. If the
+    retry read the exit code the way a naive one would, every red PR would pay
+    the full backoff before reporting what it already knew. It does not: a red
+    reply carries no HTTP status, so the classifier calls it terminal and spends
+    one attempt.
+    """
+    calls = {"n": 0}
+
+    def run(*_a, **_k):
+        calls["n"] += 1
+        return subprocess.CompletedProcess(
+            [], 1, stdout=json.dumps([{"name": "suite", "state": "FAILURE"}]),
+            stderr="")
+
+    monkeypatch.setattr(act.subprocess, "run", run)
+    monkeypatch.setattr(shared.time, "sleep", lambda _s: None)
+
+    verdict, failed = act.ci_verdict("1", repo_root=repo)
+    assert verdict is CiVerdict.RED and failed == ["suite"]
+    assert calls["n"] == 1, (
+        f"a legitimately red PR spent {calls['n']} gate reads and the full "
+        f"backoff — the retry is reading the exit code, which this function "
+        f"documents as meaningless here")
 
 
 def test_a_repo_that_declares_NO_gate_is_NO_CHECKS(monkeypatch, tmp_path):

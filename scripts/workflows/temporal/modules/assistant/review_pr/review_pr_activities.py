@@ -34,9 +34,32 @@ MAX_TURNS_KEY = WORKFLOW_KEY
 
 def fetch_pr(pr_number: str, repo_root: Path) -> dict:
     """PR metadata. Raises rather than returning a partial dict."""
-    return _shared.gh_json(
-        ["pr", "view", pr_number, "--json", "headRefName,state,title"], repo_root
+    # `expect=dict`, because this reader indexes by KEY. `GH_JSON_SHAPES` — the
+    # permissive "either shape `gh --json` can send" — would let a JSON array
+    # through to an `AttributeError` in somebody else's function, which is the
+    # second exception family `gh_json` exists to prevent. The policy argument
+    # for why `expect` is stated at every call site lives at `gh_json`; what
+    # belongs here is the local fact.
+    reply = _shared.gh_json(
+        ["pr", "view", pr_number, "--json", "headRefName,state,title"], repo_root,
+        expect=dict,
     )
+    # A MAPPING IS NOT AN ANSWER. `expect=dict` proves the reply is indexable and
+    # nothing more; `{"message": "Not Found"}` satisfies it and then reaches
+    # `pr["headRefName"]` in `run_review` as a `KeyError` — which the entrypoint
+    # does NOT catch, so an operator gets a raw traceback after the journal bag
+    # and the worktree already exist. `thread_snapshot` below already converts
+    # this shape into the `RuntimeError` the caller handles; this is the other
+    # `expect=dict` caller getting the same treatment.
+    missing = [k for k in ("headRefName", "state") if not isinstance(reply.get(k), str)]
+    if missing:
+        raise RuntimeError(
+            f"`gh pr view {pr_number}` returned a JSON object without usable "
+            f"{'/'.join(missing)}. Keys present: {sorted(reply)[:10]}. This is a "
+            f"reply that PARSED without ANSWERING — check the PR number and the "
+            f"repo the run is pointed at."
+        )
+    return reply
 
 
 # A review pass's record carries a 32-lowercase-hex nonce (`exit-protocol.md`).
@@ -135,11 +158,26 @@ def thread_snapshot(pr_number: str, repo_root: Path) -> tuple[int, list[str]]:
     # deliberate: a prompt line telling build runs to pick a different key is an
     # administrative control that each run must remember, and this cannot be
     # forgotten by anyone.
+    # `expect=dict` PROVES IT IS A MAPPING AND NOT THAT IT HAS THE KEY, which is
+    # the half a shape check cannot carry. `{"message": "Not Found"}` is a dict;
+    # `.get("comments", [])` would then hand back `[]`, this function would
+    # report ZERO prior passes on a thread that has some, and the invariant
+    # check downstream raises "posted no new block" — blaming the child for a
+    # read failure and costing the review this retry exists to protect. A
+    # missing key is a failed READ, so it is raised as the `RuntimeError` the
+    # caller's retry already catches rather than silently answered as empty.
+    reply = _shared.gh_json(
+        ["pr", "view", pr_number, "--json", "comments"], repo_root, expect=dict)
+    comments = reply.get("comments")
+    if not isinstance(comments, list):
+        raise RuntimeError(
+            f"gh pr view {pr_number} --json comments returned a JSON object with "
+            f"no usable `comments` list (got {type(comments).__name__}). Treating "
+            f"that as an empty thread would under-count the prior passes on this "
+            f"PR. Keys present: {sorted(reply)[:10]}")
     window = [
         matches[-1].group(1)
-        for c in _shared.gh_json(
-            ["pr", "view", pr_number, "--json", "comments"], repo_root
-        ).get("comments", [])
+        for c in comments
         if (matches := [
             m for m in helper.PR_REVIEW_BLOCK.finditer(c.get("body", "") or "")
             if _RUN_ID_IN_BLOCK.search(m.group(1))
