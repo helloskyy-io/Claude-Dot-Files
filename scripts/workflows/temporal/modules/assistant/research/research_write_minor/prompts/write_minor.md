@@ -2,7 +2,7 @@ You are executing the RESEARCH-MINOR workflow on a new branch.
 
 **WHAT THIS WORKFLOW IS FOR.** You are given a TOPIC — a candidate feature or direction, big enough to warrant multi-phase planning, too small to need several papers on separate subjects. You produce the basis a PLANNER plans from: best practices, what the industry does, where the evidence points. **The synthesis is the deliverable; the paper is the durable repository it draws on and the pool keeps.**
 
-**A TOPIC IS NOT A QUESTION.** A topic legitimately spans several concerns — that is what makes it a topic. **Do not decompose it and answer one slice:** a narrowed paper is the same size as a complete one and covers a quarter of the ground. The 20-source ceiling below is what bounds scope, not the number of concerns.
+**A TOPIC IS NOT A QUESTION.** A topic legitimately spans several concerns — that is what makes it a topic. **Do not decompose it and answer one slice:** a narrowed paper is the same size as a complete one and covers a quarter of the ground. The per-facet source rate below is what bounds scope, not the number of concerns.
 
 The target repo's Research Standard owns the artifact contract — your binding input, and every per-paper obligation in it applies to your one paper in full.
 
@@ -12,13 +12,18 @@ ${HEADLESS_EXECUTION_GUARD}
 
 **THE ABSENT MACHINERY IS ABSENT ON PURPOSE — do not restore it.** Do not create `topics.md`. Do not write a sizing assessment. Do not dispatch more than one analyst. **You DO write `synthesis.md`:** papers ACCUMULATE and the synthesis is REPLACED (Research Standard §4), so a pool with two minor papers and no synthesis has nothing rolling them up — and a planner told not to read raw papers wholesale reports "no synthesis" and plans from priors while your paper sits unread.
 
-**A CEILING, AND IT IS BINDING: 20 CITED SOURCES. If covering the topic honestly needs more, STOP — you have the wrong instrument.**
+**SIZE IS A RATE, NOT A CONSTANT — it scales with the feature.** Count the facets your topic covers (usually the phases or open decisions it feeds), then:
 
-Say so, name the topic, and stop: this is a FULL cycle, not a minor one. **Do not write a bigger paper, and do not silently narrow the topic to fit** — a narrowed topic delivered as if it were the whole one is the worse of the two failures, because nothing downstream can tell.
+- **5 cited sources per facet is expected. 10 is the ceiling.** Under 5 and the facet is asserted rather than evidenced.
+- **CHOOSE THE BEST 5, NOT THE FIRST 5.** The standard's §3 credibility bar decides which: first-party docs, peer-reviewed work and corroborated industry sources over uncorroborated commentary. Five well-chosen sources beat fifteen found by scrolling, and they cost a third as much to verify.
+- **About one page — roughly 60 lines — of BODY per facet.** This is a feature paper, not a project one.
+- **The standard's required apparatus sits OUTSIDE that budget** and is never traded against it: the header block, per-claim confidence marks, the honest-boundary analysis and the source list. Cutting those to hit a line count is the one wrong way to be short.
 
-**WHY A CEILING AT ALL.** Verification cost tracks SOURCES, not papers — every source is re-checked as the paper converges. The Research Standard sets a source FLOOR (10-20 for medium-and-up, proportionally fewer for small) and no ceiling anywhere; this is the ceiling. **20 is the top of that same band** — generous for one topic, well under what a full cycle produces, and measured against this repo's corpus rather than chosen by taste.
+**WHY A RATE.** A blanket cap makes the OPERATOR carry the sizing decision — they have to remember that a five-phase feature needs the bigger instrument. A rate carries it for them, and the Research Standard's own floor is already stated per TOPIC (*10-20 for medium+, proportionally fewer for small ones*), so a facet of a feature is exactly the "small one" it means.
 
-**BE CLEAR WHAT IT DOES: it bounds SCOPE CREEP, not cost.** It is here to stop one cycle quietly becoming four.
+**THE ALTITUDE IS THE POINT.** Heavy research belongs to product design and direction, in the project-level pool. **Feature research supports a direction ALREADY CHOSEN** — it tells a planner what good practice is, not whether to build the thing. That is why five sources and a page are enough here and would not be there.
+
+**STOP AND REPORT A MIS-FIT** when covering a facet honestly needs more than 10 sources, or when the subject needs separate papers rather than one. Say so, name the topic, and stop: that is a FULL cycle. **Do not write a bigger paper, and do not silently narrow the topic to fit** — a narrowed topic delivered as if it were the whole one is the worse of the two failures, because nothing downstream can tell.
 
 **What is NOT reduced: the paper itself.** Source discipline and the count rule, per-claim confidence marking, the honest-boundary analysis, the currency header with its machine-parseable revalidation interval — all binding, all unchanged. Those are per-PAPER rigor and have nothing to do with how many papers a cycle produces. A thin paper is not what "minor" means.
 
@@ -59,7 +64,7 @@ The analyst's prompt must include: the question, its `Feeds:` destination, **the
   - the header block, including a **machine-parseable `Revalidate:` interval** (the refresh gate parses the first `<N> week(s)|month(s)` on that line; a paper without one is treated as always-due)
   - `Critic: not-yet-verified — <date>` — see below
   - **per-claim confidence marking** (definitive / directional / unverified / derived), with the authority-and-formality rule: a first-party *informal* statement is at most *directional*
-  - the **source floor**, applied proportionally — §3 sets 10-20 credible sources for medium+ topics and "proportionally fewer for small ones". A single-concern question is the small end of that scale. **Proportionally fewer is not "a handful": state the number gathered and why it was sufficient**, and prefer raw sources over rendered pages.
+  - **the source floor as the per-facet rate above — 5 expected, 10 the ceiling — and §3's credibility bar that decides WHICH five.** This is §3's "proportionally fewer for small ones" made concrete: a facet of a feature is the small end of its scale. **State the number gathered per facet and why it was sufficient**, and prefer raw sources over rendered pages.
   - **a count is a claim** — enumerate the population and count the enumeration, or state the count as a gap
   - **gaps are findings**, and a negative finding states its search method
   - **the honest-boundary analysis** (content arc item 5) — when this is NOT needed, and where it fails. A paper with no case against its own thesis is advocacy, not research. This section is not optional because the cycle is small; a one-paper answer with no counter-case is the single most dangerous artifact this workflow can produce, because there is no second paper to disagree with it.

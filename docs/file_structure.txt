@@ -716,6 +716,10 @@ claude-dot-files/
 │   │       │                                        #   research citations and skills' examples are excluded by name
 │   │       ├── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │       │                                        #   checks, because every existing check was aimed at code rather than prose
+│   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
+│   │       │                                        #   prompt still describing a contract the code replaced. The largest
+│   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
+│   │       │                                        #   research-minor IS and left four surfaces stating the old one
 │   │       └── test_retired_vocabulary_is_gone_from_live_surfaces.py # The retired Kind 1/2/3 labels survive only
 │   │                                                #   where they are a RECORD. Reads every
 │   │                                                #   tracked file as WHITESPACE-NORMALISED text — a different instrument than the
