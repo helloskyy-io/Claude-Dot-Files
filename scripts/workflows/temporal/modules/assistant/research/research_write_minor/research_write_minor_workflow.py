@@ -1,4 +1,4 @@
-"""research-write-minor — ONE paper, no synthesis. Open the PR.
+"""research-write-minor — ONE topic, ONE paper, plus the synthesis. Open the PR.
 
 Folder holds only this file (§10.1 rule 6): the family's shared capability is
 already promoted to `research_activities`, and this child reaches for exactly
@@ -80,7 +80,7 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
                     context: str = "", pr_number: str | None = None,
                     verbose: bool = False) -> str:
-    """Research one question, write one paper, submit. Returns the PR URL."""
+    """Research one TOPIC, write one paper and the synthesis, submit. Returns the PR URL."""
     pool = act.in_worktree(research_dir, repo_root, worktree)
     currency, _due = act.paper_currency(pool)
 
