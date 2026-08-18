@@ -1,4 +1,4 @@
-"""research-write-minor — ONE paper, no synthesis. Open the PR.
+"""research-write-minor — ONE topic, ONE paper, plus the synthesis. Open the PR.
 
 Folder holds only this file (§10.1 rule 6): the family's shared capability is
 already promoted to `research_activities`, and this child reaches for exactly
@@ -23,9 +23,20 @@ WHAT IS DELIBERATELY ABSENT, and none of it is an oversight:
   * the sizing assessment — the operator picked the question; there is no list
     to size.
   * the fan-out — one analyst, dispatched once.
-  * `synthesis.md` — §4 makes the synthesis the roll-up of a POOL. With one
-    paper the roll-up is the paper, and writing one anyway would produce a
-    second document that can disagree with its only input.
+
+`synthesis.md` WAS ON THAT LIST AND IS NOT ANY MORE. PR #105 reversed it, and the
+superseded argument is kept here rather than deleted, because an engineer who
+finds only its absence reads the reversal as the defect and reverts a shipped
+fix. The old reasoning: §4 makes the synthesis the roll-up of a POOL, so with one
+paper the roll-up IS the paper and writing one anyway produces a second document
+that can disagree with its only input. What it got wrong is reading one CYCLE as
+one POOL. Papers ACCUMULATE and the synthesis is REPLACED (Research Standard §4),
+so a second minor cycle against the same pool leaves two papers with nothing
+rolling them up — and a planner told not to read raw papers wholesale reports "no
+synthesis" and plans from priors while both papers sit unread. The contract is
+`write_minor.md` line 13, the work happens in its Stage 3 SYNTHESIZE, and
+`tests/unit/test_research_minor.py::test_the_minor_cycle_writes_a_SYNTHESIS` pins
+it in the opposite direction from the bullet this replaced.
 
 WHAT IS DELIBERATELY PRESENT. Every §3 obligation that makes a paper
 trustworthy on its own: the currency header and its parseable revalidation
