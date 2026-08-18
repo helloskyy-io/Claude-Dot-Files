@@ -53,7 +53,8 @@ Confidence:     DEFINITIVE for every span quoted from a raw first-party artifact
                 `hashicorp/terraform` repository, so no raw source was available and it is NOT
                 cited (§8, "searched, not cited").
                 UNVERIFIED: nothing load-bearing in this paper rests on uncorroborated commentary.
-Critic:         PASS-WITH-FIXES — 2026-08-18, one `research-critic` round under `research-verify`.
+Critic:         PASS-WITH-FIXES — 2026-08-18, two `research-critic` rounds under `research-verify`;
+                round 2 re-verified every repair and returned PASS with no findings.
                 Every one of the seventeen external sources resolves, and every span re-checked
                 against a byte-exact raw GET matched; the path-scoped commit SHAs each source was
                 re-fetched at are recorded in §8 so a later re-check hits the same bytes. FOUR
