@@ -25,6 +25,7 @@ WHAT THIS DOES NOT LOOK AT:
 """
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -53,7 +54,11 @@ _SHARED = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "promp
 #
 # The obligation does not depend on WHEN a fragment was promoted: what this
 # module verifies is that a shared fragment renders for every consumer that
-# loads it, which is true of every fragment in the pool.
+# loads it, which is true of every fragment in the pool. THAT SENTENCE IS A
+# CHECK RATHER THAN A CLAIM — `test_every_POOL_fragment_is_render_checked_by_some_consumer`
+# below holds it, because deriving this set covered the pool for the DELETION
+# floor and was read as covering it for the RENDER assertions, which keyed off
+# hand-maintained subsets and did not.
 #
 # THERE IS NO EXCLUSION SET, AND EMPTY IS THE INTENDED STEADY STATE. Every
 # fragment in the pool yields a usable needle and carries a floor — measured, in
@@ -66,6 +71,70 @@ _SHARED = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "promp
 # Needles are read from the FILE rather than pasted here: a copy would drift, and
 # a drifted needle turns every assertion below into a permanent pass.
 _PROMOTED = sorted(p.stem for p in _SHARED.glob("*.md"))
+
+
+def _stems_loaded_by(module) -> set[str]:
+    """Every pool fragment a consumer LOADS, read from that consumer's own source.
+
+    PARSED, NOT GREPPED, and the difference is live in this tree:
+    `research_write_workflow` mentions `shared_prompt("altitude_component")`
+    inside a COMMENT explaining the altitude split. A regex reads that as a
+    load; the AST does not see it at all, so the derivation stays about what
+    the module DOES rather than about what it talks about.
+
+    A non-literal argument is a hole rather than a stem. Skipping it silently
+    would SHRINK the expected set — the failure mode where a guard gets
+    quieter exactly when the code gets harder to read — so it fails here.
+    """
+    path = Path(module.__file__)
+    return _shared_prompt_stems(ast.parse(path.read_text(encoding="utf-8")), path.name)
+
+
+def _shared_prompt_stems(tree: ast.Module, where: str) -> set[str]:
+    """The PREDICATE half, over an already-parsed tree so a control can drive it.
+
+    Split out for `test_the_supplier_reader_DISCRIMINATES` below, which is the
+    positive control `test_a_census_guard_proves_its_own_predicate` requires of
+    every module that walks the tree: a walk that still finds call sites while
+    its predicate has quietly started answering unconditionally is a permanent
+    green, and a green guard replaces a review rather than prompting one.
+
+    THE READ STAYS INLINED IN THE CALLER ABOVE, on purpose. That census
+    recognises its population by `ast.parse(<expr>.read_text(...))` in argument
+    position and names the bound-first shape as its largest hole; binding the
+    source here to tidy the split would walk this module out of the population
+    it belongs to, which is the guard-edited-to-fit-the-matcher failure that
+    file explicitly refuses.
+    """
+    stems: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        called = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
+        if called != "shared_prompt":
+            continue
+        arg = node.args[0] if node.args else None
+        assert isinstance(arg, ast.Constant) and isinstance(arg.value, str), (
+            f"{where} line {node.lineno} calls shared_prompt() "
+            f"with a non-literal name, so this derivation cannot tell which "
+            f"fragment it loads and the consumer's expected set would silently "
+            f"shrink. Pass the stem as a literal, or exclude the consumer here "
+            f"with the reason."
+        )
+        stems.add(arg.value)
+    return stems
+
+
+# THE ARM-CONDITIONAL PAIR, which is the one thing a flat source read gets wrong.
+#
+# A research workflow loads `altitude_component` on one arm and `altitude_product`
+# on the other, so its source names both while any single run renders exactly one.
+# Demanding both would make the altitude split itself a failure. Each arm below
+# therefore expects its consumer's loads MINUS its sibling arm's fragment, and
+# asserts that sibling is ABSENT — which is the discriminating half, and the
+# reason a supplier written into the wrong branch cannot pass here.
+_ALTITUDES = {"component": "altitude_component", "product": "altitude_product"}
 
 
 def _needle(stem: str) -> str:
@@ -130,19 +199,28 @@ def _draft_prompt(monkeypatch, tmp_path: Path, entry) -> str:
 
 
 @pytest.mark.parametrize(
-    ("name", "entry"),
-    [("build_draft", draft.run_draft), ("build_draft_minor", draft_minor.run_draft_minor)],
+    ("name", "entry", "module"),
+    [("build_draft", draft.run_draft, draft),
+     ("build_draft_minor", draft_minor.run_draft_minor, draft_minor)],
 )
-def test_a_plan_driven_draft_renders_both_shared_prompts(
-    monkeypatch, tmp_path, name: str, entry
+def test_a_plan_driven_draft_renders_EVERY_fragment_it_loads(
+    monkeypatch, tmp_path, name: str, entry, module
 ) -> None:
+    """The expected set is the consumer's own loads, not a list kept beside it.
+
+    This named two stems while the draft tiers load more than that through
+    `shared_prompt()`, so the rest were supplied and never checked — the same
+    hand-maintained-subset defect `_PROMOTED` above was just corrected for,
+    one level down. Deriving from the consumer means a fragment is covered
+    the moment that consumer starts loading it.
+    """
     prompt = _draft_prompt(monkeypatch, tmp_path, entry)
-    for stem in ("build_from_plan", "stages_1_to_4_from_plan"):
-        assert _needle(stem) in prompt, (
-            f"{name}'s plan-driven prompt does not contain prompts/{stem}.md. Both "
-            f"draft tiers load it through shared_prompt(); if one stopped, that "
-            f"tier is running on a prompt the other tier's edits never reach."
-        )
+    missing = sorted(s for s in _stems_loaded_by(module) if _needle(s) not in prompt)
+    assert not missing, (
+        f"{name} loads {missing} through shared_prompt() and renders without "
+        f"them. A supplier that is built but never reaches the prompt leaves "
+        f"that tier running on instructions the fragment's edits never touch."
+    )
 
 
 def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
@@ -176,15 +254,14 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
 # `test_promotion_guard_prose_figures_are_DERIVED` enforces that it cannot
 # start again.
 
-_REFINE_FRAGMENTS = [
-    "fidelity_premise", "fidelity_read_and_compare",
-    "fidelity_needs_a_separate_run", "fidelity_evidence_discipline",
-    "fidelity_mutate_what_you_added",
-    "resolve_disposition_authority", "resolve_rejections_must_be_executed",
-    "resolve_closed_disposition_list", "resolve_disposition_definitions",
-    "resolve_fix_by_default_and_summary", "verify_and_ci_gate",
-    "submit_and_push",
-]
+# THE UNION, DELIBERATELY, NOT THE INTERSECTION. Every fragment EITHER refine
+# tier loads is demanded of BOTH, which is the contract the failure message
+# below states: the tiers differ in how many lenses they run, never in what a
+# refine pass IS. An intersection would let a fragment drop out of one tier
+# and quietly narrow the check to whatever survived in both — the same silent
+# shrink this module keeps finding. If a genuinely tier-scoped fragment is
+# ever promoted, that is the ruling to make explicitly, here, with a reason.
+_REFINE_FRAGMENTS = sorted(_stems_loaded_by(refine) | _stems_loaded_by(refine_minor))
 
 
 @pytest.mark.parametrize(
@@ -209,6 +286,12 @@ def test_a_refine_pass_renders_EVERY_shared_disposition_fragment(
 
 
 # --- research: the altitude arms, which is where the branch risk lives ---------
+
+
+# The parametrize below passes an ENTRY POINT; the deriver needs the module that
+# entry point lives in. Mapped by name rather than reached through `entry` so the
+# association is visible where it is declared.
+_RESEARCH_MODULE = {"research_write": write, "research_refresh": refresh}
 
 
 def _component_pool(tmp_path: Path) -> Path:
@@ -245,9 +328,11 @@ def test_a_COMPONENT_run_renders_the_shared_lane_rules(
     `render()` raising at dispatch — never in a suite.
     """
     prompt = _research_prompt(monkeypatch, tmp_path, entry, _component_pool(tmp_path))
-    assert _needle("altitude_component") in prompt, (
-        f"{name} at COMPONENT altitude renders without prompts/altitude_component.md, "
-        f"so the run is not told the lane rules that bound what it may write."
+    expected = _stems_loaded_by(_RESEARCH_MODULE[name]) - {_ALTITUDES["product"]}
+    missing = sorted(s for s in expected if _needle(s) not in prompt)
+    assert not missing, (
+        f"{name} at COMPONENT altitude renders without {missing}. The lane rules "
+        f"that bound what the run may write are supplied and did not arrive."
     )
     assert "${" not in prompt, (
         f"{name} shipped a literal placeholder — render()'s leftover guard should "
@@ -270,9 +355,16 @@ def test_a_PRODUCT_run_renders_NO_component_lane_rules(
     altitudes must render DIFFERENT text, and this is the side that says so.
     """
     prompt = _research_prompt(monkeypatch, tmp_path, entry, _product_pool(tmp_path))
-    assert _needle("altitude_component") not in prompt, (
+    assert _needle(_ALTITUDES["component"]) not in prompt, (
         f"{name} at PRODUCT altitude renders the COMPONENT lane rules. The "
         f"supplier has become unconditional."
+    )
+    expected = _stems_loaded_by(_RESEARCH_MODULE[name]) - {_ALTITUDES["component"]}
+    missing = sorted(s for s in expected if _needle(s) not in prompt)
+    assert not missing, (
+        f"{name} at PRODUCT altitude renders without {missing}. Without the "
+        f"positive half this test only says what is ABSENT, so an arm that "
+        f"renders nothing at all passes it."
     )
 
 
@@ -372,6 +464,80 @@ def test_no_PROMOTED_fragment_QUIETLY_LOSES_A_LINE() -> None:
         + "\n\nIf the deletion is intended, lower the floor in the same commit — "
           "that is the whole point of the number, and it makes the removal a "
           "decision somebody wrote down rather than a line that stopped existing."
+    )
+
+
+def test_the_supplier_reader_DISCRIMINATES() -> None:
+    """Positive control for `_shared_prompt_stems`, on literal snippets.
+
+    The walk above is exercised by every test in this module; the PREDICATE is
+    not, and a predicate that started answering unconditionally would leave all
+    of them green while checking nothing. Driven on source the tree does not
+    contain, so it tests the question rather than today's answer.
+    """
+    loads = 'values = {"RULES": act.shared_prompt("rules")}'
+    assert _shared_prompt_stems(ast.parse(loads), "<snippet>") == {"rules"}
+
+    # A MENTION IS NOT A LOAD, and this is the arm that made the AST worth the
+    # cost: `research_write_workflow` names a fragment inside a comment, and a
+    # regex over the source reads that as a consumer loading it.
+    mentioned = '# act.shared_prompt("rules")\nx = "act.shared_prompt(rules)"\n'
+    assert _shared_prompt_stems(ast.parse(mentioned), "<snippet>") == set()
+
+    # A DIFFERENT CALL IS NOT A LOAD.
+    other = 'values = {"RULES": act.local_prompt("rules")}'
+    assert _shared_prompt_stems(ast.parse(other), "<snippet>") == set()
+
+    # A NON-LITERAL NAME FAILS RATHER THAN SHRINKING THE EXPECTED SET, which is
+    # the direction that matters: a silently smaller expectation is a guard
+    # getting quieter exactly where the code got harder to read.
+    with pytest.raises(AssertionError, match="non-literal"):
+        _shared_prompt_stems(ast.parse('v = act.shared_prompt(stem)'), "<snippet>")
+
+
+# Fragments the module deliberately does not render-check, each with the reason.
+# EMPTY, AND EMPTY IS THE INTENDED STEADY STATE — the same shape and the same
+# rule as the pool derivation above: an entry here is a decision somebody wrote
+# down, never a way to make the check below go quiet.
+_NOT_RENDER_CHECKED: dict[str, str] = {}
+
+# Every consumer this module DRIVES. The tests above expect each one to render
+# what its own source loads, so this union is exactly the render-checked set.
+_DRIVEN = (draft, draft_minor, refine, refine_minor, write, refresh)
+
+
+def test_every_POOL_fragment_is_render_checked_by_some_consumer() -> None:
+    """The header comment above claims the whole pool is covered. This is that claim.
+
+    WITHOUT IT THE CLAIM IS PROSE. Deriving `_PROMOTED` from the pool put every
+    fragment under the deletion FLOOR, and it was read — by the pass that wrote
+    it and by the lens that reviewed it — as putting every fragment under the
+    RENDER checks too. It did not: those keyed off hand-maintained subsets, and
+    the fragments the floor had just started guarding were rendered by nothing
+    any assertion looked at. A promotion whose supplier never reaches a prompt
+    is the exact failure this module exists for, so it is checked rather than
+    asserted in a comment.
+
+    THE DIRECTION OF FAILURE IS DELIBERATE. A fragment promoted for a consumer
+    this module does not drive goes RED here, and that is the report wanted:
+    the pool has consumers outside these — the planning family among them — and
+    a fragment reaching only those is genuinely unverified by this module. The
+    remedy is a fixture for that consumer, or an entry above with the reason.
+    """
+    checked: set[str] = set()
+    for module in _DRIVEN:
+        checked |= _stems_loaded_by(module)
+    unchecked = sorted(set(_PROMOTED) - checked - set(_NOT_RENDER_CHECKED))
+    assert not unchecked, (
+        f"promoted and rendered by no consumer this module drives: {unchecked}. "
+        f"The floor guards them against deletion and nothing guards them "
+        f"against never arriving — add a fixture for the consumer that loads "
+        f"them, or name them in _NOT_RENDER_CHECKED with the reason."
+    )
+    stale = sorted(set(_NOT_RENDER_CHECKED) - set(_PROMOTED))
+    assert not stale, (
+        f"excluded from render-checking but not in the pool: {stale}. An "
+        f"exclusion that names nothing excuses nothing and hides the next one."
     )
 
 
