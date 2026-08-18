@@ -1,9 +1,3 @@
-<!-- SHARED. Loaded by every build stage prompt via its MUTATION_DISCIPLINE placeholder.
-     It lives here because it was FORKED and drifted: `stages_1_to_4.md` carried
-     eleven rules that `stages_1_to_4_from_plan.md` did not, so plan-driven builds
-     — every PMP phase — ran with no instruction to SIZE the work, and mutated
-     without calibrating. Measured on PR #99. Edit here; both variants follow. -->
-
 **SIZE THE CHANGE, THEN SET THE BAR — the maximum applied to everything is not rigour but the absence of judgement, and it is paid in wall-clock on every run.** One file, no contract change: mutate only if the change IS a guard. A new module, contract or schema: mutate. A safety control, a gate or an authorization boundary: all of it. Name the tier in the decision log.
 
 **ASK WHAT EACH GUARD DOES NOT LOOK AT.** A control proves the tests discriminate AS SCOPED — mutating a narrow guard still fails the narrow tests written for it. Every scope defect this fleet shipped was invisible to that and visible to this. Name what each guard never inspects, in the guard.

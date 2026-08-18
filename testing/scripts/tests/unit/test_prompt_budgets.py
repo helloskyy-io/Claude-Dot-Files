@@ -85,7 +85,45 @@ BUDGETS: dict[str, int] = {
     # residue is 19 bytes. Worth stating because this is the mechanism working
     # rather than failing: the addition competed, most of it was funded by a cut,
     # and the remainder is a number changed on purpose with a reason attached.
-    "build/build_refine/prompts/stages_2_to_4.md": 21_899,
+    # RATCHETED DOWN 21_899 -> 17_358: twelve blocks it shared verbatim with
+    # build_refine_minor moved to six shared fragments under prompts/. CONTENT
+    # DID NOT SHRINK, IT MOVED — the same 4,541 bytes are still sent on every
+    # refine run, they are just sent from one place instead of two. The budget
+    # follows the bytes so the vacated 4.5 KB cannot quietly refill.
+    # Then 17_358 -> 17_370, and the twelve bytes NEVER REACH THE MODEL: the
+    # correction pass renamed the fragment `resolve_fix_by_default` ->
+    # `resolve_fix_by_default_and_summary`, so `${RESOLVE_FIX_BY_DEFAULT}` grew
+    # by twelve characters that `render()` substitutes away before dispatch.
+    # Raised rather than absorbed because this table measures the FILE, which is
+    # the right proxy almost always and is a slight over-count exactly here —
+    # and a budget quietly wrong by twelve bytes is worse than one raised on
+    # purpose with the reason attached.
+    # RATCHETED DOWN 17_370 -> 15_345: two more blocks moved out, to
+    # prompts/resolve_rejections_must_be_executed.md and
+    # prompts/resolve_disposition_definitions.md. THE ACCOUNTING IS DIFFERENT
+    # FROM THE MOVE ABOVE and worth stating: these two were NOT verbatim copies
+    # when the pass began — each tier carried one sentence the other lacked, so
+    # the second correction pass unioned them first. So this file GAINED 97
+    # bytes of substance (the minor tier's measured-evidence sentence, which
+    # every refine run now reads) and then LOST 2,122 to the promotion. The net
+    # is a ratchet down; the substance change is a raise, and both are here so
+    # neither hides inside the other.
+    # RATCHETED DOWN 15_345 -> 11_057: six more blocks moved out, to
+    # prompts/fidelity_read_and_compare.md, fidelity_evidence_discipline.md and
+    # fidelity_mutate_what_you_added.md. SAME ACCOUNTING AS THE MOVE ABOVE and
+    # the two movements run opposite ways, so both are stated rather than netted:
+    # this file GAINED 1,431 bytes of substance — five `Measured:` evidence
+    # sentences the minor tier alone carried, which every major refine run now
+    # reads. It then LOST the whole 4,383-byte span to three placeholder lines
+    # costing 95: 15,345 - 4,383 + 95 = 11,057, which is the number below.
+    # ALL SIX PAIRS WERE ONE-SIDED ADDITIVE, which is why a union could only add:
+    # verified by rendering both tiers before and after and diffing, opcode kinds
+    # `equal`/`insert` ONLY, so nothing was replaced, deleted or invented.
+    # THE COMPONENT FIGURES ARE BYTES, NOT CHARACTERS, and the first draft of
+    # this comment had them in characters — off by 90 on this file — which is the
+    # exact error the `plan_verify` note below warns about. Em-dashes are three
+    # bytes each and this prompt is full of them.
+    "build/build_refine/prompts/stages_2_to_4.md": 11_057,
     "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
@@ -123,7 +161,28 @@ BUDGETS: dict[str, int] = {
     # prompt told it the machine was already checking. This clears the gate's
     # own bar: it changes what the model DOES, and the harness cannot enforce it.
     "plan/plan_verify/prompts/plan_verify.md": 13_142,
-    "build/build_refine_minor/prompts/stages_2_to_4.md": 14_437,
+    # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
+    # above the FLOOR, so it keeps its line rather than dropping off the table.
+    # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
+    # RATCHETED DOWN 9_908 -> 7_988, the other side of that second move: +202
+    # for the major tier's RULING-REQUIRED clause, then -2,122 to the same two
+    # fragments — the identical removal, which is what "they were copies" means
+    # once the union has run. It has
+    # now fallen BELOW the 8,000-byte FLOOR and keeps its line anyway: dropping
+    # it would let the file regrow to 8,000 unbudgeted, which is the ratchet
+    # running backwards. The floor decides what must ACQUIRE a budget, never
+    # what may lose one.
+    # RATCHETED DOWN 7_988 -> 2_693, the other side of that third move: +424 for
+    # the major tier's `gh pr view` truncation warning — the one pair of the six
+    # where the MAJOR tier was the superset — then its 5,390-byte span went to
+    # the same three placeholder lines costing 95: 7,988 - 5,390 + 95 = 2,693.
+    # The two spans differ (4,383 vs 5,390) because each tier's copy was its own
+    # size before the union; the FRAGMENTS they both now read total 5,814.
+    # It sits far below the FLOOR now and still keeps its line, for
+    # the reason already stated above: the floor decides what must ACQUIRE a
+    # budget, never what may lose one, and dropping the line would let 5 KB of
+    # vacated space refill unwatched.
+    "build/build_refine_minor/prompts/stages_2_to_4.md": 2_693,
     "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —
@@ -146,7 +205,18 @@ BUDGETS: dict[str, int] = {
     # which is the cheapest possible demonstration that byte counts are not
     # eyeballable.
     "prompts/rules.md": 7_491,
-    "prompts/mutation_discipline.md": 6_584,
+    # RATCHETED DOWN 6_584 -> 6_164 on 2026-08-17: a five-line `<!-- SHARED … -->`
+    # editor header was deleted. It was addressed to whoever edits the file and
+    # reached the MODEL instead — `load_prompt()` is a bare `read_text()` and
+    # `render()` substitutes `${…}` without stripping anything — so 420 bytes of
+    # provenance shipped ahead of the first instruction on every plan-driven
+    # draft dispatch. It fails § Prompt economy on three of the four questions in
+    # this file's own failure message, and its `Measured on PR #99` is the
+    # evidence-in-a-prompt case that section names by example. The provenance now
+    # lives only in git history and in both draft workflows' Python comments,
+    # which is where an editor is looking. Enforced by
+    # `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model` below.
+    "prompts/mutation_discipline.md": 6_164,
 }
 
 # A prompt below this is not worth a budget line; the total of all of them is
@@ -202,6 +272,52 @@ def test_every_prompt_over_the_floor_HAS_a_budget() -> None:
         + "\n".join(f"  {r}  ({s:,} bytes)" for r, s in sorted(unbudgeted, key=lambda x: -x[1]))
         + "\n\nAdd a line to BUDGETS at the file's current size. The budget is not a "
         "judgement that the file is too big — it is what makes the NEXT addition a trade."
+    )
+
+
+def test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model() -> None:
+    """An HTML comment in a prompt is addressed to an editor and read by a model.
+
+    THE WHOLE CLASS, NOT THE THREE INSTANCES THAT WERE FOUND. Markdown hides an
+    `<!-- … -->` from a human previewing the file, which is exactly why it reads
+    as free: it looks like a code comment and behaves like prose. It is not free.
+    `load_prompt()` is a bare `read_text()` and `render()` only substitutes
+    `${…}`, so every byte between the markers is sent on every turn of every run
+    that loads the file.
+
+    MEASURED, and the count went the wrong way twice before it went right. One
+    such header existed when PR #100 was cut; the draft pass ADDED two more by
+    promoting two whole files with their headers attached, putting the literal
+    first line a plan-driven build reads ahead of its own first instruction; the
+    first correction pass deleted its own two and left the original, returning
+    the class to a baseline of one rather than to zero. Three review passes each
+    re-derived the same measurement by hand from `grep -rl '<!--'`. This is that
+    grep, kept.
+
+    NO FROZEN BASELINE, deliberately, and it is the one guard here that has
+    none. A baseline is what you build when the population is too large to fix in
+    one change — 48 duplicated blocks were. This population was ONE file and five
+    lines, so freezing it would have recorded a decision to keep paying rather
+    than made the next addition a trade, which is the permanent-excuse-list shape
+    the duplication baseline's own docstring warns against.
+
+    WHAT IT DOES NOT LOOK AT: only `<!-- -->`. Commentary written as ordinary
+    prose — a paragraph explaining to an editor why a fragment lives where it
+    does — is indistinguishable from instruction to any check, and belongs to
+    § Prompt economy's four questions and a human reading them.
+    """
+    offenders = [
+        (str(p.relative_to(PROMPTS)), p.read_text().count("<!--"))
+        for p in _all_prompts()
+        if "<!--" in p.read_text()
+    ]
+    assert not offenders, (
+        "these prompt files carry HTML comments, which are invisible in a "
+        "markdown preview and fully visible to the model:\n"
+        + "\n".join(f"  {r}  ({n} comment{'s' if n > 1 else ''})" for r, n in offenders)
+        + "\n\nMove the note to the commit message, or to a Python comment beside "
+        "the `shared_prompt(...)` call that loads the fragment — both are where an "
+        "editor is actually looking, and neither is re-sent on every turn."
     )
 
 

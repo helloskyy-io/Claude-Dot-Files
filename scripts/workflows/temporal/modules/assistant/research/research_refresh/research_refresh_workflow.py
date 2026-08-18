@@ -58,15 +58,13 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     # Re-anchored to the worktree the run executes in — see `in_worktree`.
     pool = act.in_worktree(research_dir, repo_root, worktree)
     level = act.altitude(pool, worktree)
-    # PRODUCT is SHARED, COMPONENT is not — and that asymmetry is the whole point.
-    # The product-altitude block is one authorization contract about what a run may
-    # write to the operator's inbox, and both entry points must be permitted exactly
-    # the same things; it lived as byte-identical copies until issue #91. The
-    # component blocks genuinely DIFFER between write and refresh, so they stay local.
+    # BOTH altitude blocks are SHARED — see research_write, which carries the
+    # reasoning. The local file here is only the tail that says a refresh
+    # revalidates a pool's topic list rather than sizing one.
     if level == "PRODUCT":
         altitude = act.shared_prompt("altitude_product")
     else:
-        altitude = act.load_prompt(PROMPTS / "altitude_component.md")
+        altitude = act.load_prompt(PROMPTS / "altitude_component_tail.md")
 
     values = {
         # The path the MODEL is given must be the one it can actually write to.
@@ -82,6 +80,12 @@ def run_refresh(*, research_dir: Path, repo_root: Path, worktree: Path,
     }
     if level == "PRODUCT":
         values["CANDIDATE_CEILING"] = act.candidate_ceiling(research_dir)
+    else:
+        # Only the component fragment is loaded at component altitude, for the
+        # mirror-image reason: supplying it at product altitude would inject
+        # lane rules for a pool this run is not in. render() resolves to a fixed
+        # point, so the fragment's own ${RESEARCH_DIR} is filled in the same pass.
+        values["ALTITUDE_COMPONENT"] = act.shared_prompt("altitude_component")
     output = act.run_claude(
         act.render(act.load_prompt(PROMPTS / "refresh.md"), values),
         model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,

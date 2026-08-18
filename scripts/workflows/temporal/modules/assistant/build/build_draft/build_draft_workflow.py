@@ -35,16 +35,21 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
     # THE ONLY PLACE plan-vs-description is consulted. One axis: where the task
     # comes from. A plan run reads a doc and extracts success criteria to verify
     # against; a description run has the sentence as its only criterion.
+    # BOTH plan-driven prompts are SHARED with build_draft_minor — the two tiers
+    # differ in turn budget and review depth, not in how a plan is read. They
+    # were byte-identical copies until §10.1's promotion rule was applied to
+    # prose; edit them at modules/assistant/prompts/.
     if plan_path:
-        wrapper, stages = "from_plan.md", "stages_1_to_4_from_plan.md"
+        template = act.shared_prompt("build_from_plan")
+        stages_body = act.shared_prompt("stages_1_to_4_from_plan")
     else:
         wrapper = "update_pr.md" if pr_number else "new_branch.md"
-        stages = "stages_1_to_4.md"
-    template = act.load_prompt(PROMPTS / wrapper)
+        template = act.load_prompt(PROMPTS / wrapper)
+        stages_body = act.load_prompt(PROMPTS / "stages_1_to_4.md")
 
     values = {
         "DESCRIPTION": description,
-        "STAGES_1_TO_4": act.load_prompt(PROMPTS / stages),
+        "STAGES_1_TO_4": stages_body,
         "PLAN_PATH": plan_path or "",
         "CONTEXT_BLOCK": context,
         "RULES": act.shared_prompt("rules"),
