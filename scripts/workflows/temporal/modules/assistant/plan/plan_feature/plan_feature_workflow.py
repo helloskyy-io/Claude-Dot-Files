@@ -106,7 +106,7 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # components, and `sprint.md` lives in that same directory.
 FORBIDDEN_PATHS = (
     r"^docs/development/",      # "Write or edit ANY file under another component"
-    r"(^|/)sprints?\.md$",      # "Touch `sprint.md` at all" — also caught above,
+    r"(^|/)sprints?\.md$",      # "WRITE or edit `sprint.md`" — also caught above,
                                 #   stated separately because the prohibition is
                                 #   about the FILE and outlives this directory
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
@@ -241,8 +241,14 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "over the new files AGAINST EACH OTHER by own.phase_identity, so two "
         "docs written in the same dispatch cannot both be phase 5 while "
         "`phase5a_` + `phase5b_` planned together stays legal",
-    "**Touch `sprint.md` at all** — you hold no authorization over it":
-        "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
+    "**WRITE or edit `sprint.md`** — read it, never touch it":
+        "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings — which "
+        "compares CONTENT either side of the run, so it observes every write and "
+        "is blind to a read BY CONSTRUCTION. That is the right instrument for the "
+        "reworded rule: the run is now told to READ the sprint (Stage 1 item 9) "
+        "because it must name the entry this component needs, and a proposal into "
+        "a sequence nobody has seen is a guess. Reading leaves no artifact, so "
+        "nothing here needs to permit it and nothing can mistake it for a write.",
     "Write or edit anything under ANOTHER component, or under your own `research/`":
         "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, whose first "
         "grant is `<component>/[^/]+\\.md$` and so reaches no subdirectory",

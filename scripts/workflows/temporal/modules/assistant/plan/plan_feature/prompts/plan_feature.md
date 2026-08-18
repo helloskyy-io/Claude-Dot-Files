@@ -21,7 +21,7 @@ ${RESEARCH_INVENTORY}
 | Create a NEW `phaseN_<name>.md` in `${COMPONENT_PATH}/` | **Rename, renumber or delete an existing phase doc** — the number is IDENTITY |
 | Edit a phase doc **you created in this run** | Give a NEW phase doc a name outside `phaseN_<name>.md` |
 | Re-order phase entries **within `roadmap.md`** | Give a NEW phase a number already used in this component |
-| Append a proposal row to the candidates file | **Touch `sprint.md` at all** — you hold no authorization over it |
+| Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it, never touch it |
 | Name the `component` on a row YOU append | Write or edit anything under ANOTHER component, or under your own `research/` |
 | | **Tick a completion checkbox** — you have built nothing |
 | | Set `decision`, `status`, or another filer's `component` in the candidates file |
@@ -63,7 +63,9 @@ Sizing belongs to `plan-verify`, the fresh-context reviewer that reads what you 
 
 The sprint plan is the operator's cross-domain sequencing surface, and the standing rule is that dispatches never write it. `plan-sprint` carries a specific, bounded override for it; **you do not.**
 
-**This component almost certainly needs a sprint entry, and naming it is your job — writing it is not.** Say in your report what entry it needs and why, in one or two sentences, and stop. It lands by operator edit.
+**READ IT ANYWAY — the prohibition is on writing, and reading is what makes the prohibition workable.** It is the only surface showing what else is being built and in what order, so it is how you avoid planning work another component already owns.
+
+**This component almost certainly needs a sprint entry, and naming it is your job — writing it is not.** Say in your report what entry it needs and why, in one or two sentences, and stop. It lands by operator edit. **Naming a sensible one requires having read the sequence you are proposing into**, which is the whole reason the read grant above exists.
 
 ### Everything else in that column, and exactly what checks it
 
@@ -94,11 +96,18 @@ Read, in this order, and do not skip any:
 
 1. **`${COMPONENT_PATH}/research/synthesis.md`** — your PRIMARY evidence, and the document this step exists to consume. **DO NOT READ THE RAW PAPERS wholesale.** The Research Standard is explicit that downstream consumers take the synthesis and never the pool. Open a paper only when a specific phase cannot be written without it, and say in your report which one and why.
 2. **Everything already in `${COMPONENT_PATH}/`** — the state is counted for you above. If a `roadmap.md` exists you are EXTENDING, not starting.
-3. **`docs/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** A plan that does not serve the thesis is a well-formed plan for something nobody needed.
-4. **`docs/standards/architecture/architectural_standard.md`** — the binding vocabulary and the seams. A phase that violates a seam is a phase to redesign, and the reason is the seam.
-5. **`docs/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. Note its "What we do NOT use" section.
-6. **`docs/standards/documentation/documentation_standard.md`** — § *Development Planning Files* for the two artifact shapes, and § *Phase Numbering and Roadmap Ordering* which is **binding** and is where the identity-versus-order rule above comes from.
-7. **Any SIBLING component this one depends on** — read-only. A dependency you cannot name is a dependency that will surface as a blocked phase later.
+3. **`docs/file_structure.txt`** — the annotated map of the repo, and **read it EARLY: it is how you find everything below without guessing a path.** Read the root `CLAUDE.md` beside it; that chain is what names which standards bind in THIS repo.
+4. **The PROJECT-level research pool and its synthesis** — normally `docs/standards/architecture/research/`, confirm against the map. This is what the project as a whole has established: the direction, the settled questions, the problem statement's evidence. **Your component's synthesis is the local evidence; this is the frame it sits in.** Read it so a phase you write does not contradict — or quietly re-derive — something the project already settled at a higher altitude.
+5. **`docs/standards/architecture/problem-statement.md`** — the thesis and the differentiators. **You never edit this.** A plan that does not serve the thesis is a well-formed plan for something nobody needed.
+6. **`docs/standards/architecture/architectural_standard.md`** — the binding vocabulary and the seams. A phase that violates a seam is a phase to redesign, and the reason is the seam.
+7. **`docs/standards/architecture/stack_reference.md`** — what we run on and **what we deliberately do not**. Note its "What we do NOT use" section.
+8. **`docs/standards/documentation/documentation_standard.md`** — § *Development Planning Files* for the two artifact shapes, and § *Phase Numbering and Roadmap Ordering* which is **binding** and is where the identity-versus-order rule above comes from.
+9. **`sprint.md` — READ IT. You may not write it; that is exactly why you must read it.** It is the only place that shows what else is being built and in what order. **Read it to avoid planning work another component already owns, and to see what this component would sit beside** — Stage 4 requires you to name the sprint entry this component needs, and you cannot propose a position in a sequence you have never seen. Its path is in the map above if it is not `docs/development/sprint.md`.
+10. **Any SIBLING component this one depends on** — read-only. A dependency you cannot name is a dependency that will surface as a blocked phase later.
+
+**PATHS 3–9 ARE WHERE THEY USUALLY ARE, NOT WHERE THEY MUST BE.** This workflow runs against whatever repo `--repo` names. Confirm each against `docs/file_structure.txt` and the `CLAUDE.md` chain, and use the repo's equivalent when a path differs. **If one genuinely does not exist here, say so in your report and name what you planned that phase on instead** — do not silently plan from priors, and do not stop unless the missing document is the synthesis itself.
+
+**YOU HAVE `WebSearch` AND `WebFetch`, AND YOU ARE EXPECTED TO USE THEM.** You are designing against real systems. When a phase turns on how a tool, protocol or vendor API actually behaves, **read the official documentation rather than planning from memory** — a plan built on a misremembered API is a plan whose first build phase discovers it. Cite what you looked up in the phase doc. **This does not license fresh research:** the synthesis is your evidence and settles WHAT to build; the web settles mechanical facts about HOW something works. If a phase needs a question researched rather than a fact looked up, that is a finding for your report, not a research cycle you run here.
 
 ${EVIDENCE_BLOCK}
 
