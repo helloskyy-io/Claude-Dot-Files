@@ -143,7 +143,12 @@ BUDGETS: dict[str, int] = {
     # that changes what the model writes, which is this table's own bar for a
     # raise. Measured with `wc -c`, in BYTES.
     "plan/plan_feature/prompts/plan_feature.md": 18_051,
-    "research/research_verify/prompts/verify.md": 15_510,
+    # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
+    # child holds Write/Edit and applies the critic's findings itself, so the
+    # rules that existed only to coordinate a second writing agent went with it
+    # — the resume contract, "do not transcribe", and the critic-authors /
+    # analyst-signs split. Stages 2 and 3 also folded into the one critic pass.
+    "research/research_verify/prompts/verify.md": 13_204,
     # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_feature.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
@@ -189,7 +194,18 @@ BUDGETS: dict[str, int] = {
     # true on run 1, false on run 2, since papers accumulate and the synthesis is
     # replaced. Without it a planner reports "no synthesis" and plans from priors
     # while the paper sits unread, which wastes the whole cycle.
-    "research/research_write_minor/prompts/write_minor.md": 13_941,
+    # 13_941 -> 15_131: the CONTRACT was wrong, and the prompt is where it was
+    # wrong. This workflow takes a TOPIC and produces the basis a planner plans
+    # from; the prompt said "one question" and told a run to STOP if handed
+    # several concerns. A run followed it, narrowed a four-concern brief to one
+    # question, and produced 1,055 lines covering a quarter of the ground at the
+    # same cost. Also gained: the inputs it is expected to read (feature docs,
+    # project synthesis, the project research pool it must not re-derive),
+    # write-time quote verification by byte-exact GET, and the topic-has-moved
+    # case that was previously undefined. ~2,300 bytes of measurement narration
+    # were cut to pay for it, per `workflow-scripts.md` § Prompt economy — the
+    # figures belong in a commit, not on every turn of every run.
+    "research/research_write_minor/prompts/write_minor.md": 15_131,
     "research/research_write/prompts/write.md": 11_669,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one

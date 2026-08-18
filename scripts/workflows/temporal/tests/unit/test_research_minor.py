@@ -586,13 +586,22 @@ def test_the_ternary_predicate_actually_detects_a_branch() -> None:
 
 
 def test_verify_has_no_minor_specific_stage() -> None:
-    """The reused child's own stages are untouched.
+    """The reused child's stages do not branch by tier.
 
-    The block states a fact about the cycle; it must not have grown a fourth
-    stage or a conditional stage heading in the prompt itself.
+    `research_verify` is shared by the full cycle and the minor one. The context
+    block states a fact about which cycle is running; it must never become a
+    conditional stage heading, because a prompt that branches on tier is two
+    prompts sharing a file and they drift.
+
+    THE COUNT WENT 4 -> 2, and that is the change it was frozen to catch. The
+    `research-analyst` re-dispatch is gone — the child holds Write/Edit and
+    applies the critic's findings itself — so TRACE and VERIFY-THE-SYNTHESIS
+    stopped being separate passes over the artifact and became part of the one
+    critic loop. Tracing a correction into the synthesis IS fixing what the
+    critic found; it was a stage only because a different agent did the writing.
     """
     titles = _stage_titles(VERIFY_PROMPT.read_text())
-    assert len(titles) == 4, f"research_verify's stage count changed: {titles}"
+    assert len(titles) == 2, f"research_verify's stage count changed: {titles}"
     assert not any("MINOR" in t.upper() for t in titles), (
         "verify.md grew a minor-specific stage. The reuse is the design: one set "
         "of stages, one of them told what the cycle produced."
