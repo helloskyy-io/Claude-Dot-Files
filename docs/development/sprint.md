@@ -151,7 +151,7 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 
 ## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
 
-**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — four phases. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
+**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — three phases. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
 
 Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
