@@ -142,7 +142,19 @@ BUDGETS: dict[str, int] = {
     # prompt forbids, answers the question this run cannot ask of itself — and
     # that changes what the model writes, which is this table's own bar for a
     # raise. Measured with `wc -c`, in BYTES.
-    "plan/plan_feature/prompts/plan_feature.md": 18_051,
+    # 18_051 -> 20820: the six inputs this child was never handed. It already got
+    # the synthesis (PRIMARY) and the raw pool to backtrack into. It did NOT get
+    # docs/file_structure.txt, the CLAUDE.md chain, the PROJECT-level research
+    # pool, or sprint.md — the last one named five times as a prohibition and
+    # never as a read, while Stage 4 requires it to propose the sprint entry this
+    # component needs. A proposal into a sequence nobody has seen is a guess.
+    # Also: WebSearch/WebFetch were granted by --dangerously-skip-permissions and
+    # never mentioned, so a run designing against a real API planned from memory;
+    # and four standards paths were hardcoded in a workflow that takes --repo.
+    # The correction path is what makes these load-bearing rather than nice: a
+    # plan-project loop-back goes to plan-sprint, so a defect in THIS child's
+    # output may not be fixable downstream at all.
+    "plan/plan_feature/prompts/plan_feature.md": 20820,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
