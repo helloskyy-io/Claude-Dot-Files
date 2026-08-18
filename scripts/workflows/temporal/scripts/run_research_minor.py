@@ -1,4 +1,4 @@
-"""Kickoff entrypoint for research-minor — ONE paper, no synthesis.
+"""Kickoff entrypoint for research-minor — ONE topic, ONE paper, plus a synthesis.
 
 A SEPARATE ENTRY RATHER THAN A `--minor` FLAG ON `run_research.py`, for the same
 reason `run_build_minor.py` sits beside `run_build.py`: the two dispatch
@@ -24,7 +24,7 @@ BANNER = "=" * 64
 def main(argv=None) -> int:
     p = RepoPathParser(
         prog="research-minor",
-        description="Research ONE question as ONE paper. No topic list, no synthesis.",
+        description="Research ONE topic as ONE paper, plus the synthesis a planner reads. No topic list, no fan-out.",
     )
     # DECLARED AS A REPO PATH, with `must_exist=False`. See `run_research.py` for
     # both halves: the pool was joined onto `repo_root` unchecked, and this family
@@ -54,7 +54,7 @@ def main(argv=None) -> int:
         if a.dry_run:
             table, due = act.paper_currency(research_dir)
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
-            print("  Mode      : research-minor (ONE paper, no synthesis)")
+            print("  Mode      : research-minor (ONE topic -> ONE paper + synthesis)")
             print(f"  Pool      : {research_dir}")
             print(f"  Existing  : {len(due)} of the papers present are past their window")
             for d in due:
