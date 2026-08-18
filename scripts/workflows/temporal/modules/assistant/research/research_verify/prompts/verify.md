@@ -7,7 +7,6 @@ You are executing the RESEARCH-VERIFY workflow on PR #${PR_NUMBER} (branch: ${PR
 Research dir: ${RESEARCH_DIR}
 ${CURRENCY_BLOCK}
 ${CORRECTION_NOTE}
-${CYCLE_SHAPE_NOTE}
 
 ## Stage 1: VERIFY EVERYTHING THIS PR SHIPS
 
@@ -23,6 +22,18 @@ In scope, every round:
 - **The honest-boundary section** — present, per the Research Standard.
 - **The source-count floor** — met for the paper's size.
 - **Every statement about OUR PLATFORM** — you are in the worktree and hold the repo; the authoring run was on the web and could not check these. A paper that misdescribes shipped state is a defect even when every citation is perfect.
+
+### WRITE BOUNDARY (binding) — and the route for everything outside it
+
+**You fix what you find INSIDE this list: `${RESEARCH_DIR}`, the PR body, and the links and headers of the artifacts named above.** That is the whole of your write scope.
+
+**You do NOT edit, at any time, for any reason:** a roadmap, a phase doc, `sprint.md`, any standard, `docs/file_structure.txt`, or **any workflow's own prompt, script or module** — including the ones that dispatched you. **You do not file GitHub Issues**; [`finding-routing.md` § 7](../../../../../../../../docs/standards/finding-routing.md) gives that channel to `review-pr` alone.
+
+**A correction runway's `DO NOT touch:` list is BINDING and you may not exceed it.** Its `dispatch_context` enumeration governs; a `precheck` gates whether to act and never widens what to act on. If the runway names a file you believe also needs a change, that belief is a finding — see below — not a licence.
+
+**AND HERE IS WHAT YOU DO INSTEAD, because a boundary with no exit turns a real finding into a silent drop.** Anything true, outside the lane: **state it in your PR-body report and in your reflection, precisely enough to act on** — the file, the line, what is wrong, what the fix is. That is FINISHED behaviour, not incomplete behaviour. `review-pr` reads exactly that surface and holds the channel to route it. **Fixing it yourself is the failure; reporting it is the job.**
+
+*Measured on PR #106, the run that produced this rule: the verify child fixed a stale roadmap line and two stale workflow docstrings. Every edit was CORRECT — they were real staleness nobody else had caught — and every one was outside its authority, including one file the runway named in an explicit `DO NOT touch`. Correct content does not confer authority, and a research run editing the workflow that dispatched it is the author editing the judge's instructions.*
 
 ### The loop
 

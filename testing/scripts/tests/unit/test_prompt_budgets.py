@@ -148,7 +148,13 @@ BUDGETS: dict[str, int] = {
     # rules that existed only to coordinate a second writing agent went with it
     # — the resume contract, "do not transcribe", and the critic-authors /
     # analyst-signs split. Stages 2 and 3 also folded into the one critic pass.
-    "research/research_verify/prompts/verify.md": 13_204,
+    # 13_204 -> 15_081: a WRITE BOUNDARY, because PR #105 widened this child's
+    # scope to everything the PR ships and did not widen its lane with it. On the
+    # first run under that scope it edited a roadmap and two workflow docstrings —
+    # all three edits CORRECT, none of them its to make, and one against a runway's
+    # explicit DO-NOT-TOUCH. The block carries its own exit: report it, do not fix
+    # it, because a boundary with no route turns a real finding into a silent drop.
+    "research/research_verify/prompts/verify.md": 15_084,
     # SET AT ITS SIZE ON THE DAY IT LANDED, like `plan_feature.md` above and for
     # the same reason: this prompt is new, so it MEETS this gate rather than
     # being measured into it. Measured in BYTES with `wc -c`, never eyeballed —
@@ -205,7 +211,11 @@ BUDGETS: dict[str, int] = {
     # case that was previously undefined. ~2,300 bytes of measurement narration
     # were cut to pay for it, per `workflow-scripts.md` § Prompt economy — the
     # figures belong in a commit, not on every turn of every run.
-    "research/research_write_minor/prompts/write_minor.md": 15_131,
+    # 15_131 -> 16_212: SIZE IS A RATE. The flat 20-source ceiling made the
+    # OPERATOR carry the sizing decision — remember that a five-phase feature needs
+    # the bigger instrument. Now 5 sources and ~60 body lines per FACET, which is
+    # the unit Research Standard §3 already uses, so it scales with the feature.
+    "research/research_write_minor/prompts/write_minor.md": 16_236,
     "research/research_write/prompts/write.md": 11_669,
     "build/build_draft_minor/prompts/update_pr.md": 10_675,
     # SHARED FRAGMENTS ARE THE EXPENSIVE ONES — every workflow that includes one

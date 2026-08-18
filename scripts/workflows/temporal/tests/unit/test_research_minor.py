@@ -434,21 +434,7 @@ def test_the_full_cycle_still_gets_the_sizing_directives() -> None:
     )
 
 
-# --- 3. research_verify is REUSED: a rendered block, not a behavioural flag ----
-
-_MANDATED = "MINOR CYCLE — one paper, no synthesis. The paper IS the deliverable."
-
-# The block VERBATIM, so the differ below can subtract it exactly. Kept beside
-# the fragment above rather than derived from the workflow: a copy the workflow
-# could not silently change is the point — deriving it from `run_verify` would
-# make the comparison true by construction.
-_BLOCK = (
-    "**MINOR CYCLE — one paper, no synthesis. The paper IS the deliverable.** "
-    "Stage 1 verifies it exactly as always. **Stages 2 and 3 emit "
-    "`SKIPPED — minor cycle, no synthesis exists`.** Do not create one, and "
-    "do not treat its absence as a defect."
-)
-
+# --- 3. research_verify is REUSED, and carries NO cycle-shape signal at all ---
 
 class _CapturedPrompt:
     """Stands in for `run_claude` and keeps the prompt it was handed."""
@@ -480,55 +466,55 @@ def _render_verify(monkeypatch, tmp_path: Path, **kwargs) -> str:
     return captured.prompt
 
 
-def test_the_cycle_shape_block_renders_for_a_minor_cycle(monkeypatch, tmp_path) -> None:
-    prompt = _render_verify(monkeypatch, tmp_path, minor_cycle=True)
-    assert _MANDATED in prompt, (
-        "the minor-cycle block did not reach the prompt. verify.md opens by "
-        "asserting 'you did not write this synthesis', which presupposes one "
-        "exists — a run reading that against a directory with none will stall or "
-        "INVENT one, and inventing is the exact failure this child guards against."
-    )
-    assert "SKIPPED — minor cycle, no synthesis exists" in prompt, (
-        "the block no longer tells stages 2 and 3 what to emit, so their skip "
-        "becomes the model's improvisation rather than the parent's instruction"
-    )
 
 
-def test_the_block_is_empty_by_default(monkeypatch, tmp_path) -> None:
-    """The full cycle must be BYTE-UNAFFECTED by this addition.
+def test_verify_is_told_NOTHING_about_the_cycle_shape(monkeypatch, tmp_path) -> None:
+    """The `CYCLE_SHAPE_NOTE` pair is deleted, and may not come back.
 
-    `research_verify` is shared. If the default were anything but empty, adding
-    the minor cycle would have changed the prompt every full research cycle
-    receives — a silent edit to a verified path, made by a feature that is not
-    supposed to touch it.
+    IT WAS NOT WRONG WHEN WRITTEN — it went false underneath itself. Both arms
+    rested on one premise, *a minor cycle writes no synthesis*, and Stage 3
+    SYNTHESIZE (2026-08-17) ended it. From then on `synthesis.md` always existed
+    when this child ran, so the `minor_cycle` arm was unreachable and the
+    `synthesis_present` arm fired on every minor run asserting three things that
+    were all false: that the cycle wrote no synthesis, that the one on disk came
+    from an earlier FULL cycle, and that it did not cover this cycle's paper.
+
+    `review-pr` found it on PR #106 and filed issue #107. Deleting beat repairing
+    because `research_verify` discovers its artifacts from the filesystem and
+    reads no flag — there was never anything for the signal to switch, and the
+    prompt's opening line (*"you did not write these papers and you did not write
+    this synthesis"*) is true without it.
+
+    THE GUARD IS ON THE RENDERED PROMPT, not on the signature, because the
+    failure mode is a block reaching the model — a signature check would pass
+    while a hard-coded sentence said the same false thing.
     """
     prompt = _render_verify(monkeypatch, tmp_path)
-    assert "MINOR CYCLE" not in prompt
-    assert "${CYCLE_SHAPE_NOTE}" not in prompt, (
-        "the placeholder survived rendering as literal text — render()'s leftover "
-        "guard should have raised, so the supplier name has drifted"
-    )
+    for dead in ("MINOR CYCLE", "no synthesis exists", "from an earlier full cycle",
+                 "${CYCLE_SHAPE_NOTE}"):
+        assert dead not in prompt, (
+            f"{dead!r} is back in the verify prompt. A minor cycle HAS written a "
+            f"synthesis since 2026-08-17; telling the verifier otherwise is issue "
+            f"#107 returning."
+        )
 
 
-def test_the_two_renders_differ_by_exactly_the_block(monkeypatch, tmp_path) -> None:
-    """The precise claim, not 'MINOR CYCLE is absent'.
+def test_run_verify_takes_no_cycle_shape_PARAMETER(monkeypatch, tmp_path) -> None:
+    """The other half: no caller may reintroduce the signal through the door.
 
-    `research_verify` is SHARED. The risk worth pinning is not that the block
-    fails to appear — the test above covers that — it is that adding it
-    perturbed the prompt every FULL research cycle receives: a reordered
-    section, a displaced heading, a supplier renamed out from under a sibling
-    placeholder. Deleting the block from the minor render must reproduce the
-    default render exactly, modulo the blank line an empty substitution leaves.
+    Separate from the render guard above on purpose — that one catches a
+    hard-coded sentence, this one catches a parameter a parent starts passing
+    again. Either alone leaves the other route open.
     """
-    default = _render_verify(monkeypatch, tmp_path)
-    minor = _render_verify(monkeypatch, tmp_path, minor_cycle=True)
-
-    assert minor != default, "requesting the minor shape changed nothing"
-    assert " ".join(minor.replace(_BLOCK, "").split()) == " ".join(default.split()), (
-        "removing the cycle-shape block from the minor render does not reproduce "
-        "the default render. Adding it perturbed the prompt that every full "
-        "research cycle receives, which this change must not touch."
+    import inspect
+    params = set(inspect.signature(verify.run_verify).parameters)
+    assert not params & {"minor_cycle", "synthesis_present"}, (
+        f"run_verify regained a cycle-shape parameter: "
+        f"{sorted(params & {'minor_cycle', 'synthesis_present'})}. The shape is "
+        f"discovered from the filesystem; a flag can only go stale against it."
     )
+
+
 
 
 def _param_reaches_only_a_ternary(func, name: str) -> bool:
@@ -547,19 +533,6 @@ def _param_reaches_only_a_ternary(func, name: str) -> bool:
     return bool(reads)
 
 
-@pytest.mark.parametrize("param", ["minor_cycle", "correction_pass", "synthesis_present"])
-def test_the_flag_reaches_no_if_statement(param: str) -> None:
-    """`correction_pass` is the model and is checked alongside deliberately.
-
-    It is the shape `minor_cycle` was built to copy, so running both through one
-    predicate proves the predicate describes the EXISTING convention rather than
-    having been fitted to the new parameter.
-    """
-    assert _param_reaches_only_a_ternary(verify.run_verify, param), (
-        f"`{param}` reaches an `if` statement in run_verify. A flag that alters "
-        "which artifacts a workflow emits is a behavioural branch inside a prompt, "
-        "and prompt branches are where drift lives."
-    )
 
 
 def test_the_ternary_predicate_actually_detects_a_branch() -> None:
@@ -628,72 +601,10 @@ def test_the_parent_calls_no_model() -> None:
     )
 
 
-def test_the_parent_asks_verify_for_the_minor_shape(tmp_path) -> None:
-    """The shape is DERIVED from disk, not asserted.
-
-    This asserted `minor_cycle=True` as a literal, which is what the parent
-    shipped — and a hard-coded `True` tells the verifier "no synthesis exists"
-    even when one does. A minor cycle can run against a pool an earlier FULL
-    cycle populated, and the verifier would then skip stages 2 and 3 over a real
-    `synthesis.md`: the one artifact it exists to check and the only one the
-    standup consumes.
-
-    So this asserts the PROPERTY — the source reads the filesystem — rather than
-    the literal, which is what let the bug through.
-    """
-    source = inspect.getsource(parent)
-    assert "minor_cycle=True" not in source, (
-        "the cycle shape is hard-coded again; it must be derived from whether "
-        "`synthesis.md` is present in the worktree the run reads"
-    )
-    assert 'synthesis.md' in source and 'is_file()' in source, (
-        "research_minor no longer derives the cycle shape from disk — verify "
-        "would be told what the parent assumed rather than what is there"
-    )
 
 
-def test_both_cycle_shape_blocks_render_from_the_shipped_source() -> None:
-    """The blocks a run actually receives, read out of the shipped module.
-
-    REPLACES A TEST THAT EXERCISED `pathlib`. The previous version created a
-    directory, wrote a file, and asserted `is_file()` — which proves the standard
-    library works and says nothing about this fleet. A correction shipped with
-    nothing holding it is how the hard-coded `True` reached a review in the first
-    place.
-
-    Both blocks are asserted because they are mutually exclusive and the DANGEROUS
-    one is the second: a minor cycle over an existing synthesis must NOT be told
-    the synthesis is absent, which is the defect this pair was built to remove.
-    """
-    source = inspect.getsource(verify)
-
-    assert "MINOR CYCLE — one paper, no synthesis" in source, (
-        "the no-synthesis block is gone; a minor run against a fresh pool would "
-        "read `you did not write this synthesis` against a directory with none"
-    )
-    assert "MINOR CYCLE OVER AN EXISTING SYNTHESIS" in source, (
-        "the second block is gone, so a minor cycle over a populated pool falls "
-        "back to being told no synthesis exists — the exact defect corrected here"
-    )
-    assert "Verify it exactly as always" in source, (
-        "the existing-synthesis block no longer tells the child to verify it, so "
-        "the only artifact the standup consumes goes unchecked"
-    )
-    # the two arms must be selected by DIFFERENT parameters, or one can never fire
-    assert "if minor_cycle else" in source and "if synthesis_present else" in source, (
-        "both blocks must be gated by their own parameter; sharing one makes the "
-        "second arm unreachable"
-    )
 
 
-def test_the_parent_cannot_report_both_shapes_at_once() -> None:
-    """They are mutually exclusive by construction — asserted, not assumed."""
-    source = inspect.getsource(parent)
-    assert 'minor_cycle=not (pool / "synthesis.md").is_file()' in source, (
-        "minor_cycle is no longer the negation of the synthesis check, so both "
-        "arms could be true and the child would receive two contradictory facts"
-    )
-    assert 'synthesis_present=(pool / "synthesis.md").is_file()' in source
 
 def test_the_parent_reuses_the_shared_children() -> None:
     """The critic gate stays. It is the reason this is not a bare research call.

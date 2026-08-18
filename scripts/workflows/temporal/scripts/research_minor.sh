@@ -5,9 +5,9 @@
 # untouched. Argument parsing lives in run_research_minor.py so there is exactly
 # one place that defines the CLI contract.
 #
-# ONE topic, ONE paper, plus the synthesis a planner reads — no topic list and no
-# fan-out. For a topic the full research pool is overkill for. Reach for the
-# full ./research.sh when the subject needs several papers on separate subjects.
+# ONE topic, ONE paper, plus the synthesis a planner reads — no topic list and
+# no fan-out. For a topic the full research pool is overkill for. Reach for the
+# full research.sh when the subject needs several papers on separate subjects.
 #
 # Usage:
 #   ./research_minor.sh docs/development/<component>/research
