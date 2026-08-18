@@ -152,8 +152,9 @@ claude-dot-files/
 │   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
-│   │   ├── workflow-decomposition/                  # RESEARCH ONLY — no plan yet; 🟡 IN PROGRESS per sprint.md
-│   │   │   ├── roadmap.md                         # Four phases; written after Phase 1 shipped, so that phase is a record not requirements
+│   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — roadmap + research pool; Phase 1 shipped, Phase 2 open
+│   │   │   ├── roadmap.md                         # Three phases; written after Phase 1 shipped, so that phase is a record not requirements
+│   │   │   └── research/                          # 1 paper + synthesis; paper PASS-WITH-FIXES 2026-08-17, backs the Phase 2 fork-vs-parameterize ruling
 │   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
