@@ -55,7 +55,7 @@ WORKFLOWS = REPO_ROOT / "scripts" / "workflows"
 # (module, its max_turns key, the value config declares today)
 TURN_CAP_OWNERS = [
     pytest.param(draft, "build-draft", 250, id="build-draft"),
-    pytest.param(refine, "build-refine", 250, id="build-refine"),
+    pytest.param(refine, "build-refine", 300, id="build-refine"),
     pytest.param(rpa, "review-pr", 120, id="review-pr"),
     # Top-level in V1, not a child of `children/` — both locations are covered
     # by §2's bash-resolver test, which is where that distinction now lives.

@@ -29,19 +29,22 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
     # Same single axis as the major tier. Scope is what makes this the minor
     # tier — a 100-turn cap — not the information source. A small fix scoped to
     # a phase still benefits from that phase's success criteria to verify against.
+    # BOTH plan-driven prompts are SHARED with build_draft — see that workflow.
+    # The non-plan wrappers are NOT: they are self-contained at this tier.
     if plan_path:
-        wrapper, stages = "from_plan.md", "stages_1_to_4_from_plan.md"
+        template = act.shared_prompt("build_from_plan")
+        stages_body = act.shared_prompt("stages_1_to_4_from_plan")
     else:
         wrapper = "update_pr.md" if pr_number else "new_branch.md"
-        stages = None
-    template = act.load_prompt(PROMPTS / wrapper)
+        template = act.load_prompt(PROMPTS / wrapper)
+        stages_body = None
     values = {
         "DESCRIPTION": description,
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
     }
-    if stages:
+    if stages_body:
         values |= {
-            "STAGES_1_TO_4": act.load_prompt(PROMPTS / stages),
+            "STAGES_1_TO_4": stages_body,
             "RULES": act.shared_prompt("rules"),
             "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),
             "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),

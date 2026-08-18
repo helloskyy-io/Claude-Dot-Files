@@ -98,9 +98,12 @@ _PROSE = (
        REPO_ROOT / "docs" / "file_structure.txt"]
 )
 
-_NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-                 "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
-                 "twelve": 12}
+# Shared with `test_promotion_guard_prose_figures_are_DERIVED`. The two
+# sweeps each carried their own copy and the copies had already diverged —
+# this one stopped at `twelve`, so a figure written "thirteen entrypoints"
+# was invisible to it rather than merely unregistered. That is this file's
+# own defect class, in its own supporting data.
+from prose_number_words import NUMBER_WORDS as _NUMBER_WORDS  # noqa: E402
 _WORD_OF = {v: k for k, v in _NUMBER_WORDS.items()}
 
 

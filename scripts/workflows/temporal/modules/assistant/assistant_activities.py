@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import os
+import time
 import uuid
 from collections.abc import Iterator
 from datetime import datetime
@@ -85,6 +86,138 @@ def max_turns(key: str) -> int:
         )
     return int(value)
 
+# ── EVERY SUBPROCESS THIS FLEET LAUNCHES HAS A CEILING ─────────────────────
+#
+# A `gh` or a `git` that never RETURNS is invisible to every guard in this tree.
+# The retry below, `wait_for_ci`'s deadline loop, and every `returncode` check
+# here all run AFTER the call comes back — so a TCP connection that neither
+# answers nor resets, which is the ordinary shape of a degraded endpoint and
+# GitHub was degraded on 2026-08-17, parks the dispatch forever with no ceiling
+# and no log line. The retry this module adds is bounded in ADDED LATENCY and
+# said nothing about wall-clock until this constant existed.
+#
+# ONE NUMBER, DELIBERATELY. Per-command budgets would each need defending and
+# would go stale silently as call sites move.
+#
+# AND IT IS A POLICY CHOICE, NOT A MEASUREMENT — said plainly because every
+# other constant in this module cites one (`_RETRYABLE_HTTP`'s shapes and
+# `_GH_RETRY_BACKOFF_SECONDS`' pauses were both captured from the live outage),
+# and a reader is entitled to know which kind of number this is. 120s is a
+# false-positive tolerance: how long a legitimate call may take before the fleet
+# would rather be wrong than keep waiting. Nothing was timed to produce it.
+#
+# WHICH CALL EXCEEDS IT FIRST, AND WHAT THAT LOOKS LIKE. `git fetch` in
+# `worktree_add` is the only size-dependent launch here — every `gh` call is a
+# bounded API read — so a large target repo on a slow link is the realistic
+# false positive. The operator sees "did not answer within 120s", which reads
+# as a hang rather than as "your repo is large". If that ever happens the fix is
+# a larger budget for THAT call, not a larger one here.
+_SUBPROCESS_TIMEOUT_SECONDS = 120.0
+
+
+class TimedOutProcess(subprocess.CompletedProcess):
+    """A launch that never answered, wearing the shape every caller already reads.
+
+    DISTINGUISHED BY TYPE, NOT BY EXIT CODE. `returncode` is 124 so a log line
+    carries the `timeout(1)` convention a reader recognises, but a classifier
+    keyed on that number would be wrong the first time `gh` or `git` exits 124
+    for a reason of its own. `isinstance` cannot collide with a real reply.
+
+    NON-ZERO SO A SITE THAT ALREADY BRANCHES ON `returncode` IS CORRECT — AND A
+    SITE THAT DOES NOT IS NOT. Returning this instead of letting `TimeoutExpired`
+    escape is what keeps a brand-new exception path out of a running fleet, and
+    for the sites that raise, poll, or degrade on a non-zero code a timeout
+    belongs in the branch they already have.
+
+    THIS PARAGRAPH USED TO ASSERT THAT EVERY CONVERTED CALLER WAS ALREADY
+    CORRECT, AND THAT CLAIM IS WHAT SHIPPED THE DEFECT. It was a universal
+    supported by three named behaviours; six production sites route through
+    `run_bounded`, one of the three named behaviours (`""` for absent metadata)
+    describes `journal_activities._git`, which bounds itself and is not one of
+    them, and `observe_outcome`'s `git status` read — which was one of them —
+    discarded its return code entirely and printed "Uncommitted changes: none"
+    for a worktree it had never read. A reviewer found it two passes later. The
+    claim is not restated in a fixed form here on purpose: `run_bounded` cannot
+    know what its callers do, so the property belongs where it can be CHECKED —
+    `test_a_bounded_reply_is_CHECKED_not_only_read.py` walks the call sites and
+    goes red on the seventh one that reads `.stdout` without reading `rc`.
+
+    READ IT THROUGH `is_timed_out`, NOT THROUGH `isinstance` DIRECTLY. The type
+    is the in-process signal and `timed_out` is the one that survives a
+    serialization boundary; see that predicate for why the distinction matters
+    to the Temporal port.
+    """
+
+    timed_out = True
+
+
+def is_timed_out(r: subprocess.CompletedProcess) -> bool:
+    """Did this reply come from a call that never answered?
+
+    ONE PREDICATE, TWO SIGNALS, BECAUSE ONE OF THEM DOES NOT SURVIVE A BOUNDARY.
+    `isinstance` is exact and free in-process. It is also Python type identity,
+    and the stated port plan (`sprint.md` § Temporal Integration — *"semantic
+    wrappers: `@activity.defn` over the plain functions"*) puts an activity
+    boundary between `run_bounded` and its callers. Across it the subclass is
+    gone, and a hang would silently read as an ordinary non-zero reply: safe
+    today only by ACCIDENT, because the synthesized stderr happens to carry no
+    `HTTP nnn` token so `_gh_transient_reason` still refuses it — one wording
+    change away from flipping.
+
+    `timed_out` is a plain bool and survives. Checking both means the port
+    cannot quietly delete a distinction two operator-facing log lines depend on,
+    and it costs one `getattr`.
+    """
+    return isinstance(r, TimedOutProcess) or getattr(r, "timed_out", False)
+
+
+def run_bounded(cmd: list[str], *, cwd: Path | str | None = None,
+                timeout: float = _SUBPROCESS_TIMEOUT_SECONDS
+                ) -> subprocess.CompletedProcess:
+    """`subprocess.run` with a wall-clock ceiling and no new exception path.
+
+    THE SINGLE LAUNCH POINT FOR THIS FLEET, and
+    `test_every_subprocess_the_fleet_launches_is_bounded.py` is what keeps it
+    single: no module under `modules/` may reach `subprocess.run` without a
+    `timeout=`, so the next launch added anywhere either comes through here or
+    states its own bound out loud. The check is on the CLASS rather than on the
+    seven other sites that existed when it was written — six of them `git` and
+    only one `gh` — and a guard listing the sites it knew about would have been
+    green on the eighth.
+
+    PARTIAL OUTPUT IS DISCARDED, WHICH IS A DELIBERATE NARROWING.
+    `TimeoutExpired` carries whatever the child had written before it was
+    killed, and quoting half an answer into the failure message invites exactly
+    the conflation this module spent a PR removing — a fragment of a reply is
+    not a reply, and a reader who sees JSON in a stderr message will try to read
+    it. What the message states instead is the one fact that is certain: the
+    call did not finish inside its budget.
+
+    THE CEILING BINDS THIS PROCESS, NOT THE PROCESS TREE. `subprocess.run`
+    SIGKILLs the direct child on expiry and then, on POSIX, `wait()`s for it —
+    verified against this interpreter's own `inspect.getsource(subprocess.run)`
+    rather than assumed, because the Windows branch does re-enter `communicate()`
+    unbounded and reading the wrong branch turns this note into a false alarm.
+    So `run_bounded` DOES return inside its budget. What it does not do is reap
+    a GRANDCHILD: `git fetch` spawns `git-remote-https`, and SIGKILLing `git`
+    orphans that. It holds a pipe nobody reads and blocks nobody; it is a leak,
+    not a hang, and bounding it means process groups, which is a larger decision
+    than this function should make on its own. THE SCOPE CONDITION ON "leak, not
+    a hang" IS THAT THIS PROCESS IS SHORT-LIVED — a dispatch exits and the OS
+    reaps. Under a long-lived Temporal worker the orphans accumulate for the
+    worker's lifetime instead, so the conclusion changes when the port does.
+    """
+    try:
+        return subprocess.run(cmd, cwd=str(cwd) if cwd is not None else None,
+                              capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return TimedOutProcess(
+            cmd, 124, stdout="",
+            stderr=f"`{' '.join(str(c) for c in cmd)}` did not answer within "
+                   f"{timeout:.0f}s and was killed. A hung call is not a server "
+                   f"condition a repeat would satisfy, so it is not retried.")
+
+
 def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     """Create an isolated worktree, matching V1's behaviour exactly.
 
@@ -112,16 +245,16 @@ def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     """
     wt = repo_root / ".claude" / "worktrees" / name
     remote_branch = ref.removeprefix("origin/")
-    f = subprocess.run(["git", "fetch", "-q", "origin", remote_branch],
-                       cwd=str(repo_root), capture_output=True, text=True)
+    f = run_bounded(["git", "fetch", "-q", "origin", remote_branch],
+                    cwd=repo_root)
     if f.returncode != 0 and ref.startswith("origin/"):
         raise RuntimeError(
             f"git fetch origin {remote_branch} failed: {f.stderr.strip()}. "
             f"Refusing to cut a worktree from {ref} — a stale local copy of that ref "
             f"would succeed here and put the run on a base that has already moved."
         )
-    r = subprocess.run(["git", "worktree", "add", "-f", str(wt), ref],
-                       cwd=str(repo_root), capture_output=True, text=True)
+    r = run_bounded(["git", "worktree", "add", "-f", str(wt), ref],
+                    cwd=repo_root)
     if r.returncode != 0:
         raise RuntimeError(f"worktree add failed for {ref}: {r.stderr.strip()}")
     return wt
@@ -143,33 +276,65 @@ def observe_outcome(worktree: Path, branch: str | None = None) -> str:
 
     Returns a human-readable observation. If it cannot determine the state it
     SAYS SO — it never reports a negative it did not verify.
+
+    `_git` RAISES RATHER THAN RETURNING A CODE, AND THAT IS THE FIX FOR A LIVE
+    DEFECT RATHER THAN A STYLE PREFERENCE. It used to return `tuple[int, str]`,
+    which makes *ignore the failure signal* a WELL-TYPED EXPRESSION: the middle
+    read here was `rc, dirty = _git("status", "--porcelain")` and never looked at
+    `rc` again. Once `run_bounded` began rendering a hang as `returncode=124,
+    stdout=""`, an unread `git status` became indistinguishable from a clean
+    worktree, and this function — whose only production caller is `run_claude`'s
+    `code != 0` path, WITHOUT a `branch` argument, so the banner is exactly two
+    facts — printed "Uncommitted changes: none" for a worktree nothing had read.
+    Half a banner, fabricated, on the one path whose documented cost of being
+    wrong is a duplicate full-budget dispatch.
+
+    No linter saw it: `rc` is rebound and read eleven lines down, so it is not an
+    unused variable. Raising is what makes the ignoring unwritable — dropping the
+    failure now costs an `except … : pass`, which is loud, greppable, and already
+    banned by `engineering-quality.md`.
+
+    THE RAISE IS CAUGHT PER FACT, NOT AROUND THE BODY, so a read that fails costs
+    ONLY ITS OWN LINE. Aborting the whole observation would discard the HEAD this
+    function had already successfully read, and reporting what it CAN determine
+    is the entire point.
     """
-    def _git(*args: str) -> tuple[int, str]:
-        r = subprocess.run(["git", *args], cwd=str(worktree),
-                           capture_output=True, text=True)
-        return r.returncode, r.stdout.strip()
+    class _Unreadable(RuntimeError):
+        """git did not answer this question. Never means "the answer is no"."""
+
+    def _git(*args: str) -> str:
+        r = run_bounded(["git", *args], cwd=worktree)
+        if r.returncode != 0:
+            raise _Unreadable(" ".join(args))
+        return r.stdout.strip()
 
     if not worktree.exists():
         return f"Worktree {worktree} no longer exists — cannot determine what landed."
 
     lines: list[str] = []
-    rc, head = _git("log", "-1", "--format=%h %s")
-    if rc != 0:
+    try:
+        head = _git("log", "-1", "--format=%h %s")
+    except _Unreadable:
         return f"Could not read git state in {worktree}. Inspect it by hand before re-running."
     lines.append(f"HEAD in worktree: {head}")
 
-    rc, dirty = _git("status", "--porcelain")
-    lines.append(f"Uncommitted changes: {'YES — ' + str(len(dirty.splitlines())) + ' file(s)' if dirty else 'none'}")
+    try:
+        dirty = _git("status", "--porcelain")
+    except _Unreadable:
+        lines.append("Uncommitted changes: COULD NOT BE READ — do not assume none.")
+    else:
+        lines.append(f"Uncommitted changes: {'YES — ' + str(len(dirty.splitlines())) + ' file(s)' if dirty else 'none'}")
 
     if branch:
-        rc, unpushed = _git("log", f"origin/{branch}..HEAD", "--oneline")
-        if rc == 0:
+        try:
+            unpushed = _git("log", f"origin/{branch}..HEAD", "--oneline")
+        except _Unreadable:
+            lines.append(f"Could not compare against origin/{branch} — do not assume either way.")
+        else:
             lines.append(
                 f"Commits NOT yet on origin/{branch}: {len(unpushed.splitlines()) if unpushed else 0}"
                 + (f"\n  {unpushed}" if unpushed else "")
             )
-        else:
-            lines.append(f"Could not compare against origin/{branch} — do not assume either way.")
 
     lines.append(f"Worktree retained at: {worktree}")
     return "\n".join(lines)
@@ -704,6 +869,300 @@ def run_claude(prompt: str, *, model_key: str, workflow_key: str,
     return output
 
 
+# ── THE `gh` RETRY, AND THE TWO GUARDS THAT KEEP IT HONEST ──────────────────
+#
+# On 2026-08-17 GitHub ran a Partial System Outage and a single
+# `gh repo view --json nameWithOwner` in preflight took one
+# `HTTP 503: No server is currently available to service your request`. The
+# whole dispatch died before doing any work: one blip, one wasted run.
+#
+# The retry is HERE and not in each caller for the reason `gh_json` below
+# already argues about exception families — a caller cannot be expected to know
+# which failures this function's implementation can emit, and the next `gh`
+# reader re-acquires the gap by writing the obvious two lines. Exactly one
+# caller had written them (`review_pr_workflow._read_thread_for_invariant`),
+# for one path, after a flaky read nearly discarded a completed review.
+#
+# THE RISK IS NOT UNDER-RETRYING, IT IS OVER-RETRYING, and both guards below
+# exist to fail toward "do not retry". Retrying a deterministic failure turns a
+# fast truthful error into a slow one; retrying a MUTATION double-posts, which
+# is not hypothetical here — issue #41 records duplicate comments on an issue an
+# operator had to rule on.
+
+# A later identical call may get a different answer for these, and only these.
+# 403 is deliberately NOT here: it is both "you may not do this" (terminal) and
+# "you have exceeded a secondary rate limit" (transient), and the status alone
+# cannot separate them. `_RATE_LIMIT_PHRASES` is what rescues the second.
+_RETRYABLE_HTTP = frozenset({429, 502, 503, 504})
+
+# Lowercased. Used ONLY to promote a 403; never to promote any other status, so
+# a 404 whose prose happens to mention a rate limit stays terminal.
+_RATE_LIMIT_PHRASES = ("rate limit", "abuse detection", "too many requests")
+
+# Both shapes `gh` actually emits, MEASURED against the live outage rather than
+# assumed: `HTTP 503: No server is currently available…` on the GraphQL path,
+# and `gh: Not Found (HTTP 404)` on the REST path.
+_HTTP_STATUS = re.compile(r"HTTP (\d{3})")
+
+# `gh`'s grammar is `gh <noun> <verb>`, and these verbs read. Anything absent
+# from this set — `create`, `comment`, `merge`, `edit`, `close`, and every verb
+# GitHub adds later — is NOT retried. An allowlist rather than a denylist
+# because the cost of the two mistakes is not symmetric: a read that fails to
+# retry costs one dispatch, a mutation that retries posts twice.
+#
+# `api` IS ABSENT ON PURPOSE. Its method is a flag (`-X`, `-f`), not a verb, so
+# the positional rule below cannot decide it, and nothing in the fleet routes
+# `gh api` through here today. Add it with the first caller and with a rule that
+# reads the flags — do not assume it is a read because the common case is.
+_READ_ONLY_GH_VERBS = frozenset({"view", "list", "checks", "status", "diff"})
+
+# THREE ATTEMPTS, ≤8 SECONDS OF ADDED LATENCY. Two pauses because one retry is a
+# coin flip on a blip and four starts disguising an outage as latency — the
+# operator's stated concern is runs that will not stop. 2.0s because the 503s
+# measured during this outage cleared within seconds; 6.0s rather than the 8.0
+# its sibling uses because this sits UNDERNEATH
+# `review_pr_workflow._THREAD_READ_BACKOFF_SECONDS`, and the composition on that
+# one path is 3×3 = 9 attempts and ~34s of PAUSES.
+#
+# ~34s IS THE ADDED-LATENCY BOUND AND IT IS NOT THE WALL-CLOCK ONE, which this
+# comment said nothing about until `_SUBPROCESS_TIMEOUT_SECONDS` existed. The
+# wall-clock bound is `attempts × timeout + pauses`: 3×120 + 8 ≈ 6min here, and
+# 9×120 + 34 ≈ 18min composed — because `504 Gateway Timeout` is in the
+# retryable set and by definition arrives slowly. An attempt count stopped
+# bounding wall-clock the moment each attempt acquired a ceiling; bounding it
+# would take a monotonic deadline on the outer loop, which is a change to
+# `review_pr_workflow` and not to this tuple. Both figures are asserted in
+# `test_the_retry_under_the_review_threads_retry_stays_bounded`.
+# Shape matches that sibling deliberately: a tuple of pauses, with the final
+# attempt outside the loop and uncaught so the real error surfaces.
+_GH_RETRY_BACKOFF_SECONDS = (2.0, 6.0)
+
+
+def _one_line(text: str, limit: int = 120) -> str:
+    """Anything, flattened short enough to belong on a console line.
+
+    `' '.join(args)` is fine in an exception, which is read once. It is not fine
+    in a retry notice: `gh pr comment --body-file` aside, several call sites pass
+    multi-line prose, and a retry that dumps a PR body into the operator's
+    console teaches them to stop reading the retries.
+
+    NAMED FOR WHAT IT DOES, NOT FOR ITS FIRST CALLER. This was `_gh_label(args)`
+    and three of its four uses passed `[stderr]` rather than an argv — so the
+    name told the next author that arg-aware logic (redacting `--body-file`,
+    say) belonged here, and that change would silently have reformatted every
+    error string in this module's console output.
+    """
+    flat = text.replace("\n", " ")
+    return flat if len(flat) <= limit else flat[:limit - 3] + "..."
+
+
+def _gh_transient_reason(stderr: str) -> str | None:
+    """Why this `gh` error is worth trying again, or None if it is not.
+
+    KEYED ON THE HTTP STATUS `gh` PRINTS, not on prose. Prose is server-supplied
+    English that changes without notice; the status token is the one part of the
+    message that means the same thing every time.
+
+    READS STDERR ONLY, WHICH IS A DELIBERATE NARROWING. `gh api` writes the
+    response BODY to stdout and its own diagnostic to stderr (measured), so
+    classifying on stderr keeps server-controlled content out of the decision.
+
+    EVERY STATUS FOUND MUST BE RETRYABLE, NOT MERELY ONE OF THEM. A message
+    carrying both a 404 and — for any reason, including a quoted body — a 503 is
+    treated as terminal. The asymmetry is the point: the failure mode of being
+    wrong here is a run that will not stop.
+
+    NO STATUS AT ALL IS TERMINAL. That is correct for the cases it was measured
+    against (`unknown flag: --not-a-flag`, and GraphQL's
+    `Could not resolve to a PullRequest`, which is a 404 wearing no status) and
+    it is the fail-safe direction for everything else. See this module's tests
+    for what that costs — a transport error and a GraphQL-layer 5xx both present
+    with no status and are both left un-retried.
+    """
+    codes = {int(c) for c in _HTTP_STATUS.findall(stderr)}
+    if not codes:
+        return None
+    lowered = stderr.lower()
+    rate_limited = any(p in lowered for p in _RATE_LIMIT_PHRASES)
+    for code in sorted(codes):
+        if code in _RETRYABLE_HTTP:
+            continue
+        if code == 403 and rate_limited:
+            continue
+        return None
+    if rate_limited:
+        return f"HTTP {sorted(codes)[0]}, throttled"
+    return f"HTTP {sorted(codes)[0]}, server-side"
+
+
+def _gh_is_read_only(args: list[str]) -> bool:
+    """Whether re-running this invocation is free of consequence.
+
+    A 502 on a MUTATION may mean the mutation landed and only the reply was
+    lost. Nothing in the reply can distinguish that from a mutation that never
+    ran, so the only safe answer for a write is: do not retry, raise, and let a
+    human or a caller with more context decide.
+
+    POSITIONAL, AND IT DOES NOT PARSE FLAGS — it takes the second non-flag token
+    as the verb. That is imprecise, and every direction the imprecision runs is
+    toward NOT retrying: a global flag placed before the noun shifts the window
+    so the noun lands in the verb slot and matches nothing, and a flag VALUE that
+    happens to spell a read verb still sits behind its own noun. A full parse
+    would need to track which flags take values, i.e. a model of `gh`'s CLI that
+    goes stale silently.
+
+    WHAT IT DOES NOT LOOK AT: whether the SERVER considers the call a write. A
+    read verb pointed at an endpoint with side effects — none exist in this
+    fleet — would be retried on its say-so.
+    """
+    verbs = [a for a in args if not a.startswith("-")]
+    return len(verbs) >= 2 and verbs[1] in _READ_ONLY_GH_VERBS
+
+
+def _gh_timed_out_line(label: str, spent: int, attempts: int,
+                       args: list[str]) -> str:
+    """A TIMEOUT IS A THIRD FACT, AND IT MUST NOT WEAR EITHER REFUSAL'S LINE.
+
+    It is not `TERMINAL` in the sense the first refusal means — that one says
+    *the request is wrong and GitHub told us so*, which points at us. It is not
+    the write refusal either — that one says *GitHub is unwell and we stopped
+    anyway because a repeat may double-apply*. A hang says GitHub is unwell AND
+    told us nothing at all.
+
+    NOT RETRIED, FOR READS AS WELL AS WRITES. Both guards in this module default
+    to "do not retry" and so does this one, but state the bound honestly rather
+    than better than it is:
+
+      * with a timeout TERMINAL, a wedged endpoint costs 1 attempt here and 3
+        under `_THREAD_READ_BACKOFF_SECONDS` — 3×120s ≈ 6min;
+      * were it another transient class, the same path would be 9×120s + 34s
+        ≈ 18min.
+
+    AND ~18min IS ALREADY REACHABLE WITHOUT IT, which is the part a confident
+    sentence would have hidden. `504 Gateway Timeout` is in the retryable set
+    and by definition arrives slowly, so nine attempts that each answer 504 just
+    under the ceiling compose to the same ~18min. What the terminal
+    classification buys is therefore the EXPECTED case, not the bound: a wedged
+    endpoint stays wedged, so the all-hangs path is the likely one, and paying
+    6min for it rather than 18 is the whole trade. Bounding the worst case would
+    need a monotonic DEADLINE on the outer loop rather than an attempt count,
+    because attempt counts stopped bounding wall-clock the moment each attempt
+    acquired a ceiling.
+    """
+    line = (f"→ gh {label}: attempt {spent}/{attempts} gave NO ANSWER within "
+            f"{_SUBPROCESS_TIMEOUT_SECONDS:.0f}s — TIMED OUT (not retried): a "
+            f"hung call names no server condition a repeat would satisfy, and "
+            f"repeating it would move this path's wedged-endpoint cost from "
+            f"~6min to ~18min")
+    if not _gh_is_read_only(args):
+        # The one thing `run_bounded`'s generic message cannot say, because only
+        # here is the invocation known to be a mutation. A killed `gh pr comment`
+        # may have been applied server-side, and "it was not retried" does not
+        # answer the operator's actual question.
+        line += (" — AND THIS IS NOT A READ: the write may have been applied "
+                 "server-side before the kill, so verify before re-running")
+    return line
+
+
+def gh_attempt(args: list[str],
+               repo_root: Path | None) -> subprocess.CompletedProcess:
+    """`gh`, retried past transient server-side failures, returned UNJUDGED.
+
+    THIS FUNCTION NEVER RAISES ON A NON-ZERO EXIT, and that is the whole reason
+    it exists beside `gh` rather than inside it. Two callers need the retries
+    without the raise: `gh issue list` in `plan_activities` degrades to a "COULD
+    NOT BE READ" note, and `ci_verdict` in `build_activities` classifies by
+    PARSING because `gh pr checks` exits non-zero whenever checks are failing or
+    pending. Folding the raise in here would break both, so
+    `test_gh_attempt_RETURNS_a_failure_rather_than_raising_it` pins it.
+
+    `repo_root` IS OPTIONAL BECAUSE ONE CALLER LEGITIMATELY HAS NO TREE. `gh()`
+    always passes one (see its docstring on why cwd rather than `--repo`), but
+    `ci_verdict` addresses the PR with an explicit `--repo` and must keep using
+    the process cwd; `None` means exactly that, and preserves what its raw
+    `subprocess.run` did before it was routed through here.
+
+    A RETRY IS VISIBLE OR IT NEVER HAPPENED. Every attempt past the first prints
+    what failed, how it was classified, and how long the pause is; a run that
+    eventually succeeded prints which attempt did it. Silent retries are how
+    nobody ever learns whether the answer to "is it GitHub or us?" is on record.
+    """
+    label = _one_line(" ".join(args))
+    attempts = len(_GH_RETRY_BACKOFF_SECONDS) + 1
+    spent = 0
+
+    def _run() -> subprocess.CompletedProcess:
+        # ONE definition of the invocation, called from two places. The "final
+        # attempt outside the loop" property below is about CONTROL FLOW, not
+        # about the text of this line — and two copies of it drift the moment
+        # someone changes the budget on one of them. That drift is not
+        # hypothetical: this comment used to name `timeout=` as the example, and
+        # `run_bounded` is where the timeout landed.
+        return run_bounded(["gh", *args], cwd=repo_root)
+
+    for pause in _GH_RETRY_BACKOFF_SECONDS:
+        r = _run()
+        spent += 1
+        if is_timed_out(r):
+            print(_gh_timed_out_line(label, spent, attempts, args), flush=True)
+            return r
+        if r.returncode == 0:
+            if spent > 1:
+                print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}",
+                      flush=True)
+            return r
+        reason = _gh_transient_reason(r.stderr)
+        # NOT SILENT, because "it did not retry" is the half of this an operator
+        # cannot infer from the absence of a line — a run that never retried and
+        # a run whose retry code is broken look identical in a log that only
+        # speaks when it retries.
+        #
+        # AND THE TWO REFUSALS SAY DIFFERENT THINGS, because they are different
+        # facts and the operator's question is "is it GitHub or us?". A
+        # deterministic failure is about the request; a transient failure refused
+        # on a write is about GitHub, and the run stopped anyway because a repeat
+        # might double-apply. One label for both answers the question wrongly
+        # half the time.
+        if reason is None:
+            print(f"→ gh {label}: attempt {spent}/{attempts} failed, TERMINAL "
+                  f"(not retried) — {_one_line(r.stderr.strip())}", flush=True)
+            return r
+        if not _gh_is_read_only(args):
+            print(f"→ gh {label}: attempt {spent}/{attempts} failed, TRANSIENT "
+                  f"({reason}) but NOT A READ — not retried, because repeating "
+                  f"it may apply the write twice — "
+                  f"{_one_line(r.stderr.strip())}", flush=True)
+            return r
+        print(f"⚠ gh {label}: attempt {spent}/{attempts} failed, TRANSIENT "
+              f"({reason}) — retrying in {pause}s", flush=True)
+        time.sleep(pause)
+
+    # The last attempt is deliberately OUTSIDE the loop, so a persistent failure
+    # returns the real `gh` reply rather than one classified and swallowed.
+    r = _run()
+    spent += 1
+    if is_timed_out(r):
+        # ONE definition of the line, for the same reason `_run` has one
+        # definition of the invocation. This was written twice and the two
+        # copies had already diverged before anyone ran them: the ✗ line below
+        # would otherwise report "FAILED after 3 attempts" for a run whose last
+        # attempt never got an answer at all.
+        print(_gh_timed_out_line(label, spent, attempts, args), flush=True)
+    elif r.returncode == 0:
+        # GATED THE SAME WAY ITS TWIN IN THE LOOP IS, and it was not. With
+        # `_GH_RETRY_BACKOFF_SECONDS = ()` — the one-character way to turn
+        # retries off — the loop never runs, every `gh` call in the fleet lands
+        # here with `spent == 1`, and every successful read printed a ✓ line.
+        # The kill switch for this feature also flooded the console.
+        if spent > 1:
+            print(f"✓ gh {label}: succeeded on attempt {spent}/{attempts}",
+                  flush=True)
+    else:
+        print(f"✗ gh {label}: FAILED after {spent}/{attempts} attempts — "
+              f"{_one_line(r.stderr.strip())}", flush=True)
+    return r
+
+
 def gh(args: list[str], repo_root: Path) -> str:
     """Run `gh` INSIDE the target repo rather than passing --repo.
 
@@ -712,15 +1171,32 @@ def gh(args: list[str], repo_root: Path) -> str:
     derive the repo from the process cwd — which is exactly what the flag's own
     documentation promises never happens. Setting cwd keeps the identity
     explicit without needing to parse a remote URL into a slug.
+
+    Non-zero is a `RuntimeError` as it always was; what changed is that a
+    transient server-side failure on a read no longer reaches that raise on its
+    first occurrence.
+
+    THE ATTEMPT COUNT IS NOT IN THIS MESSAGE, AND THAT IS DELIBERATE. Only
+    `gh_attempt` knows it — deriving it here from the final stderr gets it wrong
+    for the mixed case (a 503 that becomes a 404 on the next attempt), and a
+    figure that is right most of the time is the kind a reader stops checking.
+    It prints the count on the line immediately above this raise instead.
     """
-    r = subprocess.run(["gh", *args], cwd=str(repo_root),
-                       capture_output=True, text=True)
+    r = gh_attempt(args, repo_root)
     if r.returncode != 0:
         raise RuntimeError(f"gh {' '.join(args)} failed in {repo_root}: {r.stderr.strip()}")
     return r.stdout
 
 
-def gh_json(args: list[str], repo_root: Path):
+# Both shapes `gh --json` can legitimately answer with, and nothing else — a
+# scalar or a null is a reply `gh` cannot have sent. Named so a caller that
+# genuinely accepts either says which "either" it means, rather than leaning on
+# a default nobody chose.
+GH_JSON_SHAPES = (dict, list)
+
+
+def gh_json(args: list[str], repo_root: Path, *,
+            expect: type | tuple[type, ...]):
     """`gh` plus its parse, so a `gh` FAILURE IS ONE EXCEPTION TYPE.
 
     ONE FAILURE SURFACE, BECAUSE CALLERS GUARD AGAINST A TYPE AND NOT AN EVENT.
@@ -741,15 +1217,70 @@ def gh_json(args: list[str], repo_root: Path):
     The raw body is quoted (truncated) into the message, because "expecting value
     at line 1 column 1" says nothing about whether the answer was an HTML error
     page, an empty string or a half-written array.
+
+    A DECODE FAILURE IS NOT RETRYABLE HERE, AND THIS FUNCTION ADDS ZERO
+    ATTEMPTS. `gh` exited 0: the transport succeeded and the server named no
+    condition a later identical call would satisfy. Nothing available at this
+    point distinguishes a truncated body from a server that answered fully and
+    wrongly, and "retry until it parses" is precisely the loop that turns a
+    deterministic wrong answer into a slow one.
+
+    THE SEPARATION IS THE WHOLE REASON THE RETRY LIVES BELOW THIS LINE. The
+    paragraph above exists because a 503 and a zero-exit-unparseable-body were
+    once conflated by callers; normalising them to one exception TYPE is what
+    callers need, and it is exactly what a retry must not be built on. Retrying
+    `RuntimeError` here would re-run the terminal failures `gh_attempt`
+    deliberately refused — every 404, every bad flag — because by the time the
+    exception exists the cause has been erased. So the classification happens in
+    `gh_attempt`, where the exit code and the stderr are still separate facts,
+    and this function is a pure parse over whatever survived that.
+
+    If a truncated body is ever MEASURED rather than inferred, it earns its own
+    named classification with its own evidence — not a quiet membership in the
+    transient set.
+
+    "ZERO ATTEMPTS" IS TRUE AT THIS LAYER AND FALSE ONE LAYER UP, which is worth
+    saying rather than leaving a reader to trust the sentence further than it
+    goes. `review_pr_workflow._read_thread_for_invariant` catches bare
+    `RuntimeError` around `thread_snapshot`, which reaches this function — so on
+    that ONE path a decode failure is retried up to three times after all. That
+    is a consequence of the normalisation described above, not an accident: the
+    exception type is deliberately the same, so a caller that retries the type
+    retries both members of it. It is left as it is because that caller's
+    alternative is discarding a ~40-minute review, and it is BOUNDED — pinned,
+    with the composed count, by
+    `test_a_decode_failure_IS_retried_by_the_one_caller_that_retries_the_TYPE`.
     """
     raw = gh(args, repo_root)
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"gh {' '.join(args)} in {repo_root} exited 0 but did not return JSON: "
             f"{exc}. First 200 bytes of the reply: {raw[:200]!r}"
         ) from exc
+    # PARSING IS NOT THE SAME AS ANSWERING, which is the half this function used
+    # to leave to its callers. `{"message": "Not Found"}` and `[]` and `"x"` all
+    # decode without complaint, and the caller then does `.get("comments")` or
+    # `i["number"]` and dies of `AttributeError` or `TypeError` — two more
+    # exception families, in the one function whose entire purpose is that
+    # callers guard against ONE type.
+    #
+    # `expect` IS REQUIRED RATHER THAN DEFAULTED, and that is the whole design.
+    # A permissive `(dict, list)` default would have been dead by policy — every
+    # production caller here reads by key or by index, so every one of them has
+    # an answer — and enforcing "state your shape" is then either an AST census
+    # over the tree (which was written, and which missed any caller outside its
+    # roots) or the signature, which the interpreter enforces for free at every
+    # call site there will ever be. Use `GH_JSON_SHAPES` to say "either" out loud.
+    if not isinstance(parsed, expect):
+        wanted = expect if isinstance(expect, tuple) else (expect,)
+        raise RuntimeError(
+            f"gh {' '.join(args)} in {repo_root} exited 0 and returned valid JSON "
+            f"of the wrong shape: expected {' or '.join(t.__name__ for t in wanted)}, "
+            f"got {type(parsed).__name__}. First 200 bytes: {raw[:200]!r}"
+        )
+    return parsed
 
 
 def repo_slug(repo_root: Path) -> str:

@@ -22,6 +22,23 @@ existing duplication is frozen below and the ratchet runs BOTH ways:
 The second is what makes the list shrink instead of becoming a permanent excuse
 list. Fixing a duplication forces its row out, and the row cannot come back.
 
+AND IT SHRANK: 48 -> 13 in one change. The three largest consumer-sets were the
+whole of it — a child and its `_minor` sibling twice over, plus the two research
+entry points — 35 blocks and 72% of the duplicated bytes, all of it promoted to
+`modules/assistant/prompts/`. What is left is mostly CROSS-FAMILY sets
+(`build_refine` + `plan_revision`, `build_refine` + `research_verify` and
+similar). Those are deliberately still here: whether two children in different
+families should move together is a judgement nobody has made, and promoting them
+blind would couple runs that have no reason to be coupled.
+
+"MOSTLY", AND THE WORD IS DOING WORK. This sentence read "seven CROSS-FAMILY
+sets" and was wrong on both halves by the time anyone re-measured: there are
+eight sets, and two of them are not cross-family at all — `research_write` +
+`research_write_minor` are tier siblings, and `plan_feature` + `plan_verify` are
+one family. The count is now derived by
+`test_promotion_guard_prose_figures_are_DERIVED` rather than restated here,
+which is why the prose carries a shape and not a number.
+
 HOW TO FIX ONE, rather than adding to the baseline: move the block to
 `modules/assistant/prompts/<name>.md`, put a placeholder where it used to be in
 each child, and pass `"NAME": act.shared_prompt("<name>")` in each workflow's
@@ -31,9 +48,12 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
 
   * **NEAR-duplicates are invisible to it.** Blocks are matched verbatim, so a
     copy that has already drifted by a single word does not register — and a
-    drifted copy is the more dangerous kind, because it reads as intent. Three
-    same-named prompts sit at 85.8%, 76.1% and 62.1% similarity to their
-    siblings and NONE of them appears below.
+    drifted copy is the more dangerous kind, because it reads as intent.
+    `test_tier_siblings_do_not_DRIFT_by_a_sentence` is the complement and owns
+    that half. This list used to name three same-named prompts "at 85.8%, 76.1%
+    and 62.1%"; two of those three figures were falsified by the promotions in
+    the very PR that wrote them, which is why the similarities are no longer
+    restated here.
   * It cannot say whether a block SHOULD be shared. A child doing a genuinely
     different job may legitimately repeat a sentence. This reports duplication;
     a human rules on it.
@@ -57,55 +77,31 @@ MIN_BLOCK = 120
 
 # FROZEN 2026-08-16. hash -> how many children carry it, and its opening words.
 # THIS LIST MAY SHRINK. IT MAY NEVER GROW.
+#
+# THE LEADING `Nx` IS AN ASSERTION, NOT A NOTE — see
+# `test_a_baselined_block_does_not_SPREAD_to_another_child`. It was decoration
+# until PR #100's correction pass mutated the guard and found that copying an
+# ALREADY-BASELINED block into a THIRD child produced 1282 passed and zero
+# failures: the baseline froze WHICH blocks are duplicated and never HOW WIDELY,
+# so a duplication could keep spreading through the exact blocks the list had
+# already forgiven. The same pass had just regenerated these counts (one moved
+# 5x -> 4x), which is what made leaving them unchecked the worse option — a
+# freshly-rewritten number reads as live data.
+
 ACCEPTED: dict[str, str] = {
-    "9059503abb24": "2x  - Discover the project's test hierarchy: look for `docs/standards/",
-    "760e9be03a6f": "5x  Execute stages in strict numerical order. Each stage builds on the",
-    "6f0c33fe0547": "3x  **.gitignore-collision check (before checkpoint commit):** if this",
-    "f2e2bd49ac76": "3x  **The deferral rule's standard applies here too — verification is ",
-    "f7b064f1785b": "2x  **Coverage check (do this FIRST):** Before writing or running test",
-    "9cb7fb3c9346": "2x  ## Stage 8: SUBMIT - Stage any uncommitted changes remaining from ",
-    "5854146ac948": "2x  **A word about your own bias, because it is not the one you were b",
-    "0b7e2bdc08dc": "2x  - **If you have written the remedy, apply it.** Drafting a fix and",
-    "8d8a00c02d9c": "2x  **VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.**",
-    "c68280bc1061": "2x  1. **State it in `synthesis.md`** under a clearly-marked heading: ",
-    "d618192ab2b3": "2x  - **'You have Read/Grep/Glob and no shell. That is expected — do n",
-    "2b87ce89ba32": "2x  **Then check the DELIVERED CI gate — you are the only actor who ca",
-    "c425e7a6ebe1": "2x  **CAN THIS TEST FAIL? (do this before declaring green — a green su",
-    "0a75885e1520": "2x  **Understand why rather than obeying it.** Six versions of this ru",
-    "60954fc026d4": "2x  **If yes, exactly THREE dispositions exist and the rest are UNREAC",
-    "6551baf7e6f6": "2x  **You are running at COMPONENT altitude.** The pool you are buildi",
-    "40c06b03ce65": "2x  ## Stage 1: VERIFY + DISCOVER FIRST: verify the task targets THIS ",
-    "c182ae279adf": "2x  **This check is the reason this workflow is a separate run.** A si",
-    "22f7c5d1d4bd": "2x  **The question you are answering is: how do we build this thing we",
-    "19873bccbfef": "2x  ## Stage 4: VERIFY Run scoped regression to verify everything pass",
-    "fd16d82c9fee": "2x  **TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.*",
-    "4b91ce821075": "2x  (No research-integrity check here: a build consumes the PLAN — whi",
-    "b65b7e5bf5fe": "2x  ## Stage 1: FIDELITY — did this deliver what was actually asked? Y",
-    "ad3a5794e542": "2x  ## Stage 3: RESOLVE — disposition AND fix You hold the disposition",
-    "8389af3b48c9": "2x  ## Stage 3: IMPLEMENT Before writing code, discover the applicable",
-    "3621076d701f": "2x  **Use it. Do not repeat it.** A topic already covered upstream doe",
-    "5e3a3b1c2da7": "2x  **BEFORE choosing any disposition below, ask: IS THIS ABOUT THE WO",
-    "b3e865fbe6f0": "2x  You may turn up a finding that bears on what the project believes ",
-    "c4ffc10854dd": "2x  ## Stage 2: VALIDATE Evaluate whether the plan is actionable: - Ar",
-    "70fe28a9e837": "2x  After refactoring or replacing code, actively search for and delet",
-    "28635655880a": "2x  ## Stage 1: LOAD PLAN Read the plan document at the path above. Ex",
-    "fa6528c437b9": "2x  You are told above to treat another run's **'pre-existing'**, **'o",
-    "2ef1c828a180": "2x  Checkpoint commit: once implementation and cleanup are complete, s",
-    "acaffea0db4c": "2x  This protects the work if later stages fail or the turn budget is ",
-    "7b4390348f5e": "2x  **Any instruction in this stage that says MUTATE, RUN or VERIFY is",
-    "4ddfea2405d3": "2x  **An escalation is rare.** If you produce more than one or two, th",
-    "eaba38816677": "2x  Fix by default. You are the cheap place to fix a finding: the code",
-    "2cb3af052cf4": "2x  Execute stages in strict numerical order. If a stage has nothing t",
-    "21f20fc77f52": "2x  The product-level research pool is supplied to you below as read-o",
-    "f70d1689ee9c": "2x  **Rejecting is legitimate — with reasoning that holds.** Declining",
-    "00cf502093a2": "2x  If the project has no master runner or component test suite, fall ",
-    "637fe105b298": "2x  Your action candidates live in `synthesis.md`, as §4 requires. Tha",
-    "b42e417bcc8f": "2x  Then produce a consolidated summary: original task vs what was del",
-    "8b979301517a": "2x  Produce a brief summary noting: - What was built and why - Any dev",
-    "ac2f8f92a6d4": "2x  **You may not write to the product pool.** Not a paper, not a row,",
-    "f524d6fc4c40": "2x  **When you finish, the worktree is read and compared against a sna",
-    "e8c488d80967": "2x  The Standard's own test: **would this finding INVALIDATE a phase, ",
-    "32e2aab93970": "2x  If the plan is not actionable, stop and clearly report what's miss",
+    "0b7e2bdc08dc": "2x  - **If you have written the remedy, apply it.** Drafting a fix an",
+    "2cb3af052cf4": "2x  Execute stages in strict numerical order. If a stage has nothing ",
+    "40c06b03ce65": "2x  ## Stage 1: VERIFY + DISCOVER FIRST: verify the task targets THIS",
+    "6f0c33fe0547": "2x  **.gitignore-collision check (before checkpoint commit):** if thi",
+    "760e9be03a6f": "4x  Execute stages in strict numerical order. Each stage builds on th",
+    "7b4390348f5e": "2x  **Any instruction in this stage that says MUTATE, RUN or VERIFY i",
+    "8d8a00c02d9c": "2x  **VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.*",
+    "d618192ab2b3": "2x  - **'You have Read/Grep/Glob and no shell. That is expected — do ",
+    "f2e2bd49ac76": "3x  **The deferral rule's standard applies here too — verification is",
+    "f524d6fc4c40": "2x  **When you finish, the worktree is read and compared against a sn",
+    "f70d1689ee9c": "2x  **Rejecting is legitimate — with reasoning that holds.** Declinin",
+    "fa6528c437b9": "2x  You are told above to treat another run's **'pre-existing'**, **'",
+    "fd16d82c9fee": "2x  **TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.",
 }
 
 
@@ -141,6 +137,68 @@ def test_no_NEW_block_is_copied_between_children() -> None:
         + "\n  ".join(
             f'{h} · {sorted(o)} · {" ".join(t.split())[:90]}'
             for h, (t, o) in sorted(new.items())
+        )
+    )
+
+
+def _spread(accepted: dict[str, str],
+            dup: dict[str, tuple[str, set[str]]]) -> list[tuple[str, int, list[str], str]]:
+    """Baselined blocks now carried by MORE children than the note freezes.
+
+    Split out from the test so the control below can drive it with a synthetic
+    baseline. The real tree can only ever exercise the passing case, and a
+    ratchet whose failing path has never run is a ratchet nobody has seen work.
+    """
+    out = []
+    for h, note in accepted.items():
+        if h not in dup:
+            continue                      # stale — the last test owns that case
+        m = re.match(r"(\d+)x", note)
+        assert m, f"{h}'s baseline note must start with its consumer count, e.g. '2x': {note!r}"
+        frozen, owners = int(m.group(1)), dup[h][1]
+        if len(owners) > frozen:
+            out.append((h, frozen, sorted(owners), note))
+    return out
+
+
+def test_the_SPREAD_check_fires_when_a_block_gains_a_consumer() -> None:
+    """Live control for the ratchet below, from the mutation that found the hole.
+
+    PR #100's correction pass copied an already-baselined block into a THIRD
+    child and got `1282 passed` with zero failures: the baseline froze WHICH
+    blocks were duplicated and never HOW WIDELY. That mutation is reproduced
+    here against `_spread` directly rather than narrated in a comment, so the
+    failing path is exercised on every run instead of once, by hand, in a
+    session nobody can re-open.
+    """
+    frozen = {"deadbeef1234": "2x  a block two children were forgiven for"}
+    within = {"deadbeef1234": ("text", {"build_draft", "build_draft_minor"})}
+    assert _spread(frozen, within) == [], "the check fires at the frozen width"
+    widened = {"deadbeef1234": ("text", {"build_draft", "build_draft_minor", "plan_revision"})}
+    assert _spread(frozen, widened), "the check is blind to a THIRD consumer"
+    narrowed = {"deadbeef1234": ("text", {"build_draft"})}
+    assert _spread(frozen, narrowed) == [], (
+        "shrinkage must stay green — the list may only shrink, and "
+        "test_a_FIXED_duplication_is_removed_from_the_baseline owns that half"
+    )
+
+
+def test_a_baselined_block_does_not_SPREAD_to_another_child() -> None:
+    """The other axis of the ratchet: a forgiven block may not gain consumers.
+
+    `test_no_NEW_block_is_copied_between_children` keys on the block, so once a
+    hash is in ACCEPTED it is forgiven no matter how many children carry it.
+    Widening was therefore free, and free is what the `Nx` prefix looked like it
+    was preventing while checking nothing.
+    """
+    spread = _spread(ACCEPTED, _duplicated())
+    assert not spread, (
+        "These blocks were already duplicated when the baseline froze and have "
+        "since been copied into MORE children. The baseline forgives the "
+        "duplication that existed, never its growth — promote the block to "
+        "modules/assistant/prompts/ rather than widening its entry:\n  "
+        + "\n  ".join(
+            f"{h}  frozen at {n}x, now {len(o)}x {o}" for h, n, o, _ in sorted(spread)
         )
     )
 

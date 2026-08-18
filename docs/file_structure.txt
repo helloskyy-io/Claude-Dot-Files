@@ -41,13 +41,11 @@ claude-dot-files/
 │   │   ├── doc-manager.md                           # Documentation systems engineer — 4 modes (AUTHOR/COORDINATE/AUDIT/MAINTAIN)
 │   │   ├── planner.md                               # Detailed implementation plans (Opus, on-demand)
 │   │   ├── quality-control.md                       # Senior-engineer holistic lens — runs sequentially after parallel reviewers
-│   │   ├── refactoring-evaluator.md                 # Structural improvement evaluation
 │   │   ├── research-analyst.md                      # Deep-research mini-paper author (opus + web; raw-sources-over-rendered, gaps-are-findings)
 │   │   ├── research-critic.md                       # Anti-hallucination gate — fetches every cited source, verifies claims match
 │   │   ├── research-currency.md                     # Research refresh differ — fresh sweep vs existing paper, revalidation intervals
 │   │   ├── security-auditor.md                      # Vulnerability detection & audit
 │   │   ├── standards-architect.md                   # Audits standards corpus for coherence, bloat, drift
-│   │   ├── standards-auditor.md                     # Audits code conformance to standards
 │   │   ├── test-writer.md                           # Generates & runs tests
 │   │   └── workflow-analyst.md                      # CPI workflow-log analysis
 │   │
@@ -181,8 +179,6 @@ claude-dot-files/
 │   │   ├── claude_code_headless.md                  # PLATFORM BACKGROUND — headless mode, the three outcomes, completion contracts, worktrees
 │   │   ├── claude_code_orchestration.md             # PLATFORM BACKGROUND — orchestration options and which one this repo landed on
 │   │   ├── claude_code_rules.md                     # PLATFORM BACKGROUND — rules vs CLAUDE.md, when to split
-│   │   ├── altitude_product.md                   # SHARED product-altitude authorization block — promoted from two byte-identical copies (issue #91)
-│   │   ├── mutation_discipline.md                # SHARED build discipline — forked once, so a test now holds the variants together
 │   │   └── claude_code_skills.md                    # PLATFORM BACKGROUND — skills and context-aware methodology
 │   │
 │   └── standards/                                   # HOW — binding rules for how things are done
@@ -321,6 +317,9 @@ claude-dot-files/
 │           │                                        #   three-layer architecture — {name}_workflow.py orchestration,
 │           │                                        #   {name}_helper.py pure compiler, {name}_activities.py I/O wrappers
 │           ├── modules/assistant/                   # The assistant edge — build/, plan/, research/, review_pr/ families + shared activities
+│           │                                        #   prompts/ is the SHARED PROMPT POOL — a .md fragment lives there iff more than one
+│           │                                        #   child loads it, by §10.1's promotion rule applied to prose. Deliberately rolled up
+│           │                                        #   here: a fragment is reached through shared_prompt("<stem>"), never through this map
 │           │                                        #   plan/ holds plan_project (parent) and its wired children in order:
 │           │                                        #   triage_candidates rules the candidates, plan_feature writes ONE component's
 │           │                                        #   roadmap.md and numbered phaseN_*.md docs from its research, plan_sprint places
@@ -400,8 +399,25 @@ claude-dot-files/
 │                   │                                #   Guards the mechanism added after the 2026-08-10 livelock, whose cause is UNIDENTIFIED
 │                   ├── test_v1_parity.py            # Turn caps are DERIVED from V1, never re-declared; plus the ruff F821 executability sweep
 │                   ├── test_isolation_invariants.py # Worktree isolation is unconditional; a negative outcome is observed, never asserted
+│                   ├── test_gh_retries_only_what_is_transient.py # `gh` rides out a 5xx or a throttle and refuses everything else — the
+│                   │                                #   terminal twin of every transient case, the write gate that stops a retried mutation,
+│                   │                                #   and the hang that is TERMINAL because retrying it turns a ~6min ceiling into ~18min
+│                   ├── test_every_subprocess_the_fleet_launches_is_bounded.py # No `subprocess.run` in the production tree may omit
+│                   │                                #   `timeout=`; `Popen` is exempt only by NAME, for the two streaming child dispatches
+│                   ├── test_a_gh_reply_is_checked_for_SHAPE_not_only_parsed.py # Every `gh`-reply `json.loads` asks what SHAPE came
+│                   │                                #   back — a decode guard alone lets `{"message": …}` through to a `TypeError`
+│                   ├── test_a_census_guard_proves_its_own_predicate.py # A guard that walks the tree must exercise its PREDICATE on a
+│                   │                                #   literal too — a floored walk over an unconditional predicate is a permanent green
+│                   ├── test_a_bounded_reply_is_CHECKED_not_only_read.py # A launch reply's stdout may not be read as evidence unless
+│                   │                                #   its return code was; per-BINDING, so a name rebound and read later stays a finding
+│                   ├── test_a_prose_COUNT_of_a_collection_is_DERIVED.py # Prose here that counts a collection the same module defines
+│                   │                                #   must match it — the fourth corpus to gate the figure-nobody-derives class
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+│                   ├── prose_number_words.py        # English number-words for the two prose-figure sweeps, in a HELPER module for the
+│                   │                                #   same reason as review_run_fakes below. Each sweep had its own copy and they had
+│                   │                                #   ALREADY diverged (twelve vs fourteen), so a figure written "thirteen X" was
+│                   │                                #   invisible to one of them — their own defect class, in their own supporting data
 │                   ├── review_run_fakes.py          # The shared review_pr fakes, in a HELPER module rather than a test module — a test
 │                   │                                #   module is collected, not imported, and the coupling it replaced broke at COLLECTION,
 │                   │                                #   which mutate.sh reads as a caught mutation (issue #72)
@@ -418,6 +434,26 @@ claude-dot-files/
 │                   │                                #   exit-protocol §4's reason column compared against the shipped enum
 │                   ├── test_build_prompt_variants_do_not_fork.py  # A stage-prompt variant must not silently lose its sibling's discipline (PR #99)
 │                   ├── test_prompt_blocks_are_shared_not_copied.py  # §10.1 for prose: a block in 2 children must be SHARED — frozen baseline that may only shrink
+│                   ├── test_promoted_fragments_render_for_every_consumer.py # A promoted fragment must RENDER for every
+│                   │                                #   consumer, not merely have a supplier somewhere in its source. The static check
+│                   │                                #   cannot see WHICH ARM supplies a key, so this drives the real entry points at both
+│                   │                                #   research altitudes and both build tiers, and asserts the two draft tiers render
+│                   │                                #   byte-identically — the property the deleted file-identity assertion used to hold
+│                   ├── test_promotion_guard_prose_figures_are_DERIVED.py # A promotion guard may not state a figure
+│                   │                                #   about the corpus it polices. Five counts in these three modules were falsified by
+│                   │                                #   the change that shipped them, so every `<N> <noun>` in their prose must be BOUND
+│                   │                                #   to a deriver or DECLARED historical with a reason. Exemptions are matched in a
+│                   │                                #   local window — a docstring-wide lookup excused every figure in the docstring
+│                   ├── test_tier_siblings_do_not_DRIFT_by_a_sentence.py # The blind spot the block guard NAMES and
+│                   │                                #   cannot see: a copy that drifted by one word stops being verbatim and vanishes
+│                   │                                #   from its baseline. Scoped to a workflow and its own _minor tier, where the axis
+│                   │                                #   of difference is documented, so a near-match is an accident by definition. THREE
+│                   │                                #   detectors: a similarity ratio, a one-sided-append predicate for the class the
+│                   │                                #   ratio is LEAST likely to see the larger the accidental append gets, and a
+│                   │                                #   line-orphan pass that looks INSIDE the pairs the first two surface, for a whole
+│                   │                                #   line present on one side and absent from the other. It
+│                   │                                #   SURFACES and never rules — the frozen lists may shrink, and may grow only with a
+│                   │                                #   note saying the difference is deliberate
 │                   ├── test_exit_record_transport.py # The measured seam — runs the jq filters EXTRACTED from run-claude.sh against the
 │                   │                                #   fixture: the assistant filter finds the completion signal, the .result filter
 │                   │                                #   does not (the finding, as a control), and neither accepts a non-final verdict.

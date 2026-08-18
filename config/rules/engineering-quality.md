@@ -130,7 +130,7 @@ If your response to a non-trivial implementation does NOT include the alignment 
 
 ## Finding disposition — never dismiss, always decide
 
-When an agent (code-reviewer, standards-auditor, refactoring-evaluator, security-auditor, standards-architect, quality-control, doc-manager, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
+When an agent (code-reviewer, standards-auditor, security-auditor, standards-architect, quality-control, doc-manager, architect, planner) surfaces a finding during review, every item must reach one of three explicit dispositions. **"Recommend we move on" is not a disposition — it is silent dismissal and is forbidden.**
 
 For each finding, follow this flow:
 
@@ -146,7 +146,7 @@ The training bias toward "agreeable and move forward" is real — it shows up as
 
 ### Finding QUALITY — every finding states its consequence and its remedy
 
-Disposition governs *whether* an item gets resolved. Quality governs *whether a human can act on it*. Both bind every agent that surfaces findings — code-reviewer, standards-auditor, quality-control, security-auditor, refactoring-evaluator, research-critic, architect, planner — and a finding that fails these is not a finding.
+Disposition governs *whether* an item gets resolved. Quality governs *whether a human can act on it*. Both bind every agent that surfaces findings — code-reviewer, standards-auditor, quality-control, security-auditor, research-critic, architect, planner — and a finding that fails these is not a finding.
 
 - **State the CONSEQUENCE.** Name what breaks, is risked, or gets decided wrongly if this is not addressed. **A bare discrepancy is a note, not a finding** — "X doesn't match Y" only becomes a finding when the mismatch *does something*. Conformance and label checks are the usual offenders. The finding's TITLE names the consequence, not the mismatch: *"three key areas have no research coverage"* ✅, *"sizing label mismatch"* ❌.
 - **Carry a REMEDY.** Every finding proposes a concrete action — including rejected ones (the reasoning IS the remedy) and deferred ones (the pointer plus why-not-now). No finding reaches a human without a proposed next action.
@@ -161,12 +161,11 @@ When multiple review agents run in a workflow stage, each has a distinct lens. D
 
 | Agent | Lens question | Scope |
 |---|---|---|
-| `code-reviewer` | Is this code correct? | Correctness, bugs, edge cases, real-world failure modes |
-| `refactoring-evaluator` | Could this be structured better? | Structural improvements, prioritized High/Medium/Low |
-| `standards-auditor` | Does this match our documented standards? | Project conventions, exemplar conformance |
+| `code-reviewer` | Is this code correct? **AND** could it be structured better? | TWO LENSES, reported separately: correctness (bugs, edge cases, real-world failure modes) and structure (coupling, abstractions, duplication, dead code), the latter prioritized High/Medium/Low with Risk and Scope. Absorbed `code-reviewer's structure lens` 2026-08-18 |
+
 | `security-auditor` | Are there vulnerabilities? | Security risks, attack surface, sensitive data handling |
 | `standards-architect` | Are the standards docs themselves coherent? | Corpus-level audit, NOT per-PR conformance |
-| `quality-control` | Would a senior engineer at a top-tier org sign off? | Holistic integration across dimensions — runs SEQUENTIALLY after the parallel narrow-lens reviewers, with access to their findings |
+| `quality-control` | Does this follow what the project already decided? | **PRIMARY: standards conformance** — CLAUDE.md chains, `docs/standards/`, exemplars. Secondarily coarse security shapes and quality compromises. Runs in PARALLEL with `code-reviewer`. Absorbed `standards-auditor` 2026-08-18; the cross-finding read it used to do moved to the orchestrator's RESOLVE stage |
 | `architect` | Is the design coherent and scalable? | Planning-stage system design |
 | `planner` | Is this implementation feasible and well-scoped? | Planning-stage decomposition and risk |
 | `doc-manager` | Is the doc system being managed end-to-end? | Documentation systems engineer — 4 modes (AUTHOR / COORDINATE / AUDIT / MAINTAIN) covering the full doc lifecycle. Substance always human-in-the-loop. Invoked on-demand OUTSIDE workflow review stages |

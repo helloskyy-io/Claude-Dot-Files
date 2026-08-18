@@ -174,15 +174,24 @@ RECORD_SURFACES: dict[str, str] = {
 # only ways to clear that are to delete the exemption or edit a frozen file.
 #
 # `personal-tooling.md` names `scripts/workflows/*.sh` and
-# `scripts/workflows/children/*.sh`. IT PREDATES THE ACTIVITIES EXTRACTION and
-# so does not name `scripts/workflows/activities/*.sh` — which is frozen in
-# FACT: every caller of it is a bash-fleet script, and the Python tree replaced
-# it with `assistant_activities.py`, referring to it only in comments. Sweeping
-# it forced an edit to a frozen file, which is the one thing the rule forbids,
-# so the stale enumeration is corrected here rather than obeyed literally.
+# `scripts/workflows/children/*.sh`, and that enumeration is correct.
+#
+# ⚠ `scripts/workflows/activities/` WAS ADDED HERE ON 2026-08-18 AND REMOVED THE
+# SAME DAY. The stated reason was that nothing in the Python tree executes it —
+# established by grepping for `subprocess` near the filename and finding only
+# comments. THAT WAS WRONG. `assistant_activities.run_claude` sources it on EVERY
+# dispatch:
+#
+#     runner = _WORKFLOWS / "activities" / "run-claude.sh"
+#     argv = ["bash", "-c", f'source "{runner}"; run_claude "$1"', "_", prompt]
+#
+# It is the live dispatcher for the whole V2 fleet — it passes `--max-turns`,
+# owns the completion contract and the turn-cap failure. Exempting it hid a live
+# surface from this sweep. The lesson is narrower than the bug: a `bash -c
+# source` invocation is invisible to a grep for `subprocess`.
+#
 # The Python tree under `scripts/workflows/temporal/` is live and IS swept.
-_FROZEN_BASH = ("scripts/workflows/", "scripts/workflows/children/",
-                "scripts/workflows/activities/")
+_FROZEN_BASH = ("scripts/workflows/", "scripts/workflows/children/")
 
 # `docs/file_structure.txt` is on BOTH sides of the split and must not be
 # allowlisted whole: three of its lines annotate the retired component's own
@@ -790,7 +799,7 @@ def test_the_exemption_semantics_hold_for_EVERY_declared_surface() -> None:
 @pytest.mark.parametrize(("path", "exempt"), [
     ("scripts/workflows/build.sh", True),                    # frozen, top level
     ("scripts/workflows/children/review-pr.sh", True),       # frozen, children/
-    ("scripts/workflows/activities/run-claude.sh", True),    # frozen, activities/
+    ("scripts/workflows/activities/run-claude.sh", False),   # LIVE — the V2 dispatcher
     ("scripts/workflows/temporal/anything.sh", False),       # LIVE V2 tree
     ("scripts/workflows/children/deeper/x.sh", False),       # no such tier exists
     ("scripts/workflows/build.py", False),                   # rule is `.sh` only

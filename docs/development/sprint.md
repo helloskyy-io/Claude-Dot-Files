@@ -151,7 +151,7 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 
 ## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
 
-**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — four phases. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
+**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — three phases. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
 
 Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
@@ -165,7 +165,7 @@ Taking apart the long-running workflows that already existed, so each boundary i
 
 All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. Phases 1–4 have no external gate and depend only on each other.
 
-- [ ] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
+- [x] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
 - [ ] **Phase 2 · The content store** — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
 - [ ] **Phase 3 · The emit rule** — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
 - [ ] **Phase 4 · Rebuildability is a test** — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
@@ -178,12 +178,14 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 
 - [x] **Stage A — the Python tree** — `scripts/workflows/temporal/`, parent/child modules with a CLI entrypoint, no Temporal runtime
 - [x] **V1 parity suite** — the Python fleet checked against the bash one it replaces
+- [ ] **Prove an invocation is indistinguishable from an operator at a terminal** — the constraint that decides whether the port is viable on a subscription model at all. Not a permission question; a design one, and it gates everything below it
 - [ ] **A `claude_cli` activity domain** — heartbeating for 10–60 minute runs, transcript-to-file for payload limits. The genuinely new work; the rest is a port
 - [ ] **Port `review-runs`** — the CPI log sweep, the one of the four with a live role and a run history
 - [ ] **Rule on `plan-new` and `review-sprint`** — 1,228 lines between them and **neither has ever executed**; decide whether they die with the bash fleet or earn a port
 - [ ] **Stand up the Temporal server** — Postgres-backed, on the VM that gets backed up
 - [ ] **A restart-recovery contract** — a durable dispatch id and per-subsystem recovery, designed once. Retrofitting one onto running workers is a rewrite, so it lands with them rather than after
 - [ ] **Rule the retry boundary before wrapping anything** — Temporal retries an ACTIVITY, and `gh()` gained its own bounded retry for transient outages (PR #101). Nesting them multiplies: 3 activity attempts × 3 call attempts is 9, which turns a brief outage into a long stall. Decide which layer owns it, and carry the transient-vs-terminal classification into `non_retryable_error_types` rather than re-deriving it — Temporal's default retries almost everything, including a `404`. **`preflight` is outside this and stays outside**: it runs before any workflow exists, so no retry policy can reach it
+- [ ] **Reduce `gh()`'s own retry when wrapping** — it retries a CALL, Temporal retries an ACTIVITY, and nested that is 3 × 3 = 9 attempts and ~34s of pauses (the shipped code says so in its own comment). Cut `gh()` to one attempt inside activities, carry `_RETRYABLE_HTTP` across as `non_retryable_error_types` rather than re-deriving it, and **leave `preflight` alone — it runs before any workflow exists and no retry policy reaches it**
 - [ ] **Stage B — semantic wrappers** — `@activity.defn` over the plain functions from Stage A
 - [ ] **Stage C — orchestrate** — workflows compose the wrappers; schedules replace timers
 

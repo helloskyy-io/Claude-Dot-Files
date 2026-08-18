@@ -46,10 +46,19 @@ PLACEHOLDER = "${MUTATION_DISCIPLINE}"
 TIERING = "SIZE THE CHANGE, THEN SET THE BAR"
 GUARD_SCOPE = "ASK WHAT EACH GUARD DOES NOT LOOK AT"
 
+# THE `_from_plan` VARIANT IS NOW ONE FILE, in the shared pool. It used to be
+# two byte-identical copies in the two draft children, held together by a
+# `test_the_two_from_plan_prompts_are_IDENTICAL` that lived here and said it
+# would go when the fork-vs-parameterize ruling collapsed them. That ruling is
+# §10.1's promotion rule applied to prose, it landed, and the test went with it:
+# a single file cannot differ from itself, so keeping the assertion would have
+# been a check that can no longer fail.
+#
+# What remains here is the half that a single file does NOT make impossible —
+# the variant losing the discipline its sibling carries.
 DRAFT_STAGE_PROMPTS = [
     BUILD / "build_draft" / "prompts" / "stages_1_to_4.md",
-    BUILD / "build_draft" / "prompts" / "stages_1_to_4_from_plan.md",
-    BUILD / "build_draft_minor" / "prompts" / "stages_1_to_4_from_plan.md",
+    SHARED / "stages_1_to_4_from_plan.md",
 ]
 
 
@@ -79,16 +88,49 @@ def test_every_draft_stage_prompt_REACHES_the_discipline() -> None:
     )
 
 
-def test_the_two_from_plan_prompts_are_IDENTICAL() -> None:
-    """They are copies, and they drifted once already.
+def _strays(build_root: Path) -> list[Path]:
+    """Plan-variant prompt files sitting inside a draft child instead of the pool.
 
-    `build_draft` and `build_draft_minor` ship byte-identical `_from_plan`
-    prompts. Nothing enforced that, so an edit to one was an edit to one. Until
-    the fork-vs-parameterize ruling lands and collapses them into a single file,
-    this holds them together.
+    Takes its root so the control below can point it at a fabricated tree. The
+    real tree only ever exercises the empty case, and an assertion whose failing
+    path has never run is indistinguishable from one that cannot fail.
     """
-    a, b = DRAFT_STAGE_PROMPTS[1], DRAFT_STAGE_PROMPTS[2]
-    assert a.read_text() == b.read_text(), (
-        f"{a.name} differs between build_draft and build_draft_minor. They are "
-        f"copies of one prompt; edit both or collapse them into one file."
+    return [
+        p
+        for child in ("build_draft", "build_draft_minor")
+        for p in (build_root / child / "prompts").glob("*from_plan*.md")
+    ]
+
+
+def test_the_STRAY_COPY_check_fires_when_a_child_holds_one(tmp_path: Path) -> None:
+    """Live control, and it covers the case the block-level baseline cannot.
+
+    A promoted file re-copied into ONE child leaves
+    `test_prompt_blocks_are_shared_not_copied` green — the block then has a
+    single consumer, so it is not duplicated at all. This is the check that
+    still sees it, so its failing path is the one worth demonstrating.
+    """
+    for child in ("build_draft", "build_draft_minor"):
+        (tmp_path / child / "prompts").mkdir(parents=True)
+    assert _strays(tmp_path) == [], "an empty tree must be clean"
+    planted = tmp_path / "build_draft_minor" / "prompts" / "stages_1_to_4_from_plan.md"
+    planted.write_text("a re-copied plan variant")
+    assert _strays(tmp_path) == [planted], "the glob is blind to a re-copied file"
+
+
+def test_no_draft_child_KEEPS_a_private_copy_of_the_plan_variant() -> None:
+    """The collapse must stay collapsed — a re-copied file is the fork returning.
+
+    Deleting the identical-copies assertion above removed the only thing that
+    was watching this pair. `test_prompt_blocks_are_shared_not_copied` would
+    catch a re-copy at BLOCK granularity, but only for blocks over its 120-byte
+    floor and only once someone regenerates its frozen baseline; this names the
+    file, which is the form the defect actually took.
+    """
+    strays = _strays(BUILD)
+    assert not strays, (
+        "a draft child carries its own copy of a plan-driven prompt again. Both "
+        "children load these from modules/assistant/prompts/ via shared_prompt(); "
+        "a local copy is the PR #99 fork re-forming:\n  "
+        + "\n  ".join(str(p.relative_to(BUILD.parent)) for p in strays)
     )

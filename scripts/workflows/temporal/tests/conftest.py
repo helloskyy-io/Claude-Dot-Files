@@ -49,8 +49,9 @@ if str(UNIT_TESTS) not in sys.path:
 
 # FOUND BY RUNNING THE SUITE AND THEN LOOKING AT THE OPERATOR'S HOME, which is the
 # only way it could have been found: every assertion passed the whole time.
-# PR #99 made all eleven entrypoints open a journal bag, and five unit modules
-# drive an entrypoint's `main()` to test its preconditions — so each `pytest` run
+# PR #99 made all eleven entrypoints open a journal bag, and the unit modules that
+# drive an entrypoint's `main()` test its preconditions by running it — so each
+# `pytest` run
 # created REAL bags under `~/.local/state/claude-dot-files/journal/`. Twenty-four
 # had accumulated in one day. Three separate consequences, none of them visible
 # as a red test:
@@ -70,8 +71,11 @@ if str(UNIT_TESTS) not in sys.path:
 #
 # AUTOUSE AND SESSION-WIDE BECAUSE THE DEFECT WAS OPT-OUT. A fixture each test
 # had to remember is the same shape as the optional control this component's own
-# requirement 11 exists to argue against: five modules reach an entrypoint today
-# and the sixth is what this is for.
+# requirement 11 exists to argue against: the modules that reach an entrypoint are
+# a population `test_the_suite_never_writes_to_the_operators_journal.py` pins, and
+# the NEXT one to be written is what this is for. The count is deliberately not
+# restated here — this comment is where the previous one went stale unseen, because
+# nothing in this file derives it and the journal prose gate excludes the shape.
 
 import pytest  # noqa: E402
 

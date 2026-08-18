@@ -35,6 +35,38 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
     values = {
         "DESCRIPTION": description,
         "STAGES_2_TO_4": act.load_prompt(PROMPTS / "stages_2_to_4.md"),
+        # SHARED WITH build_refine_minor — the values dict below IS the count, so
+        # nothing here can disagree with it. It used to say ELEVEN, then TWELVE,
+        # over a run of thirteen: a hand-maintained figure in two files, outside
+        # every prose sweep, corrected twice as an instance. The two tiers differ
+        # in how many review lenses they run, never in what a refine pass IS —
+        # so the fidelity premise, the closed disposition list and the verify
+        # gate are one text. §10.1: consumer count decides. Edit them under
+        # prompts/.
+        #
+        # FIVE OF THEM ARRIVED BY DRIFT, WHICH IS THE ARGUMENT FOR THE OTHER SIX.
+        # They were copies, not shared text, and each had already diverged by a
+        # sentence or two. The first two diverged in OPPOSITE directions, so
+        # neither was tiering: the major tier alone carried the clause extending
+        # RULING-REQUIRED to a brief's CONSTRAINT, the minor tier alone the
+        # measured evidence that rejections get left standing. The other three
+        # are ONE-SIDED APPENDS — the major tier alone was told the truncating
+        # `gh pr view`, the minor tier alone five measured evidence sentences —
+        # which a similarity ratio is least likely to catch precisely when the
+        # append is largest. Every one was reconciled by UNION and promoted, so
+        # the next sentence cannot land in only one of them.
+        "FIDELITY_PREMISE": act.shared_prompt("fidelity_premise"),
+        "FIDELITY_READ_AND_COMPARE": act.shared_prompt("fidelity_read_and_compare"),
+        "FIDELITY_NEEDS_A_SEPARATE_RUN": act.shared_prompt("fidelity_needs_a_separate_run"),
+        "FIDELITY_EVIDENCE_DISCIPLINE": act.shared_prompt("fidelity_evidence_discipline"),
+        "FIDELITY_MUTATE_WHAT_YOU_ADDED": act.shared_prompt("fidelity_mutate_what_you_added"),
+        "RESOLVE_DISPOSITION_AUTHORITY": act.shared_prompt("resolve_disposition_authority"),
+        "RESOLVE_REJECTIONS_MUST_BE_EXECUTED": act.shared_prompt("resolve_rejections_must_be_executed"),
+        "RESOLVE_CLOSED_DISPOSITION_LIST": act.shared_prompt("resolve_closed_disposition_list"),
+        "RESOLVE_DISPOSITION_DEFINITIONS": act.shared_prompt("resolve_disposition_definitions"),
+        "RESOLVE_FIX_BY_DEFAULT_AND_SUMMARY": act.shared_prompt("resolve_fix_by_default_and_summary"),
+        "VERIFY_AND_CI_GATE": act.shared_prompt("verify_and_ci_gate"),
+        "SUBMIT_AND_PUSH": act.shared_prompt("submit_and_push"),
         "RULES": act.shared_prompt("rules"),
         "PR_NUMBER": pr_number,
         "PR_BRANCH": act.pr_branch(pr_number, repo_root),

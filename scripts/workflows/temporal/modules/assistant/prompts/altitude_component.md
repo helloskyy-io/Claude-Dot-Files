@@ -29,7 +29,3 @@ You may turn up a finding that bears on what the project believes rather than ho
 3. **Do NOT write it into the product pool's `direction.md` or `candidates.md`.** Those files are the product pool's, and a component run appending to them means the operator's inbox is being written by runs that were never scoped to it. Surface it; the operator files it.
 
 **An escalation is rare.** If you produce more than one or two, that is a signal you have drifted upward rather than a signal the project is in trouble — say so plainly rather than presenting drift as findings.
-
-### You are refreshing, not sizing
-
-This pool's topic list was set by the run that created it. You revalidate what is there and correct what has changed; you do not grow the pool with new topics. If the component has genuinely grown, say so in your PR body and let a fresh research cycle size it.

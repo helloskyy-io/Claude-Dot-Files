@@ -37,6 +37,7 @@ from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput
 from ..build_draft import build_draft_workflow as draft
 from ..build_refine import build_refine_workflow as refine
+from ..build_refine_minor import build_refine_minor_workflow as refine_minor
 
 
 def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
@@ -105,12 +106,32 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
-    refine.run_refine(
-        description=description, pr_number=pr, repo_root=repo_root,
-        worktree=worktree, task_file=task.task_file,
-        correction_pass=correction, loops_left=loops_left,
-        ci_unsettled=not ci_settled, verbose=task.verbose,
-    )
+    # THE CORRECTION LOOP USES THE MINOR REFINE CHILD, and that is the whole
+    # saving. Pass 1 needs the full tier: two review agents over an unreviewed
+    # diff, 250 turns, 11.3 KB of stage prompt. A LOOP-BACK does not — `review-pr`
+    # has already written the runway naming which findings, what to change and
+    # what not to touch, so re-dispatching the full finding apparatus re-discovers
+    # a conclusion that already exists. The minor child is 2.9 KB of stages, ONE
+    # review agent and 100 turns, and its own prompt describes exactly this job:
+    # "a scoped correction, reviewed by one lens".
+    #
+    # It is not a new child. `build_minor` already runs it, so a change here
+    # reaches both callers — which is the point, and also the risk worth naming.
+    if correction:
+        # No `task_file`: a correction executes the runway on the PR thread, not
+        # the operator's original brief. The minor child's signature reflects that.
+        refine_minor.run_refine_minor(
+            description=description, pr_number=pr, repo_root=repo_root,
+            worktree=worktree, correction_pass=True, loops_left=loops_left,
+            ci_unsettled=not ci_settled, verbose=task.verbose,
+        )
+    else:
+        refine.run_refine(
+            description=description, pr_number=pr, repo_root=repo_root,
+            worktree=worktree, task_file=task.task_file,
+            correction_pass=False, loops_left=loops_left,
+            ci_unsettled=not ci_settled, verbose=task.verbose,
+        )
 
     # --- THE GATE: the parent reads the verdict, so MERGE is unreachable on red
     # A red suite must not reach `review-pr`, and the reason it lives HERE and

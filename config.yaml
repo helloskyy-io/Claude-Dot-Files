@@ -79,8 +79,15 @@ gh-monitor:
 #
 # Changes take effect on the NEXT dispatch — no restarts required.
 models:
-  build-draft-minor: sonnet  # minor tier, child 1: writes the scoped change
-  build-refine-minor: sonnet # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
+  # MINOR MEANS SMALLER, NOT WEAKER — ruled 2026-08-18. The tier's saving comes
+  # from SCOPE: 100 turns against 250, and ONE review lens against five. Buying a
+  # further cut by downgrading the reasoner was the wrong trade, because a small
+  # task is not the same as an easy one — deriving a set, ruling which exclusions
+  # are legitimate, stating a consequence rather than a mismatch are all small and
+  # all need judgement. A weak reasoner getting one of those wrong costs a full
+  # redispatch, which is strictly more than having run opus once.
+  build-draft-minor: opus    # minor tier, child 1: writes the scoped change
+  build-refine-minor: opus   # minor tier, child 2: FRESH context, ONE review lens (code-reviewer)
   build-draft: opus          # parent step 1: writes the change, opens an unreviewed PR
   build-refine: opus         # parent step 2: FRESH context — fidelity, review, corrections
   build-phase: opus             # phase implementation — the default engineer
@@ -135,7 +142,17 @@ models:
                                 #   untouched by this key. What runs here is pure orchestration —
                                 #   read the standard, dispatch one analyst, commit, open the PR —
                                 #   with no sizing judgment and no synthesis to author. That is the
-                                #   same shape build-draft-minor already runs at sonnet. Keying it to
+                                #   same shape build-draft-minor ran at sonnet. ⚠ THAT PRECEDENT WAS
+                                #   WITHDRAWN 2026-08-18 — build-draft-minor is opus now, on the
+                                #   ruling that minor means smaller not weaker. This key was NOT
+                                #   changed with it: whether the same argument applies here is an
+                                #   open operator decision, and the sonnet pin is left standing
+                                #   rather than changed by implication. ⚠ THE EVIDENCE IS ALREADY
+                                #   IN, MEASURED ON PR #102 (2026-08-17): the paper cost 22,815
+                                #   output tokens to WRITE and ~337,000 to verify and correct —
+                                #   roughly 15x, the same shape that retired the build-minor pin.
+                                #   A cheap writer whose output costs 15x to fix has not saved
+                                #   anything. Decide with that number in hand. Keying it to
                                 #   `research` (opus) would tie the cheap cycle's cost to the
                                 #   expensive one, which is the thing this workflow exists to avoid.
   research-refresh: opus        # research revalidation — orchestration + synthesis diff
@@ -154,7 +171,7 @@ models:
   #           web is REQUIRED, it is the source-gathering agent),
   #           research-currency (+web)
   #   sonnet: quality-control, standards-architect, code-reviewer,
-  #           refactoring-evaluator, standards-auditor, test-writer,
+  #           test-writer,
   #           doc-manager, workflow-analyst, research-critic (+web)
 
 # Per-workflow turn budget, passed to `claude -p --max-turns`.
@@ -173,9 +190,25 @@ models:
 # once. Raise from measurement, not from taste.
 max_turns:
   build-draft: 250            # writes the change, opens the unreviewed PR
-  build-refine: 250           # FRESH context: fidelity, review, corrections
-  build-draft-minor: 100      # minor tier, child 1
-  build-refine-minor: 100     # minor tier, child 2 — one review lens
+  # 250 -> 300. Headroom, not an expectation: today's restructure should push
+  # this DOWN, not up — Stage 2b's agent dispatch is gone entirely, and a HOLD
+  # now loops to build-refine-minor instead of re-running this child. If the
+  # extra 50 are never consumed, they cost nothing.
+  build-refine: 300           # FRESH context: fidelity, review, corrections
+  # RAISED 100 -> 200 on 2026-08-18. A turn cap is a RUNAWAY GUARD, not a budget
+  # (workflow-scripts.md § Turn caps): an unused turn costs nothing, and a low
+  # ceiling cannot buy reliability — it can only truncate a run partway and
+  # strand the work. Hitting it is loud and fails the child (`run-claude.sh`
+  # returns 1), so the failure mode of a LOW cap is a dead run, not a quiet one.
+  #
+  # THE REASON IS THE JOB, NOT A MEASUREMENT. An earlier draft of this comment
+  # cited p90 turn counts; that metric counted logged assistant messages, which
+  # is not what `--max-turns` counts, so it is withdrawn rather than restated.
+  # What is true: `build-refine-minor` now carries build's CORRECTION LOOP, which
+  # is larger work than the minor tier was originally sized for, and
+  # `build-draft-minor` writes scoped changes that have grown with the fleet.
+  build-draft-minor: 200      # minor tier, child 1
+  build-refine-minor: 200     # minor tier, child 2 — one review lens, and build's corrector
   build-phase: 300            # phase implementation — the default engineer
   plan-new: 500               # 14-stage project planning
   plan-revision: 300          # planning build
