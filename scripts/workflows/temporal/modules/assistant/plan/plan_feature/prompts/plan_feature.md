@@ -26,7 +26,7 @@ ${RESEARCH_INVENTORY}
 | Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it, never touch it |
 | Name the `component` on a row YOU append | Write or edit anything under ANOTHER component, or under your own `research/` |
 | | **Tick a completion checkbox** — you have built nothing |
-| | Set `decision`, `status`, or another filer's `component` in the candidates file |
+| | Set `decision`, `size`, `status`, or another filer's `component` in the candidates file |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
 | | **Delete anything** — a candidate row, a phase doc, or a planning file |
 | | Decide WHEN this component gets built, or where it sits against other work |

@@ -187,6 +187,16 @@ class Scaffolded(NamedTuple):
     resumed: list[str]
     extends: list[tuple[str, str]]
     unnamed: list[tuple[str, str]]
+    # TWO DECLINE REASONS ADDED 2026-08-19 WITH THE `size` COLUMN, and they are
+    # separate because the operator does something different about each.
+    #   `not_a_feature` — sized `phase` or `checkboxes`. Correctly not scaffolded;
+    #     it belongs inside a component that already exists, and the run that
+    #     extends that component is where it lands. Nothing is wrong.
+    #   `unsized`       — ruled `ship` and never sized. Nothing can route it, and
+    #     the remedy is a triage pass rather than anything here. Reported so the
+    #     backlog is VISIBLE instead of silently skipped.
+    not_a_feature: list[tuple[str, str]] = []
+    unsized: list[tuple[str, str]] = []
 
     @property
     def to_research(self) -> list[str]:
@@ -274,13 +284,30 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     of its four lists, so "nothing happened" can always be told from "nothing
     was eligible".
     """
-    result = Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+    result = Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
+                        not_a_feature=[], unsized=[])
     rows = act.candidate_rows(candidates_path, missing_hint=(
         "Without it there is nothing to scaffold from, and the research step "
         "that reads what this creates has no input."))
 
     for row in rows:
         if row.decision != "ship" or row.status != "open" or not row.component:
+            continue
+        # SIZE DECIDES WHETHER THIS SCAFFOLDS AT ALL, and before 2026-08-19 there
+        # was no size — this activity inferred one from a proxy: if the named
+        # component's directory did not exist, the candidate must be a new
+        # component. Right for a `feature` and wrong for the other two. A
+        # `phase`-sized candidate naming a component that happens to be new got a
+        # whole component scaffolded around one phase of work, and a
+        # `checkboxes`-sized one had no expressible form at all.
+        #
+        # BLANK IS SKIPPED RATHER THAN GUESSED AT, which is what makes the
+        # backfill self-healing: the 29 rows ruled `ship` before this column
+        # existed carry no size, and each heals when triage next reaches it. A
+        # guess here would scaffold components for rows nobody has sized.
+        if row.size != "feature":
+            (result.unsized if not row.size else result.not_a_feature).append(
+                (row.id, row.size or "unsized"))
             continue
         slug = component_slug(row.component)
         if not slug:

@@ -270,9 +270,9 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "own.plan_boxes — act.checked_boxes over every top-level doc the grant "
         "permits — counted either side of the run and compared in BOTH "
         "directions",
-    "Set `decision`, `status`, or another filer's `component` in the candidates file":
-        "act.candidate_decisions, act.candidate_statuses and "
-        "act.candidate_components snapshotted either side of the run, compared by "
+    "Set `decision`, `size`, `status`, or another filer's `component` in the candidates file":
+        "act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
+        "act.candidate_components snapshotted either side of the run, compared by act.sizes_this_run_had_no_right_to, "
         "act.statuses_this_run_had_no_right_to and "
         "act.components_this_run_had_no_right_to",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
@@ -309,7 +309,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "intersection those judge"),
     "before_status": (
         "act.ids_deleted on the SAME id set, already run against before_decision "
-        "— act.candidate_decisions, act.candidate_statuses and "
+        "— act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
         "act.candidate_components are all built from act.candidate_rows, so a row "
         "cannot be absent from one map and present in another. Registered rather "
         "than left implicit because that coupling is the whole reason a second "

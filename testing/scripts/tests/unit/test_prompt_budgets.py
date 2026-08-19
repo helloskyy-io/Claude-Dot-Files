@@ -182,7 +182,7 @@ BUDGETS: dict[str, int] = {
     # the immutability rule reads unconditionally, so it applied to a plan
     # nothing had cited yet. Operator ruling — the rule protects PUBLISHED
     # addresses, and before publication a tidy plan is strictly better.
-    "plan/plan_feature/prompts/plan_feature.md": 23449,  # +${FILING_A_CANDIDATE_ROW}
+    "plan/plan_feature/prompts/plan_feature.md": 23457,  # +${FILING_A_CANDIDATE_ROW}
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -225,7 +225,7 @@ BUDGETS: dict[str, int] = {
     # reviewer spend 1,500 bytes describing a one-sentence fix — the exact smell
     # engineering-quality.md names. Fixing a determined defect is now in scope;
     # re-planning is not, and the observers that always enforced that half do it.
-    "plan/plan_verify/prompts/plan_verify.md": 18127,
+    "plan/plan_verify/prompts/plan_verify.md": 18135,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
@@ -248,7 +248,7 @@ BUDGETS: dict[str, int] = {
     # budget, never what may lose one, and dropping the line would let 5 KB of
     # vacated space refill unwatched.
     "build/build_refine_minor/prompts/stages_2_to_4.md": 2989,
-    "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
+    "plan/triage_candidates/prompts/triage_candidates.md": 18102,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —
     # true on run 1, false on run 2, since papers accumulate and the synthesis is

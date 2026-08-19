@@ -109,13 +109,15 @@ max_turns = shared.max_turns
 # The load-bearing claim is that NO row's first five cells contain a pipe; a tally
 # of the Note's pipes is decoration and any new row can falsify it.
 _ROW = re.compile(
-    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|", re.M)
+    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|",
+    re.M)
 
 # The seven-column header, as every candidate table in the file renders it.
 # Kept for the MESSAGE it can give — "your table is the old shape" is a better
 # sentence than "row C-082's decision is unreadable" when the whole table moved.
 # It is NOT the guard; see `_check_shape`.
-_HEADER = "| ID | Candidate | `component` | Source | `decision` | `status` | Note |"
+_HEADER = ("| ID | Candidate | `component` | Source | `decision` | `size` | "
+           "`status` | Note |")
 
 # Anything that PRESENTS as a candidate row, whatever its id happens to look
 # like. `_ROW` insists on `C-\d{3}`; this insists only on the shape a reader
@@ -129,6 +131,12 @@ _ROW_LINE = re.compile(r"^\|\s*(C-\S+?)\s*\|", re.M)
 # § Two flags gives `status` its two values.
 _DECISIONS = ("", "ship", "requires review", "reject")
 _STATUSES = ("", "open", "closed")
+# `size` is `triage-candidates`'s SECOND ruling and it is asked ONLY of a `ship`.
+# Blank is the honest value everywhere else: a rejected candidate has no size, and
+# a shipped row filed before this column existed is UNSIZED rather than wrongly
+# sized — `plan-candidates` skips those and says so, which makes the backfill
+# self-healing instead of a migration.
+_SIZES = ("", "feature", "phase", "checkboxes")
 
 _BLANK = ("", "—", "-")
 
@@ -151,6 +159,7 @@ class CandidateRow(NamedTuple):
     title: str
     component: str
     decision: str
+    size: str
     status: str
 
 
@@ -197,8 +206,8 @@ def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[Candidat
         raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
     text = candidates_path.read_text()
     rows = [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
-                         normalise_cell(dec), normalise_cell(st))
-            for cid, title, comp, dec, st in _ROW.findall(text)]
+                         normalise_cell(dec), normalise_cell(size), normalise_cell(st))
+            for cid, title, comp, dec, size, st in _ROW.findall(text)]
     _check_shape(candidates_path, text, rows, missing_hint)
     return rows
 
@@ -451,6 +460,46 @@ def candidate_decisions(candidates_path: Path) -> dict[str, str]:
     return {row.id: row.decision for row in candidate_rows(
         candidates_path,
         missing_hint="Without it there is no `decision` column to hold anything to.")}
+
+
+def candidate_sizes(candidates_path: Path) -> dict[str, str]:
+    """Every row's `size`, normalised, keyed by id — `triage-candidates`' SECOND column.
+
+    THE SECOND RULING TRIAGE MAKES, and it is asked only of a `ship`. `decision`
+    answers *is this worth promoting from a candidate to committed work*; this
+    answers *how big is it* — a `feature`, a `phase` inside an existing one, or
+    `checkboxes` added to a phase that already exists.
+
+    WHY IT NEEDS A COLUMN RATHER THAN AN INFERENCE. `plan-candidates` used to
+    derive size from a proxy: if the named component's directory did not exist,
+    the candidate must be a new component. That is true of a feature and wrong of
+    the other two — a phase-sized candidate whose component happens to be new
+    scaffolds a whole component, and a checkbox-sized one has no expressible form
+    at all. A proxy that is right for one of three cases reads as a decision and
+    is an accident.
+
+    Guarded exactly like `decision`: snapshotted either side of every run that
+    holds a write grant on this file, and compared. Same reason, too — a run that
+    has just planned a component is one plausible step from recording a size
+    beside it.
+    """
+    return {row.id: row.size for row in candidate_rows(
+        candidates_path,
+        missing_hint="Without it there is no `size` column to hold anything to.")}
+
+
+def sizes_this_run_had_no_right_to(before: dict[str, str],
+                                   after: dict[str, str]) -> list[str]:
+    """Ids whose `size` changed on a row that already existed. Only triage may.
+
+    ONLY pre-existing rows are judged, for the reason `statuses_this_run_had_no_
+    right_to` states: a row this run APPENDED is a proposal placed under the
+    shared instruction, and its own cells are prescribed by that rule rather than
+    by this guard. A filer appending a row leaves `size` BLANK — sizing is a
+    ruling and the filer is not the one making it.
+    """
+    return sorted(cid for cid in before.keys() & after.keys()
+                  if before[cid] != after[cid])
 
 
 def statuses_this_run_had_no_right_to(before: dict[str, str],

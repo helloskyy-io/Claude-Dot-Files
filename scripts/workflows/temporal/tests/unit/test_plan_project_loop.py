@@ -554,7 +554,12 @@ def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
     """
     scaffolded = pm.own.Scaffolded(
         created=["alpha"], resumed=["beta"],
-        extends=[("C-001", "gamma")], unnamed=[("C-002", "···")])
+        extends=[("C-001", "gamma")], unnamed=[("C-002", "···")],
+        # The two DECLINE reasons the `size` column added. Populated here because
+        # this test's whole claim is that no field reaches the operator as a bare
+        # count — a field left empty makes its own assertion vacuous, which is
+        # what the guard below says out loud.
+        not_a_feature=[("C-003", "phase")], unsized=[("C-004", "unsized")])
     monkeypatch.setattr(pm.own, "scaffold_candidate_components",
                         lambda *a, **k: scaffolded)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)

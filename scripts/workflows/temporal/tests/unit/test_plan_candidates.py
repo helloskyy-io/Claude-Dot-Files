@@ -38,15 +38,25 @@ from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_project import plan_project_activities as own  # noqa: E402
 
 _HEADER = (
-    "| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
-    "|---|---|---|---|---|---|---|\n"
+    "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
+    "|---|---|---|---|---|---|---|---|---|\n"
 )
 
 
-def _table(*rows: tuple[str, str, str, str, str]) -> str:
-    """Rows as `(id, title, component, decision, status)`, in the real shape."""
-    body = "".join(f"| {r[0]} | {r[1]} | {r[2]} | PR #1 | {r[3]} | {r[4]} | note |\n"
-                   for r in rows)
+def _table(*rows: tuple[str, ...]) -> str:
+    """Rows as `(id, title, component, decision, status[, size])`, in the real shape.
+
+    `size` DEFAULTS TO `feature` HERE, and that is the opposite of the default in
+    `test_triage_candidates_split.py`. The subject of this module is scaffolding,
+    and only a `feature` scaffolds — so every pre-existing assertion about *does
+    this row scaffold* is about a feature-sized row whether it said so or not.
+    Defaulting to blank would have made all of them assert the new skip path
+    instead, which is a different test wearing the old name.
+    """
+    body = "".join(
+        f"| {r[0]} | {r[1]} | {r[2]} | PR #1 | {r[3]} | "
+        f"{r[5] if len(r) > 5 else 'feature'} | {r[4]} | note |\n"
+        for r in rows)
     return "# Action candidates\n\n" + _HEADER + body
 
 
@@ -358,7 +368,7 @@ _SIX_COL = ("| ID | Candidate | Source | `decision` | `status` | Note |\n"
 def _nine_tables(bad: str) -> str:
     """Eight well-formed candidate tables and one `bad` one, as the real file is shaped."""
     good = "".join(
-        f"\n## Cycle {n}\n\n{_HEADER}| C-{n:03d} | t | c | PR #1 | `ship` | `open` | n |\n"
+        f"\n## Cycle {n}\n\n{_HEADER}| C-{n:03d} | t | c | PR #1 | `ship` | feature | `open` | n |\n"
         for n in range(1, 9))
     return "# Action candidates\n" + good + "\n## Cycle 9\n\n" + bad
 
@@ -372,18 +382,18 @@ def _nine_tables(bad: str) -> str:
     # literal pipe is `\\|`, and the cell pattern treats that pipe as a boundary —
     # so a CORRECTLY escaped title shifts the row and nothing else on the page.
     ("one row with a pipe in its title",
-     _HEADER + "| C-009 | Make `a | b` share a pool | c | PR #1 |  | `open` | n |\n"),
+     _HEADER + "| C-009 | Make `a | b` share a pool | c | PR #1 |  |  | `open` | n |\n"),
     # An id the parser does not match at all: absent from the working set, from
     # every authorization snapshot, and from the deletion check.
     ("an id that is not three digits",
-     _HEADER + "| C-1009 | a thing | c | PR #1 | `ship` | `open` | n |\n"),
+     _HEADER + "| C-1009 | a thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
     # TWO ROWS SHARING ONE ID — the door that has actually opened, five times.
     # Both rows parse; every reader is a dict keyed by id, so the second silently
     # overwrites the first and one candidate stops existing. `C-001` is reused
     # from the fixture's own first table on purpose: the collision that happens in
     # production is across TABLES, when two branches allocate against one base.
     ("one id allocated to two rows",
-     _HEADER + "| C-001 | a different thing | c | PR #1 | `ship` | `open` | n |\n"),
+     _HEADER + "| C-001 | a different thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
 ], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-width", "duplicate-id"])
 def test_a_row_READ_WRONGLY_or_LOST_RAISES_rather_than_reading_as_triaged(
         tree: Path, label: str, bad: str) -> None:
@@ -416,7 +426,7 @@ def test_EIGHT_GOOD_TABLES_DO_NOT_EXCUSE_A_NINTH(tree: Path) -> None:
     """
     rows = act.candidate_rows(
         _write(tree, _nine_tables(
-            _HEADER + "| C-009 | a thing | c | PR #1 |  | `open` | n |\n")),
+            _HEADER + "| C-009 | a thing | c | PR #1 |  |  | `open` | n |\n")),
         missing_hint="x")
     assert len(rows) == 9, f"the nine-table fixture itself does not parse: {rows}"
     assert [r.id for r in rows if not r.decision] == ["C-009"], (
@@ -525,8 +535,12 @@ def test_the_parse_is_NAMED_so_a_widened_row_cannot_silently_shift_a_guard() -> 
     have re-pointed them by one and still returned a clean dict over the wrong
     field, which is invisible exactly where invisibility costs most.
     """
+    # `size` joined between `decision` and `status` on 2026-08-19 — the SECOND
+    # widening this test exists for, and the reason it is an equality against the
+    # whole tuple rather than a membership check: a widened row shifts every
+    # positional caller silently, and only naming all of them catches it.
     assert act.CandidateRow._fields == (
-        "id", "title", "component", "decision", "status")
+        "id", "title", "component", "decision", "size", "status")
 
 
 # --- what the loop meets in a pool it did not write ------------------------
