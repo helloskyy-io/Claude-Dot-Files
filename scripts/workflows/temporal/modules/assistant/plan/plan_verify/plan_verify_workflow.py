@@ -185,7 +185,18 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     to die at merge. It comes with the column guards below.
     """
     return (
-        rf"^{re.escape(component_rel.as_posix())}/{re.escape(own.ROADMAP)}$",
+        # WIDENED 2026-08-19 from `roadmap.md` alone to every top-level markdown
+        # file in the component — the same grant `plan_feature.permitted_paths`
+        # holds, and for a reason the two now share. This run may CORRECT a
+        # determined defect in a phase doc; it may not RE-PLAN. Those were one
+        # prohibition enforced by this grant, and separating them moves the
+        # enforcement to the observers that were always the real check:
+        # `roadmap_phase_links` for add/merge/split/drop, `ids_deleted` over
+        # `phase_docs_of` for a disappearance, and `plan_boxes` below for a
+        # ticked or reworded checkbox. The grant was never what stopped a
+        # re-plan; it stopped ALL editing, which is what parked a one-sentence
+        # fix as a fifteen-hundred-byte candidate row.
+        rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",
         rf"^{re.escape(candidates_rel.as_posix())}$",
     )
 
@@ -250,10 +261,6 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
 # construction. `own.roadmap_phase_links` exists because the row would not
 # otherwise have been allowed to say anything true.
 MAY_NOT_OBSERVERS: dict[str, str] = {
-    "**Edit a phase doc** — you are the plan's READER, not a second author":
-        "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, whose only "
-        "component grant is `<component>/roadmap.md` — so every phase doc is a "
-        "forbidden path, via act.worktree_state / act.boundary_crossings",
     "**Write an hour estimate anywhere but `roadmap.md`** — one figure, one home":
         "the same mechanism, and the grant IS the enforcement rather than a "
         "scanner beside it: `roadmap.md` is the only file in the component this "
@@ -267,18 +274,28 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "that is the LAST guard, and a run that also under-sized reached the "
         "sizing message first — a true failure naming the wrong cause, which is "
         "the defect this file already reorders one guard to avoid",
-    "**Re-plan the component** — add, merge, split or drop a phase":
-        "own.roadmap_phase_links counted either side of the run and compared in "
-        "BOTH directions — the one prohibition here that happens INSIDE the "
-        "granted file, where act.boundary_crossings is blind by construction",
     "**WRITE or edit `sprint.md`** — read it (Stage 1), never touch it":
         "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
     "Write or edit anything under ANOTHER component, or under this one's `research/`":
         "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, which grants "
         "one named file and so reaches no sibling and no subdirectory",
     "**Tick a completion checkbox** — nothing has been built":
-        "act.checked_boxes over the roadmap — the only file this run may write — "
-        "counted either side and compared in BOTH directions",
+        "act.plan_boxes — act.checked_boxes over EVERY top-level doc the grant "
+        "permits, not the roadmap alone — counted either side and compared in "
+        "BOTH directions. Widened with the grant: a phase doc shipping with its "
+        "steps pre-ticked is the likelier mistake now that phase docs are "
+        "writable, since that is where the implementation checklist lives",
+    "**Reword a completion criterion** — a checkbox is the author's sentence":
+        "act.plan_boxes is a Counter keyed by the box's TEXT, so a reworded "
+        "criterion presents as one text gone and one text arrived — caught by "
+        "the same both-directions comparison, without a second mechanism",
+    "**RE-PLAN the component** — add, merge, split or drop a phase, or change what one delivers":
+        "own.roadmap_phase_links counted either side and compared in BOTH "
+        "directions for add/merge/split/drop, plus act.ids_deleted over "
+        "own.phase_docs_of for a phase that vanished. JUDGEMENT for the last "
+        "clause: prose inside a granted file cannot be told from a correction "
+        "by any comparator, and it is held by the report's integrity clause — "
+        "every correction named, with whether it moved an estimate",
     "Set `decision`, `status`, or another filer's `component` in the candidates file":
         "act.candidate_decisions, act.candidate_statuses and "
         "act.candidate_components snapshotted either side of the run, compared by "
@@ -340,7 +357,10 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "act.ids_deleted on the SAME id set, by the same coupling registered "
         "against before_status — one parse, one id set, three columns"),
     "before_boxes": (
-        "act.checked_boxes over the roadmap, counted either side and compared in "
+        "act.plan_boxes over EVERY top-level doc the grant permits — widened with "
+        "the grant on 2026-08-19, since a phase doc shipping with its steps "
+        "pre-ticked is the likelier mistake once phase docs are writable — "
+        "counted either side and compared in "
         "BOTH directions — so an ERASED tick is an offence exactly as an added "
         "one is. A plan reporting work nobody built is bad; a plan that has "
         "forgotten work somebody did is worse, because nothing downstream will "
@@ -383,7 +403,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     before_decision = act.candidate_decisions(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
     before_component = act.candidate_components(wt_candidates)
-    before_boxes = act.checked_boxes(wt_component / own.ROADMAP)
+    before_boxes = act.plan_boxes(wt_component)
     before_tree = act.worktree_state(worktree)
 
     values = prompt_values(rel_component, rel_candidates, worktree, pr_number,
@@ -620,7 +640,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     # the roadmap because that is the only file it may write; a tick anywhere
     # else in the component is already a boundary crossing. Compared in BOTH
     # directions: erasing a tick is the same prohibition and the worse half.
-    after_boxes = act.checked_boxes(wt_component / own.ROADMAP)
+    after_boxes = act.plan_boxes(wt_component)
     ticked = sorted((after_boxes - before_boxes).elements())
     erased = sorted((before_boxes - after_boxes).elements())
     if ticked or erased:

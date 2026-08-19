@@ -202,12 +202,13 @@ BUDGETS: dict[str, int] = {
     # seen one), and the web (sizing "build X against vendor Y's API" is answerable
     # by reading Y's docs, and the grant was live but unmentioned). Plus
     # ${TASK_CONTEXT}, so a --pr pass can be told why it is re-running.
-    # + the complete-phase sizing rule and ${FILING_A_CANDIDATE_ROW}. Both came
-    # from the first plan-verify run: it hit the "every phase gets one" vs
-    # "a TOTAL against a TOTAL" ambiguity on a COMPLETE phase with no doc, and
-    # it found the derived-prose guard by reading it before writing rather than
-    # by pushing red — which the next run would not.
-    "plan/plan_verify/prompts/plan_verify.md": 16083,
+    # + the DETERMINED-vs-JUDGEMENT split. The old prohibition bundled two rules
+    # under one reason: "do not re-plan" (right, and unchanged) and "edit no
+    # phase doc" (far broader than the reason given). The second is what made a
+    # reviewer spend 1,500 bytes describing a one-sentence fix — the exact smell
+    # engineering-quality.md names. Fixing a determined defect is now in scope;
+    # re-planning is not, and the observers that always enforced that half do it.
+    "plan/plan_verify/prompts/plan_verify.md": 18127,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
