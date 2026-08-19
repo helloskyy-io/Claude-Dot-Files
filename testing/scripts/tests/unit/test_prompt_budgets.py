@@ -159,7 +159,13 @@ BUDGETS: dict[str, int] = {
     # first run produced six for a component with small remaining work, said in
     # its own report that two should probably be one, named which two, and shipped
     # six anyway — the verb did not exist.
-    "plan/plan_feature/prompts/plan_feature.md": 21845,  # +${TASK_CONTEXT} placeholder
+    # 21_845 -> 23422: an INITIAL plan numbers 1,2,3 in rollout order, and a
+    # RELOCATED phase leaves no tombstone. The first run produced 1,2,5,3,6 with
+    # a "Phase 4 — RETIRED" heading and was following the standard as written:
+    # the immutability rule reads unconditionally, so it applied to a plan
+    # nothing had cited yet. Operator ruling — the rule protects PUBLISHED
+    # addresses, and before publication a tidy plan is strictly better.
+    "plan/plan_feature/prompts/plan_feature.md": 23422,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
