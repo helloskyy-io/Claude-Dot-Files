@@ -1391,34 +1391,45 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
 
 # --- a HOLD names the cause it actually had ---------------------------------
 
-def test_a_CI_GATED_hold_does_not_claim_review_pr_FOUND_something() -> None:
-    """`HOLD_NEEDS_ASSISTANCE` has two causes and the note must name the right one.
+def test_the_needs_assistance_note_CLAIMS_NO_CAUSE() -> None:
+    """`run_build` may state the LOOP decision. It may not state the cause.
 
-    MEASURED ON PR #124. The CI gate could not READ `gh pr checks`, returned
-    before review-pr was dispatched, and correctly appended a note ending
-    *"review-pr was NOT dispatched."* The generic needs-assistance line then
-    appended *"review-pr found at least one item only a human can rule on"*
-    directly beneath it.
+    TWO PATHS RETURN `HOLD_NEEDS_ASSISTANCE` AND BOTH ALREADY WROTE THEIR OWN.
+    The CI gate appends a note ending "review-pr was NOT dispatched"; the review
+    path does `notes.extend(result.notes)` and carries review-pr's explanation.
+    A third sentence, from a layer that detects neither, can only be a guess.
 
-    **Two operator-facing sentences contradicting each other, and the false one
-    reads like the answer.** It cost a real investigation — searching every
-    review-pr log for one targeting #124, finding none — to establish that the
-    PR was UNREVIEWED rather than reviewed-and-held. Those are different states
-    needing different next actions, and the note asserted the wrong one.
+    MEASURED ON PR #124: the gate fired, and the guess — "review-pr found at
+    least one item only a human can rule on" — landed directly beneath the note
+    saying review-pr had not run. It took grepping every review-pr log to
+    establish the PR was UNREVIEWED rather than reviewed-and-held, which are
+    different states needing different next actions.
 
-    The guard is on the PAIR, because either sentence alone is legitimate.
+    THE FIRST FIX FOR THIS WAS ITSELF THE DEFECT, which is why this guard checks
+    for the absence of a claim rather than the correctness of a detection. That
+    fix taught the line to derive its cause with
+    `any("review-pr was NOT dispatched" in n ...)` — string-matching prose
+    written elsewhere in the same file, so a reword breaks it silently and the
+    contradiction returns. The layer that DETECTS a condition reports it; this
+    layer detects neither, so it names neither.
     """
     src = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
            / "build" / "build_workflow.py").read_text()
-    claim = "review-pr found at least one item only a human can rule on"
-    assert claim in src, (
-        "the non-gated needs-assistance message is gone; if it was reworded, "
-        "re-point this guard at the new wording rather than deleting it")
-    assert "review-pr was NOT dispatched" in src, (
-        "the CI-gate note no longer says review-pr was not dispatched — the two "
-        "states this guard separates have stopped being distinguishable")
-    assert 'gated = any("review-pr was NOT dispatched" in n for n in notes)' in src, (
-        "the needs-assistance note no longer DERIVES its cause from whether the "
-        "CI gate fired. Without that, a gate-caused hold claims review-pr found "
-        "something it never ran to find — which is what shipped on PR #124."
+    body = src[src.index("if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:"):
+               src.index("elif verdict is Verdict.HOLD_REDISPATCH:")]
+    appended = body[body.index("notes.append("):]
+    for claim in ("review-pr found", "could not be READ", "gh pr checks"):
+        assert claim not in appended, (
+            f"the needs-assistance note names a CAUSE ({claim!r}). Two paths reach "
+            f"this verdict and both already wrote one; a third from here is a "
+            f"guess, and on PR #124 it guessed wrong and contradicted the note "
+            f"directly above it."
+        )
+    assert "any(" not in appended, (
+        "the note derives its cause by scanning `notes` — string-matching prose "
+        "written elsewhere in this file, which a reword breaks silently. Say "
+        "nothing about cause instead; both callers already did."
     )
+    assert "loop-back" in appended, (
+        "the note no longer states the LOOP decision, which is the one thing this "
+        "function knows and the reason it appends anything at all")
