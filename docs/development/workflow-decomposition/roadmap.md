@@ -1,10 +1,12 @@
 # Workflow Decomposition — Roadmap
 
-**Status: 🟡 IN PROGRESS.** Phase 1 is complete, [Phase 2](phase2_family_alignment.md) is live, and four more are planned. **Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in [`sprint.md`](../sprint.md).**
+**Status: 🟡 IN PROGRESS.** Phase 1 is complete, [Phase 2](phase2_family_alignment.md) is live, and three more are planned. **Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in [`sprint.md`](../sprint.md).**
 
 **This roadmap was written after Phase 1 shipped.** The component ran for eleven days on a burn-test triage list — since deleted, its two orphaned rulings salvaged into [`cpi-decisions.md`](../cpi-decisions.md) (2026-08-17) — with no roadmap, no phase docs and an empty research pool. Phase 1's boxes below are therefore a **record of what was built**, not requirements it was built against.
 
-**Phases 2–6 were decomposed on 2026-08-18 from [`research/synthesis.md`](research/synthesis.md).** What used to be a single four-box Phase 3 is now four phases, because its four boxes deliver four separate things and one of them cannot start until an operator rules. The four original checkbox lines are unchanged and are carried below under the phase that now owns each — a completion criterion is not reworded by the run that plans against it.
+**Phases 2–6 were decomposed on 2026-08-18 from [`research/synthesis.md`](research/synthesis.md), and corrected on 2026-08-19 against two operator rulings.** What used to be a single four-box Phase 3 is now three phases — 3, 5 and 6 — because its four boxes deliver separate things on separate surfaces. Every original checkbox line is carried below, unchanged, under the phase that now owns it: a completion criterion is not reworded by the run that plans against it, so where a box's wording is wrong or its cross-reference has moved, the correction sits in prose beside it rather than in the box.
+
+**Two numbering facts a reader needs before scanning the list.** [Phase 4](#phase-4--retired-and-the-number-is-not-reused) is **retired** and is not reused. And the 2026-08-18 decomposition briefly assigned Phase 4 to new work; that was corrected here, and what it planned is now merged into [Phase 3](phase3_nothing_invisible.md).
 
 ---
 
@@ -30,13 +32,13 @@ A third thing follows that is easy to miss. Once a workflow can be started by a 
 
 **It does not own:** designing or building workflows that do not exist yet — that is [Assistant Workflow Design](../sprint.md), which is the other side of this component's seam: decomposition takes apart what already existed, that one creates what does not. Nor durability or resumption ([Temporal Integration](../temporal-integration/temporal-integration.md)), what a run records ([PMP](../persistent-memory-protocol/roadmap.md)), or making a child better at its job ([Self Improvement](../sprint.md)).
 
-**And it does not own the managed/user configuration tiers themselves.** [`managed-configuration/`](../managed-configuration/research/) is a scaffolded component with an empty pool and no sprint entry; designing which tier wins, and what a user's own tier may override, belongs there. This component stops at **recording what a run actually absorbed** — see [Phase 6](phase6_configuration_a_run_absorbed.md), which states that seam and flags it as an operator call.
+**And it DOES own managed configuration, both halves.** Which tier wins, what a user's own tier may override, and the record of what a dispatch actually absorbed are all this component's — operator ruling, 2026-08-19. The reason it lands here rather than beside other configuration work is the seam, not the subject matter: `run-claude` already refuses to dispatch on an *inherited* model, and agents, skills, rules and hooks are the ambient inputs still outstanding. That is decomposition's own derive-not-inherit seam, finished. [Phase 6](phase6_configuration_a_run_absorbed.md) builds the record first and says why the tier policy waits on it.
 
 ---
 
 ## Phases
 
-**Phase numbers are identity, not order.** The sprint decides what gets built when.
+**Phase numbers are identity, not order** — a number names a phase for life, the way a ticket number does. The sprint decides what gets built when. Listed below in rollout order: 2 → 5 → 3 → 6.
 
 ### Phase 1 — Decompose the build families and codify the shape ✅ COMPLETE
 
@@ -63,69 +65,75 @@ The mechanism shipped and the ratchet works — the duplication baseline fell fr
 - [ ] **The ruling method is validated before it is trusted** — classify a sample blind, then reveal the history, and record the disagreement
 - [ ] **What a `_minor` tier's prompt is FOR is written down where a guard can cite it** — the contract no test can supply
 
-### [Phase 3 — A derived value you can audit](phase3_auditable_derivation.md) ⬜
+### [Phase 5 — Dual-mode children](phase5_dual_mode_children.md) ⬜
 
-*Dual-mode is who called me; scope derivation is what was I pointed at. This phase is the second one, and it is smaller than it looks.*
+*Every child runs standalone and under a parent, equally well.*
 
-The derivation this component set out to build **already shipped** — `plan-project` and `plan-feature` both take a path and read scope off it, anchored on the git root with `--repo` as the explicit override. What did not ship is the part that makes a derived value safe to trust: the algorithm written down somewhere a reader finds it, the run saying out loud what it derived, and each value stating what breaks if it derived wrongly. This phase finishes those three properties on code that runs today, and proves the third by pointing a run at the wrong thing and watching it say so.
+Twenty workflows exist; **eleven can be started by a person and nine cannot.** The nine are all children, and each one's core function already works — what is missing is the outer half of the shape the other eleven have: a runner that owns the CLI contract, and a thin shim beside it. This phase builds those nine and proves each by running it alone. **It sits this early because it is what makes every later change cheap to iterate on:** a child that can only be exercised through its parent is a child that can only be debugged at parent prices, and these children are not good out of the box.
+
+- [ ] **Every child runs standalone and under a parent, equally well**
+- [ ] **`research_refresh_parent` has no entrypoint** — a parent nothing can invoke, found while counting for the box above
+- [ ] **The five known divergences are ruled once, not nine times** — verbosity, exit codes, interactive prompts, stream discipline, working directory
+- [ ] **The shim-naming guard covers all twenty**, extended in the same change that adds the nine
+- [ ] **Each of the nine is demonstrated running alone**, end to end — constructing a runner is not the deliverable
+
+*Two notes on the second box, kept out of its text because a planning run does not reword a completion criterion.* **“The box above”** in it means the managed-config box, which now lives at [Phase 6](phase6_configuration_a_run_absorbed.md). And its premise is **wrong as measured**: `research_refresh_parent` *is* invocable — `run_research.py --refresh` and `research.sh <dir> --refresh` both reach it (verified 2026-08-19 at `scripts/workflows/temporal/scripts/run_research.py:10,70`). The real defect is narrower: it has no entrypoint **of its own**, no `research_refresh.sh` beside the other shims. A run that decomposes the box as written will scope the wrong fix. Source: [`research/raw/invocation_contract.md`](research/raw/invocation_contract.md) §5.1.
+
+### [Phase 3 — Nothing a run relies on is invisible](phase3_nothing_invisible.md) ⬜
+
+*A wrong flag fails at parse time; a wrong derivation runs competently against the wrong thing, and a surface nobody reads never goes red at all.*
+
+A run depends on two classes of thing it never announces: what it worked out for itself, and what it wrote for somebody else. Derived values — the repo root, the component under plan — already anchor on real markers and already have an override, but nothing publishes how they are derived, nothing echoes them on the live path, and nothing states what breaks when one is wrong. Written surfaces have a gate in exactly one directory, built after three parent-written observables shipped with no reader at all. This phase finishes both defences and proves them the same way: make the system say the wrong thing out loud.
 
 - [ ] **`plan-project` derives feature scope from its target** — feature scope is the project chain's tail, and a path states it rather than a flag
-- [ ] **Every derived value is listed with its marker, its algorithm and its override** — published, not inferred from reading the code
-- [ ] **A run echoes what it derived, and a parent can silence the echo without losing the record**
-- [ ] **Each derived value states its scope of effect** — what changes downstream if this one is wrong
-- [ ] **A wrong derivation is demonstrated to be visible** — point a run at the wrong component and show the echo naming it
-
-### [Phase 4 — Every producer names its consumer](phase4_producer_names_its_consumer.md) ⬜
-
-*A surface a run writes that nothing reads is not a feature, it is a leak.*
-
-One directory already has this gate: every tool in `scripts/helpers/measure/` must appear in a table naming who reads it, and the population is read off disk so a tool cannot dodge the check by never adding its row. That gate exists because three parent-written observables shipped with no reader at all. Nothing generalises it, so the next unread producer will ship the same way. This phase defines what a producer is across the fleet and extends the gate to reach them.
-
 - [ ] **Extend the producer-with-no-consumer gate** beyond `scripts/helpers/measure/`
+- [ ] **Every derived value is published with its marker, its algorithm, its override and its scope of effect** — not recoverable only by reading the call chain
+- [ ] **A run echoes what it derived, and a parent can silence the echo without losing the record**
 - [ ] **What counts as a producer is defined** — and what is deliberately excluded, by name rather than by omission
 - [ ] **The population is read off disk, never off the table** — the same property that makes the existing gate work
-- [ ] **A new producer with no named consumer fails the suite** — demonstrated by adding one, not asserted
+- [ ] **A wrong derivation and an unread producer are both demonstrated to be visible** — point a run at the wrong component and watch it say so; add a producer with no consumer and watch the suite go red
+
+*This phase is a merge of two that were planned separately on 2026-08-18 — a derivation audit and a producer/consumer gate. They share one shape and neither carried enough work to be its own document. **The definition in the fifth box does not exist yet and this plan does not supply it**; it is the phase's weakest point and its own doc says so.*
 
 ### [Phase 6 — What configuration a run absorbed](phase6_configuration_a_run_absorbed.md) ⬜
 
 *A dispatch reads agents, skills, rules and hooks from `~/.claude/`, so an interactive edit silently changes what every later dispatch on that machine does.*
 
-The smallest thing that fixes the visible half is one digest: record what configuration a run absorbed as a sixth `Journal-` tag in that run's bag, and write the reader that compares two of them. Divergence detection then falls out as a reader over bags that already exist, instead of a drift detector nobody has justified building. This phase deliberately stops there, and it carries one measurement it must not build past: whether Claude Code's own Managed settings tier survives the flags a dispatch might pass.
+The smallest thing that fixes the visible half is one digest: record what configuration a run absorbed as a sixth `Journal-` tag in that run's bag, and write the reader that compares two of them. Divergence detection then falls out as a reader over bags that already exist, instead of a drift detector nobody has justified building. **The managed/user tier itself is this component's to build** — the first box below — and it stays open deliberately, because the precedence direction is a policy choice and the digest is what supplies the evidence for it.
 
 - [ ] **Centrally managed config, with a user tier beside it** — agents, skills, rules and hooks are read from `~/.claude/`, so an interactive edit silently changes what every dispatch on that machine does and no two machines can be shown to match. The fleet's set becomes managed; the user keeps a tier they own and can extend. *Gate: PMP Part 1 — if the run bag records the config a run used, the divergence half shrinks to a reader.* **`run-claude` already refuses an inherited model; this is the same seam applied to everything else a dispatch absorbs.**
 - [ ] **A run's bag records a digest of the configuration it ran under** — a sixth `Journal-` tag beside the five that exist
 - [ ] **A reader answers "did these two runs use the same configuration"** from bags alone
 - [ ] **Whether the Managed tier survives `--setting-sources` and `--safe-mode` is MEASURED** — unchecked, and nothing may be designed on it until it is
 
-### Phase 5 — Dual-mode children ⬜ NO PHASE DOC — gated on an operator ruling
+### Phase 4 — RETIRED, and the number is not reused
 
-*Every child runs standalone and under a parent, equally well — or deliberately does not.*
+Phase 4 was **the set of workflows that do not exist yet**. It moved to [Assistant Workflow Design](../sprint.md), because building what is missing is not the same act as taking apart what is here.
 
-Nine workflow modules, all of them children, have no standalone runner: the four build halves, and five of the research children. That gap is measured and the fix is mechanical. **What is not settled is whether it is a gap at all.** [`workflow-scripts.md`](../../standards/workflow-scripts.md) states that running a child by hand is *recovery … never the interface*; the first box below states the opposite. Both are live, and no evidence decides between them — it is a design ruling. Until it is made, nine adapters is either a backlog or a deliberate narrowing, and a phase doc written now would be a detailed plan for one of two different phases.
-
-- [ ] **The standing contradiction is ruled** — is standalone invocation an interface, or recovery only? Unchecked because it is an operator's call, and because the evidence explicitly declines to make it
-- [ ] **Every child runs standalone and under a parent, equally well**
-- [ ] **`research_refresh_parent` has no entrypoint** — a parent nothing can invoke, found while counting for the box above
-
-*Two notes on the boxes above, both kept out of the text because a planning run does not reword a completion criterion.* **"The box above"** in the third box means the managed-config box, which now lives at [Phase 6](phase6_configuration_a_run_absorbed.md). And the third box's premise is **wrong as measured**: `research_refresh_parent` *is* invocable — `run_research.py --refresh` and `research.sh <dir> --refresh` both reach it (verified 2026-08-18 at `scripts/workflows/temporal/scripts/run_research.py:30`). The real defect is narrower: it has no entrypoint **of its own**, no `research_refresh.sh` beside the other shims. A run that decomposes the box as written will scope the wrong fix. Source: [`research/raw/invocation_contract.md`](research/raw/invocation_contract.md) §5.1.
+**The number stays retired.** Commit messages, code comments and the sprint plan may still point at it, and reusing it would make every one of those references silently ambiguous. A gap in the sequence is not a free number — this entry exists so nobody has to infer that from prose. The next new phase in this component takes 7.
 
 ## The order, and what each part waits on
 
-**Only [Phase 5](#phase-5--dual-mode-children--no-phase-doc--gated-on-an-operator-ruling) has a gate, and it is a ruling rather than a dependency** — it needs a decision, not a system that does not exist yet. Everything else is buildable today.
+**No phase in this component has an external gate any more.** [Phase 5](phase5_dual_mode_children.md) was blocked until 2026-08-19 on a ruling rather than on a system; that ruling was made, so every phase below is buildable today.
+
+**The order above is 2 → 5 → 3 → 6, and only one position in it is an argument.** [Phase 5](phase5_dual_mode_children.md) sits second because it is the *enabler*: a child with no standalone entrypoint can only be exercised through its parent, and every one of the changes the later phases make has to be exercised on children. **A child earns autonomous operation; it cannot earn anything it cannot be run to demonstrate.** [Phase 3](phase3_nothing_invisible.md) and [Phase 6](phase6_configuration_a_run_absorbed.md) are independent of each other and of everything else, and could swap.
+
+**One coupling worth knowing before either is scheduled:** [Phase 3](phase3_nothing_invisible.md) rules what a run echoes about what it derived and what a parent may silence; [Phase 5](phase5_dual_mode_children.md) creates nine new standalone callers, which are exactly the callers that want that echo loud. Neither blocks the other — but whichever lands first sets the contract, and nine adapters each inventing their own answer is the failure mode.
 
 **Phase 6's stated gate is already open.** It reads *"PMP Part 1 — if the run bag records the config a run used"*; the run bag shipped with [PMP Phase 1](../persistent-memory-protocol/phase1_the_run_bag.md) and already carries five `Journal-` tags. Adding a sixth is an addition to a mechanism that exists.
 
-The component has a real end: when these phases close, decomposition is done. What used to be Phase 4 — the set of workflows that do not exist yet — moved to [Assistant Workflow Design](../sprint.md), because building what is missing is not the same act as taking apart what is here.
+The component has a real end: when these phases close, decomposition is done.
 
-**Research:** [`research/`](research/) holds two papers, each with its own destination. [`raw/fork_vs_parameterize_drift_signal.md`](research/raw/fork_vs_parameterize_drift_signal.md) (`Last validated: 2026-08-17`, `Revalidate: high — 6 weeks`, `Critic: PASS-WITH-FIXES`) backs [Phase 2](phase2_family_alignment.md). [`raw/invocation_contract.md`](research/raw/invocation_contract.md) (`Last validated: 2026-08-18`, `Revalidate: high — 4 weeks`, `Critic: PASS-WITH-FIXES`) backs [Phase 3](phase3_auditable_derivation.md), [Phase 5](#phase-5--dual-mode-children--no-phase-doc--gated-on-an-operator-ruling) and [Phase 6](phase6_configuration_a_run_absorbed.md). [`synthesis.md`](research/synthesis.md) rolls both up. Neither paper is a ruling on the item it feeds — research is evidence, and a ruling is a separate act.
+**Research:** [`research/`](research/) holds two papers, each with its own destination. [`raw/fork_vs_parameterize_drift_signal.md`](research/raw/fork_vs_parameterize_drift_signal.md) (`Last validated: 2026-08-17`, `Revalidate: high — 6 weeks`, `Critic: PASS-WITH-FIXES`) backs [Phase 2](phase2_family_alignment.md). [`raw/invocation_contract.md`](research/raw/invocation_contract.md) (`Last validated: 2026-08-18`, `Revalidate: high — 4 weeks`, `Critic: PASS-WITH-FIXES`) backs [Phase 3](phase3_nothing_invisible.md), [Phase 5](phase5_dual_mode_children.md) and [Phase 6](phase6_configuration_a_run_absorbed.md). [`synthesis.md`](research/synthesis.md) rolls both up. Neither paper is a ruling on the item it feeds — research is evidence, and a ruling is a separate act, and both of the rulings this plan carries were made by the operator rather than found in a paper.
 
 **Dependencies on other components:**
 
 | This component | Depends on | Which way |
 |---|---|---|
 | [Phase 6](phase6_configuration_a_run_absorbed.md) | [PMP Phase 1](../persistent-memory-protocol/phase1_the_run_bag.md) — the run bag it adds a tag to | satisfied; PMP Phase 1 is complete |
-| [Phase 6](phase6_configuration_a_run_absorbed.md) | [`managed-configuration/`](../managed-configuration/research/) — owns the tier design this phase stops short of | seam, not a gate. **Operator call: confirm the split** |
 | [Temporal Integration](../temporal-integration/temporal-integration.md) | this whole component | it is gated on us — porting a shape still being changed means porting it twice |
+
+**No sibling component owns any part of this one.** Managed configuration in particular is ours in full — see [Phase 6](phase6_configuration_a_run_absorbed.md).
 
 ---
 

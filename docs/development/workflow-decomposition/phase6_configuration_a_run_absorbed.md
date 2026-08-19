@@ -30,15 +30,19 @@ So this phase builds three things and deliberately stops: **one digest, one tag,
 
 - **[PMP Phase 1](../persistent-memory-protocol/phase1_the_run_bag.md)** — the run bag and its `Journal-` tags. **Complete**, so the roadmap's stated gate for this phase is already open.
 - **[PMP Phase 3](../persistent-memory-protocol/phase3_the_emit_rule.md)** — not a gate, but read it before choosing where the digest is written: it owns the rule about what a failed journal write may and may not do silently.
-- **[`managed-configuration/`](../managed-configuration/research/)** — a scaffolded component with an empty research pool and no sprint entry. **The seam, and the operator call, are below.**
+- **No sibling component.** Managed configuration is **this** component's, in full — see below.
 
-### The seam with `managed-configuration/`, stated because it is a real overlap
+### Requirement 1's checkbox has two halves, and only one of them is built here
 
-This phase's roadmap checkbox promises two different things: *the fleet's set becomes managed; the user keeps a tier they own and can extend*, and the record that makes divergence visible. **They are not the same work.** Deciding which tier wins, and what a user's tier may override, is a policy design — and there is a scaffolded component named for exactly that question.
+The pre-existing roadmap checkbox this phase carries promises two different things: *the fleet's set becomes managed; the user keeps a tier they own and can extend*, and the record that makes divergence visible. **They are not the same work.** Deciding which tier wins, and what a user's tier may override, is a policy design; recording what one dispatch absorbed is a fact.
 
-**This phase builds the record and stops short of the policy.** The record is invocation-shaped: it is a fact about what one dispatch absorbed, written into that dispatch's own bag, and it is useful whatever the tier policy turns out to be.
+**This was planned on 2026-08-18 as an open question — whether the tier design belonged to a sibling — and the operator ruled on 2026-08-19 that it does not.** Managed configuration belongs here, under decomposition, for the reason the sprint edit that placed it gave: `run-claude` already refuses to dispatch on an *inherited* model, and agents, skills, rules and hooks are the ambient inputs still outstanding. This is decomposition's own derive-not-inherit seam, finished. **There is no seam with another component to negotiate, and no scoping question left open.**
 
-> **Operator call, and it is a scoping decision rather than a technical one:** confirm that the managed/user tier *design* belongs to [`managed-configuration/`](../managed-configuration/research/) and that this phase's boundary is the record. If the answer is that this component owns both, this phase needs re-planning at a larger scope, not extending in place. The checkbox above is carried verbatim because a planning run does not reword a completion criterion — its first clause is the part that may not belong here.
+**What that ruling does NOT change is this phase's increment.** It builds the record and stops:
+
+> **The tier half of requirement 1 stays UNCHECKED, and stays in this phase.** Not because it belongs elsewhere — it belongs here — but because **the precedence direction is a policy choice and the digest is what supplies the evidence for it.** Building the tier mechanism before the record exists is designing the thing this phase was created to inform, on the one question (§ *The precedence direction is a policy choice wearing technical clothes*) where the field itself runs two opposite ways. The record comes first; the tier is what the record is for.
+
+The checkbox is carried verbatim because a planning run does not reword a completion criterion.
 
 ---
 
@@ -64,7 +68,7 @@ This is recorded here as a trap rather than as a decision, because the decision 
 
 ### The digest's inputs are the hard part, and they are not "hash the directory"
 
-`~/.claude/` holds machine-local state — credentials, sessions, caches, per-project data — alongside the synced configuration. A digest over the whole tree changes on every run and answers nothing. A digest over the synced set answers the question, and **the synced set is already enumerated**: it is what the installer links, and there are seven of those targets. Requirement 2 exists so that whichever set is chosen is written down beside the tag, rather than being recoverable only by reading the function that computed it — which is the same property [Phase 3](phase3_auditable_derivation.md) is establishing for every other derived value in the fleet.
+`~/.claude/` holds machine-local state — credentials, sessions, caches, per-project data — alongside the synced configuration. A digest over the whole tree changes on every run and answers nothing. A digest over the synced set answers the question, and **the synced set is already enumerated**: it is what the installer links, and there are seven of those targets. Requirement 2 exists so that whichever set is chosen is written down beside the tag, rather than being recoverable only by reading the function that computed it — which is the same property [Phase 3](phase3_nothing_invisible.md) is establishing for every other derived value in the fleet.
 
 ---
 
@@ -75,7 +79,7 @@ This is recorded here as a trap rather than as a decision, because the decision 
 - [ ] Compute the digest and write the sixth `Journal-` tag, at the same point in the run the existing five are written — before the first side effect.
 - [ ] Verify a run with no readable configuration still produces a bag, and records *that* rather than omitting the tag.
 - [ ] Write the reader that compares the digests of two bags and reports same-or-different, with no network and no live filesystem read.
-- [ ] Name the reader as the digest's consumer wherever [Phase 4](phase4_producer_names_its_consumer.md)'s gate expects it — this phase pairs its producer with its consumer deliberately, and that pairing should be visible rather than incidental.
+- [ ] Name the reader as the digest's consumer wherever [Phase 3](phase3_nothing_invisible.md)'s gate expects it — this phase pairs its producer with its consumer deliberately, and that pairing should be visible rather than incidental.
 - [ ] Verify the reader against two real bags produced by two runs with a deliberate configuration change between them, and record what it reported.
 - [ ] **Requirement 5, and it is independent of everything above:** declare the safety hook in Claude Code's Managed settings tier and test it against `--setting-sources` and `--safe-mode` separately. Record both outputs verbatim in the § Runtime Verification section below. **Do not build on the result in this phase** — the measurement is the deliverable.
 - [ ] Re-read § Runtime Verification against the installed CLI version at build time and refresh it if the version moved.
@@ -121,4 +125,4 @@ $ claude --help | grep -A5 -- "--safe-mode"
 - **The digest answers "were these the same", never "which one was right".** Two runs disagreeing is a fact; which configuration should have been in force is a policy question this phase does not own.
 - **Do not reach for Claude Code's Managed tier because the name matches.** Its precedence model is unconditional-managed-wins, which is the opposite of what this phase's own checkbox promises the user.
 - **The bag is append-only by design.** A digest recorded at the start of a run describes what the run absorbed at that moment; if configuration changed mid-run, that is a separate finding and not a reason to rewrite the tag.
-- **This phase is the strongest argument for [Phase 4](phase4_producer_names_its_consumer.md), and it also dodges it** — it ships its consumer in the same phase as its producer. That is the correct shape and it is exactly why the gate is needed for the pairings that are not planned together.
+- **This phase is the strongest argument for [Phase 3](phase3_nothing_invisible.md), and it also dodges it** — it ships its consumer in the same phase as its producer. That is the correct shape and it is exactly why the gate is needed for the pairings that are not planned together.
