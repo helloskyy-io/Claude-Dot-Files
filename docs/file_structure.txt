@@ -82,11 +82,9 @@ claude-dot-files/
 │   │   │                                            #   <name>/research/synthesis.md     what the pool means HERE. NON-BINDING
 │   │   ├── autonomous-execution/                    # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
 │   │   ├── autonomous-operation/                    # NOT DESIGNED — the tier above parents; gated on typed memory + durable execution
-│   │   ├── automated-pr-generation/                 # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
 │   │   ├── continuous-process-improvement/          # IN PROGRESS — two evidence sources; why the ruling is always a human's
 │   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
 │   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
-│   │   ├── fleet-reliability/                       # RESEARCH ONLY — no plan yet; pool backs the liveness predicate and stall axis
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
 │   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
@@ -156,7 +154,9 @@ claude-dot-files/
 │   │   │   ├── roadmap.md                         # Three phases; written after Phase 1 shipped, so that phase is a record not requirements
 │   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs the Phase 2 ruling,
 │   │   │                                            #   invocation_contract is the Phase 3 evidence base a planner decomposes from
-│   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
+│   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced.
+│   │   │                                            #   Holds the 5-paper reliability pool moved here 2026-08-19 when Fleet
+│   │   │                                            #   Reliability dissolved — durable dispatch id, liveness, the three guards
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
 │   │       ├── review-2026-04-24-mdc-master-planning.md

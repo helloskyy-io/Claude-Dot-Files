@@ -240,7 +240,7 @@ Stated as decisions so they read as scope rather than as gaps.
 
 > **Exit condition, stated so "frozen fallback" does not quietly become "permanent second fleet":** the bash fleet stops being the fallback when V2 has demonstrated reliability across the paths it covers. Ruling owner: operator, jointly with [Temporal Integration](../development/temporal-integration/temporal-integration.md).
 
-**Liveness and stall detection are out of scope** — *"did it stall?"* is Fleet Reliability's three-legged predicate, not an exit-time observable. This protocol describes a unit that **finished**.
+**Liveness and stall detection are out of scope** — *"did it stall?"* is the three-legged liveness predicate (Temporal Integration, since the Fleet Reliability sprint dissolved 2026-08-19), not an exit-time observable. This protocol describes a unit that **finished**.
 
 **Git notes and commit trailers are excluded as a transport.** That family is metadata *about* a durable artifact, is never used to route a process outcome, and carries unresolved transfer semantics. **The negative is recorded so it is not re-proposed.**
 
