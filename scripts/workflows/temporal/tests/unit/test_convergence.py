@@ -1387,3 +1387,38 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
         f"shipped only: {sorted(cv.OPEN_DISPOSITIONS - documented_open)}. "
         f"{why_it_matters}."
     )
+
+
+# --- a HOLD names the cause it actually had ---------------------------------
+
+def test_a_CI_GATED_hold_does_not_claim_review_pr_FOUND_something() -> None:
+    """`HOLD_NEEDS_ASSISTANCE` has two causes and the note must name the right one.
+
+    MEASURED ON PR #124. The CI gate could not READ `gh pr checks`, returned
+    before review-pr was dispatched, and correctly appended a note ending
+    *"review-pr was NOT dispatched."* The generic needs-assistance line then
+    appended *"review-pr found at least one item only a human can rule on"*
+    directly beneath it.
+
+    **Two operator-facing sentences contradicting each other, and the false one
+    reads like the answer.** It cost a real investigation — searching every
+    review-pr log for one targeting #124, finding none — to establish that the
+    PR was UNREVIEWED rather than reviewed-and-held. Those are different states
+    needing different next actions, and the note asserted the wrong one.
+
+    The guard is on the PAIR, because either sentence alone is legitimate.
+    """
+    src = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
+           / "build" / "build_workflow.py").read_text()
+    claim = "review-pr found at least one item only a human can rule on"
+    assert claim in src, (
+        "the non-gated needs-assistance message is gone; if it was reworded, "
+        "re-point this guard at the new wording rather than deleting it")
+    assert "review-pr was NOT dispatched" in src, (
+        "the CI-gate note no longer says review-pr was not dispatched — the two "
+        "states this guard separates have stopped being distinguishable")
+    assert 'gated = any("review-pr was NOT dispatched" in n for n in notes)' in src, (
+        "the needs-assistance note no longer DERIVES its cause from whether the "
+        "CI gate fired. Without that, a gate-caused hold claims review-pr found "
+        "something it never ran to find — which is what shipped on PR #124."
+    )

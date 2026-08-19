@@ -86,8 +86,24 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
                                        loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
-        notes.append("review-pr found at least one item only a human can rule on. No "
-                     "loop-back was attempted: more passes cannot produce a human decision.")
+        # THE CAUSE IS DERIVED, NOT ASSUMED. `HOLD_NEEDS_ASSISTANCE` has TWO
+        # sources and this note used to name only one of them: a review finding
+        # a human must rule on, and a CI gate that could not be READ — which
+        # returns before review-pr is dispatched at all.
+        #
+        # Measured on PR #124: the gate hit the second, appended its own note
+        # saying "review-pr was NOT dispatched", and then this line appended
+        # "review-pr found at least one item only a human can rule on" directly
+        # beneath it. Two operator-facing sentences contradicting each other, and
+        # the false one is the one that reads like the answer — it cost a real
+        # investigation to establish that review-pr had never run.
+        gated = any("review-pr was NOT dispatched" in n for n in notes)
+        notes.append(
+            "The CI gate above is the reason this needs a human — review-pr was "
+            "not reached, so this PR is UNREVIEWED as well as held."
+            if gated else
+            "review-pr found at least one item only a human can rule on. No "
+            "loop-back was attempted: more passes cannot produce a human decision.")
     elif verdict is Verdict.HOLD_REDISPATCH:
         notes.append(f"The automated loop is SPENT — {helper.MAX_LOOPS} loop-back(s) "
                      f"is the cap, because passes beyond it produce justification "
