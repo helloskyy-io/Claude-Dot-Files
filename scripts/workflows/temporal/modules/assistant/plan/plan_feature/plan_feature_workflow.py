@@ -192,6 +192,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # teaches the pool convention and names the thesis; `RESEARCH_INVENTORY`
         # says which pool is THIS run's, which the shared block cannot know.
         "EVIDENCE_BLOCK": act.evidence_block(tree),
+        "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-feature: plan {rel_component.name}"),
         # OPAQUE, and rendered verbatim. Before this existed `--pr` could push to

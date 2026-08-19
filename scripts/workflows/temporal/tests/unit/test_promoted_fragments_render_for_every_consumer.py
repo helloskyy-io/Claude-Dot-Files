@@ -35,6 +35,8 @@ from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_draft_minor import build_draft_minor_workflow as draft_minor
 from modules.assistant.build.build_refine import build_refine_workflow as refine
 from modules.assistant.build.build_refine_minor import build_refine_minor_workflow as refine_minor
+from modules.assistant.plan.plan_feature import plan_feature_workflow as pfeat
+from modules.assistant.plan.plan_verify import plan_verify_workflow as pverify
 from modules.assistant.research import research_activities as ract
 from modules.assistant.research.research_refresh import research_refresh_workflow as refresh
 from modules.assistant.research.research_write import research_write_workflow as write
@@ -415,6 +417,7 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
 # gate — it catches deletion and says nothing about a line being rewritten into
 # something else, which is the half no guard here reaches.
 _FRAGMENT_FLOOR = {
+    "filing_a_candidate_row": 4,
     "build_from_plan": 9,
     "stages_1_to_4_from_plan": 46,
     "fidelity_premise": 2,
@@ -503,7 +506,12 @@ _NOT_RENDER_CHECKED: dict[str, str] = {}
 
 # Every consumer this module DRIVES. The tests above expect each one to render
 # what its own source loads, so this union is exactly the render-checked set.
-_DRIVEN = (draft, draft_minor, refine, refine_minor, write, refresh)
+# `pfeat`/`pverify` joined 2026-08-19 with the first fragment promoted for the
+# PLANNING family. The docstring below already named that family as the
+# consumer set this module did not drive, and adding them is the remedy it
+# names — a static AST scan needs no fixture, only the module.
+_DRIVEN = (draft, draft_minor, refine, refine_minor, write, refresh,
+           pfeat, pverify)
 
 
 def test_every_POOL_fragment_is_render_checked_by_some_consumer() -> None:
