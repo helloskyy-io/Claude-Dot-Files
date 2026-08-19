@@ -188,7 +188,15 @@ BUDGETS: dict[str, int] = {
     # model is the only thing that can close it, and it could not while the
     # prompt told it the machine was already checking. This clears the gate's
     # own bar: it changes what the model DOES, and the harness cannot enforce it.
-    "plan/plan_verify/prompts/plan_verify.md": 13_142,
+    # 13_142 -> 15577: the reviewer was reading FIVE documents where the planner it
+    # judges reads ten. Three of the five it lacked bear directly on its own job:
+    # stack_reference's "what we do NOT use" (a phase planned on ruled-out tech is
+    # the finding no other reader is positioned to catch), sprint.md (it produces
+    # the numbers that feed the sprint, against a sprint calibration, having never
+    # seen one), and the web (sizing "build X against vendor Y's API" is answerable
+    # by reading Y's docs, and the grant was live but unmentioned). Plus
+    # ${TASK_CONTEXT}, so a --pr pass can be told why it is re-running.
+    "plan/plan_verify/prompts/plan_verify.md": 15577,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
