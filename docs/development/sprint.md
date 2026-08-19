@@ -151,13 +151,15 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 
 ## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
 
-**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — three phases. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
+**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — five phases, **~73 h** across phases 2–5. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
 
 Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
 - [x] **Phase 1 · Decompose the build families and codify the shape** — draft/refine/review-pr, the activities layer, and the composition contract written down
 - [ ] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism and standard shipped; the fleet backlog and the drifted-copy ruling remain
-- [ ] **Phase 3 · The invocation contract** — a workflow derives what it needs from how it was called: dual-mode children, scope from the target, centrally managed config
+- [ ] **Phase 3 · Dual-mode children** — the nine children that cannot be started by a person get a runner of their own, each proven running alone
+- [ ] **Phase 4 · Nothing a run relies on is invisible** — every derived value published with its marker and echoed on the live path, and the producer-with-no-consumer gate extended beyond one directory
+- [ ] **Phase 5 · What configuration a run absorbed** — a sixth `Journal-` tag digesting the config a run ran under, the reader that compares two bags, and the managed tier beside the user's own
 
 ## Sprint: Persistent Memory Protocol — Part 1 — 🟡 IN PROGRESS
 
