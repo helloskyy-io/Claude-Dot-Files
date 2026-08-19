@@ -72,6 +72,12 @@ Critic:         PASS-WITH-FIXES, 3 rounds (R1–R2: the subcommands `claude auth
                 so the six entries are "at least these", never a complete list; cited [S24]
                 inline. All changelog spans verified individually at their own tagged refs)
                 — 2026-08-07
+                ---
+                2026-08-19 — the `Feeds:` block above was rewritten (destination pointer only;
+                the paper's body is untouched) and re-verified in a scoped fresh-context round:
+                PASS, 0 fabricated / 0 miscited. Every `sprint.md` line number and quoted
+                milestone span in the new block was checked against the working tree with
+                `sed -n '<N>p'` and `grep -F`.
 ```
 
 **Altitude:** COMPONENT. This paper is about *how to build the guard*. Whether a

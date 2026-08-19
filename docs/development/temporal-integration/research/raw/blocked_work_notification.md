@@ -76,6 +76,12 @@ Critic:         PASS-WITH-FIXES (24 sources all fetchable; every retention, deli
                 both constructs and states that a dropped link target is rendering while a
                 dropped clause is a defect. Sources 24 → 26, both new ones cited inline.
                 No conclusion in the paper moved) — 2026-08-07
+                ---
+                2026-08-19 — the `Feeds:` block above was rewritten (destination pointer only;
+                the paper's body is untouched) and re-verified in a scoped fresh-context round:
+                PASS, 0 fabricated / 0 miscited. Every `sprint.md` line number and quoted
+                milestone span in the new block was checked against the working tree with
+                `sed -n '<N>p'` and `grep -F`.
 ```
 
 > **Quoting discipline, stated once and binding on every quotation below.** No source in

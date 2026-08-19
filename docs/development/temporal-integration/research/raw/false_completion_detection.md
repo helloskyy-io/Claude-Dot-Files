@@ -88,6 +88,12 @@ Critic:         PASS-WITH-FIXES (rounds 1–3, all applied; verified over three 
                 §6.0 states the provenance precisely — including that the extraction was not run by
                 this paper's fetch layer. A failed fetch is a fact about the tool, never about the
                 source, and this paper asserted the stronger form for one round.
+                ---
+                2026-08-19 — the `Feeds:` block above was rewritten (destination pointer only;
+                the paper's body is untouched) and re-verified in a scoped fresh-context round:
+                PASS, 0 fabricated / 0 miscited. Every `sprint.md` line number and quoted
+                milestone span in the new block was checked against the working tree with
+                `sed -n '<N>p'` and `grep -F`.
 ```
 
 ---

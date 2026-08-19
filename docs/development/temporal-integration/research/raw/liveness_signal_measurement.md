@@ -72,6 +72,12 @@ Critic:         PASS-WITH-FIXES, three rounds (r1→r2: withdrew the false "undo
                 REJECTED after re-checking primary evidence and the rejections held —
                 the 4-of-4 `subagent_retry` count (2 of 4) and the changelog's supposed
                 v0.3.214 gate on `heartbeat`) — 2026-08-07
+                ---
+                2026-08-19 — the `Feeds:` block above was rewritten (destination pointer only;
+                the paper's body is untouched) and re-verified in a scoped fresh-context round:
+                PASS, 0 fabricated / 0 miscited. Every `sprint.md` line number and quoted
+                milestone span in the new block was checked against the working tree with
+                `sed -n '<N>p'` and `grep -F`.
 ```
 
 > **Altitude: COMPONENT.** The three-legged taxonomy is settled upstream (product-pool
