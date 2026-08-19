@@ -47,7 +47,11 @@ Order lives in two other places, both mutable:
 
 **This is spelled out because the opposite is an easy and expensive inference.** Numbers look like they impede reordering, and they only do so if they are read AS the order. This repo came within one dispatch of renaming sixteen phase files across forty-three references to buy a freedom it already had.
 
-**A new phase takes `max(existing) + 1`. A GAP IS NOT A FREE NUMBER** — a retired phase's number stays retired, because commit messages, code comments and the sprint plan may still point at it, and reusing it makes every one of those references silently ambiguous.
+**AN INITIAL PLAN NUMBERS IN ROLLOUT ORDER, CONTIGUOUSLY, STARTING AT 1. The immutability rule below binds from the moment a plan is PUBLISHED, not while you are writing it.** If this component has no roadmap yet — or has one whose phases are all unbuilt and cited nowhere outside it — number the phases in the order you would build them, with no gaps. **The operator gets a clean plan to execute, not a numbering history to reconstruct.**
+
+**What the immutability rule is FOR, so you can tell the two cases apart:** a phase number is an address that commit messages, code comments, research `Feeds:` lines and the sprint plan point at. Once any of those cite it, renumbering makes every citation silently ambiguous — which is why it may never happen afterwards. **Before anything cites them, there is nothing to protect and a tidy plan is strictly better.**
+
+Concretely: a FIRST plan, or a revision where every phase is unbuilt and unreferenced, numbers `1, 2, 3, …` in rollout order. A revision to a roadmap with shipped phases or outside citations keeps every existing number exactly as it is, and **A new phase takes `max(existing) + 1`. A GAP IS NOT A FREE NUMBER** — a retired phase's number stays retired, because commit messages, code comments and the sprint plan may still point at it, and reusing it makes every one of those references silently ambiguous.
 
 **Sprints are the opposite, and the asymmetry is the rule rather than an inconsistency:** component sprints are *named, never numbered*, because there an ordinal encodes a judgement the plan exists to revise. **Phases are identities; sprints are sequences.**
 
@@ -132,6 +136,7 @@ Report what you found: what this component is, what its evidence says, and what 
 - **THE PRESSURE RUNS ONE WAY AND YOU MUST CORRECT FOR IT.** This prompt tells you to split in several places and this is the ONE line telling you to combine, which is exactly how a plan drifts to more phases than the work supports. Measured on the first `plan-feature` run: it produced six phases for a component with small remaining work, flagged in its own report that two of them should probably be one, named which two — and shipped six anyway, because nothing here gave it the verb.
 - **Pair every producer with its consumer.** A phase that ships something nothing reads is how a store accumulates unread. If the consumer is a later phase, say which.
 - **Prove manually before automating.** Where a pipeline or integration is new, the first phase proves the mechanics by hand; automation follows once the manual process is proven.
+- **A phase RELOCATED to another component before it was built leaves NO tombstone.** Documentation Standard rule 5: a relocation differs from a deprecation, and *"the entry MAY be deleted from the original roadmap with all cross-references redirected"*. Delete it and redirect. A heading whose only content explains why a gap exists is a mess handed to the reader, not a record — reserve the keep-the-entry treatment for a phase that was BUILT and then deprecated.
 - **A phase gated on something outside this component gets a roadmap entry and NO phase doc yet**, with the gate named. A detailed plan for work that cannot start is a guess that ages badly.
 
 ### For each phase, decide and be able to state
