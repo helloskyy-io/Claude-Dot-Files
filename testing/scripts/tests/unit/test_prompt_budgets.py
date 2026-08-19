@@ -154,7 +154,12 @@ BUDGETS: dict[str, int] = {
     # The correction path is what makes these load-bearing rather than nice: a
     # plan-project loop-back goes to plan-sprint, so a defect in THIS child's
     # output may not be fixable downstream at all.
-    "plan/plan_feature/prompts/plan_feature.md": 20820,
+    # 20_820 -> 21_828: the MERGE rule. This prompt said SPLIT in five places and
+    # said combine in none, so a plan could only ratchet toward more phases. The
+    # first run produced six for a component with small remaining work, said in
+    # its own report that two should probably be one, named which two, and shipped
+    # six anyway — the verb did not exist.
+    "plan/plan_feature/prompts/plan_feature.md": 21845,  # +${TASK_CONTEXT} placeholder
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

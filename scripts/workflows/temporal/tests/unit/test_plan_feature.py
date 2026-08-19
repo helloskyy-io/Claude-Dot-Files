@@ -779,3 +779,51 @@ def test_a_BARE_number_and_a_LETTERED_one_in_one_run_collide(tree: Path) -> None
     """A phase cannot be both chunked and not. `phase5_` + `phase5a_` is ambiguous."""
     assert own.reused_phase_numbers(
         {}, {"phase5_a.md": "h", "phase5a_b.md": "h"}) == [("phase5a_b.md", 5)]
+
+
+# --- the phase precount is over IDENTITIES, not filenames ---------------------
+
+def test_a_phase_named_only_in_the_ROADMAP_is_taken(tmp_path) -> None:
+    """The defect the first-ever plan-feature run hit, reproduced.
+
+    `workflow-decomposition` had three phases in `roadmap.md` and ZERO phase
+    docs, so a filename-only count reported none taken and `planning_state` said
+    *"a new phase starts at 1"* — under a header reading **Counted in code,
+    authoritative — do not recount.** Numbering from 1 would have collided with
+    three live identities and orphaned every reference to them.
+    """
+    c = tmp_path / "comp"
+    c.mkdir()
+    (c / "roadmap.md").write_text(
+        "### Phase 1 — done\n### Phase 2 — live\n### Phase 3 — ahead\n"
+    )
+    assert own.taken_phase_numbers(c) == {1, 2, 3}
+    assert "next free phase number is 4" in own.planning_state(c, tmp_path)
+
+
+def test_a_RETIRED_phase_number_is_still_taken(tmp_path) -> None:
+    """The second defect, found by the fix for the first one.
+
+    The same roadmap said *"What used to be Phase 4 … moved to Assistant Workflow
+    Design"* — a number RETIRED, never reusable, because commit messages and
+    sprint bullets still point at it. The run numbered its new phases 4, 5, 6 and
+    took it. Prose is where a retirement is recorded, so prose is where the count
+    has to look.
+    """
+    c = tmp_path / "comp"
+    c.mkdir()
+    (c / "roadmap.md").write_text(
+        "### Phase 1 — done\n\nWhat used to be Phase 4 moved to another component.\n"
+    )
+    assert own.taken_phase_numbers(c) == {1, 4}
+    state = own.planning_state(c, tmp_path)
+    assert "next free phase number is 5" in state
+    assert "a gap is not a free number" in state.lower()
+
+
+def test_the_first_time_path_is_UNCHANGED(tmp_path) -> None:
+    """No roadmap and no docs still means start at 1 — the fix must not widen."""
+    c = tmp_path / "comp"
+    c.mkdir()
+    assert own.taken_phase_numbers(c) == set()
+    assert "Numbering starts at `phase1_`" in own.planning_state(c, tmp_path)
