@@ -22,7 +22,7 @@ Briefly describe your assessment before proceeding.
 **IF THE TASK IS TO CHARACTERIZE EXISTING BEHAVIOUR, ESTABLISH GROUND TRUTH BY EXECUTION BEFORE YOU WRITE ANY ASSERTION.** Reading the implementation carefully and then writing what it *should* do produces a suite that encodes your belief about the code and passes. **The measured case:** the four real defects it *did* find were all found by running the thing. Probe first, record what actually happens, then assert it. Where reality and the documented intent disagree, that gap is the highest-value finding in the task, not an inconvenience to smooth over.
 
 
-**VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.** **AND CHECK `origin/main`, NOT ONLY YOUR TREE, BEFORE CALLING A PREMISE FALSE** — your base may predate the fix, so a brief can be right about `main` and wrong under you. A dispatch states facts in passing — a line number, a count, "this changes none of X", "both run clean, so gating them is a one-line addition". Those read as verified context and they are not. **Each such miss is one grep from being caught.**
+${VERIFY_THE_TASKS_ASSERTED_FACTS}
 
 **A MEASURED BASELINE WITHOUT A COMMIT IS UNVERIFIABLE — re-measure it rather than trusting it.** *"Baseline on `main`: 5101 passed"* names no ref, so it cannot be checked, only believed or disproved at the cost of turns. **Measured:** that exact figure was 5112 at the branch point when a run finally checked. If the task gives a number with a SHA, verify at that SHA; if it gives one without, re-measure at your actual branch point and report both. Never plan against a bare number.
 

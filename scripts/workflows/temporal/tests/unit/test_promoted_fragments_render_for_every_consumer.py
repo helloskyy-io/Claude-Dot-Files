@@ -598,14 +598,64 @@ def test_the_supplier_reader_DISCRIMINATES() -> None:
 # down, never a way to make the check below go quiet.
 _NOT_RENDER_CHECKED: dict[str, str] = {}
 
-# Every consumer this module DRIVES. The tests above expect each one to render
-# what its own source loads, so this union is exactly the render-checked set.
+# Every consumer this module DRIVES — meaning a test below RENDERS it and looks
+# for each fragment in the result, not merely that a static scan can see the
+# `shared_prompt()` call.
+#
 # `pfeat`/`pverify` joined 2026-08-19 with the first fragment promoted for the
-# PLANNING family. The docstring below already named that family as the
-# consumer set this module did not drive, and adding them is the remedy it
-# names — a static AST scan needs no fixture, only the module.
+# PLANNING family, and joined WITHOUT a fixture: the entry said "a static AST
+# scan needs no fixture, only the module." That is true of the check below and
+# false of the name — `_DRIVEN`'s whole meaning is that a rendered prompt was
+# inspected, and the two planning modules were the only members of which that
+# was not true, so `worktree_is_compared_to_a_snapshot` was reported as
+# render-checked by nothing that rendered it. Clearing a guard's red by widening
+# its population is the move this module's own header records twice; the
+# fixture is `_planning_prompt` below and it cost nine lines.
 _DRIVEN = (draft, draft_minor, refine, refine_minor, write, refresh,
            pfeat, pverify)
+
+
+def _planning_prompt(tmp_path: Path, module, filename: str) -> str:
+    """A planning child's prompt, rendered through its OWN `prompt_values`.
+
+    Not a drive of the entrypoint: `prompt_values` is the seam both the live
+    path and `--dry-run` render from (see its docstring), so rendering it here
+    is the same string the dispatch builds, without a Temporal harness.
+    """
+    component = tmp_path / "docs" / "development" / "comp"
+    component.mkdir(parents=True)
+    (component / "roadmap.md").write_text("# roadmap\n")
+    candidates = tmp_path / "docs" / "standards" / "architecture" / "research" / "candidates.md"
+    candidates.parent.mkdir(parents=True)
+    candidates.write_text("| id | finding |\n")
+    values = module.prompt_values(component.relative_to(tmp_path),
+                                  candidates.relative_to(tmp_path),
+                                  tmp_path, None, "")
+    return act.render(act.load_prompt(module.PROMPTS / filename), values,
+                      opaque=frozenset({"TASK_CONTEXT"}))
+
+
+@pytest.mark.parametrize(
+    ("name", "module", "filename"),
+    [("plan_feature", pfeat, "plan_feature.md"),
+     ("plan_verify", pverify, "plan_verify.md")],
+)
+def test_a_planning_run_renders_EVERY_fragment_it_loads(
+    tmp_path, name: str, module, filename: str
+) -> None:
+    """The fixture `_DRIVEN` was widened instead of gaining.
+
+    Derived from the consumer's own loads for the same reason the draft-tier
+    check is: a named subset stops covering the moment the consumer starts
+    loading something new, and nothing says so.
+    """
+    prompt = _planning_prompt(tmp_path, module, filename)
+    missing = sorted(s for s in _stems_loaded_by(module) if _needle(s) not in prompt)
+    assert not missing, (
+        f"{name} loads {missing} through shared_prompt() and renders without "
+        f"them. A supplier built but never reaching the prompt leaves that run "
+        f"on instructions the fragment's edits never touch."
+    )
 
 
 def test_every_POOL_fragment_is_render_checked_by_some_consumer() -> None:

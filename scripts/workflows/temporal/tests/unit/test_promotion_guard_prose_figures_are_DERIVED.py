@@ -76,10 +76,17 @@ UNIT = pathlib.Path(__file__).resolve().parent
 # The prose these guards own. A file that STATES a figure is prose whether or
 # not it also holds tests — that distinction is what let the journal package's
 # figures escape into a helper module and go unswept for a release.
+# `fork_vs_parameterize.py` and `assembled_prompt.py` are HELPERS, and that is
+# precisely why they are here: the comment above records that a helper module is
+# how this corpus's figures escaped the sweep once already, and the first is now
+# the corpus's densest prose surface — a normative docstring two of the three
+# test modules import.
 _PROSE = [
     UNIT / "test_prompt_blocks_are_shared_not_copied.py",
     UNIT / "test_promoted_fragments_render_for_every_consumer.py",
     UNIT / "test_tier_siblings_do_not_DRIFT_by_a_sentence.py",
+    UNIT / "fork_vs_parameterize.py",
+    UNIT / "assembled_prompt.py",
 ]
 
 from prose_number_words import NUMBER_WORDS as _NUMBER_WORDS  # noqa: E402
@@ -153,6 +160,10 @@ _DECLARED: dict[str, str] = {
     "three same-named prompts":
         "quoted DEFECT: the claim that was falsified, cited as the reason the "
         "similarities are no longer restated.",
+    "Promoting four blocks out of `stages_1_to_5.md`":
+        "historical: what one promotion removed from one file on 2026-08-19, "
+        "cited as the reason `assembled_prompt` exists. The blocks are in the "
+        "pool now, so no walk of the tree can recount what left that file.",
     "eleven testing rules":
         "historical: what the forked `_from_plan` sibling had accumulated when "
         "the fork was found. A fork that no longer exists cannot be measured.",

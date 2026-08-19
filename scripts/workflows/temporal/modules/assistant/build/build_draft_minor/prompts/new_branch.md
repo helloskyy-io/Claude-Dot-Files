@@ -29,11 +29,11 @@ Follow these stages exactly:
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build: <short description>"
+4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
 
 5. PUSH: Push the branch to origin. **CHECK YOU ARE ON A BRANCH FIRST — the worktree may hand you a DETACHED HEAD.** `git rev-parse --abbrev-ref HEAD`; if it returns `HEAD`, you are detached and `git push -u origin HEAD` fails with `refs/heads/HEAD`. Create the branch (`git checkout -b <name>`) or push explicitly to a ref (`git push origin HEAD:<branch>`). **Asked for on five separate reflections across four PRs** — runs keep losing turns rediscovering it, and every wording of the instruction below says "the branch" as though one exists.
 
-6. PR: Create a new PR using 'gh pr create'. Use title format: "build: <short description>". In the body, describe what was changed and why. Report the PR URL at the end.
+6. PR: Create a new PR using 'gh pr create'. Use title format: "build-draft-minor: <short description>". In the body, describe what was changed and why. Report the PR URL at the end.
 
 7. REFLECT: ${DECISION_LOG_AND_REFLECTION}
 

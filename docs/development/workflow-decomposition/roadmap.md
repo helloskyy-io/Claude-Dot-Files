@@ -50,22 +50,22 @@ Take the monoliths apart, then write down what the shape is.
 - [x] Extract the activities layer — `run-claude`, `wait-for-ci`, `require-environment`
 - [x] Write it down — [`workflow-scripts.md` § Composition](../../standards/workflow-scripts.md)
 
-### [Phase 2 — Family alignment](phase2_family_alignment.md) 🟡 IN PROGRESS
+### [Phase 2 — Family alignment](phase2_family_alignment.md) ✅ COMPLETE
 
 *Children in a family do not diverge except where they need to.*
 
 **Est: ~15 hours** *(sized cold by `plan-verify`, 2026-08-19)* — almost none of it is code: the mechanism, the ratchet and the standard's wording all shipped. The cost is a judgement pass over the frozen baseline's rows, grouped into eight consumer-sets, each needing two prompt files read plus the git history behind them; a blind trial that must be sealed before any history is consulted and then scored; and one document that does not exist anywhere today — the `_minor` tier contract, which is C-110's subject.
 
-The mechanism shipped and the ratchet works — the duplication baseline fell from 48 rows to 13. What is left is the half a test was never able to decide: whether a pair that has already drifted drifted *on purpose*. This phase ends when no row in that baseline is unruled, and when the reasoning behind each ruling is written where the next reader finds it.
+The mechanism shipped, the ratchet worked, and the baseline is now EMPTY — 48 rows, then 13, then none. The half a test could not decide was ruled per FAMILY rather than per pair, because the blind trial this phase required measured κ = 0.000 between two raters and the phase named that as the trigger to change granularity. The procedure, the rulings and the `_minor` tier contract are in `tests/unit/fork_vs_parameterize.py`; the trial is in [`fork_vs_parameterize_blind_trial.md`](fork_vs_parameterize_blind_trial.md).
 
 - [x] The shared-fragment mechanism — a block with two consumers lives in `modules/assistant/prompts/` and is referenced by placeholder
 - [x] The duplication ratchet — a frozen baseline that fails on new copying **and** on a fixed entry left behind, so it can only shrink
 - [x] The promotion rule extended to prompts, in [`workflow-scripts.md`](../../standards/workflow-scripts.md)
-- [ ] **Bring the fleet up to the rule** — the measured backlog, largest groups first
-- [ ] **Rule fork-vs-parameterize** — the half a test cannot judge: a copy that has already drifted reads as intent, not accident
-- [ ] **Every row in the frozen duplication baseline is either gone or carries a written ruling** — 13 rows on 2026-08-18
-- [ ] **The ruling method is validated before it is trusted** — classify a sample blind, then reveal the history, and record the disagreement
-- [ ] **What a `_minor` tier's prompt is FOR is written down where a guard can cite it** — the contract no test can supply
+- [x] **Bring the fleet up to the rule** — the measured backlog, largest groups first
+- [x] **Rule fork-vs-parameterize** — the half a test cannot judge: a copy that has already drifted reads as intent, not accident
+- [x] **Every row in the frozen duplication baseline is either gone or carries a written ruling** — 13 rows on 2026-08-18
+- [x] **The ruling method is validated before it is trusted** — classify a sample blind, then reveal the history, and record the disagreement
+- [x] **What a `_minor` tier's prompt is FOR is written down where a guard can cite it** — the contract no test can supply
 
 ### [Phase 3 — Dual-mode children](phase3_dual_mode_children.md) ⬜
 

@@ -419,6 +419,16 @@ claude-dot-files/
 │                   │                                #   must match it — the fourth corpus to gate the figure-nobody-derives class
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
 │                   ├── test_delegated_contract.py   # The five env vars run-claude.sh asserts at SOURCE time, and their ordering
+│                   ├── fork_vs_parameterize.py     # THE RULING PROCEDURE for a drifted pair, in a HELPER module beside the guards that
+│                   │                                #   surface one — four signals, four short-circuits, absence yields UNRULED never
+│                   │                                #   DELIBERATE; plus the `_minor` TIER CONTRACT and `ruling_defects()`, which fails a
+│                   │                                #   ruling with no verdict, no signal, no category, or a similarity magnitude in it
+│                   ├── assembled_prompt.py         # WHAT THE MODEL RECEIVES, not what a prompt file contains — resolves pool fragments
+│                   │                                #   to a bounded fixed point, and prefers a child's OWN same-named prompt the way the
+│                   │                                #   workflow's values dict does. A promotion silently narrows every file-scoped guard
+│                   ├── test_assembled_prompt.py    # Controls for that resolver, which two guards now trust as a predicate: pool hit,
+│                   │                                #   runtime placeholder left alone, nesting to a fixed point, self-reference RAISES,
+│                   │                                #   and the child-override that keeps a planning prompt off the build ruleset
 │                   ├── prose_number_words.py        # English number-words for the two prose-figure sweeps, in a HELPER module for the
 │                   │                                #   same reason as review_run_fakes below. Each sweep had its own copy and they had
 │                   │                                #   ALREADY diverged (twelve vs fourteen), so a figure written "thirteen X" was

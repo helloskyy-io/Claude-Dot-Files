@@ -52,6 +52,7 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
         "STAGES_1_TO_4": stages_body,
         "PLAN_PATH": plan_path or "",
         "CONTEXT_BLOCK": context,
+        "VERIFY_THE_TASKS_ASSERTED_FACTS": act.shared_prompt("verify_the_tasks_asserted_facts"),
         "RULES": act.shared_prompt("rules"),
         # SHARED because it was forked and drifted — see prompts/mutation_discipline.md.
         "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),

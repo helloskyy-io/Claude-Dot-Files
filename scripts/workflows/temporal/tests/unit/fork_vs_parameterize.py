@@ -62,7 +62,9 @@ entities and two copies missing a whole block can sit at the same score. This
 repo learned it the expensive way: the standard once carried three named
 similarity figures and two of the three were falsified by the promotions in the
 very pull request that wrote them. `ruling_defects()` below fails a ruling whose
-reasoning contains one.
+reasoning contains one — a figure attached to a similarity claim, or any
+percentage. It does NOT ban numbers: a ruling citing this module's own kappa,
+or a consumer count, is citing evidence rather than substituting for it.
 
 ---------------------------------------------------------------------------
 VALIDATED BEFORE IT WAS TRUSTED, AND IT DID NOT PASS.
@@ -165,7 +167,25 @@ TIER_SCOPED = {
         "tier's whole premise is fewer of them.",
 }
 
-_MAGNITUDE = re.compile(r"\d+(?:\.\d+)?\s*%|\b0\.\d+\b")
+# A SIMILARITY MAGNITUDE, which is a number STANDING IN FOR the reasoning — not
+# every number. The first version banned any bare `0.xxx` and so rejected a
+# ruling that cited this module's own strongest evidence: `kappa = 0.271` and the
+# measured `0.000` are the reason per-pair ruling was retired, and an author
+# whose only exits are to delete the evidence or spell it as a word will delete
+# it. So the ban is on a figure ATTACHED TO A SIMILARITY CLAIM, in either order,
+# plus any percentage — the form nobody writes except to score two copies.
+# `(?<![A-Za-z-])` is load-bearing: the procedure's OWN vocabulary is full of
+# digits glued to letters — `S2`, `SC3`, a `C-115` candidate id — and without it
+# every ruling that names the signal that decided it reads as a magnitude,
+# which is every well-formed ruling there is.
+_NUMBER = r"(?<![A-Za-z-])\d"
+_SIMILARITY = r"(?:similar\w*|ratio|alike|overlap\w*)"
+_MAGNITUDE = re.compile(
+    rf"{_NUMBER}[\d.]*\s*%"
+    rf"|{_SIMILARITY}[^.\n]{{0,40}}{_NUMBER}"
+    rf"|{_NUMBER}[^.\n]{{0,40}}{_SIMILARITY}",
+    re.IGNORECASE,
+)
 
 
 def ruling_defects(ruling: str) -> list[str]:

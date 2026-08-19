@@ -37,7 +37,7 @@ ${VERIFY_THE_TASKS_ASSERTED_FACTS}
 
    CAN IT FAIL? If you write or modify a structural/contract/grep-style test, a CI workflow step, a lint gate, or test-harness code, DEMONSTRATE it fires: break the property in a scratch copy, confirm red, restore. (Measured: seven negative controls written for a CI gate, all seven fired, one reproducing a real historical outage.) A gate that cannot go red is the purest form of manufactured confidence, and the light tier has no review agents to catch it for you.
 
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build: <short description>"
+4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
 
    SELF-DESCRIPTION (required on this path): update the PR body to describe what the PR NOW contains, and update docs/file_structure.txt if you added, removed, or renamed files. A fix that leaves the PR's own description stale mechanically manufactures a finding for the next review pass — measured: every fix round generated 1-2 new "body doesn't describe the new work / test count stale / new file missing from map" findings, and one review pass found ZERO code defects and only self-description drift. Updating it here breaks that loop.
 

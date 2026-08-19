@@ -150,15 +150,20 @@ def test_prompt_file_is_byte_identical_to_v1(filename: str, v1_source) -> None:
     # the one property this module exists to protect. See `assembled_prompt.py`
     # for why that direction of error is the dangerous one across the tree.
     shipped = assembled(wf.PROMPTS / filename)
-    # BOTH SIDES ASSEMBLED, and the symmetry is the point. V1's PROMPT strings
-    # carry literal `${RULES}` / `${HEADLESS_EXECUTION_GUARD}` splice points, so
-    # expanding only the shipped side reports those tokens as lost content. Each
-    # side is resolved against the same pool, which makes the comparison about
-    # the PROSE around the splice rather than about where the prose is stored —
-    # and a shipped file that drops a placeholder entirely still fails, because
-    # the expanded reference then carries a fragment's lines that the shipped
-    # side does not.
-    expected = expand(v1_source())
+    # BOTH SIDES ASSEMBLED, AGAINST THE SAME TWO DIRECTORIES, and the symmetry
+    # is the point. V1's PROMPT strings carry literal `${RULES}` /
+    # `${HEADLESS_EXECUTION_GUARD}` splice points, so expanding only the shipped
+    # side reports those tokens as lost content. Each side is resolved against
+    # this child's own `prompts/` first and the pool second — which is the order
+    # `plan_revision_workflow.prompt_values` itself resolves in, and it is NOT
+    # optional here: `${RULES}` is the PLANNING ruleset in this child and the
+    # BUILD ruleset in the pool, so a pool-only expansion compares this planning
+    # prompt against instructions telling it to change code. That makes the
+    # comparison about the PROSE around the splice rather than about where the
+    # prose is stored — and a shipped file that drops a placeholder entirely
+    # still fails, because the expanded reference then carries a fragment's
+    # lines that the shipped side does not.
+    expected = expand(v1_source(), local=wf.PROMPTS)
     missing = [ln for ln in expected.splitlines() if ln.strip() and ln not in shipped]
     assert not missing, (
         f"prompts/{filename} has LOST content relative to {V1.name}: "

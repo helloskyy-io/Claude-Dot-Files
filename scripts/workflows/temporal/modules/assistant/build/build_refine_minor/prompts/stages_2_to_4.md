@@ -26,7 +26,7 @@ Record fidelity gaps as findings and carry them into Stage 3 alongside the revie
 
 Dispatch the `code-reviewer` agent — **one agent, and that is the whole review**. This is the minor tier: its scope is a scoped correction to known lines, where the dominant risk is a change that is simply WRONG (an inverted condition, an off-by-one, a case the fix misses), not a design that will not scale. Correctness is the lens that catches that class; the structural, standards and holistic lenses that `build-refine` runs are sized for multi-file architectural work and would spend most of this run's budget confirming there is nothing to say.
 
-**If the review keeps finding structural or standards problems, that is a ROUTING signal, not a reason to add agents here.** It means the task was mis-sized for the minor tier and belongs on `build.sh`. Say so plainly in your summary.
+**If the review keeps finding structural or standards problems, that is a ROUTING signal, not a reason to add agents here.** It means the task was mis-sized for the minor tier and belongs on the major tier — `build-draft` followed by `build-refine`. Say so plainly in your summary.
 
 **The dispatch contract (headless-safe):** dispatch code-reviewer as a FOREGROUND agent (`run_in_background: false`). A text-only turn with no tool call ENDS a headless run, so you must NEVER background-dispatch and then wait — the wait itself becomes a run-killing turn — and must NEVER use ScheduleWakeup to wait for it.
 
