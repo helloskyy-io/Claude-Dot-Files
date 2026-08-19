@@ -35,6 +35,8 @@ ${PLAN_INVENTORY}
 | | **Delete anything** — a candidate row, a phase doc, or the roadmap |
 | | Decide WHEN this component gets built, or where it sits against other work |
 
+${FILING_A_CANDIDATE_ROW}
+
 ### You judge the decomposition; you do not rewrite it
 
 **A phase boundary you think is wrong is a FINDING, not an edit.** Say so in your report, name what the second verifiable outcome is, and stop. `plan-feature` closes that runway — the phase docs are its output and you hold no grant over them.
@@ -141,7 +143,7 @@ Open questions, operator calls, and anything the plan assumes without saying so.
 
 For each phase, decide from: the number of distinct artifacts it creates, how much of it is new mechanism versus applying an existing one, how much is verification work, and what it is gated on. **Say the basis in one clause** — an estimate whose basis is unstated cannot be argued with, and being argued with is what it is for.
 
-- **Every phase gets one**, gated phases included.
+- **Every phase gets one**, gated phases included — **except a phase that is already COMPLETE, which gets none and gets a sentence saying why.** An estimate is a forecast of work; a shipped phase has no work left to forecast, and a number beside it invites a reader to add it into a total that would then describe nothing. **The unsized check compares a TOTAL against a TOTAL and a complete phase is outside both**, so sizing four planned phases when the roadmap lists five is the correct outcome and not a gap to explain away.
 - **Estimate the work, not the calendar.** Hours of focused development, not elapsed time.
 - **A phase you sized very large is a finding about the phase, not just a number** — say so, and name where you would split it.
 - **Do not adjust an estimate to make a total look reasonable.** The total is an input to a decision somebody else makes.

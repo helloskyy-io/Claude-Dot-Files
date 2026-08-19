@@ -31,6 +31,8 @@ ${RESEARCH_INVENTORY}
 | | **Delete anything** — a candidate row, a phase doc, or a planning file |
 | | Decide WHEN this component gets built, or where it sits against other work |
 
+${FILING_A_CANDIDATE_ROW}
+
 ### The phase number is IDENTITY, and reading it as ORDER is the expensive mistake
 
 **A phase number names the phase for life, the way a ticket number does.** It is not the rollout order, and it never becomes the rollout order.

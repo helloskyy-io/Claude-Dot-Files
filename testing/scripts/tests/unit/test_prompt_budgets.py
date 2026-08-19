@@ -165,7 +165,7 @@ BUDGETS: dict[str, int] = {
     # the immutability rule reads unconditionally, so it applied to a plan
     # nothing had cited yet. Operator ruling — the rule protects PUBLISHED
     # addresses, and before publication a tidy plan is strictly better.
-    "plan/plan_feature/prompts/plan_feature.md": 23422,
+    "plan/plan_feature/prompts/plan_feature.md": 23449,  # +${FILING_A_CANDIDATE_ROW}
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -202,7 +202,12 @@ BUDGETS: dict[str, int] = {
     # seen one), and the web (sizing "build X against vendor Y's API" is answerable
     # by reading Y's docs, and the grant was live but unmentioned). Plus
     # ${TASK_CONTEXT}, so a --pr pass can be told why it is re-running.
-    "plan/plan_verify/prompts/plan_verify.md": 15577,
+    # + the complete-phase sizing rule and ${FILING_A_CANDIDATE_ROW}. Both came
+    # from the first plan-verify run: it hit the "every phase gets one" vs
+    # "a TOTAL against a TOTAL" ambiguity on a COMPLETE phase with no doc, and
+    # it found the derived-prose guard by reading it before writing rather than
+    # by pushing red — which the next run would not.
+    "plan/plan_verify/prompts/plan_verify.md": 16083,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
