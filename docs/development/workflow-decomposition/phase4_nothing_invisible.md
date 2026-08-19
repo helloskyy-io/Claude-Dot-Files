@@ -1,4 +1,4 @@
-# Phase 3 — Nothing a run relies on is invisible
+# Phase 4 — Nothing a run relies on is invisible
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** not started · **Gate:** none — both mechanisms it finishes are already running
 
@@ -45,8 +45,8 @@ Both halves fail the same way — **silently, and while looking like success.** 
 
 - **[Phase 1](roadmap.md)** — complete. The activities layer both mechanisms live in came out of it.
 - **Nothing outside this component.** No sibling component and no external system gates this.
-- **Not gated on [Phase 5](phase5_dual_mode_children.md), and it does touch it.** Phase 5 adds nine standalone entrypoints, and a standalone caller is exactly the caller that wants the echo loud while a parent wants it quiet. Whichever lands first, requirement 3's ruling is the contract the other one builds against — so **if [Phase 5](phase5_dual_mode_children.md) runs first, its nine adapters inherit that ruling rather than each inventing one.**
-- **[Phase 6](phase6_configuration_a_run_absorbed.md) is the strongest case for the produced half existing.** It adds one producer (a configuration digest) and one consumer (a reader over bags) in the same phase, deliberately. This gate is what keeps the next such pairing honest when the two halves are *not* planned together.
+- **Not gated on [Phase 3](phase3_dual_mode_children.md), and it does touch it.** Phase 3 adds nine standalone entrypoints, and a standalone caller is exactly the caller that wants the echo loud while a parent wants it quiet. Whichever lands first, requirement 3's ruling is the contract the other one builds against — so **if [Phase 3](phase3_dual_mode_children.md) runs first, its nine adapters inherit that ruling rather than each inventing one.**
+- **[Phase 5](phase5_configuration_a_run_absorbed.md) is the strongest case for the produced half existing.** It adds one producer (a configuration digest) and one consumer (a reader over bags) in the same phase, deliberately. This gate is what keeps the next such pairing honest when the two halves are *not* planned together.
 
 ---
 
@@ -94,9 +94,9 @@ The rule this half generalises was already written in prose in the directory it 
 
 ### What this phase does not do
 
-- **It does not touch dual-mode invocation.** That is [Phase 5](phase5_dual_mode_children.md).
+- **It does not touch dual-mode invocation.** That is [Phase 3](phase3_dual_mode_children.md).
 - **It does not add a new derived value.** Every value in scope already exists; this phase makes the existing ones legible.
-- **It does not build a config digest.** What a run absorbed from `~/.claude/` is a different question with a different mechanism — [Phase 6](phase6_configuration_a_run_absorbed.md).
+- **It does not build a config digest.** What a run absorbed from `~/.claude/` is a different question with a different mechanism — [Phase 5](phase5_configuration_a_run_absorbed.md).
 - **It does not delete an unread producer.** Finding one is the output; ruling what happens to it is a separate decision with its own criteria, and an automated remedy here would delete a surface whose consumer simply has not been built yet.
 - **It does not check that a consumer is any good.** Naming a reader is a much weaker claim than the reader being correct, and this gate makes only the weaker one. Say so where the check lives, so nobody over-reads a green suite.
 

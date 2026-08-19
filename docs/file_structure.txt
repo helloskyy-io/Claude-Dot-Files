@@ -152,14 +152,14 @@ claude-dot-files/
 │   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
-│   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — Phase 1 shipped; 2, 3, 5 and 6 open. Phase 4 is RETIRED
-│   │   │   ├── roadmap.md                         # Rollout order 2 → 5 → 3 → 6; written after Phase 1 shipped, so that phase is a record not requirements
+│   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — Phase 1 shipped; Phases 2-5 open, numbered in rollout order
+│   │   │   ├── roadmap.md                         # Rollout order 2 → 3 → 4 → 5; written after Phase 1 shipped, so that phase is a record not requirements
 │   │   │   ├── phase2_family_alignment.md         # The half a test cannot judge — ruling a DRIFTED prompt pair, method validated blind before it is trusted
-│   │   │   ├── phase3_nothing_invisible.md        # Merge of two thin phases: derived values echoed on the live path, and the unread-producer gate generalised
-│   │   │   ├── phase5_dual_mode_children.md       # The nine children with no standalone runner; a child EARNS autonomy, so it must be runnable to be exercised
-│   │   │   ├── phase6_configuration_a_run_absorbed.md  # One digest, one Journal- tag, one reader — and the Managed-tier measurement nothing may be built on
+│   │   │   ├── phase3_dual_mode_children.md       # The nine children with no standalone runner; a child EARNS autonomy, so it must be runnable to be exercised
+│   │   │   ├── phase4_nothing_invisible.md        # Merge of two thin phases: derived values echoed on the live path, and the unread-producer gate generalised
+│   │   │   ├── phase5_configuration_a_run_absorbed.md  # One digest, one Journal- tag, one reader — and the Managed-tier measurement nothing may be built on
 │   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs the Phase 2 ruling,
-│   │   │                                            #   invocation_contract backs Phases 3, 5 and 6
+│   │   │                                            #   invocation_contract backs Phases 3, 4 and 5
 │   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md

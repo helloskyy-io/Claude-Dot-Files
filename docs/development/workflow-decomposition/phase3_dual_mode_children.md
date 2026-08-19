@@ -1,4 +1,4 @@
-# Phase 5 — Dual-mode children
+# Phase 3 — Dual-mode children
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** not started · **Gate:** none — the ruling this phase waited on was made on 2026-08-19
 
@@ -35,8 +35,8 @@ This phase was planned on 2026-08-18 as a roadmap entry with no phase doc, becau
 ## Dependencies
 
 - **Nothing outside this component.** No sibling component and no external system gates this.
-- **[Phase 3](phase3_nothing_invisible.md) and this phase meet at requirement 2's verbosity clause, and neither blocks the other.** Phase 3 rules what a run echoes about what it derived, and what a parent may silence. A standalone caller is the caller that wants that echo loud. **If Phase 3 lands first, these nine adapters inherit its ruling; if this phase lands first, it makes the ruling nine times more valuable and nine times more expensive to get wrong.** Either order works — what does not work is nine adapters each inventing their own answer.
-- **Not gated on [Phase 6](phase6_configuration_a_run_absorbed.md) or [Phase 2](phase2_family_alignment.md).**
+- **[Phase 4](phase4_nothing_invisible.md) and this phase meet at requirement 2's verbosity clause, and neither blocks the other.** Phase 4 rules what a run echoes about what it derived, and what a parent may silence. A standalone caller is the caller that wants that echo loud. **If Phase 4 lands first, these nine adapters inherit its ruling; if this phase lands first, it makes the ruling nine times more valuable and nine times more expensive to get wrong.** Either order works — what does not work is nine adapters each inventing their own answer.
+- **Not gated on [Phase 5](phase5_configuration_a_run_absorbed.md) or [Phase 2](phase2_family_alignment.md).**
 
 ---
 
@@ -84,7 +84,7 @@ The pre-existing checkbox says *"`research_refresh_parent` has no entrypoint —
 
 - [ ] Read the two-entrypoints-one-core shape off an existing pair before writing any of the nine — the runner owns the CLI, the shim resolves the interpreter and passes everything through, and the core function stays the parent's path.
 - [ ] Rule the five divergences in § *The five places standalone and parent-driven diverge* once, written down, before the first adapter — nine adapters each answering these independently is exactly the drift [Phase 2](phase2_family_alignment.md) exists to stop.
-- [ ] Confirm requirement 3's ruling with [Phase 3](phase3_nothing_invisible.md)'s echo contract if that phase has landed; if it has not, record the answer here so [Phase 3](phase3_nothing_invisible.md) inherits it rather than contradicting it.
+- [ ] Confirm requirement 3's ruling with [Phase 4](phase4_nothing_invisible.md)'s echo contract if that phase has landed; if it has not, record the answer here so [Phase 4](phase4_nothing_invisible.md) inherits it rather than contradicting it.
 - [ ] Build the four build-family adapters: `build_draft`, `build_draft_minor`, `build_refine`, `build_refine_minor`.
 - [ ] Build the five research-family adapters: `research_write`, `research_write_minor`, `research_verify`, `research_refresh`, `research_refresh_parent`.
 - [ ] Give `research_refresh_parent` an entrypoint of its own rather than leaving it as a flag on a sibling's runner, and decide what happens to `run_research.py --refresh` — keeping it as an alias and removing it are both defensible; leaving the question unanswered is not.

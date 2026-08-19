@@ -1,4 +1,4 @@
-# Phase 6 — What configuration a run absorbed
+# Phase 5 — What configuration a run absorbed
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** not started · **Gate:** none live — the run bag this phase writes into shipped with [PMP Phase 1](../persistent-memory-protocol/phase1_the_run_bag.md)
 
@@ -62,13 +62,13 @@ The actual argument is about **which mechanism is load-bearing**: the digest is 
 
 Of the shipping systems surveyed, the direction of precedence **runs both ways**. Vendor-package systems let the *local* tier win. Org-policy systems — including Claude Code's own Managed tier — let the *managed* tier win unconditionally, with no user override at all.
 
-**Phase 6's stated intent is the first shape:** *the user keeps a tier they own and can extend.* A design that reaches for Claude Code's Managed tier because the word "managed" matches would silently adopt the second shape and **remove the very tier the checkbox promises the user.**
+**Phase 5's stated intent is the first shape:** *the user keeps a tier they own and can extend.* A design that reaches for Claude Code's Managed tier because the word "managed" matches would silently adopt the second shape and **remove the very tier the checkbox promises the user.**
 
 This is recorded here as a trap rather than as a decision, because the decision is the operator call above. What this phase must not do is make it by accident through a mechanism choice.
 
 ### The digest's inputs are the hard part, and they are not "hash the directory"
 
-`~/.claude/` holds machine-local state — credentials, sessions, caches, per-project data — alongside the synced configuration. A digest over the whole tree changes on every run and answers nothing. A digest over the synced set answers the question, and **the synced set is already enumerated**: it is what the installer links, and there are seven of those targets. Requirement 2 exists so that whichever set is chosen is written down beside the tag, rather than being recoverable only by reading the function that computed it — which is the same property [Phase 3](phase3_nothing_invisible.md) is establishing for every other derived value in the fleet.
+`~/.claude/` holds machine-local state — credentials, sessions, caches, per-project data — alongside the synced configuration. A digest over the whole tree changes on every run and answers nothing. A digest over the synced set answers the question, and **the synced set is already enumerated**: it is what the installer links, and there are seven of those targets. Requirement 2 exists so that whichever set is chosen is written down beside the tag, rather than being recoverable only by reading the function that computed it — which is the same property [Phase 4](phase4_nothing_invisible.md) is establishing for every other derived value in the fleet.
 
 ---
 
@@ -79,7 +79,7 @@ This is recorded here as a trap rather than as a decision, because the decision 
 - [ ] Compute the digest and write the sixth `Journal-` tag, at the same point in the run the existing five are written — before the first side effect.
 - [ ] Verify a run with no readable configuration still produces a bag, and records *that* rather than omitting the tag.
 - [ ] Write the reader that compares the digests of two bags and reports same-or-different, with no network and no live filesystem read.
-- [ ] Name the reader as the digest's consumer wherever [Phase 3](phase3_nothing_invisible.md)'s gate expects it — this phase pairs its producer with its consumer deliberately, and that pairing should be visible rather than incidental.
+- [ ] Name the reader as the digest's consumer wherever [Phase 4](phase4_nothing_invisible.md)'s gate expects it — this phase pairs its producer with its consumer deliberately, and that pairing should be visible rather than incidental.
 - [ ] Verify the reader against two real bags produced by two runs with a deliberate configuration change between them, and record what it reported.
 - [ ] **Requirement 5, and it is independent of everything above:** declare the safety hook in Claude Code's Managed settings tier and test it against `--setting-sources` and `--safe-mode` separately. Record both outputs verbatim in the § Runtime Verification section below. **Do not build on the result in this phase** — the measurement is the deliverable.
 - [ ] Re-read § Runtime Verification against the installed CLI version at build time and refresh it if the version moved.
@@ -125,4 +125,4 @@ $ claude --help | grep -A5 -- "--safe-mode"
 - **The digest answers "were these the same", never "which one was right".** Two runs disagreeing is a fact; which configuration should have been in force is a policy question this phase does not own.
 - **Do not reach for Claude Code's Managed tier because the name matches.** Its precedence model is unconditional-managed-wins, which is the opposite of what this phase's own checkbox promises the user.
 - **The bag is append-only by design.** A digest recorded at the start of a run describes what the run absorbed at that moment; if configuration changed mid-run, that is a separate finding and not a reason to rewrite the tag.
-- **This phase is the strongest argument for [Phase 3](phase3_nothing_invisible.md), and it also dodges it** — it ships its consumer in the same phase as its producer. That is the correct shape and it is exactly why the gate is needed for the pairings that are not planned together.
+- **This phase is the strongest argument for [Phase 4](phase4_nothing_invisible.md), and it also dodges it** — it ships its consumer in the same phase as its producer. That is the correct shape and it is exactly why the gate is needed for the pairings that are not planned together.
