@@ -166,7 +166,7 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
 
 
 def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
-                  pr_number: str | None) -> dict[str, str]:
+                  pr_number: str | None, context: str = "") -> dict[str, str]:
     """Every placeholder the prompt takes, assembled ONCE for both callers.
 
     THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
@@ -194,6 +194,19 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         "EVIDENCE_BLOCK": act.evidence_block(tree),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-feature: plan {rel_component.name}"),
+        # OPAQUE, and rendered verbatim. Before this existed `--pr` could push to
+        # a branch and could not be TOLD why it was re-running, so this child had
+        # no correction path at all: `plan_project`'s loop-back goes to
+        # `plan-sprint`, which cannot edit a roadmap or a phase doc. A producer
+        # nothing can instruct is a producer whose only repair is a full re-plan.
+        "TASK_CONTEXT": (
+            "## OPERATOR CONTEXT FOR THIS RUN\n\n"
+            "**This is authoritative and overrides your own reading where they "
+            "disagree** — it is the operator speaking, not another run's account. "
+            "Verify any FACT it asserts about the tree before building on it, the "
+            "same as any other claim.\n\n" + context
+            if context.strip() else ""
+        ),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
@@ -335,7 +348,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
 
 def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
                      candidates_path: Path, pr_number: str | None = None,
-                     verbose: bool = False) -> str:
+                     context: str = "", verbose: bool = False) -> str:
     """Plan ONE component: its roadmap and its phase docs. Returns the PR URL."""
     # Paths arrive rooted at the REPO because that is where they are configured,
     # but the run reads and writes inside the WORKTREE. Resolve once, count what
@@ -358,10 +371,12 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     before_hours = own.hour_hits(wt_component)
     before_tree = act.worktree_state(worktree)
 
-    values = prompt_values(rel_component, rel_candidates, worktree, pr_number)
+    values = prompt_values(rel_component, rel_candidates, worktree, pr_number,
+                           context)
 
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "plan_feature.md"), values),
+        act.render(act.load_prompt(PROMPTS / "plan_feature.md"), values,
+                   opaque=frozenset({"TASK_CONTEXT"})),
         model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
         completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,

@@ -5,6 +5,8 @@ Your job is to **write ONE component's `roadmap.md` and its phase docs, from tha
 Component:  ${COMPONENT_PATH}
 Candidates: ${CANDIDATES_PATH}
 
+${TASK_CONTEXT}
+
 ${PLANNING_STATE}
 
 ${RESEARCH_INVENTORY}
