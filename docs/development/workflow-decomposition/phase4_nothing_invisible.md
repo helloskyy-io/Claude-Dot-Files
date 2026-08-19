@@ -2,7 +2,7 @@
 
 **Component:** [Workflow Decomposition](roadmap.md) · **Status:** not started · **Gate:** none — both mechanisms it finishes are already running
 
-> **This phase is a merge of two phases that were planned separately on 2026-08-18** — *A derived value you can audit* and *Every producer names its consumer*. They share one shape and neither carried enough work to stand alone as a document: each takes a thing the system already relies on but never states, and makes it say itself out loud. The merge landed on the **lower** number, 3. The higher number is not reused — see [`roadmap.md`](roadmap.md) § Phases for the retired-number record.
+> **This phase is a merge of two phases that were planned separately on 2026-08-18** — *A derived value you can audit* and *Every producer names its consumer*. They share one shape and neither carried enough work to stand alone as a document: each takes a thing the system already relies on but never states, and makes it say itself out loud. The merge landed on the **lower** of the two numbers they held, and the whole component was then renumbered contiguously in rollout order before publication — see [`roadmap.md`](roadmap.md) § Phases.
 
 ## What this phase does
 
