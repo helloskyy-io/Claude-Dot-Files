@@ -772,6 +772,9 @@ claude-dot-files/
 │   │       │                                        #   invalid escape in a docstring was flagged by hand on three passes and survived
 │   │       │                                        #   each time; CPython is promoting these to SyntaxError, at which point the module
 │   │       │                                        #   stops importing and its whole tier fails to COLLECT
+│   │       ├── test_a_research_papers_FEEDS_target_resolves.py # A paper's Feeds: line names where
+│   │       │                                        #   its evidence goes; a dead one reads as a real destination.
+│   │       │                                        #   15 of 35 were dead when this shipped — frozen, ratcheting down
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
