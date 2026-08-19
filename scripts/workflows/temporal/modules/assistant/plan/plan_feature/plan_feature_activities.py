@@ -143,6 +143,11 @@ def plan_boxes(component: Path) -> Counter:
     return boxes
 
 
+# `Phase 4`, `**Phase 4**`, `### Phase 4 — name`. Case-insensitive because a
+# roadmap heading and a sprint bullet do not agree on it.
+_PHASE_IN_PROSE = re.compile(r"\bPhase\s+(\d+)\b", re.I)
+
+
 def phase_number(name: str) -> int | None:
     """`phase12b_x.md` -> 12. None when the name is not a conformant phase doc.
 
@@ -152,6 +157,33 @@ def phase_number(name: str) -> int | None:
     """
     m = _PHASE_FILE.match(name)
     return int(m.group(1)) if m else None
+
+
+def taken_phase_numbers(component: Path) -> set[int]:
+    """Every phase number that is a LIVE IDENTITY here, not just a filename.
+
+    A PHASE EXISTS BEFORE ITS DOCUMENT DOES, and reading only `phaseN_*.md` misses
+    that. Measured on the first `plan-feature` run ever executed: the
+    `workflow-decomposition` component had three phases named in `roadmap.md` and
+    ZERO phase docs, so this returned empty and `planning_state` told the run
+    *"No conformant phase number is in use; a new phase starts at 1."* Under a
+    block headed **Counted in code, authoritative — do not recount.**
+
+    The run disbelieved it, checked the roadmap, and numbered from 4 — and said so
+    in its report. That is the run being better than its instructions, which is not
+    a control. Numbering from 1 would have collided with three live identities and
+    orphaned every reference in `roadmap.md`, `sprint.md` and the research pool.
+
+    A number is retired-but-taken forever, so the union is the answer and a gap in
+    it is never a free number.
+    """
+    numbers = {n for n in (phase_number(name) for name in phase_docs(component))
+               if n is not None}
+    roadmap = component / "roadmap.md"
+    if roadmap.is_file():
+        numbers |= {int(m.group(1))
+                    for m in _PHASE_IN_PROSE.finditer(roadmap.read_text())}
+    return numbers
 
 
 def malformed_phase_docs(before: dict[str, str], after: dict[str, str]) -> list[str]:
@@ -326,7 +358,7 @@ def planning_state(component: Path, tree: Path) -> str:
     rel = component.relative_to(tree)
     docs = phase_docs(component)
     roadmap = component / "roadmap.md"
-    taken = sorted(n for n in (phase_number(name) for name in docs) if n is not None)
+    taken = sorted(taken_phase_numbers(component))
 
     if not roadmap.is_file() and not docs:
         return (
