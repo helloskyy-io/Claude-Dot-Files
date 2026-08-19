@@ -235,6 +235,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
             "Verify any FACT it asserts about the tree before building on it.\n\n"
             + context if context.strip() else ""
         ),
+        "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-verify: size and judge {rel_component.name}"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),

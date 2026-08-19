@@ -165,7 +165,7 @@ BUDGETS: dict[str, int] = {
     # the immutability rule reads unconditionally, so it applied to a plan
     # nothing had cited yet. Operator ruling — the rule protects PUBLISHED
     # addresses, and before publication a tidy plan is strictly better.
-    "plan/plan_feature/prompts/plan_feature.md": 23422,
+    "plan/plan_feature/prompts/plan_feature.md": 23449,  # +${FILING_A_CANDIDATE_ROW}
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
