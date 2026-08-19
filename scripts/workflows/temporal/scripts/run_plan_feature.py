@@ -109,7 +109,7 @@ def main(argv=None) -> int:
         # the branch itself before it could begin. All four `--pr`-accepting
         # plan runners had the same line; `research_minor_workflow.py` already
         # had the right one and is where this expression comes from.
-        ref = (f"origin/{act.branch_of(a.pr_number, repo_root)}"
+        ref = (f"origin/{act.pr_branch(a.pr_number, repo_root)}"
                if a.pr_number else "HEAD")
         worktree = act.worktree_add(repo_root, worktree_name, ref)
         url = wf.run_plan_feature(repo_root=repo_root, worktree=worktree,
