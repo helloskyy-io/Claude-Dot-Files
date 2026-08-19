@@ -84,7 +84,7 @@ It earns its keep only because bash cannot express that relationship any other w
 What *does* survive the port is the underlying rule, which is about invocation and not about directories:
 
 - **You dispatch** parents and monoliths.
-- **A parent invokes** children. Running one by hand is recovery — a failed review half, or a PR whose producer is not yet a parent — never the interface.
+- **A parent invokes children, AND every child is independently runnable by hand.** Both are first-class; standalone is an interface, not a recovery hatch. *(Operator ruling, 2026-08-19. This line previously read "running one by hand is recovery … never the interface", which was wrong in a way that cost real budget: a child you cannot run alone is a child you can only DEBUG at parent prices, and these children are not good out of the box — getting one to perform takes repeated isolated runs. Measured the same week: `research_verify` needed three fix rounds, each re-run through a full parent chain, while `plan-feature` was corrected standalone in one. Autonomy is EARNED by a child that can be exercised, so the ability to exercise it cannot be the reward.)*
 - **Children are shared, not owned.** `review-pr` is the last child of every PR-producing parent. A parent may also call a top-level workflow: the composition graph is not a tree.
 - **`activities/` and `common/` are sourced, never dispatched.**
 
