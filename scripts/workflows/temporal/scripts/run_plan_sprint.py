@@ -76,7 +76,18 @@ def main(argv=None) -> int:
                              workflow_key="plan-sprint",
                              worktree_name=worktree_name)
 
-        worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
+        # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
+        # "HEAD" put the run on `main`, so a correction pass opened a worktree
+        # with none of the PR's files in it. Measured on plan-feature's first
+        # correction pass: the counted-in-code block reported "0 phase doc(s)"
+        # — true of the worktree it was handed, false of the four docs it was
+        # told to correct — and the run spent turns fetching and checking out
+        # the branch itself before it could begin. All four `--pr`-accepting
+        # plan runners had the same line; `research_minor_workflow.py` already
+        # had the right one and is where this expression comes from.
+        ref = (f"origin/{act.pr_branch(a.pr_number, repo_root)}"
+               if a.pr_number else "HEAD")
+        worktree = act.worktree_add(repo_root, worktree_name, ref)
         url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree, sprint_path=sprint,
                                  candidates_path=cands, research_dir=research,
                                  pr_number=a.pr_number, verbose=a.verbose)

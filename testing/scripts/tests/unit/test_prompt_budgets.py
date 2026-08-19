@@ -159,7 +159,13 @@ BUDGETS: dict[str, int] = {
     # first run produced six for a component with small remaining work, said in
     # its own report that two should probably be one, named which two, and shipped
     # six anyway — the verb did not exist.
-    "plan/plan_feature/prompts/plan_feature.md": 21845,  # +${TASK_CONTEXT} placeholder
+    # 21_845 -> 23422: an INITIAL plan numbers 1,2,3 in rollout order, and a
+    # RELOCATED phase leaves no tombstone. The first run produced 1,2,5,3,6 with
+    # a "Phase 4 — RETIRED" heading and was following the standard as written:
+    # the immutability rule reads unconditionally, so it applied to a plan
+    # nothing had cited yet. Operator ruling — the rule protects PUBLISHED
+    # addresses, and before publication a tidy plan is strictly better.
+    "plan/plan_feature/prompts/plan_feature.md": 23422,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -188,7 +194,15 @@ BUDGETS: dict[str, int] = {
     # model is the only thing that can close it, and it could not while the
     # prompt told it the machine was already checking. This clears the gate's
     # own bar: it changes what the model DOES, and the harness cannot enforce it.
-    "plan/plan_verify/prompts/plan_verify.md": 13_142,
+    # 13_142 -> 15577: the reviewer was reading FIVE documents where the planner it
+    # judges reads ten. Three of the five it lacked bear directly on its own job:
+    # stack_reference's "what we do NOT use" (a phase planned on ruled-out tech is
+    # the finding no other reader is positioned to catch), sprint.md (it produces
+    # the numbers that feed the sprint, against a sprint calibration, having never
+    # seen one), and the web (sizing "build X against vendor Y's API" is answerable
+    # by reading Y's docs, and the grant was live but unmentioned). Plus
+    # ${TASK_CONTEXT}, so a --pr pass can be told why it is re-running.
+    "plan/plan_verify/prompts/plan_verify.md": 15577,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.

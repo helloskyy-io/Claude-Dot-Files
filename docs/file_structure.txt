@@ -82,13 +82,10 @@ claude-dot-files/
 │   │   │                                            #   <name>/research/synthesis.md     what the pool means HERE. NON-BINDING
 │   │   ├── autonomous-execution/                    # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
 │   │   ├── autonomous-operation/                    # NOT DESIGNED — the tier above parents; gated on typed memory + durable execution
-│   │   ├── automated-pr-generation/                 # HISTORICAL (Apr 2026) — conflicts with standards-governance, needs restating
 │   │   ├── continuous-process-improvement/          # IN PROGRESS — two evidence sources; why the ruling is always a human's
 │   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
 │   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
-│   │   ├── fleet-reliability/                       # RESEARCH ONLY — no plan yet; pool backs the liveness predicate and stall axis
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
-│   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
 │   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 COMPLETE (2026-08-10) — status lives in its phase doc, not restated here;
 │   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phases 4 and 6 planned.
@@ -160,7 +157,9 @@ claude-dot-files/
 │   │   │   ├── phase5_configuration_a_run_absorbed.md  # One digest, one Journal- tag, one reader — and the Managed-tier measurement nothing may be built on
 │   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs the Phase 2 ruling,
 │   │   │                                            #   invocation_contract backs Phases 3, 4 and 5
-│   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced
+│   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced.
+│   │   │                                            #   Holds the 5-paper reliability pool moved here 2026-08-19 when Fleet
+│   │   │                                            #   Reliability dissolved — durable dispatch id, liveness, the three guards
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
 │   │       ├── review-2026-04-24-mdc-master-planning.md
@@ -507,6 +506,9 @@ claude-dot-files/
 │                   │                                #   sweep says it lacks, by keying on the join the absence exists to permit rather than on
 │                   │                                #   the missing call. Five of ten runners were in that state and ALL FIVE accepted
 │                   │                                #   ../../../../tmp/… and read through it under --dangerously-skip-permissions
+│                   ├── test_runner_module_attributes_EXIST.py # Every `<alias>.<name>` a runner calls exists on the
+│                                       #   module it aliases. #115 shipped `act.branch_of`, which lives only on
+│                                       #   research_activities — 1831 tests passed and the first live run died
 │                   ├── test_an_entrypoint_REFUSES_an_escaping_operator_path.py # The same property proven by EXECUTION:
 │                   │                                #   every runner declaring a repo path is driven with an escaping value and must refuse it
 │                   │                                #   AS AN ESCAPE, then with an in-repo value and must not. Both arms, because a resolver

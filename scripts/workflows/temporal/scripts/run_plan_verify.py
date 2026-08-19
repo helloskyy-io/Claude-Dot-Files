@@ -44,6 +44,11 @@ def main(argv=None) -> int:
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-verify PR")
+    # NOT a repo path, deliberately — operator context from wherever they wrote it,
+    # the same contract run_research_minor.py and run_plan_feature.py use. Without
+    # it a `--pr` pass can push and cannot be TOLD why it is re-running.
+    p.add_argument("--task-file", dest="task_file",
+                   help="operator context or a correction runway, from a file")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
 
@@ -54,6 +59,7 @@ def main(argv=None) -> int:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
     component, cands = resolved["component"], resolved["candidates"]
+    context = Path(a.task_file).read_text() if a.task_file else ""
 
     # REFUSED BEFORE ANYTHING IS CREATED, not diagnosed after a dispatch. There
     # is nothing here to verify without a plan, and the failure a run would
@@ -102,7 +108,9 @@ def main(argv=None) -> int:
             # checking the wrong artifact is worse than checking none.
             rendered = act.render(
                 act.load_prompt(wf.PROMPTS / "plan_verify.md"),
-                wf.prompt_values(rel, cands.relative_to(repo_root), repo_root, None))
+                wf.prompt_values(rel, cands.relative_to(repo_root), repo_root,
+                                 a.pr_number, context),
+                opaque=frozenset({"TASK_CONTEXT"}))
             # BYTES, VIA `.encode()`, AND NOT `len(str)`. The prompt-budget gate
             # measures with `path.stat().st_size`, so an operator comparing this
             # line against a budget is comparing two different units — and this
@@ -126,8 +134,19 @@ def main(argv=None) -> int:
                              workflow_key="plan-verify",
                              worktree_name=worktree_name)
 
-        worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
-        url = wf.run_plan_verify(repo_root=repo_root, worktree=worktree,
+        # A `--pr` PASS MUST START FROM THE WORK IT IS CORRECTING. Hard-coding
+        # "HEAD" put the run on `main`, so a correction pass opened a worktree
+        # with none of the PR's files in it. Measured on plan-feature's first
+        # correction pass: the counted-in-code block reported "0 phase doc(s)"
+        # — true of the worktree it was handed, false of the four docs it was
+        # told to correct — and the run spent turns fetching and checking out
+        # the branch itself before it could begin. All four `--pr`-accepting
+        # plan runners had the same line; `research_minor_workflow.py` already
+        # had the right one and is where this expression comes from.
+        ref = (f"origin/{act.pr_branch(a.pr_number, repo_root)}"
+               if a.pr_number else "HEAD")
+        worktree = act.worktree_add(repo_root, worktree_name, ref)
+        url = wf.run_plan_verify(repo_root=repo_root, worktree=worktree, context=context,
                                  component=component, candidates_path=cands,
                                  pr_number=a.pr_number, verbose=a.verbose)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
