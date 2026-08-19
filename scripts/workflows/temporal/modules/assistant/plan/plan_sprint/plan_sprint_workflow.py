@@ -67,120 +67,96 @@ FORBIDDEN_PATHS = (
 )
 
 
-def permitted_paths(sprint_rel: str, candidates_rel: str) -> tuple[str, ...]:
-    """The two files this workflow legitimately writes, BOTH from its own arguments.
+def permitted_paths(sprint_rel: str) -> tuple[str, ...]:
+    """The ONE file this workflow legitimately writes, from its own argument.
 
     Computed from the sprint path rather than hard-coded because the path is a
     parameter — `--sprint` moves it, and a boundary that assumed
     `docs/development/sprint.md` would fail a correct run in any repo that keeps
     its plan elsewhere.
 
-    AND THE SAME ARGUMENT APPLIES TO THE SECOND GRANT, which was a literal while
-    the first was derived — the inconsistency being the whole tell. `--candidates`
-    is a documented flag on this runner too, and it is the flag through which a
-    DIFFERENT repository's pool is targeted. Pointed anywhere but this repo's own
-    path, the prompt is handed `CANDIDATES_PATH` and told to append a proposal
-    there, `^docs/standards/` denies the whole tree, and `boundary_crossings`
-    fails a correct run at the LAST guard for obeying its own instructions. One
-    reason, two parameters, so both are derived.
-
-    `candidates.md` is permitted for APPENDING ONLY, and the permission does not
-    weaken that: `decision` and `status` on it are guarded column-by-column
-    below. The shared instruction in `decision_log_and_reflection.md` tells every
-    producing run to place a proposal it surfaced there with `decision` blank, so
-    a path rule forbidding the file outright would make an instruction this
-    workflow is under unfollowable. `direction.md` is NOT permitted — appending
-    to it is `triage-candidates`'s alone.
+    IT WAS TWO GRANTS UNTIL 2026-08-19. The second was `candidates.md`, held so
+    this workflow could place ruled `ship` rows — the job that left when the
+    chain was rebuilt around a planned COMPONENT. A grant kept after its job
+    moved is a permission nothing needs and everything inherits, so it went with
+    the job. Appending a surfaced proposal is `plan-feature`'s and
+    `plan-verify`'s; ruling one is `triage-candidates`'s; neither is this run's.
     """
-    return (rf"^{re.escape(sprint_rel)}$",
-            rf"^{re.escape(candidates_rel)}$")
+    return (rf"^{re.escape(sprint_rel)}$",)
 
 
 # --- EVERY `You MAY NOT` ROW, AND WHAT OBSERVES IT ---------------------------
 #
-# See `triage_candidates_workflow.MAY_NOT_OBSERVERS` for why this map exists and
-# why it is keyed by the row's exact text. `test_authorization_is_observed.py`
-# compares these keys against the rendered table, so a new prohibition fails the
-# suite until somebody answers "what observes this?" — including by answering
-# JUDGEMENT, with a reason.
+# See `triage_candidates_workflow.MAY_NOT_OBSERVERS` for why this map exists
+# and why it is keyed by the row's exact text — CITED rather than restated.
+# `test_authorization_is_observed.py` compares these keys against the rendered
+# table over a DISCOVERED set of workflows, and `JUDGEMENT` is a legitimate
+# answer that must say why the property has no artifact.
 MAY_NOT_OBSERVERS: dict[str, str] = {
-    "Write or edit any phase doc":
-        "FORBIDDEN_PATHS `^docs/development/` less the sprint file, via "
-        "act.worktree_state / act.boundary_crossings",
-    "Rewrite a milestone you merely disagree with":
-        "JUDGEMENT — a legitimate RECONCILE and a forbidden rewrite produce the "
-        "same diff. What separates them is whether newer evidence exists, which "
-        "is why Stage 3 requires the run to cite the synthesis line for every "
-        "milestone it changes: the check is a reviewer reading that citation.",
-    "Design *how* anything gets built":
-        "JUDGEMENT — a milestone states what done looks like and a design states "
-        "how, and both are prose in the same file. No artifact separates them.",
-    "Flip a completion checkbox":
-        "act.checked_boxes counted either side of the run and compared in BOTH "
-        "directions — a tick added and a tick erased are the same flip",
-    "**Set `decision` on ANY candidate — see below**":
-        "act.candidate_decisions snapshotted either side of the run, compared by "
-        "_rulings_this_run_had_no_right_to",
-    "Set `status` in the candidates file":
-        "act.candidate_statuses snapshotted either side of the run, compared by "
-        "act.statuses_this_run_had_no_right_to",
-    "Set or change `component` on a candidate row that already existed — that is the FILER's":
-        "act.candidate_components snapshotted either side of the run, compared by "
-        "act.components_this_run_had_no_right_to — pre-existing rows only, so the "
-        "proposal this run is instructed to FILE may name its own component",
-    "Append to or edit `direction.md`":
-        "FORBIDDEN_PATHS `^docs/standards/`, and deliberately NOT in "
-        "permitted_paths — the mechanism is the absence of an exception",
-    "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
-        "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
-    "**Delete anything** — a candidate row, the candidates file, or the sprint plan":
-        "act.ids_deleted inside _rulings_this_run_had_no_right_to for rows, and "
-        "act.grants_that_vanished over permitted_paths for the files themselves",
+    "**RE-SIZE anything** — the estimates are `plan-verify`'s and the total is computed for you":
+        "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, whose only "
+        "grant is the sprint file — so every roadmap, where the estimates live, "
+        "is a forbidden path. The total this run is handed comes from "
+        "act.phase_sizing, computed BEFORE the model is called, so the number in "
+        "the prompt is not one the run can have moved",
+    "**Touch another component's section** — not its bullets, not its total, not its position":
+        "JUDGEMENT. The sprint file is ONE granted path and every section lives "
+        "inside it, so no path comparator can separate this component's section "
+        "from its neighbour's. What DOES observe it is the diff a human reads: "
+        "the report's change table names the section touched, and a run that "
+        "edited another one is visible there. Stated as judgement rather than "
+        "left implied — a per-section comparator is real work and would be the "
+        "honest fix if this is ever breached",
+    "**MOVE a section that already exists** — anyone's, including this component's":
+        "JUDGEMENT — re-ordering happens INSIDE the one granted file, so no "
+        "path comparator can see it and a text compare of the whole file cannot "
+        "tell a legitimate insertion from a rearrangement around it. The prompt "
+        "carries the rule as `insert, never rearrange`, and the report must "
+        "state where a new section went and what decided the position",
+    "**Rule a candidate** — `decision` is `triage-candidates`'s alone":
+        "FORBIDDEN_PATHS `^docs/standards/`, which this workflow no longer "
+        "exempts. The candidates grant was dropped in the 2026-08-19 rebuild "
+        "along with the job that needed it, so the file is simply outside the "
+        "boundary — a stronger rule than the column comparators it replaces, and "
+        "one that needs no reader",
+    "**Tick a completion checkbox** — nothing here has been built":
+        "act.checked_boxes over the sprint file — the only file this run may "
+        "write — counted either side and compared in BOTH directions",
+    "Write or edit a roadmap, a phase doc, a standard, or `candidates.md`":
+        "FORBIDDEN_PATHS `^docs/development/` and `^docs/standards/` less "
+        "permitted_paths, via act.worktree_state / act.boundary_crossings",
+    "**Delete a section, a bullet or a milestone**":
+        "act.grants_that_vanished over permitted_paths for the FILE, and "
+        "act.checked_boxes compared in the erasure direction for a BULLET that "
+        "carried a checkbox. A prose milestone with no box is JUDGEMENT — the "
+        "change table is where a reader sees it",
 }
 
 # --- EVERY BEFORE/AFTER SNAPSHOT, AND WHAT WATCHES IT FOR ABSENCE ------------
 #
 # See `triage_candidates_workflow.DISAPPEARANCE_OBSERVERS` for why this map is
 # keyed by the snapshot rather than by the prohibition.
-#
-# THE COSTLIEST MEMBER OF THE CLASS WAS HERE. This workflow holds the family's
-# only override permitting a dispatch to write `sprint.md`, and `permitted` wins
-# over `forbidden` unconditionally — so the single file the override exists for
-# was the single file whose disappearance nothing observed. Deleting it returned
-# a PR URL and a green run; so did renaming it out of the tree; and erasing a
-# `[x]` line passed too, because `Counter` subtraction discards removals.
 DISAPPEARANCE_OBSERVERS: dict[str, str] = {
-    "before":
-        "act.ids_deleted, called inside _rulings_this_run_had_no_right_to",
-    "before_status":
-        "act.ids_deleted on the SAME id set, via _rulings_this_run_had_no_right_to "
-        "on `before` — act.candidate_statuses and act.candidate_decisions are both "
-        "built from act.candidate_rows, so a row cannot be absent from one map and "
-        "present in the other. Registered rather than left implicit because that "
-        "coupling is the whole reason a second call here would be dead code — and "
-        "the coupling itself is held by "
-        "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS, since this is "
-        "the one entry whose coverage is an argument rather than a call site.",
-    "before_component":
-        "act.ids_deleted on the SAME id set, already run via "
-        "_rulings_this_run_had_no_right_to on `before` — act.candidate_components "
-        "and act.candidate_decisions are both built from act.candidate_rows, so "
-        "the coupling registered for before_status covers this snapshot too, and "
-        "test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS is what holds it",
+    # THREE ENTRIES LEFT ON 2026-08-19 — `before`, `before_status` and
+    # `before_component`, the candidate-column snapshots. They watched a file this
+    # workflow no longer writes: the `candidates.md` grant went with the job of
+    # placing ruled rows, so there is no column to protect and nothing to snapshot.
+    # The rows are not "no longer checked" — they are outside the boundary now,
+    # which `boundary_crossings` enforces through `before_tree` below.
     "before_boxes":
         "act.checked_boxes compared in both directions — `after - before` is a "
         "tick added, `before - after` a tick erased, and Counter subtraction "
         "reports only the first",
     "before_tree":
-        "act.grants_that_vanished over permitted_paths for the sprint plan and "
-        "the candidates file; act.boundary_crossings for every other path, where "
+        "act.grants_that_vanished over permitted_paths for the sprint plan — the "
+        "only grant left — and act.boundary_crossings for every other path, where "
         "a deletion already reads as a content change via the ABSENT sentinel",
 }
 
 
-def prompt_values(rel_sprint: str, rel_candidates: Path, rel_research: Path,
-                  tree: Path, counts: dict, correction_pass: bool,
-                  pr_number: str | None) -> dict[str, str]:
+def prompt_values(rel_sprint: str, rel_component: Path, tree: Path,
+                  correction_pass: bool, pr_number: str | None,
+                  context: str = "") -> dict[str, str]:
     """Every placeholder the prompt takes, assembled ONCE for both callers.
 
     THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT. This module's
@@ -193,40 +169,66 @@ def prompt_values(rel_sprint: str, rel_candidates: Path, rel_research: Path,
     `tree` IS THE TREE THE COUNTS ARE TAKEN FROM: the worktree on the live path,
     the repo on the dry-run path, where no worktree exists yet.
     """
+    sizing = act.phase_sizing(tree / rel_component)
     return {
         "SPRINT_PATH": rel_sprint,
-        "CANDIDATES_PATH": str(rel_candidates),
-        "RESEARCH_DIR": str(rel_research),
-        "CORRECTION_NOTE": correction_note(counts, correction_pass),
-        # THE TREE, not the repo. This workflow runs THIRD: the parent has
-        # already written any new component's `research/synthesis.md` into the
-        # worktree, and Stage 1 is told to read every synthesis this enumeration
-        # lists. Anchored at the repo it would list the main checkout, which
-        # never holds them, and the run would report reading all of nothing.
-        "EXISTING_WORK": act.existing_work(tree, tree / rel_research),
+        "COMPONENT_PATH": rel_component.as_posix(),
+        # COMPUTED, NOT ASKED FOR. The sum is arithmetic and a model is the wrong
+        # tool for it — `plan-verify` writes one estimate per phase and no total,
+        # deliberately, so the thing that derives the total has to be code or the
+        # figure is an assertion. Both the parts and the sum are handed over.
+        "SIZING_BLOCK": act.sizing_block(sizing, rel_component),
+        "SPRINT_STATE": act.sprint_state(tree / rel_sprint, rel_component),
+        "TASK_CONTEXT": (
+            "## OPERATOR CONTEXT FOR THIS RUN\n\n"
+            "**This is authoritative and overrides your own reading where they "
+            "disagree.** Verify any FACT it asserts about the tree before "
+            "building on it.\n\n" + context
+            if context.strip() else ""
+        ),
+        "CORRECTION_NOTE": (
+            "This is a CORRECTION PASS. A prior disposition returned HOLD with a "
+            "scoped runway; close it." if correction_pass else ""
+        ),
         "SUBMIT_PROMPT": act.submit_prompt(
-            pr_number, "plan-sprint: place the ruled candidates and update the sprint plan"),
+            pr_number, f"plan-sprint: {rel_component.name}"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }
 
 
 def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
-                    candidates_path: Path, research_dir: Path,
-                    pr_number: str | None = None, correction_pass: bool = False,
+                    component: Path, pr_number: str | None = None,
+                    correction_pass: bool = False, context: str = "",
                     verbose: bool = False) -> str:
-    """Place the ruled candidates, reconcile, sequence, report. Returns the PR URL."""
+    """Give ONE planned component a current home in the sprint. Returns the PR URL.
+
+    REBUILT 2026-08-19, and the previous prompt is kept beside this one as
+    `plan_sprint_OLD.md` until `triage-candidates` takes over the half that left.
+    The old workflow was entirely candidate-driven: it walked `candidates.md`,
+    applied a five-condition bar to every `ship` row, and decided sprint section
+    versus milestone versus not-in-this-file. It had no component input at all.
+
+    That is the wrong half. By the time this runs, `triage-candidates` has ruled
+    the candidate, `plan-candidates` has scaffolded it, `plan-feature` has written
+    its roadmap and phase docs and `plan-verify` has sized every phase — so
+    "does this warrant a sprint section" was answered upstream by the chain
+    BUILDING the thing, and re-deciding it here overturns a ruling with less
+    context than the run that made it.
+
+    What was actually missing is the job this now does: take the component that
+    was just planned, and make its sprint entry current — the phase bullets and
+    the hour total. Nothing produced that total before, and no sprint section in
+    this repo has ever carried one.
+    """
     # Paths arrive rooted at the REPO because that is where they are configured,
     # but the run reads and writes inside the WORKTREE. Count what the model will
     # actually see, and later re-read what it actually wrote.
-    rel_candidates = candidates_path.relative_to(repo_root)
-    rel_research = research_dir.relative_to(repo_root)
+    rel_component = component.relative_to(repo_root)
     rel_sprint = str(sprint_path.relative_to(repo_root))
-    wt_candidates = worktree / rel_candidates
     wt_sprint = worktree / rel_sprint
 
     # Counted in code so the report cannot assert a total it invented.
-    counts = act.candidate_counts(wt_candidates)
 
     # WHAT THIS RUN MUST NOT MOVE, snapshotted before it can move it. `decision`
     # is `triage-candidates`'s; `status` is a later process's; a ticked checkbox
@@ -237,17 +239,15 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # workflow runs LAST on a branch `triage-candidates` has already written to,
     # so a diff against the base would report triage's legitimate `direction.md`
     # row as this run's forbidden edit.
-    before = act.candidate_decisions(wt_candidates)
-    before_status = act.candidate_statuses(wt_candidates)
-    before_component = act.candidate_components(wt_candidates)
     before_boxes = act.checked_boxes(wt_sprint)
     before_tree = act.worktree_state(worktree)
 
-    values = prompt_values(rel_sprint, rel_candidates, rel_research,
-                           worktree, counts, correction_pass, pr_number)
+    values = prompt_values(rel_sprint, rel_component, worktree,
+                           correction_pass, pr_number, context)
 
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "plan_sprint.md"), values),
+        act.render(act.load_prompt(PROMPTS / "plan_sprint.md"), values,
+                   opaque=frozenset({"TASK_CONTEXT"})),
         model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
         completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
@@ -277,7 +277,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # the moment it is declared.
     after_tree = act.worktree_state(worktree)
     vanished = act.grants_that_vanished(before_tree, after_tree,
-                                        permitted_paths(rel_sprint, str(rel_candidates)))
+                                        permitted_paths(rel_sprint))
     if vanished:
         raise RuntimeError(
             f"plan-sprint made {len(vanished)} file(s) it may WRITE cease to "
@@ -292,35 +292,11 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # OBSERVE, DO NOT ASSERT. The prompt forbids writing `decision`; this reads
     # the file to check it did not. An authority transfer stated only in prose is
     # a convention a model can reason past — this is the mechanism.
-    after = act.candidate_decisions(wt_candidates)
-    moved = sorted(_rulings_this_run_had_no_right_to(before, after))
-    if moved:
-        raise RuntimeError(
-            f"plan-sprint changed the `decision` column on {len(moved)} candidate(s): "
-            + ", ".join(f"{cid} {before.get(cid, '<absent>')!r}->{after.get(cid, '<absent>')!r}"
-                        for cid in moved)
-            + ". That column is `triage-candidates`'s output alone. A ruling made "
-              f"here is one no triage pass agreed to and no reviewer was told to "
-              f"look for — see {url}"
-        )
-
     # The SAME argument, one column over. `status` is neither workflow's, and the
     # guard above would have watched a run close a candidate it merely placed.
     # Read ONCE: the previous form called the reader three times — once for the
     # comparison and once per offending id inside the message — re-parsing the
     # file for a value that cannot have changed between calls.
-    after_status = act.candidate_statuses(wt_candidates)
-    flipped = act.statuses_this_run_had_no_right_to(before_status, after_status)
-    if flipped:
-        raise RuntimeError(
-            f"plan-sprint changed the `status` column on {len(flipped)} candidate(s): "
-            + ", ".join(f"{cid} {before_status[cid]!r}->{after_status[cid]!r}"
-                        for cid in flipped)
-            + ". `status` belongs to a later process — `plan-feature`, or the build "
-              f"that completes the item. Placing work in the sprint plan is not "
-              f"finishing it, and this run has validated nothing — see {url}"
-        )
-
     # THE SAME ARGUMENT, ONE COLUMN FURTHER LEFT, and this one is not merely a
     # bad cell. `component` belongs to whoever FILED the row; `plan-candidates`
     # reads it in the NEXT parent run and turns a name into a committed
@@ -334,19 +310,6 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # A proposal this run files may
     # still name its own component, which the pre-existing-rows-only comparison
     # permits without a second rule.
-    after_component = act.candidate_components(wt_candidates)
-    named = act.components_this_run_had_no_right_to(before_component, after_component)
-    if named:
-        raise RuntimeError(
-            f"plan-sprint set or changed the `component` column on {len(named)} "
-            f"pre-existing candidate(s): "
-            + ", ".join(f"{cid} {before_component[cid]!r}->{after_component[cid]!r}"
-                        for cid in named)
-            + ". That column is the FILER's, because only they know where the "
-              f"proposal goes. It is also the one column whose guess gets built: "
-              f"`plan-candidates` scaffolds a directory from it — see {url}"
-        )
-
     # A CHECKBOX MEANS SHIPPED AND VALIDATED. This workflow places work that will
     # be built later; it has validated nothing, and the Documentation Standard's
     # rule is that built is not proven, let alone planned. Counted by text, so a
@@ -380,7 +343,7 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
     # exactly one file, and it sits in the same directory as the phase docs the
     # same table forbids — so the edge is observed rather than trusted.
     crossed = act.boundary_crossings(before_tree, after_tree,
-                                     FORBIDDEN_PATHS, permitted_paths(rel_sprint, str(rel_candidates)))
+                                     FORBIDDEN_PATHS, permitted_paths(rel_sprint))
     if crossed:
         raise RuntimeError(
             f"plan-sprint edited {len(crossed)} file(s) outside its authorization: "

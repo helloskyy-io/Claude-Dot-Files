@@ -616,14 +616,20 @@ def phase_docs(component: Path) -> dict[str, str]:
 # is one written in a fourth spelling.
 HOUR_ESTIMATE = re.compile(
     r"""
-      ~\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b            # ~30 hrs, ~8h
-    | \(\s*\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\s*\)        # (30 hrs)
-    | (?: \best\.?\s                                     # Est. 2.5 hours, Est 8h
-        | \b(?:estimate[sd]?|sizing|effort)\b )          # Estimate: 8 hours
-      [^.\n]{0,24}?\d+(?:\.\d+)?\s*(?:h|hrs?|hours?)\b
+      ~\s*(?P<a>\d+(?:\.\d+)?)\s*(?:h|hrs?|hours?)\b        # ~30 hrs, ~8h
+    | \(\s*(?P<b>\d+(?:\.\d+)?)\s*(?:h|hrs?|hours?)\s*\)   # (30 hrs)
+    | (?: \best\.?[:\s]                                      # Est. 2.5 hours, Est: 8h
+        | \b(?:estimate[sd]?|sizing|effort)\b\s*:?  )         # Estimate: 8 hours
+      [^.\n]{0,24}?(?P<c>\d+(?:\.\d+)?)\s*(?:h|hrs?|hours?)\b
     """,
     re.I | re.X,
 )
+# THE NUMBER IS CAPTURED, and it was not until 2026-08-19. This pattern existed
+# only to DETECT that `plan-feature` had written an hour — a thing it is
+# forbidden to do — so no caller needed the value and `Est: 8 hours` (with a
+# colon) silently failed to match. Summing makes both matter: an estimate the
+# pattern misses does not raise, it lowers the total, and a total that is quietly
+# short is worse than one that is absent because nothing says it is wrong.
 
 
 def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
@@ -1019,3 +1025,133 @@ def plan_boxes(component: Path) -> Counter:
     return boxes
 
 
+
+
+class PhaseSizing(NamedTuple):
+    """One component's phases, each with the estimate `plan-verify` wrote."""
+
+    rows: tuple[tuple[str, float | None], ...]   # (phase heading, hours or None)
+    total: float
+    unsized: tuple[str, ...]
+
+
+def phase_sizing(component: Path) -> PhaseSizing:
+    """Read the roadmap's phase headings and the estimate beside each. Sum in CODE.
+
+    THE SUM IS ARITHMETIC AND A MODEL IS THE WRONG TOOL FOR IT. `plan-verify`
+    writes one estimate per phase and deliberately writes no total, because "a
+    total is derived from the parts and a derived figure restated where nothing
+    derives it" goes stale. This is the thing that derives it. A model asked to
+    add four numbers out of a document can misread one and nothing catches it —
+    the repo's own rule is that a count is a claim, enumerated rather than
+    asserted, and this enumerates.
+
+    WHAT THE MODEL STILL DECIDES, so the split is not read as "code does sizing":
+    whether the component has a home in the sprint, where a new section belongs
+    in the order, and what its bullets say. The NUMBER is a fact handed over;
+    everything done WITH it is judgement.
+
+    AN UNSIZED PHASE IS REPORTED, NEVER TREATED AS ZERO. A complete phase gets no
+    estimate by design (`plan-verify` writes a sentence instead), and a phase
+    that should have one and does not is a defect the total must not swallow —
+    a quietly short total is worse than an absent one, because nothing says it is
+    wrong. Both land in `unsized` and the prompt is told to say which.
+    """
+    roadmap = component / "roadmap.md"
+    if not roadmap.is_file():
+        return PhaseSizing((), 0.0, ())
+
+    rows: list[tuple[str, float | None]] = []
+    for line in roadmap.read_text().splitlines():
+        if not re.match(r"^#{2,4}\s", line):
+            continue
+        if not re.search(r"\bPhase\s+\d+", line, re.I):
+            continue
+        heading = line.lstrip("# ").strip()
+        m = HOUR_ESTIMATE.search(line)
+        hours = float(next(g for g in m.groups() if g)) if m else None
+        rows.append((heading, hours))
+
+    # The estimate may sit on the line BELOW the heading rather than in it.
+    if rows and all(h is None for _, h in rows):
+        text = roadmap.read_text().splitlines()
+        rows = []
+        for n, line in enumerate(text):
+            if not (re.match(r"^#{2,4}\s", line) and re.search(r"\bPhase\s+\d+", line, re.I)):
+                continue
+            # SIX LINES, measured rather than guessed: `plan-verify` writes
+            # `**Est: ~15 hours** *(sized cold …)*` as its own paragraph after
+            # the heading and a blank line and the phase's italic subtitle,
+            # which lands it four lines down. A window of 4 found nothing on
+            # the first real roadmap it met. Six covers that with one line of
+            # slack and still cannot reach the NEXT heading, which is what
+            # would attribute one phase's estimate to another.
+            window = "\n".join(text[n:n + 6])
+            m = HOUR_ESTIMATE.search(window)
+            hours = float(next(g for g in m.groups() if g)) if m else None
+            rows.append((line.lstrip("# ").strip(), hours))
+
+    total = sum(h for _, h in rows if h is not None)
+    unsized = tuple(head for head, h in rows if h is None)
+    return PhaseSizing(tuple(rows), total, unsized)
+
+
+def sizing_block(sizing: "PhaseSizing", component_rel: Path) -> str:
+    """The phases, their estimates and the TOTAL, rendered as a stated fact.
+
+    THE SAME SHAPE AS `planning_state` AND `candidate_counts`, and for the same
+    reason: a figure the prompt asks a model to derive is a figure that can be
+    derived wrongly with nothing to catch it. This one is arithmetic, which makes
+    it the clearest case in the family.
+
+    THE UNSIZED LIST IS NOT DECORATION. A complete phase carries no estimate by
+    design and a phase missing one is a defect; presenting a total without saying
+    which phases it does NOT cover is how a quietly short number gets recorded as
+    the cost of the work.
+    """
+    if not sizing.rows:
+        return (f"**Counted in code, authoritative — do not recount:** "
+                f"`{component_rel.as_posix()}/roadmap.md` lists **no phases**. "
+                f"There is nothing to total; say so and change no estimate.")
+    lines = "\n".join(
+        f"| {head} | {'—' if hours is None else f'{hours:g} h'} |"
+        for head, hours in sizing.rows)
+    unsized = (
+        "\n\n**Unsized:** " + ", ".join(f"*{u}*" for u in sizing.unsized)
+        + " — a COMPLETE phase carries none by design; any other is a defect and "
+          "the total does not cover it. Say which is which."
+        if sizing.unsized else
+        "\n\n**Every phase carries an estimate.**")
+    return (f"**Counted in code, authoritative — do not recount, re-derive or "
+            f"adjust:**\n\n| Phase | Estimate |\n|---|---|\n{lines}\n"
+            f"| **TOTAL** | **{sizing.total:g} h** |{unsized}")
+
+
+def sprint_state(sprint: Path, component_rel: Path) -> str:
+    """Whether this component already has a section, counted rather than guessed.
+
+    The two cases are different jobs — refresh an entry the operator positioned,
+    or add one and inherit a position — and a model reading an unlabelled sprint
+    file will conflate them. `plan_feature.planning_state` states the same kind of
+    fact for the same kind of reason.
+    """
+    if not sprint.is_file():
+        return f"**Counted in code:** `{sprint.name}` does not exist."
+    text = sprint.read_text()
+    slug = component_rel.name
+    words = [w for w in re.split(r"[-_]", slug) if w]
+    heads = re.findall(r"^## Sprint: (.+)$", text, re.M)
+    hit = next((h for h in heads
+                if all(w.lower() in h.lower() for w in words)), None)
+    if hit is None:
+        return (f"**Counted in code, authoritative — do not recount:** the sprint "
+                f"plan has **{len(heads)} sections** and **none of them is "
+                f"`{slug}`**. This component needs one ADDED, and its position is "
+                f"inherited from what it depends on — not argued from scratch.")
+    body = text.split(f"## Sprint: {hit}", 1)[1].split("\n## Sprint:", 1)[0]
+    bullets = len(re.findall(r"^- \[[ x]\]", body, re.M))
+    return (f"**Counted in code, authoritative — do not recount:** this component "
+            f"HAS a section — `## Sprint: {hit}` — carrying **{bullets} phase "
+            f"bullet(s)**. It is **{heads.index(hit) + 1} of {len(heads)}** in the "
+            f"file. **Update it in place**: its position is the operator's and "
+            f"nothing upstream of you changed it.")

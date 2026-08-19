@@ -100,12 +100,21 @@ models:
                                 #   together. The measured failure it exists to avoid is a cheap
                                 #   ruling — a first pass with no `requires review` door pushed eleven
                                 #   open questions through `ship` and made the sprint plan unusable.
-  plan-sprint: opus             # places the RULED candidates and sequences the sprint plan.
-                                #   It no longer triages — that is `triage-candidates` above, split
-                                #   out so feature planning can sit between the two. Opus stays:
-                                #   what remains is reconciling a sprint plan against newer evidence
-                                #   and judging the 160-hour bar, and a cheaper tier risks a bad
-                                #   placement landing in sprint.md, the operator's own surface.
+  plan-sprint: opus             # gives ONE planned component a current home in the sprint plan.
+                                #   It no longer triages (that is `triage-candidates`) and since the
+                                #   2026-08-19 rebuild it no longer places ruled candidate rows or
+                                #   judges the 160-hour bar either — a component arriving with a
+                                #   roadmap, phase docs and an estimate per phase has been ruled by
+                                #   the chain that built it. HALF THE OLD REASON FOR OPUS WENT WITH
+                                #   that; the half that remains is the one that mattered. PLACEMENT
+                                #   IS THE JOB: deciding where a NEW section goes means reasoning
+                                #   about dependencies across every section in the file, and a bad
+                                #   placement lands quietly in sprint.md — the operator's own mental
+                                #   model of what is being built when, and the one file any dispatch
+                                #   in this family may write. Operator ruling, 2026-08-19.
+                                #   MEASURED: 11 turns, $1.12, 100s on the update-an-existing-section
+                                #   path. The place-a-new-section path has not run yet, and a tier
+                                #   change should wait for it rather than rest on the easy half.
   plan-feature: opus            # writes ONE component's roadmap.md and its numbered phase docs
                                 #   from that component's research. Opus deliberately, and the
                                 #   argument is not "planning is hard": the whole quality of this
@@ -212,17 +221,18 @@ max_turns:
   build-phase: 300            # phase implementation — the default engineer
   plan-new: 500               # 14-stage project planning
   plan-revision: 300          # planning build
-  plan-sprint: 250            # NOT measured — an estimate, stated as one. Basis:
-                              #   research_write does comparable read-then-write work
-                              #   at 250 and peaks near 90 in practice. This workflow
-                              #   never had a V1 script, so it never had a derived
-                              #   value either. REVISE FROM MEASUREMENT.
-                              #   HELD AT 250 THROUGH THE TRIAGE SPLIT, deliberately.
-                              #   It now does less, so 250 is looser than before — but
-                              #   lowering it would be an unmeasured cut in the
-                              #   direction that has already cost a full budget once,
-                              #   and a cap is a ceiling rather than a spend. The
-                              #   measurement that should move it does not exist yet.
+  plan-sprint: 100            # MEASURED at last: 11 turns on the first live run — one
+                              #   component, an existing section updated, five bullets
+                              #   rewritten and a total inserted. Was 250, an explicit
+                              #   estimate carrying "REVISE FROM MEASUREMENT", set when
+                              #   this workflow walked the whole candidate table and
+                              #   placed every ruled row. It does not do that any more.
+                              #   100 IS STILL A RUNAWAY GUARD AND NOT A BUDGET — 9x the
+                              #   measured run, and the path that has NOT been measured
+                              #   (place a NEW section, reasoning about dependencies
+                              #   across every section in the file) is the more expensive
+                              #   one. An unused turn costs nothing; a cap cannot buy
+                              #   reliability, it can only truncate.
   triage-candidates: 200      # NOT MEASURED — an estimate, stated as one. Nothing has
                               #   run this workflow: it was split out of plan-sprint,
                               #   whose own 250 is itself an estimate, so there is no

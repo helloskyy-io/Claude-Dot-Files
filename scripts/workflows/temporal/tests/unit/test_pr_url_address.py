@@ -170,6 +170,14 @@ DECLARED_SPLITS = {
     # AWAY produced a path matching nothing and the guard passed over it. The
     # rewrite uses `--no-renames`, so there is no arrow to parse at all.
     ("plan_activities.py", "worktree_state"),
+    # `sprint_state` splits the sprint file on a `## Sprint: <heading>` marker to
+    # isolate ONE section's body and count its phase bullets. Not a URL and not a
+    # path: both halves are markdown, the marker is a literal this module also
+    # matched with a regex a line earlier, and a wrong split yields a bullet count
+    # that is visibly wrong rather than a plausible-but-different address. The
+    # failure mode `rsplit("/", 1)` on a URL has — a segment that looks right and
+    # points elsewhere — has no analogue here.
+    ("plan_activities.py", "sprint_state"),
     # A `manifest-sha256.txt` line — `<64 hex chars>  <payload path>` per RFC
     # 8493 §2.1.3, which separates the two by whitespace and permits any amount
     # of it. Not a URL, and the split cannot yield a plausible-but-wrong path the

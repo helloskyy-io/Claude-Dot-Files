@@ -140,7 +140,14 @@ def test_the_probe_finds_the_snapshots_at_all(mod) -> None:
     unwatched — which reads identically to full coverage.
     """
     names = snapshot_names(_source(mod))
-    assert len(names) >= 3, (
+    # TWO, NOT THREE, SINCE 2026-08-19. The floor was a positive control on the
+    # PROBE — a workflow with no snapshots found reads identically to one with
+    # full coverage — and three was simply the smallest count any workflow had.
+    # `plan-sprint` now has two: the rebuild dropped its `candidates.md` grant,
+    # and the three candidate-column snapshots went with the file they watched.
+    # The floor exists to prove the probe MATCHES SOMETHING, and two proves that
+    # exactly as well as three did; raising it back would be pinning an accident.
+    assert len(names) >= 2, (
         f"{mod.__name__}: found {names}. The probe looks for `before…` locals "
         f"bound from a call; if that idiom changed, this module checks nothing.")
 
