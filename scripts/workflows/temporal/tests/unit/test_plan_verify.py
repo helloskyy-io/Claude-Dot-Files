@@ -444,13 +444,20 @@ def _state(paths: dict[str, str]) -> dict[str, str]:
 
 def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
         tree: Path) -> None:
-    """THE DISCRIMINATING FIXTURE, and it is not the write half's.
+    """The grant reaches every TOP-LEVEL doc, and stops at the subdirectory.
 
-    `plan-feature`'s grant is a SHAPE over the component, so its boundary tests
-    need two components to be asymmetric. This grant is ONE NAMED FILE, so the
-    case that separates a reader from a second author is a phase doc in the SAME
-    directory as the granted roadmap — a fixture that only denies a sibling
-    component reads correct either way.
+    WIDENED 2026-08-19, and the old assertion is worth recording because it was
+    right for the design it guarded and wrong for this one. It read *"expected
+    everything in the component except its roadmap to be a crossing — a phase
+    doc most of all, since a judge that may edit one can quietly become its
+    author"*. The bundled prohibition it enforced has since been split: this run
+    may CORRECT a determined defect in a phase doc and may not RE-PLAN, and the
+    re-plan half moved to the observers that always did that work —
+    `roadmap_phase_links`, `phase_docs_of`, and `plan_boxes` keyed on box TEXT.
+
+    What still discriminates is the SUBDIRECTORY: `research/` is this run's
+    evidence and must stay read-only, and a grant shaped `[^/]+\.md$` reaches no
+    subdirectory by construction. That is what this fixture now proves.
     """
     permitted = wf.permitted_paths(Path("docs/development/alpha"), _CANDS)
     before = _state({
@@ -465,16 +472,14 @@ def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
     })
     after = {k: "CHANGED" for k in before}
     assert act.boundary_crossings(before, after, wf.FORBIDDEN_PATHS, permitted) == [
-        "docs/development/alpha/notes.md",
-        "docs/development/alpha/phase1_a.md",
         "docs/development/alpha/research/synthesis.md",
         "docs/development/beta/roadmap.md",
         "docs/development/sprint.md",
         "docs/standards/architecture/problem-statement.md",
     ], (
-        "expected everything in the component except its roadmap to be a "
-        "crossing — a phase doc most of all, since a judge that may edit one can "
-        "quietly rewrite the plan it was sent to judge"
+        "expected every TOP-LEVEL doc in this component to be inside the grant "
+        "and `research/` to be outside it — the evidence a run plans against "
+        "must not be editable by the run that judges the plan"
     )
 
 
@@ -675,8 +680,15 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     comp, seen = _component(tree), set()
 
     def snapshot(*_a: object, **_k: object) -> dict[str, str]:
-        seen.update(p.name for p in comp.iterdir()
-                    if p.is_file() and p.suffix == ".md")
+        # RECURSIVE since 2026-08-19, and the widened grant is why. When this run
+        # could write only `roadmap.md`, every top-level sibling of it was a
+        # crossing and a non-recursive walk could prove the boundary fires. Now
+        # every top-level `.md` is INSIDE the grant, so the only crossing left
+        # inside this component is `research/` — invisible to a walk that stops
+        # at the directory. A stub that cannot see the one remaining offence
+        # makes every assertion about that boundary vacuous.
+        seen.update(str(p.relative_to(comp)) for p in comp.rglob("*.md")
+                    if p.is_file())
         return {f"docs/development/alpha/{n}":
                 (hashlib.sha256((comp / n).read_bytes()).hexdigest()
                  if (comp / n).is_file() else act.ABSENT) for n in seen}
@@ -956,7 +968,7 @@ def test_DELETING_a_PHASE_DOC_raises_its_OWN_message_not_the_unsized_one(
         "erased a document — the remedy it suggests leaves the doc deleted")
 
 
-def test_a_phase_doc_merely_EDITED_is_left_to_the_BOUNDARY_check(
+def test_an_EDIT_OUTSIDE_THE_GRANT_is_left_to_the_BOUNDARY_check(
         tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """THE DISCRIMINATOR for the guard above, and it is a scope assertion.
 
@@ -965,12 +977,22 @@ def test_a_phase_doc_merely_EDITED_is_left_to_the_BOUNDARY_check(
     `boundary_crossings`, which is the guard that says the right thing about an
     EDIT. Only DISAPPEARANCE needs its own message, because only disappearance
     is what the generic message gets wrong.
+
+    THE FIXTURE MOVED 2026-08-19 and the reason matters. It used to EDIT a phase
+    doc, which was a crossing when this run could write only `roadmap.md`. It no
+    longer is: the grant reaches every top-level doc so a determined correction
+    can be applied where the defect is. `research/synthesis.md` is the file that
+    still separates the two guards — outside the grant by the SUBDIRECTORY, and
+    the evidence this run judges a plan against, so a run editing it has made
+    the evidence agree with the verdict it is about to write.
     """
     c = _planned(tree)
-    message = _drive(monkeypatch, tree, lambda: (
-        c / "phase2_the_gated_one.md").write_text("# Phase 2 — rewritten\n"))
+    evidence = c / "research" / "synthesis.md"
+    evidence.write_text("# evidence\n")
+    message = _drive(monkeypatch, tree,
+                     lambda: evidence.write_text("# rewritten evidence\n"))
     assert "outside its authorization" in message, (
-        f"an edited phase doc should reach the boundary check: {message}")
+        f"an edited research file should reach the boundary check: {message}")
     assert "cease to exist" not in message
 
 

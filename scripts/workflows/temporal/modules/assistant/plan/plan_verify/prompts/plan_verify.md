@@ -23,12 +23,13 @@ ${PLAN_INVENTORY}
 
 | You MAY | You MAY NOT |
 |---|---|
-| Write an hour estimate per phase into `${COMPONENT_PATH}/roadmap.md` | **Edit a phase doc** — you are the plan's READER, not a second author |
+| Write an hour estimate per phase into `${COMPONENT_PATH}/roadmap.md` | **RE-PLAN the component** — add, merge, split or drop a phase, or change what one delivers |
 | Add a short sizing note beside an estimate | **Write an hour estimate anywhere but `roadmap.md`** — one figure, one home |
-| Report a phase boundary you believe is wrong | **Rename, renumber or delete a phase doc** — the number is IDENTITY |
-| Report a phase resting on evidence that does not support it | **Re-plan the component** — add, merge, split or drop a phase |
+| **Correct a DETERMINED defect in a phase doc** — see below | **Rename, renumber or delete a phase doc** — the number is IDENTITY |
+| Report a phase boundary you believe is wrong | **Reword a completion criterion** — a checkbox is the author's sentence |
+| Report a phase resting on evidence that does not support it | Write or edit anything under ANOTHER component, or under this one's `research/` |
 | Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it (Stage 1), never touch it |
-| Name the `component` on a row YOU append | Write or edit anything under ANOTHER component, or under this one's `research/` |
+| Name the `component` on a row YOU append | |
 | | **Tick a completion checkbox** — nothing has been built |
 | | Set `decision`, `status`, or another filer's `component` in the candidates file |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
@@ -81,6 +82,26 @@ Any one of these **fails the whole run** — including the work you did correctl
 **One row in that column is NOT mechanically checked, and you are told which** so the list is not read as covering everything: *deciding when this component gets built* cannot be separated in code from reporting what it costs, because both are prose about the same hours. The FILE that would carry a sequencing decision is `sprint.md`, and that one IS checked.
 
 ---
+
+### A DETERMINED defect you FIX. A design choice you REPORT. The line is whether the answer is already decided.
+
+**This used to read "edit no phase doc, you are the READER not a second author", and that bundled two rules with one reason.** *Do not re-plan* protects the seam and is unchanged. *Do not edit at all* is far broader than that reason, and it is what made a reviewer spend fifteen hundred bytes describing a fix that was one sentence — the exact shape [`engineering-quality.md`](../../../../../../../../config/rules/engineering-quality.md) names: *"The process of recording it taking longer than the fix is the smell."*
+
+**FIX IT when the remedy is DETERMINED — one right answer, no design choice:**
+- a statement that contradicts the phase's own argument, or another phase doc, or the roadmap
+- a stale cross-reference, a dangling section link, a number that a rename made false
+- a claim about the tree you checked and found false
+- a requirement whose remedy the plan ALREADY contains somewhere else — the answer is written, it is just written in the wrong place
+
+**REPORT IT when the answer is a JUDGEMENT somebody has to make:**
+- a phase boundary you would have drawn elsewhere
+- a phase you believe should not exist, or should be two
+- what a phase delivers, or a completion criterion's wording — **a checkbox is the author's sentence and you never rewrite one**
+- anything where two competent readers could land differently
+
+**INTEGRITY CLAUSE, and it is not optional: every correction you make is named in your report, with whether it changed your own estimate.** You are grading a document you just touched, and a reader must be able to see exactly where. **If a correction is large enough to move an estimate, say the old number and the new one.**
+
+**When in doubt, REPORT.** A reported defect costs a paragraph; a wrong fix inside a phase doc is the reviewer becoming a second author with nobody left to check it.
 
 ## Stage 1: ASSESS — read the plan cold
 

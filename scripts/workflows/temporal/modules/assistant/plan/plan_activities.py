@@ -960,3 +960,62 @@ def submit_prompt(pr_number: str | None, label: str) -> str:
                 f"- Push to the PR branch and report PR #{pr_number}'s URL as your FINAL line")
     return (f"- Stage and commit your changes with message `{label}`\n"
             f"- Push the branch and open a PR; report its URL as your FINAL line")
+
+def plan_docs(component: Path) -> dict[str, str]:
+    """EVERY top-level markdown file in the component — the write grant's own scope.
+
+    THE SCOPE OF THE GUARDS MUST BE THE SCOPE OF THE GRANT, and this reader is
+    what makes those two the same set. The grant is `<component>/[^/]+\\.md$` —
+    any markdown file sitting directly in the component — while `phase_docs`
+    above answers a narrower question (*which files are phase docs*) by matching
+    `^phase`. Three guards were built on the narrow reader and inherited its
+    scope, which left the grant wider than anything that inspected it:
+
+      * a NEW `the_run_bag.md` — a phase doc with the number dropped, which is
+        the FIRST failure mode the standard names and the likeliest one — does
+        not start with `phase`, so it was invisible to `malformed_phase_docs`
+        while the row it violates claims that function observes it;
+      * an hour estimate or a pre-ticked checkbox written into any top-level file
+        other than `roadmap.md` or a `phase*` one was scanned by nothing.
+
+    Both are closed by asking the grant's question instead of the phase reader's.
+    `roadmap.md` is the one legitimate non-phase name and the callers below say
+    so explicitly rather than this reader excluding it — the deletion and
+    checkbox guards want it in, and only the naming guard wants it out.
+
+    A MISSING COMPONENT DIRECTORY IS AN EMPTY MAP, for the same reason
+    `phase_docs` gives: `plan-candidates` creates the folder and the seed and
+    nothing else, so a first-time plan legitimately starts from nothing.
+    """
+    if not component.is_dir():
+        return {}
+    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(component.iterdir())
+            if p.is_file() and p.suffix == ".md"}
+
+def plan_boxes(component: Path) -> Counter:
+    """Every completion checkbox in the component's PLAN, as one Counter.
+
+    THE ROADMAP AND EVERY OTHER TOP-LEVEL DOC TOGETHER, because the prohibition
+    is about the plan and not about a file. `checked_boxes` reads one path;
+    this workflow's output is one roadmap plus N phase docs, and a guard scoped
+    to `roadmap.md` alone would be blind to a phase doc shipping with its steps
+    pre-ticked — which is the likelier mistake, since a phase doc is where the
+    implementation checklist lives.
+
+    SCOPED BY `plan_docs`, i.e. by the write grant, so it cannot be narrower than
+    what the run may write. It sat in the workflow module keyed on a hand-written
+    `name == "roadmap.md" or name.lower().startswith("phase")`, which was a
+    second spelling of `_LOOKS_LIKE_A_PHASE` in a second file with nothing
+    forcing the two to move together — and it carried the same scope gap
+    `plan_docs` exists to close.
+
+    `research/` is deliberately outside the sweep, for the same reason it is
+    outside the write grant: a synthesis' own checkboxes are not this plan's.
+    """
+    boxes: Counter = Counter()
+    for name in plan_docs(component):
+        boxes += checked_boxes(component / name)
+    return boxes
+
+
