@@ -6,8 +6,6 @@
 
 **Phases 2–5 were decomposed on 2026-08-18 from [`research/synthesis.md`](research/synthesis.md), and corrected on 2026-08-19 against two operator rulings.** What used to be a single four-box phase is now three phases — 3, 4 and 5 — because its four boxes deliver separate things on separate surfaces. Every original checkbox line is carried below, unchanged, under the phase that now owns it: a completion criterion is not reworded by the run that plans against it, so where a box's wording is wrong or its cross-reference has moved, the correction sits in prose beside it rather than in the box.
 
-**Two numbering facts a reader needs before scanning the list.** [Phase 4](#phase-4--retired-and-the-number-is-not-reused) is **retired** and is not reused. And the 2026-08-18 decomposition briefly assigned Phase 4 to new work; that was corrected here, and what it planned is now merged into [Phase 4](phase4_nothing_invisible.md).
-
 ---
 
 ## In plain words

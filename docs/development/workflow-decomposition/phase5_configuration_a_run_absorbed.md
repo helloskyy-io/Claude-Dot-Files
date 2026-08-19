@@ -44,6 +44,10 @@ The pre-existing roadmap checkbox this phase carries promises two different thin
 
 The checkbox is carried verbatim because a planning run does not reword a completion criterion.
 
+**AND THAT LEAVES THIS PHASE WITHOUT A REACHABLE CLOSE, which is a defect rather than a design.** `roadmap.md` states the component has a real end — *when these phases close, decomposition is done* — and a phase carrying a requirement that stays permanently unchecked cannot close, so the component's stated end is unreachable through it.
+
+**This phase closes on its increment: the digest, the reader, and the Managed-tier measurement.** The tier mechanism is a SUCCESSOR, gated on the evidence this phase produces and on an operator ruling about precedence direction — so it is named here as what comes next and is **not** a completion criterion of this phase. **An open question is an INPUT to a phase, never a condition of its closing**; the roadmap box stays as written and unchecked, and closing this phase does not require ticking it.
+
 ---
 
 ## What this phase decides
