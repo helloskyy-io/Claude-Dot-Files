@@ -149,7 +149,7 @@ claude-dot-files/
 │   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
-│   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — Phase 1 shipped; Phases 2-5 open, numbered in rollout order
+│   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — Phase 1 shipped; Phases 2-5 open, rollout order 2 → 3 → 4 → 5
 │   │   │   ├── roadmap.md                         # Rollout order 2 → 3 → 4 → 5; written after Phase 1 shipped, so that phase is a record not requirements
 │   │   │   ├── phase2_family_alignment.md         # The half a test cannot judge — ruling a DRIFTED prompt pair, method validated blind before it is trusted
 │   │   │   ├── phase3_dual_mode_children.md       # The nine children with no standalone runner; a child EARNS autonomy, so it must be runnable to be exercised

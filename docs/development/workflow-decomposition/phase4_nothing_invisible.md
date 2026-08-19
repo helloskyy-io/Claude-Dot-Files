@@ -24,7 +24,7 @@ Both halves fail the same way — **silently, and while looking like success.** 
 
 ### The derived half
 
-1. **Every derived value in the fleet is enumerated** with its marker, its algorithm in one sentence, its override if it has one, and its scope of effect. Published where a reader looks — not recoverable only by reading the call chain.
+1. **Every derived value in the fleet is enumerated** with its marker, its algorithm in one sentence, its override if it has one, and its scope of effect. Published where a reader looks — not recoverable only by reading the call chain. **The enumeration's POPULATION is read off the derivation sites, never hand-kept** — a check derives the set of derivation sites from the tree and fails when one is missing from the enumeration, the way requirement 5's gate reads its population off disk. *A hand-kept list is what this phase exists to stop: a table checked against itself cannot see the derivation that was never added to it, and requirement 2's echo is only as good as the enumeration behind it.*
 2. **A live run echoes what it derived.** Not a rehearsal: `plan-feature` already prints its component, its phase-doc count and its grants **under `--dry-run` only**, and prints none of it on the run that actually dispatches. The echo has to be on the path that does the work.
 3. **A parent can silence the echo without destroying the record.** `verbose` is already threaded through this fleet as an explicit parameter rather than sniffed from the terminal, and the caller that most wants quiet output — a parent running nine children — is exactly the caller that most needs the derivation recorded. Silencing the console must not silence the record.
 
@@ -106,6 +106,7 @@ The rule this half generalises was already written in prose in the directory it 
 
 **The derived half:**
 
+- [ ] Build the check that DERIVES the population of derivation sites from the tree, so the enumeration cannot silently miss one — the same property `test_measure_readme_names_a_consumer.py` already has for producers.
 - [ ] Enumerate the derived values across the fleet's entrypoints and activities. The known set to start from, each verified against the tree rather than this list: the repository root; the component under plan; paths built from an already-contained path; the per-run worktree name; the pull-request number parsed back out of a URL; the set of papers a refresh run considers due.
 - [ ] For each, record marker / algorithm / override / scope of effect. Where a value has no override, say so and say why — an absence stated is a decision, an absence unstated is an oversight.
 - [ ] Rule requirement 3's trade in one sentence and write the ruling down: what the echo costs, which stream carries it, and what a parent may suppress.
