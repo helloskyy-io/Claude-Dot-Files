@@ -155,6 +155,7 @@ claude-dot-files/
 │   │   │   ├── phase3_dual_mode_children.md       # The nine children with no standalone runner; a child EARNS autonomy, so it must be runnable to be exercised
 │   │   │   ├── phase4_nothing_invisible.md        # Merge of two thin phases: derived values echoed on the live path, and the unread-producer gate generalised
 │   │   │   ├── phase5_configuration_a_run_absorbed.md  # One digest, one Journal- tag, one reader — and the Managed-tier measurement nothing may be built on
+│   │   │   ├── fork_vs_parameterize_blind_trial.md  # Phase 2's validation of its own ruling procedure: sealed classifications, revealed history, κ = 0.000
 │   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs the Phase 2 ruling,
 │   │   │                                            #   invocation_contract backs Phases 3, 4 and 5
 │   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced.

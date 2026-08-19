@@ -1,4 +1,4 @@
-You are executing the BUILD workflow on a new branch.
+You are executing the BUILD-DRAFT-MINOR workflow on a new branch.
 
 Task: ${DESCRIPTION}
 
@@ -8,9 +8,9 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
-   WORKFLOW-FIT CHECK — do this BEFORE implementing. build-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
+   WORKFLOW-FIT CHECK — do this BEFORE implementing. `build-draft-minor` is the LIGHT tier: it dispatches no review agents, and the correction pass it hands off to runs ONE review lens. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
 
-   > This task is sized for build.sh (the reviewed two-step parent), not build-minor.sh. Nothing has been changed. build-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with build.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
+   > This task is sized for the reviewed major tier — `build-draft` followed by `build-refine` — not `build-draft-minor`. Nothing has been changed. `build-draft-minor` dispatches NO review agents and hands off to a single-lens correction pass; this work needs the review arsenal. Recommend re-dispatching with `build-draft`, which drafts the change in one run and then reviews it in a SECOND run with fresh context.
 
    Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
 

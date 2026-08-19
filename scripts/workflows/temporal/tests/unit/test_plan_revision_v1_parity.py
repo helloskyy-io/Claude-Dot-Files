@@ -24,6 +24,8 @@ from pathlib import Path
 
 import pytest
 
+from assembled_prompt import assembled, expand
+
 from modules.assistant.plan import plan_activities as act
 from modules.assistant.plan.plan_revision import plan_revision_workflow as wf
 
@@ -141,8 +143,22 @@ def test_prompt_file_is_byte_identical_to_v1(filename: str, v1_source) -> None:
     the one case equality wrongly rejected: text ADDED alongside everything the
     reference carries.
     """
-    shipped = (wf.PROMPTS / filename).read_text()
-    expected = v1_source()
+    # ASSEMBLED, NOT READ. A reference line that has been PROMOTED into
+    # `modules/assistant/prompts/` is not lost — it moved, and the dispatched
+    # prompt still carries it. Reading the file alone reported four lines as LOST
+    # the first time a promotion touched this child, which is a false positive on
+    # the one property this module exists to protect. See `assembled_prompt.py`
+    # for why that direction of error is the dangerous one across the tree.
+    shipped = assembled(wf.PROMPTS / filename)
+    # BOTH SIDES ASSEMBLED, and the symmetry is the point. V1's PROMPT strings
+    # carry literal `${RULES}` / `${HEADLESS_EXECUTION_GUARD}` splice points, so
+    # expanding only the shipped side reports those tokens as lost content. Each
+    # side is resolved against the same pool, which makes the comparison about
+    # the PROSE around the splice rather than about where the prose is stored —
+    # and a shipped file that drops a placeholder entirely still fails, because
+    # the expanded reference then carries a fragment's lines that the shipped
+    # side does not.
+    expected = expand(v1_source())
     missing = [ln for ln in expected.splitlines() if ln.strip() and ln not in shipped]
     assert not missing, (
         f"prompts/{filename} has LOST content relative to {V1.name}: "

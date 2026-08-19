@@ -238,6 +238,7 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         "FILING_A_CANDIDATE_ROW": act.shared_prompt("filing_a_candidate_row"),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-verify: size and judge {rel_component.name}"),
+        "WORKTREE_IS_COMPARED_TO_A_SNAPSHOT": act.shared_prompt("worktree_is_compared_to_a_snapshot"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

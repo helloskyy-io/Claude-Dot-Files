@@ -40,6 +40,8 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
         stages_body = None
     values = {
         "DESCRIPTION": description,
+        "VERIFICATION_IS_BY_FETCH": act.shared_prompt("verification_is_by_fetch"),
+        "VERIFY_THE_TASKS_ASSERTED_FACTS": act.shared_prompt("verify_the_tasks_asserted_facts"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
     }
     if stages_body:
@@ -47,6 +49,12 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
             "STAGES_1_TO_4": stages_body,
             "RULES": act.shared_prompt("rules"),
             "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),
+            # The plan-driven body carries these two as PLACEHOLDERS rather
+            # than as text: both were byte-exact copies of pool fragments,
+            # sitting INSIDE a pool fragment where no duplication guard
+            # looks — `_duplicated()` skips the pool by construction.
+            "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
+            "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
             "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
             "PLAN_PATH": plan_path, "CONTEXT_BLOCK": context,
         }

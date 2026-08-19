@@ -142,8 +142,6 @@ _DECLARED: dict[str, str] = {
         "historical: the corpus as measured before any promotion, and the "
         "evidence for MIN_BLOCK's value. Nothing in the tree can recompute a "
         "population that no longer exists.",
-    "35 blocks and 72%":
-        "historical: what one PR promoted, stated as the record of that change.",
     "48 -> 13":
         "historical: the before/after of the same change. The `13` half is "
         "live and IS checked, by _baseline_entries via test_a_FIXED_"
@@ -169,14 +167,13 @@ _DECLARED: dict[str, str] = {
         "frozen baseline exists at all rather than a clean fail.",
     "promoted 35 duplicated blocks":
         "historical: what PR #100 promoted, cited as what the guard cost.",
-    "there are eight sets":
-        "quoted CORRECTION: the measurement that falsified the sentence above "
-        "it. Kept as the evidence for why the prose no longer states a count.",
-    'read "seven CROSS-FAMILY sets"':
-        "quoted DEFECT: the sentence that was wrong, cited so the correction is "
-        "checkable rather than asserted.",
     'read "there are 19 near-duplicate pairs"':
         "quoted DEFECT: the count this whole module exists because of.",
+    "seven drifted pairs":
+        "historical: the SAMPLE SIZE of a blind inter-rater trial, fixed when its "
+        "classifications were sealed in a commit. The population it was drawn "
+        "from moves with the tree; the trial's own sample cannot, and re-deriving "
+        "it would silently rewrite what was measured.",
     "promoted iff >1 consumer":
         "not a corpus count — §10.1's rule stated as an inequality. The `1` is "
         "the threshold in the rule, not a measurement of anything.",

@@ -55,6 +55,9 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
         "RULES": act.shared_prompt("rules"),
         # SHARED because it was forked and drifted — see prompts/mutation_discipline.md.
         "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),
+        "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
+        "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
+        "VERIFICATION_IS_BY_FETCH": act.shared_prompt("verification_is_by_fetch"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

@@ -22,22 +22,29 @@ existing duplication is frozen below and the ratchet runs BOTH ways:
 The second is what makes the list shrink instead of becoming a permanent excuse
 list. Fixing a duplication forces its row out, and the row cannot come back.
 
-AND IT SHRANK: 48 -> 13 in one change. The three largest consumer-sets were the
-whole of it — a child and its `_minor` sibling twice over, plus the two research
-entry points — 35 blocks and 72% of the duplicated bytes, all of it promoted to
-`modules/assistant/prompts/`. What is left is mostly CROSS-FAMILY sets
-(`build_refine` + `plan_revision`, `build_refine` + `research_verify` and
-similar). Those are deliberately still here: whether two children in different
-families should move together is a judgement nobody has made, and promoting them
-blind would couple runs that have no reason to be coupled.
+AND IT SHRANK TO NOTHING: 48 -> 13 in one change, and 13 -> 0 in the next. The
+first pass took the three largest consumer-sets. The second ruled on what was
+left and promoted all of it, so `ACCEPTED` below is empty and the guard is now a
+clean assertion that no prompt block is copied between children at all.
 
-"MOSTLY", AND THE WORD IS DOING WORK. This sentence read "seven CROSS-FAMILY
-sets" and was wrong on both halves by the time anyone re-measured: there are
-eight sets, and two of them are not cross-family at all — `research_write` +
-`research_write_minor` are tier siblings, and `plan_feature` + `plan_verify` are
-one family. The count is now derived by
-`test_promotion_guard_prose_figures_are_DERIVED` rather than restated here,
-which is why the prose carries a shape and not a number.
+AN EMPTY BASELINE IS STRICTLY STRONGER AND ALSO QUIETER, so read the ratchet
+tests below with that in mind: `test_a_baselined_block_does_not_SPREAD_to_
+another_child` and `test_a_FIXED_duplication_is_removed_from_the_baseline` both
+iterate `ACCEPTED` and are therefore VACUOUS while it is empty. Neither is dead:
+each has a live control driving its predicate with a synthetic baseline, which
+is why the failing path stays exercised on a tree that can no longer produce it.
+
+WHY THE REMAINDER WAS PROMOTED RATHER THAN LEFT AS A JUDGEMENT NOBODY MADE. The
+note here used to say the cross-family sets were "deliberately still here", on
+the reasoning that promoting them would couple runs with no reason to be
+coupled. The standard this guard enforces says the opposite in as many words —
+*"The shared pool sits above ALL families, so a fragment may be shared by a
+build child and a research child — family boundaries do not enter into it"* —
+and the standard is the thing under version control that a later reader checks
+against. The ruling was made by category of guidance rather than by pair,
+because a blind trial found per-pair ruling was not reproducible here; the
+procedure, the trial and the rulings are in `fork_vs_parameterize.py` and
+`FAMILY_RULINGS` below.
 
 HOW TO FIX ONE, rather than adding to the baseline: move the block to
 `modules/assistant/prompts/<name>.md`, put a placeholder where it used to be in
@@ -67,6 +74,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+import fork_vs_parameterize as fvp
+
 ASSISTANT = Path(__file__).resolve().parents[2] / "modules" / "assistant"
 SHARED = ASSISTANT / "prompts"
 
@@ -75,8 +84,11 @@ SHARED = ASSISTANT / "prompts"
 # dropping to 60 adds only noise-sized fragments.
 MIN_BLOCK = 120
 
-# FROZEN 2026-08-16. hash -> how many children carry it, and its opening words.
-# THIS LIST MAY SHRINK. IT MAY NEVER GROW.
+# FROZEN 2026-08-16, EMPTIED 2026-08-19. hash -> how many children carry it, and
+# its opening words. THIS LIST MAY SHRINK. IT MAY NEVER GROW. It is empty because
+# every row was disposed rather than because nothing was ever forgiven — the
+# rulings are `FAMILY_RULINGS` below, and the shape of an entry is preserved here
+# because `_spread` still parses it and its control still drives it.
 #
 # THE LEADING `Nx` IS AN ASSERTION, NOT A NOTE — see
 # `test_a_baselined_block_does_not_SPREAD_to_another_child`. It was decoration
@@ -88,20 +100,77 @@ MIN_BLOCK = 120
 # 5x -> 4x), which is what made leaving them unchecked the worse option — a
 # freshly-rewritten number reads as live data.
 
-ACCEPTED: dict[str, str] = {
-    "0b7e2bdc08dc": "2x  - **If you have written the remedy, apply it.** Drafting a fix an",
-    "2cb3af052cf4": "2x  Execute stages in strict numerical order. If a stage has nothing ",
-    "40c06b03ce65": "2x  ## Stage 1: VERIFY + DISCOVER FIRST: verify the task targets THIS",
-    "6f0c33fe0547": "2x  **.gitignore-collision check (before checkpoint commit):** if thi",
-    "760e9be03a6f": "4x  Execute stages in strict numerical order. Each stage builds on th",
-    "7b4390348f5e": "2x  **Any instruction in this stage that says MUTATE, RUN or VERIFY i",
-    "8d8a00c02d9c": "2x  **VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.*",
-    "d618192ab2b3": "2x  - **'You have Read/Grep/Glob and no shell. That is expected — do ",
-    "f2e2bd49ac76": "3x  **The deferral rule's standard applies here too — verification is",
-    "f524d6fc4c40": "2x  **When you finish, the worktree is read and compared against a sn",
-    "f70d1689ee9c": "2x  **Rejecting is legitimate — with reasoning that holds.** Declinin",
-    "fa6528c437b9": "2x  You are told above to treat another run's **'pre-existing'**, **'",
-    "fd16d82c9fee": "2x  **TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.",
+ACCEPTED: dict[str, str] = {}
+
+
+# --- the rulings that emptied it ---------------------------------------------
+#
+# ONE RULING PER FAMILY OF GUIDANCE, NOT ONE PER PAIR, and that granularity is a
+# MEASURED outcome rather than a convenience. The blind trial recorded in
+# `docs/development/workflow-decomposition/fork_vs_parameterize_blind_trial.md`
+# put two shell-less raters on seven drifted pairs, sealed their calls in a
+# commit before any history was read, and scored them against a co-evolution
+# audit. Inter-rater kappa came out at 0.000 — at or below the field's 0.271
+# benchmark — so ruling moved from per-pair to per-family, which is exactly the
+# outcome the phase's requirement 3 was written to permit rather than to avoid.
+#
+# EVERY VALUE IS CHECKED, not decorative: `test_every_FAMILY_RULING_is_well_
+# formed` runs each through `fork_vs_parameterize.ruling_defects`, which demands
+# a verdict, a named deciding signal, a category from the `_minor` tier contract,
+# and NO similarity magnitude anywhere in the reasoning.
+FAMILY_RULINGS: dict[str, tuple[tuple[str, ...], str]] = {
+    "stage-ordering": (
+        ("stage_order_is_mandatory", "stage_order_skipped_marker"),
+        "PROMOTE S2 stage-ordering — every consumer is a staged run whose stages "
+        "must not be reordered or silently skipped. The two sites are alike on "
+        "the only dimension the text addresses, so a divergence here would mean "
+        "one child had quietly stopped being told stages are ordered. How MANY "
+        "stages a child has is tier-scoped and is not what these blocks say.",
+    ),
+    "operational-safety": (
+        ("gitignore_collision_check", "research_stage_1_verify_and_discover",
+         "worktree_is_compared_to_a_snapshot"),
+        "PROMOTE S2 operational-safety — what a run may do to the tree, and the "
+        "checks that catch it having done the wrong thing. A cheaper or "
+        "differently-jobbed run is not a run permitted to be less careful, so "
+        "SC3 does not reach these even where the two children's jobs differ: "
+        "the referent is the WORKTREE, which both hold identically.",
+    ),
+    "evidence-discipline": (
+        ("verify_the_tasks_asserted_facts", "verification_is_by_fetch"),
+        "PROMOTE S2 evidence-discipline — how a claim is established before it "
+        "is written down. Scope changes what a run examines; it never changes "
+        "what counts as having examined it. Left duplicated, these are the exact "
+        "shape that forked before: general discipline landing in one consumer "
+        "and not its sibling, with a reader unable to tell.",
+    ),
+    "finding-disposition": (
+        ("resolve_apply_the_remedy_you_wrote", "resolve_rejecting_is_legitimate",
+         "resolve_your_own_dispositions_too"),
+        "PROMOTE S2 finding-disposition — the rules for what may be done with a "
+        "finding once it exists. This category was already treated as invariant "
+        "when the resolve_* fragments were promoted, and these three were the "
+        "remainder, frozen with two consumers each so a third tier could not "
+        "take them without tripping the spread check. Reconciled into "
+        "build_refine_minor in the same change, per C-110's own reading.",
+    ),
+    "orchestration-mechanics": (
+        ("orchestrator_executes_agents_read",),
+        "PROMOTE S2 orchestration-mechanics — who executes and who reads. True "
+        "of a run dispatching one agent and of a run dispatching five, so it "
+        "renders in both refine tiers; the ROSTER is a different category and is "
+        "ruled separately below.",
+    ),
+    "review-depth": (
+        ("tell_each_agent_what_it_can_run", "agents_have_no_shell"),
+        "PROMOTE S3 review-depth — promoted because both consumers dispatch the "
+        "same multi-agent roster, and TIER-SCOPED because the text enumerates "
+        "that roster. The pair is one instruction split across two blocks (the "
+        "first ends 'in these two parts:'), so they are ruled together and move "
+        "together. build_refine_minor dispatches one agent and is deliberately "
+        "NOT a consumer — recorded in test_promoted_fragments_render_for_every_"
+        "consumer, which asks for exactly this ruling to be made there.",
+    ),
 }
 
 
@@ -211,4 +280,74 @@ def test_a_FIXED_duplication_is_removed_from_the_baseline() -> None:
         "These baseline entries are no longer duplicated — the block was promoted "
         "or deleted. Remove their lines from ACCEPTED so the list keeps "
         "shrinking:\n  " + "\n  ".join(f"{h}  {ACCEPTED[h]}" for h in stale)
+    )
+
+
+# --- the rulings, checked -----------------------------------------------------
+
+
+def test_every_FAMILY_RULING_is_well_formed() -> None:
+    """A ruling states a verdict, the SIGNAL that produced it, and its category.
+
+    The phase this landed under does not ask merely that each baseline row be
+    disposed — it asks that a disposition say *which signal decided it and why*,
+    because an undisposed row and a row disposed by a shrug look identical six
+    weeks later. `ruling_defects` is the shape check; the control below proves
+    it can fail.
+    """
+    bad = {k: fvp.ruling_defects(r) for k, (_, r) in FAMILY_RULINGS.items()}
+    bad = {k: v for k, v in bad.items() if v}
+    assert not bad, "malformed family rulings:\n  " + "\n  ".join(
+        f"{k}: {'; '.join(v)}" for k, v in sorted(bad.items())
+    )
+
+
+def test_the_RULING_CHECK_fires_on_each_way_a_ruling_can_be_empty() -> None:
+    """Live control for the check above, one arm per defect it claims to catch.
+
+    THE CORPUS CAN ONLY EVER EXERCISE THE PASSING BRANCH — every ruling in the
+    tree is well-formed by construction, so without this the validator's failing
+    path would never run. Each arm is a SELF-CONTAINED string rather than a
+    mutation of a real ruling: a control sharing a fixture with the thing it
+    mutates over-fires, and what it then proves is the fixture.
+    """
+    assert fvp.ruling_defects(
+        "PROMOTE S2 stage-ordering — because the sites are alike."
+    ) == [], "a well-formed ruling must pass"
+
+    def one(text: str) -> str:
+        d = fvp.ruling_defects(text)
+        assert len(d) == 1, f"expected exactly one defect, got {d}"
+        return d[0]
+
+    assert "must OPEN" in one("S2 stage-ordering — no verdict at the front.")
+    assert "no deciding signal" in one("PROMOTE stage-ordering — no signal named.")
+    assert "no category" in one("PROMOTE S2 — no category from the contract.")
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — the two sit at 85.8% similarity."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — a ratio of 0.786 between the copies."
+    )
+
+
+def test_every_RULED_fragment_still_EXISTS_in_the_pool() -> None:
+    """A ruling naming a fragment nobody ships is a ruling about nothing.
+
+    This is the ratchet's other end. `test_a_FIXED_duplication_is_removed_from_
+    the_baseline` stops a disposed row from lingering; this stops a DISPOSITION
+    from outliving the thing it disposed of. A fragment deleted or renamed
+    without its ruling being revisited leaves prose asserting a decision about
+    text that is gone, which is the state the whole module exists to prevent.
+    """
+    named = [stem for stems, _ in FAMILY_RULINGS.values() for stem in stems]
+    assert len(named) == len(set(named)), (
+        "a fragment is ruled twice; one finding is one entry, and two rulings on "
+        f"one fragment is two answers: {sorted(n for n in named if named.count(n) > 1)}"
+    )
+    missing = sorted(s for s in named if not (SHARED / f"{s}.md").is_file())
+    assert not missing, (
+        "these fragments carry a family ruling and no longer exist in the pool. "
+        "Either restore them or revisit the ruling — a decision about deleted "
+        f"text is worse than no decision: {missing}"
     )

@@ -164,7 +164,138 @@ separate, unexplained residue rather than folding them into the docstring's rati
 
 ---
 
-## 4. Scoring — TO BE COMPLETED AFTER THE REVEAL
+## 4. The reveal — ground truth, by a mechanical audit
 
-Sections 5 onward are written after the commit history is revealed. Everything above this line was
-committed first; the commit that contains §1–§3 and nothing below is the seal.
+The seal is commit `beb103f`, whose message is *"SEAL blind-trial classifications before any history
+is consulted"* and whose diff is §1–§3 and nothing else. No `git log` was run against a prompt file
+before it.
+
+**Ground truth is a CO-EVOLUTION AUDIT, and the criterion was fixed before it was run** so the
+reveal could not become a search for the answer already wanted. For each pair, `git log --follow`
+both sides and partition the commits into those touching BOTH copies and those touching only one:
+
+- **DELIBERATE** — no *substantive* commit is one-sided. Renames, directory moves and the original
+  ports do not count: they change where a file is, not what it says.
+- **NEGLECTED** — substantive prompt-content commits landed on one side and not the other, and the
+  counterpart file existed at the time.
+
+**This repo has an advantage the literature does not, and §7.2 of the paper says so: the history
+exists even though the ruling method may not consult it.** Kapser & Godfrey could not run this
+check. It is the difference between measuring AGREEMENT and measuring ACCURACY.
+
+| Pair | both | left-only | right-only | Ground truth |
+|---|---|---|---|---|
+| P1 | 1 | 0 | 0 | **DELIBERATE** — both files were CREATED by one commit, `168dc8a`, which split a shared head into the pool and left each child its own tail. The difference is the split, by construction. |
+| P2 | 1 | 3 | 3 | **DELIBERATE** — every one-sided commit is a rename, a directory move or the original port. The only substantive commit, `41a0589`, changed the SAME line in both copies. |
+| P3 | 0 | 4 | 1 | **DELIBERATE** — cross-family. Each side evolves inside its own family and neither has ever been a copy the other was maintained against. |
+| P4 | 5 | 1 | 1 | **DELIBERATE** — five shared commits; the left-only one (`38cb5a4`) was later reconciled by the promotion in `168dc8a`, and what remains is the tier description and the commit prefix. |
+| **P5** | 10 | **11** | 0 | **NEGLECTED** — eleven substantive prompt-improvement commits landed in `build_refine` and in `build_refine_minor` never. Named, because a count alone would be a claim: `4c07f24`, `f41afc7`, `92d661a`, `cf1776e`, `5c03389`, `bd16b09`, `f912b41`, `38cb5a4`, `e1c270d`, `14334f1`, `2d24414`. |
+| P6 | 0 | 3 | 6 | **DELIBERATE, and the PAIR IS MIS-FORMED** — the right side's three substantive commits (`44706eb`, `8be3600`, `41a0589`) each touched `build_draft/prompts/stages_1_to_4.md` in the same commit. The major tier's counterpart to the minor tier's self-contained wrapper is the wrapper PLUS the stages body, so same-filename selected a comparison that is not the real one. |
+| P7 | 0 | 3 | 1 | **DELIBERATE** — cross-family, as P3. |
+
+**The eleven of P5 is the same shape and the same number as the failure this whole component was
+opened for** — *"the normal one accumulated eleven testing rules and the plan variant received none
+of them"*. That is a coincidence in the number and not in the mechanism.
+
+---
+
+## 5. Scoring
+
+### 5.1 Agreement between the raters — kappa = 0.000
+
+Raters agreed on five of seven (P1, P3, P4, P5, P7) and disagreed on P2 and P6.
+
+```
+observed agreement   Po = 5/7                    = 0.714
+rater A marginals    DELIBERATE 7, NEGLECTED 0
+rater B marginals    DELIBERATE 5, NEGLECTED 2
+chance agreement     Pe = (7*5 + 0*2) / 7^2      = 0.714
+Cohen's kappa        (Po - Pe) / (1 - Pe) = 0.000 / 0.286 = 0.000
+```
+
+**kappa = 0.000, against the field's benchmark of 0.271.** Requirement 3's rule — *"if agreement is
+at or below the field's kappa = 0.271 benchmark, ruling moves from per-pair to per-family"* — is
+triggered.
+
+### 5.2 Accuracy against ground truth, which points the OTHER WAY
+
+| | P1 | P2 | P3 | P4 | P5 | P6 | P7 | correct |
+|---|---|---|---|---|---|---|---|---|
+| ground truth | D | D | D | D | **N** | D | D | — |
+| rater A | D | D | D | D | D | D | D | **6 / 7** |
+| rater B | D | **N** | D | D | D | **N** | D | **4 / 7** |
+
+**REPORTING kappa ALONE WOULD HAVE BEEN MISLEADING AND THE DIRECTION MATTERS.** kappa is degenerate
+here: rater A used one category for all seven, so chance agreement equals observed agreement and
+kappa is zero no matter how many it got right. A run that reported only "kappa = 0.000, procedure
+retired" would have thrown away the fact that one rater was right six times out of seven.
+
+### 5.3 And rater A's accuracy is worth nothing, which is the actual finding
+
+Rater A returned **DELIBERATE on every pair** and never once returned NEGLECTED or UNRULED. Both
+raters were told, in identical words, that the field's default-to-intentional convention is NOT
+imported here and that a genuinely absent signal yields *unruled*. One of them applied the forbidden
+default anyway.
+
+It scored 6/7 **because the population is 6/7 deliberate** — a constant classifier scores exactly
+that on this sample without reading anything. And it was wrong on **P5**, the one pair where the
+default is wrong, which is the one pair that is the defect class this entire component exists to
+catch. **A procedure whose accuracy comes from a default has zero value on the only case that
+matters**, and the paper's §6.3 predicted precisely this: *the field's conservative default is safe
+for them and unsafe for us*.
+
+### 5.4 Two structural findings the trial produced that were not the question
+
+- **Signal 4 fires early and then generalizes past its own scope.** Both raters ruled P5
+  DELIBERATE on S4, citing the minor tier's in-text explanation of why it runs one review lens.
+  That rationale is TRUE and explains ONE difference. Eleven other differences in the same pair have
+  nothing to do with lens count. A stated rationale short-circuits the procedure, and neither rater
+  asked whether it covered everything it was being used to excuse.
+- **A file pair is not a ruling unit.** P6's two files are not counterparts at all — the major
+  tier's counterpart is a wrapper plus a separate stages body — and the same-name heuristic that
+  chose the sample could not see that. Rater A worked it out from the workflow module's docstring;
+  rater B did not.
+
+---
+
+## 6. The ruling
+
+**Per-pair ruling is not reproducible on this corpus, and the granularity moves to per-family.**
+Recorded here rather than argued later:
+
+1. **kappa = 0.000 is at or below 0.271**, which is the trigger requirement 3 named in advance.
+2. **The disagreements were not about confidence, they were about which failure was in view.** On
+   P2 and P6 one rater ruled on the pair's structure and the other on stale referents inside it.
+   Both readings were defensible and they are not two estimates of one quantity.
+3. **The one accurate rater was accurate by a forbidden default**, so its accuracy does not transfer
+   to a population with a different deliberate/neglected mix — and the mix is exactly what nobody
+   knows in advance.
+
+**What per-family means in practice.** A ruling is made once for a CATEGORY OF GUIDANCE — using the
+`_minor` tier contract in
+[`fork_vs_parameterize.py`](../../../scripts/workflows/temporal/tests/unit/fork_vs_parameterize.py)
+— and then applied to every pair carrying that category. The rulings that emptied the frozen
+duplication baseline are `FAMILY_RULINGS` in
+[`test_prompt_blocks_are_shared_not_copied.py`](../../../scripts/workflows/temporal/tests/unit/test_prompt_blocks_are_shared_not_copied.py),
+one per category and not one per pair. **Requirement 2 is satisfied at that granularity, which is
+what requirement 3 was written to permit.**
+
+**A per-pair verdict is now advisory and is written down as such.** The procedure is not retired —
+it is what a reviewer applies when a guard surfaces a pair, and §5.4's two findings make it better
+than it was. It is no longer treated as reproducible enough that two reviewers would reach the same
+answer.
+
+### 6.1 What this trial does NOT establish
+
+- **Seven pairs is a small sample and kappa is unstable on it.** One flipped call moves kappa
+  substantially. The finding that survives that instability is §5.3 — a rater that never uses two
+  of three categories — which is a property of the rater, not of the sample size.
+- **Two raters were LLM agents, not humans.** They were given no shell so history was unreachable,
+  which is a stronger blind than the literature's, and they hold different system prompts, which is
+  the diversity the trial needed. They are not the three human judges of [R3] and this does not
+  claim they are.
+- **Ground truth is itself a judgement, made mechanical.** The co-evolution criterion is stated
+  above and applied identically to all seven, but "substantive" versus "a rename" is a reading. It
+  is a better-founded reading than the raters had, because it can see what happened.
+- **It says nothing about pairs outside the sample.** The four block-level pairs frozen in
+  `test_tier_siblings_do_not_DRIFT_by_a_sentence` were not rated.

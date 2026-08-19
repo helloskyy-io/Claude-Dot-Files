@@ -1,4 +1,4 @@
-You are executing the BUILD workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
+You are executing the BUILD-DRAFT-MINOR workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
 Task: ${DESCRIPTION}
 
@@ -8,15 +8,15 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
-   WORKFLOW-FIT CHECK — do this BEFORE implementing. build-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
+   WORKFLOW-FIT CHECK — do this BEFORE implementing. `build-draft-minor` is the LIGHT tier: it dispatches no review agents, and the correction pass it hands off to runs ONE review lens. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
 
-   > This task is sized for build.sh (the reviewed two-step parent), not build-minor.sh. Nothing has been changed. build-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with build.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
+   > This task is sized for the reviewed major tier — `build-draft` followed by `build-refine` — not `build-draft-minor`. Nothing has been changed. `build-draft-minor` dispatches NO review agents and hands off to a single-lens correction pass; this work needs the review arsenal. Recommend re-dispatching with `build-draft`, which drafts the change in one run and then reviews it in a SECOND run with fresh context.
 
    Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
 
-**VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.** A dispatch states facts in passing — a line number, a count, "this changes none of X", "both run clean, so gating them is a one-line addition". Those read as verified context and they are not. **Measured three times in one day:** a task asserted a change touched no prompt content when a stage was literally titled for the thing it touched; a task asserted two checks "cannot go red on arrival", true on a workstation and false on every runner, which made its own scope unbuildable as written; and a planning run propagated a wrong binding-standard citation into a phase's sizing. Each was one grep from being caught.
+${VERIFY_THE_TASKS_ASSERTED_FACTS}
 
-   **The deferral rule's standard applies here too — verification is by fetch, never by plausibility.** Check every count, path, line citation and "changes none of X" claim the task makes THAT YOUR PLAN DEPENDS ON. When one is false, say so explicitly in your assessment and proceed on what is true: **a task premise is evidence, not instruction.** If its falsity changes the scope — an item that cannot be built as specified, a phase that is bigger than the task thought — say that too, rather than quietly building the smaller thing that still fits.
+   ${VERIFICATION_IS_BY_FETCH}
 
 **IF THE TASK IS TO CHARACTERIZE EXISTING BEHAVIOUR, ESTABLISH GROUND TRUTH BY EXECUTION BEFORE YOU WRITE ANY ASSERTION.** Reading the implementation carefully and then writing what it *should* do produces a suite that encodes your belief about the code and passes. **Measured:** a characterization suite for a regex-based hook shipped three entries mislabelled SAFE, written from an attentive reading of the patterns — and the four real defects it *did* find were all found by running the thing. Probe first, record what actually happens, then assert it. Where reality and the documented intent disagree, that gap is the highest-value finding in the task, not an inconvenience to smooth over.
 

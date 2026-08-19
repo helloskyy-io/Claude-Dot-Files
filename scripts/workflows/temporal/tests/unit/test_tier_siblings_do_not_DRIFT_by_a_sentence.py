@@ -166,6 +166,8 @@ from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 
+import fork_vs_parameterize as fvp
+
 ASSISTANT = Path(__file__).resolve().parents[2] / "modules" / "assistant"
 SHARED = ASSISTANT / "prompts"
 
@@ -198,6 +200,26 @@ KEY_LEN = 60
 # whom. Pairs that were ruled and RECONCILED are absent rather than annotated —
 # they were promoted, which is what a shrink looks like here.
 #
+# A NOTE CLAIMING `DELIBERATE` MUST SAY WHY, IN THE FIXED FORM
+# `differs from <sibling> because <reason>` — enforced by
+# `test_a_DELIBERATE_variant_STATES_WHY_IT_DIFFERS`. This is signal 4 of the
+# ruling procedure in `fork_vs_parameterize.py`, and it is the only one of the
+# four that can be CREATED rather than recovered: every other signal has to be
+# reconstructed from two texts by someone who was not there.
+#
+# WHY THE NOTE AND NOT THE PROMPT FILE, since "where the variant lives" would
+# most naturally mean the variant itself. That surface is CLOSED, and by a guard
+# rather than by preference: `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model`
+# fails on any HTML comment in any prompt file, because a comment in a prompt is
+# not a comment — it is text the model is sent. A rationale written as prose
+# would be worse still: an instruction the run has to interpret. The baseline
+# note is the surface a reviewer actually reads at ruling time, which is the
+# property the requirement is really after.
+#
+# AN `Unruled.` ENTRY MUST NOT CARRY ONE. Absence of a signal yields UNRULED,
+# never DELIBERATE, so a rationale attached to an unruled pair would be the
+# field's default-to-intentional convention arriving through the back door.
+#
 # EVERY NOTE MUST DESCRIBE THE BLOCK IT KEYS, and this sentence is here because
 # the submit-stage note once did not. It enumerated a difference that lives at
 # `refine.md:3` — a standalone line under MIN_BLOCK, in no block at all — while
@@ -211,7 +233,9 @@ ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
     },
     "build_refine+build_refine_minor": {
         "For each finding (fidelity gaps, code-reviewer's two lenses,":
-            "0.87 — the finding-source enumeration. DELIBERATE and forced: "
+            "0.87 — the finding-source enumeration. DELIBERATE: differs from "
+            "`build_refine` because the minor tier can only disposition findings "
+            "from the agents it actually dispatches. Forced, not chosen: "
             "the full tier lists fidelity gaps, both code-reviewer lenses, "
             "both code-reviewer lenses and quality-control; the minor tier lists "
             "fidelity gaps and code-reviewer, because those are the only "
@@ -219,7 +243,9 @@ ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
             "to disposition findings from agents it never dispatched.",
         "## Stage 5: SUBMIT\n- Stage any uncommitted changes remaining":
             "0.992 — the submit stage, and the one entry here that is RULED "
-            "rather than observed. The residual delta INSIDE THIS BLOCK is a "
+            "rather than observed. DELIBERATE: differs from `build_refine` "
+            "because a tier's commit-message prefix IS its identity and cannot "
+            "be shared. The residual delta INSIDE THIS BLOCK is a "
             "single token: the `build-refine:` / `build-refine-minor:` commit "
             "prefix each tier tells the model to use. That is tier identity by "
             "definition and cannot be shared. Everything else the two tiers "
@@ -1021,3 +1047,71 @@ def test_the_frozen_list_COVERS_the_pairs_it_claims_to() -> None:
                 f"bytes — the child name is wrong or its prompts moved, and this "
                 f"module is comparing nothing against nothing."
             )
+
+
+# --- signal 4, manufactured rather than recovered -----------------------------
+
+
+def _unstated(accepted: dict[str, dict[str, str]]) -> list[str]:
+    """Notes claiming DELIBERATE with no `differs from X because Y` line.
+
+    Split from the test so the control below can drive it with a synthetic
+    baseline: every note in the real tree is well-formed, so the failing path
+    would otherwise never run on any tree anyone can produce.
+    """
+    return [
+        f"{pair} · {key[:50]!r}"
+        for pair, entries in sorted(accepted.items())
+        for key, note in sorted(entries.items())
+        if "DELIBERATE" in note and not fvp.VARIANT_RATIONALE.search(note)
+    ]
+
+
+def test_a_DELIBERATE_variant_STATES_WHY_IT_DIFFERS() -> None:
+    """The cheapest of the four signals is the one you can create in advance.
+
+    A pair frozen here as deliberate is a claim about somebody's intent, and the
+    person who made it is the last person who will ever be able to say so
+    cheaply. Everyone after them is reconstructing it from two texts — which a
+    blind trial on this corpus measured at kappa 0.000 between two raters, at or
+    below the field's 0.271 benchmark. One line written at ruling time removes
+    that whole reconstruction.
+    """
+    unstated = _unstated(ACCEPTED_DRIFT)
+    assert not unstated, (
+        "these entries claim the difference is DELIBERATE and do not say why, in "
+        "the form `differs from <sibling> because <reason>`. An unexplained "
+        "'deliberate' is the field's default-to-intentional convention, which "
+        "this repo does NOT import — it is how a neglected copy gets laundered "
+        "into a design decision. Either state the reason or downgrade the entry "
+        "to Unruled:\n  " + "\n  ".join(unstated)
+    )
+
+
+def test_a_NEW_VARIANT_WITHOUT_A_REASON_IS_VISIBLE_to_a_reviewer() -> None:
+    """Live control: the shape a reviewer must be shown, driven synthetically.
+
+    SELF-CONTAINED FIXTURES, NOT MUTATIONS OF THE REAL BASELINE. A control that
+    shares a fixture with the thing it mutates over-fires and then proves the
+    fixture rather than the predicate. Each arm below is one claim.
+    """
+    stated = {"a+b": {"k": "DELIBERATE: differs from `a` because the roster is tier-scoped."}}
+    assert _unstated(stated) == [], "a stated rationale must pass"
+
+    bare = {"a+b": {"k": "DELIBERATE — the tiers are just different here."}}
+    assert _unstated(bare) == ["a+b · 'k'"], (
+        "a new deliberate variant with no reason must be surfaced; this is the "
+        "exact shape the guard exists to make visible"
+    )
+
+    unruled = {"a+b": {"k": "0.86 — the characterization rule. Unruled."}}
+    assert _unstated(unruled) == [], (
+        "an Unruled entry must NOT be asked for a rationale — absence of a signal "
+        "yields unruled, and demanding a reason would push it toward deliberate"
+    )
+
+    wrong_form = {"a+b": {"k": "DELIBERATE: it is different from `a` for good reasons."}}
+    assert _unstated(wrong_form) == ["a+b · 'k'"], (
+        "the FORM is the point: a fixed phrase is greppable across the corpus, "
+        "free prose is not"
+    )

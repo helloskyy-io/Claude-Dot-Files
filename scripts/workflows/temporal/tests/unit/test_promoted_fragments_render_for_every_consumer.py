@@ -26,6 +26,7 @@ WHAT THIS DOES NOT LOOK AT:
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -138,13 +139,28 @@ def _shared_prompt_stems(tree: ast.Module, where: str) -> set[str]:
 # reason a supplier written into the wrong branch cannot pass here.
 _ALTITUDES = {"component": "altitude_component", "product": "altitude_product"}
 
+# Matches `render()`'s own placeholder shape, DIGITS INCLUDED — an earlier
+# `[A-Z_]+` in the renderer silently missed `${STAGES_1_TO_4}` and shipped a
+# prompt with its whole stage body replaced by a literal token.
+_PLACEHOLDER = re.compile(r"\$\{[A-Z_][A-Z_0-9]*\}")
+
 
 def _needle(stem: str) -> str:
     """The longest line of a fragment — distinctive enough to locate it in a prompt.
 
     Skips an HTML comment header — commentary about the fragment rather than its
-    substance — and placeholder-only lines, which are gone by the time the
-    prompt is rendered.
+    substance — and SPLITS each line on its placeholders rather than discarding
+    any line that contains one.
+
+    THE DISCARD WAS THE BUG AND IT WENT ONE WAY. This read `"${" not in ln`,
+    which the docstring described as skipping "placeholder-only lines" — but a
+    line of PROSE carrying an inline `${RESEARCH_DIR}` is not placeholder-only,
+    and dropping it took a fragment's only substantive line out of the running.
+    The needle then fell back to a 29-character heading, which is under the floor
+    `test_the_needles_are_real` sets and would otherwise have been a needle short
+    enough to match text that is not the fragment. Splitting keeps the surviving
+    prose, and a segment either side of a placeholder is exactly what survives
+    rendering — which is the property a needle needs.
 
     NOTE THE TWO DIFFERENT SUBJECTS, because getting them the same way round is
     what makes the second condition dead code. An opening `<!--` may be indented,
@@ -159,16 +175,17 @@ def _needle(stem: str) -> str:
     is kept because the gate is the thing that could be deleted, and a needle
     drawn from commentary would make every membership check below vacuous.
     """
-    lines = [
-        ln.strip()
+    segments = [
+        seg.strip()
         for ln in (_SHARED / f"{stem}.md").read_text().splitlines()
         if ln.strip()
         and not ln.lstrip().startswith(("<!--", "-->"))
         and not ln.startswith("     ")
-        and "${" not in ln
+        for seg in _PLACEHOLDER.split(ln)
+        if seg.strip()
     ]
-    assert lines, f"{stem}.md yielded no usable needle — the fragment is empty or all placeholders"
-    return max(lines, key=len)
+    assert segments, f"{stem}.md yielded no usable needle — the fragment is empty or all placeholders"
+    return max(segments, key=len)
 
 
 class _CapturedPrompt:
@@ -200,12 +217,38 @@ def _draft_prompt(monkeypatch, tmp_path: Path, entry) -> str:
     ))
 
 
+def _draft_prompts_EVERY_PATH(monkeypatch, tmp_path: Path, entry) -> dict[str, str]:
+    """Every prompt a draft tier can dispatch, keyed by the path that builds it.
+
+    A DRAFT TIER HAS THREE, NOT ONE, and the check above used to drive only the
+    plan-driven one. Its rationale — "a supplier that is built but never reaches
+    the prompt" — is about a fragment reaching NO prompt, but its implementation
+    read "does not reach THIS prompt", which are different claims the moment a
+    workflow has more than one template. A block living in the non-plan stages
+    body is legitimately absent from the plan-driven body: the plan path renders
+    `prompts/stages_1_to_4_from_plan.md` instead.
+
+    Driving all three makes the assertion match the rationale and is strictly
+    stronger than what it replaced, because the two non-plan wrappers were never
+    rendered here at all.
+    """
+    monkeypatch.setattr(act, "pr_branch", lambda *a, **k: "build/x")
+    common = dict(description="do the thing", repo_root=tmp_path, worktree=tmp_path)
+    return {
+        "plan": _drive(monkeypatch, act, lambda: entry(
+            plan_path="docs/development/widget/phase1.md", context="CTX", **common)),
+        "new_branch": _drive(monkeypatch, act, lambda: entry(context="CTX", **common)),
+        "update_pr": _drive(monkeypatch, act, lambda: entry(
+            pr_number="7", context="CTX", **common)),
+    }
+
+
 @pytest.mark.parametrize(
     ("name", "entry", "module"),
     [("build_draft", draft.run_draft, draft),
      ("build_draft_minor", draft_minor.run_draft_minor, draft_minor)],
 )
-def test_a_plan_driven_draft_renders_EVERY_fragment_it_loads(
+def test_a_draft_tier_renders_EVERY_fragment_it_loads_on_SOME_path(
     monkeypatch, tmp_path, name: str, entry, module
 ) -> None:
     """The expected set is the consumer's own loads, not a list kept beside it.
@@ -216,12 +259,17 @@ def test_a_plan_driven_draft_renders_EVERY_fragment_it_loads(
     one level down. Deriving from the consumer means a fragment is covered
     the moment that consumer starts loading it.
     """
-    prompt = _draft_prompt(monkeypatch, tmp_path, entry)
-    missing = sorted(s for s in _stems_loaded_by(module) if _needle(s) not in prompt)
+    prompts = _draft_prompts_EVERY_PATH(monkeypatch, tmp_path, entry)
+    assert len(prompts) == 3, "a draft tier's dispatch paths are not all covered"
+    missing = sorted(
+        s for s in _stems_loaded_by(module)
+        if not any(_needle(s) in p for p in prompts.values())
+    )
     assert not missing, (
         f"{name} loads {missing} through shared_prompt() and renders without "
-        f"them. A supplier that is built but never reaches the prompt leaves "
-        f"that tier running on instructions the fragment's edits never touch."
+        f"them on ANY of its dispatch paths ({sorted(prompts)}). A supplier that "
+        f"is built but never reaches a prompt leaves that tier running on "
+        f"instructions the fragment's edits never touch."
     )
 
 
@@ -263,7 +311,30 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
 # and quietly narrow the check to whatever survived in both — the same silent
 # shrink this module keeps finding. If a genuinely tier-scoped fragment is
 # ever promoted, that is the ruling to make explicitly, here, with a reason.
-_REFINE_FRAGMENTS = sorted(_stems_loaded_by(refine) | _stems_loaded_by(refine_minor))
+# THE RULING THE COMMENT ABOVE ASKS FOR, MADE. These two are ONE instruction
+# split across two blocks — the first ends "Put this in the dispatch, in these
+# two parts:" and the second is those parts — and what they carry is the MAJOR
+# tier's agent roster, named agent by agent. Under the `_minor` tier contract in
+# `fork_vs_parameterize.py` a roster is `review-depth`, which is the one axis
+# both refine workflows' own comments already agree is tier-scoped. They are
+# still POOL fragments, because `build_refine` and `plan_revision` both dispatch
+# that same roster and the pool sits above families; they are simply not
+# demanded of a tier that dispatches one agent.
+#
+# THE EXCLUSION IS BY STEM AND IT IS NARROW ON PURPOSE. Anything else either tier
+# loads is still demanded of both, so this cannot become the intersection the
+# comment above warns against — adding a stem here is a visible edit carrying a
+# reason, which is what distinguishes a ruling from a quiet shrink.
+_TIER_SCOPED_FRAGMENTS = {
+    "tell_each_agent_what_it_can_run":
+        "review-depth: enumerates the major tier's five-agent roster",
+    "agents_have_no_shell":
+        "review-depth: the second half of that same roster instruction",
+}
+
+_REFINE_FRAGMENTS = sorted(
+    (_stems_loaded_by(refine) | _stems_loaded_by(refine_minor)) - set(_TIER_SCOPED_FRAGMENTS)
+)
 
 
 @pytest.mark.parametrize(
@@ -419,7 +490,15 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
 _FRAGMENT_FLOOR = {
     "filing_a_candidate_row": 4,
     "build_from_plan": 9,
-    "stages_1_to_4_from_plan": 46,
+    # 44, lowered from 46 on 2026-08-19, and the reason is recorded because this
+    # floor exists precisely so a shrink cannot pass unexplained. Two blocks left
+    # this fragment and NOT the prompt: `stage_order_is_mandatory` and
+    # `gitignore_collision_check` were byte-exact copies of pool fragments living
+    # INSIDE a pool fragment — an axis no duplication guard reaches, since
+    # `_duplicated()` skips the pool by construction — and are now placeholders
+    # both draft tiers supply. The assembled prompt is unchanged but for the
+    # promotion seam.
+    "stages_1_to_4_from_plan": 44,
     "fidelity_premise": 2,
     "fidelity_read_and_compare": 6,
     "fidelity_needs_a_separate_run": 1,
@@ -441,6 +520,21 @@ _FRAGMENT_FLOOR = {
     "headless_execution_guard": 6,
     "mutation_discipline": 12,
     "rules": 22,
+    # MEASURED 2026-08-19, when the frozen duplication baseline was ruled on and
+    # emptied. Each was a block duplicated between two children until this change.
+    "agents_have_no_shell": 8,
+    "gitignore_collision_check": 1,
+    "orchestrator_executes_agents_read": 3,
+    "research_stage_1_verify_and_discover": 1,
+    "resolve_apply_the_remedy_you_wrote": 4,
+    "resolve_rejecting_is_legitimate": 1,
+    "resolve_your_own_dispositions_too": 1,
+    "stage_order_is_mandatory": 1,
+    "stage_order_skipped_marker": 1,
+    "tell_each_agent_what_it_can_run": 5,
+    "verification_is_by_fetch": 1,
+    "verify_the_tasks_asserted_facts": 1,
+    "worktree_is_compared_to_a_snapshot": 1,
 }
 
 
