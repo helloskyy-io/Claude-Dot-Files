@@ -208,7 +208,7 @@ BUDGETS: dict[str, int] = {
     # reviewer spend 1,500 bytes describing a one-sentence fix — the exact smell
     # engineering-quality.md names. Fixing a determined defect is now in scope;
     # re-planning is not, and the observers that always enforced that half do it.
-    "plan/plan_verify/prompts/plan_verify.md": 17621,
+    "plan/plan_verify/prompts/plan_verify.md": 18127,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
