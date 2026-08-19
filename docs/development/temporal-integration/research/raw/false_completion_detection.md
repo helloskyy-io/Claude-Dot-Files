@@ -5,9 +5,20 @@ Topic:          How does a supervisor verify that a headless agent run actually 
                 reported — detecting FALSE COMPLETION — given that `exit_code == 0` is already
                 known to be necessary but not sufficient, and that the fleet already ships an
                 output-pattern guard (`COMPLETION_PATTERN`) on top of it?
-Feeds:          Sprint milestone "Three cheap guards — credential expiry, false completion, and a
-                safety-hook wiring test" (docs/development/sprint.md:180), specifically the
-                false-completion guard → the fleet-reliability phase doc (not yet written).
+Feeds:          NOTHING TODAY — no destination exists. This paper was written for the
+                false-completion leg of the "Three cheap guards" milestone under "Sprint:
+                Fleet Reliability", citing docs/development/sprint.md:180. CORRECTED
+                2026-08-19: that section dissolved when this pool moved to
+                docs/development/temporal-integration/research/, and unlike its siblings this
+                milestone was DROPPED rather than moved — `grep -ni "cheap guard"
+                docs/development/sprint.md` returns no match, and line 180 today is a blank
+                line inside the Temporal Integration section. The fleet-reliability phase doc
+                it named will never be written. The pending ruling on where this work belongs
+                is GitHub issue #125, which also covers candidate C-011 (`decision: ship`,
+                ~9 h) orphaned by the same dissolution. The paper's content is unaffected —
+                only the destination pointer was stale, and it now points nowhere until that
+                ruling lands. Note this paper is shelved under the Temporal Integration pool
+                and does not feed it; see synthesis.md § Housekeeping.
 Last validated: 2026-08-07
 Revalidate:     high — 6 weeks
                 (Justification per §5. This paper is MIXED volatility and the header takes the

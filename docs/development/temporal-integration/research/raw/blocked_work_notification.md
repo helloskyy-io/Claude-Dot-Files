@@ -6,12 +6,22 @@ Topic:          Which channel carries a blocked-work notification for a one-oper
                 guarantees; how dedupe, grouping and a severity ladder should work when
                 there is no rota; and whether the inbox behind the notification is
                 git-native or a separate surface.
-Feeds:          `docs/development/sprint.md` line 183 — Sprint: Fleet Reliability,
-                "A blocked-work notifier — and an inbox the operator reads, in place of a
-                dashboard". Destination is the fleet-reliability phase doc, NOT YET WRITTEN;
+Feeds:          `docs/development/sprint.md` line 244 — Sprint: Autonomous Operation,
+                "A blocked-work notifier — the one channel that reaches a human when work is
+                blocked, and an inbox the operator reads rather than a dashboard nobody
+                opens". Destination is
+                docs/development/autonomous-operation/autonomous-operation.md, which exists;
                 this paper is the validating evidence that phase doc will cite. Also
-                constrains sprint line 182 (the three-legged liveness predicate), which
-                supplies two of this notifier's three detectors.
+                constrains sprint line 243 (the three-legged liveness predicate, carried in
+                the "Observable exit criteria" milestone), which supplies two of this
+                notifier's three detectors. CORRECTED 2026-08-19 — this paper was written for
+                the "Sprint: Fleet Reliability" section, which dissolved when this pool moved
+                to docs/development/temporal-integration/research/. It cited lines 183 and
+                182, which today hold unrelated milestones, and a fleet-reliability phase doc
+                that will never be written. Both milestones survive under the same names in
+                Autonomous Operation. The paper's content is unaffected — only the
+                destination pointers were stale. Note this paper is shelved under the Temporal
+                Integration pool and does not feed it; see synthesis.md § Housekeeping.
 Last validated: 2026-08-07
 Revalidate:     high — 6 weeks
 Confidence:     DEFINITIVE on the documented retention, priority and escalation surfaces of

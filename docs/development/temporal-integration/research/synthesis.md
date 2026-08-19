@@ -116,7 +116,7 @@ into Temporal Integration unchanged). Its load-bearing findings, not re-derived 
 
 ---
 
-## Housekeeping — a defect this cycle found and did not fix
+## Housekeeping — a defect this cycle found and did not fix, and what this rewrite dropped
 
 **Four papers in this pool's `raw/` do not feed Temporal Integration, and this run is not the
 right actor to re-home them:**
@@ -134,7 +134,45 @@ shelved under the wrong component's research directory with stale `Feeds:` point
 operator-ruling gap, not a research gap:** whether they move to a new Autonomous Operation pool,
 whether "three cheap guards" gets re-created as a milestone somewhere, and where its own restart
 contract dependency (it needs milestone 8's schema, which now lives here) gets tracked, are
-sequencing decisions above this run's altitude. Flagged in Post-Run Reflection.
+sequencing decisions above this run's altitude. Flagged in Post-Run Reflection, and the guards
+half is now filed as **GitHub issue #125**.
+
+**What this rewrite dropped, and where those findings still live.** The prior synthesis at
+`4d65127` was written for the dissolved Fleet Reliability sprint and carried **16 action
+candidates**, an **Escalations — findings above this component's altitude** section of **5 items**
+(one belief-level finding, two operator rulings, two clarifications for another pool), and a
+**method finding** on how much to trust a negative finding in this pool. This synthesis is scoped
+to Temporal Integration, so it carries **8 candidates, of which only 3 are those candidates**
+(prior 5 → 5, prior 6 → 6, prior 8 → 7); the other **13 are not carried**, and neither the
+Escalations section nor the method finding is reproduced here. **None of that evidence is lost —
+but this artifact is no longer the place to read it.** The prior synthesis is retrievable in full
+with `git show 4d65127:docs/development/temporal-integration/research/synthesis.md`, and the
+underlying findings remain in the four papers named above, all `current` and all critic-verified:
+`liveness_signal_measurement.md`, `blocked_work_notification.md`, `credential_expiry_detection.md`
+and `false_completion_detection.md`.
+
+**Two of the dropped items have live consequences outside this pool, so they are named here rather
+than left to a `git show`:**
+
+- **`check_rate_limit()` discards the stream the failure is printed on** — `2>&1 >/dev/null` at
+  `scripts/workflows/activities/run-claude.sh:89` keeps stderr and discards stdout, where auth
+  failures are printed, so the existing preflight cannot detect an expired credential *by
+  construction*. This is a defect in live code, not a missing feature: `run-claude.sh` is resolved
+  and invoked by the Python fleet at
+  `scripts/workflows/temporal/modules/assistant/assistant_activities.py:721`, and
+  `scripts/workflows/temporal/tests/unit/test_turn_cap_banner_reads_the_worktree.py` extracts and
+  executes a function from that same file as shipped. It was candidate 2 of the prior 16
+  (`credential_expiry_detection.md` §2.1, §5 step 3).
+- **A dated service-deletion decision point that has now arrived** — `config.yaml:19–24` reads
+  *"DECISION POINT: if still unused by ~2026-08-19, delete the service rather than carry dead
+  code"* for `gh-monitor`, `enabled: false` since 2026-07-29. That date is today. The prior
+  synthesis carried this under Escalations with a concrete recommendation — if the ruling is
+  "delete", harvest the poller skeleton (the loop, lock file, rate-limit backoff and repo
+  discovery) into the blocked-work-notifier milestone at `sprint.md:244` rather than losing it and
+  rebuilding it later. Nothing in this pool is now carrying that date.
+
+This paragraph is a pointer, not a re-ranking: the 13 dropped candidates are neither restored nor
+re-litigated here.
 
 ---
 
@@ -151,8 +189,14 @@ sequencing decisions above this run's altitude. Flagged in Post-Run Reflection.
 | 7 | **Do not build claim/lease/TTL, a boot reconciler, or retry bookkeeping — Temporal replaces this layer.** Carried forward unchanged | no change *(the negative is the finding)* | `durable_dispatch_identity.md` §4.5, §5.4 |
 | 8 | **Rule where the four misplaced papers and the orphaned "three cheap guards" work belong.** Not this run's decision — see Housekeeping | operator ruling | this synthesis, Housekeeping |
 
-**Homeless findings: none this cycle** — candidates 1–7 land in the Temporal Integration phase doc
-(not yet written); candidate 8 is an operator ruling, surfaced in Post-Run Reflection.
+**Homeless findings: none this cycle** — candidates 1–7 land in the Temporal Integration phase
+doc, [`../temporal-integration.md`](../temporal-integration.md), which exists and is the doc
+`sprint.md:177` links from this section's header. Candidate 8 is an operator ruling and now has a
+filed carrier: **GitHub issue #125** covers the orphaned "three cheap guards" work and the two
+papers stranded with it (`credential_expiry_detection.md`, `false_completion_detection.md`). The
+other two misplaced papers need no ruling — their milestones survive under the same names in
+Autonomous Operation (`sprint.md:243`, `:244`) and a component pool's directory is derivable from
+the phase, so only the *timing* of the move is open.
 
 ---
 
