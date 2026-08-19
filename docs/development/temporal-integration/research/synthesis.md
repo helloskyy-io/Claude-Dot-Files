@@ -16,7 +16,7 @@ becomes a rule only by being codified into a standard through human review.
 | Paper | Feeds (Temporal Integration milestone) | Last validated | Critic verdict |
 |---|---|---|---|
 | `raw/durable_dispatch_identity.md` | "A restart-recovery contract" (sprint.md:188) | 2026-08-07 | PASS-WITH-FIXES (2026-08-07) — extended three truncated quotations to their source sentence ends; withdrew a Candea & Fox "unretrievable" negative finding after re-fetching the PDF and rewrote five sections around the now-cited source; corrected a version enumeration from 8 to 11 point releases; one critic finding disputed with evidence |
-| `raw/activity_retry_boundary.md` | "Rule the retry boundary" + "Reduce gh()'s own retry" (sprint.md:189–190) | 2026-08-19 | PASS-WITH-FIXES (2026-08-19) — fresh-context pass: 8 external sources fetched at pinned SHAs, every quoted span re-checked byte-exact, zero fabricated and zero miscited; every repo claim re-checked against the working tree. Fixed: a log formatter named as the timeout gate, and a span count the artifact does not let a reader re-derive |
+| `raw/activity_retry_boundary.md` | "Rule the retry boundary" + "Reduce gh()'s own retry" (sprint.md:189–190) | 2026-08-19 | PASS-WITH-FIXES (2026-08-19) — fresh-context pass: 8 external sources fetched at pinned SHAs, every quoted span re-checked byte-exact, zero fabricated and zero miscited; every repo claim re-checked against the working tree. Two fixes: a log formatter (`_gh_timed_out_line`) was named as the timeout gate where the predicate is `is_timed_out`; and a 21-span total the artifact does not let a reader re-derive is now stated as a gap, with the twice-verified pass rate carried instead |
 
 **Four papers are physically in this pool but do NOT feed Temporal Integration** — see
 *Housekeeping* below, which draws on their substance, so they are cited here under §4's input rule
@@ -25,7 +25,7 @@ rather than merely named:
 | Paper | Actually feeds | Last validated | Critic verdict |
 |---|---|---|---|
 | `raw/liveness_signal_measurement.md` | Autonomous Operation (sprint.md:243) | 2026-08-07 | PASS-WITH-FIXES, three rounds — withdrew an "undocumented heartbeat" headline that rested on a silently-truncated fetch, and re-enumerated the log corpus |
-| `raw/blocked_work_notification.md` | Autonomous Operation (sprint.md:244) | 2026-08-07 | PASS-WITH-FIXES — 24 sources all fetchable; retention and delivery claims re-verified |
+| `raw/blocked_work_notification.md` | Autonomous Operation (sprint.md:244) | 2026-08-07 | PASS-WITH-FIXES — 24 sources all fetchable; six repairs, none moving a conclusion: a restructured paraphrase presented as a quote replaced with verbatim sentences, two quotations restored to their dropped trailing clauses, an uncited source bracketed inline, and a line count re-enumerated |
 | `raw/credential_expiry_detection.md` | "Three cheap guards" — **milestone no longer exists** | 2026-08-07 | PASS-WITH-FIXES, 3 rounds — corrected which release introduces the `claude auth` subcommands, retracted a false "absent from the changelog" finding, and in r3 retracted the r2 repair itself after five further changelog entries turned up |
 | `raw/false_completion_detection.md` | "Three cheap guards" — **milestone no longer exists** | 2026-08-07 | PASS-WITH-FIXES, rounds 1–3 all applied, verified over three passes |
 

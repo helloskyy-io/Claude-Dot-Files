@@ -14,24 +14,30 @@ Last validated: 2026-08-19
 Revalidate:     medium — 3 months
 Confidence:     DEFINITIVE on every SDK/server mechanic in §2 — each is read from raw first-party
                 source pinned to a commit SHA, and every quoted span below was re-verified
-                byte-exact with `curl … | grep -F` at write time (21 spans, all VERIFIED; method
-                in §6). DEFINITIVE on the first-party doc statements in §2.6 and §3.
+                byte-exact with `curl … | grep -F` at write time, and independently re-checked
+                span-by-span by a fresh verification pass that found NONE that failed. The PASS
+                RATE is therefore definitive; the TOTAL is not — the write-time run counted 21,
+                the re-check enumerated ~20, and this paper does not print the list either used,
+                so the figure is stated as a gap in §6 rather than asserted. DEFINITIVE on the
+                first-party doc statements in §2.6 and §3.
                 DERIVED on §3's recommendation and on §2.5's claim that the sprint's proposed
                 design cannot express `_RETRYABLE_HTTP`'s split as written — the inputs are
                 definitive, the composition is this paper's. FINDING (negative, method stated):
                 first-party Temporal documentation gives no guidance on composing a library's
                 own in-process retry with the SDK's. UNVERIFIED: nothing asserted here has been
                 run against a live Temporal server — see §7.
-Critic:         PASS-WITH-FIXES — 2026-08-19. Fresh-context pass: all 8 external sources
+Critic:         PASS-WITH-FIXES (fresh-context pass over two rounds. All 8 external sources
                 fetched at their pinned SHAs (HTTP 200) and every quoted span re-checked
                 byte-exact with `curl … | grep -F`; zero fabricated, zero miscited. Every
-                repo claim (the `gh` constants, guard functions, `RuntimeError`, issue #41,
-                the two standards sections, six `sprint.md` line numbers, the absent
-                `github-automation/` directory) re-checked against this working tree and
-                confirmed. Fixed in that pass: §1 named `_gh_timed_out_line` — a log-line
-                formatter — as the timeout gate, where the predicate is `is_timed_out`;
-                §6 asserted a 21-span total the artifact does not let a reader re-derive,
-                now recorded as a reproducibility gap with the pass rate kept.
+                claim this paper makes about this repo — the `gh` constants and guard
+                functions, the bare `RuntimeError`, issue #41, the two standards sections,
+                its `sprint.md:189–190` citation, the absent `github-automation/` directory
+                — re-checked against the working tree and confirmed. TWO FIXES: §1 named
+                `_gh_timed_out_line`, a log-line formatter, as the timeout gate, where the
+                predicate is `is_timed_out`; and the 21-span total was asserted in the
+                `Confidence:` field and §6 while being unreproducible from the artifact, so
+                it is now stated as a gap in all three places and the verified pass rate is
+                carried instead) — 2026-08-19
 ```
 
 ## 1. Primer — two retry layers, and only one of them can see the classification
@@ -87,9 +93,9 @@ raise ApplicationError(f"gh {label} failed: {r.stderr.strip()}",
 
 ## 6. Citations
 
-**Verbatim method (binding under Research Standard §3):** every quoted span above was re-verified at write time by `curl -s <pinned raw URL> | grep -cF '<span>'` against the SHA in its citation (repo-internal spans checked against the working tree). **21 spans checked, 21 returned ≥1 match** (count reached by enumerating the checks in one script that numbered and printed each one, then reading the 21 numbered result lines — not by asking any layer for a total). Line-wrapped prose spans were matched against a newline-flattened copy of the source, which is stated here because unwrapping is itself a transformation.
+**Verbatim method (binding under Research Standard §3):** every quoted span above was re-verified at write time by `curl -s <pinned raw URL> | grep -cF '<span>'` against the SHA in its citation (repo-internal spans checked against the working tree). **Every span checked returned ≥1 match, at write time and again on independent re-check — no span has ever failed.** The write-time run put the total at 21, reached by enumerating the checks in one script that numbered and printed each one and reading the numbered result lines — not by asking any layer for a total. **That total is a GAP, not an assertion** (see the next paragraph). Line-wrapped prose spans were matched against a newline-flattened copy of the source, which is stated here because unwrapping is itself a transformation.
 
-**Recorded gap in this count's reproducibility (2026-08-19 verification pass).** The enumerated list the script printed is **not reproduced in this paper**, so the figure 21 rests on the write-time run rather than on anything a later reader can re-derive from the artifact. The verification pass re-ran the checks independently and found **no span that failed** — every quoted span it identified matched its pinned source byte-exact — but it arrived at ~20 by its own enumeration and could not confirm 21 span-for-span. Treat the *pass rate* as verified and the *total* as unverified: a re-check must re-enumerate rather than trust this number.
+**The count is a GAP — stated, not asserted (2026-08-19 verification pass).** The enumerated list the write-time script printed is **not reproduced in this paper**, so 21 rests on that run rather than on anything a later reader can re-derive from the artifact. The verification pass re-ran the checks independently, found **no span that failed**, and arrived at ~20 by its own enumeration — close, but it could not confirm 21 span-for-span. Research Standard §3 governs this shape directly: *"Where the population cannot be enumerated, the count is unverifiable and is stated as a gap — never asserted."* So: the pass rate is verified twice over and load-bearing; **the total is unverified and nothing in this paper should be read as resting on it.** A re-check must re-enumerate.
 
 - [S1] temporalio/sdk-python `temporalio/common.py` @ `f1579fc` — [raw](https://raw.githubusercontent.com/temporalio/sdk-python/f1579fc90f46a9365635ff8782e6bce39612518b/temporalio/common.py) — `RetryPolicy` fields. *definitive*
 - [S2] temporalio/sdk-python `temporalio/exceptions.py` @ `f1579fc` — [raw](https://raw.githubusercontent.com/temporalio/sdk-python/f1579fc90f46a9365635ff8782e6bce39612518b/temporalio/exceptions.py) — `ApplicationError(type=, non_retryable=, next_retry_delay=)`. *definitive*
