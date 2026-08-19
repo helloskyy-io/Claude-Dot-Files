@@ -1387,3 +1387,49 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
         f"shipped only: {sorted(cv.OPEN_DISPOSITIONS - documented_open)}. "
         f"{why_it_matters}."
     )
+
+
+# --- a HOLD names the cause it actually had ---------------------------------
+
+def test_the_needs_assistance_note_CLAIMS_NO_CAUSE() -> None:
+    """`run_build` may state the LOOP decision. It may not state the cause.
+
+    TWO PATHS RETURN `HOLD_NEEDS_ASSISTANCE` AND BOTH ALREADY WROTE THEIR OWN.
+    The CI gate appends a note ending "review-pr was NOT dispatched"; the review
+    path does `notes.extend(result.notes)` and carries review-pr's explanation.
+    A third sentence, from a layer that detects neither, can only be a guess.
+
+    MEASURED ON PR #124: the gate fired, and the guess — "review-pr found at
+    least one item only a human can rule on" — landed directly beneath the note
+    saying review-pr had not run. It took grepping every review-pr log to
+    establish the PR was UNREVIEWED rather than reviewed-and-held, which are
+    different states needing different next actions.
+
+    THE FIRST FIX FOR THIS WAS ITSELF THE DEFECT, which is why this guard checks
+    for the absence of a claim rather than the correctness of a detection. That
+    fix taught the line to derive its cause with
+    `any("review-pr was NOT dispatched" in n ...)` — string-matching prose
+    written elsewhere in the same file, so a reword breaks it silently and the
+    contradiction returns. The layer that DETECTS a condition reports it; this
+    layer detects neither, so it names neither.
+    """
+    src = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
+           / "build" / "build_workflow.py").read_text()
+    body = src[src.index("if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:"):
+               src.index("elif verdict is Verdict.HOLD_REDISPATCH:")]
+    appended = body[body.index("notes.append("):]
+    for claim in ("review-pr found", "could not be READ", "gh pr checks"):
+        assert claim not in appended, (
+            f"the needs-assistance note names a CAUSE ({claim!r}). Two paths reach "
+            f"this verdict and both already wrote one; a third from here is a "
+            f"guess, and on PR #124 it guessed wrong and contradicted the note "
+            f"directly above it."
+        )
+    assert "any(" not in appended, (
+        "the note derives its cause by scanning `notes` — string-matching prose "
+        "written elsewhere in this file, which a reword breaks silently. Say "
+        "nothing about cause instead; both callers already did."
+    )
+    assert "loop-back" in appended, (
+        "the note no longer states the LOOP decision, which is the one thing this "
+        "function knows and the reason it appends anything at all")
