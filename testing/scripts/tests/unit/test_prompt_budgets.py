@@ -159,7 +159,7 @@ BUDGETS: dict[str, int] = {
     # first run produced six for a component with small remaining work, said in
     # its own report that two should probably be one, named which two, and shipped
     # six anyway — the verb did not exist.
-    "plan/plan_feature/prompts/plan_feature.md": 21_828,
+    "plan/plan_feature/prompts/plan_feature.md": 21845,  # +${TASK_CONTEXT} placeholder
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

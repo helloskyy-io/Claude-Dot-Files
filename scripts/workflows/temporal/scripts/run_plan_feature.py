@@ -48,6 +48,11 @@ def main(argv=None) -> int:
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_repo_path("--candidates", default=DEFAULT_CANDIDATES)
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-feature PR")
+    # NOT a repo path, deliberately — operator context from wherever they wrote it,
+    # the same contract `run_research_minor.py` uses. Without this the `--pr` path
+    # could push to a branch and could not be TOLD why it was re-running.
+    p.add_argument("--task-file", dest="task_file",
+                   help="operator context or a correction runway, from a file")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
 
@@ -58,6 +63,7 @@ def main(argv=None) -> int:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
     component, cands = resolved["component"], resolved["candidates"]
+    context = Path(a.task_file).read_text() if a.task_file else ""
 
     try:
         if a.dry_run:
@@ -68,6 +74,8 @@ def main(argv=None) -> int:
                   f"roadmap.md {'present' if (component / 'roadmap.md').is_file() else 'ABSENT'}")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
             print(f"  Grants     : {', '.join(wf.permitted_paths(rel, cands.relative_to(repo_root)))}")
+            print(f"  Context    : {len(context.encode())} bytes from --task-file"
+                  if context else "  Context    : none (--task-file not given)")
             # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied. A
             # dry run that builds its own values dict previews a prompt that is
             # not the one dispatched — the family has shipped that bug once
@@ -75,7 +83,9 @@ def main(argv=None) -> int:
             # checking the wrong artifact is worse than checking none.
             rendered = act.render(
                 act.load_prompt(wf.PROMPTS / "plan_feature.md"),
-                wf.prompt_values(rel, cands.relative_to(repo_root), repo_root, None))
+                wf.prompt_values(rel, cands.relative_to(repo_root), repo_root,
+                                 a.pr_number, context),
+                opaque=frozenset({"TASK_CONTEXT"}))
             print(f"  Prompt     : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
             return 0
 
@@ -93,7 +103,8 @@ def main(argv=None) -> int:
         worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
         url = wf.run_plan_feature(repo_root=repo_root, worktree=worktree,
                                   component=component, candidates_path=cands,
-                                  pr_number=a.pr_number, verbose=a.verbose)
+                                  pr_number=a.pr_number, context=context,
+                                  verbose=a.verbose)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         # These carry operator-facing recovery instructions from the layer that
         # knew what failed. Do not wrap or reformat them.
