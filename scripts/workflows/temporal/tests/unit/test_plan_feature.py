@@ -827,3 +827,36 @@ def test_the_first_time_path_is_UNCHANGED(tmp_path) -> None:
     c.mkdir()
     assert own.taken_phase_numbers(c) == set()
     assert "Numbering starts at `phase1_`" in own.planning_state(c, tmp_path)
+
+
+def test_every_pr_accepting_plan_runner_bases_its_worktree_ON_THE_PR() -> None:
+    """A `--pr` pass must open its worktree on the PR's branch, not on `main`.
+
+    ALL FOUR HAD THE SAME LINE. `worktree_add(..., "HEAD")` is correct for a
+    fresh run and wrong for a correction pass, and nothing distinguished them —
+    so `--pr` changed where the run PUSHED and never where it STARTED.
+
+    Measured on plan-feature's first correction pass: the counted-in-code block
+    reported "0 phase doc(s)", true of the worktree it was handed and false of
+    the four documents it was told to correct. The run detected the mismatch,
+    fetched the branch and checked it out itself, and said so in its reflection.
+    A run rescuing itself from its own harness is not a control.
+
+    Asserted over a DISCOVERED set rather than a list, so a fifth runner that
+    gains `--pr` is covered on the day it does.
+    """
+    scripts = Path(__file__).resolve().parents[2] / "scripts"
+    offenders = []
+    for p in sorted(scripts.glob("run_*.py")):
+        src = p.read_text()
+        if '"--pr"' not in src:
+            continue                      # a runner with no --pr cannot have the bug
+        if 'worktree_add(repo_root, worktree_name, "HEAD")' in src:
+            offenders.append(p.name)
+    assert not offenders, (
+        "these runners accept --pr and still base the worktree on HEAD, so a "
+        "correction pass starts from the default branch with none of the PR's "
+        "work in it:\n  " + "\n  ".join(offenders)
+        + "\n\nDerive the ref instead:\n"
+        '    ref = f"origin/{act.branch_of(a.pr_number, repo_root)}" if a.pr_number else "HEAD"'
+    )
