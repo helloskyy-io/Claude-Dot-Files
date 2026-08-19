@@ -104,8 +104,13 @@ def test_the_sweep_finds_the_runners_that_expose_the_flag() -> None:
     drops, either a workflow lost the flag — in which case say so here — or the
     reader broke and every assertion below is passing over nothing.
     """
-    assert len(_SUBJECTS) >= 4, (
-        f"expected at least four runners exposing `--candidates`; found "
+    # FOUR -> THREE on 2026-08-19. `plan-sprint` dropped `--candidates` when the
+    # rebuild took away the job that needed it, so the population this floor
+    # bounds genuinely shrank. The floor is a POSITIVE CONTROL on the sweep — a
+    # discovery that matched nothing would make every assertion below vacuous —
+    # so it tracks the real count rather than pinning a number the tree has left.
+    assert len(_SUBJECTS) >= 3, (
+        f"expected at least three runners exposing `--candidates`; found "
         f"{[name for name, _ in _SUBJECTS]}. Fix the reader, do not weaken this.")
 
 

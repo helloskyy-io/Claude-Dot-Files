@@ -78,7 +78,7 @@ def tree(tmp_path: Path) -> Path:
     re-root it under the worktree; passing the same path for both keeps that
     arithmetic honest without building two trees.
     """
-    (tmp_path / "docs" / "development").mkdir(parents=True)
+    (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
     (tmp_path / "r" / "raw").mkdir(parents=True)
     return tmp_path
 
@@ -226,9 +226,26 @@ _PERMITTED = [
 
 
 def _run_sprint(tree: Path) -> str:
+    """Drive the rebuilt `plan-sprint`: ONE component, ONE granted file.
+
+    THE SIGNATURE LOST `candidates_path` AND `research_dir` ON 2026-08-19, and the
+    tests below changed meaning with it. This workflow used to hold a write grant
+    on `candidates.md` so it could place ruled `ship` rows, and every assertion
+    here that it must not move `decision`, `status` or somebody else's `component`
+    was guarding the edges of that grant.
+
+    The grant is gone with the job. So the property is no longer *"it may write
+    that file but not those columns"* — it is *"it cannot reach that file at
+    all"*, which `boundary_crossings` enforces against the one permitted path.
+    Strictly stronger, and enforced by a mechanism that needs no column readers.
+    """
+    comp = tree / "docs" / "development" / "alpha"
+    comp.mkdir(parents=True, exist_ok=True)
+    if not (comp / "roadmap.md").is_file():
+        (comp / "roadmap.md").write_text("### Phase 1 — a thing\n\n**Est: ~4 hours**\n")
     return sprint.run_plan_sprint(
         repo_root=tree, worktree=tree, sprint_path=tree / "sprint.md",
-        candidates_path=tree / "c.md", research_dir=tree / "r", verbose=False,
+        component=comp, verbose=False,
     )
 
 
@@ -236,16 +253,33 @@ def _run_sprint(tree: Path) -> str:
 def test_plan_sprint_FAILS_when_it_touched_the_decision_column(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         mutated: list) -> None:
-    """THE AUTHORITY TRANSFER, AS A MECHANISM.
+    """THE AUTHORITY TRANSFER, AS A MECHANISM — now enforced one level lower.
 
-    Nine documents now say `decision` is `triage-candidates`'s. This is the only
-    thing that makes that true of a run rather than of a paragraph.
+    Nine documents say `decision` is `triage-candidates`'s. This asserted it of a
+    RUN rather than of a paragraph, by comparing the column either side and
+    failing on a move.
+
+    THE MECHANISM CHANGED ON 2026-08-19 AND IS STRICTLY STRONGER. `plan-sprint`
+    held a write grant on `candidates.md` so it could place ruled `ship` rows;
+    that job left, so the grant left, and the file is now simply outside its
+    boundary. It cannot move the `decision` column because it cannot write the
+    file — which needs no column reader and cannot be defeated by a mutation the
+    reader does not model.
+
+    The fixture moves with it, twice over. `candidates.md` now sits under
+    `docs/standards/` because that is the prefix `FORBIDDEN_PATHS` names — a file
+    at the tree root matched no rule at all — and the offence is staged through
+    `_crossing`, this module's own idiom, because the shared fixture stubs
+    `worktree_state` to a CONSTANT and a constant cannot express an edit.
+
+    `mutated` is now unused and deliberately kept: each case names a distinct way
+    the column could move, and the parametrisation is what says all four are
+    denied by one rule rather than four.
     """
-    f = tree / "c.md"
-    f.write_text(_table(_ORIGINAL))
-    _fake_run(sprint, monkeypatch, writes=_table(mutated), path=f)
+    _fake_run(sprint, monkeypatch)
+    _crossing(monkeypatch, "docs/standards/architecture/research/candidates.md")
 
-    with pytest.raises(RuntimeError, match="changed the `decision` column"):
+    with pytest.raises(RuntimeError, match="outside its authorization"):
         _run_sprint(tree)
 
 
@@ -457,7 +491,21 @@ def test_plan_sprint_no_longer_carries_triage_instructions() -> None:
             f"moved to triage-candidates; this prompt tells a run to do something "
             f"its own post-condition fails it for."
         )
-    assert "decision` column belongs to `triage-candidates" in text
+    # THE POSITIVE HALF CHANGED SHAPE ON 2026-08-19 AND IS STILL A POSITIVE HALF.
+    # It used to require the prompt to SAY the `decision` column belongs to
+    # triage — a sentence explaining a boundary this workflow sat next to,
+    # because it still held a write grant on the file that column lives in.
+    #
+    # It does not any more. The grant went with the placing job, so the prompt no
+    # longer explains a column it cannot reach; it names the prohibition once in
+    # the authorization table and lets the path boundary do the work. Asserting
+    # the old sentence would now require re-adding an explanation of a file this
+    # run never opens.
+    assert "`decision` is `triage-candidates`'s alone" in text, (
+        "plan_sprint.md no longer names ruling a candidate as forbidden. The "
+        "path boundary stops it, but the authorization table is what a reader "
+        "and `test_authorization_is_observed` both key on."
+    )
 
 
 def test_triage_is_given_no_sprint_authority() -> None:
@@ -504,8 +552,14 @@ def test_triage_FAILS_when_it_edited_the_sprint_plan(
         _run_triage(tree)
 
 
-@pytest.mark.parametrize("workflow,runner", [(sprint, _run_sprint), (triage, _run_triage)],
-                         ids=["plan_sprint", "triage"])
+@pytest.mark.parametrize("workflow,runner", [(triage, _run_triage)], ids=["triage"])
+# PLAN_SPRINT DROPPED FROM THIS PARAMETRISATION 2026-08-19, and not because the
+# rule stopped applying to it. The rule is now enforced one level lower: the
+# rebuild took its `candidates.md` write grant away with the placing job, so the
+# file is outside its boundary and no column comparator runs for it at all.
+# `test_plan_sprint_FAILS_when_it_touched_the_decision_column` asserts that
+# stronger property against the path. Keeping it here would test a guard the
+# workflow no longer has and read as coverage.
 def test_NEITHER_workflow_may_move_the_status_column(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         workflow, runner) -> None:
@@ -527,8 +581,14 @@ def test_NEITHER_workflow_may_move_the_status_column(
         runner(tree)
 
 
-@pytest.mark.parametrize("workflow,runner", [(sprint, _run_sprint), (triage, _run_triage)],
-                         ids=["plan_sprint", "triage"])
+@pytest.mark.parametrize("workflow,runner", [(triage, _run_triage)], ids=["triage"])
+# PLAN_SPRINT DROPPED FROM THIS PARAMETRISATION 2026-08-19, and not because the
+# rule stopped applying to it. The rule is now enforced one level lower: the
+# rebuild took its `candidates.md` write grant away with the placing job, so the
+# file is outside its boundary and no column comparator runs for it at all.
+# `test_plan_sprint_FAILS_when_it_touched_the_decision_column` asserts that
+# stronger property against the path. Keeping it here would test a guard the
+# workflow no longer has and read as coverage.
 def test_NEITHER_workflow_may_name_the_component_on_somebody_elses_row(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         workflow, runner) -> None:
@@ -1018,9 +1078,11 @@ def test_a_direction_row_APPENDED_beside_a_ruled_one_is_still_clean(
     (triage, _run_triage, "c.md"),
     (triage, _run_triage, "r/direction.md"),
     (sprint, _run_sprint, "sprint.md"),
-    (sprint, _run_sprint, "c.md"),
-], ids=["triage-candidates-file", "triage-direction-file",
-        "sprint-plan", "sprint-candidates-file"])
+    # `(sprint, "c.md")` REMOVED 2026-08-19: plan-sprint no longer holds a
+    # candidates grant, so there is no permitted file for it to delete there —
+    # the case it tested cannot arise, and a parametrisation that cannot arise
+    # reads as coverage while asserting nothing.
+], ids=["triage-candidates-file", "triage-direction-file", "sprint-plan"])
 def test_NEITHER_workflow_may_delete_a_file_it_is_merely_PERMITTED_to_write(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch,
         workflow, runner, path: str) -> None:
@@ -1078,7 +1140,7 @@ def repo(tmp_path: Path) -> Path:
         subprocess.run(["git", *args], cwd=str(tmp_path), check=True,
                        capture_output=True)
 
-    (tmp_path / "docs" / "development").mkdir(parents=True)
+    (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
     (tmp_path / "docs" / "development" / "sprint.md").write_text("## Sprint: X\n")
     git("init", "-q", "-b", "main")
     git("-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")
@@ -1156,7 +1218,7 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
     rel = "docs/development/sprint.md"
     assert act.boundary_crossings(before, act.worktree_state(repo),
                                   sprint.FORBIDDEN_PATHS,
-                                  sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == [], (
+                                  sprint.permitted_paths(rel)) == [], (
         "an edit made before this run started was charged to it")
 
 
@@ -1196,11 +1258,11 @@ def test_a_DELETED_sprint_plan_is_seen_by_the_real_observer(repo: Path, how: str
 
     after = act.worktree_state(repo)
     assert act.grants_that_vanished(before, after,
-                                    sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == [rel], (
+                                    sprint.permitted_paths(rel)) == [rel], (
         f"a {how} sprint plan read as present; observed {after.get(rel)!r}")
     if how != "renamed-within-the-tree":
         assert act.boundary_crossings(before, after, sprint.FORBIDDEN_PATHS,
-                                      sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == [], (
+                                      sprint.permitted_paths(rel)) == [], (
             "the path boundary caught this on its own, so the control proves "
             "nothing about the check written for it")
 
@@ -1217,7 +1279,7 @@ def test_a_sprint_plan_merely_EDITED_is_not_read_as_vanished(repo: Path) -> None
     (repo / rel).write_text("## Sprint: X\n\n- [ ] a new milestone\n")
 
     assert act.grants_that_vanished(before, act.worktree_state(repo),
-                                    sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == []
+                                    sprint.permitted_paths(rel)) == []
 
 
 def test_the_observer_RAISES_when_git_cannot_answer(tmp_path: Path) -> None:
@@ -1355,9 +1417,15 @@ def _fixture_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     research = tmp_path / "docs" / "standards" / "architecture" / "research"
     research.mkdir(parents=True)
+    # `plan-sprint` takes a COMPONENT since 2026-08-19 and reads its roadmap for
+    # the phase estimates, so the fixture repo needs one for its dry run to
+    # render. `triage-candidates` ignores it.
+    comp = tmp_path / "docs" / "development" / "alpha"
+    comp.mkdir(parents=True, exist_ok=True)
+    (comp / "roadmap.md").write_text("### Phase 1 — a thing\n\n**Est: ~4 hours**\n")
     (research / "candidates.md").write_text(
         _table([("C-001", "`ship`"), ("C-002", "")]))
-    (tmp_path / "docs" / "development").mkdir(parents=True)
+    (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
     (tmp_path / "docs" / "development" / "sprint.md").write_text("# Sprint\n")
     return tmp_path
 
@@ -1385,7 +1453,12 @@ def test_the_dry_run_of_each_entrypoint_RUNS_and_renders(
     repo = _fixture_repo(tmp_path)
     monkeypatch.setattr(kickoff.act, "existing_work", lambda *a, **k: "<work>")
 
-    assert kickoff.main(["--repo", str(repo), "--dry-run"]) == 0
+    argv = ["--repo", str(repo), "--dry-run"]
+    if module_name == "run_plan_sprint":
+        # `plan-sprint` gained a required positional on 2026-08-19: it acts on
+        # ONE planned component now, where it used to walk the candidate table.
+        argv.insert(0, "docs/development/alpha")
+    assert kickoff.main(argv) == 0
 
 
 @pytest.mark.parametrize("module_name", ["run_triage_candidates", "run_plan_sprint"])
@@ -1414,7 +1487,10 @@ def test_the_dry_run_would_FAIL_on_a_values_dict_that_had_drifted(
     monkeypatch.setattr(kickoff.act, "load_prompt",
                         lambda p: "${A_SLOT_THE_SCRIPT_DOES_NOT_SUPPLY}")
 
-    assert kickoff.main(["--repo", str(repo), "--dry-run"]) == 1, (
+    argv = ["--repo", str(repo), "--dry-run"]
+    if module_name == "run_plan_sprint":
+        argv.insert(0, "docs/development/alpha")   # required positional since 2026-08-19
+    assert kickoff.main(argv) == 1, (
         "a prompt slot the script does not supply rendered anyway — the dry "
         "run reported success over a preview no model would ever receive")
     assert "A_SLOT_THE_SCRIPT_DOES_NOT_SUPPLY" in capsys.readouterr().err, (

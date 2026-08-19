@@ -243,20 +243,31 @@ def test_triage_forbids_the_files_it_may_not_write_and_permits_the_two_it_must()
             f"triage-candidates cannot do its job: {path} is blocked")
 
 
-def test_plan_sprint_permits_only_its_override_and_the_proposal_file() -> None:
+def test_plan_sprint_permits_ONLY_its_override() -> None:
     """Its override opens ONE file, which sits among the phase docs it must not touch.
 
-    `direction.md` is deliberately absent from the permitted set — appending to
-    it is `triage-candidates`'s — and `candidates.md` is present only because the
-    SHARED instruction in `decision_log_and_reflection.md` requires every
-    producing run to place a surfaced proposal there. Its columns are guarded
-    separately, so permitting the path does not permit a ruling.
+    IT WAS TWO FILES UNTIL 2026-08-19. `candidates.md` was permitted so this run
+    could place ruled `ship` rows and append a surfaced proposal, with its columns
+    guarded separately — permitting the path without permitting a ruling. The
+    placing job left in the rebuild, and the grant left with it: a permission kept
+    after its purpose is one nothing needs and everything inherits.
+
+    The proposal instruction it was partly held for is `plan-feature`'s and
+    `plan-verify`'s to satisfy — both still hold that grant, and both run before
+    this one on the same branch.
+
+    `direction.md` was and remains absent: appending to it is
+    `triage-candidates`'s alone.
     """
     rel_sprint = "docs/development/sprint.md"
-    allowed = sprint.permitted_paths(rel_sprint, "docs/standards/architecture/research/candidates.md")
-    for path in (rel_sprint, "docs/standards/architecture/research/candidates.md"):
-        assert act.boundary_crossings({}, {path: "h"}, sprint.FORBIDDEN_PATHS,
-                                      allowed) == [], f"plan-sprint blocked from {path}"
+    allowed = sprint.permitted_paths(rel_sprint)
+    assert act.boundary_crossings({}, {rel_sprint: "h"}, sprint.FORBIDDEN_PATHS,
+                                  allowed) == [], "plan-sprint blocked from its own override"
+    assert act.boundary_crossings(
+        {}, {"docs/standards/architecture/research/candidates.md": "h"},
+        sprint.FORBIDDEN_PATHS, allowed) == [
+        "docs/standards/architecture/research/candidates.md"], (
+        "plan-sprint can still reach candidates.md — the grant outlived its job")
     for path in ("docs/standards/architecture/research/direction.md",
                  "docs/development/temporal-integration/phase-1.md",
                  "docs/standards/finding-routing.md"):
@@ -274,7 +285,7 @@ def test_a_sprint_file_kept_somewhere_else_is_still_the_permitted_one() -> None:
     """
     rel = "planning/current-sprint.md"
     assert act.boundary_crossings({}, {rel: "h"}, sprint.FORBIDDEN_PATHS,
-                                  sprint.permitted_paths(rel, "docs/standards/architecture/research/candidates.md")) == []
+                                  sprint.permitted_paths(rel)) == []
 
 
 # --- what a guard SAYS when it fires ----------------------------------------

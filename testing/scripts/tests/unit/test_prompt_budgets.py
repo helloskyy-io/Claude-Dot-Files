@@ -124,7 +124,24 @@ BUDGETS: dict[str, int] = {
     # exact error the `plan_verify` note below warns about. Em-dashes are three
     # bytes each and this prompt is full of them.
     "build/build_refine/prompts/stages_2_to_4.md": 10294,
-    "plan/plan_sprint/prompts/plan_sprint.md": 21_619,
+    # 21_619 -> 8466 after the 2026-08-19 rebuild. It SHRANK while gaining a job:
+    # the five-condition bar for "does this warrant a sprint section" and the
+    # ranked placement choice both left, because by the time this runs the chain
+    # above it has already built the thing. What arrived is smaller — a computed
+    # total to place and a component's bullets to reconcile.
+    # 21_619 -> 8_466 in the 2026-08-19 rebuild. It SHRANK BY 61% while gaining
+    # the job it was missing. What left: the five-condition bar for "does this
+    # warrant a sprint section", and the ranked placement choice over ruled
+    # candidate rows. Both answered a question the chain above already answers by
+    # BUILDING the thing — a component arriving with a roadmap, phase docs and an
+    # estimate per phase has been ruled. What arrived is smaller: place a
+    # computed total, reconcile one component's bullets against its roadmap.
+    "plan/plan_sprint/prompts/plan_sprint.md": 8830,  # +the no-precedent-yet case, from the first run
+    # The pre-rebuild prompt, kept beside its replacement until triage-candidates
+    # absorbs the candidate-sizing half that left. Budgeted so it cannot grow
+    # while dormant; test_no_OLD_prompt_OUTLIVES_its_replacement in
+    # test_prompt_completeness.py is what stops it becoming permanent.
+    "plan/plan_sprint/prompts/plan_sprint_OLD.md": 21619,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
     # MOVED — so both lines exist and neither absorbs growth silently.

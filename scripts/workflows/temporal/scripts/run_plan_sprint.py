@@ -27,10 +27,12 @@ def main(argv=None) -> int:
     # a resolver and not an extra `if`: it is lexical, so `repo_root/"../../x"`
     # still reads as being under `repo_root`. The `..` has to be collapsed first,
     # which is `.resolve()`'s job and `resolve_operator_paths`' whole subject.
+    p.add_repo_path("component", kind="dir",
+                    help="the planned component, e.g. docs/development/workflow-decomposition")
     p.add_repo_path("--sprint", default="docs/development/sprint.md")
-    p.add_repo_path("--candidates", default="docs/standards/architecture/research/candidates.md")
-    p.add_repo_path("--research", kind="dir", default="docs/standards/architecture/research")
     p.add_argument("--pr", dest="pr_number", help="update an existing plan-sprint PR")
+    p.add_argument("--task-file", dest="task_file",
+                   help="operator context or a correction runway, from a file")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="count and render; no model, no spend")
 
@@ -41,27 +43,24 @@ def main(argv=None) -> int:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
 
-    sprint, cands, research = resolved["sprint"], resolved["candidates"], resolved["research"]
+    sprint, component = resolved["sprint"], resolved["component"]
+    context = Path(a.task_file).read_text() if a.task_file else ""
 
     try:
-        counts = act.candidate_counts(cands)
+        sizing = act.phase_sizing(component)
         if a.dry_run:
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
+            print(f"  Component  : {component.relative_to(repo_root)}")
             print(f"  Sprint     : {sprint.relative_to(repo_root)}")
-            print(f"  Candidates : {counts['total']} total · {counts['triaged']} ruled (your set) · {counts['untriaged']} untriaged (NOT yours)")
+            print(f"  Phases     : {len(sizing.rows)} · {len(sizing.unsized)} unsized")
+            print(f"  TOTAL      : {sizing.total:g} h  (summed in code, not by the model)")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — no V1 to derive from)")
-            # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied.
-            # This branch used to hand-build the dict, and the hand-built copy is
-            # how this workflow shipped a dry run that previewed a DIFFERENT
-            # prompt from the one dispatched (see `wf.correction_note`). Patching
-            # the copy fixed the instance and left the shape; calling the live
-            # assembly removes it.
+            print(f"  Grants     : {', '.join(wf.permitted_paths(str(sprint.relative_to(repo_root))))}")
             rendered = act.render(
                 act.load_prompt(wf.PROMPTS / "plan_sprint.md"),
                 wf.prompt_values(str(sprint.relative_to(repo_root)),
-                                 cands.relative_to(repo_root),
-                                 research.relative_to(repo_root),
-                                 repo_root, counts, False, None))
+                                 component.relative_to(repo_root), repo_root, False, None, context),
+                opaque=frozenset({"TASK_CONTEXT"}))
             print(f"  Prompt     : {len(rendered.encode())} bytes rendered, 0 placeholders remaining")
             return 0
 
@@ -88,9 +87,10 @@ def main(argv=None) -> int:
         ref = (f"origin/{act.pr_branch(a.pr_number, repo_root)}"
                if a.pr_number else "HEAD")
         worktree = act.worktree_add(repo_root, worktree_name, ref)
-        url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree, sprint_path=sprint,
-                                 candidates_path=cands, research_dir=research,
-                                 pr_number=a.pr_number, verbose=a.verbose)
+        url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree,
+                                 sprint_path=sprint, component=component,
+                                 pr_number=a.pr_number, context=context,
+                                 verbose=a.verbose)
     except (RuntimeError, FileNotFoundError, ValueError) as exc:
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1

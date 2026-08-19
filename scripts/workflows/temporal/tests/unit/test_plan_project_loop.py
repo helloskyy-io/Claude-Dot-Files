@@ -89,7 +89,13 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         calls.sprint += 1
         calls.order.append("sprint")
         calls.correction_passes.append(bool(kw.get("correction_pass", False)))
-        calls.sprint_pools.append(kw["research_dir"])
+        # `component`, not `research_dir`. The child was rebuilt on 2026-08-19 to
+        # act on ONE PLANNED COMPONENT — it no longer reads a research pool or a
+        # candidates file, and `sprint_pools` recorded a parameter that no longer
+        # exists. What the assertions want now is WHICH COMPONENT each dispatch
+        # was handed, which is also what makes the one-per-component fan-out
+        # visible rather than a bare count.
+        calls.sprint_pools.append(kw["component"])
         return PR_URL
 
     def fake_write(**kw: object) -> str:
@@ -153,6 +159,27 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     return calls
 
 
+def _plans_one(monkeypatch: pytest.MonkeyPatch, calls: _Calls, name: str = "alpha") -> None:
+    """Make the sweep find ONE component, so the per-component children fire.
+
+    NEEDED SINCE 2026-08-19 AND NOT BEFORE. `plan-sprint` used to walk
+    `candidates.md` and ran once whether or not anything had been planned, so a
+    fixture with an empty sweep still exercised it. It now acts on ONE PLANNED
+    COMPONENT — a parent that plans nothing sprints nothing — which is correct
+    behaviour and makes an empty sweep the wrong fixture for any assertion about
+    the sprint child.
+
+    The fan-out tests keep the empty default deliberately: what they assert is
+    which components the research step is handed, and seeding one here would put
+    a component in every one of those lists.
+    """
+    def one(*a: object, **k: object) -> list[str]:
+        calls.sweep_bases.append(k.get("base_ref"))
+        return [name]
+
+    monkeypatch.setattr(pm.own, "new_sprint_sections", one)
+
+
 def _verdicts(monkeypatch: pytest.MonkeyPatch, calls: _Calls, *sequence: routing.Verdict) -> None:
     """Make review-pr return each verdict in turn, then repeat the last."""
     def fake_review(review_input: object, repo_root: Path) -> ReviewResult:
@@ -173,6 +200,7 @@ def _run(**kw: object) -> tuple[str, routing.Verdict, int, list[str]]:
 
 def test_merge_runs_one_of_each_child(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The happy path spends exactly three child dispatches, never four."""
+    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     url, verdict, loops, _notes = _run()
     assert (url, verdict, loops) == (PR_URL, routing.Verdict.MERGE, 0)
@@ -189,9 +217,10 @@ def test_triage_runs_BEFORE_the_sprint_plan_is_touched(wired: _Calls, monkeypatc
     estimates the work those totals are of, and left no position in which
     feature planning could run at all.
     """
+    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _run()
-    assert wired.order == ["triage", "sprint"], (
+    assert wired.order == ["triage", "research", "feature", "plan-verify", "sprint"], (
         f"the parent dispatched its children as {wired.order}. Triage rules the "
         f"candidates and plan-sprint places what they ruled — reversed, the "
         f"sprint plan is written from rulings that have not been made yet."
@@ -219,6 +248,7 @@ def test_research_sits_BETWEEN_triage_and_the_sprint_plan(wired: _Calls, monkeyp
     docstring records, which had been latent rather than fixed because until this
     child landed there were no estimates for the sprint plan to be ahead of.
     """
+    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
     _with_sections(monkeypatch, "Alpha")
     _run()
@@ -243,6 +273,7 @@ def test_redispatch_loops_to_the_bound_then_stops(wired: _Calls, monkeypatch: py
     This is the regression that matters: the verdict never becomes MERGE, so
     only the loop bound stops it.
     """
+    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _url, verdict, loops, notes = _run()
     assert loops == routing.MAX_LOOPS, (
@@ -281,6 +312,7 @@ def test_the_loop_back_is_a_correction_pass_not_a_fresh_placement(wired: _Calls,
     The first plan-sprint pass is fresh; every loop-back after it is a
     correction.
     """
+    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH)
     _run()
     assert wired.correction_passes == [False] + [True] * routing.MAX_LOOPS
@@ -288,6 +320,7 @@ def test_the_loop_back_is_a_correction_pass_not_a_fresh_placement(wired: _Calls,
 
 def test_a_loop_back_that_earns_merge_stops_there(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
     """The loop is spent on success too — it does not keep going after MERGE."""
+    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_REDISPATCH, routing.Verdict.MERGE)
     _url, verdict, loops, _notes = _run()
     assert (verdict, loops) == (routing.Verdict.MERGE, 1)
@@ -306,6 +339,7 @@ def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyP
     Distinct from the redispatch case: this one has loop budget REMAINING and
     must still decline to spend it.
     """
+    _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.HOLD_NEEDS_ASSISTANCE)
     _url, verdict, loops, notes = _run()
     assert (verdict, loops) == (routing.Verdict.HOLD_NEEDS_ASSISTANCE, 0)
@@ -603,7 +637,17 @@ def test_the_research_fanout_does_not_hijack_the_product_pool(wired: _Calls, mon
     # loop-back. The COUNT is incidental to this regression; what matters is
     # that EVERY entry is the product pool, so it is derived from the bound
     # rather than pinned at two.
-    assert wired.sprint_pools == [product_pool] * (1 + routing.MAX_LOOPS), (
+    # THE REGRESSION THIS GUARDS MOVED, AND THE ASSERTION MOVED WITH IT. It read
+    # `sprint_pools == [product_pool] * (1 + MAX_LOOPS)` — the loop-back must not
+    # rebind `research_dir` to a component pool. `plan-sprint` no longer takes a
+    # research pool at all since 2026-08-19, so the parameter that could be
+    # rebound is gone and that half is unfalsifiable rather than merely passing.
+    #
+    # What survives is the property the regression was about: **every loop-back
+    # hands the SAME target as the first pass.** Now the target is the component,
+    # so a loop-back that drifted onto a different one is the same defect wearing
+    # a different parameter name, and this catches it.
+    assert len(set(wired.sprint_pools)) == 1, (
         f"plan-sprint was handed {wired.sprint_pools} — the loop-back must still "
         f"receive the PRODUCT pool, not a component's"
     )

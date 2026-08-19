@@ -521,11 +521,23 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     # `pr_number=pr`: the PR is already open. Step 1 opened it, and both children
     # land their work on the one branch, in the one worktree, under the one
     # review.
-    sprint.run_plan_sprint(
-        repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
-        candidates_path=candidates_path, research_dir=research_dir,
-        pr_number=pr, verbose=verbose,
-    )
+    # ONE DISPATCH PER PLANNED COMPONENT since 2026-08-19, where it used to be one
+    # dispatch for all of them. `plan-sprint` was rebuilt around a single planned
+    # component — read its roadmap, sum its phases, make its sprint entry current
+    # — because a sprint entry is per-component and a total is per-component, and
+    # the old candidate-walking shape had no component input at all.
+    #
+    # THE COST IS N DISPATCHES AND IT IS ACCEPTED. Each is narrow: one file
+    # granted, one section touched, and a total already summed in code. The
+    # alternative — handing one run every component at once — is what made the
+    # old prompt 21KB and gave it a five-condition bar for a decision the chain
+    # above it had already made.
+    for section in origin:
+        sprint.run_plan_sprint(
+            repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
+            component=repo_root / "docs" / "development" / section,
+            pr_number=pr, verbose=verbose,
+        )
 
     # --- Step 4: DISPOSITION, with one bounded loop-back -------------------
     loops = 0
@@ -565,11 +577,12 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         # reachable and reports SPENT. Routing the loop-back by what the runway
         # names is real work and is out of a `plan-candidates` PR; it is placed as
         # a candidate rather than left as a comment nobody acts on.
-        sprint.run_plan_sprint(
-            repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
-            candidates_path=candidates_path, research_dir=research_dir,
-            pr_number=pr, correction_pass=True, verbose=verbose,
-        )
+        for section in origin:
+            sprint.run_plan_sprint(
+                repo_root=repo_root, worktree=worktree, sprint_path=sprint_path,
+                component=repo_root / "docs" / "development" / section,
+                pr_number=pr, correction_pass=True, verbose=verbose,
+            )
         verdict = _dispose(pr, repo_root, repo_target, notes, verbose)
 
     if verdict is routing.Verdict.HOLD_NEEDS_ASSISTANCE:
