@@ -44,6 +44,8 @@ A third thing follows that is easy to miss. Once a workflow can be started by a 
 
 Take the monoliths apart, then write down what the shape is.
 
+**No estimate, and the absence is deliberate.** This phase shipped; its boxes are a record of what was built rather than work to be sized. Every phase below carries one figure, written by `plan-verify` reading the plan cold on 2026-08-19. Each is **hours of focused development, not elapsed time**, and each states what it rests on so it can be argued with. **No total is written here** — a total is derived from the parts, and a derived figure restated where nothing derives it goes stale in one direction only.
+
 - [x] Split `build` into draft → refine → review-pr
 - [x] Split `build-minor` on the same shape — one-lens middle child
 - [x] Absorb `build-phase` into `build --phase` — one family, one set of children
@@ -53,6 +55,8 @@ Take the monoliths apart, then write down what the shape is.
 ### [Phase 2 — Family alignment](phase2_family_alignment.md) 🟡 IN PROGRESS
 
 *Children in a family do not diverge except where they need to.*
+
+**Est: ~15 hours** *(sized cold by `plan-verify`, 2026-08-19)* — almost none of it is code: the mechanism, the ratchet and the standard's wording all shipped. The cost is a judgement pass over the frozen baseline's rows, grouped into eight consumer-sets, each needing two prompt files read plus the git history behind them; a blind trial that must be sealed before any history is consulted and then scored; and one document that does not exist anywhere today — the `_minor` tier contract, which is C-110's subject.
 
 The mechanism shipped and the ratchet works — the duplication baseline fell from 48 rows to 13. What is left is the half a test was never able to decide: whether a pair that has already drifted drifted *on purpose*. This phase ends when no row in that baseline is unruled, and when the reasoning behind each ruling is written where the next reader finds it.
 
@@ -69,6 +73,8 @@ The mechanism shipped and the ratchet works — the duplication baseline fell fr
 
 *Every child runs standalone and under a parent, equally well.*
 
+**Est: ~20 hours** *(sized cold by `plan-verify`, 2026-08-19)* — the adapters are the cheap half and the demonstrations are the expensive one. Nine runners written against eleven existing pairs (measured on disk: runners run 88–172 lines, shims 13–18), the five divergences ruled once rather than nine times, and a 53-line naming guard widened from eleven subjects to twenty. Then each of the nine is run alone until it behaves — and this phase's own evidence is that a child takes several fix rounds, which is why the proof outweighs the construction.
+
 Twenty workflows exist; **eleven can be started by a person and nine cannot.** The nine are all children, and each one's core function already works — what is missing is the outer half of the shape the other eleven have: a runner that owns the CLI contract, and a thin shim beside it. This phase builds those nine and proves each by running it alone. **It sits this early because it is what makes every later change cheap to iterate on:** a child that can only be exercised through its parent is a child that can only be debugged at parent prices, and these children are not good out of the box.
 
 - [ ] **Every child runs standalone and under a parent, equally well**
@@ -82,6 +88,8 @@ Twenty workflows exist; **eleven can be started by a person and nine cannot.** T
 ### [Phase 4 — Nothing a run relies on is invisible](phase4_nothing_invisible.md) ⬜
 
 *A wrong flag fails at parse time; a wrong derivation runs competently against the wrong thing, and a surface nobody reads never goes red at all.*
+
+**Est: ~24 hours** *(sized cold by `plan-verify`, 2026-08-19)* — the largest phase here, and the two halves are not alike. The derived half finishes three properties on code that already anchors on a marker and already takes an override, and is bounded by the number of derivation sites. The produced half is not bounded by anything yet: its first deliverable is a definition that does not exist, it has to be ruled across the whole fleet before a line of gate code is safe, and the phase doc says so itself. Sizing note beyond the figure: the produced half is what makes this phase large, and it is the half that could be its own.
 
 A run depends on two classes of thing it never announces: what it worked out for itself, and what it wrote for somebody else. Derived values — the repo root, the component under plan — already anchor on real markers and already have an override, but nothing publishes how they are derived, nothing echoes them on the live path, and nothing states what breaks when one is wrong. Written surfaces have a gate in exactly one directory, built after three parent-written observables shipped with no reader at all. This phase finishes both defences and proves them the same way: make the system say the wrong thing out loud.
 
@@ -98,6 +106,8 @@ A run depends on two classes of thing it never announces: what it worked out for
 ### [Phase 5 — What configuration a run absorbed](phase5_configuration_a_run_absorbed.md) ⬜
 
 *A dispatch reads agents, skills, rules and hooks from `~/.claude/`, so an interactive edit silently changes what every later dispatch on that machine does.*
+
+**Est: ~14 hours** *(sized cold by `plan-verify`, 2026-08-19)* — the smallest of the four as scoped, because every surface it touches already exists: the five tags it joins are written in one place in `journal_activities.py`, and the digest's input set is the installer's own symlink targets rather than a tree that has to be classified. The reader is a comparison over two bags with no network and no live filesystem read. The live-CLI measurement against `--setting-sources` and `--safe-mode` is a real cost and is included. **The managed/user tier half of the first box is NOT in this figure** — it is deliberately unbuilt until the record supplies the evidence for it, so it is unsized here rather than estimated.
 
 The smallest thing that fixes the visible half is one digest: record what configuration a run absorbed as a sixth `Journal-` tag in that run's bag, and write the reader that compares two of them. Divergence detection then falls out as a reader over bags that already exist, instead of a drift detector nobody has justified building. **The managed/user tier itself is this component's to build** — the first box below — and it stays open deliberately, because the precedence direction is a policy choice and the digest is what supplies the evidence for it.
 
