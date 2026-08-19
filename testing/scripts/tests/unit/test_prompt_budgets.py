@@ -136,12 +136,7 @@ BUDGETS: dict[str, int] = {
     # BUILDING the thing — a component arriving with a roadmap, phase docs and an
     # estimate per phase has been ruled. What arrived is smaller: place a
     # computed total, reconcile one component's bullets against its roadmap.
-    "plan/plan_sprint/prompts/plan_sprint.md": 8830,  # +the no-precedent-yet case, from the first run
-    # The pre-rebuild prompt, kept beside its replacement until triage-candidates
-    # absorbs the candidate-sizing half that left. Budgeted so it cannot grow
-    # while dormant; test_no_OLD_prompt_OUTLIVES_its_replacement in
-    # test_prompt_completeness.py is what stops it becoming permanent.
-    "plan/plan_sprint/prompts/plan_sprint_OLD.md": 21619,
+    "plan/plan_sprint/prompts/plan_sprint.md": 9230,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
     # MOVED — so both lines exist and neither absorbs growth silently.
@@ -248,7 +243,7 @@ BUDGETS: dict[str, int] = {
     # budget, never what may lose one, and dropping the line would let 5 KB of
     # vacated space refill unwatched.
     "build/build_refine_minor/prompts/stages_2_to_4.md": 2989,
-    "plan/triage_candidates/prompts/triage_candidates.md": 18102,
+    "plan/triage_candidates/prompts/triage_candidates.md": 19668,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —
     # true on run 1, false on run 2, since papers accumulate and the synthesis is

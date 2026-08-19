@@ -103,6 +103,19 @@ Report what you found: how many candidates are untriaged, and anything in the ev
 
 **Name the component in the `component` cell** for all three, and for `phase` and `checkboxes` say in the Note which phase you mean. **If you cannot name an existing component for a `phase` or `checkboxes` sizing, it is a `feature`** — the size and the target have to agree.
 
+**THE TEST FOR `feature`, and it is five questions rather than a feeling.** All five, and a "no" to any of them means it is smaller than a feature:
+
+- **It is substantial.** Roughly a month of focused development is the calibration — not a hard rule, but something you could finish in an afternoon is not a component.
+- **At least three milestones that are things BUILT**, not questions answered. Three open questions is a research topic; three built things is a feature.
+- **No existing component owns the work.** If it is *about* Temporal queues it belongs to Temporal Integration. Carving it out to stand alone fragments one component into three and is the commonest way this file grows work nobody wanted.
+- **It is workable on its own** — somebody could pick it up without another component being finished first.
+- **You can name it in three words**, without an "and". A name needing an "and" is two candidates.
+
+**A feature almost always needs a research pool of its own before it can be planned, and that is what "substantial" means in practice** — enough unknowns that somebody has to go and find out. **A "no" to that has TWO SHAPES and they point OPPOSITE WAYS, so say which you mean:**
+
+- **"No — it is well enough understood to just do."** *Disqualifying.* That is a `phase` or `checkboxes` inside something that exists.
+- **"No — the research already exists, it just sits in another pool."** ***The opposite: that is evidence FOR a `feature`.*** Work with a body of evidence behind it and no home of its own is exactly what this size is for.
+
 **THIS IS A BEST GUESS AND YOU ARE EXPECTED TO MAKE IT ANYWAY.** You are sizing a concept: there is no research and no plan behind it yet, only the Note its filer wrote. **That is not a reason to leave it blank** — every downstream branch depends on there being an answer, and a wrong guess is corrected by the stage that learns better while a blank one stalls the pipeline. Say in the Note what you sized it on.
 
 **The commonest error is sizing UP.** A candidate reads as a feature because its Note argues for it at length; length is the filer's enthusiasm, not the work's shape. **Ask what would actually be built.** If the answer is "a few boxes in a phase that exists", it is `checkboxes` however well argued.
