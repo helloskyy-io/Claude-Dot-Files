@@ -22,12 +22,21 @@ Confidence:     DEFINITIVE on every SDK/server mechanic in §2 — each is read 
                 first-party Temporal documentation gives no guidance on composing a library's
                 own in-process retry with the SDK's. UNVERIFIED: nothing asserted here has been
                 run against a live Temporal server — see §7.
-Critic:         not-yet-verified — 2026-08-19
+Critic:         PASS-WITH-FIXES — 2026-08-19. Fresh-context pass: all 8 external sources
+                fetched at their pinned SHAs (HTTP 200) and every quoted span re-checked
+                byte-exact with `curl … | grep -F`; zero fabricated, zero miscited. Every
+                repo claim (the `gh` constants, guard functions, `RuntimeError`, issue #41,
+                the two standards sections, six `sprint.md` line numbers, the absent
+                `github-automation/` directory) re-checked against this working tree and
+                confirmed. Fixed in that pass: §1 named `_gh_timed_out_line` — a log-line
+                formatter — as the timeout gate, where the predicate is `is_timed_out`;
+                §6 asserted a 21-span total the artifact does not let a reader re-derive,
+                now recorded as a reproducibility gap with the pass rate kept.
 ```
 
 ## 1. Primer — two retry layers, and only one of them can see the classification
 
-`gh()` in [`assistant_activities.py`](../../../../../scripts/workflows/temporal/modules/assistant/assistant_activities.py) already owns a bounded retry: `_RETRYABLE_HTTP = frozenset({429, 502, 503, 504})` plus a phrase-promoted 403, gated by `_gh_is_read_only` (mutations are never retried — issue #41 recorded duplicate comments) and by `_gh_timed_out_line` (a hang is terminal), with `_GH_RETRY_BACKOFF_SECONDS = (2.0, 6.0)` — three attempts. Its own comments argue that split; this paper does not re-derive it. Temporal adds a second, outer retry layer around the whole activity. The sprint's worry is the product: 3 × 3 = 9. The real question is narrower and mechanical — **what does Temporal actually observe of a `gh` failure, and what can it act on?**
+`gh()` in [`assistant_activities.py`](../../../../../scripts/workflows/temporal/modules/assistant/assistant_activities.py) already owns a bounded retry: `_RETRYABLE_HTTP = frozenset({429, 502, 503, 504})` plus a phrase-promoted 403, gated by `_gh_is_read_only` (mutations are never retried — issue #41 recorded duplicate comments) and by `is_timed_out` (a hang is terminal; `_gh_timed_out_line` is the operator line that refusal prints, not the predicate), with `_GH_RETRY_BACKOFF_SECONDS = (2.0, 6.0)` — three attempts. Its own comments argue that split; this paper does not re-derive it. Temporal adds a second, outer retry layer around the whole activity. The sprint's worry is the product: 3 × 3 = 9. The real question is narrower and mechanical — **what does Temporal actually observe of a `gh` failure, and what can it act on?**
 
 ## 2. The mechanics (definitive; raw source, SHA-pinned)
 
@@ -79,6 +88,8 @@ raise ApplicationError(f"gh {label} failed: {r.stderr.strip()}",
 ## 6. Citations
 
 **Verbatim method (binding under Research Standard §3):** every quoted span above was re-verified at write time by `curl -s <pinned raw URL> | grep -cF '<span>'` against the SHA in its citation (repo-internal spans checked against the working tree). **21 spans checked, 21 returned ≥1 match** (count reached by enumerating the checks in one script that numbered and printed each one, then reading the 21 numbered result lines — not by asking any layer for a total). Line-wrapped prose spans were matched against a newline-flattened copy of the source, which is stated here because unwrapping is itself a transformation.
+
+**Recorded gap in this count's reproducibility (2026-08-19 verification pass).** The enumerated list the script printed is **not reproduced in this paper**, so the figure 21 rests on the write-time run rather than on anything a later reader can re-derive from the artifact. The verification pass re-ran the checks independently and found **no span that failed** — every quoted span it identified matched its pinned source byte-exact — but it arrived at ~20 by its own enumeration and could not confirm 21 span-for-span. Treat the *pass rate* as verified and the *total* as unverified: a re-check must re-enumerate rather than trust this number.
 
 - [S1] temporalio/sdk-python `temporalio/common.py` @ `f1579fc` — [raw](https://raw.githubusercontent.com/temporalio/sdk-python/f1579fc90f46a9365635ff8782e6bce39612518b/temporalio/common.py) — `RetryPolicy` fields. *definitive*
 - [S2] temporalio/sdk-python `temporalio/exceptions.py` @ `f1579fc` — [raw](https://raw.githubusercontent.com/temporalio/sdk-python/f1579fc90f46a9365635ff8782e6bce39612518b/temporalio/exceptions.py) — `ApplicationError(type=, non_retryable=, next_retry_delay=)`. *definitive*

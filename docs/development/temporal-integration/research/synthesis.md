@@ -15,27 +15,42 @@ becomes a rule only by being codified into a standard through human review.
 
 | Paper | Feeds (Temporal Integration milestone) | Last validated | Critic verdict |
 |---|---|---|---|
-| `raw/durable_dispatch_identity.md` | "A restart-recovery contract" (sprint.md:188) | 2026-08-07 | PASS-WITH-FIXES |
-| `raw/activity_retry_boundary.md` | "Rule the retry boundary" + "Reduce gh()'s own retry" (sprint.md:189–190) | 2026-08-19 | **not-yet-verified** — a fresh-context critic pass has not yet run on this paper; do not treat its claims as more certain than that until it has |
+| `raw/durable_dispatch_identity.md` | "A restart-recovery contract" (sprint.md:188) | 2026-08-07 | PASS-WITH-FIXES (2026-08-07) — extended three truncated quotations to their source sentence ends; withdrew a Candea & Fox "unretrievable" negative finding after re-fetching the PDF and rewrote five sections around the now-cited source; corrected a version enumeration from 8 to 11 point releases; one critic finding disputed with evidence |
+| `raw/activity_retry_boundary.md` | "Rule the retry boundary" + "Reduce gh()'s own retry" (sprint.md:189–190) | 2026-08-19 | PASS-WITH-FIXES (2026-08-19) — fresh-context pass: 8 external sources fetched at pinned SHAs, every quoted span re-checked byte-exact, zero fabricated and zero miscited; every repo claim re-checked against the working tree. Fixed: a log formatter named as the timeout gate, and a span count the artifact does not let a reader re-derive |
 
 **Four papers are physically in this pool but do NOT feed Temporal Integration** — see
-*Housekeeping* below. They are cited here for completeness, not rolled up: `raw/liveness_signal_measurement.md`,
-`raw/credential_expiry_detection.md`, `raw/false_completion_detection.md`,
-`raw/blocked_work_notification.md`.
+*Housekeeping* below, which draws on their substance, so they are cited here under §4's input rule
+rather than merely named:
+
+| Paper | Actually feeds | Last validated | Critic verdict |
+|---|---|---|---|
+| `raw/liveness_signal_measurement.md` | Autonomous Operation (sprint.md:243) | 2026-08-07 | PASS-WITH-FIXES, three rounds — withdrew an "undocumented heartbeat" headline that rested on a silently-truncated fetch, and re-enumerated the log corpus |
+| `raw/blocked_work_notification.md` | Autonomous Operation (sprint.md:244) | 2026-08-07 | PASS-WITH-FIXES — 24 sources all fetchable; retention and delivery claims re-verified |
+| `raw/credential_expiry_detection.md` | "Three cheap guards" — **milestone no longer exists** | 2026-08-07 | PASS-WITH-FIXES, 3 rounds — corrected which release introduces the `claude auth` subcommands, retracted a false "absent from the changelog" finding, and in r3 retracted the r2 repair itself after five further changelog entries turned up |
+| `raw/false_completion_detection.md` | "Three cheap guards" — **milestone no longer exists** | 2026-08-07 | PASS-WITH-FIXES, rounds 1–3 all applied, verified over three passes |
 
 Per the computed currency table this cycle was given: none of the five inherited papers are past
 their revalidation window as of 2026-08-19. That clears them of *staleness*; it says nothing about
 whether they still feed the destination they claim to (see Housekeeping).
 
-**Upstream product research cited, not re-derived:** `python_sdk_long_activities.md` already
-closes the "claude_cli activity domain" milestone (heartbeating, payload limits) in full —
-definitive, first-party sourced, its own `Feeds:` line names that exact milestone. Nothing in
-this cycle adds to it. `temporal.md` already establishes Temporal's default `RetryPolicy`
-(unlimited max attempts, 1s initial interval, 2.0 backoff) as a hazard requiring override.
-`anthropic_tos_and_enterprise.md` §1.5/§7.2 already establishes that headless `claude -p`
-invocation is explicitly ToS-sanctioned, substantially answering the "prove an invocation is
-indistinguishable from an operator" milestone (sprint.md:183) — an unresolved billing-classification
-question remains there, but it is not a research gap this pool can close.
+**Upstream product research cited, not re-derived** (dates and verdicts given because §4's input
+rule applies to these too): `python_sdk_long_activities.md` (*Last validated 2026-08-03, Critic
+PASS-WITH-FIXES — un-quoted an inference dressed as a quote, re-marked a "Go only" claim as
+derived, retagged staff-forum claims to unverified*) already closes the "claude_cli activity
+domain" milestone (heartbeating, payload limits) in full — definitive, first-party sourced, its
+own `Feeds:` line names that exact milestone. Nothing in this cycle adds to it. `temporal.md`
+(*Last validated 2026-08-05, Critic PASS-WITH-FIXES over two independent passes — every source
+re-fetched, every count re-derived by enumeration*) already establishes Temporal's default
+`RetryPolicy` (unlimited max attempts, 1s initial interval, 2.0 backoff, 100× max interval) as a
+hazard requiring override.
+`anthropic_tos_and_enterprise.md` §1.5 (*Last validated 2026-08-06, Critic PASS 2026-07-24*)
+establishes that headless `claude -p` invocation is explicitly ToS-sanctioned. **That answers the
+PERMISSION half of "Prove an invocation is indistinguishable from an operator at a terminal"
+(sprint.md:183) and no more** — and the sprint line itself says the permission half is not the
+question: *"Not a permission question; a design one."* The design half — whether an invocation is
+technically indistinguishable in behaviour from an operator's — is untouched by that paper and by
+this cycle; see Gaps. A separate billing-classification question also remains open, in that paper's
+§9, which its own header marks appended and **NOT critic-verified**.
 
 ---
 
@@ -70,7 +85,10 @@ attempt and let Temporal own retry (needs the typed raise above). For mutating a
 wrapper doing file/git work before the `gh` call, **keep `gh()`'s bounded retry and mark the
 resulting code terminal to Temporal** — this is not a new pattern; `temporal_standard.md` §6.4
 already carves out exactly this shape for `CLUSTER_RECONCILE_CONTROL_PLANE_UNAVAILABLE` and
-`SEED_CLUSTER_ACCESS_UNAVAILABLE` ("the activity already bounded-retried in-process ⇒ terminal").
+`SEED_CLUSTER_ACCESS_UNAVAILABLE` — a code whose retryable-looking `*_UNAVAILABLE` suffix is
+overridden to terminal, in the standard's own words, because it expresses a verdict *"that the
+activity already bounded-retried in-process"*. (Only the inner span is quoted; the ⇒-shorthand an
+earlier draft of this line put in quotation marks appears nowhere in the standard.)
 The reasoning: Temporal retries the **whole activity body**, not the failed sub-call [S7 in that
 paper, definitive], so option (a) is only safe once every `gh`-wrapping activity is confirmed
 idempotent end-to-end — an audit that has not been done — while option (b) gets the same 3×1
@@ -143,14 +161,24 @@ sequencing decisions above this run's altitude. Flagged in Post-Run Reflection.
 - **No empirical confirmation of any §2 SDK claim in `activity_retry_boundary.md`** — every claim
   is source-read against pinned commits, none is run against a live worker. Its own §7 test plan
   names seven items, none executed.
-- **`activity_retry_boundary.md` has not yet been through the critic gate** — `Critic:
-  not-yet-verified`. Do not size implementation work against it as though it were PASS-WITH-FIXES.
+- **`activity_retry_boundary.md`'s §6 span count is not reproducible from the artifact.** The
+  verification pass re-checked its spans independently and found none that failed, but the paper
+  does not print the enumeration behind its "21 spans" figure, so the pass rate is verified and the
+  total is not. Recorded in the paper's §6; a re-check must re-enumerate rather than trust it.
 - **The `GITHUB_*` error-code vocabulary is not enumerable from this repo** — `temporal_standard.md`
   §6.4 points it at a GitHub Automation Standard that is not vendored here (verified: no
   `docs/standards/github-automation/` directory). New codes must be minted with the activity under
   §6.4's engineer-editable carve-out rather than derived from an existing list.
-- **Milestone 3 ("prove an invocation is indistinguishable from an operator")** is substantially
-  answered upstream but carries one unresolved question — whether a personal automation script
-  classifies as sanctioned "Claude Code on your own machine" use or as "programmatic Agent SDK
-  use" under the paused June-2026 billing change. Not researched this cycle; it is a product-pool
+- **Milestone 3 ("Prove an invocation is indistinguishable from an operator at a terminal") is
+  OPEN on the half that is actually the milestone.** The sprint line disclaims the permission
+  reading in its own text — *"Not a permission question; a design one"* — and the permission
+  reading is the only one the upstream evidence answers. Nothing in this pool or the upstream
+  papers addresses the DESIGN question: what makes a headless invocation behaviourally
+  indistinguishable from an operator at a terminal, and how that would be demonstrated. An earlier
+  draft of this synthesis called the milestone "substantially answered," which overstated the
+  cited evidence; it is not.
+- **A second, separate question is also open** — whether a personal automation script classifies
+  as sanctioned "Claude Code on your own machine" use or as "programmatic Agent SDK use" under the
+  paused June-2026 billing change. It sits in `anthropic_tos_and_enterprise.md` §9, a hand-appended
+  section that paper's header marks NOT critic-verified. Not researched this cycle; a product-pool
   question, not a component one.
