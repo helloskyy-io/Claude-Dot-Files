@@ -5,6 +5,8 @@ Your job is to **read ONE component's plan COLD, size every phase in hours, and 
 Component:  ${COMPONENT_PATH}
 Candidates: ${CANDIDATES_PATH}
 
+${TASK_CONTEXT}
+
 ${PLAN_INVENTORY}
 
 ---
@@ -25,7 +27,7 @@ ${PLAN_INVENTORY}
 | Add a short sizing note beside an estimate | **Write an hour estimate anywhere but `roadmap.md`** — one figure, one home |
 | Report a phase boundary you believe is wrong | **Rename, renumber or delete a phase doc** — the number is IDENTITY |
 | Report a phase resting on evidence that does not support it | **Re-plan the component** — add, merge, split or drop a phase |
-| Append a proposal row to the candidates file | **Touch `sprint.md` at all** — you hold no authorization over it |
+| Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it (Stage 1), never touch it |
 | Name the `component` on a row YOU append | Write or edit anything under ANOTHER component, or under this one's `research/` |
 | | **Tick a completion checkbox** — nothing has been built |
 | | Set `decision`, `status`, or another filer's `component` in the candidates file |
@@ -89,6 +91,15 @@ Read, in this order, and do not skip any:
 3. **`docs/standards/architecture/problem-statement.md`** — the thesis. A plan that does not serve it is a well-formed plan for something nobody needed.
 4. **`docs/standards/architecture/architectural_standard.md`** — the binding seams. A phase that violates one is a finding with a named reason.
 5. **`docs/standards/documentation/documentation_standard.md`** — § *Development Planning Files* and § *Phase Numbering and Roadmap Ordering*, which is binding.
+6. **`docs/standards/architecture/stack_reference.md`** — what we run on and, in its *"What we do NOT use"* section, what we have deliberately ruled out. **A phase planned on something in that list is a finding no other reader is positioned to catch**, and sizing a phase built on the wrong stack produces a confident number for work that will not happen.
+7. **`docs/file_structure.txt`** — the annotated map, and the root `CLAUDE.md` beside it. The map is how you find everything above without guessing a path, and it is also direct sizing evidence: how many files a subsystem already holds tells you more about the cost of changing it than the phase's prose does.
+8. **The PROJECT-level research pool and its synthesis** — normally `docs/standards/architecture/research/`, confirm against the map. Question 4 asks whether a phase's evidence supports it; a phase can also rest on something the project settled differently at a higher altitude, and only this shows you that.
+9. **`docs/development/sprint.md` — READ IT, and it is READ-ONLY.** You are producing the numbers that feed it, against a sprint calibration, and you cannot judge whether a phase is sized like the work around it without seeing that work. **You may never write it** — see the authorization table.
+10. **Any SIBLING component this plan depends on** — read-only. A dependency the plan names and cannot deliver against is a gate, not a phase.
+
+**PATHS 3–9 ARE WHERE THEY USUALLY ARE, NOT WHERE THEY MUST BE.** This workflow runs against whatever repo `--repo` names. Confirm each against `docs/file_structure.txt` and the `CLAUDE.md` chain, and use the repo's equivalent where a path differs. **If one does not exist here, say so in your report and say what you judged that phase against instead** — never judge silently against a document you could not open.
+
+**YOU HAVE `WebSearch` AND `WebFetch`, AND SIZING IS WHERE THEY EARN THEIR KEEP.** *"How long does it take to build this against that vendor's API"* is usually answerable by reading the vendor's own documentation, and an estimate built on a misremembered API is confidently wrong in the direction nobody checks. Look it up, and say in your sizing note when a number rests on something you read rather than on something you know. **This does not license re-planning:** you are sizing and judging what is written, never researching what should have been written instead.
 
 ${EVIDENCE_BLOCK}
 

@@ -136,7 +136,7 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 # coupling worth having, and it is per-workflow by construction.
 FORBIDDEN_PATHS = (
     r"^docs/development/",      # "Edit a phase doc, or anything under another component"
-    r"(^|/)sprints?\.md$",      # "Touch `sprint.md` at all" — also caught above,
+    r"(^|/)sprints?\.md$",      # "WRITE or edit `sprint.md`" — also caught above,
                                 #   stated separately because the prohibition is
                                 #   about the FILE and outlives this directory
     r"^docs/standards/",        # "...or anything else under `docs/standards/`"
@@ -191,7 +191,7 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
 
 
 def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
-                  pr_number: str | None) -> dict[str, str]:
+                  pr_number: str | None, context: str = "") -> dict[str, str]:
     """Every placeholder the prompt takes, assembled ONCE for both callers.
 
     THE DRY RUN AND THE REAL RUN MUST RENDER THE SAME PROMPT, and this exists so
@@ -214,6 +214,16 @@ def prompt_values(rel_component: Path, rel_candidates: Path, tree: Path,
         # teaches the pool convention and names the thesis; `PLAN_INVENTORY` says
         # which plan is THIS run's, which the shared block cannot know.
         "EVIDENCE_BLOCK": act.evidence_block(tree),
+        # OPAQUE, rendered verbatim. Before this existed `--pr` changed where a
+        # run PUSHED and nothing else, so a correction pass could not be told why
+        # it was re-running — the same gap `plan-feature` had until 2026-08-19.
+        "TASK_CONTEXT": (
+            "## OPERATOR CONTEXT FOR THIS RUN\n\n"
+            "**This is authoritative and overrides your own reading where they "
+            "disagree** — it is the operator speaking, not another run's account. "
+            "Verify any FACT it asserts about the tree before building on it.\n\n"
+            + context if context.strip() else ""
+        ),
         "SUBMIT_PROMPT": act.submit_prompt(
             pr_number, f"plan-verify: size and judge {rel_component.name}"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
@@ -260,7 +270,7 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "own.roadmap_phase_links counted either side of the run and compared in "
         "BOTH directions — the one prohibition here that happens INSIDE the "
         "granted file, where act.boundary_crossings is blind by construction",
-    "**Touch `sprint.md` at all** — you hold no authorization over it":
+    "**WRITE or edit `sprint.md`** — read it (Stage 1), never touch it":
         "FORBIDDEN_PATHS, via act.worktree_state / act.boundary_crossings",
     "Write or edit anything under ANOTHER component, or under this one's `research/`":
         "FORBIDDEN_PATHS `^docs/development/` less permitted_paths, which grants "
@@ -343,7 +353,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
 
 def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
                     candidates_path: Path, pr_number: str | None = None,
-                    verbose: bool = False) -> str:
+                    context: str = "", verbose: bool = False) -> str:
     """Read ONE component's plan cold, size it, judge it. Returns the PR URL."""
     # Paths arrive rooted at the REPO because that is where they are configured,
     # but the run reads and writes inside the WORKTREE. Resolve once, read what
@@ -375,10 +385,12 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     before_boxes = act.checked_boxes(wt_component / own.ROADMAP)
     before_tree = act.worktree_state(worktree)
 
-    values = prompt_values(rel_component, rel_candidates, worktree, pr_number)
+    values = prompt_values(rel_component, rel_candidates, worktree, pr_number,
+                           context)
 
     output = act.run_claude(
-        act.render(act.load_prompt(PROMPTS / "plan_verify.md"), values),
+        act.render(act.load_prompt(PROMPTS / "plan_verify.md"), values,
+                   opaque=frozenset({"TASK_CONTEXT"})),
         model_key=MODEL_KEY, workflow_key=WORKFLOW_KEY,
         completion_pattern=COMPLETION_PATTERN,
         repo_root=repo_root, worktree=worktree,
