@@ -161,7 +161,9 @@ than left to a `git show`:**
   and invoked by the Python fleet at
   `scripts/workflows/temporal/modules/assistant/assistant_activities.py:721`, and
   `scripts/workflows/temporal/tests/unit/test_turn_cap_banner_reads_the_worktree.py` extracts and
-  executes a function from that same file as shipped. It was candidate 2 of the prior 16
+  executes that file's `worktree_delivery_state` as shipped — a *different* function in the same
+  live file; no test covers `check_rate_limit()` itself, which is part of why the defect survived.
+  It was candidate 2 of the prior 16
   (`credential_expiry_detection.md` §2.1, §5 step 3).
 - **A dated service-deletion decision point that has now arrived** — `config.yaml:19–24` reads
   *"DECISION POINT: if still unused by ~2026-08-19, delete the service rather than carry dead
