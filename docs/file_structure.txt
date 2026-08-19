@@ -86,7 +86,6 @@ claude-dot-files/
 │   │   ├── cross-device-sync/                       # COMPLETE — install.sh, idempotency as the enabling feature
 │   │   ├── explore-claude-directory/                # COMPLETE — portable vs machine-local; projects/ is path-keyed
 │   │   ├── local-ai-offloading/                     # NOTES PREDATING PLANNING (Apr 2026) — GPU offload; integration points now stale
-│   │   ├── managed-configuration/                   # RESEARCH ONLY — no plan yet
 │   │   ├── mcp-servers/                             # NOTES PREDATING PLANNING (Apr 2026) — scopes, transports, Docker reference
 │   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 COMPLETE (2026-08-10) — status lives in its phase doc, not restated here;
 │   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phases 4 and 6 planned.
