@@ -415,6 +415,11 @@ claude-dot-files/
 │                   │                                #   literal too — a floored walk over an unconditional predicate is a permanent green
 │                   ├── test_a_bounded_reply_is_CHECKED_not_only_read.py # A launch reply's stdout may not be read as evidence unless
 │                   │                                #   its return code was; per-BINDING, so a name rebound and read later stays a finding
+│                   ├── test_a_PARENT_forwards_what_its_CHILD_reads.py # No child entrypoint declares a param its body never
+│                   │                                #   reads, and a parent forwards every task field its child DOES read. build.sh --phase passed
+│                   │                                #   task_file (dead) and dropped plan_path (the only branch), so the whole plan-driven
+│                   │                                #   instruction set was unreachable from the major tier — invisible to every guard that
+│                   │                                #   drives the CHILD directly with a fixture-supplied plan
 │                   ├── test_a_prose_COUNT_of_a_collection_is_DERIVED.py # Prose here that counts a collection the same module defines
 │                   │                                #   must match it — the fourth corpus to gate the figure-nobody-derives class
 │                   ├── test_prompt_completeness.py  # Every ${VAR} in a shipped prompt has a supplier (data-driven over prompts/*.md)
@@ -489,6 +494,10 @@ claude-dot-files/
 │                   │                                #   lines), never the word — a naive sweep flags seven correct functions. And the raise must be
 │                   │                                #   able to ESCAPE: wait_for_ci raises inside a try its own except catches, so any(ast.Raise)
 │                   │                                #   called the shipped defect correct
+│                   ├── test_no_prompt_ROUTES_the_model_into_the_FROZEN_fleet.py # No shipped .md prompt names a script that
+│                   │                                #   resolves ONLY under scripts/workflows/ (frozen) and not under the Python shims. Closed one
+│                   │                                #   spelling at a time three times — plan_revision's STOP, build_from_plan's BUILD-PHASE,
+│                   │                                #   review_pr's dispatch_tool enum — so the check keys on resolution, not on a name list
 │                   ├── test_no_prose_claims_a_shipped_workflow_is_UNBUILT.py # No prose says a workflow does not exist
 │                   │                                #   when its module is on disk. plan-feature said it in three places — a docstring, a prompt sent
 │                   │                                #   to the model, an operator banner — and the PR that built plan-verify falsified all three and

@@ -16,6 +16,7 @@ and a silent skip is the filtered-gate defect wearing different clothes.
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
@@ -28,6 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from modules.assistant import assistant_activities as shared  # noqa: E402
 from modules.assistant.build import build_activities as act  # noqa: E402
 from modules.assistant.build.build_activities import POLICY_PATH, CiVerdict  # noqa: E402
+from modules.assistant.build import build_helper as helper  # noqa: E402
+from modules.assistant.build.build_inputs import Verdict  # noqa: E402
 
 
 def _gh(monkeypatch, payload, *, stdout=None, stderr="", returncode=0):
@@ -368,12 +371,74 @@ def test_GATE_DID_NOT_RUN_does_not_also_report_its_gate_as_UNDECLARED(monkeypatc
     verdict, names = act.ci_verdict("1", repo_root=repo)
     assert verdict is CiVerdict.GATE_DID_NOT_RUN
     assert names == ["suite"], "the absent gate must be named for the runway"
-    # The guard lives in the workflow; assert it is present rather than re-deriving it.
-    wf = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
-          / "build" / "build_workflow.py").read_text()
-    assert "CiVerdict.GATE_DID_NOT_RUN)" in wf and "if extra and verdict_state not in" in wf, (
+    # DRIVEN, NOT GREPPED. This used to assert two substrings were present in
+    # `build_workflow.py`, which is a claim resting on prose that can be reworded
+    # — and it broke the moment the cascade was promoted to `helper.ci_gate` for
+    # `build_minor` to share, while the property it names was untouched. Calling
+    # the decision is strictly stronger and now covers BOTH parents at once.
+    hold, notes = helper.ci_gate(verdict, names, pr="1", repo_target=None)
+    assert hold is Verdict.HOLD_REDISPATCH
+    undeclared = [n for n in notes if "UNDECLARED CHECKS" in n]
+    assert not undeclared, (
         "the UNDECLARED-CHECKS branch no longer excludes GATE_DID_NOT_RUN, so an "
-        "absent gate will again be reported as an unclassified check that ran"
+        f"absent gate is again reported as an unclassified check that ran: {undeclared}"
+    )
+    assert any("declares suite blocking" in n for n in notes), (
+        "the absent gate must still be named to the operator"
+    )
+
+
+def _dispatches_review_ungated(source: str) -> bool:
+    """Does this module dispatch `review-pr` without reading the CI verdict?
+
+    SPLIT OUT SO A CONTROL CAN DRIVE IT on source the tree does not contain —
+    the walk below is floored, and a floor stays green over a predicate that has
+    silently begun answering `False` for everything.
+    """
+    calls = {n.func.attr if isinstance(n.func, ast.Attribute) else
+             getattr(n.func, "id", "")
+             for n in ast.walk(ast.parse(source))
+             if isinstance(n, ast.Call)}
+    return "run_review" in calls and "ci_gate" not in calls
+
+
+def test_the_UNGATED_PARENT_predicate_discriminates_on_a_literal() -> None:
+    """Positive control for the walk below, on source that is not in the tree."""
+    assert _dispatches_review_ungated(
+        "def f(x):\n    return review_pr.run_review(x)\n"
+    ), "the predicate no longer reports a parent that dispatches review with no gate"
+    assert not _dispatches_review_ungated(
+        "def f(x):\n    h, n = helper.ci_gate(x)\n    return review_pr.run_review(x)\n"
+    ), "the predicate now reports a correctly gated parent, so it would fail on good code"
+    assert not _dispatches_review_ungated(
+        "def f(x):\n    return x\n"
+    ), "the predicate fires on a module that dispatches no review at all"
+
+
+def test_BOTH_build_parents_read_the_CI_verdict_before_dispatching_review() -> None:
+    """A gate one parent runs and its sibling does not is a tier running looser.
+
+    THE CLASS, NOT THE INSTANCE. `helper.ci_gate` landed in `build_workflow` on
+    2026-08-09 and `build_minor_workflow` was never updated, so for the whole of
+    that window the light tier reached `review-pr` with the verdict unread and
+    could return MERGE on a red tree. Nothing could see it: every CI-gate test in
+    this module drives the ACTIVITY, and a parent that never calls the activity
+    is invisible to all of them.
+
+    Keyed on the CALL rather than on any one parent, so a third build parent —
+    or a `plan`/`research` parent that grows a gate — fails here on the day it is
+    written instead of on the day someone re-runs the sweep.
+    """
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
+    parents = sorted(root.glob("*/[a-z]*_workflow.py"))
+    parents = [p for p in parents
+               if "draft" not in p.name and "refine" not in p.name]
+    assert parents, "no build parent modules found — this test is asserting nothing"
+
+    ungated = [p.name for p in parents if _dispatches_review_ungated(p.read_text())]
+    assert not ungated, (
+        f"these build parents dispatch review-pr without reading the CI verdict "
+        f"through helper.ci_gate, so MERGE is reachable on a red tree: {ungated}"
     )
 
 

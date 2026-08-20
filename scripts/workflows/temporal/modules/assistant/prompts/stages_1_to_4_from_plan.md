@@ -58,6 +58,8 @@ Produce a brief summary noting:
 ## Stage 4: TEST
 Run and write tests for the implementation, following the project's testing standard.
 
+${CHARACTERIZE_BY_EXECUTION}
+
 **CAN THIS TEST FAIL? (do this before declaring green — a green suite is not evidence.)** Twice measured: a fully passing suite while a live credential defect was in the code. Two checks:
 1. **Call-shape match:** does the test invoke the code the way the REAL callers do? A test calling a function directly while every caller uses command substitution \`\$( )\` exercises a different execution context — errexit is cleared in a subshell, so the test cannot observe the failure the callers will hit. Match the caller's shape.
 ${MUTATION_DISCIPLINE}

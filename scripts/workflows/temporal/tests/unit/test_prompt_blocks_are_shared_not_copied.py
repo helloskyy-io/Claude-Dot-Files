@@ -414,6 +414,33 @@ def test_the_RULING_CHECK_fires_on_each_way_a_ruling_can_be_empty() -> None:
         "PROMOTE S2 stage-ordering — difflib puts the two at 0.863."
     )
 
+    # AND A MAGNITUDE NEEDS NO DIGIT. The three numeric arms above all require
+    # one, so "the two read nearly identical in wording" — which reasons from
+    # exactly the banned signal — passed every one of them. A degree word beside
+    # a similarity word IS the claim; this arm was added when a review pointed
+    # out that the header said the broad property while the check enforced the
+    # narrow one.
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — the two read nearly identical in wording."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — the copies are essentially the same, scoring high."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — barely any overlap between the two."
+    )
+    # THE NEGATIVE ARM MATTERS MORE THAN THE POSITIVE ONE HERE: degree words are
+    # ordinary English, and an arm that fired on one anywhere in a ruling would
+    # reject most well-formed prose. It fires only NEAR a similarity word.
+    assert fvp.ruling_defects(
+        "PROMOTE S2 stage-ordering — largely because every consumer is a staged "
+        "run whose stages must not be reordered."
+    ) == [], "a degree word with no similarity claim beside it is ordinary prose"
+    assert fvp.ruling_defects(
+        "PROMOTE S3 evidence-discipline — a whole block is present in one copy "
+        "and absent from its sibling, which is the reportable pattern."
+    ) == [], "S3's own vocabulary — pattern, not degree — must never read as magnitude"
+
     # AND THE BAN IS ON A SUBSTITUTE FOR REASONING, NOT ON ARITHMETIC. A ruling
     # citing the blind trial's kappa is citing the measurement that RETIRED
     # per-pair ruling; an earlier version of the check rejected it, which left an

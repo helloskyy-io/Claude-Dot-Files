@@ -28,7 +28,7 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_refine(*, description: str, pr_number: str, repo_root: Path,
-               worktree: Path, task_file: str | None = None,
+               worktree: Path,
                correction_pass: bool = False, loops_left: int = 0,
                ci_unsettled: bool = False, verbose: bool = False) -> str:
     """Review and correct the draft's PR. Returns its PR URL."""

@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import wait_for_ci
+from ..build_activities import ci_verdict, wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ..build_draft_minor import build_draft_minor_workflow as draft
 from ..build_refine_minor import build_refine_minor_workflow as refine
@@ -82,7 +82,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          repo_root: Path, worktree: Path,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
-    ci_settled = wait_for_ci(pr, repo=task.repo_target)
+    ci_settled = wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
@@ -92,7 +92,19 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         ci_unsettled=not ci_settled, verbose=task.verbose,
     )
 
-    wait_for_ci(pr, repo=task.repo_target)
+    # THE SAME GATE ITS SIBLING RUNS, and it was absent here for six weeks. The
+    # cascade landed in `build_workflow` alone and this parent was never updated,
+    # so the light tier reached `review-pr` with the CI verdict never read and
+    # could return MERGE on a red tree — the hole removing branch protection
+    # opened, closed on one tier only. See `helper.ci_gate`.
+    wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
+    hold, gate_notes = helper.ci_gate(verdict_state, extra, pr=pr,
+                                      repo_target=task.repo_target)
+    notes.extend(gate_notes)
+    if hold is not None:
+        return hold
+
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=task.repo_target,
                     verbose=task.verbose, review_type=ReviewType.BUILD),

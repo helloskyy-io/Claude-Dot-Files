@@ -19,7 +19,7 @@ Then: analyze the existing implementation and the proposed changes. Read the rel
 
 Briefly describe your assessment before proceeding.
 
-**IF THE TASK IS TO CHARACTERIZE EXISTING BEHAVIOUR, ESTABLISH GROUND TRUTH BY EXECUTION BEFORE YOU WRITE ANY ASSERTION.** Reading the implementation carefully and then writing what it *should* do produces a suite that encodes your belief about the code and passes. **The measured case:** the four real defects it *did* find were all found by running the thing. Probe first, record what actually happens, then assert it. Where reality and the documented intent disagree, that gap is the highest-value finding in the task, not an inconvenience to smooth over.
+${CHARACTERIZE_BY_EXECUTION}
 
 
 ${VERIFY_THE_TASKS_ASSERTED_FACTS}

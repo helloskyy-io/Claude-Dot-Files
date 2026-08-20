@@ -227,10 +227,14 @@ KEY_LEN = 60
 # note is the reader's only evidence that a pair was looked at, so a note
 # pointing outside its own block is worse than no note.
 ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
-    "build_draft+build_draft_minor": {
-        "**IF THE TASK IS TO CHARACTERIZE EXISTING BEHAVIOUR, ESTABLI":
-            "0.86 — the characterization rule. Unruled.",
-    },
+    # RECONCILED AND REMOVED, not re-noted. `build_draft` held a TRUNCATED copy
+    # of `characterize_by_execution` — the antecedent sentence naming the
+    # measured case was gone, so "the four real defects it *did* find" referred
+    # to nothing — and the entry was frozen "Unruled." while a ruling for that
+    # exact fragment shipped beside it: `evidence-discipline`, TIER_INVARIANT, a
+    # category whose own definition says a difference here IS the defect. Both
+    # tiers now reference the placeholder, so there is no pair left to freeze.
+    "build_draft+build_draft_minor": {},
     "build_refine+build_refine_minor": {
         "For each finding (fidelity gaps, code-reviewer's two lenses,":
             "0.87 — the finding-source enumeration. DELIBERATE: differs from "
@@ -805,38 +809,50 @@ def test_the_LINE_detector_IS_LOOKING_AT_SOMETHING() -> None:
     "no orphans found" and "nothing was inspected" produce identical results.
     An earlier draft was protected only by the single baseline entry going
     stale — that is, by the one thing the ratchet next door exists to remove.
+
+    IT MEASURES REACH, NOT SURFACED PAIRS, AND THAT DISTINCTION IS THE POINT.
+    This asserted per-pair that the block detectors had SURFACED something —
+    which is a verdict, exactly what the first paragraph says it must not be. It
+    went red the day `build_draft+build_draft_minor` was fully reconciled: a pair
+    with no drift left is this component's GOAL STATE, and a floor that fails on
+    reaching it pressures the next author to re-introduce drift or delete the
+    floor. What the floor must actually protect is that the detector can still
+    SEE lines — a `MIN_LINE` bump or a collapsed block split — and that is
+    measurable without any pair having drifted. `_partner` and the scorer are
+    controlled by the four synthetic tests above, which drive them on literals
+    rather than on whatever the corpus happens to still contain.
     """
     total = 0
     for major, minor in TIER_PAIRS:
-        surfaced = set(_drift(major, minor))
-        assert surfaced, (
-            f"{major}+{minor}: the BLOCK detectors surfaced no pair, so the "
-            f"line detector inherits an empty population and asserts nothing"
+        blocks = _blocks(major)
+        reach = sum(len(_lines(b)) for b in blocks)
+        assert reach >= 1, (
+            f"{major}+{minor}: {major} yields NO line over {MIN_LINE} bytes "
+            f"across any of its {len(blocks)} blocks, so this pair can "
+            f"contribute nothing and an empty result would mean only that the "
+            f"detector looked at nothing"
         )
-        inspected = [x for x in _blocks(major) if x[:KEY_LEN] in surfaced]
-        assert inspected, (
+        total += reach
+
+        surfaced = set(_drift(major, minor))
+        if not surfaced:
+            # A FULLY RECONCILED PAIR IS NOT A VACUOUS ONE. Its blocks are still
+            # compared above; there is simply no near-duplicate left to inspect.
+            continue
+        assert [x for x in blocks if x[:KEY_LEN] in surfaced], (
             f"{major}+{minor}: no block matches a surfaced opening — the key "
             f"and the block list have come apart"
         )
-        lines = sum(len(_lines(b)) for b in inspected)
-        assert lines >= 1, (
-            f"{major}+{minor}: the surfaced blocks yield NO line over "
-            f"{MIN_LINE} bytes, so this pair contributes nothing to the "
-            f"comparison and an empty result means only that it looked at "
-            f"nothing"
-        )
-        total += lines
-    # PER-PAIR THE FLOOR CAN ONLY BE 1, because most tier pairs really do surface
-    # a single-line block today — so a per-pair floor cannot tell a healthy
+    # PER-PAIR THE FLOOR CAN ONLY BE 1, because a tier pair can legitimately be
+    # down to a single long line — so a per-pair floor cannot tell a healthy
     # corpus from a collapsed one. The CORPUS total can: a regression that
     # quietly cut the population by most of itself would still clear every
     # per-pair check above.
     assert total >= 5, (
-        f"the line detector inspects {total} lines across the whole corpus, "
+        f"the line detector can reach {total} lines across the whole corpus, "
         f"below the floor it was built against. Something upstream — MIN_LINE, "
-        f"_partner, the block split — has collapsed its population, and an "
-        f"empty orphan list now means 'looked at almost nothing' rather than "
-        f"'found nothing'"
+        f"the block split — has collapsed its population, and an empty orphan "
+        f"list now means 'looked at almost nothing' rather than 'found nothing'"
     )
 
 

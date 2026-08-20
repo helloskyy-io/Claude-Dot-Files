@@ -37,7 +37,9 @@ ${CHARACTERIZE_BY_EXECUTION}
 
    ${CAN_IT_FAIL_LIGHT_TIER}
 
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
+4. COMMIT: ${GITIGNORE_COLLISION_CHECK}
+
+   Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
 
 5. PUSH: Push the branch to origin. **CHECK YOU ARE ON A BRANCH FIRST — the worktree may hand you a DETACHED HEAD.** `git rev-parse --abbrev-ref HEAD`; if it returns `HEAD`, you are detached and `git push -u origin HEAD` fails with `refs/heads/HEAD`. Create the branch (`git checkout -b <name>`) or push explicitly to a ref (`git push origin HEAD:<branch>`). **Asked for on five separate reflections across four PRs** — runs keep losing turns rediscovering it, and every wording of the instruction below says "the branch" as though one exists.
 

@@ -43,41 +43,54 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
         stages_body = None
     values = {
         "DESCRIPTION": description,
+        # Tier identity, derived from `WORKFLOW_KEY` — see the sibling tier.
+        "WORKFLOW_LABEL": WORKFLOW_KEY.upper(),
+        "TIER_PREFIX": f"{WORKFLOW_KEY}:",
         "VERIFICATION_IS_BY_FETCH": act.shared_prompt("verification_is_by_fetch"),
         "VERIFY_THE_TASKS_ASSERTED_FACTS": act.shared_prompt("verify_the_tasks_asserted_facts"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
+        # BOTH OF THESE MOVED UP TO THE BASE DICT, because both are now
+        # referenced on every path of this tier rather than on one arm of it.
+        # `characterize_by_execution` was wrapper-only and the shared plan body
+        # never carried it; `gitignore_collision_check` was plan-only and NEITHER
+        # wrapper carried it, so a light-tier run on a fresh branch could ship a
+        # PR its own new files were invisible in. Both are TIER_INVARIANT under
+        # `tests/unit/fork_vs_parameterize.py` — `evidence-discipline` and
+        # `operational-safety`, the second of which reads "a cheaper run is not a
+        # run permitted to be less careful".
+        "CHARACTERIZE_BY_EXECUTION": act.shared_prompt("characterize_by_execution"),
+        "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
     }
     if stages_body:
         values |= {
             "STAGES_1_TO_4": stages_body,
             "RULES": act.shared_prompt("rules"),
             "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),
-            # The plan-driven body carries these two as PLACEHOLDERS rather
-            # than as text: both were byte-exact copies of pool fragments,
-            # sitting INSIDE a pool fragment where no duplication guard
-            # looks — `_duplicated()` skips the pool by construction.
+            # The plan-driven body carries this as a PLACEHOLDER rather than as
+            # text: it was a byte-exact copy of a pool fragment sitting INSIDE a
+            # pool fragment, where no duplication guard looks — `_duplicated()`
+            # skips the pool by construction. Plan-path only, because the
+            # wrappers open with their own condensed ordering paragraph.
             "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
-            "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
             "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
             "PLAN_PATH": plan_path, "CONTEXT_BLOCK": context,
         }
     else:
-        # BOTH WRAPPERS, NOT ONE. These two were prose in `update_pr.md` and
-        # absent from `new_branch.md`, so a light-tier run started on a fresh
-        # branch was never told to establish ground truth by execution nor to
-        # prove its gate can go red — the two disciplines that stand in for the
+        # WRAPPER-BRANCH, AND THE REASON IS THE PLAN BODY'S OTHER CONSUMER.
+        # This block was prose in `update_pr.md` and absent from `new_branch.md`,
+        # so a light-tier run started on a fresh branch was never told to prove
+        # its gate can go red — one of the two disciplines that stand in for the
         # review agents this tier does not dispatch. Promoted by §10.1 once the
         # second consumer existed.
         #
-        # ON THE WRAPPER BRANCH AND NOT THE BASE DICT, though the finding that
-        # ordered this fix said the base dict: the plan-driven template cannot
-        # reference either one — `build_draft` shares that template and does not
-        # supply them — so a base-dict entry would be built and discarded on the
-        # plan path. That is the SAME defect this fix exists to close, one path
-        # over, and `test_every_pool_fragment_a_dispatch_LOADS_also_RENDERS`
-        # fails on it.
+        # It stays here rather than moving to the base dict because the shared
+        # plan template does not reference it and `build_draft` renders that same
+        # template without supplying it: a base-dict entry would be built and
+        # thrown away on the plan path, which is the same defect one path over,
+        # and `test_every_pool_fragment_a_dispatch_LOADS_also_RENDERS` fails on
+        # it. Its sibling `characterize_by_execution` moved UP for the mirror
+        # reason — the plan body now DOES reference that one.
         values |= {
-            "CHARACTERIZE_BY_EXECUTION": act.shared_prompt("characterize_by_execution"),
             "CAN_IT_FAIL_LIGHT_TIER": act.shared_prompt("can_it_fail_light_tier"),
         }
     if pr_number:

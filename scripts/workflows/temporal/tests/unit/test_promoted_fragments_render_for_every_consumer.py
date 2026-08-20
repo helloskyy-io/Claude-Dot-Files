@@ -451,12 +451,6 @@ def test_every_pool_fragment_a_dispatch_LOADS_also_RENDERS(
 # is a live finding, written where the next reader of the guard sees it rather
 # than in a merged PR body nobody re-reads.
 _INVARIANT_PATH_GAPS = {
-    ("build_draft_minor", "gitignore_collision_check"):
-        "the two wrappers carry no gitignore-collision check at all, so a light "
-        "tier run that creates a file matched by an unanchored ignore pattern "
-        "ships a PR the file is invisible in. Genuinely absent rather than "
-        "reworded — the closest thing either wrapper has is a self-description "
-        "step about docs/file_structure.txt.",
     ("build_draft_minor", "stage_order_is_mandatory"):
         "both wrappers open with their own condensed EXECUTION ORDER IS "
         "MANDATORY paragraph instead of the fragment, so the instruction is "
@@ -464,12 +458,6 @@ _INVARIANT_PATH_GAPS = {
         "near-copy of a pool fragment, which is C-111's axis and reachable by "
         "no guard here at any granularity; reconciling it is a content ruling, "
         "not a wiring fix.",
-    ("build_draft_minor", "characterize_by_execution"):
-        "promoted out of the PR-path wrapper and given to the new-branch "
-        "wrapper in the same change; the plan-driven body has never carried it, "
-        "and adding it there would change the prompt build_draft renders from "
-        "the same shared body. A cross-tier edit, correctly not made by the "
-        "pass that promoted the fragment.",
 }
 
 
@@ -546,7 +534,19 @@ def test_the_INVARIANT_GAP_LIST_names_only_fragments_the_CONTRACT_calls_invarian
     )
 
 
-def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
+def _without_tier_identity(prompt: str, key: str) -> str:
+    """`prompt` with this tier's own name folded to a placeholder.
+
+    Longest form first: `build-draft` is a prefix of `build-draft-minor`, so
+    replacing the short one first would leave a dangling `-minor` on the light
+    tier and manufacture a difference out of the canonicalisation itself.
+    """
+    return prompt.replace(key.upper(), "<TIER>").replace(key, "<tier>")
+
+
+def test_the_two_draft_TIERS_RENDER_IDENTICALLY_MODULO_TIER_IDENTITY(
+    monkeypatch, tmp_path
+) -> None:
     """What the deleted file-identity assertion used to guarantee, but stronger.
 
     `test_build_prompt_variants_do_not_fork` once held two byte-identical
@@ -556,16 +556,62 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
     its own. Either workflow can still diverge in the values dict it builds
     around the shared text.
 
-    So the check moved up a level: same inputs, same rendered prompt, byte for
-    byte. This catches a class the file check never could — a supplier added to
-    one tier and not the other.
+    NARROWED FROM BYTE-EQUALITY, AND THE DOCSTRING BELOW IS WHY. The property
+    this test names is *a supplier added to one tier and not the other*; equality
+    was a proxy for it, and the proxy had a second effect nobody chose — it made
+    it impossible for either tier to state its own identity in the shared body,
+    so the body hardcoded `BUILD-PHASE` / `feat:` / `build-phase:` and told every
+    plan-driven run of BOTH tiers it was a workflow that exists only in the frozen
+    bash fleet. `fork_vs_parameterize.TIER_SCOPED` already ruled `tier-identity`
+    — "the names a tier calls itself — workflow key, commit-message prefix" —
+    tier-scoped, so two tiers each supplying their own value satisfies the stated
+    property exactly. The same narrowing, for the same reason, is recorded at
+    `test_plan_revision_v1_parity.test_prompt_file_is_byte_identical_to_v1`.
+
+    WHAT IS FOLDED IS EACH TIER'S OWN `WORKFLOW_KEY` AND NOTHING ELSE. A second
+    divergence hiding behind a tier name is not forgiven: the fold is one token
+    per side, and the control below proves an unrelated difference still fails.
     """
     a = _draft_prompt(monkeypatch, tmp_path, draft.run_draft)
     b = _draft_prompt(monkeypatch, tmp_path, draft_minor.run_draft_minor)
-    assert a == b, (
+    ca = _without_tier_identity(a, draft.WORKFLOW_KEY)
+    cb = _without_tier_identity(b, draft_minor.WORKFLOW_KEY)
+    assert ca == cb, (
         "build_draft and build_draft_minor render DIFFERENT prompts from the same "
-        "plan-driven inputs, so the two tiers no longer share one plan-build "
-        f"instruction set ({len(a):,} vs {len(b):,} bytes)."
+        "plan-driven inputs once each tier's own name is folded out, so the two "
+        "tiers no longer share one plan-build instruction set "
+        f"({len(a):,} vs {len(b):,} bytes). If the difference IS tier identity, "
+        "supply it from each module rather than writing it into the shared body."
+    )
+    # NOT VACUOUS: the fold must actually have found each tier's name, or this
+    # would be byte-equality wearing a canonicaliser.
+    assert "<TIER>" in ca and "<TIER>" in cb, (
+        "neither rendered prompt contains its tier's own name in upper case, so "
+        "the fold matched nothing and this test has quietly become the equality "
+        "it was narrowed away from"
+    )
+
+
+def test_the_TIER_IDENTITY_FOLD_does_not_forgive_an_UNRELATED_difference() -> None:
+    """Control: the narrowing above must not have widened into 'anything goes'.
+
+    Driven on literals, because the live corpus can only ever exercise the
+    passing branch — and a canonicaliser that erased too much would look exactly
+    like a tree with no divergence in it.
+    """
+    major = "You are executing the BUILD-DRAFT workflow. Commit as build-draft:."
+    minor = major.replace("BUILD-DRAFT", "BUILD-DRAFT-MINOR").replace(
+        "build-draft:", "build-draft-minor:")
+    assert (_without_tier_identity(major, "build-draft")
+            == _without_tier_identity(minor, "build-draft-minor")), (
+        "the fold no longer collapses a pure tier-identity difference, so the "
+        "test above would fail on correct code"
+    )
+    assert (_without_tier_identity(major, "build-draft")
+            != _without_tier_identity(minor + " And one extra rule.",
+                                      "build-draft-minor")), (
+        "the fold now erases a substantive difference between the tiers, which is "
+        "the exact class this test exists to catch"
     )
 
 

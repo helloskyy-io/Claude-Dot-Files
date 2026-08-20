@@ -37,7 +37,9 @@ ${CHARACTERIZE_BY_EXECUTION}
 
    ${CAN_IT_FAIL_LIGHT_TIER}
 
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
+4. COMMIT: ${GITIGNORE_COLLISION_CHECK}
+
+   Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
 
    SELF-DESCRIPTION (required on this path): update the PR body to describe what the PR NOW contains, and update docs/file_structure.txt if you added, removed, or renamed files. A fix that leaves the PR's own description stale mechanically manufactures a finding for the next review pass — measured: every fix round generated 1-2 new "body doesn't describe the new work / test count stale / new file missing from map" findings, and one review pass found ZERO code defects and only self-description drift. Updating it here breaks that loop.
 

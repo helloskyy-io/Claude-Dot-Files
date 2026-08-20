@@ -62,9 +62,11 @@ entities and two copies missing a whole block can sit at the same score. This
 repo learned it the expensive way: the standard once carried three named
 similarity figures and two of the three were falsified by the promotions in the
 very pull request that wrote them. `ruling_defects()` below fails a ruling whose
-reasoning contains one — a figure attached to a similarity claim, or any
-percentage. It does NOT ban numbers: a ruling citing this module's own kappa,
-or a consumer count, is citing evidence rather than substituting for it.
+reasoning contains one — a figure attached to a similarity claim, any percentage,
+or a DEGREE WORD next to a similarity word ("the two read nearly identical"),
+which is a magnitude claim wearing no digit and was the one shape the first two
+arms let through. It does NOT ban numbers: a ruling citing this module's own
+kappa, or a consumer count, is citing evidence rather than substituting for it.
 
 ---------------------------------------------------------------------------
 VALIDATED BEFORE IT WAS TRUSTED, AND IT DID NOT PASS.
@@ -206,12 +208,44 @@ _NUMBER = r"(?<![A-Za-z-])\d"
 _SIMILARITY = (
     r"\b(?:similar\w*|ratio|alike|overlap\w*|scor\w*|match\w*|identical|difflib)\b"
 )
+# A MAGNITUDE DOES NOT NEED A DIGIT, and leaving that out was a false negative in
+# the direction this module says is the expensive one. "the two read nearly
+# identical in wording" reasons from exactly the signal no source uses and
+# contains no number at all, so the two numeric arms below sailed straight past
+# it. These are degree words — they say HOW alike, which is magnitude — as
+# distinct from the pattern words S3 asks for (present in one copy, absent from
+# the other), which carry no degree and are not listed here.
+_QUALIFIER = (
+    r"\b(?:nearly|almost|virtually|practically|essentially|largely|mostly|"
+    r"barely|hardly|wildly|roughly|broadly|substantially|highly)\b"
+)
 _MAGNITUDE = re.compile(
     rf"{_NUMBER}[\d.]*\s*%"
     rf"|{_SIMILARITY}[^.\n]{{0,40}}{_NUMBER}"
-    rf"|{_NUMBER}[^.\n]{{0,40}}{_SIMILARITY}",
+    rf"|{_NUMBER}[^.\n]{{0,40}}{_SIMILARITY}"
+    rf"|{_QUALIFIER}[^.\n]{{0,40}}{_SIMILARITY}"
+    rf"|{_SIMILARITY}[^.\n]{{0,40}}{_QUALIFIER}",
     re.IGNORECASE,
 )
+
+# THE OVER-FIRE IS DELIBERATE AND IS RECORDED HERE SO IT IS NOT NARROWED AWAY.
+# `match\w*` and `scor\w*` are ordinary English verbs, so a legitimate ruling can
+# trip this — "this matches the pattern used by 2 other categories" contains no
+# magnitude and is rejected anyway. That is accepted, and the trade is asymmetric
+# on purpose: a FALSE POSITIVE costs the author one rewording, while a FALSE
+# NEGATIVE ships a ruling made on the one signal the evidence says nobody uses,
+# into a corpus whose whole argument is that per-pair confidence has never been
+# measured above "fair". A validator that certifies other work should fail toward
+# the cheap error.
+#
+# THIS COMMENT EXISTS BECAUSE THE ONLY OTHER FALSE-POSITIVE NOTE IN THIS REGION
+# RECORDS THE OPPOSITE DECISION — the `\b`-anchoring fix directly above, where a
+# false positive WAS narrowed away. A later author meeting a rejected ruling
+# would find one precedent saying "narrow the regex" and none saying "this one
+# stays wide", and would restore the false negative the width exists to catch.
+# Two remedies were declined for the same reason: anchoring `_NUMBER` to a
+# decimal shape, and shrinking the 40-character window. Both trade a false
+# negative for a false positive in the wrong direction.
 
 
 def ruling_defects(ruling: str) -> list[str]:
@@ -238,9 +272,12 @@ def ruling_defects(ruling: str) -> list[str]:
         )
     if _MAGNITUDE.search(ruling):
         problems.append(
-            "contains a similarity magnitude. Drift PATTERN is a signal; drift "
-            "MAGNITUDE is one no source uses, and a ruling that reaches for a "
-            "percentage was made on the wrong evidence"
+            "contains a similarity magnitude — a figure attached to a similarity "
+            "claim, a percentage, or a degree word saying HOW alike two copies "
+            "are. Drift PATTERN is a signal; drift MAGNITUDE is one no source "
+            "uses, so a ruling reaching for one was made on the wrong evidence. "
+            "Say WHAT differs (a whole block present in one copy and absent from "
+            "the other) rather than how much"
         )
     return problems
 

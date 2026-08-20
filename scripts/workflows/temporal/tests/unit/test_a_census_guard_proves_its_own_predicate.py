@@ -87,7 +87,15 @@ WHAT THIS GUARD DOES NOT LOOK AT:
         correction that wrote this bullet, needs the source text for its
         comment scan and so binds it before parsing. It is named here rather
         than quietly reshaped to satisfy the recogniser, because a guard edited
-        to fit a matcher is how a population stops meaning anything.
+        to fit a matcher is how a population stops meaning anything;
+      - `test_ci_gate.py` passes the source to a named predicate
+        (`_dispatches_review_ungated`) which parses it, so the parse and the read
+        are in different functions. It LEFT this population by gaining exactly
+        what this file asks for: the extraction that lets a literal control drive
+        the predicate is the same edit that un-inlines the read. Named rather
+        than re-inlined, per the sentence above — and it is the sharpest evidence
+        for the redesign this bullet defers, since the recogniser now scores a
+        guard lower for being controlled.
 
     Closing this is not a wider regex. `_parses_a_literal` decides "is a control"
     by the *same* inlining test, negated — so admitting them without redesigning
@@ -122,7 +130,7 @@ _HERE = Path(__file__).resolve().parent
 # the number, so a message that disagreed with its own assertion would mislead
 # at the worst possible moment. That double-write is the class this file is
 # being corrected for, so it may not appear in the correction.
-_PINNED = (22, 11)
+_PINNED = (23, 12)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.
