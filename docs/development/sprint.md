@@ -33,104 +33,110 @@ Research sits *inside* the component it belongs to, so the plan and the evidence
 
 **Phase docs are written when a sprint is picked up, not in advance.** A detailed plan for work that has not started yet is a guess that ages badly — the same reason skills are written after a methodology has been explained twice.
 
-**Status markers:** ✅ COMPLETE · 🟡 IN PROGRESS · 📋 QUEUED, NEEDS PLANNING · 🔵 NOT SCHEDULED · ⚠️ needs restating
+**Status markers, and each is DERIVED rather than typed** — the state follows from the items below it, so a marker that disagrees with its own checkboxes is a defect:
+
+| Marker | Means | Placed by | Derived as |
+|---|---|---|---|
+| 🔵 NOT SCHEDULED | no plan exists | scaffolding | no phase-linked item |
+| 🟠 PLANNED | planned, not started | `plan-sprint` | phase-linked items, none checked |
+| 🟡 IN PROGRESS | under way | the first checked box | some checked, not all |
+| ✅ COMPLETE | delivered | sprint close-out | every item checked |
 
 ---
 
-## Sprint: Explore ~/.claude ✅ COMPLETE
+## Sprint: Explore ~/.claude
 
-**Phase doc:** [`explore-claude-directory/explore-claude-directory.md`](explore-claude-directory/explore-claude-directory.md)
+✅ COMPLETE
 
 Mapped what Claude Code stores in `~/.claude/` and classified every path as portable or machine-local, before deciding what to sync.
 
 The directory mixes two very different things: what you *author* — agents, skills, rules, hooks — sitting alongside what Claude Code writes for *itself*, including credentials, session history and per-project state. Getting that split wrong in either direction meant leaking secrets into git or hand-copying config forever. This phase produced the classification every later phase is built on.
 
-- [x] **Every path under `~/.claude/` classified portable or machine-local**
+- [x] **Explore ~/.claude · Every path under `~/.claude/` classified portable or machine-local** · ([doc](explore-claude-directory/explore-claude-directory.md))
 
 ---
 
-## Sprint: Cross-Device Sync ✅ COMPLETE
+## Sprint: Cross-Device Sync
 
-**Phase doc:** [`cross-device-sync/cross-device-sync.md`](cross-device-sync/cross-device-sync.md)
+✅ COMPLETE
 
 Get the repo deploying to every machine, so everything built later propagates automatically rather than being hand-copied.
 
 One idempotent installer creates seven targeted symlinks from `config/` into `~/.claude/`, touching nothing machine-local. It runs the same way by hand on a VM or unattended via Ansible on a workstation. The criterion that matters is not that the links exist — it is that an agent written on the laptop is live on the VM after a `git pull`, with no further step.
 
-- [x] **`install.sh`** — idempotent installer, verified on laptop, workstation and VM
-- [x] **Ansible integration** — `--non-interactive` for unattended runs
-- [x] **Seven targeted symlinks** — `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`
+- [x] **Cross-Device Sync · `install.sh`** · ([doc](cross-device-sync/cross-device-sync.md)) — idempotent installer, verified on laptop, workstation and VM
+- [x] **Cross-Device Sync · Ansible integration** · ([doc](cross-device-sync/cross-device-sync.md)) — `--non-interactive` for unattended runs
+- [x] **Cross-Device Sync · Seven targeted symlinks** · ([doc](cross-device-sync/cross-device-sync.md)) — `settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `rules/`, `skills/`
 
 ---
 
-## Sprint: Safety & Guardrails ✅ COMPLETE
+## Sprint: Safety & Guardrails
 
-**Phase doc:** [`safety-and-guardrails/safety-and-guardrails.md`](safety-and-guardrails/safety-and-guardrails.md)
+✅ COMPLETE
 
 Make it safe to say yes quickly in interactive mode, and safe to walk away in autonomous mode — two different problems needing two different layers.
 
 Permissions prompt on anything unlisted, so approving in a live session is fast and informed. A `PreToolUse` hook denies known-destructive commands regardless of what the allow list says, catching the case where a broad allow rule accidentally matches something that should never run. The second layer is what makes unattended work possible at all — autonomous dispatches bypass permissions entirely, leaving the hook as the only control still operating.
 
-- [x] **`PreToolUse` → `block-dangerous.sh`** — pattern-denies destructive commands
-- [x] **`Stop` → `notify-done.sh`** — desktop notification on completion, skips on headless
-- [x] **Two-layer model** — permissions for unlisted commands, hook for known-dangerous ones
+- [x] **Safety & Guardrails · `PreToolUse` → `block-dangerous.sh`** · ([doc](safety-and-guardrails/safety-and-guardrails.md)) — pattern-denies destructive commands
+- [x] **Safety & Guardrails · `Stop` → `notify-done.sh`** · ([doc](safety-and-guardrails/safety-and-guardrails.md)) — desktop notification on completion, skips on headless
+- [x] **Safety & Guardrails · Two-layer model** · ([doc](safety-and-guardrails/safety-and-guardrails.md)) — permissions for unlisted commands, hook for known-dangerous ones
 
 ---
 
-## Sprint: Planning & Agents ✅ COMPLETE
+## Sprint: Planning & Agents
 
-**Phase doc:** [`planning-and-agents/planning-and-agents.md`](planning-and-agents/planning-and-agents.md)
+✅ COMPLETE
 
 Build the specialists a workflow can dispatch — the actors that plan, review and verify without a human in the loop.
 
 Each agent answers **one question no other agent answers** — narrow lenses rather than one thorough generalist, so a panel dispatched at the same tree returns four distinct results instead of the same finding four times. Everything is read-only unless writing is the job, which is what makes dispatching a whole panel at one worktree safe. None of them fires unless asked; depth is something you reach for, not something that interrupts you.
 
-- [x] **Five specialist agents** — `architect`, `planner`, `code-reviewer`, `test-writer`, `security-auditor`
-- [x] **Two-tier strategy** — built-ins for routine work, custom agents on-demand only
-- [x] **`/review` and `/best-practices`** slash commands
+- [x] **Planning & Agents · Five specialist agents** · ([doc](planning-and-agents/planning-and-agents.md)) — `architect`, `planner`, `code-reviewer`, `test-writer`, `security-auditor`
+- [x] **Planning & Agents · Two-tier strategy** · ([doc](planning-and-agents/planning-and-agents.md)) — built-ins for routine work, custom agents on-demand only
+- [x] **Planning & Agents · `/review` and `/best-practices` slash commands** · ([doc](planning-and-agents/planning-and-agents.md))
 
 ---
 
-## Sprint: Autonomous Execution ✅ COMPLETE
+## Sprint: Autonomous Execution
 
-**Phase doc:** [`autonomous-execution/autonomous-execution.md`](autonomous-execution/autonomous-execution.md)
+✅ COMPLETE
 
 Build the plan → execute → PR pipeline — scripts that run Claude headless in an isolated worktree, review their own output, and deliver a pull request with nobody watching.
 
 A dispatch gets its own git worktree, so a bad run damages nothing outside it, and every run ends at a **pull request** rather than a push — which is what makes running with permissions bypassed acceptable. Each one leaves a JSONL log of everything it did, and those logs are what the improvement loop later reads. Five workflows cover the range from a one-line correction to defining a project from scratch.
 
-- [x] **Foundation validated** — headless mode, worktree isolation, `gh` auth, and the full dispatch → worktree → commit → PR pipeline in one command
-- [x] **Five workflows** — `build`, `build-minor`, `build-phase`, `plan-new`, `plan-revision`
-- [x] **`init-project.sh`** — pure bash project scaffolding, zero AI tokens
-- [x] **Shared library** — `run_claude`, stream formatter, and common prompt blocks sourced by every workflow
-- [x] **Four standards written** — agents, hooks, skills, slash commands, all referenced from `CLAUDE.md`
-- [x] **`gh-monitor`** — systemd-timed poller routing `@claude` PR comments to workflows
-- [x] **Skills library** — testing, documentation, planning, refactoring and standards methodology, each built when a gap appeared
+- [x] **Autonomous Execution · Foundation validated** · ([doc](autonomous-execution/autonomous-execution.md)) — headless mode, worktree isolation, `gh` auth, and the full dispatch → worktree → commit → PR pipeline in one command
+- [x] **Autonomous Execution · Five workflows** · ([doc](autonomous-execution/autonomous-execution.md)) — `build`, `build-minor`, `build-phase`, `plan-new`, `plan-revision`
+- [x] **Autonomous Execution · `init-project.sh`** · ([doc](autonomous-execution/autonomous-execution.md)) — pure bash project scaffolding, zero AI tokens
+- [x] **Autonomous Execution · Shared library** · ([doc](autonomous-execution/autonomous-execution.md)) — `run_claude`, stream formatter, and common prompt blocks sourced by every workflow
+- [x] **Autonomous Execution · Four standards written** · ([doc](autonomous-execution/autonomous-execution.md)) — agents, hooks, skills, slash commands, all referenced from `CLAUDE.md`
+- [x] **Autonomous Execution · `gh-monitor`** · ([doc](autonomous-execution/autonomous-execution.md)) — systemd-timed poller routing `@claude` PR comments to workflows
+- [x] **Autonomous Execution · Skills library** · ([doc](autonomous-execution/autonomous-execution.md)) — testing, documentation, planning, refactoring and standards methodology, each built when a gap appeared
 
 ---
 
-## Sprint: Continuous Process Improvement — ✅ COMPLETE
+## Sprint: Continuous Process Improvement
 
-**Phase doc:** [`continuous-process-improvement/continuous-process-improvement.md`](continuous-process-improvement/continuous-process-improvement.md)
+✅ COMPLETE
 
 Make the system improve its own tooling from evidence it generates itself.
 
 **No human gathers the data.** Every dispatch leaves a JSONL log of what it actually did, and every workflow ends by posting a reflection on its own work — friction hit, decisions that could have gone another way, tooling suggestions. Those are two machine-produced records of the same run, and they carry different things: a log shows a file was read seventeen times, the reflection says the guidance was ambiguous. Findings from both reach an explicit ship / defer / reject, ruled by a human — the system observes itself and proposes, it does not modify itself.
 
-- [x] **`review-runs.sh`** — analyses a window of run logs across repos and produces an improvement report
-- [x] **`workflow-analyst` agent** and the `workflow-analysis` skill
-- [x] **Cross-repo reporting** — centralised with source-repo metadata, so patterns spanning repos are visible
-- [x] **Append-only decisions log** — ship / defer / reject, deferrals carrying an explicit watch-criterion
-- [x] **Post-Run Reflection** — every workflow posts a decision log and tooling suggestions to its PR
-- [x] **`review-pr` mines reflections** — the run's own words are its primary evidence surface
-- [x] **CLOSED BY TRANSFER — absorbed by [PMP Phase 6](persistent-memory-protocol/phase6_cpi_reads_the_journal.md).** Reflections are pull-request comments, and PMP's emit rule puts *every comment* into the journal. Phase 6 then moves the evidence sweep onto that journal. **Building a comment-scraper here would be replaced by it**, so the requirement is real and the mechanism belongs there.
-- [x] **Measure the judge's marginal yield** — `scripts/helpers/measure/judge_marginal_yield.py` classifies every disposition finding as ECHOED by the producing run's own reflection or NEW to the judge, and prints its denominator and its own limit. **Roughly half are NEW, and the lexical matching biases that UPWARD — so it is an upper bound.** The separate pass earns its cost. Answered 2026-08-16; figures are the tool's, deliberately not restated here.
+- [x] **Continuous Process Improvement · `review-runs.sh`** · ([doc](continuous-process-improvement/continuous-process-improvement.md)) — analyses a window of run logs across repos and produces an improvement report
+- [x] **Continuous Process Improvement · `workflow-analyst` agent and the `workflow-analysis` skill** · ([doc](continuous-process-improvement/continuous-process-improvement.md))
+- [x] **Continuous Process Improvement · Cross-repo reporting** · ([doc](continuous-process-improvement/continuous-process-improvement.md)) — centralised with source-repo metadata, so patterns spanning repos are visible
+- [x] **Continuous Process Improvement · Append-only decisions log** · ([doc](continuous-process-improvement/continuous-process-improvement.md)) — ship / defer / reject, deferrals carrying an explicit watch-criterion
+- [x] **Continuous Process Improvement · Post-Run Reflection** · ([doc](continuous-process-improvement/continuous-process-improvement.md)) — every workflow posts a decision log and tooling suggestions to its PR
+- [x] **Continuous Process Improvement · `review-pr` mines reflections** · ([doc](continuous-process-improvement/continuous-process-improvement.md)) — the run's own words are its primary evidence surface
+- [x] **Continuous Process Improvement · Measure the judge's marginal yield** · ([doc](continuous-process-improvement/continuous-process-improvement.md)) — `scripts/helpers/measure/judge_marginal_yield.py`; the tool prints its own figures
 
 ---
 
-## Sprint: Memory Management Framework — ✅ COMPLETE
+## Sprint: Memory Management Framework
 
-**Planning:** [`memory-management-framework/roadmap.md`](memory-management-framework/roadmap.md) — roadmap + 6 phase docs, kept as the record of what was built.
+✅ COMPLETE · (~86h total · ~0h to-do)
 
 **Retired into the [Persistent Memory Protocol](persistent-memory-protocol/roadmap.md)**, which now covers all of memory. The typed exit record is PMP's.
 
@@ -140,39 +146,44 @@ Two distinct kinds of memory, both built. Both exist because a context window en
 
 **Kind 2 — machine handoff in a file, read by CODE.** The typed exit record: a parent decides *in code, with no AI in the loop*, which child to invoke next. Now PMP's.
 
-- [x] **Phase 1 · Measure the channel** — six experiments against the pinned CLI and the archived logs. 13 rulings; 3 no-ops cancelled downstream work. Merged 2026-08-08
-- [x] **Phase 2 · Document Kind 1 as a framework** — delivered as [`docs/guide/memory-model.md`](../guide/memory-model.md). Five surfaces measured, not three. Merged 2026-08-09
-- [x] **Phase 3 · The typed exit record** — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
-- [x] **Phase 4 · Migrate the fleet** — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
-- [x] **Phase 5 · Convergence-based stopping** — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
-- [x] **Phase 6 · Read what it writes** — three readers for the run log's parent-written observables
+- [x] **Memory Management Framework · Measure the channel** · ([roadmap](memory-management-framework/roadmap.md) · [phase](memory-management-framework/phase1_measure_the_channel.md)) — six experiments against the pinned CLI and the archived logs. 13 rulings; 3 no-ops cancelled downstream work. Merged 2026-08-08
+- [x] **Memory Management Framework · Document Kind 1 as a framework** · ([roadmap](memory-management-framework/roadmap.md) · [phase](memory-management-framework/phase2_kind1_framework.md)) — delivered as [`docs/guide/memory-model.md`](../guide/memory-model.md). Five surfaces measured, not three. Merged 2026-08-09
+- [x] **Memory Management Framework · The typed exit record** · ([roadmap](memory-management-framework/roadmap.md) · [phase](memory-management-framework/phase3_typed_exit_record.md)) — envelope, split abstention (*could-not-check* vs *needs-a-ruling*), fail-safe contract, proven on one parent/child pair. Transport measured: `structured_output`
+- [x] **Memory Management Framework · Migrate the fleet** · ([roadmap](memory-management-framework/roadmap.md) · [phase](memory-management-framework/phase4_fleet_migration.md)) — every V2 child emits it, no parent parses prose. Bash is frozen and out of scope by decision
+- [x] **Memory Management Framework · Convergence-based stopping** · ([roadmap](memory-management-framework/roadmap.md) · [phase](memory-management-framework/phase5_convergence_stopping.md)) — computed over the **open** finding set, stopping when it is *empty* rather than unchanged — built, not gating
+- [x] **Memory Management Framework · Read what it writes** · ([roadmap](memory-management-framework/roadmap.md) · [phase](memory-management-framework/phase6_read_what_it_writes.md)) — three readers for the run log's parent-written observables
+- [x] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisions.md) (2026-08-17), which salvaged them from the deleted burn-test intake
 
-## Sprint: Workflow Decomposition — 🟡 IN PROGRESS
+## Sprint: Workflow Decomposition
 
-**Planning:** [`workflow-decomposition/roadmap.md`](workflow-decomposition/roadmap.md) — five phases, **~73 h** across phases 2–5. Written after Phase 1 shipped; that phase's boxes are a record, the rest are planning.
+🟡 IN PROGRESS · (~73h total · ~58h to-do)
 
 Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
-- [x] **Phase 1 · Decompose the build families and codify the shape** — draft/refine/review-pr, the activities layer, and the composition contract written down
-- [x] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism, standard, fleet backlog and the drifted-copy ruling all shipped; the ruling procedure scored κ = 0.000 in its own blind trial, which Phase 3 inherits as an open question
-- [ ] **Phase 3 · Dual-mode children** — the nine children that cannot be started by a person get a runner of their own, each proven running alone
-- [ ] **Phase 4 · Nothing a run relies on is invisible** — every derived value published with its marker and echoed on the live path, and the producer-with-no-consumer gate extended beyond one directory
-- [ ] **Phase 5 · What configuration a run absorbed** — a sixth `Journal-` tag digesting the config a run ran under, the reader that compares two bags, and the managed tier beside the user's own
+- [x] **Workflow Decomposition · Decompose the build families and codify the shape** · ([roadmap](workflow-decomposition/roadmap.md)) — draft/refine/review-pr, the activities layer, and the composition contract written down
+- [x] **Workflow Decomposition · Family alignment** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase2_family_alignment.md)) — children in a family do not diverge except where they need to. Mechanism, standard, fleet backlog and the drifted-copy ruling all shipped; the ruling procedure scored κ = 0.000 in its own blind trial, which Phase 3 inherits as an open question
+- [ ] **Workflow Decomposition · Dual-mode children** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase3_dual_mode_children.md)) — the nine children that cannot be started by a person get a runner of their own, each proven running alone
+- [ ] **Workflow Decomposition · Nothing a run relies on is invisible** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase4_nothing_invisible.md)) — every derived value published with its marker and echoed on the live path, and the producer-with-no-consumer gate extended beyond one directory
+- [ ] **Workflow Decomposition · What configuration a run absorbed** · ([roadmap](workflow-decomposition/roadmap.md) · [phase](workflow-decomposition/phase5_configuration_a_run_absorbed.md)) — a sixth `Journal-` tag digesting the config a run ran under, the reader that compares two bags, and the managed tier beside the user's own
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
-## Sprint: Persistent Memory Protocol — Part 1 — 🟡 IN PROGRESS
+## Sprint: Persistent Memory Protocol — Part 1
 
-**Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — roadmap plus eight phase docs. Part 2 below is phases 5–8.
+🟡 IN PROGRESS
 
 All of memory in this fleet — the framework and the protocol. Every run writes a folder; the folder is the truth, and every other store is rebuilt from it. Phases 1–4 have no external gate and depend only on each other.
 
-- [x] **Phase 1 · The journal root and the run bag** — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
-- [ ] **Phase 2 · The content store** — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
-- [ ] **Phase 3 · The emit rule** — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
-- [ ] **Phase 4 · Rebuildability is a test** — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
+- [x] **Persistent Memory Protocol · The journal root and the run bag** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase1_the_run_bag.md)) — one configurable root per machine, one folder per run keyed by `run_id`, a valid BagIt bag with a manifest a validator re-checksums
+- [ ] **Persistent Memory Protocol · The content store** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase2_content_store.md)) — every cited artifact stored by checksum, and a `verify` that resolves every citation with the network disabled
+- [ ] **Persistent Memory Protocol · The emit rule** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase3_the_emit_rule.md)) — every write path emits the authored content verbatim with the destination as a field; a failed journal write is never silent
+- [ ] **Persistent Memory Protocol · Rebuildability is a test** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase4_rebuild_is_a_test.md)) — replay reproduces `candidates.md` and `direction.md`; deleting one emit makes the test fail
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
-## Sprint: Temporal Integration — 🟡 IN PROGRESS
+## Sprint: Temporal Integration
+
+🟡 IN PROGRESS
 
 **Phase doc:** [`temporal-integration/temporal-integration.md`](temporal-integration/temporal-integration.md)
 
@@ -190,25 +201,27 @@ The port to durable execution, in three stages: convert the fleet to Python, wra
 - [ ] **Reduce `gh()`'s own retry when wrapping** — it retries a CALL, Temporal retries an ACTIVITY, and nested that is 3 × 3 = 9 attempts and ~34s of pauses (the shipped code says so in its own comment). Cut `gh()` to one attempt inside activities, carry `_RETRYABLE_HTTP` across as `non_retryable_error_types` rather than re-deriving it, and **leave `preflight` alone — it runs before any workflow exists and no retry policy reaches it**
 - [ ] **Stage B — semantic wrappers** — `@activity.defn` over the plain functions from Stage A
 - [ ] **Stage C — orchestrate** — workflows compose the wrappers; schedules replace timers
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 ---
 
-## Sprint: Persistent Memory Protocol — Part 2 — 📋 QUEUED, GATED
+## Sprint: Persistent Memory Protocol — Part 2
 
-**Planning:** [`persistent-memory-protocol/roadmap.md`](persistent-memory-protocol/roadmap.md) — same component, same eight phase docs. Part 1 above is phases 1–4.
+🟠 PLANNED
 
 The four phases that wait on something that does not exist yet.
 
-- [ ] **Phase 5 · Snapshots, then retention** — the 1 GB budget governs the whole journal with nothing exempt. *Gate: the Temporal server, for the recurring half only*
-- [ ] **Phase 6 · CPI reads the journal** — moves the continuous-improvement evidence sweep off comment-scraping. *Gate: **Port `review-runs`**, a Temporal Integration milestone — **not** the server*
-- [ ] **Phase 7 · Cross-machine aggregation** — write locally first, ship bags to a bucket per edge. *Gate: a second machine that actually produces runs — unrelated to Temporal*
-- [ ] **Phase 8 · The poller** — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
+- [ ] **Persistent Memory Protocol · Snapshots, then retention** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase5_snapshots_then_retention.md)) — the 1 GB budget governs the whole journal with nothing exempt. *Gate: the Temporal server, for the recurring half only*
+- [ ] **Persistent Memory Protocol · CPI reads the journal** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase6_cpi_reads_the_journal.md)) — moves the continuous-improvement evidence sweep off comment-scraping. *Gate: **Port `review-runs`**, a Temporal Integration milestone — **not** the server*
+- [ ] **Persistent Memory Protocol · Cross-machine aggregation** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase7_s3_aggregation.md)) — write locally first, ship bags to a bucket per edge. *Gate: a second machine that actually produces runs — unrelated to Temporal*
+- [ ] **Persistent Memory Protocol · The poller** · ([roadmap](persistent-memory-protocol/roadmap.md) · [phase](persistent-memory-protocol/phase8_the_poller.md)) — reads a to-do bit and starts work with no human trigger. *Gate: Temporal schedules, and a retention rule so it is not walking an unbounded tree*
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 **Phase 6 can be pulled forward** — it needs the `review-runs` port, not the server.
 
-## Sprint: Assistant Workflow Design — 🔵 NOT SCHEDULED, NEEDS RESEARCH THEN PLANNING
+## Sprint: Assistant Workflow Design
 
-**Planning:** not yet written. Research first — this component's whole failure mode is building children nobody sized.
+🔵 NOT SCHEDULED
 
 **Named for `modules/assistant/`, which is where every one of these lives.** Decomposition takes apart what already existed; this designs, builds and trains what does not. **A long-running component: it gains phases as the fleet gains capabilities, and those phases land in much later sprints while staying this feature.**
 
@@ -217,10 +230,11 @@ The four phases that wait on something that does not exist yet.
 - [ ] **Marketing children** — viability, target audience, opportunities. A loop that revises the *problem statement* rather than building against it: who has this problem, how common is it, can the solution be sold
 - [ ] **Research-children training** — getting a research cycle to produce what was actually wanted, at accuracy. **The prerequisite to [Self Improvement](#sprint-self-improvement--🔵-not-scheduled-needs-research-then-planning), not part of it**
 - [ ] **Chain `plan-verify` into `plan-project`** — it exists as a child and appears in all three planning scenarios, and nothing calls it
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
-## Sprint: Self Improvement — 🔵 NOT SCHEDULED, NEEDS RESEARCH THEN PLANNING
+## Sprint: Self Improvement
 
-**Planning:** not yet written. Research comes first — this is a measurement problem before it is a training problem.
+🔵 NOT SCHEDULED
 
 Making a child better at its job, measured rather than asserted. Today a child's performance is scattered across pull-request comments and log files nothing reads, so there is no baseline to improve against and no way to tell an improvement from a good day.
 
@@ -232,43 +246,47 @@ Making a child better at its job, measured rather than asserted. Today a child's
 
 - [ ] **Measure a child's performance** — what a good run looks like, derived from the journal rather than declared
 - [ ] **Decide what generalises** — whether the method transfers to other children or only fit the first one
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
-## Sprint: Autonomous Operation — 🔵 NOT SCHEDULED
+## Sprint: Autonomous Operation
 
-**Phase doc:** [`autonomous-operation/autonomous-operation.md`](autonomous-operation/autonomous-operation.md) — shape notes, deliberately not a plan
+🔵 NOT SCHEDULED
 
 The tier above parents: a driver that composes **parents** into a loop that keeps going, choosing each next dispatch from persisted state rather than a script written in advance. **Gated on Temporal Integration.** Distinct from *Autonomous Execution* above, which built the workflows themselves.
 
-- [ ] **A driver that dispatches from persisted state** — the payoff of the Memory Management Framework
-- [ ] **Observable exit criteria** — a `HOLD`, a convergence signal, a budget ceiling. Not a turn count. **Includes the three-legged liveness predicate** — stalled, looping and stranded detected separately, since a driver that keeps going needs to know which of the three it is in
-- [ ] **A blocked-work notifier** — the one channel that reaches a human when work is blocked, and an inbox the operator reads rather than a dashboard nobody opens
-- [ ] **Scheduled dispatch on Temporal schedules** — off `claude schedule` and systemd timers, so a schedule survives the machine being off
-- [ ] **Catch-up behaviour per schedule** — decided by the window-scoped vs state-converging split in the phase doc
+- [ ] **Autonomous Operation · A driver that dispatches from persisted state** · ([doc](autonomous-operation/autonomous-operation.md)) — the payoff of the Memory Management Framework
+- [ ] **Autonomous Operation · Observable exit criteria** · ([doc](autonomous-operation/autonomous-operation.md)) — a `HOLD`, a convergence signal, a budget ceiling. Not a turn count. **Includes the three-legged liveness predicate** — stalled, looping and stranded detected separately, since a driver that keeps going needs to know which of the three it is in
+- [ ] **Autonomous Operation · A blocked-work notifier** · ([doc](autonomous-operation/autonomous-operation.md)) — the one channel that reaches a human when work is blocked, and an inbox the operator reads rather than a dashboard nobody opens
+- [ ] **Autonomous Operation · Scheduled dispatch on Temporal schedules** · ([doc](autonomous-operation/autonomous-operation.md)) — off `claude schedule` and systemd timers, so a schedule survives the machine being off
+- [ ] **Autonomous Operation · Catch-up behaviour per schedule** · ([doc](autonomous-operation/autonomous-operation.md)) — decided by the window-scoped vs state-converging split in the phase doc
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 ---
 
-## Sprint: MCP Servers — 🔵 NOT SCHEDULED
+## Sprint: MCP Servers
 
-**Phase doc:** [`mcp-servers/mcp-servers.md`](mcp-servers/mcp-servers.md) — April notes, not a plan
+🔵 NOT SCHEDULED
 
 Extend Claude's reach to external tools and APIs. Untouched since April and nothing depends on it — revisit when a concrete need appears rather than on a calendar.
 
-- [ ] **A `.mcp.json` template** — project-level config committed to git, secrets via `${env:VAR_NAME}`
-- [ ] **One or two stack-specific servers** — chosen against daily workflow, added one at a time
-- [ ] **Setup documentation** — adding tokens locally, verifying with `claude mcp list`
+- [ ] **MCP Servers · A `.mcp.json` template** · ([doc](mcp-servers/mcp-servers.md)) — project-level config committed to git, secrets via `${env:VAR_NAME}`
+- [ ] **MCP Servers · One or two stack-specific servers** · ([doc](mcp-servers/mcp-servers.md)) — chosen against daily workflow, added one at a time
+- [ ] **MCP Servers · Setup documentation** · ([doc](mcp-servers/mcp-servers.md)) — adding tokens locally, verifying with `claude mcp list`
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 ---
 
-## Sprint: Local AI Offloading — 🔵 NOT SCHEDULED
+## Sprint: Local AI Offloading
 
-**Phase doc:** [`local-ai-offloading/local-ai-offloading.md`](local-ai-offloading/local-ai-offloading.md) — April notes, not a plan
+🔵 NOT SCHEDULED
 
 Offload mechanical work — file summarization, classification, boilerplate — to local GPU hardware, to preserve Claude Max rate limits. Untouched since April; model management has changed shape since, so the April integration points need re-reading before any of this is built.
 
-- [ ] **A summarization model deployed and benchmarked** — 7B on the RTX 4080 against 14B on the A6000, on real project files, for accuracy and speed
-- [ ] **The winning model reachable from Claude Code** — mechanism unsettled; the April plan assumed MCP
-- [ ] **A summarization skill** — when to offload versus read directly
-- [ ] **Measured savings** — Opus turn count and rate-limit utilization, with and without
+- [ ] **Local AI Offloading · A summarization model deployed and benchmarked** · ([doc](local-ai-offloading/local-ai-offloading.md)) — 7B on the RTX 4080 against 14B on the A6000, on real project files, for accuracy and speed
+- [ ] **Local AI Offloading · The winning model reachable from Claude Code** · ([doc](local-ai-offloading/local-ai-offloading.md)) — mechanism unsettled; the April plan assumed MCP
+- [ ] **Local AI Offloading · A summarization skill** · ([doc](local-ai-offloading/local-ai-offloading.md)) — when to offload versus read directly
+- [ ] **Local AI Offloading · Measured savings** · ([doc](local-ai-offloading/local-ai-offloading.md)) — Opus turn count and rate-limit utilization, with and without
+- [ ] **Sprint close-out** · ([checks](close_out/sprint_end_recurring.md)) — recurring checks run for this sprint and every finding dispositioned (fixed / rejected-with-reasoning / placed); no open issue belongs to this sprint's work
 
 ---
 

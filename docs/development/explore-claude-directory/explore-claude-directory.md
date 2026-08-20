@@ -1,7 +1,7 @@
 # Phase: Explore ~/.claude
 
 **Status:** ✅ COMPLETE
-**Roadmap entry:** [`../sprint.md`](../sprint.md#sprint-explore-claude--complete)
+**Roadmap entry:** [`../sprint.md`](../sprint.md#sprint-explore-claude)
 
 ## Goal
 
