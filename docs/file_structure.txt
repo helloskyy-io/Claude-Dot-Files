@@ -144,6 +144,9 @@ claude-dot-files/
 │   │   │   ├── phase8_the_poller.md                 # A scheduled workflow reads an existing to-do bit and starts a child with no human
 │   │   │   │                                        #   trigger. No new cue surface. Fires ONCE per cue, and a failed child neither
 │   │   │   │                                        #   retries forever nor vanishes. GATED on Temporal schedules
+│   │   │   ├── phase9_one_run_one_identity.md      # One run, one identity, one bag — closes the gap
+│   │   │   │                                        #   between a run_id minted at dispatch and the bag a standalone child
+│   │   │   │                                        #   writes. Depends on Phase 1, no external gate
 │   │   │   └── research/                          # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
 │   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
 │   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
