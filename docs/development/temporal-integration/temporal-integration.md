@@ -8,7 +8,7 @@ The port of the workflow fleet onto durable execution.
 
 Temporal is being adopted for **durability, resumability and cross-run observability** — **not to gain composition**, which already works in bash. A parent needs a child's exit code plus one stable identifier on its final line, and the completion contract already supplies both.
 
-**Gated on Workflow Decomposition and the Memory Management Framework.** Not by preference, by dependency: porting before the decomposition and the typed handoff are settled would mean porting a shape we are still changing.
+**Gated on Workflow Decomposition and the [Persistent Memory Protocol](../persistent-memory-protocol/roadmap.md).** The second gate named the *Memory Management Framework* until that component was **retired on 2026-08-16 and absorbed into PMP**, which is now the framework and the protocol both — so the gate is re-pointed rather than re-argued. **And the thing this gate wanted from it has shipped:** the typed handoff is the typed exit record, built and in daily use ([PMP roadmap § *Absorbed work*](../persistent-memory-protocol/roadmap.md#absorbed-work--the-typed-exit-record-and-the-three-boxes-that-came-with-it)). Not by preference, by dependency: porting before the decomposition and the typed handoff are settled would mean porting a shape we are still changing.
 
 **Counter-argument, stated fairly.** Bash has zero runtime dependencies, the current fleet works, and every activity ultimately shells out to `claude -p` regardless. A rewrite buys nothing on its own — it only pays off as part of this port, and Stage A is what makes it pay off early rather than at the end.
 
@@ -51,6 +51,21 @@ The port does not need a big bang, and the standard's own architecture is what a
 ## The migration path, end to end
 
 1. **Convert the existing fleet to Python, in place.** Everything in `activities/`, `common/`, `children/` and the top-level parents becomes Python with a CLI entrypoint. Same invocation UX, same behaviour, no Temporal. This is Stage A, and it stands on its own.
-2. **Stand up Temporal.**
-3. **Refactor into the Temporal file layout** — the `{name}_workflow.py` / `{name}_helper.py` / `{name}_activities.py` trio beside each other in a module purpose folder, generic executors under `activities/`, per Temporal Standard §3 and §10. `activities/` and `common/` map straight across. **`children/` dissolves** — there is no such directory in the Temporal model, because a child workflow is not a kind of file in a place, it is a workflow another workflow starts; every workflow lands in `modules/` regardless of who calls it. The directory exists today only because bash has no call graph to read.
-4. **Bring the Temporal standards over** — adopted rather than re-derived, with an addendum only for what is genuinely ours: long-activity discipline for 10–60 minute `claude -p` runs, machine-axis queue naming, topology profiles.
+2. **Move dispatch-identity generation to an activity input — the run id is supplied by the caller rather than minted inside the work.** This comes before anything is wrapped, because under Temporal's default retry policy an identity minted *inside* the activity is a **fresh identity on every attempt**, and the default policy has unlimited attempts. Moving generation to the input side costs one parameter; leaving it costs an unbounded fan of names for one dispatch. Evidence: [`research/synthesis.md`](research/synthesis.md) §3, from `raw/durable_dispatch_identity.md` (Critic: PASS-WITH-FIXES, 2026-08-07), which surveyed six systems that name a unit of work and found none that mints the name inside it. **The phase that closes this is [PMP Phase 9](../persistent-memory-protocol/phase9_one_run_one_identity.md)** — its requirements are stated there and are deliberately not restated here.
+3. **Stand up Temporal.**
+4. **Refactor into the Temporal file layout** — the `{name}_workflow.py` / `{name}_helper.py` / `{name}_activities.py` trio beside each other in a module purpose folder, generic executors under `activities/`, per Temporal Standard §3 and §10. `activities/` and `common/` map straight across. **`children/` dissolves** — there is no such directory in the Temporal model, because a child workflow is not a kind of file in a place, it is a workflow another workflow starts; every workflow lands in `modules/` regardless of who calls it. The directory exists today only because bash has no call graph to read.
+5. **Bring the Temporal standards over** — adopted rather than re-derived, with an addendum only for what is genuinely ours: long-activity discipline for 10–60 minute `claude -p` runs, machine-axis queue naming, topology profiles.
+
+## The dispatch record already exists — reliability candidate 7 is SUPERSEDED
+
+**Whoever plans the restart-recovery contract reads this before reaching for a state store, because the obvious next move is already answered elsewhere.**
+
+This component's reliability pool proposes, as **candidate 7**, a *two-tier state store*: the small dispatch record git-native on `refs/dispatch/*` using `git update-ref`'s compare-and-swap, with bulk transcripts left local and referenced by `(machine-id, path)`.
+
+**That proposal is superseded by the PMP run bag, which already IS that record** — one run's folder, keyed by run id, carrying the transcript, the execution facts and the authored output together. And it is **one tier rather than two by deliberate decision**, not by omission: PMP commitment 1 puts every artifact of a run in one folder precisely so that retention, transfer and replay each operate on **one unit**. A second store beside it would give each of those three operations a second thing to get right.
+
+**The one property candidate 7 has that the bag does not is compare-and-swap on the small part.** That is a real property, and naming it is why this is a supersession rather than a dismissal — but it is **a mechanism the bag can acquire, not a reason to carry a second store.**
+
+**The seam:** PMP owns the record; this component owns what it needs *from* the record. The same ruling is written from the other side at [PMP roadmap § *What is deliberately not built*](../persistent-memory-protocol/roadmap.md#what-is-deliberately-not-built), and the identity half of it is step 2 of the migration path above.
+
+*(This is a planning ruling and it is recorded only here. The pool's candidate row stands as written — research is evidence, and a ruling about how we build does not belong inside it.)*
