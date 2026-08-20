@@ -26,9 +26,12 @@ WHAT THIS DOES NOT LOOK AT:
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
+
+import fork_vs_parameterize as fvp
 
 from modules.assistant import assistant_activities as act
 from modules.assistant.build.build_draft import build_draft_workflow as draft
@@ -138,13 +141,28 @@ def _shared_prompt_stems(tree: ast.Module, where: str) -> set[str]:
 # reason a supplier written into the wrong branch cannot pass here.
 _ALTITUDES = {"component": "altitude_component", "product": "altitude_product"}
 
+# Matches `render()`'s own placeholder shape, DIGITS INCLUDED — an earlier
+# `[A-Z_]+` in the renderer silently missed `${STAGES_1_TO_4}` and shipped a
+# prompt with its whole stage body replaced by a literal token.
+_PLACEHOLDER = re.compile(r"\$\{[A-Z_][A-Z_0-9]*\}")
+
 
 def _needle(stem: str) -> str:
     """The longest line of a fragment — distinctive enough to locate it in a prompt.
 
     Skips an HTML comment header — commentary about the fragment rather than its
-    substance — and placeholder-only lines, which are gone by the time the
-    prompt is rendered.
+    substance — and SPLITS each line on its placeholders rather than discarding
+    any line that contains one.
+
+    THE DISCARD WAS THE BUG AND IT WENT ONE WAY. This read `"${" not in ln`,
+    which the docstring described as skipping "placeholder-only lines" — but a
+    line of PROSE carrying an inline `${RESEARCH_DIR}` is not placeholder-only,
+    and dropping it took a fragment's only substantive line out of the running.
+    The needle then fell back to a 29-character heading, which is under the floor
+    `test_the_needles_are_real` sets and would otherwise have been a needle short
+    enough to match text that is not the fragment. Splitting keeps the surviving
+    prose, and a segment either side of a placeholder is exactly what survives
+    rendering — which is the property a needle needs.
 
     NOTE THE TWO DIFFERENT SUBJECTS, because getting them the same way round is
     what makes the second condition dead code. An opening `<!--` may be indented,
@@ -159,16 +177,17 @@ def _needle(stem: str) -> str:
     is kept because the gate is the thing that could be deleted, and a needle
     drawn from commentary would make every membership check below vacuous.
     """
-    lines = [
-        ln.strip()
+    segments = [
+        seg.strip()
         for ln in (_SHARED / f"{stem}.md").read_text().splitlines()
         if ln.strip()
         and not ln.lstrip().startswith(("<!--", "-->"))
         and not ln.startswith("     ")
-        and "${" not in ln
+        for seg in _PLACEHOLDER.split(ln)
+        if seg.strip()
     ]
-    assert lines, f"{stem}.md yielded no usable needle — the fragment is empty or all placeholders"
-    return max(lines, key=len)
+    assert segments, f"{stem}.md yielded no usable needle — the fragment is empty or all placeholders"
+    return max(segments, key=len)
 
 
 class _CapturedPrompt:
@@ -200,12 +219,38 @@ def _draft_prompt(monkeypatch, tmp_path: Path, entry) -> str:
     ))
 
 
+def _draft_prompts_EVERY_PATH(monkeypatch, tmp_path: Path, entry) -> dict[str, str]:
+    """Every prompt a draft tier can dispatch, keyed by the path that builds it.
+
+    A DRAFT TIER HAS THREE, NOT ONE, and the check above used to drive only the
+    plan-driven one. Its rationale — "a supplier that is built but never reaches
+    the prompt" — is about a fragment reaching NO prompt, but its implementation
+    read "does not reach THIS prompt", which are different claims the moment a
+    workflow has more than one template. A block living in the non-plan stages
+    body is legitimately absent from the plan-driven body: the plan path renders
+    `prompts/stages_1_to_4_from_plan.md` instead.
+
+    Driving all three makes the assertion match the rationale and is strictly
+    stronger than what it replaced, because the two non-plan wrappers were never
+    rendered here at all.
+    """
+    monkeypatch.setattr(act, "pr_branch", lambda *a, **k: "build/x")
+    common = dict(description="do the thing", repo_root=tmp_path, worktree=tmp_path)
+    return {
+        "plan": _drive(monkeypatch, act, lambda: entry(
+            plan_path="docs/development/widget/phase1.md", context="CTX", **common)),
+        "new_branch": _drive(monkeypatch, act, lambda: entry(context="CTX", **common)),
+        "update_pr": _drive(monkeypatch, act, lambda: entry(
+            pr_number="7", context="CTX", **common)),
+    }
+
+
 @pytest.mark.parametrize(
     ("name", "entry", "module"),
     [("build_draft", draft.run_draft, draft),
      ("build_draft_minor", draft_minor.run_draft_minor, draft_minor)],
 )
-def test_a_plan_driven_draft_renders_EVERY_fragment_it_loads(
+def test_a_draft_tier_renders_EVERY_fragment_it_loads_on_SOME_path(
     monkeypatch, tmp_path, name: str, entry, module
 ) -> None:
     """The expected set is the consumer's own loads, not a list kept beside it.
@@ -216,16 +261,292 @@ def test_a_plan_driven_draft_renders_EVERY_fragment_it_loads(
     one level down. Deriving from the consumer means a fragment is covered
     the moment that consumer starts loading it.
     """
-    prompt = _draft_prompt(monkeypatch, tmp_path, entry)
-    missing = sorted(s for s in _stems_loaded_by(module) if _needle(s) not in prompt)
+    prompts = _draft_prompts_EVERY_PATH(monkeypatch, tmp_path, entry)
+    assert len(prompts) == 3, "a draft tier's dispatch paths are not all covered"
+    missing = sorted(
+        s for s in _stems_loaded_by(module)
+        if not any(_needle(s) in p for p in prompts.values())
+    )
     assert not missing, (
         f"{name} loads {missing} through shared_prompt() and renders without "
-        f"them. A supplier that is built but never reaches the prompt leaves "
-        f"that tier running on instructions the fragment's edits never touch."
+        f"them on ANY of its dispatch paths ({sorted(prompts)}). A supplier that "
+        f"is built but never reaches a prompt leaves that tier running on "
+        f"instructions the fragment's edits never touch."
     )
 
 
-def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
+# --- the two guards the SOME-path check above cannot be -----------------------
+#
+# `..._on_SOME_path` asks whether a fragment reaches ANY of a tier's three
+# dispatch bodies, which is the right question for "is this supplier ever used"
+# and the wrong one for both defects that arrived through this seam: two
+# evidence-discipline fragments were loaded unconditionally by both draft
+# modules and referenced by neither the plan wrapper nor the plan body, and the
+# minor tier's new-branch wrapper was missing two blocks its PR-path sibling
+# had. One rendering path satisfied `any()` in every case, so the suite was
+# green over both.
+#
+# The split is by the tier contract, not by a list: LOADED-ON-A-PATH must RENDER
+# ON THAT PATH for every fragment, and a fragment ruled TIER-INVARIANT must
+# additionally reach EVERY path. Which is which comes from
+# `fork_vs_parameterize.FAMILY_RULINGS`, so a fragment is covered the moment it
+# is ruled rather than when someone remembers to add it here.
+
+
+class _RecordingPool:
+    """Wraps `act.shared_prompt` and records what ONE dispatch actually loaded.
+
+    WHY DYNAMIC WHERE `_stems_loaded_by` IS STATIC. The AST reader returns every
+    stem a module CAN load on any path; both draft modules load fragments inside
+    an `if plan_path:` arm, and source cannot say which arm ran. "Did this
+    dispatch use what it built" is a per-dispatch question, so it is answered by
+    watching the dispatch.
+    """
+
+    def __init__(self, real) -> None:
+        self._real = real
+        self.stems: list[str] = []
+
+    def __call__(self, stem: str) -> str:
+        self.stems.append(stem)
+        return self._real(stem)
+
+
+def _draft_paths_with_loads(monkeypatch, tmp_path: Path, entry) -> dict[str, tuple[str, set[str]]]:
+    """Each dispatch path as `(rendered prompt, pool stems that path loaded)`."""
+    monkeypatch.setattr(act, "pr_branch", lambda *a, **k: "build/x")
+    common = dict(description="do the thing", repo_root=tmp_path, worktree=tmp_path)
+    calls = {
+        "plan": lambda: entry(plan_path="docs/development/widget/phase1.md",
+                              context="CTX", **common),
+        "new_branch": lambda: entry(context="CTX", **common),
+        "update_pr": lambda: entry(pr_number="7", context="CTX", **common),
+    }
+    real = act.shared_prompt
+    out: dict[str, tuple[str, set[str]]] = {}
+    for path, call in calls.items():
+        pool = _RecordingPool(real)
+        monkeypatch.setattr(act, "shared_prompt", pool)
+        try:
+            out[path] = (_drive(monkeypatch, act, call), set(pool.stems))
+        finally:
+            # Restored explicitly rather than with `monkeypatch.undo()`, which
+            # would also revert `pr_branch` and break the next path.
+            monkeypatch.setattr(act, "shared_prompt", real)
+    return out
+
+
+_DRAFT_TIERS = [("build_draft", draft.run_draft),
+                ("build_draft_minor", draft_minor.run_draft_minor)]
+
+
+_STAGE_HEADING = re.compile(r"^#+ *Stage (\d+)\b", re.MULTILINE)
+_STAGE_CLAIM = re.compile(r"all (\d+) stages", re.IGNORECASE)
+
+
+@pytest.mark.parametrize(("name", "entry"), _DRAFT_TIERS)
+def test_a_prompts_STAGE_COUNT_CLAIM_matches_the_stages_it_SHIPS(
+    monkeypatch, tmp_path, name: str, entry
+) -> None:
+    """"Follow all N stages" must be true of the prompt the model receives.
+
+    THIS EXACT DEFECT IS ALREADY IN THIS TREE'S HISTORY, AS A LESSON RATHER THAN
+    AS A GUARD. `plan_revision_workflow.py` opens by recording it: *a prompt that
+    said "follow all 8 stages" with the stages absent. Every run exited 0. It
+    surfaced days later.* A containment check was built for `plan_revision` and
+    the claim itself was never checked anywhere, so the same sentence went on
+    being true of nothing in the build tier — measured when this guard landed:
+    all three `build_draft` dispatch paths promised eight stages and shipped
+    five, and the plan path numbered them 1, 2, 3, 4, 8.
+
+    WHY IT IS SILENT RATHER THAN LOUD. A stage the prompt promises and does not
+    define cannot fail — there is no assertion behind a stage, only a model
+    reading a heading. A run told there are eight either invents three or
+    declares them skipped, and this corpus's own `stage_order_is_mandatory`
+    fragment asks for exactly that declaration, so the failure mode is a run
+    dutifully reporting `## Stage 6: SKIPPED` for a stage nobody wrote.
+
+    Driven through the REAL dispatch rather than a hand-filled template:
+    `${STAGES_1_TO_4}` is a slot a workflow fills with one of several bodies, so
+    a static read of any one file cannot see what the model is actually handed.
+
+    WHAT IT DOES NOT LOOK AT: a prompt making no numeric claim is not asked to
+    make one, and a stage's CONTENT is not inspected — only that the heading the
+    claim counts exists and that the numbering has no hole.
+    """
+    for path, (prompt, _) in _draft_paths_with_loads(monkeypatch, tmp_path, entry).items():
+        claim = _STAGE_CLAIM.search(prompt)
+        if claim is None:
+            continue
+        headings = [int(n) for n in _STAGE_HEADING.findall(prompt)]
+        assert headings, (
+            f"{name}/{path} promises {claim.group(0)!r} and carries no stage "
+            f"heading at all — the shape the history above records"
+        )
+        assert int(claim.group(1)) == len(headings), (
+            f"{name}/{path} promises {claim.group(0)!r} and ships "
+            f"{len(headings)}: {headings}. Correct the claim or add the stages; "
+            f"a promised stage nobody wrote cannot fail, it can only be invented "
+            f"or declared skipped."
+        )
+        assert headings == list(range(1, len(headings) + 1)), (
+            f"{name}/{path} numbers its stages {headings}, which has a hole. A "
+            f"run reading a gap treats the missing numbers as stages it was not "
+            f"shown rather than as stages that do not exist."
+        )
+
+
+@pytest.mark.parametrize(("name", "entry"), _DRAFT_TIERS)
+def test_every_pool_fragment_a_dispatch_LOADS_also_RENDERS(
+    monkeypatch, tmp_path, name: str, entry
+) -> None:
+    """A fragment built for a path and not referenced by it is text nobody reads.
+
+    This is the finding that produced the whole guard: `build_from_plan.md` and
+    `stages_1_to_4_from_plan.md` referenced neither evidence-discipline fragment
+    while both draft modules loaded both unconditionally, so every plan-driven
+    build in this repo — which is how every phase here gets built — ran without
+    the rule that tells a run to verify the task's own asserted facts. Nothing
+    failed, because the two fragments did render on the two non-plan paths.
+
+    NO CATEGORY IS CONSULTED HERE. Loading a fragment and discarding it is waste
+    whatever the fragment says, and keeping this half classification-free means
+    it still fires on the pool's unruled majority.
+    """
+    paths = _draft_paths_with_loads(monkeypatch, tmp_path, entry)
+    assert len(paths) == 3, "a draft tier's dispatch paths are not all covered"
+    # VACUITY FLOOR: a recorder that captured nothing would make the assertion
+    # below trivially true on every path, and a green suite would then mean
+    # `shared_prompt` had stopped being the seam rather than that nothing is
+    # discarded.
+    empty = sorted(p for p, (_, stems) in paths.items() if not stems)
+    assert not empty, (
+        f"{name} loaded NO pool fragment on {empty} — either the tier stopped "
+        f"using shared_prompt() or this fixture stopped observing it, and in "
+        f"both cases the check below is asserting nothing"
+    )
+    discarded = sorted(
+        f"{path}: {stem}"
+        for path, (prompt, stems) in paths.items()
+        for stem in stems
+        if _needle(stem) not in prompt
+    )
+    assert not discarded, (
+        f"{name} loads these fragments on a path whose template never "
+        f"references them, so the text is built and thrown away:\n  "
+        + "\n  ".join(discarded)
+        + "\nEither reference the placeholder from that path's body, or move the "
+          "supplier into the arm that has a consumer."
+    )
+
+
+# A TIER-INVARIANT FRAGMENT THAT DOES NOT YET REACH EVERY PATH, with the reason.
+# THIS LIST MAY SHRINK AND MAY NEVER GROW SILENTLY — the staleness half of the
+# test below deletes-by-failing any entry that has stopped being a gap, so it
+# cannot rot into permission the way an unexamined exemption does.
+#
+# It exists because the alternative was worse in a way this repo has measured: a
+# guard that is red on arrival gets skipped rather than fixed, and each of these
+# is a real content decision outside the change that added the guard. Every one
+# is a live finding, written where the next reader of the guard sees it rather
+# than in a merged PR body nobody re-reads.
+_INVARIANT_PATH_GAPS = {
+    ("build_draft_minor", "stage_order_is_mandatory"):
+        "both wrappers open with their own condensed EXECUTION ORDER IS "
+        "MANDATORY paragraph instead of the fragment, so the instruction is "
+        "present and the fragment is not. That is a child holding a drifted "
+        "near-copy of a pool fragment, which is C-111's axis and reachable by "
+        "no guard here at any granularity; reconciling it is a content ruling, "
+        "not a wiring fix.",
+}
+
+
+@pytest.mark.parametrize(("name", "entry"), _DRAFT_TIERS)
+def test_a_TIER_INVARIANT_fragment_reaches_EVERY_dispatch_path(
+    monkeypatch, tmp_path, name: str, entry
+) -> None:
+    """What the contract classes invariant, every path of that tier must receive.
+
+    TIER_INVARIANT's own words are the assertion: a category where "a difference
+    between the tiers would mean the two are running different rules". A
+    difference between two PATHS of ONE tier is the same defect with a smaller
+    blast radius and no reviewer looking at it, which is how the evidence-
+    discipline pair reached only two of three draft bodies while a ruling in
+    this tree declared it invariant.
+
+    WHAT THIS DOES NOT LOOK AT: a fragment no ruling names is skipped entirely,
+    and most of the pool is unruled. It also cannot see an invariant instruction
+    a path carries as its OWN prose instead of as the fragment — `_needle` looks
+    for the fragment's longest line, so a reworded copy reads as absent and a
+    verbatim copy reads as present. Two of the exemptions below are exactly that.
+    """
+    paths = _draft_paths_with_loads(monkeypatch, tmp_path, entry)
+    loaded_somewhere = set().union(*(stems for _, stems in paths.values()))
+    invariant = sorted(
+        s for s in loaded_somewhere if fvp.category_of(s) in fvp.TIER_INVARIANT
+    )
+    assert invariant, (
+        f"{name} loaded no fragment carrying a TIER_INVARIANT ruling, so this "
+        f"test asserted nothing. Either the rulings moved or the fixture did."
+    )
+    missing = {
+        s: sorted(p for p, (prompt, _) in paths.items() if _needle(s) not in prompt)
+        for s in invariant
+    }
+    missing = {s: where for s, where in missing.items() if where}
+
+    unexplained = sorted(s for s in missing if (name, s) not in _INVARIANT_PATH_GAPS)
+    assert not unexplained, (
+        f"{name} does not render these TIER-INVARIANT fragments on every "
+        f"dispatch path: "
+        + "; ".join(f"{s} missing from {missing[s]}" for s in unexplained)
+        + ". The contract says a difference here means the two tiers — or, "
+          "here, two paths of one tier — are running different rules. Reference "
+          "the placeholder from the body that lacks it, or, if the difference "
+          "is deliberate, rule the fragment TIER_SCOPED in FAMILY_RULINGS with "
+          "the signal that decided it."
+    )
+
+    # THE RATCHET. An exemption that has stopped being true must go, or the list
+    # becomes a record of what was once wrong rather than of what still is.
+    stale = sorted(s for (tier, s) in _INVARIANT_PATH_GAPS if tier == name and s not in missing)
+    assert not stale, (
+        f"these {name} entries in _INVARIANT_PATH_GAPS name fragments that now "
+        f"reach every dispatch path — delete the rows: {stale}"
+    )
+
+
+def test_the_INVARIANT_GAP_LIST_names_only_fragments_the_CONTRACT_calls_invariant() -> None:
+    """An exemption for a tier-scoped fragment would forgive a rule nobody made.
+
+    Cheap and worth stating: the list above suppresses failures, so an entry for
+    a fragment the contract never classed invariant is a row that can never
+    expire — the ratchet in the test above only fires on a gap that CLOSED, and
+    a fragment outside the invariant set never enters the check at all.
+    """
+    wrong = sorted(
+        f"{tier}/{stem}" for (tier, stem) in _INVARIANT_PATH_GAPS
+        if fvp.category_of(stem) not in fvp.TIER_INVARIANT
+    )
+    assert not wrong, (
+        f"_INVARIANT_PATH_GAPS exempts fragments that carry no TIER_INVARIANT "
+        f"ruling, so the exemption forgives nothing and will never expire: {wrong}"
+    )
+
+
+def _without_tier_identity(prompt: str, key: str) -> str:
+    """`prompt` with this tier's own name folded to a placeholder.
+
+    Longest form first: `build-draft` is a prefix of `build-draft-minor`, so
+    replacing the short one first would leave a dangling `-minor` on the light
+    tier and manufacture a difference out of the canonicalisation itself.
+    """
+    return prompt.replace(key.upper(), "<TIER>").replace(key, "<tier>")
+
+
+def test_the_two_draft_TIERS_RENDER_IDENTICALLY_MODULO_TIER_IDENTITY(
+    monkeypatch, tmp_path
+) -> None:
     """What the deleted file-identity assertion used to guarantee, but stronger.
 
     `test_build_prompt_variants_do_not_fork` once held two byte-identical
@@ -235,16 +556,62 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
     its own. Either workflow can still diverge in the values dict it builds
     around the shared text.
 
-    So the check moved up a level: same inputs, same rendered prompt, byte for
-    byte. This catches a class the file check never could — a supplier added to
-    one tier and not the other.
+    NARROWED FROM BYTE-EQUALITY, AND THE DOCSTRING BELOW IS WHY. The property
+    this test names is *a supplier added to one tier and not the other*; equality
+    was a proxy for it, and the proxy had a second effect nobody chose — it made
+    it impossible for either tier to state its own identity in the shared body,
+    so the body hardcoded `BUILD-PHASE` / `feat:` / `build-phase:` and told every
+    plan-driven run of BOTH tiers it was a workflow that exists only in the frozen
+    bash fleet. `fork_vs_parameterize.TIER_SCOPED` already ruled `tier-identity`
+    — "the names a tier calls itself — workflow key, commit-message prefix" —
+    tier-scoped, so two tiers each supplying their own value satisfies the stated
+    property exactly. The same narrowing, for the same reason, is recorded at
+    `test_plan_revision_v1_parity.test_prompt_file_is_byte_identical_to_v1`.
+
+    WHAT IS FOLDED IS EACH TIER'S OWN `WORKFLOW_KEY` AND NOTHING ELSE. A second
+    divergence hiding behind a tier name is not forgiven: the fold is one token
+    per side, and the control below proves an unrelated difference still fails.
     """
     a = _draft_prompt(monkeypatch, tmp_path, draft.run_draft)
     b = _draft_prompt(monkeypatch, tmp_path, draft_minor.run_draft_minor)
-    assert a == b, (
+    ca = _without_tier_identity(a, draft.WORKFLOW_KEY)
+    cb = _without_tier_identity(b, draft_minor.WORKFLOW_KEY)
+    assert ca == cb, (
         "build_draft and build_draft_minor render DIFFERENT prompts from the same "
-        "plan-driven inputs, so the two tiers no longer share one plan-build "
-        f"instruction set ({len(a):,} vs {len(b):,} bytes)."
+        "plan-driven inputs once each tier's own name is folded out, so the two "
+        "tiers no longer share one plan-build instruction set "
+        f"({len(a):,} vs {len(b):,} bytes). If the difference IS tier identity, "
+        "supply it from each module rather than writing it into the shared body."
+    )
+    # NOT VACUOUS: the fold must actually have found each tier's name, or this
+    # would be byte-equality wearing a canonicaliser.
+    assert "<TIER>" in ca and "<TIER>" in cb, (
+        "neither rendered prompt contains its tier's own name in upper case, so "
+        "the fold matched nothing and this test has quietly become the equality "
+        "it was narrowed away from"
+    )
+
+
+def test_the_TIER_IDENTITY_FOLD_does_not_forgive_an_UNRELATED_difference() -> None:
+    """Control: the narrowing above must not have widened into 'anything goes'.
+
+    Driven on literals, because the live corpus can only ever exercise the
+    passing branch — and a canonicaliser that erased too much would look exactly
+    like a tree with no divergence in it.
+    """
+    major = "You are executing the BUILD-DRAFT workflow. Commit as build-draft:."
+    minor = major.replace("BUILD-DRAFT", "BUILD-DRAFT-MINOR").replace(
+        "build-draft:", "build-draft-minor:")
+    assert (_without_tier_identity(major, "build-draft")
+            == _without_tier_identity(minor, "build-draft-minor")), (
+        "the fold no longer collapses a pure tier-identity difference, so the "
+        "test above would fail on correct code"
+    )
+    assert (_without_tier_identity(major, "build-draft")
+            != _without_tier_identity(minor + " And one extra rule.",
+                                      "build-draft-minor")), (
+        "the fold now erases a substantive difference between the tiers, which is "
+        "the exact class this test exists to catch"
     )
 
 
@@ -263,7 +630,30 @@ def test_the_two_draft_TIERS_RENDER_IDENTICALLY(monkeypatch, tmp_path) -> None:
 # and quietly narrow the check to whatever survived in both — the same silent
 # shrink this module keeps finding. If a genuinely tier-scoped fragment is
 # ever promoted, that is the ruling to make explicitly, here, with a reason.
-_REFINE_FRAGMENTS = sorted(_stems_loaded_by(refine) | _stems_loaded_by(refine_minor))
+# THE RULING THE COMMENT ABOVE ASKS FOR, MADE. These two are ONE instruction
+# split across two blocks — the first ends "Put this in the dispatch, in these
+# two parts:" and the second is those parts — and what they carry is the MAJOR
+# tier's agent roster, named agent by agent. Under the `_minor` tier contract in
+# `fork_vs_parameterize.py` a roster is `review-depth`, which is the one axis
+# both refine workflows' own comments already agree is tier-scoped. They are
+# still POOL fragments, because `build_refine` and `plan_revision` both dispatch
+# that same roster and the pool sits above families; they are simply not
+# demanded of a tier that dispatches one agent.
+#
+# THE EXCLUSION IS BY STEM AND IT IS NARROW ON PURPOSE. Anything else either tier
+# loads is still demanded of both, so this cannot become the intersection the
+# comment above warns against — adding a stem here is a visible edit carrying a
+# reason, which is what distinguishes a ruling from a quiet shrink.
+_TIER_SCOPED_FRAGMENTS = {
+    "tell_each_agent_what_it_can_run":
+        "review-depth: enumerates the major tier's five-agent roster",
+    "agents_have_no_shell":
+        "review-depth: the second half of that same roster instruction",
+}
+
+_REFINE_FRAGMENTS = sorted(
+    (_stems_loaded_by(refine) | _stems_loaded_by(refine_minor)) - set(_TIER_SCOPED_FRAGMENTS)
+)
 
 
 @pytest.mark.parametrize(
@@ -419,7 +809,15 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
 _FRAGMENT_FLOOR = {
     "filing_a_candidate_row": 4,
     "build_from_plan": 9,
-    "stages_1_to_4_from_plan": 46,
+    # 44, lowered from 46 on 2026-08-19, and the reason is recorded because this
+    # floor exists precisely so a shrink cannot pass unexplained. Two blocks left
+    # this fragment and NOT the prompt: `stage_order_is_mandatory` and
+    # `gitignore_collision_check` were byte-exact copies of pool fragments living
+    # INSIDE a pool fragment — an axis no duplication guard reaches, since
+    # `_duplicated()` skips the pool by construction — and are now placeholders
+    # both draft tiers supply. The assembled prompt is unchanged but for the
+    # promotion seam.
+    "stages_1_to_4_from_plan": 44,
     "fidelity_premise": 2,
     "fidelity_read_and_compare": 6,
     "fidelity_needs_a_separate_run": 1,
@@ -441,6 +839,27 @@ _FRAGMENT_FLOOR = {
     "headless_execution_guard": 6,
     "mutation_discipline": 12,
     "rules": 22,
+    # MEASURED 2026-08-19, when the frozen duplication baseline was ruled on and
+    # emptied. Each was a block duplicated between two children until this change.
+    "agents_have_no_shell": 8,
+    "gitignore_collision_check": 1,
+    "orchestrator_executes_agents_read": 3,
+    "research_stage_1_verify_and_discover": 1,
+    "resolve_apply_the_remedy_you_wrote": 4,
+    "resolve_rejecting_is_legitimate": 1,
+    "resolve_your_own_dispositions_too": 1,
+    "stage_order_is_mandatory": 1,
+    "stage_order_skipped_marker": 1,
+    "tell_each_agent_what_it_can_run": 5,
+    "verification_is_by_fetch": 1,
+    "verify_the_tasks_asserted_facts": 1,
+    "worktree_is_compared_to_a_snapshot": 1,
+    # MEASURED 2026-08-20. Both are single-paragraph blocks promoted out of
+    # `build_draft_minor/update_pr.md` once `new_branch.md` became a second
+    # consumer, so a one-line floor is the whole fragment — a shrink here is
+    # a deletion, not a trim.
+    "characterize_by_execution": 1,
+    "can_it_fail_light_tier": 1,
 }
 
 
@@ -504,14 +923,64 @@ def test_the_supplier_reader_DISCRIMINATES() -> None:
 # down, never a way to make the check below go quiet.
 _NOT_RENDER_CHECKED: dict[str, str] = {}
 
-# Every consumer this module DRIVES. The tests above expect each one to render
-# what its own source loads, so this union is exactly the render-checked set.
+# Every consumer this module DRIVES — meaning a test below RENDERS it and looks
+# for each fragment in the result, not merely that a static scan can see the
+# `shared_prompt()` call.
+#
 # `pfeat`/`pverify` joined 2026-08-19 with the first fragment promoted for the
-# PLANNING family. The docstring below already named that family as the
-# consumer set this module did not drive, and adding them is the remedy it
-# names — a static AST scan needs no fixture, only the module.
+# PLANNING family, and joined WITHOUT a fixture: the entry said "a static AST
+# scan needs no fixture, only the module." That is true of the check below and
+# false of the name — `_DRIVEN`'s whole meaning is that a rendered prompt was
+# inspected, and the two planning modules were the only members of which that
+# was not true, so `worktree_is_compared_to_a_snapshot` was reported as
+# render-checked by nothing that rendered it. Clearing a guard's red by widening
+# its population is the move this module's own header records twice; the
+# fixture is `_planning_prompt` below and it cost nine lines.
 _DRIVEN = (draft, draft_minor, refine, refine_minor, write, refresh,
            pfeat, pverify)
+
+
+def _planning_prompt(tmp_path: Path, module, filename: str) -> str:
+    """A planning child's prompt, rendered through its OWN `prompt_values`.
+
+    Not a drive of the entrypoint: `prompt_values` is the seam both the live
+    path and `--dry-run` render from (see its docstring), so rendering it here
+    is the same string the dispatch builds, without a Temporal harness.
+    """
+    component = tmp_path / "docs" / "development" / "comp"
+    component.mkdir(parents=True)
+    (component / "roadmap.md").write_text("# roadmap\n")
+    candidates = tmp_path / "docs" / "standards" / "architecture" / "research" / "candidates.md"
+    candidates.parent.mkdir(parents=True)
+    candidates.write_text("| id | finding |\n")
+    values = module.prompt_values(component.relative_to(tmp_path),
+                                  candidates.relative_to(tmp_path),
+                                  tmp_path, None, "")
+    return act.render(act.load_prompt(module.PROMPTS / filename), values,
+                      opaque=frozenset({"TASK_CONTEXT"}))
+
+
+@pytest.mark.parametrize(
+    ("name", "module", "filename"),
+    [("plan_feature", pfeat, "plan_feature.md"),
+     ("plan_verify", pverify, "plan_verify.md")],
+)
+def test_a_planning_run_renders_EVERY_fragment_it_loads(
+    tmp_path, name: str, module, filename: str
+) -> None:
+    """The fixture `_DRIVEN` was widened instead of gaining.
+
+    Derived from the consumer's own loads for the same reason the draft-tier
+    check is: a named subset stops covering the moment the consumer starts
+    loading something new, and nothing says so.
+    """
+    prompt = _planning_prompt(tmp_path, module, filename)
+    missing = sorted(s for s in _stems_loaded_by(module) if _needle(s) not in prompt)
+    assert not missing, (
+        f"{name} loads {missing} through shared_prompt() and renders without "
+        f"them. A supplier built but never reaching the prompt leaves that run "
+        f"on instructions the fragment's edits never touch."
+    )
 
 
 def test_every_POOL_fragment_is_render_checked_by_some_consumer() -> None:

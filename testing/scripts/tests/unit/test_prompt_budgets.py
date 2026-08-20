@@ -78,7 +78,15 @@ BUDGETS: dict[str, int] = {
     # 77_115 -> 77643: the reviewer picks the dispatch tool and was never told
     # `-minor` is a LESS CAPABLE MODEL. Its whole sizing axis was scope and turn
     # caps, so a scoped-and-known fix needing judgement routed to the weak tier.
-    "review_pr/prompts/disposition.md": 78068,
+    # 77643 -> 78068 -> 78_926: this body is SHARED by all three ReviewType
+    # values, and its `dispatch_tool` enum named build and planning tools only.
+    # `criteria_research.md` routes "a defect verify should have caught" to
+    # REDISPATCH and the universal core forbids FILING a defect that is the run's
+    # own scope — so a research reviewer reached that exit with no legal value to
+    # emit. The residue is two sizing rows read from the modules, the two shim
+    # names, and one type-matching line; ~1.5 KB of rationale for them was cut
+    # before this number moved, which is the mechanism working.
+    "review_pr/prompts/disposition.md": 78_926,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the

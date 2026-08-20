@@ -166,6 +166,8 @@ from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 
+import fork_vs_parameterize as fvp
+
 ASSISTANT = Path(__file__).resolve().parents[2] / "modules" / "assistant"
 SHARED = ASSISTANT / "prompts"
 
@@ -198,6 +200,26 @@ KEY_LEN = 60
 # whom. Pairs that were ruled and RECONCILED are absent rather than annotated —
 # they were promoted, which is what a shrink looks like here.
 #
+# A NOTE CLAIMING `DELIBERATE` MUST SAY WHY, IN THE FIXED FORM
+# `differs from <sibling> because <reason>` — enforced by
+# `test_a_DELIBERATE_variant_STATES_WHY_IT_DIFFERS`. This is signal 4 of the
+# ruling procedure in `fork_vs_parameterize.py`, and it is the only one of the
+# four that can be CREATED rather than recovered: every other signal has to be
+# reconstructed from two texts by someone who was not there.
+#
+# WHY THE NOTE AND NOT THE PROMPT FILE, since "where the variant lives" would
+# most naturally mean the variant itself. That surface is CLOSED, and by a guard
+# rather than by preference: `test_no_prompt_ships_EDITOR_COMMENTARY_to_the_model`
+# fails on any HTML comment in any prompt file, because a comment in a prompt is
+# not a comment — it is text the model is sent. A rationale written as prose
+# would be worse still: an instruction the run has to interpret. The baseline
+# note is the surface a reviewer actually reads at ruling time, which is the
+# property the requirement is really after.
+#
+# AN `Unruled.` ENTRY MUST NOT CARRY ONE. Absence of a signal yields UNRULED,
+# never DELIBERATE, so a rationale attached to an unruled pair would be the
+# field's default-to-intentional convention arriving through the back door.
+#
 # EVERY NOTE MUST DESCRIBE THE BLOCK IT KEYS, and this sentence is here because
 # the submit-stage note once did not. It enumerated a difference that lives at
 # `refine.md:3` — a standalone line under MIN_BLOCK, in no block at all — while
@@ -205,21 +227,29 @@ KEY_LEN = 60
 # note is the reader's only evidence that a pair was looked at, so a note
 # pointing outside its own block is worse than no note.
 ACCEPTED_DRIFT: dict[str, dict[str, str]] = {
-    "build_draft+build_draft_minor": {
-        "**IF THE TASK IS TO CHARACTERIZE EXISTING BEHAVIOUR, ESTABLI":
-            "0.86 — the characterization rule. Unruled.",
-    },
+    # RECONCILED AND REMOVED, not re-noted. `build_draft` held a TRUNCATED copy
+    # of `characterize_by_execution` — the antecedent sentence naming the
+    # measured case was gone, so "the four real defects it *did* find" referred
+    # to nothing — and the entry was frozen "Unruled." while a ruling for that
+    # exact fragment shipped beside it: `evidence-discipline`, TIER_INVARIANT, a
+    # category whose own definition says a difference here IS the defect. Both
+    # tiers now reference the placeholder, so there is no pair left to freeze.
+    "build_draft+build_draft_minor": {},
     "build_refine+build_refine_minor": {
         "For each finding (fidelity gaps, code-reviewer's two lenses,":
-            "0.87 — the finding-source enumeration. DELIBERATE and forced: "
-            "the full tier lists fidelity gaps, both code-reviewer lenses, "
-            "both code-reviewer lenses and quality-control; the minor tier lists "
+            "0.87 — the finding-source enumeration. DELIBERATE: differs from "
+            "`build_refine` because the minor tier can only disposition findings "
+            "from the agents it actually dispatches. Forced, not chosen: "
+            "the full tier lists fidelity gaps, code-reviewer's two lenses "
+            "and quality-control; the minor tier lists "
             "fidelity gaps and code-reviewer, because those are the only "
             "sources it HAS. Reconciling by union would tell a one-lens run "
             "to disposition findings from agents it never dispatched.",
         "## Stage 5: SUBMIT\n- Stage any uncommitted changes remaining":
             "0.992 — the submit stage, and the one entry here that is RULED "
-            "rather than observed. The residual delta INSIDE THIS BLOCK is a "
+            "rather than observed. DELIBERATE: differs from `build_refine` "
+            "because a tier's commit-message prefix IS its identity and cannot "
+            "be shared. The residual delta INSIDE THIS BLOCK is a "
             "single token: the `build-refine:` / `build-refine-minor:` commit "
             "prefix each tier tells the model to use. That is tier identity by "
             "definition and cannot be shared. Everything else the two tiers "
@@ -271,9 +301,57 @@ ACCEPTED_ORPHAN_LINES: dict[str, dict[tuple[str, str], str]] = {
 }
 
 
+_PLACEHOLDER = re.compile(r"\$\{([A-Z_][A-Z_0-9]*)\}")
+
+
+def _pool_stems(text: str, local: Path, pool: Path) -> set[str]:
+    """Pool fragments `text` pulls in, transitively, that `local` does not override.
+
+    A CHILD'S TEXT IS NOT ONLY ITS OWN FILES, and until this existed the detector
+    believed it was. Promoting a block out of one sibling replaced it with a
+    placeholder, so the pair vanished from the population while the drift itself
+    was untouched — the major tier kept its inline copy and the minor tier now
+    reads a fragment holding the other wording. Measured on exactly that edit:
+    the frozen `CHARACTERIZE EXISTING BEHAVIOUR` pair went from surfaced to
+    invisible, and the ratchet then asked for the row to be DELETED as
+    reconciled. Deleting it would have retired a live finding on the strength of
+    a promotion that changed no prose.
+
+    LOCAL WINS, because `render()` does: `plan_revision` supplies `${RULES}` from
+    its own directory — the PLANNING ruleset — while the pool's `rules.md` is the
+    BUILD ruleset, and resolving pool-first would compare a planning prompt
+    against instructions to change code. A locally-overridden stem is skipped
+    here rather than added: the child's own file is already in the walk.
+
+    TRANSITIVE, because a pool fragment may reference another: the plan-driven
+    body carries `${STAGE_ORDER_IS_MANDATORY}` and `${GITIGNORE_COLLISION_CHECK}`.
+    A single level would attribute those to nobody.
+
+    `pool` is a parameter rather than the module constant so a control can drive
+    this on a synthetic tree — against the real one only the passing path runs.
+    """
+    found: set[str] = set()
+
+    def walk(body: str) -> None:
+        for var in _PLACEHOLDER.findall(body):
+            stem = var.lower()
+            if stem in found or (local / f"{stem}.md").exists():
+                continue
+            fragment = pool / f"{stem}.md"
+            # NOT EVERY PLACEHOLDER NAMES A FRAGMENT — `${DESCRIPTION}` is
+            # operator text and `${STAGES_1_TO_4}` is a slot a workflow fills
+            # with one of several bodies. A miss is a value, not a fragment.
+            if fragment.is_file():
+                found.add(stem)
+                walk(fragment.read_text())
+
+    walk(text)
+    return found
+
+
 @lru_cache(maxsize=None)
 def _blocks(child: str) -> tuple[str, ...]:
-    """Every substantive block in one child's prompts, SORTED.
+    """Every substantive block a child SENDS, its own and the pool's, SORTED.
 
     CACHED, and returning a TUPLE so the cached value cannot be mutated by one
     caller under another. The tree does not change within a run, and this was
@@ -283,11 +361,29 @@ def _blocks(child: str) -> tuple[str, ...]:
     result on a 60-byte opening: where two blocks in one child share an opening,
     iteration order would otherwise decide which entry a reader sees, and the
     same tree could report differently on two machines.
+
+    THE POOL FRAGMENTS A CHILD REFERENCES COUNT AS THAT CHILD'S TEXT — see
+    `_pool_stems`. A fragment BOTH siblings reference is then byte-identical on
+    both sides, which both detectors exclude by construction (`NEAR < r < 1.0`,
+    and `x == y` returns zero), so sharing costs no false positives: measured,
+    this addition surfaced the one pair a promotion had hidden and not a single
+    new one. What it adds is the child-versus-POOL axis, where a child keeps an
+    inline near-copy of a fragment its sibling reads from the pool.
+
+    Fragments are added WHOLE rather than spliced into the referencing file. A
+    splice glues the fragment's first line to whatever precedes the placeholder
+    — `7. REFLECT: ` in one wrapper and nothing in the other — and two identical
+    fragments then score 0.98 against each other. That is a false pair produced
+    by the measurement, and freezing it would have put noise in the one list a
+    reader trusts to be signal.
     """
+    files = [p for p in ASSISTANT.rglob("prompts/*.md")
+             if p.parent != SHARED and p.parent.parent.name == child]
+    stems: set[str] = set()
+    for p in files:
+        stems |= _pool_stems(p.read_text(), p.parent, SHARED)
     out = []
-    for p in ASSISTANT.rglob("prompts/*.md"):
-        if p.parent == SHARED or p.parent.parent.name != child:
-            continue
+    for p in files + [SHARED / f"{s}.md" for s in sorted(stems)]:
         for raw in re.split(r"\n\s*\n", p.read_text()):
             b = raw.strip()
             if len(b) >= MIN_BLOCK:
@@ -713,38 +809,50 @@ def test_the_LINE_detector_IS_LOOKING_AT_SOMETHING() -> None:
     "no orphans found" and "nothing was inspected" produce identical results.
     An earlier draft was protected only by the single baseline entry going
     stale — that is, by the one thing the ratchet next door exists to remove.
+
+    IT MEASURES REACH, NOT SURFACED PAIRS, AND THAT DISTINCTION IS THE POINT.
+    This asserted per-pair that the block detectors had SURFACED something —
+    which is a verdict, exactly what the first paragraph says it must not be. It
+    went red the day `build_draft+build_draft_minor` was fully reconciled: a pair
+    with no drift left is this component's GOAL STATE, and a floor that fails on
+    reaching it pressures the next author to re-introduce drift or delete the
+    floor. What the floor must actually protect is that the detector can still
+    SEE lines — a `MIN_LINE` bump or a collapsed block split — and that is
+    measurable without any pair having drifted. `_partner` and the scorer are
+    controlled by the four synthetic tests above, which drive them on literals
+    rather than on whatever the corpus happens to still contain.
     """
     total = 0
     for major, minor in TIER_PAIRS:
-        surfaced = set(_drift(major, minor))
-        assert surfaced, (
-            f"{major}+{minor}: the BLOCK detectors surfaced no pair, so the "
-            f"line detector inherits an empty population and asserts nothing"
+        blocks = _blocks(major)
+        reach = sum(len(_lines(b)) for b in blocks)
+        assert reach >= 1, (
+            f"{major}+{minor}: {major} yields NO line over {MIN_LINE} bytes "
+            f"across any of its {len(blocks)} blocks, so this pair can "
+            f"contribute nothing and an empty result would mean only that the "
+            f"detector looked at nothing"
         )
-        inspected = [x for x in _blocks(major) if x[:KEY_LEN] in surfaced]
-        assert inspected, (
+        total += reach
+
+        surfaced = set(_drift(major, minor))
+        if not surfaced:
+            # A FULLY RECONCILED PAIR IS NOT A VACUOUS ONE. Its blocks are still
+            # compared above; there is simply no near-duplicate left to inspect.
+            continue
+        assert [x for x in blocks if x[:KEY_LEN] in surfaced], (
             f"{major}+{minor}: no block matches a surfaced opening — the key "
             f"and the block list have come apart"
         )
-        lines = sum(len(_lines(b)) for b in inspected)
-        assert lines >= 1, (
-            f"{major}+{minor}: the surfaced blocks yield NO line over "
-            f"{MIN_LINE} bytes, so this pair contributes nothing to the "
-            f"comparison and an empty result means only that it looked at "
-            f"nothing"
-        )
-        total += lines
-    # PER-PAIR THE FLOOR CAN ONLY BE 1, because most tier pairs really do surface
-    # a single-line block today — so a per-pair floor cannot tell a healthy
+    # PER-PAIR THE FLOOR CAN ONLY BE 1, because a tier pair can legitimately be
+    # down to a single long line — so a per-pair floor cannot tell a healthy
     # corpus from a collapsed one. The CORPUS total can: a regression that
     # quietly cut the population by most of itself would still clear every
     # per-pair check above.
     assert total >= 5, (
-        f"the line detector inspects {total} lines across the whole corpus, "
+        f"the line detector can reach {total} lines across the whole corpus, "
         f"below the floor it was built against. Something upstream — MIN_LINE, "
-        f"_partner, the block split — has collapsed its population, and an "
-        f"empty orphan list now means 'looked at almost nothing' rather than "
-        f"'found nothing'"
+        f"the block split — has collapsed its population, and an empty orphan "
+        f"list now means 'looked at almost nothing' rather than 'found nothing'"
     )
 
 
@@ -1021,3 +1129,111 @@ def test_the_frozen_list_COVERS_the_pairs_it_claims_to() -> None:
                 f"bytes — the child name is wrong or its prompts moved, and this "
                 f"module is comparing nothing against nothing."
             )
+
+
+# --- signal 4, manufactured rather than recovered -----------------------------
+
+
+def _unstated(accepted: dict[str, dict[str, str]]) -> list[str]:
+    """Notes claiming DELIBERATE with no `differs from X because Y` line.
+
+    Split from the test so the control below can drive it with a synthetic
+    baseline: every note in the real tree is well-formed, so the failing path
+    would otherwise never run on any tree anyone can produce.
+    """
+    return [
+        f"{pair} · {key[:50]!r}"
+        for pair, entries in sorted(accepted.items())
+        for key, note in sorted(entries.items())
+        if "DELIBERATE" in note and not fvp.VARIANT_RATIONALE.search(note)
+    ]
+
+
+def test_a_DELIBERATE_variant_STATES_WHY_IT_DIFFERS() -> None:
+    """The cheapest of the four signals is the one you can create in advance.
+
+    A pair frozen here as deliberate is a claim about somebody's intent, and the
+    person who made it is the last person who will ever be able to say so
+    cheaply. Everyone after them is reconstructing it from two texts — which a
+    blind trial on this corpus measured at kappa 0.000 between two raters, at or
+    below the field's 0.271 benchmark. One line written at ruling time removes
+    that whole reconstruction.
+    """
+    unstated = _unstated(ACCEPTED_DRIFT)
+    assert not unstated, (
+        "these entries claim the difference is DELIBERATE and do not say why, in "
+        "the form `differs from <sibling> because <reason>`. An unexplained "
+        "'deliberate' is the field's default-to-intentional convention, which "
+        "this repo does NOT import — it is how a neglected copy gets laundered "
+        "into a design decision. Either state the reason or downgrade the entry "
+        "to Unruled:\n  " + "\n  ".join(unstated)
+    )
+
+
+def test_a_NEW_VARIANT_WITHOUT_A_REASON_IS_VISIBLE_to_a_reviewer() -> None:
+    """Live control: the shape a reviewer must be shown, driven synthetically.
+
+    SELF-CONTAINED FIXTURES, NOT MUTATIONS OF THE REAL BASELINE. A control that
+    shares a fixture with the thing it mutates over-fires and then proves the
+    fixture rather than the predicate. Each arm below is one claim.
+    """
+    stated = {"a+b": {"k": "DELIBERATE: differs from `a` because the roster is tier-scoped."}}
+    assert _unstated(stated) == [], "a stated rationale must pass"
+
+    bare = {"a+b": {"k": "DELIBERATE — the tiers are just different here."}}
+    assert _unstated(bare) == ["a+b · 'k'"], (
+        "a new deliberate variant with no reason must be surfaced; this is the "
+        "exact shape the guard exists to make visible"
+    )
+
+    unruled = {"a+b": {"k": "0.86 — the characterization rule. Unruled."}}
+    assert _unstated(unruled) == [], (
+        "an Unruled entry must NOT be asked for a rationale — absence of a signal "
+        "yields unruled, and demanding a reason would push it toward deliberate"
+    )
+
+    wrong_form = {"a+b": {"k": "DELIBERATE: it is different from `a` for good reasons."}}
+    assert _unstated(wrong_form) == ["a+b · 'k'"], (
+        "the FORM is the point: a fixed phrase is greppable across the corpus, "
+        "free prose is not"
+    )
+
+
+def test_the_POOL_RESOLVER_DISCRIMINATES(tmp_path: Path) -> None:
+    """Live control for `_pool_stems`, one arm per claim its docstring makes.
+
+    THE REAL TREE ONLY EVER EXERCISES THE PASSING PATH — every child resolves
+    correctly today, so a resolver that had quietly stopped following the
+    transitive edge, or had started preferring the pool over a child's own
+    override, would look exactly like this run does. The fixture is synthetic
+    rather than a mutation of the live tree: a control sharing its fixture with
+    the thing it mutates over-fires, and what it then proves is the fixture.
+    """
+    pool, local = tmp_path / "pool", tmp_path / "local"
+    pool.mkdir(), local.mkdir()
+    (pool / "outer.md").write_text("outer text, which pulls ${INNER}")
+    (pool / "inner.md").write_text("inner text")
+    (pool / "rules.md").write_text("the BUILD ruleset")
+    (local / "rules.md").write_text("the PLANNING ruleset")
+
+    assert _pool_stems("body with ${OUTER}", local, pool) == {"outer", "inner"}, (
+        "the transitive edge is not being followed — a fragment reached only "
+        "through another fragment would be attributed to no child"
+    )
+    assert _pool_stems("body with ${RULES}", local, pool) == set(), (
+        "a stem the child overrides locally must not be taken from the pool; "
+        "`plan_revision`'s ${RULES} is the planning ruleset and the pool's is "
+        "the build ruleset, so this direction of error compares a planning "
+        "prompt against instructions to change code"
+    )
+    assert _pool_stems("body with ${DESCRIPTION}", local, pool) == set(), (
+        "a placeholder with no fragment behind it is operator text or a slot, "
+        "not a fragment, and inventing one would raise on a missing file"
+    )
+    # AND THE LIVE TREE MUST ACTUALLY BE USING IT. The three arms above pass on
+    # a synthetic directory even if no real child references a single fragment,
+    # which is the vacuous-scoping failure this repo keeps re-finding.
+    assert _pool_stems(
+        (ASSISTANT / "build" / "build_draft" / "prompts" / "update_pr.md").read_text(),
+        ASSISTANT / "build" / "build_draft" / "prompts", SHARED,
+    ), "no pool fragment resolved from a real child prompt — the resolver is scoped wrong"

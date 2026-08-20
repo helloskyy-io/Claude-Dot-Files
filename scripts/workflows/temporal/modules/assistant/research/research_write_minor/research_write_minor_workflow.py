@@ -136,6 +136,8 @@ def run_write_minor(*, research_dir: Path, repo_root: Path, worktree: Path,
         "RESEARCH_DIR": str(pool),
         "CONTEXT_BLOCK": "\n\n".join(blocks),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-minor: {research_dir}"),
+        "RESEARCH_STAGE_1_VERIFY_AND_DISCOVER": act.shared_prompt("research_stage_1_verify_and_discover"),
+        "STAGE_ORDER_SKIPPED_MARKER": act.shared_prompt("stage_order_skipped_marker"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

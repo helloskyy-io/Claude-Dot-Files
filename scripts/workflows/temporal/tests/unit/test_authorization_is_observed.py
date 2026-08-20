@@ -39,6 +39,7 @@ import pytest
 
 from observer_registry import names_code, unresolved, workflows_declaring
 
+from assembled_prompt import assembled
 from modules.assistant.plan import plan_activities as act
 # Still imported BY NAME below: the three boundary tests at the bottom assert
 # about these two workflows' specific grant tuples, which is a claim about them
@@ -86,7 +87,21 @@ def may_not_rows(prompt_text: str) -> list[str]:
 
 
 def _prompt(mod, name: str) -> str:
-    return (mod.PROMPTS / name).read_text()
+    """THE ASSEMBLED PROMPT, NOT THE FILE — the model never reads the file.
+
+    This was `read_text()`, and it went wrong the moment a block it sweeps for
+    was PROMOTED to a shared fragment. `plan_feature.md` and `plan_verify.md`
+    still promise a completeness list; the opening anchor now arrives through
+    `${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}` instead of sitting in the file. A
+    file-level read sees the promise, misses the list, and drops both prompts
+    out of the population — so the sweep reports that their promise "is no
+    longer read by anything", which is a true sentence about the guard and a
+    false one about the prompt.
+
+    Found by merging this branch with the promotion that caused it, which is
+    the only place the two halves meet: each side is green alone.
+    """
+    return assembled(mod.PROMPTS / name)
 
 
 # --- the correspondence itself ----------------------------------------------

@@ -73,6 +73,12 @@ class _Calls:
         self.sweep_bases: list[object] = []
         # Every positional argument pair Step 1b's scaffolder was called with.
         self.scaffold_args: list[tuple[object, ...]] = []
+        # (function, pr, repo_root, reviews-so-far) for every CI read `_dispose`
+        # made. `repo_root` is recorded rather than merely counted because
+        # without it the reads cannot find `testing/check-policy.yaml` and the
+        # gate silently forgives everything — a gate that is present and inert.
+        # The review count is the ordering evidence; see `fake_wait_for_ci`.
+        self.ci_reads: list[tuple[str, str, object, int]] = []
 
 
 @pytest.fixture
@@ -128,6 +134,32 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         return f"{BASE_SHA}\n"
 
     monkeypatch.setattr(pm.act, "git_output", fake_git_output)
+    # THE CI GATE IS FAKED AT ITS BOUNDARY, GREEN, and it must be faked at ALL:
+    # `_dispose` now reads the CI verdict before dispatching review, and both
+    # reads shell out to `gh`. Left real they cost ~5s per test against the live
+    # API and make the outcome depend on a network — the gate's own cascade is
+    # exercised by `test_ci_gate.py`, which drives the activity directly.
+    # `calls.ci_reads` records the pair so the ordering tests can see that the
+    # gate ran BEFORE the review dispatch, which is the property this parent was
+    # missing entirely until PR #124.
+    def fake_wait_for_ci(pr: str, **kw: object) -> bool:
+        # THE FOURTH ELEMENT IS THE REVIEW COUNT AT THE MOMENT OF THE READ, and
+        # it is what makes "the gate ran first" checkable. A snapshot of `order`
+        # was the obvious choice and is VACUOUS here — `order` records child
+        # dispatches and `run_review` is not one of them, so `"review" not in
+        # order` is true whatever the parent does. `calls.review` is incremented
+        # by the review fake itself, so it cannot be true by construction.
+        # `order` is deliberately left unperturbed: the ordering tests assert it
+        # exactly, and the gate is not a child.
+        calls.ci_reads.append(("wait_for_ci", pr, kw.get("repo_root"), calls.review))
+        return True
+
+    def fake_ci_verdict(pr: str, **kw: object) -> tuple[routing.CiVerdict, list[str]]:
+        calls.ci_reads.append(("ci_verdict", pr, kw.get("repo_root"), calls.review))
+        return routing.CiVerdict.GREEN, []
+
+    monkeypatch.setattr(pm, "wait_for_ci", fake_wait_for_ci)
+    monkeypatch.setattr(pm, "ci_verdict", fake_ci_verdict)
     # The parent reads its own repo slug BEFORE the triage child, so the number
     # it takes out of the child's URL can be checked against the repository the
     # dispatch is operating in. It is a `gh` call; faked at its boundary.
@@ -345,7 +377,83 @@ def test_needs_assistance_never_loops(wired: _Calls, monkeypatch: pytest.MonkeyP
     _url, verdict, loops, notes = _run()
     assert (verdict, loops) == (routing.Verdict.HOLD_NEEDS_ASSISTANCE, 0)
     assert (wired.triage, wired.sprint, wired.review) == (1, 1, 1)
-    assert any("only a human can rule" in n for n in notes)
+    # THE NOTE STATES THE LOOP DECISION AND NOTHING ELSE. It used to say
+    # "review-pr found at least one item only a human can rule on", and this
+    # assertion PINNED that sentence — which is why the suite was green over it.
+    # Wiring the CI gate into `_dispose` gave this parent a second path to the
+    # same verdict, and on that path the sentence is false: the gate's own note
+    # ends "review-pr was NOT dispatched". See
+    # `test_convergence.test_the_needs_assistance_note_CLAIMS_NO_CAUSE`.
+    assert any("more passes cannot produce a human decision" in n for n in notes)
+    assert not any("review-pr found" in n for n in notes), (
+        "the note names a cause this layer did not detect")
+
+
+def test_a_RED_tree_HOLDS_before_review_pr_is_ever_dispatched(
+    wired: _Calls, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MERGE must be unreachable on a red tree, and the parent is where that holds.
+
+    THIS PARENT HAD NO GATE AT ALL until PR #124, and its `_dispose` docstring
+    argued it needed none — "this family changes markdown only, so there is no
+    build to settle". That is false about this repo: `.github/workflows/tests.yml`
+    carries no `paths:` filter by deliberate choice and the suite greps prompts
+    and docs, so a planning PR that edits only `.md` runs the full suite and can
+    turn it red.
+
+    THE ORDERING IS THE PROPERTY, and it is the one thing the static class guard
+    in `test_ci_gate.py` explicitly says it cannot see: an AST call-set proves
+    both calls exist in the module, not that the gate runs FIRST. A gate that
+    runs after the dispatch has already let the reviewer produce a verdict.
+    """
+    _plans_one(monkeypatch, wired)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    monkeypatch.setattr(pm, "ci_verdict",
+                        lambda pr, **kw: (routing.CiVerdict.RED, ["suite"]))
+    _url, verdict, loops, notes = _run()
+
+    assert verdict is routing.Verdict.HOLD_REDISPATCH, (
+        "a red tree reached a MERGE verdict — the gate did not hold")
+    assert wired.review == 0, (
+        f"review-pr was dispatched {wired.review} time(s) on a red tree; the gate "
+        f"runs AFTER the dispatch, so the reviewer still got a verdict to give")
+    assert any("blocking checks failed: suite" in n for n in notes), (
+        f"the operator is not told WHICH check failed: {notes}")
+
+
+def test_the_gate_reads_CI_with_repo_root_and_before_any_review(
+    wired: _Calls, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both reads happen, both are repo-anchored, and both precede the dispatch.
+
+    `repo_root` IS ASSERTED AND NOT ASSUMED. `read_check_policy` used to be
+    reached only when it was present; without it `ci_verdict` returned NO_CHECKS
+    on a repo that declares a gate and `ci_gate` reported "SKIPPED — no check
+    declared blocking", which is not a HOLD. The gate would be present and inert
+    — the exact shape `build_minor` shipped until PR #124, and the reason this
+    asserts the argument rather than the call.
+
+    THE PARAMETER BECAME REQUIRED ON 2026-08-20 and this assertion still earns
+    its place: the fakes here take `**kw`, so a parent that dropped the keyword
+    would sail past a signature that no longer permits it in production. What
+    this arm pins is that the parent passes THE RIGHT TREE — `Path("/repo")`, not
+    merely something.
+    """
+    _plans_one(monkeypatch, wired)
+    _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
+    _run()
+
+    assert [r[0] for r in wired.ci_reads] == ["wait_for_ci", "ci_verdict"], (
+        f"the gate did not make exactly one settle-then-read pair: {wired.ci_reads}")
+    assert wired.review == 1, "the review fake did not run, so the ordering arm is vacuous"
+    for name, pr, repo_root, reviews_before in wired.ci_reads:
+        assert pr == "43", f"{name} was given PR {pr!r}, not the PR under review"
+        assert repo_root == Path("/repo"), (
+            f"{name} was called without repo_root, so it cannot find "
+            f"testing/check-policy.yaml and the gate forgives everything")
+        assert reviews_before == 0, (
+            f"{name} ran after {reviews_before} review dispatch(es) — the gate is "
+            f"downstream of the verdict it is supposed to withhold")
 
 
 def test_merge_still_says_it_is_not_an_unattended_merge(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -394,6 +502,10 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
+    # This test wires its own stubs rather than taking `wired`, so the CI gate
+    # has to be faked here too — left real it shells out to `gh` per loop.
+    monkeypatch.setattr(pm, "wait_for_ci", lambda pr, **kw: True)
+    monkeypatch.setattr(pm, "ci_verdict", lambda pr, **kw: (routing.CiVerdict.GREEN, []))
     monkeypatch.setattr(pm.review_pr, "run_review",
                         lambda ri, rr: ReviewResult(pr_number="43",
                                                     verdict=routing.Verdict.HOLD_REDISPATCH,
