@@ -45,6 +45,21 @@ WHAT THIS DOES NOT LOOK AT, so it is not read as covering more than it does:
     spot every check on this map has, and stated for the same reason.
   * **Any directory outside `docs/development/`.** A `roadmap.md` elsewhere in the
     tree is invisible to `_planning_directories` by construction.
+  * **Whether a planning directory has a row of its OWN.** Only that it is
+    reachable. See `test_every_planning_directory_is_still_REACHABLE_through_the_map`
+    for why the stricter property is deliberately not asserted — it is the same
+    C-113 shape one level up, and it was reproduced before being ruled out.
+
+THE POPULATION IS DERIVED FROM THE TREE, WHICH BOUNDS WHAT THIS MODULE MAY
+ASSERT, and the bound is the reason the check above reads the way it does. A
+`plan-feature` run writes into `docs/development/<component>/` and nowhere else,
+so anything this module derives from `git ls-files` is under that run's control.
+An assertion of the form *"the map must NOT contain X"* is safe against it —
+adding a phase doc can only make it more true. An assertion of the form *"the map
+MUST contain X"* is not: the run supplies the X and cannot supply the map row,
+which is precisely how C-113 worked. Every assertion here is therefore of the
+first form, and the one that was briefly of the second is now scoped to
+reachability for the reasons stated at it.
 """
 
 from __future__ import annotations
@@ -105,6 +120,26 @@ def _per_file_rows(map_paths: set[str], directories: set[str],
     return {d: sorted(names) for d, names in listed.items()}
 
 
+def _unreachable(map_paths: set[str], directories: set[str]) -> list[str]:
+    """Directories reached by NEITHER their own row NOR the `docs/development/` one.
+
+    ANCHORED AT `docs/development/` RATHER THAN AT ANY ANCESTOR, and the difference
+    is the whole value of this predicate. "Any ancestor" is satisfied by the bare
+    `docs/` row, which every version of this map has carried and always will — so
+    that form is vacuous, and it was written that way first and caught by the
+    control below rather than by inspection. Anchoring at the directory this module
+    is actually about leaves one bit that can genuinely go false: the
+    `docs/development/` roll-up leaving the map, which is also where the convention
+    block stating the roll-up rule lives.
+
+    PURE, for the same reason the two above are: its control has to drive it on a
+    synthetic map, and a control sharing a fixture with the code under test proves
+    nothing about either.
+    """
+    return sorted(d for d in directories
+                  if d not in map_paths and _DEVELOPMENT not in map_paths)
+
+
 _TRACKED = [str(p) for p in tracked()]
 _PLANNING = _planning_directories(_TRACKED)
 
@@ -141,21 +176,97 @@ def test_a_planning_directory_has_NO_per_file_row_in_the_map() -> None:
 def test_every_planning_directory_is_still_REACHABLE_through_the_map() -> None:
     """Rolled up is not the same as absent, and the difference is the whole point.
 
-    Deleting the per-file rows must leave the component's OWN row behind. Without
-    this, "roll it up" and "drop it from the map" are indistinguishable to the
-    check above, and the cheapest way to make that one pass would be to delete the
-    directory entirely.
+    REACHABLE, NOT OWN-ROW, AND THE WEAKER FORM IS THE CORRECT ONE. This assertion
+    was written as *"every planning directory has a row of its own"*, and that is
+    C-113 one level up — reproduced by execution before it was changed. Staging a
+    `roadmap.md` and a `phase1_*.md` into a component directory the map has no row
+    for turned this red, on a tree state that was green before this module existed;
+    `plan-feature` creates exactly that pair, its write grant is
+    `^docs/development/<component>/[^/]+\\.md$` plus the candidates file, and
+    `docs/file_structure.txt` is in neither. A correct run would have shipped a red
+    suite it was structurally forbidden to repair, which is the entire defect this
+    module exists to retire.
+
+    THE PROPERTY IT WANTED IS TEMPORAL AND A SNAPSHOT CANNOT CARRY IT. "The map
+    LOST a row" and "the map never had one" are the same tree state and opposite
+    verdicts — the first is a defect, the second is the legitimate intermediate a
+    planning run creates and cannot leave. No predicate over the current tree
+    separates them, so the strict form does not detect deletion; it detects
+    absence, and then punishes the wrong actor for it. Deletion of a row is a
+    diff-shaped concern and belongs to review, where a human or `review-pr` reads
+    the diff.
+
+    WHAT SURVIVES IS ONE BIT, AND IT IS NAMED AS ONE BIT. A planning directory must
+    be reached either by its own row or by the `docs/development/` roll-up row —
+    see `_unreachable` for why the anchor is that row specifically and not "any
+    ancestor", which the bare `docs/` row makes vacuous. It fires when the
+    `docs/development/` block leaves the map, which is how "summarise it"
+    degenerates into "drop it" at the altitude this module is about, and is also
+    where the convention block stating the roll-up rule lives.
+
+    `test_a_planning_directory_has_NO_per_file_row_in_the_map` above is unaffected
+    by any of this: it asserts the map must NOT contain something, so no run that
+    only writes phase docs can make it red.
     """
-    mapped = map_paths(MAP.read_text())
-    missing = sorted(d for d in _PLANNING if d not in mapped)
-    assert not missing, (
-        f"these planning directories have no row of their own in "
-        f"docs/file_structure.txt at all: {missing}. Rolled up means SUMMARISED, "
-        f"not omitted — the directory keeps its annotated line and loses only the "
-        f"per-file ones.")
+    unreachable = _unreachable(map_paths(MAP.read_text()), _PLANNING)
+    assert not unreachable, (
+        f"docs/file_structure.txt reaches these planning directories through "
+        f"neither their own row nor the docs/development/ roll-up: {unreachable}. "
+        f"Rolled up means SUMMARISED, not omitted; a component whose whole subtree "
+        f"has left the map is invisible to every reader the map exists for.")
 
 
 # --- the controls ------------------------------------------------------------
+
+def test_the_reachability_check_FIRES_only_when_NOTHING_reaches_the_directory() -> None:
+    """DISCRIMINATOR for the check above, and the second half is the C-113 pin.
+
+    THE POSITIVE HALF: a map that reaches neither the component nor any ancestor
+    of it must be reported. Without this the relaxation above could have gone all
+    the way to vacuous and every run would still be green.
+
+    THE NEGATIVE HALF IS THE ONE THAT MATTERS HERE, because it is the regression
+    this test was relaxed to prevent, pinned as a case rather than as prose. A
+    component directory with NO row of its own — exactly what a `plan-feature` run
+    produces when it writes the first `roadmap.md` + `phase1_*.md` into a directory
+    the map has not yet been updated for — must NOT fire, because the
+    `docs/development/` ancestor reaches it and that run cannot write the map. If
+    someone re-tightens this to own-row, this assertion is what stops it.
+    """
+    widget = {"docs/development/widget"}
+
+    reaches_nothing = map_paths(
+        "claude-dot-files/\n"
+        "├── docs/\n"
+        "│   ├── standards/                           # a different subtree entirely\n"
+    )
+    assert _unreachable(reaches_nothing, widget) == ["docs/development/widget"], (
+        "the predicate did not report a planning directory that no entry in the "
+        "sample reaches, so every green result above is unproven. NOTE the sample "
+        "does carry a `docs/` row: an ANY-ANCESTOR reading of reachability is "
+        "satisfied by it and is therefore vacuous, which is what this case pins.")
+
+    ancestor_only = map_paths(
+        "claude-dot-files/\n"
+        "├── docs/\n"
+        "│   ├── development/                         # rolled up, no component rows\n"
+    )
+    assert not _unreachable(ancestor_only, widget), (
+        "the predicate fired on a component reached through its docs/development/ "
+        "ancestor. That is the state a plan-feature run leaves behind when it "
+        "writes the first roadmap.md and phase doc into a directory the map has no "
+        "row for yet — and that run's write grant excludes docs/file_structure.txt, "
+        "so failing here is C-113 recreated by the module that exists to retire it.")
+
+    own_row = map_paths(
+        "claude-dot-files/\n"
+        "├── docs/\n"
+        "│   ├── development/\n"
+        "│   │   ├── widget/                          # its own annotated row\n"
+    )
+    assert not _unreachable(own_row, widget), (
+        "the predicate fired on a component that has a row of its own, which is "
+        "the shape the map actually uses today.")
 
 def test_the_detector_FIRES_on_a_map_that_ENUMERATES_a_planning_directory() -> None:
     """DISCRIMINATOR, on a SELF-CONTAINED sample rather than the real map.

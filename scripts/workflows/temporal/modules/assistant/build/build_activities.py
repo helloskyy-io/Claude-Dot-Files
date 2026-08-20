@@ -38,6 +38,22 @@ CI_MAX_WAIT_SECONDS = 600
 # `DESCRIPTION`, which `render` treats as OPAQUE precisely so an operator's task
 # text cannot be re-scanned for placeholders (issue #46). A `${PR}` in here would
 # therefore reach the model literally.
+#
+# A STRING LITERAL AND NOT A `prompts/*.md`, RULED RATHER THAN DEFAULTED, because
+# `workflow-scripts.md` § File Conventions says *"prompts live in files, never in
+# string literals"* and this is the reasoning that says the rule does not reach
+# here. THIS IS NOT A PROMPT — it is a TASK. It occupies the `DESCRIPTION` slot,
+# the operator-content channel, and it is structurally the same thing an operator
+# types on the command line or supplies via `--task-file`; nobody would file an
+# operator's `--task-file` text under `prompts/`. It is never `render`ed, which is
+# what the standard's rationale (diffable prose, brace hazards) is about. The
+# concrete cost of moving it is also real rather than hypothetical: there is no
+# `build/prompts/` today, and three fleet-wide guards enumerate `ASSISTANT.rglob(
+# "prompts/*.md")` — `test_prompt_completeness`, `test_prompt_blocks_are_shared_
+# not_copied` and `test_tier_siblings_do_not_DRIFT_by_a_sentence`, the last of
+# which derives its minor/major tier pairing from those directories' names. A new
+# prompts directory at the FAMILY level enters all three populations to relocate
+# ten lines that are not a prompt.
 PR_RUNWAY_TASK = (
     "This is a CORRECTION PASS on PR #{pr}, and the operator supplied no separate "
     "task because the task is already on the PR. READ IT THERE BEFORE ANYTHING "

@@ -75,25 +75,20 @@ from file_structure_map import (  # noqa: E402
     tracked,
 )
 
-_REPO = REPO
-_MAP = MAP
-_EXCLUDED_NAMES = EXCLUDED_NAMES
-_TEMPLATE = TEMPLATE
-_tracked = tracked
 
 
 def _mapped_entries() -> dict[str, bool]:
     """The live map, parsed. See `file_structure_map.map_entries` for the grammar."""
-    return map_entries(_MAP.read_text())
+    return map_entries(MAP.read_text())
 
 
 def _mapped_paths() -> set[str]:
-    return map_paths(_MAP.read_text())
+    return map_paths(MAP.read_text())
 
 
 def test_the_exclusion_list_is_only_what_it_says_it_is() -> None:
     """The control on the control: an exclusion that grows silently is a hole."""
-    excluded = {p for p in _tracked() if p.name in _EXCLUDED_NAMES}
+    excluded = {p for p in tracked() if p.name in EXCLUDED_NAMES}
     assert excluded, "no .gitkeep is tracked any more — drop the exclusion"
     assert all(p.name == ".gitkeep" for p in excluded)
 
@@ -108,7 +103,7 @@ def test_the_map_PARSES_into_paths_that_actually_exist() -> None:
     """
     paths = _mapped_paths()
     assert len(paths) > 150, "the map parsed into too few entries to be the map"
-    resolves = [p for p in paths if (_REPO / p).exists()]
+    resolves = [p for p in paths if (REPO / p).exists()]
     assert len(resolves) > 0.9 * len(paths), (
         f"only {len(resolves)} of {len(paths)} reconstructed paths exist on "
         f"disk — the indentation parse is wrong, or the map has drifted far "
@@ -153,14 +148,14 @@ def test_every_FILE_ENTRY_in_the_map_NAMES_A_FILE_THAT_EXISTS() -> None:
     for path, is_dir in sorted(_mapped_entries().items()):
         if is_dir:
             continue                       # rolled-up directories are checked above
-        if _TEMPLATE.search(path):
+        if TEMPLATE.search(path):
             # `raw/<topic>.md` stands for a naming CONVENTION, so no such file
             # exists or should. The claim it still makes is that the directory
             # holding them does, and that is what gets checked.
-            if not (_REPO / path).parent.is_dir():
+            if not (REPO / path).parent.is_dir():
                 bad_templates.append(path)
             continue
-        if not (_REPO / path).exists():
+        if not (REPO / path).exists():
             ghosts.append(path)
     assert not ghosts, (
         "docs/file_structure.txt — which CLAUDE.md calls authoritative — has rows "
@@ -188,7 +183,7 @@ def test_the_TEMPLATE_exemption_is_only_what_it_says_it_is() -> None:
     brackets for some other reason, it would inherit the exemption silently, so
     the exempted set is pinned by name.
     """
-    exempt = sorted(p for p in _mapped_paths() if _TEMPLATE.search(p))
+    exempt = sorted(p for p in _mapped_paths() if TEMPLATE.search(p))
     assert exempt == ["docs/standards/architecture/research/raw/<topic>.md"], (
         f"the set of template rows in the map changed: {exempt}. Each one is "
         f"exempt from the file-exists assertion, so a new member is a new hole — "
@@ -204,7 +199,7 @@ def test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY() -> None:
     did not, including one this PR modifies and names in a phase-doc checkbox. A
     reader scanning that block has no way to tell it is short.
     """
-    holes = partially_listed(_mapped_paths(), _tracked())
+    holes = partially_listed(_mapped_paths(), tracked())
     assert not holes, (
         "docs/file_structure.txt enumerates these directories file by file and "
         "is missing entries in them:\n"
@@ -219,8 +214,8 @@ def test_every_tracked_file_is_REACHABLE_through_the_map() -> None:
     """The rolled-up half: a new subtree cannot appear with no mention at all."""
     mapped = _mapped_paths()
     unreachable = [
-        str(p) for p in _tracked()
-        if p.name not in _EXCLUDED_NAMES
+        str(p) for p in tracked()
+        if p.name not in EXCLUDED_NAMES
         and str(p) not in mapped
         and not any(str(parent) in mapped for parent in p.parents
                     if str(parent) != ".")
@@ -238,4 +233,4 @@ def test_every_tracked_file_is_REACHABLE_through_the_map() -> None:
 def test_the_map_and_the_document_that_declares_it_authoritative_both_exist(
         path: str) -> None:
     """If either moves, this whole module is asserting against nothing."""
-    assert (_REPO / path).is_file()
+    assert (REPO / path).is_file()

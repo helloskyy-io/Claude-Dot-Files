@@ -118,6 +118,38 @@ def test_an_explicit_task_source_is_NOT_displaced_by_a_pr(kwargs, expected) -> N
     assert build_act.task_text(BuildInput(**kwargs), Path("/nonexistent")) == expected
 
 
+@pytest.mark.parametrize("field,flag", [
+    pytest.param("task_file", "--task-file", id="task-file-beats-the-PR-runway"),
+    pytest.param("plan_path", "--phase", id="phase-beats-the-PR-runway"),
+])
+def test_a_FILE_task_source_also_beats_the_pr_runway(tmp_path, field, flag) -> None:
+    """The other two sources, which the parametrization above could not reach.
+
+    THE PRECEDENCE QUESTION IS NEW HERE AND THAT IS WHY IT NEEDS PINNING. Before
+    `--pr` became a task source, `--task-file` + `--pr` was already a legal
+    combination and `pr_number` was never consulted for text, so there was nothing
+    to order. Making `--pr` sufficient created a real fork: the file and the PR
+    thread can now BOTH claim to say what the run is for, and they can disagree.
+
+    THE FILE WINS, DELIBERATELY. `PR_RUNWAY_TASK` is a DEFAULT — the thing to do
+    when the operator said nothing else — not an override. An operator who passes
+    both has narrowed the correction on purpose, and the child still reads the
+    thread anyway: `fidelity_read_and_compare.md` makes `gh pr view --json
+    body,comments` mandatory on every `--pr` run, so nothing is lost by the file
+    taking the description slot. Documented in `docs/guide/workflows.md` § V2 for
+    the operator, and asserted here so the two cannot drift.
+    """
+    source = tmp_path / "brief.md"
+    source.write_text("the narrower brief")
+    task = BuildInput(**{field: str(source)}, pr_number="9")
+
+    text = build_act.task_text(task, tmp_path)
+    assert text == "the narrower brief", (
+        f"{flag} did not win over --pr. If this now returns the PR runway, an "
+        f"existing dispatch that passes both has silently changed what it does.")
+    assert "CORRECTION PASS on PR" not in text
+
+
 def test_task_text_REFUSES_the_state_its_dataclass_refuses() -> None:
     """Defence in depth at the layer that would otherwise dispatch an empty task.
 
