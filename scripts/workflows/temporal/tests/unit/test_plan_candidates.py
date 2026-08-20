@@ -39,7 +39,7 @@ from modules.assistant.plan.plan_project import plan_project_activities as own  
 
 _HEADER = (
     "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
-    "|---|---|---|---|---|---|---|---|---|\n"
+    "|---|---|---|---|---|---|---|---|\n"
 )
 
 
@@ -77,7 +77,8 @@ def _write(tree: Path, content: str) -> Path:
 # for a row that landed in the wrong OTHER bucket — an `extends` reported as an
 # `unnamed` is a different fact about the file and a different note to the
 # operator. `_replace` names the one field a test expects to differ.
-_NOTHING = own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+_NOTHING = own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
+                          not_a_feature=[], unsized=[])
 
 
 # --- vacuity floor --------------------------------------------------------
@@ -258,7 +259,8 @@ def test_two_rows_naming_the_SAME_component_scaffold_it_once(tree: Path) -> None
         ("C-002", "second", "shared", "`ship`", "`open`"),
     ))
     assert own.scaffold_candidate_components(tree, f) == own.Scaffolded(
-        created=["shared"], resumed=[], extends=[("C-002", "shared")], unnamed=[]), (
+        created=["shared"], resumed=[], extends=[("C-002", "shared")], unnamed=[],
+        not_a_feature=[], unsized=[]), (
         "the second row must EXTEND the component the first created — a `resumed` "
         "here tells the operator a previous run died, and duplicates the research")
     seed = (tree / "docs" / "development" / "shared" / "research"
@@ -374,11 +376,11 @@ def _nine_tables(bad: str) -> str:
 
 
 @pytest.mark.parametrize("label,bad", [
-    # A whole table left in the old shape. `_ROW` needs only five cells after the
-    # id, so every field lands one column left: `decision` reads the status.
+    # A whole table left in the old shape. `_ROW` needs six cells after the id, so
+    # a six-column row does not parse AT ALL and is caught as an unparsed row.
     ("a table still in the six-column shape",
      _SIX_COL + "| C-009 | a thing | PR #1 |  | `open` | n |\n"),
-    # ONE row carrying a pipe in its first five cells. Markdown's own escape for a
+    # ONE row carrying a pipe in a cell before the Note. Markdown's own escape for a
     # literal pipe is `\\|`, and the cell pattern treats that pipe as a boundary —
     # so a CORRECTLY escaped title shifts the row and nothing else on the page.
     ("one row with a pipe in its title",

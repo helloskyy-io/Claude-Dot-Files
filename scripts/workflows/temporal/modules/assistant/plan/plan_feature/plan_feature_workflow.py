@@ -307,6 +307,9 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "act.ids_deleted against the after-snapshot of the same column, checked "
         "BEFORE the column comparisons because a vanished row is in neither "
         "intersection those judge"),
+    "before_size": (
+        "act.ids_deleted on the SAME id set, by the coupling registered against "
+        "before_status — one parse, one id set"),
     "before_status": (
         "act.ids_deleted on the SAME id set, already run against before_decision "
         "— act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
@@ -317,7 +320,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "by test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS."),
     "before_component": (
         "act.ids_deleted on the SAME id set, by the same coupling registered "
-        "against before_status — one parse, one id set, three columns"),
+        "against before_status — one parse, one id set, four columns"),
     "before_plan": (
         "act.grants_that_vanished over permitted_paths, which covers this "
         "snapshot EXACTLY rather than approximately: own.plan_docs enumerates "
@@ -366,6 +369,7 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
     before_phase = own.phase_docs(wt_component)
     before_plan = own.plan_docs(wt_component)
     before_decision = act.candidate_decisions(wt_candidates)
+    before_size = act.candidate_sizes(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
     before_component = act.candidate_components(wt_candidates)
     before_boxes = own.plan_boxes(wt_component)
@@ -533,9 +537,10 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
             f"demonstrated nothing — see {url}"
         )
 
-    # THE THREE CANDIDATE COLUMNS, none of which is this workflow's. The grant on
-    # that file is to APPEND a proposal — a new row, blank `decision`, `status:
-    # open`, and the `component` cell named on THAT row and no other.
+    # THE FOUR CANDIDATE COLUMNS, none of which is this workflow's. The grant on
+    # that file is to APPEND a proposal — a new row, blank `decision`, blank
+    # `size`, `status: open`, and the `component` cell named on THAT row and no
+    # other.
     #
     # DELETION FIRST, for the reason stated in the registry: both comparators
     # below judge only ids present on BOTH sides, so a row that is simply gone is
@@ -562,6 +567,24 @@ def run_plan_feature(*, repo_root: Path, worktree: Path, component: Path,
             f"leaves `decision` BLANK, because blank means untriaged and untriaged "
             f"is the truth — planning a component does not rule the candidates that "
             f"come out of it — see {url}"
+        )
+
+    after_size = act.candidate_sizes(wt_candidates)
+    sized = act.sizes_this_run_had_no_right_to(before_size, after_size)
+    if sized:
+        raise RuntimeError(
+            f"plan-feature set or changed the `size` column on {len(sized)} "
+            f"pre-existing candidate(s): "
+            + ", ".join(f"{cid} {before_size[cid]!r}->{after_size[cid]!r}"
+                        for cid in sized)
+            + f". `size` is `triage-candidates`' SECOND ruling and it belongs to "
+            f"triage alone — planning a component tells you how big the work is, "
+            f"which is exactly why a run that has just done it is one step from "
+            f"recording that beside the row. And the value does not stay a cell: "
+            f"`plan-candidates` routes on it, so a `phase` written here scaffolds "
+            f"a whole component for work that belongs inside one. A proposal you "
+            f"append leaves `size` BLANK, because sizing is a ruling and filing is "
+            f"not making it — see {url}"
         )
 
     after_status = act.candidate_statuses(wt_candidates)

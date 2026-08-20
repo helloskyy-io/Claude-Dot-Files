@@ -106,18 +106,32 @@ max_turns = shared.max_turns
 # "four rows of 76 do" and was falsified by the very commit that added the
 # `component` column, because that commit also appended a row — a restated figure
 # drifting one commit after it was measured is the class C-050's own Note names.
-# The load-bearing claim is that NO row's first five cells contain a pipe; a tally
+# The load-bearing claim is that NO cell before the Note contains a pipe; a tally
 # of the Note's pipes is decoration and any new row can falsify it.
+#
+# AND THE CELL COUNT IS NOT WRITTEN HERE EITHER, for the same reason one line up.
+# This sentence read "first five cells" through two column additions: it was true
+# of the six-column table it was written against, went stale the moment
+# `component` landed, and was still stale when `size` did — so the figure has
+# been wrong for longer than it was right, in the comment that argues against
+# restating figures. `_CONSTRAINED_CELLS` below derives it from `_HEADER`.
 _ROW = re.compile(
     r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|",
     re.M)
 
-# The seven-column header, as every candidate table in the file renders it.
+# The eight-column header, as every candidate table in the file renders it.
 # Kept for the MESSAGE it can give — "your table is the old shape" is a better
 # sentence than "row C-082's decision is unreadable" when the whole table moved.
 # It is NOT the guard; see `_check_shape`.
 _HEADER = ("| ID | Candidate | `component` | Source | `decision` | `size` | "
            "`status` | Note |")
+
+# How many cells `_ROW` constrains — every column but the Note. DERIVED from the
+# header rather than restated, because the restated version was wrong twice (see
+# the `_ROW` comment). Eight columns are bracketed by nine pipes, and the Note is
+# the one cell that may hold a pipe of its own, so: pipes, less the two that
+# bracket the Note.
+_CONSTRAINED_CELLS = _HEADER.count("|") - 2
 
 # Anything that PRESENTS as a candidate row, whatever its id happens to look
 # like. `_ROW` insists on `C-\d{3}`; this insists only on the shape a reader
@@ -237,8 +251,8 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
         population the file holds?
       * `_raise_on_duplicate_ids`  — the same question one altitude down, and it
         needs its own helper because a SET answers neither on its own.
-      * `_raise_on_foreign_cell`   — does every parsed row's `decision` and
-        `status` fall in the closed vocabulary `candidates.md` defines?
+      * `_raise_on_foreign_cell`   — does every parsed row's `decision`, `size`
+        and `status` fall in the closed vocabulary `candidates.md` defines?
 
     ONE CASE PER HELPER, RATHER THAN ONE LIST IN ONE DOCSTRING, and that is the
     fix for a defect this docstring itself carried: it opened *"Three ways the
@@ -311,40 +325,50 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
 
 def _raise_on_foreign_cell(path: Path, text: str, rows: list[CandidateRow],
                            missing_hint: str) -> None:
-    """`decision` and `status` must hold values `candidates.md` admits.
+    """`decision`, `size` and `status` must hold values `candidates.md` admits.
 
     THIS IS THE ARM THAT COVERS SHAPES NOBODY HAS THOUGHT OF YET, which is why it
-    does not name any of them. A column shift moves foreign text into the two
-    flag cells — `open` into `decision` for a table left in the old six-column
-    shape, a Source string for a row carrying a pipe in one of its first five
-    cells (markdown's own escape for a literal pipe is `\\|`, and `[^|\\n]*`
-    treats that pipe as a cell boundary, so a CORRECTLY escaped title shifts the
-    row). Neither shape is enumerated in the condition: the condition asks
-    whether the cell reads as something the file admits, so any future departure
-    that moves text sideways fails here rather than being discovered by a later
-    pass.
+    does not name any of them. A column shift moves foreign text into the three
+    ruled cells — `open` into `size` for a table left in the old seven-column
+    shape, a Source string for a row carrying a pipe in a cell before the Note
+    (markdown's own escape for a literal pipe is `\\|`, and `[^|\\n]*` treats that
+    pipe as a cell boundary, so a CORRECTLY escaped title shifts the row).
+    Neither shape is enumerated in the condition: the condition asks whether the
+    cell reads as something the file admits, so any future departure that moves
+    text sideways fails here rather than being discovered by a later pass.
+
+    ALL THREE RULED COLUMNS, NOT TWO. `size` was added to the table and left out
+    of this condition, so the one cell a stalled seven-to-eight-column migration
+    displaces text INTO was the one cell that accepted anything. `_SIZES` was
+    declared for this check and had no reader at all: a table left in the
+    seven-column shape puts `status` into `size` and the Note into `status`, and
+    only the second of those two was ever asked about. Widening the condition is
+    what makes `_SIZES` load-bearing rather than documentation.
 
     It is not exhaustive and does not claim to be — a shift lands silently only
-    if the displaced text happens to read as one of the seven admitted strings.
-    The message names both known shapes because a reader who has just been told
-    "row C-082's decision is unreadable" needs to know where to look.
+    if the displaced text happens to read as one of the strings the three closed
+    vocabularies admit. The message names both known shapes because a reader who
+    has just been told "row C-082's decision is unreadable" needs to know where
+    to look.
     """
     for row in rows:
-        if row.decision in _DECISIONS and row.status in _STATUSES:
+        if (row.decision in _DECISIONS and row.size in _SIZES
+                and row.status in _STATUSES):
             continue
         shape = ("" if _HEADER in text else
                  f"\nNo table in this file carries the expected header:\n  {_HEADER}\n"
-                 f"so the whole table is probably still in the old six-column shape.")
+                 f"so the whole table is probably still in the old seven-column shape.")
         raise ValueError(
             f"{path} row {row.id} parses to decision={row.decision!r} "
-            f"status={row.status!r}, and `candidates.md` admits no such value — "
-            f"`decision` is one of {_DECISIONS} and `status` one of {_STATUSES}. "
+            f"size={row.size!r} status={row.status!r}, and `candidates.md` admits "
+            f"no such value — `decision` is one of {_DECISIONS}, `size` one of "
+            f"{_SIZES} and `status` one of {_STATUSES}. "
             f"A cell holding anything else means the columns have SHIFTED: the "
             f"row then reads as triaged, drops out of the untriaged working set, "
             f"and `triage-candidates` reports a complete pass over a candidate "
-            f"nobody ruled. Either a table is in the old six-column shape, or "
-            f"this row carries a pipe in one of its first five cells — only the "
-            f"Note may contain one.{shape} {missing_hint}")
+            f"nobody ruled. Either a table is in the old seven-column shape, or "
+            f"this row carries a pipe in one of its first {_CONSTRAINED_CELLS} "
+            f"cells — only the Note may contain one.{shape} {missing_hint}")
 
 
 def candidate_components(candidates_path: Path) -> dict[str, str]:

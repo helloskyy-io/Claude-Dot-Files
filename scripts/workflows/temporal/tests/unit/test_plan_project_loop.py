@@ -153,7 +153,8 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     # parent hands the research step is exactly what the fan-out tests assert on.
     def no_scaffold(*a: object, **k: object) -> pm.own.Scaffolded:
         calls.scaffold_args.append(a)
-        return pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+        return pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
+                                 not_a_feature=[], unsized=[])
 
     monkeypatch.setattr(pm.own, "scaffold_candidate_components", no_scaffold)
     return calls
@@ -387,7 +388,8 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
     monkeypatch.setattr(
         pm.own, "scaffold_candidate_components",
-        lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[]))
+        lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[],
+                                          unnamed=[], not_a_feature=[], unsized=[]))
     monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
@@ -418,7 +420,8 @@ def _with_scaffolded(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
     monkeypatch.setattr(
         pm.own, "scaffold_candidate_components",
         lambda *a, **k: pm.own.Scaffolded(created=list(names), resumed=[],
-                                          extends=[], unnamed=[]))
+                                          extends=[], unnamed=[],
+                                          not_a_feature=[], unsized=[]))
 
 
 def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -195,8 +195,25 @@ class Scaffolded(NamedTuple):
     #   `unsized`       — ruled `ship` and never sized. Nothing can route it, and
     #     the remedy is a triage pass rather than anything here. Reported so the
     #     backlog is VISIBLE instead of silently skipped.
-    not_a_feature: list[tuple[str, str]] = []
-    unsized: list[tuple[str, str]] = []
+    #
+    # REQUIRED, WITH NO DEFAULT, AND THAT IS DELIBERATE. They shipped as
+    # `= []`, which on a NamedTuple is ONE list built once at class-creation and
+    # handed to every instance that omits the field — so `s.not_a_feature.append(
+    # ...)` on a default-constructed value writes into the class, and the next
+    # default-constructed `Scaffolded` in the same process starts life holding
+    # the previous one's rows. The parent turns each entry into an operator note,
+    # so the visible failure is one run reporting another run's declines.
+    #
+    # A DEFAULT WOULD ALSO BE WRONG EVEN IF IT WERE IMMUTABLE, which is the
+    # stronger reason and the one that decided against `= ()`. Every list here
+    # answers "what happened to the rows I did not scaffold?", and the whole
+    # argument of this class is that "nothing happened" must never be reachable
+    # by omission — an absent field is exactly the silence the four original
+    # buckets were introduced to remove. Requiring them makes a caller that has
+    # not thought about the two decline reasons fail at construction rather than
+    # report an empty one.
+    not_a_feature: list[tuple[str, str]]
+    unsized: list[tuple[str, str]]
 
     @property
     def to_research(self) -> list[str]:
