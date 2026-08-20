@@ -137,26 +137,40 @@ def main(argv=None) -> int:
     plan_exists = (component / own.ROADMAP).is_file()
     try:
         where = ""
+        # THE DEFAULT REMEDY IS "WRITE IT", which is true of every path that
+        # reaches the refusal without a `--pr` answer: no tree this run can see
+        # carries a plan, so writing one is the only move.
+        remedy = ("Run plan_feature.sh against this component first — writing "
+                  "the plan is its job and this workflow holds no grant over a "
+                  "phase doc.")
         if a.pr_number:
             rel = (component / own.ROADMAP).relative_to(repo_root).as_posix()
             branch = act.pr_branch(a.pr_number, repo_root)
             act.git_output(repo_root, ["git", "fetch", "-q", "origin", branch],
                            "the PR's branch could not be brought local.")
-            # THE LOCAL ANSWER IS SPENT ON THE MESSAGE AND NOWHERE ELSE. Which
-            # sentence is true is the operator's whole diagnosis: "write the
-            # plan" and "push the plan you already wrote" are different remedies.
-            where = (f" — not here and not on PR #{a.pr_number}'s branch"
-                     if not plan_exists else
-                     f" — it IS in this checkout, but not on PR #{a.pr_number}'s "
-                     f"branch, which is the tree this run is cut from")
+            # THE LOCAL ANSWER IS SPENT ON THE MESSAGE AND NOWHERE ELSE — AND ON
+            # BOTH OF ITS SENTENCES. Which one is true is the operator's whole
+            # diagnosis: "write the plan" and "push the plan you already wrote"
+            # are different remedies, so the ACTIONABLE sentence branches with
+            # the diagnostic one. It did not, for one commit: the diagnostic said
+            # "it IS in this checkout" while a fixed tail underneath it told the
+            # operator to run the workflow that had already succeeded. A remedy
+            # is the only part of a refusal anyone ACTS on, so a correct
+            # diagnosis over a wrong remedy is worse than no message at all.
+            if plan_exists:
+                where = (f" — it IS in this checkout, but not on PR #{a.pr_number}'s "
+                         f"branch, which is the tree this run is cut from")
+                remedy = (f"Commit it to that branch and push, then re-run — this "
+                          f"run reads the branch and never this checkout, so a "
+                          f"plan that is only here is a plan it cannot see.")
+            else:
+                where = f" — not here and not on PR #{a.pr_number}'s branch"
             plan_exists = bool(act.git_output(
                 repo_root, ["git", "ls-tree", "-r", "--name-only", f"origin/{branch}", "--", rel],
                 "the PR's tree could not be listed.").strip())
         if not plan_exists:
             print(f"\n✗ {component.relative_to(repo_root)} has no {own.ROADMAP}"
-                  f"{where}: there is no plan to verify. Run plan_feature.sh against "
-                  f"this component first — writing the plan is its job and this "
-                  f"workflow holds no grant over a phase doc.", file=sys.stderr)
+                  f"{where}: there is no plan to verify. {remedy}", file=sys.stderr)
             return 1
     # `FileNotFoundError` TOO, because `run_bounded` does not catch it: a host
     # with no `gh` on PATH reaches `pr_branch` and escapes as a traceback by a
@@ -218,11 +232,27 @@ def main(argv=None) -> int:
             # trade: it is one syscall against no network, and reading it here
             # rather than threading it out of the precondition keeps this edit
             # outside the span a source-grep slices.
+            # THE CLAIM IS NARROWED TO THE FIGURES IT ACTUALLY GOVERNS, and the
+            # first draft of it was not. It said the checkout was "a tree WITHOUT
+            # the plan" and that "the counts below will be 0" — over ALL of them,
+            # unqualified. Only three of the four read the roadmap
+            # (`roadmap_phase_links`, `roadmap_hours`, `sizing_floor`);
+            # `phase_docs_of` does not, and a component whose phase docs are here
+            # while its roadmap is on the branch — a hand-laid-out component whose
+            # roadmap `plan-feature` wrote later, which is this runner's own
+            # target workflow — printed `Phase docs : 4 of its own` one line under
+            # a warning saying that number would be 0. An operator meeting a
+            # warning and then a number it said would not exist reads the warning
+            # as inapplicable, and takes the local count for the branch's. A
+            # diagnostic that over-claims is discounted whole on its first false
+            # instance, so it must assert only what its own code guarantees.
             if a.pr_number and not (component / own.ROADMAP).is_file():
-                print(f"  ⚠ NOT HERE : this checkout does NOT carry {rel}/{own.ROADMAP}, so the "
-                      f"counts below are read from a tree WITHOUT the plan and will be 0 for a "
-                      f"plan that is written. The run itself reads origin/{branch}, which is "
-                      f"where the precondition found it.")
+                print(f"  ⚠ NOT HERE : this checkout does NOT carry {rel}/{own.ROADMAP}, so every "
+                      f"figure below that is READ FROM THE ROADMAP — the phase-doc reference "
+                      f"count, the estimates and the floor — is 0 because the roadmap is absent "
+                      f"here, not because the plan is unwritten. The phase-doc count left of the "
+                      f"· is this checkout's own files and may differ from the branch's. The run "
+                      f"itself reads origin/{branch}, which is where the precondition found it.")
             # TWO DIFFERENT NUMBERS, LABELLED AS SUCH. A roadmap may link a
             # sibling component's phase docs — three of the MMF roadmap's nine
             # references are `persistent-memory-protocol`'s — so the reference

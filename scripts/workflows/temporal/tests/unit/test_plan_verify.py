@@ -1110,11 +1110,26 @@ def _pr_lookup(monkeypatch: pytest.MonkeyPatch, branch: str, tree_answer: str,
     """Answer the two boundary calls the `--pr` precondition makes, and log them.
 
     `raise_on` names the call that fails — `"pr_branch"` for an unresolvable
-    `--pr`, `"fetch"` for a ref this run cannot read. Both raise `RuntimeError`
-    in production: `pr_branch` through `gh()`, `git_output` on any non-zero exit.
+    `--pr`, `"fetch"` for a ref this run cannot read, `"no_gh"` for a host with
+    no `gh` on PATH.
+
+    TWO EXCEPTION TYPES, NOT ONE, and the second is why `"no_gh"` exists.
+    `RuntimeError` is the ordinary failure: `pr_branch` raises it through `gh()`,
+    `git_output` on any non-zero exit. But both bottom out in `subprocess`, which
+    raises `FileNotFoundError` when the BINARY is missing — `run_bounded` does not
+    catch it, so it escapes by a second route entirely. The runner's `except`
+    names both types for exactly that reason. Until `"no_gh"` every fake here
+    raised `RuntimeError` alone, so narrowing that `except` back to
+    `except RuntimeError:` — which silently reopens the traceback leak this
+    precondition was written to close — left the whole file green.
     """
     def pr_branch(pr_number: str, repo_root: Path) -> str:
         calls.append(("pr_branch", pr_number))
+        if raise_on == "no_gh":
+            # THE REAL SHAPE, not a `RuntimeError` wearing a different message.
+            # `subprocess.run(["gh", ...])` on a host without `gh` raises this,
+            # and the point of the case is the TYPE reaching the handler.
+            raise FileNotFoundError(2, "No such file or directory", "gh")
         if raise_on == "pr_branch":
             # NO TRAILING PERIOD, DELIBERATELY. `gh()` raises
             # `f"... failed in {repo_root}: {r.stderr.strip()}"`, and git/gh
@@ -1281,6 +1296,24 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_HERE_but_NOT_on_the_PRs_BRANCH(
         f"a plan that IS here was reported as absent from both trees, which is "
         f"false and sends the operator to write a file they already have; got "
         f"{err!r}")
+    # AND THE REMEDY IS THE HALF THE DOCSTRING ABOVE CLAIMED AND NOTHING HELD.
+    # For one commit the diagnostic branched and the ACTIONABLE sentence did not:
+    # "it IS in this checkout" was printed over a fixed "Run plan_feature.sh
+    # against this component first — writing the plan is its job", telling an
+    # operator whose only problem is an unpushed commit to re-run the workflow
+    # that had already succeeded. The two assertions above could not see it —
+    # both read the diagnostic clause, which was correct the whole time. A remedy
+    # is the only part of a refusal anyone ACTS on, so this asserts the wrong one
+    # is absent as well as the right one being present.
+    assert "plan_feature.sh" not in err, (
+        f"the refusal diagnosed 'the plan is here but unpushed' and then told "
+        f"the operator to run the workflow that WRITES the plan — the remedy "
+        f"contradicts the diagnosis one sentence earlier, and the remedy is the "
+        f"part they will act on; got {err!r}")
+    assert "push" in err, (
+        f"the refusal names no way out of the state it just diagnosed: the plan "
+        f"is written and this run cannot see it, so pushing it to the branch is "
+        f"the only remedy and the message has to say so; got {err!r}")
     assert "open_run_bag" not in calls and "worktree_add" not in calls, (
         f"the refusal came AFTER the run had created something — issue #49's "
         f"class; the calls were {calls!r}")
@@ -1289,6 +1322,12 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_HERE_but_NOT_on_the_PRs_BRANCH(
 @pytest.mark.parametrize("raise_on, unreadable", [
     ("pr_branch", "the --pr number resolves to no branch"),
     ("fetch", "the PR's ref cannot be fetched"),
+    # THE THIRD CASE IS A DIFFERENT EXCEPTION TYPE, not a third message. The two
+    # above both raise `RuntimeError`, so between them they pin the handler's
+    # BEHAVIOUR while pinning only half of what it CATCHES — and dropping
+    # `FileNotFoundError` from the `except` tuple left the whole file green,
+    # reopening the traceback leak by the one route `run_bounded` does not cover.
+    ("no_gh", "there is no gh binary on this host"),
 ])
 def test_a_PR_LOOKUP_that_FAILS_stops_the_run_and_says_so_rather_than_guessing(
         raise_on: str, unreadable: str, tmp_path: Path,
@@ -1514,6 +1553,122 @@ def test_a_DRY_RUN_with_NO_pr_still_NAMES_the_tree_it_counted(
     assert not [c for c in calls if c and c[0] == "pr_branch"], (
         f"a run given no --pr resolved a PR branch anyway; the calls were "
         f"{calls!r}")
+    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+        f"a --dry-run created something or dispatched — `nothing invoked, "
+        f"nothing posted` is the banner's promise; the calls were {calls!r}")
+
+
+def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The MIXED tree, which the three tests above structurally cannot reach.
+
+    THEIR FIXTURE COMPONENT HOLDS A ROADMAP AND NOTHING ELSE, so "the roadmap is
+    absent here" and "the plan is absent here" are the same state in all three
+    and no assertion can tell them apart. They are different states, and the
+    difference is reachable through this runner's own target workflow: a
+    component laid out by hand with phase docs, whose `roadmap.md` `plan-feature`
+    writes later, verified from a checkout predating that PR. Only `phase_docs_of`
+    ignores the roadmap, so in that state it prints a NON-ZERO count while
+    `roadmap_phase_links`, `roadmap_hours` and `sizing_floor` are all correctly 0.
+
+    MEASURED AT 4337371 BY EXECUTION, first against the real binary and then
+    reproduced here: the caveat called this checkout "a tree WITHOUT the plan"
+    and said "the counts below ... will be 0", one line above `Phase docs : 4 of
+    its own`. An operator who meets a warning and then immediately meets a number
+    the warning said would not exist reads the warning as inapplicable — so the
+    LOCAL phase-doc count gets taken for the branch's, which is the exact
+    wrong-confidence failure the caveat was added to prevent. A caveat that
+    over-claims is worse than none: it is what makes the local number look
+    vouched for.
+
+    THE ASSERTIONS ARE ON THE PROPERTY, NOT ON A REPLACEMENT WORDING, which
+    matters because a gate satisfiable by pasting a required string into the
+    artifact is worse than no gate. The number is parsed out of the runner's own
+    output and the caveat's claims are checked AGAINST it: any future rewording
+    that re-sweeps the phase-doc count into a blanket zero claim fails here
+    however it is phrased, and any wording that scopes its zeros to the roadmap
+    passes.
+
+    WHAT IT DOES NOT HOLD, stated so its silence is not over-read. It does not
+    check the counts are RIGHT — they are still this checkout's, which is issue
+    #134's fix for all four `--pr`-accepting runners at once. It holds only that
+    nothing printed beneath the caveat contradicts the caveat.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    component = repo / "docs" / "development" / "alpha"
+    # NAMES THAT MATCH `act._LOOKS_LIKE_A_PHASE` (`^phase.*\.md$`), which is read
+    # from the module rather than guessed — a fixture whose files do not match it
+    # prints `0 of its own` and this test then passes for the WRONG reason,
+    # reporting a defect as fixed when nothing has been exercised. The count
+    # assertion below is what turns that silent pass into a loud failure.
+    (component / "phase1_first.md").write_text("# Phase 1\n")
+    (component / "phase2_second.md").write_text("# Phase 2\n")
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo),
+                      "--pr", "132", "--dry-run"])
+    out, err = capsys.readouterr()
+    assert rc == 0, (
+        f"the dry run did not complete, so nothing below is exercising its "
+        f"output; stderr was {err!r}")
+    assert not (component / own.ROADMAP).is_file(), (
+        "the fixture stopped discriminating: with the roadmap present LOCALLY "
+        "the caveat does not fire and there is nothing here to contradict")
+
+    caveat = next((ln for ln in out.splitlines() if "NOT HERE" in ln), None)
+    assert caveat is not None, (
+        f"the caveat did not fire on a --pr dry run whose roadmap is absent "
+        f"here, so this test is asserting nothing about its claims; got {out!r}")
+    counted = re.search(r"Phase docs : (\d+) of its own", out)
+    assert counted, (
+        f"the phase-doc count is no longer printed in a shape this test can "
+        f"read, so the caveat's claim cannot be checked against it; got {out!r}")
+    phase_docs_here = int(counted.group(1))
+    # THE FIXTURE'S OWN DISCRIMINATOR. Two phase-doc-shaped files were written
+    # above; a `0` here means they did not match `_LOOKS_LIKE_A_PHASE` and the
+    # component is in the all-absent state the three tests above already cover —
+    # which is NOT this test's state and must not be mistaken for a pass.
+    assert phase_docs_here == 2, (
+        f"the fixture is not in the MIXED state: {phase_docs_here} phase docs "
+        f"were counted where 2 were written, so either the files stopped "
+        f"matching act._LOOKS_LIKE_A_PHASE or the count stopped being local. "
+        f"Nothing below discriminates in that state; got {out!r}")
+
+    # THE PROPERTY, CHECKED AGAINST THE NUMBER RATHER THAN AGAINST A WORDING:
+    # every zero the caveat asserts must be SCOPED to the figures that actually
+    # read the roadmap. A blanket zero claim is false the moment `phase_docs_of`
+    # returns anything, and that is the state this fixture is in.
+    for zero in re.finditer(r"\b0\b", caveat):
+        clause = caveat[max(0, zero.start() - 240):zero.end()].lower()
+        assert "roadmap" in clause, (
+            f"the caveat claims a figure is 0 without scoping the claim to the "
+            f"roadmap-derived ones, while {phase_docs_here} phase docs are "
+            f"counted one line below it — the operator meets a warning and then "
+            f"a number it said would not exist, and reads the warning as not "
+            f"applying; got {caveat!r}")
+    # AND IT MUST NOT DESCRIBE THIS CHECKOUT BY WHAT IS STILL IN IT. What is
+    # absent here is the roadmap; the plan's phase docs are on disk, computed
+    # below rather than assumed, so "a tree WITHOUT the plan" is false of it.
+    on_disk = sorted(p.name for p in component.iterdir() if p.is_file())
+    assert "without the plan" not in caveat.lower(), (
+        f"the caveat calls this checkout a tree WITHOUT the plan while {on_disk} "
+        f"are sitting in it — what is absent is the roadmap, and naming the "
+        f"wrong thing absent is what the count below then contradicts; got "
+        f"{caveat!r}")
+    # THE THREE THAT GENUINELY ARE 0 STILL ARE, so the narrowed claim is checked
+    # for being TRUE and not merely for being cautious — a caveat that claims
+    # nothing would pass every assertion above.
+    assert "· 0 phase-doc reference(s)" in out and "Sized now  : 0 estimate(s)" in out \
+        and "floor is 0" in out, (
+        f"the roadmap-derived figures are no longer the zeros the caveat "
+        f"attributes to the absent roadmap — either the fixture changed or the "
+        f"dry run now reads the branch, in which case issue #134's larger fix "
+        f"has landed and this test should assert THAT instead; got {out!r}")
+    assert out.index("Counted in") < out.index("NOT HERE") < out.index("Phase docs"), (
+        f"the caveat is not above the counts it qualifies, so its own "
+        f"\"below\" is false where it sits; got {out!r}")
     assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
         f"a --dry-run created something or dispatched — `nothing invoked, "
         f"nothing posted` is the banner's promise; the calls were {calls!r}")

@@ -379,9 +379,10 @@ claude-dot-files/
 │           │                                        #   written" and "not yet pushed" have different remedies. A lookup it cannot
 │           │                                        #   COMPLETE stops the run rather than reading as an absent
 │           │                                        #   plan. Its --dry-run NAMES the tree it counted — this checkout, since a dry run cuts no
-│           │                                        #   worktree — and on a --pr pass whose plan is NOT here it says so above the counts, which
-│           │                                        #   are otherwise 0 for a plan that is fully written. Counting from the branch instead is
-│           │                                        #   issue #134's, for all four --pr-accepting runners at once
+│           │                                        #   worktree — and on a --pr pass whose ROADMAP is not here it says so above the counts,
+│           │                                        #   naming the three figures READ FROM the roadmap as 0 for that reason, and the phase-doc
+│           │                                        #   count as this checkout's own. Counting from the branch instead is issue #134's, for
+│           │                                        #   all four --pr-accepting runners at once
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles), AND the
 │               │                                    #   session-wide autouse fixture that points every bag the suite opens at a temp
