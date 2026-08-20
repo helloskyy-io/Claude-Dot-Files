@@ -32,7 +32,7 @@ An identity minted inside the thing that retries becomes a new identity on every
 
 [`raw/durable_dispatch_identity.md`](research/raw/durable_dispatch_identity.md) — `Last validated 2026-08-07`, Critic `PASS-WITH-FIXES`, and its content is unchanged by the 2026-08-19 cycle (only its `Feeds:` line was corrected, from a dissolved sprint section to this one). The specific sections: **§2.7** for the six components, **§4.1–§4.2** for the recovery table's columns and rows, **§5.2** for the trap, **§5.3** for the migration-safe shape, and **§5.4** for what gets thrown away.
 
-**One thing in that paper is stale, and a build run planning from it alone will over-scope this phase.** See the next section — this is not a criticism of the paper, which was written 2026-08-07 against the tree as it then stood.
+**One thing in that paper is stale, and a build run planning from it alone will over-scope this phase.** See the next section — this is not a criticism of the paper, which was written 2026-08-07 against the tree as it then stood. **A second item over-scopes this phase the same way and is superseded rather than stale:** its §3.6 / §6 item 6 tier-1 store on `refs/dispatch/*`, costed there at *1–2 days*, is answered by the PMP run bag — see [`roadmap.md`](roadmap.md) § *What is deliberately not built*, which records the supersession and names what this phase still owes because of it.
 
 ---
 
