@@ -69,6 +69,16 @@ _SIZED_ROADMAP = (
 _CANDS = Path("docs/standards/architecture/research/candidates.md")
 
 
+# A REFERENCE THAT REACHES ALL THE PRINTED FIGURES AT ONCE — the grammar a
+# blanket zero claim has to use, and the boundary the dry-run caveat's zeros
+# must be narrowed inside of. Used by the mixed-tree test far below, and named
+# here rather than inline because what counts as "sweeping" is the judgement
+# that assertion turns on: a wording this misses is a wording that assertion
+# stops holding, so the list is the thing to extend when the caveat is reworded.
+_SWEEPS_THE_COUNTS = re.compile(
+    r"\b(?:every|all|each)\b|\b(?:counts?|figures?|numbers?)\s+below\b")
+
+
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
     (tmp_path / "docs" / "development" / "alpha" / "research" / "raw").mkdir(parents=True)
@@ -1596,21 +1606,47 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     a warrant by whoever edits the thing it guards, so an over-claiming one is
     the same defect as an over-claiming diagnostic, one layer up.
 
-    WHAT IT HOLDS: a caveat that attributes a zero to anything without scoping
-    that zero to the roadmap in its own prose fails, whether the zero is spelled
-    `0` or `zero`; and a caveat that stops naming its zeros altogether fails too,
-    rather than emptying the loop and passing in silence.
+    WHAT IT HOLDS. Between the last SWEEPING reference before a zero-claim and
+    the claim itself, the word `roadmap` must appear — so a wording that reaches
+    all the printed figures at once and then calls them 0 must narrow that reach
+    to the roadmap first, which is the grammar the shipped caveat uses. It holds
+    for the digit and for the word `zero`, with the interpolated file path
+    blanked so the filename cannot stand in for the narrowing; and a caveat that
+    stops naming its zeros altogether fails rather than emptying the loop and
+    passing in silence.
 
-    WHAT IT DOES NOT HOLD, stated so its silence is not over-read. It does not
-    check the counts are RIGHT — they are still this checkout's, which is issue
-    #134's fix for all four `--pr`-accepting runners at once. It holds only that
-    nothing printed beneath the caveat contradicts the caveat. It reds CLOSED on
-    one correct-but-unusual shape: a caveat that scopes its zeros by naming the
-    roadmap FILE PATH and never the bare word loses its only scoping token to the
-    blanking, and fails. That is deliberate — the blanking is what stops the
-    filename standing in for the claim — and failing closed on a wording nobody
-    has written beats passing open on the one that shipped. And it says nothing
-    about a caveat that misleads in words that name no figure at all.
+    A PROXIMITY CHECK WAS TRIED FIRST AND WAS NOT ENOUGH, which is worth keeping
+    because the difference is the whole subject. Asking whether `roadmap` occurs
+    within N characters of the zero tests CO-OCCURRENCE, and co-occurrence comes
+    apart from scope on the wording a careless edit actually writes: "with the
+    roadmap absent, every count below comes out 0" names the roadmap, sweeps the
+    phase-doc count in anyway, and clears a proximity check comfortably. Three
+    such wordings were constructed and run — two by review, one here — and all
+    three passed the proximity form and red the bounded one.
+
+    WHAT IT DOES NOT HOLD, stated so its silence is not over-read.
+
+    It does not read English, and it is not a proof. It holds a NECESSARY
+    condition on the wording — narrow before you claim — and a determined
+    rewording that satisfies the letter while still misleading (naming the
+    roadmap inside the swept span for an unrelated reason) would pass. Review is
+    the backstop for that; this assertion is the floor, and calling it more than
+    a floor is the same over-claim it exists to catch.
+
+    `_SWEEPS_THE_COUNTS` is a list, and a sweeping wording it does not match is a
+    wording this stops holding. That is the maintenance cost and it is the reason
+    the pattern is a named module constant rather than an inline literal.
+
+    It does not check the counts are RIGHT — they are still this checkout's,
+    which is issue #134's fix for all four `--pr`-accepting runners at once. It
+    holds only that nothing printed beneath the caveat contradicts the caveat.
+
+    It reds CLOSED on two shapes rather than passing them: a caveat that scopes
+    its zeros by naming the roadmap FILE PATH and never the bare word loses its
+    only narrowing token to the blanking, and a caveat that spells its zeros a
+    third way (`nil`, `none`) trips the empty-claims guard. Both are deliberate.
+    Failing closed on a wording nobody has written beats passing open on the one
+    that shipped, and each failure message names which of the two it is.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
     component = repo / "docs" / "development" / "alpha"
@@ -1673,6 +1709,20 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     # vacuity of the same kind: a blanket claim spelled "are all zero" matches
     # nothing at all, the loop body never runs, and a loop that never runs is an
     # assertion that cannot fail.
+    #
+    # AND THE SPAN IS BOUNDED BY THE SWEEP, NOT BY A CHARACTER COUNT. A fixed
+    # lookback asks "does the word `roadmap` appear NEAR this zero", which is
+    # co-occurrence and not scope — and the two come apart on the wording a
+    # careless edit actually produces: `with the roadmap absent, every count
+    # below comes out 0` names the roadmap, sweeps the phase-doc count in
+    # anyway, and passes a proximity check comfortably. So the span starts at
+    # the LAST sweeping reference before the zero (`every`/`all`/`each`, or
+    # `the counts/figures below`) and the restriction must sit INSIDE it: what
+    # the quantifier reaches has to be narrowed to the roadmap before the zero
+    # is claimed, which is the grammar the shipped caveat actually uses
+    # ("every figure below THAT IS READ FROM THE ROADMAP ... is 0"). With no
+    # sweep at all the span is the whole caveat, so an unquantified blanket
+    # claim is caught by the same line.
     scanned = caveat.replace(f"{component.relative_to(repo)}/{own.ROADMAP}",
                              "<the file this caveat is about>")
     claims = list(re.finditer(r"\b0\b|\bzeros?\b", scanned))
@@ -1682,14 +1732,17 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
         f"the caveat stopped naming the zeros it attributes to the absent "
         f"roadmap, or it spells them a third way this scan does not match; got "
         f"{caveat!r}")
+    low = scanned.lower()
     for zero in claims:
-        clause = scanned[max(0, zero.start() - 240):zero.end()].lower()
-        assert "roadmap" in clause, (
-            f"the caveat claims a figure is 0 without scoping the claim to the "
-            f"roadmap-derived ones, while {phase_docs_here} phase docs are "
-            f"counted one line below it — the operator meets a warning and then "
-            f"a number it said would not exist, and reads the warning as not "
-            f"applying; got {caveat!r}")
+        sweep = max((m.end() for m in _SWEEPS_THE_COUNTS.finditer(low[:zero.start()])),
+                    default=0)
+        assert "roadmap" in low[sweep:zero.end()], (
+            f"the caveat claims a figure is 0 without narrowing the claim to "
+            f"the roadmap-derived ones first, while {phase_docs_here} phase "
+            f"docs are counted one line below it — the operator meets a warning "
+            f"and then a number it said would not exist, and reads the warning "
+            f"as not applying. What is unrestricted is {low[sweep:zero.end()]!r}; "
+            f"got {caveat!r}")
     # AND IT MUST NOT DESCRIBE THIS CHECKOUT BY WHAT IS STILL IN IT. What is
     # absent here is the roadmap; the plan's phase docs are on disk, computed
     # below rather than assumed, so "a tree WITHOUT the plan" is false of it.
