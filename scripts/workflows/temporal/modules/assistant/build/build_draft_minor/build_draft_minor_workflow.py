@@ -1,8 +1,11 @@
 """build-draft-minor — the light tier's draft: one scoped change, one PR.
 
 Folder holds only this file (§10.1 rule 6): the family's trio is promoted to the
-purpose level. Its prompts are self-contained — unlike the major tier they pull
-in neither RULES nor the headless guard, which is why they are larger.
+purpose level. Its wrappers carry their own stage text — unlike the major tier
+they pull in neither RULES nor the headless guard, which is why they are larger.
+They are not fragment-free: the evidence-discipline pair and the two blocks
+promoted with them are shared, and which fragments a wrapper is DENIED is a
+ruling in `tests/unit/fork_vs_parameterize.py`, not an accident of history.
 """
 
 from __future__ import annotations
@@ -57,6 +60,25 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
             "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
             "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
             "PLAN_PATH": plan_path, "CONTEXT_BLOCK": context,
+        }
+    else:
+        # BOTH WRAPPERS, NOT ONE. These two were prose in `update_pr.md` and
+        # absent from `new_branch.md`, so a light-tier run started on a fresh
+        # branch was never told to establish ground truth by execution nor to
+        # prove its gate can go red — the two disciplines that stand in for the
+        # review agents this tier does not dispatch. Promoted by §10.1 once the
+        # second consumer existed.
+        #
+        # ON THE WRAPPER BRANCH AND NOT THE BASE DICT, though the finding that
+        # ordered this fix said the base dict: the plan-driven template cannot
+        # reference either one — `build_draft` shares that template and does not
+        # supply them — so a base-dict entry would be built and discarded on the
+        # plan path. That is the SAME defect this fix exists to close, one path
+        # over, and `test_every_pool_fragment_a_dispatch_LOADS_also_RENDERS`
+        # fails on it.
+        values |= {
+            "CHARACTERIZE_BY_EXECUTION": act.shared_prompt("characterize_by_execution"),
+            "CAN_IT_FAIL_LIGHT_TIER": act.shared_prompt("can_it_fail_light_tier"),
         }
     if pr_number:
         values |= {"PR_NUMBER": pr_number, "PR_BRANCH": act.pr_branch(pr_number, repo_root)}

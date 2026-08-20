@@ -43,7 +43,7 @@ plan_stop:
 
 **Workflow-fit check — do this BEFORE proceeding past Stage 1.** Assess whether this task actually belongs on plan-revision. If the task is predominantly a bulk rename, find-and-replace, or mechanical refactor across many files (not a genuine plan/architecture/requirements build), STOP and report:
 
-> This task looks like a bulk rename/refactor rather than a plan build. plan-revision.sh is sized for review-based planning changes and would burn through the turn budget on per-occurrence Edits. Recommend dispatching via build-minor.sh or build.sh with `sed -i` or `Edit(replace_all: true)` instead.
+> This task looks like a bulk rename/refactor rather than a plan build. `plan-revision` is sized for review-based planning changes and would burn through the turn budget on per-occurrence Edits. Recommend dispatching via `build-draft-minor` (light), or `build-draft` followed by `build-refine` (reviewed), with `sed -i` or `Edit(replace_all: true)` instead.
 
 Exit without proceeding to Stage 2. Red flags that indicate miscategorization: the task is "rename X to Y everywhere," "update all references from A to B," "replace every occurrence of Z," or anything requiring dozens of identical edits across many files.
 

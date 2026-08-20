@@ -27,6 +27,10 @@ Evaluate whether the plan is actionable:
 - Are dependencies met? (check if referenced files, APIs, or infrastructure exist)
 - Are there any blockers that would prevent implementation?
 
+${VERIFY_THE_TASKS_ASSERTED_FACTS}
+
+${VERIFICATION_IS_BY_FETCH}
+
 If the plan is not actionable, stop and clearly report what's missing. Otherwise, proceed with a brief validation summary.
 
 ## Stage 3: IMPLEMENT

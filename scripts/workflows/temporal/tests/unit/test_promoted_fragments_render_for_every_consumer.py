@@ -31,6 +31,8 @@ from pathlib import Path
 
 import pytest
 
+import fork_vs_parameterize as fvp
+
 from modules.assistant import assistant_activities as act
 from modules.assistant.build.build_draft import build_draft_workflow as draft
 from modules.assistant.build.build_draft_minor import build_draft_minor_workflow as draft_minor
@@ -270,6 +272,221 @@ def test_a_draft_tier_renders_EVERY_fragment_it_loads_on_SOME_path(
         f"them on ANY of its dispatch paths ({sorted(prompts)}). A supplier that "
         f"is built but never reaches a prompt leaves that tier running on "
         f"instructions the fragment's edits never touch."
+    )
+
+
+# --- the two guards the SOME-path check above cannot be -----------------------
+#
+# `..._on_SOME_path` asks whether a fragment reaches ANY of a tier's three
+# dispatch bodies, which is the right question for "is this supplier ever used"
+# and the wrong one for both defects that arrived through this seam: two
+# evidence-discipline fragments were loaded unconditionally by both draft
+# modules and referenced by neither the plan wrapper nor the plan body, and the
+# minor tier's new-branch wrapper was missing two blocks its PR-path sibling
+# had. One rendering path satisfied `any()` in every case, so the suite was
+# green over both.
+#
+# The split is by the tier contract, not by a list: LOADED-ON-A-PATH must RENDER
+# ON THAT PATH for every fragment, and a fragment ruled TIER-INVARIANT must
+# additionally reach EVERY path. Which is which comes from
+# `fork_vs_parameterize.FAMILY_RULINGS`, so a fragment is covered the moment it
+# is ruled rather than when someone remembers to add it here.
+
+
+class _RecordingPool:
+    """Wraps `act.shared_prompt` and records what ONE dispatch actually loaded.
+
+    WHY DYNAMIC WHERE `_stems_loaded_by` IS STATIC. The AST reader returns every
+    stem a module CAN load on any path; both draft modules load fragments inside
+    an `if plan_path:` arm, and source cannot say which arm ran. "Did this
+    dispatch use what it built" is a per-dispatch question, so it is answered by
+    watching the dispatch.
+    """
+
+    def __init__(self, real) -> None:
+        self._real = real
+        self.stems: list[str] = []
+
+    def __call__(self, stem: str) -> str:
+        self.stems.append(stem)
+        return self._real(stem)
+
+
+def _draft_paths_with_loads(monkeypatch, tmp_path: Path, entry) -> dict[str, tuple[str, set[str]]]:
+    """Each dispatch path as `(rendered prompt, pool stems that path loaded)`."""
+    monkeypatch.setattr(act, "pr_branch", lambda *a, **k: "build/x")
+    common = dict(description="do the thing", repo_root=tmp_path, worktree=tmp_path)
+    calls = {
+        "plan": lambda: entry(plan_path="docs/development/widget/phase1.md",
+                              context="CTX", **common),
+        "new_branch": lambda: entry(context="CTX", **common),
+        "update_pr": lambda: entry(pr_number="7", context="CTX", **common),
+    }
+    real = act.shared_prompt
+    out: dict[str, tuple[str, set[str]]] = {}
+    for path, call in calls.items():
+        pool = _RecordingPool(real)
+        monkeypatch.setattr(act, "shared_prompt", pool)
+        try:
+            out[path] = (_drive(monkeypatch, act, call), set(pool.stems))
+        finally:
+            # Restored explicitly rather than with `monkeypatch.undo()`, which
+            # would also revert `pr_branch` and break the next path.
+            monkeypatch.setattr(act, "shared_prompt", real)
+    return out
+
+
+_DRAFT_TIERS = [("build_draft", draft.run_draft),
+                ("build_draft_minor", draft_minor.run_draft_minor)]
+
+
+@pytest.mark.parametrize(("name", "entry"), _DRAFT_TIERS)
+def test_every_pool_fragment_a_dispatch_LOADS_also_RENDERS(
+    monkeypatch, tmp_path, name: str, entry
+) -> None:
+    """A fragment built for a path and not referenced by it is text nobody reads.
+
+    This is the finding that produced the whole guard: `build_from_plan.md` and
+    `stages_1_to_4_from_plan.md` referenced neither evidence-discipline fragment
+    while both draft modules loaded both unconditionally, so every plan-driven
+    build in this repo — which is how every phase here gets built — ran without
+    the rule that tells a run to verify the task's own asserted facts. Nothing
+    failed, because the two fragments did render on the two non-plan paths.
+
+    NO CATEGORY IS CONSULTED HERE. Loading a fragment and discarding it is waste
+    whatever the fragment says, and keeping this half classification-free means
+    it still fires on the pool's unruled majority.
+    """
+    paths = _draft_paths_with_loads(monkeypatch, tmp_path, entry)
+    assert len(paths) == 3, "a draft tier's dispatch paths are not all covered"
+    # VACUITY FLOOR: a recorder that captured nothing would make the assertion
+    # below trivially true on every path, and a green suite would then mean
+    # `shared_prompt` had stopped being the seam rather than that nothing is
+    # discarded.
+    empty = sorted(p for p, (_, stems) in paths.items() if not stems)
+    assert not empty, (
+        f"{name} loaded NO pool fragment on {empty} — either the tier stopped "
+        f"using shared_prompt() or this fixture stopped observing it, and in "
+        f"both cases the check below is asserting nothing"
+    )
+    discarded = sorted(
+        f"{path}: {stem}"
+        for path, (prompt, stems) in paths.items()
+        for stem in stems
+        if _needle(stem) not in prompt
+    )
+    assert not discarded, (
+        f"{name} loads these fragments on a path whose template never "
+        f"references them, so the text is built and thrown away:\n  "
+        + "\n  ".join(discarded)
+        + "\nEither reference the placeholder from that path's body, or move the "
+          "supplier into the arm that has a consumer."
+    )
+
+
+# A TIER-INVARIANT FRAGMENT THAT DOES NOT YET REACH EVERY PATH, with the reason.
+# THIS LIST MAY SHRINK AND MAY NEVER GROW SILENTLY — the staleness half of the
+# test below deletes-by-failing any entry that has stopped being a gap, so it
+# cannot rot into permission the way an unexamined exemption does.
+#
+# It exists because the alternative was worse in a way this repo has measured: a
+# guard that is red on arrival gets skipped rather than fixed, and each of these
+# is a real content decision outside the change that added the guard. Every one
+# is a live finding, written where the next reader of the guard sees it rather
+# than in a merged PR body nobody re-reads.
+_INVARIANT_PATH_GAPS = {
+    ("build_draft_minor", "gitignore_collision_check"):
+        "the two wrappers carry no gitignore-collision check at all, so a light "
+        "tier run that creates a file matched by an unanchored ignore pattern "
+        "ships a PR the file is invisible in. Genuinely absent rather than "
+        "reworded — the closest thing either wrapper has is a self-description "
+        "step about docs/file_structure.txt.",
+    ("build_draft_minor", "stage_order_is_mandatory"):
+        "both wrappers open with their own condensed EXECUTION ORDER IS "
+        "MANDATORY paragraph instead of the fragment, so the instruction is "
+        "present and the fragment is not. That is a child holding a drifted "
+        "near-copy of a pool fragment, which is C-111's axis and reachable by "
+        "no guard here at any granularity; reconciling it is a content ruling, "
+        "not a wiring fix.",
+    ("build_draft_minor", "characterize_by_execution"):
+        "promoted out of the PR-path wrapper and given to the new-branch "
+        "wrapper in the same change; the plan-driven body has never carried it, "
+        "and adding it there would change the prompt build_draft renders from "
+        "the same shared body. A cross-tier edit, correctly not made by the "
+        "pass that promoted the fragment.",
+}
+
+
+@pytest.mark.parametrize(("name", "entry"), _DRAFT_TIERS)
+def test_a_TIER_INVARIANT_fragment_reaches_EVERY_dispatch_path(
+    monkeypatch, tmp_path, name: str, entry
+) -> None:
+    """What the contract classes invariant, every path of that tier must receive.
+
+    TIER_INVARIANT's own words are the assertion: a category where "a difference
+    between the tiers would mean the two are running different rules". A
+    difference between two PATHS of ONE tier is the same defect with a smaller
+    blast radius and no reviewer looking at it, which is how the evidence-
+    discipline pair reached only two of three draft bodies while a ruling in
+    this tree declared it invariant.
+
+    WHAT THIS DOES NOT LOOK AT: a fragment no ruling names is skipped entirely,
+    and most of the pool is unruled. It also cannot see an invariant instruction
+    a path carries as its OWN prose instead of as the fragment — `_needle` looks
+    for the fragment's longest line, so a reworded copy reads as absent and a
+    verbatim copy reads as present. Two of the exemptions below are exactly that.
+    """
+    paths = _draft_paths_with_loads(monkeypatch, tmp_path, entry)
+    loaded_somewhere = set().union(*(stems for _, stems in paths.values()))
+    invariant = sorted(
+        s for s in loaded_somewhere if fvp.category_of(s) in fvp.TIER_INVARIANT
+    )
+    assert invariant, (
+        f"{name} loaded no fragment carrying a TIER_INVARIANT ruling, so this "
+        f"test asserted nothing. Either the rulings moved or the fixture did."
+    )
+    missing = {
+        s: sorted(p for p, (prompt, _) in paths.items() if _needle(s) not in prompt)
+        for s in invariant
+    }
+    missing = {s: where for s, where in missing.items() if where}
+
+    unexplained = sorted(s for s in missing if (name, s) not in _INVARIANT_PATH_GAPS)
+    assert not unexplained, (
+        f"{name} does not render these TIER-INVARIANT fragments on every "
+        f"dispatch path: "
+        + "; ".join(f"{s} missing from {missing[s]}" for s in unexplained)
+        + ". The contract says a difference here means the two tiers — or, "
+          "here, two paths of one tier — are running different rules. Reference "
+          "the placeholder from the body that lacks it, or, if the difference "
+          "is deliberate, rule the fragment TIER_SCOPED in FAMILY_RULINGS with "
+          "the signal that decided it."
+    )
+
+    # THE RATCHET. An exemption that has stopped being true must go, or the list
+    # becomes a record of what was once wrong rather than of what still is.
+    stale = sorted(s for (tier, s) in _INVARIANT_PATH_GAPS if tier == name and s not in missing)
+    assert not stale, (
+        f"these {name} entries in _INVARIANT_PATH_GAPS name fragments that now "
+        f"reach every dispatch path — delete the rows: {stale}"
+    )
+
+
+def test_the_INVARIANT_GAP_LIST_names_only_fragments_the_CONTRACT_calls_invariant() -> None:
+    """An exemption for a tier-scoped fragment would forgive a rule nobody made.
+
+    Cheap and worth stating: the list above suppresses failures, so an entry for
+    a fragment the contract never classed invariant is a row that can never
+    expire — the ratchet in the test above only fires on a gap that CLOSED, and
+    a fragment outside the invariant set never enters the check at all.
+    """
+    wrong = sorted(
+        f"{tier}/{stem}" for (tier, stem) in _INVARIANT_PATH_GAPS
+        if fvp.category_of(stem) not in fvp.TIER_INVARIANT
+    )
+    assert not wrong, (
+        f"_INVARIANT_PATH_GAPS exempts fragments that carry no TIER_INVARIANT "
+        f"ruling, so the exemption forgives nothing and will never expire: {wrong}"
     )
 
 
@@ -535,6 +752,12 @@ _FRAGMENT_FLOOR = {
     "verification_is_by_fetch": 1,
     "verify_the_tasks_asserted_facts": 1,
     "worktree_is_compared_to_a_snapshot": 1,
+    # MEASURED 2026-08-20. Both are single-paragraph blocks promoted out of
+    # `build_draft_minor/update_pr.md` once `new_branch.md` became a second
+    # consumer, so a one-line floor is the whole fragment — a shrink here is
+    # a deletion, not a trim.
+    "characterize_by_execution": 1,
+    "can_it_fail_light_tier": 1,
 }
 
 

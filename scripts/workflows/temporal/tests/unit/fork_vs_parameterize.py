@@ -102,6 +102,14 @@ rules. It is TIER-SCOPED when the difference IS the tier.
 
 `ruling_defects()` requires every family ruling to name one of these, so a
 reconciliation is a lookup rather than an argument.
+
+AND THE RULINGS THEMSELVES ARE HERE, at the bottom — `FAMILY_RULINGS`. They
+were written in the duplication guard that they emptied, and moved when a
+second consumer appeared: the render guard derives which fragments must reach
+EVERY dispatch path from each ruling's category, so the mapping stem ->
+category is now load-bearing in two modules rather than prose in one. §10.1
+settles that by consumer count. It also puts each ruling beside the contract
+it is required to cite.
 """
 from __future__ import annotations
 
@@ -225,3 +233,107 @@ def ruling_defects(ruling: str) -> list[str]:
 VARIANT_RATIONALE = re.compile(
     r"differs from\s+`?[\w./-]+`?\s+because\s+\S", re.IGNORECASE
 )
+
+
+# --- the rulings that emptied it ---------------------------------------------
+#
+# ONE RULING PER FAMILY OF GUIDANCE, NOT ONE PER PAIR, and that granularity is a
+# MEASURED outcome rather than a convenience. The blind trial recorded in
+# `docs/development/workflow-decomposition/fork_vs_parameterize_blind_trial.md`
+# put two shell-less raters on seven drifted pairs, sealed their calls in a
+# commit before any history was read, and scored them against a co-evolution
+# audit. Inter-rater kappa came out at 0.000 — at or below the field's 0.271
+# benchmark — so ruling moved from per-pair to per-family, which is exactly the
+# outcome the phase's requirement 3 was written to permit rather than to avoid.
+#
+# EVERY VALUE IS CHECKED, not decorative: `test_every_FAMILY_RULING_is_well_
+# formed` runs each through `fork_vs_parameterize.ruling_defects`, which demands
+# a verdict, a named deciding signal, a category from the `_minor` tier contract,
+# and NO similarity magnitude anywhere in the reasoning.
+FAMILY_RULINGS: dict[str, tuple[tuple[str, ...], str]] = {
+    "stage-ordering": (
+        ("stage_order_is_mandatory", "stage_order_skipped_marker"),
+        "PROMOTE S2 stage-ordering — every consumer is a staged run whose stages "
+        "must not be reordered or silently skipped. The two sites are alike on "
+        "the only dimension the text addresses, so a divergence here would mean "
+        "one child had quietly stopped being told stages are ordered. How MANY "
+        "stages a child has is tier-scoped and is not what these blocks say.",
+    ),
+    "operational-safety": (
+        ("gitignore_collision_check", "research_stage_1_verify_and_discover",
+         "worktree_is_compared_to_a_snapshot"),
+        "PROMOTE S2 operational-safety — what a run may do to the tree, and the "
+        "checks that catch it having done the wrong thing. A cheaper or "
+        "differently-jobbed run is not a run permitted to be less careful, so "
+        "SC3 does not reach these even where the two children's jobs differ: "
+        "the referent is the WORKTREE, which both hold identically.",
+    ),
+    "evidence-discipline": (
+        ("verify_the_tasks_asserted_facts", "verification_is_by_fetch",
+         "characterize_by_execution"),
+        "PROMOTE S2 evidence-discipline — how a claim is established before it "
+        "is written down. Scope changes what a run examines; it never changes "
+        "what counts as having examined it. Left duplicated, these are the exact "
+        "shape that forked before: general discipline landing in one consumer "
+        "and not its sibling, with a reader unable to tell. "
+        "`characterize_by_execution` joined them from the OTHER direction: it was "
+        "never duplicated, it was orphaned — carried by one light-tier wrapper "
+        "and absent from the other, which S3 reads as a whole block present in "
+        "one copy and missing from its sibling, the reportable pattern rather "
+        "than parameterization. Probe-before-asserting is named in this "
+        "category's own definition, so the classification is a lookup.",
+    ),
+    "tier-identity": (
+        ("can_it_fail_light_tier",),
+        "PROMOTE S4 tier-identity — promoted because both light-tier wrappers "
+        "consume it, and TIER-SCOPED because its closing clause names the tier "
+        "it addresses: the light tier has no review agents to catch a gate that "
+        "cannot go red. The instruction is invariant and the major tier carries "
+        "it as `mutation_discipline`; only this compression belongs to the light "
+        "tier, which is why the stem says so. S4 decides it — the rationale is "
+        "stated in the fragment's own last clause rather than recovered from "
+        "history, which is the one signal that can be created rather than found.",
+    ),
+    "finding-disposition": (
+        ("resolve_apply_the_remedy_you_wrote", "resolve_rejecting_is_legitimate",
+         "resolve_your_own_dispositions_too"),
+        "PROMOTE S2 finding-disposition — the rules for what may be done with a "
+        "finding once it exists. This category was already treated as invariant "
+        "when the resolve_* fragments were promoted, and these three were the "
+        "remainder, frozen with two consumers each so a third tier could not "
+        "take them without tripping the spread check. Reconciled into "
+        "build_refine_minor in the same change, per C-110's own reading.",
+    ),
+    "orchestration-mechanics": (
+        ("orchestrator_executes_agents_read",),
+        "PROMOTE S2 orchestration-mechanics — who executes and who reads. True "
+        "of a run dispatching one agent and of a run dispatching five, so it "
+        "renders in both refine tiers; the ROSTER is a different category and is "
+        "ruled separately below.",
+    ),
+    "review-depth": (
+        ("tell_each_agent_what_it_can_run", "agents_have_no_shell"),
+        "PROMOTE S3 review-depth — promoted because both consumers dispatch the "
+        "same multi-agent roster, and TIER-SCOPED because the text enumerates "
+        "that roster. The pair is one instruction split across two blocks (the "
+        "first ends 'in these two parts:'), so they are ruled together and move "
+        "together. build_refine_minor dispatches one agent and is deliberately "
+        "NOT a consumer — recorded in test_promoted_fragments_render_for_every_"
+        "consumer, which asks for exactly this ruling to be made there.",
+    ),
+}
+
+
+def category_of(stem: str) -> str | None:
+    """The tier-contract category a fragment was ruled under, or `None`.
+
+    `None` IS A REAL ANSWER AND NOT A LOOKUP FAILURE. Most of the pool predates
+    the rulings, and the procedure's own rule is that the absence of a signal
+    yields UNRULED rather than a default — so a caller deciding how strictly to
+    treat a fragment gets "nobody has ruled on this" and must not read it as
+    "tier-scoped", which is the weaker of the two and the tempting one.
+    """
+    for category, (stems, _) in FAMILY_RULINGS.items():
+        if stem in stems:
+            return category
+    return None

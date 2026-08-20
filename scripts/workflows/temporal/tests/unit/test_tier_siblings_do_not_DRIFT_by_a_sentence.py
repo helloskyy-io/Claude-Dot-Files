@@ -297,9 +297,57 @@ ACCEPTED_ORPHAN_LINES: dict[str, dict[tuple[str, str], str]] = {
 }
 
 
+_PLACEHOLDER = re.compile(r"\$\{([A-Z_][A-Z_0-9]*)\}")
+
+
+def _pool_stems(text: str, local: Path, pool: Path) -> set[str]:
+    """Pool fragments `text` pulls in, transitively, that `local` does not override.
+
+    A CHILD'S TEXT IS NOT ONLY ITS OWN FILES, and until this existed the detector
+    believed it was. Promoting a block out of one sibling replaced it with a
+    placeholder, so the pair vanished from the population while the drift itself
+    was untouched — the major tier kept its inline copy and the minor tier now
+    reads a fragment holding the other wording. Measured on exactly that edit:
+    the frozen `CHARACTERIZE EXISTING BEHAVIOUR` pair went from surfaced to
+    invisible, and the ratchet then asked for the row to be DELETED as
+    reconciled. Deleting it would have retired a live finding on the strength of
+    a promotion that changed no prose.
+
+    LOCAL WINS, because `render()` does: `plan_revision` supplies `${RULES}` from
+    its own directory — the PLANNING ruleset — while the pool's `rules.md` is the
+    BUILD ruleset, and resolving pool-first would compare a planning prompt
+    against instructions to change code. A locally-overridden stem is skipped
+    here rather than added: the child's own file is already in the walk.
+
+    TRANSITIVE, because a pool fragment may reference another: the plan-driven
+    body carries `${STAGE_ORDER_IS_MANDATORY}` and `${GITIGNORE_COLLISION_CHECK}`.
+    A single level would attribute those to nobody.
+
+    `pool` is a parameter rather than the module constant so a control can drive
+    this on a synthetic tree — against the real one only the passing path runs.
+    """
+    found: set[str] = set()
+
+    def walk(body: str) -> None:
+        for var in _PLACEHOLDER.findall(body):
+            stem = var.lower()
+            if stem in found or (local / f"{stem}.md").exists():
+                continue
+            fragment = pool / f"{stem}.md"
+            # NOT EVERY PLACEHOLDER NAMES A FRAGMENT — `${DESCRIPTION}` is
+            # operator text and `${STAGES_1_TO_4}` is a slot a workflow fills
+            # with one of several bodies. A miss is a value, not a fragment.
+            if fragment.is_file():
+                found.add(stem)
+                walk(fragment.read_text())
+
+    walk(text)
+    return found
+
+
 @lru_cache(maxsize=None)
 def _blocks(child: str) -> tuple[str, ...]:
-    """Every substantive block in one child's prompts, SORTED.
+    """Every substantive block a child SENDS, its own and the pool's, SORTED.
 
     CACHED, and returning a TUPLE so the cached value cannot be mutated by one
     caller under another. The tree does not change within a run, and this was
@@ -309,11 +357,29 @@ def _blocks(child: str) -> tuple[str, ...]:
     result on a 60-byte opening: where two blocks in one child share an opening,
     iteration order would otherwise decide which entry a reader sees, and the
     same tree could report differently on two machines.
+
+    THE POOL FRAGMENTS A CHILD REFERENCES COUNT AS THAT CHILD'S TEXT — see
+    `_pool_stems`. A fragment BOTH siblings reference is then byte-identical on
+    both sides, which both detectors exclude by construction (`NEAR < r < 1.0`,
+    and `x == y` returns zero), so sharing costs no false positives: measured,
+    this addition surfaced the one pair a promotion had hidden and not a single
+    new one. What it adds is the child-versus-POOL axis, where a child keeps an
+    inline near-copy of a fragment its sibling reads from the pool.
+
+    Fragments are added WHOLE rather than spliced into the referencing file. A
+    splice glues the fragment's first line to whatever precedes the placeholder
+    — `7. REFLECT: ` in one wrapper and nothing in the other — and two identical
+    fragments then score 0.98 against each other. That is a false pair produced
+    by the measurement, and freezing it would have put noise in the one list a
+    reader trusts to be signal.
     """
+    files = [p for p in ASSISTANT.rglob("prompts/*.md")
+             if p.parent != SHARED and p.parent.parent.name == child]
+    stems: set[str] = set()
+    for p in files:
+        stems |= _pool_stems(p.read_text(), p.parent, SHARED)
     out = []
-    for p in ASSISTANT.rglob("prompts/*.md"):
-        if p.parent == SHARED or p.parent.parent.name != child:
-            continue
+    for p in files + [SHARED / f"{s}.md" for s in sorted(stems)]:
         for raw in re.split(r"\n\s*\n", p.read_text()):
             b = raw.strip()
             if len(b) >= MIN_BLOCK:
@@ -1115,3 +1181,43 @@ def test_a_NEW_VARIANT_WITHOUT_A_REASON_IS_VISIBLE_to_a_reviewer() -> None:
         "the FORM is the point: a fixed phrase is greppable across the corpus, "
         "free prose is not"
     )
+
+
+def test_the_POOL_RESOLVER_DISCRIMINATES(tmp_path: Path) -> None:
+    """Live control for `_pool_stems`, one arm per claim its docstring makes.
+
+    THE REAL TREE ONLY EVER EXERCISES THE PASSING PATH — every child resolves
+    correctly today, so a resolver that had quietly stopped following the
+    transitive edge, or had started preferring the pool over a child's own
+    override, would look exactly like this run does. The fixture is synthetic
+    rather than a mutation of the live tree: a control sharing its fixture with
+    the thing it mutates over-fires, and what it then proves is the fixture.
+    """
+    pool, local = tmp_path / "pool", tmp_path / "local"
+    pool.mkdir(), local.mkdir()
+    (pool / "outer.md").write_text("outer text, which pulls ${INNER}")
+    (pool / "inner.md").write_text("inner text")
+    (pool / "rules.md").write_text("the BUILD ruleset")
+    (local / "rules.md").write_text("the PLANNING ruleset")
+
+    assert _pool_stems("body with ${OUTER}", local, pool) == {"outer", "inner"}, (
+        "the transitive edge is not being followed — a fragment reached only "
+        "through another fragment would be attributed to no child"
+    )
+    assert _pool_stems("body with ${RULES}", local, pool) == set(), (
+        "a stem the child overrides locally must not be taken from the pool; "
+        "`plan_revision`'s ${RULES} is the planning ruleset and the pool's is "
+        "the build ruleset, so this direction of error compares a planning "
+        "prompt against instructions to change code"
+    )
+    assert _pool_stems("body with ${DESCRIPTION}", local, pool) == set(), (
+        "a placeholder with no fragment behind it is operator text or a slot, "
+        "not a fragment, and inventing one would raise on a missing file"
+    )
+    # AND THE LIVE TREE MUST ACTUALLY BE USING IT. The three arms above pass on
+    # a synthetic directory even if no real child references a single fragment,
+    # which is the vacuous-scoping failure this repo keeps re-finding.
+    assert _pool_stems(
+        (ASSISTANT / "build" / "build_draft" / "prompts" / "update_pr.md").read_text(),
+        ASSISTANT / "build" / "build_draft" / "prompts", SHARED,
+    ), "no pool fragment resolved from a real child prompt — the resolver is scoped wrong"

@@ -102,6 +102,32 @@ def _prompts() -> list[str]:
 
 
 # (shipped file, what it must equal in V1)
+# A V1 LINE THIS PORT DELIBERATELY REPLACED, and why. Containment forbids LOSS,
+# which is right for the failure this module exists to catch and wrong for the
+# one case where V1 is the thing that is out of date: a reference line naming
+# `plan-revision.sh`, `build-minor.sh` or `build.sh` routes the operator into
+# the FROZEN bash fleet, which `config/rules/personal-tooling.md` forbids the
+# Python fleet from depending on and which the operator deletes when it stops
+# being needed. Keeping the line to satisfy parity would ship a STOP whose
+# remedy is unusable today and names nothing after the deletion.
+#
+# NOT A LOOSENING, and the staleness test at the bottom is what makes that true:
+# an entry must still be present in V1 (or it is dead and must go) and must be
+# ABSENT from the shipped prompt (or it never superseded anything). Both
+# directions fail loudly, so this cannot quietly become a place to put losses.
+SUPERSEDED_V1_LINES = {
+    "> This task looks like a bulk rename/refactor rather than a plan build. "
+    "plan-revision.sh is sized for review-based planning changes and would burn "
+    "through the turn budget on per-occurrence Edits. Recommend dispatching via "
+    "build-minor.sh or build.sh with `sed -i` or `Edit(replace_all: true)` instead.":
+        "the three script names resolve ONLY under scripts/workflows/ — the "
+        "Python tier's shims are underscored — so this STOP handed the operator "
+        "a re-dispatch into the frozen fleet. Rewritten to name the tiers "
+        "(`plan-revision`, `build-draft-minor`, `build-draft` + `build-refine`), "
+        "matching the same repair made to three sibling prompts.",
+}
+
+
 PROMPT_FILES = [
     pytest.param("stages_1_to_5.md", lambda: _heredoc("STAGES_1_TO_5"), id="stages_1_to_5"),
     pytest.param("rules.md", lambda: _heredoc("RULES"), id="rules"),
@@ -164,7 +190,9 @@ def test_prompt_file_is_byte_identical_to_v1(filename: str, v1_source) -> None:
     # still fails, because the expanded reference then carries a fragment's
     # lines that the shipped side does not.
     expected = expand(v1_source(), local=wf.PROMPTS)
-    missing = [ln for ln in expected.splitlines() if ln.strip() and ln not in shipped]
+    missing = [ln for ln in expected.splitlines()
+               if ln.strip() and ln not in shipped
+               and ln not in SUPERSEDED_V1_LINES]
     assert not missing, (
         f"prompts/{filename} has LOST content relative to {V1.name}: "
         f"{len(missing)} reference line(s) are absent, first is {missing[0][:90]!r}. "
@@ -273,7 +301,9 @@ def test_the_assembled_prompt_carries_both_interpolated_bodies(
     # for. Every reference line must still be present; the ~935-byte failure
     # (wrapper intact, stages gone) fails here exactly as it did before.
     for body in ("STAGES_1_TO_5", "RULES"):
-        absent = [ln for ln in _heredoc(body).splitlines() if ln.strip() and ln not in prompt]
+        absent = [ln for ln in _heredoc(body).splitlines()
+                  if ln.strip() and ln not in prompt
+                  and ln not in SUPERSEDED_V1_LINES]
         assert not absent, (
             f"the assembled prompt is missing {len(absent)} line(s) of the {body} body, "
             f"first {absent[0][:80]!r}. This is the ~935-byte failure exactly: the "
@@ -300,4 +330,31 @@ def test_the_planning_rules_ship_not_the_shared_build_rules(
     assert "This is a PLANNING build — do not modify code, scripts, or configuration files" in prompt
     assert act.shared_prompt("rules") not in prompt, (
         "the shared BUILD rules were substituted into a planning prompt"
+    )
+
+
+def test_every_SUPERSEDED_v1_line_is_still_in_V1_and_gone_from_the_PORT() -> None:
+    """The exemption list above cannot rot into permission for a real loss.
+
+    Two directions, and both matter. A line no longer in V1 makes its entry
+    dead — it forgives nothing and hides that the reference moved. A line still
+    in the SHIPPED prompt means the supersession never happened, so the entry is
+    an assertion about an edit nobody made, and the next reader takes it as
+    evidence the frozen-fleet referent is gone when it is not.
+    """
+    assert SUPERSEDED_V1_LINES, "nothing to check — remove this test with the list"
+    reference = _heredoc("STAGES_1_TO_5") + "\n" + _heredoc("RULES")
+    shipped = "\n".join(
+        assembled(wf.PROMPTS / c.values[0]) for c in PROMPT_FILES
+    )
+
+    dead = sorted(ln[:70] for ln in SUPERSEDED_V1_LINES if ln not in reference)
+    assert not dead, (
+        f"these entries name lines that are no longer in {V1.name}, so they "
+        f"forgive nothing and conceal that the reference changed: {dead}"
+    )
+    unapplied = sorted(ln[:70] for ln in SUPERSEDED_V1_LINES if ln in shipped)
+    assert not unapplied, (
+        f"these entries claim a V1 line was replaced, and the shipped prompts "
+        f"still carry it verbatim: {unapplied}"
     )

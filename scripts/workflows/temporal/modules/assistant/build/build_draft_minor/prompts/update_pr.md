@@ -18,7 +18,7 @@ ${VERIFY_THE_TASKS_ASSERTED_FACTS}
 
    ${VERIFICATION_IS_BY_FETCH}
 
-**IF THE TASK IS TO CHARACTERIZE EXISTING BEHAVIOUR, ESTABLISH GROUND TRUTH BY EXECUTION BEFORE YOU WRITE ANY ASSERTION.** Reading the implementation carefully and then writing what it *should* do produces a suite that encodes your belief about the code and passes. **Measured:** a characterization suite for a regex-based hook shipped three entries mislabelled SAFE, written from an attentive reading of the patterns — and the four real defects it *did* find were all found by running the thing. Probe first, record what actually happens, then assert it. Where reality and the documented intent disagree, that gap is the highest-value finding in the task, not an inconvenience to smooth over.
+${CHARACTERIZE_BY_EXECUTION}
 
    TURN-BUDGET DISCIPLINE: you have 100 turns. Commit as soon as a coherent unit of work is verified — do NOT carry completed, tested work uncommitted while you continue. If you approach the cap with uncommitted work, STOP what you are doing, commit and push it immediately, and report what remains. Work that dies uncommitted in a worktree is lost silently; work that is committed and pushed is resumable by the next dispatch.
 
@@ -35,7 +35,7 @@ ${VERIFY_THE_TASKS_ASSERTED_FACTS}
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
-   CAN IT FAIL? If you write or modify a structural/contract/grep-style test, a CI workflow step, a lint gate, or test-harness code, DEMONSTRATE it fires: break the property in a scratch copy, confirm red, restore. (Measured: seven negative controls written for a CI gate, all seven fired, one reproducing a real historical outage.) A gate that cannot go red is the purest form of manufactured confidence, and the light tier has no review agents to catch it for you.
+   ${CAN_IT_FAIL_LIGHT_TIER}
 
 4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
 
