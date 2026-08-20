@@ -190,11 +190,11 @@ def main(argv=None) -> int:
         return 1
 
     try:
-        rel = component.relative_to(repo_root)
+        component_rel = component.relative_to(repo_root)
         if a.dry_run:
             phases = own.phase_docs_of(component)
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
-            print(f"  Component  : {rel}")
+            print(f"  Component  : {component_rel}")
             # THE TREE THE COUNTS CAME FROM, NAMED RATHER THAN LEFT TO BE
             # ASSUMED. No worktree exists on a dry run, so every figure below is
             # read off THIS checkout — while a `--pr` run cuts its worktree from
@@ -253,7 +253,7 @@ def main(argv=None) -> int:
             # rather than threading it out of the precondition keeps this edit
             # outside the span a source-grep slices.
             if a.pr_number and not (component / own.ROADMAP).is_file():
-                print(f"  ⚠ NOT HERE : this checkout does NOT carry {rel}/{own.ROADMAP}, so every "
+                print(f"  ⚠ NOT HERE : this checkout does NOT carry {component_rel}/{own.ROADMAP}, so every "
                       f"figure below that is READ FROM THE ROADMAP — the phase-doc reference "
                       f"count, the estimates and the floor — is 0 because the roadmap is absent "
                       f"here, not because the plan is unwritten. The phase-doc count left of the "
@@ -278,7 +278,7 @@ def main(argv=None) -> int:
                   f"(floor is {own.sizing_floor(component, phases)})")
             print(f"  Max turns  : {wf.MAX_TURNS} (estimate — nothing has measured this workflow)")
             print(f"  Grants     : "
-                  f"{', '.join(wf.permitted_paths(rel, cands.relative_to(repo_root)))}")
+                  f"{', '.join(wf.permitted_paths(component_rel, cands.relative_to(repo_root)))}")
             # THE SAME ASSEMBLY THE LIVE RUN USES, called rather than copied. A
             # dry run that builds its own values dict previews a prompt that is
             # not the one dispatched — the family has shipped that bug once
@@ -286,7 +286,7 @@ def main(argv=None) -> int:
             # checking the wrong artifact is worse than checking none.
             rendered = act.render(
                 act.load_prompt(wf.PROMPTS / "plan_verify.md"),
-                wf.prompt_values(rel, cands.relative_to(repo_root), repo_root,
+                wf.prompt_values(component_rel, cands.relative_to(repo_root), repo_root,
                                  a.pr_number, context),
                 opaque=frozenset({"TASK_CONTEXT"}))
             # BYTES, VIA `.encode()`, AND NOT `len(str)`. The prompt-budget gate
@@ -337,7 +337,7 @@ def main(argv=None) -> int:
         return 1
 
     print(f"\n{BANNER}\n  {url}\n{BANNER}")
-    print(f"\nSIZED — the estimates are in {rel}/{own.ROADMAP} and nowhere else.")
+    print(f"\nSIZED — the estimates are in {component_rel}/{own.ROADMAP} and nowhere else.")
     print("`plan-sprint` does NOT read them today: its prompt states it never opens a")
     print("phase doc, and nothing in it reads a roadmap or an hour figure. Closing that")
     print("handoff is a change to plan-sprint and is not made from here.\n")
