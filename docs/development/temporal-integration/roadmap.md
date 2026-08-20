@@ -61,7 +61,7 @@ A retry is only safe if the work it repeats is the *same* work. Today a dispatch
 - [ ] **No code path invents a dispatch identity inside an activity** — the logical id is computed by the caller from the work and passed in
 - [ ] **The six identity components exist as record fields** — logical id, attempt id, uniqueness scope, request fingerprint, retention horizon, and the two conflict rulings
 - [ ] **The per-subsystem recovery table is filled for every subsystem this fleet has**, including the rows whose values another component supplies
-- [ ] **Re-dispatching the same logical id is demonstrated to reuse one identity**, and a duplicate launch while one is live fails loudly rather than starting a second run against the same worktree
+- [ ] **Re-dispatching the same logical id is demonstrated to reuse one identity**, and a duplicate launch while one is live fails loudly rather than starting a second run against the same worktree. **The loud-failure half depends on [PMP Phase 9](../persistent-memory-protocol/phase9_one_run_one_identity.md) r7** — the mutual-exclusion mechanism is not built in this component, and a *sequential* second launch demonstrates the ruling rather than the mechanism
 - [ ] **Nothing Temporal replaces is built** — no claim/lease/TTL, no boot reconciler, no retry bookkeeping
 
 ### [Phase 3 — The retry boundary, and a `gh` failure that carries its own verdict](phase3_the_retry_boundary.md) ⬜
@@ -209,6 +209,7 @@ A new permanent control plane is stood up on the good cluster and the starter no
 | The port itself ([Phase 5](phase5_the_first_dispatch.md), [Phase 6](phase6_the_rest_of_the_fleet.md)) | [Workflow Decomposition](../workflow-decomposition/roadmap.md) | **gates us** — porting a shape still being changed means porting it twice |
 | The port itself | [Memory Management Framework](../memory-management-framework/roadmap.md) | **satisfied** — that component is complete, and the typed exit record moved to PMP |
 | [Phase 2](phase2_durable_dispatch_identity.md) | [PMP Phase 1](../persistent-memory-protocol/phase1_the_run_bag.md) — the run bag keyed by `run_id` | **satisfied**; the bag is the store the identity record extends |
+| [Phase 2](phase2_durable_dispatch_identity.md) requirement 4 **only** | [PMP Phase 9](../persistent-memory-protocol/phase9_one_run_one_identity.md) **r7** — atomic create-if-not-exists on the bag | **gates the demonstration half of requirement 4**, and nothing else in the phase. r7 waits on its carrier, the addendum identity section queued as **C-120**; the ruling is this component's to make. PMP Phase 9 is itself ungated and can be scheduled ahead |
 | [Phase 7](#phase-7--the-three-node-cluster), [Phase 8](#phase-8--the-pivot-and-the-starter-is-destroyed) | MDC's cluster and bootstrap work | **gates us** — and is why neither has a phase doc |
 
 **Components gated on THIS one, listed so their planners can see where they sit:**
