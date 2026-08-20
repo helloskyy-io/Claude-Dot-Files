@@ -20,11 +20,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import ci_verdict, wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ..build_draft_minor import build_draft_minor_workflow as draft
 from ..build_refine_minor import build_refine_minor_workflow as refine
 from ... import assistant_activities as act
+from ...assistant_activities import ci_verdict, wait_for_ci
+from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 
@@ -68,8 +69,15 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
                                        loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
-        notes.append("review-pr found an item only a human can rule on; no loop-back "
-                     "was attempted, because more passes cannot produce a human decision.")
+        # THIS NOTE STATES THE LOOP DECISION AND NOTHING ELSE, for the reason its
+        # sibling `build/build_workflow.py` records at length: TWO paths return
+        # this verdict and BOTH already wrote their own cause — the CI gate
+        # appends a note ending "review-pr was NOT dispatched", and the review
+        # path does `notes.extend(result.notes)`. A third sentence from here,
+        # which detects neither, can only be a guess, and on PR #124 the guess
+        # landed directly beneath the note saying review-pr had not run.
+        notes.append("No loop-back was attempted: more passes cannot produce a "
+                     "human decision. The cause is in the note above.")
     elif verdict is Verdict.HOLD_REDISPATCH:
         notes.append(f"The automated loop is SPENT — {helper.MAX_LOOPS} "
                      f"loop-back(s) is the cap.")
@@ -96,10 +104,10 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     # cascade landed in `build_workflow` alone and this parent was never updated,
     # so the light tier reached `review-pr` with the CI verdict never read and
     # could return MERGE on a red tree — the hole removing branch protection
-    # opened, closed on one tier only. See `helper.ci_gate`.
+    # opened, closed on one tier only. See `routing.ci_gate`.
     wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
     verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
-    hold, gate_notes = helper.ci_gate(verdict_state, extra, pr=pr,
+    hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
                                       repo_target=task.repo_target)
     notes.extend(gate_notes)
     if hold is not None:

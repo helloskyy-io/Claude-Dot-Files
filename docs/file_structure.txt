@@ -346,6 +346,11 @@ claude-dot-files/
 │           │                                        #   exit_record.py — the typed exit record: THE ONE DECLARATION of its
 │           │                                        #   schema and vocabulary, and the ten-rule fail-safe contract a parent routes on
 │           │                                        #   (docs/standards/exit-protocol.md). Dependency-free, like its sibling routing.py
+│           │                                        #   THE CI GATE IS SHARED, NOT BUILD-FAMILY: routing.py owns CiVerdict, POLICY_PATH
+│           │                                        #   and the pure ci_gate cascade; assistant_activities.py owns the reads
+│           │                                        #   (wait_for_ci, ci_verdict, read_check_policy). They lived under build/ until
+│           │                                        #   PR #124, which is why one plan and three research parents dispatched review-pr
+│           │                                        #   on a CI verdict nobody read. All six parents now run the same gate
 │           │                                        #   convergence.py — MMF Phase 5's computed stopping predicate: the open/closed
 │           │                                        #   partition over `disposition`, six ordered rules, a named recorded residual arm.
 │           │                                        #   RECORDED, ROUTED ON BY NOTHING — MAX_LOOPS is still the only stopping authority

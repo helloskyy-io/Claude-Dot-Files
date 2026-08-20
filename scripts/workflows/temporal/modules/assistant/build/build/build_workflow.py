@@ -30,9 +30,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import ci_verdict, wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ... import assistant_activities as act
+from ...assistant_activities import ci_verdict, wait_for_ci
+from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput
 from ..build_draft import build_draft_workflow as draft
@@ -163,13 +164,14 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         )
 
     # --- THE GATE: the parent reads the verdict, so MERGE is unreachable on red
-    # The cascade itself is `helper.ci_gate` — pure, and SHARED with the
-    # `build_minor` parent, which had no gate at all until it was promoted there.
-    # Read that function for why the gate lives in a parent rather than a prompt,
-    # and why every state HOLDs instead of exiting.
+    # The cascade itself is `routing.ci_gate` — pure, and SHARED with the five
+    # other parents that dispatch `review-pr`, none of which had a gate until it
+    # was promoted out of this family. Read that function for why the gate lives
+    # in a parent rather than a prompt, and why every state HOLDs instead of
+    # exiting.
     wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
     verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
-    hold, gate_notes = helper.ci_gate(verdict_state, extra, pr=pr,
+    hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
                                       repo_target=task.repo_target)
     notes.extend(gate_notes)
     if hold is not None:

@@ -27,10 +27,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from modules.assistant import assistant_activities as shared  # noqa: E402
-from modules.assistant.build import build_activities as act  # noqa: E402
-from modules.assistant.build.build_activities import POLICY_PATH, CiVerdict  # noqa: E402
-from modules.assistant.build import build_helper as helper  # noqa: E402
-from modules.assistant.build.build_inputs import Verdict  # noqa: E402
+# `act` IS THE SHARED ACTIVITIES MODULE NOW. The CI reads were promoted out of
+# `build/build_activities.py` per §10.1 rule 3 when their consumer count reached
+# six across three families; the pure half (`POLICY_PATH`, `CiVerdict`,
+# `ci_gate`) went to `routing`. The alias is kept so the ~40 activity-driving
+# tests below read unchanged — what moved is the address, not the behaviour.
+from modules.assistant import assistant_activities as act  # noqa: E402
+from modules.assistant import routing  # noqa: E402
+from modules.assistant.routing import POLICY_PATH, CiVerdict, Verdict  # noqa: E402
 
 
 def _gh(monkeypatch, payload, *, stdout=None, stderr="", returncode=0):
@@ -376,7 +380,7 @@ def test_GATE_DID_NOT_RUN_does_not_also_report_its_gate_as_UNDECLARED(monkeypatc
     # — and it broke the moment the cascade was promoted to `helper.ci_gate` for
     # `build_minor` to share, while the property it names was untouched. Calling
     # the decision is strictly stronger and now covers BOTH parents at once.
-    hold, notes = helper.ci_gate(verdict, names, pr="1", repo_target=None)
+    hold, notes = routing.ci_gate(verdict, names, pr="1", repo_target=None)
     assert hold is Verdict.HOLD_REDISPATCH
     undeclared = [n for n in notes if "UNDECLARED CHECKS" in n]
     assert not undeclared, (
@@ -408,38 +412,118 @@ def test_the_UNGATED_PARENT_predicate_discriminates_on_a_literal() -> None:
         "def f(x):\n    return review_pr.run_review(x)\n"
     ), "the predicate no longer reports a parent that dispatches review with no gate"
     assert not _dispatches_review_ungated(
-        "def f(x):\n    h, n = helper.ci_gate(x)\n    return review_pr.run_review(x)\n"
+        "def f(x):\n    h, n = routing.ci_gate(x)\n    return review_pr.run_review(x)\n"
     ), "the predicate now reports a correctly gated parent, so it would fail on good code"
     assert not _dispatches_review_ungated(
         "def f(x):\n    return x\n"
     ), "the predicate fires on a module that dispatches no review at all"
 
 
-def test_BOTH_build_parents_read_the_CI_verdict_before_dispatching_review() -> None:
-    """A gate one parent runs and its sibling does not is a tier running looser.
+#: Every module under `modules/assistant` that dispatches `review-pr`, discovered
+#: rather than listed. `review_pr_workflow.py` is excluded because it IS the
+#: reviewer — it does not dispatch itself.
+def _review_dispatchers() -> list[Path]:
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant"
+    out = []
+    for p in sorted(root.rglob("*_workflow.py")):
+        if p.name == "review_pr_workflow.py":
+            continue
+        if "run_review" in p.read_text():
+            out.append(p)
+    return out
 
-    THE CLASS, NOT THE INSTANCE. `helper.ci_gate` landed in `build_workflow` on
-    2026-08-09 and `build_minor_workflow` was never updated, so for the whole of
-    that window the light tier reached `review-pr` with the verdict unread and
-    could return MERGE on a red tree. Nothing could see it: every CI-gate test in
-    this module drives the ACTIVITY, and a parent that never calls the activity
-    is invisible to all of them.
 
-    Keyed on the CALL rather than on any one parent, so a third build parent —
-    or a `plan`/`research` parent that grows a gate — fails here on the day it is
-    written instead of on the day someone re-runs the sweep.
+REVIEW_DISPATCHERS = _review_dispatchers()
+
+
+def test_the_review_dispatcher_census_reaches_ALL_THREE_FAMILIES() -> None:
+    """Vacuity floor, and it names the two families the old population MISSED.
+
+    The predecessor of the guard below globbed
+    `modules/assistant/build/*/[a-z]*_workflow.py` — TWO files — while its own
+    docstring promised it would catch "a `plan`/`research` parent that grows a
+    gate". That promise was false for as long as it stood, and it is exactly the
+    window in which four parents dispatched `review-pr` on an unread verdict.
+    A count alone would not have caught it (two IS a non-zero count), so this
+    floor asserts the FAMILIES, which is the thing that was missing.
     """
-    root = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
-    parents = sorted(root.glob("*/[a-z]*_workflow.py"))
-    parents = [p for p in parents
-               if "draft" not in p.name and "refine" not in p.name]
-    assert parents, "no build parent modules found — this test is asserting nothing"
-
-    ungated = [p.name for p in parents if _dispatches_review_ungated(p.read_text())]
-    assert not ungated, (
-        f"these build parents dispatch review-pr without reading the CI verdict "
-        f"through helper.ci_gate, so MERGE is reachable on a red tree: {ungated}"
+    assert len(REVIEW_DISPATCHERS) >= 6, (
+        f"only {len(REVIEW_DISPATCHERS)} review dispatchers discovered; the walk "
+        f"has stopped matching and the guard below is vacuous: "
+        f"{[p.name for p in REVIEW_DISPATCHERS]}"
     )
+    families = {p.relative_to(p.parents[2]).parts[0] for p in REVIEW_DISPATCHERS}
+    assert {"build", "plan", "research"} <= families, (
+        f"the population no longer reaches all three families (saw {sorted(families)}). "
+        f"A glob that stops matching `plan/` or `research/` returns this guard to "
+        f"the build-only scope that let four ungated parents ship."
+    )
+
+
+@pytest.mark.parametrize("path", REVIEW_DISPATCHERS, ids=lambda p: p.name)
+def test_no_parent_dispatches_review_on_an_UNREAD_CI_VERDICT(path: Path) -> None:
+    """A parent that dispatches `review-pr` without reading CI can MERGE on red.
+
+    THE CLASS, NOT THE INSTANCE, AND THIS IS THE SECOND TIME THAT PHRASE HAD TO
+    BE EARNED. `routing.ci_gate` landed in `build_workflow` on 2026-08-09 and
+    `build_minor_workflow` was never updated, so the light tier reached
+    `review-pr` with the verdict unread. The guard written for THAT defect was
+    headed "the class" and scoped to `build/*/` — so when the identical hole was
+    found in one `plan` parent and three `research` parents, the guard was green
+    over all four. A population narrower than the claim is a guard that certifies
+    the gap it was written to close.
+
+    Keyed on the CALL, over every `*_workflow.py` under `modules/assistant` that
+    dispatches a review — so a seventh parent fails here on the day it is written
+    instead of on the day someone re-runs the sweep.
+
+    WHAT THIS DOES NOT LOOK AT — three things, stated because a guard that scans
+    a tree is exactly the shape that passes vacuously:
+      * ORDER. It asserts both calls are present in the module, not that the gate
+        runs BEFORE the dispatch. An AST call-set cannot see control flow, and
+        the ordering is pinned by the activity-driving tests above instead.
+      * `repo_root=`. A gate called without it reads no policy, so every verdict
+        degrades to "this repo declares no gate" — see
+        `test_every_gated_parent_passes_repo_root_to_BOTH_CI_READS` below, which
+        is the arm that does look.
+      * A dispatcher that reaches `run_review` through an alias or a variable.
+        The predicate matches the attribute/name of the call, so
+        `f = review_pr.run_review; f(...)` is invisible to it.
+    """
+    assert not _dispatches_review_ungated(path.read_text()), (
+        f"{path.name} dispatches review-pr without reading the CI verdict through "
+        f"routing.ci_gate, so MERGE is reachable on a red tree. Add "
+        f"`wait_for_ci` / `ci_verdict` / `routing.ci_gate` immediately before the "
+        f"`run_review` call and return the hold when one comes back — the shape "
+        f"all six parents now use."
+    )
+
+
+@pytest.mark.parametrize("path", REVIEW_DISPATCHERS, ids=lambda p: p.name)
+def test_every_gated_parent_passes_repo_root_to_BOTH_CI_READS(path: Path) -> None:
+    """`repo_root` is what lets a CI read find the repo's own gate declaration.
+
+    WITHOUT IT THE GATE FORGIVES EVERYTHING, SILENTLY. `read_check_policy` is
+    reached only when `repo_root is not None`; with it absent, `ci_verdict`
+    returns NO_CHECKS on every repo that declares a gate and `wait_for_ci` stops
+    waiting for a gate it does not know to expect. The cascade then reports
+    "SKIPPED — no check declared blocking", which is not a HOLD, on a tree that
+    may be red.
+
+    `build_minor` was reading the policy without it until PR #124, which is why
+    this is a guard and not a comment.
+    """
+    source = path.read_text()
+    for name in ("wait_for_ci", "ci_verdict"):
+        for call in [n for n in ast.walk(ast.parse(source))
+                     if isinstance(n, ast.Call)
+                     and (n.func.attr if isinstance(n.func, ast.Attribute)
+                          else getattr(n.func, "id", "")) == name]:
+            assert any(kw.arg == "repo_root" for kw in call.keywords), (
+                f"{path.name} calls {name}() without repo_root=, so it cannot read "
+                f"{POLICY_PATH} and every verdict degrades to 'this repo declares "
+                f"no gate' — the gate is present and forgives everything."
+            )
 
 
 # ---------------------------------------------------------------------------

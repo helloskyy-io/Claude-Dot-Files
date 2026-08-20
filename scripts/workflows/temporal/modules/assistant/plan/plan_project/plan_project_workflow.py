@@ -137,6 +137,7 @@ from pathlib import Path
 from .. import plan_activities as act
 from . import plan_project_activities as own
 from ... import assistant_activities as _shared
+from ...assistant_activities import ci_verdict, wait_for_ci
 from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
@@ -586,8 +587,15 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         verdict = _dispose(pr, repo_root, repo_target, notes, verbose)
 
     if verdict is routing.Verdict.HOLD_NEEDS_ASSISTANCE:
-        notes.append("review-pr found at least one item only a human can rule on. No "
-                     "loop-back was attempted: more passes cannot produce a human decision.")
+        # THE LOOP DECISION AND NOTHING ELSE. Wiring the CI gate into `_dispose`
+        # gave this parent a SECOND path to this verdict, and the gate writes its
+        # own cause ending "review-pr was NOT dispatched" — so the old sentence
+        # here, "review-pr found at least one item only a human can rule on",
+        # would land directly beneath a note saying review-pr never ran. That
+        # contradiction was measured on PR #124 in the build family and cost a
+        # log sweep to tell UNREVIEWED from reviewed-and-held.
+        notes.append("No loop-back was attempted: more passes cannot produce a "
+                     "human decision. The cause is in the note above.")
     elif verdict is routing.Verdict.HOLD_REDISPATCH:
         # COUNTED from the same source the loop reads. This said "one loop-back
         # is the cap" twenty-two lines below the fix above it, so a spent runway
@@ -612,11 +620,34 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
 
 def _dispose(pr: str, repo_root: Path, repo_target: str | None,
              notes: list[str], verbose: bool) -> routing.Verdict:
-    """One disposition pass, judged against the PLANNING criteria.
+    """One disposition pass, judged against the PLANNING criteria, behind the gate.
 
-    No CI wait: this family changes markdown only, so there is no build to
-    settle. Adding one would spend a timeout per pass to observe nothing.
+    THIS USED TO SAY "No CI wait: this family changes markdown only, so there is
+    no build to settle", AND THAT REASONING WAS WRONG ABOUT THIS REPO. Markdown
+    is not outside the gate here: `.github/workflows/tests.yml` carries NO
+    `paths:` filter — deliberately, its own comment saying a filtered gate "can
+    only ever skip something it should have caught" — and the suite greps
+    prompts, docs and `config.yaml`. A planning PR that edits only `.md` runs the
+    full suite and can turn it red, at which point an ungated `run_review` could
+    return MERGE on it. The whole job is ~20 seconds, so the timeout it was
+    protecting against is not the one that exists.
     """
+    # --- THE GATE: the parent reads the verdict, so MERGE is unreachable on red
+    # `routing.ci_gate` — the same pure cascade the build parents run. It was
+    # absent here because it lived under `build/`, and reaching it from the plan
+    # family would have been a layering inversion.
+    #
+    # `repo_root=repo_root` ON BOTH: without it neither call can find
+    # `testing/check-policy.yaml`, so every read degrades to "this repo declares
+    # no gate" and the gate forgives everything.
+    wait_for_ci(pr, repo=repo_target, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo=repo_target, repo_root=repo_root)
+    hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
+                                       repo_target=repo_target)
+    notes.extend(gate_notes)
+    if hold is not None:
+        return hold
+
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=repo_target,
                     review_type=ReviewType.PLANNING, verbose=verbose),
