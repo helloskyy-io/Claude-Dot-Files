@@ -1405,17 +1405,30 @@ def ci_verdict(pr: str, *,
     # `run_bounded`, because a CEILING is not a RETRY and its deadline
     # loop cannot enforce one on a call that has not returned.
     #
-    # `None` for the tree, not `repo_root`: this call addresses the PR with an
-    # explicit `--repo` and has always run in the process cwd. Passing the tree
-    # would change which repo `gh` infers when `--repo` is absent, which is a
-    # different change from adding a retry.
+    # `repo_root` FOR THE TREE, AND THIS IS THE ADDRESS, NOT A PREFERENCE.
+    # `--repo` is not in `cmd` — the block above says so — so the ONLY thing
+    # deciding which repository `gh` reads is the subprocess cwd. Passing `None`
+    # there means "the directory the operator happened to be in", and
+    # `preflight.resolve_repo_root` exists precisely because that is not the
+    # tree we are gating: nothing in this fleet chdirs, and a `--repo` dispatch
+    # is the supported mode in which the two differ.
+    #
+    # BOTH DIRECTIONS ARE LIVE FAILURES, and one of them is this gate's own
+    # defect class reopened one layer down. If the cwd repo happens to have a PR
+    # numbered the same and it is green, the gate returns GREEN FOR A DIFFERENT
+    # REPOSITORY'S PR, `ci_gate` returns no hold, and MERGE becomes reachable on
+    # a red tree. If the cwd repo has no such PR, every read fails for the full
+    # deadline and a clean PR takes UNREADABLE_CHECKS — which is the 2026-08-19
+    # incident recorded fifteen lines above, recurring with a different cause.
+    # That comment ends "the gate was right; the address was wrong"; the address
+    # was still wrong until this line passed the tree.
     #
     # Nothing about the non-zero path moves. `gh pr checks` exits non-zero on
     # failing or pending checks with no HTTP status in stderr, so the classifier
     # calls that TERMINAL and spends exactly one attempt, and `gh_attempt`
     # returns the reply unjudged — which is why parsing, below, is still the
     # discriminator.
-    result = gh_attempt(cmd, None)
+    result = gh_attempt(cmd, repo_root)
 
     # A REPLY THAT DOES NOT PARSE IS ITS OWN STATE, AND BOTH HALVES OF THIS WERE
     # WRONG. `if result.stdout.strip() else []` turned every FAILED `gh` — which
@@ -1563,7 +1576,13 @@ def wait_for_ci(pr: str, *,
         # deliberately absent here — the loop already re-reads — but a ceiling is
         # not a retry, and a timed-out reply lands in the same failed-read branch
         # below that an unparseable one does, which is already the right answer.
-        result = run_bounded(cmd)
+        # `cwd=repo_root` IS THE ADDRESS. Same reason as `ci_verdict`'s read
+        # above, and these two were the only unanchored `gh` launches in the
+        # fleet: `--repo` is not in `cmd`, so cwd is the only thing choosing the
+        # repository, and `None` chooses the operator's shell. A poll loop
+        # pointed at the wrong repo does not fail fast — it burns the whole
+        # 600-second deadline first.
+        result = run_bounded(cmd, cwd=repo_root)
 
         # PARSE FIRST, AND LET A FAILED READ BE ITS OWN STATE. `gh pr checks`
         # exits non-zero whenever checks are FAILING or PENDING, so the return
