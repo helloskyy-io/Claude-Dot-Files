@@ -235,7 +235,10 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     prompt for this — and every hold the review raised was a consequence of it
     being a dispatch at all. It was closed rather than repaired.
 
-    FOUR CONDITIONS, AND EACH SKIP IS A DECISION SOMEBODY ELSE ALREADY MADE:
+    FIVE CONDITIONS, AND EACH SKIP IS A DECISION SOMEBODY ELSE ALREADY MADE. The
+    count moved from four when `size` landed on 2026-08-19, and it is written out
+    rather than derived because this list is the only place each condition's
+    reasoning is recorded — there is no collection here to count:
 
       * `decision` is not `ship` — triage has not agreed to do it, or has refused.
       * `status` is not `open` — it is already handled.
@@ -247,6 +250,20 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         it is a filer typo, and the contract says an unnamed component fails
         nothing. It is REPORTED rather than raised, since the alternative aborted
         the parent after triage's dispatch was already spent.
+
+        ASKED OF EVERY ELIGIBLE ROW, WHATEVER ITS SIZE, and it was not when the
+        `size` skip first landed. That branch sat AHEAD of this one, so
+        `component_slug` was reached only for a `feature` — and a `phase`-sized
+        row whose cell reads `--` was filed as `not_a_feature` under a note
+        telling the operator it *"belongs inside a component that already
+        exists"*, which is a positive claim about a cell that names nothing. The
+        typo went unreported and the note that stood in for the report asserted
+        the opposite of it. A cell yielding no folder name is a filer typo at
+        every size: a `phase` still has to say WHICH component it is a phase of.
+      * `size` is not `feature` — triage ruled how big this is, and only a
+        feature is a component. `phase` and `checkboxes` belong inside one that
+        already exists; a blank is UNSIZED rather than small. Both are reported,
+        in their own buckets, and neither is an error.
       * `docs/development/<slug>/` ALREADY EXISTS — the candidate EXTENDS
         something already planned, so there is nothing to scaffold. The operator's
         scope is exact about this: *"If the component directory already exists, do
@@ -298,8 +315,12 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     skip rows, which is a read rather than a write.
 
     Returns a `Scaffolded`, in file order. Every eligible ROW lands in exactly one
-    of its four lists, so "nothing happened" can always be told from "nothing
-    was eligible".
+    of its buckets, so "nothing happened" can always be told from "nothing was
+    eligible". The number of buckets is deliberately NOT stated here: it read
+    "four" from the day this was written until `size` added two more, and the
+    sentence's claim is the PROPERTY — one row, one bucket — which needs no
+    denominator. `test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_
+    note` is what holds the property, over whatever `_fields` currently is.
     """
     result = Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
                         not_a_feature=[], unsized=[])
@@ -309,6 +330,20 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
 
     for row in rows:
         if row.decision != "ship" or row.status != "open" or not row.component:
+            continue
+        # THE NAME IS CHECKED BEFORE THE SIZE, and the first version of the size
+        # branch had it the other way round. A cell that is not blank but slugs
+        # to nothing is a filer typo whatever triage sized the row, and
+        # `not_a_feature`'s note tells the operator the candidate "belongs inside
+        # a component that already exists" — a positive claim about a cell that,
+        # in this case, names nothing. Reporting the typo first is the only
+        # ordering under which every bucket's note is TRUE of the row in it.
+        # `unnamed`'s note holds at every size: it says the cell needs a real
+        # name or a blank and promises no scaffolding, which is exactly the
+        # situation for a `phase`.
+        slug = component_slug(row.component)
+        if not slug:
+            result.unnamed.append((row.id, row.component))
             continue
         # SIZE DECIDES WHETHER THIS SCAFFOLDS AT ALL, and before 2026-08-19 there
         # was no size — this activity inferred one from a proxy: if the named
@@ -325,10 +360,6 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         if row.size != "feature":
             (result.unsized if not row.size else result.not_a_feature).append(
                 (row.id, row.size or "unsized"))
-            continue
-        slug = component_slug(row.component)
-        if not slug:
-            result.unnamed.append((row.id, row.component))
             continue
         pool = component_dir(worktree, row.component,
                              source="`component` cell in candidates.md") / "research"

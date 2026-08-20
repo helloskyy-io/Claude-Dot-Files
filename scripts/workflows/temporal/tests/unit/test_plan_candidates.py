@@ -490,6 +490,42 @@ def test_an_UNUSABLE_component_name_is_REPORTED_not_raised(tree: Path) -> None:
         assert sorted(p.name for p in (tree / "docs" / "development").iterdir()) == []
 
 
+@pytest.mark.parametrize("size", ["phase", "checkboxes", ""])
+def test_an_UNUSABLE_component_name_is_REPORTED_AT_EVERY_SIZE(
+        tree: Path, size: str) -> None:
+    """The typo above is a typo whatever triage sized the row. It was not.
+
+    THE SIZE BRANCH SHIPPED AHEAD OF THE NAME CHECK, so `component_slug` was
+    reached only for a `feature`. Every row the test above pins is feature-sized,
+    because `_table` defaults it that way — so the whole `unnamed` bucket went
+    unasked for the three sizes that skip scaffolding, and nothing noticed.
+
+    WHAT THAT COST IS A FALSE NOTE, NOT A MISSING ONE, which is why it is worth a
+    test rather than a shrug. `plan_project_workflow` turns a `not_a_feature`
+    entry into *"`C-001` is sized `phase`, so nothing was scaffolded — it belongs
+    inside a component that already exists"*. For a cell reading `--` that
+    sentence is false in both halves: nothing names a component, and no existing
+    one has been identified. The operator is told the row is correctly parked
+    when it is actually unroutable, and the `unnamed` note that would have said
+    so — *"the cell needs a real name or a blank"* — never fires. A `phase` still
+    has to say WHICH component it is a phase of.
+
+    THE BLANK SIZE IS IN THE PARAMETRISATION ON PURPOSE. It reaches `unsized`
+    rather than `not_a_feature`, a different bucket down a different branch of
+    the same expression, and a fix that reordered only one of them would leave
+    the other exactly as it was.
+    """
+    for raw in ("–", "--", "···", "***"):
+        f = _write(tree, _table(("C-001", "t", raw, "`ship`", "`open`", size)))
+        assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
+            unnamed=[("C-001", raw)]), (
+            f"a {size or 'blank'}-sized row whose `component` reads {raw!r} was "
+            f"not reported as unusable — the name check must not sit behind the "
+            f"size branch, or the operator is told an unroutable row is parked "
+            f"correctly")
+        assert sorted(p.name for p in (tree / "docs" / "development").iterdir()) == []
+
+
 def test_a_SEEDED_but_UNRESEARCHED_pool_is_RESUMED_not_skipped_forever(
         tree: Path) -> None:
     """The redispatch hole: "exists" conflated a live component with an abandoned one.

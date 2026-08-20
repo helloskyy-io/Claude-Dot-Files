@@ -124,11 +124,6 @@ BUDGETS: dict[str, int] = {
     # exact error the `plan_verify` note below warns about. Em-dashes are three
     # bytes each and this prompt is full of them.
     "build/build_refine/prompts/stages_2_to_4.md": 10294,
-    # 21_619 -> 8466 after the 2026-08-19 rebuild. It SHRANK while gaining a job:
-    # the five-condition bar for "does this warrant a sprint section" and the
-    # ranked placement choice both left, because by the time this runs the chain
-    # above it has already built the thing. What arrived is smaller — a computed
-    # total to place and a component's bullets to reconcile.
     # 21_619 -> 8_466 in the 2026-08-19 rebuild. It SHRANK BY 61% while gaining
     # the job it was missing. What left: the five-condition bar for "does this
     # warrant a sprint section", and the ranked placement choice over ruled
@@ -136,6 +131,17 @@ BUDGETS: dict[str, int] = {
     # BUILDING the thing — a component arriving with a roadmap, phase docs and an
     # estimate per phase has been ruled. What arrived is smaller: place a
     # computed total, reconcile one component's bullets against its roadmap.
+    # (This paragraph was here TWICE, the two copies disagreeing on whether the
+    # number was 8466 or 8_466 and neither reaching the value on the line below.
+    # A duplicated entry in the one file whose job is to make prompt growth
+    # legible is the thing this file exists to prevent, one level up.)
+    # 8_466 -> 8_830: the no-precedent-yet case, from the first run.
+    # 8_830 -> 9_230 on 2026-08-19 with the `size` column. The prompt tells the
+    # run to COPY the neighbouring sections' form; two runs read that and still
+    # inferred a shape, so the section and the phase-bullet shapes are now stated
+    # outright — 400 bytes buying the removal of a re-dispatch. Nothing was cut to
+    # fund it: this file is a fifth the size of the outlier above and the ratchet
+    # it guards against is growth without a reason, not growth.
     "plan/plan_sprint/prompts/plan_sprint.md": 9230,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
@@ -177,6 +183,11 @@ BUDGETS: dict[str, int] = {
     # the immutability rule reads unconditionally, so it applied to a plan
     # nothing had cited yet. Operator ruling — the rule protects PUBLISHED
     # addresses, and before publication a tidy plan is strictly better.
+    # +8 on 2026-08-19: `size` joined `decision` and `status` in the MAY NOT
+    # column. The word is 8 bytes and nothing was added around it. Recorded even
+    # so — the same reason the 4-byte raise at the top of this file is recorded:
+    # an 8-byte raise is precisely the size that gets waved through, and the
+    # habit is what the gate is, not the number.
     "plan/plan_feature/prompts/plan_feature.md": 23457,  # +${FILING_A_CANDIDATE_ROW}
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
@@ -220,6 +231,8 @@ BUDGETS: dict[str, int] = {
     # reviewer spend 1,500 bytes describing a one-sentence fix — the exact smell
     # engineering-quality.md names. Fixing a determined defect is now in scope;
     # re-planning is not, and the observers that always enforced that half do it.
+    # +8 on 2026-08-19, the same `size` in the same MAY NOT column as
+    # `plan_feature.md` above, for the same 8 bytes.
     "plan/plan_verify/prompts/plan_verify.md": 18135,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
@@ -243,7 +256,27 @@ BUDGETS: dict[str, int] = {
     # budget, never what may lose one, and dropping the line would let 5 KB of
     # vacated space refill unwatched.
     "build/build_refine_minor/prompts/stages_2_to_4.md": 2989,
-    "plan/triage_candidates/prompts/triage_candidates.md": 19668,
+    # 13_670 -> 19_668 on 2026-08-19, and this is the largest single raise the
+    # gate has been asked to rule on. It buys TWO rulings the workflow was not
+    # making, and the accounting is stated at this length because a 44% raise on
+    # one prompt is exactly the shape that should have to argue for itself.
+    #   ~2_400  THE WORTHINESS TEST. Triage's whole bar was "can this be
+    #           scheduled?" — a READINESS question that says nothing about
+    #           whether the work is worth doing, so a perfectly schedulable
+    #           candidate serving nothing this platform is building passed it
+    #           cleanly. The prompt now asks the hard question FIRST and names
+    #           where the trajectory is written, because "does it serve the
+    #           thesis" is unanswerable without an address to check it against.
+    #   ~3_600  THE `size` RULING — the vocabulary, the five-question feature
+    #           test, and the two OPPOSITE meanings of "it needs no research of
+    #           its own". This one replaces code, and that is the trade: the
+    #           inference it removes lived in `plan_candidates` as a proxy — no
+    #           directory, therefore a new component — which was right for one of
+    #           three cases and silently wrong for the other two.
+    # NOT FUNDED BY A CUT, and the honest reason is that there was nothing in
+    # this prompt to cut: it is a fifth the size of the outlier at the top of
+    # this file, and every byte of the removed inference was in Python, not here.
+    "plan/triage_candidates/prompts/triage_candidates.md": 19_668,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —
     # true on run 1, false on run 2, since papers accumulate and the synthesis is
