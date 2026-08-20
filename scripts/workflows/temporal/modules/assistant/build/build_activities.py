@@ -164,8 +164,21 @@ def ci_verdict(pr: str, *, repo: str | None = None,
             return CiVerdict.UNREADABLE_POLICY, []
 
     cmd = ["pr", "checks", pr, "--json", "name,state"]
-    if repo:
-        cmd += ["--repo", repo]
+    # `--repo` IS NOT PASSED, and this comment is why rather than an omission.
+    # Every workflow in this fleet takes `--repo` as a FILESYSTEM PATH — the
+    # flag's own help says "never a gh slug" — and this function used to hand
+    # that value straight to `gh`, which wants `OWNER/REPO`:
+    #
+    #     expected the "[HOST/]OWNER/REPO" format, got "/home/puma/Repos/..."
+    #
+    # Measured 2026-08-19 on PR #124: every read failed for the full 600s
+    # deadline, the gate correctly refused to read unreadable as passing, and the
+    # parent held a PR whose four checks were green the whole time. The gate was
+    # right; the address was wrong.
+    #
+    # `gh` derives the repo from the process cwd, which `gh_attempt` sets from
+    # `repo_root` — the pattern `gh()`'s own docstring states as the house rule
+    # ("cwd rather than `--repo`"). These two calls were the outliers.
     # `gh_attempt`, NOT `subprocess.run`: THIS IS THE ONE-SHOT READ, and a single
     # transient 503 here parses as nothing, which is UNREADABLE_CHECKS, which is
     # a HOLD a human has to clear. `wait_for_ci` below is deliberately left
@@ -306,8 +319,21 @@ def wait_for_ci(pr: str, *, repo: str | None = None,
 
     deadline = time.monotonic() + CI_MAX_WAIT_SECONDS
     cmd = ["gh", "pr", "checks", pr, "--json", "name,state"]
-    if repo:
-        cmd += ["--repo", repo]
+    # `--repo` IS NOT PASSED, and this comment is why rather than an omission.
+    # Every workflow in this fleet takes `--repo` as a FILESYSTEM PATH — the
+    # flag's own help says "never a gh slug" — and this function used to hand
+    # that value straight to `gh`, which wants `OWNER/REPO`:
+    #
+    #     expected the "[HOST/]OWNER/REPO" format, got "/home/puma/Repos/..."
+    #
+    # Measured 2026-08-19 on PR #124: every read failed for the full 600s
+    # deadline, the gate correctly refused to read unreadable as passing, and the
+    # parent held a PR whose four checks were green the whole time. The gate was
+    # right; the address was wrong.
+    #
+    # `gh` derives the repo from the process cwd, which `gh_attempt` sets from
+    # `repo_root` — the pattern `gh()`'s own docstring states as the house rule
+    # ("cwd rather than `--repo`"). These two calls were the outliers.
 
     readable_replies = 0
     last_read_error = ""
