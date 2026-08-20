@@ -5,9 +5,19 @@ Topic:          How stalled (no output), looping (byte-identical output) and str
                 (never claimed) are each MEASURED against a live headless `claude -p`
                 process — what signals exist, what thresholds are defensible, and what
                 a false positive costs on each leg.
-Feeds:          Sprint milestone "The three-legged liveness predicate — stalled, looping
-                and stranded, each detected separately" (docs/development/sprint.md:182)
-                → the fleet-reliability phase doc's detection design (not yet written).
+Feeds:          Sprint milestone "Observable exit criteria" (docs/development/sprint.md:243),
+                under "## Sprint: Autonomous Operation" — the line states "Includes the
+                three-legged liveness predicate — stalled, looping and stranded detected
+                separately" → docs/development/autonomous-operation/autonomous-operation.md,
+                the detection design. CORRECTED 2026-08-19 — this paper was written for the
+                "Sprint: Fleet Reliability" section, which dissolved when this pool moved to
+                docs/development/temporal-integration/research/. It cited sprint.md:182, which
+                today holds an unrelated milestone ("V1 parity suite"), and a
+                fleet-reliability phase doc that will never be written. The predicate itself
+                survives under the same name in Autonomous Operation, whose phase doc exists.
+                The paper's content is unaffected — only the destination pointer was stale.
+                Note this paper is shelved under the Temporal Integration pool and does not
+                feed it; see synthesis.md § Housekeeping.
 Last validated: 2026-08-07
 Revalidate:     high — 3 weeks
 Confidence:     DEFINITIVE — the fleet's own invocation and parsing (read from source);
@@ -62,6 +72,12 @@ Critic:         PASS-WITH-FIXES, three rounds (r1→r2: withdrew the false "undo
                 REJECTED after re-checking primary evidence and the rejections held —
                 the 4-of-4 `subagent_retry` count (2 of 4) and the changelog's supposed
                 v0.3.214 gate on `heartbeat`) — 2026-08-07
+                ---
+                2026-08-19 — the `Feeds:` block above was rewritten (destination pointer only;
+                the paper's body is untouched) and re-verified in a scoped fresh-context round:
+                PASS, 0 fabricated / 0 miscited. Every `sprint.md` line number and quoted
+                milestone span in the new block was checked against the working tree with
+                `sed -n '<N>p'` and `grep -F`.
 ```
 
 > **Altitude: COMPONENT.** The three-legged taxonomy is settled upstream (product-pool
