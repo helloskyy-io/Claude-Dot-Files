@@ -24,7 +24,8 @@ from ..research_write import research_write_workflow as write
 from ..research_verify import research_verify_workflow as verify
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType, Verdict
-from ...assistant_activities import extract_pr_url, repo_slug
+from ...assistant_activities import (ci_verdict, extract_pr_url, repo_slug,
+                                     wait_for_ci)
 from ... import routing
 
 
@@ -69,8 +70,16 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
                                        notes, verbose, correction=True)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
-        notes.append("review-pr found an item only a human can rule on; no loop-back "
-                     "was attempted, because more passes cannot produce a human decision.")
+        # THE LOOP DECISION AND NOTHING ELSE. Wiring the CI gate above gave this
+        # parent a SECOND path to this verdict, and the gate writes its own cause
+        # ending "review-pr was NOT dispatched" — so the old sentence here,
+        # "review-pr found an item only a human can rule on", now lands directly
+        # beneath a note saying review-pr never ran. That exact contradiction was
+        # measured on PR #124 in the build family, and it cost a log sweep to tell
+        # UNREVIEWED from reviewed-and-held. The layer that DETECTS a condition
+        # reports it; this layer detects neither.
+        notes.append("No loop-back was attempted: more passes cannot produce a "
+                     "human decision. The cause is in the note above.")
     elif verdict is Verdict.HOLD_REDISPATCH:
         notes.append("The automated loop is SPENT — one loop-back is the cap.")
 
@@ -85,6 +94,29 @@ def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
         research_dir=research_dir, pr_number=pr, repo_root=repo_root,
         worktree=worktree, correction_pass=correction, verbose=verbose,
     )
+    # --- THE GATE: the parent reads the verdict, so MERGE is unreachable on red
+    # THE SAME CASCADE THE BUILD PARENTS RUN — `routing.ci_gate`, pure, six
+    # consumers. It was absent from this family because it lived under `build/`
+    # and reaching it from here would have been a layering inversion, so this
+    # parent dispatched `review-pr` with the CI verdict never read and could
+    # return MERGE on a red tree.
+    #
+    # A MARKDOWN-ONLY PR IS NOT AN UNGATED ONE. This repo's `tests.yml` carries
+    # no `paths:` filter by deliberate choice, and the suite greps prompts and
+    # docs, so a research edit can and does turn the tree red.
+    #
+    # `repo_root=repo_root` ON BOTH, and the parameter is REQUIRED rather than
+    # merely conventional: omitting it used to make every read degrade to "this
+    # repo declares no gate", so the gate was present and forgave everything.
+    # That omission was live in `build_minor` until PR #124; the default was
+    # dropped on 2026-08-20 so the degrade path no longer exists.
+    wait_for_ci(pr, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo_root=repo_root)
+    hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr, repo_target=None)
+    notes.extend(gate_notes)
+    if hold is not None:
+        return hold
+
     # --type research: candidates are CARGO, not findings. A clean research PR
     # returns MERGE with zero findings, and that is the expected outcome.
     result = review_pr.run_review(

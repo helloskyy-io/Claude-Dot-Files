@@ -28,7 +28,7 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_refine(*, description: str, pr_number: str, repo_root: Path,
-               worktree: Path, task_file: str | None = None,
+               worktree: Path,
                correction_pass: bool = False, loops_left: int = 0,
                ci_unsettled: bool = False, verbose: bool = False) -> str:
     """Review and correct the draft's PR. Returns its PR URL."""
@@ -97,6 +97,13 @@ def run_refine(*, description: str, pr_number: str, repo_root: Path,
             "provisional and say so in your report."
             if ci_unsettled else ""
         ),
+        "AGENTS_HAVE_NO_SHELL": act.shared_prompt("agents_have_no_shell"),
+        "ORCHESTRATOR_EXECUTES_AGENTS_READ": act.shared_prompt("orchestrator_executes_agents_read"),
+        "RESOLVE_APPLY_THE_REMEDY_YOU_WROTE": act.shared_prompt("resolve_apply_the_remedy_you_wrote"),
+        "RESOLVE_REJECTING_IS_LEGITIMATE": act.shared_prompt("resolve_rejecting_is_legitimate"),
+        "RESOLVE_YOUR_OWN_DISPOSITIONS_TOO": act.shared_prompt("resolve_your_own_dispositions_too"),
+        "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
+        "TELL_EACH_AGENT_WHAT_IT_CAN_RUN": act.shared_prompt("tell_each_agent_what_it_can_run"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

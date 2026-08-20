@@ -273,7 +273,9 @@ def test_declaring_a_repo_path_is_what_CHECKS_it(tmp_path: Path) -> None:
     assert resolved["component"] == tmp_path.resolve() / "docs"
     assert a.unrelated == "../../not-a-path", (
         "a plain `add_argument` must be left alone — `--task-file` and `--phase` "
-        "point outside the repo on purpose")
+        "point outside the repo on purpose. Their RELATIVE form is anchored to "
+        "the repo root by `assistant_activities.anchor_task_source`, which is a "
+        "different question from containment and happens elsewhere")
 
     with pytest.raises(RuntimeError) as exc:
         parser().parse_with_preflight(

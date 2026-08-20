@@ -69,6 +69,16 @@ _SIZED_ROADMAP = (
 _CANDS = Path("docs/standards/architecture/research/candidates.md")
 
 
+# A REFERENCE THAT REACHES ALL THE PRINTED FIGURES AT ONCE — the grammar a
+# blanket zero claim has to use, and the boundary the dry-run caveat's zeros
+# must be narrowed inside of. Used by the mixed-tree test far below, and named
+# here rather than inline because what counts as "sweeping" is the judgement
+# that assertion turns on: a wording this misses is a wording that assertion
+# stops holding, so the list is the thing to extend when the caveat is reworded.
+_SWEEPS_THE_COUNTS = re.compile(
+    r"\b(?:every|all|each)\b|\b(?:counts?|figures?|numbers?)\s+below\b")
+
+
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
     (tmp_path / "docs" / "development" / "alpha" / "research" / "raw").mkdir(parents=True)
@@ -444,7 +454,7 @@ def _state(paths: dict[str, str]) -> dict[str, str]:
 
 def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
         tree: Path) -> None:
-    """The grant reaches every TOP-LEVEL doc, and stops at the subdirectory.
+    r"""The grant reaches every TOP-LEVEL doc, and stops at the subdirectory.
 
     WIDENED 2026-08-19, and the old assertion is worth recording because it was
     right for the design it guarded and wrong for this one. It read *"expected
@@ -673,9 +683,9 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     cands = tree / "docs" / "standards" / "architecture" / "research" / "candidates.md"
     cands.parent.mkdir(parents=True, exist_ok=True)
     cands.write_text(
-        "| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
-        "|---|---|---|---|---|---|---|\n"
-        "| C-001 | a candidate |  | PR #1 |  | `open` | n |\n")
+        "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
+        "|---|---|---|---|---|---|---|---|\n"
+        "| C-001 | a candidate |  | PR #1 |  | feature | `open` | n |\n")
 
     comp, seen = _component(tree), set()
 
@@ -1032,3 +1042,728 @@ def test_TWO_estimates_beside_ONE_phase_satisfy_the_floor(
                          (c / own.ROADMAP).read_text().split("## Phase 2")[1]), (
         "PHASE 2 CARRIES NO ESTIMATE — that is the whole point of this fixture, "
         "and a passing run over it is the residual being demonstrated")
+
+
+def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() -> None:
+    """A `--pr` pass reads the PR's tree, so the precondition must ask that tree.
+
+    MEASURED ON PR #130. `plan-feature` had written a roadmap and six phase docs
+    minutes earlier; this preflight asked the local checkout, found none, and
+    refused the run — declaring missing the exact plan it had been pointed at.
+
+    THIRD INSTANCE OF ONE CLASS THIS WEEK, which is why the guard is on the
+    lookup rather than on the message. PR #115 fixed four runners that opened a
+    worktree on HEAD instead of the PR's branch; plan-verify's dry run still
+    counts from the repo because no worktree exists yet, which is correct and
+    documented. This one was neither correct nor documented: it BLOCKED the run.
+
+    Absence on both sides is still a refusal — the precondition is real and a
+    plan that exists nowhere cannot be verified. What changed is which trees
+    count as "nowhere".
+    """
+    src = (Path(__file__).resolve().parents[2] / "scripts" / "run_plan_verify.py").read_text()
+    # ANCHOR ON THE ASSIGNMENT, NOT ON THE PHRASE. Slicing from the first
+    # occurrence of "plan_exists = " caught a mention inside the comment that
+    # explains the lookup, so the guard read a paragraph of prose and failed.
+    start = src.index("plan_exists = (component")
+    guard = src[start:src.index("return 1", start)]
+    assert "a.pr_number" in guard, (
+        "the roadmap precondition no longer consults the PR number, so a --pr "
+        "pass is judged against a checkout that need not contain the plan")
+    assert "pr_branch" in guard and "origin/{branch}" in guard, (
+        "the precondition does not ask the PR's BRANCH for the file. Asking only "
+        "the local tree refuses runs whose plan exists exactly where the run "
+        "would have read it")
+    # THE QUERY MUST NOT SWALLOW ITS OWN FAILURE. An unreadable ref and an absent
+    # file are different facts, and collapsing them into `plan_exists = False`
+    # delivers "I cannot see it" as "it is not there" — the same wrong-confidence
+    # shape this whole guard exists to stop, one layer down.
+    assert "except" not in guard, (
+        "the branch lookup catches its own failure, so a ref this run could not "
+        "read is reported to the caller as a plan that does not exist")
+    assert "not here and not on PR" in guard, (
+        "the refusal message no longer says BOTH trees were checked. A caller "
+        "told only 'has no roadmap.md' will go looking in the wrong one")
+
+
+# --- the `--pr` precondition, DRIVEN rather than read ----------------------
+#
+# THE TEST ABOVE READS THIS GUARD AS TEXT AND NEVER RUNS IT, which is issue
+# #103's class exactly: a structural guard that can stay green over an
+# accumulating defect because nothing exercises its predicate. Every substring
+# it asserts survives a boolean inversion, a wrong relative path, and a lookup
+# pointed at the wrong ref. It is KEPT — it holds the `except`-absence property,
+# which no behavioural test can express — and these four run the thing.
+#
+# THE FAKE ANSWERS THE QUERY; IT DOES NOT REPLACE THE GUARD. `pr_branch` and
+# `git_output` are the two boundary calls, so stubbing exactly those leaves the
+# whole precondition — the local check, the `--pr` condition, the path it builds,
+# the ref it asks, the refusal, the handler — running for real. Recording their
+# ARGUMENTS is half the point: "handed the wrong relative path" and "pointed at
+# the wrong ref" are two of the three defects the source-grep cannot see.
+#
+# WHAT THESE FOUR NEVER INSPECT, stated so the next reader does not credit them
+# with it. (1) The PROCESS layer: both boundary calls are stubbed, so nothing
+# here proves `gh pr view` and `git ls-tree` are spelled correctly for the real
+# binaries, nor that a real `ls-tree` prints what `bool(...strip())` assumes —
+# that contract lives in `plan_activities` and its own tests. (2) The NON-`--pr`
+# refusal, which `test_the_runner_REFUSES_a_component_with_NO_roadmap` holds.
+# (3) The order of `open_run_bag` against `worktree_add` — these only assert
+# that NEITHER is reached on a refusal, which is issue #49's property;
+# `test_the_call_precedes_the_first_side_effect_in_every_entrypoint` holds the
+# order between them. (4) The NON-`--pr` refusal's side-effect freedom: the
+# sibling test asserts its exit code and message and does not watch for an
+# orphaned bag, so that half of #49 is still held by placement alone.
+
+def _pr_lookup(monkeypatch: pytest.MonkeyPatch, branch: str, tree_answer: str,
+               calls: list, raise_on: str | None = None):
+    """Answer the two boundary calls the `--pr` precondition makes, and log them.
+
+    `raise_on` names the call that fails — `"pr_branch"` for an unresolvable
+    `--pr`, `"fetch"` for a ref this run cannot read, `"no_gh"` for a host with
+    no `gh` on PATH.
+
+    TWO EXCEPTION TYPES, NOT ONE, and the second is why `"no_gh"` exists.
+    `RuntimeError` is the ordinary failure: `pr_branch` raises it through `gh()`,
+    `git_output` on any non-zero exit. But both bottom out in `subprocess`, which
+    raises `FileNotFoundError` when the BINARY is missing — `run_bounded` does not
+    catch it, so it escapes by a second route entirely. The runner's `except`
+    names both types for exactly that reason. Until `"no_gh"` every fake here
+    raised `RuntimeError` alone, so narrowing that `except` back to
+    `except RuntimeError:` — which silently reopens the traceback leak this
+    precondition was written to close — left the whole file green.
+    """
+    def pr_branch(pr_number: str, repo_root: Path) -> str:
+        calls.append(("pr_branch", pr_number))
+        if raise_on == "no_gh":
+            # THE REAL SHAPE, not a `RuntimeError` wearing a different message.
+            # `subprocess.run(["gh", ...])` on a host without `gh` raises this,
+            # and the point of the case is the TYPE reaching the handler.
+            raise FileNotFoundError(2, "No such file or directory", "gh")
+        if raise_on == "pr_branch":
+            # NO TRAILING PERIOD, DELIBERATELY. `gh()` raises
+            # `f"... failed in {repo_root}: {r.stderr.strip()}"`, and git/gh
+            # stderr does not reliably end in punctuation — a fake that supplies
+            # one hides the run-on the handler is responsible for separating.
+            raise RuntimeError(f"gh pr view {pr_number} --json headRefName -q "
+                               f".headRefName failed in {repo_root}: no pull "
+                               f"requests found")
+        return branch
+
+    def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
+        calls.append(tuple(argv))
+        if raise_on == "fetch" and argv[1] == "fetch":
+            raise RuntimeError(
+                f"could not read the worktree state in {worktree} via "
+                f"`{' '.join(argv)}`: couldn't find remote ref. {cannot_hint}")
+        return tree_answer if argv[1] == "ls-tree" else ""
+
+    monkeypatch.setattr(act, "pr_branch", pr_branch)
+    monkeypatch.setattr(act, "git_output", git_output)
+
+
+def _record_side_effects(monkeypatch: pytest.MonkeyPatch, runner, calls: list,
+                         url: str = "https://github.com/o/r/pull/132"):
+    """Log the run's first three side effects instead of performing them.
+
+    ISSUE #49'S CLASS, ASSERTED RATHER THAN ASSUMED. A precondition that refuses
+    AFTER the run bag is opened or the worktree is cut leaves both orphaned, and
+    "it is refused before anything is created" is the reason this check lives in
+    preflight at all. The refusing tests below assert these names are ABSENT from
+    `calls`; the accepting one asserts they were reached.
+
+    It also makes every case here hermetic. Without it a run that wrongly gets
+    past the guard reaches real `git` and, one step further, a real model
+    dispatch — which a unit test must never be one defect away from.
+    """
+    monkeypatch.setattr(runner.journal, "open_run_bag",
+                        lambda **k: calls.append("open_run_bag"))
+    monkeypatch.setattr(act, "worktree_add",
+                        lambda repo_root, *a, **k: (calls.append("worktree_add"),
+                                                    repo_root)[1])
+    monkeypatch.setattr(wf, "run_plan_verify",
+                        lambda **k: (calls.append("run_plan_verify"), url)[1])
+
+
+def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The case PR #130 measured: no roadmap here, a roadmap on the PR. Run it.
+
+    THE ASSERTION IS EXIT 0, not the absence of one message. A refusal and a
+    later failure both exit 1, so an exit code alone cannot tell "the
+    precondition let it through" from "it let it through and something after it
+    died" — and the local tree genuinely has no roadmap, so plenty could.
+    Everything past the precondition is stubbed for that reason: reaching the
+    banner is the proof.
+
+    AND THE ARGUMENTS ARE ASSERTED, because that is where this differs from the
+    source-grep. `origin/<branch>` and the roadmap's path RELATIVE TO THE REPO
+    are the two values the guard computes, and a lookup that asks the wrong ref
+    or the wrong path still contains every substring that test greps for.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    err = capsys.readouterr().err
+    assert rc == 0, (
+        f"a plan that exists on the PR's branch was refused anyway — this is the "
+        f"defect measured on PR #130, one layer down; stderr was {err!r}")
+    assert not (repo / "docs" / "development" / "alpha" / own.ROADMAP).is_file(), (
+        "the fixture stopped discriminating: the roadmap is present LOCALLY, so "
+        "this run would pass with the PR-branch lookup deleted entirely")
+    ls_tree = ("git", "ls-tree", "-r", "--name-only",
+               "origin/plan-feature-1787204416", "--",
+               f"docs/development/alpha/{own.ROADMAP}")
+    assert "run_plan_verify" in calls, (
+        f"the run never reached the dispatch, so the `not in calls` assertions "
+        f"in the refusing cases below are vacuous — the recorder never fires; "
+        f"the calls were {calls!r}")
+    assert ls_tree in calls, (
+        f"the lookup asked for something other than the roadmap's repo-relative "
+        f"path on origin/<the PR's branch>; it asked {calls!r}")
+    # AND THE FETCH CAME FIRST. The ref has to be local before anything can read
+    # it, and this precondition runs BEFORE the worktree helper that would
+    # otherwise have done the fetching — so an `ls-tree` that overtakes the fetch
+    # reads a ref that need not exist yet, and on a repo where an earlier run
+    # left one behind it reads a STALE one, which is the worse half.
+    fetch = ("git", "fetch", "-q", "origin", "plan-feature-1787204416")
+    assert fetch in calls and calls.index(fetch) < calls.index(ls_tree), (
+        f"the PR's ref was queried without being fetched first, or after; the "
+        f"calls in order were {calls!r}")
+
+
+def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """Absence on both sides is still a refusal — the precondition is real.
+
+    A boolean inversion of the guard passes the source-grep and fails here: it
+    would let a run through with no plan on either tree, which is the state the
+    precondition exists to stop.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "some-branch", "", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    err = capsys.readouterr().err
+    assert rc == 1, "a component with no plan on either tree was accepted"
+    assert "open_run_bag" not in calls and "worktree_add" not in calls, (
+        f"the refusal came AFTER the run had created something, so a dead run "
+        f"leaves it orphaned — issue #49's class; the calls were {calls!r}")
+    assert "not here and not on PR #132's branch" in err, (
+        f"the refusal does not say BOTH trees were checked, so a caller reading "
+        f"it goes looking in the wrong one; got {err!r}")
+    assert "plan_feature.sh" in err, (
+        f"the refusal must still name the workflow that writes the plan; got {err!r}")
+
+
+def test_a_PR_pass_IS_refused_when_the_plan_is_HERE_but_NOT_on_the_PRs_BRANCH(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The local tree does not VOTE on a `--pr` pass — it only shapes the message.
+
+    THE ONE CASE THE OTHER FOUR CANNOT REACH, and it went unwritten because the
+    precondition began life as an `or` over two trees. A roadmap in the operator's
+    checkout satisfied the check and the branch was never consulted; the run then
+    cut its worktree from `origin/<the PR's branch>` — which is the ONLY tree it
+    ever reads — and dispatched a model against a component with no plan in it.
+    That is issue #49's shape reached the long way round: a wasted dispatch and a
+    stranded worktree, produced by the guard that exists to prevent both.
+
+    MEASURED AS A SURVIVING MUTATION, not reasoned about. With the short-circuit
+    in place, changing the condition to consult the branch unconditionally left
+    all 65 tests green, which is the definition of an unpinned behaviour: the two
+    readings of this precondition were indistinguishable to the suite.
+
+    AND THE WORDING IS ASSERTED, not just the exit code. "Write the plan" and
+    "push the plan you already wrote" are different remedies, and an operator
+    handed the both-trees sentence for this state goes looking for a file that is
+    sitting in front of them.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+        "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
+    _pr_lookup(monkeypatch, "some-branch", "", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    err = capsys.readouterr().err
+    assert rc == 1, (
+        f"a plan present ONLY in this checkout was accepted for a --pr pass, so "
+        f"the run proceeds against a branch that does not carry it; stderr was "
+        f"{err!r}")
+    assert ("git", "ls-tree", "-r", "--name-only", "origin/some-branch", "--",
+            f"docs/development/alpha/{own.ROADMAP}") in calls, (
+        f"the PR's branch was never asked — the local file answered on its "
+        f"behalf, which is the short-circuit this test exists to pin; the calls "
+        f"were {calls!r}")
+    assert "it IS in this checkout, but not on PR #132's branch" in err, (
+        f"the refusal does not distinguish 'you have not written the plan' from "
+        f"'you have not pushed it', and those have different remedies; got {err!r}")
+    assert "not here and not on PR" not in err, (
+        f"a plan that IS here was reported as absent from both trees, which is "
+        f"false and sends the operator to write a file they already have; got "
+        f"{err!r}")
+    # AND THE REMEDY IS THE HALF THE DOCSTRING ABOVE CLAIMED AND NOTHING HELD.
+    # For one commit the diagnostic branched and the ACTIONABLE sentence did not:
+    # "it IS in this checkout" was printed over a fixed "Run plan_feature.sh
+    # against this component first — writing the plan is its job", telling an
+    # operator whose only problem is an unpushed commit to re-run the workflow
+    # that had already succeeded. The two assertions above could not see it —
+    # both read the diagnostic clause, which was correct the whole time. A remedy
+    # is the only part of a refusal anyone ACTS on, so this asserts the wrong one
+    # is absent as well as the right one being present.
+    assert "plan_feature.sh" not in err, (
+        f"the refusal diagnosed 'the plan is here but unpushed' and then told "
+        f"the operator to run the workflow that WRITES the plan — the remedy "
+        f"contradicts the diagnosis one sentence earlier, and the remedy is the "
+        f"part they will act on; got {err!r}")
+    assert "push" in err, (
+        f"the refusal names no way out of the state it just diagnosed: the plan "
+        f"is written and this run cannot see it, so pushing it to the branch is "
+        f"the only remedy and the message has to say so; got {err!r}")
+    assert "open_run_bag" not in calls and "worktree_add" not in calls, (
+        f"the refusal came AFTER the run had created something — issue #49's "
+        f"class; the calls were {calls!r}")
+
+
+@pytest.mark.parametrize("raise_on, unreadable", [
+    ("pr_branch", "the --pr number resolves to no branch"),
+    ("fetch", "the PR's ref cannot be fetched"),
+    # THE THIRD CASE IS A DIFFERENT EXCEPTION TYPE, not a third message. The two
+    # above both raise `RuntimeError`, so between them they pin the handler's
+    # BEHAVIOUR while pinning only half of what it CATCHES — and dropping
+    # `FileNotFoundError` from the `except` tuple left the whole file green,
+    # reopening the traceback leak by the one route `run_bounded` does not cover.
+    ("no_gh", "there is no gh binary on this host"),
+])
+def test_a_PR_LOOKUP_that_FAILS_stops_the_run_and_says_so_rather_than_guessing(
+        raise_on: str, unreadable: str, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """"I cannot see it" must not be delivered as "it is not there" — nor as a traceback.
+
+    TWO PROPERTIES, AND THE SECOND IS THE ONE WITH TEETH.
+
+    First: the failure reaches the operator in this file's `✗ <one line>` shape
+    with exit 1, like its two sibling handlers. Both boundary calls raise, and
+    they are made BETWEEN main's two try statements, so before this they escaped
+    as a Python traceback — measured by execution, not inferred.
+
+    Second, and this is what the source-grep structurally cannot hold: the
+    refusal wording must be ABSENT. `plan_exists = False` in a handler is the
+    swallow this whole guard exists to prevent, and a handler placed outside the
+    grepped span can reintroduce it with every asserted substring still in place.
+    An unknown reported as a confident "there is no plan" fails here and only
+    here.
+
+    The hint is asserted on BOTH raise sites because it reached only one: it was
+    `git_output`'s `cannot_hint` argument, so an operator who mistyped `--pr` —
+    the likeliest caller of all — never saw it.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "some-branch", "", calls, raise_on=raise_on)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    out, err = capsys.readouterr()
+    assert rc == 1, f"{unreadable} and the run continued anyway"
+    assert err.startswith("\n✗ "), (
+        f"a failed lookup does not answer in this file's one-line refusal shape; "
+        f"got {err!r}")
+    assert "\u2014 this run cannot tell whether PR #132 carries a plan" in err, (
+        f"{unreadable}, and the operator is not told what that leaves unknown; "
+        f"got {err!r}")
+    assert "not here and not on PR" not in err, (
+        f"an UNREADABLE lookup was reported as an ABSENT plan — 'I cannot see "
+        f"it' delivered as 'it is not there', which is the exact defect this "
+        f"precondition was rewritten to remove; got {err!r}")
+    assert "https://github.com" not in out, (
+        "the run proceeded past a lookup it could not complete")
+    assert "open_run_bag" not in calls and "worktree_add" not in calls, (
+        f"a lookup this run could not complete still created something — the "
+        f"handler continued instead of stopping, which is the swallow in a "
+        f"different costume; the calls were {calls!r}")
+
+
+# --- the `--pr` DRY RUN, which counts a different tree than the run reads -----
+#
+# `--dry-run` HAD NO TEST IN THIS FILE AT ALL until these two, which is how the
+# defect below reached `main` under five behavioural tests and a source-grep: all
+# six watch the precondition, and none of them watches what the runner PRINTS
+# once the precondition has let it through.
+#
+# THE DEFECT THESE PIN, MEASURED BY EXECUTION rather than read out of the source.
+# Driving `--pr N --dry-run` with the roadmap on the branch and absent here exits
+# 0 and prints `Phase docs : 0`, `Sized now : 0 estimate(s)` and `floor is 0` for
+# a plan that is fully written — because every count is taken off the LOCAL
+# component path while the run cuts its worktree from `origin/<the PR's branch>`
+# and reads nothing else. On `origin/main` that state was unreachable: the
+# precondition unconditionally required a local `roadmap.md`, so the local tree
+# was guaranteed non-empty. Making the branch authoritative removed that
+# guarantee and relocated PR #130's wrong conclusion out of a loud refusal and
+# into a confident-looking preview.
+#
+# WHAT THEY DO NOT HOLD. The counts themselves are still LOCAL — these assert the
+# output SAYS SO, not that the numbers describe the dispatched tree. Reading them
+# from the branch (`git ls-tree` / `git show`) is the larger fix and belongs to
+# all four `--pr`-accepting runners at once; it is issue #134's, not this file's.
+# So a run whose preview is honest about being the wrong tree passes here, and
+# that is the whole claim.
+
+def test_a_DRY_RUN_on_a_PR_pass_SAYS_the_counts_came_from_a_TREE_WITHOUT_the_plan(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The zeros are real, so the preview must say which tree produced them.
+
+    THE ASSERTION IS ON STDOUT, not on the counts. `Phase docs : 0` is the
+    CORRECT reading of this checkout — the roadmap genuinely is not here — and
+    the defect is that nothing said so, leaving an operator to read a local
+    reading as a preview of the dispatch. Both halves are asserted together: the
+    zeros prove the fixture is in the divergent state, and the note proves the
+    output no longer presents them as the dispatch's own.
+
+    AND THE BRANCH IS REUSED, NOT RE-FETCHED. `pr_branch` is asserted to have
+    been called exactly ONCE across the whole run. A note that re-derived the
+    branch with a second `gh pr view` would print identical text while
+    reinstating the duplicate round-trip this file removed one commit earlier —
+    and nothing would guarantee the two answers agreed.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo),
+                      "--pr", "132", "--dry-run"])
+    out, err = capsys.readouterr()
+    assert rc == 0, (
+        f"the dry run did not complete, so nothing below is exercising its "
+        f"output; stderr was {err!r}")
+    assert not (repo / "docs" / "development" / "alpha" / own.ROADMAP).is_file(), (
+        "the fixture stopped discriminating: with the roadmap present LOCALLY "
+        "the two trees agree and there is nothing for this test to catch")
+    assert "Sized now  : 0 estimate(s)" in out and "floor is 0" in out, (
+        f"the counts are no longer the local zeros this test is about — either "
+        f"the fixture changed or the dry run now reads the branch, in which case "
+        f"issue #134's larger fix has landed and this test should assert THAT "
+        f"instead of the caveat; got {out!r}")
+    assert "Counted in : this checkout" in out, (
+        f"the preview does not name the tree its counts came from, so a local "
+        f"reading is presented as a preview of the dispatched run; got {out!r}")
+    assert "does NOT carry docs/development/alpha/roadmap.md" in out, (
+        f"the preview does not say this checkout lacks the plan, so the zeros "
+        f"above read as a plan that was never written; got {out!r}")
+    assert "origin/plan-feature-1787204416" in out, (
+        f"the preview does not name the tree the run will actually read, which "
+        f"is the one place the operator can go to check; got {out!r}")
+    # AND ABOVE THE ZEROS, NOT UNDER THEM — asserted in the shape this file uses
+    # for the fetch/ls-tree ordering, because `in out` cannot see a placement.
+    # The runner's own comment calls this placement load-bearing (an operator
+    # scanning top-down must meet the reason before the numbers), and the caveat
+    # says "the counts BELOW", so a caveat printed underneath them contradicts
+    # its own wording while passing every substring assertion above.
+    assert out.index("Counted in") < out.index("NOT HERE") < out.index("Phase docs"), (
+        f"the provenance and the caveat are not above the counts they qualify — "
+        f"the operator meets the zeros before the reason, and the caveat's own "
+        f"\"counts below\" is false where it now sits; got {out!r}")
+    assert calls.count(("pr_branch", "132")) == 1, (
+        f"the PR's branch was resolved more than once — the preview re-derived "
+        f"what the precondition had already put in `branch`, which is two "
+        f"round-trips for one fact with nothing forcing them to agree; the calls "
+        f"were {calls!r}")
+    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+        f"a --dry-run created something or dispatched — `nothing invoked, "
+        f"nothing posted` is the banner's promise; the calls were {calls!r}")
+
+
+def test_a_DRY_RUN_still_names_its_tree_and_DROPS_the_caveat_when_the_plan_IS_here(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The caveat is CONDITIONAL, and an unconditional one would be a lie.
+
+    THE OTHER HALF OF THE PAIR, and the reason it exists: a note printed on every
+    `--pr` dry run passes its sibling above while telling an operator whose
+    checkout DOES carry the plan that it does not. That is the same wrong-
+    confidence failure pointed the other way, and the sibling cannot see it —
+    it only ever asserts the note is PRESENT.
+
+    Provenance is unconditional and the caveat is not: naming the tree is true of
+    every dry run, while "the plan is elsewhere" is true only when it is.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+        "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo),
+                      "--pr", "132", "--dry-run"])
+    out, err = capsys.readouterr()
+    assert rc == 0, f"the dry run did not complete; stderr was {err!r}"
+    # ONE ESTIMATE, NOT FOUR — and the `hours` in `roadmap_hours` is what misled
+    # the first draft of this line. It returns a Counter keyed on the matched
+    # estimate TEXT, so its values are OCCURRENCE COUNTS and the runner's
+    # `sum(...values())` is the NUMBER of estimates, which is what its own
+    # `estimate(s)` label says. `~4 hrs` is that one estimate's size and is never
+    # summed. Written as 4, corrected by running it.
+    assert "Sized now  : 1 estimate(s)" in out, (
+        f"the fixture is not in the agreeing state this test needs — the local "
+        f"roadmap was not read, so an unconditional caveat would pass here for "
+        f"the wrong reason; got {out!r}")
+    assert "Counted in : this checkout" in out, (
+        f"the tree is named only in the divergent case, so a dry run whose two "
+        f"trees agree still does not say where its numbers came from; got {out!r}")
+    assert "NOT HERE" not in out and "does NOT carry" not in out, (
+        f"the caveat fired for a checkout that DOES carry the plan, telling the "
+        f"operator their own file is missing; got {out!r}")
+
+
+def test_a_DRY_RUN_with_NO_pr_still_NAMES_the_tree_it_counted(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """Provenance is unconditional, and until this test nothing held that.
+
+    THE TWO TESTS ABOVE BOTH PASS `--pr`, so neither can tell "names the tree
+    always" from "names the tree only on a `--pr` pass". Gating the `Counted in`
+    line on `a.pr_number` was run as a mutation and SURVIVED the whole unit
+    suite — 0 red — which is what this test exists to close. Their docstrings
+    already claim unconditionality ("true of every dry run"); this is the
+    assertion that makes the claim checkable rather than merely stated.
+
+    AND IT IS THE HONESTY FLOOR, not a nicety. The caveat keys on the roadmap
+    being ABSENT here, so a checkout holding a STALE roadmap at the same path
+    gets no caveat and still counts a tree the run will not read. On that pass
+    this line is the only thing that tells the operator where the numbers came
+    from — and on a non-`--pr` run it is the only provenance printed at all.
+
+    `pr_branch` IS ASSERTED NEVER TO HAVE RUN. Without `--pr` there is no PR to
+    resolve, and a provenance line that reached for a branch anyway would put a
+    network round-trip behind a purely local preview.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+        "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--dry-run"])
+    out, err = capsys.readouterr()
+    assert rc == 0, f"the dry run did not complete; stderr was {err!r}"
+    assert "Sized now  : 1 estimate(s)" in out, (
+        f"the local roadmap was not read, so this run is not previewing the "
+        f"component this test set up; got {out!r}")
+    assert "Counted in : this checkout" in out, (
+        f"a dry run WITHOUT --pr does not name the tree its counts came from, "
+        f"so provenance is conditional on a flag that has nothing to do with "
+        f"where the counting happened; got {out!r}")
+    assert "NOT HERE" not in out, (
+        f"the branch caveat fired on a run that named no PR and resolved no "
+        f"branch; got {out!r}")
+    assert not [c for c in calls if c and c[0] == "pr_branch"], (
+        f"a run given no --pr resolved a PR branch anyway; the calls were "
+        f"{calls!r}")
+    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+        f"a --dry-run created something or dispatched — `nothing invoked, "
+        f"nothing posted` is the banner's promise; the calls were {calls!r}")
+
+
+def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The MIXED tree, which the three tests above structurally cannot reach.
+
+    THEIR FIXTURE COMPONENT HOLDS A ROADMAP AND NOTHING ELSE, so "the roadmap is
+    absent here" and "the plan is absent here" are the same state in all three
+    and no assertion can tell them apart. They are different states, and the
+    difference is reachable through this runner's own target workflow: a
+    component laid out by hand with phase docs, whose `roadmap.md` `plan-feature`
+    writes later, verified from a checkout predating that PR. Only `phase_docs_of`
+    ignores the roadmap, so in that state it prints a NON-ZERO count while
+    `roadmap_phase_links`, `roadmap_hours` and `sizing_floor` are all correctly 0.
+
+    MEASURED AT 4337371 BY EXECUTION, first against the real binary and then
+    reproduced here: the caveat called this checkout "a tree WITHOUT the plan"
+    and said "the counts below ... will be 0", one line above `Phase docs : 4 of
+    its own`. An operator who meets a warning and then immediately meets a number
+    the warning said would not exist reads the warning as inapplicable — so the
+    LOCAL phase-doc count gets taken for the branch's, which is the exact
+    wrong-confidence failure the caveat was added to prevent. A caveat that
+    over-claims is worse than none: it is what makes the local number look
+    vouched for.
+
+    THE ASSERTIONS ARE ON THE PROPERTY, NOT ON A REPLACEMENT WORDING, which
+    matters because a gate satisfiable by pasting a required string into the
+    artifact is worse than no gate. The number is parsed out of the runner's own
+    output and the caveat's claims are checked AGAINST it.
+
+    THIS SENTENCE WAS FALSE WHEN IT WAS FIRST WRITTEN, and saying so is the
+    point of leaving it here. As shipped at 142421a it claimed a rewording into
+    a blanket zero claim "fails here however it is phrased"; review pass 5
+    falsified that by mutation — it restored the over-claim in substance and
+    this file ran 71 passed, 0 red. The scan neutralises the interpolated path
+    now, and matches the word `zero` as well as the digit, so the claim below is
+    the narrowed one the code actually delivers. A guard's docstring is read as
+    a warrant by whoever edits the thing it guards, so an over-claiming one is
+    the same defect as an over-claiming diagnostic, one layer up.
+
+    WHAT IT HOLDS. Between the last SWEEPING reference before a zero-claim and
+    the claim itself, the word `roadmap` must appear — so a wording that reaches
+    all the printed figures at once and then calls them 0 must narrow that reach
+    to the roadmap first, which is the grammar the shipped caveat uses. It holds
+    for the digit and for the word `zero`, with the interpolated file path
+    blanked so the filename cannot stand in for the narrowing; and a caveat that
+    stops naming its zeros altogether fails rather than emptying the loop and
+    passing in silence.
+
+    A PROXIMITY CHECK WAS TRIED FIRST AND WAS NOT ENOUGH, which is worth keeping
+    because the difference is the whole subject. Asking whether `roadmap` occurs
+    within N characters of the zero tests CO-OCCURRENCE, and co-occurrence comes
+    apart from scope on the wording a careless edit actually writes: "with the
+    roadmap absent, every count below comes out 0" names the roadmap, sweeps the
+    phase-doc count in anyway, and clears a proximity check comfortably. Three
+    such wordings were constructed and run — two by review, one here — and all
+    three passed the proximity form and red the bounded one.
+
+    WHAT IT DOES NOT HOLD, stated so its silence is not over-read.
+
+    It does not read English, and it is not a proof. It holds a NECESSARY
+    condition on the wording — narrow before you claim — and a determined
+    rewording that satisfies the letter while still misleading (naming the
+    roadmap inside the swept span for an unrelated reason) would pass. Review is
+    the backstop for that; this assertion is the floor, and calling it more than
+    a floor is the same over-claim it exists to catch.
+
+    `_SWEEPS_THE_COUNTS` is a list, and a sweeping wording it does not match is a
+    wording this stops holding. That is the maintenance cost and it is the reason
+    the pattern is a named module constant rather than an inline literal.
+
+    It does not check the counts are RIGHT — they are still this checkout's,
+    which is issue #134's fix for all four `--pr`-accepting runners at once. It
+    holds only that nothing printed beneath the caveat contradicts the caveat.
+
+    It reds CLOSED on two shapes rather than passing them: a caveat that scopes
+    its zeros by naming the roadmap FILE PATH and never the bare word loses its
+    only narrowing token to the blanking, and a caveat that spells its zeros a
+    third way (`nil`, `none`) trips the empty-claims guard. Both are deliberate.
+    Failing closed on a wording nobody has written beats passing open on the one
+    that shipped, and each failure message names which of the two it is.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    component = repo / "docs" / "development" / "alpha"
+    # NAMES THAT MATCH `act._LOOKS_LIKE_A_PHASE` (`^phase.*\.md$`), which is read
+    # from the module rather than guessed — a fixture whose files do not match it
+    # prints `0 of its own` and this test then passes for the WRONG reason,
+    # reporting a defect as fixed when nothing has been exercised. The count
+    # assertion below is what turns that silent pass into a loud failure.
+    (component / "phase1_first.md").write_text("# Phase 1\n")
+    (component / "phase2_second.md").write_text("# Phase 2\n")
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo),
+                      "--pr", "132", "--dry-run"])
+    out, err = capsys.readouterr()
+    assert rc == 0, (
+        f"the dry run did not complete, so nothing below is exercising its "
+        f"output; stderr was {err!r}")
+    assert not (component / own.ROADMAP).is_file(), (
+        "the fixture stopped discriminating: with the roadmap present LOCALLY "
+        "the caveat does not fire and there is nothing here to contradict")
+
+    caveat = next((ln for ln in out.splitlines() if "NOT HERE" in ln), None)
+    assert caveat is not None, (
+        f"the caveat did not fire on a --pr dry run whose roadmap is absent "
+        f"here, so this test is asserting nothing about its claims; got {out!r}")
+    counted = re.search(r"Phase docs : (\d+) of its own", out)
+    assert counted, (
+        f"the phase-doc count is no longer printed in a shape this test can "
+        f"read, so the caveat's claim cannot be checked against it; got {out!r}")
+    phase_docs_here = int(counted.group(1))
+    # THE FIXTURE'S OWN DISCRIMINATOR. Two phase-doc-shaped files were written
+    # above; a `0` here means they did not match `_LOOKS_LIKE_A_PHASE` and the
+    # component is in the all-absent state the three tests above already cover —
+    # which is NOT this test's state and must not be mistaken for a pass.
+    assert phase_docs_here == 2, (
+        f"the fixture is not in the MIXED state: {phase_docs_here} phase docs "
+        f"were counted where 2 were written, so either the files stopped "
+        f"matching act._LOOKS_LIKE_A_PHASE or the count stopped being local. "
+        f"Nothing below discriminates in that state; got {out!r}")
+
+    # THE PROPERTY, CHECKED AGAINST THE NUMBER RATHER THAN AGAINST A WORDING:
+    # every zero the caveat asserts must be SCOPED to the figures that actually
+    # read the roadmap. A blanket zero claim is false the moment `phase_docs_of`
+    # returns anything, and that is the state this fixture is in.
+    #
+    # THE INTERPOLATED PATH IS BLANKED BEFORE SCANNING, and that one line is the
+    # whole reason this assertion discriminates. The caveat unconditionally opens
+    # by naming the file it is about, so `{rel}/roadmap.md` puts the word
+    # `roadmap` at a fixed low index of EVERY caveat this runner can print —
+    # inside the lookback of every zero in a line of realistic length. Scanning
+    # the raw string, the window was satisfied by the FILENAME and never by the
+    # claim's scope, so the loop could not fail: review pass 5 restored the
+    # blanket over-claim in substance and all 71 tests in this file stayed green.
+    # Blanking the path leaves only prose the WORDING chose to write.
+    #
+    # `zero` IS SCANNED ALONGSIDE `0` because `\b0\b` alone is a second, quieter
+    # vacuity of the same kind: a blanket claim spelled "are all zero" matches
+    # nothing at all, the loop body never runs, and a loop that never runs is an
+    # assertion that cannot fail.
+    #
+    # AND THE SPAN IS BOUNDED BY THE SWEEP, NOT BY A CHARACTER COUNT. A fixed
+    # lookback asks "does the word `roadmap` appear NEAR this zero", which is
+    # co-occurrence and not scope — and the two come apart on the wording a
+    # careless edit actually produces: `with the roadmap absent, every count
+    # below comes out 0` names the roadmap, sweeps the phase-doc count in
+    # anyway, and passes a proximity check comfortably. So the span starts at
+    # the LAST sweeping reference before the zero (`every`/`all`/`each`, or
+    # `the counts/figures below`) and the restriction must sit INSIDE it: what
+    # the quantifier reaches has to be narrowed to the roadmap before the zero
+    # is claimed, which is the grammar the shipped caveat actually uses
+    # ("every figure below THAT IS READ FROM THE ROADMAP ... is 0"). With no
+    # sweep at all the span is the whole caveat, so an unquantified blanket
+    # claim is caught by the same line.
+    scanned = caveat.replace(f"{component.relative_to(repo)}/{own.ROADMAP}",
+                             "<the file this caveat is about>")
+    claims = list(re.finditer(r"\b0\b|\bzeros?\b", scanned))
+    assert claims, (
+        f"the caveat makes no zero-claim this assertion can read, so the loop "
+        f"below is vacuous and nothing about its scope is being held. Either "
+        f"the caveat stopped naming the zeros it attributes to the absent "
+        f"roadmap, or it spells them a third way this scan does not match; got "
+        f"{caveat!r}")
+    low = scanned.lower()
+    for zero in claims:
+        sweep = max((m.end() for m in _SWEEPS_THE_COUNTS.finditer(low[:zero.start()])),
+                    default=0)
+        assert "roadmap" in low[sweep:zero.end()], (
+            f"the caveat claims a figure is 0 without narrowing the claim to "
+            f"the roadmap-derived ones first, while {phase_docs_here} phase "
+            f"docs are counted one line below it — the operator meets a warning "
+            f"and then a number it said would not exist, and reads the warning "
+            f"as not applying. What is unrestricted is {low[sweep:zero.end()]!r}; "
+            f"got {caveat!r}")
+    # AND IT MUST NOT DESCRIBE THIS CHECKOUT BY WHAT IS STILL IN IT. What is
+    # absent here is the roadmap; the plan's phase docs are on disk, computed
+    # below rather than assumed, so "a tree WITHOUT the plan" is false of it.
+    on_disk = sorted(p.name for p in component.iterdir() if p.is_file())
+    assert "without the plan" not in caveat.lower(), (
+        f"the caveat calls this checkout a tree WITHOUT the plan while {on_disk} "
+        f"are sitting in it — what is absent is the roadmap, and naming the "
+        f"wrong thing absent is what the count below then contradicts; got "
+        f"{caveat!r}")
+    # THE THREE THAT GENUINELY ARE 0 STILL ARE, so the narrowed claim is checked
+    # for being TRUE and not merely for being cautious — a caveat that claims
+    # nothing would pass every assertion above.
+    assert "· 0 phase-doc reference(s)" in out and "Sized now  : 0 estimate(s)" in out \
+        and "floor is 0" in out, (
+        f"the roadmap-derived figures are no longer the zeros the caveat "
+        f"attributes to the absent roadmap — either the fixture changed or the "
+        f"dry run now reads the branch, in which case issue #134's larger fix "
+        f"has landed and this test should assert THAT instead; got {out!r}")
+    assert out.index("Counted in") < out.index("NOT HERE") < out.index("Phase docs"), (
+        f"the caveat is not above the counts it qualifies, so its own "
+        f"\"below\" is false where it sits; got {out!r}")
+    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+        f"a --dry-run created something or dispatched — `nothing invoked, "
+        f"nothing posted` is the banner's promise; the calls were {calls!r}")

@@ -15,7 +15,7 @@ executable.
 from __future__ import annotations
 
 from .. import routing
-from .build_inputs import ChildResult, BuildInput, Verdict
+from .build_inputs import ChildResult, BuildInput
 
 # The draft child's completion contract: it must open (or update) a PR and print
 # its URL. A run that produced no URL did not finish, whatever it exited with.

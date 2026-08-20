@@ -81,6 +81,11 @@ If after reading the dependencies you still cannot tell, **place it where the de
 
 The sprint file has one shape and it is the operator's. **Read the neighbouring sections and copy their form**: the heading shape and its status marker, whether bullets are checkboxes, how a phase bullet is worded, where the planning link sits.
 
+**The shapes, stated so you match them rather than infer them:**
+
+- **A section is** an `## Sprint: <name> — <status marker>` heading, a `**Planning:**` line pointing at the roadmap, one or two short paragraphs of *what this is and why it is worth doing*, then the phase bullets.
+- **A phase bullet is one line naming a thing that will exist.** Bold the thing, then at most one clause of context.
+
 **Two things this file does not carry, and you must not introduce:**
 - **No reasoning, no history and no counter-arguments.** The sprint says what is being built and in what order. *"This used to be under X but that did not work"* is a history lesson and it belongs in a commit message. This has been written into this file four times and removed four times.
 - **No detail that belongs in a phase doc.** If a bullet needs a second sentence to be understood, the phase doc is where that sentence goes.

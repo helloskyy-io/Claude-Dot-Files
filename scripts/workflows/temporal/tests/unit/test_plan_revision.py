@@ -155,14 +155,37 @@ def test_a_missing_task_file_raises_rather_than_running_on_empty_context(
     """A typo'd path must not degrade to "no context" — the run would proceed on
     a bare description and produce a plan missing everything the file held."""
     with pytest.raises(FileNotFoundError, match="task file not found"):
-        cli._read_task_file(str(tmp_path / "absent.md"))
+        cli._read_task_file(str(tmp_path / "absent.md"), tmp_path)
 
 
 def test_a_task_file_is_read_literally(tmp_path: Path) -> None:
     body = 'para one\n\n  "quoted" and `backticked`\n'
     f = tmp_path / "ctx.md"
     f.write_text(body)
-    assert cli._read_task_file(str(f)) == body
+    assert cli._read_task_file(str(f), tmp_path) == body
+
+
+def test_a_RELATIVE_task_file_is_read_from_the_REPO_not_the_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The one runner with its own reader must anchor like the other seven.
+
+    It keeps its two-message contract (`not found` vs `not readable`) and takes
+    only the anchoring from `act.anchor_task_source`, so this asserts the BASE and
+    leaves the messages to the tests above.
+
+    THE CWD IS DELIBERATELY MADE TO CONTAIN A DECOY of the same name. Without it
+    the test passes whether the reader anchors or simply happens to find the file,
+    which is the shape that makes a green result mean nothing.
+    """
+    repo, elsewhere = tmp_path / "repo", tmp_path / "elsewhere"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "docs" / "ctx.md").write_text("from the repo")
+    (elsewhere / "docs").mkdir(parents=True)
+    (elsewhere / "docs" / "ctx.md").write_text("from the cwd — WRONG")
+
+    monkeypatch.chdir(elsewhere)
+    assert cli._read_task_file("docs/ctx.md", repo) == "from the repo"
 
 
 # --- main(): the repo root is the ANSWER git gives, not the invocation dir ----
