@@ -154,18 +154,31 @@ def test_a_tier_ORDERED_to_mutate_is_also_GIVEN_A_CEILING(
     )
 
 
-def test_AT_LEAST_ONE_TIER_IS_ORDERED_TO_MUTATE(monkeypatch, tmp_path: Path) -> None:
-    """THE VACUITY FLOOR. Every assertion above is skipped when no tier orders
-    mutation, so a rename of any `ORDERS` string would turn this whole module
-    green by making it test nothing. This is the control that goes red instead.
+def test_EVERY_TIER_IS_ORDERED_TO_MUTATE_not_merely_one_of_them(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """THE VACUITY FLOOR, PER TIER — because "at least one" was a hole.
+
+    The check above SKIPS a tier matching no string in `ORDERS`, and `ORDERS` is
+    hand-pasted wording that lives in the fragment files. A reworded fragment
+    therefore turns the assertion into a SKIP rather than a failure.
+
+    THE TWO DRAFT TIERS HELD THE OLD FLOOR GREEN. They match on `Verified
+    negative control`, which comes from `mutation_discipline.md` — a fragment
+    the REFINE tiers do not load. So the refine tiers, the only ones ever
+    unceilinged and the entire reason this module exists, could go dark with
+    nothing red, while the floor reported success on the strength of tiers that
+    were never the problem.
+
+    Found by `review-pr` against this module's own commit, using the discipline
+    the commit is about: reword the fragment and watch what fails. Nothing did.
     """
-    ordering = []
-    for name, build, entry in TIERS:
-        if any(o in build(monkeypatch, tmp_path, entry) for o in ORDERS):
-            ordering.append(name)
-    assert ordering, (
-        "no tier's assembled prompt matched any string in ORDERS, so every check "
-        "in this module skipped. Either mutation discipline left the fleet, or — "
-        "far more likely — a fragment was reworded and ORDERS was not updated "
-        "with it. The module is now inert; fix the strings."
+    unordered = [name for name, build, entry in TIERS
+                 if not any(o in build(monkeypatch, tmp_path, entry) for o in ORDERS)]
+    assert not unordered, (
+        f"these tiers match no string in ORDERS, so the ceiling check SKIPS them "
+        f"rather than failing: {unordered}. ORDERS is a hand-pasted copy of "
+        f"wording that lives in the fragments, so a reworded fragment silently "
+        f"removes a tier from this module's population. Update ORDERS to the new "
+        f"wording — do not delete the tier."
     )

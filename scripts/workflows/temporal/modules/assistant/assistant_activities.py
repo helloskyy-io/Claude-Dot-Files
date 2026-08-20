@@ -233,8 +233,11 @@ def worktree_add(repo_root: Path, name: str, ref: str) -> Path:
     already exists locally from an earlier run, `git worktree add` then SUCCEEDS
     against stale content and the run plans on top of a base that has moved —
     the kind of wrong answer that gets acted on. The check is scoped to
-    `origin/`-prefixed refs because the other callers pass a local ref (`HEAD`,
-    a bare branch name) that resolves without the network, and V1's own
+    `origin/`-prefixed refs, and as of `base_ref` EVERY fleet caller passes one —
+    both arms are `origin/`-prefixed, so the fetch is always checked and the
+    unchecked path is unreachable from inside this fleet. The scoping stays
+    because the signature is public and a caller may still hand it a local ref
+    (`HEAD`, a bare branch name) that resolves without the network; V1's own
     new-branch path did no fetch at all.
 
     STRIP THE PREFIX, NOT THE SUBSTRING. `removeprefix` and not `replace` here:
@@ -1438,9 +1441,12 @@ def base_ref(pr_number: str | None, repo_root: Path) -> str:
     `origin/`-prefixed ref and treats a failed fetch as fatal, so the remote form
     is the one that cannot quietly resolve to yesterday's tree.
 
-    ONE HELPER AND NOT TEN EXPRESSIONS. The inline form reached ten call sites,
-    which is why fixing it in nine of them would have been the likeliest outcome
-    of doing this by hand. `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH`
+    ONE HELPER AND NOT ELEVEN EXPRESSIONS. The inline form reached eleven call
+    sites, which is why fixing it in ten of them would have been the likeliest
+    outcome of doing this by hand — and is exactly what the first pass did. The
+    eleventh (`research_refresh_parent`) passes its base INLINE rather than
+    through a `ref = ...` line, so both the hand sweep and the first version of
+    the guard written to replace it looked straight past it. `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH`
     keys on the class rather than on today's ten.
     """
     if pr_number:

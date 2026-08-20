@@ -20,8 +20,8 @@ THE RULE IS THE OPERATOR'S, STATED PLAINLY: a run either CONTINUES the same PR
 operator's checkout position is not an input to the question.
 
 WHY THE CHECK IS ON THE CLASS AND NOT ON TEN FILES. The inline expression reached
-TEN call sites before anyone noticed, and a fix applied by hand to a list of ten
-is a fix applied to nine — this repo has the receipt, in the frozen-fleet guard
+ELEVEN call sites before anyone noticed, and a fix applied by hand to a list of
+eleven is a fix applied to ten — which is what happened here on the first pass — this repo has the receipt, in the frozen-fleet guard
 that was closed one spelling at a time three times. So this walks every module
 under the fleet and fails on the SHAPE, wherever it appears, including in a file
 that does not exist yet.
