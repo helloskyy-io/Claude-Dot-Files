@@ -87,7 +87,15 @@ WHAT THIS GUARD DOES NOT LOOK AT:
         correction that wrote this bullet, needs the source text for its
         comment scan and so binds it before parsing. It is named here rather
         than quietly reshaped to satisfy the recogniser, because a guard edited
-        to fit a matcher is how a population stops meaning anything.
+        to fit a matcher is how a population stops meaning anything;
+      - `test_ci_gate.py` passes the source to a named predicate
+        (`_dispatches_review_ungated`) which parses it, so the parse and the read
+        are in different functions. It LEFT this population by gaining exactly
+        what this file asks for: the extraction that lets a literal control drive
+        the predicate is the same edit that un-inlines the read. Named rather
+        than re-inlined, per the sentence above — and it is the sharpest evidence
+        for the redesign this bullet defers, since the recogniser now scores a
+        guard lower for being controlled.
 
     Closing this is not a wider regex. `_parses_a_literal` decides "is a control"
     by the *same* inlining test, negated — so admitting them without redesigning
@@ -122,7 +130,22 @@ _HERE = Path(__file__).resolve().parent
 # the number, so a message that disagreed with its own assertion would mislead
 # at the worst possible moment. That double-write is the class this file is
 # being corrected for, so it may not appear in the correction.
-_PINNED = (24, 13)
+# 23 -> 24 and 12 -> 13 AT THE MERGE OF #126 WITH #124, and BOTH numbers moved
+# because each side contributed one census guard that already carries its own
+# control: `test_a_named_observer_is_actually_WIRED` from the triage-sizes
+# branch, `test_a_PARENT_forwards_what_its_CHILD_reads` from the Phase 2
+# promotion. Neither side could see the other's, so each was correct at 23/12
+# alone — this is the census doing exactly what it is for, at the one moment
+# the two populations meet. `_WITHOUT_A_CONTROL_YET` is unchanged: no
+# grandfathered guard gained a control here.
+# 24 -> 26 and 13 -> 15 AT THE MERGE WITH THE TOOLING-DEFECTS BRANCH, which
+# brings `test_a_task_SOURCE_path_is_anchored_to_the_repo` and
+# `test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path`. BOTH numbers moved by
+# two, and that is the check that they each carry a control: a guard arriving
+# without one moves the first number only, and would additionally have tripped
+# the unexcused-guard test, which stayed green. Verified rather than assumed —
+# `_walks_the_tree` returns True for both files.
+_PINNED = (26, 15)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

@@ -105,3 +105,21 @@ def direction_statuses(research_dir: Path) -> dict[str, str]:
     rotates the row out and the receipt is gone.
     """
     return dict(direction_rows(research_dir))
+
+
+def sized_without_shipping(candidates_path: Path) -> list[str]:
+    """Ids carrying a `size` on a row this run did not rule `ship`.
+
+    THE TWO CELLS ARE READ FROM ONE ROW, which is the whole point. Checking each
+    column alone would pass a table where every row is sized and none is shipped —
+    both columns individually legal, the pairing nonsense. The prompt asks two
+    questions IN ORDER, and a run that answers the second for a row that failed
+    the first has stopped reading its own first answer.
+
+    Blank is always legal: a `ship` awaiting a size is UNSIZED, which
+    `plan-candidates` skips deliberately rather than guessing at.
+    """
+    return sorted(row.id for row in act.candidate_rows(
+        candidates_path,
+        missing_hint="Without it there are no rows to check size against decision.")
+        if row.size and row.decision != "ship")

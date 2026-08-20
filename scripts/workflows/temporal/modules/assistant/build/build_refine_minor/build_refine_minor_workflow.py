@@ -77,6 +77,11 @@ def run_refine_minor(*, description: str, pr_number: str, repo_root: Path,
             "CI had NOT settled when this pass started — treat check results as "
             "provisional and say so in your report." if ci_unsettled else ""
         ),
+        "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
+        "ORCHESTRATOR_EXECUTES_AGENTS_READ": act.shared_prompt("orchestrator_executes_agents_read"),
+        "RESOLVE_APPLY_THE_REMEDY_YOU_WROTE": act.shared_prompt("resolve_apply_the_remedy_you_wrote"),
+        "RESOLVE_REJECTING_IS_LEGITIMATE": act.shared_prompt("resolve_rejecting_is_legitimate"),
+        "RESOLVE_YOUR_OWN_DISPOSITIONS_TOO": act.shared_prompt("resolve_your_own_dispositions_too"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

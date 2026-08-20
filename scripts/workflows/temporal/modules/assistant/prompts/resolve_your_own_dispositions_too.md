@@ -1,0 +1,1 @@
+You are told above to treat another run's **"pre-existing"**, **"out of scope"** and **"existing condition"** as claims to check rather than reasons to accept. **The same bar binds YOUR dispositions of the findings you receive.**

@@ -81,6 +81,9 @@ def run_verify(*, research_dir: Path, pr_number: str, repo_root: Path,
             if correction_pass else ""
         ),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research-verify: {research_dir}"),
+        "RESOLVE_APPLY_THE_REMEDY_YOU_WROTE": act.shared_prompt("resolve_apply_the_remedy_you_wrote"),
+        "RESOLVE_REJECTING_IS_LEGITIMATE": act.shared_prompt("resolve_rejecting_is_legitimate"),
+        "RESOLVE_YOUR_OWN_DISPOSITIONS_TOO": act.shared_prompt("resolve_your_own_dispositions_too"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
     }
     output = act.run_claude(

@@ -187,6 +187,40 @@ class Scaffolded(NamedTuple):
     resumed: list[str]
     extends: list[tuple[str, str]]
     unnamed: list[tuple[str, str]]
+    # TWO DECLINE REASONS ADDED 2026-08-19 WITH THE `size` COLUMN, and they are
+    # separate because the operator does something different about each.
+    #   `not_a_feature` — sized `phase` or `checkboxes`. Correctly not scaffolded;
+    #     it is work INSIDE a component rather than a component of its own, and
+    #     the run that plans that component is where it lands. Nothing is wrong.
+    #     WHETHER THAT COMPONENT EXISTS IS NOT CHECKED, and the note the parent
+    #     prints says so. It read "belongs inside a component that already
+    #     exists" until 2026-08-20, which is a positive claim about a directory
+    #     nothing on this branch looks at — `pool.parent.exists()` is below the
+    #     `continue`, on the `feature` path only. A `phase` naming a component
+    #     nobody has planned is triage's ruling to have made and this activity's
+    #     job to REPORT; asserting it away is the one thing that would hide it.
+    #   `unsized`       — ruled `ship` and never sized. Nothing can route it, and
+    #     the remedy is a triage pass rather than anything here. Reported so the
+    #     backlog is VISIBLE instead of silently skipped.
+    #
+    # REQUIRED, WITH NO DEFAULT, AND THAT IS DELIBERATE. They shipped as
+    # `= []`, which on a NamedTuple is ONE list built once at class-creation and
+    # handed to every instance that omits the field — so `s.not_a_feature.append(
+    # ...)` on a default-constructed value writes into the class, and the next
+    # default-constructed `Scaffolded` in the same process starts life holding
+    # the previous one's rows. The parent turns each entry into an operator note,
+    # so the visible failure is one run reporting another run's declines.
+    #
+    # A DEFAULT WOULD ALSO BE WRONG EVEN IF IT WERE IMMUTABLE, which is the
+    # stronger reason and the one that decided against `= ()`. Every list here
+    # answers "what happened to the rows I did not scaffold?", and the whole
+    # argument of this class is that "nothing happened" must never be reachable
+    # by omission — an absent field is exactly the silence the four original
+    # buckets were introduced to remove. Requiring them makes a caller that has
+    # not thought about the two decline reasons fail at construction rather than
+    # report an empty one.
+    not_a_feature: list[tuple[str, str]]
+    unsized: list[tuple[str, str]]
 
     @property
     def to_research(self) -> list[str]:
@@ -208,7 +242,10 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     prompt for this — and every hold the review raised was a consequence of it
     being a dispatch at all. It was closed rather than repaired.
 
-    FOUR CONDITIONS, AND EACH SKIP IS A DECISION SOMEBODY ELSE ALREADY MADE:
+    FIVE CONDITIONS, AND EACH SKIP IS A DECISION SOMEBODY ELSE ALREADY MADE. The
+    count moved from four when `size` landed on 2026-08-19, and it is written out
+    rather than derived because this list is the only place each condition's
+    reasoning is recorded — there is no collection here to count:
 
       * `decision` is not `ship` — triage has not agreed to do it, or has refused.
       * `status` is not `open` — it is already handled.
@@ -220,6 +257,24 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         it is a filer typo, and the contract says an unnamed component fails
         nothing. It is REPORTED rather than raised, since the alternative aborted
         the parent after triage's dispatch was already spent.
+
+        ASKED OF EVERY ELIGIBLE ROW, WHATEVER ITS SIZE, and it was not when the
+        `size` skip first landed. That branch sat AHEAD of this one, so
+        `component_slug` was reached only for a `feature` — and a `phase`-sized
+        row whose cell reads `--` was filed as `not_a_feature` under a note that
+        then read *"belongs inside a component that already exists"* — a positive
+        claim about a cell that names nothing. The typo went unreported and the
+        note that stood in for the report asserted the opposite of it. A cell
+        yielding no folder name is a filer typo at every size: a `phase` still
+        has to say WHICH component it is a phase of. (That wording is gone; the
+        note now refers to *"the component its `component` cell names"* and says
+        outright that whether it is planned is not asked here.)
+      * `size` is not `feature` — triage ruled how big this is, and only a
+        feature is a component. `phase` and `checkboxes` are work INSIDE one; a
+        blank is UNSIZED rather than small. Both are reported, in their own
+        buckets, and neither is an error. Nothing here checks that the component
+        a `phase` names is planned — that is triage's ruling to have made, and
+        this activity's job is to report the row, not to enforce it.
       * `docs/development/<slug>/` ALREADY EXISTS — the candidate EXTENDS
         something already planned, so there is nothing to scaffold. The operator's
         scope is exact about this: *"If the component directory already exists, do
@@ -271,10 +326,15 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     skip rows, which is a read rather than a write.
 
     Returns a `Scaffolded`, in file order. Every eligible ROW lands in exactly one
-    of its four lists, so "nothing happened" can always be told from "nothing
-    was eligible".
+    of its buckets, so "nothing happened" can always be told from "nothing was
+    eligible". The number of buckets is deliberately NOT stated here: it read
+    "four" from the day this was written until `size` added two more, and the
+    sentence's claim is the PROPERTY — one row, one bucket — which needs no
+    denominator. `test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_
+    note` is what holds the property, over whatever `_fields` currently is.
     """
-    result = Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+    result = Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
+                        not_a_feature=[], unsized=[])
     rows = act.candidate_rows(candidates_path, missing_hint=(
         "Without it there is nothing to scaffold from, and the research step "
         "that reads what this creates has no input."))
@@ -282,9 +342,35 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
     for row in rows:
         if row.decision != "ship" or row.status != "open" or not row.component:
             continue
+        # THE NAME IS CHECKED BEFORE THE SIZE, and the first version of the size
+        # branch had it the other way round. A cell that is not blank but slugs
+        # to nothing is a filer typo whatever triage sized the row, and
+        # `not_a_feature`'s note speaks of "the component its `component` cell
+        # names" — a reference to a cell that, in this case, names nothing.
+        # Reporting the typo first is the only
+        # ordering under which every bucket's note is TRUE of the row in it.
+        # `unnamed`'s note holds at every size: it says the cell needs a real
+        # name or a blank and promises no scaffolding, which is exactly the
+        # situation for a `phase`.
         slug = component_slug(row.component)
         if not slug:
             result.unnamed.append((row.id, row.component))
+            continue
+        # SIZE DECIDES WHETHER THIS SCAFFOLDS AT ALL, and before 2026-08-19 there
+        # was no size — this activity inferred one from a proxy: if the named
+        # component's directory did not exist, the candidate must be a new
+        # component. Right for a `feature` and wrong for the other two. A
+        # `phase`-sized candidate naming a component that happens to be new got a
+        # whole component scaffolded around one phase of work, and a
+        # `checkboxes`-sized one had no expressible form at all.
+        #
+        # BLANK IS SKIPPED RATHER THAN GUESSED AT, which is what makes the
+        # backfill self-healing: the 29 rows ruled `ship` before this column
+        # existed carry no size, and each heals when triage next reaches it. A
+        # guess here would scaffold components for rows nobody has sized.
+        if row.size != "feature":
+            (result.unsized if not row.size else result.not_a_feature).append(
+                (row.id, row.size or "unsized"))
             continue
         pool = component_dir(worktree, row.component,
                              source="`component` cell in candidates.md") / "research"

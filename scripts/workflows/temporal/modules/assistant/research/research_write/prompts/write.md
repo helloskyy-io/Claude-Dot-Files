@@ -8,12 +8,11 @@ ${HEADLESS_EXECUTION_GUARD}
 
 EXECUTION ORDER IS MANDATORY
 
-Execute stages in strict numerical order. If a stage has nothing to address, emit: ## Stage N: SKIPPED — <one-line reason>. Do not silently skip, reorder, or interleave stages.
+${STAGE_ORDER_SKIPPED_MARKER}
 
 ---
 
-## Stage 1: VERIFY + DISCOVER
-FIRST: verify the task targets THIS repo. If ${RESEARCH_DIR} or the context references a DIFFERENT repository than the one your worktree belongs to, STOP immediately — report "DISPATCH MISCONFIGURATION: task targets <repo X>, worktree is in <repo Y>; re-dispatch with --repo <path>" as your final output and do no further work. Do NOT self-rescue into another repo.
+${RESEARCH_STAGE_1_VERIFY_AND_DISCOVER}
 
 Then:
 - Locate and READ the repo's research standard (expected at standards/development/research/research_standard.md or the repo's equivalent — check CLAUDE.md / docs index). If NO research standard exists in this repo, STOP and report it — the artifact contract is a required input, not something to improvise.

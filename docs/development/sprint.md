@@ -156,7 +156,7 @@ Evidence, prior art and the plateau correction: [`cpi-decisions.md`](cpi-decisio
 Taking apart the long-running workflows that already existed, so each boundary is a retry/resume point and children become recombinable rather than copied. **Building the ones that do not exist yet is [Assistant Workflow Design](#sprint-assistant-workflow-design--🔵-not-scheduled-needs-research-then-planning).**
 
 - [x] **Phase 1 · Decompose the build families and codify the shape** — draft/refine/review-pr, the activities layer, and the composition contract written down
-- [ ] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism and standard shipped; the fleet backlog and the drifted-copy ruling remain
+- [x] **Phase 2 · Family alignment** — children in a family do not diverge except where they need to. Mechanism, standard, fleet backlog and the drifted-copy ruling all shipped; the ruling procedure scored κ = 0.000 in its own blind trial, which Phase 3 inherits as an open question
 - [ ] **Phase 3 · Dual-mode children** — the nine children that cannot be started by a person get a runner of their own, each proven running alone
 - [ ] **Phase 4 · Nothing a run relies on is invisible** — every derived value published with its marker and echoed on the live path, and the producer-with-no-consumer gate extended beyond one directory
 - [ ] **Phase 5 · What configuration a run absorbed** — a sixth `Journal-` tag digesting the config a run ran under, the reader that compares two bags, and the managed tier beside the user's own

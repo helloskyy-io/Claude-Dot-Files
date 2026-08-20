@@ -1,4 +1,4 @@
-You are executing the BUILD workflow on a new branch.
+You are executing the BUILD-DRAFT-MINOR workflow on a new branch.
 
 Task: ${DESCRIPTION}
 
@@ -8,11 +8,17 @@ Follow these stages exactly:
 
 1. ASSESS: Read the relevant files in the current directory to understand what needs to change. Focus only on the scope of the task. Do not explore unrelated code.
 
-   WORKFLOW-FIT CHECK — do this BEFORE implementing. build-minor.sh is the LIGHT workflow: 100 turns, no review agents. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
+   WORKFLOW-FIT CHECK — do this BEFORE implementing. `build-draft-minor` is the LIGHT tier: it dispatches no review agents, and the correction pass it hands off to runs ONE review lens. If the task turns out to need significant rework, touches many files, introduces a new shared seam/helper/boundary, or would genuinely benefit from code-review/refactoring/standards/security lenses, STOP and report:
 
-   > This task is sized for build.sh (the reviewed two-step parent), not build-minor.sh. Nothing has been changed. build-minor.sh has a 100-turn cap and dispatches NO review agents; this work needs the review arsenal. Recommend re-dispatching with build.sh, which drafts the change in one run and then reviews it in a SECOND run with fresh context (four review lenses, 200 turns each).
+   > This task is sized for the reviewed major tier — `build-draft` followed by `build-refine` — not `build-draft-minor`. Nothing has been changed. `build-draft-minor` dispatches NO review agents and hands off to a single-lens correction pass; this work needs the review arsenal. Recommend re-dispatching with `build-draft`, which drafts the change in one run and then reviews it in a SECOND run with fresh context.
 
    Mis-sizing is expensive in a specific way: the light tool can exhaust its cap mid-task AND lacks the lenses that would have caught the defects — so you pay twice and still miss things. Stopping here costs one cheap turn.
+
+${VERIFY_THE_TASKS_ASSERTED_FACTS}
+
+   ${VERIFICATION_IS_BY_FETCH}
+
+${CHARACTERIZE_BY_EXECUTION}
 
    TURN-BUDGET DISCIPLINE: you have 100 turns. Commit as soon as a coherent unit of work is verified — do NOT carry completed, tested work uncommitted while you continue. If you approach the cap with uncommitted work, STOP what you are doing, commit and push it immediately, and report what remains. Work that dies uncommitted in a worktree is lost silently; work that is committed and pushed is resumable by the next dispatch.
 
@@ -29,11 +35,15 @@ Follow these stages exactly:
 
 3. TEST: Run any existing tests for the affected code. If tests fail because of your changes, fix them. If the task requires new tests, add them. Only run tests relevant to the changes — do not run the full test suite unless necessary.
 
-4. COMMIT: Stage the changes and commit with a clear, focused message. Use format: "build: <short description>"
+   ${CAN_IT_FAIL_LIGHT_TIER}
+
+4. COMMIT: ${GITIGNORE_COLLISION_CHECK}
+
+   Stage the changes and commit with a clear, focused message. Use format: "build-draft-minor: <short description>"
 
 5. PUSH: Push the branch to origin. **CHECK YOU ARE ON A BRANCH FIRST — the worktree may hand you a DETACHED HEAD.** `git rev-parse --abbrev-ref HEAD`; if it returns `HEAD`, you are detached and `git push -u origin HEAD` fails with `refs/heads/HEAD`. Create the branch (`git checkout -b <name>`) or push explicitly to a ref (`git push origin HEAD:<branch>`). **Asked for on five separate reflections across four PRs** — runs keep losing turns rediscovering it, and every wording of the instruction below says "the branch" as though one exists.
 
-6. PR: Create a new PR using 'gh pr create'. Use title format: "build: <short description>". In the body, describe what was changed and why. Report the PR URL at the end.
+6. PR: Create a new PR using 'gh pr create'. Use title format: "build-draft-minor: <short description>". In the body, describe what was changed and why. Report the PR URL at the end.
 
 7. REFLECT: ${DECISION_LOG_AND_REFLECTION}
 
