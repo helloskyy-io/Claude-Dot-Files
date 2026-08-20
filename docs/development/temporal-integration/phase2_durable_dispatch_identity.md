@@ -13,7 +13,7 @@ An identity minted inside the thing that retries becomes a new identity on every
 1. **No code path invents a dispatch identity inside an activity.** The logical id is computed by the **caller** from the work, is stable across every retry, resume and reconciliation, and is passed in.
 2. **The six identity components exist as record fields**, each with an owner: logical id (caller), attempt id (system), uniqueness scope (design-time), request fingerprint (store), retention horizon (store), and the two conflict rulings (design-time).
 3. **The per-subsystem recovery table is filled for every subsystem this fleet has**, on all six columns, including the rows whose values another component supplies.
-4. **Re-dispatching the same logical id is demonstrated to reuse one identity** — same record, same bag — and a duplicate launch while one is live **fails loudly** rather than starting a second run against the same worktree.
+4. **Re-dispatching the same logical id is demonstrated to reuse one identity** — same record, same bag — and a duplicate launch while one is live **fails loudly** rather than starting a second run against the same worktree. **This depends on [PMP Phase 9](../persistent-memory-protocol/phase9_one_run_one_identity.md) r7** — atomic create-if-not-exists on the bag is the mechanism a loud failure detects against, and it is not built here.
 5. **Nothing Temporal replaces is built.** No claim/lease/TTL, no boot reconciler, no retry bookkeeping, no hand-rolled liveness probe. The negative is a deliverable: it is written down, with the reason.
 
 ---

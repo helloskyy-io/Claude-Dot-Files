@@ -43,7 +43,7 @@ What it does rest on:
 
 - The vendored [Worker Deployment Standard](../../standards/temporal/worker_deployment_standard.md) — **§1.3** the domain-boundary test, which decides how many workers this fleet gets; **§3** the worker inventory and its same-PR obligation; **§10** cutover discipline, which governs the order in which a routing change and a worker deploy may land.
 - The [Temporal Standard](../../standards/temporal/temporal_standard.md) **§10.1** promotion rule, which decides where shared code and shared prompt fragments live: a fragment is promoted out of a workflow's folder **if and only if more than one workflow uses it** — consumer count decides, never taste.
-- [`temporal-integration.md`](temporal-integration.md)'s migration path, step 3: the Temporal file layout, and why `children/` dissolves.
+- [`temporal-integration.md`](temporal-integration.md)'s migration path, the Temporal file layout step: why `children/` dissolves. **Cited by content and not by step number** — that path is renumbered whenever a step is inserted, and a citation keyed on the ordinal points at a different step rather than failing loudly.
 
 ---
 
