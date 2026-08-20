@@ -1032,3 +1032,34 @@ def test_TWO_estimates_beside_ONE_phase_satisfy_the_floor(
                          (c / own.ROADMAP).read_text().split("## Phase 2")[1]), (
         "PHASE 2 CARRIES NO ESTIMATE — that is the whole point of this fixture, "
         "and a passing run over it is the residual being demonstrated")
+
+
+def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() -> None:
+    """A `--pr` pass reads the PR's tree, so the precondition must ask that tree.
+
+    MEASURED ON PR #130. `plan-feature` had written a roadmap and six phase docs
+    minutes earlier; this preflight asked the local checkout, found none, and
+    refused the run — declaring missing the exact plan it had been pointed at.
+
+    THIRD INSTANCE OF ONE CLASS THIS WEEK, which is why the guard is on the
+    lookup rather than on the message. PR #115 fixed four runners that opened a
+    worktree on HEAD instead of the PR's branch; plan-verify's dry run still
+    counts from the repo because no worktree exists yet, which is correct and
+    documented. This one was neither correct nor documented: it BLOCKED the run.
+
+    Absence on both sides is still a refusal — the precondition is real and a
+    plan that exists nowhere cannot be verified. What changed is which trees
+    count as "nowhere".
+    """
+    src = (Path(__file__).resolve().parents[2] / "scripts" / "run_plan_verify.py").read_text()
+    guard = src[src.index("plan_exists = "):src.index("return 1", src.index("plan_exists = "))]
+    assert "a.pr_number" in guard, (
+        "the roadmap precondition no longer consults the PR number, so a --pr "
+        "pass is judged against a checkout that need not contain the plan")
+    assert "pr_branch" in guard and "cat-file" in guard, (
+        "the precondition does not ask the PR's BRANCH for the file. Asking only "
+        "the local tree refuses runs whose plan exists exactly where the run "
+        "would have read it")
+    assert "not here and not on PR" in guard, (
+        "the refusal message no longer says BOTH trees were checked. A caller "
+        "told only 'has no roadmap.md' will go looking in the wrong one")

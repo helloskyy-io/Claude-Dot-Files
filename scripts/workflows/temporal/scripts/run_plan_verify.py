@@ -5,6 +5,7 @@ the Temporal path exists this is replaced by a client that starts the workflow
 on a task queue; the workflow module itself does not change.
 """
 from __future__ import annotations
+import subprocess
 import sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -68,11 +69,35 @@ def main(argv=None) -> int:
     # workflow is forbidden to write. Preflight is the right altitude for a
     # precondition, per the class issue #49 records: a dead run must leave no
     # orphaned worktree behind it.
-    if not (component / own.ROADMAP).is_file():
-        print(f"\n✗ {component.relative_to(repo_root)} has no {own.ROADMAP}: there is "
-              f"no plan to verify. Run plan_feature.sh against this component first — "
-              f"writing the plan is its job and this workflow holds no grant over a "
-              f"phase doc.", file=sys.stderr)
+    # ON A `--pr` PASS THE PLAN LIVES ON THE PR'S BRANCH, NOT IN THIS CHECKOUT,
+    # and asking the local tree is asking the wrong one. Measured 2026-08-19: PR
+    # #130 carried a roadmap and six phase docs written minutes earlier, and this
+    # refused the run because `main` had none — the exact plan it was pointed at,
+    # declared missing. Third instance of the same class this week: PR #115 fixed
+    # a worktree based on HEAD rather than the PR branch, and plan-verify's own
+    # dry run counts from the repo for want of a worktree.
+    #
+    # `git cat-file -e` asks the branch the worktree will actually be built from,
+    # which is the tree the run reads. A failure to resolve is treated as ABSENT
+    # rather than as an error: an unreadable ref is a different problem, and the
+    # message below names the one thing a caller can act on.
+    plan_exists = (component / own.ROADMAP).is_file()
+    if a.pr_number and not plan_exists:
+        rel = (component / own.ROADMAP).relative_to(repo_root).as_posix()
+        try:
+            branch = act.pr_branch(a.pr_number, repo_root)
+            probe = subprocess.run(
+                ["git", "cat-file", "-e", f"origin/{branch}:{rel}"],
+                cwd=repo_root, capture_output=True, text=True, timeout=30)
+            plan_exists = probe.returncode == 0
+        except (OSError, subprocess.SubprocessError, RuntimeError):
+            pass
+    if not plan_exists:
+        print(f"\n✗ {component.relative_to(repo_root)} has no {own.ROADMAP}"
+              + (f" — not here and not on PR #{a.pr_number}'s branch" if a.pr_number else "")
+              + f": there is no plan to verify. Run plan_feature.sh against this "
+              f"component first — writing the plan is its job and this workflow "
+              f"holds no grant over a phase doc.", file=sys.stderr)
         return 1
 
     try:
