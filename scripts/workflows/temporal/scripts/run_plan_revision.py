@@ -28,7 +28,7 @@ Examples (flags FIRST, positionals LAST — protects positionals from
 line-wrap and keeps options visible):
   plan_revision.sh "update roadmap to reflect Phase 4 completion"
   plan_revision.sh "record the REST to gRPC switch in the planning docs" "focus on performance rationale"
-  plan_revision.sh --pr 18 --task-file /tmp/context.md "revise Phase 5 requirements"
+  plan_revision.sh --pr 18 --task-file /tmp/claude-<name>.md "revise Phase 5 requirements"
   plan_revision.sh --verbose "realign roadmap milestones"
 
 This workflow is for PLANNING doc builds — not code changes.

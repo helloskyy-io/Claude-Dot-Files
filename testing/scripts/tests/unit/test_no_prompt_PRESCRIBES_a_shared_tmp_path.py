@@ -44,8 +44,22 @@ from pathlib import Path
 
 import pytest
 
-PROMPTS = Path(__file__).resolve().parents[4] / "scripts" / "workflows" / "temporal" / \
-    "modules" / "assistant"
+REPO = Path(__file__).resolve().parents[4]
+
+# EVERY SURFACE THAT PRESCRIBES A PATH TO SOMEONE, not only the prompts a model
+# reads. The first version of this guard walked `modules/assistant` alone, and
+# `review-pr` immediately found the class still live on the two surfaces it
+# excluded: `run_plan_revision.py`'s `--help` example and the
+# `workflow-dispatch` skill both showed `--task-file /tmp/context.md`. An
+# OPERATOR copying that from help text collides exactly as a model does, and on
+# a machine this PR measures at 19 dispatches in one night.
+SURFACES = (
+    REPO / "scripts" / "workflows" / "temporal" / "modules" / "assistant",
+    REPO / "scripts" / "workflows" / "temporal" / "scripts",
+    REPO / "config" / "skills",
+    REPO / "config" / "commands",
+)
+SUFFIXES = (".md", ".py", ".sh")
 
 # A `/tmp` path with a file extension. The extension is what separates a PATH
 # from a bare directory mention — `/tmp` alone, or `/tmp/claude-1000/...` as a
@@ -53,7 +67,13 @@ PROMPTS = Path(__file__).resolve().parents[4] / "scripts" / "workflows" / "tempo
 TMP_PATH = re.compile(r"/tmp/[A-Za-z0-9_.${}<>-]*\.[a-z]{2,5}")
 
 # What makes a name differ between two concurrent dispatches.
-PER_DISPATCH = ("${PR_NUMBER}", "$$", "<branch>", "<ts>", "<timestamp>", "${RUN_ID}")
+PER_DISPATCH = ("${PR_NUMBER}", "$$", "<branch>", "<ts>", "<timestamp>", "${RUN_ID}",
+                # the operator-facing convention `terminal-output.md` prescribes:
+                # a NAMED payload file, distinct per task rather than per run.
+                "<name>",
+                # a Python `.format()` placeholder substituted with the PR number
+                # before the string ever reaches a model — `PR_RUNWAY_TASK` uses it.
+                "{pr}")
 
 # A path named only to EXPLAIN the defect — prose about the old fixed form, not
 # an instruction to use it. Each entry states why, because an exemption without
@@ -67,10 +87,11 @@ EXPLANATORY = {
 
 
 def _prompts() -> list[Path]:
-    found = sorted(PROMPTS.rglob("*.md"))
-    assert len(found) > 20, (
-        f"only {len(found)} prompts found under {PROMPTS} — the walk is wrong and "
-        f"every assertion below would pass vacuously")
+    found = sorted(f for root in SURFACES for f in root.rglob("*")
+                   if f.is_file() and f.suffix in SUFFIXES)
+    assert len(found) > 40, (
+        f"only {len(found)} files found across {[str(s) for s in SURFACES]} — the "
+        f"walk is wrong and every assertion below would pass vacuously")
     return found
 
 
@@ -82,7 +103,7 @@ def _fixed_paths(text: str) -> list[str]:
 
 
 def test_no_prompt_SENDS_EVERY_DISPATCH_to_one_file() -> None:
-    offenders = [(p.relative_to(PROMPTS), m)
+    offenders = [(p.relative_to(REPO), m)
                  for p in _prompts() for m in _fixed_paths(p.read_text())]
     assert not offenders, (
         "these prompts name a FIXED path in `/tmp`, which every dispatch on the "

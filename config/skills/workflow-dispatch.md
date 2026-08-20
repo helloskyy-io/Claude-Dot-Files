@@ -114,7 +114,7 @@ Use --task-file. Structure:
 Plan path is the primary input. Task file holds ONLY context not in the plan:
 
 ```
-build-phase.sh /path/to/phase-doc.md --task-file /tmp/context.md
+build-phase.sh /path/to/phase-doc.md --task-file /tmp/claude-<name>.md
 ```
 
 Context file (optional, brief):

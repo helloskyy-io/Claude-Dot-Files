@@ -7,8 +7,8 @@
 #
 # Usage:
 #   ./build_minor.sh "description of the scoped change"
-#   ./build_minor.sh --task-file /tmp/claude-task.md --verbose
-#   ./build_minor.sh --pr 42 --task-file /tmp/claude-runway.md
+#   ./build_minor.sh --task-file /tmp/claude-<name>.md --verbose
+#   ./build_minor.sh --pr 42 --task-file /tmp/claude-<name>.md
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec python3 "${SCRIPT_DIR}/run_build_minor.py" "$@"
