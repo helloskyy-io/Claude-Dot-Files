@@ -887,11 +887,23 @@ def _tree_cases(tmp_path):
 def test_a_NON_HOLDING_gate_is_unreachable_without_a_policy_READ(monkeypatch, tmp_path):
     """Over a RED check list, every tree shape either REFUSES or reads a policy.
 
-    THE ASSERTION IS THE IMPLICATION, not a list of expected verdicts: if
-    `ci_verdict` RETURNED, then `read_check_policy` ran. That is what makes this
-    survive a future change to how the requirement is enforced — swap the
-    required parameter for a stopping verdict and this still passes; delete the
-    requirement altogether and it goes red on the `None` case.
+    THE ASSERTION IS THE IMPLICATION, not a list of expected verdicts: if the
+    gate let the run PROCEED, then `read_check_policy` ran. That is what makes
+    this survive a future change to how the requirement is enforced — swap the
+    required parameter for a stopping verdict and this still passes, because a
+    stopping verdict is a hold and the implication never ranges over it; delete
+    the requirement altogether and it goes red on the `None` case.
+
+    THAT SENTENCE IS DRIVEN AND NOT ASSERTED, because the sentence it replaces
+    was neither. The version this file shipped on 2026-08-20 scoped the read
+    assertion to EVERY return rather than to the non-holding ones, so
+    implementing the stopping verdict — the alternative the brief named and
+    this fix declined — turned it RED, while its own docstring promised it
+    would not. Both halves are now measured: `repo_root: Path | None = None`
+    plus `if repo_root is None: return UNREADABLE_POLICY` leaves this GREEN
+    (that state is a HOLD, `routing.ci_gate`), and re-adding the skip branch
+    turns it RED. A guard whose prose outran its assertions is the class this
+    whole PR exists to close, so it does not get to survive inside the fix.
 
     The check list is RED throughout, so any outcome that is not a hold is a
     demonstrated fail-open rather than a theoretical one.
@@ -903,7 +915,10 @@ def test_a_NON_HOLDING_gate_is_unreachable_without_a_policy_READ(monkeypatch, tm
         hold came back.
       * `wait_for_ci`. It returns a settled bool, not a verdict, so it has no
         holding/non-holding outcome for this implication to range over. Its half
-        of the requirement is pinned by the signature guard below.
+        of the requirement is pinned by the signature guard below — which now
+        drives an explicit `repo_root=None` against BOTH reads. It did not until
+        this correction, and the two guards each named the other as the one that
+        looked, so `wait_for_ci(pr, repo_root=None)` had no cover at all.
       * THE POLICY'S CONTENT. `read_check_policy` is counted, not inspected —
         `DO NOT TOUCH read_check_policy` is a standing constraint on this gate
         and its parsing is covered by the declaration tests above.
@@ -915,30 +930,46 @@ def test_a_NON_HOLDING_gate_is_unreachable_without_a_policy_READ(monkeypatch, tm
     _gh(monkeypatch, [{"name": "suite", "state": "FAILURE"}])
     reads = _counting_policy_reader(monkeypatch)
 
-    examined = refused = holds = proceeds = 0
+    examined = refused = holds = 0
+    proceeded: list[str] = []
     for label, tree in _tree_cases(tmp_path):
         examined += 1
         before = reads["n"]
         try:
             verdict, extra = act.ci_verdict("1", repo_root=tree)
         except TypeError:
-            # The call shape itself is refused. A verdict that never existed
-            # cannot be a non-holding one, so the implication holds vacuously
-            # for this case — and the signature guard below is what pins that
-            # this is the reason, rather than an unrelated crash.
+            # REFUSED, AND THIS ARM DELIBERATELY DOES NOT CARE WHERE FROM —
+            # that is the mechanism's business, and pinning it here is what
+            # made the previous version go red on a correct alternative. A
+            # verdict that never existed cannot be a non-holding one, so the
+            # implication holds for this case however the refusal arrived.
+            #
+            # The two refusals are NOT the same, and the sentence that used to
+            # sit here ("the call shape itself is refused") was false for the
+            # one this list actually produces. An OMITTED `repo_root` is
+            # rejected at the call boundary; an explicit `None` — which is what
+            # `_tree_cases` hands over — is accepted by the signature, reaches
+            # `read_check_policy`, and dies on `None / POLICY_PATH`.
+            # `test_neither_CI_READ_can_be_called_without_a_tree` drives both
+            # shapes against both reads.
             refused += 1
             continue
 
-        assert reads["n"] > before, (
-            f"[{label}] ci_verdict returned {verdict} over a RED check list "
-            f"without ever calling read_check_policy. The verdict describes a "
-            f"policy nobody looked for, and `NO_CHECKS` reaching `ci_gate` "
-            f"returns hold=None — which every parent reads as PROCEED."
-        )
-
         hold, _notes = routing.ci_gate(verdict, extra, pr="1", repo_target=None)
         if hold is None:
-            proceeds += 1
+            proceeded.append(label)
+            # THE PROPERTY, AND THE ONLY PLACE IT IS ASSERTED. Scoped to the
+            # non-holding outcome on purpose: a gate that STOPS has broken
+            # nothing, whether or not it read a policy first, and asserting
+            # over every return instead pinned the mechanism rather than the
+            # property.
+            assert reads["n"] > before, (
+                f"[{label}] ci_verdict returned {verdict} over a RED check list "
+                f"without ever calling read_check_policy, and `ci_gate` let the "
+                f"run PROCEED on it. The verdict describes a policy nobody "
+                f"looked for — which is how a red tree reached review-pr on "
+                f"2026-08-20."
+            )
         else:
             holds += 1
 
@@ -948,22 +979,28 @@ def test_a_NON_HOLDING_gate_is_unreachable_without_a_policy_READ(monkeypatch, tm
         f"the case list examined {examined} trees, not 4 — a case was dropped, "
         f"and the one that matters is `None`"
     )
-    assert refused == 1, (
-        f"{refused} of the cases were refused at the call. Exactly one should be: "
-        f"handing the gate no tree at all. If this is 0 the requirement has been "
-        f"relaxed; if it is more than 1 the guard is now measuring a crash in the "
-        f"fixture rather than the property."
+    assert refused <= 1, (
+        f"{refused} of the 4 cases raised instead of returning a verdict. At most "
+        f"one can legitimately: handing the gate no tree at all. More than that "
+        f"and this is measuring a crash in the fixture rather than the property — "
+        f"every extra refusal is a case that skipped the assertion. It is `<=` and "
+        f"not `== 1` because a stopping verdict for the no-tree case would make it "
+        f"0 and would be a correct implementation; what may not happen is a tree "
+        f"PROCEEDING, which the floor below pins by name."
     )
     assert holds >= 2, (
         f"only {holds} tree(s) produced a hold over a RED check list — the "
         f"implication 'proceeded => a policy was read' is trivially satisfiable "
         f"by a fixture that never reaches the gate at all"
     )
-    assert proceeds >= 1, (
-        "no tree let the run proceed, so this loop cannot distinguish "
-        "'non-holding results require a policy read' from 'everything holds'. "
-        "A repo that genuinely declares nothing MUST still proceed — that is a "
-        "ruled decision (routing.CiVerdict, 2026-08-13), not an oversight."
+    assert proceeded == ["declares nothing"], (
+        f"the trees that let the run PROCEED over a RED check list were "
+        f"{proceeded}, and exactly one may: the repo that genuinely declares no "
+        f"gate — a ruled decision (routing.CiVerdict, 2026-08-13), not an "
+        f"oversight. An EMPTY list means nothing reached the assertion above and "
+        f"the implication is trivially satisfied by everything holding. ANY OTHER "
+        f"tree in it is the 2026-08-20 defect back: a gate that proceeds on a red "
+        f"list without having looked for a policy."
     )
     assert reads["n"] >= 3, (
         f"read_check_policy ran {reads['n']} time(s) across {examined} cases — "
@@ -987,9 +1024,24 @@ def test_neither_CI_READ_can_be_called_without_a_tree():
     policy, stops waiting for a gate it does not know to expect, and can burn the
     full 600-second deadline against a tree nobody chose.
 
-    WHAT THIS DOES NOT LOOK AT: an explicit `repo_root=None` at a call site. That
-    is not a signature question, and it is covered from the other side — the
-    property test hands exactly that value to the real function.
+    IT ALSO DRIVES THE EXPLICIT `None`, ON BOTH READS, and that arm is here
+    because the version of this file shipped on 2026-08-20 did not have it and
+    said it did. This docstring claimed the explicit `None` was "covered from
+    the other side — the property test hands exactly that value to the real
+    function", and the property test's own docstring pointed back here for
+    `wait_for_ci`. Both were half true: the property test drives ONLY
+    `ci_verdict`, so `wait_for_ci(pr, repo_root=None)` was named by two guards
+    and looked at by neither. A mutual "covered elsewhere" that nobody drove is
+    the defect class this whole PR exists to close.
+
+    THE TWO SHAPES ARE DIFFERENT REFUSALS and both are asserted, because only
+    one of them is the signature's doing. Omitting `repo_root` is rejected at
+    the call boundary. An explicit `None` satisfies the signature — annotations
+    do not check — reaches `read_check_policy`, and dies on
+    `None / POLICY_PATH`. The second is what a caller with an
+    `Optional[Path]` in hand actually produces, and it is the shape a
+    `wait_for_ci`-only shortcut (`if repo_root is None: return True`) would
+    silently reopen.
     """
     for name in ("ci_verdict", "wait_for_ci"):
         param = inspect.signature(getattr(act, name)).parameters["repo_root"]
@@ -1007,7 +1059,15 @@ def test_neither_CI_READ_can_be_called_without_a_tree():
             f"inspects keywords"
         )
 
-    with pytest.raises(TypeError):
-        act.ci_verdict("1")
-    with pytest.raises(TypeError):
-        act.wait_for_ci("1")
+    for name in ("ci_verdict", "wait_for_ci"):
+        read = getattr(act, name)
+        with pytest.raises(TypeError):
+            read("1")                      # omitted: refused at the call
+        with pytest.raises(TypeError):
+            read("1", repo_root=None)      # explicit: refused inside the read
+
+    # NEITHER CALL ABOVE REACHES `gh`, AND NOTHING IS MONKEYPATCHED HERE ON
+    # PURPOSE. `read_check_policy(repo_root)` is the first statement of both
+    # reads, so both die before any subprocess and before `wait_for_ci`'s
+    # 600-second deadline starts. A fake would only be able to hide a
+    # regression that moved the policy read after the first `gh` call.

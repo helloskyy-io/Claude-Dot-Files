@@ -1543,7 +1543,22 @@ def wait_for_ci(pr: str, *, repo_root: Path) -> bool:
     usual cause is a conflicted PR whose merge ref cannot be computed.
 
     THREE STATES, NOT TWO, AND THE THIRD IS WHY THE FIX ABOVE WAS NOT ENOUGH.
-    IT RETURNS ON ALL THREE — this function NEVER raises:
+    IT RETURNS ON ALL THREE — this function NEVER raises a CI OUTCOME, and that
+    qualifier is load-bearing rather than hedging. `repo_root` became REQUIRED
+    and typed `Path` on 2026-08-20; hand it `None` anyway and the policy read
+    below dies on `None / POLICY_PATH` before the deadline even starts. That is
+    a call-shape error and not a fourth state — the distinction is argued under
+    `repo_root` at the foot of this docstring, and
+    `test_ci_gate.py::test_neither_CI_READ_can_be_called_without_a_tree` drives
+    that exact call on both reads.
+
+    THE QUALIFIER IS SAID HERE, BESIDE THE TABLE, BECAUSE IT USED TO BE SAID
+    ONLY THIRTY LINES BELOW IT. A caller reads a contract table and stops; this
+    block's own history two paragraphs down is what that costs. The table is
+    unchanged and still lists no raise, which is what
+    `test_docstrings_do_not_promise_a_raise.py` checks — and that guard sees
+    only the table, never this prose, which is why the prose has to be right on
+    its own:
 
       True   the declared gate has reported and nothing is PENDING
       False  CI was read successfully and the gate never appeared
