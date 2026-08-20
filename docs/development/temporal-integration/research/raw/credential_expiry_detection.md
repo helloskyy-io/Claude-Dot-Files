@@ -4,9 +4,20 @@
 Topic:          How does a headless dispatch detect an expired or invalid Claude Code
                 subscription session — as a pre-dispatch preflight and mid-run — and what
                 can it do about it on an unattended machine?
-Feeds:          Sprint milestone "Three cheap guards — credential expiry, false completion,
-                and a safety-hook wiring test" (docs/development/sprint.md:180), the
-                credential-expiry guard → the fleet-reliability phase doc (not yet written).
+Feeds:          NOTHING TODAY — no destination exists. This paper was written for the
+                credential-expiry leg of the "Three cheap guards" milestone under "Sprint:
+                Fleet Reliability", citing docs/development/sprint.md:180. CORRECTED
+                2026-08-19: that section dissolved when this pool moved to
+                docs/development/temporal-integration/research/, and unlike its siblings this
+                milestone was DROPPED rather than moved — `grep -ni "cheap guard"
+                docs/development/sprint.md` returns no match, and line 180 today is a blank
+                line inside the Temporal Integration section. The fleet-reliability phase doc
+                it named will never be written. The pending ruling on where this work belongs
+                is GitHub issue #125, which also covers candidate C-011 (`decision: ship`,
+                ~9 h) orphaned by the same dissolution. The paper's content is unaffected —
+                only the destination pointer was stale, and it now points nowhere until that
+                ruling lands. Note this paper is shelved under the Temporal Integration pool
+                and does not feed it; see synthesis.md § Housekeeping.
 Last validated: 2026-08-07
 Revalidate:     high — 3 weeks
 Confidence:     DEFINITIVE (first-party documented, raw-source verified): the existence and
@@ -61,6 +72,12 @@ Critic:         PASS-WITH-FIXES, 3 rounds (R1–R2: the subcommands `claude auth
                 so the six entries are "at least these", never a complete list; cited [S24]
                 inline. All changelog spans verified individually at their own tagged refs)
                 — 2026-08-07
+                ---
+                2026-08-19 — the `Feeds:` block above was rewritten (destination pointer only;
+                the paper's body is untouched) and re-verified in a scoped fresh-context round:
+                PASS, 0 fabricated / 0 miscited. Every `sprint.md` line number and quoted
+                milestone span in the new block was checked against the working tree with
+                `sed -n '<N>p'` and `grep -F`.
 ```
 
 **Altitude:** COMPONENT. This paper is about *how to build the guard*. Whether a

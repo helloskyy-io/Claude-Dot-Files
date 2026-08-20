@@ -86,8 +86,26 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
                                        loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
-        notes.append("review-pr found at least one item only a human can rule on. No "
-                     "loop-back was attempted: more passes cannot produce a human decision.")
+        # THIS NOTE STATES THE LOOP DECISION AND NOTHING ELSE, because the loop is
+        # the only thing this function knows. TWO paths return this verdict and
+        # BOTH already wrote their own cause: the CI gate appends a note ending
+        # "review-pr was NOT dispatched", and the review path does
+        # `notes.extend(result.notes)`, carrying review-pr's own explanation.
+        #
+        # It used to add a third sentence — "review-pr found at least one item
+        # only a human can rule on" — which it had no way to know. On PR #124 the
+        # CI gate fired, and that sentence landed directly beneath "review-pr was
+        # NOT dispatched". Two operator-facing sentences contradicting each
+        # other, and the false one read like the answer: it took grepping every
+        # review-pr log to establish the PR was UNREVIEWED rather than
+        # reviewed-and-held, which are different states needing different actions.
+        #
+        # The first fix taught this line to DETECT the cause by string-matching a
+        # note written elsewhere in this file. That is the same defect wearing a
+        # remedy: a claim resting on prose that can be reworded. The layer that
+        # detects a condition reports it, and this layer detects neither.
+        notes.append("No loop-back was attempted: more passes cannot produce a "
+                     "human decision. The cause is in the note above.")
     elif verdict is Verdict.HOLD_REDISPATCH:
         notes.append(f"The automated loop is SPENT — {helper.MAX_LOOPS} loop-back(s) "
                      f"is the cap, because passes beyond it produce justification "

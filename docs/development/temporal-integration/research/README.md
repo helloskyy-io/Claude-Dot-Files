@@ -1,11 +1,11 @@
-# Research — fleet-reliability
+# Research — temporal-integration
 
-Evidence backing this phase's planning. Governed by [`research_standard.md`](../../../standards/research/research_standard.md).
+Evidence backing this component's planning. Governed by [`research_standard.md`](../../../standards/research/research_standard.md).
 
 ```
 research/
 ├── raw/<topic>.md    one mini-paper per topic — sources, per-claim confidence, gaps stated as findings
-└── synthesis.md      the curated deliverable: what the pool means for THIS phase's direction
+└── synthesis.md      the curated deliverable: what the pool means for THIS component's direction
 ```
 
 **`raw/` is the pool.** One paper per topic, each carrying 10–20 credible sources, confidence marked per claim, and an honest-boundary section. `research-critic` fetches every citation before a pool merges — a fabricated source is invisible to the actor that wrote it.
@@ -17,5 +17,5 @@ research/
 Create a pool by asking a question:
 
 ```bash
-./scripts/workflows/research.sh docs/development/fleet-reliability/research "<the question>"
+./scripts/workflows/research.sh docs/development/temporal-integration/research "<the question>"
 ```

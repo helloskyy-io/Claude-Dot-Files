@@ -517,6 +517,9 @@ claude-dot-files/
 │                   │                                #   sweep says it lacks, by keying on the join the absence exists to permit rather than on
 │                   │                                #   the missing call. Five of ten runners were in that state and ALL FIVE accepted
 │                   │                                #   ../../../../tmp/… and read through it under --dangerously-skip-permissions
+│                   ├── test_no_gh_call_is_given_a_FILESYSTEM_PATH.py # `gh --repo` wants OWNER/REPO and every
+│                   │                   #   --repo in this fleet is a PATH. Both `gh pr checks` calls passed one, so a
+│                   │                   #   green PR held 600s as UNREADABLE while the gate reported the wrong cause
 │                   ├── test_runner_module_attributes_EXIST.py # Every `<alias>.<name>` a runner calls exists on the
 │                                       #   module it aliases. #115 shipped `act.branch_of`, which lives only on
 │                                       #   research_activities — 1831 tests passed and the first live run died

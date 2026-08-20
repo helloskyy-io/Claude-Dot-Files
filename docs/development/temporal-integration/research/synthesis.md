@@ -1,226 +1,230 @@
-# Synthesis — fleet-reliability
+# Synthesis — Temporal Integration
 
-**Cycle:** 2026-08-07 (cycle 1 — the pool was empty before this run, per `topics.md`) · **Pool: 5 papers** (enumerated below and counted from that enumeration) · **Tier: Medium** · **This cycle: 5 papers added, 0 retired, 0 revalidated**
+**Cycle:** 2026-08-19 (minor cycle — one paper added to a pool inherited from the dissolved
+`Fleet Reliability` sprint) · **Pool: 6 papers** (enumerated below) · **This cycle: 1 paper added
+(`activity_retry_boundary.md`), 0 retired, 1 `Feeds:` line corrected**
 
-> ## Verification status — all five papers have been through the critic gate
->
-> **Every paper carries `Critic: PASS-WITH-FIXES — 2026-08-07`. None carries `PASS` clean, and none carries `not-yet-verified`.** The cycle ran critic → analyst correction → critic re-verify, repeatedly and per paper: three rounds on `liveness_signal_measurement.md`, three on `credential_expiry_detection.md`, three on `false_completion_detection.md`, four on `blocked_work_notification.md`, and an unstated number on `durable_dispatch_identity.md` (its header lists four repairs and one disputed finding but does not enumerate rounds).
->
-> **What that means for a consumer.** The claims below have been checked against their sources by a second actor, and the checking moved real content — one paper's *headline conclusion was inverted* by verification (§1 below), one guard's design gained a mandatory safety requirement it did not have (candidate 3), and one gap was deleted outright (Candea & Fox). Correction ran in both directions: analysts **rejected** critic findings after re-checking primary evidence and the rejections held — twice in `liveness_signal_measurement.md` (the 4-of-4 `subagent_retry` count, which is 2 of 4; and a claimed CHANGELOG gate on `heartbeat`, which lives in the reference page instead), and once in `durable_dispatch_identity.md` (SQS is not a rendered-page source).
->
-> **What it does NOT mean.** `PASS-WITH-FIXES` is not `PASS`. Every paper needed repair, and one repair in `credential_expiry_detection.md` and one in `false_completion_detection.md` *introduced a new defect while closing a finding* — both caught only by a further round. Read the "How much to trust a negative finding in this pool" section before relying on any claim of the form "X is not documented."
-
-Read this instead of the pool. Nothing here is binding — research is evidence, and a finding becomes a rule only by being codified into a standard through human review.
+Read this instead of the pool. Nothing here is binding — research is evidence, and a finding
+becomes a rule only by being codified into a standard through human review.
 
 ---
 
-## Inputs
+## Pool inventory and currency
 
-All five papers were written and verified on 2026-08-07 against the `Fleet Reliability` sprint section (`docs/development/sprint.md` lines 172–184), whose phase doc does not yet exist.
+**Two papers serve THIS destination** (`docs/development/sprint.md` § Temporal Integration):
 
-| Paper | Feeds (sprint milestone) | Last validated | Revalidate | Critic verdict |
-|---|---|---|---|---|
-| `raw/durable_dispatch_identity.md` | "A restart-recovery contract" (line 181) | 2026-08-07 | high — 4 weeks | **PASS-WITH-FIXES** — extended three silently-truncated quotations to their sentence ends; withdrew the Candea & Fox "unretrievable" negative and rewrote five sections around the now-cited source; corrected a version enumeration from 8 to 11 point releases; one critic finding disputed with evidence and the dispute held |
-| `raw/liveness_signal_measurement.md` | "The three-legged liveness predicate" (line 182) | 2026-08-07 | high — 3 weeks (mixed-volatility; §3, §5.1, §6 marked LOW) | **PASS-WITH-FIXES, three rounds** — withdrew the false "undocumented heartbeat" headline; corrected a false "no class in `types.py`" claim; re-enumerated the log corpus and split 125 `tool_progress` events into 121 heartbeats vs 4 non-heartbeat `Agent` notices; fixed a BLOCKING version miscite in six places; two critic findings rejected on re-check |
-| `raw/credential_expiry_detection.md` | "Three cheap guards" — credential expiry (line 180) | 2026-08-07 | high — 3 weeks | **PASS-WITH-FIXES, 3 rounds** — retracted a false negative (G6) and a wrong changelog attribution; **retracted the round-2 repair itself**, which had wrongly called all later changelog mentions cosmetic; added v2.1.139 (deadlock) and v2.1.133 (parallel-session 401), which changed the guard design |
-| `raw/false_completion_detection.md` | "Three cheap guards" — false completion (line 180) | 2026-08-07 | high — 6 weeks (mixed-volatility) | **PASS-WITH-FIXES, rounds 1–3** — a `--bare` span presented as a quotation had been shortened and its tense altered, and was re-fetched and replaced; three listed-but-uncited sources given real citation sites; a transcription drift corrected; and the analyst's own round-2 error (asserting two PDFs had no text layer, when the failure was its fetch layer's) reversed |
-| `raw/blocked_work_notification.md` | "A blocked-work notifier" (line 183) | 2026-08-07 | high — 6 weeks (mixed-volatility) | **PASS-WITH-FIXES, four rounds** — six repairs, none moving a conclusion (a paraphrase presented as a quote; two quotations with a trailing clause silently dropped; two traceability gaps); round 4 **disproved one of the paper's own round-3 negative findings** and retracted it in place; sources 24 → 26 |
+| Paper | Feeds (Temporal Integration milestone) | Last validated | Critic verdict |
+|---|---|---|---|
+| `raw/durable_dispatch_identity.md` | "A restart-recovery contract" (sprint.md:188) | 2026-08-07 | PASS-WITH-FIXES (2026-08-07) — extended three truncated quotations to their source sentence ends; withdrew a Candea & Fox "unretrievable" negative finding after re-fetching the PDF and rewrote five sections around the now-cited source; corrected a version enumeration from 8 to 11 point releases; one critic finding disputed with evidence |
+| `raw/activity_retry_boundary.md` | "Rule the retry boundary" + "Reduce gh()'s own retry" (sprint.md:189–190) | 2026-08-19 | PASS-WITH-FIXES (2026-08-19) — fresh-context pass: 8 external sources fetched at pinned SHAs, every quoted span re-checked byte-exact, zero fabricated and zero miscited; every repo claim re-checked against the working tree. Two fixes: a log formatter (`_gh_timed_out_line`) was named as the timeout gate where the predicate is `is_timed_out`; and a 21-span total the artifact does not let a reader re-derive is now stated as a gap, with the twice-verified pass rate carried instead |
 
-**No papers are retired**, so no paper is excluded from this synthesis.
+**Four papers are physically in this pool but do NOT feed Temporal Integration** — see
+*Housekeeping* below, which draws on their substance, so they are cited here under §4's input rule
+rather than merely named:
 
-**Upstream product research is cited, never re-derived.** This pool takes as settled: the three-legged liveness taxonomy (`openclaw_assessment.md`, `paperclip_assessment.md`, `hermes_assessment.md` — product synthesis candidate 10); that the recovery contract must be designed before workers exist (candidate 9); that the answer is a notifier and an inbox, not a dashboard (`operator_interface.md` — candidate 22); that the three cheap guards are the right three (`fleet_failure_modes.md` — candidate 21); and that unattended re-authentication is unsolved industry-wide (`edge_identity_trust.md` §5). Each is cited in the paper that rests on it. Nothing was written to the product pool.
+| Paper | Actually feeds | Last validated | Critic verdict |
+|---|---|---|---|
+| `raw/liveness_signal_measurement.md` | Autonomous Operation (sprint.md:243) | 2026-08-07 | PASS-WITH-FIXES, three rounds — withdrew an "undocumented heartbeat" headline that rested on a silently-truncated fetch, and re-enumerated the log corpus |
+| `raw/blocked_work_notification.md` | Autonomous Operation (sprint.md:244) | 2026-08-07 | PASS-WITH-FIXES — 24 sources all fetchable; six repairs, none moving a conclusion: a restructured paraphrase presented as a quote replaced with verbatim sentences; two quotations restored to their silently-dropped trailing clauses; an uncited-but-listed source bracketed inline; a line count re-enumerated at 114, not 115; and a negative delivery finding that had not covered its own Matrix row extended to it, upgrading that row's retention cell from "Not fetched" to "Not stated" |
+| `raw/credential_expiry_detection.md` | "Three cheap guards" — **milestone no longer exists** | 2026-08-07 | PASS-WITH-FIXES, 3 rounds — corrected which release introduces the `claude auth` subcommands, retracted a false "absent from the changelog" finding, and in r3 retracted the r2 repair itself after five further changelog entries turned up |
+| `raw/false_completion_detection.md` | "Three cheap guards" — **milestone no longer exists** | 2026-08-07 | PASS-WITH-FIXES, rounds 1–3 all applied, verified over three passes |
 
-**Three items were deliberately not researched this cycle**, all with reasoning in `topics.md`: milestone 5 (per-credential quota headroom, deferred to cycle 2 against this same directory); the safety-hook wiring test (it needs a test written, not evidence gathered); and what happens to a Temporal Task handed to a worker that then sleeps (a different component's question).
+Per the computed currency table this cycle was given: none of the five inherited papers are past
+their revalidation window as of 2026-08-19. That clears them of *staleness*; it says nothing about
+whether they still feed the destination they claim to (see Housekeeping).
+
+**Upstream product research cited, not re-derived** (dates and verdicts given because §4's input
+rule applies to these too): `python_sdk_long_activities.md` (*Last validated 2026-08-03, Critic
+PASS-WITH-FIXES — un-quoted an inference dressed as a quote, re-marked a "Go only" claim as
+derived, retagged staff-forum claims to unverified*) already closes the "claude_cli activity
+domain" milestone (heartbeating, payload limits) in full — definitive, first-party sourced, its
+own `Feeds:` line names that exact milestone. Nothing in this cycle adds to it. `temporal.md`
+(*Last validated 2026-08-05, Critic PASS-WITH-FIXES over two independent passes — every source
+re-fetched, every count re-derived by enumeration*) already establishes Temporal's default
+`RetryPolicy` (unlimited max attempts, 1s initial interval, 2.0 backoff, 100× max interval) as a
+hazard requiring override.
+`anthropic_tos_and_enterprise.md` §1.5 (*Last validated 2026-08-06, Critic PASS 2026-07-24*)
+establishes that headless `claude -p` invocation is explicitly ToS-sanctioned. **That answers the
+PERMISSION half of "Prove an invocation is indistinguishable from an operator at a terminal"
+(sprint.md:183) and no more** — and the sprint line itself says the permission half is not the
+question: *"Not a permission question; a design one."* The design half — whether an invocation is
+technically indistinguishable in behaviour from an operator's — is untouched by that paper and by
+this cycle; see Gaps. A separate billing-classification question also remains open, in that paper's
+§9, which its own header marks appended and **NOT critic-verified**.
 
 ---
 
 ## What this cycle found
 
-### 1. The fleet already produces the signals all three guards need, and throws them away
+### The retry boundary needs a prerequisite the sprint item doesn't name, and the fleet already has the pattern for half of it
 
-This is the cycle's strongest result and no single paper contains it. Three analysts, working independently on three milestones, each found a first-party signal the fleet **already touches and then discards**:
+`gh()`'s in-process bounded retry (`_RETRYABLE_HTTP`, three attempts) and Temporal's own
+activity-level retry would compose to 3×3=9 attempts if simply nested — the sprint item
+(sprint.md:189–190) already names this and asks to cut `gh()` to one attempt, carrying
+`_RETRYABLE_HTTP`'s classification into `non_retryable_error_types`.
 
-- **`claude auth status` exists, is documented to exit `0` if logged in and `1` if not, and is not a `-p` model query — so (derived) it costs no turn.** The fleet instead preflights with `claude -p "ping" --max-turns 1`, which spends subscription quota on every single dispatch. (`credential_expiry_detection.md` §2.2, §4.6 — the zero-quota claim is flagged in that paper as its **weakest** derivation, because it rests on documentation *silence* about a model request.)
-- **The `claude -p` stream already carries a periodic heartbeat, and it is first-party documented.** `tool_progress` events with `"heartbeat": true` and a rising `elapsed_time_seconds`, on a 30-second cadence that restarts per tool call. The Agent SDK TypeScript reference defines `heartbeat?: boolean` on `SDKToolProgressMessage` and states the behaviour: *"While a tool call runs in the main conversation, Claude Code emits a `tool_progress` message every 30 seconds with `heartbeat: true`. … Claude Code doesn't emit heartbeats for the Agent tool, whose subagents stream their own progress, or for tool calls inside a subagent. The `heartbeat` field requires Agent SDK v0.3.214 or later."* Nothing in the fleet parses any of it. (`liveness_signal_measurement.md` §2.3, §2.4)
-- **`run-claude.sh` already computes the completion-contract verdict and discards it.** (`durable_dispatch_identity.md` §4.2 row "Guard: false completion", §4.3 R3, §6 item 8)
+**`activity_retry_boundary.md` verified the SDK mechanics that design depends on and found a
+blocker:** a Temporal retry engages **only** when the activity raises — a returned
+`ActivityResult(status="failed")` is a *successful* Activity Task Execution and produces zero
+retries [S4, S5 in that paper, definitive]. `gh()` today raises one bare `RuntimeError` for every
+failure class, which under the SDK's exact-string `non_retryable_error_types` matching [S1, S5, S6]
+collapses to a single opaque type. **The sprint's design cannot be implemented until `gh()` raises
+a typed exception carrying `_RETRYABLE_HTTP`'s split** — the paper gives the concrete shape (§2.5).
 
-**What this means for us:** the sprint budgets these as three *cheap* guards at ~9 operator-hours (upstream `fleet_failure_modes.md` §7). The evidence says that estimate is if anything generous — the expensive part of a guard is usually acquiring the signal, and the signals are already on disk. **And the heartbeat is a versioned, changelogged SDK feature rather than an undocumented implementation detail**, so the dependency is ordinary version risk with a real watch mechanism (feature-gate on v0.3.214; diff the SDK CHANGELOG per release), not an unbounded "could vanish silently" liability. The residual problem is not documentation — it is **coverage** (§8 below).
+**Two live hazards found beyond the prerequisite:**
+- Moving retry ownership to Temporal has **no representation for `_gh_is_read_only`** — the
+  mutation guard that issue #41's duplicate-comment incident motivated. Folding it into the raise
+  is required or it is silently lost, at Temporal's attempt count rather than `gh()`'s.
+- Any `except … raise RuntimeError(...)` between the typed raise and the activity boundary erases
+  the classification — first-party documented as the *outermost*-error-type rule — and `gh_json`
+  and several callers currently re-wrap this way.
 
-> **A correction this cycle made, stated because it inverted a headline.** The first revision of `liveness_signal_measurement.md` reported the heartbeat as *undocumented*, and built a headline, a "largest weakness" and a portfolio-level escalation on it. That negative finding was invalid — a summarizing fetch silently truncated the reference page and answered from its prefix — and it is **withdrawn**. A raw non-summarizing retrieval of the same page (4,830 lines / 263,071 bytes, reproduced three times during verification) returns the text quoted above. *Provenance, stated because it is not reproducible with the authoring tooling:* those characters were returned by raw `curl` during the paper's verification pass, not by the research agent's own fetch layer, which still truncates that URL (`liveness_signal_measurement.md` §2.4, `[^ts-ref]`).
+**The paper's recommendation is split, not a single winner, and the split maps onto work this
+fleet already ratified once:** for read-only, already-idempotent `gh` activities, cut to one
+attempt and let Temporal own retry (needs the typed raise above). For mutating activities and any
+wrapper doing file/git work before the `gh` call, **keep `gh()`'s bounded retry and mark the
+resulting code terminal to Temporal** — this is not a new pattern; `temporal_standard.md` §6.4
+already carves out exactly this shape for `CLUSTER_RECONCILE_CONTROL_PLANE_UNAVAILABLE` and
+`SEED_CLUSTER_ACCESS_UNAVAILABLE` — a code whose retryable-looking `*_UNAVAILABLE` suffix is
+overridden to terminal, in the standard's own words, because it expresses a verdict *"that the
+activity already bounded-retried in-process"*. (Only the inner span is quoted; the ⇒-shorthand an
+earlier draft of this line put in quotation marks appears nowhere in the standard.)
+The reasoning: Temporal retries the **whole activity body**, not the failed sub-call [S7 in that
+paper, definitive], so option (a) is only safe once every `gh`-wrapping activity is confirmed
+idempotent end-to-end — an audit that has not been done — while option (b) gets the same 3×1
+attempt bound the sprint wants without waiting on that audit.
 
-### 2. The existing credential preflight cannot detect an expired credential — by construction, not by omission
+**A negative finding worth carrying forward:** first-party Temporal documentation gives no
+guidance anywhere on composing a library's own in-process retry with the SDK's retry policy
+(searched, method stated in the paper). Option (b) is this fleet's own precedent, not published
+Temporal advice — cite the internal standard, not Temporal, when applying it.
 
-`run-claude.sh`'s `check_rate_limit()` runs its probe as `2>&1 >/dev/null`, capturing **stderr only**. Anthropic documents that an in-run failure *"such as missing authentication"* is printed as the result on **stdout**. So the auth text is discarded before the grep runs, the rate-limit pattern cannot match, and control falls into the `return 0` *"don't block, let the real run surface it"* branch — on an unattended machine, nobody is watching that branch. (`credential_expiry_detection.md` §2.1)
+### The restart-recovery contract's prior findings still apply unchanged
 
-This is not a gap in coverage; it is a defect in shipped code that the guard's design must correct rather than route around. **Mid-run expiry, by contrast, is cleanly detectable in the JSONL the fleet already writes** — `error: "authentication_failed"`, `api_error_status: 401`, and the exact string `Failed to authenticate: OAuth session expired and could not be refreshed` — needing only a `jq` pass shaped like the existing `error_max_turns` check. (§4.2, §4.4)
+`durable_dispatch_identity.md`'s content is untouched this cycle — only its `Feeds:` line was
+corrected (it pointed at the dissolved "Fleet Reliability" section; the milestone it answers moved
+into Temporal Integration unchanged). Its load-bearing findings, not re-derived here:
 
-**One trap worth carrying forward.** The obvious community workaround — gate dispatch on `~/.claude/.credentials.json`'s `expiresAt` — would fire constantly: that field sits only ~3.4h out on a *healthy* session (one local sample, undocumented schema). `refreshTokenExpiresAt` is the horizon-relevant field, and a shipped release has been observed writing `expiresAt: 0`. The paper's ruling: the file is **advisory-only, never blocking**. (§3.3)
-
-**A credential failure is a MACHINE event, not a dispatch event — and that is now vendor-documented.** Claude Code's `CHANGELOG.md` at the `v2.1.133` tagged ref reads: *"Fixed parallel sessions all dead-ending at 401 after a refresh-token race wiped shared credentials"*. The blast-radius claim previously rested on one community report; it now rests on a first-party artifact. **Scope it correctly:** this covers **sibling sessions on one machine**. The related community claim that sub-agent *children* die at a token rollover while the parent survives remains **unverified** — v2.1.133 is about siblings, not parent/child. Design consequence: the guard's park/notify state belongs at machine scope. (§4.4)
-
-**The load-bearing gap (G2) narrowed this cycle but did not close.** v2.1.139's changelog entry — *"Fixed a deadlock where expired credentials and the `forceRemoteSettingsRefresh` policy setting blocked `claude auth login`/`logout`/`status` with no way to recover"* — is the **first first-party evidence that `claude auth status` inspects expiry at all**; the docs' silence had been consistent with it never doing so. But a deadlock is neither exit 0 nor exit 1 — it is *no exit*. So G2 moves from *"does exit 1 have anything to do with expiry?"* to **"which code does expired-but-saved produce, and how long does it take?"** Duration is now a result the experiment must record, not instrumentation noise. (§6.3 G2, §7 T1)
-
-### 3. Three milestones need the same write at dispatch time — which is why "designed once" is correct, and sharper than the sprint states
-
-The sprint asserts the recovery contract should be *"designed once and covering all three guards."* Three papers independently converge on **why**, and the reason is mechanical rather than conceptual:
-
-| Milestone | What it needs recorded at DISPATCH time | Source |
-|---|---|---|
-| Restart-recovery contract | the dispatch record itself | `durable_dispatch_identity.md` §4.2 |
-| **Stranded** detection | a claim record — "never claimed" is indistinguishable from "claimed and silent" without one | `liveness_signal_measurement.md` §4.3 |
-| False-completion detection | the **pre-state** (head SHA) the post-run assertion diffs against | `false_completion_detection.md` §4.1 (A0) |
-
-**One artifact serves all three.** Planning them separately produces three partial records — which is the concrete form of the failure upstream's candidate 9 warned about.
-
-`durable_dispatch_identity.md` supplies the schema: a six-component model derived from a first-party survey of Temporal (workflow id + run id, plus its two *orthogonal* reuse/conflict policies), GitHub Actions (`run_id`/`run_attempt`), GitLab's ID-vs-IID scope split, systemd's `$INVOCATION_ID`, message-queue identity, and the IETF `Idempotency-Key` draft (**expired and archived — there is no ratified cross-vendor standard**, so the convergent practice is the evidence; corroborated against Stripe and AWS). **This fleet has none of the six.** Its identity today is a wall-clock filename minted *inside* the activity, in bash and — re-derived independently — in the Python port at `assistant_activities.py:252-253`.
-
-**Why that specific fact is urgent:** under Temporal's default retry policy, an identity minted inside the activity becomes a **fresh identity on every retry**. Moving generation to an activity *input* costs one parameter and must precede Stage B of the Temporal port. (§5.2d, §6 item 1)
-
-**Corroborating evidence that identity-by-filename has already failed here.** Re-enumerating `.claude/logs/*.jsonl` in the main checkout for this synthesis (2026-08-07, list counted by hand) returns **58 files**, of which **19 are named `revision-*` or `revision-major-*`** — scripts that no longer exist. Enumerating `scripts/workflows/*.sh` returns **nine** files (`build-minor.sh`, `build-phase.sh`, `build.sh`, `plan-new.sh`, `plan-revision.sh`, `research-refresh.sh`, `research.sh`, `review-runs.sh`, `review-sprint.sh`); `revision.sh` and `revision-major.sh` are not among them. V1 and V2 already use two different naming authorities.
-
-> **Read the log counts as AS-OF figures against a live, growing directory, never as constants.** The fleet writes a new log per dispatch. `durable_dispatch_identity.md` §7.3 records **57** and `liveness_signal_measurement.md` §2.3 records **58**; both are correct at their own moment, and the directory grew between them. This synthesis re-enumerated and gets **58** as of 2026-08-07. **The substantive finding is unaffected either way — the 19 orphaned names are the same 19.**
-
-### 4. The verdict must be separated from the action, and the false-positive economics differ per leg
-
-Two papers reach this independently, and it is the finding most likely to be lost if the phase doc treats "detection" as one thing.
-
-| Leg | False-positive cost | False-negative cost | Implied action |
-|---|---|---|---|
-| **Stalled** | worst — kills up to ~60 min of unrecoverable paid work | mild — measured silent-death rate is 0.9% (4/443) | **record and alert; do NOT kill** |
-| **Looping** | structurally rare — byte-identity is hard to hit by accident | unbounded — a loop burns quota indefinitely | **the one leg that earns automatic intervention** |
-| **Stranded** | cheap | cheap | **most sensitive threshold; escalate, never retry-in-place** |
-
-(`liveness_signal_measurement.md` §5.2–§5.4)
-
-`false_completion_detection.md` §5.3 reaches the same shape from the other side: fail-open on transport errors, let one assertion warn while the others fail closed (**A1 and A3 fail closed; A2 warns**, because delta-absence is legitimately ambiguous for an idempotent no-op leg).
-
-**Supporting prior art, fairly stated:** Kubernetes' startup probe exists precisely because one threshold cannot serve both startup and steady state ⇒ thresholds must be phase-scoped. systemd's recommendation that a daemon ping *"every half of the time"* of its budget ⇒ a supervisor sets ≥2× the producer's cadence, giving a **60-second floor** against the now-documented 30-second heartbeat — but that floor binds only **while heartbeats are actually flowing**, which is `Bash` and `TaskOutput` work and not subagent work (§8). And CircleCI's 10-minute idle kill versus GitHub Actions' wall-clock-only timeout proves the no-output threshold is **a policy choice, not a best practice** — there is no number to copy.
-
-### 5. The false-completion guard's real yield is three classes, and the argument for artifact assertion is cost-to-fake
-
-The shipped guard — `COMPLETION_PATTERN` plus `exit_code == 0 AND a PR URL appears in stdout` — catches exactly **one** of six false-completion classes (F1, silent early stop), which is also the only class the fleet has actually observed. It misses: **F2** fabricated/unresolvable pointer, **F3** real pointer with no delta, **F4** partial contract (the PR exists; the required Decision Log comment does not), and **F5/F6** hollow or criterion-gaming work.
-
-**The whole marginal yield lies in F2–F4, and all three are decided by one act:** capture the pre-state at dispatch, then after the run resolve the pointer with `gh pr view --json` and require that it (a) resolves, (b) has a head SHA differing from the pre-state, (c) carries the contract's side-artifacts. One command before dispatch, two after.
-
-**Why artifact assertion beats output matching is not thoroughness — it is cost-to-fake.** The completion pattern is a criterion the run is *told* to satisfy; the prompt instructs it to print the PR URL as its final line. A criterion an agent knows and can satisfy with one token is the exact shape reward hacking takes. Making a head SHA change requires doing the work. *(The paper marks this argument **derived** and frames it as T4's hypothesis, not as a measured result — no located study ablates artifact assertion against output matching.)*
-
-**And "just add a verifier agent" is measurably worse for this class, not merely more expensive.** LLM *text* judges detect false success at AUROC ≤0.65 (tau2-bench) and ≤0.54 (AppWorld), keying on *"confident closing language"* rather than *"verified state changes."* (Counterbalanced fairly in the paper against Agent-as-a-Judge and the CUA verifier, which are agentic state-*readers*, not text judges — those work, and they are not cheap guards.)
-
-**The honest limit, stated sharply:** these assertions certify that a declared artifact exists and changed. **They certify nothing about content.** A run that opens a real PR full of hollow work passes every one. F5 cannot be delegated to `review-pr`, because that stage audits the same self-report (upstream `decide_only_disposition.md` §5.7).
-
-**A Temporal port hazard is named now, cheaply:** the pre-state must be captured **once at workflow start**. `run_child` is documented non-idempotent — *"a retry is therefore a NEW ATTEMPT, not a replay of the same work"* — so a retry would re-baseline the pre-SHA and turn the guard into one that always passes, silently. (§5.2 item 3, T5)
-
-### 6. No notification channel publishes a delivery guarantee — and the correct response is to stop looking for one
-
-Surveying ntfy, Gotify, Pushover, FCM, Matrix and GitHub, each fetched with a prompt explicitly asking for at-most-once / at-least-once, offline delivery and ordering: **not one states a delivery or ordering guarantee.** What they publish is *retention* — ntfy 12 hours and in-memory-only unless a cache file is configured; Pushover until verified delivered, 21 days if unverified; FCM four weeks by default; GitHub's inbox five months (indefinitely if Saved). Gotify documents none.
-
-**So make the notification disposable.** The durable state is the **inbox**; the notification is a lossy pointer, re-derivable and re-fired from state on a `repeat_interval`. **This dissolves the milestone's founding fear — "an alert dropped while the laptop is closed" — without needing any channel to be reliable.** (`blocked_work_notification.md` §3.3)
-
-**The channel ruling:** GitHub as record, one self-hosted push channel (ntfy) as interrupt. GitHub is simultaneously the notification path, the inbox, and the surface the Research Standard §7 already binds every action-driving outcome to; it now ships first-class `blocked by` issue relations and sub-issues, both `gh`-driveable. **The counter is stated at full strength:** a git-native inbox is a third-party single point of failure for the surface that exists to catch failures, and **channel diversity does not buy detector diversity** — if GitHub is down, the self-hosted channel is still up and still has nothing to say.
-
-**Most alerting machinery does not transfer, and saying which parts do not is the finding.** With one operator there is no rota, so PagerDuty-style escalation cannot escalate to *anyone* — only change channel and priority. Alertmanager's `group_by`/`group_wait` solve a volume problem this fleet does not have. What transfers is `repeat_interval`, and it transfers as the load-bearing mechanism.
-
-**Current notification configuration in this repo: one desktop hook and nothing else.** `config.yaml` has only `gh-monitor` and `models` sections; `scripts/services/` holds three `gh-monitor` files; a repo-wide grep for the channel names matched three files. The one channel that exists is `config/hooks/notify-done.sh` firing `notify-send` on the `Stop` hook — the wrong event, on-machine only, silently absent on VMs.
-
-> **Sourcing caveat that binds every quotation in this finding.** `blocked_work_notification.md` labels **all** of its quoted spans `[quoted-via-fetch]`: they were returned by a summarizing layer even where the underlying file is raw first-party markdown, so they are *"accurate in substance and unproven in punctuation."* Treat the retention figures as facts and the wordings as paraphrase-grade. Four of its sources ([S8] Pushover, [S12] PagerDuty, [S13] Google SRE Book, [S16] Firebase) are rendered HTML and carry a further reduction.
-
-### 7. The sequencing the sprint implies is wrong in one place, and the reason is a correctness argument
-
-`blocked_work_notification.md` §1.3: **"blocked" is artifact-positive; stalled, looping and stranded are artifact-negative.** A poller over git surfaces finds exactly one of four failure classes. **Ship the notifier alone and the operator learns that silence means health** — which is the same lesson the dashboard-nobody-opens taught, one step later, and it is the failure this whole sprint section exists to prevent.
-
-Combined with §3 above, the evidence supports: **milestone 2 (the dispatch record) first → milestones 1 and 3 (the guards and the liveness legs, which write to it) → milestone 4 (the notifier, which reads from it).** The sprint lists them 1, 2, 3, 4.
-
-### 8. Two dependencies with dates on them
-
-- **The stream vocabulary is documented one layer UP from where the fleet reads it, and the heartbeat has a coverage hole the logs alone could not have revealed.** The fleet consumes the stream through the **CLI**, and `headless.md` — read whole this pass — contains no occurrence of `tool_progress`, `heartbeat`, `task_progress`, `rate_limit_event`, `thinking_tokens`, `vcs_state_changed` or `code_change_published`. Anthropic's own issue **#24596**, *"[DOCS] CLI `--output-format stream-json` lacks event type reference"* (created 2026-02-10, labelled `documentation` + `stale`, 2 comments, **closed**), names exactly this. The events *are* documented — in the **SDK** reference and changelog. Two event types remain undocumented anywhere consulted: `vcs_state_changed` and `code_change_published`, **and neither is load-bearing for any liveness leg**. The real dependency is coverage: the vendor states outright that Claude Code emits no heartbeats *"for the Agent tool … or for tool calls inside a subagent"*, so a heartbeat-anchored detector is structurally blind during subagent work — which is where this fleet spends much of its wall clock. **Design consequence:** log mtime is the schema-independent primary signal; `system`/`task_progress` (documented at SDK v0.2.51, **6,479 occurrences across 35 of the 58 logs**, present in 17 of the 25 April-2026 logs) is the subagent-side arrival signal; the heartbeat is refinement, never the reverse.
-- **`--bare` is stated by Anthropic to be *"the recommended mode for scripted and SDK calls"* and that it *"will become the default for `-p` in a future release"* — and bare mode *"never reads OAuth credentials or the system keychain."* The eventual default would flip this fleet off its subscription login whether or not anyone rules on it. *`false_completion_detection.md` §3.5 marks the default flip **DIRECTIONAL** — a stated future intent in a first-party doc, not a shipped behaviour: **do not plan against a date.*** Escalated below.
+- **Dispatch-identity generation must move out of the activity, in both the bash and Python
+  paths.** Today it is minted inside the activity (a wall-clock filename); under Temporal's
+  default retry that produces a fresh identity on every attempt. **Must precede Stage B.**
+- **The six-component identity schema and per-subsystem recovery table are ready to adopt** as
+  the recovery contract — three of its rows are the (now-orphaned, see Housekeeping) "three cheap
+  guards," currently "nowhere yet."
+- **Do not build claim/lease/TTL, a boot reconciler, or retry bookkeeping** — Temporal replaces
+  that layer outright. Name the liveness predicates as record fields; stop there.
 
 ---
 
-## How much to trust a negative finding in this pool — a method finding about the evidence base
+## Housekeeping — a defect this cycle found and did not fix, and what this rewrite dropped
 
-**This is not an action candidate and does not belong in the phase doc.** It is the calibration a consumer needs before relying on any claim of the form "X is not documented" or "no source states Y."
+**Four papers in this pool's `raw/` do not feed Temporal Integration, and this run is not the
+right actor to re-home them:**
 
-**The verification cycle exposed one repeated failure mode with one root cause: an absence-or-association judgement delegated to a summarizing retrieval layer, and the resulting absence recorded as a research finding.** It bit **all five papers**, not four — `durable_dispatch_identity.md`'s own §8 gap 4 states the pattern exactly: *"'unextractable binary PDF' was a statement about my tooling that I wrote as a statement about the source."*
+- `liveness_signal_measurement.md` and `blocked_work_notification.md` feed milestones that moved
+  to **Autonomous Operation** (`sprint.md:243`, `:244`), not Temporal Integration.
+- `credential_expiry_detection.md` and `false_completion_detection.md` feed "Three cheap guards" —
+  a milestone that **no longer exists anywhere in `sprint.md`**. It was not merged into another
+  section; it was dropped when Fleet Reliability dissolved.
 
-Enumerated instances, counted from this list — **ten across five papers**:
+All four are `current` per this cycle's revalidation table and their substantive findings (the
+discarded-signal argument, the `check_rate_limit()` stdout-discard defect, the artifact-assertion
+guard design, the disposable-notification/durable-inbox design) are unaffected — they are simply
+shelved under the wrong component's research directory with stale `Feeds:` pointers. **This is an
+operator-ruling gap, not a research gap:** whether they move to a new Autonomous Operation pool,
+whether "three cheap guards" gets re-created as a milestone somewhere, and where its own restart
+contract dependency (it needs milestone 8's schema, which now lives here) gets tracked, are
+sequencing decisions above this run's altitude. Flagged in Post-Run Reflection, and the guards
+half is now filed as **GitHub issue #125**.
 
-| Paper | Instance | Shape |
-|---|---|---|
-| `liveness_signal_measurement.md` | The TypeScript SDK reference truncated silently; four event types reported NOT PRESENT | truncation → false absence |
-| " | `rate_limit_event` reported as having no class in `types.py`; `RateLimitEvent` is there | false absence |
-| " | Bulk CHANGELOG enumeration attached the `task_progress` entry to v0.2.47 instead of v0.2.51 | **mis-association** |
-| `credential_expiry_detection.md` | G6: `auth status` reported absent from the changelog; it is introduced at v2.1.41 | false absence |
-| " | A `claude auth login` mention placed at v2.1.200; it is a v2.1.202 sign-in-URL fix | **mis-association** |
-| " | The **round-2 repair** then asserted all later mentions were cosmetic, on the same bad basis | a repair that created a new defect |
-| `false_completion_detection.md` | Two PDF mirrors asserted to have "no text layer"; both carry working OCR text layers | tool failure written as a source property |
-| `durable_dispatch_identity.md` | Candea & Fox recorded as unretrievable; the missing piece was a different *reader*, not a different URL | tool failure written as a source property |
-| " | A version enumeration understated at 8 point releases; the document names 11 | **under-enumeration** |
-| `blocked_work_notification.md` | "Airflow ships no dedicated human-in-the-loop document"; it exists one directory over at `airflow-core/docs/tutorial/hitl.rst` | corpus-wide absence inferred from one directory listing |
+**What this rewrite dropped, and where those findings still live.** The prior synthesis at
+`4d65127` was written for the dissolved Fleet Reliability sprint and carried **16 action
+candidates**, an **Escalations — findings above this component's altitude** section of **5 items**
+(one belief-level finding, two operator rulings, two clarifications for another pool), and a
+**method finding** on how much to trust a negative finding in this pool. This synthesis is scoped
+to Temporal Integration, so it carries **8 candidates, of which only 3 are those candidates**
+(prior 5 → 5, prior 6 → 6, prior 8 → 7); the other **13 are not carried**, and neither the
+Escalations section nor the method finding is reproduced here. **None of that evidence is lost —
+but this artifact is no longer the place to read it.** The prior synthesis is retrievable in full
+with `git show 4d65127:docs/development/temporal-integration/research/synthesis.md`, and the
+underlying findings remain in the four papers named above, all `current` and all critic-verified:
+`liveness_signal_measurement.md`, `blocked_work_notification.md`, `credential_expiry_detection.md`
+and `false_completion_detection.md`.
 
-**The general form: any absence-or-association judgement delegated to a summarizing retrieval is suspect, and a repair to such a finding is a fresh claim carrying the full sourcing burden.** Two of the ten are repairs that broke while closing. Each paper now states this in its own boundary section, and each carries an explicit search method on its remaining negatives — which is why the surviving gaps (below) should be read as materially better-founded than the ones this cycle deleted.
+**Two of the dropped items have live consequences outside this pool, so they are named here rather
+than left to a `git show`:**
 
-**Where it goes.** This is a research-**tooling** concern at the claude-dot-files architecture layer, not a fleet-reliability finding. Per Research Standard §7 and this repo's governance, it is **surfaced here and filed nowhere by this run**: the PR's Post-Run Reflection "Tooling-level suggestions (claude-dot-files)" section is the canonical surface, and §7's no-change-outcome row (a GitHub issue labelled `research-candidate`, filed by `pr-review`) is the git surface if the reviewer wants one. Nothing outside `research/` was edited.
+- **`check_rate_limit()` discards the stream the failure is printed on** — `2>&1 >/dev/null` at
+  `scripts/workflows/activities/run-claude.sh:89` keeps stderr and discards stdout, where auth
+  failures are printed, so the existing preflight cannot detect an expired credential *by
+  construction*. This is a defect in live code, not a missing feature: `run-claude.sh` is resolved
+  and invoked by the Python fleet at
+  `scripts/workflows/temporal/modules/assistant/assistant_activities.py:721`, and
+  `scripts/workflows/temporal/tests/unit/test_turn_cap_banner_reads_the_worktree.py` extracts and
+  executes that file's `worktree_delivery_state` as shipped — a *different* function in the same
+  live file; no test covers `check_rate_limit()` itself, which is part of why the defect survived.
+  It was candidate 2 of the prior 16
+  (`credential_expiry_detection.md` §2.1, §5 step 3).
+- **A dated service-deletion decision point that has now arrived** — `config.yaml:19–24` reads
+  *"DECISION POINT: if still unused by ~2026-08-19, delete the service rather than carry dead
+  code"* for `gh-monitor`, `enabled: false` since 2026-07-29. That date is today. The prior
+  synthesis carried this under Escalations with a concrete recommendation — if the ruling is
+  "delete", harvest the poller skeleton (the loop, lock file, rate-limit backoff and repo
+  discovery) into the blocked-work-notifier milestone at `sprint.md:244` rather than losing it and
+  rebuilding it later. Nothing in this pool is now carrying that date.
 
----
-
-## Escalations — findings above this component's altitude
-
-Per the write boundary, these are surfaced and **not filed anywhere**. Only the first is a belief-level finding; the rest are operator rulings or clarifications this component needs, listed separately rather than inflating the escalation count.
-
-**Belief-level — one:**
-
-- **`--bare` becoming the `-p` default would force a credential-model decision the project has not made.** Anthropic's own unattended product (GitHub Actions) does not carry a `/login` session at all; its documented automation advice is `ANTHROPIC_API_KEY` or `claude setup-token`. Adopting `--bare` *forces* moving off the subscription login, and the roadmap statement means the default may arrive without anyone choosing it. **Confidence:** the `--bare` behaviour today is *definitive*; the default flip is *directional* — a stated intent, not a shipped behaviour, and there is no date to plan against. **Bears on:** the product pool's `subscription_economics.md`, `anthropic_tos_and_enterprise.md` and `edge_identity_trust.md` — the credential-at-the-edge thesis. **What I think it means:** build the credential-expiry guard anyway (it is cheap and correct under either model), but a product-pool cycle should cost the `setup-token` path before this fleet invests further in subscription-session tooling. (`credential_expiry_detection.md` §8; `false_completion_detection.md` §3.5)
-
-**Operator rulings needed before the phase doc is written — two:**
-
-- **`sprint.md`'s "all three guards" (line 181) is ambiguous between two triples in its own section** — line 180's three cheap guards, and line 182's three liveness legs (a third triple exists upstream in `hermes_assessment.md`). `durable_dispatch_identity.md` §4.4 reads it as line 180's and states the contract serves all three regardless. **Consequence if unresolved:** the phase doc inherits the ambiguity and scopes the recovery contract to the wrong triple — either omitting the guards' record fields, or over-building the liveness machinery §5.4 says not to build. **Remedy:** one line in the phase doc stating the reading; the operator confirms. A research run does not edit planning artifacts.
-- **Upstream's 1–2 day notifier estimate rests on a decayed anchor.** `operator_interface.md` §6.1 priced it *"anchored on `gh-monitor` (shipped)"*. Read from the repo on 2026-08-07 and re-verified for this synthesis: `config.yaml` sets `gh-monitor.enabled: false` with the comment *"DECISION POINT: if still unused by ~2026-08-19, delete the service rather than carry dead code"*, and `gh-monitor.sh` routes to `revision.sh`, `revision-minor.sh`, `plan-revision.sh` and `build-phase.sh` — the first two of which are not among the nine scripts in `scripts/workflows/`. Its config route-enable keys are also inert (`enable-build*` vs. the script's `enable-revision*`). **Remedy:** rule on the 2026-08-19 decision point *before* the phase doc is written, and if the ruling is "delete", harvest the poller skeleton — the loop, lock file, rate-limit backoff and repo discovery — into the notifier rather than losing it and rebuilding it.
-
-**Clarifications for another pool, not rulings — two:**
-
-- **The upstream pool's SQLite data point does not transfer to a multi-machine fleet.** The comparator running on SQLite is explicitly one-owner-per-host, and SQLite's own docs rule out direct multi-machine access as a corruption risk. Nothing upstream claims otherwise; this is a clarification that prevents a later component reading "SQLite plus boot-time reconciliation" as a portable recommendation. **Remedy:** a one-line note in whichever synthesis next touches the durability axis. (`durable_dispatch_identity.md` §10 item 2)
-- **`--include-partial-messages` is an unexercised liveness lever.** Turning it on would give sub-second output cadence and make the stalled leg nearly trivial, at the cost of log volume and parse cost. That is a fleet-wide invocation change, above this component. (`liveness_signal_measurement.md` §9 item 2)
+This paragraph is a pointer, not a re-ranking: the 13 dropped candidates are neither restored nor
+re-litigated here.
 
 ---
 
 ## Action candidates
 
-Reviewable items, sized for a standup. **Nothing is ratified.** Per §7 this run surfaces candidates here and writes nothing outside `research/` — routing is the reviewer's and the operator's. The natural home for candidates 1–15 is the fleet-reliability phase doc, which does not yet exist; writing it is the planning step this pool feeds.
-
 | # | Candidate | Type | Rests on |
 |---|---|---|---|
-| 1 | **Sequence the milestones 2 → (1,3) → 4, not 1 → 2 → 3 → 4.** The dispatch record is what the guards and the liveness legs write to, and the notifier reads. Shipping the notifier before the liveness legs teaches the operator that silence means health — the artifact-positive/artifact-negative asymmetry makes this a correctness argument, not a convenience one. Cost 0; it is a re-ordering | change direction | `blocked_work_notification.md` §1.3, §5.2; `durable_dispatch_identity.md` §4.2; `liveness_signal_measurement.md` §4.3 |
-| 2 | **Fix `check_rate_limit()`'s stream capture before designing the credential guard.** `2>&1 >/dev/null` keeps stderr and discards stdout, where auth failures are printed — so the existing preflight cannot detect an expired credential by construction. This is a defect in shipped code, not a missing feature. Minutes | adopt | `credential_expiry_detection.md` §2.1, §5 step 3 |
-| 3 | **Replace the turn-spending `claude -p "ping"` preflight with `claude auth status` — wrapped in an explicit `timeout`, with timeout treated as park-and-notify and NEVER as pass.** The subcommand is documented to exit `0`/`1`, is not a model query, and (derived) is zero-turn. **The timeout is not boilerplate:** v2.1.139 documents this exact path — `auth status` against an expired credential — deadlocking *"with no way to recover"* under the `forceRemoteSettingsRefresh` policy setting, which a managed machine could carry. On an unattended runner a hung preflight is worse than a wrong answer: a wrong answer fails the dispatch, a hang blocks the runner silently. It does not replace the rate-limit probe, only precede it — quota headroom is not observable before a session's first API response. Hours | adopt | `credential_expiry_detection.md` §2.2, §4.6, §5 step 1, §6.3 G2 |
-| 4 | **Settle G2 first: which exit code does `claude auth status` return for "saved but expired", and how long does it take?** v2.1.139 established that the subcommand reaches expiry logic at all — that half is now first-party. What is still undocumented is the return value, and a deadlock is *no exit* rather than exit 1, so **the experiment must record wall-clock duration alongside the exit code**; the duration sets candidate 3's timeout. A five-minute experiment, not a research topic. **Do this before sizing the guard** | adopt | `credential_expiry_detection.md` §6.3 G2, §7 T1 |
-| 5 | **Move dispatch-identity generation out of the activity, in both the bash and Python paths.** Today it is a wall-clock filename minted inside `run-claude.sh` and, independently, `assistant_activities.py:252-253`. Under Temporal's default retry that yields a fresh identity per attempt, and the default policy has unlimited attempts — so the failure mode is an unbounded fan of identities, not one duplicate. One parameter; **must precede Stage B of the Temporal port** | adopt | `durable_dispatch_identity.md` §5.2d, §6 item 1, §7.3 |
-| 6 | **Adopt the six-component identity schema and the per-subsystem table (six columns, nine rows) as the recovery contract.** Three rows are the three cheap guards and are currently "nowhere yet" — that is the concrete meaning of "designed once, not three times." Hours of design; constrains the build | adopt | `durable_dispatch_identity.md` §2.7, §4.1, §4.2, §6 items 3–4 |
-| 7 | **Two-tier state store: the small dispatch record git-native on `refs/dispatch/*` with `git update-ref`'s compare-and-swap; bulk transcripts stay local and referenced by `(machine-id, path)`.** `.gitignore` line 2 is `.claude/` (verified), so nothing there crosses a machine today, and SQLite's own docs rule out direct multi-machine access as a corruption risk. **Blocked on T5** — whether `refs/dispatch/*` travels on the fleet's normal push/fetch without an explicit refspec is not established (§8 gap 8). 1–2 days | adopt | `durable_dispatch_identity.md` §3.2, §3.3, §3.6, §6 items 6–7 |
-| 8 | **Explicitly do NOT build claim/lease/TTL, a boot reconciler, retry bookkeeping or timers.** Temporal replaces exactly that layer. Name the liveness predicates as record *fields* so the guards have somewhere to write, and stop there. **Negative cost — it removes work** | no change *(the negative is the finding)* | `durable_dispatch_identity.md` §4.5, §5.4 |
-| 9 | **Separate the liveness verdict from the action, per leg: stalled records-and-alerts, looping is the only leg that may intervene automatically, stranded escalates and never retries in place.** The false-positive economics are opposite on the first two, and one uniform policy gets one of them badly wrong. A recording-only detector is also the honest posture given the heartbeat's coverage hole: a blind spot produces a gap in the record, which is visible; a killing detector with the same blind spot produces a wrong kill, which is not recoverable | new concept | `liveness_signal_measurement.md` §5.2–§5.4 |
-| 10 | **Build the stalled detector on log mtime as PRIMARY, with `system`/`task_progress` as the subagent-side arrival signal, and the `tool_progress` heartbeat only as a refinement — never the reverse.** **The heartbeat's coverage hole is the driver, and it is documented vendor behaviour, not an inference:** heartbeats cover `Bash` and `TaskOutput` only — none for the `Agent` tool *"whose subagents stream their own progress"*, and none *"for tool calls inside a subagent"*. A cadence-anchored rule (≥60 s, from systemd's 2× rule) therefore applies only while heartbeats are flowing; during subagent work the fallback path is the common path. **Schema risk is now ordinary dependency risk, not the unbounded kind:** feature-detect on Agent SDK **v0.3.214** and watch by diffing the SDK CHANGELOG per release — this **replaces** the earlier proposal to pin a tested schema snapshot. Thresholds phase-scoped (the startup-probe lesson). There is no industry number to copy: CircleCI kills at 10 min idle, GitHub Actions has no idle timeout at all | adopt | `liveness_signal_measurement.md` §2.3 (Findings A, D), §2.4, §4.1, §6(c) |
-| 11 | **Strengthen the false-completion guard to pre-state + pointer resolution: capture the head SHA at dispatch, then `gh pr view --json` and require the pointer resolves, its head SHA changed, and the contract's side-artifacts exist.** Kills F2–F4; one command before, two after. **A1 and A3 fail closed; A2 (delta) warns**, because a correct idempotent no-op legitimately has zero delta. **Capture the pre-state once at workflow start** — `run_child` is non-idempotent and a retry would re-baseline it into an always-passing guard | adopt | `false_completion_detection.md` §0, §4.1, §5.2 item 3, §5.3 |
-| 12 | **Do NOT add a verifier agent for false completion.** LLM text judges detect false success at AUROC ≤0.65/0.54, keying on confident closing language rather than verified state change — more expensive *and* measurably worse for this class. Record the limit honestly alongside it: artifact assertion certifies a declared artifact exists and changed, and certifies nothing about content; the operator-facing string must say so | no change *(the negative is the finding)* | `false_completion_detection.md` §3.3, §5.1 |
-| 13 | **Make the notification disposable and the inbox durable: GitHub as record, ntfy as the interrupt, re-fired from state on a `repeat_interval`.** No surveyed channel publishes a delivery guarantee — only retention — so this is what dissolves the "dropped while the laptop was closed" failure mode without needing a reliable channel. Drop the rota-shaped machinery (`group_by`, escalation chains) that has nowhere to escalate to with one operator. **Configure ntfy's `cache-file`/`database-url`** — the default cache is in-memory and does not survive a restart | adopt | `blocked_work_notification.md` §3.3, §3.5, §4.1, §4.3 |
-| 14 | **Verify `gh pr view --json`'s field list before writing candidate 11's guard.** The analyst could not obtain the enumerable field list (`PullRequestFields` is not in `api/queries_pr.go`), so the field names in `false_completion_detection.md` §4 are marked unverified. The cheap confirmation is to run `gh pr view --json` with an invalid field, which prints the accepted set. Minutes, and it blocks the implementation | adopt | `false_completion_detection.md` §6.1 (N3) |
-| 15 | **Run the zero-dispatch log measurements before sizing anything.** (a) A histogram of legitimate quiet periods from the existing `.claude/logs/*.jsonl` corpus — it blocks every threshold in candidate 10; (b) a grep of the same corpus for `authentication_failed` / `Login expired` / `OAuth session expired` / `401` — the base rate for candidate 3 is currently unmeasured; (c) a replay of the same corpus resolving each run's last PR URL — the on-harness F2/F3 rate for candidate 11. All three read files already on disk and cost no dispatches. **This is the cheapest high-value item in the pool** | adopt | `liveness_signal_measurement.md` §8 T1; `credential_expiry_detection.md` §7 T7; `false_completion_detection.md` §7 T1–T2 |
-| 16 | **Plan the false-completion guard and the safety-hook wiring test together.** `topics.md` excluded the hook test as "needs a test written, not evidence gathered"; `false_completion_detection.md` §5.2 item 4 independently concluded the false-completion guard needs its own wiring test of the identical shape — because a guard that stops asserting looks identical to one that always passes — with the identical `--setting-sources`/`--bare` hook-availability dependency. Two milestones, one test harness. **This is a sprint-item implication and the operator writes it** | change direction | `false_completion_detection.md` §5.2 item 4, §3.5, §7 T6 |
+| 1 | **Before wrapping any `gh`-calling activity: make `gh()` raise a typed exception carrying `_RETRYABLE_HTTP`'s split**, not a bare `RuntimeError`. Blocking prerequisite for either retry-boundary design below — neither `non_retryable_error_types` nor a terminal verdict can be expressed until this ships. Hours | adopt | `activity_retry_boundary.md` §2.5, §3 |
+| 2 | **Read-only, already-idempotent `gh` activities: cut `gh()` to one attempt, let Temporal own retry via `non_retryable_error_types`.** Fold `_gh_is_read_only`'s guard into the raise or it is silently lost. Requires candidate 1 | adopt | `activity_retry_boundary.md` §3(a) |
+| 3 | **Mutating `gh` activities, and any activity doing file/git work before the `gh` call: keep `gh()`'s bounded retry, mark the resulting code terminal to Temporal** — the fleet's own §6.4 `CLUSTER_RECONCILE`/`SEED` pattern, not a new one. Avoids depending on an idempotency audit that has not been done | adopt | `activity_retry_boundary.md` §3(b), §5 |
+| 4 | **Audit every planned `gh`-wrapping activity for whole-body idempotency before extending candidate 2 beyond read-only calls.** Temporal retries the entire activity, not the failed sub-call — the population, not a sample | adopt (blocking, before scope expansion) | `activity_retry_boundary.md` §2.7, §3(a), §7 item 6 |
+| 5 | **Move dispatch-identity generation out of the activity, in both the bash and Python paths, before Stage B.** Carried forward unchanged | adopt | `durable_dispatch_identity.md` §5.2d, §6 item 1 |
+| 6 | **Adopt the six-component identity schema as the recovery contract.** Carried forward unchanged | adopt | `durable_dispatch_identity.md` §2.7, §4.1–§4.2 |
+| 7 | **Do not build claim/lease/TTL, a boot reconciler, or retry bookkeeping — Temporal replaces this layer.** Carried forward unchanged | no change *(the negative is the finding)* | `durable_dispatch_identity.md` §4.5, §5.4 |
+| 8 | **Rule where the four misplaced papers and the orphaned "three cheap guards" work belong.** Not this run's decision — see Housekeeping | operator ruling | this synthesis, Housekeeping |
 
-**Homeless findings: none this cycle.** Candidates 1–15 land in the fleet-reliability phase doc (written by a planning run); 16 is a sprint-item implication, which §7's table routes to the operator; the escalations and clarifications above are the operator's to file or route. The cross-cutting **method finding** is not a phase-doc candidate and is dispositioned in its own section above — Post-Run Reflection's claude-dot-files section as the canonical surface, with §7's `research-candidate` issue row available as the git surface. Every item has a surface that already exists.
+**Homeless findings: none this cycle** — candidates 1–7 land in the Temporal Integration phase
+doc, [`../temporal-integration.md`](../temporal-integration.md), which exists and is the doc
+`sprint.md:177` links from this section's header. Candidate 8 is an operator ruling and now has a
+filed carrier: **GitHub issue #125** covers the orphaned "three cheap guards" work and the two
+papers stranded with it (`credential_expiry_detection.md`, `false_completion_detection.md`). The
+other two misplaced papers need no ruling — their milestones survive under the same names in
+Autonomous Operation (`sprint.md:243`, `:244`) and a component pool's directory is derivable from
+the phase, so only the *timing* of the move is open.
 
 ---
 
 ## Gaps this cycle did not cover
 
-- **Per-credential quota headroom** (sprint milestone line 184) — deferred to cycle 2 against this same directory; reasoning in `topics.md`. Upstream already discharged its blocking unknown (`hermes_assessment.md` §5.1: headroom is derivable from observed cap-errors), so what remains is a Claude-Code-specific provider-error taxonomy.
-- **The safety-hook wiring test and the Temporal sleeping-worker question** were also excluded, per `topics.md` — the first because it needs a test written rather than evidence gathered, the second because it belongs to the Temporal Integration component.
-- **No on-harness false-completion rate exists**, so candidate 11 must not be sized against the cited benchmark rates (75.8% among AppWorld self-assessing coding-agent trajectories with explicit status claims — **whose denominator the abstract does not resolve, and which must NOT be read as "three quarters of coding-agent runs lie"**; 97/154 DeployBench failures as agent self-stops). Candidate 15(c) produces our own number for zero dispatch cost.
-- **No false-positive rate exists anywhere for an artifact-assertion guard**, and no study ablates artifact assertion against output matching — candidate 11's superiority argument is *derived* from cost-to-fake, not measured, and is framed in the paper as a hypothesis to test.
-- **`--session-id` collision behaviour is undocumented**, there is no documented cross-machine Claude Code session portability, and **whether `refs/dispatch/*` survives the fleet's normal push/fetch is not established** — all three bear on candidate 7's two-tier store.
-- **No prior art was found anywhere for a client-side-only idempotency-key store** — every surveyed model assumes a server enforces uniqueness. This fleet has no server, which is why the record goes in git.
-- **Two stream event types remain undocumented across every first-party source consulted** — `vcs_state_changed` and `code_change_published` — and **neither is load-bearing for any liveness leg.** The CLI-level half of the gap survives intact: `headless.md` documents none of the stream event types the fleet consumes (Anthropic issue #24596). Whether the fleet should maintain a pinned schema snapshot is now a *weaker* proposal than it was — the documented v0.3.214 gate plus a per-release CHANGELOG diff is a real watch mechanism (candidate 10).
-- **Gotify's retention is undocumented in its two first-party READMEs**; an APNs body fetch returned no content; an Apprise channel total, Pushover's paid licence cost, PagerDuty's default escalation numbers, email's delivery semantics and a GitHub sub-issue per-parent limit were all unassertable (the last because the raw source carries an unexpanded template variable) — all stated as gaps rather than estimated. SMS was not researched and is excluded from the ranking rather than reasoned about from priors.
-- **The academic leg of the recovery-contract argument is one paper, and its spans are visually transcribed.** *(Change from the previous synthesis: the claim that Candea & Fox's* Crash-Only Software *could not be retrieved is **withdrawn** — it is retrieved and cited at `durable_dispatch_identity.md` §1.1, §3.6, §7.5 and §8 gap 4, and the "entirely industrial antecedents" framing is withdrawn with it.)* The honest residue: it arrived as **page images**, so its spans are transcribed visually and are **not** certified character-exact the way the paper's raw-`.md` sources are; it is used as corroboration only, and removing it changes no recommendation. A second, independently retrieved academic source would strengthen the lineage; this pool does not have one.
-- **The 0.9% (4/443) silent-death denominator is not reconstructible** from what is on disk — the log enumeration returns 58 files against a stated denominator of 443, logs are per-repo and `.claude/` is gitignored, so no single machine can yield the figure. The rate is quoted from `run-claude.sh`'s own comment and inherits its provenance.
-- **Milestone 3's stalled leg may not be worth shipping yet.** `run-claude.sh` argues detection machinery is not worth building at 0.9% *under attended operation*; the sprint schedules it because unattended operation is coming. Both are correct under their own assumptions, and which one holds is an operator call rather than a research finding. Note the asymmetry the papers add: **the looping leg is worth building either way**, because its false-negative cost is unbounded regardless of who is watching.
+- **No empirical confirmation of any §2 SDK claim in `activity_retry_boundary.md`** — every claim
+  is source-read against pinned commits, none is run against a live worker. Its own §7 test plan
+  names seven items, none executed.
+- **`activity_retry_boundary.md`'s §6 span count is not reproducible from the artifact.** The
+  verification pass re-checked its spans independently and found none that failed, but the paper
+  does not print the enumeration behind its "21 spans" figure, so the pass rate is verified and the
+  total is not. Recorded in the paper's §6; a re-check must re-enumerate rather than trust it.
+- **The `GITHUB_*` error-code vocabulary is not enumerable from this repo** — `temporal_standard.md`
+  §6.4 points it at a GitHub Automation Standard that is not vendored here (verified: no
+  `docs/standards/github-automation/` directory). New codes must be minted with the activity under
+  §6.4's engineer-editable carve-out rather than derived from an existing list.
+- **Milestone 3 ("Prove an invocation is indistinguishable from an operator at a terminal") is
+  OPEN on the half that is actually the milestone.** The sprint line disclaims the permission
+  reading in its own text — *"Not a permission question; a design one"* — and the permission
+  reading is the only one the upstream evidence answers. Nothing in this pool or the upstream
+  papers addresses the DESIGN question: what makes a headless invocation behaviourally
+  indistinguishable from an operator at a terminal, and how that would be demonstrated. An earlier
+  draft of this synthesis called the milestone "substantially answered," which overstated the
+  cited evidence; it is not.
+- **A second, separate question is also open** — whether a personal automation script classifies
+  as sanctioned "Claude Code on your own machine" use or as "programmatic Agent SDK use" under the
+  paused June-2026 billing change. It sits in `anthropic_tos_and_enterprise.md` §9, a hand-appended
+  section that paper's header marks NOT critic-verified. Not researched this cycle; a product-pool
+  question, not a component one.
