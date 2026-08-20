@@ -80,6 +80,32 @@ def main(argv=None) -> int:
     # first: the ref has to be local before any query can read it, and this runs
     # before the worktree helper that would otherwise do the fetching.
     #
+    # ON A `--pr` PASS THAT BRANCH IS THE ANSWER, NOT ONE HALF OF AN `or`. This
+    # was written as "absent in both trees" and that is a DIFFERENT question from
+    # the one the precondition asks, because the two trees are two objects: the
+    # invocation checkout, and `origin/<the PR's branch>`, which is what line 212
+    # cuts the worktree from and therefore the only tree the run ever reads. A
+    # roadmap sitting in the operator's checkout — merged earlier, edited
+    # locally, left by another branch — satisfied the check and the run then
+    # dispatched against a worktree that did not have it, burning the model call
+    # and stranding the worktree the check exists to prevent (issue #49). What
+    # the local tree says is now REPORTED, so the refusal can tell the operator
+    # which of the two states they are in, and it does not VOTE.
+    #
+    # THE COST OF ASKING EVERY TIME IS ONE `ls-tree`, and that was measured
+    # rather than assumed: `pr_branch` was already called unconditionally below
+    # to build `ref`, and `worktree_add` already runs this same `git fetch` — so
+    # the branch is resolved ONCE here and reused, and the fetch is the
+    # idempotent one that was happening anyway. A lookup that fails here would
+    # have failed there too, forty lines later, AFTER the run bag was opened.
+    # Failing before the first side effect is the whole point of preflight.
+    #
+    # `git_output`'s first parameter is named `worktree` and these two calls hand
+    # it `repo_root`, which is not a worktree and deliberately so — none exists
+    # yet, since the point of this check is to run before one is cut. The name is
+    # that helper's, in a module this pass may not edit; it is flagged here so a
+    # reader tracing the argument does not go looking for a bug.
+    #
     # `ls-tree` RATHER THAN `cat-file -e`, DELIBERATELY. `cat-file -e` answers by
     # exit code, so "the ref is unreadable" and "the file is not there" arrive as
     # the same nonzero — and swallowing that into `plan_exists = False` would
@@ -107,22 +133,30 @@ def main(argv=None) -> int:
     # slices from the FIRST occurrence of its anchor in the file, and a comment
     # quoting it exactly moves the slice onto prose — its own docstring records
     # that happening once, and writing this note reproduced it a second time.)
+    branch = None
+    plan_exists = (component / own.ROADMAP).is_file()
     try:
-        plan_exists = (component / own.ROADMAP).is_file()
-        if a.pr_number and not plan_exists:
+        where = ""
+        if a.pr_number:
             rel = (component / own.ROADMAP).relative_to(repo_root).as_posix()
             branch = act.pr_branch(a.pr_number, repo_root)
             act.git_output(repo_root, ["git", "fetch", "-q", "origin", branch],
                            "the PR's branch could not be brought local.")
+            # THE LOCAL ANSWER IS SPENT ON THE MESSAGE AND NOWHERE ELSE. Which
+            # sentence is true is the operator's whole diagnosis: "write the
+            # plan" and "push the plan you already wrote" are different remedies.
+            where = (f" — not here and not on PR #{a.pr_number}'s branch"
+                     if not plan_exists else
+                     f" — it IS in this checkout, but not on PR #{a.pr_number}'s "
+                     f"branch, which is the tree this run is cut from")
             plan_exists = bool(act.git_output(
                 repo_root, ["git", "ls-tree", "-r", "--name-only", f"origin/{branch}", "--", rel],
                 "the PR's tree could not be listed.").strip())
         if not plan_exists:
             print(f"\n✗ {component.relative_to(repo_root)} has no {own.ROADMAP}"
-                  + (f" — not here and not on PR #{a.pr_number}'s branch" if a.pr_number else "")
-                  + f": there is no plan to verify. Run plan_feature.sh against this "
-                  f"component first — writing the plan is its job and this workflow "
-                  f"holds no grant over a phase doc.", file=sys.stderr)
+                  f"{where}: there is no plan to verify. Run plan_feature.sh against "
+                  f"this component first — writing the plan is its job and this "
+                  f"workflow holds no grant over a phase doc.", file=sys.stderr)
             return 1
     # `FileNotFoundError` TOO, because `run_bounded` does not catch it: a host
     # with no `gh` on PATH reaches `pr_branch` and escapes as a traceback by a
@@ -136,7 +170,7 @@ def main(argv=None) -> int:
         # `pr_branch` failure — the one an operator with a bad `--pr` actually
         # hits. Stated at the boundary it is true of whichever call raised: this
         # precondition could not answer its question.
-        print(f"\n✗ {exc} this run cannot tell whether PR #{a.pr_number} carries "
+        print(f"\n✗ {exc} — this run cannot tell whether PR #{a.pr_number} carries "
               f"a plan, and 'I cannot see it' must not be delivered as 'it is "
               f"not there'.", file=sys.stderr)
         return 1
@@ -209,8 +243,11 @@ def main(argv=None) -> int:
         # the branch itself before it could begin. All four `--pr`-accepting
         # plan runners had the same line; `research_minor_workflow.py` already
         # had the right one and is where this expression comes from.
-        ref = (f"origin/{act.pr_branch(a.pr_number, repo_root)}"
-               if a.pr_number else "HEAD")
+        # THE BRANCH THE PRECONDITION ALREADY RESOLVED, not a second `gh pr view`.
+        # Two calls meant two round-trips for one fact, doubling the exposure to
+        # a rate-limited or flaky `gh` on the path this file just added, and
+        # nothing guaranteed the two answers agreed.
+        ref = f"origin/{branch}" if a.pr_number else "HEAD"
         worktree = act.worktree_add(repo_root, worktree_name, ref)
         url = wf.run_plan_verify(repo_root=repo_root, worktree=worktree, context=context,
                                  component=component, candidates_path=cands,

@@ -1116,9 +1116,13 @@ def _pr_lookup(monkeypatch: pytest.MonkeyPatch, branch: str, tree_answer: str,
     def pr_branch(pr_number: str, repo_root: Path) -> str:
         calls.append(("pr_branch", pr_number))
         if raise_on == "pr_branch":
+            # NO TRAILING PERIOD, DELIBERATELY. `gh()` raises
+            # `f"... failed in {repo_root}: {r.stderr.strip()}"`, and git/gh
+            # stderr does not reliably end in punctuation — a fake that supplies
+            # one hides the run-on the handler is responsible for separating.
             raise RuntimeError(f"gh pr view {pr_number} --json headRefName -q "
                                f".headRefName failed in {repo_root}: no pull "
-                               f"requests found.")
+                               f"requests found")
         return branch
 
     def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
@@ -1231,6 +1235,57 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
         f"the refusal must still name the workflow that writes the plan; got {err!r}")
 
 
+def test_a_PR_pass_IS_refused_when_the_plan_is_HERE_but_NOT_on_the_PRs_BRANCH(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The local tree does not VOTE on a `--pr` pass — it only shapes the message.
+
+    THE ONE CASE THE OTHER FOUR CANNOT REACH, and it went unwritten because the
+    precondition began life as an `or` over two trees. A roadmap in the operator's
+    checkout satisfied the check and the branch was never consulted; the run then
+    cut its worktree from `origin/<the PR's branch>` — which is the ONLY tree it
+    ever reads — and dispatched a model against a component with no plan in it.
+    That is issue #49's shape reached the long way round: a wasted dispatch and a
+    stranded worktree, produced by the guard that exists to prevent both.
+
+    MEASURED AS A SURVIVING MUTATION, not reasoned about. With the short-circuit
+    in place, changing the condition to consult the branch unconditionally left
+    all 65 tests green, which is the definition of an unpinned behaviour: the two
+    readings of this precondition were indistinguishable to the suite.
+
+    AND THE WORDING IS ASSERTED, not just the exit code. "Write the plan" and
+    "push the plan you already wrote" are different remedies, and an operator
+    handed the both-trees sentence for this state goes looking for a file that is
+    sitting in front of them.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+        "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
+    _pr_lookup(monkeypatch, "some-branch", "", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    err = capsys.readouterr().err
+    assert rc == 1, (
+        f"a plan present ONLY in this checkout was accepted for a --pr pass, so "
+        f"the run proceeds against a branch that does not carry it; stderr was "
+        f"{err!r}")
+    assert ("git", "ls-tree", "-r", "--name-only", "origin/some-branch", "--",
+            f"docs/development/alpha/{own.ROADMAP}") in calls, (
+        f"the PR's branch was never asked — the local file answered on its "
+        f"behalf, which is the short-circuit this test exists to pin; the calls "
+        f"were {calls!r}")
+    assert "it IS in this checkout, but not on PR #132's branch" in err, (
+        f"the refusal does not distinguish 'you have not written the plan' from "
+        f"'you have not pushed it', and those have different remedies; got {err!r}")
+    assert "not here and not on PR" not in err, (
+        f"a plan that IS here was reported as absent from both trees, which is "
+        f"false and sends the operator to write a file they already have; got "
+        f"{err!r}")
+    assert "open_run_bag" not in calls and "worktree_add" not in calls, (
+        f"the refusal came AFTER the run had created something — issue #49's "
+        f"class; the calls were {calls!r}")
+
+
 @pytest.mark.parametrize("raise_on, unreadable", [
     ("pr_branch", "the --pr number resolves to no branch"),
     ("fetch", "the PR's ref cannot be fetched"),
@@ -1268,7 +1323,7 @@ def test_a_PR_LOOKUP_that_FAILS_stops_the_run_and_says_so_rather_than_guessing(
     assert err.startswith("\n✗ "), (
         f"a failed lookup does not answer in this file's one-line refusal shape; "
         f"got {err!r}")
-    assert "cannot tell whether PR #132 carries a plan" in err, (
+    assert "\u2014 this run cannot tell whether PR #132 carries a plan" in err, (
         f"{unreadable}, and the operator is not told what that leaves unknown; "
         f"got {err!r}")
     assert "not here and not on PR" not in err, (
