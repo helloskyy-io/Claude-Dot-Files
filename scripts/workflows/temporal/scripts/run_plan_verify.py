@@ -5,7 +5,6 @@ the Temporal path exists this is replaced by a client that starts the workflow
 on a task queue; the workflow module itself does not change.
 """
 from __future__ import annotations
-import subprocess
 import sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -88,22 +87,58 @@ def main(argv=None) -> int:
     # class of bug this precondition was changed to fix. `ls-tree` exits 0 either
     # way and puts the answer in its OUTPUT, so a nonzero exit can only mean the
     # query genuinely failed, and `git_output` raises rather than guessing.
-    plan_exists = (component / own.ROADMAP).is_file()
-    if a.pr_number and not plan_exists:
-        rel = (component / own.ROADMAP).relative_to(repo_root).as_posix()
-        branch = act.pr_branch(a.pr_number, repo_root)
-        cannot = (f"this run cannot tell whether PR #{a.pr_number} carries a plan, "
-                  f"and 'I cannot see it' must not be delivered as 'it is not there'.")
-        act.git_output(repo_root, ["git", "fetch", "-q", "origin", branch], cannot)
-        plan_exists = bool(act.git_output(
-            repo_root, ["git", "ls-tree", "-r", "--name-only", f"origin/{branch}", "--", rel],
-            cannot).strip())
-    if not plan_exists:
-        print(f"\n✗ {component.relative_to(repo_root)} has no {own.ROADMAP}"
-              + (f" — not here and not on PR #{a.pr_number}'s branch" if a.pr_number else "")
-              + f": there is no plan to verify. Run plan_feature.sh against this "
-              f"component first — writing the plan is its job and this workflow "
-              f"holds no grant over a phase doc.", file=sys.stderr)
+    #
+    # THE REFUSAL IS INSIDE THE `try` AND THE HANDLER IS BELOW IT, which is a
+    # placement rather than an accident. Both `pr_branch` and `git_output` raise,
+    # and this block sits BETWEEN main's two try statements — so before this,
+    # either raise left `main` as a Python traceback with no `✗` line and no exit
+    # code of its own, while every other failure path in this file answers the
+    # operator in one line. The handler cannot live around the lookup alone:
+    # `test_the_PREFLIGHT_asks_the_PR_BRANCH_...` reads this file as TEXT, from
+    # the assignment below to the refusal that follows it, and asserts no
+    # `except` in that span — because an `except` there is how the lookup would
+    # swallow its own failure into a confident "no plan". Putting the refusal
+    # inside the `try` ends that span at the refusal, so the handler sits outside
+    # it, and the property the test holds stays true: this handler STOPS the run
+    # rather than continuing with a guess. Four behavioural tests hold the same
+    # property by execution, which a source-grep cannot.
+    #
+    # (This paragraph names neither anchor VERBATIM, deliberately. That test
+    # slices from the FIRST occurrence of its anchor in the file, and a comment
+    # quoting it exactly moves the slice onto prose — its own docstring records
+    # that happening once, and writing this note reproduced it a second time.)
+    try:
+        plan_exists = (component / own.ROADMAP).is_file()
+        if a.pr_number and not plan_exists:
+            rel = (component / own.ROADMAP).relative_to(repo_root).as_posix()
+            branch = act.pr_branch(a.pr_number, repo_root)
+            act.git_output(repo_root, ["git", "fetch", "-q", "origin", branch],
+                           "the PR's branch could not be brought local.")
+            plan_exists = bool(act.git_output(
+                repo_root, ["git", "ls-tree", "-r", "--name-only", f"origin/{branch}", "--", rel],
+                "the PR's tree could not be listed.").strip())
+        if not plan_exists:
+            print(f"\n✗ {component.relative_to(repo_root)} has no {own.ROADMAP}"
+                  + (f" — not here and not on PR #{a.pr_number}'s branch" if a.pr_number else "")
+                  + f": there is no plan to verify. Run plan_feature.sh against this "
+                  f"component first — writing the plan is its job and this workflow "
+                  f"holds no grant over a phase doc.", file=sys.stderr)
+            return 1
+    # `FileNotFoundError` TOO, because `run_bounded` does not catch it: a host
+    # with no `gh` on PATH reaches `pr_branch` and escapes as a traceback by a
+    # second route. `ValueError` is deliberately NOT caught here — nothing in
+    # this block raises one except `relative_to` on a component preflight has
+    # already proved is inside the repo, so a `ValueError` means an invariant
+    # broke and the traceback IS the right report for that.
+    except (RuntimeError, FileNotFoundError) as exc:
+        # THE HINT IS APPLIED HERE, NOT PASSED TO ONE CALLEE. It was `git_output`'s
+        # `cannot_hint` on both queries and therefore unreachable on the
+        # `pr_branch` failure — the one an operator with a bad `--pr` actually
+        # hits. Stated at the boundary it is true of whichever call raised: this
+        # precondition could not answer its question.
+        print(f"\n✗ {exc} this run cannot tell whether PR #{a.pr_number} carries "
+              f"a plan, and 'I cannot see it' must not be delivered as 'it is "
+              f"not there'.", file=sys.stderr)
         return 1
 
     try:

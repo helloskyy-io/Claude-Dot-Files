@@ -1074,3 +1074,154 @@ def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() 
     assert "not here and not on PR" in guard, (
         "the refusal message no longer says BOTH trees were checked. A caller "
         "told only 'has no roadmap.md' will go looking in the wrong one")
+
+
+# --- the `--pr` precondition, DRIVEN rather than read ----------------------
+#
+# THE TEST ABOVE READS THIS GUARD AS TEXT AND NEVER RUNS IT, which is issue
+# #103's class exactly: a structural guard that can stay green over an
+# accumulating defect because nothing exercises its predicate. Every substring
+# it asserts survives a boolean inversion, a wrong relative path, and a lookup
+# pointed at the wrong ref. It is KEPT — it holds the `except`-absence property,
+# which no behavioural test can express — and these four run the thing.
+#
+# THE FAKE ANSWERS THE QUERY; IT DOES NOT REPLACE THE GUARD. `pr_branch` and
+# `git_output` are the two boundary calls, so stubbing exactly those leaves the
+# whole precondition — the local check, the `--pr` condition, the path it builds,
+# the ref it asks, the refusal, the handler — running for real. Recording their
+# ARGUMENTS is half the point: "handed the wrong relative path" and "pointed at
+# the wrong ref" are two of the three defects the source-grep cannot see.
+
+def _pr_lookup(monkeypatch: pytest.MonkeyPatch, branch: str, tree_answer: str,
+               calls: list, raise_on: str | None = None):
+    """Answer the two boundary calls the `--pr` precondition makes, and log them.
+
+    `raise_on` names the call that fails — `"pr_branch"` for an unresolvable
+    `--pr`, `"fetch"` for a ref this run cannot read. Both raise `RuntimeError`
+    in production: `pr_branch` through `gh()`, `git_output` on any non-zero exit.
+    """
+    def pr_branch(pr_number: str, repo_root: Path) -> str:
+        calls.append(("pr_branch", pr_number))
+        if raise_on == "pr_branch":
+            raise RuntimeError(f"gh pr view {pr_number} --json headRefName -q "
+                               f".headRefName failed in {repo_root}: no pull "
+                               f"requests found.")
+        return branch
+
+    def git_output(worktree: Path, argv: list[str], cannot_hint: str) -> str:
+        calls.append(tuple(argv))
+        if raise_on == "fetch" and argv[1] == "fetch":
+            raise RuntimeError(
+                f"could not read the worktree state in {worktree} via "
+                f"`{' '.join(argv)}`: couldn't find remote ref. {cannot_hint}")
+        return tree_answer if argv[1] == "ls-tree" else ""
+
+    monkeypatch.setattr(act, "pr_branch", pr_branch)
+    monkeypatch.setattr(act, "git_output", git_output)
+
+
+def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The case PR #130 measured: no roadmap here, a roadmap on the PR. Run it.
+
+    THE ASSERTION IS EXIT 0, not the absence of one message. A refusal and a
+    later failure both exit 1, so an exit code alone cannot tell "the
+    precondition let it through" from "it let it through and something after it
+    died" — and the local tree genuinely has no roadmap, so plenty could.
+    Everything past the precondition is stubbed for that reason: reaching the
+    banner is the proof.
+
+    AND THE ARGUMENTS ARE ASSERTED, because that is where this differs from the
+    source-grep. `origin/<branch>` and the roadmap's path RELATIVE TO THE REPO
+    are the two values the guard computes, and a lookup that asks the wrong ref
+    or the wrong path still contains every substring that test greps for.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    monkeypatch.setattr(runner.journal, "open_run_bag", lambda **k: None)
+    monkeypatch.setattr(act, "worktree_add", lambda *a, **k: repo)
+    monkeypatch.setattr(wf, "run_plan_verify",
+                        lambda **k: "https://github.com/o/r/pull/132")
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    err = capsys.readouterr().err
+    assert rc == 0, (
+        f"a plan that exists on the PR's branch was refused anyway — this is the "
+        f"defect measured on PR #130, one layer down; stderr was {err!r}")
+    assert not (repo / "docs" / "development" / "alpha" / own.ROADMAP).is_file(), (
+        "the fixture stopped discriminating: the roadmap is present LOCALLY, so "
+        "this run would pass with the PR-branch lookup deleted entirely")
+    assert ("git", "ls-tree", "-r", "--name-only",
+            "origin/plan-feature-1787204416", "--",
+            f"docs/development/alpha/{own.ROADMAP}") in calls, (
+        f"the lookup asked for something other than the roadmap's repo-relative "
+        f"path on origin/<the PR's branch>; it asked {calls!r}")
+
+
+def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """Absence on both sides is still a refusal — the precondition is real.
+
+    A boolean inversion of the guard passes the source-grep and fails here: it
+    would let a run through with no plan on either tree, which is the state the
+    precondition exists to stop.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "some-branch", "", calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    err = capsys.readouterr().err
+    assert rc == 1, "a component with no plan on either tree was accepted"
+    assert "not here and not on PR #132's branch" in err, (
+        f"the refusal does not say BOTH trees were checked, so a caller reading "
+        f"it goes looking in the wrong one; got {err!r}")
+    assert "plan_feature.sh" in err, (
+        f"the refusal must still name the workflow that writes the plan; got {err!r}")
+
+
+@pytest.mark.parametrize("raise_on, unreadable", [
+    ("pr_branch", "the --pr number resolves to no branch"),
+    ("fetch", "the PR's ref cannot be fetched"),
+])
+def test_a_PR_LOOKUP_that_FAILS_stops_the_run_and_says_so_rather_than_guessing(
+        raise_on: str, unreadable: str, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """"I cannot see it" must not be delivered as "it is not there" — nor as a traceback.
+
+    TWO PROPERTIES, AND THE SECOND IS THE ONE WITH TEETH.
+
+    First: the failure reaches the operator in this file's `✗ <one line>` shape
+    with exit 1, like its two sibling handlers. Both boundary calls raise, and
+    they are made BETWEEN main's two try statements, so before this they escaped
+    as a Python traceback — measured by execution, not inferred.
+
+    Second, and this is what the source-grep structurally cannot hold: the
+    refusal wording must be ABSENT. `plan_exists = False` in a handler is the
+    swallow this whole guard exists to prevent, and a handler placed outside the
+    grepped span can reintroduce it with every asserted substring still in place.
+    An unknown reported as a confident "there is no plan" fails here and only
+    here.
+
+    The hint is asserted on BOTH raise sites because it reached only one: it was
+    `git_output`'s `cannot_hint` argument, so an operator who mistyped `--pr` —
+    the likeliest caller of all — never saw it.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    _pr_lookup(monkeypatch, "some-branch", "", calls, raise_on=raise_on)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
+    out, err = capsys.readouterr()
+    assert rc == 1, f"{unreadable} and the run continued anyway"
+    assert err.startswith("\n✗ "), (
+        f"a failed lookup does not answer in this file's one-line refusal shape; "
+        f"got {err!r}")
+    assert "cannot tell whether PR #132 carries a plan" in err, (
+        f"{unreadable}, and the operator is not told what that leaves unknown; "
+        f"got {err!r}")
+    assert "not here and not on PR" not in err, (
+        f"an UNREADABLE lookup was reported as an ABSENT plan — 'I cannot see "
+        f"it' delivered as 'it is not there', which is the exact defect this "
+        f"precondition was rewritten to remove; got {err!r}")
+    assert "https://github.com" not in out, (
+        "the run proceeded past a lookup it could not complete")
