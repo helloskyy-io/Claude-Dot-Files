@@ -65,11 +65,13 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # `plan_path` IS PASSED, and its absence here was a defect rather than a tier
     # difference. `build_draft` branches on it to select the `build_from_plan` /
     # `stages_1_to_4_from_plan` pair, `build_minor_workflow` has always passed it,
-    # and `test_build_prompt_variants_do_not_fork.py` describes that pair as the
-    # one "used whenever a run is launched with `--phase`". It was not: the major
+    # and `test_build_prompt_variants_do_not_fork.py` described that pair as the
+    # one used whenever a run is launched with `--phase`. It was not: the major
     # tier handed the child the plan doc's CONTENTS as a description and the
     # generic prompt, so `build --phase` never saw the plan-driven stages at all
-    # and `${PLAN_PATH}` never reached it.
+    # and `${PLAN_PATH}` never reached it. That guard's opening was corrected on
+    # 2026-08-20 — the pair is selected on `--phase` AND no `--pr`, both here and
+    # on the minor tier.
     #
     # ANCHORED FOR THE MODEL, NOT THE RAW OPERATOR STRING. `PLAN_PATH` is rendered
     # into the prompt and read by a model running INSIDE THE WORKTREE, so a

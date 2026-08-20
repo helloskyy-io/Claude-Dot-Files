@@ -69,6 +69,20 @@ WHAT THIS DOES NOT LOOK AT:
     either would be nonsense. A future `spec_ref` or `source_doc` carrying a
     filesystem location would pass. This is a real hole and it is named rather than
     hidden: the cheapest close is to keep naming such arguments after what they are.
+  * **A path passed POSITIONALLY to a child entrypoint.** `_child_edges` reads
+    `node.keywords` and nothing else, so a rendered path handed to a child's
+    `run_*` as a positional argument never enters the population and
+    `test_every_rendered_path_reaches_the_child_ANCHORED` cannot see it. THIS IS
+    THE SAME KIND OF HOLE AS THE BULLET ABOVE AND IT IS NAMED FOR THE SAME REASON;
+    the two were documented asymmetrically until 2026-08-20, which is worse than
+    either hole. Bounded rather than open, measured: every parent-to-child `run_*`
+    call in `modules/assistant/` passes keywords exclusively today, and the only
+    positional call sites are `act.run_claude`, `act.run_disposition` and
+    `review_pr.run_review`, none of which renders a path parameter into a
+    placeholder. Closing it is NOT a matter of also reading `node.args` —
+    resolving a positional to a parameter NAME requires the child's signature,
+    which is a design change, and `test_the_derivation_found_the_build_edges`
+    pins an exact edge set that such a change could silently alter.
 """
 
 from __future__ import annotations

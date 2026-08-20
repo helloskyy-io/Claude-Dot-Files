@@ -38,10 +38,11 @@ branches on `plan_path` to select the `build_from_plan` / `stages_1_to_4_from_pl
 pair. `build_minor_workflow` passed it; `build_workflow` did NOT — so the MAJOR
 tier's `--phase` runs never reached the plan-driven prompts at all, and
 `${PLAN_PATH}` never reached the model. `test_build_prompt_variants_do_not_fork.py`
-opens by describing that pair as *"a `_from_plan` variant used whenever a run is
-launched with `--phase`"*, which was true of one tier of two. That file compares
-the two prompts' CONTENTS and is structurally blind to whether either is reachable,
-which is why the fork guard was green over this the whole time.
+opened by describing that pair as the one used *whenever* a run is launched with
+`--phase` — true of one tier of two, and corrected in that file on 2026-08-20 to
+state the two-axis condition the selector now uses. That file compares the two
+prompts' CONTENTS and is structurally blind to whether either is reachable, which
+is why the fork guard was green over this the whole time.
 
 WHAT THIS DOES NOT LOOK AT:
 

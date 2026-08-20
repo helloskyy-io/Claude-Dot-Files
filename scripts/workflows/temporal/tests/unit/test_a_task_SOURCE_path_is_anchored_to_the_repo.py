@@ -47,10 +47,17 @@ WHAT THIS DOES NOT LOOK AT:
   * **String-level assembly.** `Path(a.task_file)` is caught; an
     `f"{root}/{a.task_file}"` is not, for the same reason its sibling sweep gives
     — every runner interpolates argument values into its banner.
-  * **The value handed to the MODEL.** `PLAN_PATH` is rendered as the operator's
-    raw string so it anchors to the worktree the model runs in;
-    `test_model_gets_the_worktree_path.py` owns that axis and this file is silent
-    about it.
+  * **The value handed to the MODEL.** `PLAN_PATH` is NOT the operator's raw
+    string. Both build parents pass it through
+    `build_activities.path_for_the_model`, which renders an in-repo path
+    repo-relative, resolves an escaping relative one to absolute, and leaves a
+    genuinely out-of-repo absolute one alone — so what the model is SHOWN and what
+    this file's helpers READ are two different answers on purpose.
+    `test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path.py` owns that axis. NOT
+    `test_model_gets_the_worktree_path.py`, which sweeps
+    `modules/assistant/research/*/` and keys on `RESEARCH_DIR`: it does not reach
+    the build family, and believing otherwise is how the build family's render
+    arrived uncovered. This file is silent about the axis either way.
 """
 
 from __future__ import annotations
