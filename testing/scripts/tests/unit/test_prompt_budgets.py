@@ -358,7 +358,13 @@ BUDGETS: dict[str, int] = {
     # this file is full of em-dashes. The test caught it on its first run,
     # which is the cheapest possible demonstration that byte counts are not
     # eyeballable.
-    "prompts/rules.md": 7_491,
+    # +67 on 2026-08-20, and it buys a CORRECTNESS fix rather than prose. The
+    # re-read rule illustrated its point with `/tmp/claude-pr-body.md`, and an
+    # example in a prompt is a prescription in practice: the logs show that exact
+    # path copied VERBATIM 133 times across 45 runs. A fixed name in a shared
+    # directory is overwritten by any sibling dispatch, and the visible outcome is
+    # a PR published with another PR's body. The name now carries the branch.
+    "prompts/rules.md": 7_558,
     # RATCHETED DOWN 6_584 -> 6_164 on 2026-08-17: a five-line `<!-- SHARED … -->`
     # editor header was deleted. It was addressed to whoever edits the file and
     # reached the MODEL instead — `load_prompt()` is a bare `read_text()` and
