@@ -340,6 +340,62 @@ _DRAFT_TIERS = [("build_draft", draft.run_draft),
                 ("build_draft_minor", draft_minor.run_draft_minor)]
 
 
+_STAGE_HEADING = re.compile(r"^#+ *Stage (\d+)\b", re.MULTILINE)
+_STAGE_CLAIM = re.compile(r"all (\d+) stages", re.IGNORECASE)
+
+
+@pytest.mark.parametrize(("name", "entry"), _DRAFT_TIERS)
+def test_a_prompts_STAGE_COUNT_CLAIM_matches_the_stages_it_SHIPS(
+    monkeypatch, tmp_path, name: str, entry
+) -> None:
+    """"Follow all N stages" must be true of the prompt the model receives.
+
+    THIS EXACT DEFECT IS ALREADY IN THIS TREE'S HISTORY, AS A LESSON RATHER THAN
+    AS A GUARD. `plan_revision_workflow.py` opens by recording it: *a prompt that
+    said "follow all 8 stages" with the stages absent. Every run exited 0. It
+    surfaced days later.* A containment check was built for `plan_revision` and
+    the claim itself was never checked anywhere, so the same sentence went on
+    being true of nothing in the build tier — measured when this guard landed:
+    all three `build_draft` dispatch paths promised eight stages and shipped
+    five, and the plan path numbered them 1, 2, 3, 4, 8.
+
+    WHY IT IS SILENT RATHER THAN LOUD. A stage the prompt promises and does not
+    define cannot fail — there is no assertion behind a stage, only a model
+    reading a heading. A run told there are eight either invents three or
+    declares them skipped, and this corpus's own `stage_order_is_mandatory`
+    fragment asks for exactly that declaration, so the failure mode is a run
+    dutifully reporting `## Stage 6: SKIPPED` for a stage nobody wrote.
+
+    Driven through the REAL dispatch rather than a hand-filled template:
+    `${STAGES_1_TO_4}` is a slot a workflow fills with one of several bodies, so
+    a static read of any one file cannot see what the model is actually handed.
+
+    WHAT IT DOES NOT LOOK AT: a prompt making no numeric claim is not asked to
+    make one, and a stage's CONTENT is not inspected — only that the heading the
+    claim counts exists and that the numbering has no hole.
+    """
+    for path, (prompt, _) in _draft_paths_with_loads(monkeypatch, tmp_path, entry).items():
+        claim = _STAGE_CLAIM.search(prompt)
+        if claim is None:
+            continue
+        headings = [int(n) for n in _STAGE_HEADING.findall(prompt)]
+        assert headings, (
+            f"{name}/{path} promises {claim.group(0)!r} and carries no stage "
+            f"heading at all — the shape the history above records"
+        )
+        assert int(claim.group(1)) == len(headings), (
+            f"{name}/{path} promises {claim.group(0)!r} and ships "
+            f"{len(headings)}: {headings}. Correct the claim or add the stages; "
+            f"a promised stage nobody wrote cannot fail, it can only be invented "
+            f"or declared skipped."
+        )
+        assert headings == list(range(1, len(headings) + 1)), (
+            f"{name}/{path} numbers its stages {headings}, which has a hole. A "
+            f"run reading a gap treats the missing numbers as stages it was not "
+            f"shown rather than as stages that do not exist."
+        )
+
+
 @pytest.mark.parametrize(("name", "entry"), _DRAFT_TIERS)
 def test_every_pool_fragment_a_dispatch_LOADS_also_RENDERS(
     monkeypatch, tmp_path, name: str, entry

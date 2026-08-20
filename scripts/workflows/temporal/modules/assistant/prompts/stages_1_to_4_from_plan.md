@@ -48,7 +48,7 @@ ${GITIGNORE_COLLISION_CHECK}
 Checkpoint commit: once implementation and cleanup are complete, stage all changes and make a local checkpoint commit (do NOT push):
   git add -A && git commit -m "wip: implementation checkpoint — PRE-REVIEW, not yet audited"
 
-This protects the work if later stages fail or the turn budget is exhausted. Stage 8 SUBMIT will add any review-fix commits and push everything together. If there are no changes to commit, skip and note why in the summary.
+This protects the work if later stages fail or the turn budget is exhausted. Stage 5 SUBMIT will add any review-fix commits and push everything together. If there are no changes to commit, skip and note why in the summary.
 
 Produce a brief summary noting:
 - What was built and why
