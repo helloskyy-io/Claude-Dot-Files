@@ -40,9 +40,8 @@ What this phase rests on instead:
 
 | Source | What it supplies |
 |---|---|
-| The operator's deployment brief (2026-08-19) | The three-step intent: starter node → real cluster → pivot. Authoritative for this phase's scope |
+| [`skyy-net-seed-handoff.md`](../skyy-net-seed-handoff.md) | **D13, D14, D15** — the operator's deployment brief of 2026-08-19, recorded where the other settled decisions live: the temporary starter and why it is destroyed rather than migrated, the permanent cluster as a future sprint inherited from MDC, and no workload tier. **Authoritative for this phase's scope.** Plus D3 (two-piece topology), D5 (k3s single-node stack from the existing bootstrap), D7 (seed VM on the PBS-backed MDC), D8 (the server-placement rule) |
 | [`worker_deployment_standard.md`](../../standards/temporal/worker_deployment_standard.md) | The deployment model, binding: k3s, immutable images, multi-stage layering, task-queue naming (§2), worker entry points (§7), fail-fast dispatch (§8). **Vendored MIRROR — do not edit it here** |
-| [`skyy-net-seed-handoff.md`](../skyy-net-seed-handoff.md) | D3 (two-piece topology), D5 (k3s single-node stack from the existing bootstrap), D7 (seed VM on the PBS-backed MDC), D8 (the server-placement rule) |
 | [`stack_reference.md`](../../standards/architecture/stack_reference.md) | *"Temporal, SELF-HOSTED. Temporal Cloud is not on the table. Decided 2026-07-12."* And the shard-capacity consequence: a build-time one-way door we own |
 | [`../../standards/architecture/research/synthesis.md`](../../standards/architecture/research/synthesis.md) | Four findings cited, not re-derived — see the two subsections below |
 | First-party Temporal documentation | Read at plan time; the exact facts and their sources are in § *Runtime Verification* |
