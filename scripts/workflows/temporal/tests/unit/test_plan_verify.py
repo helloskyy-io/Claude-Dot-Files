@@ -1584,15 +1584,33 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     THE ASSERTIONS ARE ON THE PROPERTY, NOT ON A REPLACEMENT WORDING, which
     matters because a gate satisfiable by pasting a required string into the
     artifact is worse than no gate. The number is parsed out of the runner's own
-    output and the caveat's claims are checked AGAINST it: any future rewording
-    that re-sweeps the phase-doc count into a blanket zero claim fails here
-    however it is phrased, and any wording that scopes its zeros to the roadmap
-    passes.
+    output and the caveat's claims are checked AGAINST it.
+
+    THIS SENTENCE WAS FALSE WHEN IT WAS FIRST WRITTEN, and saying so is the
+    point of leaving it here. As shipped at 142421a it claimed a rewording into
+    a blanket zero claim "fails here however it is phrased"; review pass 5
+    falsified that by mutation — it restored the over-claim in substance and
+    this file ran 71 passed, 0 red. The scan neutralises the interpolated path
+    now, and matches the word `zero` as well as the digit, so the claim below is
+    the narrowed one the code actually delivers. A guard's docstring is read as
+    a warrant by whoever edits the thing it guards, so an over-claiming one is
+    the same defect as an over-claiming diagnostic, one layer up.
+
+    WHAT IT HOLDS: a caveat that attributes a zero to anything without scoping
+    that zero to the roadmap in its own prose fails, whether the zero is spelled
+    `0` or `zero`; and a caveat that stops naming its zeros altogether fails too,
+    rather than emptying the loop and passing in silence.
 
     WHAT IT DOES NOT HOLD, stated so its silence is not over-read. It does not
     check the counts are RIGHT — they are still this checkout's, which is issue
     #134's fix for all four `--pr`-accepting runners at once. It holds only that
-    nothing printed beneath the caveat contradicts the caveat.
+    nothing printed beneath the caveat contradicts the caveat. It reds CLOSED on
+    one correct-but-unusual shape: a caveat that scopes its zeros by naming the
+    roadmap FILE PATH and never the bare word loses its only scoping token to the
+    blanking, and fails. That is deliberate — the blanking is what stops the
+    filename standing in for the claim — and failing closed on a wording nobody
+    has written beats passing open on the one that shipped. And it says nothing
+    about a caveat that misleads in words that name no figure at all.
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
     component = repo / "docs" / "development" / "alpha"
@@ -1640,8 +1658,32 @@ def test_a_DRY_RUN_caveat_may_NOT_claim_a_count_is_ZERO_when_that_COUNT_IS_NOT(
     # every zero the caveat asserts must be SCOPED to the figures that actually
     # read the roadmap. A blanket zero claim is false the moment `phase_docs_of`
     # returns anything, and that is the state this fixture is in.
-    for zero in re.finditer(r"\b0\b", caveat):
-        clause = caveat[max(0, zero.start() - 240):zero.end()].lower()
+    #
+    # THE INTERPOLATED PATH IS BLANKED BEFORE SCANNING, and that one line is the
+    # whole reason this assertion discriminates. The caveat unconditionally opens
+    # by naming the file it is about, so `{rel}/roadmap.md` puts the word
+    # `roadmap` at a fixed low index of EVERY caveat this runner can print —
+    # inside the lookback of every zero in a line of realistic length. Scanning
+    # the raw string, the window was satisfied by the FILENAME and never by the
+    # claim's scope, so the loop could not fail: review pass 5 restored the
+    # blanket over-claim in substance and all 71 tests in this file stayed green.
+    # Blanking the path leaves only prose the WORDING chose to write.
+    #
+    # `zero` IS SCANNED ALONGSIDE `0` because `\b0\b` alone is a second, quieter
+    # vacuity of the same kind: a blanket claim spelled "are all zero" matches
+    # nothing at all, the loop body never runs, and a loop that never runs is an
+    # assertion that cannot fail.
+    scanned = caveat.replace(f"{component.relative_to(repo)}/{own.ROADMAP}",
+                             "<the file this caveat is about>")
+    claims = list(re.finditer(r"\b0\b|\bzeros?\b", scanned))
+    assert claims, (
+        f"the caveat makes no zero-claim this assertion can read, so the loop "
+        f"below is vacuous and nothing about its scope is being held. Either "
+        f"the caveat stopped naming the zeros it attributes to the absent "
+        f"roadmap, or it spells them a third way this scan does not match; got "
+        f"{caveat!r}")
+    for zero in claims:
+        clause = scanned[max(0, zero.start() - 240):zero.end()].lower()
         assert "roadmap" in clause, (
             f"the caveat claims a figure is 0 without scoping the claim to the "
             f"roadmap-derived ones, while {phase_docs_here} phase docs are "

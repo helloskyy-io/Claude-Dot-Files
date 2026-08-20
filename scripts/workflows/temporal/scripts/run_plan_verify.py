@@ -204,12 +204,32 @@ def main(argv=None) -> int:
             # same split one module over; this is the runner saying it out loud.
             print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
             # AND WHERE THIS CHECKOUT DEMONSTRABLY IS NOT THAT TREE, SAY SO
-            # BEFORE THE NUMBERS. The precondition above has just proved the plan
-            # is on the PR's branch; if it is absent here, every count below is a
-            # zero for a plan that is fully written, and a preview that is wrong
-            # looks exactly like a preview that is right. Printing the caveat
-            # ABOVE the counts is the placement: an operator scanning top-down
-            # meets the reason before the zeros they would otherwise believe.
+            # BEFORE THE NUMBERS. The precondition above has just proved the
+            # ROADMAP is on the PR's branch; where it is absent HERE, the three
+            # figures that read it — `roadmap_phase_links`, `roadmap_hours` and
+            # `sizing_floor` — come out 0 for a plan that is fully written, and a
+            # preview that is wrong looks exactly like a preview that is right.
+            # Printing the caveat ABOVE the counts is the placement: an operator
+            # scanning top-down meets the reason before the zeros they would
+            # otherwise believe.
+            #
+            # THREE OF THE FOUR, NOT ALL FOUR, AND THE TRIGGER IS THE ROADMAP AND
+            # NOT THE PLAN. `phase_docs_of` reads the component DIRECTORY and
+            # never the roadmap, so it keeps printing this checkout's own count
+            # and the caveat names it as such instead of sweeping it in. The
+            # first draft of this claim did sweep it in — it called the checkout
+            # "a tree WITHOUT the plan" and said "the counts below will be 0"
+            # over all of them — and a component whose phase docs are here while
+            # its roadmap is on the branch, hand-laid-out with its roadmap
+            # written later by `plan-feature` (this runner's own target
+            # workflow), printed `Phase docs : 4 of its own` one line under a
+            # warning saying that number would be 0. An operator meeting a
+            # warning and then a number it said would not exist reads the warning
+            # as inapplicable, and takes the local count for the branch's. A
+            # diagnostic that over-claims is discounted whole on its first false
+            # instance, so it must assert only what its own code guarantees —
+            # and this paragraph is the specification a later edit reads, so it
+            # must not restate a claim the string below no longer makes.
             #
             # WHAT THE CAVEAT DOES NOT CATCH, stated so its SILENCE is not
             # over-read: it keys on the roadmap being ABSENT here, not on this
@@ -232,20 +252,6 @@ def main(argv=None) -> int:
             # trade: it is one syscall against no network, and reading it here
             # rather than threading it out of the precondition keeps this edit
             # outside the span a source-grep slices.
-            # THE CLAIM IS NARROWED TO THE FIGURES IT ACTUALLY GOVERNS, and the
-            # first draft of it was not. It said the checkout was "a tree WITHOUT
-            # the plan" and that "the counts below will be 0" — over ALL of them,
-            # unqualified. Only three of the four read the roadmap
-            # (`roadmap_phase_links`, `roadmap_hours`, `sizing_floor`);
-            # `phase_docs_of` does not, and a component whose phase docs are here
-            # while its roadmap is on the branch — a hand-laid-out component whose
-            # roadmap `plan-feature` wrote later, which is this runner's own
-            # target workflow — printed `Phase docs : 4 of its own` one line under
-            # a warning saying that number would be 0. An operator meeting a
-            # warning and then a number it said would not exist reads the warning
-            # as inapplicable, and takes the local count for the branch's. A
-            # diagnostic that over-claims is discounted whole on its first false
-            # instance, so it must assert only what its own code guarantees.
             if a.pr_number and not (component / own.ROADMAP).is_file():
                 print(f"  ⚠ NOT HERE : this checkout does NOT carry {rel}/{own.ROADMAP}, so every "
                       f"figure below that is READ FROM THE ROADMAP — the phase-doc reference "
