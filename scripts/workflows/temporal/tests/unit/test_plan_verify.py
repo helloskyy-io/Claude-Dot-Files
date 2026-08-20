@@ -1091,6 +1091,18 @@ def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() 
 # the ref it asks, the refusal, the handler — running for real. Recording their
 # ARGUMENTS is half the point: "handed the wrong relative path" and "pointed at
 # the wrong ref" are two of the three defects the source-grep cannot see.
+#
+# WHAT THESE FOUR NEVER INSPECT, stated so the next reader does not credit them
+# with it. (1) The PROCESS layer: both boundary calls are stubbed, so nothing
+# here proves `gh pr view` and `git ls-tree` are spelled correctly for the real
+# binaries, nor that a real `ls-tree` prints what `bool(...strip())` assumes —
+# that contract lives in `plan_activities` and its own tests. (2) The NON-`--pr`
+# refusal, which `test_the_runner_REFUSES_a_component_with_NO_roadmap` holds.
+# (3) The ORDERING against the rest of the run: that this precondition is
+# reached before the run bag is opened and before a worktree is cut is issue
+# #49's whole point, and it is held by PLACEMENT in the source, not asserted
+# here — the `--pr` acceptance case stubs those two out rather than watching
+# them, so it would stay green if they moved above the guard.
 
 def _pr_lookup(monkeypatch: pytest.MonkeyPatch, branch: str, tree_answer: str,
                calls: list, raise_on: str | None = None):
@@ -1152,11 +1164,21 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     assert not (repo / "docs" / "development" / "alpha" / own.ROADMAP).is_file(), (
         "the fixture stopped discriminating: the roadmap is present LOCALLY, so "
         "this run would pass with the PR-branch lookup deleted entirely")
-    assert ("git", "ls-tree", "-r", "--name-only",
-            "origin/plan-feature-1787204416", "--",
-            f"docs/development/alpha/{own.ROADMAP}") in calls, (
+    ls_tree = ("git", "ls-tree", "-r", "--name-only",
+               "origin/plan-feature-1787204416", "--",
+               f"docs/development/alpha/{own.ROADMAP}")
+    assert ls_tree in calls, (
         f"the lookup asked for something other than the roadmap's repo-relative "
         f"path on origin/<the PR's branch>; it asked {calls!r}")
+    # AND THE FETCH CAME FIRST. The ref has to be local before anything can read
+    # it, and this precondition runs BEFORE the worktree helper that would
+    # otherwise have done the fetching — so an `ls-tree` that overtakes the fetch
+    # reads a ref that need not exist yet, and on a repo where an earlier run
+    # left one behind it reads a STALE one, which is the worse half.
+    fetch = ("git", "fetch", "-q", "origin", "plan-feature-1787204416")
+    assert fetch in calls and calls.index(fetch) < calls.index(ls_tree), (
+        f"the PR's ref was queried without being fetched first, or after; the "
+        f"calls in order were {calls!r}")
 
 
 def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
