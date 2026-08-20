@@ -373,7 +373,10 @@ claude-dot-files/
 │           │                                        #   runs standalone AND is called in order by plan_project.sh. plan_feature.sh and
 │           │                                        #   plan_verify.sh take ONE component directory, which is also the cheap way to
 │           │                                        #   exercise them; plan_verify.sh REFUSES a component with no roadmap.md rather
-│           │                                        #   than dispatching against nothing, since writing the plan is not its job
+│           │                                        #   than dispatching against nothing, since writing the plan is not its job. On a
+│           │                                        #   --pr pass it asks the PR's BRANCH for that roadmap as well as this checkout —
+│           │                                        #   the plan it is pointed at need not be in the tree it was launched from — and a
+│           │                                        #   lookup it cannot COMPLETE stops the run rather than reading as an absent plan
 │           └── tests/                               # TIER 3 — this code unit owns its tests (Testing Standard § per-unit ownership)
 │               ├── conftest.py                      # Component-scoped import path (replaces the per-file sys.path preambles), AND the
 │               │                                    #   session-wide autouse fixture that points every bag the suite opens at a temp
