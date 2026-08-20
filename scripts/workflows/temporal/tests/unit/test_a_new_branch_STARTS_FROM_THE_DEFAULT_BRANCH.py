@@ -19,7 +19,7 @@ THE RULE IS THE OPERATOR'S, STATED PLAINLY: a run either CONTINUES the same PR
 (`--pr`) or STARTS FROM THE DEFAULT BRANCH. There is no third base, and the
 operator's checkout position is not an input to the question.
 
-WHY THE CHECK IS ON THE CLASS AND NOT ON TEN FILES. The inline expression reached
+WHY THE CHECK IS ON THE CLASS AND NOT ON ELEVEN FILES. The inline expression reached
 ELEVEN call sites before anyone noticed, and a fix applied by hand to a list of
 eleven is a fix applied to ten — which is what happened here on the first pass — this repo has the receipt, in the frozen-fleet guard
 that was closed one spelling at a time three times. So this walks every module

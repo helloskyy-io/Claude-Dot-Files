@@ -1447,7 +1447,7 @@ def base_ref(pr_number: str | None, repo_root: Path) -> str:
     eleventh (`research_refresh_parent`) passes its base INLINE rather than
     through a `ref = ...` line, so both the hand sweep and the first version of
     the guard written to replace it looked straight past it. `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH`
-    keys on the class rather than on today's ten.
+    keys on the class rather than on today's eleven.
     """
     if pr_number:
         return f"origin/{pr_branch(pr_number, repo_root)}"
