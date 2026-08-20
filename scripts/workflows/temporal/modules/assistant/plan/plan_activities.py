@@ -93,8 +93,8 @@ extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
 max_turns = shared.max_turns
 
-# A candidate row:
-#   | C-001 | title | component | source | `decision` | `status` | note |
+# A candidate row, in the eight-column shape `_HEADER` declares:
+#   | C-001 | title | component | source | `decision` | `size` | `status` | note |
 #
 # CELLS ARE MATCHED AS `[^|\n]*`, NOT `.*?`, AND THAT IS LOAD-BEARING. Note text
 # in this file carries UNESCAPED PIPES, so anything that splits a whole row on

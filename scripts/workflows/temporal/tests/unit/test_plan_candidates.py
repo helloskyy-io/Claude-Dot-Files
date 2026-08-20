@@ -366,6 +366,13 @@ def test_the_row_parse_survives_UNESCAPED_PIPES_IN_THE_NOTE(tree: Path) -> None:
 _SIX_COL = ("| ID | Candidate | Source | `decision` | `status` | Note |\n"
             "|---|---|---|---|---|---|\n")
 
+# THE SHAPE A STALLED MIGRATION LEAVES, which `_SIX_COL` is not. `component` took
+# the table from six columns to seven and `size` took it from seven to eight, so
+# the table that exists half-migrated TODAY is the seven-column one — and it is
+# the dangerous one, because seven cells satisfy the row parser and six do not.
+_SEVEN_COL = ("| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
+              "|---|---|---|---|---|---|---|\n")
+
 
 def _nine_tables(bad: str) -> str:
     """Eight well-formed candidate tables and one `bad` one, as the real file is shaped."""
@@ -396,7 +403,24 @@ def _nine_tables(bad: str) -> str:
     # production is across TABLES, when two branches allocate against one base.
     ("one id allocated to two rows",
      _HEADER + "| C-001 | a different thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
-], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-width", "duplicate-id"])
+    # A TABLE LEFT IN THE SEVEN-COLUMN SHAPE — the one a STALLED migration
+    # actually leaves, and the case none of the four above reaches. `_SIX_COL` is
+    # two columns short, so its rows do not parse and land on the unparsed-row
+    # arm; a seven-column row parses PERFECTLY and every field lands one column
+    # left. `size` reads the status, `status` reads the Note.
+    #
+    # THE NOTE IS `closed` ON PURPOSE, AND THAT IS THE WHOLE FIXTURE. Write any
+    # ordinary note there and the displaced text fails the `status` vocabulary,
+    # so the row raises whether or not `size` is checked — the fixture would read
+    # identically with the defect present and could not see it. A note that
+    # happens to read as a status word (this file's notes are terse) lands every
+    # displaced cell on an ADMITTED value except one: `` `open` ``, sitting in
+    # `size`. Under the condition as it shipped, this row parses clean, reads as
+    # triaged, and drops out of the untriaged working set with nothing raised.
+    ("a table still in the seven-column shape",
+     _SEVEN_COL + "| C-009 | a thing | c | PR #1 | `ship` | `open` | closed |\n"),
+], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-width", "duplicate-id",
+        "seven-column-table"])
 def test_a_row_READ_WRONGLY_or_LOST_RAISES_rather_than_reading_as_triaged(
         tree: Path, label: str, bad: str) -> None:
     """Every departure from the assumed shape is loud, whatever the door.
@@ -629,3 +653,212 @@ def test_a_SLUG_IS_ONLY_LOWERCASE_ALPHANUMERICS_AND_HYPHENS(raw: str) -> None:
     slug = own.component_slug(raw)
     assert re.fullmatch(r"[a-z0-9-]*", slug), f"{raw!r} slugged to {slug!r}"
     assert own.component_slug(slug) == slug, "slugging is not idempotent"
+
+
+# --- the fixture's own shape ----------------------------------------------
+
+def test_THE_FIXTURE_HEADER_AND_ITS_DELIMITER_AGREE() -> None:
+    """The delimiter row must have one cell per header column. It had one too many.
+
+    A FIXTURE DEFECT IS NOT A COSMETIC ONE, because everything below asserts
+    against this string. `_HEADER` shipped with an eight-column header over a
+    NINE-cell delimiter row, which means the table every test in this module
+    parses is not the table `candidates.md` renders — and the one guard whose
+    whole job is "your table is the wrong shape" was being exercised against a
+    fixture that was itself the wrong shape.
+
+    It survived because nothing reads the delimiter: `_ROW` matches rows and
+    `_HEADER in text` matches the header line, so a malformed separator changes
+    no assertion and breaks no parse. It changes what a HUMAN reads the fixture
+    to mean, and it renders as a broken table in any markdown viewer — which is
+    how the real file's own migration was checked.
+
+    ASSERTED AGAINST THE HEADER RATHER THAN AGAINST A LITERAL EIGHT. A pinned
+    number here would have to be edited by the next column, which is the drift
+    that produced this defect and the one `plan_activities._CONSTRAINED_CELLS`
+    now refuses on the production side.
+    """
+    header, delimiter = _HEADER.strip("\n").split("\n")
+    columns = header.strip().strip("|").split("|")
+    cells = delimiter.strip().strip("|").split("|")
+    assert len(cells) == len(columns), (
+        f"the fixture header declares {len(columns)} columns "
+        f"{[c.strip() for c in columns]} and its delimiter row has {len(cells)} "
+        f"cells. Every table in this module is built from this string, so a "
+        f"fixture that is not the shape it claims tests the parser against a "
+        f"table `candidates.md` does not render.")
+    assert all(set(cell.strip()) == {"-"} for cell in cells), (
+        f"a delimiter cell is not all dashes: {cells}")
+
+
+def test_the_fixture_header_IS_the_one_the_parser_looks_for() -> None:
+    """And the header line is the production constant, not a copy of it.
+
+    The `shape` half of the foreign-cell message fires on `_HEADER in text`. A
+    fixture whose header differs from `plan_activities._HEADER` by a space would
+    make every raise in this module carry the "no table has the expected header"
+    sentence, and the tests asserting on that message would pass for the wrong
+    reason.
+    """
+    assert _HEADER.strip("\n").split("\n")[0] == act._HEADER
+
+
+# --- `size` is a closed vocabulary, like the two flags beside it ------------
+
+@pytest.mark.parametrize("cell", ["huge", "`Feature`", "phase-ish", "3", "small"])
+def test_a_FOREIGN_size_RAISES_rather_than_reading_as_a_ruling(
+        tree: Path, cell: str) -> None:
+    """`size` admits four values and admitted anything.
+
+    `_SIZES` was declared for this check and had no reader in the whole tree, so
+    the third ruled column was the one column a shift could displace text into
+    unobserved. It is the column that ROUTES: `plan-candidates` scaffolds a whole
+    `docs/development/<name>/` for a `feature` and correctly declines for the
+    other two, so an unrecognised value is a row that either scaffolds nothing
+    with no complaint or is routed on a string nobody defined.
+
+    THE MESSAGE MUST NAME `size`. The three ruled columns fail through one raise,
+    and an operator told only "row C-009 is unreadable" over a file with three
+    closed vocabularies has the same search this check exists to do for them.
+    """
+    f = _write(tree, _table(("C-009", "t", "c", "`ship`", "`open`", cell)))
+    with pytest.raises(ValueError) as exc:
+        act.candidate_rows(f, missing_hint="x")
+    message = str(exc.value)
+    assert "C-009" in message, f"the raise did not name the row: {message}"
+    assert "size" in message, (
+        f"the raise did not name the column that was wrong: {message}")
+    assert act.normalise_cell(cell) in message, (
+        f"the raise did not render the offending value {cell!r}: {message}")
+
+
+@pytest.mark.parametrize("cell", ["", "—", "feature", "phase", "checkboxes",
+                                  "`feature`", " phase "])
+def test_every_size_the_FILE_ADMITS_still_parses(tree: Path, cell: str) -> None:
+    """THE NEGATIVE HALF, and without it the assertion above is a blanket ban.
+
+    A condition that rejected every non-empty `size` would satisfy every case in
+    the test above and break the column entirely. Backtick and padding variants
+    are here because `normalise_cell` is what makes them equal, and a check
+    written against the RAW cell would reject a correctly-formatted row.
+    """
+    f = _write(tree, _table(("C-009", "t", "c", "`ship`", "`open`", cell)))
+    assert [r.id for r in act.candidate_rows(f, missing_hint="x")] == ["C-009"]
+
+
+def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
+    """The production file, read as the fleet reads it. Not a fixture.
+
+    A vocabulary tightened against fixtures alone is a guess about the live file,
+    and this one gates every planning workflow: if `candidates.md` stopped
+    parsing, `triage-candidates`, `plan-feature`, `plan-verify` and
+    `plan-candidates` all raise before doing anything. The row count is asserted
+    non-zero rather than pinned — a pinned figure goes stale on the next filing,
+    and the failure this guards against is the parse returning nothing.
+    """
+    # `parents[5]` is the repo root from `tests/unit/`, the idiom this suite
+    # already uses in eight modules — see `journal_entrypoint_facts.REPO_ROOT`.
+    real = Path(__file__).resolve().parents[5] / (
+        "docs/standards/architecture/research/candidates.md")
+    assert real.is_file(), f"the production candidates file moved: {real}"
+    rows = act.candidate_rows(real, missing_hint="x")
+    assert rows, "the production file parsed to zero rows"
+
+
+# --- `Scaffolded` carries no shared mutable default -------------------------
+
+def test_NO_Scaffolded_FIELD_HAS_A_MUTABLE_DEFAULT() -> None:
+    """A `NamedTuple` default is built ONCE, at class creation, and shared.
+
+    `not_a_feature` and `unsized` shipped as `= []`. That is one list object on
+    the class, handed to every instance that omits the field — so
+    `s.not_a_feature.append(row)` on a default-constructed value writes into the
+    class, and the next default-constructed `Scaffolded` in the same process
+    starts life already holding the previous one's rows. The parent turns each
+    entry into an operator note, so the visible failure is one run reporting
+    another run's declines.
+
+    ASKED OF THE CLASS, NOT OF THE TWO FIELDS THAT HAD IT. A field added later
+    with `= []` is the same defect, and naming today's two would let the next one
+    through. `= ()` would satisfy a narrower "is it mutable" reading and is
+    equally wrong here for a reason `Scaffolded`'s own comment states: these
+    tests compare whole values, and a tuple does not equal a list.
+    """
+    offenders = {name: default
+                 for name, default in own.Scaffolded._field_defaults.items()
+                 if isinstance(default, (list, dict, set, bytearray))}
+    assert offenders == {}, (
+        f"these `Scaffolded` fields carry a shared mutable default: {offenders}. "
+        f"On a NamedTuple the default is one object built at class creation and "
+        f"handed to every instance that omits the field, so mutating it through "
+        f"any instance edits the class. Drop the default and require the field.")
+
+
+def test_the_two_DECLINE_REASONS_are_required_at_construction() -> None:
+    """And a caller that omits them fails LOUDLY rather than getting a shared list.
+
+    THE POSITIVE CONTROL ON THE RULE ABOVE. `_field_defaults` being empty is one
+    way to satisfy it; the field having vanished is another, and the assertion
+    above cannot tell those apart. This pins the direction: both fields exist,
+    and neither may be omitted.
+
+    Every list on `Scaffolded` answers "what happened to the rows I did not
+    scaffold?", and the class's whole argument is that "nothing happened" must
+    never be reachable by omission. A caller that has not thought about the two
+    decline reasons should fail at construction rather than report an empty one.
+    """
+    assert {"not_a_feature", "unsized"} <= set(own.Scaffolded._fields)
+    with pytest.raises(TypeError):
+        own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+
+
+# --- the diagnostics name the shape that is actually out there -------------
+
+def test_THE_SHAPE_DIAGNOSTIC_NAMES_THE_SHAPE_A_STALLED_MIGRATION_LEAVES(
+        tree: Path) -> None:
+    """"six-column" was the shape before LAST migration, not this one.
+
+    The message exists to point an operator at a table. `component` took the
+    table from six columns to seven and `size` took it from seven to eight, so
+    the half-migrated table sitting in the tree today is SEVEN-column — and a
+    message naming the six-column shape sends the reader looking for a table that
+    has not existed since before the previous migration. Worse, the two shapes
+    fail differently: six columns do not parse at all, seven parse perfectly and
+    shift every field one column left, which is the case that reaches here.
+    """
+    f = _write(tree, _nine_tables(
+        _SEVEN_COL + "| C-009 | a thing | c | PR #1 | `ship` | `open` | closed |\n"))
+    with pytest.raises(ValueError) as exc:
+        act.candidate_rows(f, missing_hint="x")
+    message = str(exc.value)
+    assert "seven-column" in message, (
+        f"the diagnostic does not name the shape it is describing: {message}")
+    assert "six-column" not in message, (
+        f"the diagnostic still names the shape before last: {message}")
+
+
+def test_the_diagnostic_CELL_COUNT_is_derived_from_the_header() -> None:
+    """And the count it prints is the count the parser actually enforces.
+
+    THE FIGURE HAS BEEN WRONG THROUGH TWO COLUMN ADDITIONS. It read "first five
+    cells", which was true of the six-column table it was written against, went
+    stale when `component` landed and was still stale when `size` did. Asserted
+    against `_HEADER` rather than against a literal, because a literal here is
+    the same hand-kept figure one layer up — it would need editing by the next
+    column, which is precisely what did not happen twice.
+
+    The parser constrains every column but the Note: `_ROW`'s pattern brackets
+    them with one pipe more than there are cells, and the Note is the only cell
+    permitted to hold a pipe of its own.
+    """
+    columns = act._HEADER.strip().strip("|").split("|")
+    assert [c.strip() for c in columns][-1] == "Note", (
+        f"the last column is no longer the Note: {columns}")
+    assert act._CONSTRAINED_CELLS == len(columns) - 1, (
+        f"the parser is described as constraining {act._CONSTRAINED_CELLS} "
+        f"cells; the header declares {len(columns)} columns of which the Note is "
+        f"the only unconstrained one.")
+    assert act._ROW.pattern.count("\\|") == len(columns), (
+        f"`_ROW` brackets {act._ROW.pattern.count(chr(92) + '|')} pipes over a "
+        f"{len(columns)}-column header — the regex and the header disagree about "
+        f"the table's shape, so `_CONSTRAINED_CELLS` describes neither.")
