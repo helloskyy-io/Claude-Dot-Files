@@ -408,6 +408,28 @@ def test_the_RULING_CHECK_fires_on_each_way_a_ruling_can_be_empty() -> None:
     ) == [], "a plain count is not a similarity magnitude"
 
 
+def test_the_CATEGORY_LOOKUP_answers_UNRULED_rather_than_guessing() -> None:
+    """`category_of` gained a second consumer, so its contract needs stating.
+
+    The render guard reads it to decide whether a fragment must reach EVERY
+    dispatch path or only one, and the dangerous direction is a fragment nobody
+    ruled on quietly reading as tier-scoped — the weaker rule, chosen by
+    accident. `None` says nobody has ruled; it is the caller's job not to
+    launder that into a verdict, and this fixes the shape it comes back in.
+    """
+    for category, (stems, _) in fvp.FAMILY_RULINGS.items():
+        for stem in stems:
+            assert fvp.category_of(stem) == category, (
+                f"{stem} is filed under {category} and the lookup disagrees"
+            )
+    assert fvp.category_of("rules") is None, (
+        "`rules` carries no family ruling and the lookup must say so rather "
+        "than return a category, which is how an unruled fragment would "
+        "inherit a rule nobody made"
+    )
+    assert fvp.category_of("no_such_fragment_anywhere") is None
+
+
 def test_every_RULED_fragment_still_EXISTS_in_the_pool() -> None:
     """A ruling naming a fragment nobody ships is a ruling about nothing.
 
