@@ -400,7 +400,12 @@ claude-dot-files/
 │                   │                                #   the few tests that touch the OS do so because the property IS an OS property
 │                   ├── test_build_helper.py         # Verdict parsing + fail-safe routing, arg compilation, handoff validation
 │                   ├── test_ci_gate.py               # The PARENT reads the CI verdict, so MERGE is unreachable on a red tree — a
-│                   │                                #   prompt-level instruction is a convention an agent can reason past
+│                   │                                #   prompt-level instruction is a convention an agent can reason past. Population is
+│                   │                                #   EVERY parent that dispatches review-pr, floored on all three families: the
+│                   │                                #   build-only scope it shipped with was green over four ungated parents (PR #124)
+│                   ├── test_the_dispatch_tool_enum_can_NAME_A_FIX_for_every_review_type.py  # disposition.md is SHARED by all three
+│                   │                                #   ReviewTypes and its dispatch_tool enum named build and planning tools only, so a
+│                   │                                #   research reviewer reached a mandatory REDISPATCH exit with no legal value to emit
 │                   ├── test_preflight.py             # Preconditions fail BEFORE anything is created, so a dead run leaves no
 │                   │                                #   orphaned worktree behind it (#49)
 │                   ├── test_render_opaque_operator_text.py # An operator's literal `${...}` reaches the model UNSUBSTITUTED — two
