@@ -1,6 +1,6 @@
 You are executing the BUILD-DRAFT workflow on PR #${PR_NUMBER} (branch: ${PR_BRANCH}).
 
-This is a SIGNIFICANT rework — not a minor fix. Follow all 8 stages thoroughly.
+This is a SIGNIFICANT rework — not a minor fix. Follow all 5 stages thoroughly.
 
 Task: ${DESCRIPTION}
 

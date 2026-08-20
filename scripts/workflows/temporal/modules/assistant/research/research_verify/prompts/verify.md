@@ -97,14 +97,11 @@ Two rules the synthesis inherits from a paper and fails most often:
 
 ## YOUR OWN DISPOSITIONS — you may not decline on the grounds you would reject from someone else
 
-You are told above to treat another run's **"pre-existing"**, **"out of scope"** and **"existing condition"** as claims to check rather than reasons to accept. **The same bar binds YOUR dispositions of the findings you receive.**
+${RESOLVE_YOUR_OWN_DISPOSITIONS_TOO}
 
-- **If you have written the remedy, apply it.** Drafting a fix and then deferring it is the most expensive possible outcome: it spends the correction budget, produces nothing, and the next reviewer holds on the same item.
-- **A scope rejection must SURVIVE CHECKING before it counts as a disposition.** State the reason, then verify it. Measured failure: a correction pass declined a one-paragraph fix as *"pre-existing"* on a file that **does not exist on `main`** — so it could not be pre-existing — and the reviewer that caught it had no budget left to be answered.
-- **"Correcting X does not change Y" is not a reason not to correct X.** It is true and irrelevant. The question is whether X is wrong.
-- **You are the only actor that can both FIND and FIX in one pass.** A finding you punt becomes a HOLD and another dispatch cycle; a finding you close costs a paragraph.
+${RESOLVE_APPLY_THE_REMEDY_YOU_WROTE}
 
-**Rejecting is legitimate — with reasoning that holds.** Declining because the label sounds like it grants permission is not a disposition, it is a deferral wearing one.
+${RESOLVE_REJECTING_IS_LEGITIMATE}
 
 ## Stage 2: SUBMIT
 ${SUBMIT_PROMPT}

@@ -69,7 +69,7 @@ The sprint plan is the operator's cross-domain sequencing surface. `plan-sprint`
 
 ### Everything else in that column, and exactly what checks it
 
-**When you finish, the worktree is read and compared against a snapshot taken before you started.** This is enforcement, not a request:
+${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}
 
 - **Every path outside your authorization** — every phase doc, another component, this component's `research/`, the sprint plan, anything under `docs/standards/` other than the candidates file — is compared by content. Renaming or deleting one counts as editing it.
 - **Which phase docs `roadmap.md` references** is counted before and after, in both directions.

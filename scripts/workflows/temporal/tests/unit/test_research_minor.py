@@ -39,6 +39,8 @@ _MODULES = Path(__file__).resolve().parents[2] / "modules"
 import pytest
 import yaml
 
+from assembled_prompt import assembled
+
 from modules.assistant.research import research_activities as act
 from modules.assistant.research.research import research_workflow as full_parent
 from modules.assistant.research.research_minor import research_minor_workflow as parent
@@ -53,6 +55,14 @@ _RESEARCH = Path(__file__).resolve().parents[2] / "modules" / "assistant" / "res
 
 MINOR_PROMPT = _RESEARCH / "research_write_minor" / "prompts" / "write_minor.md"
 FULL_PROMPT = _RESEARCH / "research_write" / "prompts" / "write.md"
+
+# EVERY ASSERTION BELOW READS THE ASSEMBLED PROMPT, never the raw file. These
+# checks are about what the MODEL is told — that the minor cycle is four stages,
+# that SYNTHESIZE names its artifact at the contract path — and a block PROMOTED
+# to the shared pool leaves the file while still reaching the model. Reading the
+# file made the stage count report three the first time a promotion touched
+# Stage 1, and a guard that goes quiet because text MOVED is the failure mode
+# `assembled_prompt.py` was written for.
 VERIFY_PROMPT = _RESEARCH / "research_verify" / "prompts" / "verify.md"
 
 
@@ -110,7 +120,7 @@ MACHINERY = [
 
 @pytest.mark.parametrize(("label", "predicate"), MACHINERY, ids=[m[0] for m in MACHINERY])
 def test_the_minor_prompt_does_not_carry(label: str, predicate) -> None:
-    assert predicate(MINOR_PROMPT.read_text()) is False, (
+    assert predicate(assembled(MINOR_PROMPT)) is False, (
         f"write_minor.md carries {label}. The minor cycle's entire value is that "
         "this machinery is absent — a one-paper run that still sizes, fans out or "
         "emits a topic list is the full cycle wearing a smaller name. The SYNTHESIS is NOT in this list: see the test below."
@@ -126,7 +136,7 @@ def test_the_full_prompt_still_carries_it(label: str, predicate) -> None:
     the whole section into a permanent pass while the machinery it names could
     quietly return to the minor prompt.
     """
-    assert predicate(FULL_PROMPT.read_text()) is True, (
+    assert predicate(assembled(FULL_PROMPT)) is True, (
         f"the predicate for {label} no longer fires on research_write's own "
         "prompt, so it can no longer prove that prompt's absence from the minor "
         "one. The check has gone blind, not green."
@@ -147,7 +157,7 @@ def test_the_minor_cycle_writes_a_SYNTHESIS() -> None:
     become its own inverse, or the property stops being checked in either
     direction.
     """
-    text = MINOR_PROMPT.read_text()
+    text = assembled(MINOR_PROMPT)
     assert _has_stage_titled(text, "SYNTHESIZE"), (
         "write_minor.md has no SYNTHESIZE stage. Its one paper then reaches no "
         "downstream consumer: the planner reads synthesis.md and is told not to "
@@ -166,9 +176,9 @@ def test_the_minor_cycle_has_exactly_four_stages() -> None:
     fourth: the shape is the claim, and a fourth stage in a workflow whose
     premise is 'fewer artifacts' is the regression worth catching.
     """
-    titles = _stage_titles(MINOR_PROMPT.read_text())
+    titles = _stage_titles(assembled(MINOR_PROMPT))
     assert len(titles) == 4, f"expected 4 stages, found {len(titles)}: {titles}"
-    assert len(_stage_titles(FULL_PROMPT.read_text())) == 5, (
+    assert len(_stage_titles(assembled(FULL_PROMPT))) == 5, (
         "research_write no longer has 5 stages — the comparison this suite draws "
         "between the two shapes is against a moved reference"
     )
@@ -176,7 +186,7 @@ def test_the_minor_cycle_has_exactly_four_stages() -> None:
 
 def test_the_minor_child_dispatches_exactly_one_analyst() -> None:
     """The fan-out is the cost, and one analyst is the whole point."""
-    text = MINOR_PROMPT.read_text()
+    text = assembled(MINOR_PROMPT)
     assert "ONE analyst. Not two" in text, (
         "write_minor.md lost its explicit one-analyst bound. Absence of a "
         "per-topic loop is not the same as a stated ceiling: a model handed a "
@@ -209,7 +219,7 @@ def _states(text: str, token: str) -> bool:
 
 @pytest.mark.parametrize(("label", "token"), RIGOR, ids=[r[0] for r in RIGOR])
 def test_the_minor_prompt_preserves(label: str, token: str) -> None:
-    assert _states(MINOR_PROMPT.read_text(), token), (
+    assert _states(assembled(MINOR_PROMPT), token), (
         f"write_minor.md no longer names {label}. This is a PER-PAPER obligation "
         "from Research Standard §3 — it does not scale with the number of papers, "
         "and dropping it produces a thin paper rather than a small cycle. The "
@@ -249,7 +259,7 @@ def test_the_minor_child_keeps_the_write_boundary() -> None:
     shape into the surface that steers the whole product is the coupling this
     workflow most needs not to have.
     """
-    text = MINOR_PROMPT.read_text()
+    text = assembled(MINOR_PROMPT)
     assert "WRITE BOUNDARY (binding)" in text
     assert "candidates.md" in text and "direction.md" in text, (
         "write_minor.md no longer names candidates.md/direction.md as out of "
@@ -573,7 +583,7 @@ def test_verify_has_no_minor_specific_stage() -> None:
     critic loop. Tracing a correction into the synthesis IS fixing what the
     critic found; it was a stage only because a different agent did the writing.
     """
-    titles = _stage_titles(VERIFY_PROMPT.read_text())
+    titles = _stage_titles(assembled(VERIFY_PROMPT))
     assert len(titles) == 2, f"research_verify's stage count changed: {titles}"
     assert not any("MINOR" in t.upper() for t in titles), (
         "verify.md grew a minor-specific stage. The reuse is the design: one set "
@@ -625,7 +635,7 @@ def test_the_parent_reuses_the_shared_children() -> None:
 
 def test_research_critic_reaches_the_minor_cycle_unchanged() -> None:
     """The gate is invoked by the prompt this cycle reuses verbatim."""
-    assert "research-critic" in VERIFY_PROMPT.read_text(), (
+    assert "research-critic" in assembled(VERIFY_PROMPT), (
         "verify.md no longer dispatches research-critic — the anti-hallucination "
         "gate is gone from every research cycle, minor and full alike"
     )

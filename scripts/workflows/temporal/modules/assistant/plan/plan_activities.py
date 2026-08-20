@@ -842,7 +842,7 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     # `for i in issues` iterates its KEYS, and `i["number"]` raises `TypeError` —
     # the planning dispatch dies on the third way of not getting an issue list,
     # four lines below the comment promising all of them reach the same note.
-    # `ci_verdict` and `wait_for_ci` in `build_activities` already spell this
+    # `ci_verdict` and `wait_for_ci` in `assistant_activities` already spell this
     # `isinstance(..., list)`; this block was the one sibling that did not.
     issues = None
     if r.returncode == 0:

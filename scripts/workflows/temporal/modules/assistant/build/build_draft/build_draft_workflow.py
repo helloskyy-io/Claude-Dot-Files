@@ -26,7 +26,7 @@ COMPLETION_PATTERN = routing.PR_URL_COMPLETION_ERE
 
 
 def run_draft(*, description: str, repo_root: Path, worktree: Path,
-              pr_number: str | None = None, task_file: str | None = None,
+              pr_number: str | None = None,
               plan_path: str | None = None, context: str = "",
               verbose: bool = False) -> str:
     """Draft the change. Returns the PR URL — the handoff to refine."""
@@ -49,12 +49,34 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
 
     values = {
         "DESCRIPTION": description,
+        # TIER IDENTITY, DERIVED FROM `WORKFLOW_KEY` AND NEVER RE-TYPED. The
+        # shared plan template used to hardcode `BUILD-PHASE` / `feat:` /
+        # `build-phase:`, so every plan-driven run of EITHER tier was told it
+        # was a workflow that exists only in the FROZEN bash fleet — which
+        # `config/rules/personal-tooling.md` forbids depending on and which the
+        # operator deletes when it stops being needed. `tier-identity` is
+        # TIER_SCOPED in `tests/unit/fork_vs_parameterize.py`, naming the
+        # commit-message prefix explicitly, so the ruling was already made:
+        # parameterise it rather than share it.
+        "WORKFLOW_LABEL": WORKFLOW_KEY.upper(),
+        "TIER_PREFIX": f"{WORKFLOW_KEY}:",
         "STAGES_1_TO_4": stages_body,
         "PLAN_PATH": plan_path or "",
         "CONTEXT_BLOCK": context,
+        "VERIFY_THE_TASKS_ASSERTED_FACTS": act.shared_prompt("verify_the_tasks_asserted_facts"),
         "RULES": act.shared_prompt("rules"),
         # SHARED because it was forked and drifted — see prompts/mutation_discipline.md.
         "MUTATION_DISCIPLINE": act.shared_prompt("mutation_discipline"),
+        "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
+        # UNCONDITIONAL because BOTH bodies reference it now. This tier held a
+        # TRUNCATED inline copy — the antecedent sentence naming the measured
+        # case had been lost, so "the four real defects it did find" referred to
+        # nothing — while the plan body carried the rule on no path at all.
+        # `evidence-discipline` is TIER_INVARIANT, so a path without it is a
+        # dispatch running a different rule.
+        "CHARACTERIZE_BY_EXECUTION": act.shared_prompt("characterize_by_execution"),
+        "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
+        "VERIFICATION_IS_BY_FETCH": act.shared_prompt("verification_is_by_fetch"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

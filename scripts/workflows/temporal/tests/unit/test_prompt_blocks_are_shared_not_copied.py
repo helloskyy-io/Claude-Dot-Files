@@ -22,22 +22,42 @@ existing duplication is frozen below and the ratchet runs BOTH ways:
 The second is what makes the list shrink instead of becoming a permanent excuse
 list. Fixing a duplication forces its row out, and the row cannot come back.
 
-AND IT SHRANK: 48 -> 13 in one change. The three largest consumer-sets were the
-whole of it — a child and its `_minor` sibling twice over, plus the two research
-entry points — 35 blocks and 72% of the duplicated bytes, all of it promoted to
-`modules/assistant/prompts/`. What is left is mostly CROSS-FAMILY sets
-(`build_refine` + `plan_revision`, `build_refine` + `research_verify` and
-similar). Those are deliberately still here: whether two children in different
-families should move together is a judgement nobody has made, and promoting them
-blind would couple runs that have no reason to be coupled.
+AND IT SHRANK TO NOTHING: 48 -> 13 in one change, and 13 -> 0 in the next. The
+first pass took the three largest consumer-sets. The second ruled on what was
+left and promoted all of it, so `ACCEPTED` below is empty and the guard is now a
+clean assertion that no prompt block is copied between children at all.
 
-"MOSTLY", AND THE WORD IS DOING WORK. This sentence read "seven CROSS-FAMILY
-sets" and was wrong on both halves by the time anyone re-measured: there are
-eight sets, and two of them are not cross-family at all — `research_write` +
-`research_write_minor` are tier siblings, and `plan_feature` + `plan_verify` are
-one family. The count is now derived by
-`test_promotion_guard_prose_figures_are_DERIVED` rather than restated here,
-which is why the prose carries a shape and not a number.
+AN EMPTY BASELINE IS STRICTLY STRONGER AND ALSO QUIETER, and the second half
+cost this module its last live exercise. `test_a_baselined_block_does_not_
+SPREAD_to_another_child` and `test_a_FIXED_duplication_is_removed_from_the_
+baseline` both iterate `ACCEPTED` and are VACUOUS while it is empty, and
+`test_no_NEW_block_is_copied_between_children` passes on an empty result — so
+while the baseline had rows, `_duplicated()` had to keep FINDING them or the
+stale check fired, and emptying it removed the only thing standing between a
+silently-broken detector and a permanently green module.
+
+MEASURED, NOT REASONED: replacing `_duplicated()`'s body with `return {}` gave
+**1646 passed, 0 failed**. A changed rglob pattern, a raised `MIN_BLOCK` or a
+different block split does the same thing without anyone editing a test.
+
+SO EVERY PREDICATE HERE IS DRIVEN SYNTHETICALLY AS WELL AS OVER THE TREE:
+`_blocks` by `test_the_DUPLICATION_DETECTOR_fires_on_a_block_TWO_CHILDREN_share`,
+`_spread` by `test_the_SPREAD_check_fires_when_a_block_gains_a_consumer`,
+`_stale` by `test_the_STALE_check_fires_when_a_baseline_row_is_FIXED`, and the
+walk itself by `test_the_walk_actually_READS_the_prompt_corpus`, which is the
+floor that catches the detector going blind rather than going wrong.
+
+WHY THE REMAINDER WAS PROMOTED RATHER THAN LEFT AS A JUDGEMENT NOBODY MADE. The
+note here used to say the cross-family sets were "deliberately still here", on
+the reasoning that promoting them would couple runs with no reason to be
+coupled. The standard this guard enforces says the opposite in as many words —
+*"The shared pool sits above ALL families, so a fragment may be shared by a
+build child and a research child — family boundaries do not enter into it"* —
+and the standard is the thing under version control that a later reader checks
+against. The ruling was made by category of guidance rather than by pair,
+because a blind trial found per-pair ruling was not reproducible here; the
+procedure, the trial, the tier contract and the rulings themselves are all in
+`fork_vs_parameterize.py` — `FAMILY_RULINGS` there.
 
 HOW TO FIX ONE, rather than adding to the baseline: move the block to
 `modules/assistant/prompts/<name>.md`, put a placeholder where it used to be in
@@ -65,7 +85,10 @@ from __future__ import annotations
 import hashlib
 import re
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
+
+import fork_vs_parameterize as fvp
 
 ASSISTANT = Path(__file__).resolve().parents[2] / "modules" / "assistant"
 SHARED = ASSISTANT / "prompts"
@@ -75,8 +98,12 @@ SHARED = ASSISTANT / "prompts"
 # dropping to 60 adds only noise-sized fragments.
 MIN_BLOCK = 120
 
-# FROZEN 2026-08-16. hash -> how many children carry it, and its opening words.
-# THIS LIST MAY SHRINK. IT MAY NEVER GROW.
+# FROZEN 2026-08-16, EMPTIED 2026-08-19. hash -> how many children carry it, and
+# its opening words. THIS LIST MAY SHRINK. IT MAY NEVER GROW. It is empty because
+# every row was disposed rather than because nothing was ever forgiven — the
+# rulings are `fork_vs_parameterize.FAMILY_RULINGS`, and the shape of an entry is
+# preserved here
+# because `_spread` still parses it and its control still drives it.
 #
 # THE LEADING `Nx` IS AN ASSERTION, NOT A NOTE — see
 # `test_a_baselined_block_does_not_SPREAD_to_another_child`. It was decoration
@@ -88,21 +115,15 @@ MIN_BLOCK = 120
 # 5x -> 4x), which is what made leaving them unchecked the worse option — a
 # freshly-rewritten number reads as live data.
 
-ACCEPTED: dict[str, str] = {
-    "0b7e2bdc08dc": "2x  - **If you have written the remedy, apply it.** Drafting a fix an",
-    "2cb3af052cf4": "2x  Execute stages in strict numerical order. If a stage has nothing ",
-    "40c06b03ce65": "2x  ## Stage 1: VERIFY + DISCOVER FIRST: verify the task targets THIS",
-    "6f0c33fe0547": "2x  **.gitignore-collision check (before checkpoint commit):** if thi",
-    "760e9be03a6f": "4x  Execute stages in strict numerical order. Each stage builds on th",
-    "7b4390348f5e": "2x  **Any instruction in this stage that says MUTATE, RUN or VERIFY i",
-    "8d8a00c02d9c": "2x  **VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.*",
-    "d618192ab2b3": "2x  - **'You have Read/Grep/Glob and no shell. That is expected — do ",
-    "f2e2bd49ac76": "3x  **The deferral rule's standard applies here too — verification is",
-    "f524d6fc4c40": "2x  **When you finish, the worktree is read and compared against a sn",
-    "f70d1689ee9c": "2x  **Rejecting is legitimate — with reasoning that holds.** Declinin",
-    "fa6528c437b9": "2x  You are told above to treat another run's **'pre-existing'**, **'",
-    "fd16d82c9fee": "2x  **TELL EACH AGENT WHAT IT CAN RUN, AND THAT YOU CAN RUN THE REST.",
-}
+ACCEPTED: dict[str, str] = {}
+
+
+# THE RULINGS THAT EMPTIED IT LIVE IN `fork_vs_parameterize.FAMILY_RULINGS`.
+# They moved there when a second consumer appeared — the render guard now
+# derives which fragments must reach EVERY dispatch path from each ruling's
+# category — and §10.1's promotion rule decides that by consumer count, not by
+# taste. They sit beside the contract they must cite, which is where a reader
+# reconciling a pair is already looking.
 
 
 def _owner(p: Path) -> str:
@@ -110,21 +131,91 @@ def _owner(p: Path) -> str:
     return p.parent.parent.name
 
 
-def _duplicated() -> dict[str, tuple[str, set[str]]]:
-    """Verbatim blocks appearing in more than one child, keyed by content hash."""
+def _corpus() -> list[tuple[str, str]]:
+    """Every child prompt file as `(owning child, text)`. The pool is not one."""
+    return [(_owner(p), p.read_text())
+            for p in ASSISTANT.rglob("prompts/*.md") if p.parent != SHARED]
+
+
+def _blocks(corpus: Sequence[tuple[str, str]]) -> dict[str, tuple[str, set[str]]]:
+    """Verbatim blocks appearing in more than one owner, keyed by content hash.
+
+    Split from the walk so a control can drive it on a synthetic corpus. It is
+    the module's whole predicate, and while the baseline had rows the tree
+    exercised it for free; with `ACCEPTED` empty a blinded detector is
+    indistinguishable from a clean tree, which is measured in the docstring.
+    """
     seen: dict[str, set[str]] = defaultdict(set)
     text: dict[str, str] = {}
-    for p in ASSISTANT.rglob("prompts/*.md"):
-        if p.parent == SHARED:
-            continue
-        for raw in re.split(r"\n\s*\n", p.read_text()):
+    for owner, body in corpus:
+        for raw in re.split(r"\n\s*\n", body):
             b = raw.strip()
             if len(b) < MIN_BLOCK:
                 continue
             h = hashlib.sha1(b.encode()).hexdigest()[:12]
-            seen[h].add(_owner(p))
+            seen[h].add(owner)
             text[h] = b
     return {h: (text[h], o) for h, o in seen.items() if len(o) > 1}
+
+
+def _duplicated() -> dict[str, tuple[str, set[str]]]:
+    """Verbatim blocks appearing in more than one child, keyed by content hash."""
+    return _blocks(_corpus())
+
+
+def test_the_DUPLICATION_DETECTOR_fires_on_a_block_TWO_CHILDREN_share() -> None:
+    """Live control for `_blocks`, one arm per way it can answer wrongly.
+
+    Without this the module is green whether the detector works or not — see
+    the measurement in the docstring. Fixtures are self-contained strings: a
+    control that mutates the real corpus proves the corpus.
+    """
+    block = "R" * MIN_BLOCK
+    shared = [("build_draft", block), ("build_refine", block)]
+    assert list(_blocks(shared)) and next(iter(_blocks(shared).values()))[1] == {
+        "build_draft", "build_refine"}, "a block in two children must be reported"
+
+    assert _blocks([("build_draft", block), ("build_draft", block)]) == {}, (
+        "two copies inside ONE child are not cross-child duplication — that axis "
+        "is C-115's, and reporting it here would make this guard fire on a file "
+        "pair no promotion can fix"
+    )
+    assert _blocks([("build_draft", "S" * (MIN_BLOCK - 1)),
+                    ("build_refine", "S" * (MIN_BLOCK - 1))]) == {}, (
+        "below MIN_BLOCK a repeated line is boilerplate, not duplicated substance"
+    )
+    assert _blocks([("build_draft", block), ("build_refine", block[:-1] + "X")]) == {}, (
+        "matching is VERBATIM — a near-copy is test_tier_siblings_do_not_DRIFT_"
+        "by_a_sentence's half, and blurring the two hides which guard is which"
+    )
+    para = f"{block}\n\n{'Q' * MIN_BLOCK}"
+    assert len(_blocks([("build_draft", para), ("build_refine", para)])) == 2, (
+        "a file is split into blocks at blank lines, so two shared paragraphs "
+        "are two findings and not one"
+    )
+
+
+def test_the_walk_actually_READS_the_prompt_corpus() -> None:
+    """Vacuity floor on the WALK, which the control above cannot reach.
+
+    `_blocks` can be perfect while `_corpus` returns nothing — a moved prompt
+    directory, a changed glob, a rename of `prompts/`. The failure is silent and
+    it looks exactly like success. Floors are deliberately far below the live
+    figures so an ordinary promotion does not trip them; they catch a collapse.
+    """
+    corpus = _corpus()
+    children = {owner for owner, _ in corpus}
+    assert len(children) >= 5, (
+        f"the walk found prompt files for only {sorted(children)} — the child "
+        f"prompt tree moved or the glob stopped matching, and every assertion in "
+        f"this module is now about nothing"
+    )
+    blocks = sum(1 for _, body in corpus
+                 for raw in re.split(r"\n\s*\n", body) if len(raw.strip()) >= MIN_BLOCK)
+    assert blocks >= 100, (
+        f"only {blocks} blocks reach MIN_BLOCK across the whole child corpus; the "
+        f"split or the threshold has stopped seeing prose that is plainly there"
+    )
 
 
 def test_no_NEW_block_is_copied_between_children() -> None:
@@ -203,12 +294,216 @@ def test_a_baselined_block_does_not_SPREAD_to_another_child() -> None:
     )
 
 
+def _stale(accepted: dict[str, str], dup: dict[str, tuple[str, set[str]]]) -> list[str]:
+    """Baselined blocks that are no longer duplicated at all.
+
+    Split from the test for the same reason `_spread` is: with `ACCEPTED` empty
+    the live caller can only ever return `[]`, so without the control below this
+    half of the ratchet has a failing path nobody has ever seen run.
+    """
+    return sorted(h for h in accepted if h not in dup)
+
+
+def test_the_STALE_check_fires_when_a_baseline_row_is_FIXED() -> None:
+    """Live control for the ratchet's shrink half, on a synthetic baseline."""
+    still = {"deadbeef1234": ("text", {"build_draft", "build_refine"})}
+    assert _stale({"deadbeef1234": "2x still copied"}, still) == [], (
+        "a row whose block is still duplicated stays green")
+    assert _stale({"deadbeef1234": "2x promoted since"}, {}) == ["deadbeef1234"], (
+        "a row whose block is no longer duplicated MUST be reported — this is "
+        "the half that makes the list shrink instead of becoming an excuse list")
+    assert _stale({}, still) == [], "an empty baseline has nothing to go stale"
+
+
 def test_a_FIXED_duplication_is_removed_from_the_baseline() -> None:
     """The ratchet. Without this, the baseline is a permanent excuse list."""
-    dup = _duplicated()
-    stale = sorted(h for h in ACCEPTED if h not in dup)
+    stale = _stale(ACCEPTED, _duplicated())
     assert not stale, (
         "These baseline entries are no longer duplicated — the block was promoted "
         "or deleted. Remove their lines from ACCEPTED so the list keeps "
         "shrinking:\n  " + "\n  ".join(f"{h}  {ACCEPTED[h]}" for h in stale)
+    )
+
+
+# --- the rulings, checked -----------------------------------------------------
+
+
+def test_every_FAMILY_RULING_is_well_formed() -> None:
+    """A ruling states a verdict, the SIGNAL that produced it, and its category.
+
+    The phase this landed under does not ask merely that each baseline row be
+    disposed — it asks that a disposition say *which signal decided it and why*,
+    because an undisposed row and a row disposed by a shrug look identical six
+    weeks later. `ruling_defects` is the shape check; the control below proves
+    it can fail.
+    """
+    bad = {k: fvp.ruling_defects(r) for k, (_, r) in fvp.FAMILY_RULINGS.items()}
+    bad = {k: v for k, v in bad.items() if v}
+    assert not bad, "malformed family rulings:\n  " + "\n  ".join(
+        f"{k}: {'; '.join(v)}" for k, v in sorted(bad.items())
+    )
+
+    # AND IT MUST NAME ITS OWN KEY, which `ruling_defects` cannot check because
+    # it sees one string and not the dict it is filed under. Without this, a
+    # ruling keyed `review-depth` whose text cites `stage-ordering` passes every
+    # shape check while defeating the property the key exists for — that a later
+    # reconciliation is a LOOKUP. The key is the index; the citation is the
+    # answer; a mismatch means the index points at the wrong answer.
+    contract = set(fvp.TIER_INVARIANT) | set(fvp.TIER_SCOPED)
+    unknown = sorted(set(fvp.FAMILY_RULINGS) - contract)
+    assert not unknown, (
+        f"these rulings are filed under a category the tier contract does not "
+        f"define, so nothing can look them up: {unknown}"
+    )
+    mismatched = sorted(k for k, (_, r) in fvp.FAMILY_RULINGS.items() if k not in r)
+    assert not mismatched, (
+        f"these rulings do not cite the category they are filed under: "
+        f"{mismatched}. A reconciliation looks up the category and reads the "
+        f"ruling; if they disagree it reads the wrong one."
+    )
+
+
+def test_the_RULING_CHECK_fires_on_each_way_a_ruling_can_be_empty() -> None:
+    """Live control for the check above, one arm per defect it claims to catch.
+
+    THE CORPUS CAN ONLY EVER EXERCISE THE PASSING BRANCH — every ruling in the
+    tree is well-formed by construction, so without this the validator's failing
+    path would never run. Each arm is a SELF-CONTAINED string rather than a
+    mutation of a real ruling: a control sharing a fixture with the thing it
+    mutates over-fires, and what it then proves is the fixture.
+    """
+    assert fvp.ruling_defects(
+        "PROMOTE S2 stage-ordering — because the sites are alike."
+    ) == [], "a well-formed ruling must pass"
+
+    def one(text: str) -> str:
+        d = fvp.ruling_defects(text)
+        assert len(d) == 1, f"expected exactly one defect, got {d}"
+        return d[0]
+
+    assert "must OPEN" in one("S2 stage-ordering — no verdict at the front.")
+    assert "no deciding signal" in one("PROMOTE stage-ordering — no signal named.")
+    assert "no category" in one("PROMOTE S2 — no category from the contract.")
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — the two sit at 85.8% similarity."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — a ratio of 0.786 between the copies."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — the copies are 86 percent alike."
+    )
+
+    # ONE ARM PER WORD THIS REPO ACTUALLY WRITES WHEN IT SCORES TWO COPIES.
+    # The first vocabulary was built outwards from "similar" and caught none of
+    # these, so the ban held against a phrasing nobody uses and folded on the
+    # four the tree demonstrably does: `_pair_score` is the drift guard's own
+    # function name, C-111's Note says "Scored the way this PR's own guard
+    # scores", the standard describes the same measurement as "well above
+    # half-identical", and `difflib` is the library every one of them calls.
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — scored 0.966 by the drift guard."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — a match of 0.925 across the two."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — 62.1 percent identical, so it moves."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — difflib puts the two at 0.863."
+    )
+
+    # AND A MAGNITUDE NEEDS NO DIGIT. The three numeric arms above all require
+    # one, so "the two read nearly identical in wording" — which reasons from
+    # exactly the banned signal — passed every one of them. A degree word beside
+    # a similarity word IS the claim; this arm was added when a review pointed
+    # out that the header said the broad property while the check enforced the
+    # narrow one.
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — the two read nearly identical in wording."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — the copies are essentially the same, scoring high."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — barely any overlap between the two."
+    )
+    # THE NEGATIVE ARM MATTERS MORE THAN THE POSITIVE ONE HERE: degree words are
+    # ordinary English, and an arm that fired on one anywhere in a ruling would
+    # reject most well-formed prose. It fires only NEAR a similarity word.
+    assert fvp.ruling_defects(
+        "PROMOTE S2 stage-ordering — largely because every consumer is a staged "
+        "run whose stages must not be reordered."
+    ) == [], "a degree word with no similarity claim beside it is ordinary prose"
+    assert fvp.ruling_defects(
+        "PROMOTE S3 evidence-discipline — a whole block is present in one copy "
+        "and absent from its sibling, which is the reportable pattern."
+    ) == [], "S3's own vocabulary — pattern, not degree — must never read as magnitude"
+
+    # AND THE BAN IS ON A SUBSTITUTE FOR REASONING, NOT ON ARITHMETIC. A ruling
+    # citing the blind trial's kappa is citing the measurement that RETIRED
+    # per-pair ruling; an earlier version of the check rejected it, which left an
+    # author choosing between deleting the strongest evidence and spelling it as
+    # a word. Both arms below must stay green.
+    assert fvp.ruling_defects(
+        "UNRULED S1 tier-identity — per-pair ruling measured kappa 0.000 against "
+        "the field's 0.271 benchmark, so no signal here decides it."
+    ) == [], "a ruling citing the trial's own kappa must not read as a magnitude"
+    assert fvp.ruling_defects(
+        "PROMOTE S2 stage-ordering — 3 dispatch paths render it and none omits it."
+    ) == [], "a plain count is not a similarity magnitude"
+
+    # AND THE CHECK MUST NOT FIRE ON THE PROCEDURE'S OWN VOCABULARY. `ratio` was
+    # unanchored, so it matched inside `rationale` — the name of signal 4 — and
+    # any ruling pairing a count with the word was rejected as a magnitude. An
+    # author hitting that has two exits, drop the evidence or stop naming the
+    # signal, and both are worse than the thing the check prevents.
+    assert fvp.ruling_defects(
+        "PROMOTE S4 tier-identity — 2 consumers, and the rationale is stated in "
+        "the fragment's own closing clause rather than recovered from history."
+    ) == [], "a ruling naming signal 4's own rationale must not read as a ratio"
+
+
+def test_the_CATEGORY_LOOKUP_answers_UNRULED_rather_than_guessing() -> None:
+    """`category_of` gained a second consumer, so its contract needs stating.
+
+    The render guard reads it to decide whether a fragment must reach EVERY
+    dispatch path or only one, and the dangerous direction is a fragment nobody
+    ruled on quietly reading as tier-scoped — the weaker rule, chosen by
+    accident. `None` says nobody has ruled; it is the caller's job not to
+    launder that into a verdict, and this fixes the shape it comes back in.
+    """
+    for category, (stems, _) in fvp.FAMILY_RULINGS.items():
+        for stem in stems:
+            assert fvp.category_of(stem) == category, (
+                f"{stem} is filed under {category} and the lookup disagrees"
+            )
+    assert fvp.category_of("rules") is None, (
+        "`rules` carries no family ruling and the lookup must say so rather "
+        "than return a category, which is how an unruled fragment would "
+        "inherit a rule nobody made"
+    )
+    assert fvp.category_of("no_such_fragment_anywhere") is None
+
+
+def test_every_RULED_fragment_still_EXISTS_in_the_pool() -> None:
+    """A ruling naming a fragment nobody ships is a ruling about nothing.
+
+    This is the ratchet's other end. `test_a_FIXED_duplication_is_removed_from_
+    the_baseline` stops a disposed row from lingering; this stops a DISPOSITION
+    from outliving the thing it disposed of. A fragment deleted or renamed
+    without its ruling being revisited leaves prose asserting a decision about
+    text that is gone, which is the state the whole module exists to prevent.
+    """
+    named = [stem for stems, _ in fvp.FAMILY_RULINGS.values() for stem in stems]
+    assert len(named) == len(set(named)), (
+        "a fragment is ruled twice; one finding is one entry, and two rulings on "
+        f"one fragment is two answers: {sorted(n for n in named if named.count(n) > 1)}"
+    )
+    missing = sorted(s for s in named if not (SHARED / f"{s}.md").is_file())
+    assert not missing, (
+        "these fragments carry a family ruling and no longer exist in the pool. "
+        "Either restore them or revisit the ruling — a decision about deleted "
+        f"text is worse than no decision: {missing}"
     )

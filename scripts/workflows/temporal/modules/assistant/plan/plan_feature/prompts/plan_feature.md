@@ -77,7 +77,7 @@ The sprint plan is the operator's cross-domain sequencing surface, and the stand
 
 ### Everything else in that column, and exactly what checks it
 
-**When you finish, the worktree is read and compared against a snapshot taken before you started.** This is enforcement, not a request:
+${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}
 
 - **Every path outside your authorization** — another component, your own `research/`, the sprint plan, anything under `docs/standards/` other than the candidates file — is compared by content. Renaming or deleting one counts as editing it. Your grant is markdown files sitting **directly** in `${COMPONENT_PATH}/`, which by construction reaches no subdirectory: **`research/` is your evidence and it is READ-ONLY.** A plan that edits the evidence it is planning from has made the evidence agree with the plan.
 - **Every phase doc that existed before you started** is compared by name. A rename, a renumber and a deletion are one observation — a filename that was there and is not.

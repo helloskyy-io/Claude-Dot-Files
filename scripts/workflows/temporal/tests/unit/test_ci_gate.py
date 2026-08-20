@@ -16,6 +16,8 @@ and a silent skip is the filtered-gate defect wearing different clothes.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import json
 import subprocess
 import sys
@@ -26,8 +28,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from modules.assistant import assistant_activities as shared  # noqa: E402
-from modules.assistant.build import build_activities as act  # noqa: E402
-from modules.assistant.build.build_activities import POLICY_PATH, CiVerdict  # noqa: E402
+# `act` IS THE SHARED ACTIVITIES MODULE NOW. The CI reads were promoted out of
+# `build/build_activities.py` per §10.1 rule 3 when their consumer count reached
+# six across three families; the pure half (`POLICY_PATH`, `CiVerdict`,
+# `ci_gate`) went to `routing`. The alias is kept so the ~40 activity-driving
+# tests below read unchanged — what moved is the address, not the behaviour.
+from modules.assistant import assistant_activities as act  # noqa: E402
+from modules.assistant import routing  # noqa: E402
+from modules.assistant.routing import POLICY_PATH, CiVerdict, Verdict  # noqa: E402
 
 
 def _gh(monkeypatch, payload, *, stdout=None, stderr="", returncode=0):
@@ -349,10 +357,19 @@ def test_wait_for_ci_returns_immediately_when_the_gate_HAS_reported(monkeypatch,
     assert calls["n"] == 1, f"polled {calls['n']} times for an already-reported gate"
 
 
-def test_wait_for_ci_without_a_policy_still_settles_on_absence(monkeypatch):
-    """A repo that declares no gate has nothing to wait for and must not hang."""
+def test_wait_for_ci_without_a_policy_still_settles_on_absence(monkeypatch, tmp_path):
+    """A repo that declares no gate has nothing to wait for and must not hang.
+
+    `tmp_path` IS A REAL TREE THAT DECLARES NOTHING, which is a different input
+    from the `wait_for_ci("1")` this used to be. `repo_root` became REQUIRED on
+    2026-08-20 — see `ci_verdict` — so "no policy" is now expressed by handing it
+    a tree with no `check-policy.yaml` in it, not by withholding the tree. The
+    behaviour under test is untouched: `read_check_policy` finds no file, returns
+    an empty blocking list, and the `if not blocking: return True` path is the
+    one that runs.
+    """
     calls = _gh_sequence(monkeypatch, [[]])
-    assert act.wait_for_ci("1") is True
+    assert act.wait_for_ci("1", repo_root=tmp_path) is True
     assert calls["n"] == 1
 
 
@@ -368,12 +385,292 @@ def test_GATE_DID_NOT_RUN_does_not_also_report_its_gate_as_UNDECLARED(monkeypatc
     verdict, names = act.ci_verdict("1", repo_root=repo)
     assert verdict is CiVerdict.GATE_DID_NOT_RUN
     assert names == ["suite"], "the absent gate must be named for the runway"
-    # The guard lives in the workflow; assert it is present rather than re-deriving it.
-    wf = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
-          / "build" / "build_workflow.py").read_text()
-    assert "CiVerdict.GATE_DID_NOT_RUN)" in wf and "if extra and verdict_state not in" in wf, (
+    # DRIVEN, NOT GREPPED. This used to assert two substrings were present in
+    # `build_workflow.py`, which is a claim resting on prose that can be reworded
+    # — and it broke the moment the cascade was promoted to `helper.ci_gate` for
+    # `build_minor` to share, while the property it names was untouched. Calling
+    # the decision is strictly stronger and now covers BOTH parents at once.
+    hold, notes = routing.ci_gate(verdict, names, pr="1", repo_target=None)
+    assert hold is Verdict.HOLD_REDISPATCH
+    undeclared = [n for n in notes if "UNDECLARED CHECKS" in n]
+    assert not undeclared, (
         "the UNDECLARED-CHECKS branch no longer excludes GATE_DID_NOT_RUN, so an "
-        "absent gate will again be reported as an unclassified check that ran"
+        f"absent gate is again reported as an unclassified check that ran: {undeclared}"
+    )
+    assert any("declares suite blocking" in n for n in notes), (
+        "the absent gate must still be named to the operator"
+    )
+
+
+def _dispatches_review_ungated(source: str) -> bool:
+    """Does this module dispatch `review-pr` without reading the CI verdict?
+
+    SPLIT OUT SO A CONTROL CAN DRIVE IT on source the tree does not contain —
+    the walk below is floored, and a floor stays green over a predicate that has
+    silently begun answering `False` for everything.
+    """
+    calls = {n.func.attr if isinstance(n.func, ast.Attribute) else
+             getattr(n.func, "id", "")
+             for n in ast.walk(ast.parse(source))
+             if isinstance(n, ast.Call)}
+    return "run_review" in calls and "ci_gate" not in calls
+
+
+def test_the_UNGATED_PARENT_predicate_discriminates_on_a_literal() -> None:
+    """Positive control for the walk below, on source that is not in the tree."""
+    assert _dispatches_review_ungated(
+        "def f(x):\n    return review_pr.run_review(x)\n"
+    ), "the predicate no longer reports a parent that dispatches review with no gate"
+    assert not _dispatches_review_ungated(
+        "def f(x):\n    h, n = routing.ci_gate(x)\n    return review_pr.run_review(x)\n"
+    ), "the predicate now reports a correctly gated parent, so it would fail on good code"
+    assert not _dispatches_review_ungated(
+        "def f(x):\n    return x\n"
+    ), "the predicate fires on a module that dispatches no review at all"
+
+
+#: Every module under `modules/assistant` that dispatches `review-pr`, discovered
+#: rather than listed. `review_pr_workflow.py` is excluded because it IS the
+#: reviewer — it does not dispatch itself.
+def _review_dispatchers() -> list[Path]:
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant"
+    out = []
+    for p in sorted(root.rglob("*_workflow.py")):
+        if p.name == "review_pr_workflow.py":
+            continue
+        if "run_review" in p.read_text():
+            out.append(p)
+    return out
+
+
+REVIEW_DISPATCHERS = _review_dispatchers()
+
+
+def test_the_review_dispatcher_census_reaches_ALL_THREE_FAMILIES() -> None:
+    """Vacuity floor, and it names the two families the old population MISSED.
+
+    The predecessor of the guard below globbed
+    `modules/assistant/build/*/[a-z]*_workflow.py` — TWO files — while its own
+    docstring promised it would catch "a `plan`/`research` parent that grows a
+    gate". That promise was false for as long as it stood, and it is exactly the
+    window in which four parents dispatched `review-pr` on an unread verdict.
+    A count alone would not have caught it (two IS a non-zero count), so this
+    floor asserts the FAMILIES, which is the thing that was missing.
+    """
+    assert len(REVIEW_DISPATCHERS) >= 6, (
+        f"only {len(REVIEW_DISPATCHERS)} review dispatchers discovered; the walk "
+        f"has stopped matching and the guard below is vacuous: "
+        f"{[p.name for p in REVIEW_DISPATCHERS]}"
+    )
+    families = {p.relative_to(p.parents[2]).parts[0] for p in REVIEW_DISPATCHERS}
+    assert {"build", "plan", "research"} <= families, (
+        f"the population no longer reaches all three families (saw {sorted(families)}). "
+        f"A glob that stops matching `plan/` or `research/` returns this guard to "
+        f"the build-only scope that let four ungated parents ship."
+    )
+
+
+@pytest.mark.parametrize("path", REVIEW_DISPATCHERS, ids=lambda p: p.name)
+def test_no_parent_dispatches_review_on_an_UNREAD_CI_VERDICT(path: Path) -> None:
+    """A parent that dispatches `review-pr` without reading CI can MERGE on red.
+
+    THE CLASS, NOT THE INSTANCE, AND THIS IS THE SECOND TIME THAT PHRASE HAD TO
+    BE EARNED. `routing.ci_gate` landed in `build_workflow` on 2026-08-09 and
+    `build_minor_workflow` was never updated, so the light tier reached
+    `review-pr` with the verdict unread. The guard written for THAT defect was
+    headed "the class" and scoped to `build/*/` — so when the identical hole was
+    found in one `plan` parent and three `research` parents, the guard was green
+    over all four. A population narrower than the claim is a guard that certifies
+    the gap it was written to close.
+
+    Keyed on the CALL, over every `*_workflow.py` under `modules/assistant` that
+    dispatches a review — so a seventh parent fails here on the day it is written
+    instead of on the day someone re-runs the sweep.
+
+    WHAT THIS DOES NOT LOOK AT — three things, stated because a guard that scans
+    a tree is exactly the shape that passes vacuously:
+      * ORDER. It asserts both calls are present in the module, not that the gate
+        runs BEFORE the dispatch. An AST call-set cannot see control flow, and
+        the ordering is pinned by the activity-driving tests above instead.
+      * `repo_root=`. Since 2026-08-20 the parameter is REQUIRED on both CI
+        reads, so a parent that omits it fails at the call rather than degrading
+        to "this repo declares no gate" — but that failure surfaces only when the
+        parent RUNS, and five of the six parents have no end-to-end test. See
+        `test_every_gated_parent_passes_repo_root_to_BOTH_CI_READS` below, which
+        is the arm that reads the argument statically.
+      * A dispatcher that reaches `run_review` through an alias or a variable.
+        The predicate matches the attribute/name of the call, so
+        `f = review_pr.run_review; f(...)` is invisible to it.
+    """
+    assert not _dispatches_review_ungated(path.read_text()), (
+        f"{path.name} dispatches review-pr without reading the CI verdict through "
+        f"routing.ci_gate, so MERGE is reachable on a red tree. Add "
+        f"`wait_for_ci` / `ci_verdict` / `routing.ci_gate` immediately before the "
+        f"`run_review` call and return the hold when one comes back — the shape "
+        f"all six parents now use."
+    )
+
+
+@pytest.mark.parametrize("path", REVIEW_DISPATCHERS, ids=lambda p: p.name)
+def test_every_gated_parent_passes_repo_root_to_BOTH_CI_READS(path: Path) -> None:
+    """`repo_root` is what lets a CI read find the repo's own gate declaration.
+
+    WITHOUT IT THE GATE FORGAVE EVERYTHING, SILENTLY, and the tense is the
+    point. `read_check_policy` used to be reached only when `repo_root is not
+    None`; with it absent, `ci_verdict` returned NO_CHECKS on every repo that
+    declares a gate and `wait_for_ci` stopped waiting for a gate it did not know
+    to expect. The cascade then reported "SKIPPED — no check declared blocking",
+    which is not a HOLD, on a tree that may be red.
+
+    THAT PATH IS NOW CLOSED AT THE SIGNATURE — `repo_root` is a required
+    parameter on both reads as of 2026-08-20 — AND THIS GUARD IS NOT THEREFORE
+    REDUNDANT. A missing keyword is a TypeError only when the parent EXECUTES,
+    and `plan_project` is the one parent in the tree driven end-to-end by a test;
+    the other five would ship the failure and discover it in production. This arm
+    reads the argument out of the source, so it fails at test time for all six.
+
+    `build_minor` was reading the policy without it until PR #124, which is why
+    this is a guard and not a comment.
+    """
+    source = path.read_text()
+    for name in ("wait_for_ci", "ci_verdict"):
+        for call in [n for n in ast.walk(ast.parse(source))
+                     if isinstance(n, ast.Call)
+                     and (n.func.attr if isinstance(n.func, ast.Attribute)
+                          else getattr(n.func, "id", "")) == name]:
+            assert any(kw.arg == "repo_root" for kw in call.keywords), (
+                f"{path.name} calls {name}() without repo_root=, which is now a "
+                f"REQUIRED parameter — this parent will raise TypeError the next "
+                f"time it runs, and it is caught here rather than in production "
+                f"because five of the six parents have no end-to-end test. Pass "
+                f"the tree the PR lives in, so the read can find {POLICY_PATH}."
+            )
+
+
+def _discards_the_gate_hold(source: str) -> bool:
+    """Does this module compute a `ci_gate` hold and then NOT return it?
+
+    THE GATE'S EFFECT, NOT ITS PRESENCE, AND THE DIFFERENCE WAS MEASURED. The
+    call-set predicate above is satisfied the moment `ci_gate` appears anywhere
+    in a module. Deleting `if hold is not None: return hold` from
+    `research_workflow` — which leaves the parent computing a verdict, appending
+    the operator note that says review-pr was NOT dispatched, and then
+    dispatching it anyway — produced ZERO failures across the whole unit suite.
+    A parent can merge on red with the gate fully wired and every existing arm
+    green.
+
+    Only `plan_project` had behavioural cover for this
+    (`test_plan_project_loop.test_a_RED_tree_HOLDS_before_review_pr_is_ever_
+    dispatched`), and it is the only parent in the tree driven end-to-end by a
+    test. Writing five more loop-test modules is the wrong shape for a property
+    five parents state in four identical lines; the shape is a structural check
+    on those lines.
+
+    SPLIT OUT SO A LITERAL CONTROL CAN DRIVE IT, for the reason
+    `_dispatches_review_ungated` above records: a walk over the tree stays green
+    over a predicate that has silently begun answering `False` for everything.
+
+    A module with NO `ci_gate` call answers `False` — there is no hold to
+    discard. That case is not forgiven, it is somebody else's: the ungated-parent
+    arm above fails it.
+    """
+    tree = ast.parse(source)
+    for fn in [n for n in ast.walk(tree)
+               if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+        for stmt in ast.walk(fn):
+            if not isinstance(stmt, ast.Assign):
+                continue
+            call = stmt.value
+            if not isinstance(call, ast.Call):
+                continue
+            if (call.func.attr if isinstance(call.func, ast.Attribute)
+                    else getattr(call.func, "id", "")) != "ci_gate":
+                continue
+            target = stmt.targets[0]
+            if not (isinstance(target, ast.Tuple) and target.elts
+                    and isinstance(target.elts[0], ast.Name)):
+                return True          # the hold is not even bound to a name
+            hold = target.elts[0].id
+            returned = any(
+                isinstance(node, ast.If)
+                and isinstance(node.test, ast.Compare)
+                and isinstance(node.test.left, ast.Name)
+                and node.test.left.id == hold
+                and any(isinstance(op, ast.IsNot) for op in node.test.ops)
+                and any(isinstance(b, ast.Return) and isinstance(b.value, ast.Name)
+                        and b.value.id == hold for b in node.body)
+                for node in ast.walk(fn)
+            )
+            if not returned:
+                return True
+    return False
+
+
+def test_the_DISCARDED_HOLD_predicate_discriminates_on_a_literal() -> None:
+    """Positive control for the walk below, on source the tree does not contain.
+
+    Four arms, because three of the four ways this predicate can rot are silent:
+    answering `True` for everything, answering `False` for everything, matching
+    a `return` of some OTHER name, and accepting a bare `if hold:` whose body
+    returns nothing.
+    """
+    gated = ("def f(x):\n"
+             "    hold, notes = routing.ci_gate(x)\n"
+             "    if hold is not None:\n"
+             "        return hold\n"
+             "    return review_pr.run_review(x)\n")
+    assert not _discards_the_gate_hold(gated), (
+        "the predicate reports a parent that DOES return its hold, so it would "
+        "fail on correct code")
+    assert _discards_the_gate_hold(
+        "def f(x):\n"
+        "    hold, notes = routing.ci_gate(x)\n"
+        "    return review_pr.run_review(x)\n"
+    ), "the predicate no longer reports a gate whose hold is computed and dropped"
+    assert _discards_the_gate_hold(
+        "def f(x):\n"
+        "    hold, notes = routing.ci_gate(x)\n"
+        "    if hold is not None:\n"
+        "        return other\n"
+        "    return review_pr.run_review(x)\n"
+    ), "the predicate accepts a branch that returns something OTHER than the hold"
+    assert not _discards_the_gate_hold(
+        "def f(x):\n    return review_pr.run_review(x)\n"
+    ), "the predicate fires on a module that computes no gate at all — that is the "\
+       "ungated-parent arm's finding, not this one"
+
+
+@pytest.mark.parametrize("path", REVIEW_DISPATCHERS, ids=lambda p: p.name)
+def test_every_gated_parent_RETURNS_the_hold_it_computes(path: Path) -> None:
+    """A gate whose hold is dropped is a gate that changed nothing.
+
+    WHY THIS ARM EXISTS AND WHAT IT COST TO FIND. The two arms above assert that
+    the gate is CALLED and CALLED CORRECTLY. Neither asserts it has any effect,
+    and the docstring above says so about ordering — but the effect gap is wider
+    than ordering: deleting the four-line hold-return from `research_workflow`
+    failed NOTHING in the unit suite. Five of the six parents have no
+    behavioural test at all; `plan_project` is the only one driven end-to-end.
+
+    WHAT THIS DOES NOT LOOK AT — and the first bullet is why the behavioural
+    test still earns its place:
+      * ORDER, still. A parent that returns its hold AFTER dispatching review
+        satisfies this. `test_plan_project_loop.test_a_RED_tree_HOLDS_before_
+        review_pr_is_ever_dispatched` is the arm that sees that, for the one
+        parent a test drives.
+      * A hold propagated by any shape other than `if <hold> is not None:
+        return <hold>` — an early `return hold or ...`, a raise, a caller that
+        inspects the tuple. All are legitimate and all fail here. That is
+        deliberate: six parents write the identical four lines today, and a
+        guard that admits every equivalent shape admits the broken ones too.
+      * WHAT THE CALLER DOES WITH THE RETURNED HOLD. This ends at the function
+        boundary.
+    """
+    assert not _discards_the_gate_hold(path.read_text()), (
+        f"{path.name} computes a CI hold and does not return it, so the gate runs, "
+        f"writes its operator note saying review-pr was NOT dispatched, and then "
+        f"dispatches review-pr anyway — MERGE stays reachable on a red tree with "
+        f"every other arm of this module green. Add `if hold is not None: return "
+        f"hold` immediately after `notes.extend(gate_notes)`."
     )
 
 
@@ -412,7 +709,7 @@ def _gh_replies(monkeypatch, replies, *, max_wait: float = 60.0):
     return calls
 
 
-def test_an_unreadable_gh_reply_is_not_mistaken_for_settled_CI(monkeypatch):
+def test_an_unreadable_gh_reply_is_not_mistaken_for_settled_CI(monkeypatch, tmp_path):
     """The defect that cost PR #92 three rebuilds.
 
     `gh pr checks` exits non-zero whenever checks are FAILING or PENDING, so the
@@ -435,7 +732,7 @@ def test_an_unreadable_gh_reply_is_not_mistaken_for_settled_CI(monkeypatch):
     calls = _gh_replies(monkeypatch, [
         _Reply("", stderr="gh: could not resolve to a Repository", returncode=1),
     ])
-    assert act.wait_for_ci("1") is False, (
+    assert act.wait_for_ci("1", repo_root=tmp_path) is False, (
         "a repo that declares no gate took the `if not blocking: return True` "
         "path the instant the settled test passed — and the settled test ran on "
         "RAW STDOUT before parsing, so an empty reply from a FAILED `gh` read as "
@@ -512,3 +809,265 @@ def test_an_unknown_check_state_is_NOT_settled(monkeypatch, repo):
     ])
     assert act.wait_for_ci("1", repo_root=repo) is True
     assert calls["n"] == 2, "an unrecognised state was treated as terminal"
+
+
+# ---------------------------------------------------------------------------
+# THE PROPERTY. A NON-HOLDING GATE RESULT IS UNREACHABLE WITHOUT A POLICY READ.
+#
+# Every test above drives ONE function and asserts ONE verdict. The defect that
+# produced this block was invisible to all ~50 of them because it lived in the
+# JOIN: `ci_verdict` returned a state that is correct in isolation (`NO_CHECKS`
+# genuinely means "no blocking check reported"), `ci_gate` routed that state
+# correctly (a repo with no gate proceeds), and the composition let a red tree
+# through — because nobody had established that reaching the non-holding state
+# requires having LOOKED for a policy at all.
+#
+# Measured 2026-08-20 on PR #124: `ci_verdict("1", repo_root=None)` over
+# `[{"name": "suite", "state": "FAILURE"}]` returned `NO_CHECKS`, and
+# `ci_gate` returned `hold=None`, which every parent reads as PROCEED.
+#
+# So these two guard the PROPERTY, not the two functions. `repo_root` being
+# required is the CURRENT mechanism; the property is what must survive the next
+# person deciding a different mechanism is nicer.
+# ---------------------------------------------------------------------------
+
+
+def _counting_policy_reader(monkeypatch):
+    """Count `read_check_policy` calls WITHOUT changing what it returns.
+
+    The count is the whole instrument: "a policy was read" is not observable
+    from the verdict, because `NO_CHECKS` is what you get both from a tree that
+    declares nothing AND from a tree nobody looked at. Those are the two facts
+    this fleet has now collapsed three separate times, and the enum cannot tell
+    them apart by construction — see `CiVerdict`'s own docstring on
+    `UNREADABLE_POLICY`.
+    """
+    real = act.read_check_policy
+    calls = {"n": 0}
+
+    def counted(repo_root):
+        calls["n"] += 1
+        return real(repo_root)
+
+    monkeypatch.setattr(act, "read_check_policy", counted)
+    return calls
+
+
+def _tree_cases(tmp_path):
+    """Every tree shape a caller can hand the gate, INCLUDING the one that shipped.
+
+    `None` IS IN THIS LIST ON PURPOSE AND IS THE REASON THE LIST EXISTS. It is
+    the input that used to skip the policy read, and a case list that quietly
+    omits it is a guard that cannot see the hole come back — which is exactly
+    how the defect reached a sixth review pass.
+
+    SELF-CONTAINED, sharing no fixture with the `repo` fixture the rest of this
+    module uses. A control that shares a fixture with the code under mutation
+    over-fires and stops discriminating.
+    """
+    declares = tmp_path / "declares"
+    (declares / POLICY_PATH).parent.mkdir(parents=True)
+    (declares / POLICY_PATH).write_text("blocking:\n  - suite\n")
+
+    broken = tmp_path / "broken"
+    (broken / POLICY_PATH).parent.mkdir(parents=True)
+    (broken / POLICY_PATH).write_text("blocking: [unclosed\n  - broken: : :\n")
+
+    silent = tmp_path / "silent"
+    silent.mkdir()
+
+    return [
+        ("no tree at all", None),
+        ("declares a gate", declares),
+        ("declaration is broken", broken),
+        ("declares nothing", silent),
+    ]
+
+
+def test_a_NON_HOLDING_gate_is_unreachable_without_a_policy_READ(monkeypatch, tmp_path):
+    """Over a RED check list, every tree shape either REFUSES or reads a policy.
+
+    THE ASSERTION IS THE IMPLICATION, not a list of expected verdicts: if the
+    gate let the run PROCEED, then `read_check_policy` ran. That is what makes
+    this survive a future change to how the requirement is enforced — swap the
+    required parameter for a stopping verdict and this still passes, because a
+    stopping verdict is a hold and the implication never ranges over it; delete
+    the requirement altogether and it goes red on the `None` case.
+
+    THAT SENTENCE IS DRIVEN AND NOT ASSERTED, because the sentence it replaces
+    was neither. The version this file shipped on 2026-08-20 scoped the read
+    assertion to EVERY return rather than to the non-holding ones, so
+    implementing the stopping verdict — the alternative the brief named and
+    this fix declined — turned it RED, while its own docstring promised it
+    would not. Both halves are now measured: `repo_root: Path | None = None`
+    plus `if repo_root is None: return UNREADABLE_POLICY` leaves this GREEN
+    (that state is a HOLD, `routing.ci_gate`), and re-adding the skip branch
+    turns it RED. A guard whose prose outran its assertions is the class this
+    whole PR exists to close, so it does not get to survive inside the fix.
+
+    The check list is RED throughout, so any outcome that is not a hold is a
+    demonstrated fail-open rather than a theoretical one.
+
+    WHAT THIS DOES NOT LOOK AT, stated because a guard that loops over cases is
+    the shape that passes vacuously:
+      * WHICH hold. `HOLD_REDISPATCH` versus `HOLD_NEEDS_ASSISTANCE` is routed by
+        `ci_gate` and pinned by the cascade tests above. This asks only that a
+        hold came back.
+      * `wait_for_ci`. It returns a settled bool, not a verdict, so it has no
+        holding/non-holding outcome for this implication to range over. Its half
+        of the requirement is pinned by the signature guard below — which now
+        drives an explicit `repo_root=None` against BOTH reads. It did not until
+        this correction, and the two guards each named the other as the one that
+        looked, so `wait_for_ci(pr, repo_root=None)` had no cover at all.
+      * THE POLICY'S CONTENT. `read_check_policy` is counted, not inspected —
+        `DO NOT TOUCH read_check_policy` is a standing constraint on this gate
+        and its parsing is covered by the declaration tests above.
+      * A TREE THAT IS WRONG RATHER THAN ABSENT. `repo_root=/some/other/repo`
+        reads a policy and passes here. Which tree is correct is
+        `test_every_gh_the_fleet_launches_is_ANCHORED`'s question, and that guard
+        says in its own words that it does not answer it either.
+    """
+    _gh(monkeypatch, [{"name": "suite", "state": "FAILURE"}])
+    reads = _counting_policy_reader(monkeypatch)
+
+    examined = refused = holds = 0
+    proceeded: list[str] = []
+    for label, tree in _tree_cases(tmp_path):
+        examined += 1
+        before = reads["n"]
+        try:
+            verdict, extra = act.ci_verdict("1", repo_root=tree)
+        except TypeError:
+            # REFUSED, AND THIS ARM DELIBERATELY DOES NOT CARE WHERE FROM —
+            # that is the mechanism's business, and pinning it here is what
+            # made the previous version go red on a correct alternative. A
+            # verdict that never existed cannot be a non-holding one, so the
+            # implication holds for this case however the refusal arrived.
+            #
+            # The two refusals are NOT the same, and the sentence that used to
+            # sit here ("the call shape itself is refused") was false for the
+            # one this list actually produces. An OMITTED `repo_root` is
+            # rejected at the call boundary; an explicit `None` — which is what
+            # `_tree_cases` hands over — is accepted by the signature, reaches
+            # `read_check_policy`, and dies on `None / POLICY_PATH`.
+            # `test_neither_CI_READ_can_be_called_without_a_tree` drives both
+            # shapes against both reads.
+            refused += 1
+            continue
+
+        hold, _notes = routing.ci_gate(verdict, extra, pr="1", repo_target=None)
+        if hold is None:
+            proceeded.append(label)
+            # THE PROPERTY, AND THE ONLY PLACE IT IS ASSERTED. Scoped to the
+            # non-holding outcome on purpose: a gate that STOPS has broken
+            # nothing, whether or not it read a policy first, and asserting
+            # over every return instead pinned the mechanism rather than the
+            # property.
+            assert reads["n"] > before, (
+                f"[{label}] ci_verdict returned {verdict} over a RED check list "
+                f"without ever calling read_check_policy, and `ci_gate` let the "
+                f"run PROCEED on it. The verdict describes a policy nobody "
+                f"looked for — which is how a red tree reached review-pr on "
+                f"2026-08-20."
+            )
+        else:
+            holds += 1
+
+    # --- Vacuity floors. Each names the specific way this could stop meaning
+    #     anything while still printing green.
+    assert examined == 4, (
+        f"the case list examined {examined} trees, not 4 — a case was dropped, "
+        f"and the one that matters is `None`"
+    )
+    assert refused <= 1, (
+        f"{refused} of the 4 cases raised instead of returning a verdict. At most "
+        f"one can legitimately: handing the gate no tree at all. More than that "
+        f"and this is measuring a crash in the fixture rather than the property — "
+        f"every extra refusal is a case that skipped the assertion. It is `<=` and "
+        f"not `== 1` because a stopping verdict for the no-tree case would make it "
+        f"0 and would be a correct implementation; what may not happen is a tree "
+        f"PROCEEDING, which the floor below pins by name."
+    )
+    assert holds >= 2, (
+        f"only {holds} tree(s) produced a hold over a RED check list — the "
+        f"implication 'proceeded => a policy was read' is trivially satisfiable "
+        f"by a fixture that never reaches the gate at all"
+    )
+    assert proceeded == ["declares nothing"], (
+        f"the trees that let the run PROCEED over a RED check list were "
+        f"{proceeded}, and exactly one may: the repo that genuinely declares no "
+        f"gate — a ruled decision (routing.CiVerdict, 2026-08-13), not an "
+        f"oversight. An EMPTY list means nothing reached the assertion above and "
+        f"the implication is trivially satisfied by everything holding. ANY OTHER "
+        f"tree in it is the 2026-08-20 defect back: a gate that proceeds on a red "
+        f"list without having looked for a policy."
+    )
+    assert reads["n"] >= 3, (
+        f"read_check_policy ran {reads['n']} time(s) across {examined} cases — "
+        f"the counter is not wired to the function the gate actually calls, so "
+        f"the assertion above can never fire"
+    )
+
+
+def test_neither_CI_READ_can_be_called_without_a_tree():
+    """The default cannot be quietly restored — on EITHER read.
+
+    THE MECHANISM ARM. The test above pins the property; this pins the thing
+    currently delivering it, because the property test's `None` case only fails
+    loudly while `repo_root` has no default. Restoring `= None` on `ci_verdict`
+    reopens the exact 2026-08-20 hole, and a reviewer scanning a signature line
+    is unlikely to reconstruct why the default is absent.
+
+    BOTH READS, because the requirement is symmetric by decision rather than by
+    accident: `wait_for_ci` returns a settled bool rather than the gate verdict,
+    so it is the lower-stakes half — and an unanchored poll still reads no
+    policy, stops waiting for a gate it does not know to expect, and can burn the
+    full 600-second deadline against a tree nobody chose.
+
+    IT ALSO DRIVES THE EXPLICIT `None`, ON BOTH READS, and that arm is here
+    because the version of this file shipped on 2026-08-20 did not have it and
+    said it did. This docstring claimed the explicit `None` was "covered from
+    the other side — the property test hands exactly that value to the real
+    function", and the property test's own docstring pointed back here for
+    `wait_for_ci`. Both were half true: the property test drives ONLY
+    `ci_verdict`, so `wait_for_ci(pr, repo_root=None)` was named by two guards
+    and looked at by neither. A mutual "covered elsewhere" that nobody drove is
+    the defect class this whole PR exists to close.
+
+    THE TWO SHAPES ARE DIFFERENT REFUSALS and both are asserted, because only
+    one of them is the signature's doing. Omitting `repo_root` is rejected at
+    the call boundary. An explicit `None` satisfies the signature — annotations
+    do not check — reaches `read_check_policy`, and dies on
+    `None / POLICY_PATH`. The second is what a caller with an
+    `Optional[Path]` in hand actually produces, and it is the shape a
+    `wait_for_ci`-only shortcut (`if repo_root is None: return True`) would
+    silently reopen.
+    """
+    for name in ("ci_verdict", "wait_for_ci"):
+        param = inspect.signature(getattr(act, name)).parameters["repo_root"]
+        assert param.default is inspect.Parameter.empty, (
+            f"`{name}` has grown a default for `repo_root` again ({param.default!r}). "
+            f"With one, the CI reads skip {POLICY_PATH} entirely: `blocking` stays "
+            f"empty, a FAILING check returns NO_CHECKS, and `ci_gate` answers that "
+            f"with hold=None — a red tree dispatched to review-pr. Measured on "
+            f"PR #124, 2026-08-20."
+        )
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY, (
+            f"`{name}` now takes `repo_root` positionally ({param.kind}); the six "
+            f"parents all pass it by keyword and the static arm in "
+            f"test_every_gated_parent_passes_repo_root_to_BOTH_CI_READS only "
+            f"inspects keywords"
+        )
+
+    for name in ("ci_verdict", "wait_for_ci"):
+        read = getattr(act, name)
+        with pytest.raises(TypeError):
+            read("1")                      # omitted: refused at the call
+        with pytest.raises(TypeError):
+            read("1", repo_root=None)      # explicit: refused inside the read
+
+    # NEITHER CALL ABOVE REACHES `gh`, AND NOTHING IS MONKEYPATCHED HERE ON
+    # PURPOSE. `read_check_policy(repo_root)` is the first statement of both
+    # reads, so both die before any subprocess and before `wait_for_ci`'s
+    # 600-second deadline starts. A fake would only be able to hide a
+    # regression that moved the policy read after the first `gh` call.
