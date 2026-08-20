@@ -155,6 +155,8 @@ The table has six columns. Three come from the upstream pattern; three more are 
 
 **One row is easy to miss and is the largest recoverability gap the current fleet has: *parent sequencing*.** Which child ran, what it concluded, how many loops have been spent — all of it exists only in a live process's memory. A parent that dies between children loses the knowledge that the earlier ones succeeded, and the only durable trace is log files named after a wall-clock time. This is a bigger hole than the turn cap, and it is the row most likely to be skipped because nothing is visibly broken today.
 
+**That row has a named reader, and it is [Phase 5](phase5_the_first_dispatch.md) requirement 6.** Writing the parent as a workflow is what makes the state durable — Temporal's event history *is* the record this row asks for — so Phase 5 demonstrates a parent resuming between children and checks what it knows against what this row says should survive. **Stated here rather than left implicit**, because a recovery row with no reader is a schema nobody has tested, and this is the row where that would cost the most.
+
 ---
 
 ## Notes, decisions and gotchas

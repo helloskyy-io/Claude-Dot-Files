@@ -11,7 +11,7 @@ Two workflows do not get the benefit of the doubt. `plan-new` and `review-sprint
 ## Requirements for completion
 
 1. **Every workflow that earns a port is orchestrated by Temporal**, and nothing depends on a workflow that was not ported.
-2. **`review-runs` exists in the Python tree and runs under Temporal.** It has no counterpart there today; it is the one of the four with a live role and a run history, and it is written rather than moved.
+2. **`review-runs` runs under Temporal.** [Phase 9](phase9_review_runs_in_the_python_tree.md) writes it in the Python tree; this requirement is the orchestration half only, and it is where `review-runs.sh` is retired. **The two halves were one requirement until 2026-08-20 and that was the defect** — a conjunction inherits the later of its parts' gates, so a deliverable [PMP Phase 6](../persistent-memory-protocol/phase6_cpi_reads_the_journal.md) needs and that requires no server sat behind [Phase 5](phase5_the_first_dispatch.md) and therefore behind [Phase 1](phase1_the_starter_control_plane.md).
 3. **`plan-new` and `review-sprint` are ruled** — each either ported, or retired with a written reason. **A ruling either way satisfies this requirement; leaving them unruled does not.**
 4. **Schedules replace timers.** A schedule survives the machine being off, which is the property two other components are waiting on.
 5. **The worker inventory is accurate** — every worker, its task queue, its registered workflows and its registered activities, reconciled against the code in the same change that alters either.
@@ -20,7 +20,7 @@ Two workflows do not get the benefit of the doubt. `plan-new` and `review-sprint
 
 ## Dependencies
 
-**Inside this component:** [Phase 5](phase5_the_first_dispatch.md), and nothing else. Every ruling this phase applies was made earlier.
+**Inside this component:** [Phase 5](phase5_the_first_dispatch.md), and — **for requirement 2 alone** — [Phase 9](phase9_review_runs_in_the_python_tree.md), because there has to be a `review-runs` in the Python tree before there is one to orchestrate. Every ruling this phase applies was made earlier.
 
 **Outside this component:** [Workflow Decomposition](../workflow-decomposition/roadmap.md), for the same reason and with more force than in [Phase 5](phase5_the_first_dispatch.md) — this phase ports *every* family, so every family's shape has to be settled rather than just one.
 
@@ -28,7 +28,7 @@ Two workflows do not get the benefit of the doubt. `plan-new` and `review-sprint
 
 | Waiting on | Consumer |
 |---|---|
-| **`review-runs` ported** (requirement 2) | [PMP Phase 6](../persistent-memory-protocol/phase6_cpi_reads_the_journal.md) — moves the CPI evidence sweep off comment-scraping. **This one does not need the server**, so it can be pulled forward the moment requirement 2 lands |
+| **`review-runs` orchestrated** (requirement 2) | Nothing outside this component. **[PMP Phase 6](../persistent-memory-protocol/phase6_cpi_reads_the_journal.md) waits on [Phase 9](phase9_review_runs_in_the_python_tree.md), not on this requirement** — its gate is the Python program, not the scheduler, and [Phase 9](phase9_review_runs_in_the_python_tree.md) is ungated, so that consumer can be pulled forward without waiting on this phase at all |
 | **Schedules** (requirement 4) | [PMP Phase 8](../persistent-memory-protocol/phase8_the_poller.md) — a scheduled workflow that reads a to-do bit and starts work with no human trigger |
 | **Schedules** (requirement 4) | [Autonomous Operation](../autonomous-operation/autonomous-operation.md) — scheduled dispatch that survives the machine being off |
 | **The port as a whole** | [Autonomous Operation](../autonomous-operation/autonomous-operation.md) — the driver that composes parents into a loop |
@@ -55,6 +55,8 @@ The [domain-boundary test](../../standards/temporal/worker_deployment_standard.m
 
 **Our segmentation has an axis upstream's does not.** Ours are segmented by **machine** as well as by capability, because Claude Code must run on the machine holding the repo — a repo-locality constraint with no upstream equivalent, and the reason [§A3](../../standards/temporal/claude-dot-files-addendum.md) exists. [Phase 1](phase1_the_starter_control_plane.md) closes §A3 and names the scheme; **this phase applies it, and must not redesign it.** Queue names are expensive to change once workers deploy against them, which is precisely why the ruling was pulled forward to the first phase.
 
+**The worker set inherits [Phase 4](phase4_the_claude_cli_activity.md)'s slot rule, and inherits it per worker.** Requirement 8 there binds every worker that registers the `claude_cli` activity: the activity slot count comes from the host's real concurrency budget rather than the SDK's default of 100, and `ThreadPoolExecutor(max_workers=...)` is at least that number. **The budget is per host, so the number is decided per worker and not once for the fleet** — the machine axis means these workers sit on different machines with different budgets. Applying one number everywhere would be the same mistake as the default, one step further along.
+
 **One rule from the standard is easy to skip and expensive to skip:** every declared domain must have a **built worker, empty if it has no workflows yet.** A declared-but-unbuilt domain is the bait that creates a catch-all worker — a workflow whose real domain has no running worker gets parked on the nearest *built* one, and parking becomes permanent. **SDK caveat, verified upstream:** the Python SDK rejects a worker with both an empty workflow list and an empty activity list, so an empty shell registers a single no-op sentinel activity. That is an SDK-satisfying placeholder, not a workflow.
 
 ---
@@ -66,7 +68,7 @@ The [domain-boundary test](../../standards/temporal/worker_deployment_standard.m
 - [ ] **Stand up every declared domain's worker, empty if it has no workflows yet.** Do not defer one because it would be empty.
 - [ ] **Wrap and orchestrate family by family**, in an order the build chooses and records — each family finished before the next starts, so a problem is attributable.
 - [ ] **Apply [Phase 3](phase3_the_retry_boundary.md)'s per-call-class ruling to every newly-wrapped activity**, extending the audit [Phase 5](phase5_the_first_dispatch.md) began. The rule does not change; the population does.
-- [ ] **Write `review-runs` in the Python tree** and orchestrate it. It is the CPI log sweep and it has a live consumer waiting.
+- [ ] **Orchestrate `review-runs`** — [Phase 9](phase9_review_runs_in_the_python_tree.md) has already written it — and retire `review-runs.sh` in the same change.
 - [ ] **Rule `plan-new`.** Port it, or retire it with the reason written down. **The default is retire** — a workflow that has never executed has never been shown to be wanted, and the burden is on the port.
 - [ ] **Rule `review-sprint`** on the same basis, separately. Two rulings, not one; they are two workflows and may deserve different answers.
 - [ ] **Replace timers with Temporal schedules**, and record which schedules exist and what each one starts.
@@ -111,7 +113,7 @@ scripts/workflows/temporal/modules/journal/journal_activities.py
 ## Notes, decisions and gotchas
 
 - **The burden of proof runs against porting the two that never ran.** A workflow with no execution history has no evidence that anyone wants it, no evidence that it works, and — since it has never run — no evidence about its failure modes to design a retry policy against. **Retiring it is the cheap, reversible choice**; porting it spends effort on an assumption. Rule each on its own merits, and say what a future need would look like if it is retired.
-- **`review-runs` is different and the difference is the point.** It has a live role and a run history, and a downstream phase in another component is waiting on it. It is the one of the four whose port is justified before anyone argues about it.
+- **`review-runs` is different and the difference is the point.** It has a live role and a run history, and a downstream phase in another component is waiting on it. It is the one of the four whose port is justified before anyone argues about it — **which is why it left this phase entirely on 2026-08-20 and became [Phase 9](phase9_review_runs_in_the_python_tree.md).** § *Runtime Verification* above is dated 2026-08-19 and still reads *"which is why requirement 2 says written rather than moved"*; that is a historical record and is left standing as one. **The `written rather than moved` requirement is now [Phase 9](phase9_review_runs_in_the_python_tree.md)'s requirement 1**; requirement 2 here is orchestration only.
 - **Catch-up behaviour is per schedule and getting it wrong is silent.** A missed window-scoped run should usually be skipped; a missed state-converging run should usually be caught up. A single global setting will be wrong for one of them and nothing will go red.
 - **The promotion rule is mechanical and that is its value.** Nothing becomes shared because it *might* be reused; it becomes shared when a second consumer appears, and it demotes when one goes away. Consumer count decides, never taste — and anything at a parent level is shared by definition, so a reader never has to open a file to learn its scope.
 - **A component with a real end.** When this phase closes, the port is done: the fleet runs on durable execution, and what remains in this component is deployment work gated outside it — [Phase 7](roadmap.md) and [Phase 8](roadmap.md).

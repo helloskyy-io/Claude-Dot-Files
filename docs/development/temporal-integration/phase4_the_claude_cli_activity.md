@@ -16,6 +16,8 @@
 4. **[§A1](../../standards/temporal/claude-dot-files-addendum.md) is closed in the addendum** — all three of its open bullets, heartbeating, payload limits and retry semantics.
 5. **A long run is demonstrated completing under a real worker**, and a worker restart mid-run behaves the way requirement 3's ruling says it should.
 6. **Whether a headless invocation is behaviourally indistinguishable from an operator at a terminal is settled, and how that was demonstrated is recorded.** **This requirement stays unchecked** — see § *What this phase does not settle*, which explains why and what it blocks.
+7. **The CLI's maximum inter-line interval is MEASURED before the cadence is chosen, and the number and its spread are recorded.** Across **at least 20 real runs**, driven into their longest natural quiet gaps — a long `Bash` tool call, extended thinking. This is `python_sdk_long_activities.md` §9 test 3, which names it as the decision gate for `heartbeat_timeout` and says plainly that guessing it is how spurious retries happen. **Requirement 1's cadence consumes this number**; a cadence chosen from general guidance instead has not satisfied requirement 1.
+8. **The worker's activity slot count is set from the host's real concurrency budget, not left at the SDK default of 100** — and `ThreadPoolExecutor(max_workers=...)` is set to at least that number. `python_sdk_long_activities.md:168` is the derivation: a slot is a counter, but what a slot *holds* is one `claude` CLI process plus, in the sync-threaded shape, one OS thread pinned for the full hour. **The default admits 100 simultaneous `claude` runs on the operator's own workstation.** This binds **every worker that registers this activity**, not only the one requirement 5 demonstrates against — see [Phase 5](phase5_the_first_dispatch.md)'s systemd worker and [Phase 6](phase6_the_rest_of_the_fleet.md)'s worker set.
 
 ---
 
@@ -35,12 +37,12 @@
 
 | Source | What it supplies |
 |---|---|
-| `python_sdk_long_activities.md` (product pool) — `Last validated 2026-08-03`, Critic `PASS-WITH-FIXES` | **Closes the heartbeating and payload-limit halves in full.** Definitive, first-party sourced, and its own `Feeds:` line names this exact milestone. Nothing in the 2026-08-19 component cycle adds to it |
+| `python_sdk_long_activities.md` (product pool) — `Last validated 2026-08-03`, Critic `PASS-WITH-FIXES` | **Closes the payload-limit half in full** — first-party blob and gRPC numbers, and transcript-to-file as the consequence. **It does NOT close the heartbeat half**, and says so about itself: §8 calls its recommended shape *"this paper's composition of documented parts, not a documented pattern… a design hypothesis until §9's tests pass"*, with cancellation delivery into a blocked child and child-process orphaning on worker death both marked `[unverified]` / `[gap]`. It also names the measurement that must precede the cadence (§9 test 3) — requirement 7 here is that measurement. Its `Feeds:` line names this milestone, and nothing in the 2026-08-19 component cycle adds to it |
 | [`raw/durable_dispatch_identity.md`](research/raw/durable_dispatch_identity.md) §4.2, §5.4 | The dispatch row of the recovery table — conversation transcript, machine-local, 30-day default retention, **conditionally** replayable — and the three-legged liveness taxonomy as a *design input* rather than a work item |
 | [`../../standards/temporal/claude-dot-files-addendum.md`](../../standards/temporal/claude-dot-files-addendum.md) §A1, §A2 | The three open bullets this phase closes, and the producer-that-can-be-confidently-wrong constraint that shapes requirement 3 |
 | First-party Temporal documentation | Heartbeat semantics and blob-size limits, read at plan time — see § *Runtime Verification* |
 
-**Read `python_sdk_long_activities.md` before writing the heartbeat cadence.** It is the paper that already answers requirements 1 and 2, and re-deriving them here would spend a research cycle twice and might reach a different answer the second time.
+**Read `python_sdk_long_activities.md` before writing anything.** It already answers requirement 2 outright, and re-deriving that would spend a research cycle twice and might reach a different answer the second time. **For requirement 1 it is an input rather than an answer** — it supplies the mechanics and the shape, and it explicitly hands the cadence back to a measurement nobody has taken. **Read its §8 as carefully as its §2**: the boundary analysis is where the paper says which of its own recommendations are load-bearing and which are hypotheses.
 
 ---
 
@@ -79,10 +81,12 @@ Python 3.13.12
 
 ## Implementation steps
 
-- [ ] **Read `python_sdk_long_activities.md` first.** It closes requirements 1 and 2 and is the reason this phase is smaller than it looks.
+- [ ] **Read `python_sdk_long_activities.md` first, §8 included.** It closes requirement 2 outright and supplies the mechanics for requirement 1 — **and it is also where the paper marks its own heartbeat recommendation as a hypothesis. The payload half of this phase is genuinely small; the heartbeat half is not, and the two should not be planned as though they were the same size.**
 - [ ] **Re-run § *Runtime Verification* against the installed CLI and SDK**, and refresh it.
+- [ ] **Measure the CLI's maximum inter-line interval across ≥20 real runs, BEFORE choosing a cadence** — requirement 7. Drive runs into their longest natural quiet gaps and record **the number and its spread**, not just the maximum: a single worst case with no distribution behind it cannot tell a safe margin from a lucky one. Put both in § *Runtime Verification*.
 - [ ] **Define what a heartbeat MEANS for a `claude -p` run**, before choosing a cadence. A run is emitting `stream-json`; a heartbeat tied to *new output* says something a wall-clock heartbeat does not. Write down which one is being sent and what a reader may conclude from it.
-- [ ] **Set the heartbeat timeout deliberately and record the reasoning.** First-party guidance is short timeout, frequent heartbeat; the throttle then does the rest.
+- [ ] **Set the heartbeat timeout from the measured number**, and record the reasoning against the measurement rather than against general guidance. First-party guidance — short timeout, frequent heartbeat, and the throttle does the rest — says how to *shape* the cadence; the measurement is what says which values clear the CLI's real silences. **A timeout below the observed maximum silence kills healthy 10–60 minute runs and re-enters a working tree the previous attempt already modified.**
+- [ ] **Set the activity slot count and the executor width from the host's concurrency budget** — requirement 8. Record the number chosen and the budget it came from; `max_concurrent_activities` left unset means 100.
 - [ ] **Write the transcript to a file and put a reference on the result.** Reuse the run bag rather than inventing a second store — [PMP Phase 1](../persistent-memory-protocol/phase1_the_run_bag.md) already gives every run a folder keyed by `run_id`, and [Phase 2](phase2_durable_dispatch_identity.md) makes that key stable across attempts.
 - [ ] **Assert the result payload stays under the blob limits**, with a test rather than a comment. A result that grows past 2 MB fails at the server, late, in a way that reads as an infrastructure fault.
 - [ ] **Rule the retry semantics** — an LLM run is not deterministic, so a retry is a *new attempt*, not a replay of the same work. Whether that is safe depends entirely on whether the activity is idempotent, and for anything that pushes commits or opens PRs it is not.
