@@ -131,7 +131,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
     """One refine pass followed by one disposition pass."""
-    ci_settled = wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
+    ci_settled = wait_for_ci(pr, repo_root=repo_root)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
@@ -169,8 +169,8 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     # was promoted out of this family. Read that function for why the gate lives
     # in a parent rather than a prompt, and why every state HOLDs instead of
     # exiting.
-    wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
-    verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
+    wait_for_ci(pr, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo_root=repo_root)
     hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
                                       repo_target=task.repo_target)
     notes.extend(gate_notes)

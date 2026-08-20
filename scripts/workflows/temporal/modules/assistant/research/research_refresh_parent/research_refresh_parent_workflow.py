@@ -60,6 +60,13 @@ def run_research_refresh(*, research_dir: Path, repo_root: Path,
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
         notes.append("No loop-back was attempted: more passes cannot produce a "
                      "human decision. The cause is in the note above.")
+    elif verdict is Verdict.HOLD_REDISPATCH:
+        # THE OTHER HALF OF THE SAME OMISSION. A run that exhausted its one
+        # loop-back left the operator with a HOLD and no sentence saying the
+        # automated budget was gone, while both sibling research parents say it
+        # in these exact words. `MAX_LOOPS` really is 1 here, so the flat wording
+        # is true rather than asserted — see `test_loop_cap_prose_is_counted`.
+        notes.append("The automated loop is SPENT — one loop-back is the cap.")
 
     return {"pr_number": pr, "pr_url": pr_url, "verdict": verdict,
             "loops_used": loops, "due": len(due), "notes": notes}

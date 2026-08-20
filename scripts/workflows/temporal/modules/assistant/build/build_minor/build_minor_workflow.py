@@ -90,7 +90,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          repo_root: Path, worktree: Path,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
-    ci_settled = wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
+    ci_settled = wait_for_ci(pr, repo_root=repo_root)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
@@ -105,8 +105,8 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     # so the light tier reached `review-pr` with the CI verdict never read and
     # could return MERGE on a red tree — the hole removing branch protection
     # opened, closed on one tier only. See `routing.ci_gate`.
-    wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
-    verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
+    wait_for_ci(pr, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo_root=repo_root)
     hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
                                       repo_target=task.repo_target)
     notes.extend(gate_notes)

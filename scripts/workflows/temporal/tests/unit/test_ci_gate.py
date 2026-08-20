@@ -526,6 +526,133 @@ def test_every_gated_parent_passes_repo_root_to_BOTH_CI_READS(path: Path) -> Non
             )
 
 
+def _discards_the_gate_hold(source: str) -> bool:
+    """Does this module compute a `ci_gate` hold and then NOT return it?
+
+    THE GATE'S EFFECT, NOT ITS PRESENCE, AND THE DIFFERENCE WAS MEASURED. The
+    call-set predicate above is satisfied the moment `ci_gate` appears anywhere
+    in a module. Deleting `if hold is not None: return hold` from
+    `research_workflow` — which leaves the parent computing a verdict, appending
+    the operator note that says review-pr was NOT dispatched, and then
+    dispatching it anyway — produced ZERO failures across the whole unit suite.
+    A parent can merge on red with the gate fully wired and every existing arm
+    green.
+
+    Only `plan_project` had behavioural cover for this
+    (`test_plan_project_loop.test_a_RED_tree_HOLDS_before_review_pr_is_ever_
+    dispatched`), and it is the only parent in the tree driven end-to-end by a
+    test. Writing five more loop-test modules is the wrong shape for a property
+    five parents state in four identical lines; the shape is a structural check
+    on those lines.
+
+    SPLIT OUT SO A LITERAL CONTROL CAN DRIVE IT, for the reason
+    `_dispatches_review_ungated` above records: a walk over the tree stays green
+    over a predicate that has silently begun answering `False` for everything.
+
+    A module with NO `ci_gate` call answers `False` — there is no hold to
+    discard. That case is not forgiven, it is somebody else's: the ungated-parent
+    arm above fails it.
+    """
+    tree = ast.parse(source)
+    for fn in [n for n in ast.walk(tree)
+               if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+        for stmt in ast.walk(fn):
+            if not isinstance(stmt, ast.Assign):
+                continue
+            call = stmt.value
+            if not isinstance(call, ast.Call):
+                continue
+            if (call.func.attr if isinstance(call.func, ast.Attribute)
+                    else getattr(call.func, "id", "")) != "ci_gate":
+                continue
+            target = stmt.targets[0]
+            if not (isinstance(target, ast.Tuple) and target.elts
+                    and isinstance(target.elts[0], ast.Name)):
+                return True          # the hold is not even bound to a name
+            hold = target.elts[0].id
+            returned = any(
+                isinstance(node, ast.If)
+                and isinstance(node.test, ast.Compare)
+                and isinstance(node.test.left, ast.Name)
+                and node.test.left.id == hold
+                and any(isinstance(op, ast.IsNot) for op in node.test.ops)
+                and any(isinstance(b, ast.Return) and isinstance(b.value, ast.Name)
+                        and b.value.id == hold for b in node.body)
+                for node in ast.walk(fn)
+            )
+            if not returned:
+                return True
+    return False
+
+
+def test_the_DISCARDED_HOLD_predicate_discriminates_on_a_literal() -> None:
+    """Positive control for the walk below, on source the tree does not contain.
+
+    Four arms, because three of the four ways this predicate can rot are silent:
+    answering `True` for everything, answering `False` for everything, matching
+    a `return` of some OTHER name, and accepting a bare `if hold:` whose body
+    returns nothing.
+    """
+    gated = ("def f(x):\n"
+             "    hold, notes = routing.ci_gate(x)\n"
+             "    if hold is not None:\n"
+             "        return hold\n"
+             "    return review_pr.run_review(x)\n")
+    assert not _discards_the_gate_hold(gated), (
+        "the predicate reports a parent that DOES return its hold, so it would "
+        "fail on correct code")
+    assert _discards_the_gate_hold(
+        "def f(x):\n"
+        "    hold, notes = routing.ci_gate(x)\n"
+        "    return review_pr.run_review(x)\n"
+    ), "the predicate no longer reports a gate whose hold is computed and dropped"
+    assert _discards_the_gate_hold(
+        "def f(x):\n"
+        "    hold, notes = routing.ci_gate(x)\n"
+        "    if hold is not None:\n"
+        "        return other\n"
+        "    return review_pr.run_review(x)\n"
+    ), "the predicate accepts a branch that returns something OTHER than the hold"
+    assert not _discards_the_gate_hold(
+        "def f(x):\n    return review_pr.run_review(x)\n"
+    ), "the predicate fires on a module that computes no gate at all — that is the "\
+       "ungated-parent arm's finding, not this one"
+
+
+@pytest.mark.parametrize("path", REVIEW_DISPATCHERS, ids=lambda p: p.name)
+def test_every_gated_parent_RETURNS_the_hold_it_computes(path: Path) -> None:
+    """A gate whose hold is dropped is a gate that changed nothing.
+
+    WHY THIS ARM EXISTS AND WHAT IT COST TO FIND. The two arms above assert that
+    the gate is CALLED and CALLED CORRECTLY. Neither asserts it has any effect,
+    and the docstring above says so about ordering — but the effect gap is wider
+    than ordering: deleting the four-line hold-return from `research_workflow`
+    failed NOTHING in the unit suite. Five of the six parents have no
+    behavioural test at all; `plan_project` is the only one driven end-to-end.
+
+    WHAT THIS DOES NOT LOOK AT — and the first bullet is why the behavioural
+    test still earns its place:
+      * ORDER, still. A parent that returns its hold AFTER dispatching review
+        satisfies this. `test_plan_project_loop.test_a_RED_tree_HOLDS_before_
+        review_pr_is_ever_dispatched` is the arm that sees that, for the one
+        parent a test drives.
+      * A hold propagated by any shape other than `if <hold> is not None:
+        return <hold>` — an early `return hold or ...`, a raise, a caller that
+        inspects the tuple. All are legitimate and all fail here. That is
+        deliberate: six parents write the identical four lines today, and a
+        guard that admits every equivalent shape admits the broken ones too.
+      * WHAT THE CALLER DOES WITH THE RETURNED HOLD. This ends at the function
+        boundary.
+    """
+    assert not _discards_the_gate_hold(path.read_text()), (
+        f"{path.name} computes a CI hold and does not return it, so the gate runs, "
+        f"writes its operator note saying review-pr was NOT dispatched, and then "
+        f"dispatches review-pr anyway — MERGE stays reachable on a red tree with "
+        f"every other arm of this module green. Add `if hold is not None: return "
+        f"hold` immediately after `notes.extend(gate_notes)`."
+    )
+
+
 # ---------------------------------------------------------------------------
 # A FAILED READ IS NOT AN ABSENT GATE. Conflating them turned a green PR into
 # three rebuilds on 2026-08-14.

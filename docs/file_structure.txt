@@ -402,7 +402,9 @@ claude-dot-files/
 │                   ├── test_ci_gate.py               # The PARENT reads the CI verdict, so MERGE is unreachable on a red tree — a
 │                   │                                #   prompt-level instruction is a convention an agent can reason past. Population is
 │                   │                                #   EVERY parent that dispatches review-pr, floored on all three families: the
-│                   │                                #   build-only scope it shipped with was green over four ungated parents (PR #124)
+│                   │                                #   build-only scope it shipped with was green over four ungated parents (PR #124).
+│                   │                                #   Asserts the gate's EFFECT too: a parent that computes a hold and drops it
+│                   │                                #   merges on red with every other arm green — measured, then guarded
 │                   ├── test_the_dispatch_tool_enum_can_NAME_A_FIX_for_every_review_type.py  # disposition.md is SHARED by all three
 │                   │                                #   ReviewTypes and its dispatch_tool enum named build and planning tools only, so a
 │                   │                                #   research reviewer reached a mandatory REDISPATCH exit with no legal value to emit

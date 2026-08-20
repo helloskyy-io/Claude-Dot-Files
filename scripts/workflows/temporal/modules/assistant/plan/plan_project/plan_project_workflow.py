@@ -640,8 +640,8 @@ def _dispose(pr: str, repo_root: Path, repo_target: str | None,
     # `repo_root=repo_root` ON BOTH: without it neither call can find
     # `testing/check-policy.yaml`, so every read degrades to "this repo declares
     # no gate" and the gate forgives everything.
-    wait_for_ci(pr, repo=repo_target, repo_root=repo_root)
-    verdict_state, extra = ci_verdict(pr, repo=repo_target, repo_root=repo_root)
+    wait_for_ci(pr, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo_root=repo_root)
     hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
                                        repo_target=repo_target)
     notes.extend(gate_notes)

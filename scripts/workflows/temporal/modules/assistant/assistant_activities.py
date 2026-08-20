@@ -1076,11 +1076,15 @@ def gh_attempt(args: list[str],
     pending. Folding the raise in here would break both, so
     `test_gh_attempt_RETURNS_a_failure_rather_than_raising_it` pins it.
 
-    `repo_root` IS OPTIONAL BECAUSE ONE CALLER LEGITIMATELY HAS NO TREE. `gh()`
-    always passes one (see its docstring on why cwd rather than `--repo`), but
-    `ci_verdict` addresses the PR with an explicit `--repo` and must keep using
-    the process cwd; `None` means exactly that, and preserves what its raw
-    `subprocess.run` did before it was routed through here.
+    `repo_root` IS OPTIONAL, AND THE REASON THIS SENTENCE ONCE GAVE IS NO LONGER
+    TRUE. It used to read "`ci_verdict` addresses the PR with an explicit
+    `--repo` and must keep using the process cwd" — but PR #128 removed that
+    `--repo`, precisely because our own flag of that name carries a filesystem
+    path, and both CI reads derive the repo from the cwd like everything else.
+    `None` now means only "this caller has no tree to anchor to", which in the
+    live fleet is no caller at all and in the tests is deliberate: it is the
+    input that proves an unanchored read degrades to "this repo declares no
+    gate" rather than silently passing.
 
     A RETRY IS VISIBLE OR IT NEVER HAPPENED. Every attempt past the first prints
     what failed, how it was classified, and how long the pause is; a run that
@@ -1354,7 +1358,7 @@ def read_check_policy(repo_root: Path) -> tuple[list[str], list[str], bool]:
     return blocking, advisory, True
 
 
-def ci_verdict(pr: str, *, repo: str | None = None,
+def ci_verdict(pr: str, *,
                repo_root: Path | None = None) -> tuple[routing.CiVerdict, list[str]]:
     """Read the settled verdict for the checks THE TARGET REPO gates on.
 
@@ -1473,7 +1477,7 @@ _TERMINAL_CHECK_STATES = frozenset({
 })
 
 
-def wait_for_ci(pr: str, *, repo: str | None = None,
+def wait_for_ci(pr: str, *,
                 repo_root: Path | None = None) -> bool:
     """Block until the PR's declared gate has REPORTED and settled.
 
