@@ -308,14 +308,6 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
 
     after_status = act.candidate_statuses(wt_candidates)
 
-    # A ROW THAT VANISHED PASSES THE POST-CONDITION ABOVE, which counts blank
-    # `decision` cells: deleting an untriaged row drops the count exactly as
-    # ruling it would, so a run could report a complete triage over a candidate
-    # that no longer exists. The file's promise is that a rejected candidate
-    # stays visibly rejected instead of being re-proposed by the next cycle, and
-    # that promise was carried by one prompt sentence. Checked BEFORE the columns
-    # below, because both status guards judge only ids present on both sides and
-    # would report nothing about a row that is gone.
     # THE TWO RULINGS ARE PAIRED, and the pairing is what is checked. Each column
     # alone would pass a table where every row carries a `size` and none carries a
     # `ship` — both legal in isolation, the combination nonsense. The prompt asks
@@ -331,6 +323,14 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
             f"decision; a row cannot be both."
         )
 
+    # A ROW THAT VANISHED PASSES THE POST-CONDITION ABOVE, which counts blank
+    # `decision` cells: deleting an untriaged row drops the count exactly as
+    # ruling it would, so a run could report a complete triage over a candidate
+    # that no longer exists. The file's promise is that a rejected candidate
+    # stays visibly rejected instead of being re-proposed by the next cycle, and
+    # that promise was carried by one prompt sentence. Checked BEFORE the columns
+    # below, because both status guards judge only ids present on both sides and
+    # would report nothing about a row that is gone.
     gone = act.ids_deleted(before_status, after_status)
     if gone:
         raise RuntimeError(

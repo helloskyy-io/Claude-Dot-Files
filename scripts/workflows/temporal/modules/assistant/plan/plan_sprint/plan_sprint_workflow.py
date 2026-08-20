@@ -203,8 +203,12 @@ def run_plan_sprint(*, repo_root: Path, worktree: Path, sprint_path: Path,
                     verbose: bool = False) -> str:
     """Give ONE planned component a current home in the sprint. Returns the PR URL.
 
-    REBUILT 2026-08-19, and the previous prompt is kept beside this one as
-    `plan_sprint_OLD.md` until `triage-candidates` takes over the half that left.
+    REBUILT 2026-08-19. The previous prompt was kept beside this one until
+    `triage-candidates` took over the half that left, and was deleted on
+    2026-08-20 once it had -- the same change that gave `candidates.md` its
+    `size` column and gave that workflow the sizing rule. What it used to do is
+    recorded in the next paragraph rather than on disk, because the reason this
+    workflow is shaped the way it is outlives the file that explains it.
     The old workflow was entirely candidate-driven: it walked `candidates.md`,
     applied a five-condition bar to every `ship` row, and decided sprint section
     versus milestone versus not-in-this-file. It had no component input at all.

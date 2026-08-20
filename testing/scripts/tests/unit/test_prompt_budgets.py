@@ -196,7 +196,18 @@ BUDGETS: dict[str, int] = {
     # is NOT mechanically checked and naming which, so an omitted column made
     # that promise false in the expensive direction: the model learns the column
     # is on the honour system and the guard then fails the whole run.
-    "plan/plan_feature/prompts/plan_feature.md": 23464,  # +${FILING_A_CANDIDATE_ROW}
+    # +362 on 2026-08-20, and it buys ONE bullet plus a numeral this list no
+    # longer has to hand-maintain. The list heads itself "exactly what checks
+    # it" and closes by promising exactly ONE row is not mechanically checked --
+    # yet the table's FIRST MAY NOT row, "Estimate hours, or size the work in
+    # any unit of time", appeared nowhere beneath it, while `own.hour_hits`
+    # checks it on every run. A reader had to leave the list to learn that,
+    # which is what a completeness promise exists to make unnecessary. The
+    # bullet is +367; "All four candidate columns" -> "Every candidate column"
+    # is -4 and the agreement fix "are" -> "is" is -1. The count now derives
+    # from the enumeration beside it instead of being remembered, which is the
+    # class this repo paid four correction passes for on PR #101.
+    "plan/plan_feature/prompts/plan_feature.md": 23826,  # +${FILING_A_CANDIDATE_ROW}
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -243,7 +254,12 @@ BUDGETS: dict[str, int] = {
     # `plan_feature.md` above, for the same 8 bytes.
     # +7 on 2026-08-20, the same corrected sentence as `plan_feature.md` above
     # and for the same reason, byte for byte.
-    "plan/plan_verify/prompts/plan_verify.md": 18142,
+    # RATCHETED DOWN 18142 -> 18137 on 2026-08-20: -4 for the same dropped
+    # numeral as `plan_feature.md` above ("All four candidate columns" ->
+    # "Every candidate column") and -1 for the same agreement fix. Ratcheted
+    # rather than left slack, because a budget five bytes loose is exactly the
+    # room the next unrecorded addition slips into.
+    "plan/plan_verify/prompts/plan_verify.md": 18137,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.

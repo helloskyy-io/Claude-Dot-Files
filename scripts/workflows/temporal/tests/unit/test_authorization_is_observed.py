@@ -632,9 +632,52 @@ def test_EVERY_value_guard_NAMES_THE_VALUE_THAT_MOVED() -> None:
 # was built to close; an excluded-by-predicate one re-enters the moment it starts
 # making the promise.
 
+# WHAT THIS GUARD DOES NOT LOOK AT, stated because the rule below is narrower
+# than its heading sounds and a scoped control read as a general one is how the
+# next member gets missed:
+#
+#   * **A prohibition that is not a COLUMN.** The key is backticked tokens
+#     intersected with `_GUARDED_COLUMNS`, so `plan_feature.md`'s "Estimate
+#     hours, or size the work in any unit of time" sits outside it by
+#     construction. A REVIEW PASS FOUND EXACTLY THAT MEMBER, one row over from
+#     the `size` omission this rule was written for.
+#   * **AND WIDENING THE KEY WAS TRIED AND MEASURED VACUOUS**, which is why the
+#     scope is recorded here instead of removed. The obvious generalisation --
+#     require some content word of each non-`JUDGEMENT` row to appear in the
+#     block -- answers OK for all 30 non-judgement rows across the three
+#     prompts INCLUDING the omitted hours row, which matches on the incidental
+#     words "size" and "work". A key that cannot separate the one known defect
+#     from 29 correct rows is a wrong verdict wearing a rule's clothes, and
+#     shipping it would have been worse than the gap it papered over. The hours
+#     row was closed by fixing the PROMPT, and no key is claimed for that half.
+#   * **WHERE the prompt accounts for a row.** The search is the enforcement
+#     block alone, deliberately: a column name appearing elsewhere in the prompt
+#     proves nothing about the list that promises to enumerate them, which is
+#     what `test_the_enforcement_block_is_NOT_EMPTY` exists to keep honest.
+#
+# What IS closed here beyond the original column rule: the two hand-maintained
+# FIGURES this section carried -- the numeral quantifying the column
+# enumeration, and the count of rows the closing sentence calls unchecked. Both
+# are derivable, both were being remembered, and both now have a rule.
+
 _ENFORCEMENT_OPENS = ("the worktree is read and compared against a snapshot "
                       "taken before you started")
-_ENFORCEMENT_CLOSES = "One row in that column is NOT mechanically checked"
+
+# THE CLOSING PROMISE -- AND THE NUMERAL IS A CAPTURE, NOT PART OF THE ANCHOR.
+# This was matched literally as "One row in that column is NOT mechanically
+# checked", which welded the extractor to a hand-maintained figure: a prompt
+# that CORRECTLY grew to "Two rows" would stop matching, drop out of the
+# population, and surface as the sweep below reporting that its promise "is no
+# longer read by anything" -- a true sentence pointing at the wrong cause.
+# Capturing the numeral lets the rule that actually owns it say so instead.
+_ENFORCEMENT_CLOSES = re.compile(
+    r"(\w+) rows? in that column (?:is|are) NOT mechanically checked")
+
+_NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                 "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+_A_NUMERAL = re.compile(
+    r"\b(\d+|" + "|".join(_NUMBER_WORDS) + r")\b", re.IGNORECASE)
 
 # A backticked token that could be a column name. Deliberately refuses anything
 # with a dot or a slash — `direction.md`, `research/`, `phaseN_<name>.md` are
@@ -651,10 +694,10 @@ def _enforcement_block(prompt_text: str) -> str | None:
     on text that is not the list at all.
     """
     start = prompt_text.find(_ENFORCEMENT_OPENS)
-    end = prompt_text.find(_ENFORCEMENT_CLOSES)
-    if start < 0 or end <= start:
+    close = _ENFORCEMENT_CLOSES.search(prompt_text)
+    if start < 0 or close is None or close.start() <= start:
         return None
-    return prompt_text[start:end]
+    return prompt_text[start:close.start()]
 
 
 def _columns_forbidden(mod, prompt_text: str) -> dict[str, str]:
@@ -796,3 +839,222 @@ def test_a_prompt_making_NO_completeness_promise_is_OUT_OF_POPULATION() -> None:
     that today's `plan_sprint.md` happens to lack the anchors.
     """
     assert _enforcement_block(_NO_PROMISE_AT_ALL) is None
+
+
+# --- the two FIGURES the enforcement section was remembering -----------------
+#
+# THE CLASS IS "A PROSE NUMBER ABOUT A POPULATION THE CODE ALREADY DERIVES", and
+# this repo has paid for it four times on PR #101 alone. It is gated in four
+# corpora already -- `tests/unit/` by
+# `test_a_prose_COUNT_of_a_collection_is_DERIVED.py`, the journal package, the
+# phase docs, and `candidates.md`. PROMPTS UNDER `modules/` WERE A FIFTH CORPUS
+# WITH NO GATE, and the enforcement section carried two members of the class:
+#
+#   * the numeral quantifying the column enumeration -- "All four candidate
+#     columns -- `decision`, `size`, `status`, `component`". True when written.
+#     Nothing derives it, and the rules above force the NAME of a fifth column
+#     into the block while saying nothing about the count, so the next widening
+#     yields "All four candidate columns -- <five names>" in the one artifact
+#     whose whole job is telling a model what is watched.
+#   * the count in the closing sentence -- "One row in that column is NOT
+#     mechanically checked". The registry knows exactly how many rows are
+#     `JUDGEMENT`; the sentence remembers it.
+#
+# BOTH RULES ARE KEYED ON THE POPULATION THE EXTRACTOR ALREADY DEFINES, not on a
+# regex over prompt prose. A loose "numeral near a backticked list" sweep was
+# measured over all 49 prompts first: it fired on `stages_2_to_4.md`'s "A miss
+# has four causes" against an unrelated `set()` one clause away. Scoped to the
+# enforcement block, the population is exactly the three disclosing prompts and
+# there is nothing to argue about.
+
+
+def _column_bullets(block: str) -> list[str]:
+    """Every bullet in the block that names a guarded column.
+
+    FOUND BY CONTENT, NOT BY WORDING, so the rule cannot be dodged by rewriting
+    the sentence it judges. ONE BULLET PER COLUMN IS A LEGITIMATE SHAPE and the
+    threshold is deliberately one rather than two: `triage_candidates.md` gives
+    `status`, `component` and `size` a bullet each so every column can carry its
+    own reason, while the two `plan_*` prompts enumerate all four in one. A rule
+    demanding a single enumerating bullet would have called the better-written
+    prompt non-compliant -- it did, on the first run of this rule, which is why
+    the threshold is stated here rather than assumed.
+
+    DELIBERATELY OVER-INCLUSIVE IN ONE HARMLESS DIRECTION: a bullet that merely
+    MENTIONS a guarded column in its body is matched too -- `triage-candidates`'s
+    deletion bullet is here because it says "the two `status` comparisons". The
+    rule only ever reads the LEAD, so an extra bullet costs nothing and the
+    alternative -- deciding which mentions "really" enumerate -- is judgement
+    this can do without.
+    """
+    found = []
+    for line in block.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("-"):
+            continue
+        if any(t in act._GUARDED_COLUMNS for t in _BACKTICKED.findall(stripped)):
+            found.append(stripped)
+    return found
+
+
+def _bullet_lead(bullet: str) -> str:
+    """The bolded lead phrase — the part that QUANTIFIES what follows.
+
+    Scoped to the lead rather than the whole bullet because the body legitimately
+    contains prose that may carry a number; it is the quantifier in front of the
+    enumeration that duplicates a derivable count.
+    """
+    match = re.match(r"-\s*\*\*(.+?)\*\*", bullet)
+    return match.group(1) if match else ""
+
+
+def _stated_unchecked(prompt_text: str) -> int | None:
+    """How many rows the closing sentence CLAIMS are not mechanically checked."""
+    close = _ENFORCEMENT_CLOSES.search(prompt_text)
+    if close is None:
+        return None
+    return _NUMBER_WORDS.get(close.group(1).lower())
+
+
+def _judgement_rows(observers: dict[str, str]) -> list[str]:
+    """The rows the registry itself says nothing can observe."""
+    return sorted(row for row, obs in observers.items()
+                  if obs.startswith("JUDGEMENT"))
+
+
+@pytest.mark.parametrize("mod,prompt_name", DISCLOSING)
+def test_the_COLUMN_BULLET_does_not_RESTATE_a_count_it_could_DERIVE(
+        mod, prompt_name: str) -> None:
+    """The enumeration is right there; quantifying it is a second copy.
+
+    The rules above already force every guarded column's NAME into this bullet.
+    A reader — human or model — can count them. A numeral in front of them is a
+    figure nothing recomputes, in the artifact that tells a model what is
+    watched, and it goes stale on exactly the change the other rules compel.
+    """
+    restated = [(_bullet_lead(b), _A_NUMERAL.search(_bullet_lead(b)).group(0))
+                for b in _column_bullets(_enforcement_block(
+                    _prompt(mod, prompt_name)))
+                if _A_NUMERAL.search(_bullet_lead(b))]
+    assert not restated, (
+        f"{prompt_name} leads a column bullet with a count of the very list it "
+        f"enumerates: "
+        + "; ".join(f"{lead!r} states {num!r}" for lead, num in restated)
+        + ". Nothing derives that number. Widening the guarded columns forces "
+          "the new NAME into this bullet and leaves the count untouched, so the "
+          "next column makes the sentence false in the one artifact whose job "
+          "is telling a model what is watched. Say `Every candidate column` and "
+          "let the enumeration carry the count.")
+
+
+@pytest.mark.parametrize("mod,prompt_name", DISCLOSING)
+def test_the_CLOSING_PROMISE_counts_the_rows_the_REGISTRY_calls_unchecked(
+        mod, prompt_name: str) -> None:
+    """"One row is NOT mechanically checked" is a claim the registry can settle.
+
+    THE SILENT DIRECTION IS A SECOND `JUDGEMENT` ROW. Registering one leaves this
+    sentence matching, the population intact and every other rule green, while
+    the prompt now under-states what is on the honour system — the exact
+    direction the enforcement list exists to prevent, arriving through the
+    sentence that promises it cannot.
+    """
+    stated = _stated_unchecked(_prompt(mod, prompt_name))
+    judged = _judgement_rows(mod.MAY_NOT_OBSERVERS)
+    assert stated is not None, (
+        f"{prompt_name}: the closing promise names a quantity this rule cannot "
+        f"read. Spell it as a word up to ten, or teach `_NUMBER_WORDS` the "
+        f"spelling — an unreadable count is an unchecked one.")
+    assert stated == len(judged), (
+        f"{prompt_name} promises {stated} row(s) in that column are NOT "
+        f"mechanically checked, and its MAY_NOT_OBSERVERS registry marks "
+        f"{len(judged)} as JUDGEMENT: {judged}. A prompt claiming FEWER "
+        f"unchecked rows than there are tells the model the difference is "
+        f"watched when nothing watches it.")
+
+
+_LEAD_WITH_A_COUNT = "- **All four candidate columns** — `decision`, `size` — x."
+_LEAD_WITHOUT_ONE = "- **Every candidate column** — `decision`, `size` — x."
+
+
+@pytest.mark.parametrize("label,bullet,restates", [
+    ("a lead that quantifies the enumeration", _LEAD_WITH_A_COUNT, True),
+    ("a lead that lets the list carry it", _LEAD_WITHOUT_ONE, False),
+], ids=["restates", "derives"])
+def test_the_COUNT_rule_SEPARATES_a_restated_figure_from_a_derived_one(
+        label: str, bullet: str, restates: bool) -> None:
+    """Both answers, on bullets the live prompts no longer contain.
+
+    Once the three prompts are corrected, this rule is reachable only through
+    text that passes — so a change to `_bullet_lead` or `_A_NUMERAL` would answer
+    "nothing restated" everywhere and go permanently green over the defect it
+    was written for. The failing case has to live somewhere, and here it is.
+    """
+    assert bool(_A_NUMERAL.search(_bullet_lead(bullet))) is restates
+    assert _column_bullets(bullet) == [bullet], (
+        f"{label}: the bullet finder no longer recognises its own fixture")
+
+
+_PROMISES_ONE = "One row in that column is NOT mechanically checked, and you are told which."
+_PROMISES_TWO = "Two rows in that column are NOT mechanically checked, and you are told which."
+_PROMISES_NOTHING = "Every path outside the grant is compared by content."
+
+_ONE_JUDGEMENT = {"a": "act.ids_deleted over both snapshots",
+                  "b": "JUDGEMENT — sequencing leaves no artifact"}
+_TWO_JUDGEMENTS = {"a": "JUDGEMENT — design leaves no artifact",
+                   "b": "JUDGEMENT — sequencing leaves no artifact"}
+
+
+@pytest.mark.parametrize("label,sentence,observers,agrees", [
+    ("one promised, one registered", _PROMISES_ONE, _ONE_JUDGEMENT, True),
+    ("one promised, two registered", _PROMISES_ONE, _TWO_JUDGEMENTS, False),
+    ("two promised, two registered", _PROMISES_TWO, _TWO_JUDGEMENTS, True),
+    ("two promised, one registered", _PROMISES_TWO, _ONE_JUDGEMENT, False),
+], ids=["1-1", "1-2", "2-2", "2-1"])
+def test_the_PROMISE_rule_SEPARATES_a_true_count_from_a_stale_one(
+        label: str, sentence: str, observers: dict[str, str],
+        agrees: bool) -> None:
+    """All four corners, including the PLURAL the live prompts never exercise.
+
+    Every live prompt says "One row … is", so the singular is the only spelling
+    the anchor is proved against by the parametrisation above. A regex that had
+    silently lost its `rows?`/`are` alternation would still pass there and would
+    drop any prompt that grew a second judgement row straight out of the
+    population — failing open on precisely the change this rule watches for.
+    """
+    assert (_stated_unchecked(sentence) == len(_judgement_rows(observers))) is agrees
+
+
+def test_the_PROMISE_rule_reads_NOTHING_from_a_prompt_that_makes_no_promise() -> None:
+    """`None`, not a crash and not a zero.
+
+    A sentence-free prompt must be UNREADABLE rather than read as "zero rows
+    unchecked" — zero is a claim, and one that would agree with any registry
+    holding no `JUDGEMENT` rows at all.
+    """
+    assert _stated_unchecked(_PROMISES_NOTHING) is None
+
+
+def test_the_COLUMN_BULLET_finder_HAS_a_population() -> None:
+    """POSITIVE CONTROL on the finder, against the rule above passing vacuously.
+
+    `test_the_COLUMN_BULLET_does_not_RESTATE_a_count_it_could_DERIVE` asserts an
+    EMPTY list, so a finder that matched nothing at all would satisfy it for
+    every prompt forever — the exact shape of a check that stopped checking, and
+    the one this repo has issue #103 open about. Pinned per prompt rather than as
+    a total, because a total hides one prompt falling to zero while another
+    grows. The figures are what the shapes described in `_column_bullets`
+    produce: one enumerating bullet for each `plan_*` prompt, and for
+    `triage-candidates` a bullet each for `status`, `component` and `size` plus
+    its deletion bullet, which names `status` in its body. FOUR, NOT THREE --
+    this control was written asserting three and the finder corrected it, which
+    is the control doing its job before the rule ever shipped.
+    """
+    found = {name: len(_column_bullets(_enforcement_block(_prompt(mod, prompt))))
+             for mod, prompt, name in workflows_declaring("MAY_NOT_OBSERVERS")
+             if _enforcement_block(_prompt(mod, prompt)) is not None}
+    assert found == {"plan-feature": 1, "plan-verify": 1, "triage-candidates": 4}, (
+        f"the column-bullet finder sees {found}. A count that fell to 0 means "
+        f"the rule above is judging nothing for that prompt and would stay green "
+        f"through any count it grew back; a count that ROSE means the list "
+        f"gained a bullet naming a guarded column, which is legitimate — confirm "
+        f"its lead carries no restated figure and update this number.")
