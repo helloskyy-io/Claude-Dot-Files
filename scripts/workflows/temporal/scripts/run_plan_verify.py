@@ -185,9 +185,9 @@ def main(argv=None) -> int:
             # ASSUMED. No worktree exists on a dry run, so every figure below is
             # read off THIS checkout — while a `--pr` run cuts its worktree from
             # `origin/<the PR's branch>` and reads nothing else. Two trees, and
-            # on the correction pass a `--pr` dry run exists for they routinely
-            # differ. `prompt_values`' `tree` parameter documents the same split
-            # one module over; this is the runner saying it out loud.
+            # on the correction pass that a `--pr` dry run exists for, they
+            # routinely differ. `prompt_values`' `tree` parameter documents the
+            # same split one module over; this is the runner saying it out loud.
             print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
             # AND WHERE THIS CHECKOUT DEMONSTRABLY IS NOT THAT TREE, SAY SO
             # BEFORE THE NUMBERS. The precondition above has just proved the plan
@@ -196,6 +196,14 @@ def main(argv=None) -> int:
             # looks exactly like a preview that is right. Printing the caveat
             # ABOVE the counts is the placement: an operator scanning top-down
             # meets the reason before the zeros they would otherwise believe.
+            #
+            # WHAT THE CAVEAT DOES NOT CATCH, stated so its SILENCE is not
+            # over-read: it keys on the roadmap being ABSENT here, not on this
+            # checkout's copy AGREEING with the branch's. A stale local roadmap
+            # at the same path prints no caveat and still counts a tree the run
+            # will not read. That is why the `Counted in` line above is
+            # UNCONDITIONAL — it is the honesty floor, true of every dry run,
+            # and the caveat is only the loud case sitting on top of it.
             #
             # COUNTING FROM THE BRANCH INSTEAD is the larger fix — `git ls-tree`
             # / `git show` against `origin/<branch>` — and it is issue #134's,

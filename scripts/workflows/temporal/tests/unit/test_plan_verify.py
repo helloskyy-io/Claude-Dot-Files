@@ -1408,6 +1408,16 @@ def test_a_DRY_RUN_on_a_PR_pass_SAYS_the_counts_came_from_a_TREE_WITHOUT_the_pla
     assert "origin/plan-feature-1787204416" in out, (
         f"the preview does not name the tree the run will actually read, which "
         f"is the one place the operator can go to check; got {out!r}")
+    # AND ABOVE THE ZEROS, NOT UNDER THEM — asserted in the shape this file uses
+    # for the fetch/ls-tree ordering, because `in out` cannot see a placement.
+    # The runner's own comment calls this placement load-bearing (an operator
+    # scanning top-down must meet the reason before the numbers), and the caveat
+    # says "the counts BELOW", so a caveat printed underneath them contradicts
+    # its own wording while passing every substring assertion above.
+    assert out.index("Counted in") < out.index("NOT HERE") < out.index("Phase docs"), (
+        f"the provenance and the caveat are not above the counts they qualify — "
+        f"the operator meets the zeros before the reason, and the caveat's own "
+        f"\"counts below\" is false where it now sits; got {out!r}")
     assert calls.count(("pr_branch", "132")) == 1, (
         f"the PR's branch was resolved more than once — the preview re-derived "
         f"what the precondition had already put in `branch`, which is two "
@@ -1458,3 +1468,52 @@ def test_a_DRY_RUN_still_names_its_tree_and_DROPS_the_caveat_when_the_plan_IS_he
     assert "NOT HERE" not in out and "does NOT carry" not in out, (
         f"the caveat fired for a checkout that DOES carry the plan, telling the "
         f"operator their own file is missing; got {out!r}")
+
+
+def test_a_DRY_RUN_with_NO_pr_still_NAMES_the_tree_it_counted(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """Provenance is unconditional, and until this test nothing held that.
+
+    THE TWO TESTS ABOVE BOTH PASS `--pr`, so neither can tell "names the tree
+    always" from "names the tree only on a `--pr` pass". Gating the `Counted in`
+    line on `a.pr_number` was run as a mutation and SURVIVED the whole unit
+    suite — 0 red — which is what this test exists to close. Their docstrings
+    already claim unconditionality ("true of every dry run"); this is the
+    assertion that makes the claim checkable rather than merely stated.
+
+    AND IT IS THE HONESTY FLOOR, not a nicety. The caveat keys on the roadmap
+    being ABSENT here, so a checkout holding a STALE roadmap at the same path
+    gets no caveat and still counts a tree the run will not read. On that pass
+    this line is the only thing that tells the operator where the numbers came
+    from — and on a non-`--pr` run it is the only provenance printed at all.
+
+    `pr_branch` IS ASSERTED NEVER TO HAVE RUN. Without `--pr` there is no PR to
+    resolve, and a provenance line that reached for a branch anyway would put a
+    network round-trip behind a purely local preview.
+    """
+    repo, runner, calls = _repo(tmp_path), _runner(), []
+    (repo / "docs" / "development" / "alpha" / own.ROADMAP).write_text(
+        "# Alpha\n\n## Phase 1 — a thing (~4 hrs)\n")
+    _pr_lookup(monkeypatch, "plan-feature-1787204416",
+               f"docs/development/alpha/{own.ROADMAP}\n", calls)
+    _record_side_effects(monkeypatch, runner, calls)
+
+    rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--dry-run"])
+    out, err = capsys.readouterr()
+    assert rc == 0, f"the dry run did not complete; stderr was {err!r}"
+    assert "Sized now  : 1 estimate(s)" in out, (
+        f"the local roadmap was not read, so this run is not previewing the "
+        f"component this test set up; got {out!r}")
+    assert "Counted in : this checkout" in out, (
+        f"a dry run WITHOUT --pr does not name the tree its counts came from, "
+        f"so provenance is conditional on a flag that has nothing to do with "
+        f"where the counting happened; got {out!r}")
+    assert "NOT HERE" not in out, (
+        f"the branch caveat fired on a run that named no PR and resolved no "
+        f"branch; got {out!r}")
+    assert not [c for c in calls if c and c[0] == "pr_branch"], (
+        f"a run given no --pr resolved a PR branch anyway; the calls were "
+        f"{calls!r}")
+    assert not {"open_run_bag", "worktree_add", "run_plan_verify"} & set(calls), (
+        f"a --dry-run created something or dispatched — `nothing invoked, "
+        f"nothing posted` is the banner's promise; the calls were {calls!r}")
