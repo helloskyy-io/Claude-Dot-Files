@@ -1,6 +1,6 @@
 # Phase 5 — The first dispatch, end to end
 
-**Status: ⬜ NOT STARTED.** Fifth in [rollout order](roadmap.md), and the first phase where a wrong answer in any earlier one becomes visible.
+**Status: ⬜ NOT STARTED.** Listed after [Phase 4](phase4_the_claude_cli_activity.md) in [rollout order](roadmap.md) — sixth in that order since [Phase 9](phase9_review_runs_in_the_python_tree.md) was inserted — and the first phase where a wrong answer in any earlier one becomes visible.
 
 **One worker, one family, one pull request.** This is the strangler fig, and it is deliberately thin. The thing that breaks a port is never the second family — it is the first, and everything the first one teaches is cheaper to learn against a single dispatch than against twenty.
 
@@ -21,7 +21,7 @@ It also carries the audit that [Phase 3](phase3_the_retry_boundary.md) deliberat
 
 ## Dependencies
 
-**Inside this component:** all four preceding phases.
+**Inside this component:** [Phases 1, 2, 3 and 4](roadmap.md) — named rather than counted, because [Phase 9](phase9_review_runs_in_the_python_tree.md) also precedes this one in rollout order and **is not a dependency of it.**
 
 | Depends on | Why |
 |---|---|
@@ -30,7 +30,14 @@ It also carries the audit that [Phase 3](phase3_the_retry_boundary.md) deliberat
 | [Phase 3](phase3_the_retry_boundary.md) | requirement 2 of this phase is that phase's ruling applied |
 | [Phase 4](phase4_the_claude_cli_activity.md) | every parent in the fleet ultimately calls `claude -p` |
 
-**Outside this component:** [Workflow Decomposition](../workflow-decomposition/roadmap.md). This is where the component's stated gate actually bites — *porting a shape still being changed means porting it twice*, and this is the first phase that ports a shape. **Which of that component's phases must land before this one is an operator sequencing call, not a technical derivation**, and it is named in § *What this phase does not settle*.
+**Outside this component, and it is TWO things rather than one:**
+
+| Precondition | Why it blocks, and what it is not |
+|---|---|
+| [Workflow Decomposition](../workflow-decomposition/roadmap.md) | see below — a shape still being re-cut is ported twice |
+| **Candidate [C-118](../../standards/architecture/research/candidates.md) triaged** | §A4 — prompt-as-input or prompt-as-resource — is unruled, and *"Write the parent as a workflow"* is the step where a replay first has to load a prompt from somewhere. **This is a stop condition, so it belongs here and not only in § *What this phase does not settle***, where a dispatcher scanning dependencies would never see it. **It is not a technical dependency and nothing in this component can clear it** — it is a ruling somebody has to make |
+
+[Workflow Decomposition](../workflow-decomposition/roadmap.md) is where the component's stated gate actually bites — *porting a shape still being changed means porting it twice*, and this is the first phase that ports a shape. **Which of that component's phases must land before this one is an operator sequencing call, not a technical derivation**, and it is named in § *What this phase does not settle*.
 
 **What this phase unblocks:** [Phase 6](phase6_the_rest_of_the_fleet.md).
 
@@ -71,9 +78,10 @@ It also carries the audit that [Phase 3](phase3_the_retry_boundary.md) deliberat
 - [ ] **Write the semantic wrappers.** `@activity.defn` over the plain functions Stage A already produced — the plain functions are untouched, which is the property that made the staging worth having.
 - [ ] **Give each wrapper a unique activity name**, so the Temporal UI names a call site rather than a function. That superpower lives in the semantic wrappers, not in the helpers, and losing the distinction is how a port arrives with a UI nobody can read.
 - [ ] **Build the worker entry point** per [§7 of the deployment standard](../../standards/temporal/worker_deployment_standard.md), registering only this family's workflows and activities.
+- [ ] **Set this worker's activity slot count and executor width by [Phase 4](phase4_the_claude_cli_activity.md)'s requirement 8**, and record the number and the budget it came from in § *Runtime Verification*. **This is the fleet's first real worker, so it is where the precedent is set** — and left unset, `max_concurrent_activities` admits a hundred concurrent `claude` runs on the machine holding the repo.
 - [ ] **Install it as a systemd unit** — a Python venv with `temporalio` plus the `claude` CLI, on the machine holding the repo. **Not a container**; see the gotchas.
 - [ ] **Write the parent as a workflow**, holding no process code and calling no model. It decides *if*, *when* and *what*; every side effect is an activity or a child.
-- [ ] **Kill the parent between two children and restart it** — requirement 6. Record what it knows about the earlier children on resume, against what [Phase 2](phase2_durable_dispatch_identity.md)'s *parent sequencing* row says should be durable. **This is a different demonstration from killing the worker mid-activity** and it fails differently; do both.
+- [ ] **Restart the worker while the parent sits BETWEEN children, with no activity in flight** — requirement 6 — and show the next workflow task replaying the completed children out of event history. Record what the parent knows on resume against what [Phase 2](phase2_durable_dispatch_identity.md)'s *parent sequencing* row says should be durable. **`terminate` and `cancel` are the wrong levers and naming them is the point: a terminated workflow does not resume**, so reaching for one demonstrates the opposite of the property under test. **This is the same lever as the mid-activity restart above, timed differently, and the two fail differently; do both.**
 - [ ] **Name the target task queue on every dispatch, including parent-to-child.** Add a test that fails on a dispatch with no explicit `task_queue`, because this failure mode produces silence rather than an error.
 - [ ] **Fail fast on dispatch.** Per [§8](../../standards/temporal/worker_deployment_standard.md), a start against a queue nobody polls must be a loud failure, not a wait.
 - [ ] **Confirm the completion contract survives.** The parent needs the child's exit code plus one stable identifier on its final line; that is the interface, and it is why composition here needs no framework.

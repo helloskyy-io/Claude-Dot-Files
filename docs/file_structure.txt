@@ -122,12 +122,13 @@ claude-dot-files/
 │   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs the Phase 2 ruling,
 │   │   │                                            #   invocation_contract backs Phases 3, 4 and 5
 │   │   ├── temporal-integration/                    # 🟡 IN PROGRESS per sprint.md — Stage A built, nothing orchestrated, no server.
-│   │   │                                            #   PLANNED 2026-08-19: roadmap.md + 7 phase docs. Rollout order
-│   │   │                                            #   1 → 2 → 3 → 9 → 4 → 5 → 6 → 7 → 8; numbers are IDENTITY, not order.
+│   │   │                                            #   PLANNED 2026-08-19 (Phase 9 added 2026-08-20): roadmap.md + 7 phase docs.
+│   │   │                                            #   Rollout order 1 → 2 → 3 → 9 → 4 → 5 → 6 → 7 → 8; numbers are IDENTITY, not order.
 │   │   │                                            #   Phases 7-8 are roadmap entries with NO doc, deliberately — gated on
-│   │   │                                            #   MDC's cluster work. Also holds the 5-paper reliability pool moved
-│   │   │                                            #   here 2026-08-19 when Fleet Reliability dissolved — durable dispatch
-│   │   │                                            #   id, liveness, the three guards
+│   │   │                                            #   MDC's cluster work. research/ holds SIX papers — activity_retry_boundary
+│   │   │                                            #   is native and backs Phase 3; the other five are the reliability pool
+│   │   │                                            #   moved here 2026-08-19 when Fleet Reliability dissolved, and four of
+│   │   │                                            #   those five feed OTHER components (issue #125 rules their re-homing)
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
 │   │       ├── review-2026-04-24-mdc-master-planning.md
