@@ -565,11 +565,16 @@ def decisions_this_run_had_no_right_to(before: dict[str, str],
     callers check AHEAD of every comparator precisely because a row that is
     simply gone is in neither key set here.
 
-    NOT the same rule as `plan_sprint._rulings_this_run_had_no_right_to`, which
-    additionally refuses a NEW row arriving already ruled. That one is written
-    out separately and its docstring records why; this is the narrower property,
-    and stating the difference is cheaper than the next reader assuming the two
-    names mean one thing.
+    `plan_sprint._rulings_this_run_had_no_right_to` reads like a wider version of
+    this rule — its body also refuses a NEW row arriving already ruled — and it
+    is UNCALLED. Nothing in the tree invokes it: it is residue of the 2026-08-19
+    rebuild, which dropped that workflow's `candidates.md` grant along with the
+    job that needed it and left the comparator behind. The boundary it once held
+    is discharged by that workflow's `FORBIDDEN_PATHS ^docs/standards/`, which
+    needs no column reader at all. Said here rather than left out because the two
+    names read as one family, and a reader meeting that one has no way to tell it
+    fires nothing. Whether to delete it or wire it is an authorization ruling and
+    not this module's to make.
     """
     return sorted(cid for cid in before.keys() & after.keys()
                   if before[cid] != after[cid])

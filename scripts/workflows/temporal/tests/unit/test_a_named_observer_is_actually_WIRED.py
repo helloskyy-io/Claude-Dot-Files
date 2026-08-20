@@ -225,9 +225,12 @@ def run():
 """
 
 # The two module-private cases, added 2026-08-20 with the spelling this file used
-# to claim and not read. `plan_sprint._rulings_this_run_had_no_right_to` is the
-# live example — module-private, listed by `observer_registry.MODULE_SYMBOL`, and
-# callable only bare.
+# to claim and not read. The name is borrowed from `plan_sprint._rulings_this_
+# run_had_no_right_to`, which is where the spelling comes from — module-private,
+# listed by `observer_registry.MODULE_SYMBOL`, and callable only bare. BORROWED,
+# NOT EXERCISED: that symbol is UNCALLED, so it is not a live example of anything
+# and nothing below resolves it. Both snippets are source this tree does not
+# contain, which is the only reason they can carry both answers.
 _MODULE_PRIVATE_WIRED = """
 def _rulings_this_run_had_no_right_to(before, after):
     return []
@@ -367,3 +370,207 @@ def test_the_extractor_READS_BOTH_SPELLINGS() -> None:
         "admits and `names_code` accepts, so an entry may legally use it; an "
         "extractor that reads only `NS_REF` drops it silently and the wiring "
         "rule never asks about it.")
+
+
+# --- and the prose about a comparator must be true of the comparator ---------
+#
+# THE SAME CLASS, ONE ALTITUDE OUT. Everything above reads REGISTRY prose, whose
+# population is the mechanism strings a workflow declares. Ordinary docstrings
+# name these comparators too, and they are outside every sweep in this file — so
+# `decisions_this_run_had_no_right_to` shipped on 2026-08-20, in the commit that
+# built this very rule, with a closing paragraph saying `plan_sprint._rulings_
+# this_run_had_no_right_to` *"additionally refuses a NEW row arriving already
+# ruled"*: present tense, active voice, about a function nothing calls. The same
+# commit's own decision log said it was dead. A class fix's population is the
+# population of the guard that closes it, and that is narrower than the class.
+#
+# TWO ASSERTIONS, BECAUSE THERE ARE TWO FAILURES. One is a comparator going dead
+# — defined, never called, and therefore a boundary that reads as held and is
+# not. The other is prose describing such a comparator as though it fires, which
+# is strictly worse than silence: it is written in the file a reader trusts, and
+# it stops them checking.
+
+_MODULES_ROOT = Path(__file__).resolve().parents[2] / "modules"
+
+# The disclosure token a docstring must carry when it names a dead comparator.
+# ONE WORD, MATCHED CASE-INSENSITIVELY, rather than a judgement about tone: the
+# rule has to be answerable by the person writing the sentence, and "does it say
+# the thing is uncalled" is answerable where "does it read as live" is not.
+_DISCLOSURE = "uncalled"
+
+# Comparators that are DEFINED and CALLED BY NOTHING, with the reason each is
+# still here. A waiver with a reason, in the register `MAY_NOT_OBSERVERS` uses
+# for `JUDGEMENT` — not an exemption list, because the assertion below is an
+# EQUALITY: a new dead comparator fails, and deleting one of these fails too,
+# once, deliberately, which is the moment somebody confirms the residue is gone.
+UNCALLED_BY_DECISION: dict[str, str] = {
+    "_rulings_this_run_had_no_right_to":
+        "plan_sprint_workflow.py — residue of the 2026-08-19 rebuild (#121), "
+        "which dropped that workflow's `candidates.md` grant along with the job "
+        "that needed it. The boundary it held is discharged by FORBIDDEN_PATHS "
+        "`^docs/standards/`, which the tree calls strictly stronger and which "
+        "needs no column reader. Left in place because deleting it or wiring it "
+        "is an authorization ruling rather than an edit; escalated on PR #126 "
+        "and not that branch's to make. Until it is ruled on, every docstring "
+        "naming it must say it is uncalled.",
+}
+
+
+def _defined_and_called_under(root: Path) -> tuple[dict[str, Path], set[str]]:
+    """Every comparator DEFINED under `root`, and every name CALLED under it.
+
+    Calls are collected by their final component — `act.sizes_...` and a bare
+    `sizes_...` both count — because a comparator lives in one module and is
+    reached from another through whatever alias that module imports. A rule that
+    demanded the namespace here would call every cross-module call dead.
+    """
+    defined: dict[str, Path] = {}
+    called: set[str] = set()
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and node.name.endswith(_COMPARATOR)):
+                defined[node.name] = path
+            if isinstance(node, ast.Call):
+                fn = node.func
+                if isinstance(fn, ast.Attribute):
+                    called.add(fn.attr)
+                elif isinstance(fn, ast.Name):
+                    called.add(fn.id)
+    return defined, called
+
+
+def _docstrings_under(root: Path) -> list[tuple[Path, str]]:
+    """Every docstring under `root`, module / class / function alike.
+
+    DOCSTRINGS AND NOT COMMENTS, and not string literals either. A docstring is
+    the module's own account of what its code does — it is what `help()` renders
+    and what a reader opens the file for — so a false sentence there is the one
+    that stops somebody checking. A literal assigned to a name may legitimately
+    contain any of these spellings: this suite's own fixtures are source snippets
+    that do.
+    """
+    out: list[tuple[Path, str]] = []
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                     ast.AsyncFunctionDef)):
+                continue
+            doc = ast.get_docstring(node)
+            if doc:
+                out.append((path, doc))
+    return out
+
+
+def _undisclosed_docstrings(docstrings, dead: set[str]) -> list[str]:
+    """Every docstring naming a dead comparator without saying it is uncalled."""
+    return [f"{path}: names {sorted(hits)}"
+            for path, doc in docstrings
+            if (hits := {d for d in dead if d in doc})
+            and _DISCLOSURE not in doc.lower()]
+
+
+def test_the_comparator_sweep_FINDS_THE_FAMILY_it_is_named_for() -> None:
+    """POSITIVE CONTROL on the discovery both assertions below stand on.
+
+    Each of them compares against a set built by this sweep. A sweep that found
+    nothing would make the dead set empty, the docstring rule vacuous, and the
+    equality below satisfiable by deleting the waiver — three green assertions
+    over an apparatus that stopped reading the tree.
+    """
+    defined, called = _defined_and_called_under(_MODULES_ROOT)
+    assert len(defined) >= 5 and len(called) > 50, (
+        f"the sweep found {len(defined)} comparator definition(s) and "
+        f"{len(called)} call name(s) under {_MODULES_ROOT}. The comparators are "
+        f"matched by the `{_COMPARATOR}` suffix; if one was renamed or the root "
+        f"moved, nothing below is reading this tree.")
+
+
+def test_no_COMPARATOR_goes_DEAD_without_somebody_saying_so() -> None:
+    """A comparator nothing calls is a boundary that reads as held and is not.
+
+    AN EQUALITY, NOT A SUBSET. A subset check would let residue accumulate as
+    long as somebody remembered to add a line here, which is the ratchet this
+    family keeps paying for. Equality means the list can only ever shrink
+    silently — and it cannot: removing a dead comparator fails this once, which
+    is where the operator confirms the escalated ruling was actually made.
+    """
+    defined, called = _defined_and_called_under(_MODULES_ROOT)
+    dead = {name for name in defined if name not in called}
+    assert dead == set(UNCALLED_BY_DECISION), (
+        f"comparators defined under {_MODULES_ROOT} and called by nothing: "
+        f"{sorted(dead)}; recorded as uncalled by decision: "
+        f"{sorted(UNCALLED_BY_DECISION)}. A NEW one means a guard was written "
+        f"and never wired, or a call site was dropped — wire it or delete it. "
+        f"One that is GONE means the residue was finally ruled on; delete its "
+        f"entry here and this passes again.")
+
+
+def test_no_DOCSTRING_calls_an_UNCALLED_comparator_a_LIVE_RULE() -> None:
+    """Prose about a dead comparator must say it is dead.
+
+    THE HARM IS THAT IT STOPS THE NEXT CHECK. A reader auditing what guards
+    `candidates.md` and meeting a docstring that says a wider guard exists
+    elsewhere has been told, by the module's own account of itself, not to look.
+    That is why this is keyed on docstrings rather than on comments: a docstring
+    is what the module says it does, and it is where the false sentence was
+    found.
+    """
+    defined, called = _defined_and_called_under(_MODULES_ROOT)
+    dead = {name for name in defined if name not in called}
+    offenders = _undisclosed_docstrings(_docstrings_under(_MODULES_ROOT), dead)
+    assert not offenders, (
+        f"these docstrings name a comparator nothing calls, without saying so: "
+        f"{offenders}. Say it is {_DISCLOSURE} in the same docstring, or drop "
+        f"the cross-reference. A sentence describing a dead guard in the present "
+        f"tense is the exact failure this module exists to refuse, written "
+        f"somewhere this module was not looking.")
+
+
+_DOC_CLAIMS_IT_FIRES = """
+def guard():
+    '''NOT the same rule as `_rulings_this_run_had_no_right_to`, which
+    additionally refuses a NEW row arriving already ruled.'''
+"""
+
+_DOC_SAYS_IT_IS_DEAD = """
+def guard():
+    '''`_rulings_this_run_had_no_right_to` reads like a wider version of this
+    rule, and it is UNCALLED — nothing in the tree invokes it.'''
+"""
+
+_LITERAL_NOT_A_DOCSTRING = """
+FIXTURE = '''
+def run():
+    if _rulings_this_run_had_no_right_to(before, after):
+        raise RuntimeError("no")
+'''
+"""
+
+
+@pytest.mark.parametrize("label,src,offends", [
+    ("a docstring describing a dead guard as live", _DOC_CLAIMS_IT_FIRES, True),
+    ("a docstring that discloses", _DOC_SAYS_IT_IS_DEAD, False),
+    ("a source snippet assigned to a name", _LITERAL_NOT_A_DOCSTRING, False),
+], ids=["claims-it-fires", "discloses", "literal-not-a-docstring"])
+def test_the_disclosure_rule_SEPARATES_a_live_claim_from_a_disclosed_one(
+        label: str, src: str, offends: bool) -> None:
+    """All three answers, on source this tree does not contain.
+
+    THE THIRD CASE IS THE ONE WORTH HAVING. `claims-it-fires` and `discloses`
+    differ by one word, which a substring rule separates trivially. The literal
+    is the case a rule keyed on RAW TEXT gets wrong — and getting it wrong would
+    make every fixture in this suite an offence, which is the pressure that would
+    get the rule deleted rather than fixed.
+    """
+    tree_docs = [(Path("snippet.py"), doc) for _, doc in
+                 [(None, ast.get_docstring(n))
+                  for n in ast.walk(ast.parse(src))
+                  if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                    ast.AsyncFunctionDef))]
+                 if doc]
+    found = _undisclosed_docstrings(tree_docs,
+                                    {"_rulings_this_run_had_no_right_to"})
+    assert bool(found) is offends, f"{label}: the predicate reported {found}"

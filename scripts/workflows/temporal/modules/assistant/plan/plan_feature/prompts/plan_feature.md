@@ -83,7 +83,7 @@ The sprint plan is the operator's cross-domain sequencing surface, and the stand
 - **Every phase doc that existed before you started** is compared by name. A rename, a renumber and a deletion are one observation — a filename that was there and is not.
 - **Every markdown file you ADD directly in `${COMPONENT_PATH}/`** is checked against `phaseN_<name>.md` and against the numbers already in use. **The only exempt name is `roadmap.md`** — you write exactly two kinds of file, so a new `the_run_bag.md` or `notes.md` fails the run just as `phase_the_thing.md` does. Dropping the number is the failure this catches most often, and it is the one that leaves a document nothing can cite.
 - **Completion checkboxes** across every one of those files are counted before and after, by their text so re-ordering does not read as a change. Adding an *unchecked* item is your entire job. Adding a checked one fails the run — and so does **erasing** one.
-- **All three candidate columns** — `decision`, `status`, `component` — are compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
+- **All four candidate columns** — `decision`, `size`, `status`, `component` — are compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
 - **Deleting anything** fails the run, at both altitudes: rows are compared by ID, and the files themselves are checked for still existing.
 
 Any one of these **fails the whole run** — including the work you did correctly.

@@ -352,9 +352,12 @@ def _value_guards_in(src: str) -> list[_ValueGuard]:
     DISCOVERED FROM THE SOURCE, not listed, for the same reason `WORKFLOWS` is:
     a guard added later must inherit the assertion without anybody editing this
     file. The comparator is matched by NAME SUFFIX rather than by an import list
-    — `act.statuses_this_run_had_no_right_to`, `own.` anything, and
-    `plan_sprint`'s module-private `_rulings_this_run_had_no_right_to` are all
-    the same shape and all three are found.
+    — `act.statuses_this_run_had_no_right_to`, `own.` anything, and a module-
+    private `_rulings_this_run_had_no_right_to` are all the same shape and the
+    matcher admits all three. It ADMITS rather than FINDS the third: nothing in
+    the tree calls a module-private comparator today, so no guard of that shape
+    is in any sweep's result — see `test_no_DOCSTRING_calls_an_UNCALLED_
+    comparator_a_LIVE_RULE` for the one that is defined and never called.
 
     DELETION COMPARATORS ARE DELIBERATELY OUT OF SCOPE. `ids_deleted` and
     `grants_that_vanished` answer *what is GONE*, and there is no after-value to
@@ -598,3 +601,198 @@ def test_EVERY_value_guard_NAMES_THE_VALUE_THAT_MOVED() -> None:
         f"`id 'before'->'after'`; one that names ids alone tells the operator "
         f"WHICH row was written and not WHAT was written into it, which is the "
         f"half they need to tell an invention from a correction.")
+
+
+# --- the prompt's ENFORCEMENT LIST must name every column its table forbids ---
+#
+# THE SECOND STATEMENT OF THE SAME BOUNDARY, AND THE ONE NOTHING READ. Each of
+# these prompts tells the model what is watched TWICE: once as a `You MAY NOT`
+# row, and once as a prose list beneath it that promises to be exhaustive. Every
+# assertion above this line reads the ROW. When `size` became the fourth guarded
+# column, all three rows were widened and all three lists were left saying
+# *"All three candidate columns"* / omitting `size` entirely — green, because the
+# half the model actually reads to learn what is watched was read by no test at
+# all.
+#
+# WHY THE OMISSION IS A DEFECT AND NOT UNTIDINESS. Each list closes with an
+# explicit completeness guarantee — *"One row in that column is NOT mechanically
+# checked, and you are told which"* — and names the sole exception. A column
+# missing from the list makes that sentence false in the direction that costs
+# most: the model learns its `size` prohibition is on the honour system, writes
+# the cell, and the guard fails the whole run at its final check. The durable
+# harm is worse than the run — a disclosure list that under-claims teaches the
+# model to distrust the list, which is the mechanism this repo uses to keep a
+# prompt honest about its own coverage.
+#
+# THE POPULATION IS DECIDED BY THE PROMPT'S OWN TEXT, not by a name list. A
+# prompt is in scope because it MAKES the promise, so `plan_sprint.md` — whose
+# enforcement claim is one compressed sentence covering its rows by PATH, with no
+# per-row completeness guarantee — is out by construction rather than by
+# exception. An excluded-by-list workflow is the failure `workflows_declaring`
+# was built to close; an excluded-by-predicate one re-enters the moment it starts
+# making the promise.
+
+_ENFORCEMENT_OPENS = ("the worktree is read and compared against a snapshot "
+                      "taken before you started")
+_ENFORCEMENT_CLOSES = "One row in that column is NOT mechanically checked"
+
+# A backticked token that could be a column name. Deliberately refuses anything
+# with a dot or a slash — `direction.md`, `research/`, `phaseN_<name>.md` are
+# files and paths, and a column rule has nothing to say about them.
+_BACKTICKED = re.compile(r"`([a-z_]+)`")
+
+
+def _enforcement_block(prompt_text: str) -> str | None:
+    """The prose between "compared against a snapshot" and the completeness promise.
+
+    `None` when the prompt makes no such promise, which is how the population
+    below is decided. Both anchors are required: a prompt that opened a list and
+    never closed it would otherwise yield everything after the anchor and pass
+    on text that is not the list at all.
+    """
+    start = prompt_text.find(_ENFORCEMENT_OPENS)
+    end = prompt_text.find(_ENFORCEMENT_CLOSES)
+    if start < 0 or end <= start:
+        return None
+    return prompt_text[start:end]
+
+
+def _columns_forbidden(mod, prompt_text: str) -> dict[str, str]:
+    """`size` -> the MAY NOT row that forbids it, for every guarded column.
+
+    KEYED ON THE ROW'S OWN BACKTICKS, intersected with `_GUARDED_COLUMNS`. The
+    alternative — deriving columns from the comparators the registry names —
+    reads one instance short: `triage-candidates` guards `size` through
+    `own.sized_without_shipping`, which is a PAIRING check over one row and not a
+    `<column>s_this_run_had_no_right_to` comparator at all. A rule keyed on
+    comparators would have called that prompt's omission compliant.
+
+    `JUDGEMENT` rows are skipped because they are the rows the closing sentence
+    exists to name as unchecked; requiring the list to claim them would invert
+    the property.
+    """
+    forbidden: dict[str, str] = {}
+    for row in may_not_rows(prompt_text):
+        if mod.MAY_NOT_OBSERVERS.get(row, "").startswith("JUDGEMENT"):
+            continue
+        for token in _BACKTICKED.findall(row):
+            if token in act._GUARDED_COLUMNS:
+                forbidden.setdefault(token, row)
+    return forbidden
+
+
+def _columns_undisclosed(block: str, columns) -> list[str]:
+    """Every column the table forbids that the enforcement list never names."""
+    return sorted(c for c in columns if f"`{c}`" not in block)
+
+
+DISCLOSING = [pytest.param(mod, prompt, id=name)
+              for mod, prompt, name in workflows_declaring("MAY_NOT_OBSERVERS")
+              if _enforcement_block(_prompt(mod, prompt)) is not None]
+
+
+def test_the_enforcement_BLOCK_sweep_finds_the_prompts_that_PROMISE_one() -> None:
+    """POSITIVE CONTROL on the population, not on any one prompt.
+
+    The rule below is parametrised over prompts that carry an enforcement list,
+    so a pair of anchors that stopped matching would collect zero tests and
+    report green — the shape of a check that stopped checking. `plan-sprint` is
+    expected to be ABSENT and that absence is the reasoned one described above;
+    if it ever grows an enumerated list with a completeness guarantee, it belongs
+    here and this assertion is where somebody notices.
+    """
+    found = {p.id for p in DISCLOSING}
+    assert found == {"plan-feature", "plan-verify", "triage-candidates"}, (
+        f"the enforcement-block sweep found {sorted(found)}. If one vanished, "
+        f"its prompt's promise is no longer read by anything; if one appeared, "
+        f"add its id here to confirm its list is genuinely covered rather than "
+        f"merely collected.")
+
+
+@pytest.mark.parametrize("mod,prompt_name", DISCLOSING)
+def test_the_enforcement_block_is_NOT_EMPTY(mod, prompt_name: str) -> None:
+    """POSITIVE CONTROL on the extractor, against its own vacuity.
+
+    The rule is a substring search over this block. A block that came back as a
+    few characters would answer "undisclosed" for every column and a block that
+    came back as the WHOLE PROMPT would answer "disclosed" for every column —
+    the second is the silent direction, and it is the one this catches.
+    """
+    block = _enforcement_block(_prompt(mod, prompt_name))
+    assert 500 < len(block) < 6000, (
+        f"{prompt_name}: the enforcement block extracted to {len(block)} bytes. "
+        f"Too short and the rule below sees no list; too long and it is matching "
+        f"the rest of the prompt, where a column name appearing proves nothing.")
+
+
+@pytest.mark.parametrize("mod,prompt_name", DISCLOSING)
+def test_the_enforcement_LIST_NAMES_EVERY_COLUMN_the_TABLE_forbids(
+        mod, prompt_name: str) -> None:
+    """A prompt that promises an exhaustive list must have one.
+
+    KEYED ON THE TABLE, NOT ON THE COLUMN THAT WAS MISSING. `size` was added to
+    all three MAY NOT rows and to none of the three lists, and the same will be
+    true of the next column: widening a row is what the registry test above makes
+    you do, and nothing made anybody widen the sentence beneath it.
+    """
+    text = _prompt(mod, prompt_name)
+    forbidden = _columns_forbidden(mod, text)
+    undisclosed = _columns_undisclosed(_enforcement_block(text), forbidden)
+    assert not undisclosed, (
+        f"{prompt_name} forbids {undisclosed} in its `You MAY NOT` table and "
+        f"never names them in the enforcement list beneath it. The rows are: "
+        + "; ".join(repr(forbidden[c]) for c in undisclosed)
+        + ". That list closes by promising exactly one row is NOT mechanically "
+          "checked and naming which; a guarded column missing from it makes the "
+          "promise false and tells the model the column is on the honour system.")
+
+
+_LIST_NAMING_FOUR = """
+When you finish, the worktree is read and compared against a snapshot taken before you started:
+- **All four candidate columns** — `decision`, `size`, `status`, `component` —
+  are compared cell by cell.
+One row in that column is NOT mechanically checked, and you are told which.
+"""
+
+_LIST_NAMING_THREE = """
+When you finish, the worktree is read and compared against a snapshot taken before you started:
+- **All three candidate columns** — `decision`, `status`, `component` — are
+  compared cell by cell.
+One row in that column is NOT mechanically checked, and you are told which.
+"""
+
+_NO_PROMISE_AT_ALL = """
+Every path outside `${SPRINT_PATH}` is compared by content.
+"""
+
+
+@pytest.mark.parametrize("label,prompt_body,columns,expected", [
+    ("a list naming every guarded column", _LIST_NAMING_FOUR,
+     {"decision", "size", "status", "component"}, []),
+    ("a list one column short", _LIST_NAMING_THREE,
+     {"decision", "size", "status", "component"}, ["size"]),
+], ids=["complete", "one-short"])
+def test_the_disclosure_rule_SEPARATES_a_complete_list_from_a_short_one(
+        label: str, prompt_body: str, columns, expected: list[str]) -> None:
+    """Both answers, on prompt text this tree does not contain.
+
+    `_columns_undisclosed` is otherwise reachable only through three live prompts
+    that now pass, so a change to the anchors or the backtick spelling would
+    answer "nothing undisclosed" for all three and the rule would be permanently
+    green over exactly the defect it was written for.
+    """
+    block = _enforcement_block(prompt_body)
+    assert block is not None, f"{label}: the anchors stopped matching"
+    assert _columns_undisclosed(block, columns) == expected
+
+
+def test_a_prompt_making_NO_completeness_promise_is_OUT_OF_POPULATION() -> None:
+    """The exclusion is by the prompt's own text, and it has to be demonstrated.
+
+    `plan_sprint.md` covers its rows by PATH in one sentence and guarantees
+    nothing about per-row completeness, so a column-keyed rule would report its
+    `decision` row as undisclosed — a false positive of the heuristic rather than
+    a defect. Asserting the mechanism here, on a snippet, rather than trusting
+    that today's `plan_sprint.md` happens to lack the anchors.
+    """
+    assert _enforcement_block(_NO_PROMISE_AT_ALL) is None

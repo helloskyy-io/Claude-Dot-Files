@@ -188,7 +188,15 @@ BUDGETS: dict[str, int] = {
     # so — the same reason the 4-byte raise at the top of this file is recorded:
     # an 8-byte raise is precisely the size that gets waved through, and the
     # habit is what the gate is, not the number.
-    "plan/plan_feature/prompts/plan_feature.md": 23457,  # +${FILING_A_CANDIDATE_ROW}
+    # +7 on 2026-08-20, and the trade is a CORRECTION rather than new content.
+    # The enforcement list beneath the MAY NOT table read "All three candidate
+    # columns — `decision`, `status`, `component`" after `size` became the
+    # fourth one actually compared. It now names four. "three" -> "four" is -1
+    # and "`size`, " is +8. The prompt's list closes by promising exactly one row
+    # is NOT mechanically checked and naming which, so an omitted column made
+    # that promise false in the expensive direction: the model learns the column
+    # is on the honour system and the guard then fails the whole run.
+    "plan/plan_feature/prompts/plan_feature.md": 23464,  # +${FILING_A_CANDIDATE_ROW}
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -233,7 +241,9 @@ BUDGETS: dict[str, int] = {
     # re-planning is not, and the observers that always enforced that half do it.
     # +8 on 2026-08-19, the same `size` in the same MAY NOT column as
     # `plan_feature.md` above, for the same 8 bytes.
-    "plan/plan_verify/prompts/plan_verify.md": 18135,
+    # +7 on 2026-08-20, the same corrected sentence as `plan_feature.md` above
+    # and for the same reason, byte for byte.
+    "plan/plan_verify/prompts/plan_verify.md": 18142,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
@@ -276,7 +286,19 @@ BUDGETS: dict[str, int] = {
     # NOT FUNDED BY A CUT, and the honest reason is that there was nothing in
     # this prompt to cut: it is a fifth the size of the outlier at the top of
     # this file, and every byte of the removed inference was in Python, not here.
-    "plan/triage_candidates/prompts/triage_candidates.md": 19_668,
+    # +385 on 2026-08-20 — ONE BULLET, and it is a disclosure this prompt
+    # already promised. Line 32 says "Every row in that MAY NOT column is
+    # enforced, not requested, and here is exactly how", and the list that
+    # follows accounted for `status`, `component`, paths and deletion while
+    # `size` appeared in it zero times — under a closing guarantee that names the
+    # single unchecked row. The `size` prohibition IS wired
+    # (`own.sized_without_shipping`), so the list under-claimed: two rows read as
+    # unaccounted while the prompt swore there was one, and it named the wrong
+    # one as the exception. NOT FUNDED BY A CUT for the reason the entry above
+    # gives — the alternative was deleting a correct disclosure to buy a correct
+    # disclosure. The bullet says what the pairing check reads and why it needs
+    # no before-snapshot, which is the part a model cannot infer from the row.
+    "plan/triage_candidates/prompts/triage_candidates.md": 20_053,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —
     # true on run 1, false on run 2, since papers accumulate and the synthesis is
