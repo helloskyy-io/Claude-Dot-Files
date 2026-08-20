@@ -26,42 +26,8 @@ _ASSISTANT = Path(__file__).resolve().parents[2] / "modules" / "assistant"
 _PLACEHOLDER = re.compile(r"\$\{([A-Z_][A-Z_0-9]*)\}")
 
 
-# A prompt kept beside its replacement while a migration finishes. It is loaded by
-# nothing — `load_prompt` is called with a literal name — so its placeholders have
-# no supplier BY CONSTRUCTION, and asserting otherwise would force us to keep
-# suppliers alive for a file nobody renders.
-#
-# THE SUFFIX IS THE CONTRACT AND IT IS DELIBERATELY UGLY. `_OLD` is not a naming
-# style anyone would reach for by accident, which is what makes it a poor hiding
-# place: a prompt that stops being rendered cannot quietly acquire this exemption,
-# because renaming a live prompt to `_OLD` is exactly the kind of edit a reviewer
-# stops on. `test_no_OLD_prompt_OUTLIVES_its_replacement` below is the other half
-# — an `_OLD` file is a migration in progress, and a migration that never ends is
-# just two prompts.
-_RETIRED_SUFFIX = "_OLD"
-
-
 def _prompts() -> list[Path]:
-    return sorted(p for p in _ASSISTANT.rglob("prompts/*.md")
-                  if not p.stem.endswith(_RETIRED_SUFFIX))
-
-
-def test_no_OLD_prompt_OUTLIVES_its_replacement() -> None:
-    """An `_OLD` prompt is a migration in progress; two are a habit.
-
-    The exemption above is cheap to take and would be cheap to forget, so the
-    population that holds it is bounded. `plan_sprint_OLD.md` is kept until
-    `triage-candidates` absorbs the candidate-sizing half that left plan-sprint
-    on 2026-08-19; when it does, the file goes and this number goes with it.
-    """
-    retired = sorted(p.relative_to(_ASSISTANT).as_posix()
-                     for p in _ASSISTANT.rglob("prompts/*.md")
-                     if p.stem.endswith(_RETIRED_SUFFIX))
-    assert retired == ["plan/plan_sprint/prompts/plan_sprint_OLD.md"], (
-        f"the set of retired prompts changed: {retired}. Adding one is a "
-        f"migration and needs its finishing condition named here; removing the "
-        f"last one means this guard and the exemption it bounds both go."
-    )
+    return sorted(_ASSISTANT.rglob("prompts/*.md"))
 
 
 def _rel(prompt: Path) -> str:

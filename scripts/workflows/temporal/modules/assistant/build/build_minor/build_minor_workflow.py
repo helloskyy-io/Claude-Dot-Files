@@ -20,11 +20,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import wait_for_ci
+from ..build_activities import path_for_the_model, task_text
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ..build_draft_minor import build_draft_minor_workflow as draft
 from ..build_refine_minor import build_refine_minor_workflow as refine
 from ... import assistant_activities as act
+from ...assistant_activities import ci_verdict, wait_for_ci
+from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 
@@ -32,7 +34,7 @@ from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
-    description = task.description or Path(task.task_file or task.plan_path).read_text()
+    description = task_text(task, repo_root)
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
@@ -43,9 +45,13 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
     # Read BEFORE the child, for the reason its sibling parent states.
     slug = act.repo_slug(repo_root)
 
+    # `path_for_the_model`, for the reason its sibling parent states at the
+    # same call: what the model is SHOWN and what the fleet READS are two answers,
+    # and an in-repo absolute `--phase` shown verbatim points outside this worktree.
     pr_url = draft.run_draft_minor(
         description=description, repo_root=repo_root,
-        worktree=worktree, pr_number=task.pr_number, plan_path=task.plan_path,
+        worktree=worktree, pr_number=task.pr_number,
+        plan_path=path_for_the_model(repo_root, task.plan_path),
         verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
@@ -68,8 +74,15 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
                                        loops_left=helper.MAX_LOOPS - loops)
 
     if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:
-        notes.append("review-pr found an item only a human can rule on; no loop-back "
-                     "was attempted, because more passes cannot produce a human decision.")
+        # THIS NOTE STATES THE LOOP DECISION AND NOTHING ELSE, for the reason its
+        # sibling `build/build_workflow.py` records at length: TWO paths return
+        # this verdict and BOTH already wrote their own cause — the CI gate
+        # appends a note ending "review-pr was NOT dispatched", and the review
+        # path does `notes.extend(result.notes)`. A third sentence from here,
+        # which detects neither, can only be a guess, and on PR #124 the guess
+        # landed directly beneath the note saying review-pr had not run.
+        notes.append("No loop-back was attempted: more passes cannot produce a "
+                     "human decision. The cause is in the note above.")
     elif verdict is Verdict.HOLD_REDISPATCH:
         notes.append(f"The automated loop is SPENT — {helper.MAX_LOOPS} "
                      f"loop-back(s) is the cap.")
@@ -82,7 +95,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          repo_root: Path, worktree: Path,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
-    ci_settled = wait_for_ci(pr, repo=task.repo_target)
+    ci_settled = wait_for_ci(pr, repo_root=repo_root)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
@@ -92,7 +105,19 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
         ci_unsettled=not ci_settled, verbose=task.verbose,
     )
 
-    wait_for_ci(pr, repo=task.repo_target)
+    # THE SAME GATE ITS SIBLING RUNS, and it was absent here for six weeks. The
+    # cascade landed in `build_workflow` alone and this parent was never updated,
+    # so the light tier reached `review-pr` with the CI verdict never read and
+    # could return MERGE on a red tree — the hole removing branch protection
+    # opened, closed on one tier only. See `routing.ci_gate`.
+    wait_for_ci(pr, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo_root=repo_root)
+    hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
+                                      repo_target=task.repo_target)
+    notes.extend(gate_notes)
+    if hold is not None:
+        return hold
+
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=task.repo_target,
                     verbose=task.verbose, review_type=ReviewType.BUILD),

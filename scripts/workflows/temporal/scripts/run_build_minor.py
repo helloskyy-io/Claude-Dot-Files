@@ -36,9 +36,12 @@ def parse_args(argv: list[str] | None = None) -> BuildInput:
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args(argv)
 
-    # BuildInput validates the exactly-one-task-source rule and raises with a
-    # readable message; converting it to argparse's error path keeps the CLI
-    # contract in one place.
+    # BuildInput validates the TWO task-source rules — at most one of
+    # description/--task-file/--phase, and at least one of those or a `--pr`
+    # whose runway is already on the thread — and raises with a readable message;
+    # converting it to argparse's error path keeps the CLI contract in one place.
+    # It was "exactly one" until 2026-08-19; see `BuildInput.__post_init__`, which
+    # is the single statement of the rule this comment must not restate.
     try:
         return BuildInput(
             description=args.description,

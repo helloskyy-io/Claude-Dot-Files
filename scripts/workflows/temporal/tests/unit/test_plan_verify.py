@@ -683,9 +683,9 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     cands = tree / "docs" / "standards" / "architecture" / "research" / "candidates.md"
     cands.parent.mkdir(parents=True, exist_ok=True)
     cands.write_text(
-        "| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
-        "|---|---|---|---|---|---|---|\n"
-        "| C-001 | a candidate |  | PR #1 |  | `open` | n |\n")
+        "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
+        "|---|---|---|---|---|---|---|---|\n"
+        "| C-001 | a candidate |  | PR #1 |  | feature | `open` | n |\n")
 
     comp, seen = _component(tree), set()
 

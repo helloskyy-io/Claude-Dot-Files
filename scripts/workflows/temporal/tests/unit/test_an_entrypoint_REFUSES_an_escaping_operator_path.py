@@ -39,7 +39,9 @@ WHAT THIS DOES NOT LOOK AT:
     is the stronger property and the one `preflight` exists for.
   * **Paths deliberately outside the repo** — `--task-file`, `--phase`. They are
     declared with plain `add_argument` and are not in `_repo_paths`, so this file
-    is silent about them by construction.
+    is silent about them by construction. Anchoring a RELATIVE one to the repo root
+    is a separate property with a separate guard —
+    `test_a_task_SOURCE_path_is_anchored_to_the_repo.py`.
 """
 
 from __future__ import annotations

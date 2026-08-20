@@ -119,21 +119,54 @@ def test_should_loop_back(verdict: Verdict, loops_used: int, expected: bool) -> 
 # --- input validation at the boundary ----------------------------------------
 
 @pytest.mark.parametrize(
-    "kwargs",
+    "kwargs,message",
     [
-        pytest.param({}, id="no-task-source-rejected"),
-        pytest.param(
-            {"description": "x", "task_file": "/tmp/y"},
-            id="both-task-sources-rejected",
-        ),
+        pytest.param({}, "a task source is required",
+                     id="nothing-at-all-rejected"),
+        pytest.param({"repo_target": "/opt/x"}, "a task source is required",
+                     id="repo-without-a-task-rejected"),
+        pytest.param({"description": "x", "task_file": "/tmp/y"},
+                     "at most one task source", id="two-sources-rejected"),
+        pytest.param({"description": "x", "plan_path": "docs/p.md"},
+                     "at most one task source", id="description-plus-phase-rejected"),
+        pytest.param({"task_file": "/tmp/y", "plan_path": "docs/p.md"},
+                     "at most one task source", id="task-file-plus-phase-rejected"),
+        pytest.param({"description": "x", "task_file": "/tmp/y", "pr_number": "9"},
+                     "at most one task source",
+                     id="two-sources-rejected-even-with-a-pr"),
     ],
 )
-def test_build_input_requires_exactly_one_task_source(kwargs: dict) -> None:
+def test_build_input_refuses_no_task_and_refuses_two(kwargs: dict, message: str) -> None:
     """A run that reaches the draft child with no task produces an empty PR that
-    still costs a full review cycle to discover.
+    still costs a full review cycle to discover — and one with two has no way to
+    say which it obeyed.
+
+    THE TWO HALVES ARE SEPARATE RULES NOW, and the messages are asserted apart
+    because they send the operator to different fixes: one to supply a task, the
+    other to drop one. They were a single `!= 1` and the `--pr` case was collateral.
     """
-    with pytest.raises(ValueError, match="exactly one task source"):
+    with pytest.raises(ValueError, match=message):
         BuildInput(**kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [
+    pytest.param({"pr_number": "124"}, id="pr-alone"),
+    pytest.param({"pr_number": "124", "repo_target": "/opt/x", "verbose": True},
+                 id="pr-with-non-task-flags"),
+])
+def test_a_PR_IS_a_task_source_so_a_correction_pass_restates_nothing(kwargs: dict) -> None:
+    """MEASURED 2026-08-19: `run_build.py --pr 124 --repo <path>` was REJECTED.
+
+    The operator had to re-issue it with the original `--phase` repeated. That is
+    not a safety property — it is a second copy of a runway that can disagree with
+    the one on the PR thread, which is the copy every child in this family is
+    required to read (`fidelity_read_and_compare.md`).
+
+    WHAT THIS DOES NOT LOOK AT: whether the PR actually carries a runway. Nothing
+    here reaches GitHub; the child does that, and an empty thread is its finding to
+    report rather than this dataclass's to predict.
+    """
+    assert BuildInput(**kwargs).pr_number == "124"
 
 
 # --- arg compilation ---------------------------------------------------------
