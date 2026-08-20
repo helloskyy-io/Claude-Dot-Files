@@ -83,8 +83,13 @@ def main(argv=None) -> int:
     # ON A `--pr` PASS THAT BRANCH IS THE ANSWER, NOT ONE HALF OF AN `or`. This
     # was written as "absent in both trees" and that is a DIFFERENT question from
     # the one the precondition asks, because the two trees are two objects: the
-    # invocation checkout, and `origin/<the PR's branch>`, which is what line 212
-    # cuts the worktree from and therefore the only tree the run ever reads. A
+    # invocation checkout, and `origin/<the PR's branch>`, which is the ref
+    # `act.worktree_add` cuts the worktree from and therefore the only tree the
+    # run ever reads. (NAMED BY SYMBOL, NOT BY LINE: this citation was written as
+    # "line 212", was already wrong when introduced, and drifted 251 -> 323 ->
+    # 293 -> 329 while the text stayed put. A number restores the claim only
+    # until the next edit, and a diagnostic claiming more than anything holds is
+    # this PR's whole subject.) A
     # roadmap sitting in the operator's checkout — merged earlier, edited
     # locally, left by another branch — satisfied the check and the run then
     # dispatched against a worktree that did not have it, burning the model call
