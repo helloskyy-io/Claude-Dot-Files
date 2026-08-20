@@ -6,11 +6,15 @@ Topic:          Where durable dispatch state should live, what a durable dispatc
                 restart-recovery contract must specify so it is designed once rather than three
                 times, and what shape both must take so they survive the bash → Python → Temporal
                 port without being rewritten.
-Feeds:          docs/development/sprint.md § "Sprint: Fleet Reliability" line 181 — "A
-                restart-recovery contract — durable dispatch id and per-subsystem recovery,
-                designed once and covering all three guards" → the fleet-reliability phase doc,
-                not yet written. This paper is the evidence that phase doc cites for its recovery
-                design.
+Feeds:          docs/development/sprint.md § "Sprint: Temporal Integration" line 188 — "A
+                restart-recovery contract — a durable dispatch id and per-subsystem recovery,
+                designed once. Retrofitting one onto running workers is a rewrite, so it lands
+                with them rather than after" → the Temporal Integration phase doc's recovery
+                design. CORRECTED 2026-08-19 — this paper was written for the "Sprint: Fleet
+                Reliability" section, which dissolved when this pool moved to
+                `docs/development/temporal-integration/research/`; the milestone itself survived
+                unchanged and moved with it into Temporal Integration. The paper's content is
+                unaffected — only the destination pointer was stale.
 Last validated: 2026-08-07
 Revalidate:     high — 4 weeks
 Confidence:     DEFINITIVE for every identity-model claim about an external system: Temporal's
