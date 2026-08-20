@@ -71,8 +71,7 @@ def main(argv=None) -> int:
         # the branch itself before it could begin. All four `--pr`-accepting
         # plan runners had the same line; `research_minor_workflow.py` already
         # had the right one and is where this expression comes from.
-        ref = (f"origin/{act.pr_branch(a.pr_number, repo_root)}"
-               if a.pr_number else "HEAD")
+        ref = act.base_ref(a.pr_number, repo_root)
         worktree = act.worktree_add(repo_root, worktree_name, ref)
         url = wf.run_triage_candidates(repo_root=repo_root, worktree=worktree,
                                        candidates_path=cands, research_dir=research,

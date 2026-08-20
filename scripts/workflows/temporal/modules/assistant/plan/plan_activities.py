@@ -89,6 +89,12 @@ render = shared.render
 run_claude = shared.run_claude
 worktree_add = shared.worktree_add
 pr_branch = shared.pr_branch
+# RE-EXPORTED because the runners in this family alias THIS module as `act`.
+# `test_runner_module_attributes_EXIST` is what says so — it caught the
+# omission the moment `base_ref` landed in the shared module only, which is
+# the same class as the `act.branch_of` NameError that guard was written for.
+base_ref = shared.base_ref
+default_branch = shared.default_branch
 extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
 max_turns = shared.max_turns

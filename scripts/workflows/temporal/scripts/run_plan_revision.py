@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         # ISOLATION IS ESTABLISHED HERE, ONCE, and handed to the child. On the
         # --pr path the worktree is cut from the PR branch, matching V1; on the
         # new-branch path from HEAD.
-        ref = f"origin/{act.pr_branch(a.pr_number, repo_root)}" if a.pr_number else "HEAD"
+        ref = act.base_ref(a.pr_number, repo_root)
         # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
         # effect, and a root that will not resolve stops the run here (r9). Why
         # this is not a helper each file remembers to call, and what the sweep

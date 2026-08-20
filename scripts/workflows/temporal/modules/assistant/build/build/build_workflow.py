@@ -50,7 +50,7 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
     # `fatal: already exists` that killed the draft->refine handoff.
-    ref = f"origin/{act.pr_branch(task.pr_number, repo_root)}" if task.pr_number else "HEAD"
+    ref = act.base_ref(task.pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
     # READ BEFORE THE CHILD RUNS, DELIBERATELY. `repo_slug` is a `gh` round trip

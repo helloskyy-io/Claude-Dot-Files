@@ -1399,6 +1399,55 @@ def repo_slug(repo_root: Path) -> str:
               repo_root).strip()
 
 
+def default_branch(repo_root: Path) -> str:
+    """The target repo's default branch, ASKED rather than assumed to be `main`.
+
+    This fleet is meant to run against other repositories, and a hardcoded
+    "main" is wrong in every repo that never renamed from `master` or that
+    develops on `trunk`. `gh` answers from the remote, which is the same
+    authority `repo_slug` and `pr_branch` use.
+    """
+    return gh(["repo", "view", "--json", "defaultBranchRef",
+               "-q", ".defaultBranchRef.name"], repo_root).strip()
+
+
+def base_ref(pr_number: str | None, repo_root: Path) -> str:
+    """WHERE A RUN'S WORKTREE IS CUT FROM: the PR's branch, or the default branch.
+
+    THE OPERATOR'S CHECKOUT POSITION IS NOT AN INPUT TO THIS, and that is the
+    whole point. Every runner used to compute this inline as
+
+        ref = f"origin/{pr_branch(...)}" if pr_number else "HEAD"
+
+    and `HEAD` is whatever branch the operator's clone happens to be sitting on.
+    When that was an open PR's branch, the new run branched FROM that PR and its
+    own PR silently carried the other one's commits — a PR whose diff is not the
+    change it claims, and whose review then judges work that belongs to someone
+    else.
+
+    MEASURED 2026-08-20: three of eight open PRs had it. #132 and #127 were both
+    cut while the checkout sat on #126's branch; #127 carried two of #126's
+    commits, in a version #126's own review had already superseded. Nothing
+    warned, and nothing could — the runners did exactly what they were told.
+
+    The rule is the operator's, stated plainly: a run either CONTINUES the same
+    PR (`--pr`) or STARTS FROM THE DEFAULT BRANCH. There is no third base.
+
+    `origin/` ON BOTH ARMS, deliberately. A local branch can be stale, and the
+    point of a known base is that it is current; `worktree_add` fetches any
+    `origin/`-prefixed ref and treats a failed fetch as fatal, so the remote form
+    is the one that cannot quietly resolve to yesterday's tree.
+
+    ONE HELPER AND NOT TEN EXPRESSIONS. The inline form reached ten call sites,
+    which is why fixing it in nine of them would have been the likeliest outcome
+    of doing this by hand. `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH`
+    keys on the class rather than on today's ten.
+    """
+    if pr_number:
+        return f"origin/{pr_branch(pr_number, repo_root)}"
+    return f"origin/{default_branch(repo_root)}"
+
+
 def pr_branch(pr_number: str, repo_root: Path) -> str:
     return gh(["pr", "view", pr_number, "--json", "headRefName",
                "-q", ".headRefName"], repo_root).strip()

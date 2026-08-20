@@ -334,7 +334,14 @@ def main(argv=None) -> int:
         # Two calls meant two round-trips for one fact, doubling the exposure to
         # a rate-limited or flaky `gh` on the path this file just added, and
         # nothing guaranteed the two answers agreed.
-        ref = f"origin/{branch}" if a.pr_number else "HEAD"
+        # NOT `act.base_ref` ON THE `--pr` ARM, and that is the one deviation in
+        # the fleet. `base_ref` would call `gh pr view` a second time for a fact
+        # the precondition above already resolved into `branch`; the paragraph
+        # above says why one round-trip beats two here. The NO-PR arm takes the
+        # shared answer, because "wherever the operator's checkout is sitting"
+        # was never a defensible base — see `base_ref`'s docstring for what that
+        # cost on three of eight open PRs.
+        ref = f"origin/{branch}" if a.pr_number else act.base_ref(None, repo_root)
         worktree = act.worktree_add(repo_root, worktree_name, ref)
         url = wf.run_plan_verify(repo_root=repo_root, worktree=worktree, context=context,
                                  component=component, candidates_path=cands,
