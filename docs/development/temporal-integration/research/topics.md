@@ -1,4 +1,4 @@
-# Topics — fleet-reliability
+# Topics — temporal-integration
 
 **Last assessed:** 2026-08-07 (cycle 1 — the pool was empty before this run)
 
@@ -6,7 +6,7 @@
 
 **Tier: Medium — 5 topics.** Per Research Standard §2, Medium is *"multi-concern component, real alternatives exist"* at 3–5 topics, and a cycle runs at most ~5 regardless of band.
 
-Justification tied to what the destination actually contains: the `Fleet Reliability` sprint section (`docs/development/sprint.md`) carries **five milestones**, and its phase doc is *not yet written* — writing it is the planning step this pool feeds. Four of the five milestones name a mechanism that does not exist in the fleet today and for which real alternatives exist (state store shape, detection signal, notification channel, threshold policy). That is the Medium band's definition, not the Large band's — this component has **one destination** (the fleet-reliability phase doc), which per §2 is the test for whether it is one component.
+Justification tied to what the destination actually contains. **Written for the `Fleet Reliability` sprint section, which dissolved on 2026-08-19 — this pool moved to Temporal Integration and the milestones it names moved with it.** That section carried **five milestones**, and no phase doc existed for it; the same is true of Temporal Integration today, so the planning step this pool feeds is unchanged and the reasoning below still holds. Four of the five milestones name a mechanism that does not exist in the fleet today and for which real alternatives exist (state store shape, detection signal, notification channel, threshold policy). That is the Medium band's definition, not the Large band's — this component has **one destination** (the fleet-reliability phase doc), which per §2 is the test for whether it is one component.
 
 **It is NOT Large.** The Large band is the stack-level, direction-setting altitude. Whether to build a reliability layer, and what the five milestones should be, was settled by the product pool before this became a sprint section. This cycle answers only *how to build them*.
 
@@ -16,7 +16,7 @@ Justification tied to what the destination actually contains: the `Fleet Reliabi
 
 | # | Topic | Feeds | Paper |
 |---|---|---|---|
-| 1 | Where durable dispatch state lives, what a dispatch id must contain, and how per-subsystem restart recovery survives the bash → Python → Temporal port | Sprint milestone **"A restart-recovery contract"** → the fleet-reliability phase doc's recovery design | `raw/durable_dispatch_identity.md` |
+| 1 | Where durable dispatch state lives, what a dispatch id must contain, and how per-subsystem restart recovery survives the bash → Python → Temporal port | Sprint milestone **"A restart-recovery contract"** → the temporal-integration phase doc's recovery design | `raw/durable_dispatch_identity.md` |
 | 2 | How *stalled*, *looping* and *stranded* are each measured against a live `claude -p` process — available signals, thresholds, and the cost of a false positive on each leg | Sprint milestone **"The three-legged liveness predicate"** → the phase doc's detection design | `raw/liveness_signal_measurement.md` |
 | 3 | How a headless dispatch detects an expired or invalid Claude Code subscription session — before dispatch and mid-run | Sprint milestone **"Three cheap guards"**, credential-expiry guard | `raw/credential_expiry_detection.md` |
 | 4 | How a run's self-reported success is verified against observable artifacts, given `exit_code == 0` is already known to be necessary-but-not-sufficient | Sprint milestone **"Three cheap guards"**, false-completion guard | `raw/false_completion_detection.md` |
