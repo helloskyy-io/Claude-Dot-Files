@@ -104,7 +104,7 @@ claude-dot-files/
 │   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phases 4 and 6 planned.
 │   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
-│   │   ├── persistent-memory-protocol/              # PLANNED, NOT STARTED (2026-08-13) — ruled its OWN COMPONENT rather than a 7th phase
+│   │   ├── persistent-memory-protocol/              # IN PROGRESS — Phase 1 (journal root, run bag, validator) ships; ruled its OWN COMPONENT rather than a 7th phase
 │   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-074's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
 │   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
