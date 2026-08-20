@@ -30,7 +30,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import POLICY_PATH, CiVerdict, ci_verdict, wait_for_ci
+from ..build_activities import (POLICY_PATH, CiVerdict, ci_verdict, task_text,
+                                wait_for_ci)
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ... import assistant_activities as act
 from ...review_pr import review_pr_workflow as review_pr
@@ -43,7 +44,7 @@ from ..build_refine_minor import build_refine_minor_workflow as refine_minor
 def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
-    description = task.description or Path(task.task_file or task.plan_path).read_text()
+    description = task_text(task, repo_root)
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
@@ -60,9 +61,25 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # --- Step 1: DRAFT -----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the
     # child raises if it produced none, so `exit 0` cannot mean unfinished.
+    # `plan_path` IS PASSED, and its absence here was a defect rather than a tier
+    # difference. `build_draft` branches on it to select the `build_from_plan` /
+    # `stages_1_to_4_from_plan` pair, `build_minor_workflow` has always passed it,
+    # and `test_build_prompt_variants_do_not_fork.py` describes that pair as the
+    # one "used whenever a run is launched with `--phase`". It was not: the major
+    # tier handed the child the plan doc's CONTENTS as a description and the
+    # generic prompt, so `build --phase` never saw the plan-driven stages at all
+    # and `${PLAN_PATH}` never reached it.
+    #
+    # THE RAW OPERATOR STRING, NOT THE RESOLVED PATH. `PLAN_PATH` is rendered into
+    # the prompt and read by a model running INSIDE THE WORKTREE, so a repo-relative
+    # string is what anchors correctly there — the same `in_worktree` discipline
+    # `test_model_gets_the_worktree_path.py` pins for the research family. The
+    # resolved absolute path is used for READING the file, in `task_text`, and
+    # nowhere else.
     pr_url = draft.run_draft(
         description=description, repo_root=repo_root, worktree=worktree,
-        pr_number=task.pr_number, task_file=task.task_file, verbose=task.verbose,
+        pr_number=task.pr_number, plan_path=task.plan_path,
+        task_file=task.task_file, verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
 

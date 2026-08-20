@@ -53,81 +53,42 @@ is enumerated only when a file at that ACTUAL path has a line.
 
 from __future__ import annotations
 
-import collections
-import re
-import subprocess
 from pathlib import Path
 
 import pytest
 
-_REPO = Path(__file__).resolve().parents[4]
-_MAP = _REPO / "docs" / "file_structure.txt"
+# THE PARSE, THE TREE AND THE HOLE FINDER LIVE IN A HELPER MODULE, not here.
+# `test_planning_directories_are_ROLLED_UP_in_the_map.py` asserts the opposite end
+# of the same rule and needs the identical parse, and
+# `test_test_tree_hygiene.test_no_test_module_imports_another_test_module` forbids
+# it importing this file to get it. `file_structure_map.py` is the remedy that
+# rule names. Every docstring explaining WHY the parse works the way it does moved
+# with the code rather than being left behind pointing at nothing.
+from file_structure_map import (  # noqa: E402
+    EXCLUDED_NAMES,
+    MAP,
+    REPO,
+    TEMPLATE,
+    map_entries,
+    map_paths,
+    partially_listed,
+    tracked,
+)
 
-# A tree line's leaf: `│   ├── run_log.py    # annotation`. The captured PREFIX
-# is what gives the depth — the map indents four characters per level — and the
-# name carries a trailing slash on directory entries, stripped so `tests/`
-# composes into a path segment.
-#
-# THIS GRAMMAR IS PARSED A SECOND TIME, and this note is the price of keeping
-# the two parsers separate. `test_retired_vocabulary_is_gone_from_live_surfaces.py`
-# reads the same map with its own copy of `_LEAF` and `_MAP_INDENT`, because it
-# needs per-entry line numbers and leaf-plus-continuation joined text where this
-# module needs only a `set` of paths. A change to the map's rendering — the
-# indent width, the tree glyphs — has to move in BOTH. This file is the older
-# and more discoverable of the two, so it is the one someone opens first.
-_LEAF = re.compile(r"^(.*?)[├└]──\s+(\S+)")
-_INDENT = 4
-
-# `.gitkeep` holds an otherwise-empty directory open in git. The map documents
-# the DIRECTORY, which is the thing a reader is looking for; a line for the
-# placeholder would document the mechanism instead. Asserted below rather than
-# assumed, so this exclusion cannot quietly grow.
-_EXCLUDED_NAMES = frozenset({".gitkeep"})
-
-# The map's own convention for a variable path segment: `raw/<topic>.md` names a
-# naming rule, not a file. Pinned by `test_the_TEMPLATE_exemption_is_only_what_it
-# _says_it_is` so the exemption cannot grow by accident.
-_TEMPLATE = re.compile(r"<[^>]+>")
-
-
-def _tracked() -> list[Path]:
-    out = subprocess.run(["git", "ls-files"], cwd=_REPO,
-                         capture_output=True, text=True, check=True)
-    return [Path(line) for line in out.stdout.split()]
+_REPO = REPO
+_MAP = MAP
+_EXCLUDED_NAMES = EXCLUDED_NAMES
+_TEMPLATE = TEMPLATE
+_tracked = tracked
 
 
 def _mapped_entries() -> dict[str, bool]:
-    """Every entry in the map, as a repo-relative path -> "is a directory".
-
-    The root line (`claude-dot-files/`) carries no `──` and is therefore not a
-    level — which is what makes the reconstructed paths repo-relative and
-    directly comparable to `git ls-files` output.
-
-    DIRECTORY-NESS COMES FROM THE TRAILING SLASH the map writes, not from what
-    is on disk, because the check below is precisely about entries whose disk
-    counterpart does not exist. Measured on the whole map: 254 file entries and
-    60 directory entries, with ZERO disagreements against disk on the entries
-    that do resolve — so the convention is reliable enough to key an assertion
-    on.
-    """
-    stack: dict[int, str] = {}
-    entries: dict[str, bool] = {}
-    for line in _MAP.read_text().splitlines():
-        found = _LEAF.match(line)
-        if not found:
-            continue
-        level = len(found.group(1)) // _INDENT
-        leaf = found.group(2)
-        stack[level] = leaf.rstrip("/")
-        for deeper in [k for k in stack if k > level]:
-            del stack[deeper]
-        entries["/".join(stack[k] for k in sorted(stack))] = leaf.endswith("/")
-    return entries
+    """The live map, parsed. See `file_structure_map.map_entries` for the grammar."""
+    return map_entries(_MAP.read_text())
 
 
 def _mapped_paths() -> set[str]:
-    """Every entry in the map, as a repo-relative path."""
-    return set(_mapped_entries())
+    return map_paths(_MAP.read_text())
 
 
 def test_the_exclusion_list_is_only_what_it_says_it_is() -> None:
@@ -243,19 +204,7 @@ def test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY() -> None:
     did not, including one this PR modifies and names in a phase-doc checkbox. A
     reader scanning that block has no way to tell it is short.
     """
-    mapped = _mapped_paths()
-    by_dir: dict[str, list[Path]] = collections.defaultdict(list)
-    for path in _tracked():
-        if path.name in _EXCLUDED_NAMES:
-            continue
-        by_dir[str(path.parent)].append(path)
-
-    holes: dict[str, list[str]] = {}
-    for directory, paths in sorted(by_dir.items()):
-        listed = [p for p in paths if str(p) in mapped]
-        missing = [p.name for p in paths if str(p) not in mapped]
-        if listed and missing:
-            holes[directory] = sorted(missing)
+    holes = partially_listed(_mapped_paths(), _tracked())
     assert not holes, (
         "docs/file_structure.txt enumerates these directories file by file and "
         "is missing entries in them:\n"

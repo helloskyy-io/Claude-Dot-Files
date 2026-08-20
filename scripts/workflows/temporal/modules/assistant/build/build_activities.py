@@ -21,12 +21,68 @@ from enum import Enum
 from pathlib import Path
 
 from .. import assistant_activities as shared
-from .build_inputs import ChildResult
+from .build_inputs import BuildInput, ChildResult
 
 # How long CI is given to settle before a review reads its result. The bash
 # activity polled the GitHub API; this preserves the behaviour and the boundary.
 CI_POLL_SECONDS = 20
 CI_MAX_WAIT_SECONDS = 600
+
+
+# What a `--pr` run is told to do when the operator supplied no other task
+# source. NOT a placeholder sentence: it is the instruction that makes `--pr`
+# alone a complete dispatch, and it points at the copy of the runway every child
+# in this family already reads.
+#
+# `${...}` IS DELIBERATELY NOT USED. This string is substituted into
+# `DESCRIPTION`, which `render` treats as OPAQUE precisely so an operator's task
+# text cannot be re-scanned for placeholders (issue #46). A `${PR}` in here would
+# therefore reach the model literally.
+PR_RUNWAY_TASK = (
+    "This is a CORRECTION PASS on PR #{pr}, and the operator supplied no separate "
+    "task because the task is already on the PR. READ IT THERE BEFORE ANYTHING "
+    "ELSE:\n\n"
+    "    gh pr view {pr} --json title,body,comments > /tmp/pr-{pr}.json\n\n"
+    "then read that file. Do not use the bare invocation — it TRUNCATES silently "
+    "on any PR with real review history, so the runway you were sent for is simply "
+    "absent from the output with no error.\n\n"
+    "The PR BODY carries the original brief. The most recent review or disposition "
+    "COMMENT carries the runway — the specific findings this pass exists to close. "
+    "Execute that runway.\n\n"
+    "If the thread carries no runway at all, say so plainly and stop. Do not invent "
+    "one: a correction pass with nothing to correct that rewrites the PR anyway is "
+    "the failure this instruction exists to prevent."
+)
+
+
+def task_text(task: BuildInput, repo_root: Path) -> str:
+    """The task statement this run executes, from whichever source supplied it.
+
+    PROMOTED BECAUSE IT WAS BYTE-IDENTICAL IN BOTH PARENTS — §10.1 rule 3, consumer
+    count decides. `build_workflow` and `build_minor_workflow` each held
+    `task.description or Path(task.task_file or task.plan_path).read_text()`, and
+    that one expression carried both defects this function exists to fix: it read
+    the path against the CWD, and it assumed a task source always exists.
+
+    HERE AND NOT IN `build_helper`, which is the more obvious home: that module's
+    binding property is that it performs NO I/O, and this reads a file.
+    """
+    if task.description:
+        return task.description
+    if task.task_file:
+        return shared.resolve_task_source(repo_root, task.task_file,
+                                          "--task-file").read_text()
+    if task.plan_path:
+        return shared.resolve_task_source(repo_root, task.plan_path,
+                                          "--phase").read_text()
+    if task.pr_number:
+        return PR_RUNWAY_TASK.format(pr=task.pr_number)
+    # Unreachable through `BuildInput`, which refuses this combination at the
+    # boundary. Raised rather than returning "" so a future widening of that rule
+    # surfaces here instead of dispatching a child with an empty task.
+    raise ValueError(
+        "BuildInput carries no task source and no --pr; `__post_init__` should "
+        "have refused it. Nothing was dispatched.")
 
 
 def run_child(script: Path, args: list[str], *, stream: bool = True) -> ChildResult:

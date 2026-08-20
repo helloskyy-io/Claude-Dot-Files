@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import wait_for_ci
+from ..build_activities import task_text, wait_for_ci
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ..build_draft_minor import build_draft_minor_workflow as draft
 from ..build_refine_minor import build_refine_minor_workflow as refine
@@ -32,7 +32,7 @@ from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
-    description = task.description or Path(task.task_file or task.plan_path).read_text()
+    description = task_text(task, repo_root)
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a

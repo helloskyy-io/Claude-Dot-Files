@@ -84,16 +84,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return a
 
 
-def _read_task_file(path_str: str) -> str:
+def _read_task_file(path_str: str, repo_root: Path) -> str:
     """Load --task-file, distinguishing missing from unreadable as V1 did.
 
     Two messages, not one: 'not found' sends the operator to their path, and
     'not readable' sends them to permissions. Collapsing them costs a wrong
     diagnosis at the only moment the run is cheap to fix.
+
+    ANCHORED WITH `act.anchor_task_source`, NOT RESTATED. A relative `--task-file`
+    is resolved against the repo root rather than the invocation directory — see
+    that function for the measured defect. The rule is imported rather than
+    re-implemented because this file is the sixth consumer of it and the fifth
+    that would otherwise have written its own copy; what stays local is only the
+    two-message contract above, which no other runner has.
     """
-    path = Path(path_str)
+    path = act.anchor_task_source(repo_root, path_str)
     if not path.is_file():
-        raise FileNotFoundError(f"task file not found: {path_str}")
+        raise FileNotFoundError(
+            f"task file not found: {path_str} -> {path}\n"
+            f"A RELATIVE --task-file resolves against the repo root ({repo_root}), "
+            f"never against the directory you invoked from. Pass it absolute if you "
+            f"meant a path relative to your shell.")
     try:
         return path.read_text()
     except OSError as exc:
@@ -115,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
 
-        context = _read_task_file(a.task_file) if a.task_file else a.context
+        context = _read_task_file(a.task_file, repo_root) if a.task_file else a.context
 
         print(BANNER)
         print("  PLAN-REVISION WORKFLOW")
