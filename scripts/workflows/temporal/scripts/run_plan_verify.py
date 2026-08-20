@@ -77,21 +77,27 @@ def main(argv=None) -> int:
     # a worktree based on HEAD rather than the PR branch, and plan-verify's own
     # dry run counts from the repo for want of a worktree.
     #
-    # `git cat-file -e` asks the branch the worktree will actually be built from,
-    # which is the tree the run reads. A failure to resolve is treated as ABSENT
-    # rather than as an error: an unreadable ref is a different problem, and the
-    # message below names the one thing a caller can act on.
+    # IT ASKS THE BRANCH THE WORKTREE WILL ACTUALLY BE BUILT FROM, and it FETCHES
+    # first: the ref has to be local before any query can read it, and this runs
+    # before the worktree helper that would otherwise do the fetching.
+    #
+    # `ls-tree` RATHER THAN `cat-file -e`, DELIBERATELY. `cat-file -e` answers by
+    # exit code, so "the ref is unreadable" and "the file is not there" arrive as
+    # the same nonzero — and swallowing that into `plan_exists = False` would
+    # report an UNKNOWN as a confident "there is no plan", which is the exact
+    # class of bug this precondition was changed to fix. `ls-tree` exits 0 either
+    # way and puts the answer in its OUTPUT, so a nonzero exit can only mean the
+    # query genuinely failed, and `git_output` raises rather than guessing.
     plan_exists = (component / own.ROADMAP).is_file()
     if a.pr_number and not plan_exists:
         rel = (component / own.ROADMAP).relative_to(repo_root).as_posix()
-        try:
-            branch = act.pr_branch(a.pr_number, repo_root)
-            probe = subprocess.run(
-                ["git", "cat-file", "-e", f"origin/{branch}:{rel}"],
-                cwd=repo_root, capture_output=True, text=True, timeout=30)
-            plan_exists = probe.returncode == 0
-        except (OSError, subprocess.SubprocessError, RuntimeError):
-            pass
+        branch = act.pr_branch(a.pr_number, repo_root)
+        cannot = (f"this run cannot tell whether PR #{a.pr_number} carries a plan, "
+                  f"and 'I cannot see it' must not be delivered as 'it is not there'.")
+        act.git_output(repo_root, ["git", "fetch", "-q", "origin", branch], cannot)
+        plan_exists = bool(act.git_output(
+            repo_root, ["git", "ls-tree", "-r", "--name-only", f"origin/{branch}", "--", rel],
+            cannot).strip())
     if not plan_exists:
         print(f"\n✗ {component.relative_to(repo_root)} has no {own.ROADMAP}"
               + (f" — not here and not on PR #{a.pr_number}'s branch" if a.pr_number else "")

@@ -1052,14 +1052,25 @@ def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() 
     count as "nowhere".
     """
     src = (Path(__file__).resolve().parents[2] / "scripts" / "run_plan_verify.py").read_text()
-    guard = src[src.index("plan_exists = "):src.index("return 1", src.index("plan_exists = "))]
+    # ANCHOR ON THE ASSIGNMENT, NOT ON THE PHRASE. Slicing from the first
+    # occurrence of "plan_exists = " caught a mention inside the comment that
+    # explains the lookup, so the guard read a paragraph of prose and failed.
+    start = src.index("plan_exists = (component")
+    guard = src[start:src.index("return 1", start)]
     assert "a.pr_number" in guard, (
         "the roadmap precondition no longer consults the PR number, so a --pr "
         "pass is judged against a checkout that need not contain the plan")
-    assert "pr_branch" in guard and "cat-file" in guard, (
+    assert "pr_branch" in guard and "origin/{branch}" in guard, (
         "the precondition does not ask the PR's BRANCH for the file. Asking only "
         "the local tree refuses runs whose plan exists exactly where the run "
         "would have read it")
+    # THE QUERY MUST NOT SWALLOW ITS OWN FAILURE. An unreadable ref and an absent
+    # file are different facts, and collapsing them into `plan_exists = False`
+    # delivers "I cannot see it" as "it is not there" — the same wrong-confidence
+    # shape this whole guard exists to stop, one layer down.
+    assert "except" not in guard, (
+        "the branch lookup catches its own failure, so a ref this run could not "
+        "read is reported to the caller as a plan that does not exist")
     assert "not here and not on PR" in guard, (
         "the refusal message no longer says BOTH trees were checked. A caller "
         "told only 'has no roadmap.md' will go looking in the wrong one")
