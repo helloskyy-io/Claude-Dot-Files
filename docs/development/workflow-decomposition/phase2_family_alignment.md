@@ -1,12 +1,12 @@
 # Phase 2 — Family alignment
 
-**Component:** [Workflow Decomposition](roadmap.md) · **Status:** in progress — three of the original boxes shipped · **Gate:** none
+**Component:** [Workflow Decomposition](roadmap.md) · **Status:** complete — all five requirements delivered; requirement 3 was allowed to fail and did (κ = 0.000), so ruling is per-family · **Gate:** none
 
 ## What this phase does
 
 Children in the same family — `build_refine` and `build_refine_minor`, `research_write` and `research_write_minor` — do nearly the same job, and their prompts were written by copying. A copy that stops being updated does not announce itself: the two files still look like two files, and the reader who opens one has no way to tell that the other gained eleven rules it never received. That is not hypothetical. It happened, and every PMP phase built from a plan ran without the rule that tells a run how much rigour a change warrants.
 
-The mechanism half is built. A block appearing verbatim in two children must live in `modules/assistant/prompts/` and be referenced by placeholder; a frozen baseline forgives the duplication that existed when the rule landed and ratchets both ways, so the list can only shrink. It has: **48 rows down to 13**.
+The mechanism half is built. A block appearing verbatim in two children must live in `modules/assistant/prompts/` and be referenced by placeholder; a frozen baseline forgives the duplication that existed when the rule landed and ratchets both ways, so the list can only shrink. It has, and it ran out: **48 rows, then 13, then none** — the last thirteen are the ones this phase ruled on, and `ACCEPTED` is now empty.
 
 What is left is the half a test was never able to decide. A copy that has already **drifted** is invisible to a verbatim matcher, and it is the more dangerous kind, because a difference reads as a decision. Deciding whether it *was* one is a judgement about a person's intent, and this phase's job is to make that judgement **reproducible and written down** rather than to automate it — which the evidence says cannot be done.
 
@@ -19,10 +19,14 @@ What is left is the half a test was never able to decide. A copy that has alread
 1. **A written ruling procedure exists for a drifted pair**, and it is the four-signal ordering from [`fork_vs_parameterize_drift_signal.md`](research/raw/fork_vs_parameterize_drift_signal.md) §4.2 — fit-to-referent first, then context similarity of the two sites, then drift *pattern*, then stated rationale. It is applied by a person and never by a threshold.
 2. **Every row in the frozen baseline is either gone or carries a written ruling.** 13 rows on 2026-08-18. "Gone" means promoted; "ruled" means a sentence saying which signal decided it and why.
 3. **The procedure has been validated before it is trusted.** A blind classification followed by a reveal of the commit history, scored for accuracy, with the disagreement recorded — including if it is bad. An unvalidated procedure applied to 13 rows produces 13 confident guesses.
+
+   > **MEASURED 2026-08-19, and it FAILED — see [`fork_vs_parameterize_blind_trial.md`](fork_vs_parameterize_blind_trial.md).** Two shell-less raters, classifications sealed in commit `beb103f` before any history was read, scored against a co-evolution audit. **Cohen's κ = 0.000**, below the 0.271 benchmark, so ruling moved to per-family and requirement 2 is satisfied at that granularity.
+   >
+   > **Two sentences in this requirement were falsified by running it, and the corrections are the finding rather than an erratum.** *(a)* It asks for the trial to be *"scored for accuracy"* and treats accuracy as the thing that decides. Accuracy and agreement pointed in OPPOSITE directions here: one rater scored 6/7 while κ was 0.000, because it returned DELIBERATE on all seven and the population is 6/7 deliberate. **A constant classifier scores 6/7 on this sample without reading anything.** Both numbers must be reported or the result is whichever one the reader is shown. *(b)* It says an unvalidated procedure produces *"13 confident guesses"* — implying the risk is scattered, low-confidence answers. The measured failure was the opposite shape: **high agreement on a single confident answer**, arrived at by the default-to-intentional convention this phase's own § *Do NOT import* forbids, and wrong on exactly the pair where that default is wrong.
 4. **What a `_minor` tier's prompt is FOR is stated somewhere a guard can cite.** Not "less thorough" — a contract that says which categories of guidance are tier-invariant and which are not. Without it, every reconciliation is re-argued from first principles and lands differently each time.
 5. **A deliberate variant states its own rationale**, in one line, where the variant lives. This is the cheapest of the four signals and the only one that can be *created* rather than recovered.
 
-**Requirement 3 is deliberately allowed to fail.** If the blind trial shows the procedure is not reproducible here, the correct outcome is to record that and rule per *family* rather than per *pair* — not to apply an unreliable procedure 13 times and call the phase complete.
+**Requirement 3 is deliberately allowed to fail. IT DID, AND THE FALLBACK IS WHAT SHIPPED.** The blind trial showed the procedure is not reproducible on this corpus, so the ruling is recorded per *family* — one ruling per category of guidance, in `FAMILY_RULINGS` — rather than as 13 per-pair guesses. **The procedure is not retired:** it is what a reviewer applies when a guard surfaces a pair, and the trial improved it (see the trial's § 5.4). What it lost is the claim that two reviewers would reach the same answer.
 
 ---
 
@@ -74,17 +78,17 @@ Applied first, these keep the procedure from being run 13 times when it is neede
 
 ## Implementation steps
 
-- [ ] Read the four open candidates (C-108 to C-111) and record which of them the work about to be done depends on. Two describe blind spots in the guards this phase uses.
-- [ ] Write the ruling procedure — the four signals in order, the four short-circuits, and the rule that absence of a signal yields *unruled* rather than *deliberate*. Place it where a reviewer will find it at ruling time, not in a standard nobody opens mid-pass.
-- [ ] Pick the sample for the blind trial from the drifted pairs, and **seal the classifications before any history is consulted.** Record which signal drove each call.
-- [ ] Reveal the commit history for each pair in the sample and score the blind classifications against it. **Record the accuracy, including a bad one.**
-- [ ] Rule on the outcome: if agreement is at or below the field's κ = 0.271 benchmark, ruling moves from per-pair to per-family and requirement 2 is satisfied at that granularity instead. Write down which was chosen and why.
-- [ ] Apply the procedure to every remaining baseline row. For each: promote it, or record the ruling and the signal that produced it.
-- [ ] Verify the baseline shrank for every promotion — the ratchet fails on a fixed entry left behind, so a promotion that does not remove its row is caught by the suite rather than by a reader.
-- [ ] Write the `_minor` tier contract: which categories of guidance are tier-invariant, which are genuinely tier-specific. Two disposition rules already known to be tier-invariant are frozen with two consumers each, so reconciling them is a cross-family promotion rather than a contract question — do those separately and do not let the contract ruling block them.
-- [ ] Add the one-line `differs from <sibling> because <reason>` convention for a deliberate variant, and verify a new variant without one is visible to a reviewer.
-- [ ] Run the full suite and confirm the duplication and drift guards are green with the baseline at its new size.
-- [ ] Re-read this phase's requirement 3 against what was actually measured, and correct any sentence here that the measurement falsified.
+- [x] Read the four open candidates (C-108 to C-111) and record which of them the work about to be done depends on. Two describe blind spots in the guards this phase uses.
+- [x] Write the ruling procedure — the four signals in order, the four short-circuits, and the rule that absence of a signal yields *unruled* rather than *deliberate*. Place it where a reviewer will find it at ruling time, not in a standard nobody opens mid-pass.
+- [x] Pick the sample for the blind trial from the drifted pairs, and **seal the classifications before any history is consulted.** Record which signal drove each call.
+- [x] Reveal the commit history for each pair in the sample and score the blind classifications against it. **Record the accuracy, including a bad one.**
+- [x] Rule on the outcome: if agreement is at or below the field's κ = 0.271 benchmark, ruling moves from per-pair to per-family and requirement 2 is satisfied at that granularity instead. Write down which was chosen and why.
+- [x] Apply the procedure to every remaining baseline row. For each: promote it, or record the ruling and the signal that produced it.
+- [x] Verify the baseline shrank for every promotion — the ratchet fails on a fixed entry left behind, so a promotion that does not remove its row is caught by the suite rather than by a reader.
+- [x] Write the `_minor` tier contract: which categories of guidance are tier-invariant, which are genuinely tier-specific. Two disposition rules already known to be tier-invariant are frozen with two consumers each, so reconciling them is a cross-family promotion rather than a contract question — do those separately and do not let the contract ruling block them.
+- [x] Add the one-line `differs from <sibling> because <reason>` convention for a deliberate variant, and verify a new variant without one is visible to a reviewer.
+- [x] Run the full suite and confirm the duplication and drift guards are green with the baseline at its new size.
+- [x] Re-read this phase's requirement 3 against what was actually measured, and correct any sentence here that the measurement falsified.
 
 ---
 

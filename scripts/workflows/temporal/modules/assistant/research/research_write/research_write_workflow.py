@@ -76,6 +76,8 @@ def run_write(*, research_dir: Path, repo_root: Path, worktree: Path,
         "CONTEXT_BLOCK": "\n\n".join(blocks),
         "SUBMIT_PROMPT": act.submit_prompt(pr_number, f"research: {research_dir}"),
         "ALTITUDE_BLOCK": altitude,
+        "RESEARCH_STAGE_1_VERIFY_AND_DISCOVER": act.shared_prompt("research_stage_1_verify_and_discover"),
+        "STAGE_ORDER_SKIPPED_MARKER": act.shared_prompt("stage_order_skipped_marker"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

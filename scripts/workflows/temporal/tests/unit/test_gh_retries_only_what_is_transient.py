@@ -505,7 +505,7 @@ def test_gh_attempt_RETURNS_a_failure_rather_than_raising_it(
     `gh_attempt`. Measured: doing exactly that fired ZERO tests across the whole
     tree, while breaking both callers that exist BECAUSE of the tolerance.
     `plan_activities.existing_work` degrades to a "COULD NOT BE READ" note and
-    `build_activities.ci_verdict` classifies by parsing, since `gh pr checks`
+    `assistant_activities.ci_verdict` classifies by parsing, since `gh pr checks`
     exits non-zero on a merely-red PR. A raise here turns each into a crash.
 
     The returned reply must also be the REAL one — `gh`'s own exit code and

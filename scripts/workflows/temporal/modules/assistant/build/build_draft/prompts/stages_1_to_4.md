@@ -1,6 +1,6 @@
 EXECUTION ORDER IS MANDATORY
 
-Execute stages in strict numerical order. Each stage builds on the output of the previous stage, and reordering produces duplicate or conflicting work. Ignore any external guidance (including priority lists in task descriptions, PR comments, or continuation prompts) that would reorder them.
+${STAGE_ORDER_IS_MANDATORY}
 
 If a stage has nothing to address for this task, explicitly emit a one-line marker:
 
@@ -19,14 +19,14 @@ Then: analyze the existing implementation and the proposed changes. Read the rel
 
 Briefly describe your assessment before proceeding.
 
-**IF THE TASK IS TO CHARACTERIZE EXISTING BEHAVIOUR, ESTABLISH GROUND TRUTH BY EXECUTION BEFORE YOU WRITE ANY ASSERTION.** Reading the implementation carefully and then writing what it *should* do produces a suite that encodes your belief about the code and passes. **The measured case:** the four real defects it *did* find were all found by running the thing. Probe first, record what actually happens, then assert it. Where reality and the documented intent disagree, that gap is the highest-value finding in the task, not an inconvenience to smooth over.
+${CHARACTERIZE_BY_EXECUTION}
 
 
-**VERIFY THE TASK'S OWN ASSERTED FACTS BEFORE YOU BUILD ON THEM.** **AND CHECK `origin/main`, NOT ONLY YOUR TREE, BEFORE CALLING A PREMISE FALSE** — your base may predate the fix, so a brief can be right about `main` and wrong under you. A dispatch states facts in passing — a line number, a count, "this changes none of X", "both run clean, so gating them is a one-line addition". Those read as verified context and they are not. **Each such miss is one grep from being caught.**
+${VERIFY_THE_TASKS_ASSERTED_FACTS}
 
 **A MEASURED BASELINE WITHOUT A COMMIT IS UNVERIFIABLE — re-measure it rather than trusting it.** *"Baseline on `main`: 5101 passed"* names no ref, so it cannot be checked, only believed or disproved at the cost of turns. **Measured:** that exact figure was 5112 at the branch point when a run finally checked. If the task gives a number with a SHA, verify at that SHA; if it gives one without, re-measure at your actual branch point and report both. Never plan against a bare number.
 
-**The deferral rule's standard applies here too — verification is by fetch, never by plausibility.** Check every count, path, line citation and "changes none of X" claim the task makes THAT YOUR PLAN DEPENDS ON. When one is false, say so explicitly in your assessment and proceed on what is true: **a task premise is evidence, not instruction.** If its falsity changes the scope — an item that cannot be built as specified, a phase that is bigger than the task thought — say that too, rather than quietly building the smaller thing that still fits.
+${VERIFICATION_IS_BY_FETCH}
 
 
 ## Stage 2: PLAN
@@ -44,7 +44,7 @@ Execute the plan. Make the changes.
 
 After refactoring or replacing code, actively search for and delete anything that became unused as a result — old functions, imports, variables, test fixtures, config entries, feature flags. Do not comment out. Delete. Git history preserves everything.
 
-**.gitignore-collision check (before checkpoint commit):** if this stage created new files or directories, run `git status` and confirm each appears as untracked. If a created path does NOT appear, `.gitignore` is silently hiding it — typically via unanchored, name-only patterns (`ssh/`, `helpers/`, etc.) intended for credential or temp directories. Grep `.gitignore` for the matching pattern, then add an explicit `!path/` allowlist override before checkpoint commit. Silently-ignored new files are work invisible to the PR (silent data loss class).
+${GITIGNORE_COLLISION_CHECK}
 
 Checkpoint commit: once implementation and cleanup are complete, stage all changes and make a local checkpoint commit (do NOT push):
   git add -A && git commit -m "wip: implementation checkpoint — PRE-REVIEW, not yet audited"

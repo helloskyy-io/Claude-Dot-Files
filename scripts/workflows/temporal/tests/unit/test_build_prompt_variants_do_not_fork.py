@@ -1,9 +1,17 @@
 """A build prompt variant must not silently lose the discipline its sibling carries.
 
 THE MEASURED FAILURE, PR #99. `build_draft` ships two stage prompts: the normal
-one and a `_from_plan` variant used whenever a run is launched with `--phase`.
-They forked. The normal one accumulated eleven testing rules; the plan variant
-received none of them and kept a stale copy of a twelfth.
+one and a `_from_plan` variant, selected when a run is launched with `--phase`
+AND is not also given a `--pr`. They forked. The normal one accumulated eleven
+testing rules; the plan variant received none of them and kept a stale copy of a
+twelfth.
+
+THAT SELECTION CONDITION IS TWO AXES, AND IT WAS ONE UNTIL 2026-08-20. `--phase`
+names the TASK SHAPE; `--pr` names the DESTINATION, and the destination wins —
+a run sent to correct an existing PR must never be handed a prompt that tells it
+to open a new one. Reachability is not this file's axis and never was;
+`test_a_run_given_a_PR_is_never_told_to_CREATE_one.py` owns it, and the last
+bullet below says what that costs here.
 
 **Every PMP phase builds from a plan**, so that variant is the one the whole
 component runs on — and it ran with no instruction to SIZE the change. The rule
@@ -30,6 +38,12 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
     it.** That is an unmeasured case, flagged rather than fixed blind; adding it
     here would assert a conclusion nobody has evidence for.
   * It checks that the discipline is REACHABLE, never that a model applied it.
+  * **Which run gets which variant.** This file compares the two prompts'
+    CONTENTS and is structurally blind to whether either is ever SELECTED — which
+    is why it stayed green while the major tier's `--phase` runs reached the
+    generic prompt for as long as this file has existed. That axis belongs to
+    `test_a_run_given_a_PR_is_never_told_to_CREATE_one.py`; asserting it here too
+    would create the very drift this file exists to police.
 """
 from __future__ import annotations
 

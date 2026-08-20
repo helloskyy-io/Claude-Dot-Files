@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
+from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.plan import plan_activities as act  # noqa: E402
 from modules.assistant.plan.plan_feature import plan_feature_activities as own  # noqa: E402
@@ -58,12 +59,15 @@ def main(argv=None) -> int:
 
     try:
         a, repo_root, resolved = p.parse_with_preflight(argv)
+        # READ HERE, INSIDE THIS try, so a bad `--task-file` prints the same
+        # one-line diagnostic as a bad `--repo` instead of a traceback. Both
+        # are operator input and neither has created anything yet.
+        context = act_shared.task_context(repo_root, a.task_file)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
     component, cands = resolved["component"], resolved["candidates"]
-    context = Path(a.task_file).read_text() if a.task_file else ""
 
     try:
         if a.dry_run:

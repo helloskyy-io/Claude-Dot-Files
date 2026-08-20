@@ -13,16 +13,28 @@ parent would have made it three copies.
 
 This module is deliberately dependency-free — no I/O, no imports from siblings —
 so any workflow may import it without pulling in a family it does not belong to.
+
+THE CI GATE JOINED IT FOR THE SAME REASON, ONE PROMOTION LATER. `CiVerdict`,
+`POLICY_PATH` and `ci_gate` lived in the BUILD family, so the plan and research
+parents could not read a CI verdict without importing `build/` — a layering
+inversion, and the reason four parents dispatched `review-pr` with the verdict
+never read. §10.1 rule 3 decides it mechanically: six consumers across three
+families promotes to their common parent, which is here. The gate is PURE and
+returns a `Verdict`, so it belongs on this side of the layer boundary; the reads
+it consumes (`ci_verdict`, `wait_for_ci`) are I/O and went to
+`assistant_activities`.
 """
 
 from __future__ import annotations
 
 import re
 from enum import Enum
+from pathlib import Path
 
 __all__ = [
     "Verdict", "MAX_LOOPS", "parse_verdict", "should_loop_back",
     "PR_URL", "extract_pr_url", "pr_number_from_url", "pr_identity",
+    "CiVerdict", "POLICY_PATH", "ci_gate",
 ]
 
 
@@ -237,3 +249,182 @@ def pr_number_from_url(url: str, *, expected_repo: str | None) -> str:
             f"reviews, comments on and commits to."
         )
     return number
+
+
+# WHICH CHECKS GATE MERGE IS A FACT ABOUT THE REPO, NOT ABOUT THIS PARENT.
+# The parent is generic across many repos; a constant enumerating each
+# consumer's job names is the parent knowing things about its consumers, and
+# the failure is silent-by-default — the next repo's checks match nothing, the
+# gate reports a skip, and the only signal is a line someone has to be reading.
+#
+# MEASURED IMMEDIATELY: this shipped as `BLOCKING_CHECKS = ("suite",)` and the
+# MDC side's gating job is named `master-test-tier`. Every one of their PRs
+# would have returned NO_CHECKS — the gate adopted, none of it received.
+#
+# So the repo declares, and the parent reads. Onboarding a repo becomes adding
+# one file TO THAT REPO, which is the correct ownership direction and the
+# reason this scales past the second consumer.
+POLICY_PATH = Path("testing") / "check-policy.yaml"
+
+
+class CiVerdict(str, Enum):
+    """Five states, and the last three are the ones that get fudged.
+
+    NO_CHECKS AND GATE_DID_NOT_RUN WERE ONE STATE UNTIL 2026-08-13, AND
+    COLLAPSING THEM COST TWO PRs THEIR MERGE GATE. Both mean "no blocking check
+    reported", and the causes are opposites:
+
+      - NO_CHECKS       — the repo declares no blocking checks. There is no gate
+                          to wait for, and proceeding is correct.
+      - GATE_DID_NOT_RUN — the repo DOES declare blocking checks and none of them
+                          reported. The gate exists and produced nothing, which
+                          is not a pass and must stop the run.
+
+    The usual cause of the second is a conflicted PR: `pull_request` workflows
+    run against the merge ref, GitHub cannot compute one for a conflicted PR, so
+    no run is created at all. Zero runs render as zero failures.
+
+    UNREADABLE_CHECKS IS THE SAME LESSON ONE LAYER OUT, AND IT COST PR #92
+    THREE REBUILDS ON 2026-08-14. `UNREADABLE_POLICY` already says that a
+    declaration which cannot be READ is a different fact from one that does not
+    exist. The CHECK LIST had no such state: a failed `gh pr checks` returns an
+    empty stdout, which became `[]`, which is indistinguishable from "the gate
+    reported nothing" — so a broken read rendered as GATE_DID_NOT_RUN, which is
+    HOLD_REDISPATCH, which rebuilds. Three passes of build-refine ran against a
+    PR that was OPEN, MERGEABLE and green on all four checks the entire time.
+
+    The distinction earns its place because THE REMEDIES ARE OPPOSITE. A gate
+    that did not run is usually a conflicted PR, and redispatching an engineer
+    to resolve it is the right move. A gate that cannot be READ is an
+    environment failure, and redispatching cannot fix it — it can only spend the
+    loop budget discovering that again.
+    """
+
+    GREEN = "green"
+    RED = "red"
+    NO_CHECKS = "no_checks"
+    GATE_DID_NOT_RUN = "gate_did_not_run"
+    UNREADABLE_POLICY = "unreadable_policy"
+    UNREADABLE_CHECKS = "unreadable_checks"
+
+
+def ci_gate(state: CiVerdict, extra: list[str], *, pr: str,
+            repo_target: str | None) -> tuple[Verdict | None, list[str]]:
+    """Map a settled CI read to a HOLD (or None) plus the operator-facing notes.
+
+    PURE, AND SHARED BY EVERY PARENT THAT DISPATCHES `review-pr`, which is the
+    whole reason it is here rather than inline. The cascade below lived in
+    `build_workflow` only, so `build_minor` reached `review-pr` with the CI
+    verdict never read — the light tier could return MERGE on a red tree, which
+    is exactly the hole removing branch protection opened and which this gate was
+    written to close. One parent got the gate and its sibling was never updated:
+    a whole block present in one copy and absent from its sibling, the reportable
+    drift pattern under `tests/unit/fork_vs_parameterize.py` S3, in the category
+    that module's own contract calls `operational-safety` — *a cheaper run is not
+    a run permitted to be less careful*.
+
+    THEN THE SAME DEFECT WAS FOUND ONE ALTITUDE UP. Promoting it to
+    `build_helper` fixed the build family and left FOUR MORE parents — one plan,
+    three research — dispatching `review-pr` on an unread verdict, because
+    reaching the gate from outside `build/` meant importing the build family.
+    Promotion to `routing` removed that inversion; the gate is now wired into all
+    six. The LOGIC did not change in that move: same six states, same note text,
+    same HOLD kinds.
+
+    IT IS NOT TRUE THAT A MARKDOWN-ONLY FAMILY HAS NOTHING TO GATE. This repo's
+    `.github/workflows/tests.yml` carries NO `paths:` filter, deliberately — its
+    own comment says a filtered gate "can only ever skip something it should have
+    caught" — so a plan or research PR that touches only `.md` still runs the
+    full suite, and this suite greps prompts and docs. A markdown edit turning
+    the tree red is an ordinary outcome here, not a hypothetical.
+
+    WHY THE GATE IS IN A PARENT AND NOT A PROMPT: telling a review agent to check
+    and withhold MERGE is a convention, and an agent can reason past a convention
+    — "unrelated failure, proceeding" is the shape being guarded against. Here the
+    agent never gets a verdict to give.
+
+    HOLD, NEVER `exit 1`: killing the run discards a diff two passes just built.
+    HOLD keeps the work and hands the failure back in the format the pipeline
+    already consumes.
+
+    Returns `(None, notes)` when the gate does not stop the run — the notes may
+    still be non-empty, because two non-blocking states are reported out loud
+    rather than passed silently.
+    """
+    where = f" in {repo_target}" if repo_target else ""
+    if state is CiVerdict.UNREADABLE_CHECKS:
+        # NEEDS_ASSISTANCE, NOT REDISPATCH, AND THE DIFFERENCE IS THE WHOLE
+        # POINT. A gate that did not RUN is usually a conflicted PR, and sending
+        # an engineer back to resolve it is right. CI that cannot be READ is an
+        # environment failure — a redispatch cannot fix it and can only spend the
+        # loop budget rediscovering that. Which is exactly what happened: a failed
+        # `gh pr checks` read as GATE_DID_NOT_RUN and PR #92 rebuilt three times
+        # while it was OPEN, MERGEABLE and green throughout.
+        return Verdict.HOLD_NEEDS_ASSISTANCE, [
+            f"CI GATE: HOLD — the CI status of PR {pr} could not be READ{where} "
+            "(`gh pr checks` returned nothing parseable). This is NOT the same "
+            "as the gate not running, and a redispatch cannot fix it: check `gh "
+            "auth status`, rate limits, and network. review-pr was NOT dispatched."
+        ]
+
+    if state is CiVerdict.UNREADABLE_POLICY:
+        # A declaration that EXISTS and cannot be read is a different fact from
+        # no declaration, and collapsing them is how the skip path becomes the
+        # new exit. Same discipline the JSON parse already follows: unreadable
+        # input fails into the state that STOPS.
+        return Verdict.HOLD_NEEDS_ASSISTANCE, [
+            f"CI GATE: HOLD — {POLICY_PATH} exists and could not be parsed. "
+            "A broken declaration is not the same as no declaration; fix the file. "
+            "review-pr was NOT dispatched."
+        ]
+
+    notes: list[str] = []
+    # GATE_DID_NOT_RUN is excluded because its `extra` carries the names of the
+    # gate that is ABSENT, not of checks that ran. Reading it here reported
+    # `suite` as unclassified in the same breath as the branch below reported it
+    # as declared blocking — two contradictory lines from one run, on 2026-08-14.
+    if extra and state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN):
+        # A check that ran and is declared NEITHER blocking nor advisory is the
+        # third state the Testing Standard says does not exist. Reported by name,
+        # never silently gated — a check the repo has not classified must not halt
+        # the fleet, and must not hide either.
+        notes.append(
+            f"CI GATE: UNDECLARED CHECKS — {', '.join(extra)} ran and appear in neither "
+            f"the blocking nor the advisory list of {POLICY_PATH}. The Testing Standard "
+            "admits no third state; classify them."
+        )
+
+    if state is CiVerdict.RED:
+        notes.append(
+            f"CI GATE: HOLD — blocking checks failed: {', '.join(extra)}. "
+            "review-pr was NOT dispatched; a red tree cannot produce a MERGE verdict. "
+            "Fix the checks and redispatch; the diff is intact on the branch."
+        )
+        return Verdict.HOLD_REDISPATCH, notes
+
+    if state is CiVerdict.GATE_DID_NOT_RUN:
+        notes.append(
+            f"CI GATE: HOLD — {POLICY_PATH} declares {', '.join(extra)} blocking, and "
+            f"NONE of them reported on PR {pr}{where}. The gate exists and produced "
+            "nothing, which is not a pass. review-pr was NOT dispatched. The usual "
+            "cause is a CONFLICTED PR: `pull_request` workflows run against the merge "
+            "ref, GitHub cannot compute one for a conflicted PR, so no run is created "
+            "at all — check `git ls-remote origin refs/pull/<N>/merge` against the "
+            "current head. Resolve, push, and let the checks run before redispatching; "
+            "the diff is intact on the branch."
+        )
+        return Verdict.HOLD_REDISPATCH, notes
+
+    if state is CiVerdict.NO_CHECKS:
+        # NOT green, and named rather than silent. A repo with no workflows, or a
+        # PR whose workflows were all path-filtered out, reports nothing — and
+        # "no checks reported" reading as pass is how a filtered gate would get
+        # here. The run says so out loud; it does not stop on it, because a repo
+        # may legitimately have none.
+        notes.append(
+            f"CI GATE: SKIPPED — no check declared blocking in {POLICY_PATH} "
+            f"reported on PR {pr}{where}. This is NOT a pass. Either the repo has "
+            "no such gate, or its workflows were filtered out of this change."
+        )
+
+    return None, notes

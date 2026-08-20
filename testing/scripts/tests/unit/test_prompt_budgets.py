@@ -78,7 +78,15 @@ BUDGETS: dict[str, int] = {
     # 77_115 -> 77643: the reviewer picks the dispatch tool and was never told
     # `-minor` is a LESS CAPABLE MODEL. Its whole sizing axis was scope and turn
     # caps, so a scoped-and-known fix needing judgement routed to the weak tier.
-    "review_pr/prompts/disposition.md": 78068,
+    # 77643 -> 78068 -> 78_926: this body is SHARED by all three ReviewType
+    # values, and its `dispatch_tool` enum named build and planning tools only.
+    # `criteria_research.md` routes "a defect verify should have caught" to
+    # REDISPATCH and the universal core forbids FILING a defect that is the run's
+    # own scope — so a research reviewer reached that exit with no legal value to
+    # emit. The residue is two sizing rows read from the modules, the two shim
+    # names, and one type-matching line; ~1.5 KB of rationale for them was cut
+    # before this number moved, which is the mechanism working.
+    "review_pr/prompts/disposition.md": 78_926,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
     # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
@@ -124,11 +132,6 @@ BUDGETS: dict[str, int] = {
     # exact error the `plan_verify` note below warns about. Em-dashes are three
     # bytes each and this prompt is full of them.
     "build/build_refine/prompts/stages_2_to_4.md": 10294,
-    # 21_619 -> 8466 after the 2026-08-19 rebuild. It SHRANK while gaining a job:
-    # the five-condition bar for "does this warrant a sprint section" and the
-    # ranked placement choice both left, because by the time this runs the chain
-    # above it has already built the thing. What arrived is smaller — a computed
-    # total to place and a component's bullets to reconcile.
     # 21_619 -> 8_466 in the 2026-08-19 rebuild. It SHRANK BY 61% while gaining
     # the job it was missing. What left: the five-condition bar for "does this
     # warrant a sprint section", and the ranked placement choice over ruled
@@ -136,12 +139,18 @@ BUDGETS: dict[str, int] = {
     # BUILDING the thing — a component arriving with a roadmap, phase docs and an
     # estimate per phase has been ruled. What arrived is smaller: place a
     # computed total, reconcile one component's bullets against its roadmap.
-    "plan/plan_sprint/prompts/plan_sprint.md": 8830,  # +the no-precedent-yet case, from the first run
-    # The pre-rebuild prompt, kept beside its replacement until triage-candidates
-    # absorbs the candidate-sizing half that left. Budgeted so it cannot grow
-    # while dormant; test_no_OLD_prompt_OUTLIVES_its_replacement in
-    # test_prompt_completeness.py is what stops it becoming permanent.
-    "plan/plan_sprint/prompts/plan_sprint_OLD.md": 21619,
+    # (This paragraph was here TWICE, the two copies disagreeing on whether the
+    # number was 8466 or 8_466 and neither reaching the value on the line below.
+    # A duplicated entry in the one file whose job is to make prompt growth
+    # legible is the thing this file exists to prevent, one level up.)
+    # 8_466 -> 8_830: the no-precedent-yet case, from the first run.
+    # 8_830 -> 9_230 on 2026-08-19 with the `size` column. The prompt tells the
+    # run to COPY the neighbouring sections' form; two runs read that and still
+    # inferred a shape, so the section and the phase-bullet shapes are now stated
+    # outright — 400 bytes buying the removal of a re-dispatch. Nothing was cut to
+    # fund it: this file is a fifth the size of the outlier above and the ratchet
+    # it guards against is growth without a reason, not growth.
+    "plan/plan_sprint/prompts/plan_sprint.md": 9230,
     # RATCHETED DOWN 16_060 -> 9_919: the mutation discipline moved to the shared
     # prompts/mutation_discipline.md, budgeted below. Content did not shrink, it
     # MOVED — so both lines exist and neither absorbs growth silently.
@@ -182,7 +191,31 @@ BUDGETS: dict[str, int] = {
     # the immutability rule reads unconditionally, so it applied to a plan
     # nothing had cited yet. Operator ruling — the rule protects PUBLISHED
     # addresses, and before publication a tidy plan is strictly better.
-    "plan/plan_feature/prompts/plan_feature.md": 23449,  # +${FILING_A_CANDIDATE_ROW}
+    # +8 on 2026-08-19: `size` joined `decision` and `status` in the MAY NOT
+    # column. The word is 8 bytes and nothing was added around it. Recorded even
+    # so — the same reason the 4-byte raise at the top of this file is recorded:
+    # an 8-byte raise is precisely the size that gets waved through, and the
+    # habit is what the gate is, not the number.
+    # +7 on 2026-08-20, and the trade is a CORRECTION rather than new content.
+    # The enforcement list beneath the MAY NOT table read "All three candidate
+    # columns — `decision`, `status`, `component`" after `size` became the
+    # fourth one actually compared. It now names four. "three" -> "four" is -1
+    # and "`size`, " is +8. The prompt's list closes by promising exactly one row
+    # is NOT mechanically checked and naming which, so an omitted column made
+    # that promise false in the expensive direction: the model learns the column
+    # is on the honour system and the guard then fails the whole run.
+    # +362 on 2026-08-20, and it buys ONE bullet plus a numeral this list no
+    # longer has to hand-maintain. The list heads itself "exactly what checks
+    # it" and closes by promising exactly ONE row is not mechanically checked --
+    # yet the table's FIRST MAY NOT row, "Estimate hours, or size the work in
+    # any unit of time", appeared nowhere beneath it, while `own.hour_hits`
+    # checks it on every run. A reader had to leave the list to learn that,
+    # which is what a completeness promise exists to make unnecessary. The
+    # bullet is +367; "All four candidate columns" -> "Every candidate column"
+    # is -4 and the agreement fix "are" -> "is" is -1. The count now derives
+    # from the enumeration beside it instead of being remembered, which is the
+    # class this repo paid four correction passes for on PR #101.
+    "plan/plan_feature/prompts/plan_feature.md": 23826,  # +${FILING_A_CANDIDATE_ROW}
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it
@@ -225,7 +258,16 @@ BUDGETS: dict[str, int] = {
     # reviewer spend 1,500 bytes describing a one-sentence fix — the exact smell
     # engineering-quality.md names. Fixing a determined defect is now in scope;
     # re-planning is not, and the observers that always enforced that half do it.
-    "plan/plan_verify/prompts/plan_verify.md": 18127,
+    # +8 on 2026-08-19, the same `size` in the same MAY NOT column as
+    # `plan_feature.md` above, for the same 8 bytes.
+    # +7 on 2026-08-20, the same corrected sentence as `plan_feature.md` above
+    # and for the same reason, byte for byte.
+    # RATCHETED DOWN 18142 -> 18137 on 2026-08-20: -4 for the same dropped
+    # numeral as `plan_feature.md` above ("All four candidate columns" ->
+    # "Every candidate column") and -1 for the same agreement fix. Ratcheted
+    # rather than left slack, because a budget five bytes loose is exactly the
+    # room the next unrecorded addition slips into.
+    "plan/plan_verify/prompts/plan_verify.md": 18137,
     # RATCHETED DOWN 14_437 -> 9_896, the other side of the same move. It stays
     # above the FLOOR, so it keeps its line rather than dropping off the table.
     # Then 9_896 -> 9_908, the same twelve substituted-away bytes as above.
@@ -248,7 +290,39 @@ BUDGETS: dict[str, int] = {
     # budget, never what may lose one, and dropping the line would let 5 KB of
     # vacated space refill unwatched.
     "build/build_refine_minor/prompts/stages_2_to_4.md": 2989,
-    "plan/triage_candidates/prompts/triage_candidates.md": 13_670,
+    # 13_670 -> 19_668 on 2026-08-19, and this is the largest single raise the
+    # gate has been asked to rule on. It buys TWO rulings the workflow was not
+    # making, and the accounting is stated at this length because a 44% raise on
+    # one prompt is exactly the shape that should have to argue for itself.
+    #   ~2_400  THE WORTHINESS TEST. Triage's whole bar was "can this be
+    #           scheduled?" — a READINESS question that says nothing about
+    #           whether the work is worth doing, so a perfectly schedulable
+    #           candidate serving nothing this platform is building passed it
+    #           cleanly. The prompt now asks the hard question FIRST and names
+    #           where the trajectory is written, because "does it serve the
+    #           thesis" is unanswerable without an address to check it against.
+    #   ~3_600  THE `size` RULING — the vocabulary, the five-question feature
+    #           test, and the two OPPOSITE meanings of "it needs no research of
+    #           its own". This one replaces code, and that is the trade: the
+    #           inference it removes lived in `plan_candidates` as a proxy — no
+    #           directory, therefore a new component — which was right for one of
+    #           three cases and silently wrong for the other two.
+    # NOT FUNDED BY A CUT, and the honest reason is that there was nothing in
+    # this prompt to cut: it is a fifth the size of the outlier at the top of
+    # this file, and every byte of the removed inference was in Python, not here.
+    # +385 on 2026-08-20 — ONE BULLET, and it is a disclosure this prompt
+    # already promised. Line 32 says "Every row in that MAY NOT column is
+    # enforced, not requested, and here is exactly how", and the list that
+    # follows accounted for `status`, `component`, paths and deletion while
+    # `size` appeared in it zero times — under a closing guarantee that names the
+    # single unchecked row. The `size` prohibition IS wired
+    # (`own.sized_without_shipping`), so the list under-claimed: two rows read as
+    # unaccounted while the prompt swore there was one, and it named the wrong
+    # one as the exception. NOT FUNDED BY A CUT for the reason the entry above
+    # gives — the alternative was deleting a correct disclosure to buy a correct
+    # disclosure. The bullet says what the pairing check reads and why it needs
+    # no before-snapshot, which is the part a model cannot infer from the row.
+    "plan/triage_candidates/prompts/triage_candidates.md": 20_053,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —
     # true on run 1, false on run 2, since papers accumulate and the synthesis is

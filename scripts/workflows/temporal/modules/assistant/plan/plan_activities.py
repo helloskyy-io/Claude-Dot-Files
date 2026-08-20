@@ -92,9 +92,10 @@ pr_branch = shared.pr_branch
 extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
 max_turns = shared.max_turns
+anchor_task_source = shared.anchor_task_source
 
-# A candidate row:
-#   | C-001 | title | component | source | `decision` | `status` | note |
+# A candidate row, in the eight-column shape `_HEADER` declares:
+#   | C-001 | title | component | source | `decision` | `size` | `status` | note |
 #
 # CELLS ARE MATCHED AS `[^|\n]*`, NOT `.*?`, AND THAT IS LOAD-BEARING. Note text
 # in this file carries UNESCAPED PIPES, so anything that splits a whole row on
@@ -106,16 +107,32 @@ max_turns = shared.max_turns
 # "four rows of 76 do" and was falsified by the very commit that added the
 # `component` column, because that commit also appended a row — a restated figure
 # drifting one commit after it was measured is the class C-050's own Note names.
-# The load-bearing claim is that NO row's first five cells contain a pipe; a tally
+# The load-bearing claim is that NO cell before the Note contains a pipe; a tally
 # of the Note's pipes is decoration and any new row can falsify it.
+#
+# AND THE CELL COUNT IS NOT WRITTEN HERE EITHER, for the same reason one line up.
+# This sentence read "first five cells" through two column additions: it was true
+# of the six-column table it was written against, went stale the moment
+# `component` landed, and was still stale when `size` did — so the figure has
+# been wrong for longer than it was right, in the comment that argues against
+# restating figures. `_CONSTRAINED_CELLS` below derives it from `_HEADER`.
 _ROW = re.compile(
-    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|", re.M)
+    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|",
+    re.M)
 
-# The seven-column header, as every candidate table in the file renders it.
+# The eight-column header, as every candidate table in the file renders it.
 # Kept for the MESSAGE it can give — "your table is the old shape" is a better
 # sentence than "row C-082's decision is unreadable" when the whole table moved.
 # It is NOT the guard; see `_check_shape`.
-_HEADER = "| ID | Candidate | `component` | Source | `decision` | `status` | Note |"
+_HEADER = ("| ID | Candidate | `component` | Source | `decision` | `size` | "
+           "`status` | Note |")
+
+# How many cells `_ROW` constrains — every column but the Note. DERIVED from the
+# header rather than restated, because the restated version was wrong twice (see
+# the `_ROW` comment). Eight columns are bracketed by nine pipes, and the Note is
+# the one cell that may hold a pipe of its own, so: pipes, less the two that
+# bracket the Note.
+_CONSTRAINED_CELLS = _HEADER.count("|") - 2
 
 # Anything that PRESENTS as a candidate row, whatever its id happens to look
 # like. `_ROW` insists on `C-\d{3}`; this insists only on the shape a reader
@@ -129,6 +146,29 @@ _ROW_LINE = re.compile(r"^\|\s*(C-\S+?)\s*\|", re.M)
 # § Two flags gives `status` its two values.
 _DECISIONS = ("", "ship", "requires review", "reject")
 _STATUSES = ("", "open", "closed")
+# `size` is `triage-candidates`'s SECOND ruling and it is asked ONLY of a `ship`.
+# Blank is the honest value everywhere else: a rejected candidate has no size, and
+# a shipped row filed before this column existed is UNSIZED rather than wrongly
+# sized — `plan-candidates` skips those and says so, which makes the backfill
+# self-healing instead of a migration.
+_SIZES = ("", "feature", "phase", "checkboxes")
+
+# THE COLUMNS A RUN CAN BE HELD TO, WRITTEN ONCE. Each of these has a reader
+# (`candidate_<column>s`) and a comparator (`<column>s_this_run_had_no_right_to`)
+# below, and every message here that has to enumerate them interpolates this
+# rather than restating it.
+#
+# IT EXISTS BECAUSE THE HAND-KEPT COPIES DRIFTED THE MOMENT `size` LANDED, three
+# of them at once — `_raise_on_duplicate_ids`' operator message and its
+# docstring, and `CandidateRow`'s. All three named `decision`, `status` and
+# `component`, all three were true of the seven-column table, and none of them
+# went red when a fourth guarded column arrived. That is the same class as the
+# cell count two comments up, and it has the same answer: state it in one place
+# that something else derives from, rather than in four places a reviewer has to
+# find. `test_the_GUARDED_COLUMN_LIST_matches_the_comparator_family` is what
+# holds it — the next column with a reader and a comparator fails until it is
+# named here, and naming it here moves every message at once.
+_GUARDED_COLUMNS = ("decision", "size", "status", "component")
 
 _BLANK = ("", "—", "-")
 
@@ -138,19 +178,24 @@ class CandidateRow(NamedTuple):
 
     It was a bare `(id, decision, status)` triple until `component` was added
     between `Candidate` and `Source`. Widening a positional tuple silently
-    re-points every unpacking site by one, and three of the sites here are
-    AUTHORIZATION GUARDS — `candidate_decisions`, `candidate_statuses` and
-    `candidate_components` each prove a run did not write a column it does not
-    own. A guard that compares the wrong field still returns a clean dict and
-    still reports a clean run, so the failure would be invisible in exactly the
-    place invisibility costs most. Named access makes the same mistake a crash
-    instead.
+    re-points every unpacking site by one, and the sites reading `_GUARDED_
+    COLUMNS` are AUTHORIZATION GUARDS — each `candidate_<column>s` reader proves
+    a run did not write a column it does not own. A guard that compares the wrong
+    field still returns a clean dict and still reports a clean run, so the
+    failure would be invisible in exactly the place invisibility costs most.
+    Named access makes the same mistake a crash instead.
+
+    NO COUNT OF THOSE SITES IS WRITTEN HERE. This sentence said "three of the
+    sites" from the day it was written until `size` made it four, and the claim
+    it is making is the PROPERTY — a guard reading the wrong field is silent —
+    which needs no denominator.
     """
 
     id: str
     title: str
     component: str
     decision: str
+    size: str
     status: str
 
 
@@ -197,8 +242,8 @@ def candidate_rows(candidates_path: Path, *, missing_hint: str) -> list[Candidat
         raise FileNotFoundError(f"candidates file not found: {candidates_path}. {missing_hint}")
     text = candidates_path.read_text()
     rows = [CandidateRow(cid, normalise_cell(title), normalise_cell(comp),
-                         normalise_cell(dec), normalise_cell(st))
-            for cid, title, comp, dec, st in _ROW.findall(text)]
+                         normalise_cell(dec), normalise_cell(size), normalise_cell(st))
+            for cid, title, comp, dec, size, st in _ROW.findall(text)]
     _check_shape(candidates_path, text, rows, missing_hint)
     return rows
 
@@ -228,8 +273,8 @@ def _check_shape(path: Path, text: str, rows: list[CandidateRow],
         population the file holds?
       * `_raise_on_duplicate_ids`  — the same question one altitude down, and it
         needs its own helper because a SET answers neither on its own.
-      * `_raise_on_foreign_cell`   — does every parsed row's `decision` and
-        `status` fall in the closed vocabulary `candidates.md` defines?
+      * `_raise_on_foreign_cell`   — does every parsed row's `decision`, `size`
+        and `status` fall in the closed vocabulary `candidates.md` defines?
 
     ONE CASE PER HELPER, RATHER THAN ONE LIST IN ONE DOCSTRING, and that is the
     fix for a defect this docstring itself carried: it opened *"Three ways the
@@ -269,9 +314,10 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
                             missing_hint: str) -> None:
     """No id may name two rows — the door that has actually opened.
 
-    Every reader here is a dict keyed by id, so the second row's `decision`,
-    `status` and `component` silently overwrite the first's and one of the two
-    candidates stops existing for every consumer.
+    Every reader here is a dict keyed by id, so the second row's cells silently
+    overwrite the first's — every column in `_GUARDED_COLUMNS`, which is where
+    the list is kept rather than restated here — and one of the two candidates
+    stops existing for every consumer.
     `test_candidate_ids_are_unique` records it three times by 2026-08-11 and
     twice more on 2026-08-13, always the same way — two branches each allocate
     the next free id against the same base and both merge. That test is a merge
@@ -291,7 +337,9 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
         raise ValueError(
             f"{path} allocates {len(repeated)} id(s) to more than one row: "
             f"{', '.join(repeated)}. Every reader here is a dict keyed by id, so "
-            f"the later row's `decision`, `status` and `component` overwrite the "
+            f"the later row's "
+            + ", ".join(f"`{col}`" for col in _GUARDED_COLUMNS)
+            + f" overwrite the "
             f"earlier one's and one of the two candidates stops existing for the "
             f"untriaged working set, for both authorization snapshots and for the "
             f"deletion check — all of which are keyed by the same colliding id and "
@@ -302,40 +350,50 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
 
 def _raise_on_foreign_cell(path: Path, text: str, rows: list[CandidateRow],
                            missing_hint: str) -> None:
-    """`decision` and `status` must hold values `candidates.md` admits.
+    """`decision`, `size` and `status` must hold values `candidates.md` admits.
 
     THIS IS THE ARM THAT COVERS SHAPES NOBODY HAS THOUGHT OF YET, which is why it
-    does not name any of them. A column shift moves foreign text into the two
-    flag cells — `open` into `decision` for a table left in the old six-column
-    shape, a Source string for a row carrying a pipe in one of its first five
-    cells (markdown's own escape for a literal pipe is `\\|`, and `[^|\\n]*`
-    treats that pipe as a cell boundary, so a CORRECTLY escaped title shifts the
-    row). Neither shape is enumerated in the condition: the condition asks
-    whether the cell reads as something the file admits, so any future departure
-    that moves text sideways fails here rather than being discovered by a later
-    pass.
+    does not name any of them. A column shift moves foreign text into the three
+    ruled cells — `open` into `size` for a table left in the old seven-column
+    shape, a Source string for a row carrying a pipe in a cell before the Note
+    (markdown's own escape for a literal pipe is `\\|`, and `[^|\\n]*` treats that
+    pipe as a cell boundary, so a CORRECTLY escaped title shifts the row).
+    Neither shape is enumerated in the condition: the condition asks whether the
+    cell reads as something the file admits, so any future departure that moves
+    text sideways fails here rather than being discovered by a later pass.
+
+    ALL THREE RULED COLUMNS, NOT TWO. `size` was added to the table and left out
+    of this condition, so the one cell a stalled seven-to-eight-column migration
+    displaces text INTO was the one cell that accepted anything. `_SIZES` was
+    declared for this check and had no reader at all: a table left in the
+    seven-column shape puts `status` into `size` and the Note into `status`, and
+    only the second of those two was ever asked about. Widening the condition is
+    what makes `_SIZES` load-bearing rather than documentation.
 
     It is not exhaustive and does not claim to be — a shift lands silently only
-    if the displaced text happens to read as one of the seven admitted strings.
-    The message names both known shapes because a reader who has just been told
-    "row C-082's decision is unreadable" needs to know where to look.
+    if the displaced text happens to read as one of the strings the three closed
+    vocabularies admit. The message names both known shapes because a reader who
+    has just been told "row C-082's decision is unreadable" needs to know where
+    to look.
     """
     for row in rows:
-        if row.decision in _DECISIONS and row.status in _STATUSES:
+        if (row.decision in _DECISIONS and row.size in _SIZES
+                and row.status in _STATUSES):
             continue
         shape = ("" if _HEADER in text else
                  f"\nNo table in this file carries the expected header:\n  {_HEADER}\n"
-                 f"so the whole table is probably still in the old six-column shape.")
+                 f"so the whole table is probably still in the old seven-column shape.")
         raise ValueError(
             f"{path} row {row.id} parses to decision={row.decision!r} "
-            f"status={row.status!r}, and `candidates.md` admits no such value — "
-            f"`decision` is one of {_DECISIONS} and `status` one of {_STATUSES}. "
+            f"size={row.size!r} status={row.status!r}, and `candidates.md` admits "
+            f"no such value — `decision` is one of {_DECISIONS}, `size` one of "
+            f"{_SIZES} and `status` one of {_STATUSES}. "
             f"A cell holding anything else means the columns have SHIFTED: the "
             f"row then reads as triaged, drops out of the untriaged working set, "
             f"and `triage-candidates` reports a complete pass over a candidate "
-            f"nobody ruled. Either a table is in the old six-column shape, or "
-            f"this row carries a pipe in one of its first five cells — only the "
-            f"Note may contain one.{shape} {missing_hint}")
+            f"nobody ruled. Either a table is in the old seven-column shape, or "
+            f"this row carries a pipe in one of its first {_CONSTRAINED_CELLS} "
+            f"cells — only the Note may contain one.{shape} {missing_hint}")
 
 
 def candidate_components(candidates_path: Path) -> dict[str, str]:
@@ -451,6 +509,90 @@ def candidate_decisions(candidates_path: Path) -> dict[str, str]:
     return {row.id: row.decision for row in candidate_rows(
         candidates_path,
         missing_hint="Without it there is no `decision` column to hold anything to.")}
+
+
+def candidate_sizes(candidates_path: Path) -> dict[str, str]:
+    """Every row's `size`, normalised, keyed by id — `triage-candidates`' SECOND column.
+
+    THE SECOND RULING TRIAGE MAKES, and it is asked only of a `ship`. `decision`
+    answers *is this worth promoting from a candidate to committed work*; this
+    answers *how big is it* — a `feature`, a `phase` inside an existing one, or
+    `checkboxes` added to a phase that already exists.
+
+    WHY IT NEEDS A COLUMN RATHER THAN AN INFERENCE. `plan-candidates` used to
+    derive size from a proxy: if the named component's directory did not exist,
+    the candidate must be a new component. That is true of a feature and wrong of
+    the other two — a phase-sized candidate whose component happens to be new
+    scaffolds a whole component, and a checkbox-sized one has no expressible form
+    at all. A proxy that is right for one of three cases reads as a decision and
+    is an accident.
+
+    Guarded exactly like `decision`: snapshotted either side of every run whose
+    prompt puts this column in its `You MAY NOT` table, and compared. That is
+    `plan-feature` and `plan-verify`, and it is NOT the same set as "every run
+    holding a write grant on this file" — `triage-candidates` holds one and is
+    the run that RULES this column, so it is guarded on `status` and `component`
+    and deliberately not on `size`. Same reason as `decision`, too: a run that
+    has just planned a component is one plausible step from recording a size
+    beside it.
+    """
+    return {row.id: row.size for row in candidate_rows(
+        candidates_path,
+        missing_hint="Without it there is no `size` column to hold anything to.")}
+
+
+def decisions_this_run_had_no_right_to(before: dict[str, str],
+                                       after: dict[str, str]) -> list[str]:
+    """Ids whose `decision` changed on a row that already existed. Only triage may.
+
+    IT RODE THE `status` COMPARATOR UNTIL 2026-08-20, in both planning workflows,
+    and the family's own design is the reason that was wrong rather than merely
+    untidy. `components_this_run_had_no_right_to` states it: the bodies are
+    written out instead of shared *"because the two columns are prohibited for
+    DIFFERENT reasons and each docstring is the place that reason is recorded"*.
+    `decision` had no such place — its reason lived in the workflows' raise
+    messages and nowhere in this module — and any specialisation of the status
+    comparator would silently have retargeted the `decision` guard in two
+    workflows at once. Two docstrings here already treat it as a first-class
+    member (`candidate_sizes` says *"Guarded exactly like `decision`"*;
+    `statuses_this_run_had_no_right_to` says row deletion *"is already an offence
+    under the `decision` guard"*) and both pointed at a guard with no comparator.
+
+    ONLY pre-existing rows are judged, for the reason `statuses_this_run_had_no_
+    right_to` states: a row this run APPENDED is a proposal placed under the
+    shared instruction in `decision_log_and_reflection.md`, which prescribes a
+    BLANK `decision` — so a new row's `decision` is prescribed by that rule
+    rather than by this guard. Row deletion is `act.ids_deleted`, which both
+    callers check AHEAD of every comparator precisely because a row that is
+    simply gone is in neither key set here.
+
+    `plan_sprint._rulings_this_run_had_no_right_to` reads like a wider version of
+    this rule — its body also refuses a NEW row arriving already ruled — and it
+    is UNCALLED. Nothing in the tree invokes it: it is residue of the 2026-08-19
+    rebuild, which dropped that workflow's `candidates.md` grant along with the
+    job that needed it and left the comparator behind. The boundary it once held
+    is discharged by that workflow's `FORBIDDEN_PATHS ^docs/standards/`, which
+    needs no column reader at all. Said here rather than left out because the two
+    names read as one family, and a reader meeting that one has no way to tell it
+    fires nothing. Whether to delete it or wire it is an authorization ruling and
+    not this module's to make.
+    """
+    return sorted(cid for cid in before.keys() & after.keys()
+                  if before[cid] != after[cid])
+
+
+def sizes_this_run_had_no_right_to(before: dict[str, str],
+                                   after: dict[str, str]) -> list[str]:
+    """Ids whose `size` changed on a row that already existed. Only triage may.
+
+    ONLY pre-existing rows are judged, for the reason `statuses_this_run_had_no_
+    right_to` states: a row this run APPENDED is a proposal placed under the
+    shared instruction, and its own cells are prescribed by that rule rather than
+    by this guard. A filer appending a row leaves `size` BLANK — sizing is a
+    ruling and the filer is not the one making it.
+    """
+    return sorted(cid for cid in before.keys() & after.keys()
+                  if before[cid] != after[cid])
 
 
 def statuses_this_run_had_no_right_to(before: dict[str, str],
@@ -842,7 +984,7 @@ def existing_work(tree: Path, research_dir: Path) -> str:
     # `for i in issues` iterates its KEYS, and `i["number"]` raises `TypeError` —
     # the planning dispatch dies on the third way of not getting an issue list,
     # four lines below the comment promising all of them reach the same note.
-    # `ci_verdict` and `wait_for_ci` in `build_activities` already spell this
+    # `ci_verdict` and `wait_for_ci` in `assistant_activities` already spell this
     # `isinstance(..., list)`; this block was the one sibling that did not.
     issues = None
     if r.returncode == 0:

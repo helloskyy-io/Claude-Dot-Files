@@ -121,6 +121,13 @@ def permitted_paths(candidates_rel: Path, research_rel: Path) -> tuple[str, ...]
 # artifact. It is not a waiver — it is the difference between "nothing checks
 # this" being a decision and being an oversight.
 MAY_NOT_OBSERVERS: dict[str, str] = {
+    "**Set `size` on a row you did NOT rule `ship`** — a rejection has no size":
+        "own.sized_without_shipping over act.candidate_rows after the run — the "
+        "two cells are read from the SAME row, so the pairing is checked rather "
+        "than each column being checked alone. A `size` beside a `reject` is the "
+        "shape this catches, and it is the likelier error than a wrong size: the "
+        "prompt asks two questions in order and a run that answers both for every "
+        "row has stopped reading the first one's answer",
     "Set `status` in the candidates file — that is a later process's":
         "act.candidate_statuses snapshotted either side of the run, compared by "
         "act.statuses_this_run_had_no_right_to",
@@ -300,6 +307,21 @@ def run_triage_candidates(*, repo_root: Path, worktree: Path,
         )
 
     after_status = act.candidate_statuses(wt_candidates)
+
+    # THE TWO RULINGS ARE PAIRED, and the pairing is what is checked. Each column
+    # alone would pass a table where every row carries a `size` and none carries a
+    # `ship` — both legal in isolation, the combination nonsense. The prompt asks
+    # a worthiness question and then a sizing question ONLY of what passed it, so
+    # a size beside a rejection means the run stopped reading its own first answer.
+    mis_sized = own.sized_without_shipping(wt_candidates)
+    if mis_sized:
+        raise RuntimeError(
+            f"{len(mis_sized)} row(s) carry a `size` without a `ship` decision: "
+            f"{', '.join(mis_sized)}. `size` is asked ONLY of a shipped candidate "
+            f"— a rejection has no size, and a `requires review` is not sized "
+            f"until the operator has ruled it. Clear the size or correct the "
+            f"decision; a row cannot be both."
+        )
 
     # A ROW THAT VANISHED PASSES THE POST-CONDITION ABOVE, which counts blank
     # `decision` cells: deleting an untriaged row drops the count exactly as

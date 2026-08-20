@@ -34,15 +34,37 @@ class BuildInput:
     verbose: bool = False
 
     def __post_init__(self) -> None:
-        # Fail fast and loud at the boundary: exactly one task source, never both,
-        # never neither. A run that reaches the draft child with no task produces
-        # an empty PR that still costs a full review cycle to discover.
+        # Fail fast and loud at the boundary: NEVER TWO task sources. A run that
+        # reaches the draft child with no task produces an empty PR that still
+        # costs a full review cycle to discover, and a run with two has no way to
+        # say which one it obeyed.
         sources = [bool(self.description), bool(self.task_file), bool(self.plan_path)]
-        if sum(sources) != 1:
+        if sum(sources) > 1:
             raise ValueError(
-                "exactly one task source is required — description, --task-file or --phase "
+                "at most one task source — description, --task-file or --phase "
                 f"(got description={self.description!r}, task_file={self.task_file!r}, "
                 f"plan_path={self.plan_path!r})"
+            )
+        # `--pr` IS A TASK SOURCE, and this used to demand one alongside it.
+        #
+        # MEASURED 2026-08-19: a correction dispatch on PR #124 ran
+        # `run_build.py --pr 124 --repo <path>` and was rejected with "exactly one
+        # task source is required", so the operator re-issued it with the original
+        # `--phase` repeated. Restating a task the PR already carries is not a
+        # safety property — it is a second copy of the runway that can DISAGREE
+        # with the one on the thread, and the thread is the copy every child reads
+        # (`fidelity_read_and_compare.md` makes `gh pr view --json body,comments`
+        # mandatory). `run_research_minor.py` and `run_plan_feature.py` never
+        # imposed this; only the two runners sharing this dataclass did.
+        #
+        # WHAT IS STILL REFUSED: a run with neither a task source NOR a PR. That
+        # is the empty-PR case this check was written for, and it is untouched.
+        if not any(sources) and not self.pr_number:
+            raise ValueError(
+                "a task source is required — description, --task-file, --phase, or "
+                "--pr <n> for a correction pass whose runway is already on the PR "
+                f"(got description={self.description!r}, task_file={self.task_file!r}, "
+                f"plan_path={self.plan_path!r}, pr_number={self.pr_number!r})"
             )
 
 
