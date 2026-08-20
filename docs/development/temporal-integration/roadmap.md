@@ -38,6 +38,8 @@ The second of those is where most of the design is. The rest is a port.
 
 *Every other phase assumes a control plane that exists, so this one goes first.*
 
+**Est: ~16 hours** *(sized cold by `plan-verify`, 2026-08-20; every figure below is hours of focused development, not elapsed time, and states what it rests on so it can be argued with)* — the standup itself is a mirror of a setup that already exists, and that half is cheap. The other five artifacts are not: a server-side topology record the vendored standard does not cover, three build-time one-way-door rulings, the §A3 queue-naming ruling plus its no-fallback rule written into the addendum, a standup script that has to be re-runnable rather than a transcript of what was typed, and a cold-start reboot verification. Requirement 7's poll-prevention measurement also needs a throwaway worker process written purely to probe with, which the phase does not name. The doc's own *"a day's work"* covers the standup and not the five artifacts around it.
+
 One node, one Temporal control plane, reachable from this workstation. **This phase stands up a known thing; it does not decide what to stand up.** The setup is the one MDC runs today, mirrored — same gear, same images, same shape — which is why it is a day's work rather than a project. What is genuinely this repo's to write down is the server-side topology (the vendored standard covers *workers*, not the server), the network path a worker takes to the frontend, and the machine-axis task-queue naming that [§A3 of the addendum](../../standards/temporal/claude-dot-files-addendum.md) has carried as OPEN. It also spends this component's three build-time one-way doors, which cannot be reopened once a workflow has run.
 
 - [ ] **A Temporal control plane runs on one node and answers from this workstation** — demonstrated by a health check run from here, not from the node
@@ -49,6 +51,8 @@ One node, one Temporal control plane, reachable from this workstation. **This ph
 ### [Phase 2 — Durable dispatch identity, and the recovery contract](phase2_durable_dispatch_identity.md) ⬜
 
 *An identity minted inside the thing that retries becomes a new identity on every attempt.*
+
+**Est: ~22 hours** *(sized cold by `plan-verify`, 2026-08-20)* — most of it is enumeration rather than mechanism. The `run_id` seam, the atomic name reservation and the half-supplied `ValueError` already ship, so requirement 1 is a boundary change and not a rewrite. What is expensive: an identity function that has to be defined for every family in a twenty-workflow tree, a request fingerprint Temporal declines to supply and that therefore has no upstream shape to copy, and a six-column recovery table filled for *every* subsystem this fleet has. One cost the phase does not name: `uuid.uuid7` does not exist on the Python this repo runs — verified, `hasattr(uuid, "uuid7")` is `False` on 3.13.12 and it lands in 3.14 — so the UUIDv7 attempt id is a dependency decision or a hand-roll, not a stdlib call.
 
 A retry is only safe if the work it repeats is the *same* work. Today a dispatch's identity is a composite: a caller may supply a `run_id`, and where one does not, the activity invents a random one and a wall-clock stamp names the log file. Under a retry policy that is an unbounded fan of identities and log files. This phase makes the identity an **input** — computed by the caller from the work, stable across every attempt — and writes the per-subsystem recovery table once, so each later guard supplies a value to an existing schema rather than designing its own.
 
@@ -64,6 +68,8 @@ A retry is only safe if the work it repeats is the *same* work. Today a dispatch
 
 *Temporal retries an activity; `gh()` retries a call. Nested, a brief outage becomes a long stall.*
 
+**Est: ~16 hours** *(sized cold by `plan-verify`, 2026-08-20)* — the hardest thinking is already done in the phase doc, and the population is small and bounded: two files call `gh` or `gh_json` today and three sites catch `RuntimeError`. The cost sits in the parts that are not the hierarchy — an audit-holding test that fails when a *new* re-wrap appears, preserving the named test that pins `gh_json`'s decode-retry behaviour rather than silently changing it, minting a `GITHUB_*` code vocabulary with no list anywhere to derive it from, and demonstrating three retry compositions rather than asserting them. Confirmed this genuinely needs no server: `temporalio.testing.WorkflowEnvironment` imports on the installed SDK.
+
 `gh()` gained a bounded three-attempt retry for transient outages. Temporal's default retry policy is effectively unlimited. Composed naïvely that is nine attempts, and Temporal will happily retry a `404` forever. Deciding which layer owns the retry turns out to need a prerequisite the sprint item never named: `gh()` raises one bare `RuntimeError` for every failure class, and Temporal matches non-retryable errors by **exact string on the type name** — so today's code cannot express the transient-vs-terminal split at all. This phase supplies the typed raise, then rules the boundary per call class rather than picking one winner.
 
 - [ ] **`gh()` raises a typed error** carrying the transient/terminal split *and* the read-only guard — never a bare `RuntimeError`
@@ -75,6 +81,8 @@ A retry is only safe if the work it repeats is the *same* work. Today a dispatch
 ### [Phase 4 — The `claude_cli` activity domain](phase4_the_claude_cli_activity.md) ⬜
 
 *The one part of this port that is not a port.*
+
+**Est: ~28 hours** *(sized cold by `plan-verify`, 2026-08-20)* — **the largest of the four ungated phases, and the phase doc argues the opposite.** The payload half is genuinely closed: the limits are first-party numbers and transcript-to-file is a small change against a run bag that already exists. The heartbeat half is not. The paper this phase rests on calls its own recommended shape *"this paper's composition of documented parts, not a documented pattern… a design hypothesis until §9's tests pass"*, and the cadence cannot be chosen without measuring the CLI's longest natural silence across a batch of real runs — work no requirement here asks for. Add the async-subprocess shape itself, cancellation delivery into a blocked child, orphan behaviour on a hard worker kill, and a worker slot count that defaults to a hundred concurrent CLI runs on the operator's own workstation.
 
 Every upstream Temporal activity runs for seconds to minutes and returns a structured result. Ours runs for 10–60 minutes and returns prose. Nothing in the vendored standards reaches that shape, which is why [§A1 of the addendum](../../standards/temporal/claude-dot-files-addendum.md) has carried it as OPEN since the addendum was written. This phase closes it by building one: a `claude -p` invocation that heartbeats, keeps its transcript out of event history, and has a stated answer for what a retry of a non-deterministic producer even means.
 
@@ -90,6 +98,8 @@ Every upstream Temporal activity runs for seconds to minutes and returns a struc
 
 *One family, all the way through, before anything else moves.*
 
+**Est: ~26 hours** *(sized cold by `plan-verify`, 2026-08-20)* — thin in ambition, not in work. The family is one, but its wrappers are written against a shared activity layer of some 1,800 lines that the family reaches transitively, and requirement 2 rules *every* activity in that transitive set on whole-body idempotency with the reasoning recorded per activity. Around that: a systemd worker on the repo-holding machine, a parent rewritten as a workflow holding no process code and calling no model, an explicit-task-queue test for a failure mode whose symptom is silence rather than an error, and one dispatch carried end to end to a pull request plus a mid-run worker restart.
+
 This is the strangler fig: one worker, one family's activities, one parent as a workflow, one pull request produced end to end under Temporal. It is deliberately thin, and it is the phase that proves the whole model — because the thing that breaks a port is never the second family. It also carries the audit that [Phase 3](phase3_the_retry_boundary.md)'s ruling defers: Temporal retries the *whole activity body*, not the failed call, so every wrapper has to be ruled idempotent-or-not against the actual population.
 
 - [ ] **One worker runs as a bare systemd process** on the machine holding the repo, polling exactly one machine-axis queue
@@ -101,6 +111,8 @@ This is the strangler fig: one worker, one family's activities, one parent as a 
 ### [Phase 6 — The rest of the fleet, and the two that never ran](phase6_the_rest_of_the_fleet.md) ⬜
 
 *The port stops being a demonstration and becomes the way work happens.*
+
+**Est: ~45 hours** *(sized cold by `plan-verify`, 2026-08-20)* — the largest phase in the component by a wide margin, and the figure is a floor rather than a midpoint. It ports what [Phase 5](phase5_the_first_dispatch.md) left — three remaining purpose families plus `journal` — across a tree of roughly seventeen thousand non-test lines and sixty-four prompt files; writes `review-runs` in Python from scratch rather than moving it; decides the worker set by the domain-boundary test and stands up every declared domain including the empty shells; replaces timers with schedules and rules catch-up per schedule rather than globally; and applies the promotion rule across every shared fragment. **A phase sized this far above its neighbours is a finding about the phase**, and the sizing report names where it would split.
 
 With one family proven, the rest follow the same shape. Two workflows do not get the benefit of the doubt: `plan-new` and `review-sprint` have never executed, and this phase rules whether they earn a port or die with the bash fleet. Schedules replace timers here, which is what unblocks two phases in other components.
 
@@ -114,6 +126,8 @@ With one family proven, the rest follow the same shape. Two workflows do not get
 
 *Gated on work another project owns. No phase doc, deliberately.*
 
+**Est: ~20 hours** *(sized cold by `plan-verify`, 2026-08-20 — what it will cost when the gate opens, not what it costs to wait)* — everything but wireguard arrives from MDC's bootstrap, so the novel work is the mesh across three nodes and the failure modes it introduces between them, and the rest is the standup script [Phase 1](phase1_the_starter_control_plane.md) leaves behind applied twice more. **Gated on** MDC's cluster work plus the wireguard design; the figure assumes both are in hand and would be wrong if the bootstrap itself has to be authored here.
+
 The starter is one node and is meant to be. The real cluster is three k3s nodes with **wireguard between them**. Everything except wireguard comes from MDC; the wireguard layer is this project's own addition and is the only novel piece. **No phase doc exists for this and none should be written yet** — planning it in detail now is a guess that ages badly against a cluster somebody else is still building.
 
 **Gate:** the MDC-owned cluster work, plus the wireguard design.
@@ -125,6 +139,8 @@ The starter is one node and is meant to be. The real cluster is three k3s nodes 
 ### Phase 8 — The pivot, and the starter is destroyed
 
 *Gated on [Phase 7](#phase-7--the-three-node-cluster). No phase doc, deliberately.*
+
+**Est: ~14 hours** *(sized cold by `plan-verify`, 2026-08-20 — what it will cost when the gate opens)* — the second control plane is stood up by a script that exists by then, so the cost is the part that is not mechanical: reissuing every secret placed on the starter rather than copying it, repointing every worker onto the new frontend, and proving nothing still depends on the node before it is destroyed. **Gated on** [Phase 7](#phase-7--the-three-node-cluster) and on a secrets-management story that does not exist today; the reissue half is the piece that figure is least confident about, because nothing has yet said what issues those secrets.
 
 A new permanent control plane is stood up on the good cluster and the starter node is **destroyed — not migrated.** Its secrets were placed before secrets management existed, so they are treated as compromised by construction. This is a known pattern; Cluster API calls it a pivot, and the bootstrap chain it runs on is MDC's.
 
