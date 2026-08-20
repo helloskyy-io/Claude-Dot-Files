@@ -29,12 +29,20 @@ def run_draft_minor(*, description: str, repo_root: Path, worktree: Path,
                     pr_number: str | None = None, plan_path: str | None = None,
                     context: str = "", verbose: bool = False) -> str:
     """Draft a scoped change. Returns the PR URL — the handoff to refine."""
-    # Same single axis as the major tier. Scope is what makes this the minor
+    # Same two axes as the major tier. Scope is what makes this the minor
     # tier — a 100-turn cap — not the information source. A small fix scoped to
     # a phase still benefits from that phase's success criteria to verify against.
     # BOTH plan-driven prompts are SHARED with build_draft — see that workflow.
     # The non-plan wrappers are NOT: they are self-contained at this tier.
-    if plan_path:
+    #
+    # `and not pr_number` FOR THE REASON THE MAJOR TIER STATES AT LENGTH: task
+    # shape and destination are two axes, and a run given a PR must never be
+    # handed a prompt that tells it to open one. This tier has carried the
+    # latent form since it was written — it always passed `plan_path`, so
+    # `--pr <n> --phase <doc>` has always selected the from-plan prompt here.
+    # The major tier only regressed into it on 2026-08-19; one predicate fixes
+    # both, which is why the guard is parametrised over both.
+    if plan_path and not pr_number:
         template = act.shared_prompt("build_from_plan")
         stages_body = act.shared_prompt("stages_1_to_4_from_plan")
     else:

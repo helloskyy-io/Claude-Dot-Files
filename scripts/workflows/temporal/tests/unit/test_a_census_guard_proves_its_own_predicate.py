@@ -138,7 +138,14 @@ _HERE = Path(__file__).resolve().parent
 # alone — this is the census doing exactly what it is for, at the one moment
 # the two populations meet. `_WITHOUT_A_CONTROL_YET` is unchanged: no
 # grandfathered guard gained a control here.
-_PINNED = (24, 13)
+# 24 -> 26 and 13 -> 15 AT THE MERGE WITH THE TOOLING-DEFECTS BRANCH, which
+# brings `test_a_task_SOURCE_path_is_anchored_to_the_repo` and
+# `test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path`. BOTH numbers moved by
+# two, and that is the check that they each carry a control: a guard arriving
+# without one moves the first number only, and would additionally have tripped
+# the unexcused-guard test, which stayed green. Verified rather than assumed —
+# `_walks_the_tree` returns True for both files.
+_PINNED = (26, 15)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

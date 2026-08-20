@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
+from ..build_activities import path_for_the_model, task_text
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ..build_draft_minor import build_draft_minor_workflow as draft
 from ..build_refine_minor import build_refine_minor_workflow as refine
@@ -33,7 +34,7 @@ from ...review_pr.review_pr_helper import ReviewInput, ReviewType
 def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
-    description = task.description or Path(task.task_file or task.plan_path).read_text()
+    description = task_text(task, repo_root)
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
@@ -44,9 +45,13 @@ def run_build_minor(task: BuildInput, repo_root: Path, worktree_name: str) -> Bu
     # Read BEFORE the child, for the reason its sibling parent states.
     slug = act.repo_slug(repo_root)
 
+    # `path_for_the_model`, for the reason its sibling parent states at the
+    # same call: what the model is SHOWN and what the fleet READS are two answers,
+    # and an in-repo absolute `--phase` shown verbatim points outside this worktree.
     pr_url = draft.run_draft_minor(
         description=description, repo_root=repo_root,
-        worktree=worktree, pr_number=task.pr_number, plan_path=task.plan_path,
+        worktree=worktree, pr_number=task.pr_number,
+        plan_path=path_for_the_model(repo_root, task.plan_path),
         verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url, expected_repo=slug)

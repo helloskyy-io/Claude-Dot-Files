@@ -30,6 +30,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
+from ..build_activities import path_for_the_model, task_text
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ... import assistant_activities as act
 from ...assistant_activities import ci_verdict, wait_for_ci
@@ -44,7 +45,7 @@ from ..build_refine_minor import build_refine_minor_workflow as refine_minor
 def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
-    description = task.description or Path(task.task_file or task.plan_path).read_text()
+    description = task_text(task, repo_root)
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
@@ -61,19 +62,32 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # --- Step 1: DRAFT -----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the
     # child raises if it produced none, so `exit 0` cannot mean unfinished.
+    # `plan_path` IS PASSED, and its absence here was a defect rather than a tier
+    # difference. `build_draft` branches on it to select the `build_from_plan` /
+    # `stages_1_to_4_from_plan` pair, `build_minor_workflow` has always passed it,
+    # and `test_build_prompt_variants_do_not_fork.py` described that pair as the
+    # one used whenever a run is launched with `--phase`. It was not: the major
+    # tier handed the child the plan doc's CONTENTS as a description and the
+    # generic prompt, so `build --phase` never saw the plan-driven stages at all
+    # and `${PLAN_PATH}` never reached it. That guard's opening was corrected on
+    # 2026-08-20 — the pair is selected on `--phase` AND no `--pr`, both here and
+    # on the minor tier.
     #
-    # `plan_path` IS THE FORWARD THAT MATTERS, and it was the one missing. It is
-    # the ONLY argument `run_draft` branches on: with it the child renders the
-    # plan-driven instruction set, without it the whole phase document arrives as
-    # an opaque `${DESCRIPTION}` in a wrapper that says "on a new branch". This
-    # parent forwarded `task_file` instead — an argument `run_draft` accepted and
-    # never read — so `build.sh --phase <doc>` could not reach the plan prompts at
-    # all while its `build_minor` sibling, which forwards `plan_path`, always
-    # could. Both halves are now class-checked by
-    # `tests/unit/test_a_PARENT_forwards_what_its_CHILD_reads.py`.
+    # ANCHORED FOR THE MODEL, NOT THE RAW OPERATOR STRING. `PLAN_PATH` is rendered
+    # into the prompt and read by a model running INSIDE THE WORKTREE, so a
+    # repo-relative string is what anchors correctly there — the same `in_worktree`
+    # discipline `test_model_gets_the_worktree_path.py` pins for the research
+    # family. This passed the raw string, which was right about a RELATIVE `--phase`
+    # and wrong about an ABSOLUTE one: `--phase /main/checkout/docs/.../phase2.md`
+    # rendered that main-checkout path verbatim to a model standing in the worktree.
+    # `path_for_the_model` states the in-repo/out-of-repo rule once, for both
+    # tiers. The resolved absolute path is used for READING the file, in
+    # `task_text`, and nowhere else.
     pr_url = draft.run_draft(
         description=description, repo_root=repo_root, worktree=worktree,
-        pr_number=task.pr_number, plan_path=task.plan_path, verbose=task.verbose,
+        pr_number=task.pr_number,
+        plan_path=path_for_the_model(repo_root, task.plan_path),
+        verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
 

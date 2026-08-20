@@ -80,6 +80,19 @@ claude-dot-files/
 │   │   │                                            # research/, where present, holds the component's evidence:
 │   │   │                                            #   <name>/research/raw/<topic>.md   the pool — one mini-paper per topic
 │   │   │                                            #   <name>/research/synthesis.md     what the pool means HERE. NON-BINDING
+│   │   │                                            #
+│   │   │                                            # A COMPONENT DIRECTORY IS ROLLED UP HERE ON PURPOSE — roadmap.md and the phase
+│   │   │                                            #   docs get NO per-file line, and adding one is a defect rather than an
+│   │   │                                            #   improvement. Their per-phase detail is maintained in the component's own
+│   │   │                                            #   roadmap.md; a second copy here is a source of truth kept by an actor that
+│   │   │                                            #   cannot read it, since `plan-feature`'s write grant is
+│   │   │                                            #   `docs/development/<component>/[^/]+\.md` and excludes THIS file. Writing a
+│   │   │                                            #   phase doc is that workflow's entire job, so every plan it produced landed a
+│   │   │                                            #   RED map-coverage suite it was structurally forbidden to fix — measured on
+│   │   │                                            #   PR #111 and again on PR #123, and filed as C-113. research/ keeps its line:
+│   │   │                                            #   it is a SUBDIRECTORY, so it is a roll-up of its own and adding it enumerates
+│   │   │                                            #   nothing. Pinned by
+│   │   │                                            #   testing/scripts/tests/unit/test_planning_directories_are_ROLLED_UP_in_the_map.py
 │   │   ├── autonomous-execution/                    # COMPLETE — the workflow fleet; skills-preloading fix, lean agents, log-as-evidence
 │   │   ├── autonomous-operation/                    # NOT DESIGNED — the tier above parents; gated on typed memory + durable execution
 │   │   ├── continuous-process-improvement/          # IN PROGRESS — two evidence sources; why the ruling is always a human's
@@ -90,72 +103,18 @@ claude-dot-files/
 │   │   ├── memory-management-framework/             # Phases 1-2 COMPLETE (2026-08-08); Phase 3 COMPLETE (2026-08-10) — status lives in its phase doc, not restated here;
 │   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phases 4 and 6 planned.
 │   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
-│   │   │   ├── roadmap.md                           # Kind 1 (git, human-read) vs Kind 2 (typed record, code-read); Key Decisions
-│   │   │   ├── phase1_measure_the_channel.md        # COMPLETE — six experiments, thirteen rulings. Cancelled nothing; re-scoped Phase 5's predicate
-│   │   │   ├── phase2_kind1_framework.md            # COMPLETE — Kind 1 as a substrate-free interface with GitHub as one binding. Found four of its own premises false
-│   │   │   ├── phase3_typed_exit_record.md          # Arrangement A, split abstention, fail-safe contract, one pair proven
-│   │   │   ├── phase4_fleet_migration.md            # V2-Python-tree rollout ONLY (re-cut 2026-08-10 by operator ruling — V1 is left in place, not
-│   │   │   │                                        #   migrated); includes prompt text; `activities/run-claude.sh` is in scope as V2 infrastructure
-│   │   │   ├── phase5_convergence_stopping.md       # The payoff — and NOT greenfield: it replaces a shipped model-asserted `converged` flag
-│   │   │   │                                        #   with a computed one, and routes NOTHING. § Measurement is the single source of every
-│   │   │   │                                        #   figure in the phase; a gate fails any restatement of one outside it
-│   │   │   ├── phase6_read_what_it_writes.md        # Names the per-run JSONL log as a surface (Kind 3, proposed) and builds the readers three
-│   │   │   │                                        #   phases of emitters never had; owns Phase 5's un-owned activation trigger
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
 │   │   ├── persistent-memory-protocol/              # PLANNED, NOT STARTED (2026-08-13) — ruled its OWN COMPONENT rather than a 7th phase
 │   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-074's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
 │   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
 │   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
-│   │   │   ├── roadmap.md                           # Opens in plain words with a terms table; states the protocol WHOLE (nine
-│   │   │   │                                        #   commitments) before any ordering; § The four kinds of record is the SINGLE
-│   │   │   │                                        #   WRITER of the memory taxonomy and carries § Reading the old names, the
-│   │   │   │                                        #   Kind 1/2/3 → working record/typed exit record/measurement samples map;
-│   │   │   │                                        #   § Absorbed work records what came over when MMF retired; a 15-concept coverage
-│   │   │   │                                        #   map; and the operator calls the plan carries WITHOUT deciding — storage budget,
-│   │   │   │                                        #   snapshot cadence, what a machine is, and Phase 7's egress/ingress rulings
-│   │   │   ├── phase1_the_run_bag.md                # Configurable root, folder per run keyed by run_id (NEVER by path), subfolder per
-│   │   │   │                                        #   concurrent child, BagIt RFC 8493 manifest. A bag state is `lifecycle: open/sealed`
-│   │   │   │                                        #   plus TWO INDEPENDENT FLAGS, `redacted` and `incomplete` — never one collapsed
-│   │   │   │                                        #   label, or a bag that lost bytes reads like one a human redacted. No database — a
-│   │   │   │                                        #   decision with a revisit trigger, not an omission
-│   │   │   ├── phase2_content_store.md              # bernstein §4.6 — store the bytes, checksum them, re-verify quoted spans OFFLINE.
-│   │   │   │                                        #   Tier 1, cost S, and it was ranked and then never placed once already
-│   │   │   ├── phase3_the_emit_rule.md              # If ANY store gets it, the journal gets it VERBATIM. Destination is a field, not
-│   │   │   │                                        #   a format. Stable edge_id — a rotating API key would orphan a machine's history.
-│   │   │   │                                        #   OWNS THE WRITE-FAILURE ANSWER: a gap may exist, a silent gap may not. And it
-│   │   │   │                                        #   rules that the journal event is a SEPARATE contract from the typed exit record,
-│   │   │   │                                        #   because exit-protocol.md §2/§2.5 forbid the extension the draft promised
-│   │   │   ├── phase4_rebuild_is_a_test.md          # Replay into a scratch dir and diff. What makes Phase 3 enforceable rather than a
-│   │   │   │                                        #   promise; its own phase because a folded-in verification is a gate runs walk past.
-│   │   │   │                                        #   Two arms — synthetic fixture on the merge path, live journal host-only; NO skip arm.
-│   │   │   │                                        #   Also owns the RESTORE (the capability the roadmap sells) and the rule that a rebuilt
-│   │   │   │                                        #   store carries the journal's provenance forward to every consumer
-│   │   │   ├── phase5_snapshots_then_retention.md   # Snapshot FIRST, then delete — never past the last snapshot, because after Phase 4
-│   │   │   │                                        #   a deletion rule is a decision about what can no longer be reconstructed. Split
-│   │   │   │                                        #   retention: authored record never deleted, transcript on a schedule. GATED on the
-│   │   │   │                                        #   Temporal server for the recurring half ONLY
-│   │   │   ├── phase6_cpi_reads_the_journal.md      # The CONSUMER for phases 1-4, split from the poller at review so the only reader is
-│   │   │   │                                        #   not gated behind an unbuilt Temporal server. Gated on `Port review-runs` instead
-│   │   │   ├── phase7_s3_aggregation.md             # Ship bags to object storage under machine_id/run_id, writing locally first. THREE
-│   │   │   │                                        #   gates and the last two are SEPARATE operator rulings — egress (what may leave)
-│   │   │   │                                        #   and ingress (what may this machine believe); the heartbeat pollution paper is
-│   │   │   │                                        #   evidence for the second only. Names its own split seams rather than deferring them
-│   │   │   ├── phase8_the_poller.md                 # A scheduled workflow reads an existing to-do bit and starts a child with no human
-│   │   │   │                                        #   trigger. No new cue surface. Fires ONCE per cue, and a failed child neither
-│   │   │   │                                        #   retries forever nor vanishes. GATED on Temporal schedules
 │   │   │   └── research/                          # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
 │   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
 │   │   │                                            #   evidence. cross_node_memory_protocol.md is SUPERSEDED by its own header
 │   │   ├── planning-and-agents/                     # COMPLETE — distinct-lens principle; Cursor-port abandoned for skills
 │   │   ├── safety-and-guardrails/                   # COMPLETE — two-layer model; block-dangerous.sh is load-bearing
 │   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — Phase 1 shipped; Phases 2-5 open, rollout order 2 → 3 → 4 → 5
-│   │   │   ├── roadmap.md                         # Rollout order 2 → 3 → 4 → 5; written after Phase 1 shipped, so that phase is a record not requirements
-│   │   │   ├── phase2_family_alignment.md         # The half a test cannot judge — ruling a DRIFTED prompt pair, method validated blind before it is trusted
-│   │   │   ├── phase3_dual_mode_children.md       # The nine children with no standalone runner; a child EARNS autonomy, so it must be runnable to be exercised
-│   │   │   ├── phase4_nothing_invisible.md        # Merge of two thin phases: derived values echoed on the live path, and the unread-producer gate generalised
-│   │   │   ├── phase5_configuration_a_run_absorbed.md  # One digest, one Journal- tag, one reader — and the Managed-tier measurement nothing may be built on
-│   │   │   ├── fork_vs_parameterize_blind_trial.md  # Phase 2's validation of its own ruling procedure: sealed classifications, revealed history, κ = 0.000
 │   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs the Phase 2 ruling,
 │   │   │                                            #   invocation_contract backs Phases 3, 4 and 5
 │   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced.
@@ -543,6 +502,24 @@ claude-dot-files/
 │                   │                                #   that is not this repo's, because a workflow can carry the literal in a comment and still
 │                   │                                #   derive correctly. Three of four hard-coded it, which failed a correct --repo run at the
 │                   │                                #   LAST guard and presented as "the flag is broken"
+│                   ├── test_a_task_SOURCE_path_is_anchored_to_the_repo.py # A RELATIVE --task-file or --phase resolves
+│                   │                                #   against the repo root, never the cwd. Measured: a --phase dispatched from a
+│                   │                                #   subdirectory died on [Errno 2] against a file that exists. Issue #48 one layer
+│                   │                                #   down. Says explicitly what it does NOT do — these two are still uncontained on
+│                   │                                #   purpose, so this changes the BASE and not the boundary
+│                   ├── test_a_run_given_a_PR_is_never_told_to_CREATE_one.py # A dispatch naming a PR must never
+│                   │                                #   get a prompt that says `gh pr create`. `--pr <n> --phase <doc>` selected the
+│                   │                                #   from-plan wrapper on the task-shape axis alone and abandoned the PR. Renders the
+│                   │                                #   prompts across every axis combination, with a CENSUS that reds when a new axis appears
+│                   ├── test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path.py # An in-repo absolute --phase
+│                   │                                #   rendered a main-checkout path to a model running in the worktree. BOTH the
+│                   │                                #   parent->child population and the rendered-parameter set are derived from the tree,
+│                   │                                #   so a new tier or a second path argument must be anchored the day it is wired
+│                   ├── test_a_correction_pass_RESTATES_no_task.py # `--pr <n>` ALONE is a complete build dispatch — the
+│                   │                                #   runway is on the PR and every child in the family is already required to read it.
+│                   │                                #   Carries the second half of the same handoff: BOTH tiers must hand the draft child
+│                   │                                #   `plan_path`, which the major one never did, so `--phase` silently skipped the
+│                   │                                #   _from_plan prompts the fork guard compares
 │                   ├── test_no_runner_joins_an_UNRESOLVED_operator_path.py # No run_*.py joins an argparse namespace
 │                   │                                #   attribute onto a path. Gives the ABSENCE of an escape check the syntax test_preflight's
 │                   │                                #   sweep says it lacks, by keying on the join the absence exists to permit rather than on
@@ -733,6 +710,17 @@ claude-dot-files/
 │   │       │                                        #   enumerates it completely, and every tracked file is reachable through some
 │   │       │                                        #   entry. Paths are reconstructed from the indentation — leaf-name matching scored
 │   │       │                                        #   unrelated directories as enumerated and demanded the roll-ups be expanded
+│   │       ├── file_structure_map.py                # NOT a test module — the map's grammar, the `git ls-files` population and the
+│   │       │                                        #   partially-listed predicate, owned once and asked by both map gates. Extracted
+│   │       │                                        #   rather than imported across them because test_test_tree_hygiene.py forbids a
+│   │       │                                        #   test module importing a test module, and names this as the remedy
+│   │       ├── test_planning_directories_are_ROLLED_UP_in_the_map.py # The OTHER end of the rule above: a
+│   │       │                                        #   docs/development/ component on the roadmap+phases shape must be SUMMARISED here,
+│   │       │                                        #   never listed file by file. Adding a phase doc is plan-feature's whole job and this
+│   │       │                                        #   map is outside its write grant, so a per-file row made every plan it produced land
+│   │       │                                        #   a red suite it was forbidden to fix (C-113, measured on PR #111 and again on #123).
+│   │       │                                        #   The planning set is DERIVED from the tree; reproduces the red-on-add and pairs it
+│   │       │                                        #   with a control that still goes red outside docs/development/
 │   │       ├── test_the_on_disk_footprint_is_documented.py # State written OUTSIDE any checkout must be named where an OPERATOR reads
 │   │       │                                        #   — CLAUDE.md, README.md, docs/guide/. Keyed on the journal's DEPLOYMENT_SHAPES
 │   │       │                                        #   rather than a list of paths, so a fourth shape fails until the docs say where
@@ -771,6 +759,10 @@ claude-dot-files/
 │   │       │                                        #   research citations and skills' examples are excluded by name
 │   │       ├── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │       │                                        #   checks, because every existing check was aimed at code rather than prose
+│   │       ├── test_no_module_compiles_with_a_SYNTAX_WARNING.py # Every tracked .py compiles clean. One
+│   │       │                                        #   invalid escape in a docstring was flagged by hand on three passes and survived
+│   │       │                                        #   each time; CPython is promoting these to SyntaxError, at which point the module
+│   │       │                                        #   stops importing and its whole tier fails to COLLECT
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what

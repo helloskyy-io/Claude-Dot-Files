@@ -39,7 +39,22 @@ def run_draft(*, description: str, repo_root: Path, worktree: Path,
     # differ in turn budget and review depth, not in how a plan is read. They
     # were byte-identical copies until §10.1's promotion rule was applied to
     # prose; edit them at modules/assistant/prompts/.
-    if plan_path:
+    #
+    # TWO AXES, NOT ONE, AND CONFLATING THEM ABANDONED THE PR. `plan_path`
+    # selects the TASK SHAPE; `pr_number` selects the DESTINATION. This read
+    # `if plan_path:` alone, so `--pr 124 --phase <doc>` — the exact shape the
+    # operator used on PR #124 — selected `build_from_plan.md`, which opens
+    # "on a new branch", says "create a new PR using gh pr create", binds no
+    # ${PR_NUMBER} and never names the PR. The parent has already cut the
+    # worktree from `origin/<PR 124's branch>`, so the child sits on a branch
+    # that already has an open PR and is told to open one: either `gh pr create`
+    # fails and the dispatch dies with "produced no PR URL", or a second PR
+    # opens and #124's runway, review history and CI record are abandoned.
+    # The destination wins. What the combination gives up is `${PLAN_PATH}` and
+    # the from-plan stages — which is exactly the pre-2026-08-20 behaviour, so
+    # nothing regresses; the plan doc's CONTENTS still reach the model, because
+    # `task_text` reads `plan_path` and supplies it as DESCRIPTION.
+    if plan_path and not pr_number:
         template = act.shared_prompt("build_from_plan")
         stages_body = act.shared_prompt("stages_1_to_4_from_plan")
     else:

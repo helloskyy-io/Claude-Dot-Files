@@ -254,6 +254,19 @@ class RepoPathParser(argparse.ArgumentParser):
       * It says nothing about paths that are deliberately outside the repo.
         `--task-file` and `--phase` are read from wherever the operator points
         them, on purpose, and are declared with `add_argument` for that reason.
+        THAT REMAINS TRUE AND IS NOT A LOOPHOLE THIS CLASS LEFT OPEN: an absolute
+        task source outside the tree is accepted deliberately, and nothing
+        contains it.
+
+        WHAT CHANGED 2026-08-19, because the sentence above was read as licensing
+        the cwd. `assistant_activities.anchor_task_source` now resolves a RELATIVE
+        task source against the repo root rather than against `Path.cwd()` — the
+        BASE, not the boundary. A run dispatched from a subdirectory with a
+        repo-relative `--phase` died on `[Errno 2]`, which is issue #48 one layer
+        down: the same reasoning `resolve_repo_root` states about the repo root
+        reaches the arguments read relative to it. Containment is still not
+        imposed on these two, and imposing it is a separate ruling nobody has
+        made.
       * It does not make the paths SAFE, only contained. What a run may write
         inside the tree is `permitted_paths` and `boundary_crossings`, one
         altitude up.

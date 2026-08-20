@@ -53,86 +53,42 @@ is enumerated only when a file at that ACTUAL path has a line.
 
 from __future__ import annotations
 
-import collections
-import re
-import subprocess
 from pathlib import Path
 
 import pytest
 
-_REPO = Path(__file__).resolve().parents[4]
-_MAP = _REPO / "docs" / "file_structure.txt"
+# THE PARSE, THE TREE AND THE HOLE FINDER LIVE IN A HELPER MODULE, not here.
+# `test_planning_directories_are_ROLLED_UP_in_the_map.py` asserts the opposite end
+# of the same rule and needs the identical parse, and
+# `test_test_tree_hygiene.test_no_test_module_imports_another_test_module` forbids
+# it importing this file to get it. `file_structure_map.py` is the remedy that
+# rule names. Every docstring explaining WHY the parse works the way it does moved
+# with the code rather than being left behind pointing at nothing.
+from file_structure_map import (  # noqa: E402
+    EXCLUDED_NAMES,
+    MAP,
+    REPO,
+    TEMPLATE,
+    map_entries,
+    map_paths,
+    partially_listed,
+    tracked,
+)
 
-# A tree line's leaf: `│   ├── run_log.py    # annotation`. The captured PREFIX
-# is what gives the depth — the map indents four characters per level — and the
-# name carries a trailing slash on directory entries, stripped so `tests/`
-# composes into a path segment.
-#
-# THIS GRAMMAR IS PARSED A SECOND TIME, and this note is the price of keeping
-# the two parsers separate. `test_retired_vocabulary_is_gone_from_live_surfaces.py`
-# reads the same map with its own copy of `_LEAF` and `_MAP_INDENT`, because it
-# needs per-entry line numbers and leaf-plus-continuation joined text where this
-# module needs only a `set` of paths. A change to the map's rendering — the
-# indent width, the tree glyphs — has to move in BOTH. This file is the older
-# and more discoverable of the two, so it is the one someone opens first.
-_LEAF = re.compile(r"^(.*?)[├└]──\s+(\S+)")
-_INDENT = 4
-
-# `.gitkeep` holds an otherwise-empty directory open in git. The map documents
-# the DIRECTORY, which is the thing a reader is looking for; a line for the
-# placeholder would document the mechanism instead. Asserted below rather than
-# assumed, so this exclusion cannot quietly grow.
-_EXCLUDED_NAMES = frozenset({".gitkeep"})
-
-# The map's own convention for a variable path segment: `raw/<topic>.md` names a
-# naming rule, not a file. Pinned by `test_the_TEMPLATE_exemption_is_only_what_it
-# _says_it_is` so the exemption cannot grow by accident.
-_TEMPLATE = re.compile(r"<[^>]+>")
-
-
-def _tracked() -> list[Path]:
-    out = subprocess.run(["git", "ls-files"], cwd=_REPO,
-                         capture_output=True, text=True, check=True)
-    return [Path(line) for line in out.stdout.split()]
 
 
 def _mapped_entries() -> dict[str, bool]:
-    """Every entry in the map, as a repo-relative path -> "is a directory".
-
-    The root line (`claude-dot-files/`) carries no `──` and is therefore not a
-    level — which is what makes the reconstructed paths repo-relative and
-    directly comparable to `git ls-files` output.
-
-    DIRECTORY-NESS COMES FROM THE TRAILING SLASH the map writes, not from what
-    is on disk, because the check below is precisely about entries whose disk
-    counterpart does not exist. Measured on the whole map: 254 file entries and
-    60 directory entries, with ZERO disagreements against disk on the entries
-    that do resolve — so the convention is reliable enough to key an assertion
-    on.
-    """
-    stack: dict[int, str] = {}
-    entries: dict[str, bool] = {}
-    for line in _MAP.read_text().splitlines():
-        found = _LEAF.match(line)
-        if not found:
-            continue
-        level = len(found.group(1)) // _INDENT
-        leaf = found.group(2)
-        stack[level] = leaf.rstrip("/")
-        for deeper in [k for k in stack if k > level]:
-            del stack[deeper]
-        entries["/".join(stack[k] for k in sorted(stack))] = leaf.endswith("/")
-    return entries
+    """The live map, parsed. See `file_structure_map.map_entries` for the grammar."""
+    return map_entries(MAP.read_text())
 
 
 def _mapped_paths() -> set[str]:
-    """Every entry in the map, as a repo-relative path."""
-    return set(_mapped_entries())
+    return map_paths(MAP.read_text())
 
 
 def test_the_exclusion_list_is_only_what_it_says_it_is() -> None:
     """The control on the control: an exclusion that grows silently is a hole."""
-    excluded = {p for p in _tracked() if p.name in _EXCLUDED_NAMES}
+    excluded = {p for p in tracked() if p.name in EXCLUDED_NAMES}
     assert excluded, "no .gitkeep is tracked any more — drop the exclusion"
     assert all(p.name == ".gitkeep" for p in excluded)
 
@@ -147,7 +103,7 @@ def test_the_map_PARSES_into_paths_that_actually_exist() -> None:
     """
     paths = _mapped_paths()
     assert len(paths) > 150, "the map parsed into too few entries to be the map"
-    resolves = [p for p in paths if (_REPO / p).exists()]
+    resolves = [p for p in paths if (REPO / p).exists()]
     assert len(resolves) > 0.9 * len(paths), (
         f"only {len(resolves)} of {len(paths)} reconstructed paths exist on "
         f"disk — the indentation parse is wrong, or the map has drifted far "
@@ -192,14 +148,14 @@ def test_every_FILE_ENTRY_in_the_map_NAMES_A_FILE_THAT_EXISTS() -> None:
     for path, is_dir in sorted(_mapped_entries().items()):
         if is_dir:
             continue                       # rolled-up directories are checked above
-        if _TEMPLATE.search(path):
+        if TEMPLATE.search(path):
             # `raw/<topic>.md` stands for a naming CONVENTION, so no such file
             # exists or should. The claim it still makes is that the directory
             # holding them does, and that is what gets checked.
-            if not (_REPO / path).parent.is_dir():
+            if not (REPO / path).parent.is_dir():
                 bad_templates.append(path)
             continue
-        if not (_REPO / path).exists():
+        if not (REPO / path).exists():
             ghosts.append(path)
     assert not ghosts, (
         "docs/file_structure.txt — which CLAUDE.md calls authoritative — has rows "
@@ -227,7 +183,7 @@ def test_the_TEMPLATE_exemption_is_only_what_it_says_it_is() -> None:
     brackets for some other reason, it would inherit the exemption silently, so
     the exempted set is pinned by name.
     """
-    exempt = sorted(p for p in _mapped_paths() if _TEMPLATE.search(p))
+    exempt = sorted(p for p in _mapped_paths() if TEMPLATE.search(p))
     assert exempt == ["docs/standards/architecture/research/raw/<topic>.md"], (
         f"the set of template rows in the map changed: {exempt}. Each one is "
         f"exempt from the file-exists assertion, so a new member is a new hole — "
@@ -243,19 +199,7 @@ def test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY() -> None:
     did not, including one this PR modifies and names in a phase-doc checkbox. A
     reader scanning that block has no way to tell it is short.
     """
-    mapped = _mapped_paths()
-    by_dir: dict[str, list[Path]] = collections.defaultdict(list)
-    for path in _tracked():
-        if path.name in _EXCLUDED_NAMES:
-            continue
-        by_dir[str(path.parent)].append(path)
-
-    holes: dict[str, list[str]] = {}
-    for directory, paths in sorted(by_dir.items()):
-        listed = [p for p in paths if str(p) in mapped]
-        missing = [p.name for p in paths if str(p) not in mapped]
-        if listed and missing:
-            holes[directory] = sorted(missing)
+    holes = partially_listed(_mapped_paths(), tracked())
     assert not holes, (
         "docs/file_structure.txt enumerates these directories file by file and "
         "is missing entries in them:\n"
@@ -270,8 +214,8 @@ def test_every_tracked_file_is_REACHABLE_through_the_map() -> None:
     """The rolled-up half: a new subtree cannot appear with no mention at all."""
     mapped = _mapped_paths()
     unreachable = [
-        str(p) for p in _tracked()
-        if p.name not in _EXCLUDED_NAMES
+        str(p) for p in tracked()
+        if p.name not in EXCLUDED_NAMES
         and str(p) not in mapped
         and not any(str(parent) in mapped for parent in p.parents
                     if str(parent) != ".")
@@ -289,4 +233,4 @@ def test_every_tracked_file_is_REACHABLE_through_the_map() -> None:
 def test_the_map_and_the_document_that_declares_it_authoritative_both_exist(
         path: str) -> None:
     """If either moves, this whole module is asserting against nothing."""
-    assert (_REPO / path).is_file()
+    assert (REPO / path).is_file()

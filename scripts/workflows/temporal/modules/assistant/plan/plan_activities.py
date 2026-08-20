@@ -92,6 +92,7 @@ pr_branch = shared.pr_branch
 extract_pr_url = shared.extract_pr_url
 observe_outcome = shared.observe_outcome
 max_turns = shared.max_turns
+anchor_task_source = shared.anchor_task_source
 
 # A candidate row, in the eight-column shape `_HEADER` declares:
 #   | C-001 | title | component | source | `decision` | `size` | `status` | note |

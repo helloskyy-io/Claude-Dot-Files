@@ -340,6 +340,90 @@ def observe_outcome(worktree: Path, branch: str | None = None) -> str:
     return "\n".join(lines)
 
 
+def anchor_task_source(repo_root: Path, arg: str) -> Path:
+    """THE ANCHORING RULE ITSELF, and the only statement of it.
+
+    Absolute in, absolute out. Relative in, resolved against the REPO ROOT — never
+    against `Path.cwd()`, which is the whole defect. Split out from
+    `resolve_task_source` because `run_plan_revision._read_task_file` needs the
+    anchoring and NOT the diagnostic: it distinguishes "not found" from "not
+    readable" as V1 did, and `test_plan_revision.py` pins both messages. Without
+    this split that runner would have to restate the rule, which is the one thing
+    a rule with six consumers must not permit.
+
+    PURE — no filesystem access beyond `Path.resolve()`'s symlink walk, no
+    existence check. What to do about a path that does not exist is the caller's
+    to decide, and the two callers decide differently.
+    """
+    supplied = Path(arg)
+    return (supplied if supplied.is_absolute() else repo_root / supplied).resolve()
+
+
+def resolve_task_source(repo_root: Path, arg: str, label: str) -> Path:
+    """A free-form operator FILE argument, anchored to the REPO and never to cwd.
+
+    THE DEFECT, measured 2026-08-19. `run_build.py --phase docs/development/.../
+    phase2_family_alignment.md --repo <path>`, dispatched from
+    `scripts/workflows/temporal/`, died with a bare `[Errno 2] No such file or
+    directory: 'docs/development/.../phase2_family_alignment.md'`. Every reader of
+    a `--task-file` or `--phase` in this fleet was `Path(arg).read_text()`, which
+    is relative to whatever directory the operator happened to be standing in, so
+    a repo-relative argument worked only from the repo root. An absolute path
+    worked; the operator had to know that, and the message did not say it.
+
+    THIS IS ISSUE #48 ONE LAYER DOWN. That one was the REPO ROOT falling back to
+    `Path.cwd()`, and `resolve_repo_root`'s docstring is the ruling: in this fleet
+    the invocation directory is never a meaningful base, because a dispatch names
+    its target with `--repo` and the operator's shell is incidental. The same
+    reasoning reaches the task-source arguments, and nothing had applied it.
+
+    WHAT THIS DELIBERATELY DOES NOT DO, because a spec already rules on it.
+    `preflight.RepoPathParser` and two guard modules all state that `--task-file`
+    and `--phase` *"are read from wherever the operator points them, on purpose"*
+    and are declared with plain `add_argument` for that reason. **That ruling is
+    untouched: nothing here refuses a path outside the repo.** An absolute path is
+    used exactly as given, and a relative one that climbs out (`../notes.md`) is
+    resolved and read without complaint. What changes is only the BASE for a
+    relative argument — repo root rather than cwd — which is the one thing the
+    operator cannot control from a dispatch line.
+
+    THE COST, STATED. An operator standing outside the repo who means
+    `--task-file notes.md` relative to THEIR cwd now gets `<repo>/notes.md`. That
+    is a real behaviour change and it is why the failure message below prints the
+    base, the raw argument and the resolved path together: the one case this makes
+    worse must be self-diagnosing in a single line. Absolute paths — which is what
+    `terminal-output.md` tells operators to write, and what every dispatch in the
+    guide uses — are unaffected.
+
+    `label` NAMES THE FLAG THE OPERATOR TYPED, not the dest. `--phase` and
+    `--task-file` share this function and an error naming `plan_path` sends the
+    reader to the source rather than to their own command line.
+    """
+    resolved = anchor_task_source(repo_root, arg)
+    if not resolved.is_file():
+        raise RuntimeError(
+            f"{label} {arg} names no file: {resolved}\n"
+            f"A RELATIVE {label} is resolved against the repo root "
+            f"({repo_root}), never against the directory you invoked from — so a "
+            f"repo-relative path works from anywhere. If you meant a path relative "
+            f"to your shell's current directory, pass it absolute."
+        )
+    return resolved
+
+
+def task_context(repo_root: Path, arg: str | None,
+                 label: str = "--task-file") -> str:
+    """The text of an OPTIONAL task-file argument, or "" when none was given.
+
+    Five runners spelled this `Path(a.task_file).read_text() if a.task_file else ""`
+    — the conditional and the read, once each. Both halves are now here so the
+    anchoring above cannot be applied to four of them and forgotten in the fifth,
+    which is the shape `RepoPathParser`'s docstring calls "a check a runner must
+    remember".
+    """
+    return resolve_task_source(repo_root, arg, label).read_text() if arg else ""
+
+
 def load_prompt(path: Path) -> str:
     if not path.exists():
         raise FileNotFoundError(f"prompt file missing: {path}")
