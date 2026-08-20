@@ -33,6 +33,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
@@ -303,7 +304,49 @@ def test_a_sprint_file_kept_somewhere_else_is_still_the_permitted_one() -> None:
 _COMPARATOR = "this_run_had_no_right_to"
 
 
-def _value_guards(mod) -> list[tuple[str, str, str, str]]:
+class _ValueGuard(NamedTuple):
+    """One `offender = <comparator>(before, after)` / `if offender: raise` pair.
+
+    NAMED RATHER THAN A BARE TUPLE because the shape grew: `comparator` was added
+    on 2026-08-20 for the check below it, and a positional 5-tuple would have
+    re-pointed every unpacking site by one — the same failure `CandidateRow`'s
+    docstring records, in the file that asserts about it.
+    """
+
+    comparator: str
+    offender: str
+    before: str
+    after: str
+    raised: str
+
+
+def _snapshot_readers(tree: ast.Module) -> dict[str, str]:
+    """`before_size` -> `candidate_sizes`: which reader produced each snapshot.
+
+    The COLUMN a guard is about is not recoverable from the guard itself — the
+    offender variable is named for the offence (`ruled`, `flipped`, `named`) and
+    the snapshot variable is named by hand. The reader is the only place the
+    column is stated by something that had to be right for the code to work at
+    all, so the check below keys on it rather than on any of the three names.
+    """
+    readers: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.Call)):
+            fn = node.value.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+            if name:
+                readers[node.targets[0].id] = name
+    return readers
+
+
+def _value_guards(mod) -> list[_ValueGuard]:
+    """Every value guard in a workflow MODULE — see `_value_guards_in`."""
+    return _value_guards_in(Path(mod.__file__).read_text(encoding="utf-8"))
+
+
+def _value_guards_in(src: str) -> list[_ValueGuard]:
     """Every `offender = <comparator>(before, after)` / `if offender: raise` pair.
 
     DISCOVERED FROM THE SOURCE, not listed, for the same reason `WORKFLOWS` is:
@@ -318,10 +361,9 @@ def _value_guards(mod) -> list[tuple[str, str, str, str]]:
     render — naming the id alone is the whole of what can be said, so requiring
     an arrow there would demand a lie.
     """
-    src = Path(mod.__file__).read_text(encoding="utf-8")
     tree = ast.parse(src)
 
-    pending: dict[str, tuple[str, str]] = {}
+    pending: dict[str, tuple[str, str, str]] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.Assign) or len(node.targets) != 1:
             continue
@@ -331,21 +373,21 @@ def _value_guards(mod) -> list[tuple[str, str, str, str]]:
             fn = call.func
             name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
             if name.endswith(_COMPARATOR) and len(call.args) == 2:
-                pending[ast.unparse(node.targets[0])] = tuple(
-                    ast.unparse(a) for a in call.args)
+                pending[ast.unparse(node.targets[0])] = (
+                    name, *(ast.unparse(a) for a in call.args))
 
-    guards: list[tuple[str, str, str, str]] = []
+    guards: list[_ValueGuard] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.If):
             continue
         offender = ast.unparse(node.test)
         if offender not in pending:
             continue
-        before, after = pending[offender]
+        comparator, before, after = pending[offender]
         for raised in ast.walk(node):
             if isinstance(raised, ast.Raise):
-                guards.append((offender, before, after,
-                               ast.get_source_segment(src, raised) or ""))
+                guards.append(_ValueGuard(comparator, offender, before, after,
+                                          ast.get_source_segment(src, raised) or ""))
     return guards
 
 
@@ -365,6 +407,171 @@ def test_the_value_guard_sweep_finds_guards_at_all() -> None:
         f"check is no longer reading the guards it is named for.")
 
 
+def test_the_GUARDED_COLUMN_LIST_matches_the_comparator_family() -> None:
+    """`plan_activities._GUARDED_COLUMNS` must be exactly the guarded columns.
+
+    THE CLASS IS A HAND-KEPT ENUMERATION OF A COLLECTION THAT GREW, and it has
+    now produced a finding in three consecutive passes on one branch. When `size`
+    became the fourth guarded column, four prose enumerations of the other three
+    stayed as they were: `_raise_on_duplicate_ids`' operator message and its
+    docstring, `CandidateRow`'s docstring, and `scaffold_candidate_components`'
+    skip-condition count. Each was individually correct when written, each went
+    stale silently, and each was found by a human reading two files side by side.
+
+    `_GUARDED_COLUMNS` is the single place the list now lives, and this is what
+    makes adding a column fail HERE — one assertion, with the fix in one place —
+    instead of leaving four sentences that read as coverage. It is the same
+    remedy `_CONSTRAINED_CELLS` applied to the cell count in the same module.
+
+    MATCHED BY PREFIX, because the reader and the comparator carry the PLURAL
+    (`candidate_statuses`, `statuses_this_run_had_no_right_to`) and English
+    plurals are not a function anything here should be computing. A column whose
+    plural is not its singular plus a suffix fails this loudly rather than
+    passing quietly, which is the correct direction: the message says what to do.
+    """
+    stems = sorted(n[:-len(_COMPARATOR) - 1] for n in dir(act)
+                   if n.endswith(_COMPARATOR) and not n.startswith("_"))
+    paired = [s for s in stems if hasattr(act, f"candidate_{s}")]
+    unmatched_stems = [s for s in paired
+                       if sum(s.startswith(c) for c in act._GUARDED_COLUMNS) != 1]
+    unmatched_cols = [c for c in act._GUARDED_COLUMNS
+                      if sum(s.startswith(c) for s in paired) != 1]
+    assert not unmatched_stems and not unmatched_cols, (
+        f"`_GUARDED_COLUMNS` is {list(act._GUARDED_COLUMNS)} and the reader/"
+        f"comparator pairs in `plan_activities` are {paired}. Unmatched "
+        f"pairs: {unmatched_stems}; unmatched columns: {unmatched_cols}. Every "
+        f"column with both a `candidate_<plural>` reader and a "
+        f"`<plural>_{_COMPARATOR}` comparator is a guarded column and must be "
+        f"named in `_GUARDED_COLUMNS`, because the operator-facing messages "
+        f"interpolate that tuple rather than restating the list — a column "
+        f"missing from it is a column those messages silently omit.")
+
+
+def _borrowed_comparators(src: str) -> list[str]:
+    """Every guard in this source calling a comparator that is not its column's.
+
+    TAKES SOURCE TEXT RATHER THAN A MODULE so it can be exercised on a snippet
+    this tree does not contain — see `test_the_column_rule_SEPARATES_a_borrowed_
+    comparator_from_an_own_one`. A predicate reachable only through
+    `workflows_declaring` is one whose only evidence is that today's four
+    workflows pass it, which is the vacuity `test_a_census_guard_proves_its_own_
+    predicate` exists to refuse.
+    """
+    readers = _snapshot_readers(ast.parse(src))
+    offences: list[str] = []
+    for guard in _value_guards_in(src):
+        snapshots = {readers.get(guard.before), readers.get(guard.after)}
+        if len(snapshots) != 1 or None in snapshots:
+            offences.append(
+                f"{guard.offender} compares {guard.before} to {guard.after}, "
+                f"which this sweep cannot trace to one reader "
+                f"(saw {sorted(str(r) for r in snapshots)})")
+            continue
+        reader = snapshots.pop()
+        expected = f"{reader.rsplit('_', 1)[-1]}_{_COMPARATOR}"
+        if guard.comparator.lstrip("_") != expected:
+            offences.append(
+                f"{guard.offender} snapshots with `{reader}` and compares with "
+                f"`{guard.comparator}`, not `{expected}`")
+    return offences
+
+
+def test_EVERY_value_guard_CALLS_ITS_OWN_COLUMNS_COMPARATOR() -> None:
+    """A guard must call the comparator named after the reader it snapshots.
+
+    KEYED ON THE CLASS, NOT ON THE COLUMN THAT WAS WRONG. `decision` rode
+    `statuses_this_run_had_no_right_to` in both planning workflows from the day
+    the guard was written until 2026-08-20 — the call resolved, the guard fired
+    correctly, the raise message named `decision`, and every existing check here
+    was green, because none of them ever asked which comparator was on the other
+    end. Fixing the two call sites and stopping there would leave the next column
+    to be discovered the same way, by a reviewer reading two lines side by side.
+
+    THE CONSEQUENCE IS NOT COSMETIC, and the family's own design is what makes
+    it real. `components_this_run_had_no_right_to`'s docstring states that the
+    bodies are duplicated rather than shared *"because the two columns are
+    prohibited for DIFFERENT reasons and each docstring is the place that reason
+    is recorded"* — so a column with no comparator of its own has nowhere to
+    record why it is prohibited, and any later specialisation of the comparator
+    it borrows silently retargets its guard in every workflow at once.
+
+    THE READER IS THE ORACLE. `before_direction = own.direction_statuses(...)` is
+    a guard over `direction.md`'s **`status`** column whose snapshot variable
+    names the FILE, so a check keyed on the variable name would have called that
+    correct guard an offence. Keyed on the reader, it passes: `direction_
+    statuses` -> `statuses` -> `statuses_this_run_had_no_right_to`.
+    """
+    offenders = [f"{name}: {offence}"
+                 for mod, _, name in workflows_declaring("MAY_NOT_OBSERVERS")
+                 for offence in _borrowed_comparators(
+                     Path(mod.__file__).read_text(encoding="utf-8"))]
+    assert not offenders, (
+        f"these guards borrow another column's comparator: {offenders}. Each "
+        f"column in this family gets its OWN `<column>s_{_COMPARATOR}`, whose "
+        f"docstring is the one place its prohibition is explained; a guard "
+        f"riding a sibling's comparator has nowhere to record why its column is "
+        f"prohibited, and specialising that sibling later retargets this guard "
+        f"in every workflow that calls it. Add the comparator beside its three "
+        f"siblings in `plan_activities.py` and point the call site at it.")
+
+
+# --- the column rule, exercised on source this tree does not contain ---------
+#
+# Three snippets rather than two, and the third is the one that matters: it is
+# the shape a naive rule gets WRONG. Keying on the snapshot VARIABLE name looks
+# equivalent and would call `triage-candidates`' correct `direction.md` guard an
+# offence, because that variable is named for the FILE and the column it guards
+# is `status`. A control that only separated the obvious pair would have shipped
+# that rule.
+
+_OWN_COMPARATOR = """
+def run():
+    before_size = act.candidate_sizes(p)
+    after_size = act.candidate_sizes(p)
+    sized = act.sizes_this_run_had_no_right_to(before_size, after_size)
+    if sized:
+        raise RuntimeError("no")
+"""
+
+_BORROWED_COMPARATOR = """
+def run():
+    before_size = act.candidate_sizes(p)
+    after_size = act.candidate_sizes(p)
+    sized = act.statuses_this_run_had_no_right_to(before_size, after_size)
+    if sized:
+        raise RuntimeError("no")
+"""
+
+_READER_NAMED_FOR_THE_FILE = """
+def run():
+    before_direction = own.direction_statuses(p)
+    after_direction = own.direction_statuses(p)
+    ruled = act.statuses_this_run_had_no_right_to(before_direction, after_direction)
+    if ruled:
+        raise RuntimeError("no")
+"""
+
+
+@pytest.mark.parametrize("label,snippet,offends", [
+    ("a column calling its own comparator", _OWN_COMPARATOR, False),
+    ("a column riding a sibling's comparator", _BORROWED_COMPARATOR, True),
+    ("a reader named for the file, not the column", _READER_NAMED_FOR_THE_FILE,
+     False),
+], ids=["own", "borrowed", "reader-named-for-file"])
+def test_the_column_rule_SEPARATES_a_borrowed_comparator_from_an_own_one(
+        label: str, snippet: str, offends: bool) -> None:
+    """Both answers, on source written for this test alone.
+
+    `_borrowed_comparators` is otherwise reachable only through the four
+    workflows `workflows_declaring` finds, all of which pass — so an AST shape
+    change that made `_snapshot_readers` return `{}` would silently answer "no
+    offences" for every one of them and the rule above would be permanently
+    green over exactly the defect it was written for.
+    """
+    assert bool(_borrowed_comparators(snippet)) is offends, (
+        f"{label}: the predicate reported {_borrowed_comparators(snippet)}")
+
+
 def test_EVERY_value_guard_NAMES_THE_VALUE_THAT_MOVED() -> None:
     """A guard that names only the row hands the operator half the answer.
 
@@ -379,10 +586,12 @@ def test_EVERY_value_guard_NAMES_THE_VALUE_THAT_MOVED() -> None:
     """
     offenders: list[str] = []
     for mod, _, name in workflows_declaring("MAY_NOT_OBSERVERS"):
-        for var, before, after, raised in _value_guards(mod):
-            if "->" in raised and before in raised and after in raised:
+        for guard in _value_guards(mod):
+            if ("->" in guard.raised and guard.before in guard.raised
+                    and guard.after in guard.raised):
                 continue
-            offenders.append(f"{name}:{var} (comparing {before} to {after})")
+            offenders.append(f"{name}:{guard.offender} "
+                             f"(comparing {guard.before} to {guard.after})")
     assert not offenders, (
         f"these guards raise without rendering the value that moved: {offenders}. "
         f"Every other guard built on a `{_COMPARATOR}` comparator renders "

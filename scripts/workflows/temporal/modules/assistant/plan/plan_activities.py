@@ -152,6 +152,23 @@ _STATUSES = ("", "open", "closed")
 # self-healing instead of a migration.
 _SIZES = ("", "feature", "phase", "checkboxes")
 
+# THE COLUMNS A RUN CAN BE HELD TO, WRITTEN ONCE. Each of these has a reader
+# (`candidate_<column>s`) and a comparator (`<column>s_this_run_had_no_right_to`)
+# below, and every message here that has to enumerate them interpolates this
+# rather than restating it.
+#
+# IT EXISTS BECAUSE THE HAND-KEPT COPIES DRIFTED THE MOMENT `size` LANDED, three
+# of them at once — `_raise_on_duplicate_ids`' operator message and its
+# docstring, and `CandidateRow`'s. All three named `decision`, `status` and
+# `component`, all three were true of the seven-column table, and none of them
+# went red when a fourth guarded column arrived. That is the same class as the
+# cell count two comments up, and it has the same answer: state it in one place
+# that something else derives from, rather than in four places a reviewer has to
+# find. `test_the_GUARDED_COLUMN_LIST_matches_the_comparator_family` is what
+# holds it — the next column with a reader and a comparator fails until it is
+# named here, and naming it here moves every message at once.
+_GUARDED_COLUMNS = ("decision", "size", "status", "component")
+
 _BLANK = ("", "—", "-")
 
 
@@ -160,13 +177,17 @@ class CandidateRow(NamedTuple):
 
     It was a bare `(id, decision, status)` triple until `component` was added
     between `Candidate` and `Source`. Widening a positional tuple silently
-    re-points every unpacking site by one, and three of the sites here are
-    AUTHORIZATION GUARDS — `candidate_decisions`, `candidate_statuses` and
-    `candidate_components` each prove a run did not write a column it does not
-    own. A guard that compares the wrong field still returns a clean dict and
-    still reports a clean run, so the failure would be invisible in exactly the
-    place invisibility costs most. Named access makes the same mistake a crash
-    instead.
+    re-points every unpacking site by one, and the sites reading `_GUARDED_
+    COLUMNS` are AUTHORIZATION GUARDS — each `candidate_<column>s` reader proves
+    a run did not write a column it does not own. A guard that compares the wrong
+    field still returns a clean dict and still reports a clean run, so the
+    failure would be invisible in exactly the place invisibility costs most.
+    Named access makes the same mistake a crash instead.
+
+    NO COUNT OF THOSE SITES IS WRITTEN HERE. This sentence said "three of the
+    sites" from the day it was written until `size` made it four, and the claim
+    it is making is the PROPERTY — a guard reading the wrong field is silent —
+    which needs no denominator.
     """
 
     id: str
@@ -292,9 +313,10 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
                             missing_hint: str) -> None:
     """No id may name two rows — the door that has actually opened.
 
-    Every reader here is a dict keyed by id, so the second row's `decision`,
-    `status` and `component` silently overwrite the first's and one of the two
-    candidates stops existing for every consumer.
+    Every reader here is a dict keyed by id, so the second row's cells silently
+    overwrite the first's — every column in `_GUARDED_COLUMNS`, which is where
+    the list is kept rather than restated here — and one of the two candidates
+    stops existing for every consumer.
     `test_candidate_ids_are_unique` records it three times by 2026-08-11 and
     twice more on 2026-08-13, always the same way — two branches each allocate
     the next free id against the same base and both merge. That test is a merge
@@ -314,7 +336,9 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
         raise ValueError(
             f"{path} allocates {len(repeated)} id(s) to more than one row: "
             f"{', '.join(repeated)}. Every reader here is a dict keyed by id, so "
-            f"the later row's `decision`, `status` and `component` overwrite the "
+            f"the later row's "
+            + ", ".join(f"`{col}`" for col in _GUARDED_COLUMNS)
+            + f" overwrite the "
             f"earlier one's and one of the two candidates stops existing for the "
             f"untriaged working set, for both authorization snapshots and for the "
             f"deletion check — all of which are keyed by the same colliding id and "
@@ -502,14 +526,53 @@ def candidate_sizes(candidates_path: Path) -> dict[str, str]:
     at all. A proxy that is right for one of three cases reads as a decision and
     is an accident.
 
-    Guarded exactly like `decision`: snapshotted either side of every run that
-    holds a write grant on this file, and compared. Same reason, too — a run that
+    Guarded exactly like `decision`: snapshotted either side of every run whose
+    prompt puts this column in its `You MAY NOT` table, and compared. That is
+    `plan-feature` and `plan-verify`, and it is NOT the same set as "every run
+    holding a write grant on this file" — `triage-candidates` holds one and is
+    the run that RULES this column, so it is guarded on `status` and `component`
+    and deliberately not on `size`. Same reason as `decision`, too: a run that
     has just planned a component is one plausible step from recording a size
     beside it.
     """
     return {row.id: row.size for row in candidate_rows(
         candidates_path,
         missing_hint="Without it there is no `size` column to hold anything to.")}
+
+
+def decisions_this_run_had_no_right_to(before: dict[str, str],
+                                       after: dict[str, str]) -> list[str]:
+    """Ids whose `decision` changed on a row that already existed. Only triage may.
+
+    IT RODE THE `status` COMPARATOR UNTIL 2026-08-20, in both planning workflows,
+    and the family's own design is the reason that was wrong rather than merely
+    untidy. `components_this_run_had_no_right_to` states it: the bodies are
+    written out instead of shared *"because the two columns are prohibited for
+    DIFFERENT reasons and each docstring is the place that reason is recorded"*.
+    `decision` had no such place — its reason lived in the workflows' raise
+    messages and nowhere in this module — and any specialisation of the status
+    comparator would silently have retargeted the `decision` guard in two
+    workflows at once. Two docstrings here already treat it as a first-class
+    member (`candidate_sizes` says *"Guarded exactly like `decision`"*;
+    `statuses_this_run_had_no_right_to` says row deletion *"is already an offence
+    under the `decision` guard"*) and both pointed at a guard with no comparator.
+
+    ONLY pre-existing rows are judged, for the reason `statuses_this_run_had_no_
+    right_to` states: a row this run APPENDED is a proposal placed under the
+    shared instruction in `decision_log_and_reflection.md`, which prescribes a
+    BLANK `decision` — so a new row's `decision` is prescribed by that rule
+    rather than by this guard. Row deletion is `act.ids_deleted`, which both
+    callers check AHEAD of every comparator precisely because a row that is
+    simply gone is in neither key set here.
+
+    NOT the same rule as `plan_sprint._rulings_this_run_had_no_right_to`, which
+    additionally refuses a NEW row arriving already ruled. That one is written
+    out separately and its docstring records why; this is the narrower property,
+    and stating the difference is cheaper than the next reader assuming the two
+    names mean one thing.
+    """
+    return sorted(cid for cid in before.keys() & after.keys()
+                  if before[cid] != after[cid])
 
 
 def sizes_this_run_had_no_right_to(before: dict[str, str],

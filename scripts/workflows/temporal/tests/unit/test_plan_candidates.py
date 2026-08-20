@@ -1,4 +1,4 @@
-"""`plan-candidates` — the scaffolder, and the four conditions that gate it.
+"""`plan-candidates` — the scaffolder, and the conditions that gate it.
 
 WHY THIS IS AN ACTIVITY AND NOT A CHILD, WHICH IS WHY THESE TESTS EXIST AT ALL.
 The job is to move what triage already decided to where the next step reads
@@ -13,15 +13,24 @@ prompt, and eight review holds every one of which was a consequence of it being
 a dispatch. It was closed rather than repaired. The test file for that shape
 could not have existed.
 
-WHAT THE FOUR SKIPS ACTUALLY PROTECT, since three of them look alike:
+WHAT THE SKIPS ACTUALLY PROTECT, since several of them look alike:
 
   * not `ship` — triage has not agreed, or has refused.
   * not `open` — already handled.
   * blank `component` — an UNANSWERED QUESTION. The filer knows and did not say;
     guessing from a one-line summary is exactly what this code must not do.
+  * `size` is not `feature` — a `phase` or `checkboxes` candidate is work INSIDE
+    a component rather than a component, and a blank `size` has not been ruled
+    on at all. Neither may be scaffolded; both are reported.
   * directory exists — the candidate EXTENDS something already planned. Seeding
     a synthesis on top of a live component's research pool would overwrite real
     findings with a one-line proposal, and that is the expensive one.
+
+NO COUNT OF THEM IS WRITTEN HERE. This docstring said "four" in two places from
+the day it was written until `size` added a fifth condition — and it said it in
+the file that tests the code whose own docstring was corrected for exactly that,
+in the same PR, without this one being looked at. The enumeration is the whole
+of what a reader needs; the number is what goes stale.
 """
 
 from __future__ import annotations
@@ -93,7 +102,7 @@ def test_a_shipped_open_named_row_IS_scaffolded(tree: Path) -> None:
     assert (pool / "synthesis.md").is_file()
 
 
-# --- the four skips -------------------------------------------------------
+# --- the skips -------------------------------------------------------------
 
 @pytest.mark.parametrize("decision", ["", "`requires review`", "`reject`"])
 def test_only_a_SHIP_row_is_scaffolded(tree: Path, decision: str) -> None:
@@ -502,13 +511,14 @@ def test_an_UNUSABLE_component_name_is_REPORTED_AT_EVERY_SIZE(
 
     WHAT THAT COST IS A FALSE NOTE, NOT A MISSING ONE, which is why it is worth a
     test rather than a shrug. `plan_project_workflow` turns a `not_a_feature`
-    entry into *"`C-001` is sized `phase`, so nothing was scaffolded — it belongs
-    inside a component that already exists"*. For a cell reading `--` that
-    sentence is false in both halves: nothing names a component, and no existing
-    one has been identified. The operator is told the row is correctly parked
-    when it is actually unroutable, and the `unnamed` note that would have said
-    so — *"the cell needs a real name or a blank"* — never fires. A `phase` still
-    has to say WHICH component it is a phase of.
+    entry into *"`C-001` is sized `phase`, so nothing was scaffolded — it is work
+    INSIDE a component rather than a component of its own"*, and refers the
+    operator on to *"the component its `component` cell names"*. For a cell
+    reading `--` there is no such component: the sentence talks about a name that
+    does not exist. The operator is told the row is correctly parked when it is
+    actually unroutable, and the `unnamed` note that would have said so — *"the
+    cell needs a real name or a blank"* — never fires. A `phase` still has to say
+    WHICH component it is a phase of.
 
     THE BLANK SIZE IS IN THE PARAMETRISATION ON PURPOSE. It reaches `unsized`
     rather than `not_a_feature`, a different bucket down a different branch of
@@ -524,6 +534,41 @@ def test_an_UNUSABLE_component_name_is_REPORTED_AT_EVERY_SIZE(
             f"size branch, or the operator is told an unroutable row is parked "
             f"correctly")
         assert sorted(p.name for p in (tree / "docs" / "development").iterdir()) == []
+
+
+@pytest.mark.parametrize("size,bucket", [
+    ("phase", "not_a_feature"),
+    ("checkboxes", "not_a_feature"),
+    ("", "unsized"),
+], ids=["phase", "checkboxes", "unsized"])
+def test_a_ROUTABLE_name_at_a_NON_FEATURE_size_is_DECLINED_and_REPORTED(
+        tree: Path, size: str, bucket: str) -> None:
+    """The size branch's POSITIVE path, which nothing above reaches.
+
+    THE TEST ABOVE PROVES ORDERING AND NOT THIS. Every one of its rows carries a
+    `component` cell that slugs to nothing, so each `continue`s at the name check
+    one line ABOVE the size branch — the branch this asserts on is never entered.
+    That left the routing itself uncovered in both directions: a dropped
+    `continue` would scaffold a whole component for a `phase`, and swapped
+    buckets would send the operator the wrong note, and the suite would stay
+    green through either.
+
+    ASSERTED AGAINST THE WHOLE `Scaffolded` AND AGAINST THE DISK, because the two
+    failures look different. A wrong bucket is visible only in the value; a
+    missing `continue` is visible only on disk, where a directory the operator
+    never asked for now exists and the research fan-out will pick it up.
+    """
+    f = _write(tree, _table(
+        ("C-001", "A thing worth building", "fleet-reliability", "`ship`",
+         "`open`", size)))
+    assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
+        **{bucket: [("C-001", size or "unsized")]}), (
+        f"a {size or 'blank'}-sized row naming a perfectly usable component was "
+        f"not declined into `{bucket}` — `size` is what decides whether this "
+        f"scaffolds, and a row that routes on it wrongly either invents a "
+        f"component or reaches the operator under the wrong note")
+    assert sorted(p.name for p in (tree / "docs" / "development").iterdir()) == [], (
+        "nothing may be created for a candidate that is not feature-sized")
 
 
 def test_a_SEEDED_but_UNRESEARCHED_pool_is_RESUMED_not_skipped_forever(

@@ -190,8 +190,15 @@ class Scaffolded(NamedTuple):
     # TWO DECLINE REASONS ADDED 2026-08-19 WITH THE `size` COLUMN, and they are
     # separate because the operator does something different about each.
     #   `not_a_feature` — sized `phase` or `checkboxes`. Correctly not scaffolded;
-    #     it belongs inside a component that already exists, and the run that
-    #     extends that component is where it lands. Nothing is wrong.
+    #     it is work INSIDE a component rather than a component of its own, and
+    #     the run that plans that component is where it lands. Nothing is wrong.
+    #     WHETHER THAT COMPONENT EXISTS IS NOT CHECKED, and the note the parent
+    #     prints says so. It read "belongs inside a component that already
+    #     exists" until 2026-08-20, which is a positive claim about a directory
+    #     nothing on this branch looks at — `pool.parent.exists()` is below the
+    #     `continue`, on the `feature` path only. A `phase` naming a component
+    #     nobody has planned is triage's ruling to have made and this activity's
+    #     job to REPORT; asserting it away is the one thing that would hide it.
     #   `unsized`       — ruled `ship` and never sized. Nothing can route it, and
     #     the remedy is a triage pass rather than anything here. Reported so the
     #     backlog is VISIBLE instead of silently skipped.
@@ -254,16 +261,20 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         ASKED OF EVERY ELIGIBLE ROW, WHATEVER ITS SIZE, and it was not when the
         `size` skip first landed. That branch sat AHEAD of this one, so
         `component_slug` was reached only for a `feature` — and a `phase`-sized
-        row whose cell reads `--` was filed as `not_a_feature` under a note
-        telling the operator it *"belongs inside a component that already
-        exists"*, which is a positive claim about a cell that names nothing. The
-        typo went unreported and the note that stood in for the report asserted
-        the opposite of it. A cell yielding no folder name is a filer typo at
-        every size: a `phase` still has to say WHICH component it is a phase of.
+        row whose cell reads `--` was filed as `not_a_feature` under a note that
+        then read *"belongs inside a component that already exists"* — a positive
+        claim about a cell that names nothing. The typo went unreported and the
+        note that stood in for the report asserted the opposite of it. A cell
+        yielding no folder name is a filer typo at every size: a `phase` still
+        has to say WHICH component it is a phase of. (That wording is gone; the
+        note now refers to *"the component its `component` cell names"* and says
+        outright that whether it is planned is not asked here.)
       * `size` is not `feature` — triage ruled how big this is, and only a
-        feature is a component. `phase` and `checkboxes` belong inside one that
-        already exists; a blank is UNSIZED rather than small. Both are reported,
-        in their own buckets, and neither is an error.
+        feature is a component. `phase` and `checkboxes` are work INSIDE one; a
+        blank is UNSIZED rather than small. Both are reported, in their own
+        buckets, and neither is an error. Nothing here checks that the component
+        a `phase` names is planned — that is triage's ruling to have made, and
+        this activity's job is to report the row, not to enforce it.
       * `docs/development/<slug>/` ALREADY EXISTS — the candidate EXTENDS
         something already planned, so there is nothing to scaffold. The operator's
         scope is exact about this: *"If the component directory already exists, do
@@ -334,9 +345,9 @@ def scaffold_candidate_components(worktree: Path, candidates_path: Path) -> Scaf
         # THE NAME IS CHECKED BEFORE THE SIZE, and the first version of the size
         # branch had it the other way round. A cell that is not blank but slugs
         # to nothing is a filer typo whatever triage sized the row, and
-        # `not_a_feature`'s note tells the operator the candidate "belongs inside
-        # a component that already exists" — a positive claim about a cell that,
-        # in this case, names nothing. Reporting the typo first is the only
+        # `not_a_feature`'s note speaks of "the component its `component` cell
+        # names" — a reference to a cell that, in this case, names nothing.
+        # Reporting the typo first is the only
         # ordering under which every bucket's note is TRUE of the row in it.
         # `unnamed`'s note holds at every size: it says the cell needs a real
         # name or a blank and promises no scaffolding, which is exactly the

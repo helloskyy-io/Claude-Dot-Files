@@ -298,9 +298,12 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "every correction named, with whether it moved an estimate",
     "Set `decision`, `size`, `status`, or another filer's `component` in the candidates file":
         "act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
-        "act.candidate_components snapshotted either side of the run, compared by act.sizes_this_run_had_no_right_to, "
+        "act.candidate_components snapshotted either side of the run, compared by "
+        "act.decisions_this_run_had_no_right_to, act.sizes_this_run_had_no_right_to, "
         "act.statuses_this_run_had_no_right_to and "
-        "act.components_this_run_had_no_right_to",
+        "act.components_this_run_had_no_right_to — one comparator per column, "
+        "because each column is prohibited for a different reason and the "
+        "comparator docstring is where that reason is recorded",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate row, a phase doc, or the roadmap":
@@ -598,7 +601,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"never proposed — see {url}"
         )
 
-    ruled = act.statuses_this_run_had_no_right_to(before_decision, after_decision)
+    ruled = act.decisions_this_run_had_no_right_to(before_decision, after_decision)
     if ruled:
         raise RuntimeError(
             f"plan-verify changed the `decision` column on {len(ruled)} "

@@ -306,9 +306,12 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     # something different about each. Neither is an error and neither is silent.
     for cid, size in scaffolded.not_a_feature:
         notes.append(f"`{cid}` is sized `{size}`, so nothing was scaffolded — it "
-                     f"belongs inside a component that already exists, and the run "
-                     f"that extends that component is where it lands. This is the "
-                     f"correct outcome for a {size}-sized candidate, not a skip.")
+                     f"is work INSIDE a component rather than a component of its "
+                     f"own, and the run that plans that component is where it "
+                     f"lands. This is the correct outcome for a {size}-sized "
+                     f"candidate, not a skip. Whether the component its "
+                     f"`component` cell names is already planned is a separate "
+                     f"question this step does not ask.")
     for cid, marker in scaffolded.unsized:
         notes.append(f"`{cid}` is `{marker}` — ruled `ship` and carrying no `size`, "
                      f"so nothing "
