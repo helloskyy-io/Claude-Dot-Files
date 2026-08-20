@@ -32,6 +32,11 @@ There are **two implementations** of the workflow fleet, and the Python one is w
 
 **Child-ness is a call-graph property, not a location.** `review-pr` is a child of four parents and stays independently dispatchable against any returned PR.
 
+**Two CLI rules that apply to every V2 entrypoint above.**
+
+- **A relative `--task-file` or `--phase` is resolved against `--repo`, never against the directory you are standing in.** Dispatch from anywhere; `--phase docs/development/<component>/phase2_x.md --repo <path>` means the same thing from `~` as from the repo root. Absolute paths are used exactly as given, so a brief in `/tmp` still works — and these two arguments are still deliberately allowed to point outside the repo, which is why they are not contained the way `--candidates` and a component directory are. *(Before 2026-08-19 they resolved against the cwd, so a repo-relative path failed with a bare `[Errno 2]` anywhere but the repo root.)*
+- **`build.sh --pr <n>` and `build_minor.sh --pr <n>` need no task restated.** A correction pass is a correction of work already described on that PR, and the child is already required to read the thread — so re-supplying the original `--phase` or description only creates a second copy of the runway that can disagree with the one being read. Supply a description **only** when the new pass has a genuinely different brief; it then takes precedence. A dispatch with neither a task source nor a `--pr` is still refused.
+
 ### Where the planning fleet is going
 
 **The chain below is what runs today.** Every step in it is built and wired; nothing in it is bracketed.
