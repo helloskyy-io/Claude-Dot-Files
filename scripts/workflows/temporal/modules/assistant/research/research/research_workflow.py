@@ -105,10 +105,11 @@ def _verify_then_dispose(research_dir: Path, pr: str, repo_root: Path,
     # no `paths:` filter by deliberate choice, and the suite greps prompts and
     # docs, so a research edit can and does turn the tree red.
     #
-    # `repo_root=repo_root` ON BOTH: without it neither call can find
-    # `testing/check-policy.yaml`, so every read degrades to "this repo declares
-    # no gate" and the gate forgives everything. That omission was live in
-    # `build_minor` until PR #124.
+    # `repo_root=repo_root` ON BOTH, and the parameter is REQUIRED rather than
+    # merely conventional: omitting it used to make every read degrade to "this
+    # repo declares no gate", so the gate was present and forgave everything.
+    # That omission was live in `build_minor` until PR #124; the default was
+    # dropped on 2026-08-20 so the degrade path no longer exists.
     wait_for_ci(pr, repo_root=repo_root)
     verdict_state, extra = ci_verdict(pr, repo_root=repo_root)
     hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr, repo_target=None)

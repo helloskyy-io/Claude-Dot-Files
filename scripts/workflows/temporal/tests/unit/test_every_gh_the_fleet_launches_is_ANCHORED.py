@@ -59,12 +59,27 @@ more harm than a narrow one:
     inheriting the operator's shell. Which tree is correct is argued at each
     call site; that it is chosen at all is what regressed.
   * **A `None` that arrives through a variable or a default.** The matcher wants
-    a spelled literal. `ci_verdict(pr)` with `repo_root` defaulted still reaches
-    `gh_attempt(cmd, None)` at runtime — but that path is FAIL-SAFE by
-    construction rather than by this guard: with no tree there is no check
-    policy, so `blocking` stays empty and the verdict is `NO_CHECKS`, which the
-    cascade treats as a HOLD and never as GREEN. The dangerous direction is
-    closed; only the wasted deadline remains.
+    a spelled literal, so `ci_verdict(pr)` reaching `gh_attempt(cmd, None)`
+    through a defaulted parameter was — and still is — invisible here.
+
+    THE SENTENCE THAT USED TO SIT HERE CALLED THAT PATH FAIL-SAFE AND WAS WRONG,
+    which is why the defect survived a review pass reading this file. It claimed
+    the verdict would be `NO_CHECKS`, "which the cascade treats as a HOLD and
+    never as GREEN". `routing.ci_gate` does not treat `NO_CHECKS` as a HOLD: it
+    appends a SKIPPED note and returns `hold=None`, which every parent reads as
+    PROCEED. Driven on 2026-08-20: `ci_verdict("1", repo_root=None)` over
+    `[{"name": "suite", "state": "FAILURE"}]` returned `NO_CHECKS` and the gate
+    raised nothing. The direction that was called closed was the one that was
+    open.
+
+    WHAT IS TRUE NOW, AND WHAT HOLDS IT TRUE. `repo_root` is a REQUIRED
+    parameter on both CI reads as of 2026-08-20, so the defaulted call does not
+    exist to be reached: the path is closed BY THE SIGNATURE AND THE VERDICT, not
+    by the cascade, which is unchanged in all six states. This guard still does
+    not look at it, and nothing here should be read as claiming otherwise — the
+    thing that looks is
+    `test_ci_gate.py::test_a_NON_HOLDING_gate_is_unreachable_without_a_policy_READ`
+    with `test_neither_CI_READ_can_be_called_without_a_tree` beside it.
   * **Anything outside `modules/`.** `scripts/helpers/measure/` launches `gh`
     from operator-invoked tools where a failure is visible to the person who
     typed the command. Out of the population on purpose, matching the scoping

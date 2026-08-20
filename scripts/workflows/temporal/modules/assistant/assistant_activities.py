@@ -1082,9 +1082,18 @@ def gh_attempt(args: list[str],
     `--repo`, precisely because our own flag of that name carries a filesystem
     path, and both CI reads derive the repo from the cwd like everything else.
     `None` now means only "this caller has no tree to anchor to", which in the
-    live fleet is no caller at all and in the tests is deliberate: it is the
-    input that proves an unanchored read degrades to "this repo declares no
-    gate" rather than silently passing.
+    live fleet is no caller at all.
+
+    THE SENTENCE THAT FOLLOWED THIS ONE WAS THE SAME FALSE CLAIM THE CI GATE
+    SHIPPED, IN A SECOND PLACE. It said the `None` input "proves an unanchored
+    read degrades to `this repo declares no gate` rather than silently passing"
+    — but degrading to "this repo declares no gate" IS silently passing:
+    `routing.ci_gate` answers `NO_CHECKS` with a SKIPPED note and `hold=None`,
+    which every parent reads as PROCEED. Two files described that fail-open as
+    the fail-safe, which is why a review pass reading either one moved on.
+    `repo_root` is REQUIRED on both CI reads as of 2026-08-20, so no test hands
+    them a `None` tree to demonstrate a degrade; the one that hands them `None`
+    demonstrates that the call is REFUSED. See `ci_verdict` below.
 
     A RETRY IS VISIBLE OR IT NEVER HAPPENED. Every attempt past the first prints
     what failed, how it was classified, and how long the pause is; a run that
@@ -1358,8 +1367,7 @@ def read_check_policy(repo_root: Path) -> tuple[list[str], list[str], bool]:
     return blocking, advisory, True
 
 
-def ci_verdict(pr: str, *,
-               repo_root: Path | None = None) -> tuple[routing.CiVerdict, list[str]]:
+def ci_verdict(pr: str, *, repo_root: Path) -> tuple[routing.CiVerdict, list[str]]:
     """Read the settled verdict for the checks THE TARGET REPO gates on.
 
     Returns the verdict and, for RED, the blocking checks that failed; for
@@ -1373,13 +1381,35 @@ def ci_verdict(pr: str, *,
     A PENDING check is treated as absent rather than failing: `wait_for_ci` has
     already blocked for it, so a still-pending check means that wait timed out,
     which the caller knows about separately.
+
+    `repo_root` IS REQUIRED, AND THAT REQUIREMENT IS WHAT MAKES THE VERDICT MEAN
+    ANYTHING. It carried `= None` until 2026-08-20, and the None path skipped
+    `read_check_policy` ENTIRELY: `blocking` stayed empty, so a tree whose only
+    check was FAILURE returned NO_CHECKS — and `routing.ci_gate` answers
+    NO_CHECKS by appending a SKIPPED note and returning `hold=None`, which every
+    parent reads as PROCEED. Driven and measured on PR #124:
+    `ci_verdict("1", repo_root=None)` over `[{"name": "suite", "state":
+    "FAILURE"}]` returned NO_CHECKS and the gate raised no hold. A red tree
+    reached `review-pr`. The merge gate this fleet spent three passes wiring into
+    six parents was fail-OPEN through its own front door.
+
+    THE PROPERTY, STATED SO IT CAN BE GUARDED: no path through this function
+    returns a NON-HOLDING verdict without having actually read a check policy.
+    A required parameter is what establishes it — the skip branch is not
+    *handled*, it does not EXIST, so a future caller cannot re-enter the hole by
+    forgetting a keyword and no reviewer has to reason about a fourth case.
+    `test_ci_gate.py::test_a_NON_HOLDING_gate_is_unreachable_without_a_policy_READ`
+    is the guard; its sibling pins the signature so the default cannot be quietly
+    restored.
+
+    NOTHING ABOUT NO_CHECKS MOVED. A repo that genuinely declares no gate still
+    proceeds, and that is a ruled decision (`routing.CiVerdict`, 2026-08-13) that
+    remains correct. What changed is that reaching NO_CHECKS now requires having
+    LOOKED — a policy never read is not a policy that does not exist.
     """
-    blocking: list[str] = []
-    advisory: list[str] = []
-    if repo_root is not None:
-        blocking, advisory, readable = read_check_policy(repo_root)
-        if not readable:
-            return routing.CiVerdict.UNREADABLE_POLICY, []
+    blocking, advisory, readable = read_check_policy(repo_root)
+    if not readable:
+        return routing.CiVerdict.UNREADABLE_POLICY, []
 
     cmd = ["pr", "checks", pr, "--json", "name,state"]
     # `--repo` IS NOT PASSED, and this comment is why rather than an omission.
@@ -1490,8 +1520,7 @@ _TERMINAL_CHECK_STATES = frozenset({
 })
 
 
-def wait_for_ci(pr: str, *,
-                repo_root: Path | None = None) -> bool:
+def wait_for_ci(pr: str, *, repo_root: Path) -> bool:
     """Block until the PR's declared gate has REPORTED and settled.
 
     A False return is NOT a failure to propagate — it means the review runs
@@ -1543,10 +1572,18 @@ def wait_for_ci(pr: str, *,
     A failed read therefore burned the whole deadline and returned the same
     `False` that means "gate absent", which the caller turns into a HOLD and a
     rebuild. Measured on a PR that was OPEN, MERGEABLE and green throughout.
+
+    `repo_root` IS REQUIRED, for the reason `ci_verdict` states at length and for
+    a smaller stake of its own. This returns a settled bool rather than the gate
+    verdict, so an unanchored poll cannot by itself put MERGE within reach — but
+    it reads no policy, so it stops waiting for a gate it does not know to
+    expect, and it can burn the whole 600-second deadline against a tree nobody
+    chose. The two CI reads take the same parameter under the same rule because a
+    gate whose halves disagree about whether the tree is optional is a gate with a
+    seam in it. The three outcomes above are CI outcomes; handing this something
+    that is not a tree is a call-shape error rather than one of them.
     """
-    blocking: list[str] = []
-    if repo_root is not None:
-        blocking, _advisory, _readable = read_check_policy(repo_root)
+    blocking, _advisory, _readable = read_check_policy(repo_root)
 
     deadline = time.monotonic() + CI_MAX_WAIT_SECONDS
     cmd = ["gh", "pr", "checks", pr, "--json", "name,state"]

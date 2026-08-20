@@ -425,12 +425,18 @@ def test_the_gate_reads_CI_with_repo_root_and_before_any_review(
 ) -> None:
     """Both reads happen, both are repo-anchored, and both precede the dispatch.
 
-    `repo_root` IS ASSERTED AND NOT ASSUMED. `read_check_policy` is reached only
-    when it is present; without it `ci_verdict` returns NO_CHECKS on a repo that
-    declares a gate and `ci_gate` reports "SKIPPED — no check declared blocking",
-    which is not a HOLD. The gate would be present and inert — the exact shape
-    `build_minor` shipped until PR #124, and the reason this asserts the argument
-    rather than the call.
+    `repo_root` IS ASSERTED AND NOT ASSUMED. `read_check_policy` used to be
+    reached only when it was present; without it `ci_verdict` returned NO_CHECKS
+    on a repo that declares a gate and `ci_gate` reported "SKIPPED — no check
+    declared blocking", which is not a HOLD. The gate would be present and inert
+    — the exact shape `build_minor` shipped until PR #124, and the reason this
+    asserts the argument rather than the call.
+
+    THE PARAMETER BECAME REQUIRED ON 2026-08-20 and this assertion still earns
+    its place: the fakes here take `**kw`, so a parent that dropped the keyword
+    would sail past a signature that no longer permits it in production. What
+    this arm pins is that the parent passes THE RIGHT TREE — `Path("/repo")`, not
+    merely something.
     """
     _plans_one(monkeypatch, wired)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)
