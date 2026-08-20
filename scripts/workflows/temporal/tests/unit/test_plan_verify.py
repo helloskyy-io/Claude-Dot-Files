@@ -1098,11 +1098,12 @@ def test_the_PREFLIGHT_asks_the_PR_BRANCH_for_the_plan_not_just_this_checkout() 
 # binaries, nor that a real `ls-tree` prints what `bool(...strip())` assumes —
 # that contract lives in `plan_activities` and its own tests. (2) The NON-`--pr`
 # refusal, which `test_the_runner_REFUSES_a_component_with_NO_roadmap` holds.
-# (3) The ORDERING against the rest of the run: that this precondition is
-# reached before the run bag is opened and before a worktree is cut is issue
-# #49's whole point, and it is held by PLACEMENT in the source, not asserted
-# here — the `--pr` acceptance case stubs those two out rather than watching
-# them, so it would stay green if they moved above the guard.
+# (3) The order of `open_run_bag` against `worktree_add` — these only assert
+# that NEITHER is reached on a refusal, which is issue #49's property;
+# `test_the_call_precedes_the_first_side_effect_in_every_entrypoint` holds the
+# order between them. (4) The NON-`--pr` refusal's side-effect freedom: the
+# sibling test asserts its exit code and message and does not watch for an
+# orphaned bag, so that half of #49 is still held by placement alone.
 
 def _pr_lookup(monkeypatch: pytest.MonkeyPatch, branch: str, tree_answer: str,
                calls: list, raise_on: str | None = None):
@@ -1132,6 +1133,29 @@ def _pr_lookup(monkeypatch: pytest.MonkeyPatch, branch: str, tree_answer: str,
     monkeypatch.setattr(act, "git_output", git_output)
 
 
+def _record_side_effects(monkeypatch: pytest.MonkeyPatch, runner, calls: list,
+                         url: str = "https://github.com/o/r/pull/132"):
+    """Log the run's first three side effects instead of performing them.
+
+    ISSUE #49'S CLASS, ASSERTED RATHER THAN ASSUMED. A precondition that refuses
+    AFTER the run bag is opened or the worktree is cut leaves both orphaned, and
+    "it is refused before anything is created" is the reason this check lives in
+    preflight at all. The refusing tests below assert these names are ABSENT from
+    `calls`; the accepting one asserts they were reached.
+
+    It also makes every case here hermetic. Without it a run that wrongly gets
+    past the guard reaches real `git` and, one step further, a real model
+    dispatch — which a unit test must never be one defect away from.
+    """
+    monkeypatch.setattr(runner.journal, "open_run_bag",
+                        lambda **k: calls.append("open_run_bag"))
+    monkeypatch.setattr(act, "worktree_add",
+                        lambda repo_root, *a, **k: (calls.append("worktree_add"),
+                                                    repo_root)[1])
+    monkeypatch.setattr(wf, "run_plan_verify",
+                        lambda **k: (calls.append("run_plan_verify"), url)[1])
+
+
 def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     """The case PR #130 measured: no roadmap here, a roadmap on the PR. Run it.
@@ -1151,10 +1175,7 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     repo, runner, calls = _repo(tmp_path), _runner(), []
     _pr_lookup(monkeypatch, "plan-feature-1787204416",
                f"docs/development/alpha/{own.ROADMAP}\n", calls)
-    monkeypatch.setattr(runner.journal, "open_run_bag", lambda **k: None)
-    monkeypatch.setattr(act, "worktree_add", lambda *a, **k: repo)
-    monkeypatch.setattr(wf, "run_plan_verify",
-                        lambda **k: "https://github.com/o/r/pull/132")
+    _record_side_effects(monkeypatch, runner, calls)
 
     rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
     err = capsys.readouterr().err
@@ -1167,6 +1188,10 @@ def test_a_PR_pass_is_NOT_refused_when_the_plan_is_only_on_the_PRs_BRANCH(
     ls_tree = ("git", "ls-tree", "-r", "--name-only",
                "origin/plan-feature-1787204416", "--",
                f"docs/development/alpha/{own.ROADMAP}")
+    assert "run_plan_verify" in calls, (
+        f"the run never reached the dispatch, so the `not in calls` assertions "
+        f"in the refusing cases below are vacuous — the recorder never fires; "
+        f"the calls were {calls!r}")
     assert ls_tree in calls, (
         f"the lookup asked for something other than the roadmap's repo-relative "
         f"path on origin/<the PR's branch>; it asked {calls!r}")
@@ -1191,10 +1216,14 @@ def test_a_PR_pass_IS_refused_when_the_plan_is_on_NEITHER_tree(
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
     _pr_lookup(monkeypatch, "some-branch", "", calls)
+    _record_side_effects(monkeypatch, runner, calls)
 
     rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
     err = capsys.readouterr().err
     assert rc == 1, "a component with no plan on either tree was accepted"
+    assert "open_run_bag" not in calls and "worktree_add" not in calls, (
+        f"the refusal came AFTER the run had created something, so a dead run "
+        f"leaves it orphaned — issue #49's class; the calls were {calls!r}")
     assert "not here and not on PR #132's branch" in err, (
         f"the refusal does not say BOTH trees were checked, so a caller reading "
         f"it goes looking in the wrong one; got {err!r}")
@@ -1231,6 +1260,7 @@ def test_a_PR_LOOKUP_that_FAILS_stops_the_run_and_says_so_rather_than_guessing(
     """
     repo, runner, calls = _repo(tmp_path), _runner(), []
     _pr_lookup(monkeypatch, "some-branch", "", calls, raise_on=raise_on)
+    _record_side_effects(monkeypatch, runner, calls)
 
     rc = runner.main(["docs/development/alpha", "--repo", str(repo), "--pr", "132"])
     out, err = capsys.readouterr()
@@ -1247,3 +1277,7 @@ def test_a_PR_LOOKUP_that_FAILS_stops_the_run_and_says_so_rather_than_guessing(
         f"precondition was rewritten to remove; got {err!r}")
     assert "https://github.com" not in out, (
         "the run proceeded past a lookup it could not complete")
+    assert "open_run_bag" not in calls and "worktree_add" not in calls, (
+        f"a lookup this run could not complete still created something — the "
+        f"handler continued instead of stopping, which is the swallow in a "
+        f"different costume; the calls were {calls!r}")
