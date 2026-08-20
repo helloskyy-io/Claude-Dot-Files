@@ -181,6 +181,40 @@ def main(argv=None) -> int:
             phases = own.phase_docs_of(component)
             print(f"{BANNER}\n  DRY RUN — nothing invoked, nothing posted\n{BANNER}")
             print(f"  Component  : {rel}")
+            # THE TREE THE COUNTS CAME FROM, NAMED RATHER THAN LEFT TO BE
+            # ASSUMED. No worktree exists on a dry run, so every figure below is
+            # read off THIS checkout — while a `--pr` run cuts its worktree from
+            # `origin/<the PR's branch>` and reads nothing else. Two trees, and
+            # on the correction pass a `--pr` dry run exists for they routinely
+            # differ. `prompt_values`' `tree` parameter documents the same split
+            # one module over; this is the runner saying it out loud.
+            print(f"  Counted in : this checkout ({repo_root}) — a dry run cuts no worktree")
+            # AND WHERE THIS CHECKOUT DEMONSTRABLY IS NOT THAT TREE, SAY SO
+            # BEFORE THE NUMBERS. The precondition above has just proved the plan
+            # is on the PR's branch; if it is absent here, every count below is a
+            # zero for a plan that is fully written, and a preview that is wrong
+            # looks exactly like a preview that is right. Printing the caveat
+            # ABOVE the counts is the placement: an operator scanning top-down
+            # meets the reason before the zeros they would otherwise believe.
+            #
+            # COUNTING FROM THE BRANCH INSTEAD is the larger fix — `git ls-tree`
+            # / `git show` against `origin/<branch>` — and it is issue #134's,
+            # for all four `--pr`-accepting runners at once, not this file's
+            # alone.
+            #
+            # `branch` IS THE ONE THE PRECONDITION ALREADY RESOLVED. A second
+            # `act.pr_branch` call here would be two round-trips for one fact
+            # with nothing guaranteeing the answers agree — removing exactly that
+            # duplicate was this file's previous change, and reinstating it in a
+            # diagnostic would undo it. The local re-`stat` is not the same
+            # trade: it is one syscall against no network, and reading it here
+            # rather than threading it out of the precondition keeps this edit
+            # outside the span a source-grep slices.
+            if a.pr_number and not (component / own.ROADMAP).is_file():
+                print(f"  ⚠ NOT HERE : this checkout does NOT carry {rel}/{own.ROADMAP}, so the "
+                      f"counts below are read from a tree WITHOUT the plan and will be 0 for a "
+                      f"plan that is written. The run itself reads origin/{branch}, which is "
+                      f"where the precondition found it.")
             # TWO DIFFERENT NUMBERS, LABELLED AS SUCH. A roadmap may link a
             # sibling component's phase docs — three of the MMF roadmap's nine
             # references are `persistent-memory-protocol`'s — so the reference
