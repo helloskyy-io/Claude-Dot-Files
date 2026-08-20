@@ -303,6 +303,24 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
         notes.append(f"`{cid}`'s `component` cell reads {raw!r}, which yields no "
                      f"folder name. Nothing scaffolded; the cell needs a real name "
                      f"or a blank.")
+    # THE TWO SIZE-DRIVEN DECLINES, REPORTED SEPARATELY because the operator does
+    # something different about each. Neither is an error and neither is silent.
+    for cid, size in scaffolded.not_a_feature:
+        notes.append(f"`{cid}` is sized `{size}`, so nothing was scaffolded — it "
+                     f"is work INSIDE a component rather than a component of its "
+                     f"own, and the run that plans that component is where it "
+                     f"lands. This is the correct outcome for a {size}-sized "
+                     f"candidate, not a skip. Whether the component its "
+                     f"`component` cell names is already planned is a separate "
+                     f"question this step does not ask.")
+    for cid, marker in scaffolded.unsized:
+        notes.append(f"`{cid}` is `{marker}` — ruled `ship` and carrying no `size`, "
+                     f"so nothing "
+                     f"here can route it. Sizing is `triage-candidates`' second "
+                     f"ruling; this row predates the column or the triage pass that "
+                     f"ruled it did not size it. It waits for a triage pass — "
+                     f"reported rather than guessed at, because a guess would "
+                     f"scaffold a component nobody asked for.")
 
     # --- Step 2: RESEARCH each NEW component -------------------------------
     # TWO SIGNALS, UNIONED, AND NEITHER IS ASKED OF A CHILD. The parent must not

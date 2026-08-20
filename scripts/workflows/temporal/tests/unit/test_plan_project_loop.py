@@ -185,7 +185,8 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     # parent hands the research step is exactly what the fan-out tests assert on.
     def no_scaffold(*a: object, **k: object) -> pm.own.Scaffolded:
         calls.scaffold_args.append(a)
-        return pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[])
+        return pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
+                                 not_a_feature=[], unsized=[])
 
     monkeypatch.setattr(pm.own, "scaffold_candidate_components", no_scaffold)
     return calls
@@ -495,7 +496,8 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pm.own, "new_sprint_sections", lambda *a, **k: [])
     monkeypatch.setattr(
         pm.own, "scaffold_candidate_components",
-        lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[]))
+        lambda *a, **k: pm.own.Scaffolded(created=[], resumed=[], extends=[],
+                                          unnamed=[], not_a_feature=[], unsized=[]))
     monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
@@ -530,7 +532,8 @@ def _with_scaffolded(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
     monkeypatch.setattr(
         pm.own, "scaffold_candidate_components",
         lambda *a, **k: pm.own.Scaffolded(created=list(names), resumed=[],
-                                          extends=[], unnamed=[]))
+                                          extends=[], unnamed=[],
+                                          not_a_feature=[], unsized=[]))
 
 
 def test_no_new_sections_means_no_research(wired: _Calls, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -666,7 +669,12 @@ def test_EVERY_field_of_Scaffolded_REACHES_THE_OPERATOR_as_its_own_note(
     """
     scaffolded = pm.own.Scaffolded(
         created=["alpha"], resumed=["beta"],
-        extends=[("C-001", "gamma")], unnamed=[("C-002", "···")])
+        extends=[("C-001", "gamma")], unnamed=[("C-002", "···")],
+        # The two DECLINE reasons the `size` column added. Populated here because
+        # this test's whole claim is that no field reaches the operator as a bare
+        # count — a field left empty makes its own assertion vacuous, which is
+        # what the guard below says out loud.
+        not_a_feature=[("C-003", "phase")], unsized=[("C-004", "unsized")])
     monkeypatch.setattr(pm.own, "scaffold_candidate_components",
                         lambda *a, **k: scaffolded)
     _verdicts(monkeypatch, wired, routing.Verdict.MERGE)

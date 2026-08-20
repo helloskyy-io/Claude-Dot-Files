@@ -45,13 +45,13 @@ from modules.assistant.plan.triage_candidates import triage_candidates_workflow 
 PR_URL = "https://github.com/o/r/pull/43"
 
 _HEADER = (
-    "| ID | Candidate | `component` | Source | `decision` | `status` | Note |\n"
-    "|---|---|---|---|---|---|---|\n"
+    "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
+    "|---|---|---|---|---|---|---|---|\n"
 )
 
 
 def _table(rows: list[tuple[str, ...]], note: str = "n", component: str = "") -> str:
-    """A candidates file holding exactly `rows` as (id, decision[, status]) tuples.
+    """A candidates file holding exactly `rows` as (id, decision[, status[, size]]) tuples.
 
     `status` defaults to `` `open` `` because that is what every row in the real
     file carries while its work is outstanding; the tests that care about the
@@ -63,8 +63,13 @@ def _table(rows: list[tuple[str, ...]], note: str = "n", component: str = "") ->
     `component` guard, which pass one explicitly. The rows that exercise
     SCAFFOLDING live in `test_plan_candidates.py`, where that is the subject.
     """
+    # THE `size` CELL SITS BETWEEN `decision` AND `status` and defaults to BLANK,
+    # which is what an unsized row looks like and what every row in the real file
+    # carried when the column arrived. Tests that assert on the size guard pass a
+    # fourth element; everything else is unaffected by a column it never reads.
     body = "".join(
         f"| {row[0]} | a candidate | {component} | PR #1 | {row[1]} | "
+        f"{row[3] if len(row) > 3 else ''} | "
         f"{row[2] if len(row) > 2 else '`open`'} | {note} |\n"
         for row in rows)
     return "# Action candidates\n\n" + _HEADER + body
@@ -759,6 +764,10 @@ def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: li
     keyed = {
         "act.candidate_statuses": act.candidate_statuses(f).keys(),
         "act.candidate_decisions": act.candidate_decisions(f).keys(),
+        # `size` joined on 2026-08-19 as triage's SECOND ruling. It keys the
+        # same rows for the same reason the others do — all four are built
+        # from `candidate_rows`, so a row absent from one is absent from all.
+        "act.candidate_sizes": act.candidate_sizes(f).keys(),
         # THE THIRD READER, ADDED WHEN `component` GOT ITS GUARD AND NOT BEFORE.
         # Both workflows' `before_component` registry entries discharge their
         # deletion obligation by naming exactly this coupling — and this test

@@ -297,11 +297,14 @@ MAY_NOT_OBSERVERS: dict[str, str] = {
         "clause: prose inside a granted file cannot be told from a correction "
         "by any comparator, and it is held by the report's integrity clause — "
         "every correction named, with whether it moved an estimate",
-    "Set `decision`, `status`, or another filer's `component` in the candidates file":
-        "act.candidate_decisions, act.candidate_statuses and "
+    "Set `decision`, `size`, `status`, or another filer's `component` in the candidates file":
+        "act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
         "act.candidate_components snapshotted either side of the run, compared by "
+        "act.decisions_this_run_had_no_right_to, act.sizes_this_run_had_no_right_to, "
         "act.statuses_this_run_had_no_right_to and "
-        "act.components_this_run_had_no_right_to",
+        "act.components_this_run_had_no_right_to — one comparator per column, "
+        "because each column is prohibited for a different reason and the "
+        "comparator docstring is where that reason is recorded",
     "Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/`":
         "FORBIDDEN_PATHS `^docs/standards/` less permitted_paths, same mechanism",
     "**Delete anything** — a candidate row, a phase doc, or the roadmap":
@@ -346,9 +349,12 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "act.ids_deleted against the after-snapshot of the same column, checked "
         "BEFORE the column comparisons because a vanished row is in neither "
         "intersection those judge"),
+    "before_size": (
+        "act.ids_deleted on the SAME id set, by the coupling registered against "
+        "before_status — one parse, one id set"),
     "before_status": (
         "act.ids_deleted on the SAME id set, already run against before_decision "
-        "— act.candidate_decisions, act.candidate_statuses and "
+        "— act.candidate_decisions, act.candidate_sizes, act.candidate_statuses and "
         "act.candidate_components are all built from act.candidate_rows, so a row "
         "cannot be absent from one map and present in another. Registered rather "
         "than left implicit because that coupling is the whole reason a second "
@@ -356,7 +362,7 @@ DISAPPEARANCE_OBSERVERS: dict[str, str] = {
         "by test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS."),
     "before_component": (
         "act.ids_deleted on the SAME id set, by the same coupling registered "
-        "against before_status — one parse, one id set, three columns"),
+        "against before_status — one parse, one id set, four columns"),
     "before_boxes": (
         "act.plan_boxes over EVERY top-level doc the grant permits — widened with "
         "the grant on 2026-08-19, since a phase doc shipping with its steps "
@@ -402,6 +408,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
     # and a diff against the base would attribute their legitimate edits to it.
     before_links = own.roadmap_phase_links(wt_component)
     before_decision = act.candidate_decisions(wt_candidates)
+    before_size = act.candidate_sizes(wt_candidates)
     before_status = act.candidate_statuses(wt_candidates)
     before_component = act.candidate_components(wt_candidates)
     before_boxes = act.plan_boxes(wt_component)
@@ -576,9 +583,10 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"cannot drift from its copy — see {url}"
         )
 
-    # THE THREE CANDIDATE COLUMNS, none of which is this workflow's. The grant on
-    # that file is to APPEND a proposal — a new row, blank `decision`, `status:
-    # open`, and the `component` cell named on THAT row and no other.
+    # THE FOUR CANDIDATE COLUMNS, none of which is this workflow's. The grant on
+    # that file is to APPEND a proposal — a new row, blank `decision`, blank
+    # `size`, `status: open`, and the `component` cell named on THAT row and no
+    # other.
     #
     # DELETION FIRST, for the reason stated in the registry: both comparators
     # below judge only ids present on BOTH sides, so a row that is simply gone is
@@ -594,7 +602,7 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"never proposed — see {url}"
         )
 
-    ruled = act.statuses_this_run_had_no_right_to(before_decision, after_decision)
+    ruled = act.decisions_this_run_had_no_right_to(before_decision, after_decision)
     if ruled:
         raise RuntimeError(
             f"plan-verify changed the `decision` column on {len(ruled)} "
@@ -605,6 +613,24 @@ def run_plan_verify(*, repo_root: Path, worktree: Path, component: Path,
             f"leaves `decision` BLANK, because blank means untriaged and untriaged "
             f"is the truth — judging a plan does not rule the candidates that come "
             f"out of it — see {url}"
+        )
+
+    after_size = act.candidate_sizes(wt_candidates)
+    sized = act.sizes_this_run_had_no_right_to(before_size, after_size)
+    if sized:
+        raise RuntimeError(
+            f"plan-verify set or changed the `size` column on {len(sized)} "
+            f"pre-existing candidate(s): "
+            + ", ".join(f"{cid} {before_size[cid]!r}->{after_size[cid]!r}"
+                        for cid in sized)
+            + f". `size` is `triage-candidates`' SECOND ruling and it belongs to "
+            f"triage alone — this run read a plan and put a number beside each "
+            f"phase, which is the closest thing to sizing that is not sizing, and "
+            f"so the shortest step to writing it down. And the value does not stay "
+            f"a cell: `plan-candidates` routes on it, so a `phase` written here "
+            f"scaffolds a whole component for work that belongs inside one. A "
+            f"proposal you append leaves `size` BLANK, because sizing is a ruling "
+            f"and filing is not making it — see {url}"
         )
 
     after_status = act.candidate_statuses(wt_candidates)

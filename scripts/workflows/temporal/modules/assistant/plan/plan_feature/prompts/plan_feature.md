@@ -26,7 +26,7 @@ ${RESEARCH_INVENTORY}
 | Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it, never touch it |
 | Name the `component` on a row YOU append | Write or edit anything under ANOTHER component, or under your own `research/` |
 | | **Tick a completion checkbox** — you have built nothing |
-| | Set `decision`, `status`, or another filer's `component` in the candidates file |
+| | Set `decision`, `size`, `status`, or another filer's `component` in the candidates file |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
 | | **Delete anything** — a candidate row, a phase doc, or a planning file |
 | | Decide WHEN this component gets built, or where it sits against other work |
@@ -79,11 +79,12 @@ The sprint plan is the operator's cross-domain sequencing surface, and the stand
 
 ${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}
 
+- **Any estimate of size in time that YOU add to a plan doc** is counted before and after, keyed on estimate SHAPE — `~30 hrs`, `(8h)`, `Est: 8 hours` — and never on the word *hours*, so ordinary prose about time survives and an estimate does not. Only what THIS run wrote is judged: an estimate you inherited is not your offence, and removing one is not either.
 - **Every path outside your authorization** — another component, your own `research/`, the sprint plan, anything under `docs/standards/` other than the candidates file — is compared by content. Renaming or deleting one counts as editing it. Your grant is markdown files sitting **directly** in `${COMPONENT_PATH}/`, which by construction reaches no subdirectory: **`research/` is your evidence and it is READ-ONLY.** A plan that edits the evidence it is planning from has made the evidence agree with the plan.
 - **Every phase doc that existed before you started** is compared by name. A rename, a renumber and a deletion are one observation — a filename that was there and is not.
 - **Every markdown file you ADD directly in `${COMPONENT_PATH}/`** is checked against `phaseN_<name>.md` and against the numbers already in use. **The only exempt name is `roadmap.md`** — you write exactly two kinds of file, so a new `the_run_bag.md` or `notes.md` fails the run just as `phase_the_thing.md` does. Dropping the number is the failure this catches most often, and it is the one that leaves a document nothing can cite.
 - **Completion checkboxes** across every one of those files are counted before and after, by their text so re-ordering does not read as a change. Adding an *unchecked* item is your entire job. Adding a checked one fails the run — and so does **erasing** one.
-- **All three candidate columns** — `decision`, `status`, `component` — are compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
+- **Every candidate column** — `decision`, `size`, `status`, `component` — is compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
 - **Deleting anything** fails the run, at both altitudes: rows are compared by ID, and the files themselves are checked for still existing.
 
 Any one of these **fails the whole run** — including the work you did correctly.

@@ -130,7 +130,15 @@ _HERE = Path(__file__).resolve().parent
 # the number, so a message that disagreed with its own assertion would mislead
 # at the worst possible moment. That double-write is the class this file is
 # being corrected for, so it may not appear in the correction.
-_PINNED = (23, 12)
+# 23 -> 24 and 12 -> 13 AT THE MERGE OF #126 WITH #124, and BOTH numbers moved
+# because each side contributed one census guard that already carries its own
+# control: `test_a_named_observer_is_actually_WIRED` from the triage-sizes
+# branch, `test_a_PARENT_forwards_what_its_CHILD_reads` from the Phase 2
+# promotion. Neither side could see the other's, so each was correct at 23/12
+# alone — this is the census doing exactly what it is for, at the one moment
+# the two populations meet. `_WITHOUT_A_CONTROL_YET` is unchanged: no
+# grandfathered guard gained a control here.
+_PINNED = (24, 13)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.
