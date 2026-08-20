@@ -51,6 +51,10 @@ WHAT THIS DOES NOT LOOK AT, so it is not read as covering more than it does:
     points them, on purpose. They are never JOINED to a root, so they are invisible
     here — correctly, but it means a "no operator path escapes" reading of this file
     would be wrong. What they may do is bounded by being reads of a task source.
+    Their RELATIVE form is anchored to the repo root by
+    `assistant_activities.anchor_task_source`, which is a base and not a boundary;
+    `test_a_task_SOURCE_path_is_anchored_to_the_repo.py` owns that property and
+    this file is silent about it.
   * **Workflow modules.** Only `run_*.py` is swept. A module one altitude up doing
     its own join is a different question with a different mechanism
     (`boundary_crossings`), and this guard would report nothing about it.

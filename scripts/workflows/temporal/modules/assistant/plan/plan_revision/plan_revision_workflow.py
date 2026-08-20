@@ -132,6 +132,13 @@ def run_plan_revision(*, description: str, repo_root: Path, worktree: Path,
         # different text — reaching for the shared one would silently hand a
         # planning run the code-change ruleset.
         "RULES": act.load_prompt(PROMPTS / "rules.md"),
+        "AGENTS_HAVE_NO_SHELL": act.shared_prompt("agents_have_no_shell"),
+        "GITIGNORE_COLLISION_CHECK": act.shared_prompt("gitignore_collision_check"),
+        "ORCHESTRATOR_EXECUTES_AGENTS_READ": act.shared_prompt("orchestrator_executes_agents_read"),
+        "STAGE_ORDER_IS_MANDATORY": act.shared_prompt("stage_order_is_mandatory"),
+        "TELL_EACH_AGENT_WHAT_IT_CAN_RUN": act.shared_prompt("tell_each_agent_what_it_can_run"),
+        "VERIFICATION_IS_BY_FETCH": act.shared_prompt("verification_is_by_fetch"),
+        "VERIFY_THE_TASKS_ASSERTED_FACTS": act.shared_prompt("verify_the_tasks_asserted_facts"),
         "DECISION_LOG_AND_REFLECTION": act.shared_prompt("decision_log_and_reflection"),
         "HEADLESS_EXECUTION_GUARD": act.shared_prompt("headless_execution_guard"),
     }

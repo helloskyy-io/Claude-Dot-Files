@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from preflight import RepoPathParser  # noqa: E402
+from modules.assistant import assistant_activities as act_shared  # noqa: E402
 from modules.journal import journal_activities as journal  # noqa: E402
 from modules.assistant.research.research import research_workflow as rw  # noqa: E402
 from modules.assistant.research.research_refresh_parent import research_refresh_parent_workflow as rr  # noqa: E402
@@ -30,7 +31,10 @@ def main(argv=None) -> int:
     p.add_argument("--refresh", action="store_true", help="revalidate DUE papers instead of researching new topics")
     # NOT a repo path, deliberately: a task file is context the operator supplies
     # from wherever they wrote it, routinely /tmp, and is read rather than
-    # written. `--phase` on the build runners is the same case.
+    # written. `--phase` on the build runners is the same case. A RELATIVE one is
+    # still anchored to the repo root — `act_shared.anchor_task_source` — which is
+    # a base, not a boundary, and is why the read below sits inside the preflight
+    # try rather than beside the workflow call.
     p.add_argument("--task-file", dest="task_file", help="context from a file")
     p.add_argument("--repo", dest="repo_target", help="target repo — a FILESYSTEM PATH, never a gh slug")
     p.add_argument("--pr", dest="pr_number", help="update an existing research PR")
@@ -39,12 +43,15 @@ def main(argv=None) -> int:
 
     try:
         a, repo_root, resolved = p.parse_with_preflight(argv)
+        # READ HERE, INSIDE THIS try, so a bad `--task-file` prints the same
+        # one-line diagnostic as a bad `--repo` instead of a traceback. Both
+        # are operator input and neither has created anything yet.
+        context = act_shared.task_context(repo_root, a.task_file)
     except RuntimeError as exc:
         # Nothing has been created yet — that is the point of preflight.
         print(f"\n✗ {exc}", file=sys.stderr)
         return 1
     research_dir = resolved["research_dir"]
-    context = Path(a.task_file).read_text() if a.task_file else ""
     import time
     wt = f"research-{int(time.time())}"
 

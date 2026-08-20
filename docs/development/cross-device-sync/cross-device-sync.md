@@ -1,7 +1,7 @@
 # Phase: Cross-Device Sync
 
 **Status:** ✅ COMPLETE
-**Roadmap entry:** [`../sprint.md`](../sprint.md#sprint-cross-device-sync--complete)
+**Roadmap entry:** [`../sprint.md`](../sprint.md#sprint-cross-device-sync)
 **Depends on:** [`explore-claude-directory.md`](../explore-claude-directory/explore-claude-directory.md) — the portable/machine-local split is this phase's input
 
 ## Goal

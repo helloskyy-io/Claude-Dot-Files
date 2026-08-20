@@ -30,9 +30,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import POLICY_PATH, CiVerdict, ci_verdict, wait_for_ci
+from ..build_activities import path_for_the_model, task_text
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ... import assistant_activities as act
+from ...assistant_activities import ci_verdict, wait_for_ci
+from ... import routing
 from ...review_pr import review_pr_workflow as review_pr
 from ...review_pr.review_pr_helper import ReviewInput
 from ..build_draft import build_draft_workflow as draft
@@ -43,7 +45,7 @@ from ..build_refine_minor import build_refine_minor_workflow as refine_minor
 def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildResult:
     """Draft, refine, disposition, and route on the verdict."""
     notes: list[str] = []
-    description = task.description or Path(task.task_file or task.plan_path).read_text()
+    description = task_text(task, repo_root)
 
     # ISOLATION IS ESTABLISHED ONCE, HERE. Children receive the path and never
     # create one — two children creating the same named worktree is a
@@ -60,9 +62,32 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # --- Step 1: DRAFT -----------------------------------------------------
     # The PR URL is both the handoff and the child's completion contract; the
     # child raises if it produced none, so `exit 0` cannot mean unfinished.
+    # `plan_path` IS PASSED, and its absence here was a defect rather than a tier
+    # difference. `build_draft` branches on it to select the `build_from_plan` /
+    # `stages_1_to_4_from_plan` pair, `build_minor_workflow` has always passed it,
+    # and `test_build_prompt_variants_do_not_fork.py` described that pair as the
+    # one used whenever a run is launched with `--phase`. It was not: the major
+    # tier handed the child the plan doc's CONTENTS as a description and the
+    # generic prompt, so `build --phase` never saw the plan-driven stages at all
+    # and `${PLAN_PATH}` never reached it. That guard's opening was corrected on
+    # 2026-08-20 — the pair is selected on `--phase` AND no `--pr`, both here and
+    # on the minor tier.
+    #
+    # ANCHORED FOR THE MODEL, NOT THE RAW OPERATOR STRING. `PLAN_PATH` is rendered
+    # into the prompt and read by a model running INSIDE THE WORKTREE, so a
+    # repo-relative string is what anchors correctly there — the same `in_worktree`
+    # discipline `test_model_gets_the_worktree_path.py` pins for the research
+    # family. This passed the raw string, which was right about a RELATIVE `--phase`
+    # and wrong about an ABSOLUTE one: `--phase /main/checkout/docs/.../phase2.md`
+    # rendered that main-checkout path verbatim to a model standing in the worktree.
+    # `path_for_the_model` states the in-repo/out-of-repo rule once, for both
+    # tiers. The resolved absolute path is used for READING the file, in
+    # `task_text`, and nowhere else.
     pr_url = draft.run_draft(
         description=description, repo_root=repo_root, worktree=worktree,
-        pr_number=task.pr_number, task_file=task.task_file, verbose=task.verbose,
+        pr_number=task.pr_number,
+        plan_path=path_for_the_model(repo_root, task.plan_path),
+        verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url, expected_repo=slug)
 
@@ -120,7 +145,7 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
                          notes: list[str], *, correction: bool,
                          loops_left: int = 0) -> Verdict:
     """One refine pass followed by one disposition pass."""
-    ci_settled = wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
+    ci_settled = wait_for_ci(pr, repo_root=repo_root)
     if not ci_settled:
         notes.append("CI had not settled before refine; the child was told so.")
 
@@ -136,8 +161,9 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     # It is not a new child. `build_minor` already runs it, so a change here
     # reaches both callers — which is the point, and also the risk worth naming.
     if correction:
-        # No `task_file`: a correction executes the runway on the PR thread, not
-        # the operator's original brief. The minor child's signature reflects that.
+        # A correction executes the runway on the PR thread rather than the
+        # operator's original brief, and neither refine child takes a task file:
+        # `description` already IS that brief's text, read once by the caller.
         refine_minor.run_refine_minor(
             description=description, pr_number=pr, repo_root=repo_root,
             worktree=worktree, correction_pass=True, loops_left=loops_left,
@@ -146,108 +172,24 @@ def _refine_then_dispose(task: BuildInput, description: str, pr: str,
     else:
         refine.run_refine(
             description=description, pr_number=pr, repo_root=repo_root,
-            worktree=worktree, task_file=task.task_file,
+            worktree=worktree,
             correction_pass=False, loops_left=loops_left,
             ci_unsettled=not ci_settled, verbose=task.verbose,
         )
 
     # --- THE GATE: the parent reads the verdict, so MERGE is unreachable on red
-    # A red suite must not reach `review-pr`, and the reason it lives HERE and
-    # not in that prompt is that a prompt is a convention an agent can reason
-    # past — "unrelated failure, proceeding" is exactly the shape being guarded
-    # against. In the parent, the agent never gets a verdict to give.
-    #
-    # HOLD, never `exit 1`: killing the run discards a diff two passes just
-    # built. HOLD keeps the work, hands the failure back in the format the
-    # pipeline already consumes, and lets the existing one-loop-back do its job.
-    #
-    # Proposed by the MDC side 2026-08-10 and it closes a hole WE opened the day
-    # before by removing branch protection — `suite` runs on every PR here and
-    # nothing consumed its verdict, so `gh pr merge` succeeded on red.
-    wait_for_ci(pr, repo=task.repo_target, repo_root=repo_root)
-    verdict_state, extra = ci_verdict(pr, repo=task.repo_target, repo_root=repo_root)
-
-    if verdict_state is CiVerdict.UNREADABLE_CHECKS:
-        # NEEDS_ASSISTANCE, NOT REDISPATCH, AND THE DIFFERENCE IS THE WHOLE
-        # POINT. A gate that did not RUN is usually a conflicted PR, and sending
-        # an engineer back to resolve it is right. CI that cannot be READ is an
-        # environment failure — a redispatch cannot fix it and can only spend
-        # the loop budget rediscovering that. Which is exactly what happened:
-        # a failed `gh pr checks` read as GATE_DID_NOT_RUN and PR #92 rebuilt
-        # three times while it was OPEN, MERGEABLE and green throughout.
-        notes.append(
-            f"CI GATE: HOLD — the CI status of PR {pr} could not be READ "
-            + (f"in {task.repo_target} " if task.repo_target else "")
-            + "(`gh pr checks` returned nothing parseable). This is NOT the same "
-            "as the gate not running, and a redispatch cannot fix it: check `gh "
-            "auth status`, rate limits, and network. review-pr was NOT dispatched."
-        )
-        return Verdict.HOLD_NEEDS_ASSISTANCE
-
-    if verdict_state is CiVerdict.UNREADABLE_POLICY:
-        # A declaration that EXISTS and cannot be read is a different fact from
-        # no declaration, and collapsing them is how the skip path becomes the
-        # new exit. Same discipline the JSON parse already follows: unreadable
-        # input fails into the state that STOPS.
-        notes.append(
-            f"CI GATE: HOLD — {POLICY_PATH} exists and could not be parsed. "
-            "A broken declaration is not the same as no declaration; fix the file. "
-            "review-pr was NOT dispatched."
-        )
-        return Verdict.HOLD_NEEDS_ASSISTANCE
-
-    # GATE_DID_NOT_RUN is excluded because its `extra` carries the names of the
-    # gate that is ABSENT, not of checks that ran. Reading it here reported
-    # `suite` as unclassified in the same breath as the branch below reported
-    # it as declared blocking — two contradictory lines from one run, on
-    # 2026-08-14.
-    if extra and verdict_state not in (CiVerdict.RED, CiVerdict.GATE_DID_NOT_RUN):
-        # A check that ran and is declared NEITHER blocking nor advisory is the
-        # third state the Testing Standard says does not exist. Reported by
-        # name, never silently gated — a check the repo has not classified must
-        # not halt the fleet, and must not hide either.
-        notes.append(
-            f"CI GATE: UNDECLARED CHECKS — {', '.join(extra)} ran and appear in neither "
-            f"the blocking nor the advisory list of {POLICY_PATH}. The Testing Standard "
-            "admits no third state; classify them."
-        )
-
-    if verdict_state is CiVerdict.RED:
-        notes.append(
-            f"CI GATE: HOLD — blocking checks failed: {', '.join(extra)}. "
-            "review-pr was NOT dispatched; a red tree cannot produce a MERGE verdict. "
-            "Fix the checks and redispatch; the diff is intact on the branch."
-        )
-        return Verdict.HOLD_REDISPATCH
-
-    if verdict_state is CiVerdict.GATE_DID_NOT_RUN:
-        notes.append(
-            f"CI GATE: HOLD — {POLICY_PATH} declares {', '.join(extra)} blocking, and "
-            f"NONE of them reported on PR {pr}"
-            + (f" in {task.repo_target}" if task.repo_target else "")
-            + ". The gate exists and produced nothing, which is not a pass. "
-            "review-pr was NOT dispatched. The usual cause is a CONFLICTED PR: "
-            "`pull_request` workflows run against the merge ref, GitHub cannot "
-            "compute one for a conflicted PR, so no run is created at all — check "
-            "`git ls-remote origin refs/pull/<N>/merge` against the current head. "
-            "Resolve, push, and let the checks run before redispatching; the diff "
-            "is intact on the branch."
-        )
-        return Verdict.HOLD_REDISPATCH
-
-    if verdict_state is CiVerdict.NO_CHECKS:
-        # NOT green, and named rather than silent. A repo with no workflows, or
-        # a PR whose workflows were all path-filtered out, reports nothing —
-        # and "no checks reported" reading as pass is how a filtered gate would
-        # get here. The run says so out loud; it does not stop on it, because
-        # a repo may legitimately have none.
-        notes.append(
-            f"CI GATE: SKIPPED — no check declared blocking in {POLICY_PATH} "
-            f"reported on PR {pr}"
-            + (f" in {task.repo_target}" if task.repo_target else "")
-            + ". This is NOT a pass. Either the repo has no such gate, or its "
-            "workflows were filtered out of this change."
-        )
+    # The cascade itself is `routing.ci_gate` — pure, and SHARED with the five
+    # other parents that dispatch `review-pr`, none of which had a gate until it
+    # was promoted out of this family. Read that function for why the gate lives
+    # in a parent rather than a prompt, and why every state HOLDs instead of
+    # exiting.
+    wait_for_ci(pr, repo_root=repo_root)
+    verdict_state, extra = ci_verdict(pr, repo_root=repo_root)
+    hold, gate_notes = routing.ci_gate(verdict_state, extra, pr=pr,
+                                      repo_target=task.repo_target)
+    notes.extend(gate_notes)
+    if hold is not None:
+        return hold
 
     result = review_pr.run_review(
         ReviewInput(pr_number=pr, repo_target=task.repo_target, verbose=task.verbose),

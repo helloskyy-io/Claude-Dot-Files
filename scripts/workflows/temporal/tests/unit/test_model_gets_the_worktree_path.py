@@ -16,6 +16,23 @@ and the bug happened anyway.
 
 This asserts over every research workflow found on disk rather than a hardcoded
 list, so a fifth one added later is covered on the day it lands.
+
+SCOPE — THE OPENING SENTENCE IS THE SHARED PROPERTY, NOT THIS MODULE'S POPULATION.
+This file owns ONE family and ONE mechanism: the RESEARCH workflows under
+`modules/assistant/research/*/`, and their `RESEARCH_DIR` key, via `in_worktree`.
+It does not reach the build family, and reading its class-level first line as
+though it did is not a hypothetical mistake — the build tier began rendering
+`${PLAN_PATH}` on 2026-08-19 and the render arrived UNCOVERED, because the guard
+named after exactly that bug read as though it already covered it.
+
+  * The build family's rendered path arguments are owned by
+    `test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path.py`, added 2026-08-20,
+    through a different mechanism (`build_activities.path_for_the_model`) over a
+    population derived from every parent-to-child edge in `modules/assistant/`.
+  * TWO GUARDS WITH TWO MECHANISMS IS THE DESIGN, not a gap waiting to be closed.
+    Do not widen this module's population into the build family; it would collide
+    with the guard that already owns it, and `in_worktree` is not the rule the
+    build family follows.
 """
 from __future__ import annotations
 

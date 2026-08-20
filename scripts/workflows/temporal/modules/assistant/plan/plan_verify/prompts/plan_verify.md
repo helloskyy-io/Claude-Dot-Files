@@ -31,7 +31,7 @@ ${PLAN_INVENTORY}
 | Append a proposal row to the candidates file | **WRITE or edit `sprint.md`** — read it (Stage 1), never touch it |
 | Name the `component` on a row YOU append | |
 | | **Tick a completion checkbox** — nothing has been built |
-| | Set `decision`, `status`, or another filer's `component` in the candidates file |
+| | Set `decision`, `size`, `status`, or another filer's `component` in the candidates file |
 | | Edit `problem-statement.md`, `architectural_standard.md`, or anything else under `docs/standards/` |
 | | **Delete anything** — a candidate row, a phase doc, or the roadmap |
 | | Decide WHEN this component gets built, or where it sits against other work |
@@ -69,14 +69,14 @@ The sprint plan is the operator's cross-domain sequencing surface. `plan-sprint`
 
 ### Everything else in that column, and exactly what checks it
 
-**When you finish, the worktree is read and compared against a snapshot taken before you started.** This is enforcement, not a request:
+${WORKTREE_IS_COMPARED_TO_A_SNAPSHOT}
 
 - **Every path outside your authorization** — every phase doc, another component, this component's `research/`, the sprint plan, anything under `docs/standards/` other than the candidates file — is compared by content. Renaming or deleting one counts as editing it.
 - **Which phase docs `roadmap.md` references** is counted before and after, in both directions.
 - **Which phase docs EXIST on disk** is compared separately, so a doc that vanishes is named as a deletion rather than reaching you as some other guard's message.
 - **The roadmap must carry AT LEAST AS MANY hour estimates as the component has phase docs** when you finish, or the run fails as unsized. **Read that literally: it is a TOTAL against a TOTAL.** Nothing in code knows which phase an estimate sits beside, so two figures written against one phase will satisfy the count while another phase has none — the check passes and the plan is still unsized. **Nothing catches that but you.** Write exactly one estimate per phase, and if you add a sizing note, keep a second hour figure out of it.
 - **Completion checkboxes** in the roadmap are counted before and after by their text. Adding a tick fails the run, and so does erasing one.
-- **All three candidate columns** — `decision`, `status`, `component` — are compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
+- **Every candidate column** — `decision`, `size`, `status`, `component` — is compared cell by cell on every row that already existed. A row you append is exempt, because filing one requires you to write `status: open` and to name where it goes.
 - **Deleting anything** fails the run, at both altitudes: rows are compared by ID, and the files themselves are checked for still existing.
 
 Any one of these **fails the whole run** — including the work you did correctly.

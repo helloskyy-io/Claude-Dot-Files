@@ -72,7 +72,7 @@ def _is_gh_call(node: ast.AST) -> bool:
     of this docstring asserted that "every other module writes `shared.gh(...)`"
     and `shared.gh(` occurs nowhere in the tree. The attribute spelling is
     therefore PRE-EMPTIVE rather than observed: `plan_activities` and
-    `build_activities` already reach `gh_attempt` and `gh_json` as
+    `assistant_activities`'s CI reads already reach `gh_attempt` and `gh_json` as
     `shared.<name>(...)`, so the first module to want `gh` itself will spell it
     that way, and a matcher that only knew `ast.Name` would have been one file
     wide without ever saying so.

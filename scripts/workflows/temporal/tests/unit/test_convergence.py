@@ -1391,8 +1391,57 @@ def test_every_prose_copy_of_the_partition_matches_the_shipped_one(
 
 # --- a HOLD names the cause it actually had ---------------------------------
 
-def test_the_needs_assistance_note_CLAIMS_NO_CAUSE() -> None:
-    """`run_build` may state the LOOP decision. It may not state the cause.
+#: Every parent that BOTH dispatches `review-pr` AND can return
+#: `HOLD_NEEDS_ASSISTANCE` from a gate reached BEFORE that dispatch — derived
+#: from the call sets, never hand-listed. `routing.ci_gate` is that gate: two of
+#: its six states return `HOLD_NEEDS_ASSISTANCE`, and it runs ahead of
+#: `run_review` in every parent that has it.
+def _gated_review_dispatchers() -> dict[str, Path]:
+    root = Path(__file__).resolve().parents[2] / "modules" / "assistant"
+    out: dict[str, Path] = {}
+    for p in sorted(root.rglob("*_workflow.py")):
+        if p.name == "review_pr_workflow.py":
+            continue
+        calls = {n.func.attr if isinstance(n.func, ast.Attribute)
+                 else getattr(n.func, "id", "")
+                 for n in ast.walk(ast.parse(p.read_text()))
+                 if isinstance(n, ast.Call)}
+        if {"run_review", "ci_gate"} <= calls:
+            out[p.name] = p
+    return out
+
+
+GATED_DISPATCHERS = _gated_review_dispatchers()
+
+#: The sentence a parent may state, and the only one. Anything past it is a
+#: claim about a cause this layer did not detect.
+_NO_CAUSE_CLAIMS = ("review-pr found", "could not be READ", "gh pr checks")
+
+
+def test_the_gated_dispatcher_census_reaches_ALL_THREE_FAMILIES() -> None:
+    """Vacuity floor for the guard below, and it is why that guard is not a stub.
+
+    THE PREDECESSOR HARDCODED ONE PATH — `build/build/build_workflow.py` — so
+    the suite was green over the identical defect in its `build_minor` sibling
+    and in three research and one plan parent. A count alone would not have
+    caught that (one IS a non-zero count), so this floor asserts the FAMILIES,
+    matching the floors in `test_a_PARENT_forwards_what_its_CHILD_reads.py`.
+    """
+    assert len(GATED_DISPATCHERS) >= 6, (
+        f"only {len(GATED_DISPATCHERS)} gated review dispatchers discovered "
+        f"({sorted(GATED_DISPATCHERS)}); the AST walk has stopped matching and "
+        f"the guard below is vacuous"
+    )
+    families = {p.relative_to(p.parents[2]).parts[0] for p in GATED_DISPATCHERS.values()}
+    assert {"build", "plan", "research"} <= families, (
+        f"the population no longer reaches all three families (saw {sorted(families)}); "
+        f"a build-only scope is exactly what let five parents keep the defect"
+    )
+
+
+@pytest.mark.parametrize("name", sorted(GATED_DISPATCHERS))
+def test_the_needs_assistance_note_CLAIMS_NO_CAUSE(name: str) -> None:
+    """A parent may state the LOOP decision. It may not state the cause.
 
     TWO PATHS RETURN `HOLD_NEEDS_ASSISTANCE` AND BOTH ALREADY WROTE THEIR OWN.
     The CI gate appends a note ending "review-pr was NOT dispatched"; the review
@@ -1412,24 +1461,46 @@ def test_the_needs_assistance_note_CLAIMS_NO_CAUSE() -> None:
     written elsewhere in the same file, so a reword breaks it silently and the
     contradiction returns. The layer that DETECTS a condition reports it; this
     layer detects neither, so it names neither.
+
+    THE SECOND FIX WAS TOO NARROW, WHICH IS WHY THIS IS PARAMETRIZED. It pinned
+    the one file the defect was found in. The suite then stayed green while the
+    identical sentence sat in `build_minor`, `research`, `research_minor` and
+    `plan_project` — and `research_refresh_parent` said nothing at all, which is
+    its own defect and is why the block's PRESENCE is asserted here too.
+
+    WHAT THIS DOES NOT LOOK AT: a parent that reaches `HOLD_NEEDS_ASSISTANCE`
+    through some gate OTHER than `routing.ci_gate`. The population is keyed on
+    that call, so a hand-rolled cascade would be invisible — that is a real
+    limit, and the reason `routing.ci_gate` is the single declared cascade.
     """
-    src = (Path(__file__).resolve().parents[2] / "modules" / "assistant" / "build"
-           / "build" / "build_workflow.py").read_text()
-    body = src[src.index("if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:"):
-               src.index("elif verdict is Verdict.HOLD_REDISPATCH:")]
+    src = GATED_DISPATCHERS[name].read_text()
+    marker = next((m for m in ("if verdict is Verdict.HOLD_NEEDS_ASSISTANCE:",
+                               "if verdict is routing.Verdict.HOLD_NEEDS_ASSISTANCE:")
+                   if m in src), None)
+    assert marker is not None, (
+        f"{name} can return HOLD_NEEDS_ASSISTANCE from the CI gate and says NOTHING "
+        f"about it. A run that ends there leaves the operator with no note saying "
+        f"why no loop-back was tried, which is the state `research_refresh_parent` "
+        f"shipped in until PR #124."
+    )
+    body = src[src.index(marker):]
     appended = body[body.index("notes.append("):]
-    for claim in ("review-pr found", "could not be READ", "gh pr checks"):
+    # Stop at the next top-level statement so a later `notes.append` in the same
+    # function is not read as part of this branch.
+    appended = appended[:appended.index("\n    elif") if "\n    elif" in appended
+                        else appended.index("\n\n")]
+    for claim in _NO_CAUSE_CLAIMS:
         assert claim not in appended, (
-            f"the needs-assistance note names a CAUSE ({claim!r}). Two paths reach "
-            f"this verdict and both already wrote one; a third from here is a "
+            f"{name}'s needs-assistance note names a CAUSE ({claim!r}). Two paths "
+            f"reach this verdict and both already wrote one; a third from here is a "
             f"guess, and on PR #124 it guessed wrong and contradicted the note "
             f"directly above it."
         )
     assert "any(" not in appended, (
-        "the note derives its cause by scanning `notes` — string-matching prose "
-        "written elsewhere in this file, which a reword breaks silently. Say "
-        "nothing about cause instead; both callers already did."
+        f"{name}'s note derives its cause by scanning `notes` — string-matching "
+        f"prose written elsewhere in that file, which a reword breaks silently. Say "
+        f"nothing about cause instead; both callers already did."
     )
     assert "loop-back" in appended, (
-        "the note no longer states the LOOP decision, which is the one thing this "
-        "function knows and the reason it appends anything at all")
+        f"{name}'s note no longer states the LOOP decision, which is the one thing "
+        f"the function knows and the reason it appends anything at all")
