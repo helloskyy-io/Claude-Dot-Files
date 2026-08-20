@@ -101,6 +101,79 @@ def task_text(task: BuildInput, repo_root: Path) -> str:
         "have refused it. Nothing was dispatched.")
 
 
+def path_for_the_model(repo_root: Path, arg: str | None) -> str | None:
+    """An operator PATH as the MODEL should see it — never a main-checkout path.
+
+    NAMED FOR THE CLASS RATHER THAN FOR `--phase`, because the rule is about any
+    path a parent RENDERS into a child's prompt and `plan_path` is merely the only
+    one that does so today. `test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path.py`
+    derives the set of rendered parameters from the children's own dict literals
+    and requires each to arrive through this function, so a second one is caught
+    the day it is wired rather than the day it misfires.
+
+    THE DEFECT, verified by rendering the prompt rather than by reading it. The
+    major tier began rendering `${PLAN_PATH}` on 2026-08-19 (before that the value
+    never reached a prompt at all), and it rendered the RAW operator string. With
+    `--repo /main/checkout --phase /main/checkout/docs/development/x/phase2.md`
+    the child was handed
+
+        Plan document: /main/checkout/docs/development/x/phase2.md
+
+    while running inside `/tmp/wt`. The model then reads the MAIN CHECKOUT's copy
+    of the plan doc rather than its branch's, so a correction pass on a branch that
+    revised its own phase doc builds against the superseded spec, and any edit it
+    makes to that doc lands outside the worktree and outside the PR. That is the
+    class `test_model_gets_the_worktree_path.py` was written for — PR #84 and #86
+    wrote papers into the main checkout this way — and that guard sweeps
+    `modules/assistant/research/*/` only, so the build family's new render arrived
+    uncovered.
+
+    THE RULE: in-repo becomes REPO-RELATIVE, out-of-repo is passed verbatim.
+
+      * A relative string resolves correctly wherever the model is standing, which
+        is precisely why a relative `--phase` already worked. Handing the model the
+        same relative form the operator could have typed is the whole fix.
+      * A genuinely out-of-repo plan doc has no worktree-local copy to point at, and
+        rewriting it would be inventing an answer. An ABSOLUTE one is passed through
+        unchanged. This is NOT the unmade containment ruling: nothing here refuses
+        anything, and `resolve_task_source`'s docstring still owns that question.
+      * A RELATIVE argument that CLIMBS OUT (`--phase ../shared/notes.md`) is the
+        third case, and "pass it verbatim" is wrong for it — which is this same
+        defect one input over, found by review on the fix rather than on the
+        original. `resolve_task_source` explicitly supports the input (*"a relative
+        one that climbs out is resolved and read without complaint"*), and it is
+        anchored at the REPO ROOT for reading — but a relative string rendered into
+        a prompt is read from the WORKTREE, which is not a sibling of the repo. With
+        `repo_root=/main/checkout` and `worktree=/tmp/wt`, `../shared/notes.md`
+        would be opened as `/tmp/shared/notes.md` while the fleet anchored it at
+        `/main/shared/notes.md`. So an escaping RELATIVE argument is rendered as its
+        RESOLVED ABSOLUTE path: the one form that means the same thing from both
+        directories.
+
+    NOT `resolve_task_source`, WHICH IS THE ADJACENT AND WRONG HOME. That function
+    answers "which file do I READ", and reading is correctly done against the
+    resolved ABSOLUTE path — `task_text` calls it and must keep doing so. This one
+    answers "which string do I SHOW the model", and the two answers differ by
+    design. Both parents call this; neither spells the rule itself.
+    """
+    if not arg:
+        return arg
+    resolved = shared.anchor_task_source(repo_root, arg)
+    try:
+        # `repo_root.resolve()` on BOTH sides: `anchor_task_source` resolves, so
+        # comparing against an unresolved root would report "outside the repo" for
+        # every repo reached through a symlink — and the outside branch does not
+        # relativise, which would silently be the un-anchored behaviour this exists
+        # to remove.
+        return str(resolved.relative_to(repo_root.resolve()))
+    except ValueError:
+        # OUTSIDE THE REPO. An absolute argument already means the same thing from
+        # every directory, so it is passed through untouched. A RELATIVE one does
+        # not — it was anchored at the repo root and the model reads from the
+        # worktree — so it is rendered resolved. See the docstring's third bullet.
+        return arg if Path(arg).is_absolute() else str(resolved)
+
+
 def run_child(script: Path, args: list[str], *, stream: bool = True) -> ChildResult:
     """Invoke a child workflow and capture its output.
 

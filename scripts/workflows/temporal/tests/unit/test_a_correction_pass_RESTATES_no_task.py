@@ -52,6 +52,20 @@ WHAT THIS DOES NOT LOOK AT:
   * **The `--pr` rule on any runner that does not build a `BuildInput`.** Derived
     from the tree below, so a third one is covered when it is written — but
     `run_plan_revision.py` is out of scope by the ruling above, not by oversight.
+  * **The INTERACTION between `pr_number` and `plan_path`, which is where §2's fix
+    went wrong.** Passing `plan_path` from the major parent was correct and stays;
+    what it exposed is that the draft children selected their template on
+    `plan_path` ALONE, so `--pr <n> --phase <doc>` reached `build_from_plan.md` —
+    "on a new branch", "create a new PR using `gh pr create`", no `${PR_NUMBER}` —
+    while the parent had cut the worktree from that PR's own branch. Nothing in
+    this module could have seen it: the reader below asserts a WIRING fact from the
+    source, and the defect was in what the rendered PROMPT said.
+    `test_a_run_given_a_PR_is_never_told_to_CREATE_one.py` owns that axis, renders
+    the prompts, and carries a census so a THIRD axis cannot slip past it the way
+    the second slipped past this one.
+  * **What the rendered `${PLAN_PATH}` points at.** An in-repo absolute `--phase`
+    used to render a main-checkout path to a model running in the worktree;
+    `test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path.py` owns that.
 """
 
 from __future__ import annotations

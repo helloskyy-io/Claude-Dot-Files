@@ -30,7 +30,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from .. import build_helper as helper
-from ..build_activities import (POLICY_PATH, CiVerdict, ci_verdict, task_text,
+from ..build_activities import (POLICY_PATH, CiVerdict, ci_verdict,
+                                path_for_the_model, task_text,
                                 wait_for_ci)
 from ..build_inputs import BuildInput, BuildResult, Verdict
 from ... import assistant_activities as act
@@ -70,15 +71,20 @@ def run_build(task: BuildInput, repo_root: Path, worktree_name: str) -> BuildRes
     # generic prompt, so `build --phase` never saw the plan-driven stages at all
     # and `${PLAN_PATH}` never reached it.
     #
-    # THE RAW OPERATOR STRING, NOT THE RESOLVED PATH. `PLAN_PATH` is rendered into
-    # the prompt and read by a model running INSIDE THE WORKTREE, so a repo-relative
-    # string is what anchors correctly there — the same `in_worktree` discipline
-    # `test_model_gets_the_worktree_path.py` pins for the research family. The
-    # resolved absolute path is used for READING the file, in `task_text`, and
-    # nowhere else.
+    # ANCHORED FOR THE MODEL, NOT THE RAW OPERATOR STRING. `PLAN_PATH` is rendered
+    # into the prompt and read by a model running INSIDE THE WORKTREE, so a
+    # repo-relative string is what anchors correctly there — the same `in_worktree`
+    # discipline `test_model_gets_the_worktree_path.py` pins for the research
+    # family. This passed the raw string, which was right about a RELATIVE `--phase`
+    # and wrong about an ABSOLUTE one: `--phase /main/checkout/docs/.../phase2.md`
+    # rendered that main-checkout path verbatim to a model standing in the worktree.
+    # `path_for_the_model` states the in-repo/out-of-repo rule once, for both
+    # tiers. The resolved absolute path is used for READING the file, in
+    # `task_text`, and nowhere else.
     pr_url = draft.run_draft(
         description=description, repo_root=repo_root, worktree=worktree,
-        pr_number=task.pr_number, plan_path=task.plan_path,
+        pr_number=task.pr_number,
+        plan_path=path_for_the_model(repo_root, task.plan_path),
         task_file=task.task_file, verbose=task.verbose,
     )
     pr = helper.pr_number_from_url(pr_url, expected_repo=slug)

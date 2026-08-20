@@ -466,6 +466,14 @@ claude-dot-files/
 │                   │                                #   subdirectory died on [Errno 2] against a file that exists. Issue #48 one layer
 │                   │                                #   down. Says explicitly what it does NOT do — these two are still uncontained on
 │                   │                                #   purpose, so this changes the BASE and not the boundary
+│                   ├── test_a_run_given_a_PR_is_never_told_to_CREATE_one.py # A dispatch naming a PR must never
+│                   │                                #   get a prompt that says `gh pr create`. `--pr <n> --phase <doc>` selected the
+│                   │                                #   from-plan wrapper on the task-shape axis alone and abandoned the PR. Renders the
+│                   │                                #   prompts across every axis combination, with a CENSUS that reds when a new axis appears
+│                   ├── test_no_prompt_hands_the_model_a_MAIN_CHECKOUT_path.py # An in-repo absolute --phase
+│                   │                                #   rendered a main-checkout path to a model running in the worktree. BOTH the
+│                   │                                #   parent->child population and the rendered-parameter set are derived from the tree,
+│                   │                                #   so a new tier or a second path argument must be anchored the day it is wired
 │                   ├── test_a_correction_pass_RESTATES_no_task.py # `--pr <n>` ALONE is a complete build dispatch — the
 │                   │                                #   runway is on the PR and every child in the family is already required to read it.
 │                   │                                #   Carries the second half of the same handoff: BOTH tiers must hand the draft child
@@ -707,6 +715,10 @@ claude-dot-files/
 │   │       │                                        #   research citations and skills' examples are excluded by name
 │   │       ├── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │       │                                        #   checks, because every existing check was aimed at code rather than prose
+│   │       ├── test_no_module_compiles_with_a_SYNTAX_WARNING.py # Every tracked .py compiles clean. One
+│   │       │                                        #   invalid escape in a docstring was flagged by hand on three passes and survived
+│   │       │                                        #   each time; CPython is promoting these to SyntaxError, at which point the module
+│   │       │                                        #   stops importing and its whole tier fails to COLLECT
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what

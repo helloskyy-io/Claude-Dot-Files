@@ -444,7 +444,7 @@ def _state(paths: dict[str, str]) -> dict[str, str]:
 
 def test_the_grant_reaches_the_ROADMAP_and_NOT_the_phase_doc_beside_it(
         tree: Path) -> None:
-    """The grant reaches every TOP-LEVEL doc, and stops at the subdirectory.
+    r"""The grant reaches every TOP-LEVEL doc, and stops at the subdirectory.
 
     WIDENED 2026-08-19, and the old assertion is worth recording because it was
     right for the design it guarded and wrong for this one. It read *"expected

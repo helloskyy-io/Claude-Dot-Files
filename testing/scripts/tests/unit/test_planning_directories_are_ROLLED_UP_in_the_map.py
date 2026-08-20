@@ -1,4 +1,4 @@
-"""A planning directory must be SUMMARISED in the map, never listed file by file.
+r"""A planning directory must be SUMMARISED in the map, never listed file by file.
 
 THE DEFECT THIS PINS, C-113, measured three times on independent runs.
 
@@ -49,6 +49,42 @@ WHAT THIS DOES NOT LOOK AT, so it is not read as covering more than it does:
     reachable. See `test_every_planning_directory_is_still_REACHABLE_through_the_map`
     for why the stricter property is deliberately not asserted — it is the same
     C-113 shape one level up, and it was reproduced before being ruled out.
+
+THE ROLL-UP TRADED A GUARD AWAY, AND THAT IS MEASURED RATHER THAN SUSPECTED. The
+scoping above reads as neutral and is not; recorded here so the next engineer
+reasoning about these gates starts from the true baseline instead of re-deriving
+it or, worse, strengthening the gate back into C-113.
+
+Delete a component's row (`memory-management-framework/`) from
+`docs/file_structure.txt` and run both map modules:
+
+  * **At `origin/main` (fe021d7): RED.** `test_every_FILE_ENTRY_in_the_map_NAMES_A_
+    FILE_THAT_EXISTS` fails, because that component's per-file phase-doc rows are
+    orphaned by the deletion and REPARENT onto the previous sibling — the map then
+    claims `docs/development/mcp-servers/phase1_measure_the_channel.md` and five
+    more that do not exist.
+  * **After the roll-up: GREEN, 15 passed.** There are no per-file children left to
+    orphan, so the deletion is invisible to every snapshot predicate in the tree.
+
+The catching was incidental — a side effect of enumeration, not a property anyone
+designed — but it was real, and it is gone.
+
+NO REPLACEMENT GATE, RULED RATHER THAN OVERLOOKED. Any snapshot predicate strong
+enough to catch a DELETED component row — own-row required, set-equality against
+`docs/development/`, a pinned census — is by construction strong enough to fail a
+`plan-feature` run that CREATES a component, because both are the same tree state
+read from opposite directions. That is C-113 exactly: measured on PR #111,
+measured again on PR #123, and re-created once by the first draft of this very
+module. A gate on a repo-wide artifact must not fail a run structurally forbidden
+to repair it, and `plan-feature`'s grant (`^docs/development/<component>/[^/]+\.md$`
+plus the candidates file) excludes this map.
+
+"Lost a row" and "never had one" are the same tree state with opposite verdicts,
+so the property is TEMPORAL and no snapshot can carry it. Its home is the diff,
+which is what `review-pr` and a human read. **Do not add a test asserting component
+rows exist, and do not widen `plan-feature`'s grant to reach the map — both were
+considered, both were rejected, and an executor "improving" on this by adding the
+gate re-ships C-113.**
 
 THE POPULATION IS DERIVED FROM THE TREE, WHICH BOUNDS WHAT THIS MODULE MAY
 ASSERT, and the bound is the reason the check above reads the way it does. A

@@ -122,7 +122,7 @@ _HERE = Path(__file__).resolve().parent
 # the number, so a message that disagreed with its own assertion would mislead
 # at the worst possible moment. That double-write is the class this file is
 # being corrected for, so it may not appear in the correction.
-_PINNED = (23, 12)
+_PINNED = (24, 13)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

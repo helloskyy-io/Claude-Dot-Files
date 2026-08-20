@@ -79,6 +79,20 @@ SUPERSEDED: dict[str, str] = {
     r"research ONE question|ONE question as ONE paper|research one question":
         "research-minor takes a TOPIC, not a question — PR #105. A topic spans "
         "several concerns and the paper covers them.",
+    # ADDED 2026-08-20. `BuildInput` enforced "exactly one task source" until
+    # `--pr <n>` alone became a complete dispatch; the rule is now TWO rules (at
+    # most one of description/--task-file/--phase, and at least one of those or a
+    # `--pr`). `run_build.py:39` was corrected in the PR that made the change and
+    # its sibling `run_build_minor.py:39` was not — the only in-file statement of
+    # the CLI contract on that runner, still asserting exactly the falsehood that
+    # cost the measured PR #124 dispatch an operator re-issue. A row rather than a
+    # second hand-fix, because the phrase can live on any of the three surfaces
+    # this gate scans and a sibling runner is only the instance that was found.
+    r"exactly[- ]one[- ]task[- ]source|exactly one task source is required":
+        "BuildInput has enforced TWO rules since 2026-08-19 — at most one of "
+        "description/--task-file/--phase, and at least one of those OR a `--pr` "
+        "whose runway is already on the thread. `--pr <n>` alone is a complete "
+        "dispatch. State both rules, or point at `BuildInput.__post_init__`.",
 }
 
 
@@ -135,4 +149,32 @@ def test_the_gate_can_actually_FAIL(tmp_path: Path) -> None:
             f"the pattern over-matches {innocent!r}. That line states a runtime "
             f"CONDITION, not a contract — a gate that reds on it teaches the next "
             f"author to weaken the gate."
+        )
+
+
+def test_the_TASK_SOURCE_row_can_actually_FAIL() -> None:
+    """The same control for the row added 2026-08-20, and it needs its own.
+
+    THE INNOCENT SAMPLES ARE THE LOAD-BEARING HALF HERE. Both build runners now
+    carry a comment saying the rule *was* "exactly one" until it changed — a
+    RECORD of the supersession, on a scanned surface, and a pattern that reds on
+    it would make the correct fix impossible to write.
+    """
+    rx = next(re.compile(p, re.I) for p in SUPERSEDED if "exactly" in p)
+    for must in ("# BuildInput validates the exactly-one-task-source rule and raises",
+                 "build: error: exactly one task source is required — description, "
+                 "--task-file or --phase",
+                 "Exactly One Task Source"):
+        assert rx.search(must), (
+            f"the pattern no longer matches {must!r} — the exact text this row was "
+            f"written to catch. It has been narrowed or escaped into inertness."
+        )
+    for innocent in ('# It was "exactly one" until 2026-08-19; see '
+                     "`BuildInput.__post_init__`",
+                     "Still exactly one writer per surface — the property §1 asks for.",
+                     "at most one task source — description, --task-file or --phase"):
+        assert not rx.search(innocent), (
+            f"the pattern over-matches {innocent!r}. That line is a RECORD of the "
+            f"supersession or a statement of the CURRENT rule; a gate that reds on "
+            f"either one forbids writing the fix."
         )
