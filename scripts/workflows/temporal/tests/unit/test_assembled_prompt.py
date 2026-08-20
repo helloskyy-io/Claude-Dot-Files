@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import pytest
 
+from modules.assistant import assistant_activities as act
+
 from assembled_prompt import SHARED, assembled, expand
 
 ASSISTANT = SHARED.parent
@@ -100,3 +102,56 @@ def test_a_CHILD_S_OWN_FILE_WINS_over_a_pool_fragment_of_the_same_stem() -> None
         "the planning ruleset did not reach the assembled planning prompt — "
         "resolution fell through to the pool, which is the defect this order fixes"
     )
+
+
+def test_the_RESOLVER_AGREES_WITH_THE_render_IT_MODELS(tmp_path) -> None:
+    """`expand` is a MODEL of `render`, and nothing was holding the two together.
+
+    `assembled_prompt` exists so a file-scoped guard asserts on what the model
+    RECEIVES rather than on what one prompt file contains, which means every
+    guard built on it inherits `expand`'s claim to reproduce `render`. That
+    claim was stated in a docstring and checked by nothing: the two functions
+    hand-roll the same bounded fixed-point substitution in two files, and an
+    edit to `render` alone would leave three guards asserting against a string
+    no dispatch produces — silently, and in the green direction.
+
+    THE GRAMMAR IS THE HALF THAT HAS ALREADY BROKEN ONCE. `render`'s own comment
+    records it: an earlier `[A-Z_]+` missed `${STAGES_1_TO_4}`, and a prompt
+    shipped with its entire stage body replaced by a literal placeholder while
+    the check raised nothing. `expand` carries a second copy of that pattern, so
+    the fixture below uses a digit-bearing name on purpose.
+
+    WHAT THIS DOES NOT PIN, because the two are deliberately different there:
+    `render` RAISES on a placeholder nothing supplies and `expand` leaves it
+    standing (a runtime value a guard must still be able to see), and `render`
+    has an `opaque` second pass for operator content that `expand` has no notion
+    of. Those are contracts, not drift; this pins only the surface they share.
+    """
+    # A fragment carrying a fragment, reached through a digit-bearing name.
+    (tmp_path / "zz_outer_1.md").write_text("top ${ZZ_INNER_2} tail")
+    (tmp_path / "zz_inner_2.md").write_text("deep")
+    template = "A ${ZZ_OUTER_1} B"
+
+    through_expand = expand(template, pool=tmp_path)
+    through_render = act.render(template, {
+        "ZZ_OUTER_1": (tmp_path / "zz_outer_1.md").read_text(),
+        "ZZ_INNER_2": (tmp_path / "zz_inner_2.md").read_text(),
+    })
+
+    assert through_expand == "A top deep tail B", (
+        "the model no longer resolves a nested, digit-bearing placeholder"
+    )
+    assert through_expand == through_render, (
+        "`expand` and the `render` it models disagree on the same input, so "
+        "every guard built on `assembled()` is asserting against a string no "
+        f"dispatch produces:\n  expand: {through_expand!r}\n  render: {through_render!r}"
+    )
+
+    # AND THEY FAIL THE SAME WAY. The bound is what turns a self-referential
+    # fragment into a loud error instead of a hung suite, and it is written as a
+    # literal in both files.
+    (tmp_path / "zz_selfref.md").write_text("carries ${ZZ_SELFREF} inside itself")
+    with pytest.raises(ValueError, match="did not converge"):
+        expand("${ZZ_SELFREF}", pool=tmp_path)
+    with pytest.raises(ValueError, match="did not converge"):
+        act.render("${ZZ_SELFREF}", {"ZZ_SELFREF": "carries ${ZZ_SELFREF} inside itself"})

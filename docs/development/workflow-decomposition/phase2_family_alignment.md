@@ -6,7 +6,7 @@
 
 Children in the same family — `build_refine` and `build_refine_minor`, `research_write` and `research_write_minor` — do nearly the same job, and their prompts were written by copying. A copy that stops being updated does not announce itself: the two files still look like two files, and the reader who opens one has no way to tell that the other gained eleven rules it never received. That is not hypothetical. It happened, and every PMP phase built from a plan ran without the rule that tells a run how much rigour a change warrants.
 
-The mechanism half is built. A block appearing verbatim in two children must live in `modules/assistant/prompts/` and be referenced by placeholder; a frozen baseline forgives the duplication that existed when the rule landed and ratchets both ways, so the list can only shrink. It has: **48 rows down to 13**.
+The mechanism half is built. A block appearing verbatim in two children must live in `modules/assistant/prompts/` and be referenced by placeholder; a frozen baseline forgives the duplication that existed when the rule landed and ratchets both ways, so the list can only shrink. It has, and it ran out: **48 rows, then 13, then none** — the last thirteen are the ones this phase ruled on, and `ACCEPTED` is now empty.
 
 What is left is the half a test was never able to decide. A copy that has already **drifted** is invisible to a verbatim matcher, and it is the more dangerous kind, because a difference reads as a decision. Deciding whether it *was* one is a judgement about a person's intent, and this phase's job is to make that judgement **reproducible and written down** rather than to automate it — which the evidence says cannot be done.
 

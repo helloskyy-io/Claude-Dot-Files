@@ -394,6 +394,26 @@ def test_the_RULING_CHECK_fires_on_each_way_a_ruling_can_be_empty() -> None:
         "PROMOTE S2 stage-ordering — the copies are 86 percent alike."
     )
 
+    # ONE ARM PER WORD THIS REPO ACTUALLY WRITES WHEN IT SCORES TWO COPIES.
+    # The first vocabulary was built outwards from "similar" and caught none of
+    # these, so the ban held against a phrasing nobody uses and folded on the
+    # four the tree demonstrably does: `_pair_score` is the drift guard's own
+    # function name, C-111's Note says "Scored the way this PR's own guard
+    # scores", the standard describes the same measurement as "well above
+    # half-identical", and `difflib` is the library every one of them calls.
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — scored 0.966 by the drift guard."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — a match of 0.925 across the two."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — 62.1 percent identical, so it moves."
+    )
+    assert "magnitude" in one(
+        "PROMOTE S2 stage-ordering — difflib puts the two at 0.863."
+    )
+
     # AND THE BAN IS ON A SUBSTITUTE FOR REASONING, NOT ON ARITHMETIC. A ruling
     # citing the blind trial's kappa is citing the measurement that RETIRED
     # per-pair ruling; an earlier version of the check rejected it, which left an
@@ -406,6 +426,16 @@ def test_the_RULING_CHECK_fires_on_each_way_a_ruling_can_be_empty() -> None:
     assert fvp.ruling_defects(
         "PROMOTE S2 stage-ordering — 3 dispatch paths render it and none omits it."
     ) == [], "a plain count is not a similarity magnitude"
+
+    # AND THE CHECK MUST NOT FIRE ON THE PROCEDURE'S OWN VOCABULARY. `ratio` was
+    # unanchored, so it matched inside `rationale` — the name of signal 4 — and
+    # any ruling pairing a count with the word was rejected as a magnitude. An
+    # author hitting that has two exits, drop the evidence or stop naming the
+    # signal, and both are worse than the thing the check prevents.
+    assert fvp.ruling_defects(
+        "PROMOTE S4 tier-identity — 2 consumers, and the rationale is stated in "
+        "the fragment's own closing clause rather than recovered from history."
+    ) == [], "a ruling naming signal 4's own rationale must not read as a ratio"
 
 
 def test_the_CATEGORY_LOOKUP_answers_UNRULED_rather_than_guessing() -> None:

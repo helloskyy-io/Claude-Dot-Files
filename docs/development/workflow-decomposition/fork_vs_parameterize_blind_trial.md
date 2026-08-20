@@ -275,9 +275,10 @@ Recorded here rather than argued later:
 `_minor` tier contract in
 [`fork_vs_parameterize.py`](../../../scripts/workflows/temporal/tests/unit/fork_vs_parameterize.py)
 — and then applied to every pair carrying that category. The rulings that emptied the frozen
-duplication baseline are `FAMILY_RULINGS` in
+duplication baseline are `FAMILY_RULINGS` in that same module, beside the contract each one is
+required to cite, one per category and not one per pair. The baseline they emptied is `ACCEPTED` in
 [`test_prompt_blocks_are_shared_not_copied.py`](../../../scripts/workflows/temporal/tests/unit/test_prompt_blocks_are_shared_not_copied.py),
-one per category and not one per pair. **Requirement 2 is satisfied at that granularity, which is
+which is where the rulings were written and no longer where they live. **Requirement 2 is satisfied at that granularity, which is
 what requirement 3 was written to permit.**
 
 **A per-pair verdict is now advisory and is written down as such.** The procedure is not retired —

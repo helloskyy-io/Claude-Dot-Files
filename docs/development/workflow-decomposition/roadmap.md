@@ -1,6 +1,6 @@
 # Workflow Decomposition — Roadmap
 
-**Status: 🟡 IN PROGRESS.** Phase 1 is complete, [Phase 2](phase2_family_alignment.md) is live, and three more are planned. **Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in [`sprint.md`](../sprint.md).**
+**Status: 🟡 IN PROGRESS.** Phases 1 and [2](phase2_family_alignment.md) are complete, and three more are planned. **Phases are listed in logical rollout order. Phase numbers are creation-order identifiers and do not reflect rollout sequence; execution order across components lives in [`sprint.md`](../sprint.md).**
 
 **This roadmap was written after Phase 1 shipped.** The component ran for eleven days on a burn-test triage list — since deleted, its two orphaned rulings salvaged into [`cpi-decisions.md`](../cpi-decisions.md) (2026-08-17) — with no roadmap, no phase docs and an empty research pool. Phase 1's boxes below are therefore a **record of what was built**, not requirements it was built against.
 

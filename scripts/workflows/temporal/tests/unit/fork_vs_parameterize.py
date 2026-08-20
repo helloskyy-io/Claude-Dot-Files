@@ -186,8 +186,26 @@ TIER_SCOPED = {
 # digits glued to letters — `S2`, `SC3`, a `C-115` candidate id — and without it
 # every ruling that names the signal that decided it reads as a magnitude,
 # which is every well-formed ruling there is.
+#
+# AND THE VOCABULARY IS THE REPO'S, NOT GENERIC ENGLISH — measured, because the
+# first list was written from the word "similar" outwards and missed every term
+# this tree actually reaches for. `_pair_score` is the drift guard's own scoring
+# function; C-111's Note says "Scored the way this PR's own guard scores"; the
+# standard at `workflow-scripts.md` describes the same measurement as "well
+# above half-identical"; and the three figures whose falsification is the reason
+# this check exists were published as percentages that also read as "62.1
+# percent identical". A ban that catches "alike" and not "scored", "matches" or
+# "identical" fails on the phrasing the next author is most likely to use.
 _NUMBER = r"(?<![A-Za-z-])\d"
-_SIMILARITY = r"(?:similar\w*|ratio|alike|overlap\w*)"
+# `\b` ON BOTH ENDS IS A FIX, NOT TIDYING. Unanchored, `ratio` matches inside
+# `rationale` — signal 4's own name — so "PROMOTE S4 tier-identity — 2 consumers,
+# and the rationale is in the fragment" was rejected as a similarity magnitude on
+# the strength of the word `ratio`nale. The author's only exits were to drop the
+# count or to stop using the procedure's own vocabulary, and the check would have
+# been read as the procedure disagreeing with itself.
+_SIMILARITY = (
+    r"\b(?:similar\w*|ratio|alike|overlap\w*|scor\w*|match\w*|identical|difflib)\b"
+)
 _MAGNITUDE = re.compile(
     rf"{_NUMBER}[\d.]*\s*%"
     rf"|{_SIMILARITY}[^.\n]{{0,40}}{_NUMBER}"

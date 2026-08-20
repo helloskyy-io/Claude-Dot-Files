@@ -180,6 +180,13 @@ _DECLARED: dict[str, str] = {
         "historical: what PR #100 promoted, cited as what the guard cost.",
     'read "there are 19 near-duplicate pairs"':
         "quoted DEFECT: the count this whole module exists because of.",
+    "2 consumers":
+        "SYNTHETIC FIXTURE, not a corpus count. It sits inside a ruling string "
+        "invented to drive `ruling_defects` — the arm proving the similarity-"
+        "magnitude ban does NOT fire on a plain count sitting beside the word "
+        "`rationale`, which is signal 4's own name and which `ratio` used to "
+        "match inside. Deriving it from the tree would destroy the arm: the "
+        "point is that SOME digit is present, not which.",
     "seven drifted pairs":
         "historical: the SAMPLE SIZE of a blind inter-rater trial, fixed when its "
         "classifications were sealed in a commit. The population it was drawn "
