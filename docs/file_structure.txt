@@ -405,6 +405,9 @@ claude-dot-files/
 │                   │                                #   build-only scope it shipped with was green over four ungated parents (PR #124).
 │                   │                                #   Asserts the gate's EFFECT too: a parent that computes a hold and drops it
 │                   │                                #   merges on red with every other arm green — measured, then guarded
+│                   │                                #   And the JOIN: a NON-HOLDING ci_gate result is unreachable without a policy
+│                   │                                #   READ. ci_verdict handed no tree returned NO_CHECKS over a RED list and the
+│                   │                                #   gate raised nothing — repo_root is now REQUIRED on both CI reads
 │                   ├── test_the_sizing_table_is_DERIVED_from_config.py # disposition.md's turn-cap table is what
 │                   │                                #   `review-pr` SIZES a redispatch from, so a figure that drifts from
 │                   │                                #   config.yaml routes a fix to a tier that stalls. Prose checked against
