@@ -107,7 +107,7 @@ claude-dot-files/
 │   │   ├── persistent-memory-protocol/              # IN PROGRESS — Phase 1 (journal root, run bag, validator) ships; ruled its OWN COMPONENT rather than a 7th phase
 │   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-074's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
-│   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
+│   │   │   │                                        #   on the roadmap+phases shape. ALL NINE phases have a doc — a gate is a scheduling
 │   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
 │   │   │   └── research/                          # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
 │   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
