@@ -149,7 +149,9 @@ def main(argv: list[str] | None = None) -> int:
 
         # ISOLATION IS ESTABLISHED HERE, ONCE, and handed to the child. On the
         # --pr path the worktree is cut from the PR branch, matching V1; on the
-        # new-branch path from HEAD.
+        # new-branch path from the DEFAULT BRANCH, asked from the remote. The
+        # operator's checkout position is not an input — see `base_ref` for what
+        # it cost when it was, on three of eight open PRs.
         ref = act.base_ref(a.pr_number, repo_root)
         # REQUIREMENT 11 — the run's bag is opened BEFORE the first side
         # effect, and a root that will not resolve stops the run here (r9). Why

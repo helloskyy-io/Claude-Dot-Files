@@ -56,34 +56,82 @@ def _fleet_sources() -> list[Path]:
     return found
 
 
-def _head_bases(path: Path) -> list[tuple[int, str]]:
-    """Assignments to a `ref`-ish name whose value can be the literal "HEAD".
+def _worktree_bases(path: Path) -> list[tuple[int, str]]:
+    """Every `worktree_add` call whose REF ARGUMENT can be the literal "HEAD".
 
-    Keyed on the ASSIGNED NAME plus the literal, not on the exact expression:
-    the inline form appeared as a one-liner, as a parenthesised two-liner, and
-    with three different `pr_number` spellings. Matching the text would have
-    found some of them, which is the failure mode this module exists to end.
+    KEYED ON THE SEAM, NOT ON A NAMING CONVENTION, and the first version of this
+    module got that wrong. It matched assignments to a name called `ref`, which
+    is how ten of the eleven call sites happened to be written — and
+    `research_refresh_parent_workflow` passes its base INLINE:
+
+        worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
+
+    That site is a member of the class and the old key could not express it, so
+    the guard shipped a population narrower than the class its own docstring
+    claimed. `review-pr` found it as `head-base-guard-cannot-see-an-inline-
+    argument`. The key is now `worktree_add`'s third argument however it is
+    supplied: a literal, or a local whose assignment can produce one.
+
+    `git rev-parse HEAD` IS NOT AN OFFENDER and this is why the key matters. Two
+    other literal "HEAD"s live in the fleet — `journal_activities` and
+    `plan_project_workflow` both ask git for the CURRENT COMMIT SHA, which is
+    correct and unrelated to where a worktree is cut. A guard keyed on "any HEAD
+    literal" would fail both and teach the next reader to weaken it.
     """
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError:  # a module that will not parse is a different failure
         return []
+    return _bases_in_tree(tree)
+
+
+def _bases_in_tree(tree: ast.Module) -> list[tuple[int, str]]:
+    """THE PREDICATE, OVER A PARSED TREE, so a control can drive it on a literal.
+
+    TAKES A TREE AND NOT A STRING, which is the convention the census guard's own
+    helpers use (`_walks_the_tree`, `_parses_a_literal`) and it is load-bearing
+    twice over. The census recognises a tree-walker by
+    `ast.parse(path.read_text(...))` and a CONTROL by an `ast.parse` of anything
+    that is not a file read. A first attempt split this on the SOURCE string,
+    which moved the only `ast.parse` out of the reading path — and the module
+    dropped out of the census population altogether rather than gaining a
+    control. Parsing here and passing the tree keeps both signatures where they
+    belong.
+    """
+    # locals whose assignment can yield "HEAD", so a two-step site is reachable
+    head_locals: dict[str, int] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for sub in ast.walk(node.value):
+                if isinstance(sub, ast.Constant) and sub.value == "HEAD":
+                    for tgt in node.targets:
+                        if isinstance(tgt, ast.Name):
+                            head_locals[tgt.id] = node.lineno
+
     hits = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign):
+        if not isinstance(node, ast.Call):
             continue
-        names = [t.id for t in node.targets if isinstance(t, ast.Name)]
-        if not any(n in ("ref", "base", "base_ref") for n in names):
+        fn = node.func
+        name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+        if name != "worktree_add":
             continue
-        for sub in ast.walk(node.value):
-            if isinstance(sub, ast.Constant) and sub.value == "HEAD":
-                hits.append((node.lineno, names[0]))
+        # ref is the third positional, or the `ref=` keyword
+        arg = node.args[2] if len(node.args) > 2 else next(
+            (k.value for k in node.keywords if k.arg == "ref"), None)
+        if arg is None:
+            continue
+        if isinstance(arg, ast.Constant) and arg.value == "HEAD":
+            hits.append((node.lineno, 'worktree_add(..., "HEAD")'))
+        elif isinstance(arg, ast.Name) and arg.id in head_locals:
+            hits.append((node.lineno, f"worktree_add(..., {arg.id}) "
+                                      f"assigned at line {head_locals[arg.id]}"))
     return hits
 
 
 def test_no_runner_cuts_a_worktree_from_the_OPERATORS_CHECKOUT() -> None:
     offenders = [(p, ln, name) for p in _fleet_sources()
-                 for ln, name in _head_bases(p)]
+                 for ln, name in _worktree_bases(p)]
     assert not offenders, (
         "these assignments can hand `worktree_add` the literal \"HEAD\", which "
         "is the branch the operator's clone happens to be sitting on:\n"
@@ -110,29 +158,36 @@ def test_THE_WALK_HAS_A_POPULATION() -> None:
             f"longer checking the runners it was written for")
 
 
-def test_THE_DETECTOR_FIRES_on_the_shape_it_was_written_for(tmp_path: Path) -> None:
+def test_THE_DETECTOR_FIRES_on_every_shape_the_defect_TOOK() -> None:
     """A POSITIVE CONTROL ON THE DETECTOR, not on the fleet.
 
-    Every shape the defect actually took, including the two that a text match
-    would have missed. Without this, a detector that silently stopped matching
-    would report the tree clean.
+    THE INLINE CASE IS FIRST BECAUSE IT IS THE ONE THAT ESCAPED. The first
+    version of this module keyed on assignments to a name called `ref`, and the
+    eleventh call site passed its base straight into the call. A control that
+    only exercised the ten shapes I had already fixed would have proved the
+    detector worked on the population it could see, which is the failure it was
+    blind to.
     """
     cases = {
-        "one_liner.py": 'ref = f"origin/{b}" if pr else "HEAD"\n',
-        "parenthesised.py": 'ref = (f"origin/{b}"\n       if pr else "HEAD")\n',
-        "plain.py": 'ref = "HEAD"\n',
-        "named_base.py": 'base = "HEAD" if not pr else "x"\n',
+        "inline.py": 'worktree = act.worktree_add(repo, name, "HEAD")\n',
+        "inline_kwarg.py": 'act.worktree_add(repo, name, ref="HEAD")\n',
+        "via_local.py": 'ref = "HEAD"\nact.worktree_add(repo, name, ref)\n',
+        "ternary_local.py": 'ref = f"origin/{b}" if pr else "HEAD"\nact.worktree_add(r, n, ref)\n',
+        "bare_call.py": 'worktree_add(repo, name, "HEAD")\n',
     }
     for name, src in cases.items():
-        f = tmp_path / name
-        f.write_text(src)
-        assert _head_bases(f), f"the detector missed {name}: {src!r}"
+        assert _bases_in_tree(ast.parse(src)), f"the detector missed {name}: {src!r}"
 
-    ok = tmp_path / "fixed.py"
-    ok.write_text("ref = act.base_ref(pr_number, repo_root)\n")
-    assert not _head_bases(ok), (
-        "the detector fires on the CORRECTED form, so it would fail a fixed "
-        "tree and teach the next reader to delete it")
+    for name, src in {
+        "fixed.py": 'act.worktree_add(repo, name, act.base_ref(pr, repo))\n',
+        # `git rev-parse HEAD` asks for the CURRENT COMMIT and is correct. Two
+        # such calls live in the fleet; a detector that flagged them would be
+        # weakened by the next reader, rightly.
+        "rev_parse.py": 'sha = act.git_output(wt, ["git", "rev-parse", "HEAD"], "hint")\n',
+    }.items():
+        assert not _bases_in_tree(ast.parse(src)), (
+            f"the detector fires on {name}, which is CORRECT code — it would fail "
+            f"a fixed tree and teach the next reader to delete it")
 
 
 @pytest.mark.parametrize("pr,expected", [(None, "origin/trunk"), ("7", "origin/feature-x")])

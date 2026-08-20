@@ -398,6 +398,15 @@ claude-dot-files/
 │                   │                                #   `timeout=`; `Popen` is exempt only by NAME, for the two streaming child dispatches
 │                   ├── test_a_gh_reply_is_checked_for_SHAPE_not_only_parsed.py # Every `gh`-reply `json.loads` asks what SHAPE came
 │                   │                                #   back — a decode guard alone lets `{"message": …}` through to a `TypeError`
+│                   ├── test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH.py # A run with no --pr is cut from the DEFAULT BRANCH, never the
+│                   │                                                   #   operator's HEAD. Keyed on worktree_add's ref argument, so an inline
+│                   │                                                   #   literal is as visible as an assignment — the 11th call site was inline.
+│                   ├── test_a_failed_run_is_told_WHY_not_guessed_AT.py # The completion gate reports the cause the LOG states, not the one it
+│                   │                                                   #   assumes. 4 runs / 3 workflows were told 'early stop' while the result
+│                   │                                                   #   row carried a session-limit or API-transport reason.
+│                   ├── test_a_prompt_that_ORDERS_mutation_also_SIZES_it.py # A tier ordered to mutate is also given a ceiling, checked on the
+│                   │                                                   #   ASSEMBLED prompt. The refine tiers had the Testing Standard's floor
+│                   │                                                   #   and no upper bound; PR #124 ran eleven passes.
 │                   ├── test_a_census_guard_proves_its_own_predicate.py # A guard that walks the tree must exercise its PREDICATE on a
 │                   │                                #   literal too — a floored walk over an unconditional predicate is a permanent green
 │                   ├── test_a_bounded_reply_is_CHECKED_not_only_read.py # A launch reply's stdout may not be read as evidence unless

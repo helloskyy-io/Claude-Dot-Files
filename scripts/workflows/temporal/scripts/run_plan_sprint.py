@@ -86,8 +86,11 @@ def main(argv=None) -> int:
         # — true of the worktree it was handed, false of the four docs it was
         # told to correct — and the run spent turns fetching and checking out
         # the branch itself before it could begin. All four `--pr`-accepting
-        # plan runners had the same line; `research_minor_workflow.py` already
-        # had the right one and is where this expression comes from.
+        # plan runners had the same line, and so did the research and build
+        # families — ELEVEN call sites in all. The expression now lives once,
+        # in `base_ref`, because a fix applied by hand to a list of eleven is a
+        # fix applied to ten: the eleventh passed its base inline and the first
+        # sweep of this did not see it.
         ref = act.base_ref(a.pr_number, repo_root)
         worktree = act.worktree_add(repo_root, worktree_name, ref)
         url = wf.run_plan_sprint(repo_root=repo_root, worktree=worktree,
