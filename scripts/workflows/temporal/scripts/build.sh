@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./build.sh "description of what to revise"
-#   ./build.sh --task-file /tmp/claude-task.md --verbose
+#   ./build.sh --task-file /tmp/claude-<name>.md --verbose
 #   ./build.sh "description" --pr 42
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

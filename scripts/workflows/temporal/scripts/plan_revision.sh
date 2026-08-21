@@ -8,7 +8,7 @@
 # Usage:
 #   ./plan_revision.sh "update roadmap to reflect Phase 4 completion"
 #   ./plan_revision.sh "description" "additional context"
-#   ./plan_revision.sh --pr 18 --task-file /tmp/claude-context.md "description"
+#   ./plan_revision.sh --pr 18 --task-file /tmp/claude-<name>.md "description"
 #   ./plan_revision.sh --verbose "realign roadmap milestones"
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

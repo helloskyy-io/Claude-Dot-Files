@@ -781,6 +781,19 @@ claude-dot-files/
 │   │       │                                        #   invalid escape in a docstring was flagged by hand on three passes and survived
 │   │       │                                        #   each time; CPython is promoting these to SyntaxError, at which point the module
 │   │       │                                        #   stops importing and its whole tier fails to COLLECT
+│   │       ├── test_no_prompt_PRESCRIBES_a_shared_tmp_path.py # No surface that prescribes a path names a
+│   │       │                                        #   FIXED one under /tmp — shared by every dispatch, so two
+│   │       │                                        #   concurrent runs get one file and the loser silently reads or
+│   │       │                                        #   PUBLISHES the winner's. 13 overlapping pairs measured in one
+│   │       │                                        #   night; the pr-body example was copied verbatim 133 times.
+│   │       │                                        #   Walks prompts AND operator surfaces (runner help, skills) —
+│   │       │                                        #   the first version excluded the latter and the class stayed live.
+│   │       │                                        #   Also INVENTORIES the same class in docs/, which it does
+│   │       │                                        #   NOT walk: six files, five of them not defects — recorded
+│   │       │                                        #   PATH BY PATH, so a new one reds even in an already-listed file.
+│   │       │                                        #   Its one exemption channel is scoped to the FILE, the PROSE and
+│   │       │                                        #   the COUNT that earn it. It was global: a full regression of the
+│   │       │                                        #   very prompt this guard exists for read CLEAN.
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
