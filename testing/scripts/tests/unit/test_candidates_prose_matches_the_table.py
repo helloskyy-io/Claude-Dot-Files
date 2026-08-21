@@ -25,7 +25,7 @@ appears in no diff anyone reads, and the declared total is the only artifact tha
 would have contradicted it. Restating the number is what makes it a channel;
 deriving it is what closes it.
 
-WHAT THIS KEYS ON IS THE CLASS, NOT THE INSTANCE. Not "C-073, C-074 and C-075
+WHAT THIS KEYS ON IS THE CLASS, NOT THE INSTANCE. Not "C-4pr7kq11, C-xh8nvwqn and C-iceozlh1
 must survive" — the ids that happened to collide on one afternoon — but *every*
 declared total, blank count, id range, gap list and per-decision split in the
 section, checked against what the table actually holds. A number added to the
@@ -82,7 +82,7 @@ def _scan() -> list[str]:
     return blank_fenced(_text().split("\n"))
 
 # A row:
-#   `| C-069 | <finding> | <component> | <source> | <decision> | `status` | <note> |`
+#   `| C-skkjo6jn | <finding> | <component> | <source> | <decision> | `status` | <note> |`
 # Anchored at line start, exactly as the sibling check is, so a `C-NNN` merely
 # CITED inside another row's prose is not read as an allocation.
 #
@@ -93,12 +93,12 @@ def _scan() -> list[str]:
 # and the untriaged assertions would have compared thirty-one against zero —
 # loud rather than silent, which is the only reason this was cheap to catch.
 _ROW = re.compile(
-    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
+    r"^\|\s*(C-[0-9a-z]+)\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
 
 # The SAME row, UNNORMALISED — the rendering check below needs the cell as it
 # was typed, and `_ROW` deliberately stops one cell short of `status`.
 _RAW_ROW = re.compile(
-    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
+    r"^\|\s*(C-[0-9a-z]+)\s*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|", re.M)
 
 _SECTION = "## Where things stand"
 
@@ -139,19 +139,24 @@ def _declarations() -> str:
     return "\n".join(ln for ln in body.splitlines() if not ln.lstrip().startswith(">"))
 
 
+# NO ID RANGE, AND NO SKIP LIST. Both were declarations here until 2026-08-21
+# and both were properties of SEQUENTIAL allocation: a range selects a
+# contiguous block, and a "skip" is a gap in a sequence. Ids are now eight
+# random base36 characters, so neither is observable and neither is asserted.
+# They were deleted with the scheme rather than ported, because a check that
+# still passes while meaning nothing is worse than no check at all.
 _UNTRIAGED = re.compile(
-    r"\*\*([A-Za-z]+(?:-[a-z]+)?) rows are untriaged,[^*]*?:\s*"
-    r"(C-\d{3}) through (C-\d{3})\.\*\*")
-_SKIPS = re.compile(r"the numbering skips ((?:C-\d{3}(?:,\s*|\s+and\s+)?)+)")
+    r"\*\*([A-Za-z]+(?:-[a-z]+)?) rows are untriaged, and they are the next"
+    r"[^*]*?working set\.\*\*")
 _PREDATE = re.compile(
     r"The (\d+) rows that predate them carry a decision[^\n]*?"
     r"\*\*(\d+) `ship`\*\*, \*\*(\d+) `requires review`\*\*, \*\*(\d+) `reject`\*\*")
 _REVIEW_QUEUE = re.compile(
     r"\*\*The `requires review` rows are the live queue, and there are "
-    r"([a-z]+): ((?:C-\d{3}(?:,\s*)?)+)\.\*\*")
+    r"([a-z]+): ((?:C-[0-9a-z]+(?:,\s*)?)+)\.\*\*")
 _REJECTED = re.compile(r"\*\*(\d+) rejected, and the reasoning is the point\.\*\*")
 
-_ID = re.compile(r"C-\d{3}")
+_ID = re.compile(r"C-[0-9a-z]{8}")
 
 
 # --- vacuity floor -------------------------------------------------------
@@ -230,9 +235,9 @@ def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
     pipe. Nothing errors and nothing warns.
 
     MEASURED ON THIS FILE, RENDERED THROUGH GITHUB'S OWN `/markdown` API rather
-    than reasoned about: three rows were truncated at once. C-101 lost 2158 of
-    its 2769 characters at `` `git show … | grep -c …` ``; C-093 lost 2818 of
-    3561 at `` `grep -rn 'hour|hrs'` ``; C-062 lost its adjudication at a
+    than reasoned about: three rows were truncated at once. C-npx1uwgj lost 2158 of
+    its 2769 characters at `` `git show … | grep -c …` ``; C-2asq6d9x lost 2818 of
+    3561 at `` `grep -rn 'hour|hrs'` ``; C-8rhxo6st lost its adjudication at a
     `(MiB|GiB|MB|GB|KiB)` character class. What is lost is always the RIGHT-HAND
     side of the row — which in this table is the `Note`, i.e. the evidence a
     human triaging the candidate is supposed to weigh. The row keeps its id, its
@@ -241,7 +246,7 @@ def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
 
     THE ESCAPE IS `\\|`, AND IT WORKS INSIDE A CODE SPAN — the escape is
     processed at cell-splitting time and the backslash does not survive into the
-    rendered code. This file already relied on that at C-056 and C-064 before
+    rendered code. This file already relied on that at C-rrm2t4sj and C-jeyows79 before
     anyone stated it.
 
     WHY THIS BELONGS HERE. This module's own subject is a file whose claims
@@ -256,9 +261,9 @@ def test_EVERY_ROW_SPLITS_INTO_THE_HEADER_S_CELL_COUNT() -> None:
     The first version iterated lines matching `^\\| (C-\\d{3}) \\|` — a PROXY for
     "a row", and the same substitution the sibling above was written to record.
     A line GFM renders as a row while carrying no `C-NNN` is invisible to it,
-    and one was sitting in this file when the check shipped: C-050's Note had
+    and one was sitting in this file when the check shipped: C-523klr8n's Note had
     its 1,981-character tail split onto its own line, which rendered as a
-    detached row with the whole paragraph in the ID column and cut C-050's Note
+    detached row with the whole paragraph in the ID column and cut C-523klr8n's Note
     by 1,956 characters. Cell-count blind, contiguity blind, every derived
     count green — because the stray carried no id, so nothing counted it and
     nothing missed it. The population is now every line inside a table block.
@@ -328,10 +333,10 @@ def test_EVERY_LINE_INSIDE_A_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
     row. Together they are what "the population is what GFM treats as a row"
     actually means.
 
-    The instance that produced it: C-050's `Note` had a 1,981-character tail
+    The instance that produced it: C-523klr8n's `Note` had a 1,981-character tail
     split onto its own line. Rendered through `POST /markdown` it came back as
     its own `<tr>` with the whole paragraph in the ID column and six empty
-    cells beside it, while C-050's own Note was cut by 1,956 characters —
+    cells beside it, while C-523klr8n's own Note was cut by 1,956 characters —
     invisible to the cell count (it carried no id for `_ROW` to match) and
     invisible to contiguity (contiguity only asks about lines that DO match).
     """
@@ -537,8 +542,7 @@ def test_A_RUN_WITH_NO_DELIMITER_IS_NOT_A_TABLE() -> None:
 
 def test_every_declaration_this_check_verifies_is_actually_FOUND() -> None:
     found = {
-        "untriaged total / id range": _UNTRIAGED.search(_declarations()),
-        "skipped ids": _SKIPS.search(_declarations()),
+        "untriaged total": _UNTRIAGED.search(_declarations()),
         "predating rows and their decision split": _PREDATE.search(_declarations()),
         "requires-review queue": _REVIEW_QUEUE.search(_declarations()),
         "rejected count": _REJECTED.search(_declarations()),
@@ -586,42 +590,6 @@ def test_the_UNTRIAGED_COUNT_is_the_number_of_blank_decision_cells() -> None:
         f"row — but blank is only honest while this paragraph says how many "
         f"there are, which is that paragraph's own sentence. Fix the sentence, "
         f"and check whether a row went missing rather than assuming it did not."
-    )
-
-
-def test_the_declared_ID_RANGE_spans_exactly_the_untriaged_rows() -> None:
-    blank = sorted(cid for cid, dec in _rows() if not dec)
-    m = _UNTRIAGED.search(_declarations())
-    assert m, "the untriaged declaration is unmatched — see the FOUND test"
-    assert (m.group(2), m.group(3)) == (blank[0], blank[-1]), (
-        f"§ Where things stand declares the untriaged working set runs "
-        f"{m.group(2)} through {m.group(3)}; the blank rows actually run "
-        f"{blank[0]} through {blank[-1]}. `triage-candidates` takes its working "
-        f"set from the table, so a wrong range in prose points a human at a "
-        f"different queue from the one the run will process."
-    )
-
-
-def test_the_declared_SKIPPED_IDS_are_exactly_the_gaps_in_that_range() -> None:
-    """The gap list is the one declaration a DELETED row moves on its own.
-
-    A dropped row leaves a hole. If the hole is not declared, the count test
-    above catches it — and if somebody fixes the count without asking why, this
-    catches the hole itself and names it.
-    """
-    blank = sorted(int(cid[2:]) for cid, dec in _rows() if not dec)
-    present = {int(cid[2:]) for cid, _ in _rows()}
-    gaps = {f"C-{n:03d}" for n in range(blank[0], blank[-1] + 1)
-            if n not in present}
-    m = _SKIPS.search(_declarations())
-    assert m, "the skipped-ids declaration is unmatched — see the FOUND test"
-    declared = set(_ID.findall(m.group(1)))
-    assert declared == gaps, (
-        f"§ Where things stand declares the numbering skips {sorted(declared)}; "
-        f"the table's actual gaps between {blank[0]} and {blank[-1]} are "
-        f"{sorted(gaps)}. An UNDECLARED gap is the shape a deleted row leaves "
-        f"behind — check whether a row vanished before editing this sentence. "
-        f"A conflict resolution deletes rows with no diff to show for it."
     )
 
 
@@ -784,7 +752,7 @@ def test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see() -> None:
 
     So the gap is declared rather than closed: `candidates.md` has zero lines
     opening with `<`, and whether a repo-wide gate should carry the block-tag
-    list is C-103's to rule. This test exists so the declaration cannot go
+    list is C-oe0gc9x6's to rule. This test exists so the declaration cannot go
     quietly stale — the same contract as the vocabulary gate's mid-word
     residual, and for the same reason.
 

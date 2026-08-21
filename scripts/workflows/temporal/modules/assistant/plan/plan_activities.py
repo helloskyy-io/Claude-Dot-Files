@@ -95,7 +95,7 @@ max_turns = shared.max_turns
 anchor_task_source = shared.anchor_task_source
 
 # A candidate row, in the eight-column shape `_HEADER` declares:
-#   | C-001 | title | component | source | `decision` | `size` | `status` | note |
+#   | C-d1uhacwn | title | component | source | `decision` | `size` | `status` | note |
 #
 # CELLS ARE MATCHED AS `[^|\n]*`, NOT `.*?`, AND THAT IS LOAD-BEARING. Note text
 # in this file carries UNESCAPED PIPES, so anything that splits a whole row on
@@ -106,7 +106,7 @@ anchor_task_source = shared.anchor_task_source
 # THE PROPERTY IS STATED WITHOUT A TALLY, DELIBERATELY. This comment carried
 # "four rows of 76 do" and was falsified by the very commit that added the
 # `component` column, because that commit also appended a row — a restated figure
-# drifting one commit after it was measured is the class C-050's own Note names.
+# drifting one commit after it was measured is the class C-523klr8n's own Note names.
 # The load-bearing claim is that NO cell before the Note contains a pipe; a tally
 # of the Note's pipes is decoration and any new row can falsify it.
 #
@@ -117,12 +117,12 @@ anchor_task_source = shared.anchor_task_source
 # been wrong for longer than it was right, in the comment that argues against
 # restating figures. `_CONSTRAINED_CELLS` below derives it from `_HEADER`.
 _ROW = re.compile(
-    r"^\|\s*(C-\d{3})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|",
+    r"^\|\s*(C-[0-9a-z]{8})\s*\|([^|\n]*)\|([^|\n]*)\|[^|\n]*\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|",
     re.M)
 
 # The eight-column header, as every candidate table in the file renders it.
 # Kept for the MESSAGE it can give — "your table is the old shape" is a better
-# sentence than "row C-082's decision is unreadable" when the whole table moved.
+# sentence than "row C-dhot2cyq's decision is unreadable" when the whole table moved.
 # It is NOT the guard; see `_check_shape`.
 _HEADER = ("| ID | Candidate | `component` | Source | `decision` | `size` | "
            "`status` | Note |")
@@ -135,7 +135,7 @@ _HEADER = ("| ID | Candidate | `component` | Source | `decision` | `size` | "
 _CONSTRAINED_CELLS = _HEADER.count("|") - 2
 
 # Anything that PRESENTS as a candidate row, whatever its id happens to look
-# like. `_ROW` insists on `C-\d{3}`; this insists only on the shape a reader
+# like. `_ROW` insists on `C-[0-9a-z]{8}`; this insists only on the shape a reader
 # would call a row, so the two can be compared and a row that fell out of the
 # parse can be named instead of vanishing.
 _ROW_LINE = re.compile(r"^\|\s*(C-\S+?)\s*\|", re.M)
@@ -320,7 +320,13 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
     stops existing for every consumer.
     `test_candidate_ids_are_unique` records it three times by 2026-08-11 and
     twice more on 2026-08-13, always the same way — two branches each allocate
-    the next free id against the same base and both merge. That test is a merge
+    the next free id against the same base and both merge. THAT MECHANISM IS GONE
+    as of 2026-08-21: ids are eight random base36 characters, minted by
+    `research_activities.candidate_ceiling`, so there is no next-free to race for.
+    This check STAYS, because the remaining way to duplicate an id is to copy one,
+    and a guard whose failure mode is now rare is not a guard whose value is now
+    zero — it is the one that catches the case nobody is watching for. That test
+    is a merge
     gate on ONE file on the default branch; this runs at the moment a pipeline
     reads whatever file it was handed, which is the branch mid-collision, and the
     two comparators that would notice a lost row (`ids_deleted`,
@@ -343,9 +349,11 @@ def _raise_on_duplicate_ids(path: Path, rows: list[CandidateRow],
             f"earlier one's and one of the two candidates stops existing for the "
             f"untriaged working set, for both authorization snapshots and for the "
             f"deletion check — all of which are keyed by the same colliding id and "
-            f"see nothing. This happens when two branches each allocate the next "
-            f"free id against the same base and both merge; take the next free id "
-            f"by re-reading the file at HEAD. {missing_hint}")
+            f"see nothing. Under SEQUENTIAL ids this happened whenever two branches "
+            f"each allocated the next free one against the same base and both "
+            f"merged. Ids are RANDOM now, so a duplicate means an id was COPIED "
+            f"rather than minted: take a fresh one from the batch "
+            f"`research_activities.candidate_ceiling` hands the run. {missing_hint}")
 
 
 def _raise_on_foreign_cell(path: Path, text: str, rows: list[CandidateRow],
@@ -373,7 +381,7 @@ def _raise_on_foreign_cell(path: Path, text: str, rows: list[CandidateRow],
     It is not exhaustive and does not claim to be — a shift lands silently only
     if the displaced text happens to read as one of the strings the three closed
     vocabularies admit. The message names both known shapes because a reader who
-    has just been told "row C-082's decision is unreadable" needs to know where
+    has just been told "row C-dhot2cyq's decision is unreadable" needs to know where
     to look.
     """
     for row in rows:

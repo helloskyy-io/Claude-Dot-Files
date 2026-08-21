@@ -88,7 +88,7 @@ BUDGETS: dict[str, int] = {
     # before this number moved, which is the mechanism working.
     "review_pr/prompts/disposition.md": 78_926,
     "plan/plan_revision/prompts/stages_1_to_5.md": 22_506,
-    # RAISED 19 BYTES on 2026-08-16, deliberately, for C-089's remedy — "ask what
+    # RAISED 19 BYTES on 2026-08-16, deliberately, for C-f0lfdhmm's remedy — "ask what
     # each guard does NOT look at". Paid for by removing a 280-byte anecdote; the
     # residue is 19 bytes. Worth stating because this is the mechanism working
     # rather than failing: the addition competed, most of it was funded by a cut,
@@ -322,7 +322,14 @@ BUDGETS: dict[str, int] = {
     # gives — the alternative was deleting a correct disclosure to buy a correct
     # disclosure. The bullet says what the pairing check reads and why it needs
     # no before-snapshot, which is the part a model cannot infer from the row.
-    "plan/triage_candidates/prompts/triage_candidates.md": 20_053,
+    # +10 ON 2026-08-21, AND IT BUYS NOTHING THE MODEL READS. Candidate ids went
+    # from `C-NNN` to `C-` plus eight base36 characters, because the sequential
+    # scheme allocated "the next free id" from a stale snapshot and collided six
+    # times. This prompt cites two ids by name; five bytes each is the entire
+    # increase. Funded by nothing, deliberately: the alternative is deleting a
+    # sentence to pay for a rename, and no cut here would have been made on its
+    # own merits.
+    "plan/triage_candidates/prompts/triage_candidates.md": 20_063,
     # 12_313 -> 13_941: a MINOR cycle now writes a synthesis. The earlier prompt
     # forbade it on the argument that with one paper the roll-up IS the paper —
     # true on run 1, false on run 2, since papers accumulate and the synthesis is

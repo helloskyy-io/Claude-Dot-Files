@@ -95,7 +95,7 @@ _NOTHING = own.Scaffolded(created=[], resumed=[], extends=[], unnamed=[],
 def test_a_shipped_open_named_row_IS_scaffolded(tree: Path) -> None:
     """The floor: if this does not fire, every skip assertion below is vacuous."""
     f = _write(tree, _table(
-        ("C-001", "A thing worth building", "fleet-reliability", "`ship`", "`open`")))
+        ("C-d1uhacwn", "A thing worth building", "fleet-reliability", "`ship`", "`open`")))
     assert own.scaffold_candidate_components(tree, f).created == ["fleet-reliability"]
     pool = tree / "docs" / "development" / "fleet-reliability" / "research"
     assert pool.is_dir(), "the research pool is the whole deliverable"
@@ -107,14 +107,14 @@ def test_a_shipped_open_named_row_IS_scaffolded(tree: Path) -> None:
 @pytest.mark.parametrize("decision", ["", "`requires review`", "`reject`"])
 def test_only_a_SHIP_row_is_scaffolded(tree: Path, decision: str) -> None:
     """Blank is untriaged, not permission. `reject` is a decision, not an absence."""
-    f = _write(tree, _table(("C-001", "t", "some-component", decision, "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "some-component", decision, "`open`")))
     assert own.scaffold_candidate_components(tree, f) == _NOTHING
     assert not (tree / "docs" / "development" / "some-component").exists()
 
 
 def test_a_CLOSED_row_is_not_scaffolded(tree: Path) -> None:
     """`closed` means the work is done. Scaffolding it would re-open finished work."""
-    f = _write(tree, _table(("C-001", "t", "some-component", "`ship`", "`closed`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "some-component", "`ship`", "`closed`")))
     assert own.scaffold_candidate_components(tree, f) == _NOTHING
     assert not (tree / "docs" / "development" / "some-component").exists()
 
@@ -130,7 +130,7 @@ def test_a_BLANK_component_scaffolds_NOTHING_and_fails_NOTHING(
     `docs/development/-/`, and a directory named for the absence of an answer is
     worse than no directory: it exists, so the exists-check skips it forever.
     """
-    f = _write(tree, _table(("C-001", "t", blank, "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", blank, "`ship`", "`open`")))
     assert own.scaffold_candidate_components(tree, f) == _NOTHING
     made = sorted(p.name for p in (tree / "docs" / "development").iterdir())
     assert made == [], f"a blank component created {made}"
@@ -149,9 +149,9 @@ def test_an_EXISTING_component_directory_is_left_completely_alone(tree: Path) ->
     (pool / "synthesis.md").write_text("REAL RESEARCH, twenty-five papers deep\n")
 
     f = _write(tree, _table(
-        ("C-001", "t", "memory-management-framework", "`ship`", "`open`")))
+        ("C-d1uhacwn", "t", "memory-management-framework", "`ship`", "`open`")))
     assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
-        extends=[("C-001", "memory-management-framework")])
+        extends=[("C-d1uhacwn", "memory-management-framework")])
     assert (pool / "synthesis.md").read_text() == "REAL RESEARCH, twenty-five papers deep\n"
 
 
@@ -164,12 +164,12 @@ def test_the_seed_names_the_candidate_it_came_from(tree: Path) -> None:
     abandoned work — and the summary alone does not say it is a proposal.
     """
     f = _write(tree, _table(
-        ("C-042", "Automate the fleet's deployment", "fleet-deploy", "`ship`", "`open`")))
+        ("C-htg3mh0t", "Automate the fleet's deployment", "fleet-deploy", "`ship`", "`open`")))
     own.scaffold_candidate_components(tree, f)
     seed = (tree / "docs" / "development" / "fleet-deploy" / "research"
             / "synthesis.md").read_text()
 
-    assert "C-042" in seed, "no link back to the authorising row"
+    assert "C-htg3mh0t" in seed, "no link back to the authorising row"
     assert "Automate the fleet's deployment" in seed, "the candidate summary was dropped"
     assert "project-wide planning" in seed, "provenance is the point of the seed"
     assert "candidate for inclusion" in seed
@@ -182,7 +182,7 @@ def test_the_seed_does_NOT_claim_research_or_planning_that_does_not_exist(tree: 
     does — and it does no research. A seeded file that did not say so would be
     read by the next pass as a thin synthesis rather than an empty one.
     """
-    f = _write(tree, _table(("C-001", "t", "new-thing", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "new-thing", "`ship`", "`open`")))
     own.scaffold_candidate_components(tree, f)
     seed = (tree / "docs" / "development" / "new-thing" / "research"
             / "synthesis.md").read_text()
@@ -196,7 +196,7 @@ def test_the_seed_does_NOT_claim_research_or_planning_that_does_not_exist(tree: 
 
 def test_it_creates_the_research_pool_and_NOTHING_else(tree: Path) -> None:
     """Scope, asserted against the filesystem rather than against the docstring."""
-    f = _write(tree, _table(("C-001", "t", "new-thing", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "new-thing", "`ship`", "`open`")))
     own.scaffold_candidate_components(tree, f)
     root = tree / "docs" / "development" / "new-thing"
     assert sorted(p.name for p in root.iterdir()) == ["research"]
@@ -212,7 +212,7 @@ def test_a_component_NAME_is_slugged_to_the_convention_the_tree_follows(
     A filer typing a display name rather than a folder name must not produce a
     directory that every reconciliation walking `docs/development/` misses.
     """
-    f = _write(tree, _table(("C-001", "t", "Fleet Reliability", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "Fleet Reliability", "`ship`", "`open`")))
     assert own.scaffold_candidate_components(tree, f).created == ["fleet-reliability"]
     assert (tree / "docs" / "development" / "fleet-reliability").is_dir()
 
@@ -224,24 +224,24 @@ def test_a_second_run_over_an_unchanged_file_is_a_NO_OP(tree: Path) -> None:
     too: a second run that re-wrote the file would silently discard whatever the
     research child had put there between the two attempts.
     """
-    f = _write(tree, _table(("C-001", "t", "new-thing", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "new-thing", "`ship`", "`open`")))
     assert own.scaffold_candidate_components(tree, f).created == ["new-thing"]
 
     seed = tree / "docs" / "development" / "new-thing" / "research" / "synthesis.md"
     seed.write_text("the research child has since written this\n")
 
     assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
-        extends=[("C-001", "new-thing")])
+        extends=[("C-d1uhacwn", "new-thing")])
     assert seed.read_text() == "the research child has since written this\n"
 
 
 def test_every_eligible_row_is_scaffolded_not_just_the_first(tree: Path) -> None:
     """A loop that returned on its first hit would pass every test above."""
     f = _write(tree, _table(
-        ("C-001", "t", "alpha", "`ship`", "`open`"),
-        ("C-002", "t", "", "`ship`", "`open`"),
-        ("C-003", "t", "beta", "`reject`", "`open`"),
-        ("C-004", "t", "gamma", "`ship`", "`open`"),
+        ("C-d1uhacwn", "t", "alpha", "`ship`", "`open`"),
+        ("C-p5qvm3e7", "t", "", "`ship`", "`open`"),
+        ("C-q65w30xm", "t", "beta", "`reject`", "`open`"),
+        ("C-c5y9uqhk", "t", "gamma", "`ship`", "`open`"),
     ))
     assert own.scaffold_candidate_components(tree, f).created == ["alpha", "gamma"]
 
@@ -264,17 +264,17 @@ def test_two_rows_naming_the_SAME_component_scaffold_it_once(tree: Path) -> None
     bucket was wrong.
     """
     f = _write(tree, _table(
-        ("C-001", "first", "shared", "`ship`", "`open`"),
-        ("C-002", "second", "shared", "`ship`", "`open`"),
+        ("C-d1uhacwn", "first", "shared", "`ship`", "`open`"),
+        ("C-p5qvm3e7", "second", "shared", "`ship`", "`open`"),
     ))
     assert own.scaffold_candidate_components(tree, f) == own.Scaffolded(
-        created=["shared"], resumed=[], extends=[("C-002", "shared")], unnamed=[],
+        created=["shared"], resumed=[], extends=[("C-p5qvm3e7", "shared")], unnamed=[],
         not_a_feature=[], unsized=[]), (
         "the second row must EXTEND the component the first created — a `resumed` "
         "here tells the operator a previous run died, and duplicates the research")
     seed = (tree / "docs" / "development" / "shared" / "research"
             / "synthesis.md").read_text()
-    assert "C-001" in seed and "C-002" not in seed, (
+    assert "C-d1uhacwn" in seed and "C-p5qvm3e7" not in seed, (
         "the FIRST row scaffolded it; the second must not overwrite the seed")
 
 
@@ -304,12 +304,12 @@ def test_to_research_NEVER_NAMES_A_COMPONENT_TWICE(
     operator's note.
     """
     if pre_seed:
-        first = _write(tree, _table(("C-000", "seeded earlier", "shared", "`ship`", "`open`")))
+        first = _write(tree, _table(("C-5ja9yzs1", "seeded earlier", "shared", "`ship`", "`open`")))
         assert own.scaffold_candidate_components(tree, first).created == ["shared"]
 
     f = _write(tree, _table(
-        ("C-001", "first", "shared", "`ship`", "`open`"),
-        ("C-002", "second", "shared", "`ship`", "`open`"),
+        ("C-d1uhacwn", "first", "shared", "`ship`", "`open`"),
+        ("C-p5qvm3e7", "second", "shared", "`ship`", "`open`"),
     ))
     result = own.scaffold_candidate_components(tree, f)
 
@@ -317,7 +317,7 @@ def test_to_research_NEVER_NAMES_A_COMPONENT_TWICE(
         f"{label}: to_research is {result.to_research} — one component named "
         f"twice is two operator notes and two research dispatches for one pool")
     assert result.to_research == ["shared"]
-    assert result.extends == [("C-002", "shared")], (
+    assert result.extends == [("C-p5qvm3e7", "shared")], (
         f"{label}: the row that lost the race must be reported as extending the "
         f"component, naming its own id — got {result.extends}")
 
@@ -345,14 +345,14 @@ def test_the_row_parse_survives_UNESCAPED_PIPES_IN_THE_NOTE(tree: Path) -> None:
     each cell at the next pipe and never reaches the Note, so a Note may contain
     anything at all. This is the property the column insertion depended on.
     """
-    f = _write(tree, _table(("C-001", "t", "piped", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "piped", "`ship`", "`open`")))
     f.write_text(f.read_text().replace(
         "| note |", "| a | b | c note with | pipes | in it |"))
 
     rows = act.candidate_rows(f, missing_hint="x")
     assert len(rows) == 1
     assert (rows[0].id, rows[0].component, rows[0].decision, rows[0].status) == (
-        "C-001", "piped", "ship", "open")
+        "C-d1uhacwn", "piped", "ship", "open")
     assert own.scaffold_candidate_components(tree, f).created == ["piped"]
 
 
@@ -386,7 +386,7 @@ _SEVEN_COL = ("| ID | Candidate | `component` | Source | `decision` | `status` |
 def _nine_tables(bad: str) -> str:
     """Eight well-formed candidate tables and one `bad` one, as the real file is shaped."""
     good = "".join(
-        f"\n## Cycle {n}\n\n{_HEADER}| C-{n:03d} | t | c | PR #1 | `ship` | feature | `open` | n |\n"
+        f"\n## Cycle {n}\n\n{_HEADER}| C-fixture{n} | t | c | PR #1 | `ship` | feature | `open` | n |\n"
         for n in range(1, 9))
     return "# Action candidates\n" + good + "\n## Cycle 9\n\n" + bad
 
@@ -395,23 +395,23 @@ def _nine_tables(bad: str) -> str:
     # A whole table left in the old shape. `_ROW` needs six cells after the id, so
     # a six-column row does not parse AT ALL and is caught as an unparsed row.
     ("a table still in the six-column shape",
-     _SIX_COL + "| C-009 | a thing | PR #1 |  | `open` | n |\n"),
+     _SIX_COL + "| C-hjwrspgl | a thing | PR #1 |  | `open` | n |\n"),
     # ONE row carrying a pipe in a cell before the Note. Markdown's own escape for a
     # literal pipe is `\\|`, and the cell pattern treats that pipe as a boundary —
     # so a CORRECTLY escaped title shifts the row and nothing else on the page.
     ("one row with a pipe in its title",
-     _HEADER + "| C-009 | Make `a | b` share a pool | c | PR #1 |  |  | `open` | n |\n"),
+     _HEADER + "| C-hjwrspgl | Make `a | b` share a pool | c | PR #1 |  |  | `open` | n |\n"),
     # An id the parser does not match at all: absent from the working set, from
     # every authorization snapshot, and from the deletion check.
-    ("an id that is not three digits",
+    ("an id that is not eight base36 characters",
      _HEADER + "| C-1009 | a thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
     # TWO ROWS SHARING ONE ID — the door that has actually opened, five times.
     # Both rows parse; every reader is a dict keyed by id, so the second silently
-    # overwrites the first and one candidate stops existing. `C-001` is reused
+    # overwrites the first and one candidate stops existing. `C-fixture1` is reused
     # from the fixture's own first table on purpose: the collision that happens in
     # production is across TABLES, when two branches allocate against one base.
     ("one id allocated to two rows",
-     _HEADER + "| C-001 | a different thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
+     _HEADER + "| C-fixture1 | a different thing | c | PR #1 | `ship` | feature | `open` | n |\n"),
     # A TABLE LEFT IN THE SEVEN-COLUMN SHAPE — the one a STALLED migration
     # actually leaves, and the case none of the four above reaches. `_SIX_COL` is
     # two columns short, so its rows do not parse and land on the unparsed-row
@@ -427,8 +427,8 @@ def _nine_tables(bad: str) -> str:
     # `size`. Under the condition as it shipped, this row parses clean, reads as
     # triaged, and drops out of the untriaged working set with nothing raised.
     ("a table still in the seven-column shape",
-     _SEVEN_COL + "| C-009 | a thing | c | PR #1 | `ship` | `open` | closed |\n"),
-], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-width", "duplicate-id",
+     _SEVEN_COL + "| C-hjwrspgl | a thing | c | PR #1 | `ship` | `open` | closed |\n"),
+], ids=["six-column-table", "pipe-in-a-cell", "wrong-id-shape", "duplicate-id",
         "seven-column-table"])
 def test_a_row_READ_WRONGLY_or_LOST_RAISES_rather_than_reading_as_triaged(
         tree: Path, label: str, bad: str) -> None:
@@ -445,8 +445,8 @@ def test_a_row_READ_WRONGLY_or_LOST_RAISES_rather_than_reading_as_triaged(
     f = _write(tree, _nine_tables(bad))
     with pytest.raises(ValueError) as exc:
         act.candidate_rows(f, missing_hint="x")
-    offender = "C-001" if label.startswith("one id") else (
-        "C-1009" if "three digits" in label else "C-009")
+    offender = "C-fixture1" if label.startswith("one id") else (
+        "C-1009" if "base36" in label else "C-hjwrspgl")
     assert offender in str(exc.value), (
         f"{label} raised without naming {offender}: {exc.value}")
 
@@ -461,10 +461,10 @@ def test_EIGHT_GOOD_TABLES_DO_NOT_EXCUSE_A_NINTH(tree: Path) -> None:
     """
     rows = act.candidate_rows(
         _write(tree, _nine_tables(
-            _HEADER + "| C-009 | a thing | c | PR #1 |  |  | `open` | n |\n")),
+            _HEADER + "| C-hjwrspgl | a thing | c | PR #1 |  |  | `open` | n |\n")),
         missing_hint="x")
     assert len(rows) == 9, f"the nine-table fixture itself does not parse: {rows}"
-    assert [r.id for r in rows if not r.decision] == ["C-009"], (
+    assert [r.id for r in rows if not r.decision] == ["C-hjwrspgl"], (
         "the untriaged row must survive the parse — losing it silently is the "
         "entire failure this check exists to prevent")
 
@@ -493,9 +493,9 @@ def test_an_UNUSABLE_component_name_is_REPORTED_not_raised(tree: Path) -> None:
     triage's dispatch had already been paid for — over one filer typo.
     """
     for raw in ("–", "--", "···", "***"):
-        f = _write(tree, _table(("C-001", "t", raw, "`ship`", "`open`")))
+        f = _write(tree, _table(("C-d1uhacwn", "t", raw, "`ship`", "`open`")))
         assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
-            unnamed=[("C-001", raw)]), f"{raw!r} was not reported as unusable"
+            unnamed=[("C-d1uhacwn", raw)]), f"{raw!r} was not reported as unusable"
         assert sorted(p.name for p in (tree / "docs" / "development").iterdir()) == []
 
 
@@ -511,7 +511,7 @@ def test_an_UNUSABLE_component_name_is_REPORTED_AT_EVERY_SIZE(
 
     WHAT THAT COST IS A FALSE NOTE, NOT A MISSING ONE, which is why it is worth a
     test rather than a shrug. `plan_project_workflow` turns a `not_a_feature`
-    entry into *"`C-001` is sized `phase`, so nothing was scaffolded — it is work
+    entry into *"`C-d1uhacwn` is sized `phase`, so nothing was scaffolded — it is work
     INSIDE a component rather than a component of its own"*, and refers the
     operator on to *"the component its `component` cell names"*. For a cell
     reading `--` there is no such component: the sentence talks about a name that
@@ -526,9 +526,9 @@ def test_an_UNUSABLE_component_name_is_REPORTED_AT_EVERY_SIZE(
     the other exactly as it was.
     """
     for raw in ("–", "--", "···", "***"):
-        f = _write(tree, _table(("C-001", "t", raw, "`ship`", "`open`", size)))
+        f = _write(tree, _table(("C-d1uhacwn", "t", raw, "`ship`", "`open`", size)))
         assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
-            unnamed=[("C-001", raw)]), (
+            unnamed=[("C-d1uhacwn", raw)]), (
             f"a {size or 'blank'}-sized row whose `component` reads {raw!r} was "
             f"not reported as unusable — the name check must not sit behind the "
             f"size branch, or the operator is told an unroutable row is parked "
@@ -559,10 +559,10 @@ def test_a_ROUTABLE_name_at_a_NON_FEATURE_size_is_DECLINED_and_REPORTED(
     never asked for now exists and the research fan-out will pick it up.
     """
     f = _write(tree, _table(
-        ("C-001", "A thing worth building", "fleet-reliability", "`ship`",
+        ("C-d1uhacwn", "A thing worth building", "fleet-reliability", "`ship`",
          "`open`", size)))
     assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
-        **{bucket: [("C-001", size or "unsized")]}), (
+        **{bucket: [("C-d1uhacwn", size or "unsized")]}), (
         f"a {size or 'blank'}-sized row naming a perfectly usable component was "
         f"not declined into `{bucket}` — `size` is what decides whether this "
         f"scaffolds, and a row that routes on it wrongly either invents a "
@@ -581,7 +581,7 @@ def test_a_SEEDED_but_UNRESEARCHED_pool_is_RESUMED_not_skipped_forever(
     stranded forever. A pool still carrying the seed marker is unfinished work,
     not a component somebody owns.
     """
-    f = _write(tree, _table(("C-001", "t", "half-built", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "half-built", "`ship`", "`open`")))
     assert own.scaffold_candidate_components(tree, f).created == ["half-built"]
 
     second = own.scaffold_candidate_components(tree, f)
@@ -596,14 +596,14 @@ def test_a_pool_the_research_child_REWROTE_is_never_resumed(tree: Path) -> None:
     is the same assertion as the no-op test one level up, stated against the
     signal rather than against the return value.
     """
-    f = _write(tree, _table(("C-001", "t", "researched", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "researched", "`ship`", "`open`")))
     own.scaffold_candidate_components(tree, f)
     seed = tree / "docs" / "development" / "researched" / "research" / "synthesis.md"
     assert own._UNRESEARCHED in seed.read_text()
 
     seed.write_text("# researched — synthesis\n\nTwenty-five papers deep.\n")
     assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
-        extends=[("C-001", "researched")])
+        extends=[("C-d1uhacwn", "researched")])
 
 
 def test_the_seed_asks_the_next_writer_to_CARRY_THE_ID_FORWARD(tree: Path) -> None:
@@ -613,11 +613,11 @@ def test_the_seed_asks_the_next_writer_to_CARRY_THE_ID_FORWARD(tree: Path) -> No
     contract has no provenance field. The id the docstring calls the load-bearing
     part would live for exactly one pipeline step unless something asks for it.
     """
-    f = _write(tree, _table(("C-042", "t", "carried", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-htg3mh0t", "t", "carried", "`ship`", "`open`")))
     own.scaffold_candidate_components(tree, f)
     seed = (tree / "docs" / "development" / "carried" / "research"
             / "synthesis.md").read_text()
-    assert "carry the `C-042` line above into what you write" in seed
+    assert "carry the `C-htg3mh0t` line above into what you write" in seed
 
 
 def test_a_run_may_NOT_name_a_component_on_a_row_it_did_not_file(tree: Path) -> None:
@@ -628,9 +628,9 @@ def test_a_run_may_NOT_name_a_component_on_a_row_it_did_not_file(tree: Path) -> 
     a committed directory in the next step of the same parent. An APPENDED row is
     exempt, because filing a proposal requires naming where it goes.
     """
-    before = {"C-001": "", "C-002": "alpha"}
-    after = {"C-001": "guessed", "C-002": "alpha", "C-003": "filed-by-this-run"}
-    assert act.components_this_run_had_no_right_to(before, after) == ["C-001"], (
+    before = {"C-d1uhacwn": "", "C-p5qvm3e7": "alpha"}
+    after = {"C-d1uhacwn": "guessed", "C-p5qvm3e7": "alpha", "C-q65w30xm": "filed-by-this-run"}
+    assert act.components_this_run_had_no_right_to(before, after) == ["C-d1uhacwn"], (
         "either the guess was missed or the appended row was wrongly flagged")
 
 
@@ -675,9 +675,9 @@ def test_a_pool_whose_synthesis_IS_NOT_VALID_UTF8_does_not_abort_the_run(
     (pool / "synthesis.md").write_bytes(
         b"# foreign - synthesis\n\nlatin-1 dashes: \xd0 \xff\n")
 
-    f = _write(tree, _table(("C-001", "t", "foreign", "`ship`", "`open`")))
+    f = _write(tree, _table(("C-d1uhacwn", "t", "foreign", "`ship`", "`open`")))
     assert own.scaffold_candidate_components(tree, f) == _NOTHING._replace(
-        extends=[("C-001", "foreign")]), (
+        extends=[("C-d1uhacwn", "foreign")]), (
         "an undecodable synthesis in somebody else's pool must classify as "
         "`extends`, not abort a run that has already paid for a dispatch")
 
@@ -696,13 +696,13 @@ def test_A_ROW_LATER_IN_THE_FILE_still_runs_after_an_undecodable_pool(
     (pool / "synthesis.md").write_bytes(b"\xff\xfe not utf-8 at all")
 
     f = _write(tree, _table(
-        ("C-001", "t", "foreign", "`ship`", "`open`"),
-        ("C-002", "a thing worth building", "downstream", "`ship`", "`open`"),
+        ("C-d1uhacwn", "t", "foreign", "`ship`", "`open`"),
+        ("C-p5qvm3e7", "a thing worth building", "downstream", "`ship`", "`open`"),
     ))
     result = own.scaffold_candidate_components(tree, f)
     assert result.created == ["downstream"], (
         f"the row after the unreadable pool was lost: {result}")
-    assert result.extends == [("C-001", "foreign")]
+    assert result.extends == [("C-d1uhacwn", "foreign")]
 
 
 # --- the property the exists-check's SAFETY rests on ------------------------
@@ -799,14 +799,14 @@ def test_a_FOREIGN_size_RAISES_rather_than_reading_as_a_ruling(
     with no complaint or is routed on a string nobody defined.
 
     THE MESSAGE MUST NAME `size`. The three ruled columns fail through one raise,
-    and an operator told only "row C-009 is unreadable" over a file with three
+    and an operator told only "row C-hjwrspgl is unreadable" over a file with three
     closed vocabularies has the same search this check exists to do for them.
     """
-    f = _write(tree, _table(("C-009", "t", "c", "`ship`", "`open`", cell)))
+    f = _write(tree, _table(("C-hjwrspgl", "t", "c", "`ship`", "`open`", cell)))
     with pytest.raises(ValueError) as exc:
         act.candidate_rows(f, missing_hint="x")
     message = str(exc.value)
-    assert "C-009" in message, f"the raise did not name the row: {message}"
+    assert "C-hjwrspgl" in message, f"the raise did not name the row: {message}"
     assert "size" in message, (
         f"the raise did not name the column that was wrong: {message}")
     assert act.normalise_cell(cell) in message, (
@@ -823,8 +823,8 @@ def test_every_size_the_FILE_ADMITS_still_parses(tree: Path, cell: str) -> None:
     are here because `normalise_cell` is what makes them equal, and a check
     written against the RAW cell would reject a correctly-formatted row.
     """
-    f = _write(tree, _table(("C-009", "t", "c", "`ship`", "`open`", cell)))
-    assert [r.id for r in act.candidate_rows(f, missing_hint="x")] == ["C-009"]
+    f = _write(tree, _table(("C-hjwrspgl", "t", "c", "`ship`", "`open`", cell)))
+    assert [r.id for r in act.candidate_rows(f, missing_hint="x")] == ["C-hjwrspgl"]
 
 
 def test_THE_REAL_CANDIDATES_FILE_PARSES_UNDER_THE_TIGHTENED_CHECK() -> None:
@@ -908,7 +908,7 @@ def test_THE_SHAPE_DIAGNOSTIC_NAMES_THE_SHAPE_A_STALLED_MIGRATION_LEAVES(
     shift every field one column left, which is the case that reaches here.
     """
     f = _write(tree, _nine_tables(
-        _SEVEN_COL + "| C-009 | a thing | c | PR #1 | `ship` | `open` | closed |\n"))
+        _SEVEN_COL + "| C-hjwrspgl | a thing | c | PR #1 | `ship` | `open` | closed |\n"))
     with pytest.raises(ValueError) as exc:
         act.candidate_rows(f, missing_hint="x")
     message = str(exc.value)

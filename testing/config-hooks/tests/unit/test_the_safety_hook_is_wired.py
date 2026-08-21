@@ -224,7 +224,7 @@ def _repo_source(target: Path) -> Path | None:
     WHAT THIS DOES NOT LOOK AT: whether `install.sh` has actually run on any
     given machine, and therefore whether the symlink is present at runtime. That
     is a property of a host, not of a commit, and it needs a deployment check
-    rather than a unit test — see `C-100`, which covers exactly that gap. The
+    rather than a unit test — see `C-8z8v04wk`, which covers exactly that gap. The
     test below still asks it where an installation exists, which costs a clean
     runner nothing and keeps a workstation honest.
     """

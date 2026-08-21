@@ -13,8 +13,8 @@ the evidence on the right-hand side is gone.
 
 MEASURED ACROSS ONE PULL REQUEST: SIX INSTANCES, IN THREE FILES, FOUND ONLY BY
 LOOKING. PR #96 repaired four inside the one file it was already editing —
-C-101 lost 2158 of 2769 characters, C-093 lost 2818 of 3561, C-062 lost its
-adjudication, and C-050 lost 1956 to a stray line — and then a repo-wide sweep
+C-npx1uwgj lost 2158 of 2769 characters, C-2asq6d9x lost 2818 of 3561, C-8rhxo6st lost its
+adjudication, and C-523klr8n lost 1956 to a stray line — and then a repo-wide sweep
 found two more that nothing was gating: `memory-management-framework/
 roadmap.md:269` returned 203 of 452 rendered characters and
 `phase4_fleet_migration.md:69` returned 248 of 400. Four passes of review
@@ -290,8 +290,8 @@ def test_EVERY_LINE_INSIDE_EVERY_TABLE_BLOCK_IS_ACTUALLY_A_ROW() -> None:
     A non-`|` line inside a table does not become prose and is not absorbed by
     its neighbour — it renders as its own DETACHED `<tr>` with the whole
     paragraph in the first column, while the row above it is CUT. Measured on
-    C-050 through `POST /markdown`: a 1,981-character tail on its own line came
-    back as a seventh `<tr>`, and C-050's own Note lost 1,956 characters.
+    C-523klr8n through `POST /markdown`: a 1,981-character tail on its own line came
+    back as a seventh `<tr>`, and C-523klr8n's own Note lost 1,956 characters.
 
     THE SIBLING GATES THIS FOR ONE FILE ONLY, so leaving it out "because it is
     the sibling's shape" left it ungated everywhere else — the same
@@ -412,11 +412,11 @@ def test_A_STRAY_LINE_INSIDE_A_TABLE_IS_ACTUALLY_CAUGHT(tmp_path: Path) -> None:
     zero instances. Replacing its whole body with `return []` left all 46 tests
     across both modules PASSING. The other six predicates in `gfm_table_scan.py`
     were each caught by at least one test when gutted; this one was decoration,
-    and it was decoration guarding the exact defect that cost C-050 1,956
+    and it was decoration guarding the exact defect that cost C-523klr8n 1,956
     characters of evidence.
 
     A guard proven only against content that does not contain the defect is not
-    proven at all. The fixture is the measured C-050 shape: a `Note` tail split
+    proven at all. The fixture is the measured C-523klr8n shape: a `Note` tail split
     onto its own line inside the table.
     """
     doc = tmp_path / "stray.md"

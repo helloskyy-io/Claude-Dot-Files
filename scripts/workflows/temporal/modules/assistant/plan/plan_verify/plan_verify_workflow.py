@@ -12,7 +12,7 @@ because *"the fresh context is the point, not an implementation detail."*
 docstring said outright that this workflow *did not exist yet*. This is that
 reviewer, and that sentence is now corrected at all three places `plan-feature`
 made it, rather than left standing as the quotation it used to be here. A
-quotation attributed to a file it no longer appears in is the defect C-084
+quotation attributed to a file it no longer appears in is the defect C-gbclnzsq
 proposes gating; repeating it to justify this module would have created one.
 
 IT IS A SEPARATE WORKFLOW AND NOT A STAGE, on the argument that made
@@ -46,7 +46,7 @@ one:
     needs before deciding whether to unblock it.
   * **One figure, one home.** A number restated in two places with nothing
     deriving it is the class this repo has paid for repeatedly; `candidates.md`
-    C-050 names it and `test_measurement_figures_are_cited.py` is the gate built
+    C-523klr8n names it and `test_measurement_figures_are_cited.py` is the gate built
     after four consecutive passes each corrected a figure at its source and left
     a copy standing. The enforcement here is not a second scanner — it is the
     write grant, which reaches `roadmap.md` and no other file in the component.

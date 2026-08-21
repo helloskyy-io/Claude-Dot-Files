@@ -93,7 +93,7 @@ claude-dot-files/
 │   │   │                                            #   `docs/development/<component>/[^/]+\.md` and excludes THIS file. Writing a
 │   │   │                                            #   phase doc is that workflow's entire job, so every plan it produced landed a
 │   │   │                                            #   RED map-coverage suite it was structurally forbidden to fix — measured on
-│   │   │                                            #   PR #111 and again on PR #123, and filed as C-113. research/ keeps its line:
+│   │   │                                            #   PR #111 and again on PR #123, and filed as C-pky2l2b6. research/ keeps its line:
 │   │   │                                            #   it is a SUBDIRECTORY, so it is a roll-up of its own and adding it enumerates
 │   │   │                                            #   nothing. Pinned by
 │   │   │                                            #   testing/scripts/tests/unit/test_planning_directories_are_ROLLED_UP_in_the_map.py
@@ -109,7 +109,7 @@ claude-dot-files/
 │   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
 │   │   ├── persistent-memory-protocol/              # PLANNED, NOT STARTED (2026-08-13) — ruled its OWN COMPONENT rather than a 7th phase
-│   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-074's
+│   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-xh8nvwqn's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
 │   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
 │   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
@@ -220,10 +220,10 @@ claude-dot-files/
 │   │   │   │                                        #   declared set against `_append_run_event`'s call sites in BOTH directions
 │   │   │   ├── replay_run_resources.py              # Four figures over `run_resources`: the unmeasured rate, peak_anon by workflow, the
 │   │   │   │                                        #   subagent-vs-volume knob question, and the overlapping-run aggregate → MMF Phase 6 req 3
-│   │   │   ├── replay_convergence_events.py         # The LIVE convergence corpus (candidate C-059) + Phase 5's gate conditions 1 and 2 with their
+│   │   │   ├── replay_convergence_events.py         # The LIVE convergence corpus (candidate C-wb1xc1xs) + Phase 5's gate conditions 1 and 2 with their
 │   │   │   │                                        #   denominators. `--archive` adds condition 1; without it that half prints NOT TAKEN, never zero
 │   │   │   └── replay_parent_route.py               # The computed abstention arm grouped by reason, and the prose-shadow agreement rate with
-│   │   │                                            #   C-060's conditioning printed beside it → MMF Phase 3 step 4, Phase 4's shadow-removal box
+│   │   │                                            #   C-45bhs5cm's conditioning printed beside it → MMF Phase 3 step 4, Phase 4's shadow-removal box
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
@@ -723,7 +723,7 @@ claude-dot-files/
 │   │                                                #   because a path LOAD emits no ast.Import node and slipped past the first one unseen
 │   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
 │   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
-│   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-050
+│   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-523klr8n
 │   │       ├── test_file_structure_map_covers_the_tree.py # THIS map, checked against `git ls-files`: where it enumerates a directory it
 │   │       │                                        #   enumerates it completely, and every tracked file is reachable through some
 │   │       │                                        #   entry. Paths are reconstructed from the indentation — leaf-name matching scored
@@ -736,7 +736,7 @@ claude-dot-files/
 │   │       │                                        #   docs/development/ component on the roadmap+phases shape must be SUMMARISED here,
 │   │       │                                        #   never listed file by file. Adding a phase doc is plan-feature's whole job and this
 │   │       │                                        #   map is outside its write grant, so a per-file row made every plan it produced land
-│   │       │                                        #   a red suite it was forbidden to fix (C-113, measured on PR #111 and again on #123).
+│   │       │                                        #   a red suite it was forbidden to fix (C-pky2l2b6, measured on PR #111 and again on #123).
 │   │       │                                        #   The planning set is DERIVED from the tree; reproduces the red-on-add and pairs it
 │   │       │                                        #   with a control that still goes red outside docs/development/
 │   │       ├── test_the_on_disk_footprint_is_documented.py # State written OUTSIDE any checkout must be named where an OPERATOR reads

@@ -14,7 +14,7 @@ Feeds:          NOTHING TODAY — no destination exists. This paper was written 
                 docs/development/sprint.md` returns no match, and line 180 today is a blank
                 line inside the Temporal Integration section. The fleet-reliability phase doc
                 it named will never be written. The pending ruling on where this work belongs
-                is GitHub issue #125, which also covers candidate C-011 (`decision: ship`,
+                is GitHub issue #125, which also covers candidate C-gfw254ai (`decision: ship`,
                 ~9 h) orphaned by the same dissolution. The paper's content is unaffected —
                 only the destination pointer was stale, and it now points nowhere until that
                 ruling lands. Note this paper is shelved under the Temporal Integration pool

@@ -25,7 +25,7 @@ WHAT THIS DOES NOT PROVE, so a green run is not over-read:
     state that no clone can re-derive — which is exactly the property that made
     `.claude/logs/` invisible to every consumer that reads the repo. **A skipped
     tier reports PASS in `run-all.sh`'s summary having asserted nothing**, which
-    is the same gap `C-067` describes for `mutate.sh`'s legs reached through a
+    is the same gap `C-abieu0fg` describes for `mutate.sh`'s legs reached through a
     second tool: no pytest exit code carries an executed-test count. So this tier
     is never the evidence a guard works — the unit tier is.
   * ⚠ **"A REAL dispatch" was not true of most of what this read, until it was

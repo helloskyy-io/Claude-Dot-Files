@@ -2,15 +2,15 @@
 
 `candidates.md` states its own rule — ids are never reused and never renumbered —
 and the id is the ADDRESS: `triage-candidates` triages by it, phase docs cite it, and a
-finding's whole disposition can be the sentence "see C-060". An id that names two
+finding's whole disposition can be the sentence "see C-45bhs5cm". An id that names two
 different proposals makes one of them unaddressable, and it does so silently.
 
 THE ID SPACE IS ALLOCATED BY READING THE CURRENT MAXIMUM, which is safe exactly
 as long as one run at a time is doing it. **It is not, and the collision has
 already happened three ways.** On 2026-08-11, within about forty minutes: two
-open PRs each appended a `C-066` for unrelated proposals, and a THIRD — already
-merged to `main` by then — had taken `C-066`, `C-067` and `C-068` for a fourth
-set. The branch that wrote this check had to renumber its own row to `C-069`
+open PRs each appended a `C-xhb460zu` for unrelated proposals, and a THIRD — already
+merged to `main` by then — had taken `C-xhb460zu`, `C-abieu0fg` and `C-ijmjaqrs` for a fourth
+set. The branch that wrote this check had to renumber its own row to `C-skkjo6jn`
 after the merge, having allocated correctly against a `main` that moved
 underneath it.
 
@@ -45,10 +45,16 @@ _REPO = Path(__file__).resolve().parents[4]
 _CANDIDATES = _REPO / "docs" / "standards" / "architecture" / "research" / \
     "candidates.md"
 
-# A row: `| C-069 | <finding> | <source> | <decision> | `status` | <note> |`.
-# Anchored at line start so a `C-NNN` merely CITED inside another row's prose —
+# A row: `| C-skkjo6jn | <finding> | <source> | <decision> | `status` | <note> |`.
+# Anchored at line start so an id merely CITED inside another row's prose —
 # which happens constantly, and is not an allocation — is not read as one.
-_ROW = re.compile(r"^\|\s*(C-\d+)\s*\|", re.M)
+#
+# `[0-9a-z]+` AND NOT `\d+`: ids are eight random base36 characters. A digits-only
+# key would silently stop seeing every id containing a letter, which is all but a
+# vanishing fraction of them — and a uniqueness check that cannot SEE an id
+# reports "all unique" over the handful it can, which is the wrong-confidence
+# shape this suite exists to refuse.
+_ROW = re.compile(r"^\|\s*(C-[0-9a-z]+)\s*\|", re.M)
 
 
 def _ids() -> list[str]:
@@ -84,14 +90,27 @@ def test_every_candidate_id_is_ALLOCATED_ONCE() -> None:
     )
 
 
-def test_every_candidate_id_uses_THE_SAME_WIDTH() -> None:
-    """`C-66` and `C-066` are two spellings of one address.
+def test_every_candidate_id_uses_THE_SAME_SHAPE() -> None:
+    """`C-66` and `C-xhb460zu` are two spellings of one address.
 
-    Cheap to hold and expensive to lose: a grep for `C-066` misses `C-66`, and a
+    Cheap to hold and expensive to lose: a grep for one misses the other, and a
     reader who finds neither concludes the candidate was never placed.
+
+    THE SHAPE CHANGED ON 2026-08-21 and the OLD one is not accepted here. Ids
+    were `C-` plus three digits, allocated as `max + 1` from the branch's own
+    snapshot — so two branches took the same "next free" id and git merged both
+    rows with no conflict, because they sat at different positions. Nine
+    renumbering events, then six more collisions, three on one PR. Random ids
+    need no coordination, so there is no next to race for.
+
+    Every existing row was migrated, deliberately: the operator ruled against
+    carrying two shapes. That is why this asserts ONE form rather than allowing
+    a legacy one — a tolerated second shape is how the grep-misses-it failure
+    above gets reintroduced by a run that copies the older neighbour.
     """
-    odd = sorted({i for i in _ids() if not re.fullmatch(r"C-\d{3}", i)})
+    odd = sorted({i for i in _ids() if not re.fullmatch(r"C-[0-9a-z]{8}", i)})
     assert not odd, (
-        f"these ids do not use the three-digit form every other row uses: "
-        f"{odd}. Pad them, so one grep finds one candidate."
+        f"these ids are not `C-` plus eight base36 characters: {odd}. Ids are "
+        f"MINTED by `research_activities.candidate_ceiling` and handed to the run; "
+        f"nothing computes one."
     )
