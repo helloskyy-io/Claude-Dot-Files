@@ -791,6 +791,9 @@ claude-dot-files/
 │   │       │                                        #   Also INVENTORIES the same class in docs/, which it does
 │   │       │                                        #   NOT walk: six files, five of them not defects — recorded
 │   │       │                                        #   PATH BY PATH, so a new one reds even in an already-listed file.
+│   │       │                                        #   Its one exemption channel is scoped to the FILE, the PROSE and
+│   │       │                                        #   the COUNT that earn it. It was global: a full regression of the
+│   │       │                                        #   very prompt this guard exists for read CLEAN.
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what

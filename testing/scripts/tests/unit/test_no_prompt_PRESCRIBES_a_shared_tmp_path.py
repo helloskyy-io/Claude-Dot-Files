@@ -41,6 +41,14 @@ WHAT THIS DOES NOT LOOK AT:
     is a real hole in the same class, deliberately left open rather than traded
     for false positives on every `/tmp` mention. Nothing in the tree exploits it.
   * `docs/`. It is INVENTORIED below, not enforced — see `DOCS_RESIDUE`.
+  * A path a file EXPLAINS rather than prescribes. `EXPLANATORY` forgives one,
+    and it is the ONLY way past this guard, so it is stated here rather than
+    left for a reader to find in the predicate. It was once path-keyed and
+    global: `/tmp/pr-comments.json` — the path whose collision this module
+    exists for — was exempt on every walked surface, so a full regression of
+    `fidelity_read_and_compare` read clean. An exemption is now no wider than
+    the judgement that earned it, in all three dimensions it was wider in: the
+    FILE, the PROSE, and the COUNT. See `EXPLANATORY`.
 """
 
 from __future__ import annotations
@@ -116,23 +124,96 @@ PER_DISPATCH_EXAMPLES = ("${PR_NUMBER}", "$$", "<branch>", "<ts>", "<name>", "{p
 # a test CAN reach.
 SHAPE_TO_COPY = "/tmp/claude-review-pr-${PR_NUMBER}-<ts>.md"
 
+
+class Exemption(NamedTuple):
+    """What a file may say about a fixed `/tmp` path without being told off.
+
+    `anchor` is the prose that EARNS the exemption and `occurrences` is how many
+    times that file may name the path. Both are part of the exemption's SCOPE,
+    not documentation of it — see `_fixed_paths`.
+    """
+    anchor: str
+    occurrences: int
+    reason: str
+
+
 # A path named only to EXPLAIN the defect — prose about the old fixed form, not
 # an instruction to use it. Each entry states why, because an exemption without
 # a reason is how this list grows until the guard means nothing.
-EXPLANATORY = {
-    "/tmp/pr-comments.json":
+#
+# KEYED ON `(file, path)`, PINNED TO PROSE AND TO A COUNT — AND IT SHIPPED AS A
+# BARE `{path: reason}` APPLIED EVERYWHERE. That is the defect this module was
+# built to catch, living inside the module: `/tmp/pr-comments.json` is the path
+# whose collision produced the 13 overlapping pairs, and it was exempt on every
+# walked surface. Measured, all three arms:
+#
+#   * ANOTHER FILE. Any of the four walked surfaces could PRESCRIBE any of these
+#     three paths and `_fixed_paths` returned `[]`, while an unlisted path in the
+#     same position was flagged — so the exemption was the only thing suppressing
+#     it. The FILE key closes this.
+#   * THE PROSE GONE. Reverting `fidelity_read_and_compare`'s instruction to the
+#     fixed path AND deleting the explaining sentence — the "a later editor
+#     tidies away the redundant warning" scenario the PR body names as the reason
+#     that prose exists — still read clean, because the exemption did not depend
+#     on the explanation. FILE-scoping alone does NOT close this one: the
+#     regression is IN the file that earned the exemption. `anchor` closes it.
+#   * ONE MORE OCCURRENCE. A prescription added BESIDE the surviving explanation
+#     is the same path in the same file, so neither of the above sees it.
+#     `occurrences` closes it.
+#
+# `test_every_EXEMPTION_is_still_present_and_still_explanatory` did not close any
+# of the three: it asserted the path appeared SOMEWHERE in the corpus, which a
+# prescription satisfies exactly as well as an explanation. Its own docstring
+# named the failure mode — "exempt by inheritance" — and closed only the case
+# where the prose vanishes entirely.
+#
+# THE SHAPE IS BORROWED, NOT INVENTED. `test_convergence`'s `REPORTING_ONLY` keys
+# its exemptions `(file, function)` — the granularity of the judgement — and that
+# is the exemplar this now follows.
+#
+# ROOT CAUSE, AND IT IS WHY THE KEY CHANGED RATHER THAN THE ENTRIES: an exemption
+# granted at a coarser scope than the judgement that earned it. Every reason below
+# already named its file, its prose and its single occurrence — in prose, where
+# nothing enforced them. A new entry cannot now be written without stating all
+# three, so the next member of this class fails to be expressible rather than
+# waiting to be found.
+EXPLANATORY: dict[tuple[str, str], Exemption] = {
+    ("scripts/workflows/temporal/modules/assistant/prompts/fidelity_read_and_compare.md",
+     "/tmp/pr-comments.json"): Exemption(
+        "THE FILENAME CARRIES THE PR NUMBER because this path is shared by every "
+        "concurrent dispatch.",
+        1,
         "named in `fidelity_read_and_compare`'s own warning about why the "
         "filename carries ${PR_NUMBER}. The INSTRUCTION beside it is already "
         "per-dispatch; removing the prose would delete the reason.",
-    "/tmp/shared/notes.md":
+    ),
+    ("scripts/workflows/temporal/modules/assistant/build/build_activities.py",
+     "/tmp/shared/notes.md"): Exemption(
+        "which is not a sibling of the repo",
+        1,
         "the WORKED EXAMPLE in `build_activities`'s docstring for why an escaping "
         "relative argument is rendered as its resolved absolute path — it is the "
         "path the fleet would WRONGLY have opened. Nothing writes it.",
-    "/tmp/x/candidates.md":
+    ),
+    ("scripts/workflows/temporal/scripts/run_plan_sprint.py",
+     "/tmp/x/candidates.md"): Exemption(
+        "was handed to the prompt, and was read and written by a run executing under",
+        1,
         "the tail of the traversal string `../../../../tmp/x/candidates.md` that "
         "`run_plan_sprint`'s comment records as having escaped an `.exists()` "
         "check. It is the attack that was demonstrated, not a path to use.",
+    ),
 }
+
+
+# `ids` FOR BOTH `EXPLANATORY` PARAMETRIZATIONS, AS A LIST AND NOT A CALLABLE.
+# A callable is invoked once per ARGNAME, not once per paramset — so it was
+# handed the `Exemption` as well as the key, and `Exemption` is a NamedTuple,
+# hence a `tuple`, so an `isinstance(k, tuple)` guard did not discriminate them.
+# `k[0]` on the exemption is its ANCHOR, and every test id carried a full
+# sentence of prose. Confirmed by `--collect-only`, not reasoned. The list form
+# is applied once per paramset and cannot see the values at all.
+EXEMPTION_IDS = [f.split("/")[-1] for f, _ in EXPLANATORY]
 
 
 class Residue(NamedTuple):
@@ -244,11 +325,36 @@ def _prompts() -> list[Path]:
     return found
 
 
-def _fixed_paths(text: str) -> list[str]:
-    """`/tmp` paths in `text` whose names cannot differ between two dispatches."""
+def _mentions(text: str, path: str) -> int:
+    """How many times `text` names exactly `path`, AS THE DETECTOR SEES IT.
+
+    Not `text.count(path)`. A longer path that merely STARTS with `path` —
+    `/tmp/pr-comments.json.bak` — is a DIFFERENT path, and `TMP_PATH` matches it
+    whole; a substring count charges it against `path`'s exemption and reds a
+    file that has not regressed. It cannot let a prescription through either: a
+    mention this does not count is one the main filter has already flagged under
+    its own name.
+    """
+    return TMP_PATH.findall(text).count(path)
+
+
+def _fixed_paths(text: str, source: str = "") -> list[str]:
+    """`/tmp` paths in `text` whose names cannot differ between two dispatches.
+
+    `source` is the repo-relative file `text` came from, and it is what makes an
+    `EXPLANATORY` entry apply. The exemption is recomputed FROM `text` on every
+    call rather than read off the table, so it lapses the moment the prose that
+    earned it goes or the file starts saying the path more often than the entry
+    allows. DEFAULTING TO `""` IS DELIBERATE: a caller that does not say where
+    the text came from — every synthetic control below — gets no exemptions at
+    all, which is the strict reading and cannot mask a shape bug.
+    """
+    exempt = {path for (f, path), e in EXPLANATORY.items()
+              if f == source and e.anchor in text
+              and _mentions(text, path) == e.occurrences}
     return [m for m in TMP_PATH.findall(text)
             if not PER_DISPATCH.search(m)
-            and m not in EXPLANATORY]
+            and m not in exempt]
 
 
 def _residue_under(docs: Path, base: Path) -> dict[str, set[str]]:
@@ -263,6 +369,10 @@ def _residue_under(docs: Path, base: Path) -> dict[str, set[str]]:
     for f in sorted(docs.rglob("*")):
         if not (f.is_file() and f.suffix in SUFFIXES):
             continue
+        # NO `source` — the `docs/` inventory takes no exemptions, and cannot:
+        # `EXPLANATORY` is keyed on a WALKED surface and `docs/` is not one, which
+        # the staleness test asserts. Passing a source here would be code that can
+        # never grant anything, which reads as a scope this record does not have.
         paths = set(_fixed_paths(f.read_text()))
         if paths:
             found[str(f.relative_to(base))] = paths
@@ -297,7 +407,8 @@ def _inventory_mismatch(found: dict[str, set[str]],
 
 def test_no_prompt_SENDS_EVERY_DISPATCH_to_one_file() -> None:
     offenders = [(p.relative_to(REPO), m)
-                 for p in _prompts() for m in _fixed_paths(p.read_text())]
+                 for p in _prompts()
+                 for m in _fixed_paths(p.read_text(), str(p.relative_to(REPO)))]
     assert not offenders, (
         "these prompts name a FIXED path in `/tmp`, which every dispatch on the "
         "machine shares:\n"
@@ -306,7 +417,10 @@ def test_no_prompt_SENDS_EVERY_DISPATCH_to_one_file() -> None:
           "publishes the winner's content. Carry something per-dispatch in the "
           f"name — a placeholder of any spelling, e.g. {list(PER_DISPATCH_EXAMPLES)}. "
           f"`review_pr`'s `{SHAPE_TO_COPY}` is the shape to copy.\n"
-          "If the path is only being DESCRIBED, add it to EXPLANATORY with a reason."
+          "If the path is only being DESCRIBED, add it to EXPLANATORY keyed by "
+          "`(this file, the path)`, with the sentence that explains it, how many "
+          "times this file says it, and a reason. An exemption is scoped to the "
+          "judgement that earned it; there is no global one."
     )
 
 
@@ -320,9 +434,12 @@ def test_THE_WALK_HAS_A_POPULATION_and_the_detector_SEES_BOTH_BACKTICK_FORMS() -
     """
     cases = {
         "escaped backticks": r"revising a /tmp staging file (e.g. \`/tmp/claude-pr-body.md\`) later",
-        # NOT a name from EXPLANATORY: the exemption list filters the detector,
-        # so a control reusing an exempted name tests the exemption rather than
-        # the shape. Caught by this control failing on its first run.
+        # This used to have to avoid the names in `EXPLANATORY`, because the
+        # exemption was global and a control reusing one tested the exemption
+        # rather than the shape — a defect met while authoring a test and routed
+        # around instead of closed. It no longer has to: `_fixed_paths` grants
+        # nothing without a `source`. The name stays neutral anyway, so that this
+        # control keeps testing only the SHAPE.
         "plain backticks": "write it to `/tmp/some-fetch.json`, then read it",
         "bare": "gh pr view > /tmp/some-thing.json",
         "in a command": "gh api ... > /tmp/claude-review.md && cat /tmp/claude-review.md",
@@ -347,17 +464,191 @@ def test_THE_WALK_HAS_A_POPULATION_and_the_detector_SEES_BOTH_BACKTICK_FORMS() -
             f"correct tree and teach the next reader to delete it: {src!r}")
 
 
-@pytest.mark.parametrize("path,reason", sorted(EXPLANATORY.items()))
-def test_every_EXEMPTION_is_still_present_and_still_explanatory(path: str, reason: str) -> None:
-    """An exemption for a path nobody mentions any more is a lie that survives.
+@pytest.mark.parametrize("key,exemption", list(EXPLANATORY.items()),
+                         ids=EXEMPTION_IDS)
+def test_every_EXEMPTION_is_still_present_and_still_explanatory(
+        key: tuple[str, str], exemption: Exemption) -> None:
+    """An exemption for prose nobody wrote any more is a lie that survives.
 
     This list may only shrink. If the prose that earned the exemption is gone,
     the entry goes with it — otherwise the next fixed path with that name is
     exempt by inheritance.
+
+    THE PREDECESSOR ASSERTED THE WRONG THING, and asserting it is what made the
+    entry look checked. It required only that the path appear SOMEWHERE across
+    the walked surfaces — which a PRESCRIPTION satisfies exactly as well as an
+    explanation, in any file, however many times. Its own docstring named the
+    failure mode it was closing ("exempt by inheritance") while closing only the
+    case where every mention vanishes. Each of the three things it did not check
+    is now part of the exemption's scope, so this test checks each of them.
     """
-    assert any(path in p.read_text() for p in _prompts()), (
-        f"{path} is exempted in EXPLANATORY but appears in no prompt. Remove the "
-        f"entry — its stated reason was: {reason}")
+    source, path = key
+    f = REPO / source
+    assert f in _prompts(), (
+        f"{source} is the file {path} is exempted in, but it is not a walked "
+        f"surface — so the exemption applies to nothing and is dead weight. It "
+        f"was: {exemption.reason}")
+
+    text = f.read_text()
+    assert exemption.anchor in text, (
+        f"the prose that EARNS {path}'s exemption in {source} is gone:\n"
+        f"  {exemption.anchor!r}\n"
+        f"Either restore it or drop the entry — an exemption outliving its own "
+        f"justification is how a prescription inherits one. It was: {exemption.reason}")
+    assert _mentions(text, path) == exemption.occurrences, (
+        f"{source} names {path} {_mentions(text, path)} times; the exemption covers "
+        f"{exemption.occurrences}. Read the new occurrence: if it EXPLAINS, raise "
+        f"the count; if it PRESCRIBES, it is the defect this module exists for.")
+
+
+@pytest.mark.parametrize("key,exemption", list(EXPLANATORY.items()),
+                         ids=EXEMPTION_IDS)
+def test_an_EXEMPTION_does_not_TRAVEL_beyond_the_judgement_that_earned_it(
+        key: tuple[str, str], exemption: Exemption) -> None:
+    """THE CONTROL THIS MODULE SHIPPED WITHOUT, and the hole was its own headline.
+
+    `_fixed_paths` filtered with `m not in EXPLANATORY` — a global, path-keyed
+    set — so `/tmp/pr-comments.json`, the path whose collision produced the 13
+    overlapping pairs this module exists for, was exempt on every walked surface
+    and in any quantity. A full regression of `fidelity_read_and_compare` read
+    clean. The guard could not detect the defect it was built for.
+
+    THE ARMS ARE DRIVEN FROM `EXPLANATORY` ITSELF, NOT FROM THE THREE ENTRIES IN
+    IT. That is the difference between closing a class and closing an instance:
+    an entry added next year is exercised on all three arms without an edit here,
+    and an entry that cannot pass them cannot be written. Each arm reds against
+    exactly one widening — file, prose, count — so a partial revert is
+    attributable rather than merely red.
+    """
+    source, path = key
+    text = (REPO / source).read_text()
+
+    assert path not in _fixed_paths(text, source), (
+        f"{source} does not currently earn its exemption for {path}, so every arm "
+        f"below is vacuous — they all assert the path IS flagged")
+
+    # ARM 0 — NO SOURCE AT ALL. Every synthetic control below calls
+    # `_fixed_paths` with one argument, so "unattributed text is judged strictly"
+    # is load-bearing for the whole module and not merely a default.
+    #
+    # BOTH SPELLINGS, and the omitted one is the one that matters: the controls
+    # call `_fixed_paths(src)` with a single argument, so the property belongs to
+    # the DEFAULT and not to the empty string someone happened to pass. Pinning
+    # only `source=""` leaves a default that names a real file green.
+    assert path in _fixed_paths(text, ""), (
+        f"{path} is exempt in text attributed to no file. The default would then "
+        f"forgive every control in this module, and a shape bug would hide behind "
+        f"an exemption nobody passed.")
+    assert path in _fixed_paths(text), (
+        f"{path} is exempt when `source` is OMITTED, which is how every synthetic "
+        f"control in this module calls the predicate")
+
+    # ARM 1 — ANOTHER FILE. The widening that shipped: the exemption applied
+    # wherever the path appeared, so any walked surface could PRESCRIBE it.
+    #
+    # THE EARNING FILE'S OWN TEXT IS WHAT GETS RE-JUDGED, and a bespoke sentence
+    # is what the first draft used — which meant the ANCHOR was missing from it
+    # too, so arm 2 was answering and dropping the `f == source` term left every
+    # arm green. Measured. Holding prose and count fixed is the only way this arm
+    # is about the FILE.
+    others = [str(f.relative_to(REPO)) for f in _prompts()
+              if str(f.relative_to(REPO)) != source]
+    assert others, "only one walked file — arm 1 cannot distinguish anything"
+    for other in (others[0], others[-1]):
+        assert path in _fixed_paths(text, other), (
+            f"the exemption {source} earned for {path} also applies in {other}, "
+            f"which earned nothing. A path PRESCRIBED on any other walked surface "
+            f"is the class this module exists to catch.")
+
+    # ARM 2 — THE PROSE GONE. The measured scenario, and the one FILE-SCOPING
+    # ALONE DOES NOT CLOSE: the regression happens INSIDE the file that earned
+    # the exemption, when a later editor tidies away the warning as redundant.
+    without = text.replace(exemption.anchor, "")
+    assert without != text and path in without, (
+        f"removing {exemption.anchor!r} also removed every mention of {path} from "
+        f"{source}, so this arm asserts nothing — anchor on prose that can outlive "
+        f"the path, not on the path itself")
+    assert path in _fixed_paths(without, source), (
+        f"{path} is still exempt in {source} after the prose that earns it was "
+        f"deleted. An exemption that outlives its own justification is inherited "
+        f"by whatever takes its place.")
+
+    # ARM 3 — ONE MORE OCCURRENCE. Neither of the above sees a PRESCRIPTION added
+    # beside a surviving explanation: same path, same file, prose intact.
+    beside = text + f"\n\nstage it at {path} first\n"
+    assert path in _fixed_paths(beside, source), (
+        f"a second mention of {path} in {source} rode in on the exemption earned "
+        f"by the first. The entry covers {exemption.occurrences}; read the new one "
+        f"and either raise the count or fix it.")
+
+
+@pytest.mark.parametrize("key,exemption", list(EXPLANATORY.items()),
+                         ids=EXEMPTION_IDS)
+def test_a_LONGER_PATH_is_not_CHARGED_TO_THE_EXEMPTION_it_merely_starts_with(
+        key: tuple[str, str], exemption: Exemption) -> None:
+    """`_mentions` counts what the DETECTOR sees; `str.count` counts substrings.
+
+    `/tmp/pr-comments.json.bak` is a DIFFERENT path — `TMP_PATH` matches it whole
+    and it gets flagged under its own name. A substring count charges it against
+    `/tmp/pr-comments.json`'s exemption, so the file's count goes 1 -> 2, the
+    exemption lapses, and the untouched explanatory mention is reported as a
+    defect beside the real one. A guard that reds on the wrong line teaches the
+    next reader to delete the wrong thing.
+
+    NOTHING IN THE TREE EXERCISES THIS, which is exactly why it is written down:
+    reverting `_mentions` to `text.count` is green against the whole suite
+    without it, so the helper's entire justification would be prose.
+    """
+    source, path = key
+    text = (REPO / source).read_text()
+    sibling = f"{path}.bak"
+
+    assert _mentions(sibling, path) == 0 and sibling.count(path) == 1, (
+        f"{sibling!r} is supposed to be the case where the two counts DISAGREE; "
+        f"if they agree this test cannot distinguish them")
+
+    widened = text + f"\n\nand keep the previous one at {sibling}\n"
+    assert path not in _fixed_paths(widened, source), (
+        f"adding the unrelated {sibling} to {source} cost {path} the exemption it "
+        f"still earns — the count is charging a different path against it")
+    assert sibling in _fixed_paths(widened, source), (
+        f"{sibling} is a fixed path nothing exempts and it was not flagged, so "
+        f"the arm above passes for the wrong reason")
+
+
+def test_a_FULL_REGRESSION_of_the_defect_this_module_EXISTS_FOR_is_caught() -> None:
+    """The exact scenario measured on PR #135, on the real file rather than a fixture.
+
+    `fidelity_read_and_compare` is the prompt whose fixed `/tmp/pr-comments.json`
+    gave 19 `build-refine*` runs 13 overlapping pairs in one night. The regression
+    is not hypothetical and not exotic: revert the instruction to the fixed path
+    and delete the sentence explaining why it carries `${PR_NUMBER}` — the
+    "a later editor tidies away the redundant warning" path the module docstring
+    already names. Under the shipped global exemption this read CLEAN.
+
+    Kept separate from the parametrized arms above because it pins the FILE and
+    the PATH by name. If this prompt is ever renamed or restructured, this test
+    is supposed to be the thing that notices.
+    """
+    source = ("scripts/workflows/temporal/modules/assistant/prompts/"
+              "fidelity_read_and_compare.md")
+    path = "/tmp/pr-comments.json"
+    exemption = EXPLANATORY[(source, path)]
+    text = (REPO / source).read_text()
+
+    assert not _fixed_paths(text, source), (
+        "the live prompt is not clean, so this test cannot tell a regression from "
+        "the status quo")
+
+    regressed = text.replace(
+        f"/tmp/pr-comments-${{PR_NUMBER}}.json", path).replace(exemption.anchor, "")
+    assert _mentions(regressed, path) >= 2 and exemption.anchor not in regressed, (
+        "the regression did not reproduce — the prompt no longer contains the "
+        "per-dispatch instruction or the warning this test rewrites")
+
+    assert path in _fixed_paths(regressed, source), (
+        f"a full regression of {source} to the fixed {path} reads CLEAN. The guard "
+        f"cannot detect the defect it was built for.")
 
 
 def test_the_PER_DISPATCH_EXAMPLES_are_all_accepted_by_the_SHAPE() -> None:
