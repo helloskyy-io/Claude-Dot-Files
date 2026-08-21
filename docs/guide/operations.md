@@ -94,7 +94,7 @@ On `review-pr`'s verdict the parent routes itself:
 **Exactly one loop-back, and it is not configurable.** Self-correction plateaus at roughly 3–5 passes; past it the same model justifies rather than corrects. Counting across the pipeline — refine 1, review-pr 2, loop refine 3, review-pr 4 — one loop-back lands inside the band and two would clear it. The number comes from the research, so there is no knob to tune past it.
 ```bash
 ./scripts/workflows/build.sh "restructure the auth flow to use sessions"
-./scripts/workflows/build.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-task.md
+./scripts/workflows/build.sh --repo /opt/skyy-net/skyy-command --pr 42 --task-file /tmp/claude-<name>.md
 ```
 
 ### `children/review-pr.sh` — the disposition engine (120 turns, DECIDE-ONLY)

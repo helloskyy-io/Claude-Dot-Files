@@ -789,8 +789,8 @@ claude-dot-files/
 │   │       │                                        #   Walks prompts AND operator surfaces (runner help, skills) —
 │   │       │                                        #   the first version excluded the latter and the class stayed live.
 │   │       │                                        #   Also INVENTORIES the same class in docs/, which it does
-│   │       │                                        #   NOT walk: seven files, five of them not defects — recorded
-│   │       │                                        #   so a NEW one fails here rather than in a later review pass.
+│   │       │                                        #   NOT walk: six files, five of them not defects — recorded
+│   │       │                                        #   PATH BY PATH, so a new one reds even in an already-listed file.
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what
