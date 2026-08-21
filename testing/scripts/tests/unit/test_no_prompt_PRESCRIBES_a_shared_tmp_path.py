@@ -428,6 +428,35 @@ def test_the_DOCS_RESIDUE_inventory_still_MATCHES_THE_TREE() -> None:
     )
 
 
+def _category(mismatch: str, label: str) -> str:
+    """The one line of `_inventory_mismatch`'s report that `label` names.
+
+    The arms below assert against THIS rather than against the whole report,
+    and the difference is not cosmetic: the report prints all four category
+    labels unconditionally, so `"gone" in mismatch` — which is what one arm
+    checked for a revision — is true of every non-empty report and would pass
+    with the gone-detection wholly broken. A label that is always present is
+    not evidence, and that is the same overclaim this module was just corrected
+    for, one layer down.
+    """
+    lines = [ln for ln in mismatch.splitlines() if ln.strip().startswith(label)]
+    assert len(lines) == 1, (
+        f"{label!r} names {len(lines)} lines of the mismatch report, so an "
+        f"assertion against it is ambiguous:\n{mismatch}")
+    # RETURN THE PAYLOAD, NOT THE LINE. Returning anything wider — the line with
+    # its label, or the whole report — lets a caller's `x in _category(...)` pass
+    # on a payload that fired under a DIFFERENT label, which is the vacuity this
+    # helper exists to remove rather than relocate. Mutating the selection to
+    # return the whole report is green against a version that returns `lines[0]`
+    # and red against this one.
+    assert "\n" not in lines[0], (
+        f"a category is ONE line of the report; {label!r} selected "
+        f"{len(lines[0].splitlines())} of them, so narrowing bought nothing")
+    _, _, payload = lines[0].partition(":")
+    assert payload, f"{label!r} selected a line with no payload: {lines[0]!r}"
+    return payload
+
+
 def test_a_NEW_PATH_IN_AN_ALREADY_RECORDED_FILE_is_not_invisible(tmp_path: Path) -> None:
     """THE ARM THE PRODUCING PASS DID NOT RUN, and the one that was blind.
 
@@ -458,24 +487,46 @@ def test_a_NEW_PATH_IN_AN_ALREADY_RECORDED_FILE_is_not_invisible(tmp_path: Path)
         "the arms are not distinguishable — this mutation was supposed to leave "
         "the FILE SET identical, which is what made it invisible")
     mismatch = _inventory_mismatch(found, recorded)
-    assert "/tmp/claude-brandnew-collision.md" in mismatch, (
+    assert "/tmp/claude-brandnew-collision.md" in _category(
+        mismatch, "NEW path in a RECORDED file"), (
         "a NEW fixed path in an already-recorded file did not red the inventory. "
         "That is the exact blind spot this control exists for, and three shipped "
         "surfaces claim it cannot happen:\n" + (mismatch or "  (no mismatch at all)"))
-    assert "NEW path in a RECORDED file" in mismatch
 
     # ARM 2 — the same path in a file NOBODY recorded. Caught by both versions,
     # kept so a regression that breaks only one arm is attributable.
     (docs / "recorded.md").write_text("run it with --task-file /tmp/fixed-one.md\n")
     (docs / "fresh.md").write_text("stage it at /tmp/claude-brandnew-collision.md\n")
     mismatch = _inventory_mismatch(_residue_under(docs, tmp_path), recorded)
-    assert "docs/fresh.md" in mismatch and "NEW file" in mismatch
+    assert "docs/fresh.md" in _category(mismatch, "NEW file")
 
-    # ARM 3 — a path that was FIXED. The record must not silently shrink either.
+    # ARM 3 — a file's LAST recorded path was fixed, so the file leaves the tree.
+    # The record must not silently shrink either.
     (docs / "fresh.md").unlink()
     (docs / "recorded.md").write_text("run it with --task-file /tmp/claude-<name>.md\n")
     mismatch = _inventory_mismatch(_residue_under(docs, tmp_path), recorded)
-    assert "docs/recorded.md" in mismatch and "gone" in mismatch
+    assert "docs/recorded.md" in _category(mismatch, "RECORDED file gone")
+
+    # ARM 4 — THE MIRROR OF ARM 1, and it was missing for the same reason arm 1
+    # was: one of a file's paths is fixed while the file keeps others, so the
+    # file stays in both dicts and only the SET shrinks. `gone_paths` is the only
+    # branch that sees it, and a fix that never reds the record is a fix nobody
+    # is told to write down — which is how #137 went stale in the first place.
+    (docs / "recorded.md").write_text(
+        "one at /tmp/fixed-one.md and another at /tmp/fixed-two.md\n")
+    two = {"docs/recorded.md": {"/tmp/fixed-one.md", "/tmp/fixed-two.md"}}
+    assert not _inventory_mismatch(_residue_under(docs, tmp_path), two)
+    (docs / "recorded.md").write_text(
+        "one at /tmp/fixed-one.md and another at /tmp/claude-<name>.md\n")
+    found = _residue_under(docs, tmp_path)
+    assert set(found) == set(two), (
+        "this arm is only meaningful while the FILE stays on both sides — "
+        "otherwise it is arm 3 again")
+    mismatch = _inventory_mismatch(found, two)
+    assert "/tmp/fixed-two.md" in _category(mismatch, "RECORDED path gone"), (
+        "a path FIXED inside a file that keeps its other paths did not red the "
+        "record. Nothing would then tell anyone to update #137:\n"
+        + (mismatch or "  (no mismatch at all)"))
 
 
 def test_the_SHAPE_the_failure_message_TELLS_AN_AUTHOR_TO_COPY_is_accepted() -> None:
@@ -493,6 +544,15 @@ def test_the_SHAPE_the_failure_message_TELLS_AN_AUTHOR_TO_COPY_is_accepted() -> 
         f"the failure message offers {SHAPE_TO_COPY!r} as the shape to copy, but "
         f"this guard flags it — an author following the remedy would be sent "
         f"straight back into the class")
+
+    # ...and the message attributes it to `review_pr`, so that has to still be
+    # true. Same freshness discipline as `EXPLANATORY` and
+    # `PER_DISPATCH_EXAMPLES`: a constant that quotes a live surface is a claim
+    # about that surface, and an unchecked one goes stale silently.
+    assert any(SHAPE_TO_COPY in p.read_text() for p in _prompts()), (
+        f"the failure message credits `review_pr` with {SHAPE_TO_COPY!r}, but no "
+        f"walked surface names it any more. Re-quote the live shape or drop the "
+        f"attribution — an exemplar nobody uses teaches a shape nobody reviews.")
 
 
 def test_no_RESIDUE_ENTRY_defers_behind_a_GATE_THAT_DOES_NOT_REACH_IT() -> None:
