@@ -5,14 +5,14 @@
 This repo is **not a product.** It is the **assistant edge** of a larger system, and almost every question about it is unanswerable without that frame.
 
 ```
-SkyyNet                  federation and central control. Self-healing k8s;
-  │                      places paid work across MDCs
-  └─ SkyyCommand (MDC)   a Micro-Data-Center. Orchestrates hosts, VMs and k8s
-       │                 clusters; owns local services and workloads
-       ├─ Assistant edge     ← THIS REPO. Coding, and general assistance
-       ├─ (future edge)      control of the self-healing k8s infrastructure
-       └─ (future edge)      the physical world: building and industrial
-                             automation, home automation, robotics
+SkyyNet                      Federation and central control. Self-healing k8s; places paid work across MDCs
+  │                      
+  └─ SkyyCommand (MDC)       A Micro-Data-Center. Orchestrates hosts, VMs and k8s clusters; owns local services and workloads
+       │                 
+       ├─ Assistant edge     Coding, and general assistance
+       ├─ (future edge)      Control of the self-healing k8s infrastructure
+       └─ (future edge)      The physical world: building and industrial automation, home automation, robotics
+                            
 ```
 
 **What is actually deployed today**, so the diagram is not read as aspiration:
@@ -57,9 +57,9 @@ They become the recipe:
 
 ## Where we actually differ
 
-Four things about this project look genuinely different from the closest systems we could find. We checked each one against those systems directly, reading their own documentation and code rather than anyone's summary of them. **They are listed strongest first.**
+Five things about this project look genuinely different from the closest systems we could find. We checked each one against those systems directly, reading their own documentation and code rather than anyone's summary of them. **They are listed strongest first.**
 
-Each one also says how well it has been checked, because **a difference nobody has verified is a hope, not a difference.** We commissioned research whose job was to knock these claims down, and it worked: two of the four came back weaker than we had written them, and were rewritten or replaced.
+Each one also says how well it has been checked, because **a difference nobody has verified is a hope, not a difference.** We commissioned research whose job was to knock these claims down, and it worked: two of them came back weaker than we had written them, and were rewritten or replaced. The last one on the list was narrowed the same way by a manual sweep, and says so.
 
 **1. The credential cannot be handed out, so the shape of the system is forced rather than chosen. The shape itself is not new.** Both halves have to be stated together, or the claim collapses in one direction or the other.
 
@@ -101,7 +101,7 @@ So this is the affordability argument again in another form: **work runs where t
 
 **3. The first edge builds the others, then operates inside them.** See below. *Evidence: no trace of anything comparable.*
 
-**4. The backbone is built for any kind of work, while comparable systems are sold for writing code.** This is the weakest of the four, and direct inspection narrowed it.
+**4. The backbone is built for any kind of work, while comparable systems are sold for writing code.** This is the weakest of the researched claims, and direct inspection narrowed it.
 
 *Domain-general* means the orchestration machinery does not care what the work is. The same machinery that runs a coding job should run a building-control job, an infrastructure job or a research job, because nothing inside it assumes software.
 
@@ -116,6 +116,16 @@ So *"built only for code"* is false where it counts, at the point where work is 
 *How this was checked: we read their own materials directly. The claim is weaker than earlier versions of this document stated.*
 
 **That narrowing is worth more as reference material than as a differentiator**: the domain-general result contract we expected to invent has a shipped, documented shape we can read.
+
+**5. A dispatched run derives the configuration it runs under, rather than inheriting the machine's.** This is stated narrowly, because the first version of it was broad and a search took it apart.
+
+**What is not ours, and an earlier draft wrongly claimed.** Tiered configuration is shipped vendor behaviour. Claude Code resolves settings through managed enterprise policy, then command-line arguments, then project scope, then user scope, with the first source winning outright rather than merging. Plugin marketplaces distribute skills, agents, hooks and MCP servers to a whole team as versioned units through organization settings. Between them a team already gets centrally governed shared logic alongside per-person customization, on per-seat subscriptions. An earlier draft of this item said neither incumbent shape delivers that. It was wrong, and the vendor delivering it is the vendor this edge is built on.
+
+**What is left is narrower and is about the run rather than the machine.** Those tiers resolve against whatever machine a run lands on. Someone edits a rule at 14:00, every dispatch after 14:00 behaves differently, and nothing records that it changed. Two machines cannot be *shown* to be running the same thing, only assumed to be. So the claim is this: **a dispatch derives its own configuration and records what it absorbed**, which is what turns *did these two runs use the same setup* into a question you ask of a record instead of a thing you hope. The failure mode is live elsewhere. An open issue against another agent CLI reports project-local config discovered, logged, then silently ignored in favour of the home-level file, with fleet instances spawning without their orchestration bridge.
+
+**This is decided rather than aspirational.** An operator ruling on 2026-08-19 placed managed configuration in Workflow Decomposition in two halves: which tier wins and what a user's own tier may override, and the record of what a dispatch actually absorbed. **[Phase 5, "what configuration a run absorbed"](../../development/workflow-decomposition/phase5_configuration_a_run_absorbed.md)** builds the record first and states why the tier policy waits on it. That phase already treats the vendor's managed tier as something to measure rather than replace. The seam exists in one place today, because `run-claude` refuses to dispatch on an *inherited* model.
+
+*How this was checked: a manual sweep of vendor documentation and agent-platform material, August 2026. It narrowed the claim rather than confirming it, and it surfaced a buy-versus-build question the phase should answer before it builds: whether the tier-policy half is better taken from managed settings and plugins than written. No paper in the pool covers this yet.*
 
 **Not differentiators, stated plainly so nobody argues them again.** Durable execution, checkpoint and resume, completion contracts, typed refusal, Kubernetes-native deployment, and **authenticating at the edge on a personal subscription** all exist in products shipping today. The last of those has precedent in projects far larger than this one, the biggest at roughly 385,000 stars, where credentials at the edge ship more literally than we state it. Several of them are further along than ours. Claiming any of them would be false, and it would discredit the claims that are true.
 
@@ -180,44 +190,38 @@ A flat per-person subscription inverts that. A long-running loop costs the same 
 
 **Stated plainly because a thesis that hides its load-bearing assumption is weaker than one that names it.** What would break is this *argument*, that wasteful experiments are free. What would not: credentials still stay at the edge, the credential is still unmintable, and the topology is still forced. **And the design is itself the hedge:** because every participant authenticates locally, a pricing change lands identically on each of them rather than centrally on an operator holding everyone's keys.
 
-## Managed configuration is what makes the fifth need answerable
-
-**Deliberately incomplete, and written here so the gap is visible rather than forgotten.** This is the fifth item in the list above, **user-level customization**, and it is the only one of the five without an argument behind it yet.
-
-The shape of the answer, in one line: **configuration is resolved by tier, and a workflow resolves its own.** A participant customizing their agents, skills, rules or hooks changes what *their* interactive sessions do. It does not change what a dispatched workflow does, because the workflow derives its configuration rather than inheriting whatever the machine happened to have. That is what lets shared logic and per-person customization exist on the same machine without one silently altering the other.
-
-**This is intentional, not a side effect**, and it is already decided rather than aspirational:
-
-- **Operator ruling, 2026-08-19:** managed configuration, both halves, belongs to Workflow Decomposition. Which tier wins, what a user's own tier may override, and the record of what a dispatch actually absorbed.
-- **[Phase 5, "what configuration a run absorbed"](../../development/workflow-decomposition/phase5_configuration_a_run_absorbed.md)** builds the *record* first and states why the tier policy waits on it.
-- The seam already exists in one place: `run-claude` refuses to dispatch on an *inherited* model. Agents, skills, rules and hooks are the ambient inputs still outstanding.
-
-**What still needs writing here:** why this is a NEED rather than a nicety, and whether it is a differentiator or simply table stakes that neither incumbent shape delivers. The comparison to make is against per-user tools, where customization is total but nothing is shared, and against centralized platforms, where logic is shared but the participant gets whatever the server decides.
-
 ## The edges
 
 An edge is not a plugin. **It is a machine with a capability and a credential, running a worker that speaks the backbone's protocol.**
 
-### Jarvis — the assistant edge (this repo)
+### The assistant edge (this repo)
 
-**Jarvis is an assistant.** Coding is its current claim to fame because coding is what builds SkyyCommand — but the coding capability is the *first* function, not the definition.
+**This edge is a general assistant, not a coding tool.** Coding is its current claim to fame, and that is not incidental: coding is the capability that builds everything else. It builds SkyyCommand and the MDC. It stands up every future edge. And it is what makes self-improvement possible at all, because a system that can write code can rewrite itself, which is exactly what the continuous improvement cycle runs on.
 
-**(stub.)** Later functions are expected to be provider-shaped: the helpers available differ by which subscription backs the edge — Claude Code and Codex expose different capabilities, different session models, and different limits. The backbone should not care which; the edge should.
+**Coding is the first function, not the definition:** this edge is the system's user interface and its personality, the thing a person actually talks to, whatever domain the work belongs to. It started with code because code is what it needed first, in order to build the rest.
+
+**Later functions are expected to be provider-shaped**, meaning the helpers available differ by which subscription backs the edge: Claude Code and Codex expose different capabilities, different session models, and different limits. The backbone should not care which; the edge should.
 
 **Why this edge is first, and permanent.** It is the edge that builds the others, and then works inside them.
 
-- **It builds them.** Every new edge needs a worker, activities, and workflow modules. That is code, written by the edge that already exists — so each new edge costs less to stand up than the one before it.
-- **It works inside them, with a human in the loop.** Once an edge exists, the operator running it is not left alone with it. The assistant is present *in* that edge — reading its state, diagnosing failures, proposing changes — the same way it is present in a repository today.
+- **It builds them.** Every new edge needs a worker, activities, and workflow modules. That is code, written by the edge that already exists, so each new edge costs less to stand up than the one before it.
+- **It works inside them, with a human in the loop.** Once an edge exists, the operator running it is not left alone with it. The assistant is present *in* that edge, reading its state, diagnosing failures and proposing changes, the same way it is present in a repository today.
+
+**What that means, simply:** the assistant's workflows are available in every subsequent edge. To create a new edge you add another group of workflows on top.
 
 That second role is easy to miss and it is where the compounding comes from. A conventional platform gets harder to operate as it grows, because each new domain is one more thing an operator must learn to run unaided. Here, **every new edge arrives with an assistant already fluent in the backbone that runs it.**
 
-### Building & industrial automation — the next edge
+### Future edges
 
-**(stub.)** The name is provisional and deliberately not "automation," which to a technical audience means CI rather than physical plant. This edge covers real-world control: buildings, HVAC, access, industrial equipment.
+**The first two are being built in tandem.**
 
-It is the natural second edge because **SkyyCommand already runs Home Assistant on the MDC** — the domain is present, the hardware exists, and the edge is not hypothetical. Jarvis dogfoods it twice over: as the assistant that helps *code* it, and as the operator interface *to* it.
+**1. Self-healing infrastructure.** The first order of business, once the assistant edge is coding capable, is to ensure that the intelligence is highly available. SkyyNet will span multiple MDCs and actual data centers as a distributed Kubernetes cluster. This edge's job is to make sure that a node going down or dropping offline is immediately replaced. It will also offer control over federated micro data centers, or home labs, wherever reasoning is wanted. Two MDCs exist today, so incorporating this layer of control is no stretch as a next step.
 
-Beyond it: robotics, bioinformatics, and whatever else has a machine, a credential, and a job. **The backbone does not change; only the edge does.**
+**2. Building and industrial automation.** Once the intelligence is highly available, it is time to let it reach out of the confines of digital space and into the physical world. Reliability comes first for a reason: you do not hand physical control to a system that has not been made reliable and safe. The name is provisional and deliberately not "automation," which to a technical audience means CI rather than control over the physical world. This edge covers real-world control: buildings, HVAC, access, industrial equipment, home automation.
+
+It is the natural fit because **SkyyCommand already runs Home Assistant on MDC1**: the domain is present, the hardware exists, and the edge is not hypothetical. The assistant dogfoods it twice over, as the assistant that helps *code* it and as the operator interface *to* it.
+
+Beyond these two: robotics, bioinformatics, and whatever else has a machine, a credential, and a job. **The backbone does not change; only the edge does.**
 
 ## What this means for anything built here
 
@@ -231,4 +235,4 @@ Three consequences, and they explain decisions that look over-engineered for a p
 
 **Not ratified as a standard.** This states the problem and the intent. Binding decisions live in `docs/standards/`; what is built and planned lives in [`../../development/sprint.md`](../../development/sprint.md).
 
-Supporting evidence is in the research pool beside this file: [`research/synthesis.md`](research/synthesis.md) rolled up, [`research/raw/`](research/raw/) for the papers. **[`research/raw/combination_prior_art.md`](research/raw/combination_prior_art.md) and [`research/raw/case_against.md`](research/raw/case_against.md) are the two that forced this document's rewrite** — both argue against the position this repo held, and both were commissioned to do exactly that. Originally developed as a CSCI-6905.604 research project (2026-07).
+Supporting evidence is in the research pool beside this file: [`research/synthesis.md`](research/synthesis.md) rolled up, [`research/raw/`](research/raw/) for the papers. **[`research/raw/combination_prior_art.md`](research/raw/combination_prior_art.md) and [`research/raw/case_against.md`](research/raw/case_against.md) are the two that forced this document's rewrite**: both argue against the position this repo held, and both were commissioned to do exactly that. Originally developed as a CSCI-6905.604 research project (2026-07).
