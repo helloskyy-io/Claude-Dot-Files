@@ -769,16 +769,16 @@ claude-dot-files/
 │   │       ├── test_no_conflict_markers.py          # No git conflict marker reaches a commit — one did, and passed all four CI
 │   │       │                                        #   checks, because every existing check was aimed at code rather than prose
 │   │       ├── test_no_module_compiles_with_a_SYNTAX_WARNING.py # Every tracked .py compiles clean. One
-│   │       ├── test_no_prompt_PRESCRIBES_a_shared_tmp_path.py # No surface that prescribes a path names a
-│   │       │                                       #   FIXED one under /tmp — shared by every dispatch, so two
-│   │       │                                       #   concurrent runs get one file and the loser silently reads or
-│   │       │                                       #   PUBLISHES the winner's. 13 overlapping pairs measured in one
-│   │       │                                       #   night; the pr-body example was copied verbatim 133 times.
-│   │       │                                       #   Walks prompts AND operator surfaces (runner help, skills) —
-│   │       │                                       #   the first version excluded the latter and the class stayed live.
 │   │       │                                        #   invalid escape in a docstring was flagged by hand on three passes and survived
 │   │       │                                        #   each time; CPython is promoting these to SyntaxError, at which point the module
 │   │       │                                        #   stops importing and its whole tier fails to COLLECT
+│   │       ├── test_no_prompt_PRESCRIBES_a_shared_tmp_path.py # No surface that prescribes a path names a
+│   │       │                                        #   FIXED one under /tmp — shared by every dispatch, so two
+│   │       │                                        #   concurrent runs get one file and the loser silently reads or
+│   │       │                                        #   PUBLISHES the winner's. 13 overlapping pairs measured in one
+│   │       │                                        #   night; the pr-body example was copied verbatim 133 times.
+│   │       │                                        #   Walks prompts AND operator surfaces (runner help, skills) —
+│   │       │                                        #   the first version excluded the latter and the class stayed live.
 │   │       ├── test_no_live_surface_advertises_a_superseded_contract.py # A guide row, a CLI string or a
 │   │       │                                        #   prompt still describing a contract the code replaced. The largest
 │   │       │                                        #   finding class measured — 33 across 12 PRs. PR #105 changed what

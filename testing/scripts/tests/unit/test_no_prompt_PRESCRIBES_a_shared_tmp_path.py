@@ -64,7 +64,13 @@ SUFFIXES = (".md", ".py", ".sh")
 # A `/tmp` path with a file extension. The extension is what separates a PATH
 # from a bare directory mention — `/tmp` alone, or `/tmp/claude-1000/...` as a
 # scratch ROOT, is not a prescription to write one named file.
-TMP_PATH = re.compile(r"/tmp/[A-Za-z0-9_.${}<>-]*\.[a-z]{2,5}")
+#
+# `/` IS IN THE CHARACTER CLASS, AND THE FIRST VERSION LEFT IT OUT. Without it
+# the pattern stopped at the first slash, so `/tmp/claude-scratch/output.json` —
+# a fixed directory holding a fixed file, the same collision one level down —
+# read as no match at all. Found by mutation, not by reading: the module's
+# controls all used flat paths, so every one of them passed over the hole.
+TMP_PATH = re.compile(r"/tmp/[A-Za-z0-9_.${}<>/-]*\.[a-z]{2,5}")
 
 # What makes a name differ between two concurrent dispatches.
 PER_DISPATCH = ("${PR_NUMBER}", "$$", "<branch>", "<ts>", "<timestamp>", "${RUN_ID}",
@@ -83,6 +89,14 @@ EXPLANATORY = {
         "named in `fidelity_read_and_compare`'s own warning about why the "
         "filename carries ${PR_NUMBER}. The INSTRUCTION beside it is already "
         "per-dispatch; removing the prose would delete the reason.",
+    "/tmp/shared/notes.md":
+        "the WORKED EXAMPLE in `build_activities`'s docstring for why an escaping "
+        "relative argument is rendered as its resolved absolute path — it is the "
+        "path the fleet would WRONGLY have opened. Nothing writes it.",
+    "/tmp/x/candidates.md":
+        "the tail of the traversal string `../../../../tmp/x/candidates.md` that "
+        "`run_plan_sprint`'s comment records as having escaped an `.exists()` "
+        "check. It is the attack that was demonstrated, not a path to use.",
 }
 
 
@@ -133,6 +147,12 @@ def test_THE_WALK_HAS_A_POPULATION_and_the_detector_SEES_BOTH_BACKTICK_FORMS() -
         "plain backticks": "write it to `/tmp/some-fetch.json`, then read it",
         "bare": "gh pr view > /tmp/some-thing.json",
         "in a command": "gh api ... > /tmp/claude-review.md && cat /tmp/claude-review.md",
+        # NESTED, and it is the shape the first version of this module missed:
+        # both the directory and the leaf are fixed, so two dispatches collide
+        # exactly as they do on a flat path. `/` was absent from the pattern's
+        # character class and every control here used a flat path, so nothing
+        # in the module could see it.
+        "nested, both segments fixed": "stage it under /tmp/claude-scratch/output.json first",
     }
     for name, src in cases.items():
         assert _fixed_paths(src), f"the detector missed the {name} form: {src!r}"
