@@ -35,6 +35,12 @@ WHAT THIS DOES NOT LOOK AT:
     between two runs on the SAME PR; that is a different and much rarer race.
   * Directories other than `/tmp`. A repo-relative scratch path is not shared
     between machines and is not this class.
+  * A prescribed shared file with NO EXTENSION — a lock, a marker, a pid file.
+    `TMP_PATH` anchors on an extension because that is what separates a path
+    from a bare directory mention, so `/tmp/claude-lock` reads as no match. That
+    is a real hole in the same class, deliberately left open rather than traded
+    for false positives on every `/tmp` mention. Nothing in the tree exploits it.
+  * `docs/`. It is INVENTORIED below, not enforced — see `DOCS_RESIDUE`.
 """
 
 from __future__ import annotations
@@ -72,14 +78,32 @@ SUFFIXES = (".md", ".py", ".sh")
 # controls all used flat paths, so every one of them passed over the hole.
 TMP_PATH = re.compile(r"/tmp/[A-Za-z0-9_.${}<>/-]*\.[a-z]{2,5}")
 
-# What makes a name differ between two concurrent dispatches.
-PER_DISPATCH = ("${PR_NUMBER}", "$$", "<branch>", "<ts>", "<timestamp>", "${RUN_ID}",
-                # the operator-facing convention `terminal-output.md` prescribes:
-                # a NAMED payload file, distinct per task rather than per run.
-                "<name>",
-                # a Python `.format()` placeholder substituted with the PR number
-                # before the string ever reaches a model — `PR_RUNWAY_TASK` uses it.
-                "{pr}")
+# What makes a name differ between two concurrent dispatches: a PLACEHOLDER, of
+# any spelling. This is a SHAPE and it used to be a list of literal spellings —
+# `("${PR_NUMBER}", "$$", "<branch>", "<ts>", "<timestamp>", "${RUN_ID}",
+# "<name>", "{pr}")` — matched with `tok in m`.
+#
+# WHY THAT CHANGED, AND IT IS THE SAME LESSON AS THE `/` ABOVE. A spelling list
+# closes the spellings someone thought of. This repo's own `terminal-output.md`
+# sanctions a SECOND spelling of the identical per-task concept —
+# `/tmp/claude-<descriptive-name>.sh` — and `"<name>" in "<descriptive-name>"`
+# is False, because the substring needs `<` immediately before `name`. A prompt
+# author following that half of the convention would have been failed by CI for
+# a path with no collision risk, and the cheapest way out is to copy `<name>`
+# rather than write what they meant. Keying on the shape ends that class:
+# `<run-id>`, `<pr>`, `<slug>` and every spelling nobody has written yet are
+# per-dispatch without an edit here.
+PER_DISPATCH = re.compile(
+    r"<[^<>/]+>"      # a prompt/doc placeholder: <branch>, <ts>, <descriptive-name>
+    r"|\$\{[^}]+\}"   # a shell variable: ${PR_NUMBER}, ${RUN_ID}
+    r"|\{[^{}/]+\}"   # a Python `.format()` field: `PR_RUNWAY_TASK` uses `{pr}`
+    r"|\$\$"          # the shell's own pid
+)
+
+# Shown in the failure message. These ILLUSTRATE; `PER_DISPATCH` DECIDES — and
+# the test below asserts every one of them is still accepted by it, so an
+# example can never drift out of the shape it is teaching.
+PER_DISPATCH_EXAMPLES = ("${PR_NUMBER}", "$$", "<branch>", "<ts>", "<name>", "{pr}")
 
 # A path named only to EXPLAIN the defect — prose about the old fixed form, not
 # an instruction to use it. Each entry states why, because an exemption without
@@ -100,6 +124,60 @@ EXPLANATORY = {
 }
 
 
+# THE SAME CLASS, ONE SURFACE OVER, RECORDED RATHER THAN ENFORCED.
+#
+# `docs/` is not in `SURFACES` and this entry does not put it there: nothing in
+# `docs/` has to change for the suite to stay green. What the test below asserts
+# is that this INVENTORY still matches the tree — so a NEW shared path in `docs/`
+# fails here instead of being found by a later review pass, and a FIXED one
+# forces this record to be updated at the moment the work is done.
+#
+# WHY AN INVENTORY IN THE TREE AND NOT A LIST IN THE ISSUE. #137 recorded this
+# residue by hand, from a `--task-file`-shaped search, and therefore named the
+# two files that carried `--task-file` out of the seven that carry the class. A
+# hand-written enumeration of a class is stale the moment the tree moves, and
+# nothing tells anyone. This one is derived from the guard's own predicate on
+# every run.
+#
+# EACH ENTRY SAYS WHICH KIND IT IS, because "add `docs/` to SURFACES" is NOT a
+# one-line remedy: only two of these are fix-class, and the mechanical predicate
+# cannot tell the other five from a defect.
+DOCS_RESIDUE = {
+    "docs/standards/workflow-scripts.md":
+        "FIX-CLASS. `--task-file /tmp/task.md` in a worked example, in a live "
+        "binding standard — the strongest prescription shape in the repo. Needs "
+        "a human-reviewed edit under `standards-governance.md`, which is why it "
+        "is recorded rather than fixed. Tracked in #137.",
+    "docs/guide/operations.md":
+        "FIX-CLASS. `--task-file /tmp/claude-task.md`, and the SAME FILE nineteen "
+        "lines up already prescribes `/tmp/claude-<name>.md` — the example "
+        "contradicts its own rule. Tracked in #137.",
+    "docs/standards/temporal/worker_deployment_standard.md":
+        "NOT FIX-CLASS, and this is the entry that makes the remedy non-mechanical. "
+        "`/tmp/claude-deploy-new-workers.sh` is a FILLED-IN instance of exactly what "
+        "`config/rules/terminal-output.md` prescribes (`/tmp/claude-<descriptive-"
+        "name>.sh`). The predicate cannot distinguish a descriptive per-task name "
+        "from a generic one — `/tmp/claude-task.md` and this look the same to it. "
+        "The file is also a vendored MIRROR this repo may not edit.",
+    "docs/guide/claude_code_orchestration.md":
+        "NOT FIX-CLASS. `/tmp/workflow/*.md` inside a hypothetical `plan-feature.sh` "
+        "in an options comparison, and principle 4 of the same document explicitly "
+        "retires the pattern: 'The original said `/tmp/workflow/*.md`… the handoff "
+        "between stages is the PR'. Illustration of a rejected approach.",
+    "docs/development/reviews/review-skyy-command-2026-07-24.md":
+        "NOT FIX-CLASS. A dated review recording that `/tmp/claude-pr-body.md` was "
+        "the file 43% of read-before-Edit failures concentrated on. A record of "
+        "what happened, which is the `EXPLANATORY` shape.",
+    "docs/development/reviews/review-mdc-master-planning-2026-05-03.md":
+        "NOT FIX-CLASS. A dated review quoting the `sed` invocation that was run. "
+        "A record of what happened.",
+    "docs/standards/architecture/research/raw/code_routed_control_flow.md":
+        "NOT FIX-CLASS. Quotes Argo's own documentation (`@/tmp/argo_arg_N.txt`) "
+        "while describing a third-party tool's parameter passing. Not ours to "
+        "prescribe or to fix.",
+}
+
+
 def _prompts() -> list[Path]:
     found = sorted(f for root in SURFACES for f in root.rglob("*")
                    if f.is_file() and f.suffix in SUFFIXES)
@@ -112,7 +190,7 @@ def _prompts() -> list[Path]:
 def _fixed_paths(text: str) -> list[str]:
     """`/tmp` paths in `text` whose names cannot differ between two dispatches."""
     return [m for m in TMP_PATH.findall(text)
-            if not any(tok in m for tok in PER_DISPATCH)
+            if not PER_DISPATCH.search(m)
             and m not in EXPLANATORY]
 
 
@@ -125,7 +203,8 @@ def test_no_prompt_SENDS_EVERY_DISPATCH_to_one_file() -> None:
         + "\n".join(f"  {p}: {m}" for p, m in offenders)
         + "\n\nTwo concurrent runs get one file and the loser silently reads or "
           "publishes the winner's content. Carry something per-dispatch in the "
-          f"name — one of {list(PER_DISPATCH)}. `review_pr`'s "
+          f"name — a placeholder of any spelling, e.g. {list(PER_DISPATCH_EXAMPLES)}. "
+          "`review_pr`'s "
           "`/tmp/claude-review-pr-${PR_NUMBER}-<ts>.md` is the shape to copy.\n"
           "If the path is only being DESCRIBED, add it to EXPLANATORY with a reason."
     )
@@ -179,3 +258,64 @@ def test_every_EXEMPTION_is_still_present_and_still_explanatory(path: str, reaso
     assert any(path in p.read_text() for p in _prompts()), (
         f"{path} is exempted in EXPLANATORY but appears in no prompt. Remove the "
         f"entry — its stated reason was: {reason}")
+
+
+def test_the_PER_DISPATCH_EXAMPLES_are_all_accepted_by_the_SHAPE() -> None:
+    """The failure message teaches a shape; it may not teach one the guard rejects.
+
+    The predecessor of `PER_DISPATCH` was this tuple, matched literally. Keeping
+    the examples pinned to the shape is what stops the two drifting apart again —
+    an example the detector no longer accepts would send an author to fix a path
+    that is already safe.
+    """
+    for example in PER_DISPATCH_EXAMPLES:
+        assert PER_DISPATCH.search(f"/tmp/claude-{example}-thing.md"), (
+            f"{example!r} is offered in the failure message as a per-dispatch "
+            f"marker, but `PER_DISPATCH` does not accept it")
+
+
+def test_a_placeholder_SPELLING_NOBODY_LISTED_is_still_per_dispatch() -> None:
+    """The regression this shape exists for, and it was live in the repo.
+
+    `<descriptive-name>` is `terminal-output.md`'s own spelling and the literal
+    token list did not contain it, so the guard would have failed a path that
+    follows the repo's own binding convention. The others are spellings nobody
+    has written yet — which is the point: they cost no edit here.
+    """
+    for spelling in ("<descriptive-name>", "<run-id>", "<pr>", "<slug>",
+                     "${WORKFLOW}", "{run_id}"):
+        assert not _fixed_paths(f"write it to /tmp/claude-{spelling}.md"), (
+            f"{spelling!r} is a placeholder — a name carrying it differs between "
+            f"concurrent dispatches — but the guard reads it as a fixed path")
+
+    # ...and the shape must still REFUSE a name with no placeholder in it, or it
+    # would accept everything and the guard would be decorative.
+    assert _fixed_paths("write it to /tmp/claude-deploy-new-workers.sh"), (
+        "a filled-in descriptive name carries no placeholder and cannot differ "
+        "between two concurrent dispatches — the shape must still flag it")
+
+
+def test_the_DOCS_RESIDUE_inventory_still_MATCHES_THE_TREE() -> None:
+    """`docs/` is not enforced, but the RECORD of what is there must not rot.
+
+    This is the check the class needed and did not have. #137's enumeration was
+    written by hand from a narrower search than the class it claims to cover, and
+    nothing could tell anyone it had gone stale. Now the tree tells you — in both
+    directions, because a residue record that silently shrinks is as misleading as
+    one that silently grows.
+    """
+    found = {str(f.relative_to(REPO))
+             for f in (REPO / "docs").rglob("*")
+             if f.is_file() and f.suffix in SUFFIXES and _fixed_paths(f.read_text())}
+    recorded = set(DOCS_RESIDUE)
+
+    assert found == recorded, (
+        "the `docs/` residue recorded in `DOCS_RESIDUE` no longer matches the tree.\n"
+        f"  NEW, recorded nowhere: {sorted(found - recorded) or 'none'}\n"
+        f"  RECORDED but gone:     {sorted(recorded - found) or 'none'}\n\n"
+        "`docs/` is INVENTORIED, not enforced — a new entry here is not "
+        "automatically a defect, and five of the seven originals are not. Read the "
+        "line, decide which kind it is, and write that as the entry's reason. If a "
+        "path was FIXED, drop its entry and update issue #137, which is the "
+        "operator-facing home for this residue."
+    )
