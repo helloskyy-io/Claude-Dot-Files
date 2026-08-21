@@ -54,7 +54,7 @@ Take the monoliths apart, then write down what the shape is.
 
 *Children in a family do not diverge except where they need to.*
 
-**Est: ~15 hours** *(sized cold by `plan-verify`, 2026-08-19)* — almost none of it is code: the mechanism, the ratchet and the standard's wording all shipped. The cost is a judgement pass over the frozen baseline's rows, grouped into eight consumer-sets, each needing two prompt files read plus the git history behind them; a blind trial that must be sealed before any history is consulted and then scored; and one document that does not exist anywhere today — the `_minor` tier contract, which is C-110's subject.
+**Est: ~15 hours** *(sized cold by `plan-verify`, 2026-08-19)* — almost none of it is code: the mechanism, the ratchet and the standard's wording all shipped. The cost is a judgement pass over the frozen baseline's rows, grouped into eight consumer-sets, each needing two prompt files read plus the git history behind them; a blind trial that must be sealed before any history is consulted and then scored; and one document that does not exist anywhere today — the `_minor` tier contract, which is C-at80groo's subject.
 
 The mechanism shipped, the ratchet worked, and the baseline is now EMPTY — 48 rows, then 13, then none. The half a test could not decide was ruled per FAMILY rather than per pair, because the blind trial this phase required measured κ = 0.000 between two raters and the phase named that as the trigger to change granularity. The procedure, the rulings and the `_minor` tier contract are in `tests/unit/fork_vs_parameterize.py`; the trial is in [`fork_vs_parameterize_blind_trial.md`](fork_vs_parameterize_blind_trial.md).
 

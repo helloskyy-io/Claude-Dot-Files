@@ -597,8 +597,8 @@ def test_EVERY_value_guard_NAMES_THE_VALUE_THAT_MOVED() -> None:
     these fires on a column whose wrong value is the thing to undo — an invented
     `component` becomes a committed directory, an invented `direction.md` status
     is a ruling only the operator may make and one `/standup` then rotates the
-    receipt away for. "Row C-042 changed" sends them back to `git diff` to learn
-    what it changed to; `C-042 ''->'fleet-reliability'` tells them whether they
+    receipt away for. "Row C-htg3mh0t changed" sends them back to `git diff` to learn
+    what it changed to; `C-htg3mh0t ''->'fleet-reliability'` tells them whether they
     are looking at an invention or a correction, which is the ruling they have to
     make.
     """

@@ -451,7 +451,7 @@ PY
 #           tests, and no pytest exit code carries that. It is a different
 #           channel, not a wider `case` arm — the same boundary exit 1 hits
 #           below. Stated rather than claimed closed; the mechanism is a
-#           proposal, C-060 in
+#           proposal, C-45bhs5cm in
 #           docs/standards/architecture/research/candidates.md.
 #   1    -> RED. UNAMBIGUOUS on this question: exit 1 requires collection to
 #           have fully succeeded (pytest interrupts to 2 on a collection error
@@ -463,7 +463,7 @@ PY
 #           cleared by an environment variable. Clearing PYTEST_ADDOPTS closes
 #           the channel that was measured re-opening issue #72; the ini channel
 #           is stated here rather than claimed closed, and the precheck that
-#           would close it is a proposal, C-061 in candidates.md.
+#           would close it is a proposal, C-73bf2gvm in candidates.md.
 #           KNOWN BOUNDARY, stated rather than papered over: exit 1 proves the
 #           SUITE ran, not that the guard's ASSERTION was evaluated. A test
 #           that imports $FILE inside its own body fails on the mutation's
@@ -512,7 +512,7 @@ PY
 #        TWO BOUNDARIES, stated because the row above them is the one this
 #        whole file is about and a false claim here is the worst kind:
 #          - the all-skipped ambiguity on legs 1 and 3 (see the exit-0 row in
-#            the pytest table above). Mechanism to close it: C-060.
+#            the pytest table above). Mechanism to close it: C-45bhs5cm.
 #          - the ABSTAIN path. When $FILE is Python that does not import even
 #            unmutated, the discriminator cannot speak and leg 2's exit 2 falls
 #            back to RED — which can be the guard firing OR the mutation having

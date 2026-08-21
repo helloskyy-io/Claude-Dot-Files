@@ -51,7 +51,7 @@ def ends_the_table(line: str) -> bool:
 
     A PLAIN PARAGRAPH LINE DOES NOT CLOSE THE TABLE, and a first version of the
     contiguity check below broke the block on any non-`|` line and reported
-    C-051 as an orphan. GitHub's own `/markdown` API disagreed and the API was
+    C-n1ta60bc as an orphan. GitHub's own `/markdown` API disagreed and the API was
     right. Only a blank line or a genuine block-level opener closes it.
 
     WHAT SUCH A LINE ACTUALLY DOES WAS STATED WRONG HERE FOR ONE REVISION, and
@@ -59,17 +59,17 @@ def ends_the_table(line: str) -> bool:
     This comment used to say the paragraph is *"lazily absorbed into the
     preceding row's last cell"*. It is not. MEASURED through `POST /markdown`
     on lines 157-164 of this file, back when a 1,981-character paragraph sat
-    between C-050 and C-051: the block rendered **seven** `<tr>`s, not six, and
+    between C-523klr8n and C-n1ta60bc: the block rendered **seven** `<tr>`s, not six, and
     the paragraph was its own row with all 1,981 characters in the **ID**
-    column and six empty cells beside it — while C-050's Note was cut to 6,677
+    column and six empty cells beside it — while C-523klr8n's Note was cut to 6,677
     characters, losing exactly the evidence the paragraph carried. Joining it
-    back took the block to six `<tr>`s and C-050's Note to 8,633.
+    back took the block to six `<tr>`s and C-523klr8n's Note to 8,633.
 
     So the absorption story was consoling and false: a stray line inside a
     table is not swallowed by its neighbour, it is a VISIBLE detached row that
     steals its neighbour's evidence. Both rows still render, which is what made
     the wrong explanation survive — the sibling check only ever asked whether
-    C-050 and C-051 rendered, and they did.
+    C-523klr8n and C-n1ta60bc rendered, and they did.
 
     ORDERED-LIST MARKERS ARE IN THE SET AND `<` IS DELIBERATELY NOT, and both
     halves of that are MEASURED through `POST /markdown` rather than reasoned
@@ -89,7 +89,7 @@ def ends_the_table(line: str) -> bool:
         That residual is named in the cell-count check's limits list and held
         by `test_an_HTML_BLOCK_opener_is_the_residual_this_scan_does_NOT_see`;
         it is disclosed rather than implemented because `candidates.md` has
-        ZERO lines opening with `<` today and the repo-wide question is C-103's
+        ZERO lines opening with `<` today and the repo-wide question is C-oe0gc9x6's
         to rule, not this pass's to guess at.
     """
     s = line.strip()
@@ -284,9 +284,9 @@ def stray_lines(lines: list[str]) -> list[int]:
 
     A non-`|` line inside a table does not become prose and is not absorbed by
     its neighbour — it renders as its own `<tr>` with the whole paragraph in
-    the first column, while the row above it is CUT. Measured on C-050 through
+    the first column, while the row above it is CUT. Measured on C-523klr8n through
     `POST /markdown`: a 1,981-character tail on its own line came back as a
-    seventh `<tr>`, and C-050's own Note lost 1,956 characters.
+    seventh `<tr>`, and C-523klr8n's own Note lost 1,956 characters.
     """
     return [
         i

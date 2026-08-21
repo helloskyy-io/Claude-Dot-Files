@@ -69,7 +69,7 @@ tree routinely asserts a property of a DIFFERENT object — *"the deliverable gu
 is what fails a component with no phases"*, *"`plan-verify` does not exist yet"* —
 and both of those were false in the same PR that produced this module. Its
 sibling `test_no_prose_claims_a_shipped_workflow_is_UNBUILT` closes one more
-sub-class. What is left is the general form, which needs the check C-084 proposes.
+sub-class. What is left is the general form, which needs the check C-gbclnzsq proposes.
 """
 
 from __future__ import annotations

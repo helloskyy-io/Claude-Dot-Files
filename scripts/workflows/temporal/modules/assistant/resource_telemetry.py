@@ -78,7 +78,7 @@ SAMPLE_INTERVAL_S = 2.0
 # 0 sub-agents and 0.61 MiB of tool results — so NEITHER knob this module exists
 # to separate explains it, and nothing here can say which minute it happened in.
 # The next occurrence produces the same unattributable number. Carried as
-# candidate C-069, which prices a bounded ring buffer against the retention
+# candidate C-skkjo6jn, which prices a bounded ring buffer against the retention
 # question it opens; it is not designed around silently here.
 #
 # LIMITATION, stated because it is invisible otherwise: `peak_total` and

@@ -87,7 +87,7 @@ def roadmap_hours(component: Path) -> Counter:
 
     SCOPED TO ONE FILE ON PURPOSE, and the scope IS the design decision this
     workflow makes. A figure restated in two places with nothing deriving it is
-    the class this repo keeps paying for — `candidates.md` C-050 names it, and
+    the class this repo keeps paying for — `candidates.md` C-523klr8n names it, and
     `test_measurement_figures_are_cited.py` is the gate built after four
     consecutive passes each corrected a figure at its source and left a copy
     standing. So the estimates live in the roadmap and NOWHERE else, and the

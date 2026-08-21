@@ -17,7 +17,7 @@ the instances it could see. The frontier moved every time and never shrank:
     because the archive is a moving denominator by construction.
 
 Enumerating instances does not converge. Changing what the check keys on does.
-`candidates.md` C-050 already names this mechanism — *"in every case the
+`candidates.md` C-523klr8n already names this mechanism — *"in every case the
 contents had a gate and the count did not, so each divergence was invisible to a
 green suite"* — and this is that gate for the one corpus where the count decides
 whether a stopping predicate is allowed to gate anything.
@@ -61,7 +61,7 @@ def _docs_declaring_a_measurement_section() -> list[Path]:
     shape is what makes the widening available. This half used to name one file
     because generalising it looked like it needed a convention nobody had ruled
     on: the docs do not agree on where a figure lives, and Phase 3 uses a step
-    heading rather than this one. That ruling is still C-050's and is NOT taken
+    heading rather than this one. That ruling is still C-523klr8n's and is NOT taken
     here — what changed is the observation that a doc which HAS declared the
     heading has already answered the question for itself, so covering those
     costs nothing and pre-empts nothing.
@@ -91,7 +91,7 @@ def _phase_labels() -> list[str]:
 
     THIS IS THE POINT OF THE CHECK AND NOT AN IMPLEMENTATION DETAIL. The gate
     used to scope its roadmap sweep to the literal string "Phase 5", and
-    `candidates.md` C-050 recorded what that cost: closing Phase 3 restated that
+    `candidates.md` C-523klr8n recorded what that cost: closing Phase 3 restated that
     phase's fresh agreement figures in the roadmap, and this gate caught them
     ONLY because the roadmap's status header happens to name Phase 3 and Phase 5
     on the same line. The same run's figures on the Phase 3 *checkbox* line were
@@ -134,7 +134,7 @@ def test_a_phase_doc_states_its_figures_in_exactly_one_section() -> None:
 
     RUNS OVER EVERY DOC THAT DECLARES THE HEADING — see
     `_docs_declaring_a_measurement_section` for why that widening was available
-    without taking C-050's ruling.
+    without taking C-523klr8n's ruling.
     """
     assert PHASE5.exists(), f"the phase doc moved: {PHASE5}"
     docs = _docs_declaring_a_measurement_section()
@@ -170,7 +170,7 @@ def test_the_roadmap_cites_every_phases_figures_and_never_restates_them() -> Non
     WIDENED FROM PHASE 5 TO EVERY PHASE (PR #79, 2026-08-10). Scoped to one
     remembered phase, this assertion had already missed two live offenders on
     lines it never read — `roadmap.md`'s Phase 1 E3(b) restatement and candidate
-    6's archived-PR denominator — both recorded in `candidates.md` C-050 as the
+    6's archived-PR denominator — both recorded in `candidates.md` C-523klr8n as the
     standing evidence for widening it. Both were fixed in the same PR that
     widened this. See `_phase_labels` for why the population is read off disk.
     """
@@ -204,7 +204,7 @@ def test_the_roadmap_sweep_covers_every_phase_doc_on_disk() -> None:
     Phase 6 — and **a doc that declares no such section is still uncovered**:
     Phase 3 states its figures under a step heading and Phases 1, 2 and 4 have no
     canonical section at all. Ruling that every phase doc must declare one is
-    `candidates.md` C-050's and is not taken here; what changed is that a doc
+    `candidates.md` C-523klr8n's and is not taken here; what changed is that a doc
     which has already answered the question for itself is no longer skipped
     because the OTHERS have not.
     """

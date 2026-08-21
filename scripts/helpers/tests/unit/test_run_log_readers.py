@@ -358,7 +358,7 @@ def test_condition_2_says_HAS_FIRED_only_for_a_guard_with_field_evidence(
 
 def test_the_reader_reports_the_two_rates_the_ARCHIVE_cannot_produce(
         tmp_path: Path, capsys) -> None:
-    """C-059's whole trigger: the live path knows whether the pass ROUTED."""
+    """C-wb1xc1xs's whole trigger: the live path knows whether the pass ROUTED."""
     _log(tmp_path, "review-pr-20260811-100000-aaa.jsonl",
          _convergence(state="indeterminate", reason="pass_not_evaluable"))
     out = _run(tmp_path, capsys, "replay_convergence_events")
@@ -449,12 +449,12 @@ def test_the_agreement_figure_states_ITS_OWN_LIMIT(
     conditioning is gone and the figure is a rate.
 
     WHAT THIS TEST PINS IS THE INVARIANT, NOT THE WORDING: the reader names
-    C-060 and states what a reader may conclude. An agreement figure printed
+    C-45bhs5cm and states what a reader may conclude. An agreement figure printed
     with no statement of its own limit is the defect, in either direction.
     """
     _log(tmp_path, "review-pr-20260811-100000-aaa.jsonl", _route())
     out = _run(tmp_path, capsys, "replay_parent_route")
-    assert "C-060" in out, "the figure must still name the candidate it came from"
+    assert "C-45bhs5cm" in out, "the figure must still name the candidate it came from"
     assert "DENOMINATOR'S OWN LIMIT" in out, (
         "the reader printed an agreement figure without the section stating how "
         "far it may be read — which is the bias it was built to expose"

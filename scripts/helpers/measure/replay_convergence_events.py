@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read the run log's `convergence` events, and print Phase 5's gate conditions.
 
-THIS IS CANDIDATE C-059. `phase5_convergence_stopping.md` emitted a
+THIS IS CANDIDATE C-wb1xc1xs. `phase5_convergence_stopping.md` emitted a
 `{"type": "convergence"}` event on every dispatch, placed the reader as a
 candidate with the trigger *the first question only the live corpus can answer*,
 and shipped. This is that reader, and the trigger has fired: two facts the
@@ -120,7 +120,7 @@ def _line(report: str, prefix: str) -> str | None:
 
 def report(live: list[dict], log_dir: Path, total_logs: int,
            archive: str | None, archive_requested: bool) -> None:
-    print("# convergence run-log events — the LIVE corpus (candidate C-059)")
+    print("# convergence run-log events — the LIVE corpus (candidate C-wb1xc1xs)")
     print()
     print(f"Log directory            : {log_dir}")
     print(f"Logs in archive          : {total_logs}")
@@ -142,7 +142,7 @@ def report(live: list[dict], log_dir: Path, total_logs: int,
     print(f"   history_unreadable : {unreadable} of {len(live)}")
     print("   The archive replay hands `pass_evaluable=True` to every block as a stated")
     print("   assumption — no archived block carries a typed exit record — so these two")
-    print("   rates exist only here. This is the answer C-059's trigger named.")
+    print("   rates exist only here. This is the answer C-wb1xc1xs's trigger named.")
     print()
 
     print("## Shadow against the model's asserted `converged:` flag, on the LIVE path")

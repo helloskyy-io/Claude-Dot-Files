@@ -158,10 +158,23 @@ def permitted_paths(component_rel: Path, candidates_rel: Path) -> tuple[str, ...
     PLACE a proposal it surfaces rather than leave it in a PR body to die at
     merge. It comes with the column guards below, which are the same ones
     `plan-sprint` carries for the same grant.
+
+    THE MAP GRANT IS NOT THIS WORKFLOW'S SUBJECT, and it is here because the
+    merge gate requires it. `docs/file_structure.txt` must enumerate every
+    tracked file in any directory it enumerates per-file, so ADDING A PHASE DOC
+    — this workflow's core deliverable — turns the suite red, and the fix sat
+    outside the grant. PR #123 hit exactly that and its run deferred with
+    reasoning, which was the only legal move it had: reconcile the map and the
+    boundary fails the whole run including work done correctly; leave it and ship
+    a red PR. The allowlist was written to stop a planning run wandering into a
+    SIBLING COMPONENT, which is a real failure this module names. A repo-wide map
+    every workflow is required to keep current is not that, and it was caught as
+    collateral.
     """
     return (
         rf"^{re.escape(component_rel.as_posix())}/[^/]+\.md$",
         rf"^{re.escape(candidates_rel.as_posix())}$",
+        r"^docs/file_structure\.txt$",
     )
 
 

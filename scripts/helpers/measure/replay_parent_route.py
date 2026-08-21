@@ -17,7 +17,7 @@ and the honest ruling is that it has two questions nothing else can answer:
      `phase4_fleet_migration.md` carries an unchecked box — the prose shadow
      stays until `channels_agree` has agreed across *a stated run count with its
      denominator*. That figure was derived by hand from eight runs. This is the
-     instrument that prints it, and it prints the limit with it: **C-060** says
+     instrument that prints it, and it prints the limit with it: **C-45bhs5cm** says
      `channels_agree` can only be written on runs where the incumbent prose
      channel already SUCCEEDED, because a completion-gate failure raises before
      `route()` and before this event. So the agreement figure is conditioned on
@@ -116,7 +116,7 @@ def report(rows_: list[dict], log_dir: Path, total_logs: int) -> None:
     print("   said `HOLD - needs-assistance` yield the same token.")
     print()
 
-    print("## THE DENOMINATOR'S OWN LIMIT — C-060 is FIXED, and here is what remains")
+    print("## THE DENOMINATOR'S OWN LIMIT — C-45bhs5cm is FIXED, and here is what remains")
     print("   THIS SECTION USED TO SAY NO N REMOVED THE LIMIT. That was true until")
     print("   2026-08-14 and is not now. `append_parent_route` sat AFTER")
     print("   `run_claude`'s completion gate, so a dispatch whose child emitted a")

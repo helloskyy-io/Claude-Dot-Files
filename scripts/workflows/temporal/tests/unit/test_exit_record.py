@@ -1897,7 +1897,7 @@ _WORKFLOW_MODULE_FUNCTIONS = {
     # orchestration's own identifiers. It belongs to the layer that knows
     # `run_id`, the PR and the expected ref, and it exists at module level
     # rather than inline because BOTH the success path and the failure path
-    # must run identical code — see its docstring and C-060.
+    # must run identical code — see its docstring and C-45bhs5cm.
     "_append_shadow_pair",
 }
 
@@ -2308,7 +2308,7 @@ def test_two_IDENTICAL_blocks_claiming_one_nonce_resolve_SILENTLY() -> None:
 
 
 # ---------------------------------------------------------------------------
-# C-060 — the instrument could not see the runs that mattered.
+# C-45bhs5cm — the instrument could not see the runs that mattered.
 # ---------------------------------------------------------------------------
 
 
@@ -2349,7 +2349,7 @@ def test_the_pair_is_RECORDED_when_the_completion_gate_kills_the_run(monkeypatch
         wf.run_review(ReviewInput(pr_number="67"), tmp_path)
 
     assert rows, (
-        "the run died and NOTHING was recorded — this is exactly C-060: the pair "
+        "the run died and NOTHING was recorded — this is exactly C-45bhs5cm: the pair "
         "is only ever written when the prose channel already worked, so the "
         "agreement metric is conditioned on the channel it exists to retire"
     )

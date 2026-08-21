@@ -157,9 +157,9 @@ def _fake_run(module, monkeypatch: pytest.MonkeyPatch, *, writes: str | None = N
 
 def test_it_reads_a_ruling_per_row(tree: Path) -> None:
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`"), ("C-002", "reject"), ("C-003", "")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "reject"), ("C-q65w30xm", "")]))
     assert act.candidate_decisions(f) == {
-        "C-001": "ship", "C-002": "reject", "C-003": ""}
+        "C-d1uhacwn": "ship", "C-p5qvm3e7": "reject", "C-q65w30xm": ""}
 
 
 @pytest.mark.parametrize("spelling", ["", " ", "—", "-", "  —  "])
@@ -171,8 +171,8 @@ def test_every_spelling_of_UNRULED_reads_as_the_same_thing(tree: Path, spelling:
     completed run.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", spelling)]))
-    assert act.candidate_decisions(f) == {"C-001": ""}
+    f.write_text(_table([("C-d1uhacwn", spelling)]))
+    assert act.candidate_decisions(f) == {"C-d1uhacwn": ""}
 
 
 def test_MARKUP_is_not_MEANING(tree: Path) -> None:
@@ -184,11 +184,11 @@ def test_MARKUP_is_not_MEANING(tree: Path) -> None:
     assertion here would still pass.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
     typeset = act.candidate_decisions(f)
-    f.write_text(_table([("C-001", "ship")]))
+    f.write_text(_table([("C-d1uhacwn", "ship")]))
     assert act.candidate_decisions(f) == typeset
-    f.write_text(_table([("C-001", "reject")]))
+    f.write_text(_table([("C-d1uhacwn", "reject")]))
     assert act.candidate_decisions(f) != typeset
 
 
@@ -207,25 +207,25 @@ def test_a_missing_file_says_so_rather_than_reading_as_empty(tree: Path) -> None
 # that simply diffed the two id-to-decision maps would go red on all six, and
 # would have been indistinguishable from a correct one against the four.
 
-_ORIGINAL = [("C-001", "`ship`"), ("C-002", "`reject`"), ("C-003", "")]
+_ORIGINAL = [("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "`reject`"), ("C-q65w30xm", "")]
 
 _OFFENCES = [
-    pytest.param([("C-001", "`reject`"), ("C-002", "`reject`"), ("C-003", "")],
+    pytest.param([("C-d1uhacwn", "`reject`"), ("C-p5qvm3e7", "`reject`"), ("C-q65w30xm", "")],
                  id="a-ruling-was-rewritten"),
-    pytest.param([("C-001", "`ship`"), ("C-002", "`reject`"), ("C-003", "`ship`")],
+    pytest.param([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "`reject`"), ("C-q65w30xm", "`ship`")],
                  id="a-blank-was-filled-in"),
-    pytest.param([("C-001", "`ship`"), ("C-002", "`reject`")],
+    pytest.param([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "`reject`")],
                  id="a-row-was-deleted"),
-    pytest.param([("C-001", "`ship`"), ("C-002", "`reject`"), ("C-003", ""),
-                  ("C-004", "`ship`")],
+    pytest.param([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "`reject`"), ("C-q65w30xm", ""),
+                  ("C-c5y9uqhk", "`ship`")],
                  id="a-new-row-arrived-already-ruled"),
 ]
 
 _PERMITTED = [
-    pytest.param([("C-001", "ship"), ("C-002", "reject"), ("C-003", "—")],
+    pytest.param([("C-d1uhacwn", "ship"), ("C-p5qvm3e7", "reject"), ("C-q65w30xm", "—")],
                  id="markup-only-reformat"),
-    pytest.param([("C-001", "`ship`"), ("C-002", "`reject`"), ("C-003", ""),
-                  ("C-004", "")],
+    pytest.param([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "`reject`"), ("C-q65w30xm", ""),
+                  ("C-c5y9uqhk", "")],
                  id="a-proposal-was-placed-unruled"),
 ]
 
@@ -319,7 +319,7 @@ def test_plan_sprint_is_UNBOTHERED_by_rows_it_merely_left_untriaged(
     the wrong cause.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`"), ("C-002", ""), ("C-003", "")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]))
     _fake_run(sprint, monkeypatch)
 
     assert _run_sprint(tree) == PR_URL
@@ -357,9 +357,9 @@ def test_triage_FAILS_when_it_left_a_row_unruled(
     the next research cycle re-proposes them.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", ""), ("C-002", ""), ("C-003", "")]))
+    f.write_text(_table([("C-d1uhacwn", ""), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]))
     _fake_run(triage, monkeypatch, writes=_table(
-        [("C-001", "`ship`"), ("C-002", ""), ("C-003", "")]), path=f)
+        [("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", ""), ("C-q65w30xm", "")]), path=f)
 
     with pytest.raises(RuntimeError, match="left 2 of 3 candidates untriaged"):
         _run_triage(tree)
@@ -369,9 +369,9 @@ def test_triage_passes_when_every_row_reached_a_disposition(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Negative control: the contract above must not fail a complete pass."""
     f = tree / "c.md"
-    f.write_text(_table([("C-001", ""), ("C-002", "")]))
+    f.write_text(_table([("C-d1uhacwn", ""), ("C-p5qvm3e7", "")]))
     _fake_run(triage, monkeypatch, writes=_table(
-        [("C-001", "`ship`"), ("C-002", "`requires review`")]), path=f)
+        [("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "`requires review`")]), path=f)
 
     assert _run_triage(tree) == PR_URL
 
@@ -380,11 +380,11 @@ def test_triage_names_the_rows_it_failed_on(
         tree: Path, stub_context: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """An operator cannot act on a count. The ids have to be in the message."""
     f = tree / "c.md"
-    f.write_text(_table([("C-001", ""), ("C-007", "")]))
+    f.write_text(_table([("C-d1uhacwn", ""), ("C-yi2wk5fn", "")]))
     _fake_run(triage, monkeypatch, writes=_table(
-        [("C-001", "`ship`"), ("C-007", "")]), path=f)
+        [("C-d1uhacwn", "`ship`"), ("C-yi2wk5fn", "")]), path=f)
 
-    with pytest.raises(RuntimeError, match="C-007"):
+    with pytest.raises(RuntimeError, match="C-yi2wk5fn"):
         _run_triage(tree)
 
 
@@ -402,8 +402,8 @@ def test_an_empty_working_set_is_told_it_is_REVISING_not_idle() -> None:
     assert "REVISE" in empty and "no fresh working set" in empty.lower()
 
     full = triage._working_set(
-        {"total": 5, "untriaged": 2, "triaged": 3, "untriaged_ids": ["C-001", "C-002"]})
-    assert "C-001" in full and "C-002" in full
+        {"total": 5, "untriaged": 2, "triaged": 3, "untriaged_ids": ["C-d1uhacwn", "C-p5qvm3e7"]})
+    assert "C-d1uhacwn" in full and "C-p5qvm3e7" in full
     assert "REVISE" not in full
 
 
@@ -414,8 +414,8 @@ def test_plan_sprint_is_told_the_untriaged_rows_are_NOT_ITS_JOB() -> None:
     to name the rows AND refuse them; naming them alone reads as a work list.
     """
     note = sprint._untriaged_note(
-        {"total": 3, "untriaged": 1, "triaged": 2, "untriaged_ids": ["C-009"]})
-    assert "C-009" in note
+        {"total": 3, "untriaged": 1, "triaged": 2, "untriaged_ids": ["C-hjwrspgl"]})
+    assert "C-hjwrspgl" in note
     assert "NOT YOURS" in note
     assert "triage-candidates" in note
 
@@ -549,8 +549,8 @@ def test_triage_FAILS_when_it_edited_the_sprint_plan(
     decision guard ("prose is not a mechanism") reaches this boundary unchanged.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
-    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+    f.write_text(_table([("C-d1uhacwn", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
     _crossing(monkeypatch, "docs/development/sprint.md")
 
     with pytest.raises(RuntimeError, match="outside its authorization"):
@@ -578,9 +578,9 @@ def test_NEITHER_workflow_may_move_the_status_column(
     other.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
     _fake_run(workflow, monkeypatch,
-              writes=_table([("C-001", "`ship`", "`closed`")]), path=f)
+              writes=_table([("C-d1uhacwn", "`ship`", "`closed`")]), path=f)
 
     with pytest.raises(RuntimeError, match="changed the `status` column"):
         runner(tree)
@@ -607,9 +607,9 @@ def test_NEITHER_workflow_may_name_the_component_on_somebody_elses_row(
     cell, it is a directory and two research dispatches.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
     _fake_run(workflow, monkeypatch, writes=_table(
-        [("C-001", "`ship`", "`open`")], component="guessed-from-a-summary"), path=f)
+        [("C-d1uhacwn", "`ship`", "`open`")], component="guessed-from-a-summary"), path=f)
 
     with pytest.raises(RuntimeError, match="`component` column"):
         runner(tree)
@@ -631,9 +631,9 @@ def test_a_component_named_on_a_row_the_run_APPENDED_is_permitted(
     post-condition instead of about this guard.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`", "`open`")]))
-    body = (_table([("C-001", "`ship`", "`open`")])
-            + "| C-002 | a candidate | filed-by-this-run | PR #1 |  | `open` | n |\n")
+    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
+    body = (_table([("C-d1uhacwn", "`ship`", "`open`")])
+            + "| C-p5qvm3e7 | a candidate | filed-by-this-run | PR #1 |  | `open` | n |\n")
     _fake_run(sprint, monkeypatch, writes=body, path=f)
 
     assert _run_sprint(tree) == PR_URL
@@ -649,9 +649,9 @@ def test_a_row_APPENDED_with_a_status_is_not_a_status_the_run_moved(
     another. Only a row that already existed can have had its status MOVED.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`", "`open`")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`", "`open`")]))
     _fake_run(sprint, monkeypatch, writes=_table(
-        [("C-001", "`ship`", "`open`"), ("C-002", "", "`open`")]), path=f)
+        [("C-d1uhacwn", "`ship`", "`open`"), ("C-p5qvm3e7", "", "`open`")]), path=f)
 
     assert _run_sprint(tree) == PR_URL
 
@@ -678,14 +678,14 @@ def test_the_two_readers_agree_on_what_BLANK_means(tree: Path) -> None:
     """
     f = tree / "c.md"
     for spelling in ("` — `", "`  `", "` `", "—", "`—`", " - ", "``", "`  —  `"):
-        f.write_text(_table([("C-001", spelling)]))
-        assert act.candidate_counts(f)["untriaged_ids"] == ["C-001"], (
+        f.write_text(_table([("C-d1uhacwn", spelling)]))
+        assert act.candidate_counts(f)["untriaged_ids"] == ["C-d1uhacwn"], (
             f"candidate_counts read {spelling!r} as RULED. `triage-candidates`'s "
             f"working set and its completion post-condition are both built on this "
             f"count, so the row would never be offered for triage and the run would "
             f"still report a complete pass."
         )
-        assert act.candidate_decisions(f)["C-001"] == "", (
+        assert act.candidate_decisions(f)["C-d1uhacwn"] == "", (
             f"candidate_decisions read {spelling!r} as a ruling. plan-sprint's guard "
             f"compares this before and after, so a run that merely tidied the cell "
             f"would be failed for overturning a ruling that was never there."
@@ -738,8 +738,8 @@ def test_the_reader_sweep_finds_readers_at_all() -> None:
 
 
 @pytest.mark.parametrize("rows", [
-    pytest.param([("C-001", "`ship`"), ("C-002", ""), ("C-003", "—")], id="mixed"),
-    pytest.param([("C-001", "`ship`", ""), ("C-002", "", "`open`")], id="blank-status"),
+    pytest.param([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", ""), ("C-q65w30xm", "—")], id="mixed"),
+    pytest.param([("C-d1uhacwn", "`ship`", ""), ("C-p5qvm3e7", "", "`open`")], id="blank-status"),
     pytest.param([], id="no-rows"),
 ], ids=None)
 def test_the_two_candidate_READERS_ALWAYS_KEY_THE_SAME_ROWS(tree: Path, rows: list) -> None:
@@ -838,8 +838,8 @@ def test_triage_FAILS_when_it_reached_outside_its_authorization(
     not plan.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
-    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+    f.write_text(_table([("C-d1uhacwn", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
     _crossing(monkeypatch, path)
 
     with pytest.raises(RuntimeError, match="outside its authorization"):
@@ -864,8 +864,8 @@ def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
     discover a guard is wrong.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
-    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+    f.write_text(_table([("C-d1uhacwn", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
     _crossing(monkeypatch, path)
 
     assert _run_triage(tree) == PR_URL
@@ -873,7 +873,7 @@ def test_triage_is_NOT_failed_for_writing_the_two_files_it_exists_to_write(
 
 def _direction(rows: list[tuple[str, str]]) -> str:
     head = "| ID | Recommendation | Why it matters | Source | `status` |\n|---|---|---|---|---|\n"
-    return head + "".join(f"| `{d}` | r | w | `C-001` | `{st}` |\n" for d, st in rows)
+    return head + "".join(f"| `{d}` | r | w | `C-d1uhacwn` | `{st}` |\n" for d, st in rows)
 
 
 def test_triage_FAILS_when_it_ruled_the_operators_own_direction_row(
@@ -889,10 +889,10 @@ def test_triage_FAILS_when_it_ruled_the_operators_own_direction_row(
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
+    f.write_text(_table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-001", "`ship`")]))
+        f.write_text(_table([("C-d1uhacwn", "`ship`")]))
         d.write_text(_direction([("D-001", "applied"), ("D-002", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -913,10 +913,10 @@ def test_a_direction_row_APPENDED_open_is_not_a_ruling_the_run_made(
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open")]))
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
+    f.write_text(_table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-001", "`requires review`")]))
+        f.write_text(_table([("C-d1uhacwn", "`requires review`")]))
         d.write_text(_direction([("D-001", "open"), ("D-002", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -933,10 +933,10 @@ def test_a_run_that_CREATES_direction_md_is_not_failed_for_creating_it(
     would forbid the very action the prompt above it instructs.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
+    f.write_text(_table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-001", "`requires review`")]))
+        f.write_text(_table([("C-d1uhacwn", "`requires review`")]))
         (tree / "r" / "direction.md").write_text(_direction([("D-001", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -956,8 +956,8 @@ def test_triage_FAILS_when_a_candidate_row_simply_VANISHED(
     re-proposed by the next research cycle.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", ""), ("C-002", "")]))
-    _fake_run(triage, monkeypatch, writes=_table([("C-001", "`ship`")]), path=f)
+    f.write_text(_table([("C-d1uhacwn", ""), ("C-p5qvm3e7", "")]))
+    _fake_run(triage, monkeypatch, writes=_table([("C-d1uhacwn", "`ship`")]), path=f)
 
     with pytest.raises(RuntimeError, match="deleted 1 candidate row"):
         _run_triage(tree)
@@ -974,7 +974,7 @@ def test_plan_sprint_FAILS_when_it_ticked_a_completion_checkbox(
     sp = tree / "sprint.md"
     sp.write_text("## Sprint: X\n\n- [ ] build the thing\n- [ ] test the thing\n")
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
 
     def run(prompt: str, **kw: object) -> str:
         sp.write_text("## Sprint: X\n\n- [x] build the thing\n- [ ] test the thing\n")
@@ -997,7 +997,7 @@ def test_plan_sprint_may_ADD_an_unchecked_milestone_and_REORDER_the_file(
     sp = tree / "sprint.md"
     sp.write_text("## Sprint: A\n\n- [x] done already\n\n## Sprint: B\n\n- [ ] b1\n")
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
 
     def run(prompt: str, **kw: object) -> str:
         sp.write_text("## Sprint: B\n\n- [ ] b1\n- [ ] b2 is new\n\n"
@@ -1017,7 +1017,7 @@ def test_plan_sprint_FAILS_when_it_appended_to_the_operators_inbox(
     it does not appear on.
     """
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "`ship`")]))
+    f.write_text(_table([("C-d1uhacwn", "`ship`")]))
     _fake_run(sprint, monkeypatch)
     _crossing(monkeypatch, "docs/standards/architecture/research/direction.md")
 
@@ -1047,10 +1047,10 @@ def test_triage_FAILS_when_it_deleted_the_operators_own_direction_row(
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
+    f.write_text(_table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-001", "`ship`")]))
+        f.write_text(_table([("C-d1uhacwn", "`ship`")]))
         d.write_text(_direction([("D-001", "open")]))
         return f"done\n{PR_URL}\n"
     monkeypatch.setattr(triage.act, "run_claude", run)
@@ -1070,10 +1070,10 @@ def test_a_direction_row_APPENDED_beside_a_ruled_one_is_still_clean(
     d = tree / "r" / "direction.md"
     d.write_text(_direction([("D-001", "open"), ("D-002", "applied")]))
     f = tree / "c.md"
-    f.write_text(_table([("C-001", "")]))
+    f.write_text(_table([("C-d1uhacwn", "")]))
 
     def run(prompt: str, **kw: object) -> str:
-        f.write_text(_table([("C-001", "`requires review`")]))
+        f.write_text(_table([("C-d1uhacwn", "`requires review`")]))
         d.write_text(_direction([("D-001", "open"), ("D-002", "applied"),
                                  ("D-003", "open")]))
         return f"done\n{PR_URL}\n"
@@ -1102,7 +1102,7 @@ def test_NEITHER_workflow_may_delete_a_file_it_is_merely_PERMITTED_to_write(
     nothing could see. `plan-sprint` holds the family's only override to write
     `sprint.md`, and deleting it returned a PR URL and a green run.
     """
-    (tree / "c.md").write_text(_table([("C-001", "`ship`")]))
+    (tree / "c.md").write_text(_table([("C-d1uhacwn", "`ship`")]))
     _fake_run(workflow, monkeypatch)
     _vanished(monkeypatch, path)
 
@@ -1122,7 +1122,7 @@ def test_plan_sprint_FAILS_when_it_ERASED_a_completion_checkbox(
     """
     sp = tree / "sprint.md"
     sp.write_text("## Sprint: X\n\n- [x] shipped the thing\n- [ ] next thing\n")
-    (tree / "c.md").write_text(_table([("C-001", "`ship`")]))
+    (tree / "c.md").write_text(_table([("C-d1uhacwn", "`ship`")]))
 
     def run(prompt: str, **kw: object) -> str:
         sp.write_text("## Sprint: X\n\n- [ ] next thing\n")
@@ -1216,7 +1216,7 @@ def test_a_file_a_PREVIOUS_child_changed_is_not_charged_to_this_run(repo: Path) 
 
     d = repo / "docs" / "standards" / "architecture" / "research"
     d.mkdir(parents=True)
-    (d / "direction.md").write_text("| `D-001` | r | w | `C-001` | `open` |\n")
+    (d / "direction.md").write_text("| `D-001` | r | w | `C-d1uhacwn` | `open` |\n")
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
                     "add", "-A"], cwd=str(repo), check=True, capture_output=True)
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
@@ -1433,7 +1433,7 @@ def _fixture_repo(tmp_path: Path) -> Path:
     comp.mkdir(parents=True, exist_ok=True)
     (comp / "roadmap.md").write_text("### Phase 1 — a thing\n\n**Est: ~4 hours**\n")
     (research / "candidates.md").write_text(
-        _table([("C-001", "`ship`"), ("C-002", "")]))
+        _table([("C-d1uhacwn", "`ship`"), ("C-p5qvm3e7", "")]))
     (tmp_path / "docs" / "development").mkdir(parents=True, exist_ok=True)
     (tmp_path / "docs" / "development" / "sprint.md").write_text("# Sprint\n")
     return tmp_path

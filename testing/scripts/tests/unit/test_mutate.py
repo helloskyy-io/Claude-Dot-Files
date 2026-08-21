@@ -782,7 +782,7 @@ def test_an_inherited_PYTEST_ADDOPTS_cannot_reopen_issue_72(sandbox: Path) -> No
 
     The remaining channel is a target repo's own `addopts` in pytest.ini /
     pyproject.toml, which no environment variable can clear; it is stated in the
-    exit-code table and its precheck is placed as proposal C-061.
+    exit-code table and its precheck is placed as proposal C-73bf2gvm.
     """
     env = dict(os.environ, PYTEST_ADDOPTS="--continue-on-collection-errors")
     r = subprocess.run(
@@ -1082,7 +1082,7 @@ def test_the_file_is_restored_on_every_exit_path(
 def test_show_failures_prints_the_names_and_changes_nothing_else(tmp_path):
     """A predicted count is only evidence when the partition is checkable.
 
-    SIX independent reflections asked for this flag (tracked as C-060), and each
+    SIX independent reflections asked for this flag (tracked as C-45bhs5cm), and each
     of those passes built its own pytest runner to get what it prints — because
     "48 red" and "48 red, but a different 48" are the same number and different
     results. The names were always in LEG_OUTPUT; nothing printed them.

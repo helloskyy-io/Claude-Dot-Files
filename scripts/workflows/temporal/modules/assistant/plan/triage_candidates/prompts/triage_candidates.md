@@ -143,7 +143,7 @@ This exists because **`ship` and `reject` are both wrong answers for an open que
 
 | ID | Recommendation | Why it matters | Source | `status` |
 |---|---|---|---|---|
-| `D-007` | Rule the laptop trust boundary — the resolution available is that the credential is the operator's own | Both major CI vendors publish guidance against exactly this shape; leaving it unwritten blocks the pinned-edge queue design | `C-021` | `open` |
+| `D-007` | Rule the laptop trust boundary — the resolution available is that the credential is the operator's own | Both major CI vendors publish guidance against exactly this shape; leaving it unwritten blocks the pinned-edge queue design | `C-i67vxj1t` | `open` |
 
 - **IDs are `D-001`, `D-002`, …**, independent of the `C-` series. The next free id is stated above, counted in code — **never renumber, never delete, never re-propose something already marked `rejected`.**
 - **You always leave `status` as `open`.** `applied` and `rejected` are the operator's.
@@ -164,7 +164,7 @@ This exists because **`ship` and `reject` are both wrong answers for an open que
 
 **You SIZE a shipped candidate; you never PLACE it.** Not which sprint, not which position, not which phase doc. **Sizing is a property of the work — how big is it — and placement is a property of the plan — where does it go.** The first is answerable from the row in front of you and is why this workflow is the one that answers it; the second needs the plan open beside you and belongs to the runs that have it. That is placement, it happens after you, and a triage pass that also places is the two-jobs-in-one-run shape this workflow was split out of.
 
-What you MAY do is **say what you noticed** — *"C-058 is clearly about Temporal queues"* is useful context for the workflow that places it. State it as an observation in your report, never as a decision, and never by editing a plan file.
+What you MAY do is **say what you noticed** — *"C-kosp0o61 is clearly about Temporal queues"* is useful context for the workflow that places it. State it as an observation in your report, never as a decision, and never by editing a plan file.
 
 **That is a complete outcome, not a deferral**, and you should not feel it as unfinished work. **The failure this prevents:** a triage pass that cannot say "not mine" invents homes for things, and the plan fills with entries nobody can work because they were never plan-shaped to begin with.
 

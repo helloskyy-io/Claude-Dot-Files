@@ -125,6 +125,13 @@ SUPERSEDED_V1_LINES = {
         "a re-dispatch into the frozen fleet. Rewritten to name the tiers "
         "(`plan-revision`, `build-draft-minor`, `build-draft` + `build-refine`), "
         "matching the same repair made to three sibling prompts.",
+    "- **Re-Read before re-Editing anything you wrote earlier:** Edit requires a fresh Read. The classic failures: revising a /tmp staging file (e.g. `/tmp/claude-pr-body.md`) several turns after Writing it, or re-Editing a repo file many turns after its last Read (applying review findings). Either Read the file again first, or for staging files simply Write the full replacement content instead of Editing.":
+        "the example path `/tmp/claude-pr-body.md` is FIXED, and an example in a "
+        "prompt is a prescription in practice — the logs show it copied verbatim "
+        "133 times across 45 runs. A fixed name in a shared directory is overwritten "
+        "by any sibling dispatch (13 overlapping pairs measured in one night), and the "
+        "visible outcome is a PR published with another PR's body. The name now carries "
+        "the branch; nothing else in the line changed.",
 }
 
 
