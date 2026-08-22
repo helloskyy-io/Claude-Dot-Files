@@ -159,7 +159,7 @@ def _broken(path: Path) -> list[tuple[str, str]]:
 def test_the_VENDORED_EXEMPTION_names_the_SIX_FILES_the_script_declares() -> None:
     """Vacuity guard on the exemption above, which is derived rather than listed.
 
-    If the regex stopped matching, `VENDORED` would be empty and this gate would
+    If the derivation stopped matching, `vendored_paths()` would be empty and this gate would
     start flagging the six mirrors' upstream-relative links — 109 of them —
     sending a contributor to "fix" files that must not be edited here. If it
     over-matched, local files would go unchecked, which is the hole this

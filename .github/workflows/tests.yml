@@ -42,20 +42,6 @@ jobs:
     # re-resolving the tag to its current commit, not by hand-editing the SHA.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          # FULL HISTORY, because one gate's evidence IS the history.
-          # `test_no_doc_cites_a_migration_step_by_ORDINAL.py` replays the
-          # eight ordinal citations that actually happened out of the pre-fix
-          # blobs, rather than against a corpus someone typed — that file
-          # exists because an author-invented corpus certified a predicate
-          # catching 2 of the 8 instances it cited as its own justification.
-          # The default shallow clone has no `bb4a3ae`, so those fixtures
-          # cannot be resolved and the gate fails on a clean runner while
-          # passing on any developer machine. Caught by `gh pr checks` on
-          # PR #123; the alternative — skipping the replay when history is
-          # absent — makes the merge path the one place the corpus is never
-          # verified, which is the hole the module's own docstring condemns.
-          fetch-depth: 0
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:

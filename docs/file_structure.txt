@@ -731,12 +731,6 @@ claude-dot-files/
 │   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
 │   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
 │   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-523klr8n
-│   │       ├── test_no_doc_cites_a_migration_step_by_ORDINAL.py # A citation keyed on an ordinal resolves to the WRONG
-│   │       │                                        #   step after an insertion instead of failing — it still resolves, so nothing
-│   │       │                                        #   goes red. Eight instances on PR #123 across three passes, and the class
-│   │       │                                        #   REOPENED inside that PR because the closing sweep's grep was scoped to one
-│   │       │                                        #   FILE. Repo-wide for exactly that reason. Other documents' internal step
-│   │       │                                        #   numbering is legitimate and is not matched
 │   │       ├── test_file_structure_map_covers_the_tree.py # THIS map, checked against `git ls-files`: where it enumerates a directory it
 │   │       │                                        #   enumerates it completely, and every tracked file is reachable through some
 │   │       │                                        #   entry. Paths are reconstructed from the indentation — leaf-name matching scored
