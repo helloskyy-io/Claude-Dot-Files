@@ -24,7 +24,7 @@ ${CANDIDATE_CEILING}
 
 ### If the file does not exist
 
-Create it with the header explaining the two flags, who sets which, and the never-delete / never-renumber rules — then add your candidates starting at `C-001`.
+Create it with the header explaining the two flags, who sets which, and the never-delete / never-renumber rules — then add your candidates starting at `C-d1uhacwn`.
 
 ### In your PR body
 

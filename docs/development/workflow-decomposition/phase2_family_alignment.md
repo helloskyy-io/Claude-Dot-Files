@@ -35,7 +35,7 @@ What is left is the half a test was never able to decide. A copy that has alread
 - **Nothing outside this component.** The mechanism, the ratchet and the standard's wording all shipped.
 - **Inside it:** none. This phase does not need [Phase 4](phase4_nothing_invisible.md), [Phase 3](phase3_dual_mode_children.md) or [Phase 5](phase5_configuration_a_run_absorbed.md), and none of them needs it. **One-way note:** [Phase 3](phase3_dual_mode_children.md) writes nine new runners from one template in one sitting, which is the exact shape this phase's duplication ratchet exists to catch — so it must not hand that baseline nine new rows.
 
-**Four open candidates are inputs to this phase and are not re-derived here.** They were filed by build and review passes on PR #100, they are untriaged, and each one names a decision this phase's work runs into: **C-108** (a promotion has no fidelity check, and the pool has no content floor after promotion), **C-109** (whether a surfacing-only detector counts as a "test" under the standard's own sentence), **C-110** (nothing defines what a `_minor` tier's prompt should contain — the evidence for requirement 4), **C-111** (a child may hold a drifted near-copy of a *pool* fragment and no guard can see it at any granularity). See [`candidates.md`](../../standards/architecture/research/candidates.md). **Whoever builds this phase reads those four first**; three of them describe blind spots in the very guards this phase leans on.
+**Four open candidates are inputs to this phase and are not re-derived here.** They were filed by build and review passes on PR #100, they are untriaged, and each one names a decision this phase's work runs into: **C-uva9dsox** (a promotion has no fidelity check, and the pool has no content floor after promotion), **C-rm2g8ope** (whether a surfacing-only detector counts as a "test" under the standard's own sentence), **C-at80groo** (nothing defines what a `_minor` tier's prompt should contain — the evidence for requirement 4), **C-yq30mgwd** (a child may hold a drifted near-copy of a *pool* fragment and no guard can see it at any granularity). See [`candidates.md`](../../standards/architecture/research/candidates.md). **Whoever builds this phase reads those four first**; three of them describe blind spots in the very guards this phase leans on.
 
 ---
 
@@ -78,7 +78,7 @@ Applied first, these keep the procedure from being run 13 times when it is neede
 
 ## Implementation steps
 
-- [x] Read the four open candidates (C-108 to C-111) and record which of them the work about to be done depends on. Two describe blind spots in the guards this phase uses.
+- [x] Read the four open candidates (C-uva9dsox to C-yq30mgwd) and record which of them the work about to be done depends on. Two describe blind spots in the guards this phase uses.
 - [x] Write the ruling procedure — the four signals in order, the four short-circuits, and the rule that absence of a signal yields *unruled* rather than *deliberate*. Place it where a reviewer will find it at ruling time, not in a standard nobody opens mid-pass.
 - [x] Pick the sample for the blind trial from the drifted pairs, and **seal the classifications before any history is consulted.** Record which signal drove each call.
 - [x] Reveal the commit history for each pair in the sample and score the blind classifications against it. **Record the accuracy, including a bad one.**
@@ -100,6 +100,6 @@ Applied first, these keep the procedure from being run 13 times when it is neede
 
 ## Notes and gotchas
 
-- **A promotion is not free, and the direction of the risk flips.** While text is duplicated, a one-sided edit is a divergence some detector can see. Once shared, deleting a sentence removes it from every consumer at once and nothing diverges — measured on this tree, with the whole suite staying green after a shared fragment was gutted. C-108 carries the remedy; do not treat promotion as the safe default without reading it.
+- **A promotion is not free, and the direction of the risk flips.** While text is duplicated, a one-sided edit is a divergence some detector can see. Once shared, deleting a sentence removes it from every consumer at once and nothing diverges — measured on this tree, with the whole suite staying green after a shared fragment was gutted. C-uva9dsox carries the remedy; do not treat promotion as the safe default without reading it.
 - **The similarity of two copies is not the finding, and a reviewer will reach for it anyway.** If a ruling's written reasoning contains a percentage, the ruling was made on the one signal the evidence says nobody uses.
 - **`plan_feature` + `plan_verify` are one family, and `research_write` + `research_write_minor` are tier siblings** — a note in the baseline once called the whole remainder "cross-family" and was wrong on both counts. Check the pair before assuming what kind of pair it is.

@@ -52,7 +52,7 @@ promotion threshold at more than one consumer, so that threshold was already
 crossed before this file existed — but the remedy is a family-wide migration
 that rewrites three prompts this workflow does not own, and the four copies have
 already drifted, so unifying them changes what three live workflows receive.
-Placed as `candidates.md` C-067 rather than done here or dropped.
+Placed as `candidates.md` C-abieu0fg rather than done here or dropped.
 """
 
 from __future__ import annotations

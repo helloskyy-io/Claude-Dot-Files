@@ -185,14 +185,14 @@ TIER_SCOPED = {
 # it. So the ban is on a figure ATTACHED TO A SIMILARITY CLAIM, in either order,
 # plus any percentage — the form nobody writes except to score two copies.
 # `(?<![A-Za-z-])` is load-bearing: the procedure's OWN vocabulary is full of
-# digits glued to letters — `S2`, `SC3`, a `C-115` candidate id — and without it
+# digits glued to letters — `S2`, `SC3`, a `C-0wbwye5a` candidate id — and without it
 # every ruling that names the signal that decided it reads as a magnitude,
 # which is every well-formed ruling there is.
 #
 # AND THE VOCABULARY IS THE REPO'S, NOT GENERIC ENGLISH — measured, because the
 # first list was written from the word "similar" outwards and missed every term
 # this tree actually reaches for. `_pair_score` is the drift guard's own scoring
-# function; C-111's Note says "Scored the way this PR's own guard scores"; the
+# function; C-yq30mgwd's Note says "Scored the way this PR's own guard scores"; the
 # standard at `workflow-scripts.md` describes the same measurement as "well
 # above half-identical"; and the three figures whose falsification is the reason
 # this check exists were published as percentages that also read as "62.1
@@ -357,7 +357,7 @@ FAMILY_RULINGS: dict[str, tuple[tuple[str, ...], str]] = {
         "when the resolve_* fragments were promoted, and these three were the "
         "remainder, frozen with two consumers each so a third tier could not "
         "take them without tripping the spread check. Reconciled into "
-        "build_refine_minor in the same change, per C-110's own reading.",
+        "build_refine_minor in the same change, per C-at80groo's own reading.",
     ),
     "orchestration-mechanics": (
         ("orchestrator_executes_agents_read",),

@@ -458,7 +458,7 @@ data.
   the other items** — the root stays a config value so this does not block the build.
 - **Event schema versioning in detail** (§2). The approach is settled — version, never mutate,
   upcast on read — but not the mechanism.
-- **Component or phase** — [`C-074`](../../../standards/architecture/research/candidates.md), still
+- **Component or phase** — [`C-xh8nvwqn`](../../../standards/architecture/research/candidates.md), still
   open. Nothing here depends on it; it decides where the plan gets written, not what is in it.
 - **Journal format at this volume**, and redaction/classification for records crossing a trust
   boundary (§11's blocker). **Both are genuine research questions** and are the strongest candidates

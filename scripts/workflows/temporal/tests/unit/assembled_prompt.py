@@ -24,7 +24,7 @@ narrows every file-scoped guard in the tree, and it does so by making them PASS
 less rather than fail — the failure above was loud only because the promotion
 happened to remove whole reference lines. A promotion that moves text a guard
 merely COUNTS, or greps for loosely, produces no failure at all and leaves a
-guard that has stopped watching. This is the same shape as C-108's second face
+guard that has stopped watching. This is the same shape as C-uva9dsox's second face
 (deleting from the pool is invisible), one step earlier in the lifecycle.
 
 WHAT THIS DOES NOT DO, so it is not over-read:

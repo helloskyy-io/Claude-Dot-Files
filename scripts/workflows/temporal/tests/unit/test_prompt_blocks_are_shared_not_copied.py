@@ -177,7 +177,7 @@ def test_the_DUPLICATION_DETECTOR_fires_on_a_block_TWO_CHILDREN_share() -> None:
 
     assert _blocks([("build_draft", block), ("build_draft", block)]) == {}, (
         "two copies inside ONE child are not cross-child duplication — that axis "
-        "is C-115's, and reporting it here would make this guard fire on a file "
+        "is C-0wbwye5a's, and reporting it here would make this guard fire on a file "
         "pair no promotion can fix"
     )
     assert _blocks([("build_draft", "S" * (MIN_BLOCK - 1)),
@@ -398,7 +398,7 @@ def test_the_RULING_CHECK_fires_on_each_way_a_ruling_can_be_empty() -> None:
     # The first vocabulary was built outwards from "similar" and caught none of
     # these, so the ban held against a phrasing nobody uses and folded on the
     # four the tree demonstrably does: `_pair_score` is the drift guard's own
-    # function name, C-111's Note says "Scored the way this PR's own guard
+    # function name, C-yq30mgwd's Note says "Scored the way this PR's own guard
     # scores", the standard describes the same measurement as "well above
     # half-identical", and `difflib` is the library every one of them calls.
     assert "magnitude" in one(

@@ -10,6 +10,7 @@ Temporal a retry is a NEW ATTEMPT, not a replay.
 from __future__ import annotations
 
 import re
+import secrets
 import subprocess
 from datetime import date, datetime
 from pathlib import Path
@@ -111,21 +112,57 @@ def paper_currency(research_dir: Path, today: date | None = None) -> tuple[str, 
     return table, due
 
 
-def candidate_ceiling(research_dir: Path) -> str:
-    """The highest C-NNN in use, computed in code and handed over.
+_ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz"
+_ID_LEN = 8
+_IDS_OFFERED = 3
 
-    A run that guesses the next ID collides with an existing one or skips a
-    block; either way the file's promise — that an ID is stable and never
-    reused — breaks silently. Same discipline as every other count here.
+# EVERY id in the file, whatever its shape. The corpus carries exactly one shape
+# today, but a reader keyed to `\d{8}` would stop seeing the legacy `C-\d{3}`
+# rows the moment one survived a migration — and an allocator that cannot SEE an
+# id cannot avoid it. Match the separator and the run, not the alphabet.
+_ANY_ID = re.compile(r"^\|\s*(C-[0-9a-z]+)\s*\|", re.M)
+
+
+def candidate_ceiling(research_dir: Path) -> str:
+    """Fresh candidate ids, MINTED HERE and handed to the run ready to use.
+
+    THERE IS NO CEILING ANY MORE, and the name is kept only because two
+    workflows render it into `CANDIDATE_CEILING`. What it used to compute was
+    `max + 1`, read from the branch's own snapshot of `candidates.md` — and
+    that is the whole defect. Two branches read the same snapshot, both take the
+    same "next free" id, and git merges two rows added at different positions
+    with NO conflict. Nothing is red; the file simply now holds one address
+    naming two proposals. Measured on this file: nine renumbering events across
+    seven rows, then six more collisions, three of them on a single PR.
+
+    A RANDOM id needs no coordination, which is the entire point: there is no
+    "next" to race for. At 36**8 the space is ~2.8e12, so at the thousands this
+    file will ever hold the chance of any collision is under one in a million —
+    and `test_candidate_ids_are_unique.py` still catches the case that does not
+    happen, because a guard that only fires on the impossible is cheap.
+
+    OFFERED IN A BATCH, AND UNUSED ONES ARE SIMPLY DISCARDED. That is only
+    possible because they are random: a skipped sequential id is a permanent hole
+    someone later has to explain in prose, which is exactly the prose this file
+    used to carry. Here, an id nobody writes down never existed.
     """
     f = research_dir / "candidates.md"
+    taken = set(_ANY_ID.findall(f.read_text())) if f.exists() else set()
+
+    fresh: list[str] = []
+    while len(fresh) < _IDS_OFFERED:
+        new = "C-" + "".join(secrets.choice(_ID_ALPHABET) for _ in range(_ID_LEN))
+        if new not in taken and new not in fresh:
+            fresh.append(new)
+
+    offer = ", ".join(f"`{i}`" for i in fresh)
     if not f.exists():
-        return ("`candidates.md` does NOT exist yet — create it and start at `C-001`.")
-    ids = sorted(re.findall(r"^\|\s*C-(\d{3})\s*\|", f.read_text(), re.M))
-    if not ids:
-        return "`candidates.md` exists but holds no rows — start at `C-001`."
-    return (f"`candidates.md` holds **{len(ids)} rows**, highest ID **C-{ids[-1]}**. "
-            f"A NEW candidate starts at **C-{int(ids[-1]) + 1:03d}**. "
+        return (f"`candidates.md` does NOT exist yet — create it. "
+                f"Use these ids, in order, for the candidates you file: {offer}.")
+    return (f"`candidates.md` holds **{len(taken)} rows**. "
+            f"**Ids are RANDOM, never sequential — do not compute one.** Use these, "
+            f"in order, for the candidates you file: {offer}. Unused ids are discarded, "
+            f"so take only what you need. "
             f"A restatement of an existing candidate REUSES its ID — do not mint a new one.")
 
 
@@ -239,7 +276,7 @@ def upstream_block(research_dir: Path, repo_root: Path, *,
     at all — it is a one-paper cycle — so hard-coding "your sizing in Stage 2"
     here sent it an instruction its prompt explicitly forbids obeying. That is a
     cross-file prose claim going stale the moment a second consumer appears,
-    which is the failure class `candidates.md` C-065 names.
+    which is the failure class `candidates.md` C-zwzepum0 names.
     """
     if altitude(research_dir, repo_root) == "PRODUCT":
         return ""

@@ -1,11 +1,11 @@
 r"""A planning directory must be SUMMARISED in the map, never listed file by file.
 
-THE DEFECT THIS PINS, C-113, measured three times on independent runs.
+THE DEFECT THIS PINS, C-pky2l2b6, measured three times on independent runs.
 
   * PR #111 — `plan-feature` added four phase docs to `workflow-decomposition/`;
     `test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY` went red; an
     operator hand-patched `docs/file_structure.txt`.
-  * The correction pass on that PR filed C-113 for the general form.
+  * The correction pass on that PR filed C-pky2l2b6 for the general form.
   * PR #123 — the next `plan-feature` run, on `persistent-memory-protocol/`,
     added ONE phase doc and hit the identical wall.
 
@@ -48,12 +48,12 @@ WHAT THIS DOES NOT LOOK AT, so it is not read as covering more than it does:
   * **Whether a planning directory has a row of its OWN.** Only that it is
     reachable. See `test_every_planning_directory_is_still_REACHABLE_through_the_map`
     for why the stricter property is deliberately not asserted — it is the same
-    C-113 shape one level up, and it was reproduced before being ruled out.
+    C-pky2l2b6 shape one level up, and it was reproduced before being ruled out.
 
 THE ROLL-UP TRADED A GUARD AWAY, AND THAT IS MEASURED RATHER THAN SUSPECTED. The
 scoping above reads as neutral and is not; recorded here so the next engineer
 reasoning about these gates starts from the true baseline instead of re-deriving
-it or, worse, strengthening the gate back into C-113.
+it or, worse, strengthening the gate back into C-pky2l2b6.
 
 Delete a component's row (`memory-management-framework/`) from
 `docs/file_structure.txt` and run both map modules:
@@ -73,7 +73,7 @@ NO REPLACEMENT GATE, RULED RATHER THAN OVERLOOKED. Any snapshot predicate strong
 enough to catch a DELETED component row — own-row required, set-equality against
 `docs/development/`, a pinned census — is by construction strong enough to fail a
 `plan-feature` run that CREATES a component, because both are the same tree state
-read from opposite directions. That is C-113 exactly: measured on PR #111,
+read from opposite directions. That is C-pky2l2b6 exactly: measured on PR #111,
 measured again on PR #123, and re-created once by the first draft of this very
 module. A gate on a repo-wide artifact must not fail a run structurally forbidden
 to repair it, and `plan-feature`'s grant (`^docs/development/<component>/[^/]+\.md$`
@@ -84,7 +84,7 @@ so the property is TEMPORAL and no snapshot can carry it. Its home is the diff,
 which is what `review-pr` and a human read. **Do not add a test asserting component
 rows exist, and do not widen `plan-feature`'s grant to reach the map — both were
 considered, both were rejected, and an executor "improving" on this by adding the
-gate re-ships C-113.**
+gate re-ships C-pky2l2b6.**
 
 THE POPULATION IS DERIVED FROM THE TREE, WHICH BOUNDS WHAT THIS MODULE MAY
 ASSERT, and the bound is the reason the check above reads the way it does. A
@@ -93,7 +93,7 @@ so anything this module derives from `git ls-files` is under that run's control.
 An assertion of the form *"the map must NOT contain X"* is safe against it —
 adding a phase doc can only make it more true. An assertion of the form *"the map
 MUST contain X"* is not: the run supplies the X and cannot supply the map row,
-which is precisely how C-113 worked. Every assertion here is therefore of the
+which is precisely how C-pky2l2b6 worked. Every assertion here is therefore of the
 first form, and the one that was briefly of the second is now scoped to
 reachability for the reasons stated at it.
 """
@@ -205,7 +205,7 @@ def test_a_planning_directory_has_NO_per_file_row_in_the_map() -> None:
           "`test_a_directory_the_map_ENUMERATES_is_enumerated_COMPLETELY` then "
           "demands a row for every phase doc in it — including the ones "
           "`plan-feature` has not written yet and is not permitted to add here "
-          "(C-113). Delete the row. The per-phase detail belongs in that "
+          "(C-pky2l2b6). Delete the row. The per-phase detail belongs in that "
           "component's roadmap.md, which is the only copy anyone maintains.")
 
 
@@ -214,7 +214,7 @@ def test_every_planning_directory_is_still_REACHABLE_through_the_map() -> None:
 
     REACHABLE, NOT OWN-ROW, AND THE WEAKER FORM IS THE CORRECT ONE. This assertion
     was written as *"every planning directory has a row of its own"*, and that is
-    C-113 one level up — reproduced by execution before it was changed. Staging a
+    C-pky2l2b6 one level up — reproduced by execution before it was changed. Staging a
     `roadmap.md` and a `phase1_*.md` into a component directory the map has no row
     for turned this red, on a tree state that was green before this module existed;
     `plan-feature` creates exactly that pair, its write grant is
@@ -255,7 +255,7 @@ def test_every_planning_directory_is_still_REACHABLE_through_the_map() -> None:
 # --- the controls ------------------------------------------------------------
 
 def test_the_reachability_check_FIRES_only_when_NOTHING_reaches_the_directory() -> None:
-    """DISCRIMINATOR for the check above, and the second half is the C-113 pin.
+    """DISCRIMINATOR for the check above, and the second half is the C-pky2l2b6 pin.
 
     THE POSITIVE HALF: a map that reaches neither the component nor any ancestor
     of it must be reported. Without this the relaxation above could have gone all
@@ -292,7 +292,7 @@ def test_the_reachability_check_FIRES_only_when_NOTHING_reaches_the_directory() 
         "ancestor. That is the state a plan-feature run leaves behind when it "
         "writes the first roadmap.md and phase doc into a directory the map has no "
         "row for yet — and that run's write grant excludes docs/file_structure.txt, "
-        "so failing here is C-113 recreated by the module that exists to retire it.")
+        "so failing here is C-pky2l2b6 recreated by the module that exists to retire it.")
 
     own_row = map_paths(
         "claude-dot-files/\n"

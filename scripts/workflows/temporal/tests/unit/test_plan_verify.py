@@ -685,7 +685,7 @@ def _harness(monkeypatch: pytest.MonkeyPatch, tree: Path, writes):
     cands.write_text(
         "| ID | Candidate | `component` | Source | `decision` | `size` | `status` | Note |\n"
         "|---|---|---|---|---|---|---|---|\n"
-        "| C-001 | a candidate |  | PR #1 |  | feature | `open` | n |\n")
+        "| C-d1uhacwn | a candidate |  | PR #1 |  | feature | `open` | n |\n")
 
     comp, seen = _component(tree), set()
 

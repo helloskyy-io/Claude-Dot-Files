@@ -70,7 +70,11 @@ claude-dot-files/
 │   │
 │   ├── development/                                 # WHAT — active work tracking
 │   │   ├── cpi-decisions.md                         # Append-only CPI decisions log (ship/defer/reject with watch-criteria)
-│   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: Temporal/Skyy-Net-seed decisions, security surface, milestone 1 (read before resuming that work)
+│   │   ├── skyy-net-seed-handoff.md                 # Canonical handoff: 15 settled Temporal/Skyy-Net-seed decisions D1-D15, security
+│   │   │                                            #   surface, milestone 1 (read before resuming that work). D13-D15 are the
+│   │   │                                            #   operator's 2026-08-19 deployment brief — temporary starter destroyed not
+│   │   │                                            #   migrated, permanent cluster a future sprint inherited from MDC, no workload
+│   │   │                                            #   tier — and D13 SUPERSEDES D11's mTLS clause
 │   │   ├── sprint.md                                # The sprint plan — what gets built and in what order. NEVER a history lesson
 │   │   │
 │   │   │                                            # One FOLDER per sprint, directly under development/ (there is no phases/ level).
@@ -89,7 +93,7 @@ claude-dot-files/
 │   │   │                                            #   `docs/development/<component>/[^/]+\.md` and excludes THIS file. Writing a
 │   │   │                                            #   phase doc is that workflow's entire job, so every plan it produced landed a
 │   │   │                                            #   RED map-coverage suite it was structurally forbidden to fix — measured on
-│   │   │                                            #   PR #111 and again on PR #123, and filed as C-113. research/ keeps its line:
+│   │   │                                            #   PR #111 and again on PR #123, and filed as C-pky2l2b6. research/ keeps its line:
 │   │   │                                            #   it is a SUBDIRECTORY, so it is a roll-up of its own and adding it enumerates
 │   │   │                                            #   nothing. Pinned by
 │   │   │                                            #   testing/scripts/tests/unit/test_planning_directories_are_ROLLED_UP_in_the_map.py
@@ -105,7 +109,7 @@ claude-dot-files/
 │   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
 │   │   ├── persistent-memory-protocol/              # PLANNED, NOT STARTED (2026-08-13) — ruled its OWN COMPONENT rather than a 7th phase
-│   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-074's
+│   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-xh8nvwqn's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
 │   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
 │   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
@@ -117,9 +121,14 @@ claude-dot-files/
 │   │   ├── workflow-decomposition/                  # 🟡 IN PROGRESS per sprint.md — Phase 1 shipped; Phases 2-5 open, rollout order 2 → 3 → 4 → 5
 │   │   │   └── research/                          # 2 papers + synthesis, both PASS-WITH-FIXES; fork_vs_parameterize_drift_signal backs the Phase 2 ruling,
 │   │   │                                            #   invocation_contract backs Phases 3, 4 and 5
-│   │   ├── temporal-integration/                    # IN PROGRESS — Stage A built; why Temporal, and why Python was forced.
-│   │   │                                            #   Holds the 5-paper reliability pool moved here 2026-08-19 when Fleet
-│   │   │                                            #   Reliability dissolved — durable dispatch id, liveness, the three guards
+│   │   ├── temporal-integration/                    # 🟡 IN PROGRESS per sprint.md — Stage A built, nothing orchestrated, no server.
+│   │   │                                            #   PLANNED 2026-08-19 (Phase 9 added 2026-08-20): roadmap.md + 7 phase docs.
+│   │   │                                            #   Rollout order 1 → 2 → 3 → 9 → 4 → 5 → 6 → 7 → 8; numbers are IDENTITY, not order.
+│   │   │                                            #   Phases 7-8 are roadmap entries with NO doc, deliberately — gated on
+│   │   │                                            #   MDC's cluster work. research/ holds SIX papers — activity_retry_boundary
+│   │   │                                            #   is native and backs Phase 3; the other five are the reliability pool
+│   │   │                                            #   moved here 2026-08-19 when Fleet Reliability dissolved, and four of
+│   │   │                                            #   those five feed OTHER components (issue #125 rules their re-homing)
 │   │   └── reviews/                                 # CPI review reports (review-runs.sh output)
 │   │       ├── review-2026-04-10.md
 │   │       ├── review-2026-04-24-mdc-master-planning.md
@@ -211,10 +220,10 @@ claude-dot-files/
 │   │   │   │                                        #   declared set against `_append_run_event`'s call sites in BOTH directions
 │   │   │   ├── replay_run_resources.py              # Four figures over `run_resources`: the unmeasured rate, peak_anon by workflow, the
 │   │   │   │                                        #   subagent-vs-volume knob question, and the overlapping-run aggregate → MMF Phase 6 req 3
-│   │   │   ├── replay_convergence_events.py         # The LIVE convergence corpus (candidate C-059) + Phase 5's gate conditions 1 and 2 with their
+│   │   │   ├── replay_convergence_events.py         # The LIVE convergence corpus (candidate C-wb1xc1xs) + Phase 5's gate conditions 1 and 2 with their
 │   │   │   │                                        #   denominators. `--archive` adds condition 1; without it that half prints NOT TAKEN, never zero
 │   │   │   └── replay_parent_route.py               # The computed abstention arm grouped by reason, and the prose-shadow agreement rate with
-│   │   │                                            #   C-060's conditioning printed beside it → MMF Phase 3 step 4, Phase 4's shadow-removal box
+│   │   │                                            #   C-45bhs5cm's conditioning printed beside it → MMF Phase 3 step 4, Phase 4's shadow-removal box
 │   │   └── tests/                                   # TIER 3 — this unit owns its tests (Testing Standard § per-unit ownership)
 │   │       ├── conftest.py                          # Component-scoped import path (puts scripts/helpers/ on sys.path)
 │   │       └── unit/
@@ -714,7 +723,7 @@ claude-dot-files/
 │   │                                                #   because a path LOAD emits no ast.Import node and slipped past the first one unseen
 │   │       ├── test_measurement_figures_are_cited.py # A figure with a denominator lives ONLY where the measurement is taken; every other
 │   │       │                                        #   mention cites it. Keyed on the class after fix-the-instances was MEASURED
-│   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-050
+│   │       │                                        #   non-convergent over four passes on one PR — see candidates.md C-523klr8n
 │   │       ├── test_file_structure_map_covers_the_tree.py # THIS map, checked against `git ls-files`: where it enumerates a directory it
 │   │       │                                        #   enumerates it completely, and every tracked file is reachable through some
 │   │       │                                        #   entry. Paths are reconstructed from the indentation — leaf-name matching scored
@@ -727,7 +736,7 @@ claude-dot-files/
 │   │       │                                        #   docs/development/ component on the roadmap+phases shape must be SUMMARISED here,
 │   │       │                                        #   never listed file by file. Adding a phase doc is plan-feature's whole job and this
 │   │       │                                        #   map is outside its write grant, so a per-file row made every plan it produced land
-│   │       │                                        #   a red suite it was forbidden to fix (C-113, measured on PR #111 and again on #123).
+│   │       │                                        #   a red suite it was forbidden to fix (C-pky2l2b6, measured on PR #111 and again on #123).
 │   │       │                                        #   The planning set is DERIVED from the tree; reproduces the red-on-add and pairs it
 │   │       │                                        #   with a control that still goes red outside docs/development/
 │   │       ├── test_the_on_disk_footprint_is_documented.py # State written OUTSIDE any checkout must be named where an OPERATOR reads
@@ -772,6 +781,19 @@ claude-dot-files/
 │   │       │                                        #   invalid escape in a docstring was flagged by hand on three passes and survived
 │   │       │                                        #   each time; CPython is promoting these to SyntaxError, at which point the module
 │   │       │                                        #   stops importing and its whole tier fails to COLLECT
+│   │       ├── test_no_prompt_PRESCRIBES_a_shared_tmp_path.py # No surface that prescribes a path names a
+│   │       │                                        #   FIXED one under /tmp — shared by every dispatch, so two
+│   │       │                                        #   concurrent runs get one file and the loser silently reads or
+│   │       │                                        #   PUBLISHES the winner's. 13 overlapping pairs measured in one
+│   │       │                                        #   night; the pr-body example was copied verbatim 133 times.
+│   │       │                                        #   Walks prompts AND operator surfaces (runner help, skills) —
+│   │       │                                        #   the first version excluded the latter and the class stayed live.
+│   │       │                                        #   Also INVENTORIES the same class in docs/, which it does
+│   │       │                                        #   NOT walk: six files, five of them not defects — recorded
+│   │       │                                        #   PATH BY PATH, so a new one reds even in an already-listed file.
+│   │       │                                        #   Its one exemption channel is scoped to the FILE, the PROSE and
+│   │       │                                        #   the COUNT that earn it. It was global: a full regression of the
+│   │       │                                        #   very prompt this guard exists for read CLEAN.
 │   │       ├── test_a_research_papers_FEEDS_target_resolves.py # A paper's Feeds: line names where
 │   │       │                                        #   its evidence goes; a dead one reads as a real destination.
 │   │       │                                        #   15 of 35 were dead when this shipped — frozen, ratcheting down

@@ -11,7 +11,7 @@
 #
 # Usage:
 #   ./research_minor.sh docs/development/<component>/research
-#   ./research_minor.sh docs/development/<component>/research --task-file /tmp/claude-task.md --verbose
+#   ./research_minor.sh docs/development/<component>/research --task-file /tmp/claude-<name>.md --verbose
 #   ./research_minor.sh docs/development/<component>/research --pr 42
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

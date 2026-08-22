@@ -75,7 +75,7 @@ def assemble_prompt(review_type: ReviewType) -> str:
 def _append_shadow_pair(log_file, *, run_id: str, pr: str, expected_ref) -> None:
     """Write the `parent_route` row comparing the typed channel against the prose one.
 
-    CALLED ON BOTH PATHS, AND THE FAILURE PATH IS THE POINT (`C-060`).
+    CALLED ON BOTH PATHS, AND THE FAILURE PATH IS THE POINT (`C-45bhs5cm`).
 
     THE DEFECT THIS CLOSES. `run-claude.sh` returns non-zero when the model's
     final result does not match `COMPLETION_PATTERN` — a PR URL, which the PROSE
@@ -190,7 +190,7 @@ def run_review(task: ReviewInput, worktree: Path) -> ReviewResult:
     # describes, so passing the run_id is what makes the name unique here and
     # makes the filename greppable against the record it carries.
     log_file = _shared.claude_log_path(worktree, helper.MODEL_KEY, run_id=run_id)
-    # WRAPPED SO THE PAIR IS RECORDED ON BOTH OUTCOMES (`C-060`). The
+    # WRAPPED SO THE PAIR IS RECORDED ON BOTH OUTCOMES (`C-45bhs5cm`). The
     # completion gate fires on the PROSE channel's PR URL, so a prose failure
     # killed this parent before it could record that the TYPED channel had
     # succeeded. The gate itself is unchanged and still fails the run — exit 0
@@ -655,7 +655,7 @@ def _thread_unreadable_note(pr_number: str, record: exit_record.ExitRecord,
     is named rather than papered over: making it durable means a new stratum in
     `exit-protocol.md` §2, and WHAT a parent should do about a verification it
     could not perform — annotate, record, or downgrade — is one unruled question,
-    carried as candidate **C-056**.
+    carried as candidate **C-rrm2t4sj**.
 
     IT IS A SEPARATE FUNCTION FROM THE INVARIANT ITSELF, and that split is what
     let the invariant be renamed honestly. It used to be one `_verify_` function

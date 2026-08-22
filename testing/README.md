@@ -56,7 +56,7 @@ whole tier reports **PASS having asserted nothing** on a CI runner. That is the
 category-present-but-nothing-ran case, which is a different thing from the
 category being absent, and `run-all.sh` cannot currently tell them apart — no
 pytest exit code carries an executed-test count. It is the same gap
-[`C-067`](../docs/standards/architecture/research/candidates.md) already
+[`C-abieu0fg`](../docs/standards/architecture/research/candidates.md) already
 describes for `mutate.sh`'s legs, met here through a second tool. **So an
 integration test is never the evidence that a guard works** — write the unit
 test that runs everywhere, and let the integration tier confirm the shape
@@ -126,7 +126,7 @@ class this repo has measured as non-convergent. One source now.)*
 
 The tables also record the ambiguities deliberately left open rather than
 claimed closed — an all-skipped leg exiting 0, the abstained discriminator, and
-the `addopts` channel — with the mechanism for each placed as a candidate — **C-060**, **C-066** and **C-061** respectively. *(The middle one was missing until 2026-08-11: its only record was prose inside this directory's 728-line script, which `plan-sprint` does not read, so the claim above was true of two of three.)* Do
+the `addopts` channel — with the mechanism for each placed as a candidate — **C-45bhs5cm**, **C-xhb460zu** and **C-73bf2gvm** respectively. *(The middle one was missing until 2026-08-11: its only record was prose inside this directory's 728-line script, which `plan-sprint` does not read, so the claim above was true of two of three.)* Do
 not read the absence of a caveat here as the absence of one.
 
 The single fact worth carrying away without opening the file: **`1` and `3` are

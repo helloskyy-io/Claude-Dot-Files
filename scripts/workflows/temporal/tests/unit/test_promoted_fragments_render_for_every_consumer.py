@@ -455,7 +455,7 @@ _INVARIANT_PATH_GAPS = {
         "both wrappers open with their own condensed EXECUTION ORDER IS "
         "MANDATORY paragraph instead of the fragment, so the instruction is "
         "present and the fragment is not. That is a child holding a drifted "
-        "near-copy of a pool fragment, which is C-111's axis and reachable by "
+        "near-copy of a pool fragment, which is C-yq30mgwd's axis and reachable by "
         "no guard here at any granularity; reconciling it is a content ruling, "
         "not a wiring fix.",
 }
@@ -802,7 +802,7 @@ def test_an_UNSUPPLIED_fragment_placeholder_stops_the_dispatch(monkeypatch, tmp_
 #
 # THIS IS THE LOCAL HALF, AND IT NOW SPANS THE WHOLE POOL — `_PROMOTED` is
 # derived from it, so no fragment sits outside the floor. The general question
-# remains open: a standing CONTENT gate, which is C-108 (placed as C-106 and
+# remains open: a standing CONTENT gate, which is C-uva9dsox (placed as C-lg7lpge9 and
 # renumbered when this branch's merge found the id taken). A floor is not that
 # gate — it catches deletion and says nothing about a line being rewritten into
 # something else, which is the half no guard here reaches.

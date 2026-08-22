@@ -30,7 +30,7 @@ with no list to maintain.
 WHAT IT DOES NOT LOOK AT, stated so it is not read as covering the wider class:
 
   * **Any claim other than existence.** *"`X` is what enforces `Y`"* is the same
-    family and is not reached here. C-084 proposes the general mechanism.
+    family and is not reached here. C-gbclnzsq proposes the general mechanism.
   * **Prose naming a workflow with no module** — that is a correct claim about
     something genuinely unbuilt, and the whole point is to leave it alone.
   * **The distance between the name and the phrase.** They must be within one

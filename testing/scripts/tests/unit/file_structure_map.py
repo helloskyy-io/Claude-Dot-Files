@@ -14,7 +14,7 @@ THE TWO CONSUMERS AND WHY THEY ARE SEPARATE:
     may not silently OMIT, and where it enumerates it enumerates completely.
   * `test_planning_directories_are_ROLLED_UP_in_the_map.py` — a planning directory
     must be summarised rather than enumerated, so that a `plan-feature` run adding
-    a phase doc cannot make the first module go red (C-113).
+    a phase doc cannot make the first module go red (C-pky2l2b6).
 
 They are opposite ends of the same rule and both need the same parse, which is
 exactly the consumer count that decides a promotion here.
@@ -122,7 +122,7 @@ def partially_listed(mapped: set[str], files: list[Path]) -> dict[str, list[str]
 
     A partially-listed directory reads as complete, and that is the defect. Pure
     over both inputs so a caller can drive it with a synthetic tree — which is how
-    the roll-up guard reproduces C-113's red-on-add without touching the repo.
+    the roll-up guard reproduces C-pky2l2b6's red-on-add without touching the repo.
     """
     by_dir: dict[str, list[Path]] = collections.defaultdict(list)
     for path in files:

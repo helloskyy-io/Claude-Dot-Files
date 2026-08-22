@@ -1170,7 +1170,7 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ### SHIPPED
 
-**C-089's remedy reached `build_draft`, one PR after it reached `build_refine`.** The draft pass is where guards are WRITTEN and therefore where the class is introduced; the refine pass only finds it afterwards. **Third consecutive PR on which the class recurred.** Verified before shipping: `grep -c "does NOT look at"` returned 0 case-sensitively everywhere and 1 case-insensitively in `build_refine` only — the prior pass's measurement was right about the gap and wrong about the cause, because the remedy had shipped in capitals. Paid for by cutting two evidence anecdotes; net **−13 bytes**.
+**C-f0lfdhmm's remedy reached `build_draft`, one PR after it reached `build_refine`.** The draft pass is where guards are WRITTEN and therefore where the class is introduced; the refine pass only finds it afterwards. **Third consecutive PR on which the class recurred.** Verified before shipping: `grep -c "does NOT look at"` returned 0 case-sensitively everywhere and 1 case-insensitively in `build_refine` only — the prior pass's measurement was right about the gap and wrong about the cause, because the remedy had shipped in capitals. Paid for by cutting two evidence anecdotes; net **−13 bytes**.
 
 **`ESCALATED` gained an ownership condition: if this PR BUILT the mechanism that fixes the defect, the PR owns the defect** — however far it predates the branch. *"Merging does not change its severity"* is literally true of anything already on `main`, so without this a PR can ship a safety control, apply it to some call sites, and escalate the remainder past its own review. **The reviewer reached the right answer by judgement and reported that the discriminator "held, but only just."** A gate that depends on the reviewer being careful is not a gate.
 
@@ -1190,7 +1190,7 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ### NOTED — already tracked, not re-filed
 
-**The reviewer's subject should be the BRANCH, not the producing run's diff.** Six commits on PR #93 — including a PreToolUse safety hook and both hook timeouts — rode in the diff and had been read by no lens. **Already filed as C-094 by `review-pr` from the other side**, so this is a recurrence report rather than a new item, which is the shape the `engineering-quality.md` change above now names.
+**The reviewer's subject should be the BRANCH, not the producing run's diff.** Six commits on PR #93 — including a PreToolUse safety hook and both hook timeouts — rode in the diff and had been read by no lens. **Already filed as C-hurryucg by `review-pr` from the other side**, so this is a recurrence report rather than a new item, which is the shape the `engineering-quality.md` change above now names.
 
 ### Accounting
 
@@ -1216,13 +1216,13 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 **`gh pr checks` should be polled, not sampled.** Immediately after a push it returns three checks with the merge gate ABSENT, which reads identically to "three checks, all green" — the same shape as the CI-gate defect fixed on 2026-08-15. One occurrence. **Watch-criteria: second occurrence, or any run that reports green against a check set smaller than the previous head's.**
 
-**A brief assembled from issue bodies should carry the issues' filing DATES.** #68 was filed 2026-08-08, fixed 2026-08-09, and dispatched 2026-08-16 — the eight-day gap would have been visible before Stage 1 rather than discovered in it. This is the reader half of C-094. **Watch-criteria: ship with C-094, or on the second brief whose premise was stale on arrival.**
+**A brief assembled from issue bodies should carry the issues' filing DATES.** #68 was filed 2026-08-08, fixed 2026-08-09, and dispatched 2026-08-16 — the eight-day gap would have been visible before Stage 1 rather than discovered in it. This is the reader half of C-hurryucg. **Watch-criteria: ship with C-hurryucg, or on the second brief whose premise was stale on arrival.**
 
 **"Emphasis in a brief is a signal about how much the author wanted it true, never about whether it is."** #94's most emphatic section — *"THE FIX IS UNAMBIGUOUS BECAUSE THE CODE CONTRADICTS ITS OWN SPEC"* — was its only false premise. Named on two passes. **Not shipped because the existing rule (verify the brief's asserted facts) already caught it, twice.** Watch-criteria: ship if a run ever reports missing a false premise *because* it read the emphasis as authority.
 
 ### NOTED
 
-**C-095 is placed** for the third channel a closing keyword lives in: a commit message, which `closingIssuesReferences` cannot see and which is only actionable **before the commit is written** — after the push the remedy needs a force-push the dispatch is not permitted.
+**C-emxcrzti is placed** for the third channel a closing keyword lives in: a commit message, which `closingIssuesReferences` cannot see and which is only actionable **before the commit is written** — after the push the remedy needs a force-push the dispatch is not permitted.
 
 ### Accounting
 
@@ -1240,7 +1240,7 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 **`wait_for_ci` treated an IN_PROGRESS check as settled.** The test was `"PENDING" not in states`; `gh pr checks` also emits **IN_PROGRESS** and **QUEUED**. Observed directly: `IN_PROGRESS  suite`, with `suite` the declared blocking gate — which under that test reads as *settled, and the gate is present*, so the wait returns True and the review runs against a pipeline still going.
 
-**The fix is an ALLOW-LIST of terminal states, and that is the substance rather than a detail.** Testing for one non-terminal name asks what the guard looks FOR and never what it is blind to — which is C-089's question, applied to a guard written two days ago by the same actor that shipped C-089. A state GitHub adds later is unknown, and **unknown now means keep waiting rather than proceed.** Mutation-checked; two tests, one pinning the observed state and one pinning the closed-set property.
+**The fix is an ALLOW-LIST of terminal states, and that is the substance rather than a detail.** Testing for one non-terminal name asks what the guard looks FOR and never what it is blind to — which is C-f0lfdhmm's question, applied to a guard written two days ago by the same actor that shipped C-f0lfdhmm. A state GitHub adds later is unknown, and **unknown now means keep waiting rather than proceed.** Mutation-checked; two tests, one pinning the observed state and one pinning the closed-set property.
 
 **Note the chain, because it is the argument for the deferral discipline rather than for immediate shipping:** the item was deferred at one occurrence, its watch-criteria was written precisely enough to recognise the second, the second arrived within the hour, and following it led to a live defect in the CI gate that no prompt change would have fixed. **A prompt line telling a reviewer to poll would have left the code wrong.**
 
@@ -1264,7 +1264,7 @@ Now: **derive the mutation from the claim the code makes about ITSELF** — its 
 
 ### NOTED — recurrence, not re-filed
 
-**Three docs attributed reasoning to a vendored Temporal §7.1 that does not contain it** — the section says only *"Every activity must be idempotent"*; the *"because activities execute at least once"* justification is true of Temporal and absent from the citation. **C-084 already proposes gating quotations against the cited file.** Reported as a recurrence with its count, nobody's row edited — the shape written into `engineering-quality.md` this morning.
+**Three docs attributed reasoning to a vendored Temporal §7.1 that does not contain it** — the section says only *"Every activity must be idempotent"*; the *"because activities execute at least once"* justification is true of Temporal and absent from the citation. **C-gbclnzsq already proposes gating quotations against the cited file.** Reported as a recurrence with its count, nobody's row edited — the shape written into `engineering-quality.md` this morning.
 
 ---
 
@@ -1274,7 +1274,7 @@ Four things survived the PMP replan's verification. **One was unfinished and I h
 
 **SHIPPED (dispatched):** the memory-taxonomy rename reaches the live standards — `exit-protocol.md`, `finding-routing.md`, `memory-model.md`. #95 renamed inside PMP only, on human-in-the-loop grounds. The operator's rule: **rename where it is still binding, leave it where it is a record.** The brief carries that rule verbatim so it can be applied to anything the brief did not anticipate, and separates the mechanical sweep from `memory-model.md` §3.1's **structural** re-cut — that table's single discriminator is *when the to-do bit clears*, and the journal has none.
 
-**NOTED — `C-074` is answered by events.** It asks whether the protocol is its own component or a phase of MMF. **MMF is retired and PMP is the component, so the question is settled** — not by argument but by what happened. Nobody's row edited; recorded here for the next `triage-candidates` pass to rule on.
+**NOTED — `C-xh8nvwqn` is answered by events.** It asks whether the protocol is its own component or a phase of MMF. **MMF is retired and PMP is the component, so the question is settled** — not by argument but by what happened. Nobody's row edited; recorded here for the next `triage-candidates` pass to rule on.
 
 **REJECTED — `Kind 1`/`Kind 2` in MMF's seven retired docs, and in `sprint.md`'s completed MMF entry.** Renaming a retired record makes it describe something that never happened. Abandon in place.
 
@@ -1300,7 +1300,7 @@ Four things survived the PMP replan's verification. **One was unfinished and I h
 
 ## 2026-08-16 — Fleet Reliability dissolved: it was five candidate rows, never triaged as a group
 
-**REJECTED as a sprint.** Its five checkboxes are candidates **C-011, C-012, C-028, C-029 and C-030** pasted under a heading, assembled before `triage-candidates` existed to scrutinise them. Nobody ever asked whether they belonged together, and they do not: measured against what has actually happened, their evidence runs from overwhelming to nil.
+**REJECTED as a sprint.** Its five checkboxes are candidates **C-gfw254ai, C-154thyqp, C-pboozwhz, C-ptekzr8e and C-tdbomduc** pasted under a heading, assembled before `triage-candidates` existed to scrutinise them. Nobody ever asked whether they belonged together, and they do not: measured against what has actually happened, their evidence runs from overwhelming to nil.
 
 | Item | Occurrences observed |
 |---|---|
@@ -1318,7 +1318,7 @@ Four things survived the PMP replan's verification. **One was unfinished and I h
 - **Restart-recovery contract** → a checkbox on **Temporal Integration**, beside the workers that trigger it. Retrofitting one onto running workers is a rewrite.
 - **Three-legged liveness** → **expands** Autonomous Operation's existing *observable exit criteria* item. A driver that keeps going must know which of stalled / looping / stranded it is in.
 - **Blocked-work notifier** → **Autonomous Operation**, same trigger.
-- **False completion** → **already filed as candidate C-067** by someone else; the only new information is that it RECURRED, so the count is reported here and **no row is edited and nothing re-filed**.
+- **False completion** → **already filed as candidate C-abieu0fg** by someone else; the only new information is that it RECURRED, so the count is reported here and **no row is edited and nothing re-filed**.
 - **Per-credential quota headroom** → **REJECTED, zero evidence.** Watch-criteria: ship on the first *structured* quota or rate-limit error — a `429` or an explicit usage-cap response, never a `529`.
 - **Safety-hook wiring test** → **resolved live rather than deferred**, on the same day. It guards what is now the only control.
 

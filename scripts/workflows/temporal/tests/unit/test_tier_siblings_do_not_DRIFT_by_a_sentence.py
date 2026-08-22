@@ -118,7 +118,7 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
     `COMPARE THE CHECK SET` and `PRINT WHAT THE MUTATION ACTUALLY PRODUCED` are
     general guidance only one tier is given. Whether they SHOULD be is the
     fork-vs-parameterize ruling, unmade, and no guard can make it. **It is
-    placed as `C-110` rather than left as a remark**, because a class named only
+    placed as `C-at80groo` rather than left as a remark**, because a class named only
     in a docstring is re-derived from scratch by whoever next edits a tier.
     Note the distinction from `_orphan_lines` below, which is deliberately NOT
     this class: an orphan LINE lives inside a block that HAS a counterpart, and
@@ -156,7 +156,7 @@ WHAT THIS DOES NOT LOOK AT, so the guard is not over-read:
     here fires on DIVERGENCE between two tiers, and removing shared text takes
     it from both at once, so nothing diverges. Promotion trades a drift risk for
     a single-point-of-deletion risk; it is the right trade and it is not free.
-    Recorded as an expansion of `C-108`, which owns the pool-fidelity question.
+    Recorded as an expansion of `C-uva9dsox`, which owns the pool-fidelity question.
 """
 from __future__ import annotations
 
@@ -624,7 +624,7 @@ def _orphan_lines(major: str, minor: str) -> dict[tuple[str, str], float]:
 
     The population is `_drift`'s, deliberately: this detector widens the
     GRANULARITY of what is inspected, never the reach. A block with no
-    counterpart at all is a different class, placed as `C-110` rather than
+    counterpart at all is a different class, placed as `C-at80groo` rather than
     guarded here, because there is nothing to compare it against.
     """
     return _orphan_core(_blocks(major), _blocks(minor),

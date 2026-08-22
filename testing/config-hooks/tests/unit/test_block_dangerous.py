@@ -80,7 +80,7 @@ be keyed on the class, not on the position the instances happened to be found
 in. **THE MEASURED FIGURES LIVE IN ONE PLACE — the comment above
 `_RESPELLINGS`, beside the transform that took them** — and are deliberately
 not restated here. They were restated in four places across two files, which is
-the shape `candidates.md` C-050 names: a constant written twice diverges the
+the shape `candidates.md` C-523klr8n names: a constant written twice diverges the
 first time one copy is corrected, and this file's own subject is a claim that
 stopped being true without anything noticing.
 
@@ -1259,7 +1259,7 @@ def test_dangerous_command_survives_a_trailing_separator(command: str) -> None:
 # THIS IS THE ONE PLACE THE MEASURED FIGURES ARE STATED. They were written into
 # four places across two files, and every other site now cites this one instead:
 # a total restated is a total that diverges the first time one copy is
-# corrected, which is `candidates.md` C-050 and is also, exactly, the defect
+# corrected, which is `candidates.md` C-523klr8n and is also, exactly, the defect
 # class this file exists to catch. Measured on the hook as it stood when the
 # mid-match half was found, against a 60-command dangerous corpus:
 #
