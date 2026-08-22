@@ -77,13 +77,11 @@ SKIP_DIRS = (REPO_ROOT / "config" / "skills",)
 # already resolve, so the widening costs nothing and closes the hole.
 #
 # `test_markdown_tables_render_whole.py` records the same over-broad claim
-# being made and corrected in its own docstring, and
-# `test_no_doc_cites_a_migration_step_by_ORDINAL.py` derives the same set for
-# its remedy text. The set is read off the script that DECLARES it rather than
-# restated, because a hand-kept copy in a third module is exactly the stale
-# declaration these gates exist to catch.
+# being made and corrected in its own docstring. The set is read off the
+# script that DECLARES it rather than restated, because a hand-kept copy in a
+# second module is exactly the stale declaration these gates exist to catch.
 # The set is DERIVED, not listed, and it lives in `vendored_standards.py`
-# because three gates need the same answer. See that module for why it is six
+# because two gates need the same answer. See that module for why it is six
 # files rather than four directory names, and what the four-directory spelling
 # this exemption used to carry silently got wrong.
 

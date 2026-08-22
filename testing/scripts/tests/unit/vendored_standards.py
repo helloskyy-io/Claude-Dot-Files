@@ -5,9 +5,8 @@ parse:
 
   * `test_relative_links_resolve.py` EXEMPTS them — their links point into
     MDC-Master-Planning and do not resolve here.
-  * `test_markdown_tables_render_whole.py` and
-    `test_no_doc_cites_a_migration_step_by_ORDINAL.py` route a failure on one of
-    them UPSTREAM instead of prescribing a local edit.
+  * `test_markdown_tables_render_whole.py` routes a failure on one of them
+    UPSTREAM instead of prescribing a local edit.
 
 IT IS SIX FILES, NOT FOUR DIRECTORIES, and that distinction is the whole reason
 this module exists rather than a set literal. `docs/standards/{documentation,
