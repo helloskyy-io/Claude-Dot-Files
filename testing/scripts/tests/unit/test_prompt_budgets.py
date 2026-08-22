@@ -223,7 +223,13 @@ BUDGETS: dict[str, int] = {
     # untracked proves it is unstaged, not that it is unignored, and the two
     # answers diverge exactly when a `.gitignore` rule matches something the
     # run just created.
-    "plan/plan_feature/prompts/plan_feature.md": 24_482,
+    #   -1045 on 2026-08-22, MEASURED DOWNWARD RATHER THAN LEFT STALE. Both
+    #   halves of that check are now the shared `gitignore_collision_check`
+    #   fragment and this file renders the placeholder, so the text left the
+    #   prompt without leaving the run. A budget that keeps the old ceiling
+    #   after a promotion silently re-grants the space the promotion freed,
+    #   which is how a prompt gets back to its old size with nobody deciding it.
+    "plan/plan_feature/prompts/plan_feature.md": 23_437,
     # 15_510 -> 13_204: the `research-analyst` re-dispatch is gone. The verify
     # child holds Write/Edit and applies the critic's findings itself, so the
     # rules that existed only to coordinate a second writing agent went with it

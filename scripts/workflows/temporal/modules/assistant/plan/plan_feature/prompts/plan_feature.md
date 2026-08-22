@@ -188,9 +188,7 @@ Detail is expected here; this is the long one.
 - **Deferred work does not live in a roadmap or a phase doc.** An open question that is an INPUT to a phase belongs at that phase with its box unchecked; anything else goes where the finding-routing rules put it.
 - **Follow the four-bucket convention** — architecture is WHY, development is WHAT, standards are HOW, guide is USER-FACING. You are writing in development.
 
-**.gitignore-collision check (before your checkpoint commit):** run `git status` and confirm every file you created appears as untracked. If one does NOT, `.gitignore` is silently hiding it — grep for the matching pattern and add an explicit `!path/` override. A silently-ignored new file is work invisible to the PR.
-
-**AND THE SAME CHECK ANSWERS A SECOND QUESTION — run `git ls-files` after you stage.** `git status` showing a file as untracked proves `.gitignore` is not hiding it. It does NOT prove the file is IN the commit, and several guards in this repo read TRACKED files rather than the working tree — the file-structure map gate is one. **A new file passes every local check while untracked and turns CI red the moment it is committed**, which is a failure that arrives after the run that caused it has finished. Measured 2026-08-19: a guard's own author ran the full suite green on an untracked new test file, committed it, and CI failed on the map. `git ls-files <path>` returning the path is the check; empty output means the file is not going anywhere.
+${GITIGNORE_COLLISION_CHECK}
 
 Checkpoint commit once the plan is written, and do not push it yet:
 
