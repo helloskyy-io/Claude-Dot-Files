@@ -32,6 +32,18 @@ Papers carry a revalidation interval and a validated-on date. A three-week paper
 
 **Disposition:** for each paper past due — refreshed, re-dated with reasoning, or retired. A due paper left due is not a disposition.
 
+## R3. Read what Claude Code shipped, and rule on each capability
+
+Anthropic ships Claude Code releases and feature announcements on its own cadence. Read what landed since the last close-out, and rule on each item that touches this fleet.
+
+**Why it qualifies:** nothing here triggers a Claude Code release and no pull request of ours surfaces one. This whole repo is built *on* that product, so a capability shipping upstream silently changes what is worth building here, and nothing is watching.
+
+**The failure is bidirectional, which is what makes it worth a standing check.** Build something the platform already provides and the work is wasted and has to be maintained forever. Miss something that would simplify the fleet and the design drifts further from the platform every cycle, so adopting it later costs more than adopting it now. **Neither failure announces itself** — both look like ordinary progress.
+
+**Also in scope: what the platform changes about our own arguments.** [`problem-statement.md`](../../standards/architecture/problem-statement.md) § *Affordability is the enabler* rests on a pricing position that Anthropic has moved three times in a year. That section states the assumption and dates it; this check is what keeps the date honest. **Measured 2026-08-22:** the pause it depends on was two months old and unverified when the document was sent to two readers outside this project.
+
+**Disposition, per capability:** adopt (and name where), reject with the reason, or defer with the condition that would bring it back. **A release read and not ruled on is not a disposition** — the point is deciding what it changes here, not knowing it happened.
+
 ---
 
 **Not on this list, deliberately.** Dependabot: this repo has no dependency manifest and no alerts configured, so there is nothing arriving on that schedule. If that changes, it earns an R-item; it does not get one in advance.
