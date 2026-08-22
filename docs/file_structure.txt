@@ -108,10 +108,10 @@ claude-dot-files/
 │   │   │                                            #   Phase 5 BUILT AND MEASURED and GATING NOTHING (2026-08-09); Phases 4 and 6 planned.
 │   │   │                                            #   First component on the roadmap+phases shape sprint.md mandates
 │   │   │   └── research/                            # 2 papers + synthesis, both PASS-WITH-FIXES 2026-08-06
-│   │   ├── persistent-memory-protocol/              # PLANNED, NOT STARTED (2026-08-13) — ruled its OWN COMPONENT rather than a 7th phase
+│   │   ├── persistent-memory-protocol/              # IN PROGRESS — Phase 1 (journal root, run bag, validator) ships; ruled its OWN COMPONENT rather than a 7th phase
 │   │   │                                            #   of memory-management-framework; the reasoning is in roadmap.md and C-xh8nvwqn's
 │   │   │                                            #   `decision` is deliberately left blank for the operator. Second component here
-│   │   │   │                                        #   on the roadmap+phases shape. ALL EIGHT phases have a doc — a gate is a scheduling
+│   │   │   │                                        #   on the roadmap+phases shape. ALL NINE phases have a doc — a gate is a scheduling
 │   │   │   │                                        #   fact, never a reason to leave a design unwritten (revised 2026-08-13)
 │   │   │   └── research/                          # 2 papers + synthesis. synthesis.md is an operator+PM DECISION RECORD (15 concepts
 │   │   │                                            #   with provenance), NOT a research artifact — it says so and forbids citing it as
@@ -707,6 +707,13 @@ claude-dot-files/
 │   │   └── tests/unit/                              # TIER 3 for the harness AND the repo-wide test-tree properties that only matter
 │   │                                                #   because of it — a collection failure exits 2, which pytest reports identically
 │   │                                                #   whether the guard fired or nothing ran at all (issue #72)
+│   │       ├── vendored_standards.py               # NOT a test module — WHICH files under docs/standards/ are vendored MIRRORs,
+│   │       │                                        #   derived from vendor-standards.sh rather than listed. Six FILES, not four
+│   │       │                                        #   directory names: the four README applicability notes and the Temporal
+│   │       │                                        #   addendum sit in those same directories and ARE local. Every gate that
+│   │       │                                        #   modelled it as directories got those five wrong — the link gate silently
+│   │       │                                        #   exempted them from checking. Asked by three gates; each keeps its own
+│   │       │                                        #   vacuity assertion, because a wrong set costs each of them something else
 │   │       ├── gfm_table_scan.py                    # NOT a test module — where a GFM table IS *and what is wrong with it*, owned
 │   │       │                                        #   once and asked by both markdown gates below. Every boundary in it is
 │   │       │                                        #   measured through GitHub's `POST /markdown` rather than read off

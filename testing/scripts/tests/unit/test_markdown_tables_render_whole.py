@@ -115,6 +115,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from vendored_standards import EXPECTED, VENDOR_SCRIPT, vendored_paths
+
 from gfm_table_scan import (
     blank_fenced,
     off_width_rows,
@@ -361,20 +363,20 @@ def test_the_VENDORED_SET_is_read_off_the_script_that_defines_it() -> None:
     `docs/standards/{documentation,research,testing,temporal}/` was vendored —
     11 files rather than the 6 that actually are. A wrong answer there stalls a
     legitimate local fix against a source that has no counterpart for it.
-    """
-    script = _REPO / "scripts" / "helpers" / "vendor-standards.sh"
-    assert script.is_file(), f"{script} is where the vendored set is declared"
 
-    declared = re.findall(r'^\s*"[^"]+:([^"]+)"', script.read_text(encoding="utf-8"), re.M)
-    names = sorted(Path(d).name for d in declared)
-    assert names == sorted([
-        "documentation_standard.md", "research_standard.md",
-        "stateful_patterns.md", "temporal_standard.md",
-        "testing_standard.md", "worker_deployment_standard.md",
-    ]), (
-        f"the vendored set changed to {names}. Update this module's docstring "
-        "paragraph on which files route upstream — a contributor reads it to "
-        "decide where a fix goes."
+    The derivation itself moved to `vendored_standards.py` once a third gate
+    needed it. This assertion stays here rather than moving with it, because
+    what a wrong set COSTS differs per gate and the message should say so.
+    """
+    assert VENDOR_SCRIPT.is_file(), (
+        f"{VENDOR_SCRIPT} is where the vendored set is declared")
+
+    names = sorted(p.name for p in vendored_paths())
+    assert names == sorted(EXPECTED), (
+        f"the vendored set changed to {names}. Update "
+        "`vendored_standards.EXPECTED` and this module's docstring paragraph "
+        "on which files route upstream — a contributor reads it to decide "
+        "where a fix goes."
     )
 
 
