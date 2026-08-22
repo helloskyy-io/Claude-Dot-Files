@@ -300,9 +300,31 @@ def _source_text(rev: str | None, path: str) -> str:
     """
     if rev is None:
         return (_REPO / path).read_text(encoding="utf-8")
-    return subprocess.run(
+
+    shown = subprocess.run(
         ["git", "-C", str(_REPO), "show", f"{rev}:{path}"],
-        capture_output=True, text=True, check=True).stdout
+        capture_output=True, text=True)
+    if shown.returncode == 0:
+        return shown.stdout
+
+    # A SHALLOW CLONE IS THE LIKELY CAUSE AND THE RAW CalledProcessError DOES
+    # NOT SAY SO. `actions/checkout` defaults to `fetch-depth: 1`, so none of
+    # these revs exist on a clean runner and this gate went red on CI while
+    # green on every developer machine — the host-coupled shape, inverted.
+    # The workflow now sets `fetch-depth: 0`; this message is what makes the
+    # next occurrence self-diagnosing instead of a stack trace.
+    depth = subprocess.run(
+        ["git", "-C", str(_REPO), "rev-parse", "--is-shallow-repository"],
+        capture_output=True, text=True)
+    hint = ("\n\nTHE REPOSITORY IS A SHALLOW CLONE, which is almost certainly "
+            "why: this fixture's provenance lives in history the clone does "
+            "not have. In CI, set `fetch-depth: 0` on actions/checkout. Do NOT "
+            "fix this by skipping the replay when history is absent — the "
+            "merge path would become the one place the corpus is never "
+            "verified." if depth.stdout.strip() == "true" else "")
+    raise AssertionError(
+        f"cannot resolve fixture provenance {rev}:{path} — `git show` exited "
+        f"{shown.returncode}: {shown.stderr.strip()}{hint}")
 
 
 def test_the_scan_reaches_THE_WHOLE_TRACKED_TREE() -> None:
