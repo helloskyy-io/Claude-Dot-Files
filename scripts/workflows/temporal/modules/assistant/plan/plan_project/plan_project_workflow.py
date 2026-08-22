@@ -225,7 +225,7 @@ def run_plan_project(*, repo_root: Path, worktree_name: str, sprint_path: Path,
     # ISOLATION IS ESTABLISHED ONCE, HERE. The child receives the path and never
     # creates one — two actors creating the same named worktree is a
     # `fatal: already exists` that has killed a handoff before.
-    ref = f"origin/{act.pr_branch(pr_number, repo_root)}" if pr_number else "HEAD"
+    ref = act.base_ref(pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
     # THE COMMIT THIS DISPATCH STARTED FROM, pinned before any child can write.

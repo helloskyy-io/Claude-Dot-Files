@@ -32,7 +32,13 @@ def run_research_refresh(*, research_dir: Path, repo_root: Path,
                 "due": 0, "pr_url": None}
 
     notes = [f"{len(due)} paper(s) due: " + ", ".join(p.name for p in due)]
-    worktree = act.worktree_add(repo_root, worktree_name, "HEAD")
+    # THE ELEVENTH CALL SITE, and the one the first sweep of this missed —
+    # it passes its base INLINE rather than through a `ref = ...` line, so a
+    # guard keyed on the assignment could not see it. This parent takes no
+    # `--pr` at all (a refresh always opens its own PR), so the base is
+    # unconditionally the default branch.
+    worktree = act.worktree_add(repo_root, worktree_name,
+                                act.base_ref(None, repo_root))
 
     # Read BEFORE the child, for the reason its sibling parent states.
     slug = repo_slug(repo_root)

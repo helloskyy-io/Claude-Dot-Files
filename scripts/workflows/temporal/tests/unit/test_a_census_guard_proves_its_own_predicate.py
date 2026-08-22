@@ -145,7 +145,13 @@ _HERE = Path(__file__).resolve().parent
 # without one moves the first number only, and would additionally have tripped
 # the unexcused-guard test, which stayed green. Verified rather than assumed —
 # `_walks_the_tree` returns True for both files.
-_PINNED = (26, 15)
+# 26 -> 27 and 15 -> 16 for `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH`.
+# BOTH numbers move, and the second one only after this census refused the
+# guard's first control: it wrote a temp file and read it back, which still
+# routes through `read_text` and so proved nothing about a predicate that had
+# started answering unconditionally. The predicate is now split so a control
+# can drive it on a literal, which is what this rule has always asked for.
+_PINNED = (27, 16)
 
 
 # GRANDFATHERED — walks the tree, has no literal control, PREDATES this rule.

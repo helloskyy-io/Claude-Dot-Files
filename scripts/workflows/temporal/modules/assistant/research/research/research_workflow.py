@@ -39,7 +39,7 @@ def run_research(*, research_dir: Path, repo_root: Path, worktree_name: str,
     notes: list[str] = []
 
     # Isolation once, at the parent. Children receive the path.
-    ref = f"origin/{act.branch_of(pr_number, repo_root)}" if pr_number else "HEAD"
+    ref = act.base_ref(pr_number, repo_root)
     worktree = act.worktree_add(repo_root, worktree_name, ref)
 
     # Read BEFORE the child, so a `gh` failure costs a dispatch that has

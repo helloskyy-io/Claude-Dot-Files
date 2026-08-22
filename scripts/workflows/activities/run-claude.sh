@@ -269,6 +269,59 @@ worktree_delivery_state() {
     fi
 }
 
+# THE COMPLETION-FAILURE DIAGNOSIS, AS ITS OWN FUNCTION SO A TEST CAN DRIVE IT.
+# Same reason `_wds_undetermined` is separate: a banner welded inside
+# `run_claude` is reachable only by running a whole dispatch, so the branch
+# that reports the WRONG CAUSE is exactly the one nothing ever executes.
+# Reads $1 = LOG_FILE, $2 = COMPLETION_PATTERN. Writes the banner to stderr.
+_completion_failure_banner() {
+    local LOG_FILE="$1" COMPLETION_PATTERN="$2"
+        # ASK THE LOG WHY BEFORE GUESSING WHY. The result row carries
+        # `is_error` and a plain-English reason — "You've hit your session
+        # limit · resets 3:20am", "API Error: The response stopped
+        # arriving" — and this gate used to print a confident early-stop
+        # diagnosis over the top of it. The two causes have OPPOSITE
+        # remedies: a transport or quota failure is re-dispatched unchanged,
+        # an early stop means the prompt lets a text-only turn end the run.
+        # Sending the operator to rewrite a prompt when the answer was
+        # "wait and re-run" is the wrong-confidence class this fleet keeps
+        # finding, and here it was the diagnostic itself.
+        #
+        # MEASURED across `.claude/logs`: 4 runs, 3 workflows, 2 distinct
+        # real causes, and all 4 were reported as a suspected early stop.
+        local err_reason
+        err_reason=$(jq -R 'fromjson? // empty' "$LOG_FILE" 2>/dev/null \
+            | jq -rs '[ .[] | select(.type == "result" and .is_error == true)
+                | .result // "" ] | last // ""')
+        {
+            echo
+            echo "================================================================"
+            if [[ -n "$err_reason" ]]; then
+                echo "  ⚠ RUN ENDED WITHOUT COMPLETING — the run reported an ERROR"
+                echo "================================================================"
+                echo "  The run did not stop early; it FAILED, and said why:"
+                echo
+                echo "    ${err_reason}"
+                echo
+                echo "  Re-dispatch once the stated condition clears. This is NOT a"
+                echo "  prompt defect and the prompt does not need changing."
+            else
+                echo "  ⚠ RUN ENDED WITHOUT COMPLETING — headless early-stop suspected"
+                echo "================================================================"
+                echo "  The run reported NO error and still emitted no verdict,"
+                echo "  which is what an early stop looks like."
+                echo
+                echo "  Most common cause: the main loop ended a turn with a text-only"
+                echo "  message (e.g. 'waiting on dispatched agents') while work was"
+                echo "  still outstanding. In headless mode a text-only turn TERMINATES"
+                echo "  the run before later stages execute."
+            fi
+            echo "  Expected completion signal: ${COMPLETION_PATTERN}"
+            echo "  Inspect: ${LOG_FILE}"
+            echo "================================================================"
+        } >&2
+}
+
 run_claude() {
     local prompt="$1"
     shift
@@ -480,21 +533,7 @@ run_claude() {
             final_result=$(jq -r 'select(.type == "result") | .result // ""' "$LOG_FILE" 2>/dev/null)
         fi
         if ! grep -qE "$COMPLETION_PATTERN" <<<"$final_result"; then
-            {
-                echo
-                echo "================================================================"
-                echo "  ⚠ RUN ENDED WITHOUT COMPLETING — headless early-stop suspected"
-                echo "================================================================"
-                echo "  Expected completion signal not found in the final result:"
-                echo "    pattern: ${COMPLETION_PATTERN}"
-                echo
-                echo "  Most common cause: the main loop ended a turn with a text-only"
-                echo "  message (e.g. 'waiting on dispatched agents') while work was"
-                echo "  still outstanding. In headless mode a text-only turn TERMINATES"
-                echo "  the run before later stages execute."
-                echo "  Inspect: ${LOG_FILE}"
-                echo "================================================================"
-            } >&2
+            _completion_failure_banner "$LOG_FILE" "$COMPLETION_PATTERN"
             return 1
         fi
     fi

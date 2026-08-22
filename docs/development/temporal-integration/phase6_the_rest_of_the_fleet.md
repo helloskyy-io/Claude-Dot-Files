@@ -43,7 +43,7 @@ What it does rest on:
 
 - The vendored [Worker Deployment Standard](../../standards/temporal/worker_deployment_standard.md) — **§1.3** the domain-boundary test, which decides how many workers this fleet gets; **§3** the worker inventory and its same-PR obligation; **§10** cutover discipline, which governs the order in which a routing change and a worker deploy may land.
 - The [Temporal Standard](../../standards/temporal/temporal_standard.md) **§10.1** promotion rule, which decides where shared code and shared prompt fragments live: a fragment is promoted out of a workflow's folder **if and only if more than one workflow uses it** — consumer count decides, never taste.
-- [`temporal-integration.md`](temporal-integration.md)'s migration path, step 3: the Temporal file layout, and why `children/` dissolves.
+- [`temporal-integration.md`](temporal-integration.md)'s migration path, the Temporal file layout step: why `children/` dissolves. **Cited by content and not by step number** — that path is renumbered whenever a step is inserted, and a citation keyed on the ordinal points at a different step rather than failing loudly.
 
 ---
 
@@ -53,7 +53,7 @@ What it does rest on:
 
 The [domain-boundary test](../../standards/temporal/worker_deployment_standard.md) §1.3: two workflows belong on the same worker if they share at least two of — the same core external dependency, the same failure domain, the same operational cadence. **One or zero shared, and they go on separate workers.**
 
-**Our segmentation has an axis upstream's does not.** Ours are segmented by **machine** as well as by capability, because Claude Code must run on the machine holding the repo — a repo-locality constraint with no upstream equivalent, and the reason [§A3](../../standards/temporal/claude-dot-files-addendum.md) exists. [Phase 1](phase1_the_starter_control_plane.md) closes §A3 and names the scheme; **this phase applies it, and must not redesign it.** Queue names are expensive to change once workers deploy against them, which is precisely why the ruling was pulled forward to the first phase.
+**Our segmentation has an axis upstream's does not.** Ours are segmented by **machine** as well as by capability, because Claude Code must run on the machine holding the repo — a repo-locality constraint with no upstream equivalent, and the reason [§A3](../../standards/temporal/claude-dot-files-addendum.md) exists. [Phase 1](phase1_the_starter_control_plane.md) closes §A3 **for queue naming** and names the scheme; **this phase applies it, and must not redesign it.** **It does not close §A3's run-identity half**, which is unruled and tracked as `C-zhdm5gh1` — see [roadmap](roadmap.md#what-is-deliberately-not-built). Queue names are expensive to change once workers deploy against them, which is precisely why the ruling was pulled forward to the first phase.
 
 **The worker set inherits [Phase 4](phase4_the_claude_cli_activity.md)'s slot rule, and inherits it per worker.** Requirement 8 there binds every worker that registers the `claude_cli` activity: the activity slot count comes from the host's real concurrency budget rather than the SDK's default of 100, and `ThreadPoolExecutor(max_workers=...)` is at least that number. **The budget is per host, so the number is decided per worker and not once for the fleet** — the machine axis means these workers sit on different machines with different budgets. Applying one number everywhere would be the same mistake as the default, one step further along.
 
