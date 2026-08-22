@@ -124,6 +124,11 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     monkeypatch.setattr(pm.triage, "run_triage_candidates", fake_triage)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", fake_sprint)
     monkeypatch.setattr(pm.act, "worktree_add", lambda *a, **k: Path("/tmp/wt"))
+    # THE BASE THIS RUN IS CUT FROM, stubbed for the same reason `repo_slug`
+    # below is: it asks `gh`, and this loop is driven against a fake repo path.
+    # It answers "HEAD" only here — production resolves the DEFAULT BRANCH, and
+    # `test_a_new_branch_STARTS_FROM_THE_DEFAULT_BRANCH` is what holds that.
+    monkeypatch.setattr(pm.act, "base_ref", lambda pr, repo_root: "HEAD")
     # The parent pins the commit its worktree started from, so Step 2 asks "what
     # did THIS run add" rather than "what has this branch accumulated". Faked at
     # its boundary — the worktree above is a path, not a repository — and
@@ -500,6 +505,7 @@ def test_isolation_is_established_once_by_the_parent(monkeypatch: pytest.MonkeyP
                                           unnamed=[], not_a_feature=[], unsized=[]))
     monkeypatch.setattr(pm.act, "git_output", lambda *a, **k: BASE_SHA)
     monkeypatch.setattr(pm._shared, "repo_slug", lambda repo_root: "o/r")
+    monkeypatch.setattr(pm.act, "base_ref", lambda pr, repo_root: "HEAD")
     monkeypatch.setattr(pm.triage, "run_triage_candidates", lambda **kw: PR_URL)
     monkeypatch.setattr(pm.sprint, "run_plan_sprint", lambda **kw: PR_URL)
     # This test wires its own stubs rather than taking `wired`, so the CI gate

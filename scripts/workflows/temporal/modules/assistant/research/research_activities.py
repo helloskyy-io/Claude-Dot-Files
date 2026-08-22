@@ -19,6 +19,12 @@ from .. import assistant_activities as shared
 
 # Re-exported so the research workflows use one name regardless of where a
 # capability is implemented.
+# RE-EXPORTED because the runners in this family alias THIS module as `act`.
+# `test_runner_module_attributes_EXIST` is what says so — it caught the
+# omission the moment `base_ref` landed in the shared module only, which is
+# the same class as the `act.branch_of` NameError that guard was written for.
+base_ref = shared.base_ref
+default_branch = shared.default_branch
 load_prompt = shared.load_prompt
 shared_prompt = shared.shared_prompt
 render = shared.render
