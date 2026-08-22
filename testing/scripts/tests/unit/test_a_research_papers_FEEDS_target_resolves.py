@@ -11,8 +11,8 @@ paper with no destination is not in scope. A dead `Feeds:` is worse than a
 missing one: it reads as a destination, so a planner follows it, finds nothing,
 and has no way to tell whether the paper was misfiled or the target moved.
 
-MEASURED WHEN THIS SHIPPED: 35 of 36 papers carry a header `Feeds:` and **15 of
-them pointed at a file that does not exist** — a 43% rot rate. Every one is a
+MEASURED WHEN THIS SHIPPED: 36 papers carry a header `Feeds:` and **15 of them
+pointed at a file that does not exist** — a 42% rot rate. Every one is a
 target that MOVED rather than a typo: `docs/development/roadmap.md` (8 papers)
 never existed under that name, the Fleet Reliability sprint dissolved and took
 its section with it, and MMF's narrative doc became `roadmap.md`.
@@ -100,16 +100,36 @@ def _declared() -> list[tuple[Path, set[str] | None]]:
     from an empty set and from the paper being absent altogether. Keeping the
     three apart is the whole of `_ratchet` below; collapsing them is what let a
     deleted pointer report as a repaired one.
+
+    THE WHOLE FILE IS SEARCHED, NOT A FIXED HEADER WINDOW. The first version read
+    `splitlines()[:20]`, and one paper was already past it:
+    `cross_node_memory_protocol.md` carries a 34-line SUPERSEDED banner above its
+    header block, so its `Feeds:` sits at line 45 and the guard recorded it as
+    `None` — "this paper declares no destination". That is the same value a
+    DELETED pointer produces, so a long banner silently bought a paper an
+    exemption from `test_no_NEW_dead_feeds_target` and would have reported as
+    evidence-destruction had it been baselined. Widening changes no verdict here
+    (measured 2026-08-22: nine dead targets either way, and the one paper it
+    recovers resolves cleanly) — it only stops the guard skipping papers.
     """
     papers = sorted(ROOT.glob("docs/**/research/raw/*.md"))
     assert len(papers) > 10, (
         f"only {len(papers)} papers found under {ROOT} — the glob is wrong, and a "
         f"guard that reads nothing passes silently"
     )
+    # Every dict below this point is keyed by BASENAME, including `ACCEPTED`, so
+    # two papers sharing one across pools would silently share a verdict. No
+    # collision exists today; this fails loud on the day one is introduced rather
+    # than letting the wrong paper be judged repaired.
+    names = [p.name for p in papers]
+    assert len(set(names)) == len(names), (
+        "two papers share a basename across research pools, and every verdict in "
+        "this module is keyed by basename: "
+        + ", ".join(sorted(n for n in set(names) if names.count(n) > 1))
+    )
     out: list[tuple[Path, set[str] | None]] = []
     for p in papers:
-        head = "\n".join(p.read_text(errors="ignore").splitlines()[:20])
-        m = _FEEDS.search(head)
+        m = _FEEDS.search(p.read_text(errors="ignore"))
         out.append((p, set(_TARGET.findall(m.group(1))) if m else None))
     return out
 
@@ -150,7 +170,7 @@ def _ratchet(
             gone.append(f"{paper} -> {target}: the paper itself is gone")
         elif declared[paper] is None:
             gone.append(f"{paper} -> {target}: the paper's `Feeds:` line is gone")
-        elif target in (declared[paper] or set()):
+        elif target in declared[paper]:
             repaired.append(f"{paper} -> {target}: the target exists again")
         else:
             repaired.append(f"{paper} -> {target}: repointed away from it")
