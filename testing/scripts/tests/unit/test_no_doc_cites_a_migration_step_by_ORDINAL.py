@@ -185,7 +185,22 @@ def _is_research_prose(path: Path) -> bool:
     same verbatim burden to it, because a synthesis quotes the pool papers it
     cites.
     """
-    return "research" in path.relative_to(_REPO).parts
+    parts = path.relative_to(_REPO).parts
+    if "research" not in parts:
+        return False
+
+    # A RESEARCH POOL, not merely a path containing the word. Keying on the bare
+    # component matched six workflow PROMPT files under
+    # `scripts/workflows/temporal/modules/assistant/research/`, which are
+    # ordinary editable prose — routing them to "do not edit the quote" is the
+    # over-broad direction of the very mistake this predicate was widened to fix.
+    # The two altitudes are the ones the Research Standard defines, and nothing
+    # else: `docs/standards/architecture/research/` and
+    # `docs/development/<component>/research/`.
+    if parts[:4] == ("docs", "standards", "architecture", "research"):
+        return True
+    return (len(parts) > 3 and parts[0] == "docs"
+            and parts[1] == "development" and parts[3] == "research")
 
 
 def _offences() -> list[tuple[Path, int]]:
@@ -473,12 +488,19 @@ def test_THE_RESEARCH_BUCKET_reaches_BOTH_ALTITUDES() -> None:
         "close: `docs/development/<component>/research/` papers carry the same "
         "verbatim-quote burden.")
 
-    # The bucket must not swallow the whole tree; it is a carve-out, not a mode.
-    assert len(pools) < len(_markdown()) // 2, (
-        f"{len(pools)} of {len(_markdown())} tracked markdown files landed in "
-        f"the research bucket. `_is_research_prose` matches any path with a "
-        f"'research' component; if that is now most of the tree, the remedy "
-        f"text is telling nearly every contributor not to edit their own prose.")
+    # THE OVER-BROAD DIRECTION, which is a real regression and not a hypothetical:
+    # the first version of this predicate keyed on the bare path component
+    # `research`, and swept in six workflow PROMPT files under
+    # `scripts/workflows/temporal/modules/assistant/research/` — ordinary
+    # editable prose that would have been told not to edit its own quotes.
+    stray = [str(p.relative_to(_REPO)) for p in pools
+             if p not in architecture and p not in component]
+    assert not stray, (
+        f"files outside both research altitudes landed in the research bucket: "
+        f"{stray}. The bucket exists for POOL PAPERS, whose prose quotes "
+        f"fetched sources; everything else is ordinary editable prose and its "
+        f"remedy is a local reword. A path merely CONTAINING 'research' is not "
+        f"a pool — workflow prompt directories are the measured false positive.")
 
 
 def test_no_document_cites_a_MIGRATION_PATH_STEP_BY_NUMBER() -> None:
@@ -496,7 +518,7 @@ def test_no_document_cites_a_MIGRATION_PATH_STEP_BY_NUMBER() -> None:
         it; reverting the re-vendor instead leaves the standard stale. Both
         gates then block each other with the only exit in another repository.
         The fix goes UPSTREAM, then re-vendor. NOT by excluding the trees from
-        this scan — that would drop 58 files (6 vendored, 25 architecture-
+        this scan — that would drop 63 files (6 vendored, 30 architecture-
         altitude research, 27 component-altitude research) from a check whose
         own history is about a predicate certifying the subset already fixed.
       * A RESEARCH POOL PAPER, at EITHER altitude — `docs/standards/architecture/
